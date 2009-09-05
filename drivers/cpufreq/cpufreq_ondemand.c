@@ -681,13 +681,21 @@ static void dbs_refresh_callback(struct work_struct *unused)
 	struct cpufreq_policy *policy;
 	struct cpu_dbs_info_s *this_dbs_info;
 
+	if (lock_policy_rwsem_write(0) < 0)
+		return;
+
 	this_dbs_info = &per_cpu(od_cpu_dbs_info, 0);
 	policy = this_dbs_info->cur_policy;
 
-	__cpufreq_driver_target(policy, policy->max,
-				CPUFREQ_RELATION_L);
-	this_dbs_info->prev_cpu_idle = get_cpu_idle_time(0,
-			&this_dbs_info->prev_cpu_wall);
+	if (policy->cur < policy->max) {
+		policy->cur = policy->max;
+
+		__cpufreq_driver_target(policy, policy->max,
+					CPUFREQ_RELATION_L);
+		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(0,
+				&this_dbs_info->prev_cpu_wall);
+	}
+	unlock_policy_rwsem_write(0);
 }
 
 static DECLARE_WORK(dbs_refresh_work, dbs_refresh_callback);
@@ -695,16 +703,7 @@ static DECLARE_WORK(dbs_refresh_work, dbs_refresh_callback);
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
-	struct cpufreq_policy *policy;
-	struct cpu_dbs_info_s *this_dbs_info;
-
-	this_dbs_info = &per_cpu(od_cpu_dbs_info, 0);
-	policy = this_dbs_info->cur_policy;
-
-	if (policy->cur < policy->max) {
-		policy->cur = policy->max;
-		schedule_work(&dbs_refresh_work);
-	}
+	schedule_work(&dbs_refresh_work);
 }
 
 static int dbs_input_connect(struct input_handler *handler,
@@ -723,11 +722,11 @@ static int dbs_input_connect(struct input_handler *handler,
 
 	error = input_register_handle(handle);
 	if (error)
-		goto err1;
+		goto err2;
 
 	error = input_open_device(handle);
 	if (error)
-		goto err2;
+		goto err1;
 
 	return 0;
 err1:
