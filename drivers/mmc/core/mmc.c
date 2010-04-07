@@ -450,14 +450,20 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	    (host->caps & (MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA))) {
 		unsigned ext_csd_bit, bus_width;
 
-		if (host->caps & MMC_CAP_8_BIT_DATA) {
+		if ((host->caps & MMC_CAP_8_BIT_DATA) &&
+				!(mmc_bustest(host, card, MMC_BUS_WIDTH_8))) {
+			pr_info("Setting the bus width to 8 bit\n");
 			ext_csd_bit = EXT_CSD_BUS_WIDTH_8;
 			bus_width = MMC_BUS_WIDTH_8;
-		} else {
+		} else if (!(mmc_bustest(host, card, MMC_BUS_WIDTH_4))) {
+			pr_info("Setting the bus width to 4 bit\n");
 			ext_csd_bit = EXT_CSD_BUS_WIDTH_4;
 			bus_width = MMC_BUS_WIDTH_4;
+		} else {
+			pr_info("Setting the bus width to 1 bit\n");
+			ext_csd_bit = EXT_CSD_BUS_WIDTH_1;
+			bus_width = MMC_BUS_WIDTH_1;
 		}
-
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_BUS_WIDTH, ext_csd_bit);
 
