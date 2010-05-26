@@ -50,13 +50,13 @@ static unsigned bt_config_power_off[] = {
 	GPIO_CFG(BT_RESET_N, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* RESET_N */	
 };
 
-static int alohag_bluetooth_toggle_radio(void *data, enum rfkill_state state)
+static int alohag_bluetooth_toggle_radio(void *data, bool blocked)
 {
 	int ret;
 	int (*power_control)(int enable);
 
-  power_control = ((struct bluetooth_platform_data *)data)->bluetooth_power;
-	ret = (*power_control)((state == RFKILL_STATE_UNBLOCKED) ? 1 : 0);
+	power_control = ((struct bluetooth_platform_data *)data)->bluetooth_power;
+	ret = (*power_control)(!blocked);
 	return ret;
 }
 
