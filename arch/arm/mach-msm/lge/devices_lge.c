@@ -220,7 +220,7 @@ void __init msm_add_kgsl_device(void)
 	/* OEMs may modify the value at their discretion for performance */
 	/* The appropriate maximum replacement for 160000 is: */
 	/* clk_get_max_axi_khz() */
-	kgsl_pdata.max_axi_freq = 160000;
+	kgsl_pdata.high_axi_3d = 160000;
 
 	/* 7x27 doesn't allow graphics clocks to be run asynchronously to */
 	/* the AXI bus */
