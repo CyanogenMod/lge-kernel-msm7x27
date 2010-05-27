@@ -50,12 +50,28 @@ struct msm_camera_io_clk {
 	uint32_t vfe_clk_rate;
 };
 
+/* LGE_CHANGES_S [junyeong.han@lge.com] 2009-09-07, unified code for 7x27  */
+/* Add power on/off function pointers to devide driver and
+ * platform data which is dependent HW
+ */
+#if defined (CONFIG_MACH_LGE)
+struct msm_camera_device_platform_data {
+	int (*camera_gpio_on) (void);
+	void (*camera_gpio_off)(void);
+	struct msm_camera_io_ext ioext;
+	struct msm_camera_io_clk ioclk;
+	int (*camera_power_on) (void);
+	int (*camera_power_off)(void);
+};
+#else	/* origin */
 struct msm_camera_device_platform_data {
 	int (*camera_gpio_on) (void);
 	void (*camera_gpio_off)(void);
 	struct msm_camera_io_ext ioext;
 	struct msm_camera_io_clk ioclk;
 };
+#endif
+/* LGE_CHANGES_E [junyeong.han@lge.com] 2009-09-07 */
 enum msm_camera_csi_data_format {
 	CSI_8BIT,
 	CSI_10BIT,
