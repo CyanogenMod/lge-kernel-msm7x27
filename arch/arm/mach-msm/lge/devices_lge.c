@@ -426,6 +426,13 @@ __WEAK struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].residency = 0,
 };
 
+#if defined(CONFIG_USB_MSM_OTG_72K) || defined(CONFIG_USB_EHCI_MSM)
+static int msm_hsusb_rpc_phy_reset(void __iomem *addr)
+{
+	return msm_hsusb_phy_reset();
+}
+#endif
+
 #ifdef CONFIG_USB_EHCI_MSM
 static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 {
@@ -653,13 +660,6 @@ static int hsusb_rpc_connect(int connect)
 		return msm_hsusb_rpc_connect();
 	else
 		return msm_hsusb_rpc_close();
-}
-#endif
-
-#if defined(CONFIG_USB_MSM_OTG_72K) || defined(CONFIG_USB_EHCI_MSM)
-static int msm_hsusb_rpc_phy_reset(void __iomem *addr)
-{
-	return msm_hsusb_phy_reset();
 }
 #endif
 
