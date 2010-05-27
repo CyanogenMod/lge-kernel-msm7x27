@@ -154,12 +154,6 @@ static int msm_fb_detect_panel(const char *name)
 		else
 			ret = -ENODEV;
 	}
-	if (machine_is_msm7x27_gisele()) {
-		if(!strcmp(name,"mddi_sharp_hvga"))
-			ret = 0;
-		else
-			ret = -ENODEV;
-	}
 
 	return ret;
 }
