@@ -105,6 +105,9 @@ extern void mddi_s6d0142_window_adjust(uint16 x1,
 				       mddi_llist_done_cb_type done_cb);
 #endif
 
+unsigned fb_width = 0;
+unsigned fb_height = 0;
+
 void mddi_init(void)
 {
 	if (mddi_host_initialized)
@@ -446,3 +449,148 @@ uint16 mddi_assign_pkt_height(uint16 pkt_width,
 	return new_pkt_height;
 }
 #endif
+
+#if defined (CONFIG_MACH_LGE)
+void mddi_host_register_cmds_write8(unsigned reg_addr, unsigned count, unsigned char reg_val[], boolean wait, mddi_llist_done_cb_type done_cb, mddi_host_type host)
+{
+	mddi_linked_list_type *curr_llist_ptr;
+	mddi_linked_list_type *curr_llist_dma_ptr;
+	mddi_register_access_packet_type *regacc_pkt_ptr;
+	unsigned curr_llist_idx;
+
+    unsigned *data_list;
+    unsigned data32, count32;
+    unsigned i;
+	
+	if (in_interrupt()) {
+		MDDI_MSG_CRIT("Called from ISR context\n");
+	}
+
+	if (!mddi_host_powered) {
+		MDDI_MSG_ERR("MDDI powered down!\n");
+		mddi_init();
+	}
+
+	count32 = (count + 3) / 4;
+
+	down(&mddi_host_mutex);
+
+	curr_llist_idx = mddi_get_next_free_llist_item(host, TRUE);
+	curr_llist_ptr = &llist_extern[host][curr_llist_idx];
+	curr_llist_dma_ptr = &llist_dma_extern[host][curr_llist_idx];
+
+	curr_llist_ptr->link_controller_flags = 1;
+	curr_llist_ptr->packet_header_count = 14;
+	curr_llist_ptr->packet_data_count = count32 * 4;
+
+	curr_llist_ptr->next_packet_pointer = NULL;
+	curr_llist_ptr->reserved = 0;
+
+	regacc_pkt_ptr = &curr_llist_ptr->packet_header.register_pkt;
+	
+	regacc_pkt_ptr->packet_length = curr_llist_ptr->packet_header_count + (count32 * 4);
+	regacc_pkt_ptr->packet_type = 146;	/* register access packet */
+	regacc_pkt_ptr->bClient_ID = 0;
+	regacc_pkt_ptr->read_write_info = count32;
+	regacc_pkt_ptr->register_address = reg_addr;
+		
+	data_list = &regacc_pkt_ptr->register_data_list;
+	
+	for(i = 0; i < count32; i++) {
+		data32 = *((unsigned*)(reg_val + (i * 4)));
+		*(data_list + i) = data32;
+		MDDI_MSG_DEBUG("Mddi command packet data: 0x%x\n", data32);
+	}
+
+	regacc_pkt_ptr = &curr_llist_dma_ptr->packet_header.register_pkt;
+	curr_llist_ptr->packet_data_pointer =
+	    (void *)(&regacc_pkt_ptr->register_data_list);
+
+	/* now adjust pointers */
+	mddi_queue_forward_packets(curr_llist_idx, curr_llist_idx, wait,
+				   done_cb, host);
+
+	up(&mddi_host_mutex);
+
+	if (wait) {
+		mddi_linked_list_notify_type *llist_notify_ptr;
+		llist_notify_ptr = &llist_extern_notify[host][curr_llist_idx];
+		wait_for_completion_interruptible(&
+						  (llist_notify_ptr->
+						   done_comp));
+	}
+
+} /* mddi_host_register_cmds_write8 */
+
+void mddi_host_register_cmds_write32(unsigned reg_addr, unsigned count, unsigned int reg_val[], boolean wait, mddi_llist_done_cb_type done_cb, mddi_host_type host)
+{
+	mddi_linked_list_type *curr_llist_ptr;
+	mddi_linked_list_type *curr_llist_dma_ptr;
+	mddi_register_access_packet_type *regacc_pkt_ptr;
+	unsigned curr_llist_idx;
+
+	unsigned *data_list;
+	unsigned i;
+
+	MDDI_MSG_DEBUG("%s: started.\n", __func__);
+
+	if (in_interrupt()) {
+		MDDI_MSG_CRIT("Called from ISR context\n");
+	}
+
+	if (!mddi_host_powered) {
+		MDDI_MSG_ERR("MDDI powered down!\n");
+		mddi_init();
+	}
+
+	down(&mddi_host_mutex);
+
+	curr_llist_idx = mddi_get_next_free_llist_item(host, TRUE);
+	curr_llist_ptr = &llist_extern[host][curr_llist_idx];
+	curr_llist_dma_ptr = &llist_dma_extern[host][curr_llist_idx];
+
+	curr_llist_ptr->link_controller_flags = 1;
+	curr_llist_ptr->packet_header_count = 14;
+	curr_llist_ptr->packet_data_count = count << 2;
+
+	curr_llist_ptr->next_packet_pointer = NULL;
+	curr_llist_ptr->reserved = 0;
+
+	regacc_pkt_ptr = &curr_llist_ptr->packet_header.register_pkt;
+	
+	regacc_pkt_ptr->packet_length = curr_llist_ptr->packet_header_count + (count << 2);
+	regacc_pkt_ptr->packet_type = 146;	/* register access packet */
+	regacc_pkt_ptr->bClient_ID = 0;
+	regacc_pkt_ptr->read_write_info = count;
+	regacc_pkt_ptr->register_address = reg_addr;
+
+	data_list = &regacc_pkt_ptr->register_data_list;
+
+	for (i = 0; i < count; i++) {
+		data_list[i] = reg_val[i];
+	}
+	
+	MDDI_MSG_DEBUG("Reg Access write reg=0x%x, value=0x%x\n",
+		       regacc_pkt_ptr->register_address,
+		       regacc_pkt_ptr->register_data_list);
+
+	regacc_pkt_ptr = &curr_llist_dma_ptr->packet_header.register_pkt;
+	curr_llist_ptr->packet_data_pointer =
+	    (void *)(&regacc_pkt_ptr->register_data_list);
+
+	/* now adjust pointers */
+	mddi_queue_forward_packets(curr_llist_idx, curr_llist_idx, wait,
+				   done_cb, host);
+
+	up(&mddi_host_mutex);
+
+	if (wait) {
+		mddi_linked_list_notify_type *llist_notify_ptr;
+		llist_notify_ptr = &llist_extern_notify[host][curr_llist_idx];
+		wait_for_completion_interruptible(&
+						  (llist_notify_ptr->
+						   done_comp));
+	}
+
+} /* mddi_host_register_cmds_write32 */
+#endif	/* CONFIG_MACH_LGE */

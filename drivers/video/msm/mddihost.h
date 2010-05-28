@@ -78,6 +78,9 @@ typedef enum {
 	MDDI_LCD_TOSHIBA,
 	MDDI_LCD_PRISM,
 	MDDI_LCD_TP2,
+/* LGE_CHANGES_S [minjong.gong] 2010-03-23 Google Mass 3G Hitahci MDDI I/F LCD driver */
+	MDDI_LCD_HITACHI_TX08D39VM,
+/* LGE_CHANGES_E [minjong.gong] 2010-03-23 Google Mass 3G Hitahci MDDI I/F LCD driver */
 	MDDI_NUM_LCD_TYPES,
 	MDDI_LCD_DEFAULT = MDDI_LCD_TOSHIBA
 } mddi_lcd_type;
@@ -227,5 +230,12 @@ void mddi_queue_reverse_encapsulation(boolean wait);
 void mddi_disable(int lock);
 void mddi_window_adjust(struct msm_fb_data_type *mfd,
 	uint16 x1, uint16 x2, uint16 y1, uint16 y2);
+
+#ifdef CONFIG_MACH_LGE
+void mddi_host_register_cmds_write8(unsigned reg_addr, unsigned count,
+	unsigned char reg_val[], boolean wait, mddi_llist_done_cb_type done_cb,
+	mddi_host_type host);
+void mddi_host_register_cmds_write32(unsigned reg_addr, unsigned count, unsigned int reg_val[], boolean wait, mddi_llist_done_cb_type done_cb, mddi_host_type host);
+#endif
 
 #endif /* MDDIHOST_H */
