@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Tue May 25 13:25:23 2010
+# Fri May 28 09:29:08 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1170,6 +1170,7 @@ CONFIG_LCD_CLASS_DEVICE=y
 # CONFIG_LCD_PLATFORM is not set
 CONFIG_BACKLIGHT_CLASS_DEVICE=y
 CONFIG_BACKLIGHT_GENERIC=y
+CONFIG_BACKLIGHT_AAT2870=y
 
 #
 # Display device support

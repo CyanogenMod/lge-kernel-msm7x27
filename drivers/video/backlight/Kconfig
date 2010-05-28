@@ -310,3 +310,10 @@ config BACKLIGHT_PCF50633
 endif # BACKLIGHT_CLASS_DEVICE
 
 endif # BACKLIGHT_LCD_SUPPORT
+
+config BACKLIGHT_AAT2870
+	tristate "AAT2870 Backlight Driver "
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a ANALOGIC TECH AAT2870, say y to enable the backlight driver
