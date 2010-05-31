@@ -62,7 +62,7 @@ static void mcs6000_late_resume(struct early_suspend *h);
 
 #define TS_POLLING_TIME 5 /* msec */
 
-#define DEBUG_TS 1 /* enable or disable debug message */
+#define DEBUG_TS 0 /* enable or disable debug message */
 #if DEBUG_TS
 #define DMSG(fmt, args...) printk(KERN_DEBUG fmt, ##args)
 #else
