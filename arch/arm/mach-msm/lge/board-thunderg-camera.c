@@ -24,6 +24,8 @@
 
 #include "board-thunderg.h"
 
+int mclk_rate = 24000000;
+
 struct i2c_board_info i2c_devices[1] = {
 #if defined (CONFIG_ISX005)
 	{
@@ -95,10 +97,11 @@ int camera_power_on (void)
 	int rc;
 	struct device *dev = thunderg_backlight_dev();
 	
-	// RESET, PWDN to Low
+	/* clear RESET, PWDN to Low*/
 	gpio_set_value(GPIO_CAM_RESET, 0);
 	gpio_set_value(GPIO_CAM_PWDN, 0);
 
+	/*AVDD power 2.8V*/
 	if (lge_bd_rev == LGE_REV_B) {
 		rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 2800);
 		if (rc < 0) {
@@ -116,17 +119,7 @@ int camera_power_on (void)
 		vreg_enable(vreg_mmc);
 	}
 
-	rc = aat28xx_ldo_set_level(dev, LDO_CAM_AVDD_NO, 2700);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AVDD_NO);
-		return rc;
-	}
-	rc = aat28xx_ldo_enable(dev, LDO_CAM_AVDD_NO, 1);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_AVDD_NO);
-		return rc;
-	}	
-
+  /* DVDD power 1.2V */
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_DVDD_NO, 1200);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_DVDD_NO);
@@ -138,6 +131,7 @@ int camera_power_on (void)
 		return rc;
 	}
 
+  /*IOVDD power 2.6V*/
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_IOVDD_NO, 2600);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_IOVDD_NO);
@@ -149,14 +143,34 @@ int camera_power_on (void)
 		return rc;
 	}
 
+	/*AVDD power  2.7V*/
+	rc = aat28xx_ldo_set_level(dev, LDO_CAM_AVDD_NO, 2700);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AVDD_NO);
+		return rc;
+	}
+	rc = aat28xx_ldo_enable(dev, LDO_CAM_AVDD_NO, 1);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_AVDD_NO);
+		return rc;
+	}	
+
 	mdelay(5);
-	msm_camio_clk_rate_set(ISX005_DEFAULT_CLOCK_RATE);
+	/*M Clock -24Mhz*/
+	msm_camio_clk_rate_set(mclk_rate);
 	mdelay(5);
 	msm_camio_camif_pad_reg_reset();
 	mdelay(5);
 
-	// RESET, PWDN to HIGH
+	/*reset high*/
 	gpio_set_value(GPIO_CAM_RESET, 1);
+
+	mdelay(5); 
+	/*Nstandby high*/
+	gpio_set_value(GPIO_CAM_PWDN, 1);
+	
+	mdelay(8);  // T2 
+
 
 	return rc;
 
@@ -167,10 +181,14 @@ int camera_power_off (void)
 	int rc;
 	struct device *dev = thunderg_backlight_dev();
 
-	// RESET, PWDN to Low
-	gpio_set_value(GPIO_CAM_RESET, 0);
+	/*Nstandby low*/
 	gpio_set_value(GPIO_CAM_PWDN, 0);
+	mdelay(5);
 
+	/*reset low*/
+	gpio_set_value(GPIO_CAM_RESET, 0);
+
+	/*AVDD power 2.8V*/
 	if (lge_bd_rev == LGE_REV_A) {
 		rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 0);
 		if (rc < 0) {
@@ -188,6 +206,8 @@ int camera_power_off (void)
 		vreg_disable(vreg_mmc);
 	}
 
+
+	/*AVDD power 2.7V*/
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_AVDD_NO, 0);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AVDD_NO);
@@ -199,6 +219,19 @@ int camera_power_off (void)
 		return rc;
 	}
 
+	/*IOVDD power 2.6V*/
+	rc = aat28xx_ldo_set_level(dev, LDO_CAM_IOVDD_NO, 0);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_IOVDD_NO);
+		return rc;
+	}
+	rc = aat28xx_ldo_enable(dev, LDO_CAM_IOVDD_NO, 0);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_IOVDD_NO);
+		return rc;
+	}
+
+  /* DVDD power 1.2V*/
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_DVDD_NO, 0);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_DVDD_NO);
@@ -210,16 +243,6 @@ int camera_power_off (void)
 		return rc;
 	}
 
-	rc = aat28xx_ldo_set_level(dev, LDO_CAM_IOVDD_NO, 0);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_IOVDD_NO);
-		return rc;
-	}
-	rc = aat28xx_ldo_enable(dev, LDO_CAM_IOVDD_NO, 0);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_IOVDD_NO);
-		return rc;
-	}
 
 	return rc;
 
