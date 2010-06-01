@@ -23,6 +23,10 @@ obj-$(CONFIG_INPUT_TABLET)	+= tablet/
 obj-$(CONFIG_INPUT_TOUCHSCREEN)	+= touchscreen/
 obj-$(CONFIG_INPUT_MISC)	+= misc/
 
+#LGE_CHANGES_S [junyeong.han] 2010-01-11, [COMMON] Add sensor directory.
+obj-$(CONFIG_INPUT_SENSOR)	+= sensor/
+#LGE_CHANGES_E [junyeong.han] 2010-01-11, [COMMON]
+
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 

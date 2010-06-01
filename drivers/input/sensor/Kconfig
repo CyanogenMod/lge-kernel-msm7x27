@@ -1,0 +1,92 @@
+#
+# Sensor driver configuration
+#
+menuconfig INPUT_SENSOR
+	bool "Sensors"
+	help
+	  Say Y here, and a list of supported touchscreens will be displayed.
+	  This option doesn't affect the kernel.
+
+	  If unsure, say Y.
+
+if INPUT_SENSOR
+
+config SENSOR_GP2AP
+	tristate "GP2AP based proximity sensor"
+	help
+	  Say Y here if you have a sensor interface using the
+	  GP2AP controller, and your board-specific
+	  setup code includes i2c devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ads7846.
+
+config SENSOR_BMA150
+	tristate "BMA150 based accelerometer sensor"
+	help
+	  Say Y here if you have a sensor interface using the
+	  BMA150 controller, and your board-specific
+	  setup code includes i2c devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ads7846.
+
+config SENSOR_KR3DH
+	tristate "KR3DH based accelerometer sensor"
+	help
+	  Say Y here if you have a sensor interface using the
+	  KR3DH controller, and your board-specific
+	  setup code includes i2c devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ads7846.
+
+config SENSOR_KR3DM
+	tristate "8bit accel data for KR3DM"
+	depends on SENSOR_KR3DH
+	help
+	  Say Y here if you have a sensor interface using the
+	  KR3DM controller, and your board-specific
+	  setup code includes i2c devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+	  
+config SENSOR_AK8973
+	tristate "AK8973 based ecompass sensor"
+	help
+	  Say Y here if you have a sensor interface using the
+	  AK8973 controller, and your board-specific
+	  setup code includes i2c devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ads7846.
+
+config SENSOR_AMI602
+        tristate "AMI602 based gyro sensor"
+        help
+          Say Y here if you have a sensor interface using the
+          GP2AP controller, and your board-specific
+          setup code includes i2c devices.
+
+          If unsure, say N (but it's safe to say "Y").
+
+          To compile this driver as a module, choose M here: the
+          module will be called ads7846.
+
+config SENSOR_AMI304
+        tristate "AMI304 based gyro sensor"
+        help
+          Say Y here if you have a sensor interface using the
+          AMI304 controller, and your board-specific
+          setup code includes i2c devices.
+
+          If unsure, say N (but it's safe to say "Y").          
+endif
