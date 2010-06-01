@@ -51,9 +51,54 @@
 #include <mach/board_lge.h>
 #endif /* CONFIG_MACH_LGE */
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2009-04-08, Defines for LGE */
+/* For HSUSB debugging */
+#define LGE_HSUSB_DEBUG_PRINT
+/* #undef HSUSB_DEBUG_PRINT */
+
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, Macro for debugging */
+/* Debug mask value
+ * usage : echo [mask_value] > /sys/module/msm_hsusb/parameters/debug_mask
+ * All 		: 127
+ * No msg 	: 0
+ * PM		: 4
+ * Init		: 8
+ */
+enum {
+	HSUSB_DEBUG_NORMAL   = 1U << 0,  /* Normal debug */
+	HSUSB_DEBUG_ISR_WQ   = 1U << 1,  /* Isr, wq 		*/
+	HSUSB_DEBUG_PM       = 1U << 2,  /* Power management	*/
+	HSUSB_DEBUG_INIT     = 1U << 3,  /* module_init(), Probe()*/
+	HSUSB_DEBUG_COMPO    = 1U << 4,  /* Function composition */
+	HSUSB_DEBUG_EP       = 1U << 5,  /* Endpoint control */
+	HSUSB_DEBUG_FUNCTION = 1U << 6,  /* Function APIs	*/
+};
+
+static int lge_hsusb_debug_mask;
+
+module_param_named(debug_mask, lge_hsusb_debug_mask, int,
+				S_IRUGO | S_IWUSR | S_IWGRP);
+
+#define HSUSB_TRACE(mask, fmt, args...) \
+	do { \
+		if ((mask) & lge_hsusb_debug_mask) \
+			printk(KERN_INFO "HSUSB-DBG[%-18s:%5d] " \
+					fmt, __func__, __LINE__, ## args); \
+	} while (0)
+#else
+#define HSUSB_TRACE(mask, fmt, args...) do {} while (0)
+#endif
+
 #define MSM_USB_BASE ((unsigned) ui->addr)
 
 #include "usb_function.h"
+
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB_GSM) && \
+	defined(CONFIG_LGE_DETECT_PIF_PATCH)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, For manufacturing mode */
+#define LG_PIF_DETECT 2
+#endif
 
 #define EPT_FLAG_IN	0x0001
 #define USB_DIR_MASK	USB_DIR_IN
@@ -76,8 +121,15 @@
 #define is_phy_45nm()     (PHY_MODEL(ui->phy_info) == USB_PHY_MODEL_45NM)
 #define is_phy_external() (PHY_TYPE(ui->phy_info) == USB_PHY_EXTERNAL)
 
-#if defined(CONFIG_USB_SUPPORT_LGDRIVER)
-static int pid = 0x618E;   /* Diag + Modem + NMEA + Mass storage + ADB*/ 
+
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER_GSM)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, Default PID settings */
+
+#define LG_DEFAULT_PID		0x618F 		/* ADB off */
+#define LG_ADB_ON_PID		0x618E		/* ADB on  */
+#define LG_FACTORY_PID     	0x6000		/* For manufactoring mode */
+
+static int pid = LG_DEFAULT_PID;   	/* Default setting is ADB off */ 
 #else	/* origin */
 static int pid = 0x9018;
 #endif
@@ -131,13 +183,6 @@ static void usb_disable_pullup(struct usb_info *ui);
 static struct workqueue_struct *usb_work;
 static void usb_chg_stop(struct work_struct *w);
 
-#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB) || \
-	defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
-/* LGE_CHANGES_S [khlee@lge.com] 2010-01-04 */
-/* to supports FS USB in the Factory ( LT cable will be connected) */
-extern int msm_chg_LG_cable_type(void);
-#endif
-
 #define USB_STATE_IDLE    0
 #define USB_STATE_ONLINE  1
 #define USB_STATE_OFFLINE 2
@@ -153,15 +198,6 @@ extern int msm_chg_LG_cable_type(void);
 
 #define USB_MSC_ONLY_FUNC_MAP	0x10
 #define DRIVER_NAME		"msm_hsusb_peripheral"
-
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB) || \
-	defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
-/* LGE_CHANGES_S [khlee@lge.com] 2010-01-04, [VS740] usb switch */
-/* to supports FS USB in the Factory ( LT cable will be connected) */
-#define LG_FACTORY_CABLE_TYPE 3
-#define LT_ADB_CABLE 0xff
-#define LG_FACTORY_USB_PID 0x6000
-#endif
 
 struct lpm_info {
 	struct work_struct wakeup_phy;
@@ -260,6 +296,10 @@ struct usb_info {
 	enum usb_device_state usb_state;
 	int vbus_sn_notif;
 	struct switch_dev sdev;
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB_GSM)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, For manufactoring mode */
+	int pif_detect;
+#endif
 };
 static struct usb_info *the_usb_info;
 
@@ -292,11 +332,7 @@ struct usb_device_descriptor desc_device = {
 	.bMaxPacketSize0 = 64,
 	/* the following fields are filled in by usb_probe */
 	.idVendor = 0,
-#if defined(CONFIG_USB_SUPPORT_LGDRIVER)
-	.idProduct = 0x618E,
-#else /* origin */
 	.idProduct = 0,
-#endif
 	.bcdDevice = 0,
 	.iManufacturer = 0,
 	.iProduct = 0,
@@ -315,6 +351,12 @@ static ssize_t print_switch_name(struct switch_dev *sdev, char *buf)
 static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 {
 	struct usb_info *ui = the_usb_info;
+
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER_GSM)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, Add switch drver ops */
+	if (ui->usb_state == USB_STATE_POWERED)
+		return sprintf(buf, "%s\n", "powered");
+#endif
 
 	return sprintf(buf, "%s\n", (ui->online ? "online" : "offline"));
 }
@@ -357,13 +399,6 @@ static void usb_chg_legacy_detect(struct work_struct *w)
 	int maxpower;
 	int ret = 0;
 
-#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-/* LGE_CHANGES_S [khlee@lge.com] 2010-01-04, [VS740] usb charging */
-	int cable_type;
-
-	cable_type = msm_chg_LG_cable_type();
-#endif
-
 	spin_lock_irqsave(&ui->lock, flags);
 
 	if (ui->usb_state == USB_STATE_NOTATTACHED) {
@@ -375,14 +410,6 @@ static void usb_chg_legacy_detect(struct work_struct *w)
 		ui->chg_type = temp = USB_CHG_TYPE__WALLCHARGER;
 		goto chg_legacy_det_out;
 	}
-
-#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-/* LGE_CHANGES_S [khlee@lge.com] 2010-01-04, [VS740] usb charging */
-	if( cable_type == LG_FACTORY_CABLE_TYPE) {
-		ui->chg_type = temp = USB_CHG_TYPE__WALLCHARGER;
-		goto chg_legacy_det_out;
-	}
-#endif	
 
 	ui->chg_type = temp = USB_CHG_TYPE__SDP;
 chg_legacy_det_out:
@@ -1276,6 +1303,7 @@ static void handle_setup(struct usb_info *ui)
 			break;
 		}
 
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_GET_STATUS\n");
 		ep0_setup_send(ui, 2);
 		return;
 	}
@@ -1294,6 +1322,7 @@ static void handle_setup(struct usb_info *ui)
 			ep0_setup_send(ui, ctl.wLength);
 			return;
 		}
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_GET_DESCRIPTOR\n");
 		break;
 	}
 
@@ -1334,6 +1363,7 @@ static void handle_setup(struct usb_info *ui)
 					__func__);
 			break;
 		}
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_SET_FEATURE\n");
 		break;
 
 	case USB_REQ_CLEAR_FEATURE:
@@ -1372,6 +1402,7 @@ static void handle_setup(struct usb_info *ui)
 						ctl.wIndex, ctl.wLength);
 			break;
 		}
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_CLEAR_FEATURE\n");
 		break;
 #if defined(CONFIG_USB_SUPPORT_LGDRIVER)
 		ep0_setup_ack(ui);
@@ -1389,6 +1420,7 @@ static void handle_setup(struct usb_info *ui)
 			ep0_setup_ack(ui);
 			return;
 		}
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_SET_INTERFACE\n");
 		break;
 	case USB_REQ_GET_INTERFACE:
 		{
@@ -1411,6 +1443,7 @@ static void handle_setup(struct usb_info *ui)
 		req->length = ctl.wLength;
 		memcpy(req->buf, &ret, req->length);
 		ep0_setup_send(ui, ctl.wLength);
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_GET_INTERFACE\n");
 		return;
 		}
 	case USB_REQ_SET_CONFIGURATION:
@@ -1425,6 +1458,7 @@ static void handle_setup(struct usb_info *ui)
 		if (ui->configured)
 			ui->usb_state = USB_STATE_CONFIGURED;
 		queue_delayed_work(usb_work, &ui->work, 0);
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_SET_CONFIGURATION\n");
 		return;
 
 	case USB_REQ_GET_CONFIGURATION:
@@ -1435,6 +1469,7 @@ static void handle_setup(struct usb_info *ui)
 		conf = ui->configured;
 		memcpy(req->buf, &conf, req->length);
 		ep0_setup_send(ui, ctl.wLength);
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_GET_CONFIGURATION\n");
 		return;
 	}
 
@@ -1445,6 +1480,7 @@ static void handle_setup(struct usb_info *ui)
 		ui->usb_state = USB_STATE_ADDRESS;
 		writel((ctl.wValue << 25) | (1 << 24), USB_DEVICEADDR);
 		ep0_setup_ack(ui);
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "USB_REQ_SET_ADDRESS\n");
 		return;
 	}
 
@@ -1513,9 +1549,14 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 		}
 		req->busy = 0;
 		req->live = 0;
-		if (req->dead)
-			do_free_req(ui, req);
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-07,  */
+/* WBT Fix TD# 5131 */
+		if (req->dead){
+			do_free_req(ui, req);
+			continue;
+		}
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-04-07 */
 		if (req->req.complete) {
 			spin_unlock_irqrestore(&ui->lock, flags);
 			req->req.complete(ept, &req->req);
@@ -1730,12 +1771,13 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 			ui->configured = 0;
 			for (i = 0; i < ui->num_funcs; i++) {
 				struct usb_function_info *fi = ui->func[i];
-				if (!fi ||
-				!(ui->composition->functions & (1 << i)))
+				if (!fi || !(ui->composition->functions & (1 << i)))
 					continue;
-				if (fi->func->disconnect)
-					fi->func->disconnect
-						(fi->func->context);
+				if (fi->func->disconnect) {
+					HSUSB_TRACE(HSUSB_DEBUG_FUNCTION,
+						"function %s disconnect() called\n", fi->func->name);
+					fi->func->disconnect(fi->func->context);
+				}
 			}
 			ui->flags = USB_FLAG_VBUS_OFFLINE;
 			queue_delayed_work(usb_work, &ui->work, 0);
@@ -1980,66 +2022,14 @@ static int usb_hw_reset(struct usb_info *ui)
 	 * */
 	writel(ui->dma, USB_ENDPOINTLISTADDR);
 
-#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-/* LGE_CHANGES_S [khlee@lge.com] 2010-01-04, [VS740] usb switch */
-/* to supports FS USB in the Factory ( LT cable will be connected) */
-	if( msm_chg_LG_cable_type() == LG_FACTORY_CABLE_TYPE) {
-		unsigned tmp = 0; 
-
-		tmp = ulpi_read(ui, 0x04);
-		tmp |= 0x4;
-		ulpi_write(ui, tmp, 0x04);
-		writel(readl(USB_PORTSC) | (1<<24), USB_PORTSC);
-	}
-#endif
-
 	clk_disable(ui->clk);
 
 	return 0;
 }
 
-#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-/* LGE_CHANGE_S [kyuhyung.lee@lge.com] - 2010.02.04 */  
-static void lgfw_change_PID(struct usb_info *ui, int pid)
-{
-  int i;
-
-  pr_err("khlee debug : %d -------->%d \n",ui->composition->product_id, pid);
-
-  for (i = 0; i < ui->num_funcs; i++) {
-    struct usb_function_info *fi = ui->func[i];
-    if (!fi || !fi->func)
-	  continue;
-    if (fi->func->configure)
-      fi->func->configure(0, fi->func->context);
-    if (fi->func->unbind)
-      fi->func->unbind(fi->func->context);
-  }
-
-  usb_uninit(ui);
-  usb_set_composition(pid);
-  usb_configure_device_descriptor(ui);
-
-	/* initialize functions */
-	for (i = 0; i < ui->num_funcs; i++) {
-		struct usb_function_info *fi = ui->func[i];
-		if (!fi || !(ui->composition->functions & (1 << i)))
-			continue;
-		if (fi->enabled) {
-			if (fi->func->bind)
-				fi->func->bind(fi->func->context);
-		}
-	}  
-}
-#endif
-
 static void usb_reset(struct usb_info *ui)
 {
 	unsigned long flags;
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	int tempPID;
-	int nCableType = msm_chg_LG_cable_type();
-#endif
 	spin_lock_irqsave(&ui->lock, flags);
 	ui->running = 0;
 	spin_unlock_irqrestore(&ui->lock, flags);
@@ -2048,17 +2038,6 @@ static void usb_reset(struct usb_info *ui)
 	/* we should flush and shutdown cleanly if already running */
 	writel(0xffffffff, USB_ENDPTFLUSH);
 	msleep(2);
-#endif
-
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	/* LG_FW khlee 2010.01.21 - If you are booting up cable is not connected,
-	 * Composite switching do not be operated, So we have to chaged it here */
-	tempPID = ui->composition->product_id;
-	if( nCableType == 3) // LT 
-		tempPID = LG_FACTORY_USB_PID;
-
-	if( tempPID != ui->composition->product_id)
-		lgfw_change_PID(ui, tempPID);
 #endif
 
 	if (usb_hw_reset(ui)) {
@@ -2114,7 +2093,8 @@ void usb_start(struct usb_info *ui)
 		if (!fi || !(ui->composition->functions & (1<<i)))
 			continue;
 		if (fi->enabled) {
-			pr_info("usb_bind_func() (%s)\n", fi->func->name);
+			HSUSB_TRACE(HSUSB_DEBUG_FUNCTION,
+				"function %s bind() called\n", fi->func->name);
 			fi->func->bind(fi->func->context);
 		}
 	}
@@ -2333,6 +2313,9 @@ static unsigned short usb_set_composition(unsigned short pid)
 				if (ui->func && fi && fi->func) {
 					fi->enabled = (ui->composition->
 							functions >> i) & 1;
+					HSUSB_TRACE(HSUSB_DEBUG_FUNCTION,
+						"function %s enable ? (%d)\n",
+						fi->func->name, fi->enabled);
 				}
 			}
 			pr_info("%s: composition set to product id = %x\n",
@@ -2399,10 +2382,16 @@ static void usb_switch_composition(unsigned short pid)
 		struct usb_function_info *fi = ui->func[i];
 		if (!fi || !fi->func || !fi->enabled)
 			continue;
-		if (fi->func->configure)
+		if (fi->func->configure) {
+			HSUSB_TRACE(HSUSB_DEBUG_FUNCTION,
+				"function %s configure(0) called\n", fi->func->name);
 			fi->func->configure(0, fi->func->context);
-		if (fi->func->unbind)
+		}
+		if (fi->func->unbind) {
+			HSUSB_TRACE(HSUSB_DEBUG_FUNCTION,
+				"function %s unbind() called\n", fi->func->name);
 			fi->func->unbind(fi->func->context);
+		}
 	}
 
 	usb_uninit(ui);
@@ -2415,8 +2404,11 @@ static void usb_switch_composition(unsigned short pid)
 		if (!fi || !(ui->composition->functions & (1 << i)))
 			continue;
 		if (fi->enabled) {
-			if (fi->func->bind)
+			if (fi->func->bind) {
+				HSUSB_TRACE(HSUSB_DEBUG_FUNCTION,
+					"function %s bind() called\n", fi->func->name);
 				fi->func->bind(fi->func->context);
+			}
 		}
 	}
 
@@ -2434,9 +2426,6 @@ void usb_function_enable(const char *function, int enable)
 	int curr_enable;
 	unsigned short pid;
 	int i;
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	int nCableType = msm_chg_LG_cable_type();
-#endif
 
 	if (!ui)
 		return;
@@ -2454,6 +2443,17 @@ void usb_function_enable(const char *function, int enable)
 						__func__, function);
 		return;
 	}
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB_GSM) && \
+	defined(CONFIG_LGE_DETECT_PIF_PATCH)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2009-04-08, Disable ADB function */
+	if (ui->pif_detect == LG_PIF_DETECT) {
+		if (!strcmp(function, "adb")) {
+			pr_info("HSUSB(%s): In manufacturing mode, can't use ADB interface\n", __func__);
+			return;
+		}
+	}
+#endif
+
 	functions_mask = 0;
 	curr_enable = fi->enabled;
 	fi->enabled = enable;
@@ -2471,23 +2471,12 @@ void usb_function_enable(const char *function, int enable)
 		pr_err("%s: continuing with current composition\n", __func__);
 		return;
 	}
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	/* LGE_CHANGE_S [kyuhyung.lee@lge.com] 10.02.04 */
-	/* LG_FW khlee 2010.01.21 - In the LG driver state,   
-	 * we do not want to be change the state by ADB menu.  
-	 * PID will not be changed when LT cable is connected.*/
-	if (nCableType == 3) {
-		if (pid == 0x6001) 
-			pid = 0x6000;
-	} else { 
-		if (!strncmp(function, "adb", 3)) {
-			if (enable)
-				pid = 0x618E;
-			else
-				pid = 0x618F;
-		}
-	}
-#endif
+
+	if (pid == LG_ADB_ON_PID)
+		pr_info("HSUSB(%s): pid = %x (ADB is ON)\n", __func__, pid);
+	else
+		pr_info("HSUSB(%s): pid = %x (ADB is OFF)\n", __func__,  pid);
+
 	usb_switch_composition(pid);
 }
 EXPORT_SYMBOL(usb_function_enable);
@@ -2632,14 +2621,8 @@ static void usb_do_work(struct work_struct *w)
 				(ui->usb_state == USB_STATE_NOTATTACHED))
 					msm_pm_app_enable_usb_ldo(0);
 				ui->state = USB_STATE_OFFLINE;
-#if defined(CONFIG_USB_SUPPORT_LGDRIVER)
-				/* LGE_CHANGES_S [khlee@lge.com] 2009-09-25 [VS740] to fix the DUN bug */
-				switch_set_state(&ui->sdev, ui->online);
-				enable_irq(ui->irq);
-#else	/* origin */
 				enable_irq(ui->irq);
 				switch_set_state(&ui->sdev, 0);
-#endif
 				pr_info("hsusb: ONLINE -> OFFLINE\n");
 				break;
 			}
@@ -2685,6 +2668,10 @@ static void usb_do_work(struct work_struct *w)
 				schedule_delayed_work(
 						&ui->chg_legacy_det,
 						USB_CHG_DET_DELAY);
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER_GSM)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, Change USB state(for TA wakeup) */
+				switch_set_state(&ui->sdev, 2);
+#endif
 				pr_info("hsusb: OFFLINE -> ONLINE\n");
 				enable_irq(ui->irq);
 				break;
@@ -3108,41 +3095,60 @@ static void usb_debugfs_uninit(void) {}
 
 static void usb_configure_device_descriptor(struct usb_info *ui)
 {
-#if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
-	/* MEID is constitued of 14 characters */
-	char df_serialno[15] ;
+
+#if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, Get IMEI using RPC */
+	unsigned char nv_imei_ptr[19];
+	int ret = -1;
 #endif
 
 	desc_device.idVendor = ui->pdata->vendor_id;
-	
-#if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
-	memset(df_serialno,0,15);
-	msm_get_MEID_type(df_serialno);
-
-	ui->pdata->serial_number = df_serialno;
-
-	/* If it is null MEID, do not copy */
-	if (!strcmp(df_serialno,"00000000000000"))
-		ui->pdata->serial_number = NULL;
-
-	/* In CTS test in korea, they will not use MEID but need to use serial
-	 * khlee@lge.com 2010-02-23, [VS740] usb switch 
-	 */
-	if (msm_chg_LG_cable_type() == LT_ADB_CABLE) {
-		sprintf(df_serialno,"%s","LGE_ANDROID_DE");
-		ui->pdata->serial_number = df_serialno;
-	}
-#endif
-
-#if(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	/* LGE_CHANGE_S [kyuhyung.lee] 2010.02.04 */
-	if (ui->composition->product_id == LG_FACTORY_USB_PID) {
-		desc_device.idProduct = ui->composition->product_id;
-		ui->pdata->serial_number = NULL;
-	}
-#endif
-
+	desc_device.idProduct = ui->composition->product_id;
 	desc_device.bcdDevice = ui->pdata->version;
+
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER_GSM)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-01, Settle PID setting */
+	if (desc_device.idProduct == LG_DEFAULT_PID)
+		desc_device.idProduct = LG_ADB_ON_PID;
+#endif
+
+#if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, Get IMEI using RPC */
+	ret = msm_nv_imei_get(nv_imei_ptr);
+	if (ret < 0) {
+		nv_imei_ptr[0] = '\0';
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "IMEI is NULL\n");
+	} else {
+		HSUSB_TRACE(HSUSB_DEBUG_NORMAL, "IMEI %s\n", nv_imei_ptr);
+	}
+
+	/* Currently, If serial_number is set to IMEI in LGE default USB mode,
+	 * It may happens problem that cannot make phone on factory line
+	 * procedure. Due to this problem, we set serial_number
+	 * to NULL in case of LGE factory mode. For other cases, we set
+	 * serial_number to IMEI.
+	 *
+	 * If IMEI is NULL, USB serial number is set to default string
+	 * in board-[model name].c
+	 */
+	switch(desc_device.idProduct) {
+		case LG_DEFAULT_PID : /* Set default string */
+			break;
+		case LG_FACTORY_PID :
+			ui->pdata->serial_number = NULL;
+			break;
+		case LG_ADB_ON_PID :
+		default :
+			if (nv_imei_ptr[0] != '\0') {
+				if ((nv_imei_ptr[0] == '8') &&
+						(nv_imei_ptr[1] == '0') &&
+						(nv_imei_ptr[2] == 'A'))
+					/* We set serialno include header "80A" */
+					ui->pdata->serial_number = nv_imei_ptr;
+			}
+			break;
+	}
+#endif
 
 	if (ui->pdata->serial_number)
 		desc_device.iSerialNumber =
@@ -3205,7 +3211,6 @@ static ssize_t msm_hsusb_show_compswitch(struct device *dev,
 	if (ui->composition)
 		i = scnprintf(buf, PAGE_SIZE,
 #if defined(CONFIG_USB_SUPPORT_LGDRIVER)
-		/* LGE_CHANGES_S [khlee@lge.com] 2009-09-25 [VS740]  to fix the DUN bug */
 				"%x\n",
 #else	/* origin */
 				"composition product id = %x\n",
@@ -3344,7 +3349,6 @@ msm_hsusb_func_attr(modem, 2);
 msm_hsusb_func_attr(nmea, 3);
 msm_hsusb_func_attr(mass_storage, 4);
 msm_hsusb_func_attr(ethernet, 5);
-msm_hsusb_func_attr(rmnet, 6);
 
 static struct attribute *msm_hsusb_func_attrs[] = {
 	&dev_attr_diag.attr,
@@ -3353,7 +3357,6 @@ static struct attribute *msm_hsusb_func_attrs[] = {
 	&dev_attr_nmea.attr,
 	&dev_attr_mass_storage.attr,
 	&dev_attr_ethernet.attr,
-	&dev_attr_rmnet.attr,
 	NULL,
 };
 #endif
@@ -3416,10 +3419,17 @@ static int __init usb_probe(struct platform_device *pdev)
 	ui->pdev = pdev;
 	ui->pdata = pdev->dev.platform_data;
 
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	/* LGE_CHANGE_S [kyuhyung.lee@lge.com] 2010.02.04 */
-	if( msm_chg_LG_cable_type() == 3 )  //detect LT cable
-		pid = LG_FACTORY_USB_PID;
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB_GSM) && \
+	defined(CONFIG_LGE_DETECT_PIF_PATCH)
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, For manufacturing mode */
+	ui->pif_detect = -1;
+
+	/* Using common lge api in arch/arm/mach-msm/lge/lge_proc_comm.c */
+	ui->pif_detect = lge_get_pif_info();
+	pr_info("HSUSB(%s): Using PIF ZIG (%d)\n", __func__, ui->pif_detect);
+
+	if (ui->pif_detect == LG_PIF_DETECT)
+		pid = LG_FACTORY_PID;
 #endif
 
 	for (i = 0; i < ui->pdata->num_compositions; i++)

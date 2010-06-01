@@ -160,4 +160,65 @@ config RMNET_SMD_DATA_CHANNEL
 	help
 	  Data SMD channel for transferring network data
 
+# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-27, Refine LG USB Kconfig
+config USB_SUPPORT_LGDRIVER
+	tristate "USB Support LG Driver"
+	depends on USB_FUNCTION
+	depends on USB_FUNCTION_MSM_HSUSB
+	help
+	  MSM function USB framework can support LG USB driver
+	
+	default n
+
+choice
+	prompt "Select model class"
+	depends on USB_SUPPORT_LGDRIVER
+
+	default USB_SUPPORT_LGDRIVER_CDMA
+	help
+	  It depends on LG Android model class(CDMA / 3G(GSM))
+
+config USB_SUPPORT_LGDRIVER_CDMA
+	boolean "LG CDMA Android Model class"
+
+config USB_SUPPORT_LGDRIVER_GSM
+	boolean "LG GSM(3G) Android Model class"
+
+endchoice
+
+config USB_SUPPORT_LGE_FACTORY_USB
+	tristate "USB Support LGE Factory USB(CDMA class)"
+	depends on USB_SUPPORT_LGDRIVER_CDMA
+	select LGE_SUPPORT_RAPI
+	help
+	  Supports LG USB driver for factory manufacturing(CDMA class)
+	
+	default n
+
+config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID
+	tristate "Serial Number from ARM9's MEID(CDMA class)"
+	depends on USB_SUPPORT_LGDRIVER_CDMA
+	select LGE_SUPPORT_RAPI
+	help
+	  Get usb device's serial number from arm's MEID(CDMA class)
+
+	default n
+
+config USB_SUPPORT_LGE_FACTORY_USB_GSM
+	tristate "USB Support LGE Factory USB(GSM class)"
+	depends on USB_SUPPORT_LGDRIVER_GSM
+	help
+	  Supports LG USB driver for factory manufacturing(3G/GSM class)
+
+	default n
+
+config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI
+	tristate "Serial Number from ARM9's IMEI(GSM class)"
+	depends on USB_SUPPORT_LGDRIVER_GSM
+	help
+	  Get usb device's serial number from arm's IMEI(3G/GSM class)
+
+	default n
+# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-04-27
+
 endmenu

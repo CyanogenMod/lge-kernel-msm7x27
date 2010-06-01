@@ -59,7 +59,7 @@
 #define USB_DIR_MASK	USB_DIR_IN
 #define SETUP_BUF_SIZE	4096
 
-/* IDs for string descriptors */
+/* IDs for string 3descriptors */
 #define STRING_LANGUAGE_ID      0
 #define STRING_SERIAL           1
 #define STRING_PRODUCT          2
@@ -77,9 +77,16 @@
 #define is_phy_external() (PHY_TYPE(ui->phy_info) == USB_PHY_EXTERNAL)
 
 #if defined(CONFIG_USB_SUPPORT_LGDRIVER)
-static int pid = 0x618E;   /* Diag + Modem + NMEA + Mass storage + ADB*/ 
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER_LEGACY)
+static int pid = 0x6171;   
+#else
+static int pid = 0x618F;   /* Mass storage only*/ 
+#endif
 #else	/* origin */
 static int pid = 0x9018;
+#endif
+#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+static int ADB_state = 0; 
 #endif
 
 struct usb_fi_ept {
@@ -159,6 +166,7 @@ extern int msm_chg_LG_cable_type(void);
 /* LGE_CHANGES_S [khlee@lge.com] 2010-01-04, [VS740] usb switch */
 /* to supports FS USB in the Factory ( LT cable will be connected) */
 #define LG_FACTORY_CABLE_TYPE 3
+#define LG_FACTORY_CABLE_130K_TYPE 10
 #define LT_ADB_CABLE 0xff
 #define LG_FACTORY_USB_PID 0x6000
 #endif
@@ -293,7 +301,11 @@ struct usb_device_descriptor desc_device = {
 	/* the following fields are filled in by usb_probe */
 	.idVendor = 0,
 #if defined(CONFIG_USB_SUPPORT_LGDRIVER)
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER_LEGACY)
+	.idProduct = 0x6171,
+#else
 	.idProduct = 0x618E,
+#endif
 #else /* origin */
 	.idProduct = 0,
 #endif
@@ -378,7 +390,7 @@ static void usb_chg_legacy_detect(struct work_struct *w)
 
 #if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
 /* LGE_CHANGES_S [khlee@lge.com] 2010-01-04, [VS740] usb charging */
-	if( cable_type == LG_FACTORY_CABLE_TYPE) {
+	if( cable_type == LG_FACTORY_CABLE_TYPE || cable_type == LG_FACTORY_CABLE_130K_TYPE) {
 		ui->chg_type = temp = USB_CHG_TYPE__WALLCHARGER;
 		goto chg_legacy_det_out;
 	}
@@ -1929,9 +1941,24 @@ static int usb_hw_reset(struct usb_info *ui)
 	/* select ULPI phy */
 	i = (readl(USB_PORTSC) & ~PORTSC_PTS);
 	writel(i | PORTSC_PTS_ULPI, USB_PORTSC);
-	/* set usb controller interrupt latency to zero*/
+	/* If composition contains mass storage only function, decrease USB
+	 * interrupt latency to zero to increase usb mass storage performance
+	 */
+#if defined(CONFIG_LGE_UMS_PERFORMANCE_PATCH)
+	/* LGE_CHANGE [sungyoung.lee@lge.com], 2010-02-10, UMS Performance
+	 * This is QCT's patch code for increasing UMS R/W Performance
+	 * It change maximum interrupt interval from 8 micro-frame to immediate
+	 */
 	writel((readl(USB_USBCMD) & ~USBCMD_ITC_MASK) | USBCMD_ITC(0),
-							USB_USBCMD);
+			USB_USBCMD);
+#else /* original */
+	if (ui->composition->functions == USB_MSC_ONLY_FUNC_MAP)
+		writel((readl(USB_USBCMD) & ~USBCMD_ITC_MASK) | USBCMD_ITC(0),
+				USB_USBCMD);
+	else
+		writel((readl(USB_USBCMD) & ~USBCMD_ITC_MASK) | USBCMD_ITC(8),
+				USB_USBCMD);
+#endif
 
 	/* If the target is 7x01 and roc version is > 1.2, set
 	 * the AHB mode to 2 for maximum performance, else set
@@ -2053,12 +2080,17 @@ static void usb_reset(struct usb_info *ui)
 #if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
 	/* LG_FW khlee 2010.01.21 - If you are booting up cable is not connected,
 	 * Composite switching do not be operated, So we have to chaged it here */
-	tempPID = ui->composition->product_id;
-	if( nCableType == 3) // LT 
-		tempPID = LG_FACTORY_USB_PID;
+	/*LGE_CHANGE_S [kyuhyung.lee@lge.com] 2010.02.04 */ 
+    if( nCableType == LG_FACTORY_CABLE_TYPE || nCableType == LG_FACTORY_CABLE_130K_TYPE) // LT 
+      tempPID = LG_FACTORY_USB_PID;
+    else
+      if(ADB_state)
+        tempPID = 0x618E;   // ADB enable
+      else
+        tempPID = 0x618F;   // ADB disable
 
-	if( tempPID != ui->composition->product_id)
-		lgfw_change_PID(ui, tempPID);
+    if( tempPID != ui->composition->product_id)
+      lgfw_change_PID(ui, tempPID);
 #endif
 
 	if (usb_hw_reset(ui)) {
@@ -2434,13 +2466,16 @@ void usb_function_enable(const char *function, int enable)
 	int curr_enable;
 	unsigned short pid;
 	int i;
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	int nCableType = msm_chg_LG_cable_type();
-#endif
 
 	if (!ui)
 		return;
 
+
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+   /* LGE_CHANGE_S [kyukyung.lee@lge.com] 2010.04.03*/   
+   /* we'd like to change the ADB setting value without composite switching*/
+   ADB_state = enable;
+#endif
 	pr_info("%s: name = %s, enable = %d\n", __func__, function, enable);
 	
 	fi = usb_find_function(function);
@@ -2476,17 +2511,17 @@ void usb_function_enable(const char *function, int enable)
 	/* LG_FW khlee 2010.01.21 - In the LG driver state,   
 	 * we do not want to be change the state by ADB menu.  
 	 * PID will not be changed when LT cable is connected.*/
-	if (nCableType == 3) {
-		if (pid == 0x6001) 
-			pid = 0x6000;
-	} else { 
-		if (!strncmp(function, "adb", 3)) {
-			if (enable)
-				pid = 0x618E;
-			else
-				pid = 0x618F;
-		}
+	if (pid == 0x6001) {
+      pid = 0x6000;
+      return;     // LG_FW khlee : during the cablibration, ADB enable signal can make the failure. 
 	}
+    else if(pid == 0x6002){
+      pid = 0x618E;
+    }
+    else if(pid == 0x6003){
+      pid = 0x618F;  
+    }
+    
 #endif
 	usb_switch_composition(pid);
 }
@@ -3114,32 +3149,48 @@ static void usb_configure_device_descriptor(struct usb_info *ui)
 #endif
 
 	desc_device.idVendor = ui->pdata->vendor_id;
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+  if(desc_device.idProduct == 0x618F)     // MASS only 
+  { 
+      desc_device.bDeviceClass = 0x00;
+      desc_device.bDeviceSubClass = 0x00;
+  }
+  else                                    // debug enable & facotory driver
+  {
+      desc_device.bDeviceClass = 0x02;
+      desc_device.bDeviceSubClass = 0x02;
+  }
+#endif
 	
+    desc_device.idProduct = ui->composition->product_id;
+
+#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB) || \
+	defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
+
+    if( desc_device.idProduct == LG_FACTORY_USB_PID)
+      ui->pdata->serial_number = NULL;
+#endif
 #if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
+    else
+    {
 	memset(df_serialno,0,15);
 	msm_get_MEID_type(df_serialno);
 
 	ui->pdata->serial_number = df_serialno;
 
 	/* If it is null MEID, do not copy */
-	if (!strcmp(df_serialno,"00000000000000"))
+      if( !strcmp(df_serialno,"00000000000000"))
 		ui->pdata->serial_number = NULL;
 
-	/* In CTS test in korea, they will not use MEID but need to use serial
-	 * khlee@lge.com 2010-02-23, [VS740] usb switch 
-	 */
-	if (msm_chg_LG_cable_type() == LT_ADB_CABLE) {
-		sprintf(df_serialno,"%s","LGE_ANDROID_DE");
-		ui->pdata->serial_number = df_serialno;
-	}
-#endif
-
-#if(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	/* LGE_CHANGE_S [kyuhyung.lee] 2010.02.04 */
-	if (ui->composition->product_id == LG_FACTORY_USB_PID) {
-		desc_device.idProduct = ui->composition->product_id;
-		ui->pdata->serial_number = NULL;
-	}
+      /* LGE_CHANGES_S [khlee@lge.com] 2010-02-23, [VS740] usb switch */
+      /* In CTS test in korea, they will not use MEID but need to use serial  */
+      if(msm_chg_LG_cable_type() == LT_ADB_CABLE)
+      {
+        sprintf(df_serialno,"%s","LGE_ANDROID_DE");
+        ui->pdata->serial_number = df_serialno;
+      }
+      /* LGE_CHANGES_E [khlee@lge.com] 2010-02-23, [VS740] usb switch */
+    }
 #endif
 
 	desc_device.bcdDevice = ui->pdata->version;
@@ -3373,6 +3424,9 @@ static int __init usb_probe(struct platform_device *pdev)
 	int ulpi_irq2 = 0;
 	int i;
 	int ret = 0;
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+    int tempCableID = 0;
+#endif
 
 	if (!pdev || !pdev->dev.platform_data) {
 		pr_err("%s:pdev or platform data is null\n", __func__);
@@ -3418,7 +3472,8 @@ static int __init usb_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
 	/* LGE_CHANGE_S [kyuhyung.lee@lge.com] 2010.02.04 */
-	if( msm_chg_LG_cable_type() == 3 )  //detect LT cable
+    tempCableID = msm_chg_LG_cable_type();
+	if( tempCableID == LG_FACTORY_CABLE_TYPE || tempCableID == LG_FACTORY_CABLE_130K_TYPE)  //detect LT cable
 		pid = LG_FACTORY_USB_PID;
 #endif
 
@@ -3594,7 +3649,7 @@ static int __init usb_probe(struct platform_device *pdev)
 	ui->maxpower = GISELE_USB_CHG_CURRENT / 2;
 #else /* qualcomm or google */
 	ui->maxpower = 0xFA;
-#endif
+#endif /* CONFIG_MACH_LGE */
 	ui->chg_type = USB_CHG_TYPE__INVALID;
 	/* to allow swfi latency, driver latency
 	 * must be above listed swfi latency
@@ -3792,6 +3847,8 @@ static int get_qualifier_descriptor(struct usb_qualifier_descriptor *dq)
 	dev_qualifier->bMaxPacketSize0 = 64;
 	dev_qualifier->bNumConfigurations = 1;
 	dev_qualifier->bRESERVED = 0;
+
+  
 	return sizeof(struct usb_qualifier_descriptor);
 }
 
@@ -3820,6 +3877,7 @@ static int usb_find_descriptor(struct usb_info *ui, struct usb_ctrlrequest *ctl,
 	unsigned short id = ctl->wValue;
 	unsigned short type = id >> 8;
 	id &= 0xff;
+
 
 	if ((type == USB_DT_DEVICE) && (id == 0)) {
 		req->length = sizeof(desc_device);
@@ -4185,5 +4243,10 @@ int usb_function_unregister(struct usb_function *func)
 }
 EXPORT_SYMBOL(usb_function_unregister);
 
+int LG_USB_GET_ADB_STATE(void)
+{
+    return ADB_state;
+}
+EXPORT_SYMBOL(LG_USB_GET_ADB_STATE);
 MODULE_LICENSE("GPL");
 

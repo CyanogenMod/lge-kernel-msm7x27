@@ -1,6 +1,14 @@
 
 obj-$(CONFIG_USB_MSM_OTG)		+= msm_otg.o
+ifeq ($(CONFIG_USB_SUPPORT_LGDRIVER_CDMA), y)
+obj-$(CONFIG_USB_FUNCTION_MSM_HSUSB)	+= msm_hsusb_cdma.o
+else
+ifeq ($(CONFIG_USB_SUPPORT_LGDRIVER_GSM), y)
+obj-$(CONFIG_USB_FUNCTION_MSM_HSUSB)	+= msm_hsusb_gsm.o
+else
 obj-$(CONFIG_USB_FUNCTION_MSM_HSUSB)	+= msm_hsusb.o
+endif
+endif
 obj-$(CONFIG_USB_FUNCTION_NULL)		+= null.o
 obj-$(CONFIG_USB_FUNCTION_NULL)		+= zero.o
 obj-$(CONFIG_USB_FUNCTION_LOOPBACK)	+= loopback.o
