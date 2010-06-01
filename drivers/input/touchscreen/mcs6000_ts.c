@@ -558,7 +558,7 @@ touch_retry:
 	if (dev->pendown) {
 		schedule_delayed_work(&dev->work, msecs_to_jiffies(TS_POLLING_TIME));	
 	} else {
-		//enable_irq(dev->num_irq);
+		enable_irq(dev->num_irq);
 		DMSG("%s: irq enable\n", __FUNCTION__);
 	}
 }
@@ -568,7 +568,7 @@ static irqreturn_t mcs6000_ts_irq_handler(int irq, void *handle)
 	struct mcs6000_ts_device *dev = handle;
 
 	if (gpio_get_value(dev->intr_gpio) == 0) {
-		//disable_irq(dev->num_irq);
+		disable_irq_nosync(dev->num_irq);
 		DMSG("%s: irq disable\n", __FUNCTION__);
 		schedule_delayed_work(&dev->work, 0);
 	}
@@ -783,13 +783,13 @@ static int mcs6000_ts_ioctl(struct inode *inode, struct file *flip,
 }
 
 static int mcs6000_ioctl_open(struct inode *inode, struct file *flip) {
-	//disable_irq(mcs6000_ts_dev.num_irq);
+	disable_irq(mcs6000_ts_dev.num_irq);
 	printk(KERN_INFO "touch irq disabled by ioctl\n");
 	return 0;
 }
 
 static int mcs6000_ioctl_release(struct inode *inode, struct file *flip) {
-	//enable_irq(mcs6000_ts_dev.num_irq);
+	enable_irq(mcs6000_ts_dev.num_irq);
 	printk(KERN_INFO "touch irq enabled by ioctl\n");
 	return 0;
 }
@@ -860,9 +860,9 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 		return err;
 	}
 
-	//disable_irq(dev->num_irq);
+	disable_irq(dev->num_irq);
 	mcs6000_ts_on();
-	//enable_irq(dev->num_irq);
+	enable_irq(dev->num_irq);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	ts_early_suspend.suspend = mcs6000_early_suspend;
@@ -892,7 +892,7 @@ static int mcs6000_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	struct mcs6000_ts_device *dev = i2c_get_clientdata(client);
 
 	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-	//disable_irq(dev->num_irq);
+	disable_irq(dev->num_irq);
 	DMSG("%s: irq disable\n", __FUNCTION__);
 	dev->power(OFF);
 
@@ -905,7 +905,7 @@ static int mcs6000_ts_resume(struct i2c_client *client)
 
 	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
 	dev->power(ON);
-	//enable_irq(dev->num_irq);
+	enable_irq(dev->num_irq);
 	DMSG("%s: irq enable\n", __FUNCTION__);
 
 	return 0;
@@ -918,7 +918,7 @@ static void mcs6000_early_suspend(struct early_suspend * h)
 	struct mcs6000_ts_device *dev = &mcs6000_ts_dev;
 
 	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-	//disable_irq(dev->num_irq);
+	disable_irq(dev->num_irq);
 	DMSG("%s: irq disable\n", __FUNCTION__);
 	dev->power(OFF);
 }
@@ -929,7 +929,7 @@ static void mcs6000_late_resume(struct early_suspend * h)
 
 	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
 	mcs6000_ts_on();
-	//enable_irq(dev->num_irq);
+	enable_irq(dev->num_irq);
 	DMSG("%s: irq enable\n", __FUNCTION__);
 }
 #endif
