@@ -113,10 +113,12 @@ enum { US_DO_ALL_FLAGS };
 
 /*
  */
-extern int usb_usual_ignore_device(struct usb_interface *intf);
-extern struct usb_device_id usb_storage_usb_ids[];
 
 #ifdef CONFIG_USB_LIBUSUAL
+
+/* For Thunder 2.6.32 Kernel Build (originally, below 2 prototypes is located above #ifdef CONFIG_USB_LIBUSUAL) */
+extern int usb_usual_ignore_device(struct usb_interface *intf);
+extern struct usb_device_id usb_storage_usb_ids[];
 
 extern void usb_usual_set_present(int type);
 extern void usb_usual_clear_present(int type);

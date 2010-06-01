@@ -2782,8 +2782,13 @@ static void fsg_bind(void *_ctxt)
 		curlun->dev.release = lun_release;
 		curlun->dev.parent = &fsg->pdev->dev;
 		dev_set_drvdata(&curlun->dev, fsg);
+      /* DKL Temp : For 2.6.32 thunder kernel build */
+#if 0      
 		snprintf(curlun->dev.bus_id, BUS_ID_SIZE,
 				"lun%d", i);
+#else
+      dev_set_name(&curlun->dev, "lun%d", i);
+#endif      
 
 		rc = device_register(&curlun->dev);
 		if (rc != 0) {
