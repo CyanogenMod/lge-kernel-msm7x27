@@ -57,6 +57,28 @@ config ANDROID_PMEM
 	bool "Android pmem allocator"
 	default y
 
+config ANDROID_VIBRATOR
+    bool "Android vibrator support"
+	depends on ANDROID_TIMED_OUTPUT
+	default y
+	help
+	  This option enalbes device driver support for Android Vibrator driver.
+	  Some functions should be given by platform data for enable PWM, Motor IC, etc.
+
+config VIB_USE_WORK_QUEUE
+    bool "Vibrator use work queue"
+	depends on ANDROID_VIBRATOR
+	default n
+	help
+	  This option enalbes device driver support for work queue.
+
+config VIB_USE_HIGH_VOL_OVERDRIVE
+    bool "Vibrator use the high voltage overdriving tech. for Q-Coin Motor"
+	depends on ANDROID_VIBRATOR
+	default n
+	help
+	  This option enalbes device driver support for the high voltage overdriving tech. for Q-Coin Motor.
+
 config ATMEL_PWM
 	tristate "Atmel AT32/AT91 PWM support"
 	depends on AVR32 || ARCH_AT91SAM9263 || ARCH_AT91SAM9RL || ARCH_AT91CAP9
