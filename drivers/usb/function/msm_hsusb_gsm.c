@@ -2339,7 +2339,7 @@ static void usb_switch_composition(unsigned short pid)
 	if (!usb_validate_product_id(pid))
 		return;
 
-	disable_irq(ui->irq);
+	disable_irq_nosync(ui->irq);
 	if (cancel_delayed_work_sync(&ui->work))
 		pr_info("%s: Removed work successfully\n", __func__);
 	if (ui->running) {
@@ -2351,8 +2351,8 @@ static void usb_switch_composition(unsigned short pid)
 		/* we should come out of lpm to access registers */
 		if (ui->in_lpm) {
 			if (PHY_TYPE(ui->phy_info) == USB_PHY_EXTERNAL) {
-				disable_irq(ui->gpio_irq[0]);
-				disable_irq(ui->gpio_irq[1]);
+				disable_irq_nosync(ui->gpio_irq[0]);
+				disable_irq_nosync(ui->gpio_irq[1]);
 			}
 
 			if (ui->usb_state == USB_STATE_NOTATTACHED
@@ -2551,7 +2551,7 @@ static void usb_do_work(struct work_struct *w)
 			}
 			if ((flags & USB_FLAG_START) ||
 					(flags & USB_FLAG_RESET)) {
-				disable_irq(ui->irq);
+				disable_irq_nosync(ui->irq);
 				if (ui->vbus_sn_notif)
 					msm_pm_app_enable_usb_ldo(1);
 				usb_clk_enable(ui);
@@ -2612,7 +2612,7 @@ static void usb_do_work(struct work_struct *w)
 				}
 
 				/* reset usb core and usb phy */
-				disable_irq(ui->irq);
+				disable_irq_nosync(ui->irq);
 				if (ui->in_lpm)
 					usb_lpm_exit(ui);
 				usb_vbus_offline(ui);
@@ -2652,7 +2652,7 @@ static void usb_do_work(struct work_struct *w)
 			 */
 			if ((flags & USB_FLAG_VBUS_ONLINE)) {
 				msm_hsusb_suspend_locks_acquire(ui, 1);
-				disable_irq(ui->irq);
+				disable_irq_nosync(ui->irq);
 				ui->state = USB_STATE_ONLINE;
 				if (ui->in_lpm)
 					usb_lpm_exit(ui);
@@ -2707,7 +2707,7 @@ void msm_hsusb_set_vbus_state(int online)
 
 static irqreturn_t usb_lpm_gpio_isr(int irq, void *data)
 {
-	disable_irq(irq);
+	disable_irq_nosync(irq);
 
 	return IRQ_HANDLED;
 }
@@ -2728,7 +2728,7 @@ static void usb_lpm_exit(struct usb_info *ui)
 	writel(readl(USB_USBCMD) & ~ULPI_STP_CTRL, USB_USBCMD);
 
 	if (readl(USB_PORTSC) & PORTSC_PHCD) {
-		disable_irq(ui->irq);
+		disable_irq_nosync(ui->irq);
 		schedule_work(&ui->li.wakeup_phy);
 	} else {
 		ui->in_lpm = 0;
@@ -2759,7 +2759,7 @@ static int usb_lpm_enter(struct usb_info *ui)
 	ui->in_lpm = 1;
 	if (ui->xceiv)
 		ui->xceiv->set_suspend(ui->xceiv, 1);
-	disable_irq(ui->irq);
+	disable_irq_nosync(ui->irq);
 	spin_unlock_irqrestore(&ui->lock, flags);
 
 	if (usb_suspend_phy(ui)) {
@@ -2810,7 +2810,7 @@ static int usb_lpm_enter(struct usb_info *ui)
 
 static void usb_enable_pullup(struct usb_info *ui)
 {
-	disable_irq(ui->irq);
+	disable_irq_nosync(ui->irq);
 	writel(STS_URI | STS_SLI | STS_UI | STS_PCI, USB_USBINTR);
 	writel(readl(USB_USBCMD) | USBCMD_RS, USB_USBCMD);
 	enable_irq(ui->irq);
@@ -2824,7 +2824,7 @@ SW workaround	- Making opmode non-driving and SuspendM set in function
 */
 static void usb_disable_pullup(struct usb_info *ui)
 {
-	disable_irq(ui->irq);
+	disable_irq_nosync(ui->irq);
 	writel(readl(USB_USBINTR) & ~(STS_URI | STS_SLI | STS_UI | STS_PCI),
 			USB_USBINTR);
 	writel(readl(USB_USBCMD) & ~USBCMD_RS, USB_USBCMD);
@@ -4149,7 +4149,7 @@ int usb_function_unregister(struct usb_function *func)
 		return -EINVAL;
 
 	if (ui->running) {
-		disable_irq(ui->irq);
+		disable_irq_nosync(ui->irq);
 		spin_lock_irqsave(&ui->lock, flags);
 		ui->running = 0;
 		ui->online = 0;
@@ -4159,8 +4159,8 @@ int usb_function_unregister(struct usb_function *func)
 		/* we should come out of lpm to access registers */
 		if (ui->in_lpm) {
 			if (PHY_TYPE(ui->phy_info) == USB_PHY_EXTERNAL) {
-				disable_irq(ui->gpio_irq[0]);
-				disable_irq(ui->gpio_irq[1]);
+				disable_irq_nosync(ui->gpio_irq[0]);
+				disable_irq_nosync(ui->gpio_irq[1]);
 			}
 			usb_lpm_exit(ui);
 			if (cancel_work_sync(&ui->li.wakeup_phy))
