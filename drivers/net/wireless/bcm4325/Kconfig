@@ -1,0 +1,87 @@
+config BCM4325
+	tristate "Broadcom BCM4325 wireless support"
+	depends on WLAN_80211
+	select WIRELESS_EXT
+	---help---
+	  This is a driver for the Broadcom 4325 wireless chip.
+
+config BCM4325_DEBUG
+	bool "Debug"
+	default n
+	depends on BCM4325
+
+config LGE_BCM432X_PATCH
+	bool "BCM432X Patch by LGE"
+	default y
+	depends on BCM4325
+
+config BCM4325_GPIO_BT_RESET
+	int "GPIO BT_RESET"
+	default 123
+	depends on BCM4325
+
+config BCM4325_GPIO_WL_RESET
+	int "GPIO WL_RESET"
+	default 93
+	depends on BCM4325
+
+config BCM4325_GPIO_WL_WAKE
+	int "GPIO WL_WAKE"
+	default 153
+	depends on BCM4325
+
+config BCM4325_GPIO_WL_REGON
+	int "GPIO WL_REGON"
+	default 23
+	depends on BCM4325
+
+config BRCM_LGE_WL_HOSTWAKEUP
+	bool "Support BCM4325/BCM4329 Host Wakeup function"
+	default 94
+	depends on BCM4325
+
+config BRCM_LGE_WL_HOSTWAKEUP_IOCTL
+	bool "Use Host Wakeup ioctl function"
+	default n
+	depends on BCM4325 && BRCM_LGE_WL_HOSTWAKEUP
+
+config BRCM_LGE_WL_PKTFILTER
+	bool "Setting Multicat/Broadcast packet fillter."
+	default n
+	depends on BCM4325 && BRCM_LGE_WL_HOSTWAKEUP
+
+config BRCM_LGE_WL_ARPOFFLOAD
+	bool "Use Arp offload function."
+	default n
+	depends on BCM4325 && BRCM_LGE_WL_HOSTWAKEUP
+
+config BRCM_GPIO_INTR
+	bool "Use Broadcom Host Wakeup GPIO"
+	default n
+	depends on BCM4325
+	---help---
+	   This function is activated only if set CONFIG_HAS_EARLYSUSPEND.	
+
+config BCM4325_GPIO_WL_HOSTWAKEUP
+	int "GPIO WL_HOSTWAKEUP"
+	default 94
+	depends on BCM4325
+
+config BRCM_USE_DEEPSLEEP
+	bool "Use deepsleep instead of dhd_dev_reset"
+	default n
+	depends on BCM4325
+	---help---
+	  Use deepsleep instead of dhd_dev_reset and controlling GPIO when driver start or stop.
+
+config BRCM_USE_SOFTAP
+	bool "Use SoftAP"
+	default n
+	depends on BCM4325
+	---help---
+	Using Softap feature.
+
+config BRCM_USE_STATIC_BUF
+	bool "Use static buff of osl_malloc"
+	default n
+	depends on BCM4325

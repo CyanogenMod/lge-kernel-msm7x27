@@ -23,6 +23,9 @@ menuconfig NET
 
 if NET
 
+config COMPAT_NET_DEV_OPS
+	   def_bool y
+
 config WANT_COMPAT_NETLINK_MESSAGES
 	bool
 	help

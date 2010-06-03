@@ -1,0 +1,8 @@
+dongle-host-driver-source-open.4.217.27
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+applied directory
+  - open-src/src
+
+replaced files or directories from dongle-host-driver-source.4.217.27
+  - src/include/wlioctl.h

@@ -55,4 +55,6 @@ obj-$(CONFIG_IWM)	+= iwmc3200wifi/
 
 obj-$(CONFIG_BCM4329)	+= bcm4329/
 
+obj-$(CONFIG_BCM4325)	+= bcm4325/
+obj-$(CONFIG_BRCM_USE_STATIC_BUF)	+= bcm4325/
 obj-$(CONFIG_LIBRA_SDIOIF)	+= libra/
