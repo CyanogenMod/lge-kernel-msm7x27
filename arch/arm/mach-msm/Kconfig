@@ -346,6 +346,20 @@ endmenu
 config MACH_LGE
 	bool
 
+config LGE_HEADSET_2GPIO
+	tristate "LGE GPIO 2 Wire detection driver using 2 GPIO"
+	default n
+	depends on MACH_LGE
+	select LGE_HEADSET
+	help
+	  LGE GPIO 2 Wire detection driver by using 2 GPIO
+
+config LGE_SWITCH_GPIO
+	tristate "LGE GPIO switch driver"
+	depends on MACH_LGE
+	default n
+	help
+	  LGE GPIO switch driver 
 config LGE_4G_DDR
 	bool "Memory Configuration - 4G/4G DDR RAM "
 	depends on MACH_LGE
