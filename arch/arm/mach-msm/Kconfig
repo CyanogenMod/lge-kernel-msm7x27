@@ -149,6 +149,14 @@ config MACH_MSM7X27_SURF
 	help
 	  Support for the Qualcomm MSM7x27 SURF eval board.
 
+config MACH_MSM7X27_THUNDERC
+	depends on ARCH_MSM7X27
+	depends on !MSM_STACKED_MEMORY
+	select MACH_LGE
+	bool "MSM7x27 THUNDER Verizone"
+	help
+	  Support for the LGE MSM7x27 THUNDER Verizone board.
+
 config MACH_MSM7X27_THUNDERG
 	depends on ARCH_MSM7X27
 	depends on !MSM_STACKED_MEMORY
@@ -345,6 +353,21 @@ endmenu
 
 config MACH_LGE
 	bool
+
+config LGE_DIAGTEST
+	tristate "Support LGE diag test mode"
+	default n
+	depends on MACH_LGE
+	select LGE_SUPPORT_RAPI
+	help
+	  LGE diag test mode
+
+config LGE_MTD_DIRECT_ACCESS
+	tristate "Support LGE mtd direct access apis"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE mtd direct access apis
 
 config LGE_HEADSET
 	bool
