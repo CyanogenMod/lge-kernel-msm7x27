@@ -34,6 +34,12 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include <linux/timer.h>
+/* LGE_CHANGES_S [woonghee@lge.com] 2009-12-29, [VS740] kernel diag service */
+#if defined (CONFIG_LGE_DIAGTEST)
+#include <linux/platform_device.h>
+#include <mach/lg_diagcmd.h>
+#endif
+/* LGE_CHANGES_E [woonghee@lge.com] 2009-12-29, [VS740] */
 
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
@@ -56,6 +62,14 @@ static unsigned int threshold_client_limit = 30;
 /* This is the maximum number of pkt registrations supported at initialization*/
 unsigned int diag_max_registration = 25;
 unsigned int diag_threshold_registration = 100;
+
+/* LGE_CHANGES_S [woonghee@lge.com] 2009-12-29, [VS740] kernel diag service */
+#if defined (CONFIG_LGE_DIAGTEST)
+extern void lgfw_diag_kernel_service_init(int);
+extern int lg_diag_cmd_dev_register(struct lg_diag_cmd_dev *sdev);
+extern 	void lg_diag_cmd_dev_unregister(struct lg_diag_cmd_dev *sdev);
+#endif
+/* LGE_CHANGES_E [woonghee@lge.com] 2009-12-29, [VS740] */
 
 /* Timer variables */
 static struct timer_list drain_timer;
@@ -830,6 +844,36 @@ static int diagchar_cleanup(void)
 	return 0;
 }
 
+#if defined (CONFIG_LGE_DIAGTEST)
+/* LGE_CHANGES_S [woonghee@lge.com] 2009-12-29, [VS740] kernel diag service */
+extern int lg_diag_create_file(struct platform_device *pdev);
+extern int lg_diag_remove_file(struct platform_device *pdev);
+
+static int lg_diag_cmd_probe(struct platform_device *pdev)
+{
+	int ret;
+	ret = lg_diag_create_file(pdev);
+
+	return ret;
+}
+
+static int lg_diag_cmd_remove(struct platform_device *pdev)
+{
+	lg_diag_remove_file(pdev);
+
+	return 0;
+}
+
+static struct platform_driver lg_diag_cmd_driver = {
+	.probe		= lg_diag_cmd_probe,
+	.remove 	= lg_diag_cmd_remove,
+	.driver 	= {
+		.name = "lg_diag_cmd",
+		.owner	= THIS_MODULE,
+	},
+};
+#endif
+
 static int __init diagchar_init(void)
 {
 	dev_t dev;
@@ -884,6 +928,14 @@ static int __init diagchar_init(void)
 	}
 
 	printk(KERN_INFO "diagchar initialized\n");
+
+/* LGE_CHANGES_S [woonghee@lge.com] 2009-12-29, [VS740] kernel diag service */
+#if defined (CONFIG_LGE_DIAGTEST)
+	platform_driver_register(&lg_diag_cmd_driver);
+	lgfw_diag_kernel_service_init((int)driver);
+#endif
+/* LGE_CHANGES_E [woonghee@lge.com] 2009-12-29, [VS740] */
+
 	return 0;
 
 fail:

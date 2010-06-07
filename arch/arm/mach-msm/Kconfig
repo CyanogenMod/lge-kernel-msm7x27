@@ -354,6 +354,29 @@ endmenu
 config MACH_LGE
 	bool
 
+config LGE_SUPPORT_ERS
+	tristate "Support LGE ERS system"
+	default n
+	depends on MACH_LGE
+	depends on ANDROID_RAM_CONSOLE
+	help
+	  LGE error reporting system
+
+config LGE_HANDLE_PANIC
+	tristate "Support LGE Kernel Panic Handler"
+	default n
+	depends on MACH_LGE
+	depends on ANDROID_RAM_CONSOLE
+	help
+	  LGE kernel panic handler
+
+config LGE_SUPPORT_RAPI
+	tristate "Support LGE RAPI"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE remote api functions 
+
 config LGE_DIAGTEST
 	tristate "Support LGE diag test mode"
 	default n
