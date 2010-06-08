@@ -294,19 +294,32 @@ static int isx005_reg_snapshot(void)
 static int isx005_set_sensor_mode(int mode)
 {
 	int rc = 0;
+	int retry = 0;
 
 	switch (mode) {
 	case SENSOR_PREVIEW_MODE:
-		rc = isx005_reg_preview();
-		if (rc < 0)
-			printk(KERN_ERR "[ERROR]%s:Sensor Preview Mode Fail\n", __func__);
+		for (retry = 0; retry < 3; ++retry) {
+			rc = isx005_reg_preview();
+			if (rc < 0)
+				printk(KERN_ERR "[ERROR]%s:Sensor Preview Mode Fail\n", __func__);
+			else
+				break;
+
+			mdelay(1);
+		}
 		break;
 
 	case SENSOR_SNAPSHOT_MODE:
 	case SENSOR_RAW_SNAPSHOT_MODE:	/* Do not support */
-		rc = isx005_reg_snapshot();
-		if (rc < 0)
-			printk(KERN_ERR "[ERROR]%s:Sensor Snapshot Mode Fail\n", __func__);
+		for (retry = 0; retry < 3; ++retry) {
+			rc = isx005_reg_snapshot();
+			if (rc < 0)
+				printk(KERN_ERR "[ERROR]%s:Sensor Snapshot Mode Fail\n", __func__);
+			else
+				break;
+
+			mdelay(1);
+		}
 		break;
 
 	default:
@@ -554,7 +567,7 @@ static int isx005_move_focus(int32_t steps)
 	}
 
 	if (steps <= 10)
-		manual_pos = cpu_to_be16(50 + (315 * steps));
+		manual_pos = cpu_to_be16(50 + (50 * steps));
 	else
 		manual_pos = 50;
 
@@ -1166,7 +1179,7 @@ static int isx005_init_sensor(const struct msm_camera_sensor_info *data)
 		{
 		  msleep(2);
 			printk(KERN_ERR "[ERROR]%s:Set initial register error! retry~! \n", __func__);
-			rc = isx005_reg_init();
+			rc = isx005_reg_tuning();
 			if(rc < 0)
 			{
 				nNum++;
