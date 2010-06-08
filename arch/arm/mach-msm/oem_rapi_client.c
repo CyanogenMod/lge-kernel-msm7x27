@@ -165,7 +165,12 @@ static int oem_rapi_client_streaming_function_ret(struct msm_rpc_client *client,
 			 xdr_recv_uint32);
 
 	/* output */
-	if (ret->out_len && *ret->out_len)
+	/* LGE_CHANGE
+	 * ret->output is allocated in xdr_recv_bytes()
+	 * So we dont check that ret->output buffer is NULL
+	 * 2010-06-05,taehung.kim@lge.com
+	 */
+	if (ret->out_len && *ret->out_len /*&&ret->output*/)
 		xdr_recv_bytes(xdr, (void **)&ret->output, &temp);
 
 	return 0;
