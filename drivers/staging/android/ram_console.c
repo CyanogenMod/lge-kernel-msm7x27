@@ -44,6 +44,15 @@ static size_t ram_console_old_log_size;
 
 static struct ram_console_buffer *ram_console_buffer;
 static size_t ram_console_buffer_size;
+
+#if defined(CONFIG_LGE_SUPPORT_ERS) || defined(CONFIG_LGE_HANDLE_PANIC)
+/* LGE_CHANGES_S [j.y.han@lge.com] 20090904, helper function */
+inline struct ram_console_buffer *get_ram_console_buffer(void)
+{
+	return ram_console_buffer;
+}
+#endif
+
 #ifdef CONFIG_ANDROID_RAM_CONSOLE_ERROR_CORRECTION
 static char *ram_console_par_buffer;
 static struct rs_control *ram_console_rs_decoder;
@@ -142,7 +151,12 @@ ram_console_write(struct console *console, const char *s, unsigned int count)
 static struct console ram_console = {
 	.name	= "ram",
 	.write	= ram_console_write,
+#if defined (CONFIG_MACH_LGE)	
+	/* LGE_CHANGES_S [lsy@lge.com] 2009-10-29, Do not reprint buffer */
+	.flags	= CON_ENABLED,
+#else	/* origin */
 	.flags	= CON_PRINTBUFFER | CON_ENABLED,
+#endif
 	.index	= -1,
 };
 

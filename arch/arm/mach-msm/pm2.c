@@ -29,6 +29,7 @@
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/memory.h>
+#include <linux/console.h>
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
 #endif
@@ -62,6 +63,13 @@
 #include "spm.h"
 #include "sirc.h"
 
+/* LGE_CHANGE
+ * factory reset check after booting
+ * 2010-05-30, taehung.kim@lge.com
+ */
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+extern int factory_reset_check(void);
+#endif
 /******************************************************************************
  * Debug Definitions
  *****************************************************************************/
@@ -1711,6 +1719,39 @@ static struct platform_suspend_ops msm_pm_ops = {
 
 static uint32_t restart_reason = 0x776655AA;
 
+#ifdef CONFIG_MACH_LGE
+/* LGE_CHANGE
+ * flush console before reboot
+ * from google's mahimahi kernel
+ * 2010-05-04, cleaneye.kim@lge.com
+ */
+
+static bool console_flushed;
+
+void msm_pm_flush_console(void)
+{
+	if (console_flushed)
+		return;
+	console_flushed = true;
+
+	printk("\n");
+	printk(KERN_EMERG "Restarting %s\n", linux_banner);
+	if (!try_acquire_console_sem()) {
+		release_console_sem();
+		return;
+	}
+
+	mdelay(50);
+
+	local_irq_disable();
+	if (try_acquire_console_sem())
+		printk(KERN_EMERG "msm_restart: Console was locked! Busting\n");
+	else
+		printk(KERN_EMERG "msm_restart: Console was locked!\n");
+	release_console_sem();
+}
+#endif
+
 static void msm_pm_power_off(void)
 {
 	msm_rpcrouter_close();
@@ -1721,6 +1762,15 @@ static void msm_pm_power_off(void)
 
 static void msm_pm_restart(char str, const char *cmd)
 {
+#ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE
+	 * flush console before reboot
+	 * from google's mahimahi kernel
+	 * 2010-05-04, cleaneye.kim@lge.com
+	 */
+	msm_pm_flush_console();
+#endif
+
 	msm_rpcrouter_close();
 	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
 
@@ -1753,6 +1803,14 @@ static struct notifier_block msm_reboot_notifier = {
 	.notifier_call = msm_reboot_call,
 };
 
+#if defined(CONFIG_MACH_LGE)
+void lge_set_reboot_reason(unsigned int reason)
+{
+	restart_reason = reason;
+
+	return;
+}
+#endif
 
 /******************************************************************************
  *
@@ -1851,6 +1909,13 @@ static int __init msm_pm_init(void)
 	}
 #endif
 
+/* LGE_CHANGE
+ * factory reset check after booting
+ * 2010-05-30, taehung.kim@lge.com
+ */
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+	factory_reset_check();
+#endif
 	return 0;
 }
 

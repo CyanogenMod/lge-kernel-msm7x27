@@ -187,11 +187,20 @@ void smd_diag(void)
 	}
 }
 
+void msm_pm_flush_console(void);
 
 static void handle_modem_crash(void)
 {
 	pr_err("ARM9 has CRASHED\n");
 	smd_diag();
+#ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE
+	 * flush console before reboot
+	 * from google's mahimahi kernel
+	 * 2010-05-04, cleaneye.kim@lge.com
+	 */
+	msm_pm_flush_console();
+#endif
 
 	/* hard reboot if possible FIXME
 	if (msm_reset_hook)

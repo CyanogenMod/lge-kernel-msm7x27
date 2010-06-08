@@ -1,4 +1,9 @@
 EXTRA_CFLAGS += -Iarch/arm/mach-msm
+obj-$(CONFIG_LGE_HEADSET_2GPIO) += lge_gpio_h2w.o
+obj-$(CONFIG_LGE_SWITCH_GPIO) += lge_gpio_switch.o
+obj-$(CONFIG_LGE_HANDLE_PANIC) += lge_handle_panic.o
+obj-$(CONFIG_LGE_PROC_COMM) += lge_proc_comm.o
+obj-$(CONFIG_LGE_SUPPORT_ERS) += lge_ers.o
 obj-$(CONFIG_LGE_SUPPORT_RAPI) += LG_rapi_client.o
 obj-$(CONFIG_LGE_MTD_DIRECT_ACCESS) += lge_mtd_direct_access.o
 obj-$(CONFIG_LGE_DIAGTEST) += lg_diag_testmode.o
@@ -25,3 +30,12 @@ obj-$(CONFIG_MACH_MSM7X27_THUNDERG) += board-thunderg-input.o
 obj-$(CONFIG_MACH_MSM7X27_THUNDERG) += board-thunderg-misc.o
 
 obj-$(CONFIG_MACH_LGE) += devices_lge.o
+
+obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats.o
+obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats_cmd.o
+obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats_eta.o
+obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats_mmc.o
+obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats_event_log.o
+obj-$(CONFIG_LGE_ATS_UEVENT_DEVICE) += lge_ats_uevent.o
+obj-$(CONFIG_LGE_ATS_INPUT_DEVICE) += lge_ats_input.o
+

@@ -48,6 +48,29 @@ struct rpcsvr_platform_device
 	uint32_t vers;
 };
 
+/* LGE_CHANGES_S [hoonylove004@lge.com] 2009-12-29, [VS740] AT CMD */
+/* Factory AT CMD feature added based on EVE */
+#if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_ALOHAG) || \
+	defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_THUNDERG)
+typedef uint8_t   AT_STR_t;
+#define ABSOLUTE_STRING_LENGTH  500 //40 [seypark@lge.com]
+#define MAX_STRING_RET (ABSOLUTE_STRING_LENGTH/sizeof(AT_STR_t))
+
+typedef uint8_t AT_SEND_BUFFER_t;
+#define MAX_SEND_LOOP_NUM  8 // 4 => 8 kageki@lge.com
+#define ABSOLUTE_SEND_SIZE  256
+#define MAX_SEND_SIZE_BUFFER ABSOLUTE_SEND_SIZE/sizeof(AT_SEND_BUFFER_t)
+#define LIMIT_MAX_SEND_SIZE_BUFFER MAX_SEND_SIZE_BUFFER*MAX_SEND_LOOP_NUM
+
+struct retvaluestruct
+{
+	uint32_t  ret_value1;
+	uint32_t  ret_value2;
+	AT_STR_t   ret_string[MAX_STRING_RET];
+};
+#endif
+/* LGE_CHANGES_E [hoonylove004@lge.com] 2009-12-29, [VS740] */
+
 #define RPC_DATA_IN	0
 /*
  * Structures for sending / receiving direct RPC requests
@@ -90,6 +113,18 @@ typedef struct
 #define RPC_ACCEPTSTAT_GARBAGE_ARGS 4
 #define RPC_ACCEPTSTAT_SYSTEM_ERR 5
 #define RPC_ACCEPTSTAT_PROG_LOCKED 6
+
+/* LGE_CHANGES_S [hoonylove004@lge.com] 2009-12-29, [VS740] AT CMD */
+/* Factory AT CMD feature added based on EVE */
+#if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_ALOHAG) || \
+	defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_THUNDERG)
+#define RPC_RETURN_RESULT_ERROR    7
+#define RPC_RETURN_RESULT_OK     8
+#define RPC_RETURN_RESULT_MIDDLE_OK     9
+#endif /*LG_FW_ATS_ETA_MTC*/
+/* LGE_CHANGES_E [hoonylove004@lge.com] 2009-12-29, [VS740] */
+
+
 	/*
 	 * Following data is dependant on accept_stat
 	 * If ACCEPTSTAT == PROG_MISMATCH then there is a
@@ -97,6 +132,39 @@ typedef struct
 	 * Otherwise the data is procedure specific
 	 */
 } rpc_accepted_reply_hdr;
+
+/* LGE_CHANGES_S [hoonylove004@lge.com] 2009-12-29, [VS740] AT CMD */
+/* Factory AT CMD feature added based on EVE */
+#if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_ALOHAG) || \
+	defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_THUNDERG)
+typedef struct
+{
+	uint32_t verf_flavor;
+	uint32_t verf_length;
+	uint32_t accept_stat;
+#define RPC_ACCEPTSTAT_SUCCESS 0
+#define RPC_ACCEPTSTAT_PROG_UNAVAIL 1
+#define RPC_ACCEPTSTAT_PROG_MISMATCH 2
+#define RPC_ACCEPTSTAT_PROC_UNAVAIL 3
+#define RPC_ACCEPTSTAT_GARBAGE_ARGS 4
+#define RPC_ACCEPTSTAT_SYSTEM_ERR 5
+#define RPC_ACCEPTSTAT_PROG_LOCKED 6
+#define RPC_RETURN_RESULT_ERROR    7
+#define RPC_RETURN_RESULT_OK     8
+#define RPC_RETURN_RESULT_MIDDLE_OK 9
+
+struct retvaluestruct retvalues;
+	/*
+	 * Following data is dependant on accept_stat
+	 * If ACCEPTSTAT == PROG_MISMATCH then there is a
+	 * 'rpc_reply_progmismatch_data' structure following the header.
+	 * Otherwise the data is procedure specific
+	 */
+
+
+} rpc_accepted_AT_reply_hdr;
+#endif
+/* LGE_CHANGES_E [hoonylove004@lge.com] 2009-12-29, [VS740] */
 
 struct rpc_reply_hdr
 {
@@ -115,6 +183,22 @@ struct rpc_board_dev {
 	uint32_t prog;
 	struct platform_device pdev;
 };
+
+/* LGE_CHANGES_S [hoonylove004@lge.com] 2009-12-29, [VS740] AT CMD */
+/* Factory AT CMD feature added based on EVE */
+#if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_ALOHAG) || \
+	defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_THUNDERG)
+struct rpc_reply_AT_hdr
+{
+struct rpc_reply_hdr reply;
+	
+
+struct retvaluestruct retvalues;
+
+
+};
+#endif
+/* LGE_CHANGES_E [hoonylove004@lge.com] 2009-12-29, [VS740] */
 
 /* flags for msm_rpc_connect() */
 #define MSM_RPC_UNINTERRUPTIBLE 0x0001
@@ -213,8 +297,17 @@ struct msm_rpc_server
 			struct rpc_request_hdr *req, unsigned len);
 
 	int (*rpc_call2)(struct msm_rpc_server *server,
-			 struct rpc_request_hdr *req,
-			 struct msm_rpc_xdr *xdr);
+					 struct rpc_request_hdr *req,
+					 struct msm_rpc_xdr *xdr);
+
+	/* LGE_CHANGES_S [hoonylove004@lge.com] 2009-12-29, [VS740] AT CMD */
+	/* Factory AT CMD feature added based on EVE */
+#if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_ALOHAG) || \
+	defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_THUNDERG)
+	struct retvaluestruct  retvalue;
+#endif
+/* LGE_CHANGES_E [hoonylove004@lge.com] 2009-12-29, [VS740] */
+
 };
 
 int msm_rpc_create_server(struct msm_rpc_server *server);
