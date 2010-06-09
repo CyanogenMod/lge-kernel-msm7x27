@@ -5048,6 +5048,7 @@ err:
 }
 #endif /* BCMEMBEDIMAGE */
 
+static char temp_array[MEMBLOCK + DHD_SDALIGN];
 static int
 dhdsdio_download_code_file(struct dhd_bus *bus, char *fw_path)
 {
@@ -5057,7 +5058,7 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *fw_path)
 	void * image = NULL;
 	uint8 * memblock = NULL, * memptr;
 #ifdef DOWNLOAD_ARRAY
-	char temp_array[MEMBLOCK + DHD_SDALIGN];
+	//char temp_array[MEMBLOCK + DHD_SDALIGN];
 #endif
 	DHD_INFO(("%s: download firmware %s\n", __FUNCTION__, fw_path));
 
@@ -5179,7 +5180,7 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 	char *nv_path;
 	bool nvram_file_exists;
 #ifdef DOWNLOAD_ARRAY
-	char temp_array[MEMBLOCK];
+	//char temp_array[MEMBLOCK];
 #endif
 	nv_path = bus->nv_path;
 
@@ -5443,10 +5444,10 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 
 /* LGE_CHANGE_S, [yoohoo@lge.com], 2010-1-13, <ARP offload, Packet filter> */
 #if defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD) || defined(CONFIG_BRCM_LGE_WL_PKTFILTER)
+static char iovbuf[1024];
 int dhdsdio_setiovar(struct dhd_bus *bus, char *cmd, void *data, int size)
 {
 		int ret = 0;
-		char iovbuf[1024] = {0};
 		dhd_pub_t *dhd = NULL;
 		wl_ioctl_t ioc = {0};
 		int ioctl_len = 0;

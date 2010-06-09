@@ -61,6 +61,7 @@
 /*LGE_CHANGE_E, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
 #endif
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
+
 #define DRIVER_NAME "msm-sdcc"
 
 #define DBG(host, fmt, args...)	\
@@ -120,8 +121,11 @@ msmsdcc_print_status(struct msmsdcc_host *host, char *hdr, uint32_t status)
 	pr_debug("\n");
 }
 #endif
+
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, Support Host Wakeup */
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
+/* LGE_CHANGE_S [dongp.kim@lge.com] 2009-12-22, Support Host Wakeup */
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
 struct early_suspend dhdpm;
 EXPORT_SYMBOL(dhdpm);
 
@@ -415,17 +419,13 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 	nc = host->dma.nc;
 
 	if (host->pdev_id == 1)
-		crci = DMOV_SDC1_CRCI;
+		crci = MSMSDCC_CRCI_SDC1;
 	else if (host->pdev_id == 2)
-		crci = DMOV_SDC2_CRCI;
+		crci = MSMSDCC_CRCI_SDC2;
 	else if (host->pdev_id == 3)
-		crci = DMOV_SDC3_CRCI;
+		crci = MSMSDCC_CRCI_SDC3;
 	else if (host->pdev_id == 4)
-		crci = DMOV_SDC4_CRCI;
-#ifdef DMOV_SDC5_CRCI
-	else if (host->pdev_id == 5)
-		crci = DMOV_SDC5_CRCI;
-#endif
+		crci = MSMSDCC_CRCI_SDC4;
 	else {
 		host->dma.sg = NULL;
 		host->dma.num_ents = 0;
@@ -613,8 +613,7 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 
 		writel(host->curr.xfer_size, base + MMCIDATALENGTH);
 
-		writel((readl(host->base + MMCIMASK0) & (~(MCI_IRQ_PIO))) |
-				pio_irqmask, host->base + MMCIMASK0);
+		writel(pio_irqmask, base + MMCIMASK1);
 		msmsdcc_delay(host);	/* Allow parms to be applied */
 		writel(datactrl, base + MMCIDATACTRL);
 
@@ -678,9 +677,6 @@ msmsdcc_pio_read(struct msmsdcc_host *host, char *buffer, unsigned int remain)
 	uint32_t	*ptr = (uint32_t *) buffer;
 	int		count = 0;
 
-	if (remain % 4)
-		remain = ((remain >> 2) + 1) << 2;
-
 	while (readl(base + MMCISTATUS) & MCI_RXDATAAVLBL) {
 
 		*ptr = readl(base + MMCIFIFO + (count % MCI_FIFOSIZE));
@@ -702,14 +698,13 @@ msmsdcc_pio_write(struct msmsdcc_host *host, char *buffer,
 	char *ptr = buffer;
 
 	do {
-		unsigned int count, maxcnt, sz;
+		unsigned int count, maxcnt;
 
 		maxcnt = status & MCI_TXFIFOEMPTY ? MCI_FIFOSIZE :
 						    MCI_FIFOHALFSIZE;
 		count = min(remain, maxcnt);
 
-		sz = count % 4 ? (count >> 2) + 1 : (count >> 2);
-		writesl(base + MMCIFIFO, ptr, sz);
+		writesl(base + MMCIFIFO, ptr, count >> 2);
 		ptr += count;
 		remain -= count;
 
@@ -730,9 +725,6 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 	uint32_t		status;
 
 	status = readl(base + MMCISTATUS);
-	if (((readl(host->base + MMCIMASK0) & status) & (MCI_IRQ_PIO)) == 0)
-		return IRQ_NONE;
-
 #if IRQ_DEBUG
 	msmsdcc_print_status(host, "irq1-r", status);
 #endif
@@ -795,17 +787,14 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 	} while (1);
 
 	if (status & MCI_RXACTIVE && host->curr.xfer_remain < MCI_FIFOSIZE) {
-		writel((readl(host->base + MMCIMASK0) & (~(MCI_IRQ_PIO))) |
-				MCI_RXDATAAVLBLMASK, host->base + MMCIMASK0);
+		writel(MCI_RXDATAAVLBLMASK, base + MMCIMASK1);
 		if (!host->curr.xfer_remain) {
 			/* Delay needed (same port was just written) */
 			msmsdcc_delay(host);
-			writel((readl(host->base + MMCIMASK0) &
-				(~(MCI_IRQ_PIO))) | 0, host->base + MMCIMASK0);
+			writel(0, base + MMCIMASK1);
 		}
 	} else if (!host->curr.xfer_remain)
-		writel((readl(host->base + MMCIMASK0) & (~(MCI_IRQ_PIO))) | 0,
-				host->base + MMCIMASK0);
+		writel(0, base + MMCIMASK1);
 
 	spin_unlock(&host->lock);
 
@@ -1735,7 +1724,24 @@ msmsdcc_probe(struct platform_device *pdev)
 	register_early_suspend(&host->early_suspend);
 #endif
 
-	pr_info("%s: Qualcomm MSM SDCC at 0x%016llx irq %d,%d dma %d\n",
+	printk("%s: Qualcomm MSM SDCC at 0x%016llx irq %d,%d dma %d\n",
+	       mmc_hostname(mmc), (unsigned long long)memres->start,
+	       (unsigned int) irqres->start,
+	       (unsigned int) plat->status_irq, host->dma.channel);
+
+	printk("%s: 8 bit data mode %s\n", mmc_hostname(mmc),
+		(mmc->caps & MMC_CAP_8_BIT_DATA ? "enabled" : "disabled"));
+	printk("%s: 4 bit data mode %s\n", mmc_hostname(mmc),
+	       (mmc->caps & MMC_CAP_4_BIT_DATA ? "enabled" : "disabled"));
+	printk("%s: polling status mode %s\n", mmc_hostname(mmc),
+	       (mmc->caps & MMC_CAP_NEEDS_POLL ? "enabled" : "disabled"));
+	printk("%s: MMC clock %u -> %u Hz, PCLK %u Hz\n",
+	       mmc_hostname(mmc), msmsdcc_fmin, msmsdcc_fmax, host->pclk_rate);
+	printk("%s: Slot eject status = %d\n", mmc_hostname(mmc),
+	       host->eject);
+	printk("%s: Power save feature enable = %d\n",
+	       mmc_hostname(mmc), msmsdcc_pwrsave);
+	printk("%s: Qualcomm MSM SDCC at 0x%016llx irq %d,%d dma %d\n",
 	       mmc_hostname(mmc), (unsigned long long)memres->start,
 	       (unsigned int) irqres->start,
 	       (unsigned int) plat->status_irq, host->dma.channel);
@@ -1872,6 +1878,9 @@ msmsdcc_runtime_suspend(struct device *dev)
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
 	int rc = 0;
+/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24 */
+	printk(KERN_ERR "msmsdcc_suspend : start \n");
+/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24 */
 
 	if (mmc) {
 		host->sdcc_suspending = 1;
@@ -1897,8 +1906,9 @@ msmsdcc_runtime_suspend(struct device *dev)
 			rc = mmc_suspend_host(mmc);
 			pm_runtime_put_noidle(dev);
 		}
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24, <never sleep policy - host wakeup> */
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
+		/* LGE_CHANGE_S [dongp.kim@lge.com] 2009-12-22, Support Host Wakeup */
+		/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
 		//else if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
 		else if (host->plat->status_irq == gpio_to_irq(CONFIG_BCM4325_GPIO_WL_RESET)) {
 			if(dhdpm.suspend != NULL) {
@@ -1967,7 +1977,7 @@ msmsdcc_runtime_resume(struct device *dev)
 
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
 
-<<<<<<< HEAD:drivers/mmc/host/msm_sdcc.c
+/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */
 #if 0
 		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
 				!host->sdio_irq_disabled) {
@@ -1991,8 +2001,9 @@ msmsdcc_runtime_resume(struct device *dev)
 				mmc->card->type != MMC_TYPE_SDIO)
 			mmc_resume_host(mmc);
 
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24, <never sleep policy - host wakeup> */
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
+		/* LGE_CHANGE_S [dongp.kim@lge.com] 2009-12-22, Support Host Wakeup */
+		/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
 		//if ( mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
 		if (host->plat->status_irq == gpio_to_irq(CONFIG_BCM4325_GPIO_WL_RESET)) {
 			printk("%s: Enabling SDIO Interrupt \n", __FUNCTION__);

@@ -1990,6 +1990,8 @@ wl_iw_get_mode(
 	return 0;
 }
 
+static int channels1[MAXCHANNEL+1];
+
 static int
 wl_iw_get_range(
 	struct net_device *dev,
