@@ -89,7 +89,7 @@ enum {
 	BT_PCM_DIN      = 69,
 	BT_PCM_SYNC     = 70,
 	BT_PCM_CLK      = 71,
-	BT_HOST_WAKE    = 27,
+	BT_HOST_WAKE    = 83,
 	BT_RESET_N			= 123,
 };
 
