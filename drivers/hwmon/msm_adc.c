@@ -54,10 +54,9 @@ enum dal_error {
 	DAL_ERROR_REMOTE_EVENT_POOL_FULL
 };
 
-enum dal_request_status {
-	DAL_REQUEST_STATUS_PENDING,
-	DAL_REQUEST_STATUS_QUEUED,
-	DAL_REQUEST_STATUS_ERROR
+enum dal_result_status {
+	DAL_RESULT_STATUS_INVALID,
+	DAL_RESULT_STATUS_VALID
 };
 
 struct msm_client_data {
@@ -84,7 +83,7 @@ struct dal_conv_request {
 };
 
 struct dal_adc_result {
-	enum dal_request_status		status;
+	uint32_t			status;
 	uint32_t			token;
 	uint32_t			dev_idx;
 	uint32_t			chan_idx;
@@ -461,6 +460,7 @@ static int msm_adc_read_result(struct msm_adc_drv *msm_adc,
 {
 	struct dal_conv_slot *slot;
 	struct dal_conv_state *conv_s;
+	int rc = 0;
 
 	mutex_lock(&client->lock);
 
@@ -479,13 +479,16 @@ static int msm_adc_read_result(struct msm_adc_drv *msm_adc,
 	result->chan = slot->chan_idx;
 	result->result = slot->result.physical;
 
+	if (slot->result.status == DAL_RESULT_STATUS_INVALID)
+		rc = -ENODATA;
+
 	conv_s = container_of(slot, struct dal_conv_state,
 					      context[slot->idx]);
 
 	/* restore this slot to reserve */
 	msm_adc_restore_slot(conv_s, slot);
 
-	return 0;
+	return rc;
 }
 
 static long msm_adc_ioctl(struct file *file, unsigned int cmd,
@@ -680,6 +683,9 @@ static int msm_adc_blocking_conversion(struct msm_adc_drv *msm_adc,
 	}
 
 	*result = (uint32_t)slot->result.physical;
+
+	if (slot->result.status == DAL_RESULT_STATUS_INVALID)
+		rc = -ENODATA;
 
 blk_conv_err:
 	msm_adc_restore_slot(conv_s, slot);
