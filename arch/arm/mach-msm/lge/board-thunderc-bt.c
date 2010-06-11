@@ -77,13 +77,15 @@ static int thunderc_bluetooth_power(int on)
 				return -EIO;
 			}
 		}
-
+		gpio_set_value(23, 1);
+		mdelay(100);
 		gpio_set_value(BT_RESET_N, 0);
-		mdelay(15);
+		mdelay(100);
 		gpio_set_value(BT_RESET_N, 1);
-		mdelay(200);
+		mdelay(100);
 
 	} else {
+		gpio_set_value(23, 0);
 		gpio_set_value(BT_RESET_N, 0);
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_off); pin++) {
 			rc = gpio_tlmm_config(bt_config_power_off[pin],
