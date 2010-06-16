@@ -35,12 +35,18 @@
 #endif
 
 /* define PMEM address size */
-#define MSM_PMEM_MDP_SIZE      0x1C91000
+#define MSM_PMEM_MDP_SIZE      0x1700000
 #define MSM_PMEM_ADSP_SIZE     0xAE4000
-#define MSM_PMEM_AUDIO_SIZE    0x121000
+#define MSM_PMEM_AUDIO_SIZE    0x5B000
 #define MSM_FB_SIZE            0x177000
 #define MSM_GPU_PHYS_SIZE      SZ_2M
-#define PMEM_KERNEL_EBI1_SIZE  0x64000
+#define PMEM_KERNEL_EBI1_SIZE  0x1C000
+
+/* Using lower 1MB of OEMSBL memory for GPU_PHYS */
+#define MSM_GPU_PHYS_START_ADDR	 0xD600000ul
+
+/* Using upper 1/2MB of Apps Bootloader memory*/
+#define MSM_PMEM_AUDIO_START_ADDR	0x80000ul
 
 /* TA charger */
 #define GISELE_TA_CHG_CURRENT	600

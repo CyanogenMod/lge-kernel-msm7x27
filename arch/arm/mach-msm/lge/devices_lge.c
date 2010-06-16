@@ -258,7 +258,7 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.name = "pmem_adsp",
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 0,
+	.cached = 1,
 };
 
 static struct android_pmem_platform_data android_pmem_audio_pdata = {
@@ -319,28 +319,12 @@ static void __init pmem_adsp_size_setup(char **p)
 }
 __early_param("pmem_adsp_size=", pmem_adsp_size_setup);
 
-static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
-static void __init pmem_audio_size_setup(char **p)
-{
-	pmem_audio_size = memparse(*p, p);
-}
-__early_param("pmem_audio_size=", pmem_audio_size_setup);
-
 __WEAK unsigned pmem_fb_size = MSM_FB_SIZE;
 static void __init fb_size_setup(char **p)
 {
 	pmem_fb_size = memparse(*p, p);
 }
 __early_param("pmem_fb_size=", fb_size_setup);
-
-#ifdef CONFIG_ARCH_MSM7X27
-static unsigned gpu_phys_size = MSM_GPU_PHYS_SIZE;
-static void __init gpu_phys_size_setup(char **p)
-{
-	gpu_phys_size = memparse(*p, p);
-}
-__early_param("gpu_phys_size=", gpu_phys_size_setup);
-#endif
 
 void __init msm_msm7x2x_allocate_memory_regions(void)
 {
@@ -365,14 +349,12 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 				"pmem arena\n", size, addr, __pa(addr));
 	}
 
-	size = pmem_audio_size;
-	if (size) {
-		addr = alloc_bootmem(size);
-		android_pmem_audio_pdata.start = __pa(addr);
-		android_pmem_audio_pdata.size = size;
-		pr_info("allocating %lu bytes at %p (%lx physical) for audio "
-			"pmem arena\n", size, addr, __pa(addr));
-	}
+	size = MSM_PMEM_AUDIO_SIZE;
+	android_pmem_audio_pdata.start = MSM_PMEM_AUDIO_START_ADDR ;
+	android_pmem_audio_pdata.size = size;
+	pr_info("allocating %lu bytes (at %lx physical) for audio "
+		"pmem arena\n", size , MSM_PMEM_AUDIO_START_ADDR);
+	
 	size = pmem_fb_size ? : MSM_FB_SIZE;
 	addr = alloc_bootmem(size);
 	msm_fb_resources[0].start = __pa(addr);
@@ -389,13 +371,11 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 				" ebi1 pmem arena\n", size, addr, __pa(addr));
 	}
 #ifdef CONFIG_ARCH_MSM7X27
-	size = gpu_phys_size ? : MSM_GPU_PHYS_SIZE;
-	addr = alloc_bootmem(size);
-	kgsl_resources[1].start = __pa(addr);
+	size = MSM_GPU_PHYS_SIZE;
+	kgsl_resources[1].start = MSM_GPU_PHYS_START_ADDR ;
 	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
-	pr_info("allocating %lu bytes at %p (%lx physical) for KGSL\n",
-			size, addr, __pa(addr));
-
+	pr_info("allocating %lu bytes (at %lx physical) for KGSL\n",
+	size , MSM_GPU_PHYS_START_ADDR);
 #endif
 }
 
