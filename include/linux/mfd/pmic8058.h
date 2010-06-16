@@ -86,6 +86,7 @@
 #define PM8058_RTC_IRQ(base) 		((base) + PM8058_IRQ_BLOCK_BIT(6, 5))
 #define PM8058_RTC_ALARM_IRQ(base) 	((base) + PM8058_IRQ_BLOCK_BIT(4, 7))
 #define PM8058_ADC_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(9, 4))
+#define PM8058_TEMP_ALARM_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(6, 7))
 
 struct pm8058_chip;
 
