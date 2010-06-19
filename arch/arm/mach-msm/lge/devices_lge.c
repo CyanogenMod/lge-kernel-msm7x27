@@ -372,7 +372,8 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 	}
 #ifdef CONFIG_ARCH_MSM7X27
 	size = MSM_GPU_PHYS_SIZE;
-	kgsl_resources[1].start = MSM_GPU_PHYS_START_ADDR ;
+	addr = alloc_bootmem(size);
+	kgsl_resources[1].start = __pa(addr);
 	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
 	pr_info("allocating %lu bytes (at %lx physical) for KGSL\n",
 	size , MSM_GPU_PHYS_START_ADDR);
