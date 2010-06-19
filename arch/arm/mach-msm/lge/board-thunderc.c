@@ -256,6 +256,8 @@ static void __init msm7x2x_init(void)
 	if (socinfo_init() < 0)
 		BUG();
 
+	msm_clock_init(msm_clocks_7x27, msm_num_clocks_7x27);
+
 #if defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	msm_serial_debug_init(MSM_UART1_PHYS, INT_UART1,
 			&msm_device_uart1.dev, 1);
@@ -305,12 +307,6 @@ static void __init msm7x2x_init(void)
 static void __init msm7x2x_map_io(void)
 {
 	msm_map_common_io();
-	/* Technically dependent on the SoC but using machine_is
-	 * macros since socinfo is not available this early and there
-	 * are plans to restructure the code which will eliminate the
-	 * need for socinfo.
-	 */
-	msm_clock_init(msm_clocks_7x27, msm_num_clocks_7x27);
 
 	msm_msm7x2x_allocate_memory_regions();
 
