@@ -823,13 +823,15 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 
 	dprintk("start, client addr=0x%x\n", i2c_dev->addr);
 
+	pdata = i2c_dev->dev.platform_data;
+	if(!pdata)
+		return -EINVAL;
+		
 	drvdata = kzalloc(sizeof(struct aat28xx_driver_data), GFP_KERNEL);
 	if (!drvdata) {
 		dev_err(&i2c_dev->dev, "failed to allocate memory\n");
 		return -ENOMEM;
 	}
-
-	pdata = i2c_dev->dev.platform_data;
 
 	if (pdata && pdata->platform_init)
 		pdata->platform_init();
