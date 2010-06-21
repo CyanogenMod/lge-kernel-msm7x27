@@ -562,6 +562,7 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	host->curr.xfer_remain = host->curr.xfer_size;
 	host->curr.data_xfered = 0;
 	host->curr.got_dataend = 0;
+	host->curr.got_datablkend = 0;
 
 	memset(&host->pio, 0, sizeof(host->pio));
 
@@ -1352,6 +1353,22 @@ msmsdcc_init_dma(struct msmsdcc_host *host)
 	return 0;
 }
 
+#ifdef CONFIG_MMC_MSM7X00A_RESUME_IN_WQ
+static void
+do_resume_work(struct work_struct *work)
+{
+	struct msmsdcc_host *host =
+		container_of(work, struct msmsdcc_host, resume_task);
+	struct mmc_host	*mmc = host->mmc;
+
+	if (mmc) {
+		mmc_resume_host(mmc);
+		if (host->plat->status_irq)
+			enable_irq(host->plat->status_irq);
+	}
+}
+#endif
+
 static ssize_t
 show_polling(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -1525,6 +1542,9 @@ msmsdcc_probe(struct platform_device *pdev)
 					   plat->embedded_sdio->num_funcs);
 #endif
 
+#ifdef CONFIG_MMC_MSM7X00A_RESUME_IN_WQ
+	INIT_WORK(&host->resume_task, do_resume_work);
+#endif
 	tasklet_init(&host->dma_tlet, msmsdcc_dma_complete_tlet,
 			(unsigned long)host);
 
@@ -1582,7 +1602,7 @@ msmsdcc_probe(struct platform_device *pdev)
 		mmc->f_max = 24576000;
 		printk("%s : slot set f_max [%ld]\n",mmc_hostname(host->mmc),mmc->f_max);
 	}else{
-	mmc->f_max = plat->msmsdcc_fmax;
+		mmc->f_max = plat->msmsdcc_fmax;
 	}
 #endif	/* CONFIG_LGE_BCM432X_PATCH */
 	mmc->ocr_avail = plat->ocr_mask;
@@ -2125,8 +2145,50 @@ static void __exit msmsdcc_exit(void)
 #endif
 }
 
+#ifndef MODULE
+static int __init msmsdcc_pwrsave_setup(char *__unused)
+{
+	msmsdcc_pwrsave = 1;
+	return 1;
+}
+
+static int __init msmsdcc_nopwrsave_setup(char *__unused)
+{
+	msmsdcc_pwrsave = 0;
+	return 1;
+}
+
+
+static int __init msmsdcc_fmin_setup(char *str)
+{
+	unsigned int n;
+
+	if (!get_option(&str, &n))
+		return 0;
+	msmsdcc_fmin = n;
+	return 1;
+}
+
+static int __init msmsdcc_fmax_setup(char *str)
+{
+	unsigned int n;
+
+	if (!get_option(&str, &n))
+		return 0;
+	msmsdcc_fmax = n;
+	return 1;
+}
+#endif
+
+__setup("msmsdcc_pwrsave", msmsdcc_pwrsave_setup);
+__setup("msmsdcc_nopwrsave", msmsdcc_nopwrsave_setup);
+__setup("msmsdcc_fmin=", msmsdcc_fmin_setup);
+__setup("msmsdcc_fmax=", msmsdcc_fmax_setup);
+
 module_init(msmsdcc_init);
 module_exit(msmsdcc_exit);
+module_param(msmsdcc_fmin, uint, 0444);
+module_param(msmsdcc_fmax, uint, 0444);
 
 MODULE_DESCRIPTION("Qualcomm Multimedia Card Interface driver");
 MODULE_LICENSE("GPL");
