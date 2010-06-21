@@ -215,7 +215,7 @@ static int32_t isx005_i2c_read(unsigned short   saddr,
 
 static int isx005_reg_init(void)
 {
-	int rc;
+	int rc = 0;
 	int i;
 
 	/* Configure sensor for Initial setting (PLL, Clock, etc) */
@@ -228,15 +228,13 @@ static int isx005_reg_init(void)
 		if (rc < 0)
 			return rc;
 	}
-
-
 	
 	return rc;
 }
 
 static int isx005_reg_tuning(void)
 {
-	int rc;
+	int rc = 0;
 	int i;
 	
 	/* Configure sensor for various tuning */
@@ -255,7 +253,7 @@ static int isx005_reg_tuning(void)
 
 static int isx005_reg_preview(void)
 {
-	int rc;
+	int rc = 0;
 	int i;
 
 	/* Configure sensor for Preview mode */
@@ -274,7 +272,7 @@ static int isx005_reg_preview(void)
 
 static int isx005_reg_snapshot(void)
 {
-	int rc;
+	int rc = 0;
 	int i;
 
 	/* Configure sensor for Snapshot mode */
@@ -553,7 +551,7 @@ static int isx005_move_focus(int32_t steps)
 	/* check cm_changed_clr */
 	for(i = 0; i < 24; ++i) {
 		rc = isx005_i2c_read(isx005_client->addr,
-			0x00FC, &cm_changed_sts, BYTE_LEN);
+			0x00FC, &cm_changed_clr, BYTE_LEN);
 		if (rc < 0) {
 			printk(KERN_ERR "[ERROR]%s:fail in reading cm_changed_clr\n",
 				__func__);
@@ -1199,9 +1197,14 @@ static int isx005_init_sensor(const struct msm_camera_sensor_info *data)
 
 static int isx005_sensor_init_probe(const struct msm_camera_sensor_info *data)
 {
-	int rc;
+	int rc = 0;
 
 	CDBG("init entry \n");
+
+	if (data == 0) {
+		printk(KERN_ERR "[ERROR]%s: data is null!\n", __func__);
+		return -1;
+	}
 
 	rc = isx005_init_sensor(data);
 	if (rc < 0) {
