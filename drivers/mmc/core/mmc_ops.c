@@ -537,14 +537,18 @@ static int mmc_bustest_read(struct mmc_host *host,
 	cmd.arg = 0;
 	cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
 
-	data.blksz = 4; /* Generic blksz that works for 8 / 4 bit modes */
 	data.blocks = 1;
 	data.flags = MMC_DATA_READ;
 	data.sg = &sg;
 	data.sg_len = 1;
-	sg_init_one(&sg, test_pat, 4);
 
-	if (buswidth == MMC_BUS_WIDTH_1) {
+	if (buswidth == MMC_BUS_WIDTH_8) {
+		data.blksz = 8;
+		sg_init_one(&sg, test_pat, 8);
+	} else if (buswidth == MMC_BUS_WIDTH_4) {
+		data.blksz = 4;
+		sg_init_one(&sg, test_pat, 4);
+	} else {
 		data.blksz = 1;
 		sg_init_one(&sg, test_pat, 1);
 	}
