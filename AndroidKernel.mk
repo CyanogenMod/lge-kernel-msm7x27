@@ -38,7 +38,7 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(KERNEL_CONFIG)
 #LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24, <cp wireless.ko to system/lib/modules>
 	mkdir -p $(TARGET_OUT)/lib
 	mkdir -p $(KERNEL_MODULES_OUT) 
-	cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4325/wireless.ko $(KERNEL_MODULES_OUT)
+	-cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4325/wireless.ko $(KERNEL_MODULES_OUT)
 #LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24, <cp wireless.ko to system/lib/modules>
 
 kerneltags: $(KERNEL_OUT) $(KERNEL_CONFIG)
