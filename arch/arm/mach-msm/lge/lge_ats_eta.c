@@ -32,7 +32,6 @@ int base64_encode(char *, int, char *);
 extern int event_log_start(void);
 extern int event_log_end(void);
 
-
 int eta_execute(char *string)
 {
 	int ret;
@@ -190,15 +189,24 @@ int base64_encode(char *text, int numBytes, char *encodedText)
 
 void ats_mtc_send_key_log_to_eta(struct ats_mtc_key_log_type* p_ats_mtc_key_log)
 {
-	unsigned char *eta_cmd_buf = NULL;
-	unsigned char *eta_cmd_buf_encoded = NULL;
+	unsigned char *eta_cmd_buf;
+	unsigned char *eta_cmd_buf_encoded;
 	int index =0;
 	int lenb64 = 0;
 	int exec_result = 0;
 	unsigned long long eta_time_val = 0;
 	
 	eta_cmd_buf = kmalloc(sizeof(unsigned char)*50, GFP_KERNEL);
+	if(!eta_cmd_buf) {
+		printk(KERN_ERR "%s: Error in alloc memory!!\n", __func__);
+		return;
+	}
 	eta_cmd_buf_encoded = kmalloc(sizeof(unsigned char)*50, GFP_KERNEL);
+	if(!eta_cmd_buf_encoded) {
+		printk(KERN_ERR "%s: Error in alloc memory!!\n", __func__);
+		kfree(eta_cmd_buf);
+		return;
+	}
 	memset(eta_cmd_buf,0x00, 50);
 	memset(eta_cmd_buf_encoded,0x00, 50);
 				
@@ -351,11 +359,16 @@ uint32_t at_cmd,at_act;
 			encoded_params = temp;
 */		
 			decoded_params = kmalloc(sizeof(char)*totalBufferSize, GFP_KERNEL);
+			if(!decoded_params) {
+				printk(KERN_ERR "%s: Insufficent memory!!!\n", __func__);
+				result = HANDLE_ERROR;
+				break;
+			}
 			printk(KERN_INFO "[ETA] encoded_addr: 0x%X, decoded_addr: 0x%X, size: %d\n",  (unsigned int)totalBuffer, (unsigned int)decoded_params, sizeof(char)*totalBufferSize);
 			
 			len_b64 = base64_decode((char *)totalBuffer, (unsigned char *)decoded_params, totalBufferSize);
 			printk(KERN_INFO "[ETA] sub cmd: 0x%X, param1: 0x%X, param2: 0x%X (length = %d)\n",  
-			decoded_params[1], decoded_params[2], decoded_params[3], strlen((const char *)decoded_params));
+			decoded_params[1], decoded_params[2], decoded_params[3], strlen(decoded_params));
 
 			switch(decoded_params[1]) 
 			{
@@ -408,10 +421,7 @@ uint32_t at_cmd,at_act;
 	}
 
 	/* give to RPC server result */
-	for(loop = 0; loop < MAX_STRING_RET ; loop++)
-	{
-		server->retvalue.ret_string[loop]= (AT_STR_t)(ret_string[loop]);
-	}
+	strncpy(server->retvalue.ret_string, ret_string, MAX_STRING_RET);
 	server->retvalue.ret_string[MAX_STRING_RET-1] = 0;
 	server->retvalue.ret_value1 = ret_value1;
 	server->retvalue.ret_value2 = ret_value2;

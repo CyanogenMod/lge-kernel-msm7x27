@@ -73,7 +73,7 @@ PACK (void *)LGF_TestMode (
   }
 
   if( func_ptr != NULL)
-    rsp_ptr = func_ptr( &(req_ptr->test_mode_req), rsp_ptr);
+    return func_ptr( &(req_ptr->test_mode_req), rsp_ptr);
   else
     send_to_arm9((void*)req_ptr, (void*)rsp_ptr);
 
@@ -250,7 +250,7 @@ int count_key_buf = 0;
 boolean lgf_factor_key_test_rsp (char key_code)
 {
     /* sanity check */
-    if (count_key_buf>MAX_KEY_BUFF_SIZE)
+    if (count_key_buf>=MAX_KEY_BUFF_SIZE)
         return FALSE;
 
     key_buf[count_key_buf++] = key_code;
@@ -325,30 +325,35 @@ char external_memory_copy_test(void)
 		goto file_fail;
 	}
 
-	src = kmalloc(10, GFP_KERNEL);
-	sprintf(src,"TEST");
-	if((sys_write(fd, (const char __user *) src, 5)) < 0)
+	if (src = kmalloc(10, GFP_KERNEL))
 	{
-		printk(KERN_ERR "[ATCMD_EMT] Can not write SD card \n");
-		goto file_fail;
+		sprintf(src,"TEST");
+		if ((sys_write(fd, (const char __user *) src, 5)) < 0)
+		{
+			printk(KERN_ERR "[ATCMD_EMT] Can not write SD card \n");
+			goto file_fail;
+		}
+		fd_offset = sys_lseek(fd, 0, 0);
 	}
-	fd_offset = sys_lseek(fd, 0, 0);
-
-	dest = kmalloc(10, GFP_KERNEL);
-	if((sys_read(fd, (char __user *) dest, 5)) < 0)
+	if (dest = kmalloc(10, GFP_KERNEL))
 	{
-		printk(KERN_ERR "[ATCMD_EMT]Can not read SD card \n");
-		goto file_fail;
+		if ((sys_read(fd, (char __user *) dest, 5)) < 0)
+		{
+			printk(KERN_ERR "[ATCMD_EMT]Can not read SD card \n");
+			goto file_fail;
+		}
+		if ((memcmp(src, dest, 4)) == 0)
+			return_value = 0;
+		else
+			return_value = 1;
 	}
-	if ((memcmp(src, dest, 4)) == 0)
-		return_value = 0;
-	else
-		return_value = 1;
 
 	file_fail:
 	sys_close(fd);
     set_fs(old_fs);
 	sys_unlink((const char __user *)"/sdcard/SDTest.txt");
+	kfree(src);
+	kfree(dest);
 	return return_value;
 }
 
@@ -813,7 +818,6 @@ testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE] =
 
 	/* 46 ~ 50 */
 	{ TEST_MODE_MRD_USB_TEST,             NULL,                     ARM9_PROCESSOR },
-	{ TEST_MODE_TEST_SCRIPT_MODE,         NULL,                     ARM9_PROCESSOR },
 	{ TEST_MODE_PROXIMITY_SENSOR_TEST,    linux_app_handler,        ARM11_PROCESSOR },
 	{ TEST_MODE_TEST_SCRIPT_MODE,         LGF_TestScriptItemSet,    ARM11_PROCESSOR },
 	

@@ -393,6 +393,9 @@ Don't change previous defines and add new id at the end
 /* Send Optimized F3 messages */
 #define DIAG_QSR_EXT_MSG_TERSE_F   146
 
+/* LGE_CHANGES_S [minjong.gong@lge.com] 2010-06-11, LG_FW_DIAG_SCREEN_CAPTURE */
+#define DIAG_LGF_SCREEN_SHOT_F     150
+/* LGE_CHANGES_E [minjong.gong@lge.com] 2010-06-11, LG_FW_DIAG_SCREEN_CAPTURE */
 /* Number of packets defined. */
 #define DIAG_TEST_MODE_F          250  
 #define DIAG_LCD_Q_TEST_F         253

@@ -39,9 +39,7 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 	printk(KERN_INFO "%s: at_cmd = %d, at_act=%d, at_param=%d:\n",
 		   __func__, args->at_cmd, args->at_act,args->at_param);
 
-#ifdef USE_REPLY_RETSTRING
 	memset(server->retvalue.ret_string, 0, sizeof(server->retvalue.ret_string));
-#endif
 
 	memset (ret_string, 0, sizeof(ret_string));
 
@@ -95,10 +93,7 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 	}
 
 	 /* give to RPC server result */
-	for(loop = 0; loop < MAX_STRING_RET ; loop++)
-	{
-		server->retvalue.ret_string[loop]= (AT_STR_t)(ret_string[loop]);
-	}                     
+	strncpy(server->retvalue.ret_string, ret_string, MAX_STRING_RET);
 	server->retvalue.ret_string[MAX_STRING_RET-1] = 0;
 	server->retvalue.ret_value1 = ret_value1;
 	server->retvalue.ret_value2 = ret_value2;

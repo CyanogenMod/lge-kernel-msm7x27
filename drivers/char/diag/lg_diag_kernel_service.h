@@ -105,7 +105,13 @@ typedef struct
   unsigned int size;        /* Size of usable buffer (diagpkt_q_type->pkt) */
   unsigned int length;      /* Size of packet */
 
+/* LGE_CHANGES_S [kyuhyung.lee@lge.com] 2010-02-08, LG_FW_DIAG_SCREEN_CAPTURE */
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_DIAG_SCREEN_CAPTURE) || defined (LG_FW_MTC)
+  byte pkt[4096];               /*LG_FW size up*/
+#else
   byte pkt[1024];               /* Sized by 'length' field. */
+#endif
+/* LGE_CHANGES_E [kyuhyung.lee@lge.com] 2010-02-08, LG_FW_DIAG_SCREEN_CAPTURE */
 } diagpkt_rsp_type;
 
 typedef void (*diag_cmd_rsp) (const byte *rsp, unsigned int length, void *param);

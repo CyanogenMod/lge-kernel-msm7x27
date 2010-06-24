@@ -48,7 +48,12 @@ MODULE_VERSION("1.0");
 struct diagchar_dev *driver;
 /* The following variables can be specified by module options */
  /* for copy buffer */
+/* LG_FW khlee 2010.01.29 - screen capture needs large heap ( lg_diag_screen_capture.c)*/
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_DIAG_SCREEN_CAPTURE) || defined (LG_FW_MTC)
+static unsigned int itemsize = 4096; /*Size of item in the mempool */
+#else
 static unsigned int itemsize = 2048; /*Size of item in the mempool */
+#endif
 static unsigned int poolsize = 10; /*Number of items in the mempool */
 /* for hdlc buffer */
 static unsigned int itemsize_hdlc = 8192; /*Size of item in the mempool */

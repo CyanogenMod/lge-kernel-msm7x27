@@ -23,12 +23,20 @@
 
 PACK (void *)LGF_TestMode (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
 PACK (void *)LGF_LcdQTest (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
+PACK (void *)LGF_KeyPress (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
+/* LGE_CHANGE_S [minjong.gong@lge.com] 2010-06-11. UTS Test */
+PACK (void *)LGF_ScreenShot (PACK (void	*)req_pkt_ptr, uint16		pkt_len ); 
+/* LGE_CHANGE_E [minjong.gong@lge.com] 2010-06-11. UTS Test */
 void diagpkt_commit (PACK(void *)pkt);
 
 static const diagpkt_user_table_entry_type registration_table[] =
 { /* subsys cmd low, subsys cmd code high, call back function */
 	{DIAG_TEST_MODE_F, DIAG_TEST_MODE_F, LGF_TestMode},
 	{DIAG_LCD_Q_TEST_F, DIAG_LCD_Q_TEST_F, LGF_LcdQTest},
+	{DIAG_HS_KEY_F,DIAG_HS_KEY_F,LGF_KeyPress},
+/* LGE_CHANGE_S [minjong.gong@lge.com] 2010-06-11. UTS Test */
+	{DIAG_LGF_SCREEN_SHOT_F , DIAG_LGF_SCREEN_SHOT_F , LGF_ScreenShot },
+/* LGE_CHANGE_E [minjong.gong@lge.com] 2010-06-11. UTS Test */
 };
 
 /* This is the user dispatch table. */
@@ -518,10 +526,20 @@ static int diagchar_write( const char *buf, size_t count)
 		driver->usb_write_ptr_svc = (struct diag_request *)
 			(diagmem_alloc(driver, sizeof(struct diag_request),
 				POOL_TYPE_USB_STRUCT));
+		/* LGE_CHANGE
+		 * protect to fail to allocation, for WBT
+		 * 2010-06-14, taehung.kim@lge.com
+		 */
+		if(!driver->usb_write_ptr_svc) {
+			diagmem_free(driver,buf_hdlc,POOL_TYPE_HDLC);
+			ret = -ENOMEM;
+			goto fail_free_hdlc;
+		}
 		driver->usb_write_ptr_svc->buf = buf_hdlc;
 		driver->usb_write_ptr_svc->length = driver->used;
 		err = diag_write(driver->usb_write_ptr_svc);
 		if (err) {
+			diagmem_free(driver, driver->usb_write_ptr_svc, POOL_TYPE_USB_STRUCT);
 			/*Free the buffer right away if write failed */
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 			ret = -EIO;
@@ -541,7 +559,15 @@ static int diagchar_write( const char *buf, size_t count)
 	}
 
 	enc.dest = buf_hdlc + driver->used;
+// LG_FW khlee 2010.02.01 - to support screen capture, In that case, it has too many 'ESC_CHAR'
+/* LGE_CHANGES_S [kyuhyung.lee@lge.com] - #ifdef LG_FW_DIAG_SCREEN_CAPTURE*/
+	enc.dest_last = (void *)(buf_hdlc + HDLC_OUT_BUF_SIZE -1);
+
+/* LG_CHANGES_E -#else*/
+/*LGE_COMMENT_OUT
 	enc.dest_last = (void *)(buf_hdlc + driver->used + payload_size + 7);
+#endif
+*/
 	diag_hdlc_encode(&send, &enc);
 
 #ifdef LG_DIAG_DEBUG
@@ -567,6 +593,7 @@ static int diagchar_write( const char *buf, size_t count)
 		driver->usb_write_ptr_svc->length = driver->used;
 		err = diag_write(driver->usb_write_ptr_svc);
 		if (err) {
+			diagmem_free(driver, driver->usb_write_ptr_svc, POOL_TYPE_USB_STRUCT);
 			/*Free the buffer right away if write failed */
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 			ret = -EIO;
@@ -608,6 +635,7 @@ static int diagchar_write( const char *buf, size_t count)
 		driver->usb_write_ptr_svc->length = driver->used;
 		err = diag_write(driver->usb_write_ptr_svc);
 		if (err) {
+			diagmem_free(driver, driver->usb_write_ptr_svc, POOL_TYPE_USB_STRUCT);
 			/*Free the buffer right away if write failed */
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 			ret = -EIO;

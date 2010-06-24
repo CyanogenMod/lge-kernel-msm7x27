@@ -26,6 +26,12 @@
 
 static struct input_dev *ats_input_dev;
 
+/* add interface get ATS_INPUT_DEVICE [younchan.kim, 2010-06-11] */
+struct input_dev *get_ats_input_dev(void)
+{
+	return ats_input_dev;
+}
+EXPORT_SYMBOL(get_ats_input_dev);
 static int  __init ats_input_probe(struct platform_device *pdev)
 {
 	int rc = 0;
