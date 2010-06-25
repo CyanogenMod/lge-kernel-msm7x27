@@ -32,17 +32,9 @@
 #include <asm/uaccess.h>
 #include <linux/miscdevice.h>
 #include "touch_mcs6000_down_ioctl.h"
+#include "touch_mcs6000_ioctl.h"
 #include <linux/i2c-gpio.h>
 #include <mach/board_lge.h>
-
-#ifdef CONFIG_LGE_DIAGTEST
-#include <mach/lge_diag_test.h>
-#endif
-
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-03, LG_FW_ATS_ETA_MTC_KEY_LOGGING */
-#include <linux/lge_alohag_at.h>
-#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -121,33 +113,33 @@ enum{
 	MAX_KEY_TOUCH
 };
 
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-03, LG_FW_ATS_ETA_MTC_KEY_LOGGING */
-extern unsigned long int ats_mtc_log_mask;
-
-//ACTION filed information
-typedef enum{
-	ETA_TOUCH_MOVETO = 0, /*Move the pointer to the specified location*/
-	ETA_TOUCH_MOVEBY = 1, /*Move the pointer by the specified values*/
-	ETA_TOUCH_TAB = 2, /*Tab at the current location*/
-	ETA_TOUCH_DOUBLETAB = 3, /*Double tab at the current location*/
-	ETA_TOUCH_DOWN = 4, /*Touch down at the current location*/
-	ETA_TOUCH_UP = 5, /*Touch up at the current location*/
-	ETA_TOUCH_DEFAULT = 0xff,
-}eta_touch_event_action_type;
-
-static char eta_prev_action = ETA_TOUCH_DEFAULT;
-
-// LG_FW : 2010.01.22 hoonylove004 -------------------------------------------
-//extern struct ats_mtc_key_log_type ats_mtc_key_log;
-struct ats_mtc_key_log_type ats_mtc_key_log;
-void ats_mtc_send_key_log_to_eta(struct ats_mtc_key_log_type* p_ats_mtc_key_log);
-// ---------------------------------------------------------------------------
-
-static char ats_mtc_key_state = 0; // 0 : release, 1 : press
-
-/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-03, LG_FW_ATS_ETA_MTC_KEY_LOGGING */
+/* LGE_CHANGE_S [kyuhyung.lee@lge.com] 2010.02.23 : to support touch event from UTS*/
+/* [FIXME temporary code] copy form VS740 by younchan.kim 2010-06-11 */
+void Send_Touch( unsigned int x, unsigned int y)
+{
+#ifdef LG_FW_MULTI_TOUCH
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_TOUCH_MAJOR, 1);
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_X, x);
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
+	input_mt_sync(mcs6000_ts_dev.input_dev);
+	input_sync(mcs6000_ts_dev.input_dev);
+	
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_TOUCH_MAJOR, 0);
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_X, x);
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
+	input_mt_sync(mcs6000_ts_dev.input_dev);
+	input_sync(mcs6000_ts_dev.input_dev);
+#else
+	mcs6000_ts_event_touch( x, y , &mcs6000_ts_dev) ;
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_X, x);
+	input_report_abs(mcs6000_ts_dev.input_dev, ABS_Y, y);
+	input_report_key(mcs6000_ts_dev.input_dev, BTN_TOUCH, 0);
+	input_sync(mcs6000_ts_dev.input_dev);
 #endif
+}
+EXPORT_SYMBOL(Send_Touch);
+/* LGE_CHANGE_E [kyuhyung.lee@lge.com] 2010.02.23 */
+/* copy form VS740 by younchan.kim 2010-06-11 */
 
 static __inline void mcs6000_key_event_touch(int touch_reg,  int value,  struct mcs6000_ts_device *dev)
 {
@@ -176,27 +168,6 @@ static __inline void mcs6000_key_event_touch(int touch_reg,  int value,  struct 
 
 	DMSG("%s Touch Key Code %d, Value %d\n", __FUNCTION__, keycode, value);
 
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-	/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-03, LG_FW_ATS_ETA_MTC_KEY_LOGGING */
-	if((ats_mtc_log_mask&0x00000001) != 0)//ETA_LOGITEM_KEY
-	{	
-		ats_mtc_key_log.log_id = 1; //LOG_ID, 1 key, 2 touch
-		ats_mtc_key_log.log_len = 18; //LOG_LEN
-		ats_mtc_key_log.x_hold = value; // hold
-		if(touch_reg == KEY1_TOUCHED)
-			ats_mtc_key_log.y_code = KEY_SEARCH;
-		else if(touch_reg == KEY3_TOUCHED)
-			ats_mtc_key_log.y_code = KEY_BACK;
-
-		if(ats_mtc_key_state != value)
-		{
-			ats_mtc_send_key_log_to_eta(&ats_mtc_key_log);
-			ats_mtc_key_state = value;
-		}
-
-	}
-	/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-03, LG_FW_ATS_ETA_MTC_KEY_LOGGING */
-#endif
 	return;
 }
 
@@ -262,153 +233,6 @@ static __inline void mcs6000_single_ts_event_release(struct mcs6000_ts_device *d
 }
 #endif /* end of LG_FW_MULTI_TOUCH */
 
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-static __inline void ats_eta_mtc_key_logging (int pendown, int x1, int y1, int x2, int y2)
-{
-	ats_mtc_key_log.log_id = 2; //LOG_ID, 1 key, 2 touch
-	ats_mtc_key_log.log_len = 22; //LOG_LEN
-
-	if (!pendown) // release
-	{
-		ats_mtc_key_log.action = (unsigned char)ETA_TOUCH_UP;
-		eta_prev_action = ETA_TOUCH_UP;
-	}
-	else // down
-	{
-		if(eta_prev_action == ETA_TOUCH_DOWN)
-		{
-			ats_mtc_key_log.action = (unsigned char)ETA_TOUCH_MOVETO;
-			/*
-			  			if(g_diag_mtc_check == 1)
-			 			mdelay(50); // do not need to response all move to events
-			 */
-		}
-		else
-			ats_mtc_key_log.action = (unsigned char)ETA_TOUCH_DOWN;
-		eta_prev_action = ETA_TOUCH_DOWN;
-	}
-
-#ifdef LG_FW_MULTI_TOUCH
-	if((x2 > 0) && (y2 >0 )) // multi touch
-	{
-		ats_mtc_key_log.x_hold = x2;
-		ats_mtc_key_log.y_code = y2;
-	}
-	else
-	{
-		ats_mtc_key_log.x_hold = x1;
-		ats_mtc_key_log.y_code = y1;
-	}
-#else /*#ifdef LG_FW_MULTI_TOUCH*/
-		ats_mtc_key_log.x_hold = x1;
-		ats_mtc_key_log.y_code = y1;
-#endif /*#ifdef LG_FW_MULTI_TOUCH*/
-
-	printk(KERN_INFO "[ETA] TOUCH X : %d, Y : %d \n", ats_mtc_key_log.x_hold, ats_mtc_key_log.y_code);
-	ats_mtc_send_key_log_to_eta(&ats_mtc_key_log);
-}
-#endif
-
-// LG_FW : 2010.01.06 hoonylove004 -------------------------------------------
-
-#ifdef CONFIG_LGE_DIAGTEST
-
-/*	27 bytes for key log -> will be encoded to ?? byte (base64)
-	CMD_CODE		1 (0xF0)
-	SUB_CMD 		1 (0x08)
-	LOG_ID			1 (1 key, 2 touch)
-	LOG_LEN 		2 (data length in bytes)
-	LOG_DATA		LOG_LEN = 22
-	- TIME		8 (timestamp in milliseconds)
-	- SCREEN_ID 1
-	- ACTION	1 (Touch-action Type)
-	- X 			2 (Absolute X Coordinate)
-	- Y 			2 (Absolute Y Coordinate)
-	- ACTIVE_UIID 8 (Activated UI ID)
-*/
-static __inline void ats_eta_mtc_key_logging (int pendown, int x1, int y1, int x2, int y2)
-{
-	unsigned char *eta_cmd_buf = NULL;
-	unsigned char *eta_cmd_buf_encoded = NULL;
-	int index =0;
-	int lenb64 = 0;
-	int exec_result = 0;
-
-	if((ats_mtc_log_mask&0x00000002) != 0) // LOGITEM_TOUCHPAD
-	{
-		eta_cmd_buf = kmalloc(sizeof(unsigned char)*50, GFP_KERNEL);
-		eta_cmd_buf_encoded = kmalloc(sizeof(unsigned char)*50, GFP_KERNEL);
-		memset(eta_cmd_buf,0x00, 50);
-		memset(eta_cmd_buf_encoded,0x00, 50);
-
-		index = 0;
-		eta_cmd_buf[index++] = (unsigned char)0xF0; //MTC_CMD_CODE
-		eta_cmd_buf[index++] = (unsigned char)0x08; //MTC_LOG_REQ_CMD
-		eta_cmd_buf[index++] = (unsigned char)2; //LOG_ID, 1 key, 2 touch
-		eta_cmd_buf[index++] = (unsigned char)22; //LOG_LEN
-		eta_cmd_buf[index++] = (unsigned char)0; //LOG_LEN
-		//LOG_DATA 22bytes
-		for(index = 5; index<27; index++)
-		{
-			eta_cmd_buf[index] = 0;
-		}
-
-		index = 13;
-		eta_cmd_buf[index++] = (unsigned char)1; // MAIN LCD
-
-/*	ACTION filed information
-	MOVETO		0
-	MOVEBY		1
-	TAB			2
-	DOUBLETAB	3
-	DOWN		4
-	UP			5
-*/
-		if (!pendown) // release
-			eta_cmd_buf[index++] = (unsigned char)5;
-		else
-			eta_cmd_buf[index++] = (unsigned char)4; // touch
-
-		eta_cmd_buf[index++] = (unsigned char)(x1&0xFF);// index = 15
-		eta_cmd_buf[index++] = (unsigned char)((x1>>8)&0xFF);// index = 16
-
-		eta_cmd_buf[index++] = (unsigned char)(y1&0xFF);// index = 17
-		eta_cmd_buf[index++] = (unsigned char)((y1>>8)&0xFF);// index = 18
-
-		printk(KERN_INFO "[ETA] TOUCH X : %d, Y : %d \n", x1, y1);
-
-		lenb64 = base64_encode((char *)eta_cmd_buf, index, (char *)eta_cmd_buf_encoded);
-
-		exec_result = eta_execute(eta_cmd_buf_encoded);
-		printk(KERN_INFO "[ETA]AT+MTC exec_result %d\n",exec_result);
-
-#ifdef LG_FW_MULTI_TOUCH
-		if((x2 >= 0) && (y2 >= 0))
-		{
-			eta_cmd_buf[index++] = (unsigned char)(x2&0xFF);// index = 15
-			eta_cmd_buf[index++] = (unsigned char)((x2>>8)&0xFF);// index = 16
-
-			eta_cmd_buf[index++] = (unsigned char)(y2&0xFF);// index = 17
-			eta_cmd_buf[index++] = (unsigned char)((y2>>8)&0xFF);// index = 18
-
-			printk(KERN_INFO "[ETA] DOUAL TOUCH X2 : %d, Y2 : %d \n", x2, y2);
-
-			lenb64 = base64_encode((char *)eta_cmd_buf, index, (char *)eta_cmd_buf_encoded);
-
-			exec_result = eta_execute(eta_cmd_buf_encoded);
-			printk(KERN_INFO "[ETA]AT+MTC exec_result %d\n",exec_result);
-		}
-#endif /*LG_FW_MULTI_TOUCH*/
-
-		kfree(eta_cmd_buf);
-		kfree(eta_cmd_buf_encoded);				
-	}
-}
- 
-#endif /*CONFIG_LGE_DIAGTEST*/
-// ---------------------------------------------------------------------------
-
-
 #define to_delayed_work(_work)  container_of(_work, struct delayed_work, work)
 
 static void mcs6000_work(struct work_struct *work)
@@ -425,10 +249,6 @@ static void mcs6000_work(struct work_struct *work)
 
 	static int key_pressed = 0;
 	static int touch_pressed = 0;
-	
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-	int touch_state_eta = -1  ;  /* 0 is touch , 1 is key */
-#endif
 
 	struct mcs6000_ts_device *dev 
 		= container_of(to_delayed_work(work), struct mcs6000_ts_device, work);
@@ -468,9 +288,6 @@ static void mcs6000_work(struct work_struct *work)
 		if(key_touch) {
 			mcs6000_key_event_touch(key_touch, PRESSED, dev);
 			key_pressed = key_touch;
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-			touch_state_eta = 1  ;  /* 0 is touch , 1 is key */
-#endif
 		}
 
 		if(input_type) {
@@ -480,13 +297,7 @@ static void mcs6000_work(struct work_struct *work)
 			if(key_pressed) {
 				mcs6000_key_event_touch(key_pressed, RELEASED, dev);
 				key_pressed = 0;
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-				touch_state_eta = 1  ;  /* 0 is touch , 1 is key */
-#endif
 			}
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-			touch_state_eta = 0  ;  /* 0 is touch , 1 is key */
-#endif
 #ifdef LG_FW_MULTI_TOUCH
 			if(input_type == MULTI_POINT_TOUCH) {
 				mcs6000_multi_ts_event_touch(x1, y1, x2, y2, PRESSED, dev);
@@ -505,19 +316,14 @@ static void mcs6000_work(struct work_struct *work)
 			}
 #endif				
 		}
-	} else { /* touch released case */
+	} 
+	else { /* touch released case */
 		if(key_pressed) {
 			mcs6000_key_event_touch(key_pressed, RELEASED, dev);
 			key_pressed = 0;
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-			touch_state_eta = 1  ;  /* 0 is touch , 1 is key */
-#endif
 		}
 
 		if(touch_pressed) {
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
-			touch_state_eta = 0  ;  /* 0 is touch , 1 is key */
-#endif
 #ifdef LG_FW_MULTI_TOUCH
 			if(s_input_type == MULTI_POINT_TOUCH) {
 				DMSG("%s: multi touch release...(%d, %d), (%d, %d)\n", __FUNCTION__,pre_x1,pre_y1,pre_x2,pre_y2);
@@ -535,24 +341,6 @@ static void mcs6000_work(struct work_struct *work)
 #endif
 		}
 	}
-
-#if defined (CONFIG_LGE_DIAGTEST) 
-#ifdef LG_FW_MULTI_TOUCH
-	ats_eta_mtc_key_logging(dev->pendown, x1, y1, x2, y2); /* Multi Touch */
-#else
-	ats_eta_mtc_key_logging(dev->pendown, x1, y1, -1, -1); /* Single Touch */
-#endif
-#endif
-
-#if defined (CONFIG_LGE_TOUCH_RECORDING)
- 	if( (touch_state_eta ==0 )&& ((ats_mtc_log_mask&0x00000002) != 0))   {
-#ifdef LG_FW_MULTI_TOUCH
-	ats_eta_mtc_key_logging(dev->pendown, x1, y1, x2, y2); /* Multi Touch */
-#else
-	ats_eta_mtc_key_logging(dev->pendown, x1, y1, -1, -1); /* Single Touch */
-#endif
-	}
-#endif
 
 touch_retry:
 	if (dev->pendown) {
@@ -603,9 +391,10 @@ void mcs6000_firmware_info(void)
 	msleep(200);
 	data = i2c_smbus_read_byte_data(dev->client, MCS6000_TS_FW_VERSION);
 	printk(KERN_INFO "MCS6000 F/W Version [0x%x]\n", data);
-
+	dev->input_dev->id.version = data;
 	data = i2c_smbus_read_byte_data(dev->client, MCS6000_TS_HW_REVISION);
 	printk(KERN_INFO "MCS6000 H/W Revision [0x%x]\n", data);
+	dev->input_dev->id.product= data ;
 }
 
 static __inline int mcs6000_ts_ioctl_down_i2c_write(unsigned char addr,
@@ -773,6 +562,17 @@ static int mcs6000_ts_ioctl(struct inode *inode, struct file *flip,
 	switch (_IOC_TYPE(cmd)) {
 		case MCS6000_TS_DOWN_IOCTL_MAGIC:
 			err = mcs6000_ts_ioctl_down(inode, flip, cmd, arg);
+			break;
+		case MCS6000_TS_IOCTL_MAGIC :
+			switch(cmd){
+				case MCS6000_TS_IOCTL_FW_VER:
+					mcs6000_firmware_info();
+					err = mcs6000_ts_dev.input_dev->id.version;
+					break;
+				case MCS6000_TS_IOCTL_MAIN_ON:
+				case MCS6000_TS_IOCTL_MAIN_OFF:
+					break;
+			}
 			break;
 		default:
 			printk(KERN_ERR "%s unknow ioctl\n", __FUNCTION__);
