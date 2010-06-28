@@ -175,7 +175,25 @@ static void pmic_mpp_isink_set(struct led_classdev *led_cdev,
 			PM_MPP__I_SINK__LEVEL_20mA, (enum mpp_i_sink_switch)on_off);
 }
 
+static void button_backlight_set(struct led_classdev* led_cdev, enum led_brightness value)
+{
+	int i;
+	int mpp_number;
+	int on_off;
+
+	if(value == 0)
+		on_off = (int)PM_MPP__I_SINK__SWITCH_DIS;
+	else
+		on_off = (int)PM_MPP__I_SINK__SWITCH_ENA;
+
+	mpp_number = (int)PM_MPP_19;
+	for(i=0; i<4; i++){
+		pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,PM_MPP__I_SINK__LEVEL_20mA, (enum mpp_i_sink_switch)on_off);
+		mpp_number++;
+	}
+}
 struct led_classdev thunderc_custom_leds[] = {
+	#if 0
 	{
 		.name = "red",
 		.brightness_set = pmic_mpp_isink_set,
@@ -191,6 +209,13 @@ struct led_classdev thunderc_custom_leds[] = {
 		.brightness_set = pmic_mpp_isink_set,
 		.brightness = LED_OFF,
 	},
+	#else
+	{
+		.name = "button-backlight",
+		.brightness_set = button_backlight_set,
+		.brightness = LED_OFF,
+	},
+	#endif
 };
 
 static int register_leds(struct platform_device *pdev)
