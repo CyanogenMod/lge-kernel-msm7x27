@@ -53,11 +53,4 @@
 #include "msm_iomap-7xxx.h"
 #endif
 
-#if defined(CONFIG_MACH_LGE)
-/* vibrator for MN Register */
-#define MSM_WEB_BASE          IOMEM(0xE100C000)
-#define MSM_WEB_PHYS          0xA9D00040 //0xA9D00000 in code.
-#define MSM_WEB_SIZE          SZ_4K
-#endif /* CONFIG_MACH_LGE */
-
 #endif
