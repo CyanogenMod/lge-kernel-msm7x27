@@ -141,6 +141,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 
 	return sprintf(buf, "%d\n", value.intval);
 }
+#if 0
 #if defined (CONFIG_MACH_MSM7X27_ALOHAV) || defined (CONFIG_MACH_MSM7X27_THUNDERC)
 /* LGE_CHNAGE
  * ADD THUNDERC feature to use VS740 BATT DRIVER IN THUNDERC
@@ -198,6 +199,7 @@ static ssize_t pseudo_batt_store_property(struct device *dev,
 out:
 	return ret;
 }
+#endif
 #endif
 
 static ssize_t power_supply_store_property(struct device *dev,
@@ -298,7 +300,7 @@ static struct device_attribute power_supply_attrs[] = {
 	/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740] */
 	POWER_SUPPLY_ATTR(valid_batt_id),
 	POWER_SUPPLY_ATTR(batt_therm),
-	PSEUDO_BATT_ATTR(pseudo_batt),
+//	PSEUDO_BATT_ATTR(pseudo_batt),
 #endif
 };
 
