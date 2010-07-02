@@ -59,6 +59,7 @@
  * but that variable is declared in weak attribute
  * so board specific configuration can be redefined like "over riding" in OOP
  */
+extern struct msm_pm_platform_data msm7x25_pm_data[MSM_PM_SLEEP_MODE_NR];
 extern struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR];
 #if 0
 struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
@@ -286,7 +287,12 @@ static void __init msm7x2x_init(void)
 	msm_device_i2c_init();
 	i2c_register_board_info(0, i2c_devices, ARRAY_SIZE(i2c_devices));
 
-	msm_pm_set_platform_data(msm7x27_pm_data);
+	if (cpu_is_msm7x27())
+		msm_pm_set_platform_data(msm7x27_pm_data,
+					ARRAY_SIZE(msm7x27_pm_data));
+	else
+		msm_pm_set_platform_data(msm7x25_pm_data,
+					ARRAY_SIZE(msm7x25_pm_data));
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	lge_add_ramconsole_devices();
