@@ -600,9 +600,23 @@ static int aat28xx_send_intensity(struct aat28xx_driver_data *drvdata, int next)
 			*/
 			if(drvdata->version == 2862)
 			{
-				aat2862_bl_next = (~next & 0x1F);	/* Invert BL control bits and Clear upper 3bits */
-				aat2862_bl_next |= 0xE0;				/* MEQS(7)=1, Disable Fade(6)=1, LCD_ON(5)=1*/
-				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat2862_bl_next);
+			#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+				if(next != 0)
+				{
+					aat2862_bl_next = (~next & 0x1F);	/* Invert BL control bits and Clear upper 3bits */
+					aat2862_bl_next |= 0xE0;		/* MEQS(7)=1, Disable Fade(6)=1, LCD_ON(5)=1*/
+					aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat2862_bl_next);
+				}
+				else
+				{	// Off the backlight if brightness set level is 0.
+					aat2862_bl_next = 0xDF;		/* MEQS(7)=1, Disable Fade(6)=1, LCD_ON(5)=0*/
+					aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat2862_bl_next);					
+				}
+			#else
+					aat2862_bl_next = (~next & 0x1F);	/* Invert BL control bits and Clear upper 3bits */
+					aat2862_bl_next |= 0xE0;		/* MEQS(7)=1, Disable Fade(6)=1, LCD_ON(5)=1*/
+					aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat2862_bl_next);
+			#endif
 			}
 			else	/* 2870 */
 				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, next);

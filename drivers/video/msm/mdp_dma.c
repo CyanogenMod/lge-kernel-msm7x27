@@ -57,14 +57,11 @@ extern struct workqueue_struct *mdp_dma_wq;
 int vsync_start_y_adjust = 4;
 
 /* LGE_CHANGE
-  * Define 'HITACHI_LCD_WORKAROUND' to use workaround code for 1st cut LCD
-  * 2010-04-22, minjong.gong@lge.com
+  * Change to apply workaround code according to the board revision info.
+  * 2010-06-10, minjong.gong@lge.com
   */
 #ifdef CONFIG_FB_MSM_MDDI_HITACHI_HVGA
-#define HITACHI_LCD_WORKAROUND
-#endif
-
-#ifdef HITACHI_LCD_WORKAROUND
+#include <mach/board_lge.h>
 
 struct display_table {
     unsigned reg;
@@ -186,17 +183,20 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 	mdp_curr_dma2_update_width = iBuf->dma_w;
 	mdp_curr_dma2_update_height = iBuf->dma_h;
 
-/* LGE_CHANGE
-  * Use workaround code for 1st cut LCD
-  * 2010-04-22, minjong.gong@lge.com
-  */
-#ifdef HITACHI_LCD_WORKAROUND
+#if defined(CONFIG_FB_MSM_MDDI_HITACHI_HVGA) && defined(CONFIG_MACH_MSM7X27_THUNDERG)
+	if(lge_bd_rev <= LGE_REV_E) {
+		/* LGE_CHANGE, Use workaround code for 1st cut LCD. 2010-04-22, minjong.gong@lge.com  */
 		display_table(mddi_hitachi_2c, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
-/* LGE_CHANGE
-  * Add code to prevent LCD shift
-  * 2010-05-18, minjong.gong@lge.com
-  */
-		display_table(mddi_hitachi_position_table, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
+	}
+	/* LGE_CHANGE, Add code to prevent LCD shift. 2010-05-18, minjong.gong@lge.com */
+	display_table(mddi_hitachi_position_table, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
+#elif defined(CONFIG_FB_MSM_MDDI_HITACHI_HVGA) && defined(CONFIG_MACH_MSM7X27_THUNDERC)
+	if(lge_bd_rev <= LGE_REV_D){
+		/* LGE_CHANGE, Use workaround code for 1st cut LCD. 2010-04-22, minjong.gong@lge.com  */
+		display_table(mddi_hitachi_2c, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
+	}
+	/* LGE_CHANGE, Add code to prevent LCD shift. 2010-05-18, minjong.gong@lge.com */
+	display_table(mddi_hitachi_position_table, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
 #endif
 
 	/* MDP cmd block enable */

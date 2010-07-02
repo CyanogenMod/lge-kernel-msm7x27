@@ -60,6 +60,7 @@ enum {
 	LGE_REV_C,
 	LGE_REV_D,
 	LGE_REV_E,
+	LGE_REV_F,
 	LGE_REV_10,
 	LGE_REV_TOT_NUM,
 };
