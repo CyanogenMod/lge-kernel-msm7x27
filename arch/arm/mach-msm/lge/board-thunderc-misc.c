@@ -30,7 +30,7 @@
 #include <mach/board_lge.h>
 #include "board-thunderc.h"
 
-#if defined(CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE)
 static u32 thunderc_battery_capacity(u32 current_soc)
 {
 	if(current_soc > 100)
@@ -44,7 +44,7 @@ static struct msm_psy_batt_pdata msm_psy_batt_data = {
 	.voltage_max_design     = 4200,
 	.avail_chg_sources      = AC_CHG | USB_CHG ,
 	.batt_technology        = POWER_SUPPLY_TECHNOLOGY_LION,
-#if defined(CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE)
 	.calculate_capacity     = thunderc_battery_capacity,
 #endif
 };

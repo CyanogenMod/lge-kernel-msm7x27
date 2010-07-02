@@ -487,8 +487,8 @@ static int msm_batt_get_batt_chg_status(void)
 #ifdef CONFIG_LGE_FUEL_GAUGE
 		be32_to_cpu_self(v1p->battery_soc);
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC
-		be32_to_cpu_self(vlp->battery_id);
-		be32_to_cpu_self(vlp->battery_therm);
+		be32_to_cpu_self(v1p->battery_id);
+		be32_to_cpu_self(v1p->battery_therm);
 #else
 		DBG_LIMIT("%s() \n ----- charger / battery status --------\n", __func__);
 		DBG_LIMIT("\t charger_status=%d\n", v1p->charger_status);
