@@ -305,6 +305,7 @@ static int isx005_set_sensor_mode(int mode)
 
 			mdelay(1);
 		}
+		msleep(50);
 		break;
 
 	case SENSOR_SNAPSHOT_MODE:
@@ -318,6 +319,7 @@ static int isx005_set_sensor_mode(int mode)
 
 			mdelay(1);
 		}
+		msleep(50);
 		break;
 
 	default:
