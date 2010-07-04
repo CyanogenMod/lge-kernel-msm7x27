@@ -349,7 +349,7 @@ static enum power_supply_property msm_batt_power_props[] = {
   /* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM*/
   POWER_SUPPLY_PROP_BATTERY_ID_CHECK,
   POWER_SUPPLY_PROP_BATTERY_TEMP_ADC,
-  POWER_SUPPLY_PROP_PSEUDO_BATT,
+//  POWER_SUPPLY_PROP_PSEUDO_BATT,
   /* LGE_CHANGES_E [woonghee.park@lge.com]*/
 };
 
