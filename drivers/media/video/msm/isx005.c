@@ -523,6 +523,9 @@ static int isx005_move_focus(int32_t steps)
 
 	rc = isx005_i2c_write_table(isx005_regs.af_manual_reg_settings,
 			isx005_regs.af_manual_reg_settings_size);
+
+	prev_af_mode = FOCUS_MANUAL;
+
 	if (rc < 0) {
 		printk(KERN_ERR "[ERROR]%s:fail in writing for move focus\n",
 			__func__);
@@ -613,6 +616,8 @@ static int isx005_set_default_focus()
 
 	rc = isx005_i2c_write_table(isx005_regs.af_normal_reg_settings,
 		isx005_regs.af_normal_reg_settings_size);
+
+	prev_af_mode = FOCUS_AUTO;
 
 	if (rc < 0) {
 		printk(KERN_ERR "[ERROR]%s:fail in writing for focus\n", __func__);
