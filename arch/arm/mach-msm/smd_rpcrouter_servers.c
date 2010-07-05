@@ -47,6 +47,34 @@ static struct wake_lock rpc_servers_wake_lock;
 static struct msm_rpc_xdr server_xdr;
 static uint32_t current_xid;
 
+#ifdef CONFIG_LGE_SUPPORT_AT_CMD
+// change little Endian to Big endian (there is not change function in Kernel)
+char cpu_to_be8_AT(char value)
+{
+#define BITS_NUM_PER_BYTE  8
+	char c_value = 0;
+#if 0
+
+	int loop = 0;
+	int TOT_SIZE = sizeof(char)*BITS_NUM_PER_BYTE;
+
+	for (loop = 0; loop < TOT_SIZE/2; loop++)
+	{
+		c_value |= (value & (1 << loop)) << (TOT_SIZE - loop -1);
+
+	}
+	// there is no ODD lengh 
+	for (loop = TOT_SIZE/2; loop < TOT_SIZE; loop++)
+	{
+		c_value |= (value & (1 << loop)) >> (TOT_SIZE/2 - loop +1 );
+
+	}
+#else
+	c_value = value;
+#endif
+	return c_value;
+}
+#endif
 static void rpc_server_register(struct msm_rpc_server *server)
 {
 	int rc;
@@ -165,6 +193,113 @@ static int rpc_send_accepted_void_reply(struct msm_rpc_endpoint *client,
 	return rc;
 }
 
+/* LGE_CHANGES_S [hoonylove004@lge.com] 2009-12-29, [VS740] AT CMD */
+/* Factory AT CMD feature added based on EVE */
+#ifdef CONFIG_LGE_SUPPORT_AT_CMD
+static int AT_rpc_send_accepted_void_reply(struct msm_rpc_endpoint *client,
+					uint32_t xid, uint32_t accept_status, struct msm_rpc_server *server)
+{
+	int rc = 0;
+
+	uint8_t reply_buf_AT[sizeof(struct rpc_reply_AT_hdr)];
+	struct rpc_reply_AT_hdr *reply_AT = (struct rpc_reply_AT_hdr *)reply_buf_AT;
+	uint8_t reply_buf[sizeof(struct rpc_reply_hdr)];
+	struct rpc_reply_hdr *reply = (struct rpc_reply_hdr *)reply_buf;
+	int i=0;
+//	uint32_t retstring;
+
+
+	if(((accept_status >= RPC_ACCEPTSTAT_SUCCESS) && (accept_status <=  RPC_ACCEPTSTAT_PROG_LOCKED))\
+		|| (accept_status == RPC_RETURN_RESULT_MIDDLE_OK))
+	{
+	printk(KERN_INFO"NORMAL RPC accept_status = %d\n",accept_status);
+	reply->xid = cpu_to_be32(xid);
+	reply->type = cpu_to_be32(1); /* reply */
+	reply->reply_stat = cpu_to_be32(RPCMSG_REPLYSTAT_ACCEPTED);
+
+	reply->data.acc_hdr.accept_stat = cpu_to_be32(accept_status);
+	reply->data.acc_hdr.verf_flavor = 0;
+	reply->data.acc_hdr.verf_length = 0;
+		rc = msm_rpc_write(client, reply_buf, sizeof(reply_buf));
+	if (rc ==  -ENETRESET) {
+		/* Modem restarted, drop reply, clear state */
+		msm_rpc_clear_netreset(client);
+	}
+	if (rc < 0)
+		printk(KERN_ERR
+		       "%s: could not write response: %d\n",
+		       __FUNCTION__, rc);
+	}
+	else
+	{
+	
+	printk(KERN_INFO"DSAT RPC accept_status = %d\n",accept_status);
+	
+
+	// strcpy(reply->data.acc_hdr.retvalues.ret_string, server->retvalue.ret_string);
+		{
+		reply_AT->reply.xid = cpu_to_be32(xid);
+		reply_AT->reply.type = cpu_to_be32(1); /* reply */
+		reply_AT->reply.reply_stat = cpu_to_be32(RPCMSG_REPLYSTAT_ACCEPTED);
+
+		reply_AT->reply.data.acc_hdr.accept_stat = cpu_to_be32(accept_status);
+		reply_AT->reply.data.acc_hdr.verf_flavor = 0;
+		reply_AT->reply.data.acc_hdr.verf_length = 0;
+			i=0;
+	       while(i<MAX_STRING_RET )
+	       	{
+			reply_AT->retvalues.ret_string[i] = 0;
+			i++;
+	       	}
+	       
+		i=0;
+	       for(i=0; i<MAX_STRING_RET && server->retvalue.ret_string[i]; i++)
+	       	{
+	       	// retstring = ( server->retvalue.ret_string[i]);
+	       	if(sizeof(AT_STR_t) == sizeof(uint16_t))
+				reply_AT->retvalues.ret_string[i] = cpu_to_be16( server->retvalue.ret_string[i]);
+	       	else if(sizeof(AT_STR_t) == sizeof(uint8_t))
+	       		reply_AT->retvalues.ret_string[i] = cpu_to_be8_AT( server->retvalue.ret_string[i]);
+	       	else
+	       		reply_AT->retvalues.ret_string[i] = cpu_to_be32( server->retvalue.ret_string[i]);
+			// too much print may occurs ARM9 crash !!!
+			//if(i%4 == 0)
+			printk(KERN_INFO"ret_string[%d] =%d, string=%d\n", i,reply_AT->retvalues.ret_string[i],server->retvalue.ret_string[i]);
+
+	       	}
+	       reply_AT->retvalues.ret_string[MAX_STRING_RET-1] = 0;
+
+	       if( sizeof(uint16_t) == sizeof(server->retvalue.ret_value1))
+			reply_AT->retvalues.ret_value1 = cpu_to_be16(server->retvalue.ret_value1);
+	       else if(sizeof(uint8_t) == sizeof(server->retvalue.ret_value1))
+	       	reply_AT->retvalues.ret_value1 = cpu_to_be8_AT(server->retvalue.ret_value1);
+	       else
+	       	reply_AT->retvalues.ret_value1 = cpu_to_be32(server->retvalue.ret_value1);
+	       
+	      if( sizeof(uint16_t) == sizeof(server->retvalue.ret_value2))
+			reply_AT->retvalues.ret_value2 = cpu_to_be16(server->retvalue.ret_value2);
+	      else if(sizeof(uint8_t) == sizeof(server->retvalue.ret_value2))
+	       	reply_AT->retvalues.ret_value2 = cpu_to_be8_AT(server->retvalue.ret_value2);
+	       else
+	       	reply_AT->retvalues.ret_value2 = cpu_to_be32(server->retvalue.ret_value2);
+
+
+		rc = msm_rpc_write(client, reply_buf_AT, sizeof(reply_buf_AT));
+		}
+
+	if (rc ==  -ENETRESET) {
+		/* Modem restarted, drop reply, clear state */
+		msm_rpc_clear_netreset(client);
+	}
+	if (rc < 0)
+		printk(KERN_ERR
+		       "%s: could not write response: %d\n",
+		       __FUNCTION__, rc);
+	}
+	return rc;
+}
+#endif
+/* LGE_CHANGES_E [hoonylove004@lge.com] 2009-12-29, [VS740] */
 /*
  * Interface to be used to start accepted reply message for a
  * request.  Returns the buffer pointer to attach any payload.
@@ -558,6 +693,51 @@ static int rpc_servers_thread(void *data)
 			rc = server->rpc_call(server, req1, rc);
 		}
 
+/* LGE_CHANGES_S [hoonylove004@lge.com] 2009-12-29, [VS740] AT CMD */
+/* Factory AT CMD feature added based on EVE */
+#ifdef CONFIG_LGE_SUPPORT_AT_CMD
+		switch (rc) {
+		case 0:
+			msm_rpc_server_start_accepted_reply(
+				server, req.xid,
+				RPC_ACCEPTSTAT_SUCCESS);
+			msm_rpc_server_send_accepted_reply(server, 0);
+
+			break;
+		
+		/* LGE_CHANGES LGE_FACTORY_AT_COMMANDS  */
+		// give Error result to ARM9 AT Command
+		case RPC_RETURN_RESULT_OK:
+		case RPC_RETURN_RESULT_ERROR:
+			{
+		  /*
+			for(loop = 0; loop < MAX_STRING_RET && server->retvalue.ret_string[loop]; loop++)
+				{
+				// too much print may occurs ARM9 crash !!!
+				printk(KERN_INFO"1returnString[%d] =%d\n", loop, server->retvalue.ret_string[loop]);
+				}
+			*/
+			}
+		case RPC_RETURN_RESULT_MIDDLE_OK:
+			AT_rpc_send_accepted_void_reply(
+				endpoint, req.xid,
+				(rc), server);
+
+			break;
+		/* LGE_CHANGES LGE_FACTORY_AT_COMMANDS  */
+
+		
+		default:
+			if (rc < 0) {
+			msm_rpc_server_start_accepted_reply(
+				server, req.xid,
+				RPC_ACCEPTSTAT_PROC_UNAVAIL);
+			msm_rpc_server_send_accepted_reply(server, 0);
+			}
+
+			break;
+		}
+#else	/* origin */
 		if (rc == 0) {
 			msm_rpc_server_start_accepted_reply(
 				server, req.xid,
@@ -569,6 +749,8 @@ static int rpc_servers_thread(void *data)
 				RPC_ACCEPTSTAT_PROC_UNAVAIL);
 			msm_rpc_server_send_accepted_reply(server, 0);
 		}
+#endif
+/* LGE_CHANGES_E [hoonylove004@lge.com] 2009-12-29, [VS740] */	
  free_buffer:
 		xdr_clean_input(&server_xdr);
 		server_xdr.out_index = 0;
