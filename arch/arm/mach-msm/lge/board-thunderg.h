@@ -102,6 +102,10 @@ enum {
 	BT_RESET_N			= 123,
 };
 
+/* for desk dock
+ * 2010-07-05, dongjin.ha@lge.com
+ */
+#define GPIO_CARKIT_DETECT	21
 /* ear sense driver macros */
 #define GPIO_EAR_SENSE		29
 #define GPIO_HS_MIC_BIAS_EN	26
