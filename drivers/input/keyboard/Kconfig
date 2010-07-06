@@ -453,6 +453,13 @@ config KEYBOARD_PMIC8058
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called pmic8058-keypad.
+
+config KEYBOARD_ATCMD_VIRTUAL
+	tristate "atcmd virtual keypad"
+	default n
+	help
+	  Say Y here if you want to enable the driver for the atcmd virtual
+	  keypad.
 endif
 
 config KEYBOARD_PMIC8058
