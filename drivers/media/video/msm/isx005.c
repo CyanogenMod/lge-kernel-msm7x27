@@ -53,6 +53,8 @@ static int prev_af_mode;
 /* It is distinguish scene mode */
 static int prev_scene_mode;
 
+static int init_prev_mode;
+
 struct isx005_work {
 	struct work_struct work;
 };
@@ -232,10 +234,13 @@ static int isx005_reg_init(void)
 	return rc;
 }
 
-static int isx005_reg_tuning(void)
+int isx005_reg_tuning(void *data)
 {
 	int rc = 0;
 	int i;
+
+	while(!init_prev_mode)
+		mdelay(10);
 	
 	/* Configure sensor for various tuning */
 	for (i = 0; i < isx005_regs.tuning_reg_settings_size; ++i) {
@@ -306,6 +311,8 @@ static int isx005_set_sensor_mode(int mode)
 			mdelay(1);
 		}
 		msleep(50);
+
+		init_prev_mode = 1;
 		break;
 
 	case SENSOR_SNAPSHOT_MODE:
@@ -1147,6 +1154,7 @@ static int isx005_init_sensor(const struct msm_camera_sensor_info *data)
 {
 	int rc;
 	int nNum = 0;
+	struct task_struct *p;
 
 	rc = data->pdata->camera_power_on();
 	if (rc < 0) {
@@ -1177,27 +1185,10 @@ static int isx005_init_sensor(const struct msm_camera_sensor_info *data)
 
 	mdelay(16);  // T3+T4
 
-	/*tuning register write*/
-	rc = isx005_reg_tuning();
-	if (rc < 0) {
-		for(nNum = 0; nNum<5 ;nNum++)
-		{
-		  msleep(2);
-			printk(KERN_ERR "[ERROR]%s:Set initial register error! retry~! \n", __func__);
-			rc = isx005_reg_tuning();
-			if(rc < 0)
-			{
-				nNum++;
-				printk(KERN_ERR "[ERROR]%s:Set tuning register error! loop no:%d\n", __func__, nNum);
-			}
-			else
-			{
-				printk(KERN_DEBUG"[%s]:Set initial tuning Success!\n", __func__);
-				break;
-			}
-		}
-	
-	}
+	p = kthread_run(isx005_reg_tuning, 0, "reg_tuning");
+
+	if (IS_ERR(p))
+		return PTR_ERR(p);
 
 	return rc;
 }
@@ -1212,6 +1203,8 @@ static int isx005_sensor_init_probe(const struct msm_camera_sensor_info *data)
 		printk(KERN_ERR "[ERROR]%s: data is null!\n", __func__);
 		return -1;
 	}
+
+	init_prev_mode = 0;
 
 	rc = isx005_init_sensor(data);
 	if (rc < 0) {
