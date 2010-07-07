@@ -653,8 +653,12 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 		return err;
 	}
 
-	err = request_irq(dev->num_irq, mcs6000_ts_irq_handler,
-			IRQF_TRIGGER_FALLING, "mcs6000_ts", dev);
+	/* TODO: You have try to change this driver's architecture using request_threaded_irq()
+	 * So, I will change this to request_threaded_irq()
+	 */
+	err = request_threaded_irq(dev->num_irq, NULL, mcs6000_ts_irq_handler,
+			IRQF_TRIGGER_LOW | IRQF_ONESHOT, "mcs6000_ts", dev);
+
 	if (err < 0) {
 		printk(KERN_ERR "%s: request_irq failed\n", __FUNCTION__);
 		return err;
