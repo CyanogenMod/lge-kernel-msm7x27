@@ -127,6 +127,9 @@ static void thunderg_register_callback(void)
 	return;
 }
 
+/* it's not necessary
+ * 2010-07-09, neo.kang@lge.com */
+#if 0
 static int thunderg_gpio_carkit_work_func(void)
 {
 	int state;
@@ -188,6 +191,7 @@ static struct platform_device thunderg_carkit_device = {
 		.platform_data = &thunderg_carkit_data,
 	},
 };
+#endif
 /* E: for the desk dock
  * 2010-07-05, dongjin.ha@lge.com
  */
@@ -431,7 +435,9 @@ static struct platform_device *thunderg_misc_devices[] __initdata = {
 /* for the desk dock
  * 2010-07-05, dongjin.ha@lge.com
  */
-	&thunderg_carkit_device,
+/* it's not necessary
+ * 2010-07-09, neo.kang@lge.com */
+//	&thunderg_carkit_device,
 	&thunderg_earsense_device,
 };
 
