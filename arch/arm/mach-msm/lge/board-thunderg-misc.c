@@ -27,9 +27,6 @@
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <asm/io.h>
-/* for desk dock
- * 2010-07-05, dongjin.ha@lge.com
- */
 #include <mach/rpc_server_handset.h>
 #include <mach/board_lge.h>
 #include "board-thunderg.h"
@@ -84,9 +81,6 @@ static struct platform_device msm_batt_device = {
 extern int aat2870bl_ldo_set_level(struct device * dev, unsigned num, unsigned vol);
 extern int aat2870bl_ldo_enable(struct device * dev, unsigned num, unsigned enable);
 
-/* S: for the desk dock
- * 2010-07-05, dongjin.ha@lge.com
- */
 static char *dock_state_string[] = {
 	"0",
 	"1",
@@ -127,24 +121,9 @@ static void thunderg_register_callback(void)
 	return;
 }
 
-/* it's not necessary
- * 2010-07-09, neo.kang@lge.com */
-#if 0
 static int thunderg_gpio_carkit_work_func(void)
 {
-	int state;
-	int gpio_value;
-
-	gpio_value = gpio_get_value(GPIO_CARKIT_DETECT);
-	printk(KERN_INFO "%s : carkit detected : %s\n", __func__,
-			gpio_value?"undocked":"docked");
-
-	if (gpio_value == KIT_DOCKED)
-		state = DOCK_STATE_CAR;
-	else
-		state = DOCK_STATE_UNDOCKED;
-
-	return state;
+	return DOCK_STATE_UNDOCKED;
 }
 
 static char *thunderg_gpio_carkit_print_state(int state)
@@ -169,7 +148,6 @@ static char *thunderg_gpio_carkit_sysfs_store(const char *buf, size_t size)
 }
 
 static unsigned thunderg_carkit_gpios[] = {
-	GPIO_CARKIT_DETECT,
 };
 
 static struct lge_gpio_switch_platform_data thunderg_carkit_data = {
@@ -191,10 +169,6 @@ static struct platform_device thunderg_carkit_device = {
 		.platform_data = &thunderg_carkit_data,
 	},
 };
-#endif
-/* E: for the desk dock
- * 2010-07-05, dongjin.ha@lge.com
- */
 
 static void button_bl_leds_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
@@ -432,12 +406,7 @@ static struct platform_device thunderg_earsense_device = {
 static struct platform_device *thunderg_misc_devices[] __initdata = {
 	&msm_batt_device,
 	&android_vibrator_device,
-/* for the desk dock
- * 2010-07-05, dongjin.ha@lge.com
- */
-/* it's not necessary
- * 2010-07-09, neo.kang@lge.com */
-//	&thunderg_carkit_device,
+	&thunderg_carkit_device,
 	&thunderg_earsense_device,
 };
 
