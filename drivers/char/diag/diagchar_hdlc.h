@@ -68,6 +68,13 @@ struct diag_hdlc_decode_type {
 void diag_hdlc_encode(struct diag_send_desc_type *src_desc,
 		      struct diag_hdlc_dest_type *enc);
 
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
+// enable to send more than maximum packet size limitation
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+void diag_hdlc_encode_mtc(struct diag_send_desc_type* src_desc, struct diag_hdlc_dest_type* enc);
+#endif /*LG_FW_MTC*/
+/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
+
 int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc);
 
 #define ESC_CHAR     0x7D

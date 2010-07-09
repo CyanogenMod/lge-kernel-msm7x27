@@ -27,7 +27,18 @@ PACK (void *)LGF_KeyPress (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
 /* LGE_CHANGE_S [minjong.gong@lge.com] 2010-06-11. UTS Test */
 PACK (void *)LGF_ScreenShot (PACK (void	*)req_pkt_ptr, uint16		pkt_len ); 
 /* LGE_CHANGE_E [minjong.gong@lge.com] 2010-06-11. UTS Test */
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-07, LG_FW_MTC */
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+PACK (void *)LGF_MTCProcess (PACK (void *)req_pkt_ptr, uint16	pkt_len );
+#endif /*LG_FW_MTC*/
+/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-07, LG_FW_MTC */
 void diagpkt_commit (PACK(void *)pkt);
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
+// enable to send more than maximum packet size limitation
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+void diagpkt_commit_mtc(PACK(void *)pkt);
+#endif /*LG_FW_MTC*/
+/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
 
 static const diagpkt_user_table_entry_type registration_table[] =
 { /* subsys cmd low, subsys cmd code high, call back function */
@@ -37,6 +48,10 @@ static const diagpkt_user_table_entry_type registration_table[] =
 /* LGE_CHANGE_S [minjong.gong@lge.com] 2010-06-11. UTS Test */
 	{DIAG_LGF_SCREEN_SHOT_F , DIAG_LGF_SCREEN_SHOT_F , LGF_ScreenShot },
 /* LGE_CHANGE_E [minjong.gong@lge.com] 2010-06-11. UTS Test */
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-07, LG_FW_MTC */
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+	{DIAG_MTC_F 	 ,	DIAG_MTC_F	  , LGF_MTCProcess},
+#endif /*LG_FW_MTC*/
 };
 
 /* This is the user dispatch table. */
@@ -61,6 +76,14 @@ wlan_status lg_diag_req_wlan_status={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 uint16 lg_diag_req_pkt_length;
 uint16 lg_diag_rsp_pkt_length;
 char lg_diag_cmd_line[LG_DIAG_CMD_LINE_LEN];
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
+// enable to send more than maximum packet size limitation
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+extern unsigned char g_diag_mtc_check;
+extern unsigned char g_diag_mtc_capture_rsp_num;
+extern void lg_diag_set_enc_param(void *, void *);
+#endif /*LG_FW_MTC*/
+/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
 
 /*===========================================================================
 ===========================================================================*/
@@ -658,6 +681,151 @@ fail_free_hdlc:
 	return ret;
 
 }
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
+// enable to send more than maximum packet size limitation
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+static int diagchar_write_mtc( const char *buf, size_t count, int type)
+{
+	int err, ret = 0, pkt_type;
+#ifdef LG_DIAG_DEBUG
+	int length = 0, i;
+#endif
+	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	
+	int payload_size;
+
+	send.pkt = NULL;
+	send.last = NULL;
+	send.state = DIAG_STATE_START;
+	send.terminate = 0;
+
+	enc.dest = NULL;
+	enc.dest_last = NULL;
+	enc.crc = 0;
+
+	if (!timer_in_progress)	{
+		timer_in_progress = 1;
+		ret = mod_timer(&drain_timer, jiffies + msecs_to_jiffies(500));
+	}
+	if (!driver->usb_connected) {
+		/*Drop the diag payload */
+		return -EIO;
+	}
+
+	/* Get the packet type F3/log/event/Pkt response */
+	pkt_type = type;
+
+	/*First 4 bytes indicate the type of payload - ignore these */
+	//xxx	payload_size = count - 4;
+	payload_size = count;
+
+	send.state = DIAG_STATE_START;
+	send.pkt = buf;
+	send.last = (void *)(buf + payload_size - 1);
+	send.terminate = 1;
+
+	mutex_lock(&driver->diagchar_mutex);
+	if (!buf_hdlc)
+		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+						 POOL_TYPE_HDLC);
+
+	enc.dest = buf_hdlc + driver->used;
+// LG_FW khlee 2010.02.01 - to support screen capture, In that case, it has too many 'ESC_CHAR'
+/* LGE_CHANGES_S [kyuhyung.lee@lge.com] - #ifdef LG_FW_DIAG_SCREEN_CAPTURE*/
+//	enc.dest_last = (void *)(buf_hdlc + HDLC_OUT_BUF_SIZE -1);
+// jihoon.lee 2010.02.22 - transper packet is limmited to HDLC_MAX size
+       enc.dest_last = (void *)(buf_hdlc + HDLC_MAX -1);
+/* LG_CHANGES_E -#else*/
+/*LGE_COMMENT_OUT
+	enc.dest_last = (void *)(buf_hdlc + driver->used + payload_size + 7);
+#endif
+*/
+	diag_hdlc_encode_mtc(&send, &enc);
+
+	/* This is to check if after HDLC encoding, we are still within the
+	 limits of aggregation buffer. If not, we write out the current buffer
+	and start aggregation in a newly allocated buffer */
+	if ((unsigned int) enc.dest >=
+		 (unsigned int)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
+#if 1//def LG_DIAG_DEBUG		 
+		printk(KERN_ERR "LG_FW : enc.dest is greater than buf_hdlc_end %d >= %d\n", \
+			(unsigned int) enc.dest, (unsigned int)(buf_hdlc + HDLC_OUT_BUF_SIZE));
+#endif
+		driver->usb_write_ptr_svc = (struct diag_request *)
+			(diagmem_alloc(driver, sizeof(struct diag_request),
+				POOL_TYPE_USB_STRUCT));
+		driver->usb_write_ptr_svc->buf = buf_hdlc;
+		driver->usb_write_ptr_svc->length = driver->used;
+		err = diag_write(driver->usb_write_ptr_svc);
+		if (err) {
+#if 1//def LG_DIAG_DEBUG		 
+		printk(KERN_ERR "LG_FW : diag_write error, overflow write failed\n");
+#endif
+			/*Free the buffer right away if write failed */
+			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
+			ret = -EIO;
+			goto fail_free_hdlc;
+		}
+		buf_hdlc = NULL;
+#ifdef LG_DIAG_DEBUG
+		printk(KERN_INFO "\nLG_FW : size written is %d \n", driver->used);
+#endif
+		driver->used = 0;
+		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+							 POOL_TYPE_HDLC);
+		if (!buf_hdlc) {
+			ret = -ENOMEM;
+			goto fail_free_hdlc;
+		}
+		enc.dest = buf_hdlc + driver->used;
+		enc.dest_last = (void *)(buf_hdlc + driver->used +
+							 payload_size + 7);
+		diag_hdlc_encode_mtc(&send, &enc);
+	}
+
+	driver->used = (uint32_t) enc.dest - (uint32_t) buf_hdlc;
+	if (pkt_type == DATA_TYPE_RESPONSE) {
+		driver->usb_write_ptr_svc = (struct diag_request *)
+			(diagmem_alloc(driver, sizeof(struct diag_request),
+				 POOL_TYPE_USB_STRUCT));
+		driver->usb_write_ptr_svc->buf = buf_hdlc;
+		driver->usb_write_ptr_svc->length = driver->used;
+#if 1//def LG_DIAG_DEBUG
+		printk(KERN_INFO "LG_FW : last packet write, size : %d\n", driver->used);
+#endif
+		err = diag_write(driver->usb_write_ptr_svc);
+		if (err) {
+#if 1//def LG_DIAG_DEBUG		 
+			printk(KERN_ERR "LG_FW : diag_write error, last packet write failed\n");
+#endif
+
+			/*Free the buffer right away if write failed */
+			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
+			ret = -EIO;
+			goto fail_free_hdlc;
+		}
+		buf_hdlc = NULL;
+#ifdef LG_DIAG_DEBUG
+		printk(KERN_INFO "\nLG_FW : size written is %d \n", driver->used);
+#endif
+		driver->used = 0;
+	}
+
+	mutex_unlock(&driver->diagchar_mutex);
+	
+	return 0;
+
+fail_free_hdlc:
+#if 1//def LG_DIAG_DEBUG		 
+	printk(KERN_ERR "LG_FW : fail_free_hdlc\n");
+#endif
+	mutex_unlock(&driver->diagchar_mutex);
+	return ret;
+
+}
+#endif /*LG_FW_MTC*/
+/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
 
 static void diagpkt_user_tbl_init (void)
 {
@@ -780,6 +948,57 @@ void diagpkt_commit (PACK(void *)pkt)
   return;
 }               /* diagpkt_commit */
 
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
+// enable to send more than maximum packet size limitation
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+void diagpkt_commit_mtc(PACK(void *)pkt)
+{
+#ifdef LG_DIAG_DEBUG
+  int i;
+#endif
+  if (pkt)
+  {
+    unsigned int length = 0;
+    unsigned char *temp = NULL;
+    int type = DIAG_DATA_TYPE_RESPONSE;
+
+    diagpkt_lsm_rsp_type *item = DIAGPKT_PKT2LSMITEM (pkt);
+    item->rsp_func = NULL;
+    item->rsp_func_param = NULL;
+    /* end mobile-view */
+#ifdef LG_DIAG_DEBUG
+    printk(KERN_ERR "\n LG_FW : printing buffer at top \n");
+    for(i=0;i<item->rsp.length;i++)
+      printk(KERN_ERR "0x%x ", ((unsigned char*)(pkt))[i]);      
+#endif
+
+    length = DIAG_REST_OF_DATA_POS + FPOS(diagpkt_lsm_rsp_type, rsp.pkt) + item->rsp.length + sizeof(uint16);
+
+    if (item->rsp.length > 0)
+    {		
+#ifdef LG_DIAG_DEBUG
+      printk(KERN_ERR "\n LG_FW : printing buffer %d \n",(int)(item->rsp.length + DIAG_REST_OF_DATA_POS));
+
+      for(i=0; i < (int)(item->rsp.length + DIAG_REST_OF_DATA_POS) ;i++)
+        printk(KERN_ERR "0x%x ", ((unsigned char*)(temp))[i]);      
+                  
+      printk(KERN_ERR "\n");
+#endif
+
+      if(diagchar_write_mtc((const void*) pkt, item->rsp.length, type))
+      {
+        printk(KERN_ERR "\n LG_FW : Diag_LSM_Pkt: WriteFile Failed in diagpkt_commit \n");
+        gPkt_commit_fail++;
+      }
+    }
+
+    kfree(temp);
+    diagpkt_free(pkt);
+  } /* end if (pkt)*/
+  return;
+}
+#endif /*LG_FW_MTC*/
+/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
 diagpkt_cmd_code_type diagpkt_get_cmd_code (PACK(void *)ptr)
 {
 	diagpkt_cmd_code_type cmd_code = 0;
@@ -893,13 +1112,19 @@ void diagpkt_process_request (void *req_pkt, uint16 pkt_len,
               printk(KERN_ERR " LG_FW : diagpkt_process_request: about to call diagpkt_commit.\n");
 #endif
               /* The most common case: response is returned.  Go ahead and commit it here. */
+		if(g_diag_mtc_capture_rsp_num == 1)
+			diagpkt_commit_mtc(rsp_pkt);
+		else
               diagpkt_commit (rsp_pkt);
             } /* endif if (rsp_pkt) */
             else
             {
+if(g_diag_mtc_check == 0)
+{
               lg_diag_req_pkt_ptr = req_pkt;
               lg_diag_req_pkt_length = pkt_len;
               lg_diag_app_execute();
+}
             } /* endif if (rsp_pkt) */
           } /* endif if (tbl_entry->func_ptr) */
         } /* endif if (packet_id >= tbl_entry->cmd_code_lo && packet_id <= tbl_entry->cmd_code_hi)*/

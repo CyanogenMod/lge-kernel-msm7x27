@@ -13,6 +13,7 @@ obj-$(CONFIG_LGE_DIAGTEST) += lg_fw_diag_communication.o
 obj-$(CONFIG_LGE_DIAGTEST) += lg_diag_keypress.o 
 # add lg_diag_screen_shot.c for UTS test by minjong.gong 2010-06-13
 obj-$(CONFIG_LGE_DIAGTEST) += lg_diag_screen_shot.o
+obj-$(CONFIG_LGE_DIAGTEST) += lg_fw_diag_mtc.o
 
 
 obj-$(CONFIG_MACH_MSM7X27_THUNDERC) += board-thunderc.o
