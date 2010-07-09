@@ -26,7 +26,7 @@
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <asm/io.h>
-
+#include <mach/rpc_server_handset.h>
 #include <mach/board_lge.h>
 #include "board-thunderc.h"
 
@@ -79,6 +79,94 @@ static struct platform_device msm_batt_device = {
 extern int aat2870bl_ldo_set_level(struct device * dev, unsigned num, unsigned vol);
 extern int aat2870bl_ldo_enable(struct device * dev, unsigned num, unsigned enable);
 
+static char *dock_state_string[] = {
+	"0",
+	"1",
+	"2",
+};
+
+enum {
+	DOCK_STATE_UNDOCKED = 0,
+	DOCK_STATE_DESK = 1, /* multikit */
+	DOCK_STATE_CAR = 2, /* carkit */
+	DOCK_STATE_UNKNOWN,
+};
+
+enum {
+	KIT_DOCKED = 0,
+	KIT_UNDOCKED = 1,
+};
+
+static void thunderc_desk_dock_detect_callback(int state)
+{
+	int ret;
+
+	if (state)
+		state = DOCK_STATE_DESK;
+
+	ret = lge_gpio_switch_pass_event("dock", state);
+
+	if (ret)
+		printk(KERN_INFO "%s: desk dock event report fail\n", __func__);
+
+	return;
+}
+
+static void thunderc_register_callback(void)
+{
+	rpc_server_hs_register_callback(thunderc_desk_dock_detect_callback);
+
+	return;
+}
+
+static int thunderc_gpio_carkit_work_func(void)
+{
+	return DOCK_STATE_UNDOCKED;
+}
+
+static char *thunderc_gpio_carkit_print_state(int state)
+{
+	return dock_state_string[state];
+}
+
+static char *thunderc_gpio_carkit_sysfs_store(const char *buf, size_t size)
+{
+	int state;
+
+	if (!strncmp(buf, "undock", size-1))
+		state = DOCK_STATE_UNDOCKED;
+	else if (!strncmp(buf, "desk", size-1))
+		state = DOCK_STATE_DESK;
+	else if (!strncmp(buf, "car", size-1))
+		state = DOCK_STATE_CAR;
+	else
+		return -EINVAL;
+
+	return state;
+}
+
+static unsigned thunderc_carkit_gpios[] = {
+};
+
+static struct lge_gpio_switch_platform_data thunderc_carkit_data = {
+	.name = "dock",
+	.gpios = thunderc_carkit_gpios,
+	.num_gpios = ARRAY_SIZE(thunderc_carkit_gpios),
+	.irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+	.wakeup_flag = 1,
+	.work_func = thunderc_gpio_carkit_work_func,
+	.print_state = thunderc_gpio_carkit_print_state,
+	.sysfs_store = thunderc_gpio_carkit_sysfs_store,
+	.additional_init = thunderc_register_callback,
+};
+
+static struct platform_device thunderc_carkit_device = {
+	.name = "lge-switch-gpio",
+	.id = 0,
+	.dev = {
+		.platform_data = &thunderc_carkit_data,
+	},
+};
 int thunderc_vibrator_power_set(int enable)
 {
 	static int is_enabled = 0;
@@ -429,6 +517,7 @@ static struct platform_device *thunderc_misc_devices[] __initdata = {
 	 */
 	&msm_batt_device, 
 	&android_vibrator_device,
+	&thunderc_carkit_device,
 	&thunderc_earsense_device,
 };
 

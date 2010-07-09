@@ -37,11 +37,7 @@ struct msm_handset_platform_data {
 
 void report_headset_status(bool connected);
 
-/* LGE_CHANGE
- * for the desk dock
- * 2010-07-05, dongjin.ha@lge.com
- */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG)
+#if defined(CONFIG_MACH_LGE)
 void rpc_server_hs_register_callback(void *callback_func);
 #endif
 #endif
