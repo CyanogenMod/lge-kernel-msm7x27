@@ -9,6 +9,8 @@ obj-$(CONFIG_LGE_MTD_DIRECT_ACCESS) += lge_mtd_direct_access.o
 obj-$(CONFIG_LGE_DIAGTEST) += lg_diag_testmode.o
 obj-$(CONFIG_LGE_DIAGTEST) += lg_fw_diag_class.o
 obj-$(CONFIG_LGE_DIAGTEST) += lg_fw_diag_communication.o
+# add lg_diag_event_log.c for key logging in diag testmode test 2010-07-10
+obj-$(CONFIG_LGE_DIAGTEST) += lg_diag_event_log.o
 # add lg_diag_keypress.c for UTS test by younchan.kim 2010-06-11
 obj-$(CONFIG_LGE_DIAGTEST) += lg_diag_keypress.o 
 # add lg_diag_screen_shot.c for UTS test by minjong.gong 2010-06-13

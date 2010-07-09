@@ -19,6 +19,8 @@ extern PACK(void *) diagpkt_alloc (diagpkt_cmd_code_type code, unsigned int leng
 extern PACK(void *) diagpkt_free (PACK(void *)pkt);
 extern void send_to_arm9( void*	pReq, void	*pRsp);
 extern testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE];
+extern int diag_event_log_start(void);
+extern int diag_event_log_end(void);
 
 /* ==========================================================================
 ===========================================================================*/
@@ -262,16 +264,16 @@ void* LGT_TestModeKeyTest(test_mode_req_type* pReq, DIAG_TEST_MODE_F_rsp_type *p
 {
   pRsp->ret_stat_code = TEST_OK_S;
 
-  if(pReq->key_test_start)
-	{
-		if_condition_is_on_key_buffering=TRUE;
-		memset((void *)key_buf,0x00,MAX_KEY_BUFF_SIZE);
-		count_key_buf=0;
+  if(pReq->key_test_start){
+	memset((void *)key_buf,0x00,MAX_KEY_BUFF_SIZE);
+	count_key_buf=0;
+	diag_event_log_start();
   }
   else
   {
-		if_condition_is_on_key_buffering=FALSE;
-		memcpy((void *)((DIAG_TEST_MODE_KEY_F_rsp_type *)pRsp)->key_pressed_buf, (void *)key_buf, MAX_KEY_BUFF_SIZE);
+	memcpy((void *)((DIAG_TEST_MODE_KEY_F_rsp_type *)pRsp)->key_pressed_buf, (void *)key_buf, MAX_KEY_BUFF_SIZE);
+	memset((void *)key_buf,0x00,MAX_KEY_BUFF_SIZE);
+	diag_event_log_end();
   }
   return pRsp;
 }
