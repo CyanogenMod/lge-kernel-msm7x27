@@ -24,6 +24,14 @@
 
 #define JIFFIES_TO_MS(t) ((t) * 1000 / HZ)
 
+/* LGE_CHANGE
+ * Support MTC using diag port 
+ * 2010-07-11 taehung.kim@lge.com
+ */
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+extern unsigned char g_diag_mtc_check;
+#endif
+
 unsigned int ats_mtc_log_mask = 0x00000000;
 
 int base64_decode(char *, unsigned char *, int);
@@ -343,7 +351,13 @@ uint32_t at_cmd,at_act;
 			int exec_result =0;
 
 			printk(KERN_INFO "\n[ETA]ATCMD_MTC\n ");
-
+			/* LGE_CHANGE
+			 * Support MTC using diag port 
+			 * 2010-07-11 taehung.kim@lge.com
+			 */
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
+			g_diag_mtc_check = 0;
+#endif
 			if(at_act != ATCMD_ACTION)
 				result = HANLDE_FAIL;
 

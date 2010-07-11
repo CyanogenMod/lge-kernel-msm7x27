@@ -34,9 +34,11 @@ extern PACK(void *) diagpkt_alloc (diagpkt_cmd_code_type code, unsigned int leng
 extern PACK(void *) diagpkt_free (PACK(void *)pkt);
 extern void send_to_arm9( void*	pReq, void	*pRsp);
 
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
 extern unsigned long int ats_mtc_log_mask;
 extern void diagpkt_commit (PACK(void *)pkt);
+extern int event_log_start(void);
+extern int event_log_end(void);
 #endif /*LG_FW_ATS_ETA_MTC_KEY_LOGGING*/
 
 extern int base64_encode(char *text, int numBytes, char *encodedText);
@@ -48,7 +50,7 @@ extern int base64_encode(char *text, int numBytes, char *encodedText);
   variables and other items needed by this module.
 
 ===========================================================================*/
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
 #define JIFFIES_TO_MS(t) ((t) * 1000 / HZ)
 #endif /*LG_FW_ATS_ETA_MTC_KEY_LOGGING*/
 
@@ -290,7 +292,7 @@ static ssize_t read_framebuffer(byte* pBuf)
   return read_size;
 }
 
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
 DIAG_MTC_F_rsp_type* mtc_logging_mask_req_proc(DIAG_MTC_F_req_type *pReq)
 {
   unsigned int rsp_len;
@@ -320,6 +322,14 @@ DIAG_MTC_F_rsp_type* mtc_logging_mask_req_proc(DIAG_MTC_F_req_type *pReq)
       pRsp->mtc_rsp.log.mask = ats_mtc_log_mask;
       break;
   }
+  /* LGE_CHANGE
+   * support mtc using diag port
+   * 2010 07-11 taehung.kim@lge.com
+   */
+   if(ats_mtc_log_mask & 0xFFFFFFFF)
+   	event_log_start();
+   else
+   	event_log_end();
 
   return pRsp;
 }
@@ -572,7 +582,7 @@ mtc_user_table_entry_type mtc_mstr_tbl[MTC_MSTR_TBL_SIZE] =
 	{ MTC_CAPTURE_REQ_CMD				,mtc_capture_screen				, MTC_ARM11_PROCESSOR},
 	{ MTC_KEY_EVENT_REQ_CMD			,mtc_execute					, MTC_ARM11_PROCESSOR},
 	{ MTC_TOUCH_REQ_CMD				,mtc_execute					, MTC_ARM11_PROCESSOR},
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_ATS_ETA_MTC_KEY_LOGGING)
 	{ MTC_LOGGING_MASK_REQ_CMD		,mtc_logging_mask_req_proc		, MTC_ARM11_PROCESSOR},
 	{ MTC_LOG_REQ_CMD					,mtc_null_rsp					, MTC_ARM11_PROCESSOR}, /*mtc_send_key_log_data*/
 #endif /*LG_FW_ATS_ETA_MTC_KEY_LOGGING*/
