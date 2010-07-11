@@ -21,6 +21,8 @@
 
 #include "isx005.h"
 
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+
 static struct isx005_register_address_value_pair const
 init_reg_settings_array[] = {
 
@@ -85,6 +87,84 @@ init_reg_settings_array[] = {
 {0x0009, 0x16, BYTE_LEN },		// INCK_SET     
   
 };
+
+#else
+
+static struct isx005_register_address_value_pair const
+init_reg_settings_array[] = {
+
+
+	// ISX005 Start release 0900909  LEE
+	// 1106 Pclk masking off
+	// Only PLL
+	// Input=24,out=Preview 27Mhz, Capture 54Mhz
+	// YCorder CbYCrY
+	// USER Ctrl
+	//Preview size 640*480
+
+	{0x00FC, 0xFF   ,BYTE_LEN},             //   
+	{0x000b, 0x01   ,BYTE_LEN},             // PLL_CKSEL         
+	{0x0009, 0x06   ,BYTE_LEN},             // INCK_SET          
+	{0x02C7, 0x01   ,BYTE_LEN},             // SRCCK_DIV 
+	{0x0038, 0x0D   ,BYTE_LEN},             // sync masking on off        
+	{0x02B8, 0x10   ,BYTE_LEN},             // VIF_CLKCONFIG1    
+	{0x02B9, 0x11   ,BYTE_LEN},             // VIF_CLKCONFIG2    
+	{0x02BA, 0x12   ,BYTE_LEN},             // VIF_CLKCONFIG3    
+	{0x02BB, 0x13   ,BYTE_LEN},             // VIF_CLKCONFIG4    
+	{0x02BC, 0x11   ,BYTE_LEN},             // VIF_CLKCONFIG5    
+	{0x02BD, 0x12   ,BYTE_LEN},             // VIF_CLKCONFIG6    
+	{0x02BE, 0x13   ,BYTE_LEN},             // VIF_CLKCONFIG7     
+	{0x02C0, 0x10   ,BYTE_LEN},             // VIF_CLKCONFIG9    
+	{0x02C1, 0x30   ,BYTE_LEN},             // VIF_CLKCONFIG10   
+	{0x4C10, 0x11   ,BYTE_LEN},             // VIF_CLKCONFIG13     
+	{0x0348, 0x30   ,BYTE_LEN},             // VIF_CLKCONFIG_HD1 
+	{0x034A, 0x11   ,BYTE_LEN},             // VIF_CLKCONFIG_HD3 
+	{0x034C, 0x30   ,BYTE_LEN},             // VIF_CLKCONFIG_HD5 
+	{0x4044, 0x8C0A ,WORD_LEN},             // 1SECCLK_ALL
+	{0x4046, 0x1815 ,WORD_LEN},             // 1SECCLK_HD_1_1
+	{0x402B, 0x4B   ,BYTE_LEN},             // FPS_SENSALL
+	{0x4044, 0x8C0A ,WORD_LEN},             // 1SECCLK_ALL
+	{0x4046, 0x1815 ,WORD_LEN},             // 1SECCLK_HD_1_1
+	{0x402B, 0x4B   ,BYTE_LEN},             // FPS_SENSALL
+	{0x402C, 0x9600 ,WORD_LEN},             // FPS_SENS_HD_1_1
+	{0x4060, 0x8C0A ,WORD_LEN},             // PIXEL_CLK
+	{0x4062, 0x1815 ,WORD_LEN},             // PIXEL_CLK_HD_1_1
+	{0x403E, 0x041D ,WORD_LEN},             // FLSHT50
+	{0x4074, 0x0421 ,WORD_LEN},             // FLSHT50_HD_1_1
+	{0x4040, 0xF71B ,WORD_LEN},             // FLSHT60
+	{0x4076, 0xF71F ,WORD_LEN},             // FLSHT60_HD_1_1
+	{0x02A2, 0x2100 ,WORD_LEN},             // VADJ_SENS_1_1
+	{0x0364, 0x2100 ,WORD_LEN},             // VADJ_SENS_HD_1_1
+	{0x02A4, 0x1000 ,WORD_LEN},             // VADJ_SENS_1_2
+	{0x02A6, 0x0800 ,WORD_LEN},             // VADJ_SENS_1_4
+	{0x02A8, 0x0000 ,WORD_LEN},             // VADJ_SENS_1_8
+	{0x4C14, 0xA001 ,WORD_LEN},             // FLC_OPD_HEIGHT_NORMAL_1_1
+	{0x4C1C, 0x4003 ,WORD_LEN},             // FLC_OPD_HEIGHT_HD_1_1
+	{0x4C16, 0xA001 ,WORD_LEN},             // FLC_OPD_HEIGHT_NORMAL_1_2
+	{0x4C18, 0x8001 ,WORD_LEN},             // FLC_OPD_HEIGHT_NORMAL_1_4
+	{0x4C1A, 0xC000 ,WORD_LEN},             // FLC_OPD_HEIGHT_NORMAL_1_8
+	{0x000E, 0x12   ,BYTE_LEN},             // GPIO_FUNCSEL IRQ disable & UART enable
+	{0x3400, 0x07   ,BYTE_LEN},    //
+	{0x3402, 0x00   ,BYTE_LEN},    //
+	{0x003A, 0x0002 ,WORD_LEN},   // CAM OUTPUT DATA Format
+	{0x0009, 0x16   ,BYTE_LEN},     // INPUT CLOCK SETTING
+	{0x001C, 0x00   ,BYTE_LEN},     // OUTPUT FORMAT MONITOR MODE
+#if defined (CONFIG_ISX005_ROTATION_180)
+	{0x001F, 0x03   ,BYTE_LEN},         //READVECT_MONI
+#else
+	{0x001F, 0x00   ,BYTE_LEN},             //READVECT_MONI
+#endif
+	{0x0022, 0x8002 ,WORD_LEN},             //640*480 monitoring SIZE H
+	{0x0028, 0xE001 ,WORD_LEN},             //640*480 monitoring SIZE V
+	//0x0022, 0x0004                //1024*768 monitoring SIZE H
+	//0x0028, 0x0003                //1024*768 monitoring SIZE V
+	//{0x00FC, 0xff   ,BYTE_LEN},     //
+	{0x00FC, 0x1f   ,BYTE_LEN},     //
+	{0x0011, 0x00   ,BYTE_LEN},     //  MODE_SEL
+	{0x0012, 0x01   ,BYTE_LEN},     //  MODE_Reflesh
+};
+
+#endif
 
 static struct isx005_register_address_value_pair const
 tuning_reg_settings_array[] = {	//091214
