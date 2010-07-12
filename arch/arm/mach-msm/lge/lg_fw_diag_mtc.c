@@ -25,6 +25,28 @@
 #ifndef LG_FW_DUAL_TOUCH
 #define LG_FW_DUAL_TOUCH
 #endif
+///////////
+typedef struct {
+  unsigned int handset_7k_key_code;
+  unsigned int Android_key_code;
+}keycode_trans_type;
+
+#define HANDSET_7K_KEY_TRANS_MAP_SIZE 60
+keycode_trans_type handset_7k_keytrans_table[HANDSET_7K_KEY_TRANS_MAP_SIZE]=
+{
+   {KEY_BACK, '^'}, {KEY_1,'1'}, {KEY_2,'2'}, {KEY_3,'3'}, {KEY_4,'4'}, {KEY_5,'5'}, {KEY_6,'6'}, 
+	{KEY_7,'7'}, {KEY_8,'8'}, {KEY_9,'9'}, {KEY_0,'0'}, {KEY_BACKSPACE,'Y'}, {KEY_HOME,'!'}, {KEY_MENU,'O'},
+   {KEY_SEARCH, '+'}, {KEY_Q,'q'}, {KEY_W,'w'}, {KEY_E,'e'}, {KEY_R,'r'}, {KEY_T,'t'}, {KEY_Y,'y'}, 
+	{KEY_U,'u'}, {KEY_I,'i'}, {KEY_O,'o'}, {KEY_P,'p'}, {KEY_LEFT,'/'},
+	{KEY_LEFTALT,'$' }, {KEY_A,'a'}, {KEY_S,'s'}, {KEY_D,'d'}, {KEY_F,'f'}, {KEY_G,'g'}, {KEY_H,'h'}, 
+	{KEY_J,'j'}, {KEY_K,'k'}, {KEY_L,'l'}, {KEY_ENTER,'='}, {KEY_UP,'L'}, {KEY_REPLY,32}, {KEY_DOWN,'R'},
+	{KEY_LEFTSHIFT, '~'}, {KEY_Z,'z'}, {KEY_X,'x'}, {KEY_C,'c'}, {KEY_V,'v'}, {KEY_B,'b'}, {KEY_N,'n'}, 
+	{KEY_M,'m'}, {KEY_DOT, 32}, {KEY_RIGHT,'V'},
+	{KEY_MENU,'O'}, {KEY_HOME, '+'}, {KEY_BACK, '^'}, {KEY_SEARCH, '+'}, 
+	{KEY_SEND,'S'}, {KEY_END,'E'},
+	{KEY_VOLUMEUP,'U'}, {KEY_VOLUMEDOWN,'D'}, {KEY_VIDEO_PREV,'Z'}, {KEY_CAMERA,'A'}
+};
+///////////
 /*===========================================================================
 
                       EXTERNAL FUNCTION AND VARIABLE DEFINITIONS
@@ -334,6 +356,27 @@ DIAG_MTC_F_rsp_type* mtc_logging_mask_req_proc(DIAG_MTC_F_req_type *pReq)
   return pRsp;
 }
 
+/////////////////////
+unsigned int Handset_7k_KeycodeTrans(word input)
+{
+  int index = 0
+  	;
+  unsigned int ret = (unsigned int)input;  // if we can not find, return the org value. 
+ 
+  for( index = 0; index < HANDSET_7K_KEY_TRANS_MAP_SIZE  ; index++)
+  {
+	 if( handset_7k_keytrans_table[index].handset_7k_key_code == input)
+	 {
+		ret = handset_7k_keytrans_table[index].Android_key_code;
+		printk(KERN_ERR "[MTC] input keycode %d, mapped keycode %d\n", input, ret);
+		break;
+	 }
+  }  
+
+  return ret;
+}
+///////////////////
+
 void mtc_send_key_log_data(struct ats_mtc_key_log_type* p_ats_mtc_key_log)
 {
   unsigned int rsp_len;
@@ -357,7 +400,8 @@ void mtc_send_key_log_data(struct ats_mtc_key_log_type* p_ats_mtc_key_log)
   {
     pRsp->mtc_rsp.log_data.log_type.log_data_key.time = (unsigned long long)JIFFIES_TO_MS(jiffies);
     pRsp->mtc_rsp.log_data.log_type.log_data_key.hold = (unsigned char)((p_ats_mtc_key_log->x_hold)&0xFF);// hold
-    pRsp->mtc_rsp.log_data.log_type.log_data_key.keycode = ((p_ats_mtc_key_log->y_code)&0xFF);//key code
+//    pRsp->mtc_rsp.log_data.log_type.log_data_key.keycode = ((p_ats_mtc_key_log->y_code)&0xFF);//key code
+    pRsp->mtc_rsp.log_data.log_type.log_data_key.keycode = Handset_7k_KeycodeTrans((p_ats_mtc_key_log->y_code)&0xFF);//key code
     pRsp->mtc_rsp.log_data.log_type.log_data_key.active_uiid = 0;
   }
   else // touch

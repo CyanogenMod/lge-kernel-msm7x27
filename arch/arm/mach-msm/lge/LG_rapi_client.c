@@ -132,6 +132,30 @@ void send_to_arm9(void*	pReq, void* pRsp)
 	memcpy(pRsp,ret.output,*ret.out_len);
 }
 
+void set_operation_mode(boolean info)
+{
+	struct oem_rapi_client_streaming_func_arg arg;
+	struct oem_rapi_client_streaming_func_ret ret;
+
+	Open_check();
+
+	arg.event = LG_FW_SET_OPERATIN_MODE;
+	arg.cb_func = NULL;
+	arg.handle = (void*) 0;
+	arg.in_len = sizeof(boolean);
+	arg.input = (char*) &info;
+	arg.out_len_valid = 0;
+	arg.output_valid = 0;
+	arg.output_size = 0;
+
+	ret.output = (char*) NULL;
+	ret.out_len = 0;
+
+	oem_rapi_client_streaming_function(client,&arg, &ret);
+}
+EXPORT_SYMBOL(set_operation_mode);
+
+
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC
 void battery_info_get(struct batt_info* resp_buf)
 {
