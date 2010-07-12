@@ -22,7 +22,6 @@
 #include "isx005.h"
 
 #if defined (CONFIG_MACH_MSM7X27_THUNDERG)
-
 static struct isx005_register_address_value_pair const
 init_reg_settings_array[] = {
 
@@ -74,6 +73,7 @@ init_reg_settings_array[] = {
 {0x4C18, 0x8001, WORD_LEN},		// FLC_OPD_HEIGHT_NORMAL_1_4
 {0x4C1A, 0xC000, WORD_LEN},		// FLC_OPD_HEIGHT_NORMAL_1_8
 {0x000E, 0x12, BYTE_LEN},	  	// GPIO_FUNCSEL IRQ disable & UART enable
+{0x02CD, 0x03, BYTE_LEN},			//Drive Strength - 2mA for RF sensortive   -- 2010.7.14 eunyoung.shin@lge.com
 {0x003A, 0x0002 ,WORD_LEN},   // CAM OUTPUT DATA Format
 {0x001C, 0x00   ,BYTE_LEN},   	// OUTPUT FORMAT MONITOR MODE
 #if defined (CONFIG_ISX005_ROTATION_180)
