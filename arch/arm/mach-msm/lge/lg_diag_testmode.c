@@ -22,6 +22,7 @@ extern testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE];
 extern int diag_event_log_start(void);
 extern int diag_event_log_end(void);
 extern void set_operation_mode(boolean isOnline);
+extern struct input_dev* get_ats_input_dev(void);
 /* ==========================================================================
 ===========================================================================*/
 
@@ -314,6 +315,15 @@ void* LGF_TestCam(
 
 void LGF_SendKey(word keycode)
 {
+	struct input_dev* idev = NULL;
+
+	idev = get_ats_input_dev();
+
+	if(idev == NULL)
+		printk("%s: input device addr is NULL\n",__func__);
+	
+	input_report_key(idev,(unsigned int)keycode, 1);
+	input_report_key(idev,(unsigned int)keycode, 0);
 
 }
 

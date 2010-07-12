@@ -45,7 +45,7 @@ int lge_bd_rev;
 
 static int __init board_revno_setup(char *rev_info)
 {
-	char *rev_str[] = { "evb", "rev_a", "rev_b", "rev_c", "rev_d", "rev_e", };
+	char *rev_str[] = { "evb", "rev_a", "rev_b", "rev_c", "rev_d", "rev_e", "rev_f",};
 	int i;
 
 	lge_bd_rev = LGE_REV_TOT_NUM;
