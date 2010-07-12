@@ -73,6 +73,7 @@ DEFINE_MUTEX(isx005_mutex);
 
 struct platform_device *isx005_pdev;
 
+static int pclk_rate = 27;
 extern int mclk_rate;
 static int always_on = 0;
 
@@ -215,6 +216,7 @@ static int32_t isx005_i2c_read(unsigned short   saddr,
 	return rc;
 }
 
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)	
 static int isx005_reg_init(void)
 {
 	int rc = 0;
@@ -230,9 +232,45 @@ static int isx005_reg_init(void)
 		if (rc < 0)
 			return rc;
 	}
-	
+
 	return rc;
 }
+#else
+static int isx005_reg_init(void)
+{
+	int rc = 0;
+	int i;
+
+	if (pclk_rate == 27) {
+		/* Configure sensor for Initial setting (PLL, Clock, etc) */
+		for (i = 0; i < isx005_regs.init_reg_settings_size; ++i) {
+			rc = isx005_i2c_write(isx005_client->addr,
+				isx005_regs.init_reg_settings[i].register_address,
+				isx005_regs.init_reg_settings[i].register_value,
+				isx005_regs.init_reg_settings[i].register_length);
+
+			if (rc < 0)
+				return rc;
+		}
+	} else if (pclk_rate == 32) {
+		/* Configure sensor for Initial setting (PLL, Clock, etc) */
+		for (i = 0; i < isx005_regs.init_reg32_settings_size; ++i) {
+			rc = isx005_i2c_write(isx005_client->addr,
+				isx005_regs.init_reg32_settings[i].register_address,
+				isx005_regs.init_reg32_settings[i].register_value,
+				isx005_regs.init_reg32_settings[i].register_length);
+			
+			if (rc < 0)
+				return rc;
+		}
+	} else {
+		printk(KERN_ERR "invalid pclk rate!\n");
+		return -EINVAL;
+	}
+
+	return rc;
+}
+#endif
 
 int isx005_reg_tuning(void *data)
 {
@@ -620,7 +658,7 @@ static int isx005_move_focus(int32_t steps)
 	return rc;
 }
 
-static int isx005_set_default_focus()
+static int isx005_set_default_focus(void)
 {
 	int rc;
 
@@ -1415,6 +1453,25 @@ static struct i2c_driver isx005_i2c_driver = {
 	},
 };
 
+static ssize_t pclk_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	printk("mclk_rate = %d\n", pclk_rate);
+	return 0;
+}
+
+static ssize_t pclk_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	int value;
+
+	sscanf(buf, "%d", &value);
+	pclk_rate = value;
+
+	printk("pclk_rate = %d\n", pclk_rate);
+	return size;
+}
+
+static DEVICE_ATTR(pclk, S_IRWXUGO, pclk_show, pclk_store);
+
 static ssize_t mclk_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	printk("mclk_rate = %d\n", mclk_rate);
@@ -1465,6 +1522,12 @@ static int isx005_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = isx005_sensor_init;
 	s->s_release = isx005_sensor_release;
 	s->s_config  = isx005_sensor_config;
+
+	rc = device_create_file(&isx005_pdev->dev, &dev_attr_pclk);
+	if (rc < 0) {
+		printk("device_create_file error!\n");
+		return rc;
+	}
 
 	rc = device_create_file(&isx005_pdev->dev, &dev_attr_mclk);
 	if (rc < 0) {

@@ -38,6 +38,10 @@ struct isx005_register_address_value_pair {
 struct isx005_reg {
 	const struct isx005_register_address_value_pair *init_reg_settings;
 	uint16_t init_reg_settings_size;
+#if !defined (CONFIG_MACH_MSM7X27_THUNDERG)	
+	const struct isx005_register_address_value_pair *init_reg32_settings;
+	uint16_t init_reg32_settings_size;
+#endif
 	const struct isx005_register_address_value_pair *tuning_reg_settings;
 	uint16_t tuning_reg_settings_size;
 	
