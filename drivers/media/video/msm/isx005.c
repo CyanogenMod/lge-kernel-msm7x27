@@ -310,7 +310,11 @@ static int isx005_set_sensor_mode(int mode)
 
 			mdelay(1);
 		}
-		msleep(50);
+		
+		if (prev_scene_mode == CAMERA_SCENE_NIGHT)
+			msleep(500);
+		else
+			msleep(50);
 
 		init_prev_mode = 1;
 		break;
@@ -326,7 +330,12 @@ static int isx005_set_sensor_mode(int mode)
 
 			mdelay(1);
 		}
-		msleep(50);
+		
+		if (prev_scene_mode == CAMERA_SCENE_NIGHT)
+			msleep(500);
+		else
+			msleep(50);
+
 		break;
 
 	default:
