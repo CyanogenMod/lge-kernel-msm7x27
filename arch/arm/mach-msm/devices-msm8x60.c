@@ -18,12 +18,15 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/consumer.h>
 #include <mach/irqs.h>
 #include <mach/dma.h>
 #include <asm/mach/mmc.h>
 #include <linux/msm_kgsl.h>
 #include <linux/msm_rotator.h>
 #include <mach/msm_hsusb.h>
+#include "footswitch.h"
 #include "clock.h"
 #include "clock-8x60.h"
 #include "clock-rpm.h"
@@ -1208,6 +1211,32 @@ void __init msm_clock_temp_force_on(void)
 	 * drivers implement support for them, they must be removed
 	 * from this list. */
 }
+
+#define FS(_id, _name) (&(struct platform_device){ \
+	.name	= "footswitch-msm8x60", \
+	.id	= (_id), \
+	.dev	= { \
+		.platform_data = &(struct regulator_init_data){ \
+			.constraints = { \
+				.valid_modes_mask = REGULATOR_MODE_NORMAL, \
+				.valid_ops_mask   = REGULATOR_CHANGE_STATUS, \
+			}, \
+			.num_consumer_supplies = 1, \
+			.consumer_supplies = \
+				&(struct regulator_consumer_supply) \
+				REGULATOR_SUPPLY((_name), NULL), \
+		} \
+	}, \
+})
+struct platform_device *msm_footswitch_devices[] = {
+	FS(FS_IJPEG,	"fs_ijpeg"),
+	FS(FS_MDP,	"fs_mdp"),
+	FS(FS_ROT,	"fs_rot"),
+	FS(FS_VED,	"fs_ved"),
+	FS(FS_VFE,	"fs_vfe"),
+	FS(FS_VPE,	"fs_vpe"),
+};
+unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
 struct clk msm_clocks_8x60[] = {
 	CLK_RPM("afab_clk",		AFAB_CLK,		NULL, CLK_MIN),

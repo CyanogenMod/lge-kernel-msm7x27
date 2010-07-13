@@ -6483,6 +6483,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
 	    machine_is_msm8x60_fluid()) {
 		msm8x60_cfg_smsc911x();
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1)
+			platform_add_devices(msm_footswitch_devices,
+					     msm_num_footswitch_devices);
 		platform_add_devices(surf_devices,
 				     ARRAY_SIZE(surf_devices));
 #ifdef CONFIG_USB_EHCI_MSM
