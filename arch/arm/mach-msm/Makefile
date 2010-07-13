@@ -163,3 +163,4 @@ obj-y	+= gpio-v2.o
 else
 obj-y	+= gpio.o
 endif
+obj-$(CONFIG_MSM_SLEEP_STATS) += msm_sleep_stats.o
