@@ -94,6 +94,10 @@ static int ats_event_log_connect(struct input_handler *handler,struct input_dev 
 	int i;
 	int ret;
 	struct input_handle *handle;
+
+	if(strcmp(dev->name, "ats_input") == 0)
+		return 0;
+
 	printk(" connect () %s \n\n",dev->name);
 
 	for (i = 0 ; i < ETA_KEY_MAX - 1 ; i++){
