@@ -36,6 +36,7 @@ init_reg_settings_array[] = {
 
 {0x00FC, 0x1f   ,BYTE_LEN},     //
 {0x000b, 0x02, BYTE_LEN},		// PLL_CKSEL    
+{0x3208, 0x01   ,BYTE_LEN},		// [LGE_CODE] FAST MODE CHANGE - eunyoung.shin@lge.com 2010-07-13 
 {0x0009, 0x06   ,BYTE_LEN},		// INCK_SET 
 {0x02C7, 0x01, BYTE_LEN},		// SRCCK_DIV 
 {0x0038, 0x0D  ,BYTE_LEN},		// sync masking on off   - for QCT      
@@ -73,7 +74,7 @@ init_reg_settings_array[] = {
 {0x4C18, 0x8001, WORD_LEN},		// FLC_OPD_HEIGHT_NORMAL_1_4
 {0x4C1A, 0xC000, WORD_LEN},		// FLC_OPD_HEIGHT_NORMAL_1_8
 {0x000E, 0x12, BYTE_LEN},	  	// GPIO_FUNCSEL IRQ disable & UART enable
-{0x02CD, 0x03, BYTE_LEN},			//Drive Strength - 2mA for RF sensortive   -- 2010.7.14 eunyoung.shin@lge.com
+{0x02CD, 0x03, BYTE_LEN},			//[LGE_CODE] Drive Strength - 2mA for RF sensortivity - eunyoung.shin@lge.com 2010-07-13 
 {0x003A, 0x0002 ,WORD_LEN},   // CAM OUTPUT DATA Format
 {0x001C, 0x00   ,BYTE_LEN},   	// OUTPUT FORMAT MONITOR MODE
 #if defined (CONFIG_ISX005_ROTATION_180)
@@ -103,7 +104,8 @@ init_reg_settings_array[] = {
 	//Preview size 640*480
 
 	{0x00FC, 0xFF   ,BYTE_LEN},             //   
-	{0x000b, 0x01   ,BYTE_LEN},             // PLL_CKSEL         
+	{0x000b, 0x01   ,BYTE_LEN},             // PLL_CKSEL     
+  {0x3208, 0x01   ,BYTE_LEN},		// [LGE_CODE] FAST MODE CHANGE - eunyoung.shin@lge.com 2010-07-13 	
 	{0x0009, 0x06   ,BYTE_LEN},             // INCK_SET          
 	{0x02C7, 0x01   ,BYTE_LEN},             // SRCCK_DIV 
 	{0x0038, 0x0D   ,BYTE_LEN},             // sync masking on off        
