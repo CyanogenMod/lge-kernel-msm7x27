@@ -77,6 +77,7 @@
 
 /* ear sense driver macros */
 #define GPIO_EAR_SENSE		29
+#define GPIO_HS_MIC_BIAS_EN	26
 
 /* bluetooth gpio pin */
 enum {

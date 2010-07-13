@@ -456,12 +456,12 @@ static int thunderc_gpio_earsense_work_func(void)
 	if (gpio_value == EAR_EJECT) {
 		state = EAR_STATE_EJECT;
 		/* LGE_CHANGE_S, [junyoub.an] , 2010-05-28, comment out to control at ARM9 part*/
-		//thunderc_hs_mic_bias_power(0);
+		gpio_set_value(GPIO_HS_MIC_BIAS_EN, 0);
 		/* LGE_CHANGE_E, [junyoub.an] , 2010-05-28, comment out to control at ARM9 part*/
 	} else {
 		state = EAR_STATE_INJECT;
 		/* LGE_CHANGE_S, [junyoub.an] , 2010-05-28, comment out to control at ARM9 part*/
-		//thunderc_hs_mic_bias_power(1);
+		gpio_set_value(GPIO_HS_MIC_BIAS_EN, 1);
 		/* LGE_CHANGE_E, [junyoub.an] , 2010-05-28, comment out to control at ARM9 part*/
 	}
 
