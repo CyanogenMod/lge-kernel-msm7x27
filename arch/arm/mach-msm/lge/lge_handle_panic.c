@@ -120,10 +120,35 @@ static struct ram_console_buffer *ram_console_buffer = 0;
 static int get_panic_report_start(uint32_t start, uint32_t size, uint8_t *data)
 {
 	int report_start;
+	uint8_t buffer[8];
 	int i;
 
 	report_start = -1;
 
+	for (i = 0; i < size; i++) {
+		if (data[i] == '>') {
+			if (!strncmp(&data[i], ">>>>>", 5)) {
+				report_start = i;
+				break;
+			}
+		}
+	}
+
+	/* because ram cosole is ring buffer */
+	for (i = 0; i < 4; i++) {
+		buffer[i] = data[(size - 4) + i];
+		buffer[i + 4] = data[i];
+	}
+	for (i = 0; i < 4; i++) {
+		if (buffer[i] == '>') {
+			if (!strncmp(&buffer[i], ">>>>>", 5)) {
+				report_start = (size - 4) + i;
+				break;
+			}
+		}
+	}
+
+#if 0
 	for (i = start - 1; i > -1; --i) {
 		if (data[i] == '>') {
 			if (!strncmp(&data[i], ">>>>>\n", 6)) {
@@ -149,6 +174,7 @@ static int get_panic_report_start(uint32_t start, uint32_t size, uint8_t *data)
 	if (i < start) {
 		return -1;
 	}
+#endif
 
 	return report_start;
 }
@@ -200,7 +226,7 @@ static int display_panic_reason(struct notifier_block *this, unsigned long event
 	}
 
 	msm_pm_flush_console();
-
+	
 	if (display_kernel_enable)
 		mdelay(500);
 	spin_lock_irqsave(&lge_panic_lock, flags);
