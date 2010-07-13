@@ -378,12 +378,10 @@ int msm_hsusb_is_serial_num_null(uint32_t val)
 EXPORT_SYMBOL(msm_hsusb_is_serial_num_null);
 
 #if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
-/* LGE_CHANGE
- * ADD THUNDER feature TO USE VS740 BATT DRIVER IN THUNDERC
+/* ADD THUNDER feature TO USE VS740 BATT DRIVER IN THUNDERC
  * 2010-05-13, taehung.kim@lge.com
  */
-
-/* LGE_CHANGES_S [woonghee@lge.com]	2009-09-25, battery charging */
+/* woonghee@lge.com	2009-09-25, battery charging */
 static int charger_type;
 #endif
 
@@ -396,11 +394,10 @@ int msm_chg_usb_charger_connected(uint32_t device)
 	} req;
 
 #if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
-/* LGE_CHANGE
- * ADD THUNDER feature TO USE VS740 BATT DRIVER IN THUNDERC
- * 2010-05-13, taehung.kim@lge.com
- */
-	/* LGE_CHANGES_S [woonghee@lge.com]	2009-09-25, battery charging */
+	/* ADD THUNDER feature TO USE VS740 BATT DRIVER IN THUNDERC
+	 * 2010-05-13, taehung.kim@lge.com
+	 */
+	/* woonghee@lge.com	2009-09-25, battery charging */
 	charger_type = device;
 #endif
 

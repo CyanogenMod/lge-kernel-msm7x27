@@ -533,15 +533,11 @@ static void msm_batt_update_psy_status(void)
 	charger_status = rep_batt_chg.v1.charger_status;
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC
 	hw_type_from_usb = msm_hsusb_get_charger_type();
-	if(hw_type_from_usb == CHG_HOST_PC)
-	{
+	if (hw_type_from_usb == CHG_HOST_PC) {
 		charger_type = CHARGER_TYPE_USB_PC;
-	}
-	else if(hw_type_from_usb == CHG_WALL)
-	{
+	} else if (hw_type_from_usb == CHG_WALL) {
 		charger_type = CHARGER_TYPE_WALL;
-	}
-	else {
+	} else {
 		charger_type = CHARGER_TYPE_NONE;
 	}
 #else
@@ -810,7 +806,7 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_status 	= battery_status;
 	msm_batt_info.battery_level 	= battery_level;
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC
-	msm_batt_info.battery_temp 	= battery_temp*10;
+	msm_batt_info.battery_temp 	= battery_temp * 10;
 	msm_batt_info.valid_battery_id  = battery_id;
 	msm_batt_info.battery_therm     = battery_therm;
 #else

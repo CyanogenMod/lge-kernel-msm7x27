@@ -84,28 +84,30 @@ static int __init lge_uart_mode(char *uart_mode)
 }
 
 __setup("uart_console=", lge_uart_mode);
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
-/* LGE_CHANGE
- * To support VS660 Smart factory reset
+
+/* To support VS660 Smart factory reset
  * We dont check flag in kernel if system booting is recovery mode
  * 2010-06-08, taehung.kim@lge.com
  */
 static int recovery_mode;
+
 int lge_get_recovery_state(void)
 {
 	return recovery_mode;
 }
-static int __init lge_recovery_state(char* s)
+
+static int __init lge_recovery_state(char *s)
 {
 	if(!strcmp(s,"on"))
 		recovery_mode = 1;
 	else
 		recovery_mode = 0;
-	printk("%s: recovery mode = %s\n",__func__,s);
+	printk("%s: recovery mode = %s\n", __func__, s);
+	
 	return 1;
 }
+
 __setup("recovery=",lge_recovery_state);
-#endif
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 static struct resource ram_console_resource[] = {

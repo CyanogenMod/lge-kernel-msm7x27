@@ -53,13 +53,12 @@ static void *mddi_hitachi_vsync_handler_arg;
 static uint16 mddi_hitachi_vsync_attempts;
 
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
-/* LGE_CHANGE
-  * Define new structure named 'msm_panel_hitachi_pdata' to use LCD initialization Flag (.initialized).
-  * 2010-04-21, minjong.gong@lge.com
-  */
-	static struct msm_panel_hitachi_pdata *mddi_hitachi_pdata;
+/* Define new structure named 'msm_panel_hitachi_pdata' to use LCD initialization Flag (initialized)
+ * 2010-04-21, minjong.gong@lge.com
+ */
+static struct msm_panel_hitachi_pdata *mddi_hitachi_pdata;
 #else
-	static struct msm_panel_common_pdata *mddi_hitachi_pdata;
+static struct msm_panel_common_pdata *mddi_hitachi_pdata;
 #endif
 
 static int mddi_hitachi_lcd_on(struct platform_device *pdev);
@@ -497,8 +496,7 @@ static int mddi_hitachi_lcd_on(struct platform_device *pdev)
 	EPRINTK("%s: started.\n", __func__);
 
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
-	if(system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized)
-	{
+	if (system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized) {
 		is_lcd_on = TRUE;
 		return 0;
 	}
@@ -506,27 +504,21 @@ static int mddi_hitachi_lcd_on(struct platform_device *pdev)
 	// LCD HW Reset
 	mddi_hitachi_lcd_panel_poweron();
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG)
-	if(lge_bd_rev <= LGE_REV_E) 
-	{
+	if (lge_bd_rev <= LGE_REV_E) {
 		EPRINTK("ThunderG ==> lge_bd_rev = %d : 1st LCD initial\n", lge_bd_rev);
 		display_table(mddi_hitachi_initialize_1st, sizeof(mddi_hitachi_initialize_1st)/sizeof(struct display_table));
 		display_table(mddi_hitachi_display_on_1st, sizeof(mddi_hitachi_display_on_1st) / sizeof(struct display_table));
-	}
-	else
-	{
+	} else {
 		EPRINTK("ThunderG ==> lge_bd_rev = %d : 3rd LCD initial\n", lge_bd_rev);
 		display_table(mddi_hitachi_initialize_3rd_p500, sizeof(mddi_hitachi_initialize_3rd_p500)/sizeof(struct display_table));
 		display_table(mddi_hitachi_display_on_3rd, sizeof(mddi_hitachi_display_on_3rd) / sizeof(struct display_table));
 	}
 #else
-	if(lge_bd_rev <= LGE_REV_D)
-	{
+	if (lge_bd_rev <= LGE_REV_D) {
 		EPRINTK("ThunderC ==> lge_bd_rev = %d : 1st LCD initial\n", lge_bd_rev);
 		display_table(mddi_hitachi_initialize_1st, sizeof(mddi_hitachi_initialize_1st)/sizeof(struct display_table));
 		display_table(mddi_hitachi_display_on_1st, sizeof(mddi_hitachi_display_on_1st) / sizeof(struct display_table));
-	}
-	else
-	{
+	} else {
 		EPRINTK("ThunderC ==> lge_bd_rev = %d : 3rd LCD initial\n", lge_bd_rev);
 		display_table(mddi_hitachi_initialize_3rd_vs660, sizeof(mddi_hitachi_initialize_3rd_vs660)/sizeof(struct display_table));
 		display_table(mddi_hitachi_display_on_3rd, sizeof(mddi_hitachi_display_on_3rd) / sizeof(struct display_table));
@@ -541,8 +533,7 @@ static int mddi_hitachi_lcd_store_on(struct platform_device *pdev)
 	EPRINTK("%s: started.\n", __func__);
 
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
-	if(system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized)
-	{
+	if (system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized) {
 		is_lcd_on = TRUE;
 		return 0;
 	}
@@ -550,27 +541,21 @@ static int mddi_hitachi_lcd_store_on(struct platform_device *pdev)
 	// LCD HW Reset
 	mddi_hitachi_lcd_panel_store_poweron();
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG)
-	if(lge_bd_rev <= LGE_REV_E) 
-	{
+	if (lge_bd_rev <= LGE_REV_E) {
 		display_table(mddi_hitachi_initialize_1st, sizeof(mddi_hitachi_initialize_1st)/sizeof(struct display_table));
 		mdelay(200);
 		display_table(mddi_hitachi_display_on_1st, sizeof(mddi_hitachi_display_on_1st) / sizeof(struct display_table));
-	}
-	else
-	{
+	} else {
 		display_table(mddi_hitachi_initialize_3rd_p500, sizeof(mddi_hitachi_initialize_3rd_p500)/sizeof(struct display_table));
 		mdelay(200);
 		display_table(mddi_hitachi_display_on_3rd, sizeof(mddi_hitachi_display_on_3rd) / sizeof(struct display_table));
 	}
 #else
-	if(lge_bd_rev <= LGE_REV_D)
-	{
+	if (lge_bd_rev <= LGE_REV_D) {
 		display_table(mddi_hitachi_initialize_1st, sizeof(mddi_hitachi_initialize_1st)/sizeof(struct display_table));
 		mdelay(200);
 		display_table(mddi_hitachi_display_on_1st, sizeof(mddi_hitachi_display_on_1st) / sizeof(struct display_table));
-	}
-	else
-	{
+	} else {
 		display_table(mddi_hitachi_initialize_3rd_vs660, sizeof(mddi_hitachi_initialize_3rd_vs660)/sizeof(struct display_table));
 		mdelay(200);
 		display_table(mddi_hitachi_display_on_3rd, sizeof(mddi_hitachi_display_on_3rd) / sizeof(struct display_table));

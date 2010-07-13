@@ -1910,13 +1910,12 @@ static int __init msm_pm_init(void)
 	}
 #endif
 
-/* LGE_CHANGE
- * factory reset check after booting
- * 2010-05-30, taehung.kim@lge.com
- */
 #if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+	/* factory reset check after booting
+	 * 2010-05-30, taehung.kim@lge.com
+	 */
 	if(!lge_get_recovery_state())
-	factory_reset_check();
+		factory_reset_check();
 #endif
 	return 0;
 }

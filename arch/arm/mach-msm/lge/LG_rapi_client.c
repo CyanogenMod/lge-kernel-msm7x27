@@ -21,8 +21,7 @@
 #if defined(CONFIG_MACH_MSM7X27_ALOHAV)
 #include <mach/msm_battery_alohav.h>
 #elif defined(CONFIG_MACH_MSM7X27_THUNDERC)
-/* LGE_CHANGE
- * ADD THUNERC feature to use VS740 BATT DRIVER
+/* ADD THUNERC feature to use VS740 BATT DRIVER
  * 2010--5-13, taehung.kim@lge.com
  */
 #include <mach/msm_battery_thunderc.h>

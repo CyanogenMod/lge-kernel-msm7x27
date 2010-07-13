@@ -46,13 +46,14 @@ struct msm_ptbl_entry {
 	__u32 flags;
 };
 
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-06-15, increase max for fota */
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG)
+/* increase max for fota
+ * hyunhui.park@lge.com 2010-06-15
+ */
 #define MSM_MAX_PARTITIONS 11
 #else /* original */
 #define MSM_MAX_PARTITIONS 8
 #endif
-/* LGE_CHANGE_E */
 
 static struct mtd_partition msm_nand_partitions[MSM_MAX_PARTITIONS];
 static char msm_nand_names[MSM_MAX_PARTITIONS * 16];
