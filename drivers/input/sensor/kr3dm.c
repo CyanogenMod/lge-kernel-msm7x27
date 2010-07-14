@@ -1,5 +1,5 @@
 /*
- *  drivers/input/sensor/kr3dh.c
+ *  drivers/input/sensor/kr3dm.c
  *
  *  Copyright (c) 2010 LGE.
  *
@@ -70,28 +70,29 @@
 #define AUTO_INCREMENT		0x80
 
 /** The following define the IOCTL command values via the ioctl macros */
-#define KR3DH_IOCTL_BASE 'a'
-#define KR3DH_IOCTL_SET_DELAY		_IOW(KR3DH_IOCTL_BASE, 0, int)
-#define KR3DH_IOCTL_GET_DELAY		_IOR(KR3DH_IOCTL_BASE, 1, int)
-#define KR3DH_IOCTL_SET_ENABLE		_IOW(KR3DH_IOCTL_BASE, 2, int)
-#define KR3DH_IOCTL_GET_ENABLE		_IOR(KR3DH_IOCTL_BASE, 3, int)
-#define KR3DH_IOCTL_SET_G_RANGE		_IOW(KR3DH_IOCTL_BASE, 4, int)
-#define KR3DH_IOCTL_READ_ACCEL_XYZ	_IOW(KR3DH_IOCTL_BASE, 8, int)
+#define KR3DM_IOCTL_BASE 'a'
+#define KR3DM_IOCTL_SET_DELAY       _IOW(KR3DM_IOCTL_BASE, 0, int)
+#define KR3DM_IOCTL_GET_DELAY       _IOR(KR3DM_IOCTL_BASE, 1, int)
+#define KR3DM_IOCTL_SET_ENABLE      _IOW(KR3DM_IOCTL_BASE, 2, int)
+#define KR3DM_IOCTL_GET_ENABLE      _IOR(KR3DM_IOCTL_BASE, 3, int)
+#define KR3DM_IOCTL_SET_G_RANGE     _IOW(KR3DM_IOCTL_BASE, 4, int)
+#define KR3DM_IOCTL_READ_ACCEL_XYZ  _IOW(KR3DM_IOCTL_BASE, 8, int)
 
 #define OUT_X          0x29
 #define OUT_Y          0x2B
 #define OUT_Z          0x2D
-#define KR3DH_G_2G 0x00
-#define KR3DH_G_4G 0x10
-#define KR3DH_G_8G 0x30
+
+#define KR3DM_G_2G 0x00
+#define KR3DM_G_4G 0x10
+#define KR3DM_G_8G 0x30
 
 #define WHO_AM_I		0x0f
-#define KR3DH_DEVICE_ID	0x32
+#define KR3DM_DEVICE_ID	0x12
 
 struct {
 	unsigned int cutoff;
 	unsigned int mask;
-} odr_table[] = {
+} odr_table_m[] = {
 	{
 	3,	PM_NORMAL | ODR1000}, {
 	10,	PM_NORMAL | ODR400}, {
@@ -103,7 +104,7 @@ struct {
 	2000,	ODR1000 | ODR1}, {
 	0,	ODR1000 | ODRHALF},};
 
-struct kr3dh_data {
+struct kr3dm_data {
 	struct i2c_client *client;
 	struct kr3dh_platform_data *pdata;
 
@@ -124,9 +125,9 @@ struct kr3dh_data {
  * Because misc devices can not carry a pointer from driver register to
  * open, we keep this global.  This limits the driver to a single instance.
  */
-struct kr3dh_data *kr3dh_misc_data;
+struct kr3dm_data *kr3dm_misc_data;
 
-static int kr3dh_i2c_read(struct kr3dh_data *kr, u8 * buf, int len)
+static int kr3dm_i2c_read(struct kr3dm_data *kr, u8 * buf, int len)
 {
 	int err;
 	int tries = 0;
@@ -161,7 +162,7 @@ static int kr3dh_i2c_read(struct kr3dh_data *kr, u8 * buf, int len)
 	return err;
 }
 
-static int kr3dh_i2c_write(struct kr3dh_data *kr, u8 * buf, int len)
+static int kr3dm_i2c_write(struct kr3dm_data *kr, u8 * buf, int len)
 {
 	int err;
 	int tries = 0;
@@ -190,7 +191,7 @@ static int kr3dh_i2c_write(struct kr3dh_data *kr, u8 * buf, int len)
 	return err;
 }
 
-static int kr3dh_hw_init(struct kr3dh_data *kr)
+static int kr3dm_hw_init(struct kr3dm_data *kr)
 {
 	int err = -1;
 	u8 buf[6];
@@ -201,7 +202,7 @@ static int kr3dh_hw_init(struct kr3dh_data *kr)
 	buf[3] = kr->resume_state[2];
 	buf[4] = kr->resume_state[3];
 	buf[5] = kr->resume_state[4];
-	err = kr3dh_i2c_write(kr, buf, 5);
+	err = kr3dm_i2c_write(kr, buf, 5);
 	if (err < 0)
 		return err;
 
@@ -210,12 +211,12 @@ static int kr3dh_hw_init(struct kr3dh_data *kr)
 	return 0;
 }
 
-static void kr3dh_device_power_off(struct kr3dh_data *kr)
+static void kr3dm_device_power_off(struct kr3dm_data *kr)
 {
 	int err;
 	u8 buf[2] = {CTRL_REG1, PM_OFF};
 
-	err = kr3dh_i2c_write(kr, buf, 1);
+	err = kr3dm_i2c_write(kr, buf, 1);
 	if (err < 0)
 		dev_err(&kr->client->dev, "soft power off failed\n");
 
@@ -225,7 +226,7 @@ static void kr3dh_device_power_off(struct kr3dh_data *kr)
 	}
 }
 
-static int kr3dh_device_power_on(struct kr3dh_data *kr)
+static int kr3dm_device_power_on(struct kr3dm_data *kr)
 {
 
 	int err;
@@ -237,9 +238,9 @@ static int kr3dh_device_power_on(struct kr3dh_data *kr)
 	}
 
 	if (!kr->hw_initialized) {
-		err = kr3dh_hw_init(kr);
+		err = kr3dm_hw_init(kr);
 		if (err < 0) {
-			kr3dh_device_power_off(kr);
+			kr3dm_device_power_off(kr);
 			return err;
 		}
 	}
@@ -247,20 +248,20 @@ static int kr3dh_device_power_on(struct kr3dh_data *kr)
 	return 0;
 }
 
-int kr3dh_update_g_range(struct kr3dh_data *kr, u8 new_g_range)
+int kr3dm_update_g_range(struct kr3dm_data *kr, u8 new_g_range)
 {
 	int err;
 	u8 shift;
 	u8 buf[2];
 
 	switch (new_g_range) {
-		case KR3DH_G_2G:
+		case KR3DM_G_2G:
 			shift = SHIFT_ADJ_2G;
 			break;
-		case KR3DH_G_4G:
+		case KR3DM_G_4G:
 			shift = SHIFT_ADJ_4G;
 			break;
-		case KR3DH_G_8G:
+		case KR3DM_G_8G:
 			shift = SHIFT_ADJ_8G;
 			break;
 		default:
@@ -276,7 +277,7 @@ int kr3dh_update_g_range(struct kr3dh_data *kr, u8 new_g_range)
 		 *  (marked by X) */
 		buf[0] = CTRL_REG4;
 		buf[1] = new_g_range;
-		err = kr3dh_i2c_write(kr, buf, 1);
+		err = kr3dm_i2c_write(kr, buf, 1);
 		if (err < 0)
 			return err;
 	}
@@ -287,7 +288,7 @@ int kr3dh_update_g_range(struct kr3dh_data *kr, u8 new_g_range)
 	return 0;
 }
 
-int kr3dh_update_odr(struct kr3dh_data *kr, int poll_interval)
+int kr3dm_update_odr(struct kr3dm_data *kr, int poll_interval)
 {
 	int err = -1;
 	int i;
@@ -298,9 +299,9 @@ int kr3dh_update_odr(struct kr3dh_data *kr, int poll_interval)
 	 *  maintained due to the cascading cut off values - poll intervals are
 	 *  checked from shortest to longest.  At each check, if the next lower
 	 *  ODR cannot support the current poll interval, we stop searching */
-	for (i = 0; i < ARRAY_SIZE(odr_table); i++) {
-		config[1] = odr_table[i].mask;
-		if (poll_interval < odr_table[i].cutoff)
+	for (i = 0; i < ARRAY_SIZE(odr_table_m); i++) {
+		config[1] = odr_table_m[i].mask;
+		if (poll_interval < odr_table_m[i].cutoff)
 			break;
 	}
 
@@ -310,7 +311,7 @@ int kr3dh_update_odr(struct kr3dh_data *kr, int poll_interval)
 	 *  configuration out to it */
 	if (atomic_read(&kr->enabled)) {
 		config[0] = CTRL_REG1;
-		err = kr3dh_i2c_write(kr, config, 1);
+		err = kr3dm_i2c_write(kr, config, 1);
 		if (err < 0)
 			return err;
 	}
@@ -320,16 +321,31 @@ int kr3dh_update_odr(struct kr3dh_data *kr, int poll_interval)
 	return 0;
 }
 
-static int kr3dh_get_acceleration_data(struct kr3dh_data *kr, int *xyz)
+static int kr3dm_get_acceleration_data(struct kr3dm_data *kr, int *xyz)
 {
 	int err = -1;
 	/* Data bytes from hardware xL, xH, yL, yH, zL, zH */
 	u8 acc_data[6];
+
+#if 1
+	acc_data[0] = OUT_X;
+	acc_data[1] = OUT_Y;
+	acc_data[2] = OUT_Z;
+
+	err = kr3dm_i2c_read(kr, &acc_data[0], 1);
+	xyz[0] = (int)((signed char)acc_data[0]);
+
+	err = kr3dm_i2c_read(kr,&acc_data[1], 1);
+	xyz[1] = (int)((signed char)acc_data[1]);
+
+	err = kr3dm_i2c_read(kr,&acc_data[2], 1);
+	xyz[2] = (int)((signed char)acc_data[2]);
+#else
 	/* x,y,z hardware data */
 	int hw_d[3] = { 0 };
 
 	acc_data[0] = (AUTO_INCREMENT | AXISDATA_REG);
-	err = kr3dh_i2c_read(kr, acc_data, 6);
+	err = kr3dm_i2c_read(kr, acc_data, 6);
 	if (err < 0)
 		return err;
 
@@ -351,6 +367,7 @@ static int kr3dh_get_acceleration_data(struct kr3dh_data *kr, int *xyz)
 		  : (hw_d[kr->pdata->axis_map_y]));
 	xyz[2] = ((kr->pdata->negate_z) ? (-hw_d[kr->pdata->axis_map_z])
 		  : (hw_d[kr->pdata->axis_map_z]));
+#endif
 
 	//dev_info(&kr->client->dev, "(x, y ,z) = (%d, %d, %d)\n", xyz[0],xyz[1], xyz[2]);
 
@@ -358,7 +375,7 @@ static int kr3dh_get_acceleration_data(struct kr3dh_data *kr, int *xyz)
 }
 
 #if USE_WORK_QUEUE
-static void kr3dh_report_values(struct kr3dh_data *kr, int *xyz)
+static void kr3dm_report_values(struct kr3dm_data *kr, int *xyz)
 {
 	input_report_abs(kr->input_dev, ABS_X, xyz[0]);
 	input_report_abs(kr->input_dev, ABS_Y, xyz[1]);
@@ -369,13 +386,13 @@ static void kr3dh_report_values(struct kr3dh_data *kr, int *xyz)
 }
 #endif
 
-static int kr3dh_enable(struct kr3dh_data *kr)
+static int kr3dm_enable(struct kr3dm_data *kr)
 {
 	int err;
 
 	if (!atomic_cmpxchg(&kr->enabled, 0, 1)) {
 
-		err = kr3dh_device_power_on(kr);
+		err = kr3dm_device_power_on(kr);
 		if (err < 0) {
 			atomic_set(&kr->enabled, 0);
 			return err;
@@ -391,47 +408,47 @@ static int kr3dh_enable(struct kr3dh_data *kr)
 	return 0;
 }
 
-static int kr3dh_disable(struct kr3dh_data *kr)
+static int kr3dm_disable(struct kr3dm_data *kr)
 {
 	if (atomic_cmpxchg(&kr->enabled, 1, 0)) {
 #if USE_WORK_QUEUE
 		cancel_delayed_work_sync(&kr->input_work);
 #endif
-		kr3dh_device_power_off(kr);
+		kr3dm_device_power_off(kr);
 	}
 
 	return 0;
 }
 
-static int kr3dh_misc_open(struct inode *inode, struct file *file)
+static int kr3dm_misc_open(struct inode *inode, struct file *file)
 {
 	int err;
 	err = nonseekable_open(inode, file);
 	if (err < 0)
 		return err;
 
-	file->private_data = kr3dh_misc_data;
+	file->private_data = kr3dm_misc_data;
 
 	return 0;
 }
 
-static int kr3dh_misc_ioctl(struct inode *inode, struct file *file,
+static int kr3dm_misc_ioctl(struct inode *inode, struct file *file,
 				unsigned int cmd, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
 	int buf[3];
 	int err;
 	int interval;
-	struct kr3dh_data *kr = file->private_data;
+	struct kr3dm_data *kr = file->private_data;
 
 	switch (cmd) {
-	case KR3DH_IOCTL_GET_DELAY:
+	case KR3DM_IOCTL_GET_DELAY:
 		interval = kr->pdata->poll_interval;
 		if (copy_to_user(argp, &interval, sizeof(interval)))
 			return -EFAULT;
 		break;
 
-	case KR3DH_IOCTL_SET_DELAY:
+	case KR3DM_IOCTL_SET_DELAY:
 		if (copy_from_user(&interval, argp, sizeof(interval)))
 			return -EFAULT;
 		if (interval < 0 || interval > 200)
@@ -439,44 +456,44 @@ static int kr3dh_misc_ioctl(struct inode *inode, struct file *file,
 
 		kr->pdata->poll_interval =
 		    max(interval, kr->pdata->min_interval);
-		err = kr3dh_update_odr(kr, kr->pdata->poll_interval);
+		err = kr3dm_update_odr(kr, kr->pdata->poll_interval);
 		/* TODO: if update fails poll is still set */
 		if (err < 0)
 			return err;
 
 		break;
 
-	case KR3DH_IOCTL_SET_ENABLE:
+	case KR3DM_IOCTL_SET_ENABLE:
 		if (copy_from_user(&interval, argp, sizeof(interval)))
 			return -EFAULT;
 		if (interval > 1)
 			return -EINVAL;
 
 		if (interval)
-			kr3dh_enable(kr);
+			kr3dm_enable(kr);
 		else
-			kr3dh_disable(kr);
+			kr3dm_disable(kr);
 
 		break;
 
-	case KR3DH_IOCTL_GET_ENABLE:
+	case KR3DM_IOCTL_GET_ENABLE:
 		interval = atomic_read(&kr->enabled);
 		if (copy_to_user(argp, &interval, sizeof(interval)))
 			return -EINVAL;
 
 		break;
 
-	case KR3DH_IOCTL_SET_G_RANGE:
+	case KR3DM_IOCTL_SET_G_RANGE:
 		if (copy_from_user(&buf, argp, 1))
 			return -EFAULT;
-		err = kr3dh_update_g_range(kr, arg);
+		err = kr3dm_update_g_range(kr, arg);
 		if (err < 0)
 			return err;
 
 		break;
 
-	case KR3DH_IOCTL_READ_ACCEL_XYZ:
-		err=kr3dh_get_acceleration_data(kr, buf);
+	case KR3DM_IOCTL_READ_ACCEL_XYZ:
+		err=kr3dm_get_acceleration_data(kr, buf);
 		if (err < 0)
 				return err;
 
@@ -488,7 +505,7 @@ static int kr3dh_misc_ioctl(struct inode *inode, struct file *file,
 		break;
 
 	case AKMD2_TO_ACCEL_IOCTL_READ_XYZ:	/* LGE_CHANGE [hyesung.shin@lge.com] on 2010-1-23, for <Sensor driver structure> */
-		err=kr3dh_get_acceleration_data(kr, buf);
+		err=kr3dm_get_acceleration_data(kr, buf);
 		if (err < 0)
 				return err;
 
@@ -506,33 +523,33 @@ static int kr3dh_misc_ioctl(struct inode *inode, struct file *file,
 	return 0;
 }
 
-static const struct file_operations kr3dh_misc_fops = {
+static const struct file_operations kr3dm_misc_fops = {
 	.owner = THIS_MODULE,
-	.open = kr3dh_misc_open,
-	.ioctl = kr3dh_misc_ioctl,
+	.open = kr3dm_misc_open,
+	.ioctl = kr3dm_misc_ioctl,
 };
 
-static struct miscdevice kr3dh_misc_device = {
+static struct miscdevice kr3dm_misc_device = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "KR3DH",
-	.fops = &kr3dh_misc_fops,
+	.name = "KR3DM",
+	.fops = &kr3dm_misc_fops,
 };
 
 #if USE_WORK_QUEUE
-static void kr3dh_input_work_func(struct work_struct *work)
+static void kr3dm_input_work_func(struct work_struct *work)
 {
-	struct kr3dh_data *kr = container_of((struct delayed_work *)work,
-						  struct kr3dh_data,
+	struct kr3dm_data *kr = container_of((struct delayed_work *)work,
+						  struct kr3dm_data,
 						  input_work);
 	int xyz[3] = { 0 };
 	int err;
 
 	mutex_lock(&kr->lock);
-	err = kr3dh_get_acceleration_data(kr, xyz);
+	err = kr3dm_get_acceleration_data(kr, xyz);
 	if (err < 0)
 		dev_err(&kr->client->dev, "get_acceleration_data failed\n");
 	else
-		kr3dh_report_values(kr, xyz);
+		kr3dm_report_values(kr, xyz);
 
 	schedule_delayed_work(&kr->input_work,
 			      msecs_to_jiffies(kr->pdata->poll_interval));
@@ -540,23 +557,23 @@ static void kr3dh_input_work_func(struct work_struct *work)
 }
 #endif // USE_WORK_QUEUE
 
-#ifdef KR3DH_OPEN_ENABLE
-int kr3dh_input_open(struct input_dev *input)
+#ifdef KR3DM_OPEN_ENABLE
+int kr3dm_input_open(struct input_dev *input)
 {
-	struct kr3dh_data *kr = input_get_drvdata(input);
+	struct kr3dm_data *kr = input_get_drvdata(input);
 
-	return kr3dh_enable(kr);
+	return kr3dm_enable(kr);
 }
 
-void kr3dh_input_close(struct input_dev *dev)
+void kr3dm_input_close(struct input_dev *dev)
 {
-	struct kr3dh_data *kr = input_get_drvdata(dev);
+	struct kr3dm_data *kr = input_get_drvdata(dev);
 
-	kr3dh_disable(kr);
+	kr3dm_disable(kr);
 }
 #endif
 
-static int kr3dh_validate_pdata(struct kr3dh_data *kr)
+static int kr3dm_validate_pdata(struct kr3dm_data *kr)
 {
 	kr->pdata->poll_interval = max(kr->pdata->poll_interval,
 					kr->pdata->min_interval);
@@ -589,12 +606,12 @@ static int kr3dh_validate_pdata(struct kr3dh_data *kr)
 	return 0;
 }
 
-static int kr3dh_input_init(struct kr3dh_data *kr)
+static int kr3dm_input_init(struct kr3dm_data *kr)
 {
 	int err;
 
 #if USE_WORK_QUEUE
-	INIT_DELAYED_WORK(&kr->input_work, kr3dh_input_work_func);
+	INIT_DELAYED_WORK(&kr->input_work, kr3dm_input_work_func);
 
 #endif
 	kr->input_dev = input_allocate_device();
@@ -604,9 +621,9 @@ static int kr3dh_input_init(struct kr3dh_data *kr)
 		goto err0;
 	}
 
-#ifdef KR3DH_OPEN_ENABLE
-	kr->input_dev->open = kr3dh_input_open;
-	kr->input_dev->close = kr3dh_input_close;
+#ifdef KR3DM_OPEN_ENABLE
+	kr->input_dev->open = kr3dm_input_open;
+	kr->input_dev->close = kr3dm_input_close;
 #endif
 
 	input_set_drvdata(kr->input_dev, kr);
@@ -636,16 +653,16 @@ err0:
 	return err;
 }
 
-static void kr3dh_input_cleanup(struct kr3dh_data *kr)
+static void kr3dm_input_cleanup(struct kr3dm_data *kr)
 {
 	input_unregister_device(kr->input_dev);
 	input_free_device(kr->input_dev);
 }
 
-static int kr3dh_probe(struct i2c_client *client,
+static int kr3dm_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
-	struct kr3dh_data *kr;
+	struct kr3dm_data *kr;
 	int err = -1;
 	u8 id_check = WHO_AM_I;
 
@@ -679,7 +696,7 @@ static int kr3dh_probe(struct i2c_client *client,
 
 	memcpy(kr->pdata, client->dev.platform_data, sizeof(*kr->pdata));
 
-	err = kr3dh_validate_pdata(kr);
+	err = kr3dm_validate_pdata(kr);
 	if (err < 0) {
 		dev_err(&client->dev, "failed to validate platform data\n");
 		goto err1_1;
@@ -693,8 +710,8 @@ static int kr3dh_probe(struct i2c_client *client,
 			goto err1_1;
 	}
 
-	err = kr3dh_i2c_read(kr, &id_check, 1);
-	if((int)((signed char)id_check) != KR3DH_DEVICE_ID)
+	err = kr3dm_i2c_read(kr, &id_check, 1);
+	if((int)((signed char)id_check) != KR3DM_DEVICE_ID)
 	{
 		dev_err(&client->dev, "Device ID not matched\n");
 		err = -ENODEV;
@@ -710,38 +727,38 @@ static int kr3dh_probe(struct i2c_client *client,
 	kr->resume_state[3] = 0;
 	kr->resume_state[4] = 0;
 
-	err = kr3dh_device_power_on(kr);
+	err = kr3dm_device_power_on(kr);
 	if (err < 0)
 		goto err2;
 
 	atomic_set(&kr->enabled, 1);
 
-	err = kr3dh_update_g_range(kr, kr->pdata->g_range);
+	err = kr3dm_update_g_range(kr, kr->pdata->g_range);
 	if (err < 0) {
 		dev_err(&client->dev, "update_g_range failed\n");
 		goto err2;
 	}
 
-	err = kr3dh_update_odr(kr, kr->pdata->poll_interval);
+	err = kr3dm_update_odr(kr, kr->pdata->poll_interval);
 	if (err < 0) {
 		dev_err(&client->dev, "update_odr failed\n");
 		goto err2;
 	}
 
-	err = kr3dh_input_init(kr);
+	err = kr3dm_input_init(kr);
 	if (err < 0)
 		goto err3;
 
-	kr3dh_misc_data = kr;
+	kr3dm_misc_data = kr;
 
-	err = misc_register(&kr3dh_misc_device);
+	err = misc_register(&kr3dm_misc_device);
 	if (err < 0) {
 		dev_err(&client->dev, "krd_device register failed\n");
 		goto err4;
 	}
 
 #if 0
-	kr3dh_device_power_off(kr);
+	kr3dm_device_power_off(kr);
 
 	/* As default, do not report information */
 	atomic_set(&kr->enabled, 0);
@@ -749,14 +766,14 @@ static int kr3dh_probe(struct i2c_client *client,
 
 	mutex_unlock(&kr->lock);
 
-	dev_info(&client->dev, "%s kr3dh: Accelerometer chip found\n", client->name);
+	dev_info(&client->dev, "%s kr3dm: Accelerometer chip found\n", client->name);
 
 	return 0;
 
 err4:
-	kr3dh_input_cleanup(kr);
+	kr3dm_input_cleanup(kr);
 err3:
-	kr3dh_device_power_off(kr);
+	kr3dm_device_power_off(kr);
 err2:
 	if (kr->pdata->kr_exit)
 		kr->pdata->kr_exit();
@@ -769,14 +786,14 @@ err0:
 	return err;
 }
 
-static int __devexit kr3dh_remove(struct i2c_client *client)
+static int __devexit kr3dm_remove(struct i2c_client *client)
 {
 	/* TODO: revisit ordering here once _probe order is finalized */
-	struct kr3dh_data *kr = i2c_get_clientdata(client);
+	struct kr3dm_data *kr = i2c_get_clientdata(client);
 
-	misc_deregister(&kr3dh_misc_device);
-	kr3dh_input_cleanup(kr);
-	kr3dh_device_power_off(kr);
+	misc_deregister(&kr3dm_misc_device);
+	kr3dm_input_cleanup(kr);
+	kr3dm_device_power_off(kr);
 	if (kr->pdata->kr_exit)
 		kr->pdata->kr_exit();
 	kfree(kr->pdata);
@@ -785,9 +802,9 @@ static int __devexit kr3dh_remove(struct i2c_client *client)
 	return 0;
 }
 
-static int kr3dh_resume(struct i2c_client *client)
+static int kr3dm_resume(struct i2c_client *client)
 {
-	struct kr3dh_data *kr = i2c_get_clientdata(client);
+	struct kr3dm_data *kr = i2c_get_clientdata(client);
 #if 0
 	int err = 0;
 
@@ -795,22 +812,22 @@ static int kr3dh_resume(struct i2c_client *client)
 
 		kr->pdata->gpio_config(1);
 
-		return kr3dh_enable(kr);
+		return kr3dm_enable(kr);
 	}
 
-	err =  kr3dh_hw_init(kr);
+	err =  kr3dm_hw_init(kr);
 	if (err < 0)
 		printk("%s i2c failed\n", __FUNCTION__);
 
 	return 0;
 #endif
 
-	return kr3dh_enable(kr);
+	return kr3dm_enable(kr);
 }
 
-static int kr3dh_suspend(struct i2c_client *client, pm_message_t mesg)
+static int kr3dm_suspend(struct i2c_client *client, pm_message_t mesg)
 {
-	struct kr3dh_data *kr = i2c_get_clientdata(client);
+	struct kr3dm_data *kr = i2c_get_clientdata(client);
 
 #if 0
 	kr->on_before_suspend = atomic_read(&kr->enabled);
@@ -820,42 +837,42 @@ static int kr3dh_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 #endif
 
-	return kr3dh_disable(kr);
+	return kr3dm_disable(kr);
 }
 
-static const struct i2c_device_id kr3dh_id[] = {
-	{"KR3DH", 0},
+static const struct i2c_device_id kr3dm_id[] = {
+	{"KR3DM", 0},
 	{},
 };
 
-MODULE_DEVICE_TABLE(i2c, kr3dh_id);
+MODULE_DEVICE_TABLE(i2c, kr3dm_id);
 
-static struct i2c_driver kr3dh_driver = {
+static struct i2c_driver kr3dm_driver = {
 	.driver = {
-		   .name = "KR3DH",
+		   .name = "KR3DM",
 		   },
-	.probe = kr3dh_probe,
-	.remove = __devexit_p(kr3dh_remove),
-	.resume = kr3dh_resume,
-	.suspend = kr3dh_suspend,
-	.id_table = kr3dh_id,
+	.probe = kr3dm_probe,
+	.remove = __devexit_p(kr3dm_remove),
+	.resume = kr3dm_resume,
+	.suspend = kr3dm_suspend,
+	.id_table = kr3dm_id,
 };
 
-static int __init kr3dh_init(void)
+static int __init kr3dm_init(void)
 {
-	pr_info("KR3DH accelerometer driver\n");
+	pr_info("KR3DM accelerometer driver\n");
 
-	return i2c_add_driver(&kr3dh_driver);
+	return i2c_add_driver(&kr3dm_driver);
 }
 
-static void __exit kr3dh_exit(void)
+static void __exit kr3dm_exit(void)
 {
-	i2c_del_driver(&kr3dh_driver);
+	i2c_del_driver(&kr3dm_driver);
 	return;
 }
 
-module_init(kr3dh_init);
-module_exit(kr3dh_exit);
+module_init(kr3dm_init);
+module_exit(kr3dm_exit);
 
-MODULE_DESCRIPTION("kr3dh accelerometer driver");
+MODULE_DESCRIPTION("kr3dm accelerometer driver");
 MODULE_AUTHOR("STMicroelectronics");

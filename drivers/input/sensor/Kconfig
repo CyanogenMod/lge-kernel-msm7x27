@@ -49,7 +49,6 @@ config SENSOR_KR3DH
 
 config SENSOR_KR3DM
 	tristate "8bit accel data for KR3DM"
-	depends on SENSOR_KR3DH
 	help
 	  Say Y here if you have a sensor interface using the
 	  KR3DM controller, and your board-specific

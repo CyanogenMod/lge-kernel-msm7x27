@@ -351,7 +351,6 @@ static int AMI304_Report_Value(int en_dis)
 		AMID("nax: %d, nay: %d, naz: %d\n", ami304mid_data.nax, ami304mid_data.nay, ami304mid_data.naz);
 		AMID("nmx: %d, nmy: %d, nmz: %d\n", ami304mid_data.nmx, ami304mid_data.nmy, ami304mid_data.nmz);
 		AMID("mag_status: %d\n", ami304mid_data.mag_status);
-		report_enable = 1;
 	}
 
 	if(report_enable)

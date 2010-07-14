@@ -66,7 +66,8 @@
 #define ACCEL_GPIO_INT	 		39
 #define ACCEL_GPIO_I2C_SCL  	2
 #define ACCEL_GPIO_I2C_SDA  	3
-#define ACCEL_I2C_ADDRESS		0x09 /*slave address 7bit*/
+#define ACCEL_I2C_ADDRESS		0x09 /*kr3dm slave address 7bit*/
+#define ACCEL_I2C_ADDRESS_H		0x19 /*kr3dh slave address 7bit*/
 
 /*Ecompass*/
 #define ECOM_GPIO_I2C_SCL		107
