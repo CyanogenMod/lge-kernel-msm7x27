@@ -490,6 +490,10 @@ static int msm_batt_get_batt_chg_status(void)
 		be32_to_cpu_self(v1p->battery_id);
 		be32_to_cpu_self(v1p->battery_therm);
 #else
+		/* suppress excessive debug message output
+		 * 2010-07-14, cleaneye.kim@lge.com
+		 */
+#if 0
 		DBG_LIMIT("%s() \n ----- charger / battery status --------\n", __func__);
 		DBG_LIMIT("\t charger_status=%d\n", v1p->charger_status);
 		DBG_LIMIT("\t charger_type=%d\n", v1p->charger_type);
@@ -498,6 +502,7 @@ static int msm_batt_get_batt_chg_status(void)
 		DBG_LIMIT("\t battery_voltage=%d\n", v1p->battery_voltage);
 		DBG_LIMIT("\t battery_temp=%d\n", v1p->battery_temp);
 		DBG_LIMIT("\t battery_soc=%d\n", v1p->battery_soc);
+#endif
 #endif
 #endif
 	} else {
