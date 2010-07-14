@@ -150,7 +150,14 @@ static inline ktime_t timeval_to_ktime(struct timeval tv)
 /* Set a ktime_t variable to a value in sec/nsec representation: */
 static inline ktime_t ktime_set(const long secs, const unsigned long nsecs)
 {
+#ifdef __SPLINT__
+	ktime_t time;
+	time.tv.sec = secs;
+	time.tv.nsec = nsecs;
+	return time;
+#else
 	return (ktime_t) { .tv = { .sec = secs, .nsec = nsecs } };
+#endif
 }
 
 /**
@@ -223,8 +230,15 @@ extern ktime_t ktime_sub_ns(const ktime_t kt, u64 nsec);
  */
 static inline ktime_t timespec_to_ktime(const struct timespec ts)
 {
+#ifdef __SPLINT__
+	ktime_t time;
+	time.tv.sec = (s32)ts.tv_sec;
+	time.tv.nsec = (s32)ts.tv_nsec;
+	return time;
+#else
 	return (ktime_t) { .tv = { .sec = (s32)ts.tv_sec,
 			   	   .nsec = (s32)ts.tv_nsec } };
+#endif
 }
 
 /**
@@ -235,8 +249,15 @@ static inline ktime_t timespec_to_ktime(const struct timespec ts)
  */
 static inline ktime_t timeval_to_ktime(const struct timeval tv)
 {
+#ifdef __SPLINT__
+	ktime_t time;
+	time.tv.sec = (s32)tv.tv_sec;
+	time.tv.nsec = (s32)tv.tv_nsec;
+	return time;
+#else
 	return (ktime_t) { .tv = { .sec = (s32)tv.tv_sec,
 				   .nsec = (s32)tv.tv_usec * 1000 } };
+#endif
 }
 
 /**
@@ -247,8 +268,15 @@ static inline ktime_t timeval_to_ktime(const struct timeval tv)
  */
 static inline struct timespec ktime_to_timespec(const ktime_t kt)
 {
+#ifdef __SPLINT__
+	struct timespec time_spec;
+	time_spec.tv_sec = (time_t)kt.tv.sec;
+	time_spec.tv_nsec = (long)kt.tv.nsec;
+	return time_spec;
+#else
 	return (struct timespec) { .tv_sec = (time_t) kt.tv.sec,
 				   .tv_nsec = (long) kt.tv.nsec };
+#endif
 }
 
 /**
@@ -259,9 +287,16 @@ static inline struct timespec ktime_to_timespec(const ktime_t kt)
  */
 static inline struct timeval ktime_to_timeval(const ktime_t kt)
 {
+#ifdef __SPLINT__
+	struct timeval time_val;
+	time_val.tv_sec = (time_t) kt.tv.sec;
+	time_val.tv_usec = (suseconds_t) (kt.tv.nsec / NSEC_PER_USEC);
+	return time_val;
+#else
 	return (struct timeval) {
 		.tv_sec = (time_t) kt.tv.sec,
 		.tv_usec = (suseconds_t) (kt.tv.nsec / NSEC_PER_USEC) };
+#endif
 }
 
 /**

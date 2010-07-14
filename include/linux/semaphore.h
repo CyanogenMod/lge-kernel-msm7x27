@@ -19,12 +19,16 @@ struct semaphore {
 	struct list_head	wait_list;
 };
 
+#ifdef __SPLINT__
+#define __SEMAPHORE_INITIALIZER(name, n)	NULL				
+#else
 #define __SEMAPHORE_INITIALIZER(name, n)				\
 {									\
 	.lock		= __SPIN_LOCK_UNLOCKED((name).lock),		\
 	.count		= n,						\
 	.wait_list	= LIST_HEAD_INIT((name).wait_list),		\
 }
+#endif
 
 #define DECLARE_MUTEX(name)	\
 	struct semaphore name = __SEMAPHORE_INITIALIZER(name, 1)
