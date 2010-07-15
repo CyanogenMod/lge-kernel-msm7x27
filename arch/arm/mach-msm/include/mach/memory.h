@@ -17,8 +17,7 @@
 #define __ASM_ARCH_MEMORY_H
 
 /* physical offset of RAM */
-/* LGE_CHANGE [blue.park@lge.com] <For Memory Optimization> */
-#define PHYS_OFFSET UL(0x12800000)
+#define PHYS_OFFSET UL(CONFIG_PHYS_OFFSET)
 
 #define MAX_PHYSMEM_BITS 32
 #define SECTION_SIZE_BITS 28
