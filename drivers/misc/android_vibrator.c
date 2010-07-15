@@ -63,7 +63,7 @@ static int android_vibrator_intialize(void)
 	}
 
 	/* Initializ and disable PWM */
-	if (vibe_data->pwn_set(0, 0) < 0) {
+	if (vibe_data->pwm_set(0, 0) < 0) {
 		printk(KERN_ERR "%s PWM set failed\n", __FUNCTION__);
 		return -1;
 	}
@@ -81,11 +81,11 @@ static int android_vibrator_force_set(int nForce)
 
 	if (nForce == 0) {
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
-		vibe_data->pwn_set(1, -125);
+		vibe_data->pwm_set(1, -125);
 		mdelay(2);
 #endif
 		vibe_data->power_set(0); /* should be checked for vibrator response time */
-		vibe_data->pwn_set(0, nForce);
+		vibe_data->pwm_set(0, nForce);
 		vibe_data->ic_enable_set(0);
 	} else {
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
@@ -95,15 +95,15 @@ static int android_vibrator_force_set(int nForce)
 		 * the following value is optimized to C710 model.
 		 * In case of other models, the output volatge and motor ic spec. should be checked
 		*/
-		vibe_data->pwn_set(1, 128);
+		vibe_data->pwm_set(1, 128);
 		vibe_data->power_set(1);
 		msleep(10);
 		if (nForce < 102)
-			vibe_data->pwn_set(1, nForce);
+			vibe_data->pwm_set(1, nForce);
 		else
-			vibe_data->pwn_set(1, 102);
+			vibe_data->pwm_set(1, 102);
 #else
-		vibe_data->pwn_set(1, nForce);
+		vibe_data->pwm_set(1, nForce);
 		vibe_data->power_set(1); /* should be checked for vibrator response time */
 #endif
 		vibe_data->ic_enable_set(1);
@@ -246,7 +246,7 @@ static int android_vibrator_remove(struct platform_device *dev)
 {
 	vibe_data->power_set(0);
 	vibe_data->ic_enable_set(0);
-	vibe_data->pwn_set(0, 0);
+	vibe_data->pwm_set(0, 0);
 	timed_output_dev_unregister(&android_vibrator_data.dev);
 
 	return 0;
