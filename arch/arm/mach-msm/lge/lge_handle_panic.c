@@ -148,34 +148,6 @@ static int get_panic_report_start(uint32_t start, uint32_t size, uint8_t *data)
 		}
 	}
 
-#if 0
-	for (i = start - 1; i > -1; --i) {
-		if (data[i] == '>') {
-			if (!strncmp(&data[i], ">>>>>\n", 6)) {
-				report_start = i;
-				break;
-			}
-		}
-	}
-
-	if (i > -1) {
-		return report_start;
-	}
-
-	for (i = size - 1; i >= start; --i) {
-		if (data[i] == '>') {
-			if (!strncmp(&data[i], ">>>>>\n", 6)) {
-				report_start = i;
-				break;
-			}
-		}
-	}
-
-	if (i < start) {
-		return -1;
-	}
-#endif
-
 	return report_start;
 }
 

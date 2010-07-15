@@ -362,6 +362,14 @@ config LGE_SUPPORT_ERS
 	help
 	  LGE error reporting system
 
+config LGE_HANDLE_MODEM_CRASH
+	tristate "Support LGE Modem Crash Handler"
+	default n
+	depends on MACH_LGE
+	depends on ANDROID_RAM_CONSOLE
+	help
+	  LGE modem crash handler
+
 config LGE_HANDLE_PANIC
 	tristate "Support LGE Kernel Panic Handler"
 	default n
