@@ -58,6 +58,11 @@ static int msm_pmic_led_probe(struct platform_device *pdev)
 	leds_pdata = pdev->dev.platform_data;
 #endif
 
+#ifndef CONFIG_LGE_UNIFIED_LED
+	if (pdev->dev.platform_data)
+		msm_kp_bl_led.name = pdev->dev.platform_data;
+#endif
+
 	rc = led_classdev_register(&pdev->dev, &msm_kp_bl_led);
 	if (rc) {
 		dev_err(&pdev->dev, "unable to register led class driver\n");

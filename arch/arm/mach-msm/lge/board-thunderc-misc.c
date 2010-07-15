@@ -250,7 +250,6 @@ static struct platform_device android_vibrator_device = {
 };
 
 /* add led device for VS660 Rev.D by  younchan.kim 2010-05-27  */
-
 static void pmic_mpp_isink_set(struct led_classdev *led_cdev,
 		enum led_brightness value)
 {
@@ -292,30 +291,13 @@ static void button_backlight_set(struct led_classdev* led_cdev, enum led_brightn
 		mpp_number++;
 	}
 }
+
 struct led_classdev thunderc_custom_leds[] = {
-	#if 0
-	{
-		.name = "red",
-		.brightness_set = pmic_mpp_isink_set,
-		.brightness = LED_OFF,
-	},
-	{
-		.name = "green",
-		.brightness_set = pmic_mpp_isink_set,
-		.brightness = LED_OFF,
-	},
-	{
-		.name = "blue",
-		.brightness_set = pmic_mpp_isink_set,
-		.brightness = LED_OFF,
-	},
-	#else
 	{
 		.name = "button-backlight",
 		.brightness_set = button_backlight_set,
 		.brightness = LED_OFF,
 	},
-	#endif
 };
 
 static int register_leds(struct platform_device *pdev)
@@ -375,9 +357,9 @@ static struct msm_pmic_leds_pdata leds_pdata = {
 };
 
 static struct platform_device msm_device_pmic_leds = {
-	.name                           = "pmic-leds",
-	.id                                     = -1,
-	.dev.platform_data      = &leds_pdata,
+	.name = "pmic-leds",
+	.id = -1,
+	.dev.platform_data = &leds_pdata,
 };
 
 

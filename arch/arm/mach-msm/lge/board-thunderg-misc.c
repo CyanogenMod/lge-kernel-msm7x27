@@ -170,73 +170,10 @@ static struct platform_device thunderg_carkit_device = {
 	},
 };
 
-static void button_bl_leds_set(struct led_classdev *led_cdev,
-	enum led_brightness value)
-{
-	int ret;
-
-	ret = pmic_set_led_intensity(LED_KEYPAD, value / TUNED_MAX_BACKLIGHT_LEVEL);
-
-	if (ret)
-		dev_err(led_cdev->dev, "can't set keypad backlight\n");
-
-}
-
-struct led_classdev thunderg_custom_leds[] = {
-	{
-		.name = "button-backlight",
-		.brightness_set = button_bl_leds_set,
-		.brightness = LED_OFF,
-	},
-};
-
-static int register_leds(struct platform_device *pdev)
-{
-	int rc;
-	rc = led_classdev_register(&pdev->dev, &thunderg_custom_leds);
-	if (rc) {
-		dev_err(&pdev->dev, "unable to register led class driver\n");
-		return rc;
-	}
-	button_bl_leds_set(&thunderg_custom_leds, LED_OFF);
-	return rc;
-}
-
-static int unregister_leds(struct platform_device *pdev)
-{
-	led_classdev_unregister(&thunderg_custom_leds);
-
-	return 0;
-}
-
-static int suspend_leds(struct platform_device *dev,
-		pm_message_t state)
-{
-	led_classdev_suspend(&thunderg_custom_leds);
-
-	return 0;
-}
-
-static int resume_leds(struct platform_device *dev)
-{
-	led_classdev_resume(&thunderg_custom_leds);
-
-	return 0;
-}
-
-static struct msm_pmic_leds_pdata leds_pdata = {
-	.custom_leds		= thunderg_custom_leds,
-	.register_custom_leds	= register_leds,
-	.unregister_custom_leds	= unregister_leds,
-	.suspend_custom_leds	= suspend_leds,
-	.resume_custom_leds	= resume_leds,
-	.msm_keypad_led_set	= button_bl_leds_set,
-};
-
 static struct platform_device msm_device_pmic_leds = {
-	.name                           = "pmic-leds",
-	.id                                     = -1,
-	.dev.platform_data      = &leds_pdata,
+	.name = "pmic-leds",
+	.id = -1,
+	.dev.platform_data = "button-backlight",
 };
 
 int thunderg_vibrator_power_set(int enable)
