@@ -37,7 +37,7 @@ static unsigned short atcmd_virtual_keycode[ATCMD_VIRTUAL_KEYPAD_ROW][ATCMD_VIRT
 	{KEY_6, 		KEY_ENTER,  		KEY_Y,  	 KEY_A,		     KEY_K,			KEY_V,  	    KEY_RIGHT,     	KEY_CAMERAFOCUS},
 	{KEY_7, 		KEY_MENU,	KEY_U,  	 KEY_S,    		 KEY_L, 	    KEY_SPACE,      KEY_LEFT,     	KEY_SEND},
 	{KEY_UNKNOWN, 	KEY_UNKNOWN,  		KEY_UNKNOWN, KEY_UNKNOWN, 	 KEY_UNKNOWN,	KEY_UNKNOWN,    KEY_FOLDER_MENU,      	KEY_FOLDER_HOME},
-		
+
 };
 
 static struct atcmd_virtual_platform_data atcmd_virtual_pdata = {
@@ -136,7 +136,7 @@ int thunderg_matrix_info_wrapper(struct input_dev *input_dev,struct gpio_event_i
 			gpio_tlmm_config(GPIO_CFG(keypad_col_gpios[1], 0,
 						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
 		}
-        
+
 		ret = gpio_event_matrix_func(input_dev,info, data,func);
         return ret ;
 }
@@ -370,10 +370,15 @@ static struct platform_device accel_i2c_device = {
 
 static struct i2c_board_info accel_i2c_bdinfo[] = {
 	[0] = {
-		I2C_BOARD_INFO("KR3DH", ACCEL_I2C_ADDRESS),
+		I2C_BOARD_INFO("KR3DH", ACCEL_I2C_ADDRESS_H),
 		.type = "KR3DH",
 		.platform_data = &kr3dh_data,
-	}
+	},
+	[1] = {
+		I2C_BOARD_INFO("KR3DM", ACCEL_I2C_ADDRESS),
+		.type = "KR3DM",
+		.platform_data = &kr3dh_data,
+	},
 };
 
 static void __init thunderg_init_i2c_acceleration(int bus_num)
@@ -382,7 +387,7 @@ static void __init thunderg_init_i2c_acceleration(int bus_num)
 
 	init_gpio_i2c_pin(&accel_i2c_pdata, accel_i2c_pin[0], &accel_i2c_bdinfo[0]);
 
-	i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 1);
+	i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 2);
 	platform_device_register(&accel_i2c_device);
 }
 
