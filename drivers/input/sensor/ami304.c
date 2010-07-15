@@ -730,6 +730,7 @@ static int ami304hal_ioctl(struct inode *inode, struct file *file, unsigned int 
 	void __user *data;
 	int retval=0;
 	unsigned int mode =0;
+	int controlbuf[10];
 
 	switch (cmd) {
 
@@ -765,7 +766,7 @@ static int ami304hal_ioctl(struct inode *inode, struct file *file, unsigned int 
 				goto err_out;
 			}
 	        	break;
-		case AMI304HAL_IOCTL_SET_CONTROL:
+		case AMI304HAL_IOCTL_SET_ACTIVE:
 			data = (void __user *) arg;
 			if (data == NULL)
 				break;
@@ -794,6 +795,34 @@ static int ami304hal_ioctl(struct inode *inode, struct file *file, unsigned int 
 				atomic_set(&a_status, 0);
 
 	        	break;
+
+		case AMI304HAL_IOCTL_GET_CONTROL:
+			read_lock(&ami304mid_data.ctrllock);
+			memcpy(controlbuf, &ami304mid_data.controldata[0], sizeof(controlbuf));
+			read_unlock(&ami304mid_data.ctrllock);
+			data = (void __user *) arg;
+			if (data == NULL)
+				break;
+			if (copy_to_user(data, controlbuf, sizeof(controlbuf))) {
+				retval = -EFAULT;
+				goto err_out;
+			}
+			break;
+
+
+		case AMI304HAL_IOCTL_SET_CONTROL:
+			data = (void __user *) arg;
+			if (data == NULL)
+				break;
+			if (copy_from_user(controlbuf, data, sizeof(controlbuf))) {
+				retval = -EFAULT;
+				goto err_out;
+			}
+			write_lock(&ami304mid_data.ctrllock);
+			memcpy(&ami304mid_data.controldata[0], controlbuf, sizeof(controlbuf));
+			write_unlock(&ami304mid_data.ctrllock);
+			//AMID("Dleay setting = %dms\n", ami304mid_data.controldata[0] / 1000);
+			break;
 
 		default:
 			if (AMI304_DEBUG_USER_ERROR & ami304_debug_mask)
