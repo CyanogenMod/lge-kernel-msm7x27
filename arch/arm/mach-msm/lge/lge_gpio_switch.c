@@ -109,13 +109,12 @@ static DEVICE_ATTR(report, S_IRUGO | S_IWUSR, NULL , sysfs_mode_store);
 int lge_gpio_switch_pass_event(char *sdev_name, int state)
 {
 	struct lge_gpio_switch_data *switch_data;
-	struct lge_gpio_switch_platform_data *pdata;
 
 	list_for_each_entry(switch_data, &switchs, list) 
 		if (!strcmp(switch_data->sdev.name,	sdev_name)) 
 			goto found_it;
 
-	printk(KERN_INFO"%s: not found %s\n",__func__, pdata->name);
+	printk(KERN_INFO"%s: not found %s\n",__func__, sdev_name);
 	return -1;
 
 found_it:			

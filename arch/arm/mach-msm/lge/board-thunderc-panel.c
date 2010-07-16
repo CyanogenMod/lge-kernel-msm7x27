@@ -38,23 +38,26 @@ static char *msm_fb_vreg[] = {
 };
 
 static int mddi_power_save_on;
-static void msm_fb_mddi_power_save(int on)
+static int msm_fb_mddi_power_save(int on)
 {
 	struct vreg *vreg;
 	int flag_on = !!on;
 
 	if (mddi_power_save_on == flag_on)
-		return;
+		return 0;
 
 	mddi_power_save_on = flag_on;
 
 	if (on) {
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], enable, 1800);
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], enable, 2800);
-	} else{
+	} 
+	else {
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], disable, 0);
 	}
+
+	return 0;
 }
 
 static struct mddi_platform_data mddi_pdata = {

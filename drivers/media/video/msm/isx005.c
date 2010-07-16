@@ -337,6 +337,7 @@ static int isx005_reg_snapshot(void)
 {
 	int rc = 0;
 	int i;
+    unsigned short cm_changed_status= 0;
 
 	/* Configure sensor for Snapshot mode */
 	for (i = 0; i < isx005_regs.snap_reg_settings_size; ++i) {
@@ -351,10 +352,10 @@ static int isx005_reg_snapshot(void)
 
 	/* Checking the mode change status */
 	/* eunyoung.shin@lge.com 2010.07.13*/	
-	 for(i=0; i<300;i++)
-   {
-   			printk("[%s]:Sensor Snapshot Mode Start\n", __func__);
-        unsigned short cm_changed_status= 0;
+	for(i=0; i<300;i++)
+	{
+   		printk("[%s]:Sensor Snapshot Mode Start\n", __func__);
+        cm_changed_status = 0;
         rc = isx005_i2c_read(isx005_client->addr, 0x00F8, &cm_changed_status, BYTE_LEN);
 
         if(cm_changed_status & 0x0002)

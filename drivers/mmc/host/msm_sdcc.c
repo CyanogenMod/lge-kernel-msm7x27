@@ -1597,7 +1597,7 @@ msmsdcc_probe(struct platform_device *pdev)
 #else
 	if (host->pdev_id == BRCM_WLAN_SLOT){ 
 		mmc->f_max = 24576000;
-		printk("%s : slot set f_max [%ld]\n",mmc_hostname(host->mmc),mmc->f_max);
+		printk("%s : slot set f_max [%d]\n",mmc_hostname(host->mmc),mmc->f_max);
 	}else{
 		mmc->f_max = plat->msmsdcc_fmax;
 	}

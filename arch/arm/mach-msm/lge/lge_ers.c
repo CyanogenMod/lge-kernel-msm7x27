@@ -245,6 +245,8 @@ static DEVICE_ATTR(ers, S_IRUGO | S_IWUSR, ers_show, ers_store);
 static ssize_t ers_panic_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
 	BUG();
+
+	return size;
 }
 
 static DEVICE_ATTR(ers_panic, S_IRUGO | S_IWUSR, 0, ers_panic_store);
