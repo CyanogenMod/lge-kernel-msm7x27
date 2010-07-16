@@ -303,7 +303,7 @@ end_device_init:
 /*
  * interrupt service routine
  */
-static int gp2ap_irq_handler(int irq, void *dev_id)
+static irqreturn_t gp2ap_irq_handler(int irq, void *dev_id)
 {
 	struct proximity_gp2ap_device *pdev = dev_id;
 	unsigned long delay;
