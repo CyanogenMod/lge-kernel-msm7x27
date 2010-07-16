@@ -29,7 +29,11 @@
 
 struct msm_pmic_leds_pdata *leds_pdata = 0;
 #endif
-#define MAX_KEYPAD_BL_LEVEL	16
+
+/*LED has 15 steps (10mA per step). LED's  max power capacity is 150mA. (0~255 level)*/
+#define MAX_KEYPAD_BL_LEVEL	16	// 150mA
+#define TUNED_MAX_KEYPAD_BL_LEVEL	40	// 60mA
+
 
 static void msm_keypad_bl_led_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
@@ -37,9 +41,9 @@ static void msm_keypad_bl_led_set(struct led_classdev *led_cdev,
 	int ret;
 
 #if defined (CONFIG_LGE_UNIFIED_LED)
-	ret = leds_pdata->msm_keypad_led_set(value / MAX_KEYPAD_BL_LEVEL);
+	ret = leds_pdata->msm_keypad_led_set(value / TUNED_MAX_KEYPAD_BL_LEVEL);
 #else	/* origin */
-	ret = pmic_set_led_intensity(LED_KEYPAD, value / MAX_KEYPAD_BL_LEVEL);
+	ret = pmic_set_led_intensity(LED_KEYPAD, value / TUNED_MAX_KEYPAD_BL_LEVEL);
 #endif
 	if (ret)
 		dev_err(led_cdev->dev, "can't set keypad backlight\n");
