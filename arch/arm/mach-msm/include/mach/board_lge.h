@@ -277,7 +277,7 @@ struct tsc2007_platform_data {
 
 struct bluetooth_platform_data {
 	int (*bluetooth_power)(int on);
-	int (*bluetooth_toggle_radio)(void *data, enum rfkill_state state);
+	int (*bluetooth_toggle_radio)(void *data, bool blocked);
 };
 
 struct bluesleep_platform_data {
