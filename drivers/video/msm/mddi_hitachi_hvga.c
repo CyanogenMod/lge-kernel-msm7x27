@@ -528,7 +528,7 @@ static int mddi_hitachi_lcd_on(struct platform_device *pdev)
 	return 0;
 }
 
-static int mddi_hitachi_lcd_store_on(struct platform_device *pdev)
+static int mddi_hitachi_lcd_store_on(void)
 {
 	EPRINTK("%s: started.\n", __func__);
 
@@ -573,14 +573,15 @@ static int mddi_hitachi_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
-ssize_t mddi_hitachi_lcd_show_onoff(struct platform_device *pdev)
+ssize_t mddi_hitachi_lcd_show_onoff(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	EPRINTK("%s : strat\n", __func__);
 	return 0;
 }
 
-ssize_t mddi_hitachi_lcd_store_onoff(struct platform_device *pdev, struct device_attribute *attr, const char *buf, size_t count)
+ssize_t mddi_hitachi_lcd_store_onoff(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
+	struct platform_device dummy_pdev;
 	int onoff; // = simple_strtol(buf, NULL, count);
 	sscanf(buf, "%d", &onoff);
 
@@ -588,12 +589,12 @@ ssize_t mddi_hitachi_lcd_store_onoff(struct platform_device *pdev, struct device
 	
 	if(onoff) {
 //		display_table(mddi_hitachi_display_on, sizeof(mddi_hitachi_display_on) / sizeof(struct display_table));
-		mddi_hitachi_lcd_store_on(&mddi_hitachi_pdata);
+		mddi_hitachi_lcd_store_on();
 		is_lcd_on = TRUE;
 	}
 	else {
 //		display_table(mddi_hitachi_display_off, sizeof(mddi_hitachi_display_off) / sizeof(struct display_table));
-		mddi_hitachi_lcd_off(&mddi_hitachi_pdata);
+		mddi_hitachi_lcd_off(&dummy_pdev);
 		is_lcd_on = FALSE;
 	}
 
