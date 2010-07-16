@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Thu Jul 15 17:06:44 2010
+# Fri Jul 16 19:17:02 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -921,7 +921,7 @@ CONFIG_INPUT_GPIO=y
 CONFIG_INPUT_SENSOR=y
 CONFIG_SENSOR_GP2AP=y
 # CONFIG_SENSOR_BMA150 is not set
-CONFIG_SENSOR_KR3DH=y
+# CONFIG_SENSOR_KR3DH is not set
 CONFIG_SENSOR_KR3DM=y
 # CONFIG_SENSOR_AK8973 is not set
 # CONFIG_SENSOR_AMI602 is not set
