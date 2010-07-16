@@ -278,12 +278,12 @@ static struct platform_device accel_i2c_device = {
 };
 
 static struct i2c_board_info accel_i2c_bdinfo[] = {
-	[0] = {
+	[1] = {
 		I2C_BOARD_INFO("KR3DH", ACCEL_I2C_ADDRESS_H),
 		.type = "KR3DH",
 		.platform_data = &kr3dh_data,
 	},
-	[1] = {
+	[0] = {
 		I2C_BOARD_INFO("KR3DM", ACCEL_I2C_ADDRESS),
 		.type = "KR3DM",
 		.platform_data = &kr3dh_data,
