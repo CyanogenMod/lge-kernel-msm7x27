@@ -220,7 +220,7 @@ void smd_diag(void)
 
 static void handle_modem_crash(void)
 {
-#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_LGE_HANDLE_MODEM_CRASH
 	printk(KERN_INFO">>>>>\n");
 	printk(KERN_INFO"Modem crash\n");
 	printk(KERN_INFO"<<<<<\n");
@@ -228,7 +228,7 @@ static void handle_modem_crash(void)
 
 	pr_err("ARM9 has CRASHED\n");
 	smd_diag();
-#ifdef CONFIG_MACH_LGE
+#ifdef CONFIG_LGE_HANDLE_MODEM_CRASH
 	/* flush console before reboot
 	 * from google's mahimahi kernel
 	 * 2010-05-04, cleaneye.kim@lge.com
