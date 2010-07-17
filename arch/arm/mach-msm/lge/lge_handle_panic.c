@@ -29,6 +29,7 @@
 #define PANIC_HANDLER_NAME "panic-handler"
 #define PANIC_DUMP_CONSOLE 0
 #define PANIC_MAGIC_KEY	0x12345678
+#define CRASH_ARM9		0x87654321
 
 /* following data structure is duplicate of drivers/video/console/fbcon.h */
 struct fbcon_ops {
@@ -226,6 +227,9 @@ static int display_panic_reason(struct notifier_block *this, unsigned long event
 		store_buffer = panic_dump_log->buffer;
 		memset(store_buffer, 0x00, display_size * 2);
 		lge_set_reboot_reason(bank->size);
+
+		if (ptr == CRASH_ARM9) /* arm9 has crashed */
+			panic_dump_log->magic_key = CRASH_ARM9;
 
 		if (report_start < start) {
 			memcpy(store_buffer, &data[report_start], display_size);
