@@ -5,7 +5,7 @@ int external_memory_test(void)
 {
 	int return_value = 0;
 	char *src = (void *)0;
-	char *desti = (void *)0;
+	char *dest = (void *)0;
 	off_t fd_offset;
 	int fd;
 

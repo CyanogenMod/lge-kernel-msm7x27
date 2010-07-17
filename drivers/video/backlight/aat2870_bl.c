@@ -429,6 +429,7 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 			if (ptbl->val != 0xFE) {
 				delay = (unsigned long)ptbl->val;
 				udelay(delay);
+			}
 			else
 				break;
 		}	
