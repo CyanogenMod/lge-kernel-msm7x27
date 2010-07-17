@@ -401,6 +401,12 @@ Don't change previous defines and add new id at the end
 #define DIAG_MTC_F              240
 #endif /*LG_FW_MTC*/
 /* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-07, LG_FW_MTC */
+
+/* Number of packets defined. */
+#ifdef CONFIG_LGE_DIAG_WMC
+#define DIAG_WMCSYNC_MAPPING_F 	241
+#endif
+
 /* Number of packets defined. */
 #define DIAG_TEST_MODE_F          250  
 #define DIAG_LCD_Q_TEST_F         253

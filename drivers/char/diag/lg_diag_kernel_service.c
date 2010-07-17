@@ -27,6 +27,10 @@ PACK (void *)LGF_KeyPress (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
 /* LGE_CHANGE_S [minjong.gong@lge.com] 2010-06-11. UTS Test */
 PACK (void *)LGF_ScreenShot (PACK (void	*)req_pkt_ptr, uint16		pkt_len ); 
 /* LGE_CHANGE_E [minjong.gong@lge.com] 2010-06-11. UTS Test */
+#ifdef CONFIG_LGE_DIAG_WMC
+PACK (void *)LGF_WMC (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
+#endif
+
 /* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-07, LG_FW_MTC */
 #if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
 PACK (void *)LGF_MTCProcess (PACK (void *)req_pkt_ptr, uint16	pkt_len );
@@ -52,6 +56,9 @@ static const diagpkt_user_table_entry_type registration_table[] =
 #if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
 	{DIAG_MTC_F 	 ,	DIAG_MTC_F	  , LGF_MTCProcess},
 #endif /*LG_FW_MTC*/
+#ifdef CONFIG_LGE_DIAG_WMC
+    {DIAG_WMCSYNC_MAPPING_F, DIAG_WMCSYNC_MAPPING_F, LGF_WMC},
+#endif
 };
 
 /* This is the user dispatch table. */
@@ -84,6 +91,12 @@ extern unsigned char g_diag_mtc_capture_rsp_num;
 extern void lg_diag_set_enc_param(void *, void *);
 #endif /*LG_FW_MTC*/
 /* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-22, LG_FW_MTC */
+
+#ifdef CONFIG_LGE_DIAG_WMC
+extern void* lg_diag_wmc_req_pkt_ptr;
+extern uint16 lg_diag_wmc_req_pkt_length;
+extern uint16 lg_diag_wmc_rsp_pkt_length;
+#endif /*CONFIG_LGE_DIAG_WMC*/
 
 /*===========================================================================
 ===========================================================================*/
@@ -247,12 +260,78 @@ static ssize_t write_wlan_status(struct device *dev,
   
   return size;
 }
+
+#ifdef CONFIG_LGE_DIAG_WMC
+static ssize_t read_wmc_cmd_pkt(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+
+  printk(KERN_INFO "%s, attr_name : %s, length : %d\n", __func__, attr->attr.name, lg_diag_wmc_req_pkt_length);
+  
+  memcpy(buf, lg_diag_wmc_req_pkt_ptr, lg_diag_wmc_req_pkt_length);
+  
+  return lg_diag_wmc_req_pkt_length;
+}
+
+static ssize_t write_wmc_cmd_pkt(struct device *dev,
+						 struct device_attribute *attr,
+						 const char *buf, size_t size)
+{
+  void* rsp_pkt_ptr;
+#ifdef LG_DIAG_DEBUG
+  int i;
+#endif
+
+	printk(KERN_ERR "\n LG_FW : print received packet :len(%d) \n",lg_diag_wmc_rsp_pkt_length);
+	rsp_pkt_ptr = (void *)diagpkt_alloc(DIAG_WMCSYNC_MAPPING_F, lg_diag_wmc_rsp_pkt_length);
+  memcpy(rsp_pkt_ptr, buf, lg_diag_wmc_rsp_pkt_length);
+
+#ifdef LG_DIAG_DEBUG
+	for (i=0;i<lg_diag_wmc_rsp_pkt_length;i++) {
+			printk(KERN_ERR "0x%x ",*((unsigned char*)(rsp_pkt_ptr + i)));
+	}
+	printk(KERN_ERR "\n");
+#endif
+  diagpkt_commit(rsp_pkt_ptr);
+	return size;
+}
+
+static ssize_t read_wmc_cmd_pkt_length(struct device *dev, struct device_attribute *attr,
+	char *buf)
+{
+  int read_len = 2;
+
+  printk(KERN_INFO "%s, attr_name : %s, length : %d\n", __func__, attr->attr.name, lg_diag_wmc_req_pkt_length);
+  
+  memcpy(buf, &lg_diag_wmc_req_pkt_length, read_len);
+  return read_len;
+}
+
+static ssize_t write_wmc_cmd_pkt_length(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t size)
+{
+  int write_len = 2;
+
+  printk(KERN_INFO "%s, attr_name : %s\n", __func__, attr->attr.name);
+ 
+  memcpy((void*)&lg_diag_wmc_rsp_pkt_length, buf, write_len);
+  printk( KERN_DEBUG "LG_FW : write_cmd_pkt_length = %d\n",lg_diag_wmc_rsp_pkt_length);  
+  return write_len;
+}
+#endif /*CONFIG_LGE_DIAG_WMC*/
+
 /* LGE_CHANGES_E, [dongp.kim@lge.com], 2010-01-10, <LGE_FACTORY_TEST_MODE for WLAN RF Test > */
 static DEVICE_ATTR(cmd_pkt, S_IRUGO | S_IWUSR,read_cmd_pkt, write_cmd_pkt);
 static DEVICE_ATTR(length, S_IRUGO | S_IWUSR,read_cmd_pkt_length, write_cmd_pkt_length);
 /* LGE_CHANGES_S, [dongp.kim@lge.com], 2010-01-10, <LGE_FACTORY_TEST_MODE for WLAN RF Test > */
 static DEVICE_ATTR(wlan_status, S_IRUGO | S_IWUSR,read_wlan_status, write_wlan_status);
 /* LGE_CHANGES_E, [dongp.kim@lge.com], 2010-01-10, <LGE_FACTORY_TEST_MODE for WLAN RF Test > */
+
+#ifdef CONFIG_LGE_DIAG_WMC
+static DEVICE_ATTR(wmc_cmd_pkt, S_IRUGO | S_IWUSR,read_wmc_cmd_pkt, write_wmc_cmd_pkt);
+static DEVICE_ATTR(wmc_length, S_IRUGO | S_IWUSR,read_wmc_cmd_pkt_length, write_wmc_cmd_pkt_length);
+#endif /*CONFIG_LGE_DIAG_WMC*/
 
 int lg_diag_create_file(struct platform_device *pdev)
 {
@@ -280,6 +359,22 @@ int lg_diag_create_file(struct platform_device *pdev)
 		return ret;
 	}
 /* LGE_CHANGES_E, [dongp.kim@lge.com], 2010-01-10, <LGE_FACTORY_TEST_MODE for WLAN RF Test > */	
+#ifdef CONFIG_LGE_DIAG_WMC
+	ret = device_create_file(&pdev->dev, &dev_attr_wmc_cmd_pkt);
+	if (ret) {
+		printk( KERN_DEBUG "LG_FW : diag device file4 create fail\n");
+		device_remove_file(&pdev->dev, &dev_attr_wmc_cmd_pkt);
+		return ret;
+	}
+
+	ret = device_create_file(&pdev->dev, &dev_attr_wmc_length);
+	if (ret) {
+		printk( KERN_DEBUG "LG_FW : diag device file5 create fail\n");
+		device_remove_file(&pdev->dev, &dev_attr_wmc_length);
+		return ret;
+	}
+#endif /*CONFIG_LGE_DIAG_WMC*/
+
   return ret;
 }
 EXPORT_SYMBOL(lg_diag_create_file);
@@ -292,6 +387,11 @@ int lg_diag_remove_file(struct platform_device *pdev)
 /* LGE_CHANGES_E, [dongp.kim@lge.com], 2010-01-10, <LGE_FACTORY_TEST_MODE for WLAN RF Test > */
 
 	device_remove_file(&pdev->dev, &dev_attr_length);
+
+#ifdef CONFIG_LGE_DIAG_WMC
+	device_remove_file(&pdev->dev, &dev_attr_wmc_cmd_pkt);
+	device_remove_file(&pdev->dev, &dev_attr_wmc_length);
+#endif /*CONFIG_LGE_DIAG_WMC*/
   return 0;
 }
 EXPORT_SYMBOL(lg_diag_remove_file);
@@ -1121,9 +1221,18 @@ void diagpkt_process_request (void *req_pkt, uint16 pkt_len,
             {
 if(g_diag_mtc_check == 0)
 {
-              lg_diag_req_pkt_ptr = req_pkt;
-              lg_diag_req_pkt_length = pkt_len;
-              lg_diag_app_execute();
+              switch(packet_id)
+              {
+#ifdef CONFIG_LGE_DIAG_WMC
+                case DIAG_WMCSYNC_MAPPING_F:
+                  break;
+#endif
+                default:
+                  lg_diag_req_pkt_ptr = req_pkt;
+                  lg_diag_req_pkt_length = pkt_len;
+                  lg_diag_app_execute();
+                  break;
+              }
 }
             } /* endif if (rsp_pkt) */
           } /* endif if (tbl_entry->func_ptr) */

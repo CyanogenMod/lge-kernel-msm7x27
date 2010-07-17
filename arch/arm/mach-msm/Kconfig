@@ -542,6 +542,13 @@ config LGE_DETECT_PIF_PATCH
 	  This patch is added for detection of pif cable of factory
 	  If pif is once detected, that information will be passed through
 	  sysfs in battery driver
+config LGE_DIAG_WMC
+	bool "Support LGE diag WMC"
+	default n
+	depends on LGE_DIAGTEST
+	help
+	  LGE diag WMC enable
+
 endmenu
 
 config MSM_STACKED_MEMORY
