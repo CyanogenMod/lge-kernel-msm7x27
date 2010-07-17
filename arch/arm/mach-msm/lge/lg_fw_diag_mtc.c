@@ -518,9 +518,9 @@ DIAG_MTC_F_rsp_type* mtc_execute(DIAG_MTC_F_req_type *pReq)
   char cmdstr[100];
   int fd;
 
-  unsigned int req_len;
-  unsigned int rsp_len;
-  DIAG_MTC_F_rsp_type *pRsp;
+  unsigned int req_len = 0;
+  unsigned int rsp_len = 0;
+  DIAG_MTC_F_rsp_type *pRsp = (void *)NULL;
   unsigned char *mtc_cmd_buf_encoded = NULL;
   int lenb64 = 0;
   
