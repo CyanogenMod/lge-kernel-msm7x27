@@ -54,6 +54,8 @@ static int prev_af_mode;
 /* It is distinguish scene mode */
 static int prev_scene_mode;
 
+static int init_prev_mode;
+
 struct isx005_work {
 	struct work_struct work;
 };
@@ -72,6 +74,7 @@ DEFINE_MUTEX(isx005_mutex);
 
 struct platform_device *isx005_pdev;
 
+static int pclk_rate = 27;
 extern int mclk_rate;
 static int always_on = 0;
 
@@ -268,6 +271,26 @@ static int isx005_reg_preview(void)
 			return rc;
 	}
 
+	/* Checking the mode change status */
+	/* BUG FIX : msm is changed preview mode but sensor is not change preview mode. */
+	/*so there is case that vfe get capture image on preview mode */	
+	/* eunyoung.shin@lge.com 2010.07.13*/
+  for(i=0; i<300;i++)
+  {
+      unsigned short cm_changed_status = 0;
+      rc = isx005_i2c_read(isx005_client->addr, 0x00F8, &cm_changed_status, BYTE_LEN);
+
+      if(cm_changed_status & 0x0002)
+      {
+	       printk("[%s]:Sensor Preview Mode check : %d-> success \n", __func__, cm_changed_status);
+        break;  
+      }
+      else 
+       msleep(10);
+   
+  }
+
+
 	return rc;
 }
 
@@ -286,6 +309,25 @@ static int isx005_reg_snapshot(void)
 		if (rc < 0)
 			return rc;
 	}
+
+	/* Checking the mode change status */
+	/* eunyoung.shin@lge.com 2010.07.13*/	
+	 for(i=0; i<300;i++)
+   {
+   			printk("[%s]:Sensor Snapshot Mode Start\n", __func__);
+        unsigned short cm_changed_status= 0;
+        rc = isx005_i2c_read(isx005_client->addr, 0x00F8, &cm_changed_status, BYTE_LEN);
+
+        if(cm_changed_status & 0x0002)
+        {
+  	       printk("[%s]:Sensor Snapshot Mode check : %d-> success \n", __func__, cm_changed_status);
+          break;  
+        }
+        else 
+          msleep(10);
+
+        printk("[%s]:Sensor Snapshot Mode checking : %d \n", __func__, cm_changed_status);        
+   }
 
 	return rc;
 }
@@ -306,7 +348,7 @@ static int isx005_set_sensor_mode(int mode)
 
 			mdelay(1);
 		}
-		msleep(50);
+		
 		break;
 
 	case SENSOR_SNAPSHOT_MODE:
@@ -320,7 +362,6 @@ static int isx005_set_sensor_mode(int mode)
 
 			mdelay(1);
 		}
-		msleep(50);
 		break;
 
 	default:
@@ -605,7 +646,7 @@ static int isx005_move_focus(int32_t steps)
 	return rc;
 }
 
-static int isx005_set_default_focus()
+static int isx005_set_default_focus(void)
 {
 	int rc;
 
