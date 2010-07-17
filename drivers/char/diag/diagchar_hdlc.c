@@ -59,7 +59,7 @@ unsigned int pDest_last_ptr = 0;
 void lg_diag_set_enc_param(void *pDest, void *pDest_last)
 {
   pDest_ptr = (unsigned int)pDest;
-  pDest_last_ptr = i(unsigned int)pDest_last;
+  pDest_last_ptr = (unsigned int)pDest_last;
 #ifdef LG_DIAG_DEBUG
   printk(KERN_INFO "LG_FW : lg_diag_set_enc_param, dest (0x%x), dest_last (0x%x)\n",\
     pDest, pDest_last);
