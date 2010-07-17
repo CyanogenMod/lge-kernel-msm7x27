@@ -114,11 +114,11 @@ static void thunderg_desk_dock_detect_callback(int state)
 	return;
 }
 
-static void thunderg_register_callback(void)
+static int thunderg_register_callback(void)
 {
 	rpc_server_hs_register_callback(thunderg_desk_dock_detect_callback);
 
-	return;
+	return 0;
 }
 
 static int thunderg_gpio_carkit_work_func(void)
@@ -131,7 +131,7 @@ static char *thunderg_gpio_carkit_print_state(int state)
 	return dock_state_string[state];
 }
 
-static char *thunderg_gpio_carkit_sysfs_store(const char *buf, size_t size)
+static int thunderg_gpio_carkit_sysfs_store(const char *buf, size_t size)
 {
 	int state;
 
