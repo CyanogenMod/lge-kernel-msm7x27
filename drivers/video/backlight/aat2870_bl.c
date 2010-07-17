@@ -417,6 +417,7 @@ EXPORT_SYMBOL(aat28xx_ldo_set_level);
 static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx_ctrl_tbl *ptbl)
 {
 	unsigned int i = 0;
+	unsigned long delay = 0;
 
 	if (ptbl == NULL) {
 		eprintk("input ptr is null\n");
@@ -425,8 +426,9 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 
 	for( ;;) {
 		if (ptbl->reg == 0xFF) {
-			if (ptbl->val != 0xfe)
-				udelay(ptbl->val);
+			if (ptbl->val != 0xFE) {
+				delay = (unsigned long)ptbl->val;
+				udelay(delay);
 			else
 				break;
 		}	

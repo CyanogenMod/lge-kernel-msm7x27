@@ -34,7 +34,7 @@ static struct work_struct event_log_work;
 struct ats_mtc_key_log_type ats_mtc_key_log1;
 
 extern int ats_mtc_log_mask;
-extern void ats_mtc_send_key_log_to_eta() ;
+extern void ats_mtc_send_key_log_to_eta(struct ats_mtc_key_log_type *);
 
 /* LGE_CHANGE
  * support MTC using diag port
@@ -216,12 +216,17 @@ static void ats_event_log_event(struct input_handle *handle, unsigned int type,u
 
 int event_log_start(void)
 {
+	int ret = 0;
+
 	input_handler.name = "key_log";
 	input_handler.connect = ats_event_log_connect;
 	input_handler.disconnect = ats_event_log_disconnect;
 	input_handler.event = ats_event_log_event;
 	input_handler.id_table = ats_event_log_ids;
-	input_register_handler(&input_handler);
+	ret = input_register_handler(&input_handler);
+	if (ret != 0)
+		printk("%s:fail to registers input handler\n", __func__);
+
 	INIT_WORK(&event_log_work,event_log_work_func);
 
 	return 0;

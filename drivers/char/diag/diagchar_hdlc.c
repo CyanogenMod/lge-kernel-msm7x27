@@ -58,8 +58,8 @@ unsigned int pDest_last_ptr = 0;
 
 void lg_diag_set_enc_param(void *pDest, void *pDest_last)
 {
-  pDest_ptr = pDest;
-  pDest_last_ptr = pDest_last;
+  pDest_ptr = (unsigned int)pDest;
+  pDest_last_ptr = i(unsigned int)pDest_last;
 #ifdef LG_DIAG_DEBUG
   printk(KERN_INFO "LG_FW : lg_diag_set_enc_param, dest (0x%x), dest_last (0x%x)\n",\
     pDest, pDest_last);
@@ -281,7 +281,7 @@ void diag_hdlc_encode_mtc(struct diag_send_desc_type *src_desc,
 					
  					printk(KERN_INFO "LG_FW : HDLC encoding overflow, src : 0x%x, src_last : 0x%x, left : %d\n", \
   							(uint32_t)src, (uint32_t)src_last, (uint32_t)(src_last - src));
- 					printk(KERN_INFO "LG_FW : HDLC encoding overflow, count : %d\n", overflow_index);
+ 					printk(KERN_INFO "LG_FW : HDLC encoding overflow, count : %ld\n", overflow_index);
   					printk(KERN_INFO "LG_FW : HDLC encoding overflow, dest (0x%x), dest_last (0x%x), size (0x%x)\n",\
   						(uint32_t)dest, (uint32_t)dest_last, (uint32_t)dest - (uint32_t)enc_dest_start);
 

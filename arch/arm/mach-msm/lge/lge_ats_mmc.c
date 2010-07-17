@@ -4,7 +4,8 @@
 int external_memory_test(void)
 {
 	int return_value = 0;
-	char *src, *dest;
+	char *src = (void *)0;
+	char *desti = (void *)0;
 	off_t fd_offset;
 	int fd;
 
@@ -14,7 +15,7 @@ int external_memory_test(void)
 		goto file_fail;
 	}
 
-	if(src = kmalloc(10, GFP_KERNEL))
+	if ( (src = kmalloc(10, GFP_KERNEL)) )
 	{
 		sprintf(src,"TEST");
 		if((sys_write(fd, (const char __user *) src, 5)) < 0)
@@ -24,7 +25,7 @@ int external_memory_test(void)
 		}
 		fd_offset = sys_lseek(fd, 0, 0);
 	}
-	if(dest = kmalloc(10, GFP_KERNEL))
+	if ( (dest = kmalloc(10, GFP_KERNEL)) )
 	{
 		if((sys_read(fd, (char __user *) dest, 5)) < 0)
 		{

@@ -25,7 +25,6 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 {
 	struct rpc_ats_atcmd_args *args = (struct rpc_ats_atcmd_args *)(req + 1);
 	int result = HANDLE_OK;
-	int loop = 0;
 	char ret_string[MAX_STRING_RET];
 	uint32_t ret_value1 =0;
 	uint32_t ret_value2 = 0;
