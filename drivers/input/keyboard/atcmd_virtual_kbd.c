@@ -45,11 +45,11 @@ static int atcmd_virtual_resume(struct platform_device *pdev)
 
 static int  __init atcmd_virtual_probe(struct platform_device *pdev)
 {
-	printk("[YJ] %s, start!!", __FUNCTION__);
-	
 	int rc;
 	int key_idx;
 	unsigned keycode = KEY_UNKNOWN;
+
+	printk("[YJ] %s, start!!", __FUNCTION__);
 
 	if (!pdev || !pdev->dev.platform_data) {
 		printk(KERN_ERR"%s : pdev or platform data is null\n", __func__);
