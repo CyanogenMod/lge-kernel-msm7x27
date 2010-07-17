@@ -349,7 +349,8 @@ void* LGF_PowerSaveMode(test_mode_req_type* pReq, DIAG_TEST_MODE_F_rsp_type* pRs
 char external_memory_copy_test(void)
 {
 	char return_value = 1;
-	char *src, *dest;
+	char *src = (void *)0;
+	char *dest = (void *)0;
 	off_t fd_offset;
 	int fd;
 	mm_segment_t old_fs=get_fs();
@@ -361,7 +362,7 @@ char external_memory_copy_test(void)
 		goto file_fail;
 	}
 
-	if (src = kmalloc(10, GFP_KERNEL))
+	if ( (src = kmalloc(10, GFP_KERNEL)) )
 	{
 		sprintf(src,"TEST");
 		if ((sys_write(fd, (const char __user *) src, 5)) < 0)
@@ -371,7 +372,7 @@ char external_memory_copy_test(void)
 		}
 		fd_offset = sys_lseek(fd, 0, 0);
 	}
-	if (dest = kmalloc(10, GFP_KERNEL))
+	if ( (dest = kmalloc(10, GFP_KERNEL)) )
 	{
 		if ((sys_read(fd, (char __user *) dest, 5)) < 0)
 		{
@@ -517,7 +518,7 @@ void* LGF_TestModeFactoryReset(
 {
   unsigned char pbuf[BUF_PAGE_SIZE];
   int mtd_op_result = 0;
-  unsigned char startStatus; 
+  unsigned char startStatus = FACTORY_RESET_NA; 
 
   pRsp->ret_stat_code = TEST_OK_S;
 
@@ -773,7 +774,8 @@ int factory_reset_check(void)
 	}
   return 0;
 }
-EXTERN_SYMBOL(factory_reset_check);
+
+EXPORT_SYMBOL(factory_reset_check);
 
 void* LGF_TestScriptItemSet(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_type	*pRsp)
 {
