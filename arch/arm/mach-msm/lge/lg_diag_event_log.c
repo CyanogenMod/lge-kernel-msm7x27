@@ -110,13 +110,18 @@ static void diag_event_log_event(struct input_handle *handle, unsigned int type,
 
 int diag_event_log_start(void)
 {
+	int ret = 0;
+
 	if(diag_log_status == 0){
 		input_handler.name = "diag_key_log";
 		input_handler.connect = diag_event_log_connect;
 		input_handler.disconnect = diag_event_log_disconnect;
 		input_handler.event = diag_event_log_event;
 		input_handler.id_table = diag_event_log_ids;
-		input_register_handler(&input_handler);
+		ret = input_register_handler(&input_handler);
+		if (ret != 0)
+			printk("%s:fail to registers input handler\n", __func__);
+
 		diag_log_status	= 1;
 	}
 
