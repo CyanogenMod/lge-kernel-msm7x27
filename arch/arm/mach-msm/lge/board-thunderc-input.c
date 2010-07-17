@@ -297,9 +297,9 @@ static void __init thunderc_init_i2c_acceleration(int bus_num)
 	init_gpio_i2c_pin(&accel_i2c_pdata, accel_i2c_pin[0], &accel_i2c_bdinfo[0]);
 
 	if(lge_bd_rev >= LGE_REV_F)
-		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 1);	/* KR3DH */
+		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[1], 1);	/* KR3DH */
 	else
-		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[1], 1);	/* KR3DM */
+		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 1);	/* KR3DM */
 
 	platform_device_register(&accel_i2c_device);
 }
