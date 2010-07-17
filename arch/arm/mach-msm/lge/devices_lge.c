@@ -23,9 +23,11 @@
 #ifdef CONFIG_ARCH_MSM7X27
 #include <linux/msm_kgsl.h>
 #endif
-#include <linux/usb/mass_storage_function.h>
 #include <mach/msm_hsusb.h>
 #include <mach/rpc_hsusb.h>
+#ifdef CONFIG_USB_FUNCTION
+#include <linux/usb/android_composite.h>
+#endif
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android.h>
 #endif
@@ -472,7 +474,7 @@ static void __init msm7x2x_init_host(void)
 #ifdef CONFIG_USB_FUNCTION
 __WEAK struct usb_mass_storage_platform_data usb_mass_storage_pdata = {
 	.nluns          = 0x02,
-	.buf_size       = 16384,
+	/* .buf_size       = 16384, */  /* LGE_CHANGE, 6013 merge */
 	.vendor         = "GOOGLE",
 	.product        = "Mass storage",
 	.release        = 0xffff,
@@ -564,6 +566,19 @@ __WEAK struct usb_composition usb_func_composition[] = {
 		.adb_functions	    = 0x1A,
 	},
 #endif
+};
+__WEAK static struct usb_mass_storage_platform_data mass_storage_pdata = {
+	.nluns		= 1,
+	.vendor		= "GOOGLE",
+	.product	= "Mass Storage",
+	.release	= 0xFFFF,
+};
+__WEAK static struct platform_device mass_storage_device = {
+	.name           = "usb_mass_storage",
+	.id             = -1,
+	.dev            = {
+		.platform_data          = &mass_storage_pdata,
+	},
 };
 __WEAK struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x05C6,
@@ -703,6 +718,7 @@ static struct platform_device *usb_devices[] __initdata = {
 	&mass_storage_device,
 #endif
 #ifdef CONFIG_USB_ANDROID
+	&mass_storage_device,
 	&android_usb_device,
 #endif
 };

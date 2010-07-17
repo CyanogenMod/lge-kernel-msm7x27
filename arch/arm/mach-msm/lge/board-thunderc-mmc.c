@@ -302,7 +302,7 @@ static struct mmc_platform_data msm7x2x_sdcc_data = {
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 24576000,
 	.msmsdcc_fmax	= 49152000,
-	.nonremovable	= 1,
+	.nonremovable	= 0,
 };
 
 static void __init msm7x2x_init_mmc(void)
