@@ -73,7 +73,7 @@ DEFINE_MUTEX(isx005_mutex);
 
 struct platform_device *isx005_pdev;
 
-static int pclk_rate = 27;
+static int pclk_rate;
 extern int mclk_rate;
 static int always_on = 0;
 
@@ -1550,6 +1550,11 @@ static int isx005_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = isx005_sensor_init;
 	s->s_release = isx005_sensor_release;
 	s->s_config  = isx005_sensor_config;
+
+	if (lge_bd_rev == LGE_REV_F)
+		pclk_rate = 32;
+	else
+		pclk_rate = 27;
 
 	rc = device_create_file(&isx005_pdev->dev, &dev_attr_pclk);
 	if (rc < 0) {

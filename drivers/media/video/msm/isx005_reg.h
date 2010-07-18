@@ -184,7 +184,7 @@ init_reg32_settings_array[] = {
 	{0x02C7, 0x01, BYTE_LEN},		// SRCCK_DIV 
 	{0x0038, 0x0D  ,BYTE_LEN},		// sync masking on off   - for QCT      
 	{0x02B8, 0x10, BYTE_LEN},		// VIF_CLKCONFIG1    - still                            
-	{0x02B9, 0x10, BYTE_LEN}, 		// VIF_CLKCONFIG2    - prevew  10 ->64Mhz, 11->32Mhz    
+	{0x02B9, 0x11, BYTE_LEN}, 		// VIF_CLKCONFIG2    - prevew  10 ->64Mhz, 11->32Mhz    
 	{0x02BA, 0x12, BYTE_LEN}, 		// VIF_CLKCONFIG3    
 	{0x02BB, 0x13, BYTE_LEN}, 		// VIF_CLKCONFIG4    
 	{0x02BC, 0x11, BYTE_LEN}, 		// VIF_CLKCONFIG5    
