@@ -62,6 +62,10 @@ PACK (void *)LGF_TestMode (
     rsp_len = sizeof(DIAG_TEST_MODE_F_rsp_type);
 
   rsp_ptr = (DIAG_TEST_MODE_F_rsp_type *)diagpkt_alloc(DIAG_TEST_MODE_F, rsp_len);
+
+  if (!rsp_ptr)
+	  return 0;
+
   rsp_ptr->sub_cmd_code = req_ptr->sub_cmd_code;
   rsp_ptr->ret_stat_code = TEST_OK_S; // ?ʱⰪ
 
@@ -385,12 +389,12 @@ char external_memory_copy_test(void)
 			return_value = 1;
 	}
 
-	file_fail:
+	kfree(src);
+	kfree(dest);
+file_fail:
 	sys_close(fd);
     set_fs(old_fs);
 	sys_unlink((const char __user *)"/sdcard/SDTest.txt");
-	kfree(src);
-	kfree(dest);
 	return return_value;
 }
 
