@@ -74,7 +74,7 @@ DEFINE_MUTEX(isx005_mutex);
 
 struct platform_device *isx005_pdev;
 
-static int pclk_rate = 27;
+int pclk_rate;
 extern int mclk_rate;
 static int always_on = 0;
 
@@ -1519,7 +1519,7 @@ int isx005_sensor_config(void __user *argp)
 			break;
 
 		case CFG_SET_EFFECT:
-			rc = isx005_set_effect(cfg_data.mode);
+			//rc = isx005_set_effect(cfg_data.mode);
 			break;
 
 		case CFG_MOVE_FOCUS:
@@ -1555,23 +1555,23 @@ int isx005_sensor_config(void __user *argp)
 			break;
 
 		case CFG_SET_WB:
-			rc = isx005_set_wb(cfg_data.mode);
+			//rc = isx005_set_wb(cfg_data.mode);
 			break;
 
 		case CFG_SET_ANTIBANDING:
-			rc= isx005_set_antibanding(cfg_data.mode);
+			//rc= isx005_set_antibanding(cfg_data.mode);
 			break;
 
 		case CFG_SET_ISO:
-			rc = isx005_set_iso(cfg_data.mode);
+			//rc = isx005_set_iso(cfg_data.mode);
 			break;
 
 		case CFG_SET_SCENE:
-			rc = isx005_set_scene_mode(cfg_data.mode);
+			//rc = isx005_set_scene_mode(cfg_data.mode);
 			break;
 
 		case CFG_SET_BRIGHTNESS:
-			rc = isx005_set_brightness(cfg_data.mode);
+			//rc = isx005_set_brightness(cfg_data.mode);
 			break;
 
 		default:
