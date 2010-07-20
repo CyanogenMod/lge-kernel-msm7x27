@@ -26,6 +26,7 @@
 
 extern int pclk_rate;
 int mclk_rate = 24000000;
+static int camera_power_status;
 
 struct i2c_board_info i2c_devices[1] = {
 #if defined (CONFIG_ISX005)
@@ -155,6 +156,7 @@ int camera_power_on (void)
 	
 	mdelay(8);  // T2 
 
+	camera_power_status = CAMERA_POWER_ON;
 
 	return rc;
 
@@ -210,8 +212,15 @@ int camera_power_off (void)
 		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_DVDD_NO);
 		return rc;
 	}
+
+	camera_power_status = CAMERA_POWER_OFF;
 	
 	return rc;
+}
+
+int camera_status(void)
+{
+	return camera_power_status;
 }
 
 static struct msm_camera_device_platform_data msm_camera_device_data = {
@@ -262,6 +271,8 @@ void __init lge_add_camera_devices(void)
 		pclk_rate = 32;
 	else
 		pclk_rate = 27;
+
+	camera_power_status = CAMERA_POWER_OFF;
 
     platform_add_devices(thunderc_camera_devices, ARRAY_SIZE(thunderc_camera_devices));
 }
