@@ -19,8 +19,10 @@ typedef struct {
 }keycode_trans_type;
 
 keycode_trans_type keytrans_table[KEY_TRANS_MAP_SIZE]={
-    {0x4E        ,   243 },     // folder home
-    {0x4F        ,   244 },     // folder menu
+    {0x4E        ,   KEY_HOME },
+    /* {0x4E        ,   243 },     // folder home for aloha model */
+    {0x4F        ,   KEY_MENU },
+    /* {0x4F        ,   244 },     // folder menu for aloha model */
     {0x50        ,   KEY_SEND },
     {0x51        ,   KEY_END },
     {0x92        ,   KEY_VOLUMEUP },
