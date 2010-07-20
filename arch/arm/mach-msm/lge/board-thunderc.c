@@ -19,7 +19,11 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Fix Build Error for Gadget */
+#ifdef CONFIG_USB_FUNCTION
 #include <linux/usb/mass_storage_function.h>
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 #include <linux/i2c.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
