@@ -75,4 +75,7 @@ obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
 # MSM specific
 obj-$(CONFIG_USB_ANDROID_DIAG)	+= f_diag.o
 obj-$(CONFIG_USB_ANDROID_RMNET)	+= f_rmnet.o
+# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-11, Add common LGE usb features
+obj-$(CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET)	+= u_lgeusb.o
+# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-11 
 

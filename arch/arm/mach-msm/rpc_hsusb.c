@@ -146,7 +146,7 @@ int msm_hsusb_rpc_connect(void)
 				__func__, usb_rpc_ids.vers_comp);
 		return -EAGAIN;
 	} else
-		pr_debug("%s: rpc connect success vers = %lx\n",
+		pr_info("%s: rpc connect success vers = %lx\n",
 				__func__, usb_rpc_ids.vers_comp);
 
 	return 0;
@@ -214,7 +214,7 @@ int msm_hsusb_phy_reset(void)
 		pr_err("%s: phy_reset rpc failed! rc = %d\n",
 			__func__, rc);
 	} else
-		pr_debug("msm_hsusb_phy_reset\n");
+		pr_info("msm_hsusb_phy_reset\n");
 
 	return rc;
 }
@@ -784,5 +784,90 @@ int msm_nv_imei_get(unsigned char *nv_imei_ptr)
 	return rc;
 }
 EXPORT_SYMBOL(msm_nv_imei_get);
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2009-04-21, Detect charger type using RPC  */
+#if defined(CONFIG_USB_SUPPORT_LGDRIVER_GSM) || \
+	defined(CONFIG_USB_SUPPORT_LGE_GADGET_GSM)
+
+#define ONRPC_CHG_GET_GENERAL_STATUS_PROC	12
+
+enum charger_hw_type {
+	USB_CHARGER_TYPE_NONE,
+	USB_CHARGER_TYPE_WALL,
+	USB_CHARGER_TYPE_USB_PC,
+	USB_CHARGER_TYPE_USB_WALL,
+	USB_CHARGER_TYPE_USB_CARKIT,
+	USB_CHARGER_TYPE_INVALID
+};
+
+struct hsusb_rep_chg_type {
+	struct rpc_reply_hdr hdr;
+	u32 more_data;
+
+	u32 charger_status;
+	u32 charger_type;
+	u32 battery_status;
+	u32 battery_level;
+	u32 battery_voltage;
+	u32 battery_temp;
+	u32 charge_counter;
+};
+
+static struct hsusb_rep_chg_type rep;
+
+int msm_hsusb_detect_chg_type(void)
+{
+	int rc, ret = 0;
+	struct hsusb_req_chg_type {
+		struct rpc_request_hdr hdr;
+		u32 more_data;
+	} req;
+
+	if (!chg_ep || IS_ERR(chg_ep)) {
+		pr_err("%s: hsusb rpc connection not initialized, rc = %ld\n",
+			__func__, PTR_ERR(chg_ep));
+		return -EAGAIN;
+	}
+
+	req.more_data = __constant_cpu_to_be32(1);
+
+	memset(&rep, 0, sizeof(struct hsusb_rep_chg_type));
+
+	rc = msm_rpc_call_reply(chg_ep, ONRPC_CHG_GET_GENERAL_STATUS_PROC,
+			&req, sizeof(struct hsusb_req_chg_type),
+			&rep, sizeof(struct hsusb_rep_chg_type),
+			msecs_to_jiffies(5000));
+
+	if (rc < 0) {
+		printk(KERN_ERR "%s: rpc call failed !  rc = %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rep.charger_type = be32_to_cpu(rep.charger_type);
+
+	/* ret value is matched to charger type in msm_hsusb.c */
+	switch(rep.charger_type) {
+		case USB_CHARGER_TYPE_WALL :
+		case USB_CHARGER_TYPE_USB_WALL :
+		case USB_CHARGER_TYPE_USB_CARKIT :
+			ret = 2; /* WALL CHARGER */
+			break;
+		case USB_CHARGER_TYPE_USB_PC :
+			ret = 0; /* HOST PC */
+			break;
+		case USB_CHARGER_TYPE_NONE :
+		case USB_CHARGER_TYPE_INVALID :
+		default :
+			ret = 3; /* INVALID */	
+			break;
+	}
+	
+	return ret;
+}
+
+EXPORT_SYMBOL(msm_hsusb_detect_chg_type);
+#endif 
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2009-04-21 */
 
 #endif

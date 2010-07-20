@@ -38,6 +38,11 @@ struct android_usb_platform_data {
 
 	char *product_name;
 	char *manufacturer_name;
+/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-06-23, Add serial_number */
+#if defined(CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET)
+	char *serial_number;	
+#endif
+/* LGE_CHANGES_E [younsuk.song@lge.com] 2010-06-23 */
 
 	/* number of LUNS for mass storage function */
 	int nluns;

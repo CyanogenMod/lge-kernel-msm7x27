@@ -19,7 +19,11 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Fix Build Error for Gadget */
+#ifdef CONFIG_USB_FUNCTION
 #include <linux/usb/mass_storage_function.h>
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 #include <linux/i2c.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -84,62 +88,72 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 #endif
 
 /* board-specific usb data definitions */
-#ifdef CONFIG_USB_SUPPORT_LGDRIVER
-struct usb_mass_storage_platform_data usb_mass_storage_pdata = {
-	.nluns          = 0x01,
-	.buf_size       = 16384,
-	.vendor         = "GOOGLE",
-	.product        = "Mass storage",
-	.release        = 0xffff,
-};
-#endif
 
-#ifdef CONFIG_USB_SUPPORT_LGDRIVER
-static struct usb_function_map usb_functions_map[] = {
-	{"modem", 0},
-	{"diag", 1},
-	{"nmea", 2},
-	{"mass_storage", 3},
-	{"adb", 4},
-	{"ethernet", 5},
-};
-
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-10, LG Android Gadget */
+/* For supporting LG Android gadget framework, move android gadget platform
+ * datas to specific board file
+ */
+#ifdef CONFIG_USB_ANDROID
 /* dynamic composition */
+/* This depends on each board. QCT original is at device_lge.c */
 struct usb_composition usb_func_composition[] = {
 	{
-		.product_id 		  = 0x61B4,
-		.functions			  = 0x08 /* 001000 	UMS only*/
+		/* Full or Light mode : ADB, UMS, NMEA, DIAG, MODEM */
+		.product_id         = 0x618E,
+		.functions	    	= 0x2743,
+		.adb_product_id     = 0x618E,
+		.adb_functions	    = 0x12743,
 	},
 	{
-		.product_id 		  = 0x6000,
-		.functions			  = 0x03 /* 000011 	Diag, Modem*/
+		/* Factory mode(for WCDMA or GSM) : DIAG, MODEM */
+		/* We are in factory mode, ignore adb function */
+		.product_id         = 0x6000,
+		.functions	    	= 0x43,
+		.adb_product_id     = 0x6000,
+		.adb_functions	    = 0x43,
 	},
+#ifdef CONFIG_USB_ANDROID_RNDIS
 	{
-		.product_id 		  = 0x618E,
-		.functions			  = 0x1F /* 011111 	Modem,diag,NMEA,Mass,ADB*/
+		/* RNDIS */
+		.product_id         = 0xF00E,
+		.functions	    	= 0xA,
+		.adb_product_id     = 0x9024,
+		.adb_functions	    = 0x1A,
 	},
-	{
-		.product_id 		  = 0x618F,
-		.functions			  = 0x0F /* 001111 	Modem,diag,NMEA,Mass*/
-	},
-};
 #endif
+};
 
-#ifdef CONFIG_USB_SUPPORT_LGDRIVER
-struct msm_hsusb_platform_data msm_hsusb_pdata = {
+#define VENDOR_QCT	0x05C6
+#define VENDOR_LGE	0x1004
+
+struct android_usb_platform_data android_usb_pdata = {
+	.vendor_id	= VENDOR_LGE,
 	.version	= 0x0100,
-	.phy_info	= (USB_PHY_INTEGRATED | USB_PHY_MODEL_65NM),
-	.vendor_id          = 0x1004,
-	.product_name       = "LG Android USB Device",
-	.serial_number		= "LG_ANDROID_P500",	
-	.manufacturer_name	= "LG Electronics Inc.",
-	.compositions	= usb_func_composition,
+	.compositions   = usb_func_composition,
 	.num_compositions = ARRAY_SIZE(usb_func_composition),
-	.function_map   = usb_functions_map,
-	.num_functions	= ARRAY_SIZE(usb_functions_map),
-	.config_gpio    = NULL,
+	.product_name       = "LG Android USB Device",
+	.manufacturer_name	= "LG Electronics Inc.",
+	.serial_number		= "LG_ANDROID_P500",	
+	.nluns = 1,
 };
-#endif
+
+struct usb_mass_storage_platform_data mass_storage_pdata = {
+	.nluns		= 1,
+	.vendor		= "GOOGLE",
+	.product	= "Mass Storage",
+	.release	= 0xFFFF,
+};
+
+struct platform_device mass_storage_device = {
+	.name           = "usb_mass_storage",
+	.id             = -1,
+	.dev            = {
+		.platform_data          = &mass_storage_pdata,
+	},
+};
+
+#endif /* CONFIG_USB_ANDROID */
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-10 */
 
 #if 0 /* should be modified, not using qwerty key */
 static int thunderg_reboot_key_detect(void)

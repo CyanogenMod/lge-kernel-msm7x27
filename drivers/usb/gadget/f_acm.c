@@ -22,6 +22,15 @@
 #include "u_serial.h"
 #include "gadget_chips.h"
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Apply Patch for LG ACM */
+/* LG host driver use 16 bytes as max packet size of notify ep,
+ * but QCT use 10 bytes. Therefore we apply non-public patch for matching
+ * with LG host driver.
+ *
+ * TODO: This definition may be included into kernel configuration
+ */
+#define LG_ACM_FIX 1
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 
 /*
  * This CDC ACM function support just wraps control functions and
@@ -99,7 +108,15 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 /* notification endpoint uses smallish and infrequent fixed-size messages */
 
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
+
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Apply Patch for LG ACM */
+#ifdef LG_ACM_FIX
+#define GS_NOTIFY_MAXPACKET		16	/* For LG host driver */
+#else
 #define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 
 /* interface and class descriptors: */
 
@@ -468,12 +485,25 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	const unsigned			len = sizeof(*notify) + length;
 	void				*buf;
 	int				status;
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Apply Patch for LG ACM */
+#ifdef LG_ACM_FIX
+	unsigned char noti_buf[GS_NOTIFY_MAXPACKET];
+
+	memset(noti_buf, 0, GS_NOTIFY_MAXPACKET);
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 
 	req = acm->notify_req;
 	acm->notify_req = NULL;
 	acm->pending = false;
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Apply Patch for LG ACM */
+#ifdef LG_ACM_FIX
+	req->length = GS_NOTIFY_MAXPACKET;
+#else
 	req->length = len;
+#endif	
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 	notify = req->buf;
 	buf = notify + 1;
 
@@ -483,12 +513,23 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	notify->wValue = cpu_to_le16(value);
 	notify->wIndex = cpu_to_le16(acm->ctrl_id);
 	notify->wLength = cpu_to_le16(length);
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Apply Patch for LG ACM */
+#ifdef LG_ACM_FIX
+	memcpy(noti_buf, data, length);
+	memcpy(buf, noti_buf, GS_NOTIFY_MAXPACKET);
+#else
 	memcpy(buf, data, length);
+#endif	
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 
-	/* ep_queue() can complete immediately if it fills the fifo... */
-	spin_unlock(&acm->lock);
-	status = usb_ep_queue(ep, req, GFP_ATOMIC);
-	spin_lock(&acm->lock);
+	status = 0; //ALRAN
+	if (acm->serial_state & ACM_CTRL_DSR) { //ALRAN
+		/* ep_queue() can complete immediately if it fills the fifo... */
+		spin_unlock(&acm->lock);
+		status = usb_ep_queue(ep, req, GFP_ATOMIC);
+		spin_lock(&acm->lock);
+
+	} //ALRAN
 
 	if (status < 0) {
 		ERROR(acm->port.func.config->cdev,
@@ -697,7 +738,12 @@ acm_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
 	usb_free_descriptors(f->descriptors);
-	gs_free_req(acm->notify, acm->notify_req);
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-14, Fix panic by acm patch */
+/* This prevents kernel panic from QCT's acm patch */
+	if (acm->notify_req)
+		gs_free_req(acm->notify, acm->notify_req);
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-14 */	
 	kfree(acm);
 }
 

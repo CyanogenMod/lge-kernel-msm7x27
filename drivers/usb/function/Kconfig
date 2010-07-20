@@ -187,7 +187,7 @@ config USB_SUPPORT_LGDRIVER_GSM
 endchoice
 
 config USB_SUPPORT_LGE_FACTORY_USB
-	tristate "USB Support LGE Factory USB(CDMA class)"
+	boolean "USB Support LGE Factory USB(CDMA class)"
 	depends on USB_SUPPORT_LGDRIVER_CDMA
 	select LGE_SUPPORT_RAPI
 	help
@@ -196,7 +196,7 @@ config USB_SUPPORT_LGE_FACTORY_USB
 	default n
 
 config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID
-	tristate "Serial Number from ARM9's MEID(CDMA class)"
+	boolean "Serial Number from ARM9's MEID(CDMA class)"
 	depends on USB_SUPPORT_LGDRIVER_CDMA
 	select LGE_SUPPORT_RAPI
 	help
@@ -205,7 +205,7 @@ config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID
 	default n
 
 config USB_SUPPORT_LGE_FACTORY_USB_GSM
-	tristate "USB Support LGE Factory USB(GSM class)"
+	boolean "USB Support LGE Factory USB(GSM class)"
 	depends on USB_SUPPORT_LGDRIVER_GSM
 	help
 	  Supports LG USB driver for factory manufacturing(3G/GSM class)
@@ -213,7 +213,7 @@ config USB_SUPPORT_LGE_FACTORY_USB_GSM
 	default n
 
 config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI
-	tristate "Serial Number from ARM9's IMEI(GSM class)"
+	boolean "Serial Number from ARM9's IMEI(GSM class)"
 	depends on USB_SUPPORT_LGDRIVER_GSM
 	help
 	  Get usb device's serial number from arm's IMEI(3G/GSM class)

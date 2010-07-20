@@ -26,6 +26,9 @@
 #include <mach/msm_hsusb.h>
 #include <mach/rpc_hsusb.h>
 #ifdef CONFIG_USB_FUNCTION
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-19, Fix build error for gadget */
+#include <linux/usb/mass_storage_function.h>
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-19 */
 #include <linux/usb/android_composite.h>
 #endif
 #ifdef CONFIG_USB_ANDROID
@@ -480,7 +483,7 @@ __WEAK struct usb_mass_storage_platform_data usb_mass_storage_pdata = {
 	.release        = 0xffff,
 };
 
-static struct platform_device mass_storage_device = {
+__WEAK static struct platform_device mass_storage_device = {
 	.name           = "usb_mass_storage",
 	.id             = -1,
 	.dev            = {
@@ -567,19 +570,22 @@ __WEAK struct usb_composition usb_func_composition[] = {
 	},
 #endif
 };
-__WEAK static struct usb_mass_storage_platform_data mass_storage_pdata = {
+
+__WEAK struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns		= 1,
 	.vendor		= "GOOGLE",
 	.product	= "Mass Storage",
 	.release	= 0xFFFF,
 };
-__WEAK static struct platform_device mass_storage_device = {
+
+__WEAK struct platform_device mass_storage_device = {
 	.name           = "usb_mass_storage",
 	.id             = -1,
 	.dev            = {
 		.platform_data          = &mass_storage_pdata,
 	},
 };
+
 __WEAK struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x05C6,
 	.version	= 0x0100,
@@ -599,7 +605,7 @@ static struct platform_device android_usb_device = {
 #endif
 
 #ifdef CONFIG_USB_FUNCTION
-static struct usb_function_map usb_functions_map[] = {
+__WEAK static struct usb_function_map usb_functions_map[] = {
 	{"diag", 0},
 	{"adb", 1},
 	{"modem", 2},
@@ -610,7 +616,7 @@ static struct usb_function_map usb_functions_map[] = {
 };
 
 /* dynamic composition */
-static struct usb_composition usb_func_composition[] = {
+__WEAK static struct usb_composition usb_func_composition[] = {
 	{
 		.product_id         = 0x9012,
 		.functions	    = 0x5, /* 0101 */
@@ -690,9 +696,17 @@ static int hsusb_rpc_connect(int connect)
 }
 #endif
 
+#if defined(CONFIG_USB_MSM_OTG_72K) || defined(CONFIG_USB_EHCI_MSM)
+static int msm_hsusb_rpc_phy_reset(void __iomem *addr)
+{
+		return msm_hsusb_phy_reset();
+}
+#endif
+
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata = {
-	.rpc_connect	= hsusb_rpc_connect,
+	.rpc_connect			 = hsusb_rpc_connect,
+	.phy_reset				 = msm_hsusb_rpc_phy_reset, 
 	.pmic_notif_init         = msm_pm_app_rpc_init,
 	.pmic_notif_deinit       = msm_pm_app_rpc_deinit,
 	.pmic_register_vbus_sn   = msm_pm_app_register_vbus_sn,
