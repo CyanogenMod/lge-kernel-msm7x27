@@ -190,7 +190,7 @@ void smd_diag(void)
 	}
 
 	/* AMSS's error handler has some delay */
-	mdelay(200);
+	mdelay(2000);
 
 	x = smem_get_entry(SMEM_ERR_CRASH_LOG, &size);
 	if (x != 0) {
