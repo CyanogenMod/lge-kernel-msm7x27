@@ -709,10 +709,8 @@ err_out:
 
 static int ami304hal_open(struct inode *inode, struct file *file)
 {
-	if (atomic_inc_and_test(&hal_open_count) != 0) {
-		AMIE("%s:device is busy_for_open(hal_open_count is %d)\n", __func__, atomic_read(&hal_open_count));
-		return -EBUSY;
-	}
+	int ret;
+	ret = atomic_inc_and_test(&hal_open_count);
 
 	if (AMI304_DEBUG_FUNC_TRACE & ami304_debug_mask)
 		AMID("Open device node:ami304hal %d times.\n", atomic_read(&hal_open_count));
@@ -722,10 +720,8 @@ static int ami304hal_open(struct inode *inode, struct file *file)
 
 static int ami304hal_release(struct inode *inode, struct file *file)
 {
-	if (atomic_dec_and_test(&hal_open_count) != 0) {
-		AMIE("%s:device is busy_for_release(hal_open_count is %d)\n", __func__, atomic_read(&hal_open_count));
-		return -EBUSY;
-	}
+	int ret;
+	ret = atomic_dec_and_test(&hal_open_count);
 
 	if (AMI304_DEBUG_FUNC_TRACE & ami304_debug_mask)
 		AMID("Release ami304hal, remainder is %d times.\n", atomic_read(&hal_open_count));
