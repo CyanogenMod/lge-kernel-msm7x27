@@ -133,7 +133,7 @@ struct android_usb_platform_data android_usb_pdata = {
 	.num_compositions = ARRAY_SIZE(usb_func_composition),
 	.product_name       = "LG Android USB Device",
 	.manufacturer_name	= "LG Electronics Inc.",
-	.serial_number		= "LG_ANDROID_VS660",	
+	.serial_number		= "LGANDROIDVS660",	
 	.nluns = 1,
 };
 

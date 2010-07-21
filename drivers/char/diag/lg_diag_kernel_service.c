@@ -21,6 +21,7 @@
 #include "lg_diag_kernel_service.h"
 #include <mach/lg_diag_testmode.h>
 
+PACK (void *)LGF_WIFI (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
 PACK (void *)LGF_TestMode (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
 PACK (void *)LGF_LcdQTest (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
 PACK (void *)LGF_KeyPress (PACK (void	*)req_pkt_ptr, uint16		pkt_len );
@@ -56,6 +57,7 @@ static const diagpkt_user_table_entry_type registration_table[] =
 #if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
 	{DIAG_MTC_F 	 ,	DIAG_MTC_F	  , LGF_MTCProcess},
 #endif /*LG_FW_MTC*/
+	{DIAG_WIFI_MAC_ADDR, DIAG_WIFI_MAC_ADDR, LGF_WIFI},
 #ifdef CONFIG_LGE_DIAG_WMC
     {DIAG_WMCSYNC_MAPPING_F, DIAG_WMCSYNC_MAPPING_F, LGF_WMC},
 #endif

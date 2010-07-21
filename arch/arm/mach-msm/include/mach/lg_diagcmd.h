@@ -407,6 +407,8 @@ Don't change previous defines and add new id at the end
 #define DIAG_WMCSYNC_MAPPING_F 	241
 #endif
 
+#define DIAG_WIFI_MAC_ADDR 214
+
 /* Number of packets defined. */
 #define DIAG_TEST_MODE_F          250  
 #define DIAG_LCD_Q_TEST_F         253
