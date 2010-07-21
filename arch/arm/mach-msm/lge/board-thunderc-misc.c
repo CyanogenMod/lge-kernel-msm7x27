@@ -271,7 +271,7 @@ static void pmic_mpp_isink_set(struct led_classdev *led_cdev,
 		on_off = (int)PM_MPP__I_SINK__SWITCH_ENA;
 
 	pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,
-			PM_MPP__I_SINK__LEVEL_20mA, (enum mpp_i_sink_switch)on_off);
+			PM_MPP__I_SINK__LEVEL_15mA, (enum mpp_i_sink_switch)on_off);
 }
 
 static void button_backlight_set(struct led_classdev* led_cdev, enum led_brightness value)
@@ -287,7 +287,7 @@ static void button_backlight_set(struct led_classdev* led_cdev, enum led_brightn
 
 	mpp_number = (int)PM_MPP_19;
 	for(i=0; i<4; i++){
-		pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,PM_MPP__I_SINK__LEVEL_20mA, (enum mpp_i_sink_switch)on_off);
+		pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,PM_MPP__I_SINK__LEVEL_15mA, (enum mpp_i_sink_switch)on_off);
 		mpp_number++;
 	}
 }
