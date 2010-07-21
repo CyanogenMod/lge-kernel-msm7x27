@@ -215,6 +215,28 @@ void pseudo_batt_info_set(struct pseudo_batt_info_type* info)
 	return;
 }
 EXPORT_SYMBOL(pseudo_batt_info_set);
+void block_charging_set(int bypass)
+{
+	struct oem_rapi_client_streaming_func_arg arg;
+	struct oem_rapi_client_streaming_func_ret ret;
+
+	Open_check();
+	arg.event = LG_FW_A2M_BLOCK_CHARGING_SET;
+	arg.cb_func = NULL;
+	arg.handle = (void*) 0;
+	arg.in_len = sizeof(int);
+	arg.input = (char*) &bypass;
+	arg.out_len_valid = 0;
+	arg.output_valid = 0;
+	arg.output_size = 0;
+
+	ret.output = (char*)NULL;
+	ret.out_len = 0;
+
+	oem_rapi_client_streaming_function(client,&arg,&ret);
+	return;
+}
+EXPORT_SYMBOL(block_charging_set);
 #endif	/* CONFIG_MACH_MSM7X27_THUNDERC */
 
 void msm_get_MEID_type(char* sMeid)

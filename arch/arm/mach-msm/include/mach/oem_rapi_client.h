@@ -57,6 +57,7 @@ enum {
 	 * 2010-07-12 taehung.kim@lge.com
 	 */
 	LG_FW_SET_OPERATIN_MODE = LG_FW_RAPI_START + 5,
+	LG_FW_A2M_BLOCK_CHARGING_SET = LG_FW_RAPI_START + 6,
 #endif
 	OEM_RAPI_CLIENT_EVENT_MAX
 

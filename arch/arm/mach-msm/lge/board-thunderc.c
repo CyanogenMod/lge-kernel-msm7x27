@@ -108,9 +108,9 @@ struct usb_composition usb_func_composition[] = {
 	{
 		/* We are in factory mode, ignore adb function */
 		.product_id         = 0x6000,
-		.functions	    	= 0x174,
+		.functions	    	= 0x743,
 		.adb_product_id     = 0x6000,
-		.adb_functions	    = 0x174,
+		.adb_functions	    = 0x743,
 	},
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	{

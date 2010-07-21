@@ -61,6 +61,16 @@
 	.show = pseudo_batt_show_property,				\
 	.store = pseudo_batt_store_property,							\
 }
+/* LGE_CHANGE
+ * Support block charging for Q-gate
+ * 2010-07-18, taehung.kim@lge.com
+ */
+#define BLOCK_CHARGING_ATTR(_name)					\
+{									\
+	.attr = { .name = #_name, .mode = 0666 },	\
+	.show = block_charging_show_property,				\
+	.store = block_charging_store_property,							\
+}
 #endif
 
 #define POWER_SUPPLY_ATTR(_name)					\
@@ -141,7 +151,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 
 	return sprintf(buf, "%d\n", value.intval);
 }
-#if 0
+
 #if defined (CONFIG_MACH_MSM7X27_ALOHAV) || defined (CONFIG_MACH_MSM7X27_THUNDERC)
 /* LGE_CHNAGE
  * ADD THUNDERC feature to use VS740 BATT DRIVER IN THUNDERC
@@ -199,7 +209,58 @@ static ssize_t pseudo_batt_store_property(struct device *dev,
 out:
 	return ret;
 }
-#endif
+
+/* LGE_CHNAGE
+ * Support block charging for Q-gate
+ * 2010-07-18, taehung.kim@lge.com
+ */
+extern void batt_block_charging_set(int);
+static ssize_t block_charging_store_property(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret = -EINVAL;
+	int block;
+	
+
+	if(sscanf(buf, "%d",&block) != 1)
+	{
+		printk("%s:Too many argument\n",__func__);
+		goto out;
+	}
+	printk("%s:block charging=%d\n",__func__,block);
+	batt_block_charging_set(block);
+	ret = count;
+out:
+	return ret;
+}
+static ssize_t block_charging_show_property(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret;
+	struct power_supply *psy = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_supply_attrs;
+	union power_supply_propval value;
+
+	static char *block_charging_mode[] = {
+		"BLOCK CHARGING", "NORMAL",
+	};
+
+	ret = psy->get_property(psy, off, &value);
+
+	if (ret < 0) {
+		if (ret != -ENODEV)
+			dev_err(dev, "driver failed to report `%s' property\n",
+					attr->attr.name);
+		return ret;
+	}
+
+	if (off == POWER_SUPPLY_PROP_BLOCK_CHARGING)
+		return sprintf(buf, "[%s]", block_charging_mode[value.intval]);
+
+	return 0;
+}
 #endif
 
 static ssize_t power_supply_store_property(struct device *dev,
@@ -300,7 +361,12 @@ static struct device_attribute power_supply_attrs[] = {
 	/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740] */
 	POWER_SUPPLY_ATTR(valid_batt_id),
 	POWER_SUPPLY_ATTR(batt_therm),
-//	PSEUDO_BATT_ATTR(pseudo_batt),
+	PSEUDO_BATT_ATTR(pseudo_batt),
+/* LGE_CHNAGE
+ * Support block charging for Q-gate
+ * 2010-07-18, taehung.kim@lge.com
+ */
+	BLOCK_CHARGING_ATTR(block_charging),//43
 #endif
 };
 

@@ -275,6 +275,7 @@ static struct msm_battery_info msm_batt_info = {
 static struct pseudo_batt_info_type pseudo_batt_info = {
   .mode = 0,
 };
+static int block_charging_state = 1;//1 : charging , 0: block charging
 
 static enum power_supply_property msm_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
@@ -349,7 +350,8 @@ static enum power_supply_property msm_batt_power_props[] = {
   /* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM*/
   POWER_SUPPLY_PROP_BATTERY_ID_CHECK,
   POWER_SUPPLY_PROP_BATTERY_TEMP_ADC,
-//  POWER_SUPPLY_PROP_PSEUDO_BATT,
+  POWER_SUPPLY_PROP_PSEUDO_BATT,
+  POWER_SUPPLY_PROP_BLOCK_CHARGING,
   /* LGE_CHANGES_E [woonghee.park@lge.com]*/
 };
 
@@ -444,6 +446,9 @@ static int msm_batt_power_get_property(struct power_supply *psy,
     val->intval = pseudo_batt_info.mode;
     break;
 
+  case POWER_SUPPLY_PROP_BLOCK_CHARGING:
+    val->intval = block_charging_state;
+    break;
 	default:
 		return -EINVAL;
 	}
@@ -486,6 +491,13 @@ int pseudo_batt_set(struct pseudo_batt_info_type* info)
   return 0;
 }
 EXPORT_SYMBOL(pseudo_batt_set);
+extern void block_charging_set(int);
+void batt_block_charging_set(int block)
+{
+	block_charging_state = block;
+	block_charging_set(block);
+}
+EXPORT_SYMBOL(batt_block_charging_set);
 
 struct batt_info batt_info_buf;
 /* LGE_CHANGES_E [woonghee.park@lge.com]*/
