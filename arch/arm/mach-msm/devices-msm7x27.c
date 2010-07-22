@@ -787,7 +787,11 @@ struct clk msm_clocks_7x27[] = {
 	CLK_PCOM("tsif_pclk",	TSIF_P_CLK,	NULL, 0),
 	CLK_PCOM("uart_clk",	UART1_CLK,	&msm_device_uart1.dev, OFF),
 	CLK_PCOM("uart_clk",	UART2_CLK,	&msm_device_uart2.dev, 0),
+#if defined(CONFIG_MACH_LGE)
+	CLK_PCOM("uart_clk",	UART3_CLK,	&msm_device_uart3.dev, 0),
+#else
 	CLK_PCOM("uart_clk",	UART3_CLK,	&msm_device_uart3.dev, OFF),
+#endif
 	CLK_PCOM("uartdm_clk",	UART1DM_CLK,	&msm_device_uart_dm1.dev, OFF),
 	CLK_PCOM("uartdm_clk",	UART2DM_CLK,	&msm_device_uart_dm2.dev, 0),
 	CLK_PCOM("usb_hs_clk",	USB_HS_CLK,	NULL, OFF),
