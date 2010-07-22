@@ -86,6 +86,14 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 			ret_value1 = 0;
 			break;
 
+		//LGE_UPDATE_S ins.lee@lge.com 2010-06-21, add AT%FLIHGT
+		case ATCMD_FLIGHT:  // 82
+			if(at_act != ATCMD_ACTION)
+				result = HANLDE_FAIL;
+			update_atcmd_state("flight", at_param); //state is up? down?
+			break;
+		//LGE_UPDATE_E ins.lee@lge.com 2010-06-21, add AT%FLIHGT
+
 		default :
 			result = HANDLE_ERROR;
 			break;
