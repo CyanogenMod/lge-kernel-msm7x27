@@ -96,7 +96,26 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 #ifdef CONFIG_USB_ANDROID
 /* dynamic composition */
 /* This depends on each board. QCT original is at device_lge.c */
+/* function bit : (in include/linux/android.h)
+   ADB				0x0001
+   MSC				0x0002
+   ACM_MODEM		0x0003
+   DIAG				0x0004
+   ACM_NMEA			0x0005
+   GENERIC_MODEM	0x0006
+   GENERIC_NMEA		0x0007
+   CDC_ECM			0x0008
+   RMNET			0x0009
+   RNDIS			0x000A
+*/
 struct usb_composition usb_func_composition[] = {
+	{
+		/* Mass Storage only mode : UMS */
+		.product_id         = 0x61B4,
+		.functions	    	= 0x2,
+		.adb_product_id     = 0x61B4,
+		.adb_functions	    = 0x2,
+	},
 	{
 		/* Full or Light mode : ADB, UMS, NMEA, DIAG, MODEM */
 		.product_id         = 0x618E,
@@ -133,7 +152,10 @@ struct android_usb_platform_data android_usb_pdata = {
 	.num_compositions = ARRAY_SIZE(usb_func_composition),
 	.product_name       = "LG Android USB Device",
 	.manufacturer_name	= "LG Electronics Inc.",
-	.serial_number		= "LG_ANDROID_P500",	
+	/* Default serial number(only for development) must
+	   be 20 characters at LG WCDMA class model(because of IMEI size).
+	   Currently we just have padding ;) */
+	.serial_number		= "LG_ANDROID_P500****",
 	.nluns = 1,
 };
 
