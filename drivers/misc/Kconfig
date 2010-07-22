@@ -497,6 +497,14 @@ config PMIC8058_UPL
 	  simple truth table based logic via a set of control registers. I/O may
 	  be routed in and out of the UPL module via GPIO or DTEST pins.
 
+config LGE_AT_CMD_DEVICE
+	bool "Support LGE AT_CMD device"
+	default n
+	depends on LGE_SUPPORT_AT_CMD
+	depends on MACH_LGE
+	help
+	 Choose if use AT_CMD device used for sending uevent to user space
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
