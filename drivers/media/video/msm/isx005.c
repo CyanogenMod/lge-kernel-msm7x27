@@ -48,12 +48,23 @@
 #define ISX005_OM_CHANGED				0x0001	/* Operating mode */
 #define ISX005_CM_CHANGED				0x0002	/* Camera mode */
 
+DEFINE_MUTEX(isx005_tuning_mutex);
+static int tuning_thread_run;
+
+#define CFG_WQ_SIZE		64
+
+struct config_work_queue {
+	int cfgtype;
+	int mode;
+};
+
+struct config_work_queue *cfg_wq;
+static int cfg_wq_num;
+
 /* It is distinguish normal from macro focus */
 static int prev_af_mode;
 /* It is distinguish scene mode */
 static int prev_scene_mode;
-
-static int init_prev_mode;
 
 struct isx005_work {
 	struct work_struct work;
@@ -272,13 +283,47 @@ static int isx005_reg_init(void)
 }
 #endif
 
+static int dequeue_sensor_config(int cfgtype, int mode);
+
+static void dequeue_cfg_wq(struct config_work_queue *cfg_wq)
+{
+	int rc;
+	int i;
+
+	for (i = 0; i < cfg_wq_num; ++i) {
+		rc = dequeue_sensor_config(cfg_wq[i].cfgtype, cfg_wq[i].mode);
+		if (rc < 0) {
+			printk(KERN_ERR "[ERROR]%s: dequeue sensor config error!\n",
+				__func__);
+			return;
+		}
+	}
+
+	cfg_wq_num = 0;
+}
+
+static void enqueue_cfg_wq(int cfgtype, int mode)
+{
+	if(cfg_wq_num == CFG_WQ_SIZE)
+		return;
+
+	cfg_wq[cfg_wq_num].cfgtype = cfgtype;
+	cfg_wq[cfg_wq_num].mode= mode;
+
+	++cfg_wq_num;
+}
+
 int isx005_reg_tuning(void *data)
 {
 	int rc = 0;
 	int i;
 
-	while(!init_prev_mode)
-		mdelay(10);
+	mutex_lock(&isx005_tuning_mutex);
+	cfg_wq = kmalloc(sizeof(struct config_work_queue) * CFG_WQ_SIZE,
+		GFP_KERNEL);
+	cfg_wq_num = 0;
+	tuning_thread_run = 1;
+	mutex_unlock(&isx005_tuning_mutex);
 	
 	/* Configure sensor for various tuning */
 	for (i = 0; i < isx005_regs.tuning_reg_settings_size; ++i) {
@@ -290,6 +335,12 @@ int isx005_reg_tuning(void *data)
 		if (rc < 0)
 			return rc;
 	}
+
+	mutex_lock(&isx005_tuning_mutex);
+	dequeue_cfg_wq(cfg_wq);
+	kfree(cfg_wq);
+	tuning_thread_run = 0;
+	mutex_unlock(&isx005_tuning_mutex);
 
 	return rc;
 }
@@ -314,20 +365,19 @@ static int isx005_reg_preview(void)
 	/* BUG FIX : msm is changed preview mode but sensor is not change preview mode. */
 	/*so there is case that vfe get capture image on preview mode */	
 	/* eunyoung.shin@lge.com 2010.07.13*/
-  for(i=0; i<300;i++)
-  {
-      unsigned short cm_changed_status = 0;
-      rc = isx005_i2c_read(isx005_client->addr, 0x00F8, &cm_changed_status, BYTE_LEN);
+	for(i = 0; i < 300; i++)
+	{
+		unsigned short cm_changed_status = 0;
+		rc = isx005_i2c_read(isx005_client->addr, 0x00F8, &cm_changed_status, BYTE_LEN);
 
-      if(cm_changed_status & 0x0002)
-      {
-	       printk("[%s]:Sensor Preview Mode check : %d-> success \n", __func__, cm_changed_status);
-        break;  
-      }
-      else 
-       msleep(10);
-   
-  }
+		if(cm_changed_status & 0x0002)
+		{
+			CDBG("[%s]:Sensor Preview Mode check : %d-> success \n", __func__, cm_changed_status);
+			break;
+		}
+		else
+			msleep(10);
+	}
 
 
 	return rc;
@@ -352,22 +402,22 @@ static int isx005_reg_snapshot(void)
 
 	/* Checking the mode change status */
 	/* eunyoung.shin@lge.com 2010.07.13*/	
-	for(i=0; i<300;i++)
+	for(i = 0; i < 300; i++)
 	{
-   		printk("[%s]:Sensor Snapshot Mode Start\n", __func__);
-        cm_changed_status = 0;
-        rc = isx005_i2c_read(isx005_client->addr, 0x00F8, &cm_changed_status, BYTE_LEN);
+		CDBG("[%s]:Sensor Snapshot Mode Start\n", __func__);
+		cm_changed_status = 0;
+		rc = isx005_i2c_read(isx005_client->addr, 0x00F8, &cm_changed_status, BYTE_LEN);
 
-        if(cm_changed_status & 0x0002)
-        {
-  	       printk("[%s]:Sensor Snapshot Mode check : %d-> success \n", __func__, cm_changed_status);
-          break;  
-        }
-        else 
-          msleep(10);
+		if(cm_changed_status & 0x0002)
+		{
+			CDBG("[%s]:Sensor Snapshot Mode check : %d-> success \n", __func__, cm_changed_status);
+			break;
+		}
+		else
+			msleep(10);
 
-        printk("[%s]:Sensor Snapshot Mode checking : %d \n", __func__, cm_changed_status);        
-   }
+		CDBG("[%s]:Sensor Snapshot Mode checking : %d \n", __func__, cm_changed_status);
+	}
 
 	 return rc;
 }
@@ -385,10 +435,7 @@ static int isx005_set_sensor_mode(int mode)
 				printk(KERN_ERR "[ERROR]%s:Sensor Preview Mode Fail\n", __func__);
 			else
 				break;
-			mdelay(1);
 		}
-		
-		init_prev_mode = 1;
 		break;
 
 	case SENSOR_SNAPSHOT_MODE:
@@ -399,8 +446,6 @@ static int isx005_set_sensor_mode(int mode)
 				printk(KERN_ERR "[ERROR]%s:Sensor Snapshot Mode Fail\n", __func__);
 			else
 				break;
-
-			mdelay(1);
 		}
 		break;
 
@@ -409,8 +454,6 @@ static int isx005_set_sensor_mode(int mode)
 	}
 
 	CDBG("Sensor Mode : %d, rc = %d\n", mode, rc);
-
-	msleep(20);
 
 	return rc;
 }
@@ -514,7 +557,7 @@ static int isx005_check_focus(int *lock)
 	unsigned short af_status;
 	unsigned short af_result;
 
-	printk("isx005_check_focus\n");
+	CDBG("isx005_check_focus\n");
 
 	/*af status check  0:load, 1: init,  8: af_lock */
 	rc = isx005_i2c_read(isx005_client->addr,
@@ -522,7 +565,6 @@ static int isx005_check_focus(int *lock)
 
 	if (af_status != 0x8)
 		return -ETIME;
-
 	
 	isx005_check_af_lock();
 	
@@ -1279,13 +1321,14 @@ static int isx005_sensor_init_probe(const struct msm_camera_sensor_info *data)
 		return -1;
 	}
 
-	init_prev_mode = 0;
-
 	rc = isx005_init_sensor(data);
 	if (rc < 0) {
 		printk(KERN_ERR "[ERROR]%s:failed to initialize sensor!\n", __func__);
 		goto init_probe_fail;
 	}
+
+	tuning_thread_run = 0;
+	cfg_wq = 0;
 
 	prev_af_mode = -1;
 	prev_scene_mode = -1;
@@ -1344,6 +1387,55 @@ int isx005_sensor_release(void)
 	return rc;
 }
 
+static int dequeue_sensor_config(int cfgtype, int mode)
+{
+	int rc;
+
+	switch (cfgtype) {
+		case CFG_SET_MODE:
+			rc = isx005_set_sensor_mode(mode);
+			break;
+
+		case CFG_SET_EFFECT:
+			rc = isx005_set_effect(mode);
+			break;
+
+		case CFG_MOVE_FOCUS:
+			rc = isx005_move_focus(mode);
+			break;
+
+		case CFG_SET_DEFAULT_FOCUS:
+			rc = isx005_set_default_focus();
+			break;
+
+		case CFG_SET_WB:
+			rc = isx005_set_wb(mode);
+			break;
+
+		case CFG_SET_ANTIBANDING:
+			rc= isx005_set_antibanding(mode);
+			break;
+
+		case CFG_SET_ISO:
+			rc = isx005_set_iso(mode);
+			break;
+
+		case CFG_SET_SCENE:
+			rc = isx005_set_scene_mode(mode);
+			break;
+
+		case CFG_SET_BRIGHTNESS:
+			rc = isx005_set_brightness(mode);
+			break;
+
+		default:
+			rc = 0;
+			break;
+	}
+
+	return rc;
+}
+
 int isx005_sensor_config(void __user *argp)
 {
 	struct sensor_cfg_data cfg_data;
@@ -1357,6 +1449,17 @@ int isx005_sensor_config(void __user *argp)
 
 	CDBG("isx005_ioctl, cfgtype = %d, mode = %d\n",
 		cfg_data.cfgtype, cfg_data.mode);
+
+	mutex_lock(&isx005_tuning_mutex);
+	if (tuning_thread_run) {
+		if (cfg_data.cfgtype == CFG_MOVE_FOCUS)
+			cfg_data.mode = cfg_data.cfg.focus.steps;
+
+		enqueue_cfg_wq(cfg_data.cfgtype, cfg_data.mode);
+		mutex_unlock(&isx005_tuning_mutex);
+		return rc;
+	}
+	mutex_unlock(&isx005_tuning_mutex);
 
 	mutex_lock(&isx005_mutex);
 
