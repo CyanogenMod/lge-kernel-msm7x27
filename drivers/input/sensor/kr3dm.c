@@ -235,6 +235,8 @@ static int kr3dm_device_power_on(struct kr3dm_data *kr)
 		err = kr->pdata->power_on();
 		if (err < 0)
 			return err;
+
+		mdelay(5);	// KR3DM boot up time
 	}
 
 	if (!kr->hw_initialized) {
@@ -710,14 +712,6 @@ static int kr3dm_probe(struct i2c_client *client,
 			goto err1_1;
 	}
 
-	err = kr3dm_i2c_read(kr, &id_check, 1);
-	if((int)((signed char)id_check) != KR3DM_DEVICE_ID)
-	{
-		dev_err(&client->dev, "Device ID not matched\n");
-		err = -ENODEV;
-		goto err1_1;
-	}
-
 	memset(kr->resume_state, 0, ARRAY_SIZE(kr->resume_state));
 
 	/* control register setting */
@@ -730,6 +724,14 @@ static int kr3dm_probe(struct i2c_client *client,
 	err = kr3dm_device_power_on(kr);
 	if (err < 0)
 		goto err2;
+
+	err = kr3dm_i2c_read(kr, &id_check, 1);
+	if(id_check != KR3DM_DEVICE_ID)
+	{
+		dev_err(&client->dev, "Device ID not matched\n");
+		err = -ENODEV;
+		goto err2;
+	}
 
 	atomic_set(&kr->enabled, 1);
 
