@@ -80,6 +80,9 @@ static void mcs6000_late_resume(struct early_suspend *h);
 #define MCS6000_TS_FW_VERSION			 		0x20
 #define MCS6000_TS_HW_REVISION					0x21
 
+#define MCS6000_TS_MAX_HW_VERSION				0x40
+#define MCS6000_TS_MAX_FW_VERSION				0x20
+
 struct mcs6000_ts_device {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
@@ -94,7 +97,8 @@ struct mcs6000_ts_device {
 
 static struct input_dev *mcs6000_ts_input = NULL;
 static struct mcs6000_ts_device mcs6000_ts_dev; 
-
+static int is_downloading = 0;
+static int is_touch_suspend = 0;
 
 #define READ_NUM 8 /* now, just using two finger data */
 
@@ -382,12 +386,14 @@ err_power_failed:
 	return ret;
 }
 
-void mcs6000_firmware_info(void)
+void mcs6000_firmware_info(unsigned char* fw_ver, unsigned char* hw_ver)
 {
 	unsigned char data;
 	struct mcs6000_ts_device *dev = NULL;
+	int try_cnt = 0;
 	dev = &mcs6000_ts_dev;
 
+#if 0
 	msleep(200);
 	data = i2c_smbus_read_byte_data(dev->client, MCS6000_TS_FW_VERSION);
 	printk(KERN_INFO "MCS6000 F/W Version [0x%x]\n", data);
@@ -395,6 +401,27 @@ void mcs6000_firmware_info(void)
 	data = i2c_smbus_read_byte_data(dev->client, MCS6000_TS_HW_REVISION);
 	printk(KERN_INFO "MCS6000 H/W Revision [0x%x]\n", data);
 	dev->input_dev->id.product= data ;
+#else
+	/* for avoiding the read fail form mcs6000 IC*/
+	do {
+		data = i2c_smbus_read_byte_data(dev->client, MCS6000_TS_FW_VERSION);
+		msleep(10);
+		try_cnt ++;
+	} while (data > MCS6000_TS_MAX_FW_VERSION && try_cnt < 10);
+
+	printk(KERN_INFO "MCS6000 F/W Version [0x%x]\n", data);
+	*fw_ver = data;
+
+	try_cnt = 0;
+	do {
+		data = i2c_smbus_read_byte_data(dev->client, MCS6000_TS_HW_REVISION);
+		msleep(10);
+		try_cnt ++;
+	} while (data > MCS6000_TS_MAX_HW_VERSION && try_cnt < 10);
+
+	printk(KERN_INFO "MCS6000 H/W Revision [0x%x]\n", data);
+	*hw_ver = data;
+#endif
 }
 
 static __inline int mcs6000_ts_ioctl_down_i2c_write(unsigned char addr,
@@ -566,9 +593,12 @@ static int mcs6000_ts_ioctl(struct inode *inode, struct file *flip,
 		case MCS6000_TS_IOCTL_MAGIC :
 			switch(cmd){
 				case MCS6000_TS_IOCTL_FW_VER:
-					mcs6000_firmware_info();
-					err = mcs6000_ts_dev.input_dev->id.version;
+				{
+					unsigned char fw_ver, hw_ver;
+					mcs6000_firmware_info(&fw_ver, &hw_ver);
+					err = fw_ver;
 					break;
+				}
 				case MCS6000_TS_IOCTL_MAIN_ON:
 				case MCS6000_TS_IOCTL_MAIN_OFF:
 					break;
@@ -583,14 +613,23 @@ static int mcs6000_ts_ioctl(struct inode *inode, struct file *flip,
 }
 
 static int mcs6000_ioctl_open(struct inode *inode, struct file *flip) {
-	disable_irq(mcs6000_ts_dev.num_irq);
-	printk(KERN_INFO "touch irq disabled by ioctl\n");
+	if(is_touch_suspend == 0) {
+		disable_irq(mcs6000_ts_dev.num_irq);
+		printk(KERN_INFO "touch download start : irq disabled by ioctl\n");
+	}
+	is_downloading = 1;
 	return 0;
 }
 
 static int mcs6000_ioctl_release(struct inode *inode, struct file *flip) {
-	enable_irq(mcs6000_ts_dev.num_irq);
-	printk(KERN_INFO "touch irq enabled by ioctl\n");
+	if(is_touch_suspend == 1) {
+		mcs6000_ts_dev.power(OFF);
+		printk(KERN_INFO "touch download done : power off by ioctl\n");
+	} else {
+		enable_irq(mcs6000_ts_dev.num_irq);
+		printk(KERN_INFO "touch download done : irq enabled by ioctl\n");
+	}
+	is_downloading = 0;
 	return 0;
 }
 
@@ -607,11 +646,68 @@ static struct miscdevice mcs6000_ts_misc_dev = {
 	.fops = &mcs6000_ts_ioctl_fops,
 };
 
+static ssize_t read_touch_version(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	int r;
+	unsigned char hw_ver, fw_ver;
+
+	if (is_downloading == 1) {
+		r = sprintf(buf,"Now, MCS6000 Firmware Update is going, check it later\n ");
+		return r;
+	}
+
+	mcs6000_firmware_info(&fw_ver, &hw_ver);
+	r = sprintf(buf,"MCS6000 Touch Version HW:%02x FW:%02x\n",hw_ver, fw_ver);
+
+	return r;
+}
+
+static ssize_t read_touch_dl_status(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	int r;
+
+	r = sprintf(buf,"MCS6000 Download Status %d\n",is_downloading);
+	return r;
+}
+
+static DEVICE_ATTR(version, S_IRUGO /*| S_IWUSR*/,read_touch_version, NULL);
+static DEVICE_ATTR(dl_status, S_IRUGO,read_touch_dl_status, NULL);
+
+int mcs6000_create_file(struct input_dev *pdev)
+{
+	int ret;
+
+	ret = device_create_file(&pdev->dev, &dev_attr_version);
+	if (ret) {
+		printk( KERN_DEBUG "LG_FW : dev_attr_version create fail\n");
+		device_remove_file(&pdev->dev, &dev_attr_version);
+		return ret;
+	}
+
+	ret = device_create_file(&pdev->dev, &dev_attr_dl_status);
+	if (ret) {
+		printk( KERN_DEBUG "LG_FW : dev_attr_dl_status create fail\n");
+		device_remove_file(&pdev->dev, &dev_attr_dl_status);
+		return ret;
+	}
+
+	return ret;
+}
+
+int mcs6000_remove_file(struct input_dev *pdev)
+{
+	device_remove_file(&pdev->dev, &dev_attr_version);
+	device_remove_file(&pdev->dev, &dev_attr_dl_status);
+	return 0;
+}
 static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int err = 0;
 	struct touch_platform_data *ts_pdata;
 	struct mcs6000_ts_device *dev;
+	unsigned char fw_ver, hw_ver;
 
 	DMSG("%s: start...\n", __FUNCTION__);
 
@@ -674,7 +770,8 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	ts_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN - 40;
 	register_early_suspend(&ts_early_suspend);
 #endif
-	mcs6000_firmware_info();
+	mcs6000_firmware_info(&fw_ver, &hw_ver);
+	mcs6000_create_file(mcs6000_ts_input);  
 	DMSG(KERN_INFO "%s: ts driver probed\n", __FUNCTION__);
 
 	return 0;
@@ -695,10 +792,14 @@ static int mcs6000_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	struct mcs6000_ts_device *dev = i2c_get_clientdata(client);
 
-	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-	disable_irq(dev->num_irq);
-	DMSG("%s: irq disable\n", __FUNCTION__);
-	dev->power(OFF);
+	if(is_downloading == 0)
+	{
+		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
+		disable_irq(dev->num_irq);
+		DMSG("%s: irq disable\n", __FUNCTION__);
+		dev->power(OFF);
+	}
+	is_touch_suspend = 1;
 
 	return 0;
 }
@@ -707,10 +808,14 @@ static int mcs6000_ts_resume(struct i2c_client *client)
 {
 	struct mcs6000_ts_device *dev = i2c_get_clientdata(client);
 
-	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-	dev->power(ON);
-	enable_irq(dev->num_irq);
-	DMSG("%s: irq enable\n", __FUNCTION__);
+	if(is_downloading == 0)
+	{
+		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
+		dev->power(ON);
+		enable_irq(dev->num_irq);
+		DMSG("%s: irq enable\n", __FUNCTION__);
+	}
+	is_touch_suspend = 0;
 
 	return 0;
 }
@@ -721,20 +826,28 @@ static void mcs6000_early_suspend(struct early_suspend * h)
 {	
 	struct mcs6000_ts_device *dev = &mcs6000_ts_dev;
 
-	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-	disable_irq(dev->num_irq);
-	DMSG("%s: irq disable\n", __FUNCTION__);
-	dev->power(OFF);
+	if(is_downloading == 0)
+	{
+		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
+		disable_irq(dev->num_irq);
+		DMSG("%s: irq disable\n", __FUNCTION__);
+		dev->power(OFF);
+	}
+	is_touch_suspend = 1;
 }
 
 static void mcs6000_late_resume(struct early_suspend * h)
 {	
 	struct mcs6000_ts_device *dev = &mcs6000_ts_dev;
 
-	DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-	mcs6000_ts_on();
-	enable_irq(dev->num_irq);
-	DMSG("%s: irq enable\n", __FUNCTION__);
+	if(is_downloading == 0)
+	{
+		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
+		mcs6000_ts_on();
+		enable_irq(dev->num_irq);
+		DMSG("%s: irq enable\n", __FUNCTION__);
+	}
+	is_touch_suspend = 0;
 }
 #endif
 
@@ -824,6 +937,7 @@ err_input_allocate:
 
 static void __exit mcs6000_ts_exit(void)
 {
+	mcs6000_remove_file(mcs6000_ts_input);
 	i2c_del_driver(&mcs6000_i2c_ts_driver);
 	input_unregister_device(mcs6000_ts_input);
 	input_free_device(mcs6000_ts_input);
