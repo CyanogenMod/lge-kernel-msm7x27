@@ -35,7 +35,7 @@ static void sdcc_gpio_init(void)
 	int rc = 0;
 	if (gpio_request(GPIO_SD_DETECT_N, "sdc1_status_pin_irq"))
 		pr_err("failed to request gpio sdc1_status_irq\n");
-	rc = gpio_tlmm_config(GPIO_CFG(GPIO_SD_DETECT_N, 0, GPIO_INPUT, GPIO_NO_PULL,
+	rc = gpio_tlmm_config(GPIO_CFG(GPIO_SD_DETECT_N, 0, GPIO_INPUT, GPIO_PULL_UP,
 									GPIO_2MA), GPIO_ENABLE);
 	if (rc)
 		printk(KERN_ERR "%s: Failed to configure GPIO %d\n",

@@ -1275,6 +1275,7 @@ msmsdcc_check_status(unsigned long data)
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
 	unsigned int status;
 
+	mdelay(300);
 	if (!host->plat->status) {
 		mmc_detect_change(host->mmc, 0);
 	} else {
