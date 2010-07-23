@@ -256,7 +256,7 @@ static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 	/* if first called related to sdcc1, irq should be registered as wakeup source
 	 * cleaneye.kim@lge.com, 2010-02-19
 	 */
-#if 1
+#if 0
 	if (first_setup == 1) {
 		struct mmc_platform_data *pdata = pdev->dev.platform_data;
 		if (pdev->id == 1) {
