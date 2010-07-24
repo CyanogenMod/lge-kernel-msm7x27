@@ -46,6 +46,13 @@ static atomic_t nForce = ATOMIC_INIT(128); /* default max gain */
 struct work_struct vib_power_set_work_queue;
 #endif	/* CONFIG_VIB_USE_WORK_QUEUE */
 
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+struct work_struct qcoin_overdrive_off_queue;
+static bool use_overdrive = false;
+static atomic_t vibe_rtime = ATOMIC_INIT(20);
+static atomic_t vibe_ftime = ATOMIC_INIT(20);
+#endif
+
 static int android_vibrator_intialize(void)
 {
 #if 0
@@ -71,8 +78,26 @@ static int android_vibrator_intialize(void)
 	return 0;
 }
 
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+static void vib_qcoin_off_work(struct work_struct *work) {
+	int rtime = atomic_read(&vibe_rtime);
+	vibe_data->pwn_set(1, -125);
+	if (use_overdrive)
+		msleep(rtime);
+	else
+		msleep(5);
+	vibe_data->pwn_set(0, 0);
+	vibe_data->power_set(0);
+	vibe_data->ic_enable_set(0);
+	//printk("LGE: %s disabled\n", __FUNCTION__);
+}
+#endif
+
 static int android_vibrator_force_set(int nForce)
 {
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+	static bool enabled = false;
+#endif
 	/* Check the Force value with Max and Min force value */
 	if (nForce > 128) nForce = 128;
 	if (nForce < -128) nForce = -128;
@@ -81,12 +106,15 @@ static int android_vibrator_force_set(int nForce)
 
 	if (nForce == 0) {
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
-		vibe_data->pwn_set(1, -125);
-		mdelay(2);
-#endif
+		if (!enabled)
+			return 0;
+		schedule_work(&qcoin_overdrive_off_queue);	
+		enabled = false;
+#else 
 		vibe_data->power_set(0); /* should be checked for vibrator response time */
 		vibe_data->pwn_set(0, nForce);
 		vibe_data->ic_enable_set(0);
+#endif
 	} else {
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
 		/* 
@@ -95,13 +123,20 @@ static int android_vibrator_force_set(int nForce)
 		 * the following value is optimized to C710 model.
 		 * In case of other models, the output volatge and motor ic spec. should be checked
 		*/
+		int time = atomic_read(&vibe_ftime);
 		vibe_data->pwn_set(1, 128);
 		vibe_data->power_set(1);
-		msleep(10);
-		if (nForce < 102)
+		msleep(time);
+#if 0
+		if (nForce < 115)
 			vibe_data->pwn_set(1, nForce);
 		else
-			vibe_data->pwn_set(1, 102);
+			vibe_data->pwn_set(1, 115);
+#else
+		vibe_data->pwn_set(1, nForce);
+		enabled = true;
+#endif
+
 #else
 		vibe_data->pwn_set(1, nForce);
 		vibe_data->power_set(1); /* should be checked for vibrator response time */
@@ -145,8 +180,12 @@ static void vibrator_enable(struct timed_output_dev *dev, int value)
 {
 	struct timed_vibrator_data *data = container_of(dev, struct timed_vibrator_data, dev);
 	unsigned long	flags;
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+	int rtime;
+#endif
 	int gain = atomic_read(&vibe_gain);
 
+	//printk("LGE:%s time = %d msec\n", __FUNCTION__, value);
 	spin_lock_irqsave(&data->lock, flags);
 
 	hrtimer_cancel(&data->timer);
@@ -159,7 +198,31 @@ static void vibrator_enable(struct timed_output_dev *dev, int value)
 #else	/* CONFIG_VIB_USE_WORK_QUEUE */
 		android_vibrator_force_set(gain);
 #endif
+
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+		rtime = atomic_read(&vibe_rtime);
+		if (value >= (40+rtime)) {
+			use_overdrive = true;
+			value -= rtime;
+		} else { /* the effect under 5msec will be ignored */
+			use_overdrive = false;
+			value -= 5;
+		}
+	/*	
+		printk("LGE: Overdriving Enabled, rtime = %d, ftime = %d\n", 
+				rtime, atomic_read(&vibe_ftime));
+	*/
+		
+#endif
+
 		hrtimer_start(&data->timer, ktime_set(value / 1000, (value % 1000) * 1000000), HRTIMER_MODE_REL);
+	} else if (value == -100) {
+#if defined(CONFIG_VIB_USE_WORK_QUEUE)
+		atomic_set(&nForce, gain);
+		schedule_work(&vib_power_set_work_queue);	/* disable vibrator */
+#else	/* CONFIG_VIB_USE_WORK_QUEUE */
+		android_vibrator_force_set(gain);
+#endif
 	} else {
 #if defined(CONFIG_VIB_USE_WORK_QUEUE)
 		atomic_set(&nForce, 0);
@@ -201,6 +264,50 @@ static ssize_t vibrator_amp_store(struct device *dev, struct device_attribute *a
 }
 static DEVICE_ATTR(amp, S_IRUGO | S_IWUSR, vibrator_amp_show, vibrator_amp_store);
 
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+static ssize_t vibrator_rtime_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int time = atomic_read(&vibe_rtime);
+    return sprintf(buf, "%d\n", time);
+}
+
+static ssize_t vibrator_rtime_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+    int time;
+
+    sscanf(buf, "%d", &time);
+	if (time > 100 || time < 0) {
+		printk(KERN_ERR "%s invalid value: should be 0 ~ 100 msec\n", __FUNCTION__);
+		return -EINVAL;
+	}
+    atomic_set(&vibe_rtime, time);
+
+    return size;
+}
+static DEVICE_ATTR(rtime, S_IRUGO | S_IWUSR, vibrator_rtime_show, vibrator_rtime_store);
+
+static ssize_t vibrator_ftime_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int time = atomic_read(&vibe_ftime);
+    return sprintf(buf, "%d\n", time);
+}
+
+static ssize_t vibrator_ftime_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+    int time;
+
+    sscanf(buf, "%d", &time);
+	if (time > 100 || time < 0) {
+		printk(KERN_ERR "%s invalid value: should be 0 ~ 100 msec\n", __FUNCTION__);
+		return -EINVAL;
+	}
+    atomic_set(&vibe_ftime, time);
+
+    return size;
+}
+static DEVICE_ATTR(ftime, S_IRUGO | S_IWUSR, vibrator_ftime_show, vibrator_ftime_store);
+#endif
+
 static int android_vibrator_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -211,6 +318,10 @@ static int android_vibrator_probe(struct platform_device *pdev)
 		printk(KERN_ERR "Android Vibrator Initialization was failed\n");
 		return -1;
 	}
+
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+	INIT_WORK(&qcoin_overdrive_off_queue, vib_qcoin_off_work);
+#endif
 
 #if defined(CONFIG_VIB_USE_WORK_QUEUE)
 	INIT_WORK(&vib_power_set_work_queue, vib_power_set_work);
@@ -230,6 +341,11 @@ static int android_vibrator_probe(struct platform_device *pdev)
 		timed_output_dev_unregister(&android_vibrator_data.dev);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
+	ret = device_create_file(android_vibrator_data.dev.dev, &dev_attr_rtime);
+	ret = device_create_file(android_vibrator_data.dev.dev, &dev_attr_ftime);
+#endif
 
 	ret = device_create_file(android_vibrator_data.dev.dev, &dev_attr_amp);
 	if (ret < 0) {
