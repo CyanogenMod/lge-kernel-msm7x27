@@ -59,6 +59,55 @@ static const char driver_name[] = "msm72k_udc";
 
 #define SETUP_BUF_SIZE     8
 
+/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-07-04, Add debugging macro sourced by hyunhui.park@lge.com */
+#if defined(CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET)
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-04-08, Macro for debugging */
+/* Debug mask value
+ * usage : echo [mask_value] > /sys/module/msm72k_udc/parameters/debug_mask
+ * All 		: 127
+ * No msg 	: 0
+ * PM		: 4
+ * Init		: 8
+ */
+enum {
+	USB_DEBUG_NORMAL   = 1U << 0,  /* Normal debug */
+	USB_DEBUG_ISR_WQ   = 1U << 1,  /* Isr, wq 		*/
+	USB_DEBUG_PM       = 1U << 2,  /* Power management	*/
+	USB_DEBUG_INIT     = 1U << 3,  /* module_init(), Probe()*/
+	USB_DEBUG_COMPO    = 1U << 4,  /* Function composition */
+	USB_DEBUG_EP       = 1U << 5,  /* Endpoint control */
+	USB_DEBUG_FUNCTION = 1U << 6,  /* Function APIs	*/
+};
+
+static int lge_usb_debug_mask;
+
+module_param_named(debug_mask, lge_usb_debug_mask, int,
+				S_IRUGO | S_IWUSR | S_IWGRP);
+
+#define USB_TRACE(mask, fmt, args...) \
+	do { \
+		if ((mask) & lge_usb_debug_mask) \
+			printk(KERN_INFO "MSM72K_UDC-DBG[%-18s:%5d] " \
+					fmt, __func__, __LINE__, ## args); \
+	} while (0)
+#else
+#define USB_TRACE(mask, fmt, args...) do {} while (0)
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-04-08 */
+/* LGE_CHANGES_E [younsuk.song@lge.com] 2010-07-04 */
+
+/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-07-02, [VS660] support factory usb */
+#if defined (CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+
+#define LG_FACTORY_CABLE_TYPE 3
+#define LG_FACTORY_CABLE_130K_TYPE 10
+
+extern int msm_chg_LG_cable_type(void);
+static int cable_type = -1;
+	
+#endif
+/* LGE_CHANGES_E [younsuk.song@lge.com] 2010-07-02, [VS660] support factory usb */	
 
 static const char *const ep_name[] = {
 	"ep0out", "ep1out", "ep2out", "ep3out",
@@ -251,6 +300,21 @@ static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 
 static inline enum chg_type usb_get_chg_type(struct usb_info *ui)
 {
+<<<<<<< HEAD:drivers/usb/gadget/msm72k_udc.c
+=======
+/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-06-30, [VS660] usb charging referenced by VS740 */
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+
+	cable_type = msm_chg_LG_cable_type();
+
+	if (LG_FACTORY_CABLE_TYPE == cable_type
+			|| LG_FACTORY_CABLE_130K_TYPE == cable_type)  //detect LT cable
+		return USB_CHG_TYPE__WALLCHARGER;
+
+#endif
+/* LGE_CHANGES_E [younsuk.song@lge.com] 2010-06-30, [VS660] usb charging referenced by VS740 */
+
+>>>>>>> [VS660] Fix to omit handle charger type of normal USB:drivers/usb/gadget/msm72k_udc.c
 	if ((readl(USB_PORTSC) & PORTSC_LS) == PORTSC_LS)
 		return USB_CHG_TYPE__WALLCHARGER;
 	else
@@ -315,13 +379,36 @@ static void usb_chg_detect(struct work_struct *w)
 		return;
 	}
 
+<<<<<<< HEAD:drivers/usb/gadget/msm72k_udc.c
 	temp = usb_get_chg_type(ui);
+=======
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
 	spin_unlock_irqrestore(&ui->lock, flags);
+	if (usb_get_chg_type(ui) == USB_CHG_TYPE__WALLCHARGER) {
+		spin_lock_irqsave(&ui->lock, flags);
+		temp = ui->chg_type = USB_CHG_TYPE__WALLCHARGER;
+		spin_unlock_irqrestore(&ui->lock, flags);
+	} else {
+		spin_lock_irqsave(&ui->lock, flags);
+		temp = ui->chg_type = USB_CHG_TYPE__SDP;
+		spin_unlock_irqrestore(&ui->lock, flags);
+	}
+#else
+	temp = ui->chg_type = usb_get_chg_type(ui);
+>>>>>>> [VS660] Fix to omit handle charger type of normal USB:drivers/usb/gadget/msm72k_udc.c
+	spin_unlock_irqrestore(&ui->lock, flags);
+#endif
 
 	atomic_set(&otg->chg_type, temp);
 	maxpower = usb_get_max_power(ui);
 	if (maxpower > 0)
 		otg_set_power(ui->xceiv, maxpower);
+
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+	if (LG_FACTORY_CABLE_TYPE == cable_type
+		|| LG_FACTORY_CABLE_130K_TYPE == cable_type)  //detect LT cable
+		goto skip;
+#endif
 
 	/* USB driver prevents idle and suspend power collapse(pc)
 	 * while USB cable is connected. But when dedicated charger is
@@ -334,6 +421,12 @@ static void usb_chg_detect(struct work_struct *w)
 		pm_runtime_put_sync(&ui->pdev->dev);
 		wake_unlock(&ui->wlock);
 	}
+
+#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
+skip :
+	return;
+#endif
+
 }
 
 static int usb_ep_get_stall(struct msm_endpoint *ept)
