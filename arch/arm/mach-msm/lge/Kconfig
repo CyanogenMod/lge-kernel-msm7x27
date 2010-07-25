@@ -1,0 +1,203 @@
+config MACH_LGE
+	bool
+
+menu "LGE Changes"
+
+config LGE_SUPPORT_ERS
+	tristate "Support LGE ERS system"
+	default n
+	depends on MACH_LGE
+	depends on ANDROID_RAM_CONSOLE
+	help
+	  LGE error reporting system
+
+config LGE_HANDLE_MODEM_CRASH
+	tristate "Support LGE Modem Crash Handler"
+	default n
+	depends on MACH_LGE
+	depends on ANDROID_RAM_CONSOLE
+	help
+	  LGE modem crash handler
+
+config LGE_HANDLE_PANIC
+	tristate "Support LGE Kernel Panic Handler"
+	default n
+	depends on MACH_LGE
+	depends on ANDROID_RAM_CONSOLE
+	help
+	  LGE kernel panic handler
+
+config LGE_SUPPORT_RAPI
+	tristate "Support LGE RAPI"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE remote api functions
+
+config LGE_DIAGTEST
+	tristate "Support LGE diag test mode"
+	default n
+	depends on MACH_LGE
+	select LGE_SUPPORT_RAPI
+	help
+	  LGE diag test mode
+
+config LGE_MTD_DIRECT_ACCESS
+	tristate "Support LGE mtd direct access apis"
+	default n
+	depends on MACH_LGE
+	help
+	  LGE mtd direct access apis
+
+config LGE_HEADSET
+	bool
+
+config LGE_HEADSET_ADC
+	tristate "LGE GPIO 2 Wire detection driver using ADC"
+	default n
+	depends on MACH_LGE
+	select LGE_HEADSET
+	help
+	  LGE GPIO 2 Wire detection driver
+
+config LGE_HEADSET_2GPIO
+	tristate "LGE GPIO 2 Wire detection driver using 2 GPIO"
+	default n
+	depends on MACH_LGE
+	select LGE_HEADSET
+	help
+	  LGE GPIO 2 Wire detection driver by using 2 GPIO
+
+config LGE_SWITCH_GPIO
+	tristate "LGE GPIO switch driver"
+	depends on MACH_LGE
+	default n
+	help
+	  LGE GPIO switch driver 
+
+config LGE_PROC_COMM
+	bool "LGE added proc comm"
+	depends on MACH_LGE
+	default n
+	help
+	  LGE added proc_comm
+
+config LGE_FUEL_GAUGE
+	bool "LGE fuel gauge"
+	depends on MACH_LGE
+	default n
+	help
+	  This feature support fuel gauge for msm7K hw
+
+config LGE_UNIFIED_LED
+	tristate "LGE unified LED driver"
+	depends on MACH_LGE
+	default n
+	help
+	  LGE unified LED driver
+
+config LGE_4G_DDR
+	bool "Memory Configuration - 2G/4G DDR RAM "
+	depends on MACH_LGE
+	default n
+	help
+	  This patch is used to configure type of Memory
+	  Aloha Global use Hynix 4G DDR RAM
+
+config LGE_SUPPORT_AT_CMD
+	bool "Support LGE AT_CMD system"
+	default n
+	depends on MACH_LGE
+	help
+	 LGE AT_CMD Support
+
+config LGE_ATS_UEVENT_DEVICE
+	bool "Support LGE ATS uevent device"
+	default n
+	depends on MACH_LGE
+	help
+	 Choose if use ATS_UEVENT device used for sending uevent to user space
+
+config LGE_ATS_INPUT_DEVICE
+	bool "Support LGE ATS input device"
+	default n
+	depends on MACH_LGE
+	help
+	 Choose if use ATS input device used for generating input event from user space
+
+menu "LGE specific patches"
+	depends on MACH_LGE
+
+config LGE_TCP_IMPROVEMENT_PATCH
+	bool "tcp improvement patch for vs740"
+	default n
+	help
+	  This patch is used to improve tcp performance of vs740 model
+	  Disable tcp delayed ack for evdo networks
+
+config LGE_UMS_WORKAROUND_PATCH
+	bool "Workaround patch about USB mass storage for vs740"
+	default n
+	help
+	  This patch is used to workaround UMS not working problem of vs740
+	  Vs740 had UMS not working problem after composition switching
+	  this patch prevents the binding until mass storage thread is killed
+
+config LGE_UMS_PERFORMANCE_PATCH
+	bool "Increasing UMS R/W performance patch"
+	default n
+	help
+	  This patch is QCT's patch code for increasing UMS R/W Performance
+	  It change maximum interrupt interval from 8 micro-frame to immediate
+
+config LGE_AUDIO_HIDDEN_MENU_TEST_PATCH
+	bool "LGE audio hidden menu test patch for vs740"
+	default n
+	help
+	  LGE audio hidden menu test patch for vs740
+
+config LGE_CAMERA_HIDDEN_MENU_TEST_PATCH
+	bool "LGE camera hidden menu test patch for vs740"
+	default n
+	help
+	  LGE camera hidden menu test patch for vs740
+
+config LGE_YAFFS_AUTO_CHECKPOINT_PATCH
+	bool "LGE yaffs auto checkpoint patch"
+	default n
+	help
+	  set value of yaffs_auto_checkpoint to 2. this patch can decreases 
+	  mount time due to scanning all blocks of yaffs partition
+
+config LGE_BRCM_H4_LPM_SUPPORT_PATCH
+	bool "LGE brcm's bluetooth lpm patch"
+	default n
+	help
+	  Support brcm's bluetooth LPM requirement
+
+config LGE_MMC_CLEANUP_PATCH
+	bool "LGE mmc queue cleanup patch"
+	default n
+	help
+	  This patch is added for prevent kernel panic in case of doing
+	  insert/eject repeatedly. this patch are from 2.6.32 mainstream
+	  kernel
+
+config LGE_DETECT_PIF_PATCH
+	bool "LGE PIF detection capability patch"
+	select LGE_PROC_COMM 
+	default n
+	help
+	  This patch is added for detection of pif cable of factory
+	  If pif is once detected, that information will be passed through
+	  sysfs in battery driver
+config LGE_DIAG_WMC
+	bool "Support LGE diag WMC"
+	default n
+	depends on LGE_DIAGTEST
+	help
+	  LGE diag WMC enable
+
+endmenu
+
+endmenu

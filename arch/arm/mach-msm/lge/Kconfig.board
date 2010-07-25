@@ -1,0 +1,16 @@
+config MACH_MSM7X27_THUNDERC
+	depends on ARCH_MSM7X27
+	depends on !MSM_STACKED_MEMORY
+	select MACH_LGE
+	bool "MSM7x27 THUNDER Verizone"
+	help
+	  Support for the LGE MSM7x27 THUNDER Verizone board.
+
+config MACH_MSM7X27_THUNDERG
+	depends on ARCH_MSM7X27
+	depends on !MSM_STACKED_MEMORY
+	select MACH_LGE
+	bool "MSM7x27 THUNDER Global"
+	help
+	  Support for the LGE MSM7x27 THUNDER Global board.
+
