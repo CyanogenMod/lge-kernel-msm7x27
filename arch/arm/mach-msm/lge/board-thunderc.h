@@ -50,9 +50,6 @@
 #define GPIO_CAM_PWDN		 		1		/* GPIO_1 */
 #define GPIO_CAM_MCLK				15		/* GPIO_15 */
 
-#define CAMERA_POWER_ON				0
-#define CAMERA_POWER_OFF			1
-
 //int aat2870_camera_power_ctrl(int on_off);
 #define LDO_CAM_AVDD_NO		2	/* 2.7V */
 #define LDO_CAM_DVDD_NO		3	/* 1.2V */
@@ -107,5 +104,4 @@ extern struct i2c_board_info i2c_devices[1];
 void config_camera_on_gpios(void);
 void config_camera_off_gpios(void);
 struct device* thunderc_backlight_dev(void);
-int camera_status(void);
 #endif

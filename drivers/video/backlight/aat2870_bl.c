@@ -465,9 +465,13 @@ static void aat28xx_go_opmode(struct aat28xx_driver_data *drvdata)
 			drvdata->state = NORMAL_STATE;
 			break;
 		case ALC_MODE:
-			aat28xx_set_table(drvdata, drvdata->cmds.alc);
-			drvdata->state = NORMAL_STATE;
-			break;
+			/* LGE_CHANGE
+			 * Remove ALC mode
+			 * 2010-07-26. minjong.gong@lge.com
+			 */
+			//aat28xx_set_table(drvdata, drvdata->cmds.alc);
+			//drvdata->state = NORMAL_STATE;
+			//break;
 		default:
 			eprintk("Invalid Mode\n");
 			break;
@@ -538,20 +542,32 @@ static void aat28xx_sleep(struct aat28xx_driver_data *drvdata)
 			break;
 
 		case ALC_MODE:
-			drvdata->state = SLEEP_STATE;
-			aat28xx_set_table(drvdata, drvdata->cmds.sleep);
-			udelay(500);
-			break;
+			/* LGE_CHANGE
+			 * Remove ALC mode
+			 * 2010-07-26. minjong.gong@lge.com
+			 */
+			//drvdata->state = SLEEP_STATE;
+			//aat28xx_set_table(drvdata, drvdata->cmds.sleep);
+			//udelay(500);
+			//break;
 
 		default:
 			eprintk("Invalid Mode\n");
 			break;
 	}
 /* LGE_CHANGE
- * Don't shut down the AAT28xx for sleep/resume function
- * 2010-05-04, minjong.gong@lge.com
+ * Shut down the AAT28xx according to the status of Camera for VS660
+ * 2010-07-26, minjong.gong@lge.com
  */
-//	aat28xx_poweroff(drvdata);
+	#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+		int cam_status;
+		cam_status = camera_status();
+		if (cam_status == CAMERA_POWER_OFF){
+			//printk("Camera status is %d. 0:On, 1: Off\n",CAMERA_POWER_OFF);
+			aat28xx_poweroff(drvdata);
+		}
+	#endif
+	
 }
 
 static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
@@ -578,8 +594,12 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 			}
 			drvdata->state = NORMAL_STATE;
 		} else if (drvdata->mode == ALC_MODE) {
-			aat28xx_set_table(drvdata, drvdata->cmds.alc);
-			drvdata->state = NORMAL_STATE;
+			/* LGE_CHANGE
+			 * Remove ALC mode
+			 * 2010-07-26. minjong.gong@lge.com
+			 */
+			//aat28xx_set_table(drvdata, drvdata->cmds.alc);
+			//drvdata->state = NORMAL_STATE;
 		}
 	}
 }
@@ -685,8 +705,13 @@ void aat28xx_switch_mode(struct device *dev, int next_mode)
 	if (!drvdata || drvdata->mode == next_mode)
 		return;
 
-	if (next_mode == ALC_MODE)
-		aat28xx_set_table(drvdata, drvdata->cmds.alc);
+	if (next_mode == ALC_MODE) {
+		/* LGE_CHANGE
+		 * Remove ALC mode
+		 * 2010-07-26. minjong.gong@lge.com
+		 */
+		//aat28xx_set_table(drvdata, drvdata->cmds.alc);
+	}
 	else if (next_mode == NORMAL_MODE) {
 		aat28xx_set_table(drvdata, drvdata->cmds.alc);
 

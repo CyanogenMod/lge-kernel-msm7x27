@@ -304,6 +304,11 @@ int lge_gpio_switch_pass_event(char *sdev_name, int state);
 unsigned lge_get_pif_info(void);
 unsigned lge_get_lpm_info(void);
 
+#define CAMERA_POWER_ON				0
+#define CAMERA_POWER_OFF			1
+
+int camera_status(void);
+
 typedef void (gpio_i2c_init_func_t)(int bus_num);
 int __init init_gpio_i2c_pin(struct i2c_gpio_platform_data *i2c_adap_pdata,
 		struct gpio_i2c_pin gpio_i2c_pin,
