@@ -63,6 +63,7 @@
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 
 #define DRIVER_NAME "msm-sdcc"
+#define TIME_STEP ( 3 * HZ / 2 )
 
 #define DBG(host, fmt, args...)	\
 	pr_debug("%s: %s: " fmt "\n", mmc_hostname(host->mmc), __func__ , args)
@@ -1275,7 +1276,6 @@ msmsdcc_check_status(unsigned long data)
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
 	unsigned int status;
 
-	mdelay(300);
 	if (!host->plat->status) {
 		mmc_detect_change(host->mmc, 0);
 	} else {
@@ -1291,14 +1291,15 @@ msmsdcc_check_status(unsigned long data)
 					host->plat->status_irq, 
 					MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET), 
 					status, __func__, __LINE__);
-				mmc_detect_change(host->mmc, 0);
+					mmc_detect_change(host->mmc, 0);
 			}
 			else
 #endif
+				
 				if (host->eject)
 					mmc_detect_change(host->mmc, 0);
 				else
-					mmc_detect_change(host->mmc, (3 * HZ) / 2);
+					mmc_detect_change(host->mmc, TIME_STEP);
 		}
 		host->oldstat = status;
 	}
@@ -1339,7 +1340,7 @@ msmsdcc_status_notify_cb(int card_present, void *dev_id)
 
 	pr_debug("%s: card_present %d\n", mmc_hostname(host->mmc),
 	       card_present);
-	msmsdcc_check_status((unsigned long) host);
+	msmsdcc_registertimer(host, TIME_STEP);
 }
 
 static int
@@ -1544,6 +1545,7 @@ msmsdcc_probe(struct platform_device *pdev)
 
 	tasklet_init(&host->dma_tlet, msmsdcc_dma_complete_tlet,
 			(unsigned long)host);
+
 
 	/*
 	 * Setup DMA
@@ -1780,7 +1782,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	}
 	return 0;
 
- platform_irq_free:
+platform_irq_free:
 	pm_runtime_disable(&(pdev)->dev);
 	pm_runtime_set_suspended(&(pdev)->dev);
 
@@ -1806,7 +1808,7 @@ msmsdcc_probe(struct platform_device *pdev)
  pclk_put:
 	if (!IS_ERR(host->pclk))
 		clk_put(host->pclk);
-
+ dma_free:
 	dma_free_coherent(NULL, sizeof(struct msmsdcc_nc_dmadata),
 			host->dma.nc, host->dma.nc_busaddr);
  ioremap_free:
@@ -1920,8 +1922,6 @@ msmsdcc_runtime_suspend(struct device *dev)
 				printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
 		}
 #endif
-/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24, <never sleep policy - host wakeup> */
-
 		if (!rc) {
 			/*
 			 * If MMC core level suspend is not supported, turn
