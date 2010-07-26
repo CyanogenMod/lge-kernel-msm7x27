@@ -385,7 +385,7 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 	}
 
 	size = MSM_PMEM_AUDIO_SIZE;
-	android_pmem_audio_pdata.start = MSM_PMEM_AUDIO_START_ADDR ;
+	android_pmem_audio_pdata.start = MSM_PMEM_AUDIO_START_ADDR;
 	android_pmem_audio_pdata.size = size;
 	pr_info("allocating %lu bytes (at %lx physical) for audio "
 		"pmem arena\n", size , MSM_PMEM_AUDIO_START_ADDR);
@@ -410,8 +410,8 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 	addr = alloc_bootmem(size);
 	kgsl_resources[1].start = __pa(addr);
 	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
-	pr_info("allocating %lu bytes (at %lx physical) for KGSL\n",
-	size , MSM_GPU_PHYS_START_ADDR);
+	pr_info("allocating %lu bytes at %p (at %lx physical) for KGSL\n",
+			size, addr, __pa(addr));
 #endif
 }
 
