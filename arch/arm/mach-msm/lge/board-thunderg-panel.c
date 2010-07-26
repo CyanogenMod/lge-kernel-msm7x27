@@ -147,6 +147,10 @@ static struct aat28xx_platform_data aat2870bl_data[] = {
 	[LGE_REV_10] = {
 		.gpio = 82,
 		.version = 2862,
+	},
+	[LGE_REV_11] = {
+		.gpio = 82,
+		.version = 2862,
 	}
 };
 

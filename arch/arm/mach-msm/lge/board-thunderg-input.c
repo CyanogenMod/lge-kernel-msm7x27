@@ -126,6 +126,14 @@ static const unsigned short keypad_keymap_thunder[][6] = {
 		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
 		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 	},
+	[LGE_REV_11] = {
+		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
+		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
+		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
+		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
+		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
+		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
+	},
 };
 
 int thunderg_matrix_info_wrapper(struct input_dev *input_dev,struct gpio_event_info *info, void **data, int func)
