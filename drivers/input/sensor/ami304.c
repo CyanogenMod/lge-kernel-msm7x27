@@ -79,8 +79,8 @@ static void ami304_late_resume(struct early_suspend *h);
 #endif
 
 #if defined(CONFIG_PM)
-static int ami304_suspend(struct i2c_client *client, pm_message_t mesg);
-static int ami304_resume(struct i2c_client *client);
+static int ami304_suspend(struct device *device);
+static int ami304_resume(struct device *device);
 #endif
 
 #define AMI_ORIENTATION_SENSOR		0
@@ -1029,7 +1029,7 @@ static int ami304_remove(struct	i2c_client *client)
 }
 
 #if defined(CONFIG_PM)
-static int ami304_suspend(struct i2c_client *client, pm_message_t mesg)
+static int ami304_suspend(struct device *device)
 {
 	struct ecom_platform_data* ecom_pdata;
 
@@ -1042,7 +1042,7 @@ static int ami304_suspend(struct i2c_client *client, pm_message_t mesg)
 	return 0;
 }
 
-static int ami304_resume(struct i2c_client *client)
+static int ami304_resume(struct device *device)
 {
 	struct ecom_platform_data* ecom_pdata;
 	ecom_pdata = ami304_i2c_client->dev.platform_data;
@@ -1098,17 +1098,21 @@ static const struct i2c_device_id motion_ids[] = {
 		{ },
 };
 
+static struct dev_pm_ops ami304_pm_ops = {
+       .suspend = ami304_suspend,
+       .resume = ami304_resume,
+};
+
 static struct i2c_driver ami304_i2c_driver = {
 	.probe		= ami304_probe,
 	.remove		= ami304_remove,
-#if defined(CONFIG_PM)
-	.resume 		= ami304_resume,
-	.suspend		= ami304_suspend,
-#endif
 	.id_table	= motion_ids,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name	= "ami304_sensor",
+#if defined(CONFIG_PM)
+		.pm	= &ami304_pm_ops,
+#endif
 	},
 };
 

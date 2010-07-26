@@ -804,9 +804,11 @@ static int __devexit kr3dm_remove(struct i2c_client *client)
 	return 0;
 }
 
-static int kr3dm_resume(struct i2c_client *client)
+static int kr3dm_resume(struct device *device)
 {
+	struct i2c_client *client = i2c_verify_client(device);
 	struct kr3dm_data *kr = i2c_get_clientdata(client);
+
 #if 0
 	int err = 0;
 
@@ -827,8 +829,9 @@ static int kr3dm_resume(struct i2c_client *client)
 	return kr3dm_enable(kr);
 }
 
-static int kr3dm_suspend(struct i2c_client *client, pm_message_t mesg)
+static int kr3dm_suspend(struct device *device)
 {
+	struct i2c_client *client = i2c_verify_client(device);
 	struct kr3dm_data *kr = i2c_get_clientdata(client);
 
 #if 0
@@ -849,14 +852,18 @@ static const struct i2c_device_id kr3dm_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, kr3dm_id);
 
+static struct dev_pm_ops kr3dm_pm_ops = {
+       .suspend = kr3dm_suspend,
+       .resume = kr3dm_resume,
+};
+
 static struct i2c_driver kr3dm_driver = {
 	.driver = {
 		   .name = "KR3DM",
+		   .pm = &kr3dm_pm_ops,
 		   },
 	.probe = kr3dm_probe,
 	.remove = __devexit_p(kr3dm_remove),
-	.resume = kr3dm_resume,
-	.suspend = kr3dm_suspend,
 	.id_table = kr3dm_id,
 };
 
