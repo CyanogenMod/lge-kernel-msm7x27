@@ -55,6 +55,7 @@ enum {
 	GP2AP_DEBUG_DEV_DEBOUNCE	= 1U << 4,
 	GP2AP_DEBUG_GEN_INFO		= 1U << 5,
 	GP2AP_DEBUG_INTR_INFO		= 1U << 6,
+	GP2AP_DEBUG_INTR_DELAY		= 1U << 7,
 };
 
 static unsigned int gp2ap_debug_mask = GP2AP_DEBUG_DEV_STATUS | \
@@ -170,6 +171,16 @@ enum gp2ap_input_event {
 	PROX_INPUT_NEAR = 0,
 	PROX_INPUT_FAR,
 };
+
+struct proxi_timestamp {
+	u64 start;
+	u64 end;
+	u64 result_t;
+	unsigned long rem;
+	char ready;
+};
+
+static struct proxi_timestamp time_result;
 
 /*  ----------------------------------------------------------------------------------------  */
 /*  ----------------------------     PROXIMIY FUNCTION   -----------------------------------  */
@@ -308,6 +319,16 @@ static irqreturn_t gp2ap_irq_handler(int irq, void *dev_id)
 	struct proximity_gp2ap_device *pdev = dev_id;
 	unsigned long delay;
 
+	if (GP2AP_DEBUG_INTR_DELAY & gp2ap_debug_mask)
+	{
+		time_result.ready = 1;
+		time_result.start= 0;
+		time_result.end = 0;
+		time_result.result_t  = 0;
+		time_result.rem = 0;
+		time_result.start = cpu_clock(smp_processor_id());
+	}
+
 	spin_lock(&pdev->lock);
 
 	if (GP2AP_DEBUG_INTR_INFO & gp2ap_debug_mask)
@@ -336,6 +357,18 @@ gp2ap_report_event(int state)
 
 	input_report_abs(gp2ap_pdev->input_dev, ABS_DISTANCE, input_state);
 	input_sync(gp2ap_pdev->input_dev);
+
+	if (GP2AP_DEBUG_INTR_DELAY & gp2ap_debug_mask)
+	{
+		if(time_result.ready == 1)
+		{
+			time_result.end = cpu_clock(smp_processor_id());
+			time_result.result_t  = time_result.end -time_result.start;
+			time_result.rem = do_div(time_result.result_t , 1000000000);
+			PROXD("Proximity interrupt BSP delay time = %2lu.%06lu\n", (unsigned long)time_result.result_t, time_result.rem/1000);
+			time_result.ready = 0;
+		}
+	}
 
 	gp2ap_pdev->last_vout = !input_state;
 
