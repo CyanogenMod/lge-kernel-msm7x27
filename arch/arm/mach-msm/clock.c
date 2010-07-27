@@ -103,6 +103,27 @@ void clk_disable(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_disable);
 
+int clk_output_enable(struct clk *clk)
+{
+	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&clocks_lock, flags);
+	ret = clk->ops->output_enable(clk->id);
+	spin_unlock_irqrestore(&clocks_lock, flags);
+
+	return ret;
+}
+
+void clk_output_disable(struct clk *clk)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&clocks_lock, flags);
+	clk->ops->output_disable(clk->id);
+	spin_unlock_irqrestore(&clocks_lock, flags);
+}
+
 int clk_reset(struct clk *clk, enum clk_reset_action action)
 {
 	int ret = -EPERM;
@@ -326,7 +347,7 @@ static int __init clock_late_init(void)
 			spin_lock_irqsave(&clocks_lock, flags);
 			if (!clk->count) {
 				count++;
-				clk->ops->auto_off(clk->id);
+				clk->ops->output_disable(clk->id);
 			}
 			spin_unlock_irqrestore(&clocks_lock, flags);
 		}

@@ -1180,7 +1180,8 @@ void __init msm_clk_soc_init(void)
 struct clk_ops soc_clk_ops_7x30 = {
 	.enable = local_clk_enable,
 	.disable = local_clk_disable,
-	.auto_off = local_clk_auto_off,
+	.output_enable = local_clk_output_enable,
+	.output_disable = local_clk_output_disable,
 	.set_rate = local_clk_set_rate,
 	.set_min_rate = local_clk_set_min_rate,
 	.set_max_rate = local_clk_set_max_rate,

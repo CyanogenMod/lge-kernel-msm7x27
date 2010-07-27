@@ -497,10 +497,30 @@ void local_clk_disable(unsigned id)
 	return;
 }
 
-/* Turn off a clock at boot, without checking refcounts or disabling parents. */
-void local_clk_auto_off(unsigned id)
+/* Turn on a clock without checking/changing refcounts or parents. */
+int local_clk_output_enable(unsigned id)
 {
+	struct clk_local *clk = &soc_clk_local_tbl[id];
 	unsigned long flags;
+
+	if (clk->type == RESET)
+		return -EPERM;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	local_clk_enable_reg(id);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	return 0;
+}
+
+/* Turn off a clock without checking/changing refcounts or parents. */
+void local_clk_output_disable(unsigned id)
+{
+	struct clk_local *clk = &soc_clk_local_tbl[id];
+	unsigned long flags;
+
+	if (clk->type == RESET)
+		return;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	local_clk_disable_reg(id);

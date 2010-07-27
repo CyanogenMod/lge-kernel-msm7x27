@@ -96,7 +96,8 @@ long rpm_clk_round_rate(unsigned id, unsigned rate)
 struct clk_ops clk_ops_remote = {
 	.enable = rpm_clk_enable,
 	.disable = rpm_clk_disable,
-	.auto_off = rpm_clk_disable,
+	.output_enable = rpm_clk_enable,
+	.output_disable = rpm_clk_disable,
 	.reset = rpm_clk_reset,
 	.set_rate = rpm_clk_set_rate,
 	.set_min_rate = rpm_clk_set_min_rate,

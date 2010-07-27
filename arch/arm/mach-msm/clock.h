@@ -39,7 +39,8 @@
 struct clk_ops {
 	int (*enable)(unsigned id);
 	void (*disable)(unsigned id);
-	void (*auto_off)(unsigned id);
+	int (*output_enable)(unsigned id);
+	void (*output_disable)(unsigned id);
 	int (*reset)(unsigned id, enum clk_reset_action action);
 	int (*set_rate)(unsigned id, unsigned rate);
 	int (*set_min_rate)(unsigned id, unsigned rate);
@@ -115,6 +116,8 @@ int msm_clock_require_tcxo(unsigned long *reason, int nbits);
 int msm_clock_get_name(uint32_t id, char *name, uint32_t size);
 int ebi1_clk_set_min_rate(enum clkvote_client client, unsigned long rate);
 unsigned long clk_get_max_axi_khz(void);
+int clk_output_enable(struct clk *clk);
+void clk_output_disable(struct clk *clk);
 
 #endif
 
