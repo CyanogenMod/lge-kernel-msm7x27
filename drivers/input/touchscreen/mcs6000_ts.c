@@ -770,7 +770,7 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	ts_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN - 40;
 	register_early_suspend(&ts_early_suspend);
 #endif
-	mcs6000_firmware_info(&fw_ver, &hw_ver);
+	//mcs6000_firmware_info(&fw_ver, &hw_ver);
 	mcs6000_create_file(mcs6000_ts_input);  
 	DMSG(KERN_INFO "%s: ts driver probed\n", __FUNCTION__);
 
