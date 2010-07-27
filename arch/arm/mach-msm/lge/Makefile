@@ -36,6 +36,15 @@ obj-$(CONFIG_MACH_MSM7X27_THUNDERG) += board-thunderg-camera.o
 obj-$(CONFIG_MACH_MSM7X27_THUNDERG) += board-thunderg-input.o
 obj-$(CONFIG_MACH_MSM7X27_THUNDERG) += board-thunderg-misc.o
 
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera.o
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-mmc.o
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-snd.o
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-panel.o
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-bt.o
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-camera.o
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-input.o
+obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-misc.o
+
 obj-$(CONFIG_MACH_LGE) += devices_lge.o
 
 obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats.o
