@@ -43,7 +43,15 @@ static void msm_keypad_bl_led_set(struct led_classdev *led_cdev,
 #if defined (CONFIG_LGE_UNIFIED_LED)
 	ret = leds_pdata->msm_keypad_led_set(value / TUNED_MAX_KEYPAD_BL_LEVEL);
 #else	/* origin */
+#ifdef CONFIG_MACH_MSM7X27_THUNDERA
+	/* jinkyu.choi@lge.com
+	 * P505, use the android led interface values, 255,127,0
+	 * LED current is controlled by arm9 AMSS with the given values.
+	 */
+	ret = pmic_set_led_intensity(LED_KEYPAD, value);
+#else
 	ret = pmic_set_led_intensity(LED_KEYPAD, value / TUNED_MAX_KEYPAD_BL_LEVEL);
+#endif /* end of CONFIG_MACH_MSM7X27_THUNDERA */
 #endif
 	if (ret)
 		dev_err(led_cdev->dev, "can't set keypad backlight\n");

@@ -74,10 +74,6 @@ static struct platform_device msm_batt_device = {
 
 #define REG_WRITEL(value, reg)	writel(value, (MSM_WEB_BASE+reg))
 
-/*LED has 15 steps (10mA per step). LED's  max power capacity is 150mA. (0~255 level)*/
-#define MAX_BACKLIGHT_LEVEL	16	// 150mA
-#define TUNED_MAX_BACKLIGHT_LEVEL	40	// 60mA
-
 extern int aat2870bl_ldo_set_level(struct device * dev, unsigned num, unsigned vol);
 extern int aat2870bl_ldo_enable(struct device * dev, unsigned num, unsigned enable);
 
@@ -351,7 +347,6 @@ static struct platform_device *thundera_misc_devices[] __initdata = {
 void __init lge_add_misc_devices(void)
 {
 	platform_add_devices(thundera_misc_devices, ARRAY_SIZE(thundera_misc_devices));
-	if(lge_bd_rev >= LGE_REV_E)
-		platform_device_register(&msm_device_pmic_leds);
+	platform_device_register(&msm_device_pmic_leds);
 }
 
