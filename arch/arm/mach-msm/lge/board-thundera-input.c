@@ -85,74 +85,13 @@ static unsigned int keypad_col_gpios[] = {32, 33, 36};
 
 #define KEYMAP_INDEX(row, col) ((row)*ARRAY_SIZE(keypad_col_gpios) + (col))
 
-static const unsigned short keypad_keymap_thunder[][6] = {
-#if 0
-	[LGE_REV_B] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_MENU,
-		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(1, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
-	},
-	[LGE_REV_C] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
-	},
-#else
-	[LGE_REV_B] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_MENU,
-		[KEYMAP_INDEX(0, 1)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
-	[LGE_REV_C] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
-#endif
-	[LGE_REV_D] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
-	[LGE_REV_E] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
-	[LGE_REV_F] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
-	[LGE_REV_10] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
+static const unsigned short keypad_keymap_thunder[6] = {
+	[KEYMAP_INDEX(0, 0)] = KEY_HOME,
+	[KEYMAP_INDEX(0, 1)] = KEY_BACK,
+	[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
+	[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
+	[KEYMAP_INDEX(1, 1)] = KEY_MENU,
+	[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
 };
 
 int thundera_matrix_info_wrapper(struct input_dev *input_dev,struct gpio_event_info *info, void **data, int func)
@@ -187,7 +126,7 @@ static int thundera_gpio_matrix_power(
 
 static struct gpio_event_matrix_info thunder_keypad_matrix_info = {
 	.info.func	= thundera_matrix_info_wrapper,
-	.keymap		= NULL,
+	.keymap		= keypad_keymap_thunder,
 	.output_gpios	= keypad_row_gpios,
 	.input_gpios	= keypad_col_gpios,
 	.noutputs	= ARRAY_SIZE(keypad_row_gpios),
@@ -196,13 +135,6 @@ static struct gpio_event_matrix_info thunder_keypad_matrix_info = {
 	.poll_time.tv.nsec = 20 * NSEC_PER_MSEC,
 	.flags		= GPIOKPF_LEVEL_TRIGGERED_IRQ | GPIOKPF_PRINT_UNMAPPED_KEYS | GPIOKPF_DRIVE_INACTIVE
 };
-
-static void __init thunder_select_keymap(void)
-{
-	thunder_keypad_matrix_info.keymap = keypad_keymap_thunder[lge_bd_rev];
-
-	return;
-}
 
 static struct gpio_event_info *thunder_keypad_info[] = {
 	&thunder_keypad_matrix_info.info
@@ -533,7 +465,6 @@ static void __init thundera_init_i2c_prox_ecom(int bus_num)
 /* common function */
 void __init lge_add_input_devices(void)
 {
-	thunder_select_keymap();
 	platform_add_devices(thundera_input_devices, ARRAY_SIZE(thundera_input_devices));
 
 	lge_add_gpio_i2c_device(thundera_init_i2c_touch);
