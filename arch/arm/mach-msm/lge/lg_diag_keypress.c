@@ -154,20 +154,20 @@ PACK (void *)LGF_KeyPress (
   switch (keycode){
 	    /* LG_FW 2010.02.24 khlee - UTS TEST needs key to delete call log*/
   	case 0x60 :
-    		// touch call logs icon
-      		//Send_Touch(120,60);
+    		// touch Dialer start   
+      		Send_Touch(20,450);
 		break;
 	case 0x61:
-    		//touch select all icon
-      		//Send_Touch(20,200);
+    		//touch call log
+      		Send_Touch(100,50);
 		break;
 	case 0x62:
-    		//delete icon
-      		//Send_Touch(50,400);
+    		//touch Clear Call Logs icon
+      		Send_Touch(265,470);
 		break;
 	case 0x63:
     		//ok  icon
-      		//Send_Touch(120,200);
+      		Send_Touch(85,315);
 		break;
 
 	case 0x40 :
