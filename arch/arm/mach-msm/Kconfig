@@ -335,7 +335,7 @@ config MACH_MSM8X60_FLUID
 
 endmenu
 
-source "arch/arm/mach-msm/lge/Kconfig.board"
+source "arch/arm/mach-msm/lge/Kconfig"
 
 config MSM_STACKED_MEMORY
 	bool "Stacked Memory"
@@ -1239,5 +1239,3 @@ config MSM_SLEEP_STATS
 	depends on CPU_IDLE
 	default n
 endif
-
-source "arch/arm/mach-msm/lge/Kconfig"
