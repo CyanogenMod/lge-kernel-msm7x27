@@ -1194,15 +1194,6 @@ config NR_CPUS
 	depends on SMP
 	default "4"
 
-config SMP_PARALLEL_START
-	bool "Parallel start of SMP cores"
-	depends on SMP
-	default n
-	help
-	  Say Y here if all CPUs boot to the kernel entrypoint in
-	  parallel, rather than non-master CPUs waiting to be brought
-	  out of reset into machine specific startup code.
-
 config HOTPLUG_CPU
 	bool "Support for hot-pluggable CPUs (EXPERIMENTAL)"
 	depends on SMP && HOTPLUG && EXPERIMENTAL
