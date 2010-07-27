@@ -85,7 +85,7 @@ static unsigned int keypad_col_gpios[] = {32, 33, 36};
 
 #define KEYMAP_INDEX(row, col) ((row)*ARRAY_SIZE(keypad_col_gpios) + (col))
 
-static const unsigned short keypad_keymap_thunder[][6] = {
+static const unsigned short keypad_keymap_thunder[][8] = {
 #if 0
 	[LGE_REV_B] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_MENU,
