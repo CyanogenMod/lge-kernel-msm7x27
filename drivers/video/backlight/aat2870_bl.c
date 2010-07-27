@@ -62,8 +62,13 @@
   * 2010-05-18, minjong.gong@lge.com
   */
 
+#ifdef CONFIG_MACH_MSM7X27_THUNDERA /* for P505 */
+#define LCD_LED_MAX 14 /* 13.55mA */
+#define LCD_LED_MIN 4  /* 3.87mA */
+#else
 #define LCD_LED_MAX 21 /* 20.32mA */
 #define LCD_LED_MIN 0  /* 0.48mA */
+#endif
 #define DEFAULT_BRIGHTNESS 13
 #define AAT28XX_LDO_NUM 4
 
@@ -155,8 +160,16 @@ module_param(debug, uint, 0644);
 
 /* Set to Normal mode */
 static struct aat28xx_ctrl_tbl aat2862bl_normal_tbl[] = {
+#ifdef CONFIG_MACH_MSM7X27_THUNDERA /* for P505 */
+	/* 2010-07-23, hosung8009.kim@lge.com 
+	 * MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled),
+	 * LCD_ON(5)=high(On),  Brightness=Default(0x09) 
+	 */
+	 { 0x03, 0xE9 },  
+#else
 	// AAT2862 has no ALC mode and don't support ambient light sensor !!
 	{ 0x03, 0xF2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
+#endif
 	{ 0xFF, 0xFE }	 /* end of command */
 };
 
