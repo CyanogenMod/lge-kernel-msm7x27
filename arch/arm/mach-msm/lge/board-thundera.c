@@ -296,7 +296,7 @@ static void __init msm7x2x_map_io(void)
 #endif
 }
 
-MACHINE_START(MSM7X27_THUNDERG, "THUNDER Global board (LGE LGP500)")
+MACHINE_START(MSM7X27_THUNDERA, "THUNDER AT&T board (LGE LGP505)")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io        = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst    = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,

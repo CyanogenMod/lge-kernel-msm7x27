@@ -78,20 +78,10 @@ static int mddi_hitachi_pmic_backlight(int level)
 	return 0;
 }
 
-#if 1//def CONFIG_MACH_MSM7X27_ALOHAG
-		/* LGE_CHANGE
-		  * Define new structure named 'msm_panel_hitachi_pdata' to use LCD initialization Flag (.initialized).
-		  * 2010-04-21, minjong.gong@lge.com
-		  */
-	static struct msm_panel_hitachi_pdata mddi_hitachi_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = mddi_hitachi_pmic_backlight,
-		.initialized = 1,
-#else
-	static struct msm_panel_common_pdata mddi_hitachi_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = mddi_hitachi_pmic_backlight,
-#endif
+static struct msm_panel_hitachi_pdata mddi_hitachi_panel_data = {
+	.gpio = 102,				/* lcd reset_n */
+	.pmic_backlight = mddi_hitachi_pmic_backlight,
+	.initialized = 1,
 };
 
 static struct platform_device mddi_hitachi_panel_device = {
@@ -123,31 +113,9 @@ static struct platform_device bl_i2c_device = {
 	.dev.platform_data = &bl_i2c_pdata,
 };
 
-static struct aat28xx_platform_data aat2870bl_data[] = {
-	[LGE_REV_B] = {
-		.gpio = 82,
-		.version = 2870,
-	},
-	[LGE_REV_C] = {
-		.gpio = 82,
-		.version = 2862,
-	},
-	[LGE_REV_D] = {
-		.gpio = 82,
-		.version = 2862,
-	},
-	[LGE_REV_E] = {
-		.gpio = 82,
-		.version = 2862,
-	},
-	[LGE_REV_F] = {
-		.gpio = 82,
-		.version = 2862,
-	},
-	[LGE_REV_10] = {
-		.gpio = 82,
-		.version = 2862,
-	}
+static struct aat28xx_platform_data aat2870bl_data = {
+	.gpio = 82,
+	.version = 2862,
 };
 
 static struct i2c_board_info bl_i2c_bdinfo[] = {
@@ -166,7 +134,7 @@ struct device* thundera_backlight_dev(void)
 void __init thundera_init_i2c_backlight(int bus_num)
 {
 	bl_i2c_device.id = bus_num;
-	bl_i2c_bdinfo[0].platform_data = &aat2870bl_data[lge_bd_rev];
+	bl_i2c_bdinfo[0].platform_data = &aat2870bl_data;
 	
 	init_gpio_i2c_pin(&bl_i2c_pdata, bl_i2c_pin[0],	&bl_i2c_bdinfo[0]);
 	i2c_register_board_info(bus_num, &bl_i2c_bdinfo[0], 1);
@@ -182,3 +150,4 @@ void __init lge_add_lcd_devices(void)
 
 	lge_add_gpio_i2c_device(thundera_init_i2c_backlight);
 }
+

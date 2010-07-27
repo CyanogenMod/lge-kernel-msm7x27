@@ -46,7 +46,7 @@ struct msm_ptbl_entry {
 	__u32 flags;
 };
 
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERA)
 /* increase max for fota
  * hyunhui.park@lge.com 2010-06-15
  */

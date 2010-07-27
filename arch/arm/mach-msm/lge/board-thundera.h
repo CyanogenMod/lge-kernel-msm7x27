@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __ARCH_MSM_BOARD_THUNDERG_H
-#define __ARCH_MSM_BOARD_THUNDERG_H
+#ifndef __ARCH_MSM_BOARD_THUNDERA_H
+#define __ARCH_MSM_BOARD_THUNDERA_H
 
 #include <linux/types.h>
 #include <linux/list.h>

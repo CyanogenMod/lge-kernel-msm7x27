@@ -21,7 +21,7 @@
 
 #include "isx005.h"
 
-#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERA)
 static struct isx005_register_address_value_pair const
 init_reg_settings_array[] = {
 
@@ -3693,7 +3693,7 @@ struct isx005_reg isx005_regs = {
 	.init_reg_settings = init_reg_settings_array,
 	.init_reg_settings_size = ARRAY_SIZE(
 		init_reg_settings_array),
-#if !defined (CONFIG_MACH_MSM7X27_THUNDERG)		
+#if !defined(CONFIG_MACH_MSM7X27_THUNDERG) && !defined(CONFIG_MACH_MSM7X27_THUNDERA)	
 	.init_reg32_settings = init_reg32_settings_array,
 	.init_reg32_settings_size = ARRAY_SIZE(
 		init_reg32_settings_array),

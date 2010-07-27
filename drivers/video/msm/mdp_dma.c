@@ -207,6 +207,9 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 	 * 2010-05-18, minjong.gong@lge.com
 	 */
 	display_table(mddi_hitachi_position_table, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
+#elif defined(CONFIG_FB_MSM_MDDI_HITACHI_HVGA) && defined(CONFIG_MACH_MSM7X27_THUNDERA)
+	display_table(mddi_hitachi_2c,
+			sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
 #endif
 
 	/* MDP cmd block enable */
