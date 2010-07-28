@@ -352,7 +352,12 @@ static void __init thundera_init_i2c_acceleration(int bus_num)
 
 	init_gpio_i2c_pin(&accel_i2c_pdata, accel_i2c_pin[0], &accel_i2c_bdinfo[0]);
 
-	i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 2);
+	/* P505, Rev.A -> KR3DM, others -> KR3DH, jinkyu.choi@lge.com */
+	if (lge_bd_rev == LGE_REV_A)
+		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 1);
+	else
+		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[1], 1);
+
 	platform_device_register(&accel_i2c_device);
 }
 

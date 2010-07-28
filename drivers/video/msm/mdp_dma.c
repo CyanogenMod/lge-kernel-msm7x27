@@ -85,6 +85,34 @@ static struct display_table mddi_hitachi_position_table[] = {
 extern void display_table(struct display_table *table, unsigned int count);
 #endif
 
+/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-20,
+ * add code to prevent LCD shift
+ */
+#ifdef CONFIG_FB_MSM_MDDI_NOVATEK_HVGA
+#define REGFLAG_END_OF_TABLE      0xFFFF   // END OF REGISTERS MARKER
+
+	struct display_table {
+	    unsigned reg;
+	    unsigned char count;
+	    unsigned val_list[256];
+	};
+
+	struct display_table mddi_novatek_position_table[] = {
+		// set horizontal address 
+		{0x2a00, 1, {0x0000}}, // XSA
+		{0x2a01, 1, {0x0000}}, // XSA
+		{0x2a02, 1, {0x0000}}, // XEA
+		{0x2a03, 1, {0x013f}}, // XEA, 320-1
+		// set vertical address 
+		{0x2b00, 1, {0x0000}}, // YSA
+		{0x2b01, 1, {0x0000}}, // YSA
+		{0x2b02, 1, {0x0000}}, // YEA
+		{0x2b03, 1, {0x01df}}, // YEA, 480-1
+		{REGFLAG_END_OF_TABLE, 0x00, {}}
+	};
+extern void display_table(struct display_table *table, unsigned int count);
+#endif
+
 static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 {
 	MDPIBUF *iBuf = &mfd->ibuf;
@@ -212,6 +240,11 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 			sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
 #endif
 
+#ifdef CONFIG_FB_MSM_MDDI_NOVATEK_HVGA
+	display_table(mddi_novatek_position_table, 
+		sizeof(mddi_novatek_position_table) / sizeof(struct display_table));
+#endif
+
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
@@ -256,6 +289,11 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 #else
 		MDP_OUTP(MDP_BASE + 0x90010, (iBuf->dma_y << 16) | iBuf->dma_x);
 		MDP_OUTP(MDP_BASE + 0x00090, mddi_ld_param);
+/* LGE_CHANGE [dojip.kim@lge.com] 2010-04-23, [LS670] fixed the pixel format */
+#if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HVGA)
+		MDP_OUTP(MDP_BASE + 0x00094,
+			 (0x5565 /*MDDI_VDO_PACKET_DESC*/ << 16) | mddi_vdo_packet_reg);
+#else /* original */
 		MDP_OUTP(MDP_BASE + 0x00094,
 	/* Don't apply 6013 patch only when using Hitachi HVGA module. 2010-07-28. minjong.gong@lge.com */
 	#if defined (CONFIG_FB_MSM_MDDI_HITACHI_HVGA)
@@ -263,6 +301,8 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 	#else
 			(mddi_pkt_desc << 16) | mddi_vdo_packet_reg);
 	#endif
+#endif
+
 #endif
 	} else {
 		/* setting EBI2 LCDC write window */

@@ -72,6 +72,34 @@ static void __init msm_fb_add_devices(void)
 	msm_fb_register_device("lcdc", 0);
 }
 
+/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-11, support the Sharp Panel (Novatek DDI) */
+#if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HVGA)
+static int mddi_novatek_pmic_backlight(int level)
+{
+	/* TODO: Backlight control here */
+	return 0;
+}
+
+/* LGE_CHANGE
+ * Define new structure named 'msm_panel_hitachi_pdata' 
+ * to use LCD initialization Flag (.initialized).
+ * 2010-04-21, minjong.gong@lge.com
+ */
+static struct msm_panel_novatek_pdata mddi_novatek_panel_data = {
+	.gpio = 102,				/* lcd reset_n */
+	.pmic_backlight = mddi_novatek_pmic_backlight,
+	.initialized = 1,
+};
+
+static struct platform_device mddi_novatek_panel_device = {
+	.name   = "mddi_novatek_hvga",
+	.id     = 0,
+	.dev    = {
+		.platform_data = &mddi_novatek_panel_data,
+	}
+};
+
+#else
 static int mddi_hitachi_pmic_backlight(int level)
 {
 	/* TODO: Backlight control here */
@@ -91,6 +119,7 @@ static struct platform_device mddi_hitachi_panel_device = {
 		.platform_data = &mddi_hitachi_panel_data,
 	}
 };
+#endif
 
 /* backlight device */
 static struct gpio_i2c_pin bl_i2c_pin[] = {
@@ -144,7 +173,11 @@ void __init thundera_init_i2c_backlight(int bus_num)
 /* common functions */
 void __init lge_add_lcd_devices(void)
 {
+#if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HVGA)
+	platform_device_register(&mddi_novatek_panel_device);
+#else
 	platform_device_register(&mddi_hitachi_panel_device);
+#endif
 
 	msm_fb_add_devices();
 

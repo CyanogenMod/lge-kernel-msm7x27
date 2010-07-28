@@ -264,6 +264,16 @@ struct msm_panel_hitachi_pdata {
 	int initialized;
 };
 
+struct msm_panel_novatek_pdata {
+	int gpio;
+	int (*backlight_level)(int level, int max, int min);
+	int (*pmic_backlight)(int level);
+	int (*panel_num)(void);
+	void (*panel_config_gpio)(int);
+	int *gpio_num;
+	int initialized;
+};
+
 /* tsc2007 platform data */
 struct tsc2007_platform_data {
 	u16	model;				/* 2007. */

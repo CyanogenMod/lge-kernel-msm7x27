@@ -2487,6 +2487,13 @@ config FB_MSM_MDDI_HITACHI_HVGA
 	  Support for MDDI HITACHI HVGA(320x480) Panel.
 # LGE_CHANGE_E [minjong.gong] 2010-03-24, Google Mass CDMA Hitachi MDDI I/F LCD 
 
+# LGE_CHANGE [dojip.kim@lge.com] 2010-04-23, Thunder Sprint Sharp(NOVATEK) MDDI I/F LCD 
+config FB_MSM_MDDI_NOVATEK_HVGA
+	bool "MDDI Sharp(NOVATEK) HVGA Panel"
+	select FB_MSM_MDDI
+	---help---
+	  Support for MDDI NOVATEK HVGA(320x480) Panel.
+
 config FB_MSM_PANEL_NONE
 	bool "NONE"
 	---help---
