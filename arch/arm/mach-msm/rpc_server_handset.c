@@ -353,8 +353,6 @@ static void report_hs_key(uint32_t key_code, uint32_t key_parm)
 		return;
 	}
 	input_sync(hs->ipdev);
-	/* add debug mesg for mam7k_handset dev ,2010-07-06, younchan.kim */
-	printk(" %s : HS_KEY event : %d \n", __func__, key_code);
 }
 
 static int handle_hs_rpc_call(struct msm_rpc_server *server,
