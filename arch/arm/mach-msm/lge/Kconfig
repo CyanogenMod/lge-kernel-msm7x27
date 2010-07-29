@@ -21,6 +21,14 @@ config MACH_MSM7X27_THUNDERG
 	help
 	  Support for the LGE MSM7x27 THUNDER Global board.
 
+config MACH_MSM7X27_THUNDERA
+	depends on ARCH_MSM7X27
+	depends on !MSM_STACKED_MEMORY
+	select MACH_LGE
+	bool "MSM7x27 THUNDER AT&T"
+	help
+	  Support for the LGE MSM7x27 THUNDER AT&T board.
+
 endmenu
 
 config LGE_SUPPORT_ERS
