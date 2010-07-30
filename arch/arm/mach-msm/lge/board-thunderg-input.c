@@ -360,14 +360,29 @@ static void kr_exit(void)
 {
 }
 
-static int power_on(void)
+static int accel_power_on(void)
 {
-	return 0;
+	int ret = 0;
+	struct vreg *gp3_vreg = vreg_get(0, "gp3");
+
+	printk("[Accelerometer] %s() : Power On\n",__FUNCTION__);
+
+	vreg_set_level(gp3_vreg, 3000);
+	vreg_enable(gp3_vreg);
+
+	return ret;
 }
 
-static int power_off(void)
+static int accel_power_off(void)
 {
-	return 0;
+	int ret = 0;
+	struct vreg *gp3_vreg = vreg_get(0, "gp3");
+
+	printk("[Accelerometer] %s() : Power Off\n",__FUNCTION__);
+
+	vreg_disable(gp3_vreg);
+
+	return ret;
 }
 
 struct kr3dh_platform_data kr3dh_data = {
@@ -382,8 +397,8 @@ struct kr3dh_platform_data kr3dh_data = {
 	.negate_y = 0,
 	.negate_z = 0,
 
-	.power_on = power_on,
-	.power_off = power_off,
+	.power_on = accel_power_on,
+	.power_off = accel_power_off,
 	.kr_init = kr_init,
 	.kr_exit = kr_exit,
 	.gpio_config = kr3dh_config_gpio,
@@ -437,18 +452,22 @@ static int ecom_power_set(unsigned char onoff)
 {
 	int ret = 0;
 	struct vreg *gp3_vreg = vreg_get(0, "gp3");
+	struct vreg *gp6_vreg = vreg_get(0, "gp6");
 
-	printk("[Ecompass] %s() onoff:%d\n",__FUNCTION__, onoff);
+	printk("[Ecompass] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
 		vreg_set_level(gp3_vreg, 3000);
 		vreg_enable(gp3_vreg);
+
 		/* proximity power on , when we turn off I2C line be set to low caues sensor H/W characteristic */
-		prox_power_set(1);
+		vreg_set_level(gp6_vreg, 2800);
+		vreg_enable(gp6_vreg);
 	} else {
-		vreg_set_level(gp3_vreg, 0);
 		vreg_disable(gp3_vreg);
-		prox_power_set(0);
+
+		/* proximity power off */
+		vreg_disable(gp6_vreg);
 	}
 
 	return ret;
@@ -465,13 +484,12 @@ static int prox_power_set(unsigned char onoff)
 	int ret = 0;
 	struct vreg *gp6_vreg = vreg_get(0, "gp6");
 
-	printk("[Proxi] %s() onoff:%d\n",__FUNCTION__, onoff);
+	printk("[Proximity] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
 		vreg_set_level(gp6_vreg, 2800);
 		vreg_enable(gp6_vreg);
 	} else {
-		vreg_set_level(gp6_vreg, 0);
 		vreg_disable(gp6_vreg);
 	}
 
