@@ -32,6 +32,16 @@
 #include <mach/board_lge.h> // platform data
 #include <linux/akm8973.h>	// akm daemon ioctl set
 
+#undef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+
+struct early_suspend kr3dh_sensor_early_suspend;
+
+static void kr3dh_early_suspend(struct early_suspend *h);
+static void kr3dh_late_resume(struct early_suspend *h);
+#endif
+
 #define USE_WORK_QUEUE        0
 
 /** Maximum polled-device-reported g value */
@@ -742,6 +752,12 @@ static int kr3dh_probe(struct i2c_client *client,
 		goto err4;
 	}
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	kr3dh_sensor_early_suspend.suspend = kr3dh_early_suspend;
+	kr3dh_sensor_early_suspend.resume = kr3dh_late_resume;
+	register_early_suspend(&kr3dh_sensor_early_suspend);
+#endif
+
 #if 0
 	kr3dh_device_power_off(kr);
 
@@ -784,13 +800,31 @@ static int __devexit kr3dh_remove(struct i2c_client *client)
 	kfree(kr->pdata);
 	kfree(kr);
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	unregister_early_suspend(&kr3dh_sensor_early_suspend);
+#endif
+
 	return 0;
 }
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+static void kr3dh_early_suspend(struct early_suspend *h)
+{
+	kr3dh_disable(kr3dh_misc_data);
+}
+
+static void kr3dh_late_resume(struct early_suspend *h)
+{
+	kr3dh_enable(kr3dh_misc_data);
+}
+#endif
+
+#if defined(CONFIG_PM)
 static int kr3dh_resume(struct device *device)
 {
 	struct i2c_client *client = i2c_verify_client(device);
 	struct kr3dh_data *kr = i2c_get_clientdata(client);
+
 #if 0
 	int err = 0;
 
@@ -826,6 +860,7 @@ static int kr3dh_suspend(struct device *device)
 
 	return kr3dh_disable(kr);
 }
+#endif
 
 static const struct i2c_device_id kr3dh_id[] = {
 	{"KR3DH", 0},
@@ -834,15 +869,19 @@ static const struct i2c_device_id kr3dh_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, kr3dh_id);
 
+#if defined(CONFIG_PM)
 static struct dev_pm_ops kr3dh_pm_ops = {
        .suspend = kr3dh_suspend,
        .resume = kr3dh_resume,
 };
+#endif
 
 static struct i2c_driver kr3dh_driver = {
 	.driver = {
 		   .name = "KR3DH",
+#if defined(CONFIG_PM)
 		   .pm = &kr3dh_pm_ops,
+#endif
 		   },
 	.probe = kr3dh_probe,
 	.remove = __devexit_p(kr3dh_remove),

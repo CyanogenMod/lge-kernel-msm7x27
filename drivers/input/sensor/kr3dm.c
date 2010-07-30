@@ -32,6 +32,16 @@
 #include <mach/board_lge.h> // platform data
 #include <linux/akm8973.h>	// akm daemon ioctl set
 
+#undef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+
+struct early_suspend kr3dm_sensor_early_suspend;
+
+static void kr3dm_early_suspend(struct early_suspend *h);
+static void kr3dm_late_resume(struct early_suspend *h);
+#endif
+
 #define USE_WORK_QUEUE        0
 
 /** Maximum polled-device-reported g value */
@@ -759,6 +769,12 @@ static int kr3dm_probe(struct i2c_client *client,
 		goto err4;
 	}
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	kr3dm_sensor_early_suspend.suspend = kr3dm_early_suspend;
+	kr3dm_sensor_early_suspend.resume = kr3dm_late_resume;
+	register_early_suspend(&kr3dm_sensor_early_suspend);
+#endif
+
 #if 0
 	kr3dm_device_power_off(kr);
 
@@ -801,9 +817,26 @@ static int __devexit kr3dm_remove(struct i2c_client *client)
 	kfree(kr->pdata);
 	kfree(kr);
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	unregister_early_suspend(&kr3dm_sensor_early_suspend);
+#endif
+
 	return 0;
 }
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+static void kr3dm_early_suspend(struct early_suspend *h)
+{
+	kr3dm_disable(kr3dm_misc_data);
+}
+
+static void kr3dm_late_resume(struct early_suspend *h)
+{
+	kr3dm_enable(kr3dm_misc_data);
+}
+#endif
+
+#if defined(CONFIG_PM)
 static int kr3dm_resume(struct device *device)
 {
 	struct i2c_client *client = i2c_verify_client(device);
@@ -844,6 +877,7 @@ static int kr3dm_suspend(struct device *device)
 
 	return kr3dm_disable(kr);
 }
+#endif
 
 static const struct i2c_device_id kr3dm_id[] = {
 	{"KR3DM", 0},
@@ -852,15 +886,19 @@ static const struct i2c_device_id kr3dm_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, kr3dm_id);
 
+#if defined(CONFIG_PM)
 static struct dev_pm_ops kr3dm_pm_ops = {
        .suspend = kr3dm_suspend,
        .resume = kr3dm_resume,
 };
+#endif
 
 static struct i2c_driver kr3dm_driver = {
 	.driver = {
 		   .name = "KR3DM",
+#if defined(CONFIG_PM)
 		   .pm = &kr3dm_pm_ops,
+#endif
 		   },
 	.probe = kr3dm_probe,
 	.remove = __devexit_p(kr3dm_remove),
