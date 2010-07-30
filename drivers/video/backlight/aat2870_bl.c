@@ -167,8 +167,11 @@ static struct aat28xx_ctrl_tbl aat2862bl_normal_tbl[] = {
 	 */
 	 { 0x03, 0xE9 },  
 #else
-	// AAT2862 has no ALC mode and don't support ambient light sensor !!
-	{ 0x03, 0xF2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
+	/* LGE_CHANGE. 
+	 * Change register value to do not turn on the bakclight at operatoin mode setting. (0xF2 -> 0xD2)
+	 * 2010-07-31. minjong.gong@lge.com 
+	 */
+	{ 0x03, 0xD2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
 #endif
 	{ 0xFF, 0xFE }	 /* end of command */
 };
@@ -594,7 +597,12 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 
 	if (drvdata->state == POWEROFF_STATE) {
 		aat28xx_poweron(drvdata);
-		aat28xx_go_opmode(drvdata);
+		/* LGE_CHANGE
+		 * Because the aat28xx_go_opmode is called in the aat28xx_poweron above, so I remove below function.
+		 * If it is called two times when the previous state of AAT2862 is POWEROFF_STATE, it causes malfucction.
+		 * 2010-07-31. minjong.gong@lge.com
+		 */
+		//aat28xx_go_opmode(drvdata);
 	} else if (drvdata->state == SLEEP_STATE) {
 		if (drvdata->mode == NORMAL_MODE) {
 			if(drvdata->version == 2862) {
