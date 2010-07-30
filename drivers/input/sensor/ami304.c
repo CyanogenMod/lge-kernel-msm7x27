@@ -68,7 +68,6 @@ module_param_named(debug_mask, ami304_debug_mask, int,
 
 static struct i2c_client *ami304_i2c_client = NULL;
 
-#undef CONFIG_HAS_EARLYSUSPEND
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 
@@ -76,6 +75,7 @@ struct early_suspend ami304_sensor_early_suspend;
 
 static void ami304_early_suspend(struct early_suspend *h);
 static void ami304_late_resume(struct early_suspend *h);
+static atomic_t ami304_report_enabled = ATOMIC_INIT(0);
 #endif
 
 #if defined(CONFIG_PM)
@@ -602,7 +602,9 @@ static int ami304daemon_ioctl(struct inode *inode, struct file *file, unsigned i
 	void __user *data;
 	int retval=0;
 	int mode;
+#if !defined(CONFIG_HAS_EARLYSUSPEND)
 	int en_dis_Report=1;
+#endif
 
     //check the authority is root or not
     if(!capable(CAP_SYS_ADMIN)) {
@@ -656,7 +658,15 @@ static int ami304daemon_ioctl(struct inode *inode, struct file *file, unsigned i
 			ami304mid_data.naz = calidata[5];
 			ami304mid_data.mag_status = calidata[6];
 			write_unlock(&ami304mid_data.datalock);
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+			/*
+				Disable input report at early suspend state
+				On-Demand Governor set max cpu frequency when input evnet is appeared
+			*/
+			AMI304_Report_Value(	atomic_read(&ami304_report_enabled));
+#else
 			AMI304_Report_Value(en_dis_Report);
+#endif
 			break;
 
 		case AMI304MID_IOCTL_GET_CONTROL:
@@ -910,10 +920,13 @@ static int __init ami304_probe(struct i2c_client *client, const struct i2c_devic
 	atomic_set(&o_status, 1);
 	atomic_set(&m_status, 1);
 	atomic_set(&a_status, 1);
+
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	ami304_sensor_early_suspend.suspend = ami304_early_suspend;
 	ami304_sensor_early_suspend.resume = ami304_late_resume;
 	register_early_suspend(&ami304_sensor_early_suspend);
+
+	atomic_set(&ami304_report_enabled, 1);
 #endif
 
 	data->input_dev = input_allocate_device();
@@ -1028,6 +1041,18 @@ static int ami304_remove(struct	i2c_client *client)
 	return 0;
 }
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+static void ami304_early_suspend(struct early_suspend *h)
+{
+	atomic_set(&ami304_report_enabled, 0);
+}
+
+static void ami304_late_resume(struct early_suspend *h)
+{
+	atomic_set(&ami304_report_enabled, 1);
+}
+#endif
+
 #if defined(CONFIG_PM)
 static int ami304_suspend(struct device *device)
 {
@@ -1057,51 +1082,17 @@ static int ami304_resume(struct device *device)
 }
 #endif
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-static void ami304_early_suspend(struct early_suspend *h)
-{
-	u8 regaddr, ctrl1, databuf[10];
-	int res = 0;
-	struct ecom_platform_data* ecom_pdata;
-
-	ecom_pdata = ami304_i2c_client->dev.platform_data;
-	ecom_pdata->power(0);
-
-	regaddr = AMI304_REG_CTRL1;
-	res = i2c_master_send(ami304_i2c_client, &regaddr, 1);
-	if (res<=0) goto exit_ami304_early_suspend;
-	res = i2c_master_recv(ami304_i2c_client, &ctrl1, 1);
-	if (res<=0) goto exit_ami304_early_suspend;
-
-	databuf[0] = AMI304_REG_CTRL1;
-	databuf[1] = ctrl1 & 0x7f;
-	res = i2c_master_send(ami304_i2c_client, &regaddr, 2);
-	if (res<=0) goto exit_ami304_early_suspend;
-
-
-exit_ami304_early_suspend:
-	if (res<=0) {
-		AMIE("I2C error: ret value=%d\n", res);
-	}
-}
-
-static void ami304_late_resume(struct early_suspend *h)
-{
-	struct ecom_platform_data* ecom_pdata;
-	ecom_pdata = ami304_i2c_client->dev.platform_data;
-	ecom_pdata->power(1);
-}
-#endif
-
 static const struct i2c_device_id motion_ids[] = {
 		{ "ami304_sensor", 0 },
 		{ },
 };
 
+#if defined(CONFIG_PM)
 static struct dev_pm_ops ami304_pm_ops = {
        .suspend = ami304_suspend,
        .resume = ami304_resume,
 };
+#endif
 
 static struct i2c_driver ami304_i2c_driver = {
 	.probe		= ami304_probe,
