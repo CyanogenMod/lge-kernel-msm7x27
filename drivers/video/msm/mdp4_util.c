@@ -356,7 +356,11 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				dma->waiting = FALSE;
 				spin_unlock(&mdp_spin_lock);
 			} else {
+#ifdef CONFIG_FB_MSM_OVERLAY
+				mdp4_dma_p_done_mddi();
+#else
 				dma->busy = FALSE;
+#endif
 				mdp_pipe_ctrl(MDP_DMA2_BLOCK,
 					MDP_BLOCK_POWER_OFF, TRUE);
 			}

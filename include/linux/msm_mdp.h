@@ -41,6 +41,9 @@
 #define MSMFB_OVERLAY_GET      _IOR(MSMFB_IOCTL_MAGIC, 140, \
 						struct mdp_overlay)
 #define MSMFB_OVERLAY_PLAY_ENABLE     _IOW(MSMFB_IOCTL_MAGIC, 141, unsigned int)
+#define MSMFB_OVERLAY_BLT       _IOWR(MSMFB_IOCTL_MAGIC, 142, \
+						struct msmfb_overlay_blt)
+#define MSMFB_OVERLAY_BLT_OFFSET     _IOW(MSMFB_IOCTL_MAGIC, 143, unsigned int)
 
 #define MDP_IMGTYPE2_START 0x10000
 
@@ -193,6 +196,15 @@ struct mdp_overlay {
 	uint32_t id;
 	uint32_t user_data[8];
 };
+
+
+struct msmfb_overlay_blt {
+	uint32_t enable;
+	struct msmfb_data data;
+};
+
+
+
 
 struct mdp_histogram {
 	uint32_t frame_cnt;
