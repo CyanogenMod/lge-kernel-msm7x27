@@ -79,7 +79,9 @@ PACK (void *)LGF_TestMode (
     }
   }
 
-  if( func_ptr != NULL)
+  if (nIndex == TESTMODE_MSTR_TBL_SIZE)
+    rsp_ptr->ret_stat_code = TEST_NOT_SUPPORTED_S;
+  else if( func_ptr != NULL)
     return func_ptr( &(req_ptr->test_mode_req), rsp_ptr);
   else
     send_to_arm9((void*)req_ptr, (void*)rsp_ptr);
