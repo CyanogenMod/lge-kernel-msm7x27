@@ -103,6 +103,27 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg);
 static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma);
 
+/* LGE_CHANGE_S
+ * Change codes to remove console cursor on booting screen. Refered to VS740
+ * 2010-07-31. minjong.gong@lge.com
+ */
+#ifdef CONFIG_LGE_FBCON_INACTIVE_CONSOLE
+static int is_console_inactive = 0;
+
+static void msm_fb_set_console_inactive(int inactive)
+{
+
+       is_console_inactive = inactive;
+}
+
+int msm_fb_get_console_inactive(void)
+{
+       return is_console_inactive;
+}
+EXPORT_SYMBOL(msm_fb_get_console_inactive);
+#endif
+/* LGE_CHANGE_E, 2010-07-31. minjong.gong@lge.com  */
+
 #ifdef MSM_FB_ENABLE_DBGFS
 
 #define MSM_FB_MAX_DBGFS 1024
@@ -1048,6 +1069,15 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	mfd->op_enable = TRUE;
 	mfd->panel_power_on = FALSE;
 
+/* LGE_CHANGE_S
+ * Change codes to remove console cursor on booting screen. Refered to VS740
+ * 2010-07-31. minjong.gong@lge.com
+ */
+#ifdef CONFIG_LGE_FBCON_INACTIVE_CONSOLE
+	msm_fb_set_console_inactive(1);
+#endif
+/* LGE_CHANGE_E, 2010-07-31. minjong.gong@lge.com */
+
 	/* cursor memory allocation */
 	if (mfd->cursor_update) {
 		mfd->cursor_buf = dma_alloc_coherent(NULL,
@@ -1251,6 +1281,16 @@ static int msm_fb_open(struct fb_info *info, int user)
 			return -1;
 		}
 	}
+
+/* LGE_CHANGE_S
+ * Change codes to remove console cursor on booting screen. Refered to VS740
+ * 2010-07-31. minjong.gong@lge.com
+ */
+#ifdef CONFIG_LGE_FBCON_INACTIVE_CONSOLE
+		if(mfd->ref_cnt > 1 && msm_fb_get_console_inactive())
+				msm_fb_set_console_inactive(0);
+#endif
+/* LGE_CHANGE_E, 2010-07-31. minjong.gong@lge.com */
 
 	mfd->ref_cnt++;
 	return 0;

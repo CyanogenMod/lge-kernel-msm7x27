@@ -153,6 +153,13 @@ config LGE_ATS_INPUT_DEVICE
 	help
 	 Choose if use ATS input device used for generating input event from user space
 
+config LGE_FBCON_INACTIVE_CONSOLE
+	bool "Support LGE FBCON inactive console"
+	default n
+	depends on MACH_LGE
+	help
+	 Choose if inactive console
+
 menu "LGE specific patches"
 	depends on MACH_LGE
 
