@@ -847,6 +847,7 @@ testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE] =
 	{ TEST_MODE_KEY_TEST,                 LGT_TestModeKeyTest,      ARM11_PROCESSOR},
 	{ TEST_MODE_EXT_SOCKET_TEST,          LGF_ExternalSocketMemory, ARM11_PROCESSOR},
 	{ TEST_MODE_BLUETOOTH_TEST,           LGF_TestModeBlueTooth,    ARM11_PROCESSOR},
+	{ TEST_MODE_BATT_LEVEL_TEST,          NULL,                     ARM9_PROCESSOR},
 	/* 26 ~ 30 */
 	{ TEST_MODE_MP3_TEST,                 LGF_TestModeMP3,          ARM11_PROCESSOR},
 	/* 31 ~ 35 */
