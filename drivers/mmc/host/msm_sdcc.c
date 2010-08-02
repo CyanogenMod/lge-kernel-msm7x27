@@ -63,7 +63,6 @@
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 
 #define DRIVER_NAME "msm-sdcc"
-#define TIME_STEP ( 3 * HZ / 2 )
 
 #define DBG(host, fmt, args...)	\
 	pr_debug("%s: %s: " fmt "\n", mmc_hostname(host->mmc), __func__ , args)
@@ -1299,7 +1298,7 @@ msmsdcc_check_status(unsigned long data)
 				if (host->eject)
 					mmc_detect_change(host->mmc, 0);
 				else
-					mmc_detect_change(host->mmc, TIME_STEP);
+					mmc_detect_change(host->mmc, (3 * HZ) / 2);
 		}
 		host->oldstat = status;
 	}
@@ -1340,7 +1339,7 @@ msmsdcc_status_notify_cb(int card_present, void *dev_id)
 
 	pr_debug("%s: card_present %d\n", mmc_hostname(host->mmc),
 	       card_present);
-	msmsdcc_registertimer(host, TIME_STEP);
+	msmsdcc_check_status((unsigned long) host);
 }
 
 static int
@@ -1545,7 +1544,6 @@ msmsdcc_probe(struct platform_device *pdev)
 
 	tasklet_init(&host->dma_tlet, msmsdcc_dma_complete_tlet,
 			(unsigned long)host);
-
 
 	/*
 	 * Setup DMA
@@ -1796,7 +1794,7 @@ platform_irq_free:
 	}
  pio_irq_free:
 	free_irq(irqres->start, host);
- irq_free:
+irq_free:
 	free_irq(irqres->start, host);
  clk_disable:
 	clk_disable(host->clk);
@@ -1808,7 +1806,7 @@ platform_irq_free:
  pclk_put:
 	if (!IS_ERR(host->pclk))
 		clk_put(host->pclk);
- dma_free:
+
 	dma_free_coherent(NULL, sizeof(struct msmsdcc_nc_dmadata),
 			host->dma.nc, host->dma.nc_busaddr);
  ioremap_free:
