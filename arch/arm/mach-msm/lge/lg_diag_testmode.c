@@ -67,7 +67,7 @@ PACK (void *)LGF_TestMode (
 	  return 0;
 
   rsp_ptr->sub_cmd_code = req_ptr->sub_cmd_code;
-  rsp_ptr->ret_stat_code = TEST_OK_S; // ?ʱⰪ
+  rsp_ptr->ret_stat_code = TEST_OK_S; // ÃÊ±â°ª
 
   for( nIndex = 0 ; nIndex < TESTMODE_MSTR_TBL_SIZE  ; nIndex++)
   {
@@ -113,6 +113,7 @@ PACK (void *)LGF_LcdQTest (
 EXPORT_SYMBOL(LGF_LcdQTest);
 
 /* TEST_MODE_BLUETOOTH_TEST */
+#ifndef LG_BTUI_TEST_MODE
 void* LGF_TestModeBlueTooth(
         test_mode_req_type*	pReq,
         DIAG_TEST_MODE_F_rsp_type	*pRsp)
@@ -133,6 +134,73 @@ void* LGF_TestModeBlueTooth(
 	}
   return pRsp;
 }
+
+byte *pReq_valid_address(byte *pstr)
+{
+	int pcnt=0;
+	byte value_pstr=0, *pstr_tmp;
+
+	pstr_tmp = pstr;
+	do
+	{
+		++pcnt;
+		value_pstr = *(pstr_tmp++);
+	}while(!('0'<=value_pstr && value_pstr<='9')&&!('a'<=value_pstr && value_pstr<='f')&&!('A'<=value_pstr && value_pstr<='F')&&(pcnt<BT_RW_CNT));
+
+	return (--pstr_tmp);
+	
+}
+
+byte g_bd_addr[BT_RW_CNT];
+
+void* LGF_TestModeBlueTooth_RW(
+        test_mode_req_type*	pReq,
+        DIAG_TEST_MODE_F_rsp_type	*pRsp)
+{
+
+	byte *p_Req_addr;
+
+	p_Req_addr = pReq_valid_address(pReq->bt_rw);
+	
+	if(!p_Req_addr)
+	{
+		pRsp->ret_stat_code = TEST_FAIL_S;
+		return pRsp;
+	}
+	
+	printk(KERN_ERR "[_BTUI_] [%s:%d] BTSubCmd=<%s>\n", __func__, __LINE__, p_Req_addr);
+
+	if (diagpdev != NULL)
+	{
+		//250-83-0 bluetooth write
+		if(strlen(p_Req_addr) > 0)
+		{
+			update_diagcmd_state(diagpdev, "BT_TEST_MODE_RW", p_Req_addr);
+			memset((void*)g_bd_addr, 0x00, BT_RW_CNT);
+			memcpy((void*)g_bd_addr, p_Req_addr, BT_RW_CNT);
+			msleep(5900); //6sec timeout
+		}
+		//250-83-1 bluetooth read
+		else
+		{
+			update_diagcmd_state(diagpdev, "BT_TEST_MODE_RW", 1);
+			if(strlen(g_bd_addr)==0) {
+				pRsp->ret_stat_code = TEST_FAIL_S;
+				return pRsp;
+			}
+			memset((void*)pRsp->test_mode_rsp.read_bd_addr, 0x00, BT_RW_CNT);
+			memcpy((void*)pRsp->test_mode_rsp.read_bd_addr, g_bd_addr, BT_RW_CNT);
+		}
+		pRsp->ret_stat_code = TEST_OK_S;
+	}
+	else 
+	{
+		printk(KERN_ERR "[_BTUI_] [%s:%d] BTSubCmd=<%d> ERROR\n", __func__, __LINE__, pReq->bt_rw);
+		pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
+	}
+  return pRsp;
+}
+#endif //LG_BTUI_TEST_MODE
 
 void* LGF_TestPhotoSensor(
 		test_mode_req_type* pReq ,
@@ -846,8 +914,9 @@ testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE] =
 	/* 21 ~ 25 */
 	{ TEST_MODE_KEY_TEST,                 LGT_TestModeKeyTest,      ARM11_PROCESSOR},
 	{ TEST_MODE_EXT_SOCKET_TEST,          LGF_ExternalSocketMemory, ARM11_PROCESSOR},
+#ifndef LG_BTUI_TEST_MODE
 	{ TEST_MODE_BLUETOOTH_TEST,           LGF_TestModeBlueTooth,    ARM11_PROCESSOR},
-	{ TEST_MODE_BATT_LEVEL_TEST,          NULL,                     ARM9_PROCESSOR},
+#endif //LG_BTUI_TEST_MODE
 	/* 26 ~ 30 */
 	{ TEST_MODE_MP3_TEST,                 LGF_TestModeMP3,          ARM11_PROCESSOR},
 	/* 31 ~ 35 */
@@ -869,7 +938,22 @@ testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE] =
 	{ TEST_MODE_FACTORY_RESET_CHECK_TEST, LGF_TestModeFactoryReset, ARM11_PROCESSOR },//
 	/* 51 ~	*/
 	{ TEST_MODE_VOLUME_TEST,              LGT_TestModeVolumeLevel,  ARM11_PROCESSOR},
-
-
+       /*70~	*/
+	{ TEST_MODE_PID_TEST,             	 NULL,  						ARM9_PROCESSOR},
+	{ TEST_MODE_SW_VERSION, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_IME_TEST, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_IMPL_TEST, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_SIM_LOCK_TYPE_TEST, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_UNLOCK_CODE_TEST, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_IDDE_TEST, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_FULL_SIGNATURE_TEST, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_NT_CODE_TEST, 		NULL, 						ARM9_PROCESSOR},
+	{ TEST_MODE_SIM_ID_TEST, 		NULL, 						ARM9_PROCESSOR},
+	/*80~	*/
+	{ TEST_MODE_CAL_CHECK, 			NULL,						ARM9_PROCESSOR},
+#ifndef LG_BTUI_TEST_MODE
+	{ TEST_MODE_BLUETOOTH_TEST_RW			 ,	LGF_TestModeBlueTooth_RW	   , ARM11_PROCESSOR},
+#endif //LG_BTUI_TEST_MODE
+	{ TEST_MODE_SKIP_WELCOM_TEST, 			NULL,						ARM9_PROCESSOR},
 };
 
