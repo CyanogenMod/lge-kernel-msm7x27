@@ -1756,6 +1756,7 @@ void msm_pm_flush_console(void)
 static void msm_pm_power_off(void)
 {
 	msm_rpcrouter_close();
+	printk(KERN_INFO"%s: \n",__func__);
 	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
 	for (;;)
 		;
@@ -1793,6 +1794,8 @@ static int msm_reboot_call
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned code = simple_strtoul(cmd + 4, 0, 16) & 0xff;
 			restart_reason = 0x6f656d00 | code;
+		} else if (!strncmp(cmd, "", 1)) {
+			restart_reason = 0x776655AA;
 		} else {
 			restart_reason = 0x77665501;
 		}
