@@ -112,6 +112,14 @@ struct usb_composition usb_func_composition[] = {
 		.adb_product_id     = 0x6000,
 		.adb_functions	    = 0x743,
 	},
+    {
+		/* We support MTP */
+        .product_id           = 0x61C4,
+        .functions            = 0xB, /* MTP*/
+        .adb_product_id     = 0x61C4,
+	    .adb_functions	    = 0xB,
+    },
+
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	{
 		/* RNDIS */

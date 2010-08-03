@@ -1105,6 +1105,17 @@ config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID
 
 	default n
 
+# LGE_CHANGE_S [jaeho.cho@lge.com] 2010-07-16, LG_FW_MTP_DRIVER
+config USB_GADGET_LG_MTP_DRIVER
+	boolean "LG MTP Driver(CDMA class)"
+	depends on USB_SUPPORT_LGE_GADGET_CDMA
+	help
+	  Supports LG MTP driver(CDMA class)
+	
+	default n
+
+# LGE_CHANGE_E [jaeho.cho@lge.com] 2010-07-16, LG_FW_MTP_DRIVER
+
 config USB_SUPPORT_LGE_FACTORY_USB_GSM
 	boolean "USB Support LGE Factory USB(GSM class)"
 	depends on USB_SUPPORT_LGE_GADGET_GSM

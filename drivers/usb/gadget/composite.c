@@ -45,6 +45,19 @@ static struct usb_composite_driver *composite;
  * String parameters are in UTF-8 (superset of ASCII's 7 bit characters).
  */
 
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+static const char mtp_descriptor_string[18] = 
+{ 
+	18, USB_DT_STRING, 'M', 0, 'S', 0, 'F', 0, 'T', 0, '1', 0, '0', 0, '0', 0, 0xFE, 0 
+};
+
+static const u8 mtp_vendor_descriptor[40] = 
+{ 
+	40, 0, 0, 0, 0, 1, 4, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 'M', 'T', 'P', 0, 0, 0, 0, 0, 0x30, 0x34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
+};
+extern int mtp_enable_flag;
+#endif //CONFIG_USB_GADGET_LG_MTP_DRIVER
+
 static ushort idVendor;
 module_param(idVendor, ushort, 0);
 MODULE_PARM_DESC(idVendor, "USB Vendor ID");
@@ -815,6 +828,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	 * gadget might need to intercept e.g. a control-OUT completion
 	 * when we delegate to it.
 	 */
+
+	pr_info("%s ctrl->bRequest: %d", __func__, ctrl->bRequest);
+	
 	req->zero = 0;
 	req->complete = composite_setup_complete;
 	req->length = USB_BUFSIZ;
@@ -851,6 +867,17 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			break;
 		case USB_DT_STRING:
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+            if ((mtp_enable_flag == 1) && ((w_value&0xff) == 0xEE)) 
+            {
+                DBG(cdev, "### MTP DT STRING ###\n");
+                value = sizeof(mtp_descriptor_string);
+                memcpy(req->buf, mtp_descriptor_string, value);
+                if (value >= 0)
+                    value = min (w_length, (u16) value);
+                break;
+            }
+#endif
 			value = get_string(cdev, req->buf,
 					w_index, w_value & 0xff);
 
@@ -930,6 +957,33 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		*((u8 *)req->buf) = value;
 		value = min(w_length, (u16) 1);
 		break;
+
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+    case 0xfe: /* MTP request */
+          if(mtp_enable_flag == 1)
+          {
+          if (ctrl->bRequestType == (USB_DIR_IN|USB_TYPE_CLASS)) 
+          {
+            DBG (cdev, "### MTP 0xFE CLASS ###\n");
+            *(u8 *)req->buf = 0;
+            value = min (w_length, (u16) 1);
+            break;
+          }
+        
+          if (ctrl->bRequestType == (USB_DIR_IN|USB_TYPE_VENDOR)) 
+          {
+            DBG (cdev, "### MTP 0xFE VENDOR ###\n");
+            value = sizeof(mtp_vendor_descriptor);
+            memcpy(req->buf, mtp_vendor_descriptor, value);
+            if (value >= 0)
+                value = min (w_length, (u16) value);
+            break;
+          }
+          value = w_length;
+          }            
+          break;
+#endif//CONFIG_USB_GADGET_LG_MTP_DRIVER
+
 	default:
 unknown:
 		VDBG(cdev,

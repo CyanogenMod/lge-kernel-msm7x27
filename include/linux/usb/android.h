@@ -26,6 +26,9 @@
 #define ANDROID_CDC_ECM		0x0008
 #define ANDROID_RMNET		0x0009
 #define ANDROID_RNDIS		0x000A
+#if defined(CONFIG_USB_GADGET_LG_MTP_DRIVER)
+#define ANDROID_MTP   0x000B
+#endif
 
 struct android_usb_platform_data {
 	/* USB device descriptor fields */
