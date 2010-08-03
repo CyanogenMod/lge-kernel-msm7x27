@@ -19,18 +19,18 @@ typedef struct {
 }keycode_trans_type;
 
 keycode_trans_type keytrans_table[KEY_TRANS_MAP_SIZE]={
-    {0x4E        ,   KEY_HOME },
+    {0x204E        ,   KEY_HOME },
     /* {0x4E        ,   243 },     // folder home for aloha model */
-    {0x4F        ,   KEY_MENU },
+    {0x204F        ,   KEY_MENU },
     /* {0x4F        ,   244 },     // folder menu for aloha model */
-    {0x50        ,   KEY_SEND },
-    {0x51        ,   KEY_END },
-    {0x92        ,   KEY_VOLUMEUP },
-    {0x93        ,   KEY_VOLUMEDOWN},
+    {0x2050        ,   KEY_SEND },
+    {0x2051        ,   KEY_END },
+    {0x2092        ,   KEY_VOLUMEUP },
+    {0x2093        ,   KEY_VOLUMEDOWN},
     {0x8F        ,   KEY_CAMERA },
       
-    {0x23     ,   228}, // pound
-    {0x2A     ,   227}, // star
+    {0x2023     ,   228}, // pound
+    {0x202A     ,   227}, // star
     {0x30     ,   KEY_0},     {0x31     ,   KEY_1},     {0x32     ,   KEY_2},     {0x33     ,   KEY_3},
     {0x34     ,   KEY_4},     {0x35     ,   KEY_5},     {0x36     ,   KEY_6},     {0x37     ,   KEY_7}, 
     {0x38     ,   KEY_8},     {0x39     ,   KEY_9},      
@@ -153,19 +153,19 @@ PACK (void *)LGF_KeyPress (
 
   switch (keycode){
 	    /* LG_FW 2010.02.24 khlee - UTS TEST needs key to delete call log*/
-  	case 0x60 :
+  	case 0x2060 :
     		// touch Dialer start   
       		Send_Touch(20,450);
 		break;
-	case 0x61:
+	case 0x2061:
     		//touch call log
       		Send_Touch(100,50);
 		break;
-	case 0x62:
+	case 0x2062:
     		//touch Clear Call Logs icon
       		Send_Touch(265,470);
 		break;
-	case 0x63:
+	case 0x2063:
     		//ok  icon
       		Send_Touch(85,315);
 		break;
