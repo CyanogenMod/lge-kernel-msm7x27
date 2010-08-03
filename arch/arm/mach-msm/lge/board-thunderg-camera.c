@@ -144,7 +144,11 @@ int camera_power_on (void)
 	}
 
 	/*AVDD power  2.7V*/
-	rc = aat28xx_ldo_set_level(dev, LDO_CAM_AVDD_NO, 2700);
+	/* LGE_CHANGE 
+	  * Change AVDD level from 2.7V to 2.8V in order to reduce camera noise in dard environment.
+	  * 2010-08-03. minjong.gong@lge.com
+	  */
+	rc = aat28xx_ldo_set_level(dev, LDO_CAM_AVDD_NO, 2800);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AVDD_NO);
 		return rc;
