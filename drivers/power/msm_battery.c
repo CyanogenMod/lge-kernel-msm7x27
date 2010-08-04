@@ -1010,15 +1010,24 @@ void msm_batt_late_resume(struct early_suspend *h)
 		return;
 	}
 
-#ifdef CONFIG_LGE_FUEL_GAUGE
-		/* LGE_CHANGE
-		 * add for Battery Status Update when out of sleep
-		 * 2010-04-21 baborobo@lge.com
-		 */
-	msm_batt_update_psy_status();
+	pr_debug("%s: exit\n", __func__);
+}
 #endif
 
-	pr_debug("%s: exit\n", __func__);
+#ifdef CONFIG_PM
+static int msm_batt_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	printk(KERN_INFO "[msm_battery] %s()...\n", __func__);
+
+	return 0;
+}
+
+static int msm_batt_resume(struct platform_device *pdev)
+{
+	printk(KERN_INFO "[msm_battery] %s()...\n", __func__);
+
+	msm_batt_update_psy_status();
+	return 0;
 }
 #endif
 
@@ -1622,6 +1631,10 @@ static int __devexit msm_batt_remove(struct platform_device *pdev)
 static struct platform_driver msm_batt_driver = {
 	.probe = msm_batt_probe,
 	.remove = __devexit_p(msm_batt_remove),
+#ifdef CONFIG_PM
+	.suspend = msm_batt_suspend,
+	.resume = msm_batt_resume,
+#endif
 	.driver = {
 		   .name = "msm-battery",
 		   .owner = THIS_MODULE,
