@@ -26,9 +26,7 @@
 #include <mach/msm_hsusb.h>
 #include <mach/rpc_hsusb.h>
 #ifdef CONFIG_USB_FUNCTION
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-19, Fix build error for gadget */
 #include <linux/usb/mass_storage_function.h>
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-19 */
 #include <linux/usb/android_composite.h>
 #endif
 #ifdef CONFIG_USB_ANDROID

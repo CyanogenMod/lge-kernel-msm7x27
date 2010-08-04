@@ -19,11 +19,9 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-18, Fix Build Error for Gadget */
 #ifdef CONFIG_USB_FUNCTION
 #include <linux/usb/mass_storage_function.h>
 #endif
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 #include <linux/i2c.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -89,9 +87,9 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 
 /* board-specific usb data definitions */
 
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-07-10, LG Android Gadget */
 /* For supporting LG Android gadget framework, move android gadget platform
  * datas to specific board file
+ * hyunhui.park@lge.com 2010-07-10
  */
 #ifdef CONFIG_USB_ANDROID
 /* dynamic composition */
@@ -175,20 +173,6 @@ struct platform_device mass_storage_device = {
 };
 
 #endif /* CONFIG_USB_ANDROID */
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-10 */
-
-#if 0 /* should be modified, not using qwerty key */
-static int thunderg_reboot_key_detect(void)
-{
-	if (gpio_get_value(GPIO_PP2106_IRQ) == 0)
-		return REBOOT_KEY_PRESS;
-	else
-		return REBOOT_KEY_NOT_PRESS;
-}
-struct lge_panic_handler_platform_data panic_handler_data = {
-	.reboot_key_detect = thunderg_reboot_key_detect,
-};
-#endif
 
 static struct platform_device *devices[] __initdata = {
 	&msm_device_smd,
@@ -221,7 +205,8 @@ void msm_serial_debug_init(unsigned int base, int irq,
  * qualcomm's original value depends on wvga resolution
  * 2010-04-18, cleaneye.kim@lge.com
  */
-unsigned pmem_fb_size = 0x96000;
+unsigned pmem_fb_size = 	0x96000;
+unsigned pmem_adsp_size =	0xAE4000; 
 
 static void __init msm7x2x_init(void)
 {
