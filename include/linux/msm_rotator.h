@@ -74,6 +74,7 @@ struct msm_rotator_platform_data {
 	unsigned int number_of_clocks;
 	unsigned int hardware_version_number;
 	struct msm_rot_clocks *rotator_clks;
+	const char *regulator_name;
 };
 #endif
 
