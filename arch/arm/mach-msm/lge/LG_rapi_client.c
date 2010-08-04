@@ -100,7 +100,10 @@ int msm_chg_LG_cable_type(void)
 	oem_rapi_client_streaming_function(client, &arg, &ret);
 	memcpy(output,ret.output,*ret.out_len);
 
-	return GET_INT32(output);  
+	kfree(ret.out);
+	kfree(ret.out_len);
+
+	return (GET_INT32(output));  
 }
 
 
@@ -129,6 +132,8 @@ void send_to_arm9(void*	pReq, void* pRsp)
 
 	oem_rapi_client_streaming_function(client, &arg, &ret);
 	memcpy(pRsp,ret.output,*ret.out_len);
+
+	return;
 }
 
 void set_operation_mode(boolean info)
@@ -261,5 +266,9 @@ void msm_get_MEID_type(char* sMeid)
 	oem_rapi_client_streaming_function(client, &arg, &ret);
 
 	memcpy(sMeid,ret.output,14); 
+
+	kfree(ret.output);
+	kfree(ret.out_len);
+
 	return;  
 }
