@@ -89,6 +89,7 @@ typedef enum
   VOL_LEV_MAX
 }test_mode_req_volume_level_type;
 
+#ifndef LG_BTUI_TEST_MODE
 typedef enum
 {
   BT_GET_ADDR, //no use anymore
@@ -97,6 +98,16 @@ typedef enum
   BT_TEST_MODE_RELEASE=5,
   BT_TEST_MODE_11=11 // 11~42
 }test_mode_req_bt_type;
+
+typedef enum
+{
+  BT_ADDR_WRITE=0,
+  BT_ADDR_READ
+}test_mode_req_bt_rw_type;
+
+#define BT_RW_CNT 20
+
+#endif //LG_BTUI_TEST_MODE
 
 typedef enum
 {
@@ -178,10 +189,38 @@ typedef enum
   CAL_DATA_ERASE,
   CAL_DATA_INFO
 }test_mode_req_test_script_mode_type;
+
+/* TEST_MODE_PID_TEST */
+typedef enum
+{
+  PID_WRITE,
+  PID_READ  
+}test_mode_req_pid_type;
+
+
+/* TEST_MODE_SW_VERSION */
+typedef enum
+{
+  SW_VERSION,
+  SW_OUTPUT_VERSION,
+  SW_COMPLETE_VERSION,
+  SW_VERSION_CHECK
+} test_mode_req_sw_version_type;
+
+/* TEST_MODE_CAL_CHECK */
+typedef enum
+{
+ CAL_CHECK,
+ CAL_DATA_CHECK,
+} test_mode_req_cal_check_type;
+
 typedef union
 {
   test_mode_req_version_type		version;
-  test_mode_req_bt_type   bt;
+#ifndef LG_BTUI_TEST_MODE
+  test_mode_req_bt_type	bt;
+  byte					bt_rw[BT_RW_CNT];
+#endif //LG_BTUI_TEST_MODE
   test_mode_req_socket_memory esm;  // external socket memory
   test_mode_req_memory_capa_type mem_capa;
   word key_data;
@@ -197,6 +236,9 @@ typedef union
 #endif
   test_mode_sleep_mode_type sleep_mode;
   test_mode_req_test_script_mode_type test_mode_test_scr_mode;
+  test_mode_req_pid_type		pid;	// pid Write/Read
+  test_mode_req_sw_version_type	sw_version;
+  test_mode_req_cal_check_type		cal_check;
 #if 0
   test_mode_req_lcd_type			lcd;
   test_mode_req_folder_type			folder;
@@ -304,8 +346,14 @@ typedef union
   test_mode_req_cam_type		 camera;
   unsigned int mem_capa;
   int manual_test;
+  test_mode_req_pid_type		pid;
+  test_mode_req_sw_version_type	sw_version;
+  test_mode_req_cal_check_type		cal_check;
 #ifndef SKW_TEST
   test_mode_req_factory_reset_mode_type  factory_reset;
+#endif
+#ifndef LG_BTUI_TEST_MODE
+  byte read_bd_addr[BT_RW_CNT];
 #endif
 #if 0
   test_mode_req_lcd_type			lcd;
@@ -380,7 +428,9 @@ typedef enum
   TEST_MODE_BREW_SIZE=21,  
   TEST_MODE_KEY_TEST,    //LGF_TM_KEY_PAD_TEST
   TEST_MODE_EXT_SOCKET_TEST,
+#ifndef LG_BTUI_TEST_MODE
   TEST_MODE_BLUETOOTH_TEST,
+#endif //LG_BTUI_TEST_MODE
   TEST_MODE_BATT_LEVEL_TEST,
   TEST_MODE_MP3_TEST=27,
   TEST_MODE_FM_TRANCEIVER_TEST,
@@ -415,6 +465,24 @@ typedef enum
   TEST_MODE_MOBILE_SYSTEM_CHANGE_TEST,
   TEST_MODE_STANDALONE_GPS_TEST,
   TEST_MODE_PRELOAD_INTEGRITY_TEST,
+
+  TEST_MODE_PID_TEST = 70,		// pid R/W
+  TEST_MODE_SW_VERSION = 71,
+  TEST_MODE_IME_TEST,
+  TEST_MODE_IMPL_TEST,
+  TEST_MODE_SIM_LOCK_TYPE_TEST,
+  TEST_MODE_UNLOCK_CODE_TEST,
+  TEST_MODE_IDDE_TEST,
+  TEST_MODE_FULL_SIGNATURE_TEST,
+  TEST_MODE_NT_CODE_TEST,
+  TEST_MODE_SIM_ID_TEST = 79,
+  
+  TEST_MODE_CAL_CHECK= 82,
+#ifndef LG_BTUI_TEST_MODE
+  TEST_MODE_BLUETOOTH_TEST_RW=83,
+#endif //LG_BTUI_TEST_MODE
+  TEST_MODE_SKIP_WELCOM_TEST = 87,
+  
   MAX_TEST_MODE_SUBCMD = 0xFFFF
   //TEST_MODE_CURRENT,
   //TEST_MODE_BREW_FILES,
