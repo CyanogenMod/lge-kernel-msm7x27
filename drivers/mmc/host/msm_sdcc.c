@@ -63,6 +63,7 @@
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 
 #define DRIVER_NAME "msm-sdcc"
+#define TIME_STEP ( 4 * HZ / 5 )
 
 #define DBG(host, fmt, args...)	\
 	pr_debug("%s: %s: " fmt "\n", mmc_hostname(host->mmc), __func__ , args)
@@ -1198,6 +1199,33 @@ int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
 	return 0;
 }
 
+static int msmsdcc_get_status(struct mmc_host *mmc)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	unsigned int status;
+
+	spin_lock_irq(&host->lock);
+
+	if (host->plat->status) {
+
+		status = host->plat->status(mmc_dev(mmc));
+		host->eject = !status;
+
+		if (status ^ host->oldstat) {
+			pr_info("%s: Slot status change detected (%d -> %d)\n",
+					mmc_hostname(mmc), host->oldstat, status);
+
+			spin_unlock_irq(&host->lock);
+
+			return 1;
+		}
+	}
+
+	spin_unlock_irq(&host->lock);
+
+	return 0;
+}
+
 static int msmsdcc_get_ro(struct mmc_host *mmc)
 {
 	int wpswitch_status = -ENOSYS;
@@ -1267,14 +1295,22 @@ static const struct mmc_host_ops msmsdcc_ops = {
 #ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
 	.enable_sdio_irq = msmsdcc_enable_sdio_irq,
 #endif
+<<<<<<< HEAD:drivers/mmc/host/msm_sdcc.c
+=======
+#ifdef CONFIG_MMC_AUTO_SUSPEND
+	.auto_suspend	= msmsdcc_auto_suspend,
+#endif
+	.get_status = msmsdcc_get_status,
+>>>>>>> [P500] Modified Detectiong Sequence:drivers/mmc/host/msm_sdcc.c
 };
 
 static void
 msmsdcc_check_status(unsigned long data)
 {
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
-	unsigned int status;
+	if (msmsdcc_get_status(host->mmc)) {
 
+<<<<<<< HEAD:drivers/mmc/host/msm_sdcc.c
 	if (!host->plat->status) {
 		mmc_detect_change(host->mmc, 0);
 	} else {
@@ -1299,9 +1335,21 @@ msmsdcc_check_status(unsigned long data)
 					mmc_detect_change(host->mmc, 0);
 				else
 					mmc_detect_change(host->mmc, (3 * HZ) / 2);
+=======
+#ifdef CONFIG_LGE_BCM432X_PATCH
+		if (host->plat->status_irq == MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET)) {
+			printk(KERN_ERR "[host->plat->status_irq:%d:MSM_GPIO_TO_INIT:%d:%s:%d]\n",
+				   host->plat->status_irq,
+				   MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET),
+				   __func__, __LINE__);
+			mmc_detect_change(host->mmc, 0);
+>>>>>>> [P500] Modified Detectiong Sequence:drivers/mmc/host/msm_sdcc.c
 		}
-		host->oldstat = status;
+		else
+#endif
+			mmc_detect_change(host->mmc, TIME_STEP);
 	}
+	host->oldstat = !host->eject;
 }
 
 static irqreturn_t

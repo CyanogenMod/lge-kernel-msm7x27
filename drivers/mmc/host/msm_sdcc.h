@@ -267,6 +267,7 @@ struct msmsdcc_host {
 	struct wake_lock	sdio_suspend_wlock;
 	unsigned int    sdcc_suspending;
 
+	struct timer_list    check_timer;
 };
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);

@@ -1104,7 +1104,12 @@ void mmc_rescan(struct work_struct *work)
 	u32 ocr;
 	int err;
 	int extend_wakelock = 0;
+	int ret;
 
+	ret = host->ops->get_status(host);
+	if (host->ops->get_status && ret == 1){
+		mmc_schedule_delayed_work(&host->detect, HZ / 3);
+	}
 	mmc_bus_get(host);
 
 	/* if there is a card registered, check whether it is still present */
