@@ -100,7 +100,7 @@ int msm_chg_LG_cable_type(void)
 	oem_rapi_client_streaming_function(client, &arg, &ret);
 	memcpy(output,ret.output,*ret.out_len);
 
-	kfree(ret.out);
+	kfree(ret.output);
 	kfree(ret.out_len);
 
 	return (GET_INT32(output));  
