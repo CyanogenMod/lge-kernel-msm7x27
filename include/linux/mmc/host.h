@@ -108,9 +108,10 @@ struct mmc_host_ops {
 	int	(*get_cd)(struct mmc_host *host);
 
 	void	(*enable_sdio_irq)(struct mmc_host *host, int enable);
-
 	/* optional callback for HC quirks */
 	void	(*init_card)(struct mmc_host *host, struct mmc_card *card);
+/* LGE_CHANGE fred.cho@lge.com, 2010-08-05 , check gpio pin status */
+	int (*get_status)(struct mmc_host *host);
 };
 
 struct mmc_card;

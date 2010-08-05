@@ -63,6 +63,8 @@
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 
 #define DRIVER_NAME "msm-sdcc"
+
+/* LGE_CHANGE [fred.cho@lge.com] 2010-08-05, Delay time for work-queue to rescan. */
 #define TIME_STEP ( 4 * HZ / 5 )
 
 #define DBG(host, fmt, args...)	\
@@ -1199,7 +1201,13 @@ int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
 	return 0;
 }
 
-static int msmsdcc_get_status(struct mmc_host *mmc)
+/* LGE_CHANGE
+ * Func : check gpio pin status
+ * If the status is changed, go to rescan through delayed work queue.
+ * And still same status, just skip.
+ * fred.cho@lge.com, 2010-08-05
+ */
+Static int msmsdcc_get_status(struct mmc_host *mmc)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned int status;
@@ -1304,6 +1312,12 @@ static const struct mmc_host_ops msmsdcc_ops = {
 >>>>>>> [P500] Modified Detectiong Sequence:drivers/mmc/host/msm_sdcc.c
 };
 
+/* LGE_CHANGE
+ * Func : check gpio pin status
+ * If the status is changed, go to rescan through delayed work queue.
+ * And still same status, just skip.
+ * fred.cho@lge.com, 2010-08-05
+ */
 static void
 msmsdcc_check_status(unsigned long data)
 {
