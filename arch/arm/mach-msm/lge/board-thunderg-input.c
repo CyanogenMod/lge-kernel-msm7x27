@@ -69,24 +69,15 @@ static struct platform_device hs_device = {
 	},
 };
 
-#if 0
 static unsigned int keypad_row_gpios[] = {
 	32, 33, 36
 };
 
 static unsigned int keypad_col_gpios[] = {37, 38};
-#else
-static unsigned int keypad_row_gpios[] = {
-	37, 38
-};
-
-static unsigned int keypad_col_gpios[] = {32, 33, 36};
-#endif
 
 #define KEYMAP_INDEX(row, col) ((row)*ARRAY_SIZE(keypad_col_gpios) + (col))
 
 static const unsigned short keypad_keymap_thunder[][8] = {
-#if 0
 	[LGE_REV_B] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_MENU,
 		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
@@ -103,63 +94,45 @@ static const unsigned short keypad_keymap_thunder[][8] = {
 		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
 		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 	},
-#else
-	[LGE_REV_B] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_MENU,
-		[KEYMAP_INDEX(0, 1)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
-	[LGE_REV_C] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
-	},
-#endif
 	[LGE_REV_D] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
+		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
+		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
 		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
+		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 	},
 	[LGE_REV_E] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
+		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
+		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
 		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
+		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 	},
 	[LGE_REV_F] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
+		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
+		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
 		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
+		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 	},
 	[LGE_REV_10] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
+		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
+		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
 		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
+		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 	},
 	[LGE_REV_11] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
+		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
+		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
 		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
+		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 	},
 };
 
@@ -171,10 +144,6 @@ int thunderg_matrix_info_wrapper(struct input_dev *input_dev,struct gpio_event_i
 						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
 			gpio_tlmm_config(GPIO_CFG(keypad_col_gpios[1], 0,
 						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
-#if 1
-			gpio_tlmm_config(GPIO_CFG(keypad_col_gpios[2], 0,
-						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
-#endif
 		}
 
 		ret = gpio_event_matrix_func(input_dev,info, data,func);
@@ -240,8 +209,7 @@ static int thunderg_reset_keys_up[] = {
 static struct keyreset_platform_data thunderg_reset_keys_pdata = {
 	.keys_up = thunderg_reset_keys_up,
 	.keys_down = {
-		//KEY_BACK,
-		KEY_SEARCH,
+		KEY_BACK,
 		KEY_VOLUMEDOWN,
 		KEY_MENU,
 		0
