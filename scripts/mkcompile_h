@@ -64,7 +64,11 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
   echo \#define UTS_VERSION \"`echo $UTS_VERSION | $UTS_TRUNCATE`\"
 
   echo \#define LINUX_COMPILE_TIME \"`date +%T`\"
-  echo \#define LINUX_COMPILE_BY \"`whoami`\"
+
+# LGE_CHANGE print lge instead of build person in kernel release version string
+# cleaneye.kim@lge.com, 2010-02-27
+  echo \#define LINUX_COMPILE_BY \"lg-electronics\"
+#  echo \#define LINUX_COMPILE_BY \"`whoami`\"
   echo \#define LINUX_COMPILE_HOST \"`hostname | $UTS_TRUNCATE`\"
 
   domain=`dnsdomainname 2> /dev/null`
