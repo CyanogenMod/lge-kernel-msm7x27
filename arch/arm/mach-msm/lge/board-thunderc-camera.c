@@ -267,7 +267,7 @@ static struct platform_device *thunderc_camera_devices[] __initdata = {
 
 void __init lge_add_camera_devices(void)
 {
-	if (lge_bd_rev == LGE_REV_F)
+	if (lge_bd_rev >= LGE_REV_F)
 		pclk_rate = 32;
 	else
 		pclk_rate = 27;
