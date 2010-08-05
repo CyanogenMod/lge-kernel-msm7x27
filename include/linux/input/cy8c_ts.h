@@ -58,6 +58,7 @@ struct cy8c_ts_platform_data {
 	u16 invert_y;
 	u8 nfingers;
 	u8 use_polling;
+	bool wakeup;
 };
 
 #endif
