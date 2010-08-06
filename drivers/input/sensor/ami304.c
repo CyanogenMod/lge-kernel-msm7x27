@@ -270,7 +270,8 @@ static int AMI304_ReadSensorData(char *buf, int bufsize)
 
 exit_AMI304_ReadSensorData:
 	if (res<=0) {
-		AMIE("I2C error: ret value=%d\n", res);
+		if(printk_ratelimit())
+			AMIE("I2C error: ret value=%d\n", res);
 		return -3;
 	}
 	return 0;
