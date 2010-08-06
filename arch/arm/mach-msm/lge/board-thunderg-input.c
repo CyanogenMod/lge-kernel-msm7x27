@@ -209,9 +209,9 @@ static int thunderg_reset_keys_up[] = {
 static struct keyreset_platform_data thunderg_reset_keys_pdata = {
 	.keys_up = thunderg_reset_keys_up,
 	.keys_down = {
-		KEY_BACK,
+		//KEY_BACK,
 		KEY_VOLUMEDOWN,
-		KEY_MENU,
+		KEY_SEARCH,
 		0
 	},
 };
