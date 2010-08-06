@@ -154,9 +154,7 @@ int camera_power_on (void)
 	/*Nstandby high*/
 	gpio_set_value(GPIO_CAM_PWDN, 1);
 	
-	mdelay(8);  // T2 
-
-	camera_power_status = CAMERA_POWER_ON;
+	mdelay(8);  // T2
 
 	return rc;
 
@@ -213,8 +211,6 @@ int camera_power_off (void)
 		return rc;
 	}
 
-	camera_power_status = CAMERA_POWER_OFF;
-	
 	return rc;
 }
 
@@ -272,7 +268,7 @@ void __init lge_add_camera_devices(void)
 	else
 		pclk_rate = 27;
 
-	camera_power_status = CAMERA_POWER_OFF;
+	camera_power_status = CAMERA_POWER_ON;
 
     platform_add_devices(thunderc_camera_devices, ARRAY_SIZE(thunderc_camera_devices));
 }
