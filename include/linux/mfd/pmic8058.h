@@ -144,6 +144,7 @@ struct pm8058_gpio {
 #define PM8058_UART_MUX_2		0x40
 #define PM8058_UART_MUX_3		0x60
 
+/* Note -do not call pm8058_read and pm8058_write in an atomic context */
 int pm8058_read(struct pm8058_chip *pm_chip, u16 addr, u8 *values,
 		unsigned int len);
 int pm8058_write(struct pm8058_chip *pm_chip, u16 addr, u8 *values,
