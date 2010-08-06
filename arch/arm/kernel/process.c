@@ -302,7 +302,7 @@ void __show_regs(struct pt_regs *regs)
 	print_symbol("PC is at %s\n", instruction_pointer(regs));
 	print_symbol("LR is at %s\n", regs->ARM_lr);
 #ifdef CONFIG_MACH_LGE
-	printk("<<<<<\n");
+	printk(KERN_EMERG"<<<<<\n");
 #endif
 	printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n"
 	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
