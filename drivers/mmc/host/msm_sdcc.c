@@ -1207,7 +1207,7 @@ int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
  * And still same status, just skip.
  * fred.cho@lge.com, 2010-08-05
  */
-Static int msmsdcc_get_status(struct mmc_host *mmc)
+static int msmsdcc_get_status(struct mmc_host *mmc)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned int status;
