@@ -2132,6 +2132,16 @@ static int __msm_release(struct msm_sync *sync)
 	struct hlist_node *n;
 
 	mutex_lock(&sync->lock);
+#if defined (CONFIG_MACH_LGE)
+/* [junyeong.han@lge.com] 2010-08-09
+ * When opencnt is 0, just return 0.
+ * below code has potential risk(run release twise),
+ * when opencnt value is 0 */
+	if (!sync->opencnt) {
+		mutex_unlock(&sync->lock);
+		return 0;
+	}
+#endif
 	if (sync->opencnt)
 		sync->opencnt--;
 	if (!sync->opencnt) {
