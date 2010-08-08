@@ -48,13 +48,13 @@ int lge_bd_rev;
 
 static int __init board_revno_setup(char *rev_info)
 {
-	char *rev_str[] = { "evb", "rev_a", "rev_b", "rev_c", "rev_d", "rev_e", "rev_f",};
+	char *rev_str[] = { "evb", "rev_a", "rev_b", "rev_c", "rev_d", "rev_e", "rev_f","rev_10","rev_11","rev_12","rev_13",};
 	int i;
 
 	lge_bd_rev = LGE_REV_TOT_NUM;
 	
 	for (i = 0; i < LGE_REV_TOT_NUM; i++) 
-		if (!strncmp(rev_info, rev_str[i], 5)) {
+		if (!strncmp(rev_info, rev_str[i], 6)) {
 			lge_bd_rev = i;
 			break;
 		}
