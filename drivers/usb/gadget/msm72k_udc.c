@@ -404,12 +404,6 @@ static void usb_chg_detect(struct work_struct *w)
 	if (maxpower > 0)
 		otg_set_power(ui->xceiv, maxpower);
 
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-	if (LG_FACTORY_CABLE_TYPE == cable_type
-		|| LG_FACTORY_CABLE_130K_TYPE == cable_type)  //detect LT cable
-		goto skip;
-#endif
-
 	/* USB driver prevents idle and suspend power collapse(pc)
 	 * while USB cable is connected. But when dedicated charger is
 	 * connected, driver can vote for idle and suspend pc.
@@ -421,11 +415,6 @@ static void usb_chg_detect(struct work_struct *w)
 		pm_runtime_put_sync(&ui->pdev->dev);
 		wake_unlock(&ui->wlock);
 	}
-
-#if defined(CONFIG_USB_SUPPORT_LGE_FACTORY_USB)
-skip :
-	return;
-#endif
 
 }
 
