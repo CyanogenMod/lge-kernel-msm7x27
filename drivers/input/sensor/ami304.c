@@ -918,9 +918,9 @@ static int __init ami304_probe(struct i2c_client *client, const struct i2c_devic
 	ecom_pdata->power(1);
 	AMI304_Init(AMI304_FORCE_MODE); // default is Force State
 
-	atomic_set(&o_status, 1);
-	atomic_set(&m_status, 1);
-	atomic_set(&a_status, 1);
+	atomic_set(&o_status, 0);
+	atomic_set(&m_status, 0);
+	atomic_set(&a_status, 0);
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	ami304_sensor_early_suspend.suspend = ami304_early_suspend;
