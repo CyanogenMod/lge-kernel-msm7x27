@@ -703,7 +703,13 @@ static DECLARE_WORK(dbs_refresh_work, dbs_refresh_callback);
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
-	schedule_work(&dbs_refresh_work);
+	if(!strcmp((char*)(handle->dev->name), "accelerometer") || !strcmp((char*)(handle->dev->name), "Acompass")){
+		//printk(KERN_INFO "Not Bumping up CPU for %s", handle->dev->name);
+		return;
+	}else{
+		schedule_work(&dbs_refresh_work);
+	}
+
 }
 
 static int dbs_input_connect(struct input_handler *handler,
