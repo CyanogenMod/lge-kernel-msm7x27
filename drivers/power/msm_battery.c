@@ -1010,6 +1010,14 @@ void msm_batt_late_resume(struct early_suspend *h)
 		return;
 	}
 
+#ifdef CONFIG_LGE_FUEL_GAUGE
+		/* LGE_CHANGE
+		 * add for Battery Status Update when out of sleep
+		 * 2010-04-21 baborobo@lge.com
+		 */
+	msm_batt_update_psy_status();
+#endif
+
 	pr_debug("%s: exit\n", __func__);
 }
 #endif
