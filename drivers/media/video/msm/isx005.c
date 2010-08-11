@@ -567,13 +567,33 @@ static int isx005_check_focus(int *lock)
 		return -ETIME;
 	
 	isx005_check_af_lock();
-	
-	/* af result read  success/ fail*/
-	rc = isx005_i2c_read(isx005_client->addr, 0x6D77, &af_result, BYTE_LEN);
+
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC)
+	unsigned short af_check1, af_check2;
+	rc = isx005_i2c_read(isx005_client->addr, 0x6D3A, &af_check1, BYTE_LEN);
 	if (rc < 0) {
-		printk("[isx005.c]%s: fai; in reading af_result\n",__func__);
+			printk("[isx005.c]%s: fail in reading af_check1\n",__func__);
+			return rc;
+		}
+
+	rc = isx005_i2c_read(isx005_client->addr, 0x6D52, &af_check2, BYTE_LEN);
+	if (rc < 0) {
+		printk("[isx005.c]%s: fail in reading af_check2\n",__func__);
 		return rc;
 	}
+
+	if (af_check1 == 1 && af_check2 == 1)
+		af_result = 1;
+	else
+		af_result = 0;
+#else
+	/* af result read  success / fail*/
+	rc = isx005_i2c_read(isx005_client->addr, 0x6D77, &af_result, BYTE_LEN);
+	if (rc < 0) {
+		printk("[isx005.c]%s: fail in reading af_result\n",__func__);
+		return rc;
+	}
+#endif
 
 	/* single autofocus off */
 	rc = isx005_i2c_write(isx005_client->addr, 0x002E, 0x03, BYTE_LEN);
@@ -586,10 +606,10 @@ static int isx005_check_focus(int *lock)
 		return rc;
 
 	if (af_result == 1) {
-		*lock = CFG_AF_LOCKED;  // success
+		*lock = CFG_AF_LOCKED;		// success
 		return rc;
 	} else {
-		*lock = CFG_AF_UNLOCKED; //0: focus fail or 2: during focus
+		*lock = CFG_AF_UNLOCKED;	// fail
 		return rc;
 	}
 
