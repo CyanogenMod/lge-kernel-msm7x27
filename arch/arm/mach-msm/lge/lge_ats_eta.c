@@ -21,6 +21,7 @@
 #include <mach/board_lge.h>
 #include <linux/lge_alohag_at.h>
 #include "lge_ats.h"
+#include "mach/lge_diag_test.h"
 
 #define JIFFIES_TO_MS(t) ((t) * 1000 / HZ)
 
@@ -40,11 +41,14 @@ int base64_encode(char *, int, char *);
 extern int event_log_start(void);
 extern int event_log_end(void);
 
-int eta_execute(char *string)
+#define ETA_CMD_STR "/system/bin/eta"
+#define ETA_SHELL_STR "/system/bin/sh"
+
+int eta_execute_n(char *string, size_t size)
 {
 	int ret;
-	char cmdstr[100];
-	int fd;
+	char *cmdstr;
+
 	char *envp[] = {
 		"HOME=/",
 		"TERM=linux",
@@ -54,30 +58,32 @@ int eta_execute(char *string)
 	char *argv[] = {
 		"sh",
 		"-c",
-			cmdstr,
+		NULL,
 		NULL,
 	};
 
-	if ( (fd = sys_open((const char __user *) "/system/bin/eta", O_RDONLY ,0) ) < 0 )
+	size += strlen(ETA_CMD_STR) + 1;
+
+	if (!(cmdstr = kmalloc(size, GFP_KERNEL)))
 	{
-		printk("\n [ETA]can not open /system/bin/eta - execute /system/bin/eta\n");
-		sprintf(cmdstr, "/system/bin/eta %s", string);
-	}
-	else
-	{
-		printk("\n [ETA]execute /system/bin/eta\n");
-		sprintf(cmdstr, "/system/bin/eta %s", string);
-		sys_close(fd);
+		return ENOMEM;
 	}
 
-	printk(KERN_INFO "[ETA]execute eta : data - %s\n", cmdstr);
-	if ((ret =
-	     call_usermodehelper("/system/bin/sh", argv, envp, UMH_WAIT_PROC)) != 0) {
-		printk(KERN_ERR "[ETA]Eta failed to run \": %i\n",
-		       ret);
+	argv[2] = cmdstr;
+	memset(cmdstr, 0, size);
+
+	snprintf(cmdstr, size, "%s %s", ETA_CMD_STR, string);
+	printk(KERN_INFO "[ETA]execute eta : data - %s\n", string);
+
+	if ((ret = call_usermodehelper("/system/bin/sh", argv, envp, UMH_WAIT_PROC)) != 0) {
+		printk(KERN_ERR "[ETA]Eta failed to run \": %i\n", ret);
 	}
 	else
+	{
 		printk(KERN_INFO "[ETA]execute ok, ret = %d\n", ret);
+	}
+
+	kfree(cmdstr);
 	return ret;
 }
 
@@ -362,7 +368,7 @@ uint32_t at_cmd,at_act;
 				result = HANLDE_FAIL;
 
 			printk(KERN_INFO "[ETA]totalBuffer : [%s] size: %d\n", totalBuffer, totalBufferSize);
-			exec_result = eta_execute(totalBuffer);
+			exec_result = eta_execute_n(totalBuffer, totalBufferSize);
 			printk(KERN_INFO "[ETA]AT+MTC exec_result %d\n",exec_result);
 			
 /*
