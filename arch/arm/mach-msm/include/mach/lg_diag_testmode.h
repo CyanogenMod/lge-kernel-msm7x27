@@ -41,7 +41,7 @@ typedef enum
   MP3_DSP_OS_VER=21,
   VER_MODULE  ,
   VER_LCD_REVISION=24
-  
+
 } test_mode_req_version_type;
 
 typedef enum
@@ -68,7 +68,7 @@ typedef enum
   MP3_MULTISINE_20KHZ,
   MP3_PLAYMODE_OFF,
   MP3_SAMPLE_FILE,
-  MP3_NoSignal_LR_128k  
+  MP3_NoSignal_LR_128k
 }test_mode_req_mp3_test_type;
 
 typedef enum
@@ -136,7 +136,8 @@ typedef enum
 {
   EXTERNAL_SOCKET_MEMORY_CHECK,
   EXTERNAL_FLASH_MEMORY_SIZE,
-  EXTERNAL_SOCKET_ERASE
+  EXTERNAL_SOCKET_ERASE,
+  EXTERNAL_FLASH_MEMORY_USED_SIZE = 4,
 }test_mode_req_socket_memory;
 
 typedef enum
@@ -165,7 +166,7 @@ typedef enum{
 }test_mode_factory_reset_status_type;
 
 #endif
-typedef enum 
+typedef enum
 {
   SLEEP_MODE_ON,
   AIR_PLAIN_MODE_ON
@@ -194,7 +195,7 @@ typedef enum
 typedef enum
 {
   PID_WRITE,
-  PID_READ  
+  PID_READ
 }test_mode_req_pid_type;
 
 
@@ -225,7 +226,7 @@ typedef union
   test_mode_req_memory_capa_type mem_capa;
   word key_data;
   test_mode_req_motor_type		  	motor;
-  test_mode_req_acoustic_type 	  	acoustic;  
+  test_mode_req_acoustic_type 	  	acoustic;
   test_mode_req_mp3_test_type  		mp3_play;
   test_mode_req_speaker_phone_type	speaker_phone;
   test_mode_req_volume_level_type	volume_level;
@@ -266,13 +267,13 @@ typedef union
 #endif /* LG_FW_FACTORY_MODE */
 
 // LG_FW : 2006.04.07 louvethee--------------------
-#ifdef LG_FW_TEST_MODE_V6_4  
+#ifdef LG_FW_TEST_MODE_V6_4
   test_mode_req_batter_bar_type			batt;
   test_mode_req_speaker_phone_type		speaker_phone;
   byte Volume_Level_Test;
-#endif  // LG_FW_TEST_MODE_V6_4  
+#endif  // LG_FW_TEST_MODE_V6_4
 // ----------------------------------------------------------
-  
+
   test_mode_req_memory_capa_type mem_capa;
 
 #ifdef LG_FW_TEST_MODE_V6_7
@@ -294,7 +295,7 @@ typedef union
   test_mode_req_proximity_type test_mode_test_proxi_mode;
 #endif
 
-  test_mode_req_manual_test_mode_type test_manual_mode; 
+  test_mode_req_manual_test_mode_type test_manual_mode;
 
 // LG_FW : 2008.07.29 hoonylove004--------------------------------------------
 // RF CAL backup
@@ -314,7 +315,7 @@ typedef struct DIAG_TEST_MODE_F_req_tag {
 	diagpkt_header_type		xx_header;
 	word					sub_cmd_code;
 	test_mode_req_type		test_mode_req;
-} PACKED DIAG_TEST_MODE_F_req_type;	
+} PACKED DIAG_TEST_MODE_F_req_type;
 
 typedef enum
 {
@@ -323,7 +324,7 @@ typedef enum
   TEST_NOT_SUPPORTED_S
 } PACKED test_mode_ret_stat_type;
 
-typedef struct 
+typedef struct
 {
     byte SVState;
     uint8 SV;
@@ -336,13 +337,14 @@ typedef union
   byte								str_buf[15];
   CGPSResultType TestResult[16];
   test_mode_req_motor_type		    motor;
-  test_mode_req_acoustic_type 	    acoustic;  
+  test_mode_req_acoustic_type 	    acoustic;
   test_mode_req_mp3_test_type 	    mp3_play;
   test_mode_req_speaker_phone_type  speaker_phone;
   test_mode_req_volume_level_type   volume_level;
-  char key_pressed_buf[MAX_KEY_BUFF_SIZE];  
+  char key_pressed_buf[MAX_KEY_BUFF_SIZE];
   char  memory_check;
-  int     socket_memory_size;
+  int    socket_memory_size;
+  int    socket_memory_usedsize;
   test_mode_req_cam_type		 camera;
   unsigned int mem_capa;
   int manual_test;
@@ -377,11 +379,11 @@ typedef union
   byte       batt_bar_count;
 
   // LG_FW : 2006.04.07 louvethee--------------------
-#ifdef LG_FW_TEST_MODE_V6_4  
-  char       batt_voltage[5]; 
+#ifdef LG_FW_TEST_MODE_V6_4
+  char       batt_voltage[5];
   byte		chg_stat;
  test_mode_req_mp3_test_type mp3_play;
-#endif  // LG_FW_TEST_MODE_V6_4  
+#endif  // LG_FW_TEST_MODE_V6_4
 // ----------------------------------------------------------
   byte       ant_bar_count;
   unsigned int mem_capa;
@@ -425,7 +427,7 @@ typedef enum
   TEST_MODE_EFS_INTEGRITY=11,
   TEST_MODE_IRDA_FMRT_FINGER_UIM_TEST=13,
   TEST_MODE_BREW_CNT=20,
-  TEST_MODE_BREW_SIZE=21,  
+  TEST_MODE_BREW_SIZE=21,
   TEST_MODE_KEY_TEST,    //LGF_TM_KEY_PAD_TEST
   TEST_MODE_EXT_SOCKET_TEST,
 #ifndef LG_BTUI_TEST_MODE
@@ -435,16 +437,16 @@ typedef enum
   TEST_MODE_MP3_TEST=27,
   TEST_MODE_FM_TRANCEIVER_TEST,
   TEST_MODE_ISP_DOWNLOAD_TEST,
-  TEST_MODE_COMPASS_SENSOR_TEST=30,     // Geometric (Compass) Sensor      
-  TEST_MODE_ACCEL_SENSOR_TEST=31,           
-  TEST_MODE_ALCOHOL_SENSOR_TEST=32,           
+  TEST_MODE_COMPASS_SENSOR_TEST=30,     // Geometric (Compass) Sensor
+  TEST_MODE_ACCEL_SENSOR_TEST=31,
+  TEST_MODE_ALCOHOL_SENSOR_TEST=32,
   TEST_MODE_TDMB_TEST=33,
-  TEST_MODE_WIFI_TEST=33,           
-  TEST_MODE_TV_OUT_TEST=33,           
-  TEST_MODE_SDMB_TEST=33,           
-  TEST_MODE_MANUAL_MODE_TEST=36,   // Manual test        
-  TEST_MODE_UV_SENSOR_TEST=38,           
-  TEST_MODE_3D_ACCELERATOR_SENSOR_TEST=39,           
+  TEST_MODE_WIFI_TEST=33,
+  TEST_MODE_TV_OUT_TEST=33,
+  TEST_MODE_SDMB_TEST=33,
+  TEST_MODE_MANUAL_MODE_TEST=36,   // Manual test
+  TEST_MODE_UV_SENSOR_TEST=38,
+  TEST_MODE_3D_ACCELERATOR_SENSOR_TEST=39,
 
   TEST_MODE_KEY_DATA_TEST = 40,  // Key Code Input
   TEST_MODE_MEMORY_CAPA_TEST,  // Memory Volume Check
@@ -476,13 +478,13 @@ typedef enum
   TEST_MODE_FULL_SIGNATURE_TEST,
   TEST_MODE_NT_CODE_TEST,
   TEST_MODE_SIM_ID_TEST = 79,
-  
+
   TEST_MODE_CAL_CHECK= 82,
 #ifndef LG_BTUI_TEST_MODE
   TEST_MODE_BLUETOOTH_TEST_RW=83,
 #endif //LG_BTUI_TEST_MODE
   TEST_MODE_SKIP_WELCOM_TEST = 87,
-  
+
   MAX_TEST_MODE_SUBCMD = 0xFFFF
   //TEST_MODE_CURRENT,
   //TEST_MODE_BREW_FILES,
@@ -503,7 +505,7 @@ typedef struct
 }testmode_user_table_entry_type;
 
 /* LGE_CHANGES_S, [dongp.kim@lge.com], 2010-01-10, <LGE_FACTORY_TEST_MODE for WLAN RF Test > */
-typedef struct 
+typedef struct
 {
 	uint16 countresult;
 	uint16 wlan_status;
@@ -531,7 +533,7 @@ typedef struct DIAG_TEST_MODE_KEY_F_rsp_tag {
   diagpkt_header_type		xx_header;
   word					sub_cmd_code;
   test_mode_ret_stat_type	ret_stat_code;
-  char key_pressed_buf[MAX_KEY_BUFF_SIZE];  
+  char key_pressed_buf[MAX_KEY_BUFF_SIZE];
 } PACKED DIAG_TEST_MODE_KEY_F_rsp_type;
 
 #endif /* LG_DIAG_TESTMODE_H */

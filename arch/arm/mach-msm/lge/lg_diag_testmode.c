@@ -475,39 +475,48 @@ void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_t
     printk(KERN_ERR "khlee debug %d \n", pReq->esm);
 
     switch( pReq->esm){
-      case EXTERNAL_SOCKET_MEMORY_CHECK:
+	case EXTERNAL_SOCKET_MEMORY_CHECK:
         pRsp->test_mode_rsp.memory_check = external_memory_copy_test();
         break;
 
-      case EXTERNAL_FLASH_MEMORY_SIZE:
+	case EXTERNAL_FLASH_MEMORY_SIZE:
         if (sys_statfs("/sdcard", (struct statfs *)&sf) != 0)
         {
-          printk(KERN_ERR "[Testmode]can not get sdcard infomation \n");
-          pRsp->ret_stat_code = TEST_FAIL_S;
-          break;
+			printk(KERN_ERR "[Testmode]can not get sdcard infomation \n");
+			pRsp->ret_stat_code = TEST_FAIL_S;
+			break;
         }
-         printk(KERN_ERR "blocks %d  \n", sf.f_blocks);
-         printk(KERN_ERR "block size %d \n", sf.f_bsize);
-
-        pRsp->test_mode_rsp.socket_memory_size = (sf.f_blocks *  sf.f_bsize) >> 20; // needs Mb.
+		pRsp->test_mode_rsp.socket_memory_size = ((long long)sf.f_blocks * (long long)sf.f_bsize) >> 20; // needs Mb.
         break;
-      case EXTERNAL_SOCKET_ERASE:
-      
+
+	case EXTERNAL_SOCKET_ERASE:
+
         if (diagpdev != NULL){
-          update_diagcmd_state(diagpdev, "FACTORY_RESET", 3);
-          msleep(5000);          
-          pRsp->ret_stat_code = TEST_OK_S;
+			update_diagcmd_state(diagpdev, "FACTORY_RESET", 3);
+			msleep(5000);
+			pRsp->ret_stat_code = TEST_OK_S;
         }
         else 
         {
-          printk("\n[%s] error FACTORY_RESET", __func__ );        
-          pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
+			printk("\n[%s] error FACTORY_RESET", __func__ );
+			pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
         }
         break;
-      default:
+
+	case EXTERNAL_FLASH_MEMORY_USED_SIZE:
+		if (sys_statfs("/sdcard", (struct statfs *)&sf) != 0)
+		{
+			printk(KERN_ERR "[Testmode]can not get sdcard information \n");
+			pRsp->ret_stat_code = TEST_FAIL_S;
+			break;
+		}
+		pRsp->test_mode_rsp.socket_memory_usedsize = ((long long)(sf.f_blocks - (long long)sf.f_bfree) * sf.f_bsize) >> 20;
+		break;
+
+	default:
         pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
         break;
-      }
+	}
 
     return pRsp;
 }
