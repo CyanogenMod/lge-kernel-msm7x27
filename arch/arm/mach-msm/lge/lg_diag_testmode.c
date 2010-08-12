@@ -895,10 +895,29 @@ void* LGF_TestScriptItemSet(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_type
 	}  
 	else
 		send_to_arm9((void*)(((byte*)pReq) -sizeof(diagpkt_header_type) - sizeof(word)) , pRsp);
+        
+  return pRsp;
+	
+}
+
+void* LGF_TestModeDBIntegrityCheck(    test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_type     *pRsp)
+{
+
+	printk(KERN_ERR "[_DBCHECK_] [%s:%d] DBCHECKSubCmd=<%d>\n", __func__, __LINE__, pReq->bt);
+
+	if (diagpdev != NULL){
+		update_diagcmd_state(diagpdev, "DBCHECK", pReq->db_check);
+		pRsp->ret_stat_code = TEST_OK_S;
+	}
+	else
+	{
+		printk("\n[%s] error DBCHECK", __func__ );
+		pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
+	}
 
 	return pRsp;
-
 }
+
 /*  USAGE
  *    1. If you want to handle at ARM9 side, you have to insert fun_ptr as NULL and mark ARM9_PROCESSOR
  *    2. If you want to handle at ARM11 side , you have to insert fun_ptr as you want and mark AMR11_PROCESSOR.
@@ -962,5 +981,7 @@ testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE] =
 	{ TEST_MODE_BLUETOOTH_TEST_RW			 ,	LGF_TestModeBlueTooth_RW	   , ARM11_PROCESSOR},
 #endif //LG_BTUI_TEST_MODE
 	{ TEST_MODE_SKIP_WELCOM_TEST, 			NULL,						ARM9_PROCESSOR},
+	/*90~	*/
+	{ TEST_MODE_DB_INTEGRITY_CHECK,		LGF_TestModeDBIntegrityCheck,	ARM11_PROCESSOR},
 };
 

@@ -215,6 +215,16 @@ typedef enum
  CAL_DATA_CHECK,
 } test_mode_req_cal_check_type;
 
+/* LGE_CHANGES_S, [jaffrhee@lge.com], 2010-08-03, <DB Integrity Check > */
+/* TEST_MODE_DB_INTEGRITY_CHECK */
+typedef enum
+{
+  DB_INTEGRITY_CHECK=0,
+  DB_CHECK_DUMP_TO_INTERNAL_MEMORY,
+  DB_CHECK_COPY_TO_SD_CARD
+} test_mode_req_db_check;
+/* LGE_CHANGES_E, [jaffrhee@lge.com], 2010-08-03, <DB Integrity Check > */
+
 typedef union
 {
   test_mode_req_version_type		version;
@@ -240,6 +250,7 @@ typedef union
   test_mode_req_pid_type		pid;	// pid Write/Read
   test_mode_req_sw_version_type	sw_version;
   test_mode_req_cal_check_type		cal_check;
+  test_mode_req_db_check		db_check;
 #if 0
   test_mode_req_lcd_type			lcd;
   test_mode_req_folder_type			folder;
@@ -351,6 +362,7 @@ typedef union
   test_mode_req_pid_type		pid;
   test_mode_req_sw_version_type	sw_version;
   test_mode_req_cal_check_type		cal_check;
+  test_mode_req_db_check                db_check;
 #ifndef SKW_TEST
   test_mode_req_factory_reset_mode_type  factory_reset;
 #endif
@@ -484,7 +496,10 @@ typedef enum
   TEST_MODE_BLUETOOTH_TEST_RW=83,
 #endif //LG_BTUI_TEST_MODE
   TEST_MODE_SKIP_WELCOM_TEST = 87,
-
+  //[START]LGE_DB_CHECK: jaffrhee@lge.com 2010-08-02
+  TEST_MODE_DB_INTEGRITY_CHECK=91,
+  //[END]LGE_DB_CHECK: jaffrhee@lge.com 2010-08-02
+  //
   MAX_TEST_MODE_SUBCMD = 0xFFFF
   //TEST_MODE_CURRENT,
   //TEST_MODE_BREW_FILES,
