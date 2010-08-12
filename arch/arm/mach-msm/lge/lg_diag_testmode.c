@@ -492,7 +492,9 @@ void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_t
 	case EXTERNAL_SOCKET_ERASE:
 
         if (diagpdev != NULL){
-			update_diagcmd_state(diagpdev, "FACTORY_RESET", 3);
+			update_diagcmd_state(diagpdev, "MMCFORMAT", 0);
+			update_diagcmd_state(diagpdev, "MMCFORMAT", 1);
+			update_diagcmd_state(diagpdev, "MMCFORMAT", 9);
 			msleep(5000);
 			pRsp->ret_stat_code = TEST_OK_S;
         }
