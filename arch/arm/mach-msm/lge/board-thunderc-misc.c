@@ -255,13 +255,10 @@ static void pmic_mpp_isink_set(struct led_classdev *led_cdev,
 {
 	int mpp_number;
 	int on_off;
+	int i ;
 
-	if (!strcmp(led_cdev->name ,"red"))
-		mpp_number = (int)PM_MPP_20;
-	else if (!strcmp(led_cdev->name, "green"))
-		mpp_number = (int)PM_MPP_21;
-	else if (!strcmp(led_cdev->name, "blue"))
-		mpp_number = (int)PM_MPP_22;
+	if (!strcmp(led_cdev->name ,"button-backlight"))
+		mpp_number = (int)PM_MPP_19;
 	else
 		return;
 
@@ -270,8 +267,11 @@ static void pmic_mpp_isink_set(struct led_classdev *led_cdev,
 	else
 		on_off = (int)PM_MPP__I_SINK__SWITCH_ENA;
 
-	pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,
+	for(i=0; i<4; i++){
+		pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,
 			PM_MPP__I_SINK__LEVEL_15mA, (enum mpp_i_sink_switch)on_off);
+		mpp_number++;
+	}
 }
 
 static void button_backlight_set(struct led_classdev* led_cdev, enum led_brightness value)
