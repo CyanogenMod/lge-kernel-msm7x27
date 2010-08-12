@@ -823,6 +823,9 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_voltage  	= battery_voltage;
 	msm_batt_info.batt_capacity =
 		msm_batt_info.calculate_capacity(battery_soc);
+
+	if (!supp)
+		supp = msm_batt_info.current_ps;
 #else
 	if(msm_batt_info.battery_voltage != battery_voltage) {
 		msm_batt_info.battery_voltage = battery_voltage;
@@ -848,21 +851,11 @@ static void msm_batt_update_psy_status(void)
 	}
 #endif
 
-#if defined(CONFIG_LGE_FUEL_GAUGE) && !defined(CONFIG_MACH_MSM7X27_THUNDERC)
-	if (supp 
-			&& supp != &msm_psy_batt) {
-		msm_batt_info.current_ps = supp;
-		DBG_LIMIT("BATT: Supply = %s\n", supp->name);
-		power_supply_changed(supp);
-	}
-	power_supply_changed(&msm_psy_batt);
-#else
 	if (supp) {
 		msm_batt_info.current_ps = supp;
 		DBG_LIMIT("BATT: Supply = %s\n", supp->name);
 		power_supply_changed(supp);
 	}
-#endif
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -968,6 +961,7 @@ static int msm_batt_modify_client(u32 client_handle, u32 desired_batt_voltage,
 
 void msm_batt_early_suspend(struct early_suspend *h)
 {
+#ifndef CONFIG_MACH_MSM7X27_THUNDERG
 	int rc;
 
 	pr_debug("%s: enter\n", __func__);
@@ -988,10 +982,12 @@ void msm_batt_early_suspend(struct early_suspend *h)
 	}
 
 	pr_debug("%s: exit\n", __func__);
+#endif
 }
 
 void msm_batt_late_resume(struct early_suspend *h)
 {
+#ifndef CONFIG_MACH_MSM7X27_THUNDERG
 	int rc;
 
 	pr_debug("%s: enter\n", __func__);
@@ -1010,34 +1006,68 @@ void msm_batt_late_resume(struct early_suspend *h)
 		return;
 	}
 
-#ifdef CONFIG_LGE_FUEL_GAUGE
-		/* LGE_CHANGE
-		 * add for Battery Status Update when out of sleep
-		 * 2010-04-21 baborobo@lge.com
-		 */
+	pr_debug("%s: exit\n", __func__);
+#else
+	pr_debug("%s: enter\n", __func__);
+
 	msm_batt_update_psy_status();
-#endif
 
 	pr_debug("%s: exit\n", __func__);
+#endif
 }
 #endif
 
-#ifdef CONFIG_PM
+#if defined CONFIG_MACH_MSM7X27_THUNDERG && defined CONFIG_PM
 static int msm_batt_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	printk(KERN_INFO "[msm_battery] %s()...\n", __func__);
+	int rc;
+
+	pr_debug(KERN_INFO "[msm_battery] %s()...\n", __func__);
+
+	msm_batt_update_psy_status();
+
+	if (msm_batt_info.batt_handle != INVALID_BATT_HANDLE) {
+		rc = msm_batt_modify_client(msm_batt_info.batt_handle,
+				BATTERY_LOW, BATTERY_VOLTAGE_BELOW_THIS_LEVEL,
+				BATTERY_CB_ID_LOW_VOL, BATTERY_LOW);
+
+		if (rc < 0) {
+			pr_err("%s: msm_batt_modify_client. rc=%d\n",
+			       __func__, rc);
+			return 0;
+		}
+	} else {
+		pr_err("%s: ERROR. invalid batt_handle\n", __func__);
+		return 0;
+	}
 
 	return 0;
 }
 
 static int msm_batt_resume(struct platform_device *pdev)
 {
-	printk(KERN_INFO "[msm_battery] %s()...\n", __func__);
+	int rc;
+
+	pr_debug(KERN_INFO "[msm_battery] %s()...\n", __func__);
+
+	if (msm_batt_info.batt_handle != INVALID_BATT_HANDLE) {
+		rc = msm_batt_modify_client(msm_batt_info.batt_handle,
+				BATTERY_LOW, BATTERY_ALL_ACTIVITY,
+			       BATTERY_CB_ID_ALL_ACTIV, BATTERY_ALL_ACTIVITY);
+		if (rc < 0) {
+			pr_err("%s: msm_batt_modify_client FAIL rc=%d\n",
+			       __func__, rc);
+			return 0;
+		}
+	} else {
+		pr_err("%s: ERROR. invalid batt_handle\n", __func__);
+		return 0;
+	}
 
 	msm_batt_update_psy_status();
 	return 0;
 }
-#endif
+#endif //#if defined CONFIG_MACH_MSM7X27_THUNDERG && defined CONFIG_PM
 
 struct msm_batt_vbatt_filter_req {
 	u32 batt_handle;
@@ -1639,7 +1669,7 @@ static int __devexit msm_batt_remove(struct platform_device *pdev)
 static struct platform_driver msm_batt_driver = {
 	.probe = msm_batt_probe,
 	.remove = __devexit_p(msm_batt_remove),
-#ifdef CONFIG_PM
+#if defined CONFIG_MACH_MSM7X27_THUNDERG && defined CONFIG_PM
 	.suspend = msm_batt_suspend,
 	.resume = msm_batt_resume,
 #endif
