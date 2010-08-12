@@ -38,10 +38,6 @@
 
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_CDMA
 
-#define LG_FACTORY_CABLE_TYPE 3
-#define LG_FACTORY_CABLE_130K_TYPE 10
-#define LT_ADB_CABLE 0xff
-
 extern int msm_chg_LG_cable_type();
 extern void msm_get_MEID_type(char* sMeid);
 
@@ -81,9 +77,6 @@ static int do_detect_factory_cable(void)
 /* -------- WCDMA(GSM) Class Utils -------- */
 
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_GSM
-
-#define MAX_IMEI_LEN 19
-#define LGE_PIF_CABLE 2
 
 static int do_get_usb_serial_number(char *serial_number)
 {

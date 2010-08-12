@@ -94,7 +94,7 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 #ifdef CONFIG_USB_ANDROID
 /* dynamic composition */
 /* This depends on each board. QCT original is at device_lge.c */
-/* function bit : (in include/linux/android.h)
+/* function bit : (in include/linux/usb/android.h)
    ADB				0x0001
    MSC				0x0002
    ACM_MODEM		0x0003
@@ -105,13 +105,16 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
    CDC_ECM			0x0008
    RMNET			0x0009
    RNDIS			0x000A
+   MTP				0x000B
 */
 struct usb_composition usb_func_composition[] = {
 	{
-		/* Mass Storage only mode : UMS */
-		.product_id         = 0x61B4,
+		/* Mass Storage only mode : UMS
+		 * PID is dedicated for Thunder Global
+		 */
+		.product_id         = 0x61C5,
 		.functions	    	= 0x2,
-		.adb_product_id     = 0x61B4,
+		.adb_product_id     = 0x61C5,
 		.adb_functions	    = 0x2,
 	},
 	{
@@ -122,13 +125,22 @@ struct usb_composition usb_func_composition[] = {
 		.adb_functions	    = 0x12743,
 	},
 	{
-		/* Factory mode(for WCDMA or GSM) : DIAG, MODEM */
+		/* Factory mode for WCDMA or GSM : DIAG, MODEM */
 		/* We are in factory mode, ignore adb function */
 		.product_id         = 0x6000,
 		.functions	    	= 0x43,
 		.adb_product_id     = 0x6000,
 		.adb_functions	    = 0x43,
 	},
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
+	{
+		/* LG Rmnet Driver for matching LG Android Net driver */
+		.product_id         = 0x61A2,
+		.functions          = 0x27384,
+		.adb_product_id     = 0x61A1,
+		.adb_functions      = 0x127384,
+	},
+#endif	
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	{
 		/* RNDIS */
