@@ -173,6 +173,7 @@ struct msm_endpoint {
 static void usb_do_work(struct work_struct *w);
 static void usb_do_remote_wakeup(struct work_struct *w);
 
+extern int msm_chg_LG_cable_type(void);
 
 #define USB_STATE_IDLE    0
 #define USB_STATE_ONLINE  1
