@@ -492,13 +492,13 @@ void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_t
 		case EXTERNAL_SOCKET_ERASE:
 
 			if (diagpdev != NULL){
-				update_diagcmd_state(diagpdev, "FACTORY_RESET", 3);
+				update_diagcmd_state(diagpdev, "MMCFORMAT", 1);
 				msleep(5000);
 				pRsp->ret_stat_code = TEST_OK_S;
 			}
 			else 
 			{
-				printk("\n[%s] error FACTORY_RESET", __func__ );
+				printk("\n[%s] error MMCFORMAT", __func__ );
 				pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
 			}
 			break;
