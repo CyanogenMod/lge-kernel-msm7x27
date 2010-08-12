@@ -60,16 +60,15 @@ static int dummy_arg;
 module_param(dev, int, S_IRUGO);
 module_param(target_block, int, S_IRUGO);
 
-static int test_init(const char *val, struct kernel_param *kp)
+static int test_init(void)
 {
-	int partition = MISC_PART_NUM;
-	int block = 1;
+	int partition = PERSIST_PART_NUM;
+	int block = 0;
 
 	return init_mtd_access(partition, block);
 }
-module_param_call(init, test_init, param_get_bool, &dummy_arg, S_IWUSR | S_IRUGO);
 
-static int test_erase_block(const char *val, struct kernel_param *kp)
+static int test_erase_block(void)
 {
 	int normal_block_seq = 0;
 	int i;
@@ -96,16 +95,24 @@ static int test_erase_block(const char *val, struct kernel_param *kp)
 
 	return 0;
 }
-module_param_call(erase_block, test_erase_block, param_get_bool, &dummy_arg, S_IWUSR | S_IRUGO);
-
 static int test_write_block(const char *val, struct kernel_param *kp)
 {
 	int i;
 	int err;
 	int normal_block_seq = 0;
-	unsigned char *test_string = "write test";
+	unsigned char *test_string;
+	unsigned long flag=0;
 
-	printk(KERN_INFO"%s: writing block\n", __func__);
+	test_init();
+	test_erase_block();
+	flag = simple_strtoul(val,NULL,10);
+	printk(KERN_INFO"%s: writing block: flag = %d\n", __func__,flag);
+	if(flag==5)
+		test_string="FACT_RESET_5";
+	else if(flag==6)
+		test_string="FACT_RESET_6";
+	else
+		return -1;
 
 	for (i = 0; i < ebcnt; ++i) {
 		if (bbt[i])
@@ -125,15 +132,18 @@ static int test_write_block(const char *val, struct kernel_param *kp)
 
 	return 0;
 }
-module_param_call(write_block, test_write_block, param_get_bool, &dummy_arg, S_IWUSR | S_IRUGO);
+module_param_call(write_block, test_write_block, param_get_bool, &dummy_arg,S_IWUSR | S_IRUGO);
 
-static int test_read_block(const char *val, struct kernel_param *kp)
+#define FACTORY_RESET_STR_SIZE 11
+static int test_read_block(char *buf, struct kernel_param *kp)
 {
 	int i;
 	int err;
 	int normal_block_seq = 0;
+	unsigned char status=0;
 
 	printk(KERN_INFO"%s: read block\n", __func__);
+	test_init();
 
 	for (i = 0; i < ebcnt; ++i) {
 		if (bbt[i])
@@ -152,9 +162,11 @@ static int test_read_block(const char *val, struct kernel_param *kp)
 	printk(KERN_INFO"%s: read %u block\n", __func__, i);
 	printk(KERN_INFO"%s: %s\n", __func__, global_buf);
 
-	return 0;
+	status = global_buf[FACTORY_RESET_STR_SIZE];
+	err = sprintf(buf,"%s",global_buf+FACTORY_RESET_STR_SIZE);
+	return err;
 }
-module_param_call(read_block, test_read_block, param_get_bool, &dummy_arg, S_IWUSR | S_IRUGO);
+module_param_call(read_block, param_get_bool, test_read_block, &dummy_arg, S_IWUSR | S_IRUGO);
 
 int lge_erase_block(int ebnum)
 {
