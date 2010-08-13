@@ -103,16 +103,17 @@ static int test_write_block(const char *val, struct kernel_param *kp)
 	unsigned char *test_string;
 	unsigned long flag=0;
 
-	test_init();
-	test_erase_block();
 	flag = simple_strtoul(val,NULL,10);
-	printk(KERN_INFO"%s: writing block: flag = %d\n", __func__,flag);
 	if(flag==5)
 		test_string="FACT_RESET_5";
 	else if(flag==6)
 		test_string="FACT_RESET_6";
 	else
 		return -1;
+
+	test_init();
+	test_erase_block();
+	printk(KERN_INFO"%s: writing block: flag = %d\n", __func__,flag);
 
 	for (i = 0; i < ebcnt; ++i) {
 		if (bbt[i])
