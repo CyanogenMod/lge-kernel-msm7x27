@@ -36,6 +36,11 @@
 #define ISX005_INTERVAL_T4		2	/* 15ms */
 #define ISX005_INTERVAL_T5		25	/* 200ms */
 
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
+/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
+extern mdp_load_thunder_lut(int lut_type);
+#endif
+
 /*
 * AF Total steps parameters
 */
@@ -1341,6 +1346,11 @@ static int isx005_sensor_init_probe(const struct msm_camera_sensor_info *data)
 		return -1;
 	}
 
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
+	/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
+	mdp_load_thunder_lut(2);	// Camera LUT
+#endif
+
 	rc = isx005_init_sensor(data);
 	if (rc < 0) {
 		printk(KERN_ERR "[ERROR]%s:failed to initialize sensor!\n", __func__);
@@ -1403,6 +1413,11 @@ int isx005_sensor_release(void)
 	kfree(isx005_ctrl);
 
 	mutex_unlock(&isx005_mutex);
+
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
+		/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
+		mdp_load_thunder_lut(1);	// Normal LUT
+#endif
 
 	return rc;
 }
