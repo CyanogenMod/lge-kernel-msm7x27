@@ -135,12 +135,14 @@ static int test_write_block(const char *val, struct kernel_param *kp)
 module_param_call(write_block, test_write_block, param_get_bool, &dummy_arg,S_IWUSR | S_IRUGO);
 
 #define FACTORY_RESET_STR_SIZE 11
+#define FACTORY_RESET_STR "FACT_RESET_"
 static int test_read_block(char *buf, struct kernel_param *kp)
 {
 	int i;
 	int err;
 	int normal_block_seq = 0;
 	unsigned char status=0;
+	char* temp = "1";
 
 	printk(KERN_INFO"%s: read block\n", __func__);
 	test_init();
@@ -156,15 +158,23 @@ static int test_read_block(char *buf, struct kernel_param *kp)
 	err = lge_read_block(normal_block_seq, global_buf);
 	if (err) {
 		printk(KERN_INFO"%s: read %u block fail\n", __func__, i);
-		return err;
+		goto error;
 	}
 
 	printk(KERN_INFO"%s: read %u block\n", __func__, i);
 	printk(KERN_INFO"%s: %s\n", __func__, global_buf);
-
-	status = global_buf[FACTORY_RESET_STR_SIZE];
-	err = sprintf(buf,"%s",global_buf+FACTORY_RESET_STR_SIZE);
-	return err;
+	
+	if(memcmp(global_buf, FACTORY_RESET_STR, FACTORY_RESET_STR_SIZE)==0){
+		status = global_buf[FACTORY_RESET_STR_SIZE];
+		err = sprintf(buf,"%s",global_buf+FACTORY_RESET_STR_SIZE);
+		return err;
+	}
+	else{
+error:
+		err = sprintf(buf,"%s",temp);
+		return err;
+	}
+	
 }
 module_param_call(read_block, param_get_bool, test_read_block, &dummy_arg, S_IWUSR | S_IRUGO);
 
