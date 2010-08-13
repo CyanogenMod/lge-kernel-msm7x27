@@ -236,8 +236,10 @@ static void handle_modem_crash(void)
 	 * 2010-05-04, cleaneye.kim@lge.com
 	 */
 	msm_pm_flush_console();
-	
+
+#if 0
 	atomic_notifier_call_chain(&panic_notifier_list, 0, 0x87654321);
+#endif
 #if 1
 	smsm_reset_modem(SMSM_SYSTEM_REBOOT);
 #else
@@ -1555,6 +1557,40 @@ uint32_t smsm_get_state(uint32_t smsm_entry)
 
 	return rv;
 }
+
+
+#ifdef CONFIG_MACH_LGE
+/* Make a api to not report a changed SMSM state to other processor
+ * blue.park@lge.com 2010-04-14
+ */
+int smsm_change_state_nonotify(uint32_t smsm_entry,
+		      uint32_t clear_mask, uint32_t set_mask)
+{
+	unsigned long flags;
+	uint32_t  old_state, new_state;
+
+	if (smsm_entry >= SMSM_NUM_ENTRIES) {
+		pr_err("smsm_change_state: Invalid entry %d",
+		       smsm_entry);
+		return -EINVAL;
+	}
+
+	if (!smsm_info.state) {
+		pr_err("smsm_change_state <SM NO STATE>\n");
+		return -EIO;
+	}
+	spin_lock_irqsave(&smem_lock, flags);
+
+	old_state = readl(SMSM_STATE_ADDR(smsm_entry));
+	new_state = (old_state & ~clear_mask) | set_mask;
+	writel(new_state, SMSM_STATE_ADDR(smsm_entry));
+	SMSM_DBG("smsm_change_state %x\n", new_state);
+	
+	spin_unlock_irqrestore(&smem_lock, flags);
+
+	return 0;
+}
+#endif
 
 int smd_core_init(void)
 {

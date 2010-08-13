@@ -1748,6 +1748,15 @@ void msm_pm_flush_console(void)
 
 static void msm_pm_power_off(void)
 {
+
+#ifdef CONFIG_MACH_LGE
+	/* To prevent Phone freezing during power off
+	 * blue.park@lge.com 2010-04-14 <To prevent Phone freezing during power off>
+	 */
+	smsm_change_state_nonotify(SMSM_APPS_STATE,
+						  0, SMSM_SYSTEM_POWER_DOWN);
+#endif
+
 	msm_rpcrouter_close();
 	printk(KERN_INFO"%s: \n",__func__);
 	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
