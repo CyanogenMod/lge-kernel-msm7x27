@@ -26,7 +26,7 @@
 #define ANDROID_CDC_ECM		0x0008
 #define ANDROID_RMNET		0x0009
 #define ANDROID_RNDIS		0x000A
-#if defined(CONFIG_USB_GADGET_LG_MTP_DRIVER)
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
 #define ANDROID_MTP   0x000B
 #endif
 
@@ -42,8 +42,9 @@ struct android_usb_platform_data {
 	char *product_name;
 	char *manufacturer_name;
 /* LGE_CHANGES_S [younsuk.song@lge.com] 2010-06-23, Add serial_number */
-#if defined(CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET)
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
 	char *serial_number;	
+	__u16 init_product_id;
 #endif
 /* LGE_CHANGES_E [younsuk.song@lge.com] 2010-06-23 */
 

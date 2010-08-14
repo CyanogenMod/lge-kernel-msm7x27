@@ -140,6 +140,7 @@ struct android_usb_platform_data android_usb_pdata = {
 	.product_name       = "LG Android USB Device",
 	.manufacturer_name	= "LG Electronics Inc.",
 	.serial_number		= "LGANDROIDVS660",	
+	.init_product_id	= 0x618E,
 	.nluns = 1,
 };
 

@@ -828,8 +828,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	 * gadget might need to intercept e.g. a control-OUT completion
 	 * when we delegate to it.
 	 */
-
-	pr_info("%s ctrl->bRequest: %d", __func__, ctrl->bRequest);
+	VDBG(cdev, "ctrl->bRequest: %d\n", ctrl->bRequest);
 	
 	req->zero = 0;
 	req->complete = composite_setup_complete;
@@ -980,8 +979,12 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
             break;
           }
           value = w_length;
-          }            
-          break;
+			break;
+		}            
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-13 Fix the MTP request */
+		goto unknown;
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2010-08-13 */          			
+
 #endif//CONFIG_USB_GADGET_LG_MTP_DRIVER
 
 	default:

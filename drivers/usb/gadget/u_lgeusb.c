@@ -38,7 +38,7 @@
 
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_CDMA
 
-extern int msm_chg_LG_cable_type();
+extern int msm_chg_LG_cable_type(void);
 extern void msm_get_MEID_type(char* sMeid);
 
 static int do_get_usb_serial_number(char *serial_number)

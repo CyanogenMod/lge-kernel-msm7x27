@@ -166,6 +166,7 @@ struct android_usb_platform_data android_usb_pdata = {
 	   be 20 characters at LG WCDMA class model(because of IMEI size).
 	   Currently we just have padding ;) */
 	.serial_number		= "LG_ANDROID_P500****",
+	.init_product_id	= 0x618E,
 	.nluns = 1,
 };
 

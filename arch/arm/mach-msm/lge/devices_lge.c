@@ -457,7 +457,7 @@ __WEAK struct usb_mass_storage_platform_data usb_mass_storage_pdata = {
 	.release        = 0xffff,
 };
 
-__WEAK static struct platform_device mass_storage_device = {
+__WEAK struct platform_device mass_storage_device = {
 	.name           = "usb_mass_storage",
 	.id             = -1,
 	.dev            = {
@@ -569,6 +569,7 @@ __WEAK struct android_usb_platform_data android_usb_pdata = {
 	.manufacturer_name = "Qualcomm Incorporated",
 	.nluns = 1,
 };
+
 static struct platform_device android_usb_device = {
 	.name	= "android_usb",
 	.id		= -1,
