@@ -487,7 +487,7 @@ static int diagchar_ioctl(unsigned int iocmd, unsigned long ioarg)
 		struct bindpkt_params_per_process *pkt_params =
 			 (struct bindpkt_params_per_process *) ioarg;
 
-		for (i = 0; i < REG_TABLE_SIZE; i++) {
+		for (i = 0; i < diag_max_registration; i++) {
 			if (driver->table[i].process_id == 0) {
 				driver->table[i].cmd_code =
 					 pkt_params->params->cmd_code;
