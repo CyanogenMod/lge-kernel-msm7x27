@@ -35,6 +35,14 @@ const char *yaffs_guts_c_version =
 
 #define YAFFS_PASSIVE_GC_CHUNKS 2
 
+/* 
+ * Checkpoints are really no benefit on very small partitions.
+ *
+ * To save space on small partitions don't bother with checkpoints unless
+ * the partition is at least this big.
+ */
+#define YAFFS_CHECKPOINT_MIN_BLOCKS	60
+
 #include "yaffs_ecc.h"
 
 
@@ -2835,12 +2843,20 @@ static int yaffs_FindBlockForAllocation(yaffs_Device *dev)
 	return -1;
 }
 
+static int yaffs_CheckpointRequired(yaffs_Device *dev)
+{
+	int nblocks = dev->internalEndBlock - dev->internalStartBlock + 1;
 
+	return dev->isYaffs2 &&
+			!dev->skipCheckpointWrite &&
+			(nblocks >= YAFFS_CHECKPOINT_MIN_BLOCKS);
+}
 
 static int yaffs_CalcCheckpointBlocksRequired(yaffs_Device *dev)
 {
 	if (!dev->nCheckpointBlocksRequired &&
-	   dev->isYaffs2) {
+//	   dev->isYaffs2) {
+		yaffs_CheckpointRequired(dev)) {
 		/* Not a valid value so recalculate */
 		int nBytes = 0;
 		int nBlocks;
@@ -4534,7 +4550,8 @@ static int yaffs_WriteCheckpointData(yaffs_Device *dev)
 {
 	int ok = 1;
 
-	if (dev->skipCheckpointWrite || !dev->isYaffs2) {
+//	if (dev->skipCheckpointWrite || !dev->isYaffs2) {
+	if (!yaffs_CheckpointRequired(dev)) {
 		T(YAFFS_TRACE_CHECKPOINT, (TSTR("skipping checkpoint write" TENDSTR)));
 		ok = 0;
 	}
@@ -5167,7 +5184,8 @@ static int yaffs_UnlinkFileIfNeeded(yaffs_Object *in)
 int yaffs_DeleteFile(yaffs_Object *in)
 {
 	int retVal = YAFFS_OK;
-	int deleted = in->deleted;
+	//int deleted = in->deleted;
+	int deleted; /* Need to cache value on stack if in is freed */
 
 	yaffs_ResizeFile(in, 0);
 
@@ -5177,6 +5195,8 @@ int yaffs_DeleteFile(yaffs_Object *in)
 		 */
 		if (!in->unlinked)
 			retVal = yaffs_UnlinkFileIfNeeded(in);
+
+		deleted = in->deleted;
 
 		if (retVal == YAFFS_OK && in->unlinked && !in->deleted) {
 			in->deleted = 1;
@@ -5451,6 +5471,9 @@ static void yaffs_StripDeletedObjects(yaffs_Device *dev)
 	struct ylist_head *n;
 	yaffs_Object *l;
 
+	if (dev->readOnly)
+		return;
+
 	/* Soft delete all the unlinked files */
 	ylist_for_each_safe(i, n,
 		&dev->unlinkedDir->variant.directoryVariant.children) {
@@ -5503,6 +5526,9 @@ static void yaffs_FixHangingObjects(yaffs_Device *dev)
 	struct ylist_head *n;
 	int depthLimit;
 	int hanging;
+
+	if (dev->readOnly)
+		return;
 
 
 	/* Iterate through the objects in each hash entry,
@@ -6337,6 +6363,15 @@ static int yaffs_ScanBackwards(yaffs_Device *dev)
 				  blk, c));
 
 				  dev->nFreeChunks++;
+
+			} else if (tags.objectId > YAFFS_MAX_OBJECT_ID ||
+				tags.chunkId > YAFFS_MAX_CHUNK_ID ||
+				(tags.chunkId > 0 && tags.byteCount > dev->nDataBytesPerChunk)) {
+				T(YAFFS_TRACE_SCAN,
+				 (TSTR("Chunk (%d:%d) with bad tags:obj = %d, chunkId = %d, byteCount = %d, ignored"TENDSTR),
+			  	 blk, c, tags.objectId, tags.chunkId, tags.byteCount));
+
+				  dev->nFreeChunks++;			
 
 			} else if (tags.chunkId > 0) {
 				/* chunkId > 0 so it is a data chunk... */

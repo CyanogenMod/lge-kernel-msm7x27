@@ -2014,11 +2014,15 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	int err;
 	char *data_str = (char *)data;
 
+	int readOnly = 0;
+
 	yaffs_options options;
 
 	sb->s_magic = YAFFS_MAGIC;
 	sb->s_op = &yaffs_super_ops;
 	sb->s_flags |= MS_NOATIME;
+
+	readOnly = ((sb->s_flags & MS_RDONLY) != 0);
 
 	if (!sb)
 		printk(KERN_INFO "yaffs: sb is NULL\n");
@@ -2027,9 +2031,10 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	else if (!yaffs_devname(sb, devname_buf))
 		printk(KERN_INFO "yaffs: devname is NULL\n");
 	else
-		printk(KERN_INFO "yaffs: dev is %d name is \"%s\"\n",
+		printk(KERN_INFO "yaffs: dev is %d name is \"%s\" %s\n",
 		       sb->s_dev,
-		       yaffs_devname(sb, devname_buf));
+		       yaffs_devname(sb, devname_buf),
+			   readOnly ? "ro" : "rw");
 
 	if (!data_str)
 		data_str = "";
@@ -2176,6 +2181,12 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	 * Set the yaffs_Device up for mtd
 	 */
 
+	if (!readOnly && !(mtd->flags & MTD_WRITEABLE)) {
+		readOnly = 1;
+		printk(KERN_INFO, "yaffs: mtd is read only, setting superblock read only\n");
+		sb->s_flags |= MS_RDONLY;
+	}
+
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 0))
 	sb->s_fs_info = dev = kmalloc(sizeof(yaffs_Device), GFP_KERNEL);
 #else
@@ -2250,6 +2261,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	dev->superBlock = (void *)sb;
 	dev->markSuperBlockDirty = yaffs_MarkSuperBlockDirty;
 
+	dev->readOnly = readOnly;
 
 #ifndef CONFIG_YAFFS_DOES_ECC
 	dev->useNANDECC = 1;

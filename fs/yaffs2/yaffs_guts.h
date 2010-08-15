@@ -63,6 +63,8 @@
 
 #define YAFFS_OBJECT_SPACE		0x40000
 
+#define YAFFS_MAX_OBJECT_ID		(YAFFS_OBJECT_SPACE - 1)
+
 #define YAFFS_CHECKPOINT_VERSION 	3
 
 #ifdef CONFIG_YAFFS_UNICODE
@@ -648,6 +650,7 @@ struct yaffs_DeviceStruct {
 #endif
 
 	int isMounted;
+	int readOnly;
 
 	int isCheckpointed;
 

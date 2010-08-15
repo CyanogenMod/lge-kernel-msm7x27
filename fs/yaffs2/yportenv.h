@@ -73,6 +73,7 @@
 
 /* KR - added for use in scan so processes aren't blocked indefinitely. */
 #define YYIELD() schedule()
+#define Y_DUMP_STACK() dump_stack()
 
 #define YAFFS_ROOT_MODE			0666
 #define YAFFS_LOSTNFOUND_MODE		0666
@@ -196,8 +197,17 @@ extern unsigned int yaffs_wr_attempts;
 
 #define T(mask, p) do { if ((mask) & (yaffs_traceMask | YAFFS_TRACE_ALWAYS)) TOUT(p); } while (0)
 
+#ifndef Y_DUMP_STACK
+#define Y_DUMP_STACK() do { } while(0)
+#endif
+
 #ifndef YBUG
-#define YBUG() do {T(YAFFS_TRACE_BUG, (TSTR("==>> yaffs bug: " __FILE__ " %d" TENDSTR), __LINE__)); } while (0)
+#define YBUG() do {\
+		T(YAFFS_TRACE_BUG, \
+				(TSTR("==>> yaffs bug: " __FILE__ " %d" TENDSTR),\
+				 __LINE__));\
+		Y_DUMP_STACK();\
+} while (0)
 #endif
 
 #endif
