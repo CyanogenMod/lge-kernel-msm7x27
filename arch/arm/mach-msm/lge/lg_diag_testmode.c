@@ -486,7 +486,7 @@ void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_t
 				pRsp->ret_stat_code = TEST_FAIL_S;
 				break;
 			}
-			pRsp->test_mode_rsp.socket_memory_size = ((long long)sf.f_blocks * (long long)sf.f_bsize) >> 20; // needs Mb.
+			pRsp->test_mode_rsp.socket_memory_size = (sf.f_blocks * sf.f_bsize) >> 20; // needs Mb.
 			break;
 
 		case EXTERNAL_SOCKET_ERASE:
@@ -510,7 +510,7 @@ void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_t
 				pRsp->ret_stat_code = TEST_FAIL_S;
 				break;
 			}
-			pRsp->test_mode_rsp.socket_memory_usedsize = ((long long)(sf.f_blocks - (long long)sf.f_bfree) * sf.f_bsize) >> 20;
+			pRsp->test_mode_rsp.socket_memory_usedsize = ((sf.f_blocks - sf.f_bfree) * sf.f_bsize);
 			break;
 
 		default:

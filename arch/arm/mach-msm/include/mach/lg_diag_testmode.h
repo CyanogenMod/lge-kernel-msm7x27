@@ -354,8 +354,8 @@ typedef union
   test_mode_req_volume_level_type   volume_level;
   char key_pressed_buf[MAX_KEY_BUFF_SIZE];
   char  memory_check;
-  int    socket_memory_size;
-  int    socket_memory_usedsize;
+  unsigned int    socket_memory_size;
+  unsigned int    socket_memory_usedsize;
   test_mode_req_cam_type		 camera;
   unsigned int mem_capa;
   int manual_test;
