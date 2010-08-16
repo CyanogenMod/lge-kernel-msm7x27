@@ -24,6 +24,8 @@
 #ifdef CONFIG_HOTPLUG_CPU
 extern int pen_release;
 extern void msm_secondary_startup(void);
+#else
+#define msm_secondary_startup NULL
 #endif
 
 enum msm_pm_sleep_mode {
