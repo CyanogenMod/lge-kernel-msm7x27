@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
@@ -384,29 +385,12 @@ uint32_t flash_read_id(struct msm_nand_chip *chip)
 
 struct flash_identification {
 	uint32_t flash_id;
-	uint32_t mask;
 	uint32_t density;
 	uint32_t widebus;
 	uint32_t pagesize;
 	uint32_t blksize;
 	uint32_t oobsize;
-};
-
-static struct flash_identification supported_flash[] =
-{
-	/* Flash ID   ID Mask Density(MB)  Wid Pgsz   Blksz   oobsz    Manuf */
-	{0x00000000, 0xFFFFFFFF,         0, 0,    0,         0,  0, }, /*ONFI*/
-	{0x1500aaec, 0xFF00FFFF, (256<<20), 0, 2048, (2048<<6), 64, }, /*Sams*/
-	{0x5500baec, 0xFF00FFFF, (256<<20), 1, 2048, (2048<<6), 64, }, /*Sams*/
-	{0x6600bcec, 0xFF00FFFF, (512<<20), 1, 4096, (4096<<6), 128,}, /*Sams*/
-	{0x1500aa98, 0xFFFFFFFF, (256<<20), 0, 2048, (2048<<6), 64, }, /*Tosh*/
-	{0x5500ba98, 0xFFFFFFFF, (256<<20), 1, 2048, (2048<<6), 64, }, /*Tosh*/
-	{0xd580b12c, 0xFFFFFFFF, (128<<20), 1, 2048, (2048<<6), 64, }, /*Micr*/
-	{0x5580baad, 0xFFFFFFFF, (256<<20), 1, 2048, (2048<<6), 64, }, /*Hynx*/
-	{0x5510baad, 0xFFFFFFFF, (256<<20), 1, 2048, (2048<<6), 64, }, /*Hynx*/
-	/* Note: Width flag is 0 for 8 bit Flash and 1 for 16 bit flash      */
-	/* Note: The First row will be filled at runtime during ONFI probe   */
-};
+} supported_flash;
 
 uint16_t flash_onfi_crc_check(uint8_t *buffer, uint16_t count)
 {
@@ -699,25 +683,25 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 				err = -EIO;
 				break;
 			} else {
-				supported_flash[0].flash_id =
+				supported_flash.flash_id =
 					flash_read_id(chip);
-				supported_flash[0].widebus  =
+				supported_flash.widebus  =
 					onfi_param_page_ptr->
 					features_supported & 0x01;
-				supported_flash[0].pagesize =
+				supported_flash.pagesize =
 					onfi_param_page_ptr->
 					number_of_data_bytes_per_page;
-				supported_flash[0].blksize  =
+				supported_flash.blksize  =
 					onfi_param_page_ptr->
 					number_of_pages_per_block *
-					supported_flash[0].pagesize;
-				supported_flash[0].oobsize  =
+					supported_flash.pagesize;
+				supported_flash.oobsize  =
 					onfi_param_page_ptr->
 					number_of_spare_bytes_per_page;
-				supported_flash[0].density  =
+				supported_flash.density  =
 					onfi_param_page_ptr->
 					number_of_blocks_per_logical_unit
-					* supported_flash[0].blksize;
+					* supported_flash.blksize;
 
 				pr_info("ONFI probe : Found an ONFI "
 					"compliant device %s\n",
@@ -730,7 +714,7 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 				 */
 				if (!strncmp(onfi_param_page_ptr->device_model,
 					"MT29F4G08ABC", 12))
-					supported_flash[0].widebus  = 0;
+					supported_flash.widebus  = 0;
 			}
 		}
 	}
@@ -6560,34 +6544,66 @@ int msm_onenand_scan(struct mtd_info *mtd, int maxchips)
 int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 {
 	struct msm_nand_chip *chip = mtd->priv;
-	uint32_t flash_id = 0, i = 1, mtd_writesize;
+	uint32_t flash_id = 0, i, mtd_writesize;
 	uint8_t dev_found = 0;
 	uint8_t wide_bus;
-	uint8_t index;
+	uint32_t manid;
+	uint32_t devid;
+	uint32_t devcfg;
+	struct nand_flash_dev *flashdev = NULL;
+	struct nand_manufacturers  *flashman = NULL;
 
 	/* Probe the Flash device for ONFI compliance */
 	if (!flash_onfi_probe(chip)) {
-		index = 0;
 		dev_found = 1;
 	} else {
 		/* Read the Flash ID from the Nand Flash Device */
 		flash_id = flash_read_id(chip);
-		for (index = 1; index < ARRAY_SIZE(supported_flash); index++)
-			if ((flash_id & supported_flash[index].mask) ==
-			    (supported_flash[index].flash_id &
-			     (supported_flash[index].mask))) {
-				dev_found = 1;
-				break;
-			}
+		manid = flash_id & 0xFF;
+		devid = (flash_id >> 8) & 0xFF;
+		devcfg = (flash_id >> 24) & 0xFF;
+
+		for (i = 0; !flashman && nand_manuf_ids[i].id; ++i)
+			if (nand_manuf_ids[i].id == manid)
+				flashman = &nand_manuf_ids[i];
+		for (i = 0; !flashdev && nand_flash_ids[i].id; ++i)
+			if (nand_flash_ids[i].id == devid)
+				flashdev = &nand_flash_ids[i];
+		if (!flashdev || !flashman) {
+			pr_err("ERROR: unknown nand device manuf=%x devid=%x\n",
+				manid, devid);
+			return -ENOENT;
+		} else
+			dev_found = 1;
+
+		if (!flashdev->pagesize) {
+			supported_flash.flash_id = flash_id;
+			supported_flash.density = flashdev->chipsize << 20;
+			supported_flash.widebus = devcfg & (1 << 6) ?
+							CFG1_WIDE_FLASH : 0;
+			supported_flash.pagesize = 1024 << (devcfg & 0x3);
+			supported_flash.blksize = (64 * 1024) <<
+							((devcfg >> 4) & 0x3);
+			supported_flash.oobsize = (8 << ((devcfg >> 2) & 1)) *
+				(supported_flash.pagesize >> 9);
+		} else {
+			supported_flash.flash_id = flash_id;
+			supported_flash.density = flashdev->chipsize << 20;
+			supported_flash.widebus = flashdev->options &
+					 NAND_BUSWIDTH_16 ? CFG1_WIDE_FLASH : 0;
+			supported_flash.pagesize = flashdev->pagesize;
+			supported_flash.blksize = flashdev->erasesize;
+			supported_flash.oobsize = flashdev->pagesize >> 5;
+		}
 	}
 
 	if (dev_found) {
 		(!interleave_enable) ? (i = 1) : (i = 2);
-		wide_bus       = supported_flash[index].widebus;
-		mtd->size      = supported_flash[index].density  * i;
-		mtd->writesize = supported_flash[index].pagesize * i;
-		mtd->oobsize   = supported_flash[index].oobsize  * i;
-		mtd->erasesize = supported_flash[index].blksize  * i;
+		wide_bus       = supported_flash.widebus;
+		mtd->size      = supported_flash.density  * i;
+		mtd->writesize = supported_flash.pagesize * i;
+		mtd->oobsize   = supported_flash.oobsize  * i;
+		mtd->erasesize = supported_flash.blksize  * i;
 
 		if (!interleave_enable)
 			mtd_writesize = mtd->writesize;
@@ -6595,9 +6611,8 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 			mtd_writesize = mtd->writesize >> 1;
 
 		pr_info("Found a supported NAND device\n");
-		pr_info("NAND Id  : 0x%x\n", supported_flash[index].
-			flash_id);
-		pr_info("Buswidth : %d Bits \n", (wide_bus) ? 16 : 8);
+		pr_info("NAND Id  : 0x%x\n", supported_flash.flash_id);
+		pr_info("Buswidth : %d Bits\n", (wide_bus) ? 16 : 8);
 		pr_info("Density  : %lld MByte\n", (mtd->size>>20));
 		pr_info("Pagesize : %d Bytes\n", mtd->writesize);
 		pr_info("Erasesize: %d Bytes\n", mtd->erasesize);
@@ -6623,7 +6638,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 				<<  6)  /* Bad block marker location */
 		|    (0 << 16)  /* Bad block in user data area */
 		|    (2 << 17)  /* 6 cycle tWB/tRB */
-		| (wide_bus << 1); /* Wide flash bit */
+		| (wide_bus & CFG1_WIDE_FLASH); /* Wide flash bit */
 
 	chip->ecc_buf_cfg = 0x203;
 
