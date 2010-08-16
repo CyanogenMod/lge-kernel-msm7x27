@@ -365,7 +365,7 @@ uint32_t at_cmd,at_act;
 			g_diag_mtc_check = 0;
 #endif
 			if(at_act != ATCMD_ACTION)
-				result = HANLDE_FAIL;
+				result = HANDLE_FAIL;
 
 			printk(KERN_INFO "[ETA]totalBuffer : [%s] size: %d\n", totalBuffer, totalBufferSize);
 			exec_result = eta_execute_n(totalBuffer, totalBufferSize);
@@ -374,7 +374,7 @@ uint32_t at_cmd,at_act;
 /*
 			if((temp = (char *)strchr((const char *)totalBuffer, (int)'=') + 1) == NULL) {
 				printk(KERN_INFO "[ETA]Invalid Parameter\n");
-				result = HANLDE_FAIL;
+				result = HANDLE_FAIL;
 			}
 			encoded_params = temp;
 */		

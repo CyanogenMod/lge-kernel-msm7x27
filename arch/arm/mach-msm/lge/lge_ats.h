@@ -121,6 +121,7 @@
 // yorong drm command
 #define ATCMD_DRMIMEI		84
 #define ATCMD_POWERDOWN		85  // LGE_CHANGE [jinwoonam@lge.com] Powerdown system when no battery
+#define ATCMD_MMCFORMAT    129
 
 //////////////////////////////////////////////////////////////////
 // at_cmd value end
@@ -139,7 +140,7 @@
 // dsatHandleAT_ARM11 return Value
 //////////////////////////////////////////////////////////////////
 #define HANDLE_OK  0
-#define HANLDE_FAIL 1
+#define HANDLE_FAIL 1
 #define HANDLE_ERROR 2
 #define HANDLE_OK_MIDDLE 4
 
