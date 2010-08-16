@@ -160,6 +160,13 @@ config LGE_FBCON_INACTIVE_CONSOLE
 	help
 	 Choose if inactive console
 
+config LGE_PWRSINK
+	bool "Support LGE Power Sink Driver"
+	default n
+	depends on MACH_LGE
+	help
+	 Choose if use Power sink driver
+
 menu "LGE specific patches"
 	depends on MACH_LGE
 
