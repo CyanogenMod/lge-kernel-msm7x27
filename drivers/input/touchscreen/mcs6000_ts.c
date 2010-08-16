@@ -767,7 +767,7 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	ts_early_suspend.suspend = mcs6000_early_suspend;
 	ts_early_suspend.resume = mcs6000_late_resume;
-	ts_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN - 40;
+	ts_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +1 ;
 	register_early_suspend(&ts_early_suspend);
 #endif
 	//mcs6000_firmware_info(&fw_ver, &hw_ver);
