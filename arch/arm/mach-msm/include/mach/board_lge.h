@@ -349,4 +349,6 @@ void __init lge_add_misc_devices(void);
 void __init lge_add_gpio_i2c_device(gpio_i2c_init_func_t *init_func);
 void __init lge_add_gpio_i2c_devices(void);
 int __init lge_get_uart_mode(void);
+void __init lge_add_pm_devices(void);
+
 #endif
