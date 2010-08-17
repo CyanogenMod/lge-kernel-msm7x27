@@ -43,7 +43,7 @@ static int __init lcdc_prism_init(void)
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
 	pinfo.fb_num = 2;
-	pinfo.clk_rate = 38400000;
+	pinfo.clk_rate = 30720000;
 
 	pinfo.lcdc.h_back_porch = 21;
 	pinfo.lcdc.h_front_porch = 81;
