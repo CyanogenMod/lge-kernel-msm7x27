@@ -496,6 +496,14 @@ static void aat28xx_go_opmode(struct aat28xx_driver_data *drvdata)
 
 static void aat28xx_device_init(struct aat28xx_driver_data *drvdata)
 {
+/* LGE_CHANGE.
+  * Do not initialize aat28xx when system booting. The aat28xx is already initialized in oemsbl or LK !!
+  * 2010-08-16, minjong.gong@lge.com
+  */
+	if (system_state == SYSTEM_BOOTING) {
+		aat28xx_go_opmode(drvdata);
+		return;
+	}
 	aat28xx_hw_reset(drvdata);
 	aat28xx_go_opmode(drvdata);
 }
