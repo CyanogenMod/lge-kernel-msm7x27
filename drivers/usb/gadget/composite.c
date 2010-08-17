@@ -979,6 +979,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
             break;
           }
           value = w_length;
+
 			break;
 		}            
 /* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-13 Fix the MTP request */

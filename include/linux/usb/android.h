@@ -29,6 +29,9 @@
 #ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
 #define ANDROID_MTP   0x000B
 #endif
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+#define ANDROID_AUTORUN		0x000C
+#endif
 
 struct android_usb_platform_data {
 	/* USB device descriptor fields */

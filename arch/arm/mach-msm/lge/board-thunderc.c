@@ -95,29 +95,72 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 #ifdef CONFIG_USB_ANDROID
 /* dynamic composition */
 /* This depends on each board. QCT original is at device_lge.c */
+/* function bit : (in include/linux/usb/android.h)
+   ADB              0x0001
+   MSC              0x0002
+   ACM_MODEM        0x0003
+   DIAG             0x0004
+   ACM_NMEA         0x0005
+   GENERIC_MODEM    0x0006
+   GENERIC_NMEA     0x0007
+   CDC_ECM          0x0008
+   RMNET            0x0009
+   RNDIS            0x000A
+   MTP              0x000B
+   AUTORUN			0x000C
+ */
 struct usb_composition usb_func_composition[] = {
 	{
 		/* Full or Light mode : ADB, UMS, NMEA, DIAG, MODEM */
-		.product_id         = 0x618F,
+		.product_id         = 0x61CD, /* Mass storage only */
 		.functions	    	= 0x2,
 		.adb_product_id     = 0x618E,
 		.adb_functions	    = 0x12743,
 	},
 	{
+		/* Factory mode for CMDA : DIAG, MODEM, GPS */
 		/* We are in factory mode, ignore adb function */
 		.product_id         = 0x6000,
 		.functions	    	= 0x743,
 		.adb_product_id     = 0x6000,
 		.adb_functions	    = 0x743,
 	},
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER	
     {
 		/* We support MTP */
-        .product_id           = 0x61C4,
-        .functions            = 0xB, /* MTP*/
-        .adb_product_id     = 0x61C4,
+        .product_id         = 0x61C7,
+        .functions          = 0xB, /* MTP*/
+        .adb_product_id     = 0x61C7,
 	    .adb_functions	    = 0xB,
     },
-
+#endif
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
+    {
+		/* LG Rmnet Driver for matching LG Android Net driver */
+        .product_id         = 0x61A2,
+        .functions          = 0x27384,
+        .adb_product_id     = 0x61A1,
+	    .adb_functions	    = 0x127384,
+    },
+#endif
+/* LGE_CHANGE_S : For Autorun */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN 
+	{
+		/* Mass Storage Only for autorun */
+		.product_id         = 0x61C6,
+		.functions	    	= 0x2,
+		.adb_product_id     = 0x61C6,
+		.adb_functions	    = 0x2,
+	},
+	{
+		/* For AutoRun, we use UMS function as CD-ROM drive */
+		.product_id         = 0x61C8,
+		.functions	   		= 0xC,
+		.adb_product_id     = 0x61C8,
+		.adb_functions	    = 0xC,
+	},
+#endif
+/* LGE_CHANGE_E : For Autorun */
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	{
 		/* RNDIS */

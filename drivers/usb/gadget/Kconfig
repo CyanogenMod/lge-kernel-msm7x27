@@ -1105,17 +1105,6 @@ config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID
 
 	default n
 
-# LGE_CHANGE_S [jaeho.cho@lge.com] 2010-07-16, LG_FW_MTP_DRIVER
-config USB_GADGET_LG_MTP_DRIVER
-	boolean "LG MTP Driver(CDMA class)"
-	depends on USB_SUPPORT_LGE_GADGET_CDMA
-	help
-	  Supports LG MTP driver(CDMA class)
-	
-	default n
-
-# LGE_CHANGE_E [jaeho.cho@lge.com] 2010-07-16, LG_FW_MTP_DRIVER
-
 config USB_SUPPORT_LGE_FACTORY_USB_GSM
 	boolean "USB Support LGE Factory USB(GSM class)"
 	depends on USB_SUPPORT_LGE_GADGET_GSM
@@ -1135,4 +1124,23 @@ config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI
 # LGE_CHANGE_E [younsuk.song@lge.com] 2010-06-28 
 # LGE_CHANGE_E [hyunhui.park@lge.com] 2010-04-27
 
+# LGE_CHANGE_S [jaeho.cho@lge.com] 2010-07-16, LG_FW_MTP_DRIVER
+config USB_GADGET_LG_MTP_DRIVER
+	boolean "LG MTP Driver(CDMA class)"
+	depends on USB_SUPPORT_LGE_ANDROID_GADGET
+	help
+	  Supports LG MTP driver
+	
+	default n
+# LGE_CHANGE_E [jaeho.cho@lge.com] 2010-07-16
+
+# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-11, Autorun Support
+config USB_SUPPORT_LGE_ANDROID_AUTORUN
+	boolean "Autorun support in LGE Android model(common)"
+	depends on USB_SUPPORT_LGE_ANDROID_GADGET
+	help
+	  It supports Autorun feature in LGE Android model if it is needed.
+
+	default n
+# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-11 	
 endif # USB_GADGET
