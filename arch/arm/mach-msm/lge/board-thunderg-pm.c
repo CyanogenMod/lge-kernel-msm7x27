@@ -13,6 +13,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/pm.h>
+#include <linux/gpio.h>
 #include <mach/board.h>
 #include <mach/board_lge.h>
 #include "board-thunderg.h"
@@ -21,12 +22,42 @@ int thunderg_pwrsink_suspend_noirq(struct device *dev)
 {
 	printk(KERN_INFO"%s: configure gpio for suspend\n", __func__);
 
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_BL_I2C_SCL, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_BL_I2C_SDA, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+
+//	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_VSYNC_O, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_LCD_MAKER_LOW, 0);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_LCD_RESET_N, 0);
+
 	return 0;
 }
 
 int thunderg_pwrsink_resume_noirq(struct device *dev)
 {
 	printk(KERN_INFO"%s: configure gpio for resume\n", __func__);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_LCD_BL_EN, 1);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_BL_I2C_SCL, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_BL_I2C_SCL, 1);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_BL_I2C_SDA, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_BL_I2C_SDA, 1);
+
+//	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_VSYNC_O, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_LCD_RESET_N, 0);
 
 	return 0;
 }

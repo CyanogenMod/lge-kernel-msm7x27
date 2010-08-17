@@ -80,6 +80,14 @@
 #define GPIO_EAR_SENSE		29
 #define GPIO_HS_MIC_BIAS_EN	26
 
+/* lcd & backlight */
+#define GPIO_LCD_BL_EN		82
+#define GPIO_BL_I2C_SCL		88
+#define GPIO_BL_I2C_SDA		89
+#define GPIO_LCD_VSYNC_O	97
+#define GPIO_LCD_MAKER_LOW	101
+#define GPIO_LCD_RESET_N	102
+
 /* bluetooth gpio pin */
 enum {
 	BT_WAKE         = 42,
