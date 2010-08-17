@@ -125,7 +125,6 @@ struct clkctl_acpu_speed {
 	unsigned int     l2_l_val;
 	unsigned int     vdd_sc;
 	unsigned int     avsdscr_setting;
-	unsigned long    lpj; /* loops_per_jiffy */
 	struct clkctl_acpu_speed *up;
 	struct clkctl_acpu_speed *down;
 };
@@ -346,18 +345,6 @@ static void switch_sc_speed(int cpu, struct clkctl_acpu_speed *tgt_s)
 
 	/* Update the driver state with the new clock freq */
 	drv_state.current_speed[cpu] = tgt_s;
-
-	/* Adjust lpj for the new clock speed. */
-	/* XXX Temporary hack until udelay() is fixed to not care about lpj:
-	 * Update the global loops_per_jiffy variable used by udelay() to be
-	 * the max of the two CPUs' values. */
-#ifdef CONFIG_SMP
-	per_cpu(cpu_data, cpu).loops_per_jiffy = tgt_s->lpj;
-#endif
-	loops_per_jiffy = tgt_s->lpj;
-	for_each_online_cpu(cpu)
-		if (drv_state.current_speed[cpu]->lpj > loops_per_jiffy)
-			loops_per_jiffy = drv_state.current_speed[cpu]->lpj;
 }
 
 int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
@@ -554,9 +541,6 @@ static void __init unselect_scplls(void)
 
 	select_core_source(L2, 0);
 	drv_state.current_l2_speed = &acpu_freq_tbl[CAL_IDX];
-
-	/* Both cores assumed to have the same lpj when on the same source. */
-	calibrate_delay();
 }
 
 /* Ensure SCPLLs use the 27MHz XO. */
@@ -581,22 +565,6 @@ static void __init scpll_set_refs(void)
 	else
 		regval |= BIT(4);
 	writel(regval, sc_pll_base[L2] + SCPLL_CFG_OFFSET);
-}
-
-/* Initalize the lpj field in the acpu_freq_tbl. */
-static void __init lpj_init(void)
-{
-	int i;
-	const struct clkctl_acpu_speed *base_freq;
-
-	base_freq = drv_state.current_speed[smp_processor_id()];
-	for (i = 0; acpu_freq_tbl[i].acpuclk_khz; i++) {
-		acpu_freq_tbl[i].lpj =
-			cpufreq_scale(
-				loops_per_jiffy,
-				base_freq->acpuclk_khz,
-				acpu_freq_tbl[i].acpuclk_khz);
-	}
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
@@ -681,7 +649,6 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	scpll_init(L2);
 	regulator_init();
 
-	lpj_init();
 	precompute_stepping();
 
 	/* Improve boot time by ramping up CPUs immediately. */
