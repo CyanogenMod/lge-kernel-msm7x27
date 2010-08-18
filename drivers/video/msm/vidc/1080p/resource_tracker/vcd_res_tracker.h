@@ -29,6 +29,7 @@
 #ifndef _VIDEO_720P_RESOURCE_TRACKER_H_
 #define _VIDEO_720P_RESOURCE_TRACKER_H_
 
+#include <linux/regulator/consumer.h>
 #include "vcd_res_tracker_api.h"
 
 #define RESTRK_1080P_VGA_PERF_LEVEL    36000
@@ -43,6 +44,7 @@ struct res_trk_context {
 	u32 irq_num;
 	struct mutex lock;
 	struct clk *vcodec_clk;
+	struct regulator *footswitch;
 	unsigned long vcodec_clk_rate;
 	unsigned int clock_enabled;
 	unsigned int rail_enabled;

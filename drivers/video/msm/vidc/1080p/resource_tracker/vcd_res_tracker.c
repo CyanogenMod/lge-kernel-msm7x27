@@ -19,6 +19,7 @@
 #include <linux/pm_qos_params.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
 #include <mach/internal_power_rail.h>
 #include <mach/clk.h>
 #include <mach/msm_reqs.h>
@@ -59,10 +60,12 @@ static u32 res_trk_disable_pwr_rail(void)
 		mutex_lock(&resource_context.lock);
 	}
 	clk_put(resource_context.vcodec_clk);
-	/*TODO: Power rail functions needs to added here*/
-	if (!resource_context.rail_enabled) {
-		mutex_unlock(&resource_context.lock);
-		return false;
+	if (resource_context.footswitch) {
+		if (regulator_disable(resource_context.footswitch)) {
+			mutex_unlock(&resource_context.lock);
+			return false;
+		}
+		regulator_put(resource_context.footswitch);
 	}
 	resource_context.rail_enabled = 0;
 	mutex_unlock(&resource_context.lock);
@@ -181,7 +184,13 @@ static u32 res_trk_enable_pwr_rail(void)
 		res_trk_enable_clocks();
 		mutex_lock(&resource_context.lock);
 	}
-	/*TODO: Power rail functions needs to be added*/
+	resource_context.footswitch = regulator_get(NULL, "fs_ved");
+	if (IS_ERR(resource_context.footswitch))
+		resource_context.footswitch = NULL;
+	else if (regulator_enable(resource_context.footswitch)) {
+		mutex_unlock(&resource_context.lock);
+		return false;
+	}
 	resource_context.rail_enabled = 1;
 	clock_enabled = 1;
 	mutex_unlock(&resource_context.lock);
