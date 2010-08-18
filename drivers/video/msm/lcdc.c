@@ -34,6 +34,7 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/pm_qos_params.h>
+#include <linux/regulator/consumer.h>
 #include <mach/msm_reqs.h>
 
 #include "msm_fb.h"
@@ -49,6 +50,7 @@ static int pdev_list_cnt;
 
 static struct clk *pixel_mdp_clk; /* drives the lcdc block in mdp */
 static struct clk *pixel_lcdc_clk; /* drives the lcdc interface */
+struct regulator *mdp_footswitch;
 
 static struct platform_driver lcdc_driver = {
 	.probe = lcdc_probe,
@@ -70,6 +72,9 @@ static int lcdc_off(struct platform_device *pdev)
 
 	mfd = platform_get_drvdata(pdev);
 	ret = panel_next_off(pdev);
+
+	if (mdp_footswitch)
+		regulator_disable(mdp_footswitch);
 
 	clk_disable(pixel_mdp_clk);
 	clk_disable(pixel_lcdc_clk);
@@ -118,6 +123,9 @@ static int lcdc_on(struct platform_device *pdev)
 
 	clk_enable(pixel_mdp_clk);
 	clk_enable(pixel_lcdc_clk);
+
+	if (mdp_footswitch)
+		regulator_enable(mdp_footswitch);
 
 	if (lcdc_pdata && lcdc_pdata->lcdc_power_save)
 		lcdc_pdata->lcdc_power_save(1);
@@ -269,6 +277,10 @@ static int __init lcdc_driver_init(void)
 			return -EINVAL;
 		}
 	}
+
+	mdp_footswitch = regulator_get(NULL, "fs_mdp");
+	if (IS_ERR(mdp_footswitch))
+		mdp_footswitch = NULL;
 
 	return lcdc_register_driver();
 }
