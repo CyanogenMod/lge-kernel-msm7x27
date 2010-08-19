@@ -270,5 +270,6 @@ void __init lge_add_camera_devices(void)
 
 	camera_power_status = CAMERA_POWER_ON;
 
+	config_camera_off_gpios();
     platform_add_devices(thunderc_camera_devices, ARRAY_SIZE(thunderc_camera_devices));
 }
