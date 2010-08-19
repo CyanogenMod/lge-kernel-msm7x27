@@ -1031,7 +1031,11 @@ static int isx005_set_antibanding(int mode)
 			break;
 
 		case CAMERA_ANTIBANDING_AUTO:
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)			
 			rc = isx005_i2c_write(isx005_client->addr, 0x4001, 0x00, BYTE_LEN);
+#else
+			rc = isx005_i2c_write(isx005_client->addr, 0x4001, 0x02, BYTE_LEN);
+#endif
 			if (rc < 0)
 				return rc;
 

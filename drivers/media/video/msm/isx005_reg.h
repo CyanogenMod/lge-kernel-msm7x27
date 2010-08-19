@@ -78,9 +78,9 @@ init_reg_settings_array[] = {
 	{0x003A, 0x0002 ,WORD_LEN},   // CAM OUTPUT DATA Format
 	{0x001C, 0x00   ,BYTE_LEN},   	// OUTPUT FORMAT MONITOR MODE
 #if defined (CONFIG_ISX005_ROTATION_180)
-		{0x001F, 0x03   ,BYTE_LEN},	    //READVECT_MONI
+	{0x001F, 0x03   ,BYTE_LEN},	    //READVECT_MONI
 #else
-		{0x001F, 0x00	,BYTE_LEN},		//READVECT_MONI
+	{0x001F, 0x00	,BYTE_LEN},		//READVECT_MONI
 #endif
 	{0x0022, 0x8002 ,WORD_LEN},		//640*480 monitoring SIZE H
 	{0x0028, 0xE001 ,WORD_LEN},		//640*480 monitoring SIZE V
@@ -249,7 +249,7 @@ init_reg_settings_array[] = {
 
 	{0x00FC, 0xFF   ,BYTE_LEN},             //   
 	{0x000b, 0x01   ,BYTE_LEN},             // PLL_CKSEL     
-  {0x3208, 0x01   ,BYTE_LEN},		// [LGE_CODE] FAST MODE CHANGE - eunyoung.shin@lge.com 2010-07-13 	
+	{0x3208, 0x01   ,BYTE_LEN},		// [LGE_CODE] FAST MODE CHANGE - eunyoung.shin@lge.com 2010-07-13 	
 	{0x0009, 0x06   ,BYTE_LEN},             // INCK_SET          
 	{0x02C7, 0x01   ,BYTE_LEN},             // SRCCK_DIV 
 	{0x0038, 0x0D   ,BYTE_LEN},             // sync masking on off        
@@ -2129,8 +2129,8 @@ tuning_reg_settings_array[] = {	//091214
 	{0x4808,0x9600,WORD_LEN},
 	{0x480A,0xFA00,WORD_LEN},
 	{0x480C,0xE803,WORD_LEN},
-	{0x480E,0x4B00,WORD_LEN},
-	{0x4810,0x4B00,WORD_LEN},
+	{0x480E,0xFA,BYTE_LEN},
+	{0x4810,0xFA,BYTE_LEN},
 	{0x4812,0xE803,WORD_LEN},
 	{0x481D,0x00  ,BYTE_LEN},
 	{0x4822,0x0500,WORD_LEN},
@@ -2141,7 +2141,7 @@ tuning_reg_settings_array[] = {	//091214
 	{0x4838,0x1600,WORD_LEN},
 	{0x4844,0x5000,WORD_LEN},
 	{0x484F,0x00  ,BYTE_LEN},
-	{0x4856,0x14  ,BYTE_LEN},
+	{0x4856,0x28  ,BYTE_LEN},
 	{0x486A,0x6400,WORD_LEN},
 	{0x486C,0x2800,WORD_LEN},
 	{0x486E,0x1400,WORD_LEN},
@@ -2161,8 +2161,8 @@ tuning_reg_settings_array[] = {	//091214
 	{0x4808,0x9600,WORD_LEN},
 	{0x480A,0xFA00,WORD_LEN},
 	{0x480C,0xE803,WORD_LEN},
-	{0x480E,0x4B00,WORD_LEN},
-	{0x4810,0x4B00,WORD_LEN},
+	{0x480E,0xFA,BYTE_LEN},
+	{0x4810,0xFA,BYTE_LEN},
 	{0x4812,0xE803,WORD_LEN},
 	{0x481D,0x00  ,BYTE_LEN},
 	{0x4822,0x0500,WORD_LEN},
@@ -2173,7 +2173,7 @@ tuning_reg_settings_array[] = {	//091214
 	{0x4838,0x1600,WORD_LEN},
 	{0x4844,0x2800,WORD_LEN},
 	{0x484F,0x00  ,BYTE_LEN},
-	{0x4856,0x14  ,BYTE_LEN},
+	{0x4856,0x28  ,BYTE_LEN},
 	{0x486A,0x6400,WORD_LEN},
 	{0x486C,0x2800,WORD_LEN},
 	{0x486E,0x0a00,WORD_LEN},
