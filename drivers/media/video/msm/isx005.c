@@ -1048,22 +1048,22 @@ static int isx005_set_iso(int iso)
 		case CAMERA_ISO_DEBLUR:	/* Do not support */
 		case CAMERA_ISO_100:
 			rc = isx005_i2c_write(isx005_client->addr,
-					0x01E5, 0x07, BYTE_LEN);
+					0x01E5, 0x04, BYTE_LEN);
 			break;
 
 		case CAMERA_ISO_200:
 			rc = isx005_i2c_write(isx005_client->addr,
-					0x01E5, 0x0A, BYTE_LEN);
+					0x01E5, 0x07, BYTE_LEN);
 			break;
 
 		case CAMERA_ISO_400:
 			rc = isx005_i2c_write(isx005_client->addr,
-					0x01E5, 0x0D, BYTE_LEN);
+					0x01E5, 0x0A, BYTE_LEN);
 			break;
 			
 		case CAMERA_ISO_800:
 			rc = isx005_i2c_write(isx005_client->addr,
-					0x01E5, 0x10, BYTE_LEN);
+					0x01E5, 0x0D, BYTE_LEN);
 			break;
 
 		default:
