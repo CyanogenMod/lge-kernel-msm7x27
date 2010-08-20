@@ -42,7 +42,6 @@ static struct snd_endpoint snd_endpoints_list[] = {
 	SND(SPEAKER_IN_CALL, 6),
 	SND(SPEAKER_RING, 7),
 	SND(HEADSET_AND_SPEAKER, 7),
-	SND(VOICE_RECORDER, 8),
 	SND(FM_HEADSET, 9),
 	SND(FM_SPEAKER, 10),
 	SND(BT, 12),
@@ -50,7 +49,10 @@ static struct snd_endpoint snd_endpoints_list[] = {
 	SND(TTY_VCO, 15),
 	SND(TTY_HCO, 16),
 	SND(TTY_HCO_SPEAKER, 17),
-	SND(CURRENT, 25),
+	SND(HANDSET_VR, 19),
+	SND(HEADSET_VR, 20),
+	SND(BT_VR, 22),
+	SND(CURRENT, 29),
 /* LGE_CHANGE_E, [junyoub.an] , 2010-02-12, Define sound device*/
 
 #endif
