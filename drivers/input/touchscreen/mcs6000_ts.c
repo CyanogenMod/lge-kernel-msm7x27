@@ -93,6 +93,7 @@ struct mcs6000_ts_device {
 	int sda_gpio;
 	bool pendown;
 	int (*power)(unsigned char onoff);
+	struct workqueue_struct *ts_wq;
 };
 
 static struct input_dev *mcs6000_ts_input = NULL;
@@ -348,7 +349,8 @@ static void mcs6000_work(struct work_struct *work)
 
 touch_retry:
 	if (dev->pendown) {
-		schedule_delayed_work(&dev->work, msecs_to_jiffies(TS_POLLING_TIME));	
+		//ret = schedule_delayed_work(&dev->work, msecs_to_jiffies(TS_POLLING_TIME));
+		queue_delayed_work(dev->ts_wq, &dev->work,msecs_to_jiffies(TS_POLLING_TIME));
 	} else {
 		enable_irq(dev->num_irq);
 		DMSG("%s: irq enable\n", __FUNCTION__);
@@ -362,7 +364,8 @@ static irqreturn_t mcs6000_ts_irq_handler(int irq, void *handle)
 	if (gpio_get_value(dev->intr_gpio) == 0) {
 		disable_irq_nosync(dev->num_irq);
 		DMSG("%s: irq disable\n", __FUNCTION__);
-		schedule_delayed_work(&dev->work, 0);
+		//schedule_delayed_work(&dev->work, 0);
+		queue_delayed_work(dev->ts_wq, &dev->work,msecs_to_jiffies(TS_POLLING_TIME));
 	}
 
 	return IRQ_HANDLED;
@@ -874,6 +877,8 @@ static struct i2c_driver mcs6000_i2c_ts_driver = {
 static int __devinit mcs6000_ts_init(void)
 {
 	int err = 0;
+	struct mcs6000_ts_device *dev;
+	dev = &mcs6000_ts_dev;
 
 	memset(&mcs6000_ts_dev, 0, sizeof(struct mcs6000_ts_device));
 
@@ -921,6 +926,7 @@ static int __devinit mcs6000_ts_init(void)
 		goto err_misc_register;
 	}
 
+	dev->ts_wq = create_singlethread_workqueue("ts_wq");
 	return err;
 
 err_misc_register:
