@@ -63,8 +63,8 @@ struct config_work_queue {
 	int mode;
 };
 
-struct config_work_queue *cfg_wq;
-static int cfg_wq_num;
+struct config_work_queue *cfg_wq = 0;
+static int cfg_wq_num = 0;
 
 /* It is distinguish normal from macro focus */
 static int prev_af_mode;
@@ -300,7 +300,7 @@ static void dequeue_cfg_wq(struct config_work_queue *cfg_wq)
 		if (rc < 0) {
 			printk(KERN_ERR "[ERROR]%s: dequeue sensor config error!\n",
 				__func__);
-			return;
+			break;
 		}
 	}
 
@@ -309,7 +309,12 @@ static void dequeue_cfg_wq(struct config_work_queue *cfg_wq)
 
 static void enqueue_cfg_wq(int cfgtype, int mode)
 {
-	if(cfg_wq_num == CFG_WQ_SIZE)
+	if (!cfg_wq) {
+		cfg_wq_num = 0;
+		return;
+	}
+
+	if (cfg_wq_num == CFG_WQ_SIZE)
 		return;
 
 	cfg_wq[cfg_wq_num].cfgtype = cfgtype;
@@ -338,12 +343,13 @@ int isx005_reg_tuning(void *data)
 			isx005_regs.tuning_reg_settings[i].register_length);
 
 		if (rc < 0)
-			return rc;
+			break;
 	}
 
 	mutex_lock(&isx005_tuning_mutex);
 	dequeue_cfg_wq(cfg_wq);
 	kfree(cfg_wq);
+	cfg_wq = 0;
 	tuning_thread_run = 0;
 	mutex_unlock(&isx005_tuning_mutex);
 
@@ -720,13 +726,15 @@ static int isx005_move_focus(int32_t steps)
 	/* check lens position */
 	for(i = 0; i < 24; ++i) {
 		rc = isx005_i2c_read(isx005_client->addr, 0x6D7A, &af_pos, WORD_LEN);
-		if (rc < 0)
+		if (rc < 0) {
 			printk(KERN_ERR "[ERROR]%s:fail in reading af_lenspos\n",
 				__func__);
-	
+			return rc;
+		}
+
 		if(af_pos == manual_pos)
 			break;
-		
+
 		msleep(10);
 	}
 
@@ -1311,7 +1319,12 @@ static int isx005_init_sensor(const struct msm_camera_sensor_info *data)
 
 	mdelay(16);  // T3+T4
 
+	while (tuning_thread_run)
+		msleep(10);
+
+	mutex_lock(&isx005_tuning_mutex);
 	p = kthread_run(isx005_reg_tuning, 0, "reg_tuning");
+	mutex_unlock(&isx005_tuning_mutex);
 
 	if (IS_ERR(p))
 		return PTR_ERR(p);
@@ -1340,9 +1353,6 @@ static int isx005_sensor_init_probe(const struct msm_camera_sensor_info *data)
 		printk(KERN_ERR "[ERROR]%s:failed to initialize sensor!\n", __func__);
 		goto init_probe_fail;
 	}
-
-	tuning_thread_run = 0;
-	cfg_wq = 0;
 
 	prev_af_mode = -1;
 	prev_scene_mode = -1;
