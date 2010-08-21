@@ -698,7 +698,12 @@ static int mddi_hitachi_lcd_init(void)
 		pinfo->lcd.refx100 = (mddi_hitachi_rows_per_second * 100) /
                         		mddi_hitachi_rows_per_refresh;
 
-		pinfo->lcd.v_back_porch = 14;
+/* LGE_CHANGE.
+  * Change proch values to resolve LCD Tearing. Before BP:14, FP:6. After BP=FP=6.
+  * The set values on LCD are both 8, but we use 6 for MDDI in order to secure timing margin.
+  * 2010-08-21, minjong.gong@lge.com
+  */
+		pinfo->lcd.v_back_porch = 6;
 		pinfo->lcd.v_front_porch = 6;
 		pinfo->lcd.v_pulse_width = 4;
 
