@@ -213,8 +213,9 @@ struct aat1270_flash_platform_data {
 struct android_vibrator_platform_data {
 	int enable_status;
 	int (*power_set)(int enable); 		/* LDO Power Set Function */
-	int (*pwn_set)(int enable, int gain); 		/* PWM Set Function */
+	int (*pwm_set)(int enable, int gain); 		/* PWM Set Function */
 	int (*ic_enable_set)(int enable); 	/* Motor IC Set Function */
+	int amp_value;				/* PWM tuning value */
 };
 
 /* bd6084gu backight, pmic */

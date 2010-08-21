@@ -30,7 +30,7 @@
 #include <mach/timed_output.h>
 
 struct android_vibrator_platform_data *vibe_data = 0;
-static atomic_t vibe_gain = ATOMIC_INIT(128); /* default max gain */
+static atomic_t vibe_gain = ATOMIC_INIT(128); /* default max gain value is 128 */
 
 struct timed_vibrator_data {
 	struct timed_output_dev dev;
@@ -41,8 +41,8 @@ struct timed_vibrator_data {
 	u8 		active_low;
 };
 
-#if defined(CONFIG_VIB_USE_WORK_QUEUE)	/* C710 Rev.D */
-static atomic_t nForce = ATOMIC_INIT(128); /* default max gain */
+#if defined(CONFIG_VIB_USE_WORK_QUEUE)	/* copy form  C710 (Rev.D) */
+static atomic_t nForce = ATOMIC_INIT(128);
 struct work_struct vib_power_set_work_queue;
 #endif	/* CONFIG_VIB_USE_WORK_QUEUE */
 
@@ -70,7 +70,7 @@ static int android_vibrator_intialize(void)
 	}
 
 	/* Initializ and disable PWM */
-	if (vibe_data->pwn_set(0, 0) < 0) {
+	if (vibe_data->pwm_set(0, 0) < 0) {
 		printk(KERN_ERR "%s PWM set failed\n", __FUNCTION__);
 		return -1;
 	}
@@ -81,12 +81,12 @@ static int android_vibrator_intialize(void)
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
 static void vib_qcoin_off_work(struct work_struct *work) {
 	int rtime = atomic_read(&vibe_rtime);
-	vibe_data->pwn_set(1, -125);
+	vibe_data->pwm_set(1, -125);
 	if (use_overdrive)
 		msleep(rtime);
 	else
 		msleep(5);
-	vibe_data->pwn_set(0, 0);
+	vibe_data->pwm_set(0, 0);
 	vibe_data->power_set(0);
 	vibe_data->ic_enable_set(0);
 	//printk("LGE: %s disabled\n", __FUNCTION__);
@@ -112,7 +112,7 @@ static int android_vibrator_force_set(int nForce)
 		enabled = false;
 #else 
 		vibe_data->power_set(0); /* should be checked for vibrator response time */
-		vibe_data->pwn_set(0, nForce);
+		vibe_data->pwm_set(0, nForce);
 		vibe_data->ic_enable_set(0);
 #endif
 	} else {
@@ -124,21 +124,21 @@ static int android_vibrator_force_set(int nForce)
 		 * In case of other models, the output volatge and motor ic spec. should be checked
 		*/
 		int time = atomic_read(&vibe_ftime);
-		vibe_data->pwn_set(1, 128);
+		vibe_data->pwm_set(1, 128);
 		vibe_data->power_set(1);
 		msleep(time);
 #if 0
 		if (nForce < 115)
-			vibe_data->pwn_set(1, nForce);
+			vibe_data->pwm_set(1, nForce);
 		else
-			vibe_data->pwn_set(1, 115);
+			vibe_data->pwm_set(1, 115);
 #else
-		vibe_data->pwn_set(1, nForce);
+		vibe_data->pwm_set(1, nForce);
 		enabled = true;
 #endif
 
 #else
-		vibe_data->pwn_set(1, nForce);
+		vibe_data->pwm_set(1, nForce);
 		vibe_data->power_set(1); /* should be checked for vibrator response time */
 #endif
 		vibe_data->ic_enable_set(1);
@@ -313,6 +313,7 @@ static int android_vibrator_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	vibe_data = (struct android_vibrator_platform_data *)pdev->dev.platform_data;
+	atomic_set(&vibe_gain,vibe_data->amp_value);
 
 	if (android_vibrator_intialize() < 0) {
 		printk(KERN_ERR "Android Vibrator Initialization was failed\n");
@@ -362,7 +363,7 @@ static int android_vibrator_remove(struct platform_device *dev)
 {
 	vibe_data->power_set(0);
 	vibe_data->ic_enable_set(0);
-	vibe_data->pwn_set(0, 0);
+	vibe_data->pwm_set(0, 0);
 	timed_output_dev_unregister(&android_vibrator_data.dev);
 
 	return 0;

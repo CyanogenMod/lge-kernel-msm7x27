@@ -223,7 +223,7 @@ int thunderg_vibrator_power_set(int enable)
 	return 0;
 }
 
-int thunderg_vibrator_pwn_set(int enable, int amp)
+int thunderg_vibrator_pwm_set(int enable, int amp)
 {
 	int gain = ((PWM_MAX_HALF_DUTY*amp) >> 7)+ GPMN_D_DEFAULT;
 
@@ -250,8 +250,9 @@ int thunderg_vibrator_ic_enable_set(int enable)
 static struct android_vibrator_platform_data thunderg_vibrator_data = {
 	.enable_status = 0,	
 	.power_set = thunderg_vibrator_power_set,
-	.pwn_set = thunderg_vibrator_pwn_set,
+	.pwm_set = thunderg_vibrator_pwm_set,
 	.ic_enable_set = thunderg_vibrator_ic_enable_set,
+	.amp_value = 92,
 };
 
 static struct platform_device android_vibrator_device = {
