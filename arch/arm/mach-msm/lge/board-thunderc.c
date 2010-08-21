@@ -111,9 +111,10 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
  */
 struct usb_composition usb_func_composition[] = {
 	{
-		/* Full or Light mode : ADB, UMS, NMEA, DIAG, MODEM */
-		.product_id         = 0x61CD, /* Mass storage only */
-		.functions	    	= 0x2,
+		/* Full mode : ADB, UMS, NMEA, DIAG, MODEM */
+		/* Light mode : UMS, NMEA, DIAG, MODEM */
+		.product_id         = 0x618E, 
+		.functions	    	= 0x2743,
 		.adb_product_id     = 0x618E,
 		.adb_functions	    = 0x12743,
 	},
@@ -183,8 +184,6 @@ struct android_usb_platform_data android_usb_pdata = {
 	.product_name       = "LG Android USB Device",
 	.manufacturer_name	= "LG Electronics Inc.",
 	.serial_number		= "LGANDROIDVS660",	
-	/* Thunderc is not below pid and init process is charge of 
-	   initialization of pid */
 	.init_product_id	= 0x618E,
 	.nluns = 1,
 };
