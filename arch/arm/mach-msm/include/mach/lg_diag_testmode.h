@@ -142,6 +142,11 @@ typedef enum
 
 typedef enum
 {
+  FIRST_BOOTING_COMPLETE_CHECK,
+}test_mode_req_fboot;
+
+typedef enum
+{
   MEMORY_TOTAL_CAPA_TEST,
   MEMORY_USED_CAPA_TEST,
   MEMORY_REMAIN_CAPA_TEST
@@ -233,6 +238,7 @@ typedef union
   byte					bt_rw[BT_RW_CNT];
 #endif //LG_BTUI_TEST_MODE
   test_mode_req_socket_memory esm;  // external socket memory
+  test_mode_req_fboot fboot;
   test_mode_req_memory_capa_type mem_capa;
   word key_data;
   test_mode_req_motor_type		  	motor;
@@ -356,6 +362,7 @@ typedef union
   char  memory_check;
   unsigned int    socket_memory_size;
   unsigned int    socket_memory_usedsize;
+  int boot_complete;
   test_mode_req_cam_type		 camera;
   unsigned int mem_capa;
   int manual_test;
@@ -466,7 +473,7 @@ typedef enum
   TEST_MODE_SPEAKER_PHONE_TEST,	// Speaker Phone test
 
   TEST_MODE_VIRTUAL_SIM_TEST = 44,
-  TEST_MODE_PHOTO_SENSER_TEST,
+  TEST_MODE_PHOTO_SENSOR_TEST,
   TEST_MODE_VCO_SELF_TUNNING_TEST,
 
   TEST_MODE_MRD_USB_TEST=47,
@@ -479,6 +486,7 @@ typedef enum
   TEST_MODE_MOBILE_SYSTEM_CHANGE_TEST,
   TEST_MODE_STANDALONE_GPS_TEST,
   TEST_MODE_PRELOAD_INTEGRITY_TEST,
+  TEST_MODE_FIRST_BOOT_COMPLETE_TEST = 58,
 
   TEST_MODE_PID_TEST = 70,		// pid R/W
   TEST_MODE_SW_VERSION = 71,

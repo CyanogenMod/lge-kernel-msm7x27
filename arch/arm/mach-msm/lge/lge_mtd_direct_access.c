@@ -56,9 +56,11 @@ int init_mtd_access(int partition, int block);
 static int dev;
 static int target_block;
 static int dummy_arg;
+int boot_info = 0;
 
 module_param(dev, int, S_IRUGO);
 module_param(target_block, int, S_IRUGO);
+module_param(boot_info, int, S_IWUSR | S_IRUGO);
 
 static int test_init(void)
 {

@@ -23,6 +23,7 @@ extern int diag_event_log_start(void);
 extern int diag_event_log_end(void);
 extern void set_operation_mode(boolean isOnline);
 extern struct input_dev* get_ats_input_dev(void);
+extern int boot_info;
 /* ==========================================================================
    ===========================================================================*/
 
@@ -200,10 +201,11 @@ void* LGF_TestModeBlueTooth_RW(
 }
 #endif //LG_BTUI_TEST_MODE
 
-void* LGF_TestPhotoSensor(
+void* LGF_PhotoSensor(
 		test_mode_req_type* pReq ,
 		DIAG_TEST_MODE_F_rsp_type	*pRsp)
 {
+/*
 	pRsp->ret_stat_code = TEST_OK_S;
 
 	if (diagpdev != NULL){
@@ -214,6 +216,8 @@ void* LGF_TestPhotoSensor(
 		printk("\n[%s] error MOTOR", __func__ );
 		pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
 	}
+*/
+	pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
 	return pRsp;
 }
 
@@ -466,7 +470,6 @@ file_fail:
 	return return_value;
 }
 
-
 void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_type	*pRsp)
 {
 	struct statfs_local  sf;
@@ -518,6 +521,24 @@ void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_t
 			break;
 	}
 
+	return pRsp;
+}
+
+void * LGF_TestModeFboot (	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_type	*pRsp)
+{
+//	pRsp->ret_stat_code = TEST_OK_S;
+
+	printk(KERN_ERR "khlee debug %d \n", pReq->fboot);
+
+	switch( pReq->fboot){
+		case FIRST_BOOTING_COMPLETE_CHECK:
+			pRsp->test_mode_rsp.boot_complete = boot_info;
+			printk("LOG Very Very emergency!!!!%d \n",boot_info);
+			break;
+	    default:
+			pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
+			break;
+	}
 	return pRsp;
 }
 
@@ -954,7 +975,7 @@ testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE] =
 	{ TEST_MODE_MEMORY_CAPA_TEST,         LGF_MemoryVolumeCheck,    ARM11_PROCESSOR},
 	{ TEST_MODE_SLEEP_MODE_TEST,          LGF_PowerSaveMode,        ARM11_PROCESSOR},
 	{ TEST_MODE_SPEAKER_PHONE_TEST,       LGF_TestModeSpeakerPhone, ARM11_PROCESSOR},
-	{ TEST_MODE_PHOTO_SENSER_TEST,        linux_app_handler,        ARM11_PROCESSOR},
+	{ TEST_MODE_PHOTO_SENSOR_TEST,        LGF_PhotoSensor,        ARM11_PROCESSOR},
 
 	/* 46 ~ 50 */
 	{ TEST_MODE_MRD_USB_TEST,             NULL,                     ARM9_PROCESSOR },
@@ -964,6 +985,7 @@ testmode_user_table_entry_type testmode_mstr_tbl[TESTMODE_MSTR_TBL_SIZE] =
 	{ TEST_MODE_FACTORY_RESET_CHECK_TEST, LGF_TestModeFactoryReset, ARM11_PROCESSOR },//
 	/* 51 ~	*/
 	{ TEST_MODE_VOLUME_TEST,              LGT_TestModeVolumeLevel,  ARM11_PROCESSOR},
+	{ TEST_MODE_FIRST_BOOT_COMPLETE_TEST, LGF_TestModeFboot,        ARM11_PROCESSOR},
 	/*70~	*/
 	{ TEST_MODE_PID_TEST,             	 NULL,  						ARM9_PROCESSOR},
 	{ TEST_MODE_SW_VERSION, 		NULL, 						ARM9_PROCESSOR},
