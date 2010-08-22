@@ -1348,7 +1348,10 @@ static int isx005_sensor_init_probe(const struct msm_camera_sensor_info *data)
 	mdp_load_thunder_lut(2);	// Camera LUT
 #endif
 
+	mutex_lock(&isx005_mutex);
 	rc = isx005_init_sensor(data);
+	mutex_unlock(&isx005_mutex);
+
 	if (rc < 0) {
 		printk(KERN_ERR "[ERROR]%s:failed to initialize sensor!\n", __func__);
 		goto init_probe_fail;
