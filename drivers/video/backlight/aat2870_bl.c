@@ -74,6 +74,7 @@
 
 #define AAT2862BL_REG_BLM   0x03  /* Register address for Main BL brightness */
 #define AAT2862BL_REG_BLS   0x04  /* Register address for Main BL brightness */
+#define AAT2862BL_REG_FADE	0x07  /* Register address for Backlight Fade control */
 #define AAT2862BL_REG_LDOAB 0x00  /* Register address for LDO select A/B */
 #define AAT2862BL_REG_LDOCD 0x01  /* Register address for LDO select C/D */
 #define AAT2862BL_REG_LDOEN 0x02  /* Register address for LDO Enable */
@@ -121,6 +122,7 @@ struct aat28xx_ctrl_tbl {
 struct aat28xx_reg_addrs {
 	unsigned char bl_m;
 	unsigned char bl_s;
+	unsigned char fade;
 	unsigned char ldo_ab;
 	unsigned char ldo_cd;
 	unsigned char ldo_en;
@@ -251,6 +253,7 @@ static int aat28xx_setup_version(struct aat28xx_driver_data *drvdata)
 		drvdata->cmds.sleep = aat2862bl_sleep_tbl;
 		drvdata->reg_addrs.bl_m = AAT2862BL_REG_BLM;
 		drvdata->reg_addrs.bl_s = AAT2862BL_REG_BLS;
+		drvdata->reg_addrs.fade = AAT2862BL_REG_FADE;
 		drvdata->reg_addrs.ldo_ab = AAT2862BL_REG_LDOAB;
 		drvdata->reg_addrs.ldo_cd = AAT2862BL_REG_LDOCD;
 		drvdata->reg_addrs.ldo_en = AAT2862BL_REG_LDOEN;
@@ -616,9 +619,15 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 	} else if (drvdata->state == SLEEP_STATE) {
 		if (drvdata->mode == NORMAL_MODE) {
 			if(drvdata->version == 2862) {
+				/* LGE_CHANGE
+				  * Using 'Fade in' function supported by AAT2862 when wakeup.
+				  * 2010-08-21, minjong.gong@lge.com
+				 */
+				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x00);	/* Floor current : 0.48mA */
 				aat28xx_intensity = (~(drvdata->intensity)& 0x1F);	/* Invert BL control bits and Clear upper 3bits */
-				aat28xx_intensity |= 0xE0;				/* MEQS(7)=1, Disable Fade(6)=1, LCD_ON(5)=1*/
+				aat28xx_intensity |= 0xA0;							/* MEQS(7)=1, Disable Fade(6)=0, LCD_ON(5)=1*/
 				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat28xx_intensity);
+				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x08);	/* Fade in to intensity brightness in 1000ms. */
 			} else {
 				aat28xx_set_table(drvdata, drvdata->cmds.normal);
 				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, drvdata->intensity);
