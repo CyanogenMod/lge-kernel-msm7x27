@@ -178,12 +178,28 @@ static int vibrator_get_time(struct timed_output_dev *dev)
 
 static void vibrator_enable(struct timed_output_dev *dev, int value)
 {
-	struct timed_vibrator_data *data = container_of(dev, struct timed_vibrator_data, dev);
+	//struct timed_vibrator_data *data = container_of(dev, struct timed_vibrator_data, dev);
+	struct timed_vibrator_data *data = (void *)NULL;
 	unsigned long	flags;
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
 	int rtime;
 #endif
-	int gain = atomic_read(&vibe_gain);
+	//int gain = atomic_read(&vibe_gain);
+	int gain;
+
+	/* Add protection code for detect null point error */	
+	if (dev == (void *)NULL) {
+		printk(KERN_INFO "%s:dev is null\n",__FUNCTION__);
+		return;
+	}
+
+	data = container_of(dev, struct timed_vibrator_data, dev);
+	if (data == (void *)NULL) {
+		printk(KERN_INFO "%s:data is null\n",__FUNCTION__);
+		return;
+	}
+
+	gain = atomic_read(&vibe_gain);
 
 	//printk("LGE:%s time = %d msec\n", __FUNCTION__, value);
 	spin_lock_irqsave(&data->lock, flags);
