@@ -22,9 +22,9 @@
 #include <linux/sched.h>
 
 #if defined(CONFIG_MACH_MSM7X27_THUNDERC)
-#define MISC_PART_NUM 6
+#define MISC_PART_NUM 8
 #define MISC_PART_SIZE 4
-#define PERSIST_PART_NUM 7
+#define PERSIST_PART_NUM 9
 #define PERSIST_PART_SIZE 12
 #define PAGE_NUM_PER_BLK 64
 #define PAGE_SIZE_BYTE 2048
