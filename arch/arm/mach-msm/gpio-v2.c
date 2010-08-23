@@ -26,8 +26,102 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <mach/msm_iomap.h>
-#include "tlmm-msm8660.h"
 #include "gpiomux.h"
+
+/* Bits of interest in the GPIO_IN_OUT register.
+ */
+enum {
+	GPIO_IN_BIT  = 0,
+	GPIO_OUT_BIT = 1
+};
+
+/* Bits of interest in the GPIO_INTR_STATUS register.
+ */
+enum {
+	INTR_STATUS_BIT = 0,
+};
+
+/* Bits of interest in the GPIO_CFG register.
+ */
+enum {
+	GPIO_OE_BIT = 9,
+};
+
+/* Bits of interest in the GPIO_INTR_CFG register.
+ */
+enum {
+	INTR_ENABLE_BIT        = 0,
+	INTR_POL_CTL_BIT       = 1,
+	INTR_DECT_CTL_BIT      = 2,
+	INTR_RAW_STATUS_EN_BIT = 3,
+};
+
+/* Codes of interest in GPIO_INTR_CFG_SU.
+ */
+enum {
+	TARGET_PROC_SCORPION = 4,
+	TARGET_PROC_NONE     = 7,
+};
+
+/*
+ * There is no 'DC_POLARITY_LO' because the GIC is incapable
+ * of asserting on falling edge or level-low conditions.  Even though
+ * the registers allow for low-polarity inputs, the case can never arise.
+ */
+enum {
+	DC_POLARITY_HI	= BIT(11),
+	DC_IRQ_ENABLE	= BIT(3),
+};
+
+enum msm_tlmm_register {
+	SDC4_HDRV_PULL_CTL = 0x20a0,
+	SDC3_HDRV_PULL_CTL = 0x20a4,
+};
+
+struct tlmm_field_cfg {
+	enum msm_tlmm_register reg;
+	u8                     off;
+};
+
+static const struct tlmm_field_cfg tlmm_hdrv_cfgs[] = {
+	{SDC4_HDRV_PULL_CTL, 6}, /* TLMM_HDRV_SDC4_CLK  */
+	{SDC4_HDRV_PULL_CTL, 3}, /* TLMM_HDRV_SDC4_CMD  */
+	{SDC4_HDRV_PULL_CTL, 0}, /* TLMM_HDRV_SDC4_DATA */
+	{SDC3_HDRV_PULL_CTL, 6}, /* TLMM_HDRV_SDC3_CLK  */
+	{SDC3_HDRV_PULL_CTL, 3}, /* TLMM_HDRV_SDC3_CMD  */
+	{SDC3_HDRV_PULL_CTL, 0}, /* TLMM_HDRV_SDC3_DATA */
+};
+
+static const struct tlmm_field_cfg tlmm_pull_cfgs[] = {
+	{SDC4_HDRV_PULL_CTL, 11}, /* TLMM_PULL_SDC4_CMD  */
+	{SDC4_HDRV_PULL_CTL, 9},  /* TLMM_PULL_SDC4_DATA */
+	{SDC3_HDRV_PULL_CTL, 11}, /* TLMM_PULL_SDC3_CMD  */
+	{SDC3_HDRV_PULL_CTL, 9},  /* TLMM_PULL_SDC3_DATA */
+};
+
+/*
+ * When a GPIO triggers, two separate decisions are made, controlled
+ * by two separate flags.
+ *
+ * - First, INTR_RAW_STATUS_EN controls whether or not the GPIO_INTR_STATUS
+ * register for that GPIO will be updated to reflect the triggering of that
+ * gpio.  If this bit is 0, this register will not be updated.
+ * - Second, INTR_ENABLE controls whether an interrupt is triggered.
+ *
+ * If INTR_ENABLE is set and INTR_RAW_STATUS_EN is NOT set, an interrupt
+ * can be triggered but the status register will not reflect it.
+ */
+#define INTR_RAW_STATUS_EN BIT(INTR_RAW_STATUS_EN_BIT)
+#define INTR_ENABLE        BIT(INTR_ENABLE_BIT)
+#define INTR_DECT_CTL_EDGE BIT(INTR_DECT_CTL_BIT)
+#define INTR_POL_CTL_HI    BIT(INTR_POL_CTL_BIT)
+
+#define GPIO_INTR_CFG_SU(gpio)    (MSM_TLMM_BASE + 0x0400 + (0x04 * (gpio)))
+#define DIR_CONN_INTR_CFG_SU(irq) (MSM_TLMM_BASE + 0x0700 + (0x04 * (irq)))
+#define GPIO_CONFIG(gpio)         (MSM_TLMM_BASE + 0x1000 + (0x10 * (gpio)))
+#define GPIO_IN_OUT(gpio)         (MSM_TLMM_BASE + 0x1004 + (0x10 * (gpio)))
+#define GPIO_INTR_CFG(gpio)       (MSM_TLMM_BASE + 0x1008 + (0x10 * (gpio)))
+#define GPIO_INTR_STATUS(gpio)    (MSM_TLMM_BASE + 0x100c + (0x10 * (gpio)))
 
 /**
  * struct msm_gpio_dev: the MSM8660 SoC GPIO device structure
@@ -47,11 +141,12 @@
  */
 struct msm_gpio_dev {
 	struct gpio_chip gpio_chip;
-	spinlock_t       lock;
 	DECLARE_BITMAP(enabled_irqs, NR_MSM_GPIOS);
 	DECLARE_BITMAP(wake_irqs, NR_MSM_GPIOS);
 	DECLARE_BITMAP(dual_edge_irqs, NR_MSM_GPIOS);
 };
+
+static DEFINE_SPINLOCK(tlmm_lock);
 
 static inline struct msm_gpio_dev *to_msm_gpio_dev(struct gpio_chip *chip)
 {
@@ -80,12 +175,11 @@ static void msm_gpio_set(struct gpio_chip *chip, unsigned offset, int val)
 
 static int msm_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
-	struct msm_gpio_dev *dev = to_msm_gpio_dev(chip);
 	unsigned long irq_flags;
 
-	spin_lock_irqsave(&dev->lock, irq_flags);
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	clr_gpio_bits(BIT(GPIO_OE_BIT), GPIO_CONFIG(offset));
-	spin_unlock_irqrestore(&dev->lock, irq_flags);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 	return 0;
 }
 
@@ -93,13 +187,12 @@ static int msm_gpio_direction_output(struct gpio_chip *chip,
 				unsigned offset,
 				int val)
 {
-	struct msm_gpio_dev *dev = to_msm_gpio_dev(chip);
 	unsigned long irq_flags;
 
-	spin_lock_irqsave(&dev->lock, irq_flags);
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	msm_gpio_set(chip, offset, val);
 	set_gpio_bits(BIT(GPIO_OE_BIT), GPIO_CONFIG(offset));
-	spin_unlock_irqrestore(&dev->lock, irq_flags);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 	return 0;
 }
 
@@ -141,7 +234,7 @@ static struct msm_gpio_dev msm_gpio = {
  * such support:
  *
  * At appropriate moments, this function may be called to flip the polarity
- * settings of dual-edge irq lines to try and catch the next edge.
+ * settings of both-edge irq lines to try and catch the next edge.
  *
  * The attempt is considered successful if:
  * - the status bit goes high, indicating that an edge was caught, or
@@ -192,11 +285,11 @@ static void msm_gpio_irq_mask(unsigned int irq)
 	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, irq);
 	unsigned long irq_flags;
 
-	spin_lock_irqsave(&msm_gpio.lock, irq_flags);
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	writel(TARGET_PROC_NONE, GPIO_INTR_CFG_SU(gpio));
 	clr_gpio_bits(INTR_RAW_STATUS_EN | INTR_ENABLE, GPIO_INTR_CFG(gpio));
 	__clear_bit(gpio, msm_gpio.enabled_irqs);
-	spin_unlock_irqrestore(&msm_gpio.lock, irq_flags);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 }
 
 static void msm_gpio_irq_unmask(unsigned int irq)
@@ -204,11 +297,11 @@ static void msm_gpio_irq_unmask(unsigned int irq)
 	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, irq);
 	unsigned long irq_flags;
 
-	spin_lock_irqsave(&msm_gpio.lock, irq_flags);
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	__set_bit(gpio, msm_gpio.enabled_irqs);
 	set_gpio_bits(INTR_RAW_STATUS_EN | INTR_ENABLE, GPIO_INTR_CFG(gpio));
 	writel(TARGET_PROC_SCORPION, GPIO_INTR_CFG_SU(gpio));
-	spin_unlock_irqrestore(&msm_gpio.lock, irq_flags);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 }
 
 static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
@@ -217,7 +310,7 @@ static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
 	unsigned long irq_flags;
 	uint32_t bits;
 
-	spin_lock_irqsave(&msm_gpio.lock, irq_flags);
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
 
 	bits = readl(GPIO_INTR_CFG(gpio));
 
@@ -244,7 +337,7 @@ static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
 	if ((flow_type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH)
 		msm_gpio_update_dual_edge_pos(gpio);
 
-	spin_unlock_irqrestore(&msm_gpio.lock, irq_flags);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 
 	return 0;
 }
@@ -299,7 +392,7 @@ static int __devinit msm_gpio_probe(struct platform_device *dev)
 {
 	int i, irq, ret;
 
-	spin_lock_init(&msm_gpio.lock);
+	spin_lock_init(&tlmm_lock);
 	bitmap_zero(msm_gpio.enabled_irqs, NR_MSM_GPIOS);
 	bitmap_zero(msm_gpio.wake_irqs, NR_MSM_GPIOS);
 	bitmap_zero(msm_gpio.dual_edge_irqs, NR_MSM_GPIOS);
@@ -338,12 +431,12 @@ static int msm_gpio_suspend_noirq(struct device *dev)
 	unsigned long irq_flags;
 	unsigned long i;
 
-	spin_lock_irqsave(&msm_gpio.lock, irq_flags);
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	for_each_set_bit(i, msm_gpio.enabled_irqs, NR_MSM_GPIOS) {
 		if (!test_bit(i, msm_gpio.wake_irqs))
 			writel(TARGET_PROC_NONE, GPIO_INTR_CFG_SU(i));
 	}
-	spin_unlock_irqrestore(&msm_gpio.lock, irq_flags);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 	return 0;
 }
 
@@ -352,10 +445,10 @@ static int msm_gpio_resume_noirq(struct device *dev)
 	unsigned long irq_flags;
 	unsigned long i;
 
-	spin_lock_irqsave(&msm_gpio.lock, irq_flags);
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	for_each_set_bit(i, msm_gpio.enabled_irqs, NR_MSM_GPIOS)
 		writel(TARGET_PROC_SCORPION, GPIO_INTR_CFG_SU(i));
-	spin_unlock_irqrestore(&msm_gpio.lock, irq_flags);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 	return 0;
 }
 #else
@@ -363,7 +456,7 @@ static int msm_gpio_resume_noirq(struct device *dev)
 #define msm_gpio_resume_noirq NULL
 #endif
 
-static struct dev_pm_ops msm_gpio_dev_pm_ops = {
+static const struct dev_pm_ops msm_gpio_dev_pm_ops = {
 	.suspend_noirq  = msm_gpio_suspend_noirq,
 	.resume_noirq   = msm_gpio_resume_noirq,
 	.freeze_noirq   = msm_gpio_suspend_noirq,
@@ -407,7 +500,78 @@ static void __exit msm_gpio_exit(void)
 postcore_initcall(msm_gpio_init);
 module_exit(msm_gpio_exit);
 
+static void msm_tlmm_set_field(const struct tlmm_field_cfg *configs,
+			       unsigned id, unsigned width, unsigned val)
+{
+	unsigned long irqflags;
+	u32 mask = (1 << width) - 1;
+	u32 __iomem *reg = MSM_TLMM_BASE + configs[id].reg;
+	u32 reg_val;
+
+	spin_lock_irqsave(&tlmm_lock, irqflags);
+	reg_val = readl(reg);
+	reg_val &= ~(mask << configs[id].off);
+	reg_val |= (val & mask) << configs[id].off;
+	writel(reg_val, reg);
+	spin_unlock_irqrestore(&tlmm_lock, irqflags);
+}
+
+void msm_tlmm_set_hdrive(enum msm_tlmm_hdrive_tgt tgt, int drv_str)
+{
+	msm_tlmm_set_field(tlmm_hdrv_cfgs, tgt, 3, drv_str);
+}
+EXPORT_SYMBOL(msm_tlmm_set_hdrive);
+
+void msm_tlmm_set_pull(enum msm_tlmm_pull_tgt tgt, int pull)
+{
+	msm_tlmm_set_field(tlmm_pull_cfgs, tgt, 2, pull);
+}
+EXPORT_SYMBOL(msm_tlmm_set_pull);
+
+int gpio_tlmm_config(unsigned config, unsigned disable)
+{
+	uint32_t flags;
+	unsigned gpio = GPIO_PIN(config);
+
+	if (gpio > NR_MSM_GPIOS)
+		return -EINVAL;
+
+	flags = ((GPIO_DIR(config) << 9) & (0x1 << 9)) |
+		((GPIO_DRVSTR(config) << 6) & (0x7 << 6)) |
+		((GPIO_FUNC(config) << 2) & (0xf << 2)) |
+		((GPIO_PULL(config) & 0x3));
+	writel(flags, GPIO_CONFIG(gpio));
+
+	return 0;
+}
+EXPORT_SYMBOL(gpio_tlmm_config);
+
+int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq)
+{
+	unsigned long irq_flags;
+
+	if (gpio >= NR_MSM_GPIOS || irq >= NR_TLMM_SCSS_DIR_CONN_IRQ)
+		return -EINVAL;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+
+	writel(readl(GPIO_CONFIG(gpio)) | BIT(GPIO_OE_BIT),
+		GPIO_CONFIG(gpio));
+	writel(readl(GPIO_INTR_CFG(gpio)) &
+		~(INTR_RAW_STATUS_EN | INTR_ENABLE),
+		GPIO_INTR_CFG(gpio));
+	writel(DC_IRQ_ENABLE | TARGET_PROC_NONE,
+		GPIO_INTR_CFG_SU(gpio));
+	writel(DC_POLARITY_HI |	TARGET_PROC_SCORPION | (gpio << 3),
+		DIR_CONN_INTR_CFG_SU(irq));
+
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_gpio_install_direct_irq);
+
 MODULE_AUTHOR("Gregory Bean <gbean@codeaurora.org>");
-MODULE_DESCRIPTION("Driver for Qualcomm MSM 8660-family SoC GPIOs");
+MODULE_DESCRIPTION("Driver for Qualcomm MSM TLMMv2 SoC GPIOs");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:msm8660-gpio");
+MODULE_ALIAS("platform:msmgpio");
