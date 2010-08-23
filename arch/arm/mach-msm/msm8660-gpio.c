@@ -25,7 +25,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
-#include <linux/pm_runtime.h>
 #include <mach/msm_iomap.h>
 #include "tlmm-msm8660.h"
 #include "gpiomux.h"
@@ -260,12 +259,7 @@ static int __devinit msm_gpio_probe(struct platform_device *dev)
 		set_irq_handler(irq, handle_level_irq);
 		set_irq_flags(irq, IRQF_VALID);
 	}
-	ret = pm_runtime_set_active(&dev->dev);
-	if (ret < 0)
-		printk(KERN_ERR "pm_runtime: fail to set active\n");
 
-	pm_runtime_enable(&dev->dev);
-	pm_runtime_get(&dev->dev);
 	set_irq_chained_handler(TLMM_SCSS_SUMMARY_IRQ,
 				msm_summary_irq_handler);
 	return 0;
@@ -279,9 +273,6 @@ static int __devexit msm_gpio_remove(struct platform_device *dev)
 		return ret;
 
 	set_irq_handler(TLMM_SCSS_SUMMARY_IRQ, NULL);
-	pm_runtime_put(&dev->dev);
-	pm_runtime_disable(&dev->dev);
-
 
 	return 0;
 }
@@ -317,30 +308,6 @@ static int msm_gpio_resume_noirq(struct device *dev)
 #define msm_gpio_resume_noirq NULL
 #endif
 
-#ifdef CONFIG_PM_RUNTIME
-static int msm_gpio_runtime_suspend(struct device *dev)
-{
-	dev_dbg(dev, "pm_runtime: suspending...\n");
-	return 0;
-}
-
-static int msm_gpio_runtime_resume(struct device *dev)
-{
-	dev_dbg(dev, "pm_runtime: resuming...\n");
-	return 0;
-}
-
-static int msm_gpio_runtime_idle(struct device *dev)
-{
-	dev_dbg(dev, "pm_runtime: idling...\n");
-	return 0;
-}
-#else
-#define msm_gpio_runtime_suspend NULL
-#define msm_gpio_runtime_resume NULL
-#define msm_gpio_runtime_idle NULL
-#endif
-
 static struct dev_pm_ops msm_gpio_dev_pm_ops = {
 	.suspend_noirq  = msm_gpio_suspend_noirq,
 	.resume_noirq   = msm_gpio_resume_noirq,
@@ -348,9 +315,6 @@ static struct dev_pm_ops msm_gpio_dev_pm_ops = {
 	.thaw_noirq     = msm_gpio_resume_noirq,
 	.poweroff_noirq = msm_gpio_suspend_noirq,
 	.restore_noirq  = msm_gpio_resume_noirq,
-	.runtime_suspend = msm_gpio_runtime_suspend,
-	.runtime_resume = msm_gpio_runtime_resume,
-	.runtime_idle = msm_gpio_runtime_idle,
 };
 
 static struct platform_driver msm_gpio_driver = {
