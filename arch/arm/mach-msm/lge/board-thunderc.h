@@ -88,6 +88,9 @@
 #define GPIO_LCD_MAKER_LOW	101
 #define GPIO_LCD_RESET_N	102
 
+/* Vibrator pwm pin */
+#define GPIO_LIN_MOTOR_PWM	28
+
 /* bluetooth gpio pin */
 enum {
 	BT_WAKE         = 42,
