@@ -116,6 +116,7 @@ obj-$(CONFIG_ARCH_MSM8X60) += saw-regulator.o
 
 ifdef CONFIG_ARCH_MSM8X60
 	obj-$(CONFIG_CPU_IDLE) += cpuidle.o
+	obj-$(CONFIG_MSM_WATCHDOG) += msm_watchdog.o
 endif
 
 obj-$(CONFIG_MACH_MSM8X60_RUMI3) += board-msm8x60.o
