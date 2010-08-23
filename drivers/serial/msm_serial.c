@@ -925,7 +925,17 @@ static void msm_console_write(struct console *co, const char *s,
 		spin_lock(&port->lock);
 	}
 
+#ifdef CONFIG_MACH_MSM7X27_THUNDERG
+	#ifdef CONFIG_SERIAL_MSM_CLOCK_CONTROL
+	if (msm_port->clk_state != MSM_CLK_OFF) {
+		uart_console_write(port, s, count, msm_console_putchar);
+	}
+	#else
 	uart_console_write(port, s, count, msm_console_putchar);
+	#endif
+#else
+	uart_console_write(port, s, count, msm_console_putchar);
+#endif
 
 	if (locked)
 		spin_unlock(&port->lock);
@@ -1073,6 +1083,10 @@ static int __devexit msm_serial_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_MACH_MSM7X27_THUNDERG
+#define msm_serial_suspend NULL
+#define msm_serial_resume NULL
+#else
 #ifdef CONFIG_PM
 static int msm_serial_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -1105,6 +1119,7 @@ static int msm_serial_resume(struct platform_device *pdev)
 #define msm_serial_suspend NULL
 #define msm_serial_resume NULL
 #endif
+#endif //#ifdef CONFIG_MACH_MSM7X27_THUNDERG
 
 static int msm_serial_runtime_suspend(struct device *dev)
 {
