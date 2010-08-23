@@ -57,6 +57,7 @@ static struct platform_device msm_batt_device = {
 
 /* Vibrator Functions for Android Vibrator Driver */
 #define VIBE_IC_VOLTAGE			3300
+#define GPIO_LIN_MOTOR_PWM		28
 
 #define GP_MN_CLK_MDIV_REG		0x004C
 #define GP_MN_CLK_NDIV_REG		0x0050

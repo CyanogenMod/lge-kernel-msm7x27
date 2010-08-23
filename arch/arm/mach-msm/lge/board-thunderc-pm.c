@@ -21,7 +21,6 @@
 int thunderc_pwrsink_suspend_noirq(struct device *dev)
 {
 	printk(KERN_INFO"%s: configure gpio for suspend\n", __func__);
-	gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
 
@@ -59,7 +58,6 @@ int thunderc_pwrsink_resume_noirq(struct device *dev)
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
 	gpio_direction_output(GPIO_LCD_RESET_N, 0);
-	gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
 
 	return 0;
 }
