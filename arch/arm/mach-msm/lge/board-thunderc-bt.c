@@ -115,6 +115,13 @@ static struct platform_device msm_bt_power_device = {
 
 static void __init bt_power_init(void)
 {
+/* LGE_CHANGE_S, [kidong0420.kim@lge.com] , 2010-06-18, for current consumption*/
+  //MI thunderc_bluetooth_power(1);
+  gpio_set_value(23, 1);
+  ssleep(1); /* 1 sec */
+  //MI thunderc_bluetooth_power(0);
+  gpio_set_value(23, 0);
+/* LGE_CHANGE_E, [kidong0420.kim@lge.com] , 2010-06-18, for current consumption*/
 }
 #else
 #define bt_power_init(x) do {} while (0)

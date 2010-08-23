@@ -219,9 +219,11 @@ int thunderc_vibrator_pwm_set(int enable, int amp)
 
 	if (enable) {
 		REG_WRITEL((gain & GPMN_D_MASK), GP_MN_CLK_DUTY_REG);
+		gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
 		gpio_direction_output(GPIO_LIN_MOTOR_PWM, 1);
 	} else {
 		REG_WRITEL(GPMN_D_DEFAULT, GP_MN_CLK_DUTY_REG);
+		gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
 		gpio_direction_output(GPIO_LIN_MOTOR_PWM, 0);
 	}
 
