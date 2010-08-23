@@ -50,6 +50,9 @@
 #define GPIO_CAM_PWDN		 		1		/* GPIO_1 */
 #define GPIO_CAM_MCLK				15		/* GPIO_15 */
 
+#define CAM_POWER_OFF				0
+#define CAM_POWER_ON				1
+
 //int aat2870_camera_power_ctrl(int on_off);
 #define LDO_CAM_AVDD_NO		2	/* 2.7V */
 #define LDO_CAM_DVDD_NO		3	/* 1.2V */
@@ -88,6 +91,9 @@
 #define GPIO_LCD_MAKER_LOW	101
 #define GPIO_LCD_RESET_N	102
 
+#define BL_POWER_SUSPEND	0
+#define BL_POWER_RESUME		1
+
 /* bluetooth gpio pin */
 enum {
 	BT_WAKE         = 42,
@@ -108,8 +114,15 @@ extern struct platform_device msm_device_snd;
 extern struct platform_device msm_device_adspdec;
 extern struct i2c_board_info i2c_devices[1];
 
+extern int camera_power_state;
+extern int lcd_bl_power_state;
+
 /* interface functions */
 void config_camera_on_gpios(void);
 void config_camera_off_gpios(void);
+void camera_power_mutex_lock(void);
+void camera_power_mutex_unlock(void);
+
 struct device* thunderc_backlight_dev(void);
+void thunderc_pwrsink_resume(void);
 #endif

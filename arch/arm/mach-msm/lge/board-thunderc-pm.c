@@ -18,9 +18,18 @@
 #include <mach/board_lge.h>
 #include "board-thunderc.h" 
 
+int lcd_bl_power_state;
+
 int thunderc_pwrsink_suspend_noirq(struct device *dev)
 {
 	printk(KERN_INFO"%s: configure gpio for suspend\n", __func__);
+
+	camera_power_mutex_lock();
+
+	if (camera_power_state == CAM_POWER_ON) {
+		camera_power_mutex_unlock();
+		return 0;
+	}
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
 
@@ -35,6 +44,10 @@ int thunderc_pwrsink_suspend_noirq(struct device *dev)
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
 	gpio_direction_output(GPIO_LCD_RESET_N, 0);
+	
+	lcd_bl_power_state = BL_POWER_SUSPEND;
+
+	camera_power_mutex_unlock();
 
 	return 0;
 }
@@ -42,6 +55,14 @@ int thunderc_pwrsink_suspend_noirq(struct device *dev)
 int thunderc_pwrsink_resume_noirq(struct device *dev)
 {
 	printk(KERN_INFO"%s: configure gpio for resume\n", __func__);
+
+	camera_power_mutex_lock();
+
+	if (camera_power_state == CAM_POWER_ON ||
+		lcd_bl_power_state == BL_POWER_RESUME) {
+		camera_power_mutex_unlock();
+		return 0;
+	}
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
 	gpio_direction_output(GPIO_LCD_BL_EN, 1);
@@ -58,8 +79,33 @@ int thunderc_pwrsink_resume_noirq(struct device *dev)
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
 	gpio_direction_output(GPIO_LCD_RESET_N, 0);
+	
+	lcd_bl_power_state = BL_POWER_RESUME;
+
+	camera_power_mutex_unlock();
 
 	return 0;
+}
+
+void thunderc_pwrsink_resume()
+{
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_LCD_BL_EN, 1);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_BL_I2C_SCL, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_BL_I2C_SCL, 1);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_BL_I2C_SDA, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_BL_I2C_SDA, 1);
+
+//	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_VSYNC_O, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
+
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_direction_output(GPIO_LCD_RESET_N, 0);
+	
+	lcd_bl_power_state = BL_POWER_RESUME;
 }
 
 static struct dev_pm_ops thunderc_pwrsink_data = {
@@ -77,6 +123,7 @@ static struct platform_device thunderc_pwrsink_device = {
 
 void __init lge_add_pm_devices(void)
 {
+	lcd_bl_power_state = BL_POWER_RESUME;
 	platform_device_register(&thunderc_pwrsink_device);
 }
 

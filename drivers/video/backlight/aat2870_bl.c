@@ -582,19 +582,6 @@ static void aat28xx_sleep(struct aat28xx_driver_data *drvdata)
 			eprintk("Invalid Mode\n");
 			break;
 	}
-/* LGE_CHANGE
- * Shut down the AAT28xx according to the status of Camera for VS660
- * 2010-07-26, minjong.gong@lge.com
- */
-	#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
-		int cam_status;
-		cam_status = camera_status();
-		if (cam_status == CAMERA_POWER_OFF){
-			//printk("Camera status is %d. 0:On, 1: Off\n",CAMERA_POWER_OFF);
-			aat28xx_poweroff(drvdata);
-		}
-	#endif
-	
 }
 
 static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
