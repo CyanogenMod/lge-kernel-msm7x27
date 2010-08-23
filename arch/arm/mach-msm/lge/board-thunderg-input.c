@@ -225,7 +225,7 @@ struct platform_device thunderg_reset_keys_device = {
 static struct platform_device *thunderg_input_devices[] __initdata = {
 	&hs_device,
 	&keypad_device_thunder,
-	&thunderg_reset_keys_device,
+	//&thunderg_reset_keys_device,
 	&atcmd_virtual_device,
 };
 
