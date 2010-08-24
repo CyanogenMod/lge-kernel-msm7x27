@@ -77,7 +77,7 @@ module_param_named(debug_mask, gp2ap_debug_mask, int,
 			printk(KERN_ERR "E[%-18s:%5d]" \
 				fmt, __FUNCTION__, __LINE__, ##args);
 #else
-#define PROXD(fmt, args...)	{};
+#define PROXE(fmt, args...)	{};
 #endif
 
 #define GP2AP_NO_INTCLEAR	(0)
@@ -790,6 +790,7 @@ gp2ap_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		}
 	}
 
+	dummy_state.event = 0;
 	gp2ap_suspend(gp2ap_pdev->client, dummy_state);
 
 	if (GP2AP_DEBUG_FUNC_TRACE & gp2ap_debug_mask)
