@@ -42,6 +42,41 @@ static void kr3dm_early_suspend(struct early_suspend *h);
 static void kr3dm_late_resume(struct early_suspend *h);
 #endif
 
+#define KR3DM_DEBUG_PRINT	(1)
+#define KR3DM_ERROR_PRINT	(1)
+
+/* KR3DM Debug mask value
+ * usage: echo [mask_value] > /sys/module/kr3dm/parameters/debug_mask
+ * All		: 3
+ * No msg	: 0
+ * default	: 0
+ */
+enum {
+	KR3DM_DEBUG_FUNC_TRACE		= 1U << 0,
+	KR3DM_DEBUG_DEV_LOW_DATA		= 1U << 1,
+};
+
+static unsigned int kr3dm_debug_mask = 0;
+
+module_param_named(debug_mask, kr3dm_debug_mask, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+
+#if defined(KR3DM_DEBUG_PRINT)
+#define KR3DMD(fmt, args...) \
+			printk(KERN_INFO "D[%-18s:%5d]" \
+				fmt, __FUNCTION__, __LINE__, ##args);
+#else
+#define KR3DMD(fmt, args...)	{};
+#endif
+
+#if defined(KR3DM_ERROR_PRINT)
+#define KR3DME(fmt, args...) \
+			printk(KERN_ERR "E[%-18s:%5d]" \
+				fmt, __FUNCTION__, __LINE__, ##args);
+#else
+#define KR3DME(fmt, args...)	{};
+#endif
+
 #define USE_WORK_QUEUE        0
 
 /** Maximum polled-device-reported g value */
@@ -381,7 +416,8 @@ static int kr3dm_get_acceleration_data(struct kr3dm_data *kr, int *xyz)
 		  : (hw_d[kr->pdata->axis_map_z]));
 #endif
 
-	//dev_info(&kr->client->dev, "(x, y ,z) = (%d, %d, %d)\n", xyz[0],xyz[1], xyz[2]);
+	if (KR3DM_DEBUG_DEV_LOW_DATA & kr3dm_debug_mask)
+		KR3DMD("x=%10d, y=%10d, z=%10d\n", xyz[0],xyz[1], xyz[2]);
 
 	return err;
 }
