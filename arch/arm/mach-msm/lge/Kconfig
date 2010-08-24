@@ -240,6 +240,16 @@ config LGE_DIAG_WMC
 	help
 	  LGE diag WMC enable
 
+config LGE_GRAM_REFRESH_PATCH
+	bool "LGE gram refresh patch"
+	default n
+	help
+	  This patch is added for gram-embedded device like mddi.
+	  because, when suspend state, power of mddi is off usually,
+	  gram of DDI chip has garbage data until data of gram is refreshed.
+	  this can cause displaying broken screen in time of turning backlight on.
+	  for preventing this problem, add refreshing routine before turning 
+	  backlight on by using late resume mechanism.
 endmenu
 
 endmenu
