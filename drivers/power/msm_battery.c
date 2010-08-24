@@ -1008,9 +1008,11 @@ void msm_batt_late_resume(struct early_suspend *h)
 
 	pr_debug("%s: exit\n", __func__);
 #else
-	pr_debug("%s: enter\n", __func__);
+	pr_debug("%s: enter but doing nothing \n", __func__);
 
+#if 0
 	msm_batt_update_psy_status();
+#endif
 
 	pr_debug("%s: exit\n", __func__);
 #endif
@@ -1022,7 +1024,7 @@ static int msm_batt_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int rc;
 
-	pr_debug(KERN_INFO "[msm_battery] %s()...\n", __func__);
+	pr_debug(KERN_INFO "[msm_battery] %s()... do update status \n", __func__);
 
 	msm_batt_update_psy_status();
 
