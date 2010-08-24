@@ -52,7 +52,7 @@ struct msm_ptbl_entry {
  */
 #define MSM_MAX_PARTITIONS 11
 #else /* original */
-#define MSM_MAX_PARTITIONS 8
+#define MSM_MAX_PARTITIONS 10
 #endif
 
 static struct mtd_partition msm_nand_partitions[MSM_MAX_PARTITIONS];
