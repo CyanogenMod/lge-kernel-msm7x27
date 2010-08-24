@@ -169,7 +169,14 @@ PACK (void *)LGF_KeyPress (
     		//ok  icon
       		Send_Touch(85,315);
 		break;
-
+	case 0x2064:
+		//power off  button  icon
+		Send_Touch(150,350);
+		break;
+	case 0x2065:
+		//power off ok button  icon
+		Send_Touch(75,315);
+		break;
 	case 0x40 :
 	    /* LG_FW 2010.02.24 khlee - UTS TEST needs send key to call in idle screen*/
       	   /* FIXME : comment out, taehung.kim@lge.com */
