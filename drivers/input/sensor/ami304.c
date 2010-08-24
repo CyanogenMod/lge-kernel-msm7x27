@@ -46,6 +46,7 @@ enum {
 	AMI304_DEBUG_DEV_DEBOUNCE	= 1U << 4,
 	AMI304_DEBUG_GEN_INFO		= 1U << 5,
 	AMI304_DEBUG_INTR_INFO		= 1U << 6,
+	AMI304_DEBUG_DELAY_SETTING		= 1U << 7,
 };
 
 static unsigned int ami304_debug_mask = AMI304_DEBUG_USER_ERROR;
@@ -837,7 +838,10 @@ static int ami304hal_ioctl(struct inode *inode, struct file *file, unsigned int 
 			write_lock(&ami304mid_data.ctrllock);
 			memcpy(&ami304mid_data.controldata[0], controlbuf, sizeof(controlbuf));
 			write_unlock(&ami304mid_data.ctrllock);
-			//AMID("Dleay setting = %dms\n", ami304mid_data.controldata[0] / 1000);
+
+			if (AMI304_DEBUG_DELAY_SETTING & ami304_debug_mask)
+				AMID("Dleay setting = %dms\n", ami304mid_data.controldata[0] / 1000);
+
 			break;
 
 		default:
