@@ -23,6 +23,11 @@
 
 #include "power.h"
 
+/* LGE_CHANGE [neo.kang@lge.com] 2010-03-28, notify power state to ARM9 */
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC)
+#include "../arch/arm/mach-msm/proc_comm.h"
+#endif
+
 enum {
 	DEBUG_USER_STATE = 1U << 0,
 	DEBUG_SUSPEND = 1U << 2,
@@ -158,6 +163,11 @@ void request_suspend_state(suspend_state_t new_state)
 	unsigned long irqflags;
 	int old_sleep;
 
+  /* LGE_CHANGE [neo.kang@lge.com] 2010-03-28, notify power state to ARM9 */
+	#if defined (CONFIG_MACH_MSM7X27_THUNDERC)
+	int cmd_state = 1;
+	#endif
+
 	spin_lock_irqsave(&state_lock, irqflags);
 	old_sleep = state & SUSPEND_REQUESTED;
 	if (debug_mask & DEBUG_USER_STATE) {
@@ -172,6 +182,11 @@ void request_suspend_state(suspend_state_t new_state)
 			ktime_to_ns(ktime_get()),
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+    /* LGE_CHANGE [neo.kang@lge.com] 2010-03-28, notify power state to ARM9 */
+	  #if defined (CONFIG_MACH_MSM7X27_THUNDERC)
+			msm_proc_comm(PCOM_CUSTOMER_CMD2, &new_state, &cmd_state);
+	  #endif
 	}
 	if (!old_sleep && new_state != PM_SUSPEND_ON) {
 		state |= SUSPEND_REQUESTED;
