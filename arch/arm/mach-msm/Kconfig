@@ -876,7 +876,7 @@ config MSM_CPU_AVS
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	depends on (ARCH_MSM_SCORPION && QSD_SVS)
 	depends on ARCH_QSD8X50
-	default y
+	default n
 	help
 	  This enables the Adaptive Voltage Scaling feature of
 	  Qualcomm ARMv7 CPUs. It adjusts the voltage for each frequency
