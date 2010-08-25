@@ -449,12 +449,12 @@ static int diagchar_open(void)
 		mutex_lock(&driver->diagchar_mutex);
 
 		for (i = 0; i < driver->num_clients; i++)
-			if (driver->client_map[i] == 0)
+			if (driver->client_map[i].pid == 0)
 				break;
 
 		if (i < driver->num_clients)
     {
-			driver->client_map[i] = current->tgid;
+			driver->client_map[i].pid = current->tgid;
 #ifdef LG_DIAG_DEBUG
 				printk(KERN_DEBUG "LG_FW : client_map id = 0x%x\n", driver->client_map[i]);
 #endif
@@ -515,7 +515,7 @@ static int diagchar_read(char *buf, int count )
 	int index = -1, i = 0, ret = 0;
 	int data_type;
 	for (i = 0; i < driver->num_clients; i++)
-		if (driver->client_map[i] == current->tgid)
+		if (driver->client_map[i].pid == current->tgid)
 			index = i;
 
 	if (index == -1)
