@@ -1018,6 +1018,7 @@ static struct platform_device msm_batt_device = {
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
 #define MSM_PMEM_ADSP_SIZE         0x2000000
+#define MSM_PMEM_AUDIO_SIZE        0x19000
 
 #define MSM_SMI_BASE          0x38000000
 /* Kernel SMI PMEM Region for video core, used for Firmware */
@@ -1075,6 +1076,15 @@ static int __init pmem_adsp_size_setup(char *p)
 	return 0;
 }
 early_param("pmem_adsp_size", pmem_adsp_size_setup);
+
+static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
+
+static int __init pmem_audio_size_setup(char **p)
+{
+	pmem_audio_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_audio_size", pmem_audio_size_setup);
 #endif
 
 static struct resource msm_fb_resources[] = {
@@ -1159,6 +1169,19 @@ static struct platform_device android_pmem_adsp_device = {
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
 };
+
+static struct android_pmem_platform_data android_pmem_audio_pdata = {
+	.name = "pmem_audio",
+	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
+	.cached = 0,
+};
+
+static struct platform_device android_pmem_audio_device = {
+	.name = "android_pmem",
+	.id = 4,
+	.dev = { .platform_data = &android_pmem_audio_pdata },
+};
+
 static struct android_pmem_platform_data android_pmem_smipool_pdata = {
 	.name = "pmem_smipool",
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
@@ -1312,6 +1335,15 @@ static void __init msm8x60_allocate_memory_regions(void)
 		pr_info("allocating %lu bytes at %lx physical for user"
 			" smi  pmem arena\n", size,
 			(unsigned long) MSM_PMEM_SMIPOOL_BASE);
+	}
+
+	size = MSM_PMEM_AUDIO_SIZE;
+	if (size) {
+		addr = alloc_bootmem(size);
+		android_pmem_audio_pdata.start = __pa(addr);
+		android_pmem_audio_pdata.size = size;
+		pr_info("allocating %lu bytes at %p (%lx physical) for audio "
+			"pmem arena\n", size, addr, __pa(addr));
 	}
 
 	size = pmem_sf_size;
@@ -1692,6 +1724,7 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 #ifdef CONFIG_ANDROID_PMEM
 	&android_pmem_device,
 	&android_pmem_adsp_device,
+	&android_pmem_audio_device,
 	&android_pmem_smipool_device,
 #endif
 #ifdef CONFIG_MSM_ROTATOR
@@ -1770,6 +1803,7 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_ANDROID_PMEM
 	&android_pmem_device,
 	&android_pmem_adsp_device,
+	&android_pmem_audio_device,
 	&android_pmem_smipool_device,
 #endif
 #ifdef CONFIG_MSM_ROTATOR
