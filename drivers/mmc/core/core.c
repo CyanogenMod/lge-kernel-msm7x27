@@ -1108,7 +1108,7 @@ void mmc_rescan(struct work_struct *work)
 
 	ret = host->ops->get_status(host);
 	if (host->ops->get_status && ret == 1){
-		mmc_schedule_delayed_work(&host->detect, HZ / 3);
+		mmc_schedule_delayed_work(&host->detect, HZ / 5);
 	}
 	mmc_bus_get(host);
 
