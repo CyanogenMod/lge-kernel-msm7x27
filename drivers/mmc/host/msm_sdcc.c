@@ -1375,7 +1375,10 @@ msmsdcc_check_status(unsigned long data)
 		}
 		else
 #endif
-			mmc_detect_change(host->mmc, TIME_STEP);
+			if (!host->eject)
+				mmc_detect_change(host->mmc, TIME_STEP);
+			else
+				mmc_detect_change(host->mmc, 0);
 	}
 	host->oldstat = !host->eject;
 }
