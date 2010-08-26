@@ -591,10 +591,6 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 	if (!drvdata || drvdata->state == NORMAL_STATE)
 		return;
 
-#ifdef CONFIG_MACH_MSM7X27_THUNDERC
-	mdelay(100);
-#endif
-
 	dprintk("operation mode is %s\n", (drvdata->mode == NORMAL_MODE) ? "normal_mode" : "alc_mode");
 
 	if (drvdata->state == POWEROFF_STATE) {

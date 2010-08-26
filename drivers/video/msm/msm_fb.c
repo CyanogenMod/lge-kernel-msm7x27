@@ -108,7 +108,7 @@ static struct fb_var_screeninfo *last_var;
 static struct fb_info *last_info;
 static struct early_suspend additional_early_suspend;
 static void msmfb_early_suspend_early(struct early_suspend *h);
-static void msmfb_early_resume_late(struct early_suspend *h);
+static void msmfb_late_resume_late(struct early_suspend *h);
 #endif
 
 /* LGE_CHANGE_S
@@ -627,6 +627,7 @@ static void msmfb_early_suspend_early(struct early_suspend *h)
 
 static void msmfb_late_resume_late(struct early_suspend *h)
 {
+	memset((void *)last_info->screen_base, 0, last_info->fix.smem_len);
 	msm_fb_pan_display(last_var, last_info);
 }
 #endif
