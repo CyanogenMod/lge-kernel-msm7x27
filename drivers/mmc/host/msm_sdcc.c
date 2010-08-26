@@ -755,6 +755,20 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 		if (!(status & (MCI_TXFIFOHALFEMPTY | MCI_RXDATAAVLBL)))
 			break;
 
+		/* LGE_CHANGE
+		 * QCT SR Defect 00364002
+		 * Kernel Panic issue by Null Pointer
+		 * Exception handling
+		 * fred.cho@lge.com , 2010-08-26
+		 */
+
+		if(!host->curr.data)
+		{
+			writel(0, base + MMCIMASK1);
+			spin_unlock(&host->lock);
+			return IRQ_HANDLED;
+		}
+
 		/* Map the current scatter buffer */
 		local_irq_save(flags);
 		buffer = kmap_atomic(sg_page(host->pio.sg),
