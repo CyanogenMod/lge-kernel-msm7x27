@@ -102,7 +102,7 @@ static struct display_table mddi_hitachi_position_table[] = {
 static struct display_table mddi_hitachi_display_on_1st[] = {
 	// Display on sequence
 	{0x11, 4, {0x00, 0x00, 0x00, 0x00}},
-	{REGFLAG_DELAY, 150, {}},
+	{REGFLAG_DELAY, 80, {}},
 	{0x2c, 4, {0x00, 0x00, 0x00, 0x00}},
 	{0x29, 4, {0x00, 0x00, 0x00, 0x00}},
 	{0x2c, 4, {0x00, 0x00, 0x00, 0x00}},
@@ -111,7 +111,7 @@ static struct display_table mddi_hitachi_display_on_1st[] = {
 static struct display_table mddi_hitachi_display_on_3rd[] = {
 	// Display on sequence
 	{0x11, 4, {0x00, 0x00, 0x00, 0x00}},
-	{REGFLAG_DELAY, 150, {}},
+	{REGFLAG_DELAY, 80, {}},
 	{0x29, 4, {0x00, 0x00, 0x00, 0x00}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
@@ -750,7 +750,7 @@ static void mddi_hitachi_lcd_panel_poweron(void)
 		gpio_set_value(pdata->gpio, 0);
 		mdelay(10);
 		gpio_set_value(pdata->gpio, 1);
-		mdelay(20);
+		mdelay(2);
 	}
 }
 
@@ -793,7 +793,7 @@ static void mddi_hitachi_lcd_panel_poweroff(void)
 
 	if(pdata && pdata->gpio) {
 		gpio_set_value(pdata->gpio, 0);
-		mdelay(50);
+		mdelay(5);
 	}
 }
 module_init(mddi_hitachi_lcd_init);

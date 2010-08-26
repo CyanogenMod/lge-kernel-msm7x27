@@ -791,6 +791,7 @@ static int kr3dh_probe(struct i2c_client *client,
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	kr3dh_sensor_early_suspend.suspend = kr3dh_early_suspend;
 	kr3dh_sensor_early_suspend.resume = kr3dh_late_resume;
+	kr3dh_sensor_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN - 45;
 	register_early_suspend(&kr3dh_sensor_early_suspend);
 #endif
 
