@@ -522,14 +522,10 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 #endif	
 /* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-18 */
 
-	status = 0; //ALRAN
-	if (acm->serial_state & ACM_CTRL_DSR) { //ALRAN
-		/* ep_queue() can complete immediately if it fills the fifo... */
-		spin_unlock(&acm->lock);
-		status = usb_ep_queue(ep, req, GFP_ATOMIC);
-		spin_lock(&acm->lock);
-
-	} //ALRAN
+	/* ep_queue() can complete immediately if it fills the fifo... */
+	spin_unlock(&acm->lock);
+	status = usb_ep_queue(ep, req, GFP_ATOMIC);
+	spin_lock(&acm->lock);
 
 	if (status < 0) {
 		ERROR(acm->port.func.config->cdev,
