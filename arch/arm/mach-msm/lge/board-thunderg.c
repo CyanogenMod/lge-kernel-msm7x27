@@ -41,6 +41,7 @@
 #include <mach/msm_serial_hs.h>
 #include <mach/memory.h>
 #include <mach/msm_battery.h>
+#include <mach/mpp.h>
 #include <mach/gpio.h>
 #include <mach/board_lge.h>
 
