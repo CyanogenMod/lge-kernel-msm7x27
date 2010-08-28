@@ -147,7 +147,7 @@ static void late_resume(struct work_struct *work)
 		/* FIXME: this is test code for detecting main cause of kthread's sleep
 		 * 2010-04-26, cleaneye.kim@lge.com
 		 */
-		printk(KERN_INFO"%s: late resume funtion [%x]\n",__func__, pos->suspend);
+		printk(KERN_INFO"%s: late resume funtion [%x]\n",__func__, pos->resume);
 #endif
 		if (pos->resume != NULL)
 			pos->resume(pos);
@@ -182,29 +182,20 @@ void request_suspend_state(suspend_state_t new_state)
 			ktime_to_ns(ktime_get()),
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+	}
 
 #if defined (CONFIG_MACH_MSM7X27_THUNDERC)
-		/* LGE_CHANGE [neo.kang@lge.com] 2010-03-28, notify power state to ARM9 */
-		msm_proc_comm(PCOM_CUSTOMER_CMD2, &new_state, &cmd_state);
+	/* LGE_CHANGE [neo.kang@lge.com] 2010-03-28, notify power state to ARM9 */
+	pr_info("%s:starting notify power state to ARM9\n", __func__);
+	msm_proc_comm(PCOM_CUSTOMER_CMD2, &new_state, &cmd_state);
+	pr_info("%s:end notify power state to ARM9\n", __func__);
 #endif
-	}
+
 	if (!old_sleep && new_state != PM_SUSPEND_ON) {
 		state |= SUSPEND_REQUESTED;
-#ifdef CONFIG_MACH_LGE
-		/* This is integrity code to flush suspend workqueue before to actually early suspend/resume
-		 * 2010-0825, kenobi.lee@lge.com
-		 */
-		flush_workqueue(suspend_work_queue);
-#endif
 		queue_work(suspend_work_queue, &early_suspend_work);
 	} else if (old_sleep && new_state == PM_SUSPEND_ON) {
 		state &= ~SUSPEND_REQUESTED;
-#ifdef CONFIG_MACH_LGE
-		/* This is integrity code to flush suspend workqueue before to actually early suspend/resume
-		 * 2010-0825, kenobi.lee@lge.com
-		 */
-		flush_workqueue(suspend_work_queue);
-#endif
 		wake_lock(&main_wake_lock);
 		queue_work(suspend_work_queue, &late_resume_work);
 	}
