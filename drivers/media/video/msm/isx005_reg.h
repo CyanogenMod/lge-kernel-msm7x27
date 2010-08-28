@@ -1584,7 +1584,7 @@ tuning_reg_settings_array[] = {	//091214
 	{0xA226,0xa7  ,BYTE_LEN},
 	{0xA227,0x3c  ,BYTE_LEN},
 	{0x0068,0x57  ,BYTE_LEN},
-	{0x4001,0x02  ,BYTE_LEN},
+	{0x4001,0x00  ,BYTE_LEN},
 	{0x4A04,0x0010,WORD_LEN},
 	{0x4A06,0x260E,WORD_LEN},
 	{0x4A08,0x3D01,WORD_LEN},
@@ -2271,7 +2271,10 @@ tuning_reg_settings_array[] = {	//091214
 	{0x6E4E,0x2200,WORD_LEN},
 	{0x6E50,0x3200,WORD_LEN},
 	{0x481C,0x00  ,BYTE_LEN},
-	{0x403A,0x2000,WORD_LEN},
+	{0x4038,0x02  ,BYTE_LEN},
+	{0x4039,0x32  ,BYTE_LEN},
+	{0x403A,0x0500,WORD_LEN},
+	{0x404A,0x4400,WORD_LEN},
 	{0x4600,0xAA  ,BYTE_LEN},
 	{0x4601,0xAA  ,BYTE_LEN},
 	{0x4602,0xAA  ,BYTE_LEN},
@@ -2676,12 +2679,12 @@ tuning_reg_settings_array[] = {	//091214
 	{0x01E8,0x00  ,BYTE_LEN},
 	{0x4A00,0x0D05,WORD_LEN},
 	{0x4A02,0x0000,WORD_LEN},
-	{0x4016,0xFC1E,WORD_LEN},
+	{0x4016,0x1621,WORD_LEN},
 	{0x4018,0xCA03,WORD_LEN},
-	{0x401A,0x3902,WORD_LEN},
-	{0x401C,0x2E06,WORD_LEN},
-	{0x401E,0x8D04,WORD_LEN},
-	{0x4020,0xCC01,WORD_LEN},
+	{0x401A,0x0002,WORD_LEN},
+	{0x401C,0xCA03,WORD_LEN},
+	{0x401E,0x6c03,WORD_LEN},
+	{0x4020,0x3004,WORD_LEN},
 	{0x4036,0x9F02,WORD_LEN},
 	{0x4087,0x05  ,BYTE_LEN},
 	{0x4088,0x0E  ,BYTE_LEN},
@@ -2708,7 +2711,7 @@ tuning_reg_settings_array[] = {	//091214
 	{0x0100,0x00  ,BYTE_LEN},
 	{0x0102,0x20  ,BYTE_LEN},
 	{0x0103,0x01  ,BYTE_LEN},
-	{0x0104,0x4D  ,BYTE_LEN},
+	{0x0104,0x4C  ,BYTE_LEN},
 	{0x0105,0x40  ,BYTE_LEN},
 	{0x0106,0x00  ,BYTE_LEN},
 	{0x0107,0x20  ,BYTE_LEN},
@@ -3282,16 +3285,16 @@ static const struct isx005_register_address_value_pair const
 	scene_mode_auto_reg_settings_array[] = 
 {
 	{0x0100, 0x00, BYTE_LEN},	// SCENE_SELECT :                                       
-	{0x0062, 0x22, BYTE_LEN},	// UISHARPNESS[7:0]   ?????? -1                                                                  
+	{0x0062, 0x20, BYTE_LEN},	// UISHARPNESS[7:0]   ?????? -1                                                                  
 	{0x01BE, 0x01, BYTE_LEN},	// MAx FRAME TYPE2 LONG AE MODE  66MS FOR 1/2S          
 	{0x4A00, 0x0D05, WORD_LEN},	//MIN SHT START FROM 2LINE @CAPTURE
 	{0x4A02, 0x0000, WORD_LEN},	//MIN AGC
-	{0x4016, 0xE31F, WORD_LEN},	// NORMSHTSCL_L : 60MS
+	{0x4016, 0x1621, WORD_LEN},	// NORMSHTSCL_L : 60MS
 	{0x4018, 0xCA03, WORD_LEN},	// AGCLOWSCL_L : 3DB  
-	{0x401A, 0x5802, WORD_LEN},	// ExPSHTSCL_L : 82MS 
-	{0x401C, 0xD906, WORD_LEN},	// AGCHISCL_L : 9DB   
-	{0x401E, 0x8C04, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
-	{0x4020, 0x8801, WORD_LEN},	// AGCMAxSCL_L : 18.3DB
+	{0x401A, 0x0002, WORD_LEN},	// ExPSHTSCL_L : 82MS 
+	{0x401C, 0xCA03, WORD_LEN},	// AGCHISCL_L : 9DB   
+	{0x401E, 0x6C03, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
+	{0x4020, 0x3004, WORD_LEN},	// AGCMAxSCL_L : 18.3DB
 };
 
 static const struct isx005_register_address_value_pair const 
@@ -3302,12 +3305,12 @@ static const struct isx005_register_address_value_pair const
 	{0x01BE, 0x01, BYTE_LEN},	// MAx FRAME TYPE2 LONG AE MODE  66MS FOR 1/2S          
 	{0x4A00, 0x0D05, WORD_LEN},	//MIN SHT START FROM 2LINE @CAPTURE
 	{0x4A02, 0x0000, WORD_LEN},	//MIN AGC
-	{0x4016, 0xE31F, WORD_LEN},	// NORMSHTSCL_L : 60MS
+	{0x4016, 0x1621, WORD_LEN},	// NORMSHTSCL_L : 60MS
 	{0x4018, 0xCA03, WORD_LEN},	// AGCLOWSCL_L : 3DB  
-	{0x401A, 0x5802, WORD_LEN},	// ExPSHTSCL_L : 82MS 
-	{0x401C, 0xD906, WORD_LEN},	// AGCHISCL_L : 9DB   
-	{0x401E, 0x8C04, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
-	{0x4020, 0x8801, WORD_LEN},	// AGCMAxSCL_L : 18.3DB                          
+	{0x401A, 0x0002, WORD_LEN},	// ExPSHTSCL_L : 82MS 
+	{0x401C, 0xCA03, WORD_LEN},	// AGCHISCL_L : 9DB   
+	{0x401E, 0x6C03, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
+	{0x4020, 0x3004, WORD_LEN},	// AGCMAxSCL_L : 18.3DB                       
 };
 
 static const struct isx005_register_address_value_pair const
@@ -3318,12 +3321,12 @@ static const struct isx005_register_address_value_pair const
 	{0x01BE, 0x01, BYTE_LEN},	// MAx FRAME TYPE2 LONG AE MODE  66MS FOR 1/2S                                            
 	{0x4A00, 0x0D05, WORD_LEN},	//MIN SHT START FROM 2LINE @CAPTURE
 	{0x4A02, 0x0000, WORD_LEN},	//MIN AGC
-	{0x4016, 0xE31F, WORD_LEN},	// NORMSHTSCL_L : 60MS
-	{0x4018, 0xCA03, WORD_LEN},	// AGCLOWSCL_L : 3DB  
-	{0x401A, 0x5802, WORD_LEN},	// ExPSHTSCL_L : 82MS 
-	{0x401C, 0xD906, WORD_LEN},	// AGCHISCL_L : 9DB   
-	{0x401E, 0x8C04, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
-	{0x4020, 0x8801, WORD_LEN},	// AGCMAxSCL_L : 18.3DB 
+	{0x4016, 0x1621, WORD_LEN}, // NORMSHTSCL_L : 60MS
+	{0x4018, 0xCA03, WORD_LEN}, // AGCLOWSCL_L : 3DB  
+	{0x401A, 0x0002, WORD_LEN}, // ExPSHTSCL_L : 82MS 
+	{0x401C, 0xCA03, WORD_LEN}, // AGCHISCL_L : 9DB   
+	{0x401E, 0x6C03, WORD_LEN}, // MAxSHTSCL_L : 110MS2301 
+	{0x4020, 0x3004, WORD_LEN}, // AGCMAxSCL_L : 18.3DB
 };
 
 static const struct isx005_register_address_value_pair const
@@ -3334,12 +3337,12 @@ static const struct isx005_register_address_value_pair const
 	{0x01BE, 0x01, BYTE_LEN},	// MAx FRAME TYPE2 LONG AE MODE  66MS FOR 1/2S
 	{0x4A00, 0x0D05, WORD_LEN},	//MIN SHT START FROM 2LINE @CAPTURE
 	{0x4A02, 0x0000, WORD_LEN},	//MIN AGC
-	{0x4016, 0xE31F, WORD_LEN},	// NORMSHTSCL_L : 60MS
-	{0x4018, 0xCA03, WORD_LEN},	// AGCLOWSCL_L : 3DB  
-	{0x401A, 0x5802, WORD_LEN},	// ExPSHTSCL_L : 82MS 
-	{0x401C, 0xD906, WORD_LEN},	// AGCHISCL_L : 9DB   
-	{0x401E, 0x8C04, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
-	{0x4020, 0x8801, WORD_LEN},	// AGCMAxSCL_L : 18.3DB 
+	{0x4016, 0x1621, WORD_LEN}, // NORMSHTSCL_L : 60MS
+	{0x4018, 0xCA03, WORD_LEN}, // AGCLOWSCL_L : 3DB  
+	{0x401A, 0x0002, WORD_LEN}, // ExPSHTSCL_L : 82MS 
+	{0x401C, 0xCA03, WORD_LEN}, // AGCHISCL_L : 9DB   
+	{0x401E, 0x6C03, WORD_LEN}, // MAxSHTSCL_L : 110MS2301 
+	{0x4020, 0x3004, WORD_LEN}, // AGCMAxSCL_L : 18.3DB
 };
 
 static const struct isx005_register_address_value_pair const 
@@ -3350,12 +3353,12 @@ static const struct isx005_register_address_value_pair const
 	{0x01BE, 0x01, BYTE_LEN},	// MAx FRAME TYPE2 LONG AE MODE  66MS FOR 1/2S          
 	{0x4A00, 0x0D05, WORD_LEN},	//MIN SHT START FROM 2LINE @CAPTURE
 	{0x4A02, 0x0000, WORD_LEN},	//MIN AGC
-	{0x4016, 0xE31F, WORD_LEN},	// NORMSHTSCL_L : 60MS
-	{0x4018, 0xCA03, WORD_LEN},	// AGCLOWSCL_L : 3DB  
-	{0x401A, 0x5802, WORD_LEN},	// ExPSHTSCL_L : 82MS 
-	{0x401C, 0xD906, WORD_LEN},	// AGCHISCL_L : 9DB   
-	{0x401E, 0x8C04, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
-	{0x4020, 0x8801, WORD_LEN},	// AGCMAxSCL_L : 18.3DB  
+	{0x4016, 0x1621, WORD_LEN}, // NORMSHTSCL_L : 60MS
+	{0x4018, 0xCA03, WORD_LEN}, // AGCLOWSCL_L : 3DB  
+	{0x401A, 0x0002, WORD_LEN}, // ExPSHTSCL_L : 82MS 
+	{0x401C, 0xCA03, WORD_LEN}, // AGCHISCL_L : 9DB   
+	{0x401E, 0x6C03, WORD_LEN}, // MAxSHTSCL_L : 110MS2301 
+	{0x4020, 0x3004, WORD_LEN}, // AGCMAxSCL_L : 18.3DB
 };
 
 static const struct isx005_register_address_value_pair const 
