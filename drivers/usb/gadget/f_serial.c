@@ -96,9 +96,16 @@ static struct usb_interface_descriptor gser_interface_desc = {
 #else
 	.bNumEndpoints =	2,
 #endif
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-27, Match for LG Driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_NMEA_FIX
+	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceProtocol =	USB_CLASS_VENDOR_SPEC,
+#else
 	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
 	.bInterfaceSubClass =	0,
 	.bInterfaceProtocol =	0,
+#endif	
 	/* .iInterface = DYNAMIC */
 };
 #ifdef CONFIG_MODEM_SUPPORT
@@ -159,6 +166,16 @@ static struct usb_endpoint_descriptor gser_fs_out_desc = {
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-27, Match for LG Driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_NMEA_FIX
+static struct usb_descriptor_header *gser_fs_function[] = {
+	(struct usb_descriptor_header *) &gser_interface_desc,
+	(struct usb_descriptor_header *) &gser_fs_in_desc,
+	(struct usb_descriptor_header *) &gser_fs_out_desc,
+	(struct usb_descriptor_header *) &gser_fs_notify_desc,
+	NULL,
+};
+#else /* below is original */
 static struct usb_descriptor_header *gser_fs_function[] = {
 	(struct usb_descriptor_header *) &gser_interface_desc,
 #ifdef CONFIG_MODEM_SUPPORT
@@ -172,6 +189,8 @@ static struct usb_descriptor_header *gser_fs_function[] = {
 	(struct usb_descriptor_header *) &gser_fs_out_desc,
 	NULL,
 };
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-27 */	
 
 /* high speed support: */
 #ifdef CONFIG_MODEM_SUPPORT
@@ -199,8 +218,19 @@ static struct usb_endpoint_descriptor gser_hs_out_desc = {
 	.wMaxPacketSize =	__constant_cpu_to_le16(512),
 };
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-27, Match for LG Driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_NMEA_FIX
 static struct usb_descriptor_header *gser_hs_function[] = {
 	(struct usb_descriptor_header *) &gser_interface_desc,
+	(struct usb_descriptor_header *) &gser_hs_in_desc,
+	(struct usb_descriptor_header *) &gser_hs_out_desc,
+	(struct usb_descriptor_header *) &gser_hs_notify_desc,
+	NULL,
+};
+#else /* below is original */
+static struct usb_descriptor_header *gser_hs_function[] = {
+	(struct usb_descriptor_header *) &gser_interface_desc,
+
 #ifdef CONFIG_MODEM_SUPPORT
 	(struct usb_descriptor_header *) &gser_header_desc,
 	(struct usb_descriptor_header *) &gser_call_mgmt_descriptor,
@@ -212,6 +242,8 @@ static struct usb_descriptor_header *gser_hs_function[] = {
 	(struct usb_descriptor_header *) &gser_hs_out_desc,
 	NULL,
 };
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-27 */	
 
 /* string descriptors: */
 

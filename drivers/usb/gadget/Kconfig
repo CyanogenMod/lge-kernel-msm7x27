@@ -1143,4 +1143,14 @@ config USB_SUPPORT_LGE_ANDROID_AUTORUN
 
 	default n
 # LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-11 	
+# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-11, Autorun Support
+config USB_SUPPORT_LGE_ANDROID_NMEA_FIX
+	boolean "NMEA interface support in LGE Android model(common)"
+	depends on USB_SUPPORT_LGE_ANDROID_GADGET
+	select MODEM_SUPPORT
+	help
+	  It supports LG NMEA interface in LGE Android model.
+
+	default n
+# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-11 	
 endif # USB_GADGET

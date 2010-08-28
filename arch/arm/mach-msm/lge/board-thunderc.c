@@ -120,12 +120,12 @@ struct usb_composition usb_func_composition[] = {
 		.adb_functions	    = 0x12743,
 	},
 	{
-		/* Factory mode for CMDA : DIAG, MODEM, GPS */
+		/* Factory mode for CMDA : DIAG, MODEM */
 		/* We are in factory mode, ignore adb function */
 		.product_id         = 0x6000,
-		.functions	    	= 0x743,
+		.functions	    	= 0x43,
 		.adb_product_id     = 0x6000,
-		.adb_functions	    = 0x743,
+		.adb_functions	    = 0x43,
 	},
 #ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER	
     {
