@@ -1391,8 +1391,11 @@ int mmc_resume_host(struct mmc_host *host)
 	/*
 	 * We add a slight delay here so that resume can progress
 	 * in parallel.
+	 * Lengthen delay time to take rescan during resume.
+	 * Give time to sdcard for stable power.
+	 * fred.cho@lge.com , 2010-08-29
 	 */
-	mmc_detect_change(host, 1);
+	mmc_detect_change(host, HZ / 5);
 
 	return err;
 }
