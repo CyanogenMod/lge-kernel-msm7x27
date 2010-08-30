@@ -325,6 +325,8 @@ static int msm_timer_set_next_event(unsigned long cycles,
 	clock = container_of(evt, struct msm_clock, clockevent);
 #endif
 	clock_state = &__get_cpu_var(msm_clocks_percpu)[clock->index];
+	if (clock_state->stopped)
+		return 0;
 	now = msm_read_timer_count(clock, LOCAL_TIMER);
 	alarm = now + (cycles << clock->shift);
 	if (clock->flags & MSM_CLOCK_FLAGS_ODD_MATCH_WRITE)
@@ -1054,6 +1056,7 @@ void local_timer_setup(struct clock_event_device *evt)
 	local_clock_event = evt;
 
 	local_irq_save(flags);
+	gic_clear_spi_pending(clock->irq.irq);
 	get_irq_chip(clock->irq.irq)->unmask(clock->irq.irq);
 	local_irq_restore(flags);
 
@@ -1070,6 +1073,8 @@ int local_timer_ack(void)
 void __cpuexit local_timer_stop(void)
 {
 	local_clock_event->set_mode(CLOCK_EVT_MODE_SHUTDOWN, local_clock_event);
+	get_irq_chip(local_clock_event->irq)->mask(local_clock_event->irq);
+	local_clock_event = NULL;
 }
 #endif
 
