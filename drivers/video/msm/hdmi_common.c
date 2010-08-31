@@ -281,12 +281,59 @@ static ssize_t hdmi_common_rda_hdcp(struct device *dev,
 	return ret;
 }
 
+static ssize_t hdmi_common_rda_hpd(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	if (hdmi_common_state->hpd_feature) {
+		ret = snprintf(buf, PAGE_SIZE, "%d\n",
+			hdmi_common_state->hpd_feature_on);
+		DEV_DBG("%s: '%d'\n", __func__,
+			hdmi_common_state->hpd_feature_on);
+	} else {
+		ret = snprintf(buf, PAGE_SIZE, "-1\n");
+		DEV_DBG("%s: 'not supported'\n", __func__);
+	}
+	return ret;
+}
+
+static ssize_t hdmi_common_wta_hpd(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int hpd = atoi(buf);
+
+	if (hdmi_common_state->hpd_feature) {
+		if (hpd == 0 && hdmi_common_state->hpd_feature_on) {
+			hdmi_common_state->hpd_feature(0);
+			hdmi_common_state->hpd_feature_on = 0;
+			DEV_DBG("%s: '%d'\n", __func__,
+				hdmi_common_state->hpd_feature_on);
+		} else if (hpd == 1 && !hdmi_common_state->hpd_feature_on) {
+			hdmi_common_state->hpd_feature(1);
+			hdmi_common_state->hpd_feature_on = 1;
+			DEV_DBG("%s: '%d'\n", __func__,
+				hdmi_common_state->hpd_feature_on);
+		} else {
+			DEV_DBG("%s: '%d' (unchanged)\n", __func__,
+				hdmi_common_state->hpd_feature_on);
+		}
+	} else {
+		DEV_DBG("%s: 'not supported'\n", __func__);
+	}
+
+	return ret;
+}
+
+
 static DEVICE_ATTR(video_mode, S_IRUGO | S_IWUGO, hdmi_common_rda_video_mode,
 	hdmi_common_wta_video_mode);
 static DEVICE_ATTR(video_mode_str, S_IRUGO, hdmi_common_rda_video_mode_str,
 	NULL);
 static DEVICE_ATTR(edid_modes, S_IRUGO, hdmi_common_rda_edid_modes, NULL);
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_common_rda_connected, NULL);
+static DEVICE_ATTR(hpd, S_IRUGO | S_IWUGO, hdmi_common_rda_hpd,
+	hdmi_common_wta_hpd);
 static DEVICE_ATTR(hdcp, S_IRUGO, hdmi_common_rda_hdcp, NULL);
 static struct attribute *hdmi_common_fs_attrs[] = {
 	&dev_attr_video_mode.attr,
@@ -294,6 +341,7 @@ static struct attribute *hdmi_common_fs_attrs[] = {
 	&dev_attr_edid_modes.attr,
 	&dev_attr_connected.attr,
 	&dev_attr_hdcp.attr,
+	&dev_attr_hpd.attr,
 	NULL,
 };
 static struct attribute_group hdmi_common_fs_attr_group = {
@@ -305,6 +353,19 @@ int hdmi_common_state_create(struct platform_device *pdev)
 {
 	int rc;
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
+
+	if (!mfd) {
+		DEV_ERR("%s: mfd not found\n", __func__);
+		return -ENODEV;
+	}
+	if (!mfd->fbi) {
+		DEV_ERR("%s: mfd->fbi not found\n", __func__);
+		return -ENODEV;
+	}
+	if (!mfd->fbi->dev) {
+		DEV_ERR("%s: mfd->fbi->dev not found\n", __func__);
+		return -ENODEV;
+	}
 
 	rc = sysfs_create_group(&mfd->fbi->dev->kobj,
 		&hdmi_common_fs_attr_group);
