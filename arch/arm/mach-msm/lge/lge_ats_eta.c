@@ -56,26 +56,25 @@ int eta_execute_n(char *string, size_t size)
 	};
 
 	char *argv[] = {
-		"sh",
-		"-c",
+		ETA_CMD_STR,
 		NULL,
 		NULL,
 	};
 
-	size += strlen(ETA_CMD_STR) + 1;
+	size += 1;
 
 	if (!(cmdstr = kmalloc(size, GFP_KERNEL)))
 	{
 		return ENOMEM;
 	}
 
-	argv[2] = cmdstr;
+	argv[1] = cmdstr;
 	memset(cmdstr, 0, size);
 
-	snprintf(cmdstr, size, "%s %s", ETA_CMD_STR, string);
+	snprintf(cmdstr, size, "%s", string);
 	printk(KERN_INFO "[ETA]execute eta : data - %s\n", string);
 
-	if ((ret = call_usermodehelper("/system/bin/sh", argv, envp, UMH_WAIT_PROC)) != 0) {
+	if ((ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC)) != 0) {
 		printk(KERN_ERR "[ETA]Eta failed to run \": %i\n", ret);
 	}
 	else

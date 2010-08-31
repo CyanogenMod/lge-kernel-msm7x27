@@ -531,8 +531,7 @@ DIAG_MTC_F_rsp_type* mtc_execute(DIAG_MTC_F_req_type *pReq)
   };
   
   char *argv[] = {
-  	"sh",
-  	"-c",
+	"/system/bin/mtc",
   	cmdstr,
   	NULL,
   };
@@ -591,10 +590,11 @@ DIAG_MTC_F_rsp_type* mtc_execute(DIAG_MTC_F_req_type *pReq)
   }
   else
   {
-  	sprintf(cmdstr, "/system/bin/mtc ");
-	memcpy((void*)cmdstr+16, (void*)mtc_cmd_buf_encoded, lenb64);
+	memcpy((void*)cmdstr, (void*)mtc_cmd_buf_encoded, lenb64);
+#if 0
 	printk("[MTC] cmdstr[16] : %d, cmdstr[17] : %d, cmdstr[18] : %d", cmdstr[16], cmdstr[17], cmdstr[18]);
 	printk("[MTC] cmdstr[19] : %d, cmdstr[20] : %d, cmdstr[21] : %d", cmdstr[19], cmdstr[20], cmdstr[21]);
+#endif	
 	printk("\n [MTC]execute /system/bin/mtc, %s\n", cmdstr);
   	sys_close(fd);
   }
@@ -602,8 +602,8 @@ DIAG_MTC_F_rsp_type* mtc_execute(DIAG_MTC_F_req_type *pReq)
   
   printk(KERN_INFO "[MTC]execute mtc : data - %s\n\n", cmdstr);
   if ((ret =
-       call_usermodehelper("/system/bin/sh", argv, envp, UMH_WAIT_PROC)) != 0) {
-  	printk(KERN_ERR "[MTC]MTC failed to run : %i\n", ret);
+       call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC)) != 0) {
+	  printk(KERN_ERR "[MTC]MTC failed to run : %i\n", ret);
   }
   else
   	printk(KERN_INFO "[MTC]execute ok, ret = %d\n", ret);
