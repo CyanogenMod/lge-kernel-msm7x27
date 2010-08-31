@@ -46,6 +46,7 @@
 #include <linux/spi/spi.h>
 #include <linux/input/tdisc_shinetsu.h>
 #include <linux/input/cy8c_ts.h>
+#include <linux/cyttsp.h>
 
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -1531,6 +1532,156 @@ static void __init msm8x60_allocate_memory_regions(void)
 	}
 #endif
 }
+
+#if defined(CONFIG_TOUCHSCREEN_CYTTSP_I2C) || \
+		defined(CONFIG_TOUCHSCREEN_CYTTSP_I2C_MODULE)
+/*virtual key support */
+static ssize_t tma300_vkeys_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf,
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":60:875:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":180:875:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":300:875:90:90"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":420:875:90:90"
+	"\n");
+}
+
+static struct kobj_attribute tma300_vkeys_attr = {
+	.attr = {
+		.mode = S_IRUGO,
+	},
+	.show = &tma300_vkeys_show,
+};
+
+static struct attribute *tma300_properties_attrs[] = {
+	&tma300_vkeys_attr.attr,
+	NULL
+};
+
+static struct attribute_group tma300_properties_attr_group = {
+	.attrs = tma300_properties_attrs,
+};
+
+static struct kobject *properties_kobj;
+
+#define FLUID_CYTTSP_TS_GPIO_IRQ	61
+static int cyttsp_fluid_platform_init(struct i2c_client *client)
+{
+	int rc = -EINVAL;
+	struct regulator *pm8058_l5;
+
+	pm8058_l5 = regulator_get(NULL, "8058_l5");
+	if (IS_ERR(pm8058_l5)) {
+		pr_err("%s: regulator get of 8058_l5 failed (%ld)\n",
+			__func__, PTR_ERR(pm8058_l5));
+		rc = PTR_ERR(pm8058_l5);
+		return rc;
+	}
+	rc = regulator_set_voltage(pm8058_l5, 2850000, 2850000);
+	if (rc) {
+		pr_err("%s: regulator_set_voltage of 8058_l5 failed(%d)\n",
+			__func__, rc);
+		goto reg_put;
+	}
+
+	rc = regulator_enable(pm8058_l5);
+	if (rc) {
+		pr_err("%s: regulator_enable of 8058_l5 failed(%d)\n",
+			__func__, rc);
+		goto reg_put;
+	}
+
+	/* check this device active by reading first byte/register */
+	rc = i2c_smbus_read_byte_data(client, 0x01);
+	if (rc < 0) {
+		pr_err("%s: i2c sanity check failed\n", __func__);
+		goto reg_disable;
+	}
+
+	/* configure touchscreen interrupt gpio */
+	rc = gpio_request(FLUID_CYTTSP_TS_GPIO_IRQ, "cyttsp_irq_gpio");
+	if (rc) {
+		pr_err("%s: unable to request gpio %d\n",
+			__func__, FLUID_CYTTSP_TS_GPIO_IRQ);
+		goto reg_disable;
+	}
+
+	/* virtual keys */
+	tma300_vkeys_attr.attr.name = "virtualkeys.cyttsp-i2c";
+	properties_kobj = kobject_create_and_add("board_properties",
+				NULL);
+	if (properties_kobj)
+		rc = sysfs_create_group(properties_kobj,
+			&tma300_properties_attr_group);
+	if (!properties_kobj || rc)
+		pr_err("%s: failed to create board_properties\n",
+				__func__);
+
+	return CY_OK;
+
+reg_disable:
+	regulator_disable(pm8058_l5);
+reg_put:
+	regulator_put(pm8058_l5);
+	return rc;
+}
+
+static int cyttsp_fluid_platform_resume(struct i2c_client *client)
+{
+	/* add any special code to strobe a wakeup pin or chip reset */
+	msleep(10);
+
+	return CY_OK;
+}
+
+static struct cyttsp_platform_data cyttsp_fluid_pdata = {
+	.panel_maxx = 539,
+	.panel_maxy = 994,
+	.disp_minx = 30,
+	.disp_maxx = 509,
+	.disp_miny = 60,
+	.disp_maxy = 859,
+	.flags = 0x04,
+	.gen = CY_GEN3,	/* or */
+	.use_st = CY_USE_ST,
+	.use_mt = CY_USE_MT,
+	.use_hndshk = CY_SEND_HNDSHK,
+	.use_trk_id = CY_USE_TRACKING_ID,
+	.use_sleep = CY_USE_SLEEP,
+	.use_gestures = CY_USE_GESTURES,
+	/* activate up to 4 groups
+	 * and set active distance
+	 */
+	.gest_set = CY_GEST_GRP1 | CY_GEST_GRP2 |
+				CY_GEST_GRP3 | CY_GEST_GRP4 |
+				CY_ACT_DIST,
+	/* change act_intrvl to customize the Active power state
+	 * scanning/processing refresh interval for Operating mode
+	 */
+	.act_intrvl = CY_ACT_INTRVL_DFLT,
+	/* change tch_tmout to customize the touch timeout for the
+	 * Active power state for Operating mode
+	 */
+	.tch_tmout = CY_TCH_TMOUT_DFLT,
+	/* change lp_intrvl to customize the Low Power power state
+	 * scanning/processing refresh interval for Operating mode
+	 */
+	.lp_intrvl = CY_LP_INTRVL_DFLT,
+	.resume = cyttsp_fluid_platform_resume,
+	.init = cyttsp_fluid_platform_init,
+};
+
+static struct i2c_board_info cyttsp_fluid_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(CY_I2C_NAME, 0x24),
+		.platform_data = &cyttsp_fluid_pdata,
+#ifndef CY_USE_TIMER
+		.irq = MSM_GPIO_TO_INT(FLUID_CYTTSP_TS_GPIO_IRQ),
+#endif /* CY_USE_TIMER */
+	},
+};
+#endif
 
 static struct regulator *vreg_tmg200;
 
@@ -4130,6 +4281,15 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		cy8ctmg200_board_info,
 		ARRAY_SIZE(cy8ctmg200_board_info),
 	},
+#if defined(CONFIG_TOUCHSCREEN_CYTTSP_I2C) || \
+		defined(CONFIG_TOUCHSCREEN_CYTTSP_I2C_MODULE)
+	{
+		I2C_FLUID,
+		MSM_GSBI3_QUP_I2C_BUS_ID,
+		cyttsp_fluid_info,
+		ARRAY_SIZE(cyttsp_fluid_info),
+	},
+#endif
 #ifdef CONFIG_MSM_CAMERA
     {
 		I2C_SURF | I2C_FFA | I2C_FLUID,
