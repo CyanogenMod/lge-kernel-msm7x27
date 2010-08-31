@@ -2403,13 +2403,6 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 
 	/* Check HPD State */
 	if (!hdmi_msm_state->hpd_initialized) {
-		rc = hdmi_common_state_create(pdev);
-		if (rc) {
-			DEV_ERR("Init FAILED: hdmi_msm_state_create, rc=%d\n",
-				rc);
-			goto error;
-		}
-
 		enable_irq(hdmi_msm_state->irq);
 
 		/* set timeout to 4.1ms (max) for hardware debounce */
@@ -2486,6 +2479,7 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 static int __init hdmi_msm_probe(struct platform_device *pdev)
 {
 	int rc;
+	struct platform_device *fb_dev;
 
 	if (!hdmi_msm_state) {
 		pr_err("%s: hdmi_msm_state is NULL\n", __func__);
@@ -2560,7 +2554,16 @@ static int __init hdmi_msm_probe(struct platform_device *pdev)
 	hdmi_msm_state->hpd_state_timer.expires = 0xffffffffL;
 	add_timer(&hdmi_msm_state->hpd_state_timer);
 
-	msm_fb_add_device(pdev);
+	fb_dev = msm_fb_add_device(pdev);
+	if (fb_dev) {
+		rc = hdmi_common_state_create(pdev);
+		if (rc) {
+			DEV_ERR("Init FAILED: hdmi_msm_state_create, rc=%d\n",
+				rc);
+			goto error;
+		}
+	} else
+		DEV_ERR("Init FAILED: failed to add fb device\n");
 
 	return 0;
 

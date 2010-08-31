@@ -168,7 +168,7 @@ void msm_fb_debugfs_file_create(struct dentry *root, const char *name,
 void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl,
 				u32 save);
 
-void msm_fb_add_device(struct platform_device *pdev);
+struct platform_device *msm_fb_add_device(struct platform_device *pdev);
 
 int msm_fb_detect_client(const char *name);
 
