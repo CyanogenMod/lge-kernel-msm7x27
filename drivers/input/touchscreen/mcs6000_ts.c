@@ -699,6 +699,44 @@ static ssize_t read_touch_status(struct device *dev, struct device_attribute *at
 	return r;
 }
 
+static ssize_t write_touch_control(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	int cmd,err;
+	struct mcs6000_ts_device *dev_tmp;
+
+	dev_tmp = &mcs6000_ts_dev;
+	sscanf(buf, "%d", &cmd);
+
+	switch (cmd){
+		case 1:	/* interrupt pin high */
+			err = gpio_direction_input(dev_tmp->intr_gpio);
+			if (err < 0) {
+				printk(KERN_ERR "%s: gpio input direction fail\n", __FUNCTION__);
+				return err;
+			}
+			gpio_set_value(dev_tmp->intr_gpio, 1 );
+			break;
+		case 2:	/* interrupt pin LOW */
+			err = gpio_direction_input(dev_tmp->intr_gpio);
+			if (err < 0) {
+				printk(KERN_ERR "%s: gpio input direction fail\n", __FUNCTION__);
+				return err;
+			}
+			gpio_set_value(dev_tmp->intr_gpio, 0 );
+			break;
+		case 3:	/* touch power on */
+			dev_tmp->power(ON);
+			break;
+		case 4:	/*touch power off */
+			dev_tmp->power(OFF);
+			break;
+		default :
+			break;
+	}
+	return size;
+}
+
+static DEVICE_ATTR(touch_control, S_IRUGO|S_IWUSR,NULL,write_touch_control);
 static DEVICE_ATTR(touch_status, S_IRUGO,read_touch_status, NULL);
 static DEVICE_ATTR(version, S_IRUGO /*| S_IWUSR*/,read_touch_version, NULL);
 static DEVICE_ATTR(dl_status, S_IRUGO,read_touch_dl_status, NULL);
@@ -727,6 +765,14 @@ int mcs6000_create_file(struct input_dev *pdev)
 		device_remove_file(&pdev->dev, &dev_attr_touch_status);
 		return ret;
 	}
+
+	ret = device_create_file(&pdev->dev, &dev_attr_touch_control);
+	if (ret) {
+		printk( KERN_DEBUG "LG_FW : dev_attr_touch_control create fail\n");
+		device_remove_file(&pdev->dev, &dev_attr_touch_control);
+		return ret;
+	}
+
 	return ret;
 }
 
@@ -735,6 +781,7 @@ int mcs6000_remove_file(struct input_dev *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_version);
 	device_remove_file(&pdev->dev, &dev_attr_dl_status);
 	device_remove_file(&pdev->dev, &dev_attr_touch_status);
+	device_remove_file(&pdev->dev, &dev_attr_touch_control);
 	return 0;
 }
 static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
