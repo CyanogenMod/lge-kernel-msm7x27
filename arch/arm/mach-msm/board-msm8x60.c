@@ -47,6 +47,7 @@
 #include <linux/input/tdisc_shinetsu.h>
 #include <linux/input/cy8c_ts.h>
 #include <linux/cyttsp.h>
+#include <linux/i2c/isa1200.h>
 
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -423,6 +424,131 @@ static struct platform_device smsc911x_device = {
 		.platform_data = &smsc911x_config
 	}
 };
+
+#if defined(CONFIG_HAPTIC_ISA1200) || \
+		defined(CONFIG_HAPTIC_ISA1200_MODULE)
+
+static const char *vregs_isa1200_name[] = {
+	"8058_s3",
+	"8901_l4",
+};
+
+static const int vregs_isa1200_val[] = {
+	1800000,/* uV */
+	2600000,
+};
+static struct regulator *vregs_isa1200[ARRAY_SIZE(vregs_isa1200_name)];
+
+static int isa1200_power(int vreg_on)
+{
+	int i, rc = 0;
+
+	for (i = 0; i < ARRAY_SIZE(vregs_isa1200_name); i++) {
+		rc = vreg_on ? regulator_enable(vregs_isa1200[i]) :
+			regulator_disable(vregs_isa1200[i]);
+		if (rc < 0) {
+			pr_err("%s: vreg %s %s failed (%d)\n",
+				__func__, vregs_isa1200_name[i],
+				vreg_on ? "enable" : "disable", rc);
+			goto vreg_fail;
+		}
+	}
+	return 0;
+
+vreg_fail:
+	while (i) {
+		int ret;
+		ret = !vreg_on ? regulator_enable(vregs_isa1200[i]) :
+			regulator_disable(vregs_isa1200[i]);
+		if (ret < 0) {
+			pr_err("%s: vreg %s %s failed (%d) in err path\n",
+				__func__, vregs_isa1200_name[i],
+				!vreg_on ? "enable" : "disable", ret);
+		}
+		i--;
+	}
+
+	return rc;
+}
+
+static int isa1200_dev_setup(bool enable)
+{
+	int i, rc;
+
+	if (enable == true) {
+		for (i = 0; i < ARRAY_SIZE(vregs_isa1200_name); i++) {
+			vregs_isa1200[i] = regulator_get(NULL,
+						vregs_isa1200_name[i]);
+			if (IS_ERR(vregs_isa1200[i])) {
+				pr_err("%s: regulator get of %s failed (%ld)\n",
+					__func__, vregs_isa1200_name[i],
+					PTR_ERR(vregs_isa1200[i]));
+				rc = PTR_ERR(vregs_isa1200[i]);
+				goto vreg_get_fail;
+			}
+			rc = regulator_set_voltage(vregs_isa1200[i],
+				vregs_isa1200_val[i], vregs_isa1200_val[i]);
+			if (rc) {
+				pr_err("%s: regulator_set_voltage(%s) failed\n",
+					__func__, vregs_isa1200_name[i]);
+				goto vreg_get_fail;
+			}
+		}
+
+		rc = gpio_request(GPIO_HAP_SHIFT_LVL_OE, "haptics_shft_lvl_oe");
+		if (rc) {
+			pr_err("%s: unable to request gpio %d (%d)\n",
+					__func__, GPIO_HAP_SHIFT_LVL_OE, rc);
+			goto vreg_get_fail;
+		}
+
+		rc = gpio_direction_output(GPIO_HAP_SHIFT_LVL_OE, 1);
+		if (rc) {
+			pr_err("%s: Unable to set direction\n", __func__);;
+			goto free_gpio;
+		}
+	} else {
+		gpio_set_value(GPIO_HAP_SHIFT_LVL_OE, 0);
+		gpio_free(GPIO_HAP_SHIFT_LVL_OE);
+
+		for (i = 0; i < ARRAY_SIZE(vregs_isa1200_name); i++)
+			regulator_put(vregs_isa1200[i]);
+	}
+
+	return 0;
+free_gpio:
+	gpio_free(GPIO_HAP_SHIFT_LVL_OE);
+vreg_get_fail:
+	while (i)
+		regulator_put(vregs_isa1200[--i]);
+	return rc;
+}
+
+#define PMIC_GPIO_HAP_ENABLE   18  /* PMIC GPIO Number 19 */
+static struct isa1200_platform_data isa1200_1_pdata = {
+	.name = "vibrator",
+	.power_on = isa1200_power,
+	.dev_setup = isa1200_dev_setup,
+	/*gpio to enable haptic*/
+	.hap_en_gpio = PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_ENABLE),
+	.max_timeout = 15000,
+	.mode_ctrl = PWM_GEN_MODE,
+	.pwm_fd = {
+		.pwm_div = 256,
+	},
+	.is_erm = false,
+	.smart_en = true,
+	.ext_clk_en = true,
+	.chip_en = 1,
+};
+
+static struct i2c_board_info msm_isa1200_board_info[] = {
+	{
+		I2C_BOARD_INFO("isa1200_1", 0x90>>1),
+		.platform_data = &isa1200_1_pdata,
+	},
+};
+#endif
 
 static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
@@ -3231,6 +3357,35 @@ static int pm8058_gpios_init(void)
 		}
 	};
 
+#if defined(CONFIG_HAPTIC_ISA1200) || \
+		defined(CONFIG_HAPTIC_ISA1200_MODULE)
+
+	struct pm8058_gpio_cfg en_hap_gpio_cfg = {
+			PMIC_GPIO_HAP_ENABLE,
+			{
+				.direction      = PM_GPIO_DIR_OUT,
+				.pull           = PM_GPIO_PULL_NO,
+				.out_strength   = PM_GPIO_STRENGTH_HIGH,
+				.function       = PM_GPIO_FUNC_NORMAL,
+				.inv_int_pol    = 0,
+				.vin_sel        = 2,
+				.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+				.output_value   = 0,
+			}
+
+	};
+
+	if (machine_is_msm8x60_fluid()) {
+		rc = pm8058_gpio_config(en_hap_gpio_cfg.gpio,
+				&en_hap_gpio_cfg.cfg);
+		if (rc < 0) {
+			pr_err("%s pmic haptics gpio config failed\n",
+							__func__);
+			return rc;
+		}
+	}
+#endif
+
 	for (i = 0; i < ARRAY_SIZE(gpio_cfgs); ++i) {
 		rc = pm8058_gpio_config(gpio_cfgs[i].gpio,
 				&gpio_cfgs[i].cfg);
@@ -4472,6 +4627,15 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		MSM_GSBI8_QUP_I2C_BUS_ID,
 		isl_charger_i2c_info,
 		ARRAY_SIZE(isl_charger_i2c_info),
+	},
+#endif
+#if defined(CONFIG_HAPTIC_ISA1200) || \
+		defined(CONFIG_HAPTIC_ISA1200_MODULE)
+	{
+		I2C_FLUID,
+		MSM_GSBI8_QUP_I2C_BUS_ID,
+		msm_isa1200_board_info,
+		ARRAY_SIZE(msm_isa1200_board_info),
 	},
 #endif
 };
