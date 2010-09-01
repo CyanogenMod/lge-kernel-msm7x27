@@ -62,6 +62,9 @@
 #define GPIO_CAM_MCLK				15		/* GPIO_15 */
 #define ISX005_DEFAULT_CLOCK_RATE	24000000
 
+#define CAM_POWER_OFF		0
+#define CAM_POWER_ON		1
+
 #define LDO_CAM_AF_NO		1	/* 2.8V */
 #define LDO_CAM_AVDD_NO		2	/* 2.7V */
 #define LDO_CAM_DVDD_NO		3	/* 1.2V */
@@ -96,6 +99,8 @@
 #define GPIO_LCD_MAKER_LOW	101
 #define GPIO_LCD_RESET_N	102
 
+#define BL_POWER_SUSPEND 0
+#define BL_POWER_RESUME  1
 /* bluetooth gpio pin */
 enum {
 	BT_WAKE         = 42,
@@ -124,9 +129,14 @@ extern struct platform_device msm_device_snd;
 extern struct platform_device msm_device_adspdec;
 extern struct i2c_board_info i2c_devices[1];
 
+extern int camera_power_state;
+extern int lcd_bl_power_state;
 /* interface functions */
 void config_camera_on_gpios(void);
 void config_camera_off_gpios(void);
+void camera_power_mutex_lock(void);
+void camera_power_mutex_unlock(void);
+void thunderg_pwrsink_resume(void);
 
 struct device* thunderg_backlight_dev(void);
 #endif
