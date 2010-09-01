@@ -36,6 +36,14 @@
 #include <linux/i2c-gpio.h>
 #include <mach/board_lge.h>
 
+#include <mach/vreg.h>
+struct vreg {
+	const char *name;
+	unsigned id;
+	int status;
+	unsigned refcnt;
+};
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 
@@ -675,6 +683,23 @@ static ssize_t read_touch_dl_status(struct device *dev, struct device_attribute 
 	return r;
 }
 
+static ssize_t read_touch_status(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	int r;
+	int int_status;
+	struct mcs6000_ts_device *dev_tmp ;
+	struct vreg *vreg_touch;
+
+	dev_tmp = &mcs6000_ts_dev;
+	vreg_touch = vreg_get(0, "synt");
+	//printk ("Vreg_touch info : name [%s], id [%d],status[%d], refcnt[%d]\n",vreg_touch->name,vreg_touch->id,vreg_touch->status,vreg_touch->refcnt);
+	int_status = gpio_get_value(dev_tmp->intr_gpio);
+	r = sprintf(buf,"MCS6000 interrupt Pin [%d] , power Status [%d]\n",int_status,vreg_touch->refcnt);
+	return r;
+}
+
+static DEVICE_ATTR(touch_status, S_IRUGO,read_touch_status, NULL);
 static DEVICE_ATTR(version, S_IRUGO /*| S_IWUSR*/,read_touch_version, NULL);
 static DEVICE_ATTR(dl_status, S_IRUGO,read_touch_dl_status, NULL);
 
@@ -696,6 +721,12 @@ int mcs6000_create_file(struct input_dev *pdev)
 		return ret;
 	}
 
+	ret = device_create_file(&pdev->dev, &dev_attr_touch_status);
+	if (ret) {
+		printk( KERN_DEBUG "LG_FW : dev_attr_touch_status create fail\n");
+		device_remove_file(&pdev->dev, &dev_attr_touch_status);
+		return ret;
+	}
 	return ret;
 }
 
@@ -703,6 +734,7 @@ int mcs6000_remove_file(struct input_dev *pdev)
 {
 	device_remove_file(&pdev->dev, &dev_attr_version);
 	device_remove_file(&pdev->dev, &dev_attr_dl_status);
+	device_remove_file(&pdev->dev, &dev_attr_touch_status);
 	return 0;
 }
 static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
