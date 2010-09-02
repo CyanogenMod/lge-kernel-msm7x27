@@ -474,14 +474,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		spin_lock_irq(&md->lock);
 		ret = __blk_end_request(req, 0, brq.data.bytes_xfered);
 		spin_unlock_irq(&md->lock);
-	} while (ret) {
-		// LGE_CHANGE [dojip.kim@lge.com] 2010-08-29,
-		// supressed the error message
-#if defined(CONFIG_MACH_LGE)
-		req->cmd_flags |= REQ_QUIET;
-#endif
-		ret = __blk_end_request(req, -EIO, blk_rq_cur_bytes(req));
-	}
+	} while (ret);
 
 	mmc_release_host(card->host);
 
@@ -514,8 +507,14 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	mmc_release_host(card->host);
 
 	spin_lock_irq(&md->lock);
-	while (ret)
+	while (ret) {
+		// LGE_CHANGE [dojip.kim@lge.com] 2010-08-29,
+		// supressed the error message
+#if defined(CONFIG_MACH_LGE)
+		req->cmd_flags |= REQ_QUIET;
+#endif
 		ret = __blk_end_request(req, -EIO, blk_rq_cur_bytes(req));
+	}
 	spin_unlock_irq(&md->lock);
 
 	return 0;
