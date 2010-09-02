@@ -2255,6 +2255,133 @@ static struct pmic8058_othc_config_pdata othc_config_pdata_2 = {
 	.micbias_enable = OTHC_SIGNAL_OFF,
 };
 
+static struct resource resources_pm8058_charger[] = {
+	{	.name = "CHGVAL",
+		.start = PM8058_CHGVAL_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_CHGVAL_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{	.name = "CHGINVAL",
+		.start = PM8058_CHGINVAL_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_CHGINVAL_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "CHGILIM",
+		.start = PM8058_CHGILIM_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_CHGILIM_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "VCP",
+		.start = PM8058_VCP_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_VCP_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+		{
+		.name = "ATC_DONE",
+		.start = PM8058_ATC_DONE_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_ATC_DONE_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "ATCFAIL",
+		.start = PM8058_ATCFAIL_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_ATCFAIL_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "AUTO_CHGDONE",
+		 .start = PM8058_AUTO_CHGDONE_IRQ(PM8058_IRQ_BASE),
+		 .end = PM8058_AUTO_CHGDONE_IRQ(PM8058_IRQ_BASE),
+		 .flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "AUTO_CHGFAIL",
+		.start = PM8058_AUTO_CHGFAIL_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_AUTO_CHGFAIL_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "CHGSTATE",
+		.start = PM8058_CHGSTATE_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_CHGSTATE_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "FASTCHG",
+		.start = PM8058_FASTCHG_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_FASTCHG_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "CHG_END",
+		 .start = PM8058_CHG_END_IRQ(PM8058_IRQ_BASE),
+		 .end = PM8058_CHG_END_IRQ(PM8058_IRQ_BASE),
+		 .flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "BATTTEMP",
+		.start = PM8058_BATTTEMP_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_BATTTEMP_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "CHGHOT",
+		.start = PM8058_CHGHOT_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_CHGHOT_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "CHGTLIMIT",
+		.start = PM8058_CHGTLIMIT_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_CHGTLIMIT_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "CHG_GONE",
+		 .start = PM8058_CHG_GONE_IRQ(PM8058_IRQ_BASE),
+		 .end = PM8058_CHG_GONE_IRQ(PM8058_IRQ_BASE),
+		 .flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "VCPMAJOR",
+		 .start = PM8058_VCPMAJOR_IRQ(PM8058_IRQ_BASE),
+		 .end = PM8058_VCPMAJOR_IRQ(PM8058_IRQ_BASE),
+		 .flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "VBATDET",
+		 .start = PM8058_VBATDET_IRQ(PM8058_IRQ_BASE),
+		 .end = PM8058_VBATDET_IRQ(PM8058_IRQ_BASE),
+		 .flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "BATFET",
+		 .start = PM8058_BATFET_IRQ(PM8058_IRQ_BASE),
+		 .end = PM8058_BATFET_IRQ(PM8058_IRQ_BASE),
+		 .flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "BATT_REPLACE",
+		.start = PM8058_BATT_REPLACE_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_BATT_REPLACE_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "BATTCONNECT",
+		.start = PM8058_BATTCONNECT_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_BATTCONNECT_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "VBATDET_LOW",
+		.start = PM8058_VBATDET_LOW_IRQ(PM8058_IRQ_BASE),
+		.end = PM8058_VBATDET_LOW_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
 static struct resource resources_othc_0[] = {
 	{
 		.name = "othc_base",
@@ -2592,6 +2719,12 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.id		= -1,
 		.platform_data = &pm8058_flash_leds_data,
 		.data_size = sizeof(pm8058_flash_leds_data),
+	},
+	{
+		.name = "pm8058-charger",
+		.id = -1,
+		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
+		.resources = resources_pm8058_charger,
 	},
 	PM8058_VREG(PM8058_VREG_ID_L0),
 	PM8058_VREG(PM8058_VREG_ID_L1),
