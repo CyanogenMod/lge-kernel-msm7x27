@@ -3295,6 +3295,11 @@ static const struct isx005_register_address_value_pair const
 	{0x401C, 0xCA03, WORD_LEN},	// AGCHISCL_L : 9DB   
 	{0x401E, 0x6C03, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
 	{0x4020, 0x3004, WORD_LEN},	// AGCMAxSCL_L : 18.3DB
+
+	{0x4887, 0x02, BYTE_LEN},
+	{0x4856, 0x28, BYTE_LEN},
+	{0x486C, 0x2800, WORD_LEN},
+	{0x4870, 0x2800, WORD_LEN},
 };
 
 static const struct isx005_register_address_value_pair const 
@@ -3310,7 +3315,12 @@ static const struct isx005_register_address_value_pair const
 	{0x401A, 0x0002, WORD_LEN},	// ExPSHTSCL_L : 82MS 
 	{0x401C, 0xCA03, WORD_LEN},	// AGCHISCL_L : 9DB   
 	{0x401E, 0x6C03, WORD_LEN},	// MAxSHTSCL_L : 110MS2301 
-	{0x4020, 0x3004, WORD_LEN},	// AGCMAxSCL_L : 18.3DB                       
+	{0x4020, 0x3004, WORD_LEN},	// AGCMAxSCL_L : 18.3DB
+
+	{0x4887, 0x02, BYTE_LEN},
+	{0x4856, 0x28, BYTE_LEN},
+	{0x486C, 0x2800, WORD_LEN},
+	{0x4870, 0x2800, WORD_LEN},
 };
 
 static const struct isx005_register_address_value_pair const
@@ -3327,6 +3337,11 @@ static const struct isx005_register_address_value_pair const
 	{0x401C, 0xCA03, WORD_LEN}, // AGCHISCL_L : 9DB   
 	{0x401E, 0x6C03, WORD_LEN}, // MAxSHTSCL_L : 110MS2301 
 	{0x4020, 0x3004, WORD_LEN}, // AGCMAxSCL_L : 18.3DB
+
+	{0x4887, 0x02, BYTE_LEN},
+	{0x4856, 0x28, BYTE_LEN},
+	{0x486C, 0x2800, WORD_LEN},
+	{0x4870, 0x2800, WORD_LEN},
 };
 
 static const struct isx005_register_address_value_pair const
@@ -3343,6 +3358,11 @@ static const struct isx005_register_address_value_pair const
 	{0x401C, 0xCA03, WORD_LEN}, // AGCHISCL_L : 9DB   
 	{0x401E, 0x6C03, WORD_LEN}, // MAxSHTSCL_L : 110MS2301 
 	{0x4020, 0x3004, WORD_LEN}, // AGCMAxSCL_L : 18.3DB
+
+	{0x4887, 0x02, BYTE_LEN},
+	{0x4856, 0x28, BYTE_LEN},
+	{0x486C, 0x2800, WORD_LEN},
+	{0x4870, 0x2800, WORD_LEN},
 };
 
 static const struct isx005_register_address_value_pair const 
@@ -3359,6 +3379,11 @@ static const struct isx005_register_address_value_pair const
 	{0x401C, 0xCA03, WORD_LEN}, // AGCHISCL_L : 9DB   
 	{0x401E, 0x6C03, WORD_LEN}, // MAxSHTSCL_L : 110MS2301 
 	{0x4020, 0x3004, WORD_LEN}, // AGCMAxSCL_L : 18.3DB
+
+	{0x4887, 0x02, BYTE_LEN},
+	{0x4856, 0x28, BYTE_LEN},
+	{0x486C, 0x2800, WORD_LEN},
+	{0x4870, 0x2800, WORD_LEN},
 };
 
 static const struct isx005_register_address_value_pair const 
@@ -3377,6 +3402,11 @@ static const struct isx005_register_address_value_pair const
 	{0x0131, 0x8D, BYTE_LEN},	// AE_SUB_SN10 : 1/2S
 	{0x0062, 0x20, BYTE_LEN},	// UISHARPNESS[7:0]
 	{0x0100, 0x09, BYTE_LEN},	// SCENE_SELECT :
+
+	{0x4887, 0x00, BYTE_LEN},
+	{0x4856, 0x3c, BYTE_LEN},
+	{0x486C, 0x3C00, WORD_LEN},
+	{0x4870, 0x3200, WORD_LEN},
 };
 
 struct isx005_reg isx005_regs = {
