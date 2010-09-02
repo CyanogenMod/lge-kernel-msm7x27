@@ -788,10 +788,15 @@ static void msm_batt_update_psy_status(void)
 		msm_batt_info.batt_health = POWER_SUPPLY_HEALTH_UNKNOWN;
 		msm_batt_info.batt_status = POWER_SUPPLY_STATUS_UNKNOWN;
 		msm_batt_info.batt_capacity = 0;
-		/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM*/
-    msm_batt_info.battery_temp = 0;
-    msm_batt_info.battery_therm = batt_info_buf.batt_therm;		
-		/* LGE_CHANGES_E [woonghee.park@lge.com]*/
+		/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM
+		 * Edit by seonghwan.hong 2010-09-02
+		 * for imeplements displaing battery temp at battery overheat
+		 * Change 0 to batt_info_buf.batt_temp * 10
+		 */
+		msm_batt_info.battery_temp =  batt_info_buf.batt_temp * 10;
+
+		msm_batt_info.battery_therm = batt_info_buf.batt_therm;		
+		/* LGE_CHANGES_E [woonghee.park@lge.com] */
 
 	}
 
