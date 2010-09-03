@@ -874,12 +874,19 @@ static int soc_pll_enable(unsigned src, unsigned enable)
 	uint32_t reg_val;
 
 	reg_val = readl(soc_pll_ena[src].reg);
-	reg_val |= soc_pll_ena[src].mask;
+
+	if (enable)
+		reg_val |= soc_pll_ena[src].mask;
+	else
+		reg_val &= ~(soc_pll_ena[src].mask);
+
 	writel(reg_val, soc_pll_ena[src].reg);
 
-	/* Wait until PLL is enabled */
-	while ((readl(soc_pll_status_reg[src]) & B(16)) == 0)
-		cpu_relax();
+	if (enable) {
+		/* Wait until PLL is enabled */
+		while ((readl(soc_pll_status_reg[src]) & B(16)) == 0)
+			cpu_relax();
+	}
 
 	return 0;
 }
