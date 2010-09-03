@@ -99,12 +99,12 @@ struct audio_client {
 	struct apr_svc         *apr;
 	struct mutex	       cmd_lock;
 
-	unsigned char	    cmd_state;
-	unsigned char	    eos_state;
-	wait_queue_head_t   cmd_wait;
+	atomic_t		cmd_state;
+	atomic_t		eos_state;
+	wait_queue_head_t	cmd_wait;
 
-	app_cb              cb;
-	void                *priv;
+	app_cb			cb;
+	void			*priv;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);
@@ -128,6 +128,18 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				uint32_t lsw_ts, uint32_t flags);
 
 int q6asm_read(struct audio_client *ac);
+
+int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add,
+			int dir, uint32_t bufsz, uint32_t bufcnt);
+
+int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add,
+							int dir);
+
+int q6asm_memory_map_regions(struct audio_client *ac, int dir,
+				uint32_t bufsz, uint32_t bufcnt);
+
+int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
+				uint32_t bufsz, uint32_t bufcnt);
 
 int q6asm_run(struct audio_client *ac, uint32_t flags,
 		uint32_t msw_ts, uint32_t lsw_ts);

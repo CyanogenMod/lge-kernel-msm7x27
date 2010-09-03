@@ -44,6 +44,7 @@ enum {
 	RSVD_3 = 10,
 	DIGI_MIC_TX = 11,
 	AFE_MAX_PORTS ,
+	INVALID = 0xFFFF,
 };
 
 #define AFE_PORT_CMD_START 0x000100ca
@@ -284,14 +285,56 @@ struct adm_ramp_gains_command {
 struct adm_copp_open_command {
 	struct apr_hdr hdr;
 	u16 flags;
-	u16 endpoint_id;
+	u16 mode; /* 1-RX, 2-Live TX, 3-Non Live TX */
+	u16 endpoint_id1;
+	u16 endpoint_id2;
 	u32 topology_id;
+	u16 channel_config;
+	u16 reserved;
+	u32 rate;
 } __attribute__ ((packed));
 
 #define ADM_CMD_COPP_CLOSE                               0x00010305
 
+#define ADM_CMD_MEMORY_MAP				0x00010C30
+struct adm_cmd_memory_map{
+	struct apr_hdr	hdr;
+	u32		buf_add;
+	u32		buf_size;
+	u16		mempool_id;
+	u16		reserved;
+} __attribute__((packed));
 
-#define DEFAULT_TOPOLOGY		0x00010be4
+#define ADM_CMD_MEMORY_UNMAP				0x00010C31
+struct adm_cmd_memory_unmap{
+	struct apr_hdr	hdr;
+	u32		buf_add;
+} __attribute__((packed));
+
+#define ADM_CMD_MEMORY_MAP_REGIONS			0x00010C47
+struct adm_memory_map_regions{
+	u32		phys;
+	u32		buf_size;
+} __attribute__((packed));
+
+struct adm_cmd_memory_map_regions{
+	struct apr_hdr	hdr;
+	u16		mempool_id;
+	u16		nregions;
+} __attribute__((packed));
+
+#define ADM_CMD_MEMORY_UNMAP_REGIONS			0x00010C48
+struct adm_memory_unmap_regions{
+	u32		phys;
+} __attribute__((packed));
+
+struct adm_cmd_memory_unmap_regions{
+	struct apr_hdr	hdr;
+	u16		nregions;
+	u16		reserved;
+} __attribute__((packed));
+
+#define DEFAULT_TOPOLOGY				0x00010be3
 
 struct asm_pp_param_data_hdr {
 	u32 module_id;
@@ -629,6 +672,43 @@ struct asm_stream_cmd_tap_popp_pcm{
 } __attribute__((packed));
 
 /*  Session Level commands */
+#define ASM_SESSION_CMD_MEMORY_MAP			0x00010C32
+struct asm_stream_cmd_memory_map{
+	struct apr_hdr	hdr;
+	u32		buf_add;
+	u32		buf_size;
+	u16		mempool_id;
+	u16		reserved;
+} __attribute__((packed));
+
+#define ASM_SESSION_CMD_MEMORY_UNMAP			0x00010C33
+struct asm_stream_cmd_memory_unmap{
+	struct apr_hdr	hdr;
+	u32		buf_add;
+} __attribute__((packed));
+
+#define ASM_SESSION_CMD_MEMORY_MAP_REGIONS		0x00010C45
+struct asm_memory_map_regions{
+	u32		phys;
+	u32		buf_size;
+} __attribute__((packed));
+
+struct asm_stream_cmd_memory_map_regions{
+	struct apr_hdr	hdr;
+	u16		mempool_id;
+	u16		nregions;
+} __attribute__((packed));
+
+#define ASM_SESSION_CMD_MEMORY_UNMAP_REGIONS		0x00010C46
+struct asm_memory_unmap_regions{
+	u32		phys;
+} __attribute__((packed));
+
+struct asm_stream_cmd_memory_unmap_regions{
+	struct apr_hdr	hdr;
+	u16		nregions;
+	u16		reserved;
+} __attribute__((packed));
 
 #define ASM_SESSION_CMD_RUN                              0x00010BD2
 struct asm_stream_cmd_run{

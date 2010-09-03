@@ -18,7 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/mfd/msm-adie-codec.h>
-#include <mach/qdsp5v2/audio_dev_ctl.h>
+#include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/board.h>
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>

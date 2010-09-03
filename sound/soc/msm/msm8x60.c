@@ -37,7 +37,7 @@
 
 #include "msm8x60-pcm.h"
 #include <asm/mach-types.h>
-#include <mach/qdsp5v2/audio_dev_ctl.h>
+#include <mach/qdsp6v2/audio_dev_ctl.h>
 
 static struct platform_device *msm_audio_snd_device;
 struct audio_locks the_locks;
@@ -434,7 +434,8 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 		return rc;
 	}
 	if (route_cfg.stream_type == AUDIO_ROUTE_STREAM_PLAYBACK) {
-		rc = msm_snddev_set_dec(session_id, dev_info->copp_id, set);
+		rc = msm_snddev_set_dec(session_id, dev_info->copp_id, set,
+				dev_info->sample_rate, dev_info->channel_mode);
 		session_mask =
 			(0x1 << (session_id) << (8 * ((int)AUDDEV_CLNT_DEC-1)));
 		if (!set) {
@@ -451,7 +452,9 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 							session_mask);
 		}
 	} else {
-		rc = msm_snddev_set_enc(session_id, dev_info->copp_id, set);
+
+		rc = msm_snddev_set_enc(session_id, dev_info->copp_id, set,
+				dev_info->sample_rate, dev_info->channel_mode);
 		session_mask =
 			(0x1 << (session_id)) << (8 * ((int)AUDDEV_CLNT_ENC-1));
 		if (!set) {

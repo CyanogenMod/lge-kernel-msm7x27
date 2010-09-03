@@ -25,7 +25,7 @@
 #include <linux/pmic8058-othc.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
-#include <mach/qdsp5v2/audio_dev_ctl.h>
+#include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/vreg.h>
 #include <mach/pmic.h>
 #include <mach/debug_mm.h>
@@ -639,7 +639,7 @@ static int snddev_icodec_enable_sidetone(struct msm_snddev_info *dev_info,
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 
 	if (!dev_info) {
-		MM_ERR("invalid dev_info\n");
+		pr_err("invalid dev_info\n");
 		rc = -EINVAL;
 		goto error;
 	}
@@ -649,7 +649,7 @@ static int snddev_icodec_enable_sidetone(struct msm_snddev_info *dev_info,
 	if (icodec->data->capability & SNDDEV_CAP_RX) {
 		mutex_lock(&drv->rx_lock);
 		if (!drv->rx_active || !dev_info->opened) {
-			MM_ERR("dev not active\n");
+			pr_err("dev not active\n");
 			rc = -EPERM;
 			mutex_unlock(&drv->rx_lock);
 			goto error;
@@ -658,7 +658,7 @@ static int snddev_icodec_enable_sidetone(struct msm_snddev_info *dev_info,
 		mutex_unlock(&drv->rx_lock);
 	} else {
 		rc = -EINVAL;
-		MM_ERR("rx device only\n");
+		pr_err("rx device only\n");
 	}
 
 error:
@@ -747,6 +747,7 @@ static int snddev_icodec_probe(struct platform_device *pdev)
 	icodec->data = pdata;
 	icodec->sample_rate = pdata->default_sample_rate;
 	dev_info->sample_rate = pdata->default_sample_rate;
+	dev_info->channel_mode = pdata->channel_mode;
 	if (pdata->capability & SNDDEV_CAP_RX) {
 		for (i = 0; i < VOC_RX_VOL_ARRAY_NUM; i++) {
 			dev_info->max_voc_rx_vol[i] =

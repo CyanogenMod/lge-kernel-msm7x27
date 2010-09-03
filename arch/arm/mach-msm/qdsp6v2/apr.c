@@ -250,10 +250,10 @@ static void apr_cb_func(void *buf, int len, void *priv)
 
 	temp_port = ((data.src_port >> 8) * 8) + (data.src_port & 0xFF);
 	pr_debug("port = %d t_port = %d\n", data.src_port, temp_port);
-	if (c_svc->fn)
-		c_svc->fn(&data, c_svc->priv);
-	else if (c_svc->port_cnt && c_svc->port_fn[temp_port])
+	if (c_svc->port_cnt && c_svc->port_fn[temp_port])
 		c_svc->port_fn[temp_port](&data,  c_svc->port_priv[temp_port]);
+	else if (c_svc->fn)
+		c_svc->fn(&data, c_svc->priv);
 	else
 		pr_err("APR: Rxed a packet for NULL callback\n");
 }

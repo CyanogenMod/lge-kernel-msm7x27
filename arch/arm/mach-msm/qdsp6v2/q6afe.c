@@ -22,36 +22,36 @@
 #include "apr_audio.h"
 
 struct afe_ctl {
-	int ref_cnt;
+	atomic_t ref_cnt;
 	void *apr;
-	int state;
+	atomic_t state;
 	wait_queue_head_t wait;
 };
 
 static struct afe_ctl this_afe;
-
-static DEFINE_MUTEX(afe_lock);
 
 #define TIMEOUT_MS 1000
 
 static int32_t afe_callback(struct apr_client_data *data, void *priv)
 {
 	if (data->payload_size) {
-		uint32_t *ptr;
-		ptr = data->payload;
-
-		pr_info("%s: cmd = 0x%x\n", __func__, ptr[0]);
-		switch (ptr[0]) {
-		case AFE_PORT_AUDIO_IF_CONFIG:
-		case AFE_PORT_CMD_STOP:
-		case AFE_PORT_CMD_START:
-			this_afe.state = 0;
-			wake_up(&this_afe.wait);
-			break;
-		default:
-			pr_err("%s: Unknown cmd 0x%x\n", __func__, ptr[0]);
-
-			break;
+		uint32_t *payload;
+		payload = data->payload;
+		pr_info("%s: cmd = 0x%x status = 0x%x\n", __func__,
+					payload[0], payload[1]);
+		if (data->opcode == APR_BASIC_RSP_RESULT) {
+			switch (payload[0]) {
+			case AFE_PORT_AUDIO_IF_CONFIG:
+			case AFE_PORT_CMD_STOP:
+			case AFE_PORT_CMD_START:
+				atomic_set(&this_afe.state, 0);
+				wake_up(&this_afe.wait);
+				break;
+			default:
+				pr_err("Unknown cmd 0x%x\n",
+						payload[0]);
+				break;
+			}
 		}
 	}
 	return 0;
@@ -64,16 +64,14 @@ int afe_open_pcmif(struct afe_port_pcm_cfg cfg)
 	struct afe_audioif_config_command config;
 	int ret;
 
-	mutex_lock(&afe_lock);
-
-	if (this_afe.ref_cnt == 0) {
+	if (atomic_read(&this_afe.ref_cnt) == 0) {
 		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
 					0xFFFFFFFF, &this_afe);
 		pr_info("%s: Register AFE\n", __func__);
 		if (this_afe.apr == NULL) {
 			pr_err("%s: Unable to register AFE\n", __func__);
 			ret = -ENODEV;
-			goto fail;
+			goto fail_cmd;
 		}
 	}
 	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -86,16 +84,17 @@ int afe_open_pcmif(struct afe_port_pcm_cfg cfg)
 	config.port.pcm = cfg;
 
 
-	this_afe.state = 1;
+	atomic_set(&this_afe.state, 1);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
 		pr_err("%s: AFE enable for port %d failed\n", __func__,
 				cfg.port_id);
 		ret = -EINVAL;
-		goto fail;
+		goto fail_cmd;
 	}
 
-	ret = wait_event_timeout(this_afe.wait, (this_afe.state == 0),
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (ret < 0) {
 		pr_err("%s: wait_event timeout\n", __func__);
@@ -113,7 +112,7 @@ int afe_open_pcmif(struct afe_port_pcm_cfg cfg)
 	start.gain = 0x4000;
 	start.sample_rate = 8000;
 
-	this_afe.state = 1;
+	atomic_set(&this_afe.state, 1);
 
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &start);
 	if (ret < 0) {
@@ -123,7 +122,8 @@ int afe_open_pcmif(struct afe_port_pcm_cfg cfg)
 		goto fail_cmd;
 	}
 
-	ret = wait_event_timeout(this_afe.wait, (this_afe.state == 0),
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (ret < 0) {
 		pr_err("%s: wait_event timeout\n", __func__);
@@ -131,15 +131,11 @@ int afe_open_pcmif(struct afe_port_pcm_cfg cfg)
 		goto fail_cmd;
 	}
 
-	this_afe.ref_cnt++;
-	mutex_unlock(&afe_lock);
-	return ret;
-
+	atomic_inc(&this_afe.ref_cnt);
+	return 0;
 fail_cmd:
-	if (this_afe.ref_cnt == 0)
+	if (atomic_read(&this_afe.ref_cnt) == 0)
 		apr_deregister(this_afe.apr);
-fail:
-	mutex_unlock(&afe_lock);
 	return ret;
 }
 
@@ -148,20 +144,18 @@ int afe_open(int port_id, int rate, int channel_mode)
 {
 	struct afe_port_start_command start;
 	struct afe_audioif_config_command config;
-	int ret;
+	int ret = 0;
 
 	pr_info("%s: %d %d %d\n", __func__, port_id, rate, channel_mode);
 
-	mutex_lock(&afe_lock);
-
-	if (this_afe.ref_cnt == 0) {
+	if (atomic_read(&this_afe.ref_cnt) == 0) {
 		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
 					0xFFFFFFFF, &this_afe);
 		pr_info("%s: Register AFE\n", __func__);
 		if (this_afe.apr == NULL) {
 			pr_err("%s: Unable to register AFE\n", __func__);
 			ret = -ENODEV;
-			goto fail;
+			return ret;
 		}
 	}
 
@@ -198,7 +192,7 @@ int afe_open(int port_id, int rate, int channel_mode)
 		goto fail_cmd;
 	}
 
-	this_afe.state = 1;
+	atomic_set(&this_afe.state, 1);
 
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
@@ -208,7 +202,8 @@ int afe_open(int port_id, int rate, int channel_mode)
 		goto fail_cmd;
 	}
 
-	ret = wait_event_timeout(this_afe.wait, (this_afe.state == 0),
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (ret < 0) {
 		pr_err("%s: wait_event timeout\n", __func__);
@@ -227,7 +222,7 @@ int afe_open(int port_id, int rate, int channel_mode)
 	start.gain = 0x4000;
 	start.sample_rate = rate;
 
-	this_afe.state = 1;
+	atomic_set(&this_afe.state, 1);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &start);
 	if (ret < 0) {
 		pr_err("%s: AFE enable for port %d failed\n", __func__,
@@ -235,7 +230,8 @@ int afe_open(int port_id, int rate, int channel_mode)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	ret = wait_event_timeout(this_afe.wait, (this_afe.state == 0),
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (ret < 0) {
 		pr_err("%s: wait_event timeout\n", __func__);
@@ -243,26 +239,22 @@ int afe_open(int port_id, int rate, int channel_mode)
 		goto fail_cmd;
 	}
 
-	this_afe.ref_cnt++;
-	mutex_unlock(&afe_lock);
-	return ret;
+	atomic_inc(&this_afe.ref_cnt);
+	return 0;
 fail_cmd:
-	if (this_afe.ref_cnt == 0)
+	if (atomic_read(&this_afe.ref_cnt) == 0)
 		apr_deregister(this_afe.apr);
-fail:
-	mutex_unlock(&afe_lock);
 	return ret;
 }
 
 int afe_close(int port_id)
 {
 	struct afe_port_stop_command stop;
-	int rc = 0;
+	int ret = 0;
 
-	mutex_lock(&afe_lock);
-	if (this_afe.ref_cnt == 0) {
-		pr_err("%s: AFE is already closed\n", __func__);
-		rc = -EINVAL;
+	if (atomic_read(&this_afe.ref_cnt) <= 0) {
+		pr_err("AFE is already closed\n");
+		ret = -EINVAL;
 		goto fail_cmd;
 	}
 
@@ -274,38 +266,42 @@ int afe_close(int port_id)
 	stop.hdr.token = 0;
 	stop.hdr.opcode = AFE_PORT_CMD_STOP;
 	stop.port_id = port_id;
+	stop.reserved = 0;
 
-	this_afe.state = 1;
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &stop);
 
-	rc = apr_send_pkt(this_afe.apr, (uint32_t *) &stop);
-
-	if (rc < 0) {
-		pr_err("%s: AFE close failed\n", __func__);
+	if (ret < 0) {
+		pr_err("AFE close failed\n");
+		ret = -EINVAL;
 		goto fail_cmd;
 	}
 
-	rc = wait_event_timeout(this_afe.wait, (this_afe.state == 0),
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
 					msecs_to_jiffies(TIMEOUT_MS));
-	if (rc < 0) {
+	if (ret < 0) {
 		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
 		goto fail_cmd;
 	}
 
-	this_afe.ref_cnt--;
-	if (this_afe.ref_cnt == 0) {
-		pr_info("%s: Deregister AFE\n", __func__);
+	atomic_dec(&this_afe.ref_cnt);
+	if (atomic_read(&this_afe.ref_cnt) == 0) {
+		pr_debug("%s: Deregister AFE\n", __func__);
 		apr_deregister(this_afe.apr);
 	}
 fail_cmd:
-	mutex_unlock(&afe_lock);
-	return rc;
+	return ret;
 }
 
-static int __init q6afe_init(void)
+static int __init afe_init(void)
 {
 	pr_info("%s:\n", __func__);
 	init_waitqueue_head(&this_afe.wait);
+	atomic_set(&this_afe.state, 0);
+	atomic_set(&this_afe.ref_cnt, 0);
 	return 0;
 }
 
-device_initcall(q6afe_init);
+device_initcall(afe_init);

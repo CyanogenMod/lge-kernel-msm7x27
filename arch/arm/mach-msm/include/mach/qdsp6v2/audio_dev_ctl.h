@@ -60,6 +60,7 @@ struct msm_snddev_info {
 	void *private_data;
 	bool state;
 	u32 sample_rate;
+	u32 channel_mode;
 	u32 set_sample_rate;
 	u32 sessions;
 	int usage_count;
@@ -80,8 +81,12 @@ int msm_snddev_devcount(void);
 int msm_snddev_query(int dev_id);
 unsigned short msm_snddev_route_dec(int popp_id);
 unsigned short msm_snddev_route_enc(int enc_id);
-int msm_snddev_set_dec(int popp_id, int copp_id, int set);
-int msm_snddev_set_enc(int popp_id, int copp_id, int set);
+
+int msm_snddev_set_dec(int popp_id, int copp_id, int set,
+					int rate, int channel_mode);
+int msm_snddev_set_enc(int popp_id, int copp_id, int set,
+					int rate, int channel_mode);
+
 int msm_snddev_is_set(int popp_id, int copp_id);
 int msm_get_voc_route(u32 *rx_id, u32 *tx_id);
 int msm_set_voc_route(struct msm_snddev_info *dev_info, int stream_type,

@@ -49,6 +49,10 @@ struct event_listner event;
 #define MAX_DEC_SESSIONS	6
 #define MAX_ENC_SESSIONS	2
 
+#define PLAYBACK 0x1
+#define LIVE_RECORDING 0x2
+#define NON_LIVE_RECORDING 0x3
+
 struct session_freq {
 	int freq;
 	int evt;
@@ -74,14 +78,14 @@ static struct audio_routing_info routing_info;
 
 int msm_get_voice_state(void)
 {
-	MM_DBG("voice state %d\n", routing_info.voice_state);
+	pr_debug("voice state %d\n", routing_info.voice_state);
 	return routing_info.voice_state;
 }
 EXPORT_SYMBOL(msm_get_voice_state);
 
 int msm_set_voice_mute(int dir, int mute)
 {
-	MM_DBG("dir %x mute %x\n", dir, mute);
+	pr_debug("dir %x mute %x\n", dir, mute);
 	if (dir == DIR_TX) {
 		routing_info.tx_mute = mute;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
@@ -120,7 +124,7 @@ void msm_snddev_register(struct msm_snddev_info *dev_info)
 		dev_info->usage_count = 0;
 		audio_dev_ctrl.num_dev++;
 	} else
-		MM_ERR("%s: device registry max out\n", __func__);
+		pr_err("%s: device registry max out\n", __func__);
 	mutex_unlock(&session_lock);
 }
 EXPORT_SYMBOL(msm_snddev_register);
@@ -161,10 +165,11 @@ unsigned short msm_snddev_route_dec(int popp_id)
 }
 EXPORT_SYMBOL(msm_snddev_route_dec);
 
-int msm_snddev_set_dec(int popp_id, int copp_id, int set)
+int msm_snddev_set_dec(int popp_id, int copp_id, int set,
+					int rate, int mode)
 {
 	if (set)
-		adm_open(copp_id, popp_id, 0);
+		adm_open(copp_id, popp_id, PLAYBACK, rate, mode);
 	else
 		adm_close(copp_id);
 
@@ -172,10 +177,11 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set)
 }
 EXPORT_SYMBOL(msm_snddev_set_dec);
 
-int msm_snddev_set_enc(int popp_id, int copp_id, int set)
+int msm_snddev_set_enc(int popp_id, int copp_id, int set,
+					int rate, int mode)
 {
 	if (set)
-		adm_open(copp_id, popp_id, 1);
+		adm_open(copp_id, popp_id, LIVE_RECORDING, rate, mode);
 	else
 		adm_close(copp_id);
 	return 0;
@@ -371,7 +377,7 @@ int auddev_register_evt_listner(u32 evt_id, u32 clnt_type, u32 clnt_id,
 
 	new_cb = kzalloc(sizeof(struct msm_snd_evt_listner), GFP_KERNEL);
 	if (!new_cb) {
-		MM_ERR("No memory to add new listener node\n");
+		pr_err("No memory to add new listener node\n");
 		return -ENOMEM;
 	}
 
@@ -495,7 +501,7 @@ int msm_snddev_request_freq(int *freq, u32 session_id,
 	u32 session_mask = 0;
 	u32 clnt_type_mask = 0;
 
-	MM_DBG(": clnt_type 0x%08x\n", clnt_type);
+	pr_debug(": clnt_type 0x%08x\n", clnt_type);
 
 	if ((clnt_type == AUDDEV_CLNT_VOC) && (session_id != 0))
 		return -EINVAL;
@@ -563,8 +569,8 @@ int msm_snddev_request_freq(int *freq, u32 session_id,
 							SESSION_IGNORE);
 			}
 		}
-		MM_DBG("info->set_sample_rate = %d\n", info->set_sample_rate);
-		MM_DBG("routing_info.enc_freq.freq = %d\n",
+		pr_debug("info->set_sample_rate = %d\n", info->set_sample_rate);
+		pr_debug("routing_info.enc_freq.freq = %d\n",
 					routing_info.enc_freq[session_id].freq);
 	}
 	return rc;
@@ -576,15 +582,15 @@ int msm_snddev_enable_sidetone(u32 dev_id, u32 enable)
 	int rc;
 	struct msm_snddev_info *dev_info;
 
-	MM_DBG("dev_id %d enable %d\n", dev_id, enable);
+	pr_debug("dev_id %d enable %d\n", dev_id, enable);
 
 	dev_info = audio_dev_ctrl_find_dev(dev_id);
 
 	if (IS_ERR(dev_info)) {
-		MM_ERR("bad dev_id %d\n", dev_id);
+		pr_err("bad dev_id %d\n", dev_id);
 		rc = -EINVAL;
 	} else if (!dev_info->dev_ops.enable_sidetone) {
-		MM_DBG("dev %d no sidetone support\n", dev_id);
+		pr_debug("dev %d no sidetone support\n", dev_id);
 		rc = -EPERM;
 	} else
 		rc = dev_info->dev_ops.enable_sidetone(dev_info, enable);
@@ -655,11 +661,11 @@ static int audio_dev_ctrl_ioctl(struct inode *inode, struct file *file,
 			rc = -EFAULT;
 			break;
 		}
-		MM_DBG("%s: route cfg %d %d type\n", __func__,
+		pr_debug("%s: route cfg %d %d type\n", __func__,
 		route_cfg.dev_id, route_cfg.stream_type);
 		dev_info = audio_dev_ctrl_find_dev(route_cfg.dev_id);
 		if (IS_ERR(dev_info)) {
-			MM_ERR("%s: pass invalid dev_id\n", __func__);
+			pr_err("%s: pass invalid dev_id\n", __func__);
 			rc = PTR_ERR(dev_info);
 			break;
 		}
@@ -695,7 +701,7 @@ static int audio_dev_ctrl_ioctl(struct inode *inode, struct file *file,
 
 static int audio_dev_ctrl_open(struct inode *inode, struct file *file)
 {
-	MM_DBG("open audio_dev_ctrl\n");
+	pr_debug("open audio_dev_ctrl\n");
 	atomic_inc(&audio_dev_ctrl.opened);
 	file->private_data = &audio_dev_ctrl;
 	return 0;
@@ -703,7 +709,7 @@ static int audio_dev_ctrl_open(struct inode *inode, struct file *file)
 
 static int audio_dev_ctrl_release(struct inode *inode, struct file *file)
 {
-	MM_DBG("release audio_dev_ctrl\n");
+	pr_debug("release audio_dev_ctrl\n");
 	atomic_dec(&audio_dev_ctrl.opened);
 	return 0;
 }
@@ -737,7 +743,7 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 	u32 session_mask = 0;
 	static int pending_sent;
 
-	MM_DBG(": evt_id = %d\n", evt_id);
+	pr_debug(": evt_id = %d\n", evt_id);
 
 	if ((evt_id != AUDDEV_EVT_START_VOICE)
 		&& (evt_id != AUDDEV_EVT_END_VOICE)
@@ -780,12 +786,12 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 
 		if ((evt_id == AUDDEV_EVT_STREAM_VOL_CHG) || \
 			(evt_id == AUDDEV_EVT_VOICE_STATE_CHG)) {
-			MM_DBG("AUDDEV_EVT_STREAM_VOL_CHG or\
+			pr_debug("AUDDEV_EVT_STREAM_VOL_CHG or\
 				AUDDEV_EVT_VOICE_STATE_CHG\n");
 			goto volume_strm;
 		}
 
-		MM_DBG("dev_info->sessions = %08x\n", dev_info->sessions);
+		pr_debug("dev_info->sessions = %08x\n", dev_info->sessions);
 
 		if ((!session_id && !(dev_info->sessions & session_mask)) ||
 			(session_id && ((dev_info->sessions & session_mask) !=
@@ -802,9 +808,9 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 
 volume_strm:
 		if (callback->clnt_type == AUDDEV_CLNT_DEC) {
-			MM_DBG("AUDDEV_CLNT_DEC\n");
+			pr_debug("AUDDEV_CLNT_DEC\n");
 			if (evt_id == AUDDEV_EVT_STREAM_VOL_CHG) {
-				MM_DBG("clnt_id = %d, session_id = 0x%8x\n",
+				pr_debug("clnt_id = %d, session_id = 0x%8x\n",
 					clnt_id, session_id);
 				if (session_mask != session_id)
 					goto sent_dec;
@@ -850,7 +856,7 @@ sent_dec:
 			}
 		}
 		if (callback->clnt_type == AUDDEV_CLNT_ENC) {
-			MM_DBG("AUDDEV_CLNT_ENC\n");
+			pr_debug("AUDDEV_CLNT_ENC\n");
 			if (evt_id == AUDDEV_EVT_FREQ_CHG) {
 				if (routing_info.enc_freq[clnt_id].evt) {
 					routing_info.enc_freq[clnt_id].evt
@@ -883,7 +889,7 @@ sent_enc:
 		}
 aud_cal:
 		if (callback->clnt_type == AUDDEV_CLNT_AUDIOCAL) {
-			MM_DBG("AUDDEV_CLNT_AUDIOCAL\n");
+			pr_debug("AUDDEV_CLNT_AUDIOCAL\n");
 			if (evt_id == AUDDEV_EVT_VOICE_STATE_CHG)
 				evt_payload->voice_state =
 					routing_info.voice_state;
@@ -918,7 +924,7 @@ sent_aud_cal:
 skip_check:
 voc_events:
 		if (callback->clnt_type == AUDDEV_CLNT_VOC) {
-			MM_DBG("AUDDEV_CLNT_VOC\n");
+			pr_debug("AUDDEV_CLNT_VOC\n");
 			if (evt_id == AUDDEV_EVT_DEV_RLS) {
 				if (!pending_sent)
 					goto sent_voc;
@@ -1015,7 +1021,7 @@ EXPORT_SYMBOL(broadcast_event);
 void mixer_post_event(u32 evt_id, u32 id)
 {
 
-	MM_DBG("evt_id = %d\n", evt_id);
+	pr_debug("evt_id = %d\n", evt_id);
 	switch (evt_id) {
 	case AUDDEV_EVT_DEV_CHG_VOICE: /* Called from Voice_route */
 		broadcast_event(AUDDEV_EVT_DEV_CHG_VOICE, id, SESSION_IGNORE);
