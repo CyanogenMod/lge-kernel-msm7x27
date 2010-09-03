@@ -258,39 +258,52 @@ static void pmic_mpp_isink_set(struct led_classdev *led_cdev,
 {
 	int mpp_number;
 	int on_off;
-	int i ;
+	int i;
+	int brightness;
 
 	if (!strcmp(led_cdev->name ,"button-backlight"))
 		mpp_number = (int)PM_MPP_19;
 	else
 		return;
-
+	printk (" LED DEBUG: Value is %d \n",value);
 	if(value == 0)
 		on_off = (int)PM_MPP__I_SINK__SWITCH_DIS;
 	else
 		on_off = (int)PM_MPP__I_SINK__SWITCH_ENA;
+
+	switch(value){
+		case 5:
+			brightness = PM_MPP__I_SINK__LEVEL_5mA;
+			break;
+		case 10 :
+			brightness = PM_MPP__I_SINK__LEVEL_10mA;
+			break;
+		case 15 :
+			brightness = PM_MPP__I_SINK__LEVEL_15mA;
+			break;
+		case 20 :
+			brightness = PM_MPP__I_SINK__LEVEL_20mA;
+			break;
+		case 25 :
+			brightness = PM_MPP__I_SINK__LEVEL_25mA;
+			break;
+		case 30 :
+			brightness = PM_MPP__I_SINK__LEVEL_30mA;
+			break;
+		case 35 :
+			brightness = PM_MPP__I_SINK__LEVEL_35mA;
+			break;
+		case 40 :
+			brightness = PM_MPP__I_SINK__LEVEL_40mA;
+			break;
+		default :
+			brightness = PM_MPP__I_SINK__LEVEL_15mA;
+			break;
+	}
 
 	for(i=0; i<4; i++){
 		pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,
-			PM_MPP__I_SINK__LEVEL_15mA, (enum mpp_i_sink_switch)on_off);
-		mpp_number++;
-	}
-}
-
-static void button_backlight_set(struct led_classdev* led_cdev, enum led_brightness value)
-{
-	int i;
-	int mpp_number;
-	int on_off;
-
-	if(value == 0)
-		on_off = (int)PM_MPP__I_SINK__SWITCH_DIS;
-	else
-		on_off = (int)PM_MPP__I_SINK__SWITCH_ENA;
-
-	mpp_number = (int)PM_MPP_19;
-	for(i=0; i<4; i++){
-		pmic_secure_mpp_config_i_sink((enum mpp_which)mpp_number,PM_MPP__I_SINK__LEVEL_15mA, (enum mpp_i_sink_switch)on_off);
+			brightness, (enum mpp_i_sink_switch)on_off);
 		mpp_number++;
 	}
 }
@@ -298,7 +311,7 @@ static void button_backlight_set(struct led_classdev* led_cdev, enum led_brightn
 struct led_classdev thunderc_custom_leds[] = {
 	{
 		.name = "button-backlight",
-		.brightness_set = button_backlight_set,
+		.brightness_set = pmic_mpp_isink_set,
 		.brightness = LED_OFF,
 	},
 };
