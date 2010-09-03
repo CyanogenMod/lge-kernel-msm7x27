@@ -84,21 +84,22 @@ int msm_camera_flash_pmic(
 	switch (led_state) {
 	case MSM_CAMERA_LED_OFF:
 		rc = pmic->pmic_set_current(pmic->led_src_1, 0);
+		if (pmic->num_of_src > 1)
+			rc = pmic->pmic_set_current(pmic->led_src_2, 0);
 		break;
 
 	case MSM_CAMERA_LED_LOW:
 		rc = pmic->pmic_set_current(pmic->led_src_1,
 				pmic->low_current);
+		if (pmic->num_of_src > 1)
+			rc = pmic->pmic_set_current(pmic->led_src_2, 0);
 		break;
 
 	case MSM_CAMERA_LED_HIGH:
-		if (pmic->num_of_src == 2) {
-			rc = pmic->pmic_set_current(pmic->led_src_1,
-				pmic->high_current);
+		rc = pmic->pmic_set_current(pmic->led_src_1,
+			pmic->high_current);
+		if (pmic->num_of_src > 1)
 			rc = pmic->pmic_set_current(pmic->led_src_2,
-				pmic->high_current);
-		} else
-			rc = pmic->pmic_set_current(pmic->led_src_1,
 				pmic->high_current);
 		break;
 
