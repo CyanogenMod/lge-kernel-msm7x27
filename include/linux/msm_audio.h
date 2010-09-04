@@ -674,6 +674,11 @@ struct msm_snd_set_hook_mode_param {
 
 /* LGE_CHANGE_S, [junyoub.an] , 2010-02-28, for hook key*/
 #define SND_SET_HOOK_MODE _IOWR(SND_IOCTL_MAGIC, 20, struct msm_snd_set_hook_mode_param *)
+/* LGE_CHANGE_S, [junyoub.an] , 2010-09-05, To control amp*/
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+#define SND_SET_AMP_CONTROL _IOWR(SND_IOCTL_MAGIC, 21, struct msm_snd_set_hook_mode_param *)
+#endif
+/* LGE_CHANGE_E, [junyoub.an] , 2010-09-05, To control amp*/
 /* LGE_CHANGE_E, [junyoub.an] , 2010-02-28, for hook key*/
 #endif
 

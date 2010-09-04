@@ -77,6 +77,9 @@ static struct snd_ctxt the_snd;
 #define SND_SET_VOICE_CLARITY_PROC 73
 #define SND_SET_POWER_OFF_PROC 74
 #define SND_SET_HOOK_MODE_PROC 75
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+#define SND_SET_AMP_CONTROL_PROC 76
+#endif
 #endif
 
 #if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
@@ -1088,6 +1091,40 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 /* LGE_CHANGE_E, [junyoub.an] , 2010-02-28, for hook key*/
 #endif
+/* LGE_CHANGE_S, [junyoub.an] , 2010-09-05, To control amp*/
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+	case SND_SET_AMP_CONTROL:
+		if (copy_from_user(&hook_param, (void __user *) arg, sizeof(hook_param))) {
+			pr_err("snd_ioctl set_amp_mode: invalid pointer.\n");
+			rc = -EFAULT;
+			break;
+		}
+
+		hookmsg.args.mode = cpu_to_be32(hook_param.mode);
+		hookmsg.args.cb_func = -1;
+		hookmsg.args.client_data = 0;
+
+		pr_info("set_amp_mode %d \n", hook_param.mode);
+
+		rc = msm_rpc_call_reply(snd->ept,
+			SND_SET_AMP_CONTROL_PROC,
+			&hookmsg, sizeof(hookmsg),&hkrep, sizeof(hkrep), 5 * HZ);
+		
+		if (rc < 0){
+			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
+		}
+		else
+		{
+			hook_param.get_param = be32_to_cpu(hkrep.get_mode);
+			printk(KERN_INFO "%s:amp mode ->%d\n", __func__, hook_param.get_param);
+			if (copy_to_user((void __user *)arg, &hook_param, sizeof(hook_param))) {
+				pr_err("snd_ioctl get hook mode: invalid write pointer.\n");
+				rc = -EFAULT;
+			}
+		}
+		break;
+#endif
+/* LGE_CHANGE_E, [junyoub.an] , 2010-09-05, To control amp*/
 
 #if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
 //#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
