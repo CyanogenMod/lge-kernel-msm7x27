@@ -135,7 +135,7 @@ struct usb_composition usb_func_composition[] = {
 	},
 #ifdef CONFIG_USB_ANDROID_CDC_ECM
 	{
-		/* LG Rmnet Driver for matching LG Android Net driver */
+		/* CDC ECM Driver for matching LG Android Net driver */
 		.product_id         = 0x61A2,
 		.functions          = 0x27384,
 		.adb_product_id     = 0x61A1,
@@ -144,11 +144,11 @@ struct usb_composition usb_func_composition[] = {
 #endif	
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	{
-		/* RNDIS */
+		/* Microsoft's RNDIS driver */
 		.product_id         = 0xF00E,
 		.functions	    	= 0xA,
-		.adb_product_id     = 0x9024,
-		.adb_functions	    = 0x1A,
+		.adb_product_id     = 0xF00E,
+		.adb_functions	    = 0xA,
 	},
 #endif
 };

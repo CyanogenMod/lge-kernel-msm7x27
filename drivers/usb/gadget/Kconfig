@@ -1143,7 +1143,8 @@ config USB_SUPPORT_LGE_ANDROID_AUTORUN
 
 	default n
 # LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-11 	
-# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-11, Autorun Support
+
+# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-11, GPS fix for LG Driver 
 config USB_SUPPORT_LGE_ANDROID_NMEA_FIX
 	boolean "NMEA interface support in LGE Android model(common)"
 	depends on USB_SUPPORT_LGE_ANDROID_GADGET
@@ -1153,4 +1154,15 @@ config USB_SUPPORT_LGE_ANDROID_NMEA_FIX
 
 	default n
 # LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-11 	
+
+# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-31, CDC ECM fix for LG Driver 
+config USB_SUPPORT_LGE_ANDROID_ECM_FIX
+	boolean "CDC ECM interface support in LGE Android model(common)"
+	depends on USB_SUPPORT_LGE_ANDROID_GADGET
+	help
+	  It supports LG CDC ECM interface in LGE Android model.
+
+	default n
+# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-31 	
+
 endif # USB_GADGET
