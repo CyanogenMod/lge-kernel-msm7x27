@@ -85,19 +85,31 @@ int msm_chg_LG_cable_type(void)
 
 	Open_check();
 
-	arg.event = LG_FW_RAPI_CLIENT_EVENT_GET_LINE_TYPE;
-	arg.cb_func = NULL;
-	arg.handle = (void*) 0;
-	arg.in_len = 0;
-	arg.input = NULL;
-	arg.out_len_valid = 1;
-	arg.output_valid = 1;
-	arg.output_size = 4;
+/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-09-06, Add error control code. Repeat 3 times if error occurs*/
+	
+	int rc= -1;
+	int errCount= 0;
 
-	ret.output = NULL;
-	ret.out_len = NULL;
+	do 
+	{
+		arg.event = LG_FW_RAPI_CLIENT_EVENT_GET_LINE_TYPE;
+		arg.cb_func = NULL;
+		arg.handle = (void*) 0;
+		arg.in_len = 0;
+		arg.input = NULL;
+		arg.out_len_valid = 1;
+		arg.output_valid = 1;
+		arg.output_size = 4;
 
-	oem_rapi_client_streaming_function(client, &arg, &ret);
+		ret.output = NULL;
+		ret.out_len = NULL;
+
+		rc= oem_rapi_client_streaming_function(client, &arg, &ret);
+	
+	} while (rc < 0 && errCount++ < 3);
+
+/* LGE_CHANGES_E [younsuk.song@lge.com] */
+	
 	memcpy(output,ret.output,*ret.out_len);
 
 	kfree(ret.output);
