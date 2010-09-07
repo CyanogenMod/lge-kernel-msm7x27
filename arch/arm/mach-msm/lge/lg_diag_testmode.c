@@ -493,7 +493,12 @@ void* LGF_ExternalSocketMemory(	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_t
 			break;
 
 		case EXTERNAL_SOCKET_ERASE:
-
+			/* LGE_CHANGE [sm.shim@lge.com] 2010-09-04, bug fix: No SD card return OK */
+			if (external_memory_copy_test())
+			{
+				pRsp->ret_stat_code = TEST_FAIL_S;
+				break;
+			}
 			if (diagpdev != NULL){
 				update_diagcmd_state(diagpdev, "MMCFORMAT", 1);
 				msleep(5000);
@@ -528,12 +533,10 @@ void * LGF_TestModeFboot (	test_mode_req_type* pReq ,DIAG_TEST_MODE_F_rsp_type	*
 {
 //	pRsp->ret_stat_code = TEST_OK_S;
 
-	printk(KERN_ERR "khlee debug %d \n", pReq->fboot);
-
 	switch( pReq->fboot){
 		case FIRST_BOOTING_COMPLETE_CHECK:
 			pRsp->test_mode_rsp.boot_complete = boot_info;
-			printk("LOG Very Very emergency!!!!%d \n",boot_info);
+			printk("[Testmode] First Boot info ?? ====> %d \n", boot_info);
 			break;
 	    default:
 			pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
