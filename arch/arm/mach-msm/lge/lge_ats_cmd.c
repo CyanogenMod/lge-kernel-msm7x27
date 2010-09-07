@@ -19,6 +19,27 @@
 #include "lge_ats.h"
 #include "lge_ats_cmd.h"
 
+#include <linux/syscalls.h>
+#include <linux/fcntl.h>
+
+void wirte_flight_mode(int mode)
+{
+	char buf[10];
+
+	int fd = sys_open("/sys/devices/platform/autoall/flight", O_WRONLY, 0);
+	
+	if (fd == -1) {
+        	return -1;
+    	}
+
+	sprintf(buf, "%d", mode);
+
+	sys_write(fd, buf, strlen(buf));
+
+	sys_close(fd);
+
+}
+
 int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 						 struct rpc_request_hdr *req, unsigned len,
 						 void (*update_atcmd_state)(char *cmd, int state) )
@@ -102,6 +123,8 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 	case ATCMD_FLIGHT:  // 82
 		if(at_act != ATCMD_ACTION)
 			result = HANDLE_FAIL;
+
+		wirte_flight_mode(at_param);	
 		update_atcmd_state("flight", at_param); //state is up? down?
 		break;
     //LGE_UPDATE_E ins.lee@lge.com 2010-06-21, add AT%FLIHGT
