@@ -33,6 +33,11 @@
 
 #include "g12_reg.h"
 
+static inline unsigned int rb_offset(unsigned int index)
+{
+	return index*sizeof(unsigned int)*(KGSL_G12_PACKET_SIZE);
+}
+
 int kgsl_g12_cmdstream_init(struct kgsl_device *device)
 {
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
@@ -40,6 +45,37 @@ int kgsl_g12_cmdstream_init(struct kgsl_device *device)
 	g12_device->ringbuffer.prevctx = KGSL_G12_INVALID_CONTEXT;
 	return kgsl_sharedmem_alloc(0, KGSL_G12_RB_SIZE,
 				    &g12_device->ringbuffer.cmdbufdesc);
+}
+
+static void addmarker(struct kgsl_g12_ringbuffer *rb, unsigned int index)
+{
+	char *ptr = (char *)(rb->cmdbufdesc.hostptr);
+	unsigned int *p = (unsigned int *)(ptr + rb_offset(index));
+
+	*p++ = KGSL_G12_STREAM_PACKET;
+	*p++ = (KGSL_G12_MARKER_CMD | 5);
+	*p++ = ADDR_VGV3_LAST << 24;
+	*p++ = ADDR_VGV3_LAST << 24;
+	*p++ = ADDR_VGV3_LAST << 24;
+	*p++ = KGSL_G12_STREAM_PACKET;
+	*p++ = 5;
+	*p++ = ADDR_VGV3_LAST << 24;
+	*p++ = ADDR_VGV3_LAST << 24;
+	*p++ = ADDR_VGV3_LAST << 24;
+}
+
+static void addcmd(struct kgsl_g12_ringbuffer *rb, unsigned int index,
+			unsigned int cmd, unsigned int nextcnt)
+{
+	char * ptr = (char *)(rb->cmdbufdesc.hostptr);
+	unsigned int *p = (unsigned int *)(ptr + (rb_offset(index)
+			   + (KGSL_G12_MARKER_SIZE * sizeof(unsigned int))));
+
+	*p++ = KGSL_G12_STREAM_PACKET_CALL;
+	*p++ = cmd;
+	*p++ = KGSL_G12_CALL_CMD | nextcnt;
+	*p++ = ADDR_VGV3_LAST << 24;
+	*p++ = ADDR_VGV3_LAST << 24;
 }
 
 int kgsl_g12_cmdstream_start(struct kgsl_device *device)
@@ -50,6 +86,8 @@ int kgsl_g12_cmdstream_start(struct kgsl_device *device)
 
 	g12_device->timestamp = 0;
 	g12_device->current_timestamp = 0;
+
+	addmarker(&g12_device->ringbuffer, 0);
 
 	result = kgsl_g12_cmdwindow_write(device, KGSL_CMDWINDOW_2D,
 			ADDR_VGV3_MODE, 4);
@@ -68,12 +106,22 @@ int kgsl_g12_cmdstream_start(struct kgsl_device *device)
 		return result;
 
 	result = kgsl_g12_cmdwindow_write(device, KGSL_CMDWINDOW_2D,
-			ADDR_VGV3_CONTROL, 0);
+			ADDR_VGV3_WRITEADDR, device->memstore.gpuaddr);
+
+	if (result != 0)
+		return result;
+
+	cmd = (int)(((1) & VGV3_CONTROL_MARKADD_FMASK)
+			<< VGV3_CONTROL_MARKADD_FSHIFT);
+
+	result = kgsl_g12_cmdwindow_write(device, KGSL_CMDWINDOW_2D,
+			ADDR_VGV3_CONTROL, cmd);
+
 	if (result != 0)
 		return result;
 
 	result = kgsl_g12_cmdwindow_write(device, KGSL_CMDWINDOW_2D,
-			ADDR_VGV3_WRITEADDR, device->memstore.gpuaddr);
+			ADDR_VGV3_CONTROL, 0);
 	if (result != 0)
 		return result;
 
@@ -96,28 +144,6 @@ static int room_in_rb(struct kgsl_g12_device *device)
 	return ts_diff < KGSL_G12_PACKET_COUNT;
 }
 
-static inline unsigned int rb_offset(unsigned int index)
-{
-	return index*sizeof(unsigned int)*KGSL_G12_PACKET_SIZE;
-}
-
-static void addcmd(struct kgsl_g12_ringbuffer *rb, unsigned int index,
-			unsigned int cmd, unsigned int nextcnt)
-{
-	unsigned int *p = rb->cmdbufdesc.hostptr + rb_offset(index);
-
-	*p++ = 0x7C000176;
-	*p++ = 5;
-	*p++ = ADDR_VGV3_LAST << 24;
-	*p++ = ADDR_VGV3_LAST << 24;
-	*p++ = ADDR_VGV3_LAST << 24;
-	*p++ = 0x7C000275;
-	*p++ = cmd;
-	*p++ = 0x1000 | nextcnt;
-	*p++ = ADDR_VGV3_LAST << 24;
-	*p++ = ADDR_VGV3_LAST << 24;
-}
-
 int
 kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 			int drawctxt_index,
@@ -131,7 +157,8 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int cnt        = 5;
 	unsigned int nextaddr   = 0;
 	unsigned int index	= 0;
-	unsigned int nextcnt    = 0x9000 | 5;
+	unsigned int nextindex;
+	unsigned int nextcnt    = KGSL_G12_STREAM_END_CMD | 5;
 	struct kgsl_memdesc tmp = {0};
 	unsigned int cmd;
 	struct kgsl_device *device = dev_priv->device;
@@ -167,14 +194,18 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	index = g12_device->current_timestamp % KGSL_G12_PACKET_COUNT;
 	g12_device->current_timestamp++;
+	nextindex = g12_device->current_timestamp % KGSL_G12_PACKET_COUNT;
 	*timestamp = g12_device->current_timestamp;
 
 	g12_device->ringbuffer.prevctx = drawctxt_index;
 
 	addcmd(&g12_device->ringbuffer, index, cmd + ofs, cnt);
 
+	/* Make sure the next ringbuffer entry has a marker */
+	addmarker(&g12_device->ringbuffer, nextindex);
+
 	nextaddr = g12_device->ringbuffer.cmdbufdesc.gpuaddr
-		 + rb_offset((index + 1) % KGSL_G12_PACKET_COUNT);
+		+ rb_offset(nextindex);
 
 	tmp.hostptr = (void *)(tmp.hostptr +
 			(sizedwords * sizeof(unsigned int)));
@@ -183,8 +214,11 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	kgsl_sharedmem_writel(&tmp, 4, nextaddr);
 	kgsl_sharedmem_writel(&tmp, 8, nextcnt);
 
+	cmd = (int)(((2) & VGV3_CONTROL_MARKADD_FMASK)
+		<< VGV3_CONTROL_MARKADD_FSHIFT);
+
 	kgsl_g12_cmdwindow_write(device,
-				KGSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 1);
+				KGSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, cmd);
 	kgsl_g12_cmdwindow_write(device,
 				KGSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
 error:
