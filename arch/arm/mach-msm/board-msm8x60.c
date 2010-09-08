@@ -1874,6 +1874,37 @@ static struct platform_device gpio_leds = {
 		.platform_data = &gpio_leds_pdata,
 	},
 };
+
+static struct gpio_led fluid_gpio_leds[] = {
+	{
+		.name			= "dual_led:green",
+		.gpio			= GPIO_LED1_GREEN_N,
+		.default_state		= LEDS_GPIO_DEFSTATE_OFF,
+		.active_low		= 1,
+		.retain_state_suspended = 0,
+	},
+	{
+		.name			= "dual_led:red",
+		.gpio			= GPIO_LED2_RED_N,
+		.default_state		= LEDS_GPIO_DEFSTATE_OFF,
+		.active_low		= 1,
+		.retain_state_suspended = 0,
+	},
+};
+
+static struct gpio_led_platform_data gpio_led_pdata = {
+	.leds		= fluid_gpio_leds,
+	.num_leds	= ARRAY_SIZE(fluid_gpio_leds),
+};
+
+static struct platform_device fluid_leds_gpio = {
+	.name	= "leds-gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_led_pdata,
+	},
+};
+
 #endif
 
 #if defined(CONFIG_MSM_RPM_LOG) || defined(CONFIG_MSM_RPM_LOG_MODULE)
@@ -2614,9 +2645,6 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_BATTERY_MSM
 	&msm_batt_device,
 #endif
-#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
-	&gpio_leds,
-#endif
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 	&android_pmem_kernel_ebi1_device,
 #endif
@@ -2818,6 +2846,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 				GPIO_EXPANDER_GPIO_BASE,
 		.irq_summary  = PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT3_N),
 		.oscio_is_gpo = true,
+		.io_open_drain_ena = 0x30,
 	},
 	[SX150X_CORE_FLUID] = {
 		.gpio_base         = GPIO_CORE_EXPANDER_BASE,
@@ -6475,6 +6504,12 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 #ifdef CONFIG_MSM8X60_AUDIO
 	msm_snddev_init();
 	msm8x60_init_poweramp();
+#endif
+#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+	if (machine_is_msm8x60_fluid())
+		platform_device_register(&fluid_leds_gpio);
+	else
+		platform_device_register(&gpio_leds);
 #endif
 }
 
