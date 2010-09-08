@@ -46,6 +46,13 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+
+/* Early-suspend level */
+#define CY8C_TS_SUSPEND_LEVEL 1
+#endif
+
 #define CY8CTMA300	0x0
 #define CY8CTMG200	0x1
 
@@ -107,6 +114,9 @@ struct cy8c_ts {
 	bool is_suspended;
 	bool int_pending;
 	struct mutex sus_lock;
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	struct early_suspend		early_suspend;
+#endif
 };
 
 static inline u16 join_bytes(u8 a, u8 b)
@@ -543,9 +553,27 @@ static int cy8c_ts_resume(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void cy8c_ts_early_suspend(struct early_suspend *h)
+{
+	struct cy8c_ts *ts = container_of(h, struct cy8c_ts, early_suspend);
+
+	cy8c_ts_suspend(&ts->client->dev);
+}
+
+static void cy8c_ts_late_resume(struct early_suspend *h)
+{
+	struct cy8c_ts *ts = container_of(h, struct cy8c_ts, early_suspend);
+
+	cy8c_ts_resume(&ts->client->dev);
+}
+#endif
+
 static struct dev_pm_ops cy8c_ts_pm_ops = {
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend	= cy8c_ts_suspend,
 	.resume		= cy8c_ts_resume,
+#endif
 };
 #endif
 
@@ -614,6 +642,13 @@ static int __devinit cy8c_ts_probe(struct i2c_client *client,
 
 	device_init_wakeup(&client->dev, ts->pdata->wakeup);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +
+						CY8C_TS_SUSPEND_LEVEL;
+	ts->early_suspend.suspend = cy8c_ts_early_suspend;
+	ts->early_suspend.resume = cy8c_ts_late_resume;
+	register_early_suspend(&ts->early_suspend);
+#endif
 	return 0;
 
 error_dev_setup:
