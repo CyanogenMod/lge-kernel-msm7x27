@@ -5159,13 +5159,16 @@ static struct vreg *vregs_tma300[ARRAY_SIZE(vregs_tma300_name)];
 
 static int tma300_power(int vreg_on)
 {
-	int i, rc = 0;
+	int i, rc = -EINVAL;
 
 	for (i = 0; i < ARRAY_SIZE(vregs_tma300_name); i++) {
+		/* Never disable gp6 for fluid as lcd has a problem with it */
+		if (!i && !vreg_on)
+			continue;
 		if (!vregs_tma300[i]) {
 			printk(KERN_ERR "%s: vreg_get %s failed (%d)\n",
 				__func__, vregs_tma300_name[i], rc);
-			goto vreg_fail;
+			return rc;
 		}
 
 		rc = vreg_on ? vreg_enable(vregs_tma300[i]) :
@@ -5174,15 +5177,11 @@ static int tma300_power(int vreg_on)
 			printk(KERN_ERR "%s: vreg %s %s failed (%d)\n",
 				__func__, vregs_tma300_name[i],
 			       vreg_on ? "enable" : "disable", rc);
-			goto vreg_fail;
+			return rc;
 		}
 	}
-	return 0;
 
-vreg_fail:
-	while (i)
-		vreg_disable(vregs_tma300[--i]);
-	return rc;
+	return 0;
 }
 
 #define TS_GPIO_IRQ 150
