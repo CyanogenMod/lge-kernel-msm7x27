@@ -112,22 +112,22 @@
 
 
 /* MUX source input identifiers. */
-#define SRC_PLL0	4 /* Modem PLL */
-#define SRC_PLL1	1 /* Global PLL */
-#define SRC_PLL3	3 /* Multimedia/Peripheral PLL or Backup PLL1 */
-#define SRC_PLL4	2 /* Display PLL */
-#define SRC_LPXO	6 /* Low-power XO */
-#define SRC_TCXO	0 /* Used for sources that always source from TCXO */
-#define SRC_AXI		0 /* Used for rates that sync to AXI */
+#define SRC_SEL_PLL0	4 /* Modem PLL */
+#define SRC_SEL_PLL1	1 /* Global PLL */
+#define SRC_SEL_PLL3	3 /* Multimedia/Peripheral PLL or Backup PLL1 */
+#define SRC_SEL_PLL4	2 /* Display PLL */
+#define SRC_SEL_LPXO	6 /* Low-power XO */
+#define SRC_SEL_TCXO	0 /* Used for sources that always source from TCXO */
+#define SRC_SEL_AXI	0 /* Used for rates that sync to AXI */
 
 /* Source name to PLL mappings. */
-#define SRC_SEL_PLL0	PLL_0
-#define SRC_SEL_PLL1	PLL_1
-#define SRC_SEL_PLL3	PLL_3
-#define SRC_SEL_PLL4	PLL_4
-#define SRC_SEL_LPXO	LPXO
-#define SRC_SEL_TCXO	TCXO
-#define SRC_SEL_AXI	AXI
+#define SRC_PLL0	PLL_0
+#define SRC_PLL1	PLL_1
+#define SRC_PLL3	PLL_3
+#define SRC_PLL4	PLL_4
+#define SRC_LPXO	LPXO
+#define SRC_TCXO	TCXO
+#define SRC_AXI		AXI
 
 /* Clock declaration macros. */
 #define MN_MODE_DUAL_EDGE	0x2
