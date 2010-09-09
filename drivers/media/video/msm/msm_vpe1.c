@@ -904,7 +904,7 @@ void vpe_proc_ops(uint8_t id, void *msg, size_t len)
 		rp->type = VPE_MSG_GENERAL;
 		break;
 	}
-	printk(KERN_ERR "%s: time = %ld\n",
+	CDBG("%s: time = %ld\n",
 			__func__, vpe_ctrl->ts.tv_nsec);
 	vpe_ctrl->resp->vpe_resp(rp, MSM_CAM_Q_VPE_MSG,
 					vpe_ctrl->syncdata,
@@ -1060,8 +1060,7 @@ static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 	msm_io_w(0, vpe_device->vpebase + VPE_INTR_ENABLE_OFFSET);
 
 	if (irq_status == 0) {
-		printk(KERN_ERR "vpe_parse_irq: irq_status = 0"
-						"!!!! Something is wrong!\n");
+		pr_err("%s: irq_status = 0,Something is wrong!\n", __func__);
 		return IRQ_HANDLED;
 	}
 	irq_status &= 0x1;
