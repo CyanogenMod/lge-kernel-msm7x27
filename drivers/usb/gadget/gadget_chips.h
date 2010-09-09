@@ -45,6 +45,20 @@
 #define	gadget_is_goku(g)	0
 #endif
 
+/* SH3 UDC -- not yet ported 2.4 --> 2.6 */
+#ifdef CONFIG_USB_GADGET_SUPERH
+#define	gadget_is_sh(g)		!strcmp("sh_udc", (g)->name)
+#else
+#define	gadget_is_sh(g)		0
+#endif
+
+/* not yet stable on 2.6 (would help "original Zaurus") */
+#ifdef CONFIG_USB_GADGET_SA1100
+#define	gadget_is_sa1100(g)	!strcmp("sa1100_udc", (g)->name)
+#else
+#define	gadget_is_sa1100(g)	0
+#endif
+
 #ifdef CONFIG_USB_GADGET_LH7A40X
 #define	gadget_is_lh7a40x(g)	!strcmp("lh7a40x_udc", (g)->name)
 #else

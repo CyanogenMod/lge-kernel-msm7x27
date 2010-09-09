@@ -807,6 +807,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	u16				w_length = le16_to_cpu(ctrl->wLength);
 	struct usb_function		*f = NULL;
 	u8				endp;
+	int tmp = intf;
+	int id = 0;
+
 
 	/* partial re-init of the response message; the function or the
 	 * gadget might need to intercept e.g. a control-OUT completion
@@ -944,10 +947,24 @@ unknown:
 		 */
 		switch (ctrl->bRequestType & USB_RECIP_MASK) {
 		case USB_RECIP_INTERFACE:
+
 			if (cdev->config == NULL)
 				return value;
 
-			f = cdev->config->interface[intf];
+			/* Find correct function */
+			for (id = 0; id < MAX_CONFIG_INTERFACES; id++) {
+				f = cdev->config->interface[id];
+				if (!f)
+					break;
+				if (f->disabled)
+					continue;
+				if (!tmp)
+					break;
+				tmp--;
+			}
+
+			if (!tmp)
+				f = NULL;
 			break;
 
 		case USB_RECIP_ENDPOINT:

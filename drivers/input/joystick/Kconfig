@@ -319,4 +319,13 @@ config JOYSTICK_MAPLE
 	  To compile this as a module choose M here: the module will be called
 	  maplecontrol.
 
+config TOUCHDISC_VTD518_SHINETSU
+	tristate "ShinEtsu VTD518 TouchDisc"
+	depends on I2C
+	default y
+	help
+	  Say Y here if you have the ShinEtsu VTD518 Touchdisc connected.
+
+	  To compile this as a module choose M here: the module will be called
+	  tdisc_vtd518_shinetsu.
 endif

@@ -28,6 +28,14 @@ config HWMON_VID
 	tristate
 	default n
 
+config SENSORS_WPCE775X
+	bool "Winbond WPCE775X"
+	depends on I2C
+	default n
+	help
+	  This driver provides support for the Winbond WPCE775XX Embedded
+	  Controller, which provides lcd backlight, LEDs, and Battery control.
+
 config HWMON_DEBUG_CHIP
 	bool "Hardware Monitoring Chip debugging messages"
 	default n

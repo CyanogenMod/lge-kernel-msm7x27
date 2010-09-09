@@ -343,4 +343,22 @@ config GPIO_JANZ_TTL
 	  This driver provides support for driving the pins in output
 	  mode only. Input mode is not supported.
 
+config GPIO_SX150X
+	tristate "SX150x I2C GPIO expander"
+	depends on I2C
+	default n
+	help
+	  Say yes here to provide support for the Semtech SX150x I2C
+	  GPIO expanders.
+
+config MPP_PMIC8901
+        tristate "Qualcomm PMIC8901 MPP"
+        depends on GPIOLIB && PMIC8901
+        default y
+        help
+          Say yes here to support GPIO functionality on Qualcomm's
+          PM8901 chip for MPP(Multi-Purpose Pin) pins. These pins
+          work like GPIO pins when configured as digital input and/or
+          output signals.
+
 endif

@@ -146,8 +146,9 @@ static int sdio_enable_wide(struct mmc_card *card)
 {
 	int ret;
 	u8 ctrl;
+	unsigned int width = MMC_BUS_WIDTH_4;
 
-	if (!(card->host->caps & MMC_CAP_4_BIT_DATA))
+	if (!(card->host->caps & (MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA)))
 		return 0;
 
 	if (card->cccr.low_speed && !card->cccr.wide_bus)
@@ -157,13 +158,19 @@ static int sdio_enable_wide(struct mmc_card *card)
 	if (ret)
 		return ret;
 
-	ctrl |= SDIO_BUS_WIDTH_4BIT;
+	if (card->host->caps & MMC_CAP_8_BIT_DATA) {
+		width = MMC_BUS_WIDTH_8;
+		ctrl |= SDIO_BUS_WIDTH_8BIT;
+	} else {
+		width = MMC_BUS_WIDTH_4;
+		ctrl |= SDIO_BUS_WIDTH_4BIT;
+	}
 
 	ret = mmc_io_rw_direct(card, 1, 0, SDIO_CCCR_IF, ctrl, NULL);
 	if (ret)
 		return ret;
 
-	mmc_set_bus_width(card->host, MMC_BUS_WIDTH_4);
+	mmc_set_bus_width(card->host, width);
 
 	return 0;
 }
@@ -199,8 +206,9 @@ static int sdio_disable_wide(struct mmc_card *card)
 {
 	int ret;
 	u8 ctrl;
+	unsigned int width = MMC_BUS_WIDTH_4;
 
-	if (!(card->host->caps & MMC_CAP_4_BIT_DATA))
+	if (!(card->host->caps & (MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA)))
 		return 0;
 
 	if (card->cccr.low_speed && !card->cccr.wide_bus)

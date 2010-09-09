@@ -2,6 +2,7 @@
  * Gadget Driver for Android
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -26,6 +27,7 @@
 #include <linux/kernel.h>
 #include <linux/utsname.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/usb/android_composite.h>
 #include <linux/usb/ch9.h>
@@ -67,6 +69,7 @@ struct android_dev {
 
 	int product_id;
 	int version;
+	int enable_rndis_msc;
 };
 
 static struct android_dev *_android_dev;
@@ -107,8 +110,30 @@ static struct usb_device_descriptor device_desc = {
 	.bNumConfigurations   = 1,
 };
 
+static struct usb_otg_descriptor otg_descriptor = {
+	.bLength =		sizeof otg_descriptor,
+	.bDescriptorType =	USB_DT_OTG,
+	.bmAttributes =		USB_OTG_SRP | USB_OTG_HNP,
+	.bcdOTG               = __constant_cpu_to_le16(0x0200),
+};
+
+static const struct usb_descriptor_header *otg_desc[] = {
+	(struct usb_descriptor_header *) &otg_descriptor,
+	NULL,
+};
+
 static struct list_head _functions = LIST_HEAD_INIT(_functions);
 static int _registered_function_count = 0;
+
+void android_usb_set_connected(int connected)
+{
+	if (_android_dev && _android_dev->cdev && _android_dev->cdev->gadget) {
+		if (connected)
+			usb_gadget_connect(_android_dev->cdev->gadget);
+		else
+			usb_gadget_disconnect(_android_dev->cdev->gadget);
+	}
+}
 
 static struct android_usb_function *get_function(const char *name)
 {
@@ -136,7 +161,7 @@ static void bind_functions(struct android_dev *dev)
 	}
 }
 
-static int android_bind_config(struct usb_configuration *c)
+static int __init android_bind_config(struct usb_configuration *c)
 {
 	struct android_dev *dev = _android_dev;
 
@@ -158,7 +183,6 @@ static struct usb_configuration android_config_driver = {
 	.bind		= android_bind_config,
 	.setup		= android_setup_config,
 	.bConfigurationValue = 1,
-	.bmAttributes	= USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
 	.bMaxPower	= 0xFA, /* 500ma */
 };
 
@@ -220,7 +244,7 @@ static int get_product_id(struct android_dev *dev)
 	return dev->product_id;
 }
 
-static int android_bind(struct usb_composite_dev *cdev)
+static int __init android_bind(struct usb_composite_dev *cdev)
 {
 	struct android_dev *dev = _android_dev;
 	struct usb_gadget	*gadget = cdev->gadget;
@@ -248,6 +272,12 @@ static int android_bind(struct usb_composite_dev *cdev)
 		return id;
 	strings_dev[STRING_SERIAL_IDX].id = id;
 	device_desc.iSerialNumber = id;
+
+	if (gadget_is_otg(cdev->gadget))
+		android_config_driver.descriptors = otg_desc;
+
+	if (!usb_gadget_set_selfpowered(gadget))
+		android_config_driver.bmAttributes |= USB_CONFIG_ATT_SELFPOWER;
 
 	if (gadget->ops->wakeup)
 		android_config_driver.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
@@ -303,7 +333,7 @@ void android_register_function(struct android_usb_function *f)
 	/* bind our functions if they have all registered
 	 * and the main driver has bound.
 	 */
-	if (dev && dev->config && _registered_function_count == dev->num_functions)
+	if (dev->config && _registered_function_count == dev->num_functions)
 		bind_functions(dev);
 }
 
@@ -314,7 +344,7 @@ void android_enable_function(struct usb_function *f, int enable)
 	int product_id;
 
 	if (!!f->disabled != disable) {
-		usb_function_set_enabled(f, !disable);
+		f->disabled = disable;
 
 #ifdef CONFIG_USB_ANDROID_RNDIS
 		if (!strcmp(f->name, "rndis")) {
@@ -323,22 +353,30 @@ void android_enable_function(struct usb_function *f, int enable)
 			/* We need to specify the COMM class in the device descriptor
 			 * if we are using RNDIS.
 			 */
-			if (enable)
+			if (enable) {
 #ifdef CONFIG_USB_ANDROID_RNDIS_WCEIS
-				dev->cdev->desc.bDeviceClass = USB_CLASS_WIRELESS_CONTROLLER;
+				dev->cdev->desc.bDeviceClass = USB_CLASS_MISC;
+				dev->cdev->desc.bDeviceSubClass      = 0x02;
+				dev->cdev->desc.bDeviceProtocol      = 0x01;
 #else
 				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
 #endif
-			else
+			} else {
 				dev->cdev->desc.bDeviceClass = USB_CLASS_PER_INTERFACE;
+				dev->cdev->desc.bDeviceSubClass      = 0;
+				dev->cdev->desc.bDeviceProtocol      = 0;
+			}
 
-			/* Windows does not support other interfaces when RNDIS is enabled,
-			 * so we disable UMS when RNDIS is on.
-			 */
 			list_for_each_entry(func, &android_config_driver.functions, list) {
-				if (!strcmp(func->name, "usb_mass_storage")) {
-					usb_function_set_enabled(func, !enable);
-					break;
+				if (dev->enable_rndis_msc) {
+					if (strcmp(func->name, "rndis") &&
+					strcmp(func->name, "adb") &&
+					strcmp(func->name, "usb_mass_storage"))
+						func->disabled = enable;
+				} else {
+					if (strcmp(func->name, "rndis") &&
+					strcmp(func->name, "adb"))
+						func->disabled = enable;
 				}
 			}
 		}
@@ -352,12 +390,24 @@ void android_enable_function(struct usb_function *f, int enable)
 	}
 }
 
-static int android_probe(struct platform_device *pdev)
+static int __init android_probe(struct platform_device *pdev)
 {
 	struct android_usb_platform_data *pdata = pdev->dev.platform_data;
 	struct android_dev *dev = _android_dev;
+	int result;
 
 	printk(KERN_INFO "android_probe pdata: %p\n", pdata);
+
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	result = pm_runtime_get(&pdev->dev);
+	if (result < 0) {
+		dev_err(&pdev->dev,
+			"Runtime PM: Unable to wake up the device, rc = %d\n",
+			result);
+		return result;
+	}
 
 	if (pdata) {
 		dev->products = pdata->products;
@@ -382,13 +432,32 @@ static int android_probe(struct platform_device *pdev)
 					pdata->manufacturer_name;
 		if (pdata->serial_number)
 			strings_dev[STRING_SERIAL_IDX].s = pdata->serial_number;
+		if (pdata->enable_rndis_msc)
+			dev->enable_rndis_msc = pdata->enable_rndis_msc;
 	}
 
 	return usb_composite_register(&android_usb_driver);
 }
 
+static int andr_runtime_suspend(struct device *dev)
+{
+	dev_dbg(dev, "pm_runtime: suspending...\n");
+	return 0;
+}
+
+static int andr_runtime_resume(struct device *dev)
+{
+	dev_dbg(dev, "pm_runtime: resuming...\n");
+	return 0;
+}
+
+static struct dev_pm_ops andr_dev_pm_ops = {
+	.runtime_suspend = andr_runtime_suspend,
+	.runtime_resume = andr_runtime_resume,
+};
+
 static struct platform_driver android_platform_driver = {
-	.driver = { .name = "android_usb", },
+	.driver = { .name = "android_usb", .pm = &andr_dev_pm_ops},
 	.probe = android_probe,
 };
 

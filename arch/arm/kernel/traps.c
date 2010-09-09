@@ -455,7 +455,12 @@ do_cache_op(unsigned long start, unsigned long end, int flags)
 
 		up_read(&mm->mmap_sem);
 		flush_cache_user_range(start, end);
+
+#ifdef CONFIG_ARCH_MSM7X27
+		dmb();
+#endif
 		return;
+
 	}
 	up_read(&mm->mmap_sem);
 }

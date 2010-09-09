@@ -198,9 +198,15 @@ rndis_iad_descriptor = {
 
 	.bFirstInterface =	0, /* XXX, hardcoded */
 	.bInterfaceCount = 	2,	// control + data
+#ifdef CONFIG_USB_ANDROID_RNDIS_WCEIS
+	.bFunctionClass    = 	USB_CLASS_WIRELESS_CONTROLLER,
+	.bFunctionSubClass = 	1,
+	.bFunctionProtocol = 	3,
+#else
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ETHERNET,
 	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
+#endif
 	/* .iFunction = DYNAMIC */
 };
 
