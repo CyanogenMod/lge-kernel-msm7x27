@@ -344,31 +344,6 @@ static int32_t ov7692_video_config(int mode)
 	return rc;
 }
 
-static int32_t ov7692_snapshot_config(int mode)
-{
-	int32_t rc = 0;
-	int rt;
-	rt = RES_CAPTURE;
-
-	if (ov7692_sensor_setting(UPDATE_PERIODIC, rt) < 0)
-		return rc;
-	ov7692_ctrl->curr_res = ov7692_ctrl->pict_res;
-	ov7692_ctrl->sensormode = mode;
-	return rc;
-}
-static int32_t ov7692_raw_snapshot_config(int mode)
-{
-	int32_t rc = 0;
-	int rt;
-	rt = RES_CAPTURE;
-
-	if (ov7692_sensor_setting(UPDATE_PERIODIC, rt) < 0)
-		return rc;
-	ov7692_ctrl->curr_res = ov7692_ctrl->prev_res;
-	ov7692_ctrl->sensormode = mode;
-
-	return rc;
-}
 static int32_t ov7692_set_sensor_mode(int mode,
 	int res)
 {
@@ -378,10 +353,7 @@ static int32_t ov7692_set_sensor_mode(int mode,
 		rc = ov7692_video_config(mode);
 		break;
 	case SENSOR_SNAPSHOT_MODE:
-		rc = ov7692_snapshot_config(mode);
-		break;
 	case SENSOR_RAW_SNAPSHOT_MODE:
-		rc = ov7692_raw_snapshot_config(mode);
 		break;
 	default:
 		rc = -EINVAL;
