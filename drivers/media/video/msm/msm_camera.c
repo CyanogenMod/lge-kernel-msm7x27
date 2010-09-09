@@ -40,10 +40,11 @@
 #include <linux/syscalls.h>
 #include <linux/hrtimer.h>
 DEFINE_MUTEX(hlist_mut);
-DEFINE_MUTEX(pp_prev_lock);
-DEFINE_MUTEX(pp_snap_lock);
-DEFINE_MUTEX(pp_thumb_lock);
 DEFINE_MUTEX(ctrl_cmd_lock);
+
+spinlock_t pp_prev_spinlock;
+spinlock_t pp_snap_spinlock;
+spinlock_t pp_thumb_spinlock;
 
 #define MSM_MAX_CAMERA_SENSORS 5
 #define CAMERA_STOP_SNAPSHOT 42
@@ -1733,6 +1734,7 @@ static int msm_pp_grab(struct msm_sync *sync, void __user *arg)
 static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 {
 	uint32_t mask;
+	unsigned long flags;
 	if (copy_from_user(&mask, arg, sizeof(uint32_t))) {
 		ERR_COPY_FROM_USER();
 		return -EFAULT;
@@ -1747,36 +1749,38 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 	if (sync->pp_mask & PP_PREV) {
 
 		if (mask & PP_PREV) {
-			mutex_lock(&pp_prev_lock);
+			spin_lock_irqsave(&pp_prev_spinlock, flags);
 			if (!sync->pp_prev) {
 				pr_err("%s: no preview frame to deliver!\n",
 					__func__);
-				mutex_unlock(&pp_prev_lock);
+				spin_unlock_irqrestore(&pp_prev_spinlock,
+					flags);
 				return -EINVAL;
 			}
 			pr_info("%s: delivering pp_prev\n", __func__);
 
 			msm_enqueue(&sync->frame_q, &sync->pp_prev->list_frame);
 			sync->pp_prev = NULL;
-			mutex_unlock(&pp_prev_lock);
+			spin_unlock_irqrestore(&pp_prev_spinlock, flags);
 		} else if (!(mask & PP_PREV)) {
 			sync->pp_mask &= ~PP_PREV;
+			CDBG("%s: pp_prev is done.\n", __func__);
 		}
 		goto done;
 	}
 
 	if (((mask & PP_SNAP) && (sync->pp_mask & PP_SNAP)) ||
 		((mask & PP_RAW_SNAP) && (sync->pp_mask & PP_RAW_SNAP))) {
-		mutex_lock(&pp_snap_lock);
+		spin_lock_irqsave(&pp_snap_spinlock, flags);
 		if (!sync->pp_snap) {
 			pr_err("%s: no snapshot to deliver!\n", __func__);
-			mutex_unlock(&pp_snap_lock);
+			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 			return -EINVAL;
 		}
 		pr_info("%s: delivering pp_snap\n", __func__);
 		msm_enqueue(&sync->pict_q, &sync->pp_snap->list_pict);
 		sync->pp_snap = NULL;
-		mutex_unlock(&pp_snap_lock);
+		spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 		sync->pp_mask &=
 			(mask & PP_SNAP) ? ~PP_SNAP : ~PP_RAW_SNAP;
 	}
@@ -2185,6 +2189,7 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 {
 	struct msm_queue_cmd *qcmd = NULL;
 	struct msm_sync *sync = (struct msm_sync *)syncdata;
+	unsigned long flags;
 
 	if (!sync) {
 		pr_err("%s: no context in dsp callback.\n", __func__);
@@ -2209,13 +2214,13 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 				__func__,
 				vdata->phy.y_phy,
 				vdata->phy.cbcr_phy);
-			mutex_lock(&pp_prev_lock);
+			spin_lock_irqsave(&pp_prev_spinlock, flags);
 			if (sync->pp_prev)
-				pr_warning("%s: overwriting pp_prev!\n",
+				CDBG("%s: overwriting pp_prev!\n",
 					__func__);
 			pr_info("%s: sending preview to config\n", __func__);
 			sync->pp_prev = qcmd;
-			mutex_unlock(&pp_prev_lock);
+			spin_unlock_irqrestore(&pp_prev_spinlock, flags);
 			break;
 		}
 		CDBG("%s: msm_enqueue frame_q\n", __func__);
@@ -2226,14 +2231,14 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 
 	case VFE_MSG_OUTPUT_T:
 		if (sync->pp_mask & PP_SNAP) {
-			mutex_lock(&pp_thumb_lock);
+			spin_lock_irqsave(&pp_thumb_spinlock, flags);
 			if (sync->pp_thumb)
 				pr_warning("%s: overwriting pp_thumb!\n",
 					__func__);
 			pr_info("%s: pp sending thumbnail to config\n",
 				__func__);
 			sync->pp_thumb = qcmd;
-			mutex_unlock(&pp_thumb_lock);
+			spin_unlock_irqrestore(&pp_thumb_spinlock, flags);
 			break;
 		} else {
 		/* this is for normal snapshot case. right now we only have
@@ -2246,14 +2251,14 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 
 	case VFE_MSG_OUTPUT_S:
 		if (sync->pp_mask & PP_SNAP) {
-			mutex_lock(&pp_snap_lock);
+			spin_lock_irqsave(&pp_snap_spinlock, flags);
 			if (sync->pp_snap)
 				pr_warning("%s: overwriting pp_snap!\n",
 					__func__);
 			pr_info("%s: pp sending main image to config\n",
 				__func__);
 			sync->pp_snap = qcmd;
-			mutex_unlock(&pp_snap_lock);
+			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 			break;
 		} else {
 		/* this is for normal snapshot case. right now we only have
@@ -2325,14 +2330,14 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 		if (sync->pp_mask & (PP_SNAP | PP_RAW_SNAP)) {
 			CDBG("%s: PP_SNAP in progress: pp_mask %x\n",
 				__func__, sync->pp_mask);
-			mutex_lock(&pp_snap_lock);
+			spin_lock_irqsave(&pp_snap_spinlock, flags);
 			if (sync->pp_snap)
 				pr_warning("%s: overwriting pp_snap!\n",
 					__func__);
 			pr_info("%s: sending snapshot to config\n",
 				__func__);
 			sync->pp_snap = qcmd;
-			mutex_unlock(&pp_snap_lock);
+			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 		} else {
 			msm_enqueue(&sync->pict_q, &qcmd->list_pict);
 			if (qcmd->on_heap)
