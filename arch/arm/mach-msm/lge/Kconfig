@@ -250,6 +250,18 @@ config LGE_GRAM_REFRESH_PATCH
 	  this can cause displaying broken screen in time of turning backlight on.
 	  for preventing this problem, add refreshing routine before turning 
 	  backlight on by using late resume mechanism.
+
+config LGE_SUSPEND_HIGH_PRIO_PATCH
+	bool "Make 'suspend' kernel thread get SCHED_FIFO policy"
+	default n
+	help
+	  This patch is added for guaranteeing instant scheduling of "suspend" kthread.
+	  Normally, "suspend" kthread is scheduled as soon as writing "on" to /sys/power/state.
+	  But, sometimes "suspend" kthread can't be scheduled in 5~6 second. 
+	  This causes black screen in spite of pushing power button.
+	  For prevent this, raise scheduling policy of "suspend" kthread to SCHED_FIFO when
+	  entering early suspend state, and lower to SCHED_NORMAL when escaping late resume 
+	  state
 endmenu
 
 endmenu
