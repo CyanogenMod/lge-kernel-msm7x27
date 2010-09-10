@@ -20,6 +20,7 @@
 #include <linux/syscalls.h> /* sys_sync */
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
+#include <linux/kallsyms.h>
 
 #include "power.h"
 
@@ -100,10 +101,13 @@ static void early_suspend(struct work_struct *work)
 		pr_info("early_suspend: call handlers\n");
 	list_for_each_entry(pos, &early_suspend_handlers, link) {
 #ifdef CONFIG_MACH_LGE
-		/* FIXME: this is test code for detecting main cause of kthread's sleep
+		/* this is test code for detecting main cause of kthread's sleep
 		 * 2010-04-26, cleaneye.kim@lge.com
 		 */
-		printk(KERN_INFO"%s: early suspend funtion [%x]\n",__func__, pos->suspend);
+		char sym[KSYM_SYMBOL_LEN];
+		
+		sprint_symbol(sym, pos->suspend);
+		printk(KERN_INFO"%s: %s\n", __func__, sym);
 #endif
 		if (pos->suspend != NULL)
 			pos->suspend(pos);
@@ -147,7 +151,10 @@ static void late_resume(struct work_struct *work)
 		/* FIXME: this is test code for detecting main cause of kthread's sleep
 		 * 2010-04-26, cleaneye.kim@lge.com
 		 */
-		printk(KERN_INFO"%s: late resume funtion [%x]\n",__func__, pos->resume);
+		char sym[KSYM_SYMBOL_LEN];
+		
+		sprint_symbol(sym, pos->resume);
+		printk(KERN_INFO"%s: %s\n", __func__, sym);
 #endif
 		if (pos->resume != NULL)
 			pos->resume(pos);
