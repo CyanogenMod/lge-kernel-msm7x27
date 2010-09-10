@@ -2793,9 +2793,7 @@ static int msm_hsusb_ldo_init(int init)
 		vreg_3p3 = vreg_get(NULL, "usb");
 		if (IS_ERR(vreg_3p3))
 			return PTR_ERR(vreg_3p3);
-		/*TBD: modem currently doesn't support setting the
-		 * voltage more than 3.075V, hence set it to 3.075V */
-		vreg_set_level(vreg_3p3, 3075);
+		vreg_set_level(vreg_3p3, 3400);
 	} else
 		vreg_put(vreg_3p3);
 
@@ -2819,7 +2817,25 @@ static int msm_hsusb_ldo_enable(int enable)
 
 	return vreg_disable(vreg_3p3);
 }
+
+static int msm_hsusb_ldo_set_voltage(int mV)
+{
+	static int cur_voltage = 3400;
+
+	if (!vreg_3p3 || IS_ERR(vreg_3p3))
+		return -ENODEV;
+
+	if (cur_voltage == mV)
+		return 0;
+
+	cur_voltage = mV;
+
+	pr_debug("%s: (%d)\n", __func__, mV);
+
+	return vreg_set_level(vreg_3p3, mV);
+}
 #endif
+
 #ifndef CONFIG_USB_EHCI_MSM
 static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init);
 #endif
@@ -2841,6 +2857,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.chg_init		 = hsusb_chg_init,
 	.ldo_enable		 = msm_hsusb_ldo_enable,
 	.ldo_init		 = msm_hsusb_ldo_init,
+	.ldo_set_voltage	 = msm_hsusb_ldo_set_voltage,
 };
 
 #ifdef CONFIG_USB_GADGET

@@ -652,6 +652,9 @@ static int msm_otg_resume(struct msm_otg *dev)
 	if (!atomic_read(&dev->in_lpm))
 		return 0;
 
+	if (dev->pdata->ldo_set_voltage)
+		dev->pdata->ldo_set_voltage(3400);
+
 	/* Vote for TCXO when waking up the phy */
 	ret = msm_xo_mode_vote(dev->xo_handle, XO_MODE_ON);
 	if (ret)
@@ -1408,6 +1411,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 			pr_debug("entering into lpm\n");
 			msm_otg_put_suspend(dev);
 
+			if (dev->pdata->ldo_set_voltage)
+				dev->pdata->ldo_set_voltage(3075);
 		}
 		break;
 	case OTG_STATE_B_SRP_INIT:
