@@ -195,8 +195,9 @@ static int amrnb_in_enable(struct q6audio_amrnb  *audio)
 static int amrnb_in_disable(struct q6audio_amrnb  *audio)
 {
 	int rc = 0;
-	if (audio->enabled) {
+	if (audio->opened) {
 		audio->enabled = 0;
+		audio->opened = 0;
 		MM_DBG("inbytes[%d] insamples[%d]\n",
 				atomic_read(&audio->in_bytes),
 				atomic_read(&audio->in_samples));
@@ -804,8 +805,7 @@ static int amrnb_in_release(struct inode *inode, struct file *file)
 	struct q6audio_amrnb  *audio = file->private_data;
 	MM_INFO("\n");
 	mutex_lock(&audio->lock);
-	if (audio->enabled)
-		amrnb_in_disable(audio);
+	amrnb_in_disable(audio);
 	q6asm_audio_client_free(audio->ac);
 	mutex_unlock(&audio->lock);
 	kfree(audio);

@@ -183,8 +183,9 @@ static int aac_in_enable(struct q6audio_aac  *audio)
 static int aac_in_disable(struct q6audio_aac  *audio)
 {
 	int rc = 0;
-	if (audio->enabled) {
+	if (audio->opened) {
 		audio->enabled = 0;
+		audio->opened = 0;
 		MM_DBG("aac_in_disable inbytes[%d] insamples[%d]\n",
 					atomic_read(&audio->in_bytes),
 					atomic_read(&audio->in_samples));
@@ -818,13 +819,10 @@ static int aac_in_release(struct inode *inode, struct file *file)
 {
 	struct q6audio_aac  *audio = file->private_data;
 	mutex_lock(&audio->lock);
-	if (audio->enabled)
-		aac_in_disable(audio);
+	aac_in_disable(audio);
 
 	q6asm_audio_client_free(audio->ac);
 	audio->buf_alloc = NO_BUF_ALLOC;
-	audio->opened = 0;
-	audio->enabled = 0;
 	mutex_unlock(&audio->lock);
 	kfree(audio);
 	MM_INFO("\n");
