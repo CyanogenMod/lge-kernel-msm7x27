@@ -90,7 +90,7 @@ enum {
 /**< Wait for APRV2_IBASIC_RSP_RESULT response. */
 
 
-#define VSS_ISTREAM_CMD_SET_TTY_MODE			0x00011020
+#define VSS_ISTREAM_CMD_SET_TTY_MODE			0x00011196
 /**< Wait for APRV2_IBASIC_RSP_RESULT response. */
 
 struct vss_istream_cmd_set_tty_mode_t {
