@@ -35,7 +35,6 @@
 #define REG_LPA(off)	(MSM_LPASS_CLK_CTL_BASE + (off))
 
 /* Peripheral clock registers. */
-#define BBRX_SSBI_CLK_CTL_REG			REG(0x2CE0)
 #define CLK_HALT_CFPB_STATEA_REG		REG(0x2FCC)
 #define CLK_HALT_CFPB_STATEB_REG		REG(0x2FD0)
 #define CLK_HALT_CFPB_STATEC_REG		REG(0x2FD4)
@@ -480,18 +479,6 @@ static void set_rate_div_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 /*
  * Clock Descriptions
  */
-
-/* BBRX_SSBI */
-#define CLK_BBRX_SSBI(id, ns, h_r, h_c, h_b, tv) \
-		CLK(id, BASIC, ns, ns, NULL, NULL, 0, h_r, h_c, h_b, \
-				B(4), 0, 0, 0, set_rate_nop, \
-				clk_tbl_bbrx_ssbi, NULL, NONE, NULL, tv)
-#define F_BBRX_SSBI(f, s, d, m, n, v) \
-		F_RAW(f, SRC_##s, 0, 0, 0, 0, v, NULL)
-static struct clk_freq_tbl clk_tbl_bbrx_ssbi[] = {
-	F_BBRX_SSBI(19200000, NONE, 0, 0, 0, NOMINAL),
-	F_END,
-};
 
 /* GSBI_UART */
 #define NS_MASK_GSBI_UART (BM(31, 16) | BM(6, 0))
@@ -1173,9 +1160,6 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 	/*
 	 * Peripheral Clocks
 	 */
-	CLK_BBRX_SSBI(BBRX_SSBI, BBRX_SSBI_CLK_CTL_REG,
-		CLK_HALT_SFPB_MISC_STATE_REG, HALT, 8, TEST_PER_LS(0x6E)),
-
 	CLK_GSBI_UART(GSBI1_UART,  GSBIn_UART_APPS_NS_REG(1),
 		CLK_HALT_CFPB_STATEA_REG, HALT, 10, TEST_PER_LS(0x3E)),
 	CLK_GSBI_UART(GSBI2_UART,  GSBIn_UART_APPS_NS_REG(2),
@@ -1942,7 +1926,6 @@ void __init msm_clk_soc_init(void)
 	local_clk_enable(C(FAB_P));
 
 	/* Initialize rates for clocks that only support one. */
-	set_1rate(BBRX_SSBI);
 	set_1rate(MDP_VSYNC);
 	set_1rate(TSIF_REF);
 	set_1rate(TSSC);
