@@ -1230,6 +1230,8 @@ static struct resource msm_audio_resources[] = {
 static unsigned st15_audio_gpio_on[] = {
 	/* enable headset amplifier */
 	GPIO_CFG(48, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	/* enable speaker amplifier */
+	GPIO_CFG(39, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
 static unsigned audio_gpio_on[] = {
@@ -1270,6 +1272,8 @@ static void __init audio_gpio_init(void)
 
 	/* enable headset amplifier */
 	gpio_tlmm_config(st15_audio_gpio_on[0], GPIO_CFG_ENABLE);
+	/* enable speaker amplifier */
+	gpio_tlmm_config(st15_audio_gpio_on[1], GPIO_CFG_ENABLE);
 }
 
 static struct platform_device msm_audio_device = {

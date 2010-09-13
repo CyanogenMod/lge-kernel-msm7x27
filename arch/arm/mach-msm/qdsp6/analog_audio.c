@@ -24,6 +24,7 @@
 #include <asm/mach-types.h>
 
 #define GPIO_HEADSET_AMP 157
+#define GPIO_SPEAKER_AMP 39
 
 void analog_init(void)
 {
@@ -34,6 +35,8 @@ void analog_init(void)
 
 	gpio_direction_output(GPIO_HEADSET_AMP, 1);
 	gpio_set_value(GPIO_HEADSET_AMP, 0);
+	if (machine_is_qsd8x50a_st1_5())
+		gpio_set_value(GPIO_SPEAKER_AMP, 0);
 }
 
 void analog_headset_enable(int en)
@@ -64,6 +67,7 @@ void analog_speaker_enable(int en)
 			pmic_secure_mpp_control_digital_output(
 					PM_MPP_21, PM_MPP__DLOGIC__LVL_VDD,
 					PM_MPP__DLOGIC_OUT__CTRL_HIGH);
+			gpio_set_value(GPIO_SPEAKER_AMP, !!en);
 		}
 		
 		/* unmute */
@@ -76,6 +80,7 @@ void analog_speaker_enable(int en)
 		/* Disable Speaker Amplifier */
 		if (machine_is_qsd8x50a_st1_5()) {
 			gpio_set_value(48, (en != 0));
+			gpio_set_value(GPIO_SPEAKER_AMP, !!en);
 			pmic_secure_mpp_control_digital_output(
 					PM_MPP_21, PM_MPP__DLOGIC__LVL_VDD,
 					PM_MPP__DLOGIC_OUT__CTRL_LOW);
