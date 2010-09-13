@@ -164,6 +164,7 @@ struct msm_otg_platform_data {
 
 	int (*ldo_init) (int init);
 	int (*ldo_enable) (int enable);
+	int (*ldo_set_voltage) (int mV);
 
 	u32 			swfi_latency;
 	/* pmic notfications apis */
