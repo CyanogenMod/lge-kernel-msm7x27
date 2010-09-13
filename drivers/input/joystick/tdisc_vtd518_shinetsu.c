@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/slab.h>
 #include <linux/input/tdisc_shinetsu.h>
 
 MODULE_LICENSE("GPL v2");
@@ -303,10 +304,10 @@ static int __devinit tdisc_probe(struct i2c_client *client,
 		return -ENODEV;
 
 	/* Enable runtime PM ops, start in ACTIVE mode */
-	rc = pm_runtime_set_active(&pdev->dev);
+	rc = pm_runtime_set_active(&client->dev);
 	if (rc < 0)
-		dev_dbg(&pdev->dev, "unable to set runtime pm state\n");
-	pm_runtime_enable(&pdev->dev);
+		dev_dbg(&client->dev, "unable to set runtime pm state\n");
+	pm_runtime_enable(&client->dev);
 
 	dd = kzalloc(sizeof *dd, GFP_KERNEL);
 	if (!dd) {

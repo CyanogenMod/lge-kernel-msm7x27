@@ -2506,8 +2506,10 @@ fail_gpio_oe:
 
 static void tdisc_shinetsu_release(void)
 {
+	int i;
+
 	for (i = 0; i < ARRAY_SIZE(vregs_tdisc_name); i++)
-		regulator_put(vregs_tdisc_name[i]);
+		regulator_put(vregs_tdisc[i]);
 
 	gpio_free(PMIC_GPIO_TDISC);
 	gpio_free(TDISC_OE);
