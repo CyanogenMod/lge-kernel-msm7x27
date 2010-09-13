@@ -267,4 +267,6 @@ struct msmsdcc_host {
 
 };
 
+int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);
+
 #endif
