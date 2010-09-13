@@ -115,8 +115,8 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 #endif
 			err = diag_write(write_ptr);
 		} else if (proc_num == QDSP_DATA) {
-			driver->usb_write_ptr_qdsp->buf = buf;
-			err = diag_write(driver->usb_write_ptr_qdsp);
+			write_ptr->buf = buf;
+			err = diag_write(write_ptr);
 		}
 		APPEND_DEBUG('k');
 	} else if (driver->logging_mode == MEMORY_DEVICE_MODE) {
@@ -151,7 +151,8 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			queue_work(driver->diag_wq, &(driver->
 							diag_read_smd_work));
 		} else if (proc_num == QDSP_DATA) {
-			driver->in_busy_qdsp = 0;
+			driver->in_busy_qdsp_1 = 0;
+			driver->in_busy_qdsp_2 = 0;
 			queue_work(driver->diag_wq, &(driver->
 						diag_read_smd_qdsp_work));
 		}
@@ -162,29 +163,47 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 
 void __diag_smd_qdsp_send_req(void)
 {
-	void *buf;
+	void *buf = NULL;
+	int *in_busy_qdsp_ptr = NULL;
+	struct diag_request *write_ptr_qdsp = NULL;
 
-	if (driver->chqdsp && (!driver->in_busy_qdsp)) {
+	if (!driver->in_busy_qdsp_1) {
+		buf = driver->usb_buf_in_qdsp_1;
+		write_ptr_qdsp = driver->usb_write_ptr_qdsp_1;
+		in_busy_qdsp_ptr = &(driver->in_busy_qdsp_1);
+	} else if (!driver->in_busy_qdsp_2) {
+		buf = driver->usb_buf_in_qdsp_2;
+		write_ptr_qdsp = driver->usb_write_ptr_qdsp_2;
+		in_busy_qdsp_ptr = &(driver->in_busy_qdsp_2);
+	}
+
+	if (driver->chqdsp && buf) {
 		int r = smd_read_avail(driver->chqdsp);
 
 		if (r > USB_MAX_IN_BUF) {
-			printk(KERN_INFO "diag dropped num bytes = %d\n", r);
-			return;
-		}
-		if (r > 0) {
-			buf = driver->usb_buf_in_qdsp;
-			if (!buf) {
-				printk(KERN_INFO "Out of diagmem for q6\n");
+			if (r < MAX_BUF_SIZE) {
+				printk(KERN_ALERT "\n diag: SMD sending in "
+						   "packets upto %d bytes", r);
+				buf = krealloc(buf, r, GFP_KERNEL);
 			} else {
-				APPEND_DEBUG('l');
-				smd_read(driver->chqdsp, buf, r);
-				APPEND_DEBUG('m');
-				driver->usb_write_ptr_qdsp->length = r;
-				driver->in_busy_qdsp = 1;
-				diag_device_write(buf, QDSP_DATA, NULL);
+				printk(KERN_ALERT "\n diag: SMD sending in "
+				"packets more than %d bytes", MAX_BUF_SIZE);
+				return;
 			}
 		}
-
+		if (r > 0) {
+			if (!buf)
+				printk(KERN_INFO "Out of diagmem for a9\n");
+			else {
+				APPEND_DEBUG('i');
+				smd_read(driver->chqdsp, buf, r);
+				APPEND_DEBUG('j');
+				write_ptr_qdsp->length = r;
+				*in_busy_qdsp_ptr = 1;
+				diag_device_write(buf, QDSP_DATA,
+							 write_ptr_qdsp);
+			}
+		}
 	}
 }
 
@@ -503,7 +522,8 @@ int diagfwd_connect(void)
 	driver->usb_connected = 1;
 	driver->in_busy_1 = 0;
 	driver->in_busy_2 = 0;
-	driver->in_busy_qdsp = 0;
+	driver->in_busy_qdsp_1 = 0;
+	driver->in_busy_qdsp_2 = 0;
 
 	/* Poll SMD channels to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
@@ -523,7 +543,8 @@ int diagfwd_disconnect(void)
 	driver->usb_connected = 0;
 	driver->in_busy_1 = 1;
 	driver->in_busy_2 = 1;
-	driver->in_busy_qdsp = 1;
+	driver->in_busy_qdsp_1 = 1;
+	driver->in_busy_qdsp_2 = 1;
 	driver->debug_flag = 1;
 	diag_close();
 	/* TBD - notify and flow control SMD */
@@ -543,9 +564,13 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		driver->in_busy_2 = 0;
 		APPEND_DEBUG('O');
 		queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
-	} else if (buf == (void *)driver->usb_buf_in_qdsp) {
-		driver->in_busy_qdsp = 0;
+	} else if (buf == (void *)driver->usb_buf_in_qdsp_1) {
+		driver->in_busy_qdsp_1 = 0;
 		APPEND_DEBUG('p');
+		queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
+	} else if (buf == (void *)driver->usb_buf_in_qdsp_2) {
+		driver->in_busy_qdsp_2 = 0;
+		APPEND_DEBUG('P');
 		queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
 	} else {
 		diagmem_free(driver, (unsigned char *)buf, POOL_TYPE_HDLC);
@@ -619,16 +644,25 @@ static int diag_smd_probe(struct platform_device *pdev)
 	}
 #if defined(CONFIG_MSM_N_WAY_SMD)
 	if (pdev->id == 1) {
-		if (driver->usb_buf_in_qdsp == NULL &&
-			(driver->usb_buf_in_qdsp =
-			kzalloc(USB_MAX_IN_BUF, GFP_KERNEL)) == NULL)
-
-			goto err;
+		if (driver->usb_buf_in_qdsp_1 == NULL ||
+					 driver->usb_buf_in_qdsp_2 == NULL) {
+			if (driver->usb_buf_in_qdsp_1 == NULL)
+				driver->usb_buf_in_qdsp_1 = kzalloc(
+						USB_MAX_IN_BUF, GFP_KERNEL);
+			if (driver->usb_buf_in_qdsp_2 == NULL)
+				driver->usb_buf_in_qdsp_2 = kzalloc(
+						USB_MAX_IN_BUF, GFP_KERNEL);
+			if (driver->usb_buf_in_qdsp_1 == NULL ||
+				 driver->usb_buf_in_qdsp_2 == NULL)
+				goto err;
+			else
+				r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP
+						, &driver->chqdsp, driver,
+							 diag_smd_qdsp_notify);
+		}
 		else
-
-		r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP,
-			&driver->chqdsp, driver, diag_smd_qdsp_notify);
-
+			r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP,
+			 &driver->chqdsp, driver, diag_smd_qdsp_notify);
 	}
 #endif
 	pm_runtime_set_active(&pdev->dev);
@@ -730,10 +764,15 @@ void diagfwd_init(void)
 			sizeof(struct diag_request), GFP_KERNEL);
 		if (driver->usb_write_ptr_2 == NULL)
 			goto err;
-	if (driver->usb_write_ptr_qdsp == NULL)
-		driver->usb_write_ptr_qdsp = kzalloc(
+	if (driver->usb_write_ptr_qdsp_1 == NULL)
+		driver->usb_write_ptr_qdsp_1 = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->usb_write_ptr_qdsp == NULL)
+		if (driver->usb_write_ptr_qdsp_1 == NULL)
+			goto err;
+	if (driver->usb_write_ptr_qdsp_2 == NULL)
+		driver->usb_write_ptr_qdsp_2 = kzalloc(
+			sizeof(struct diag_request), GFP_KERNEL);
+		if (driver->usb_write_ptr_qdsp_2 == NULL)
 			goto err;
 	if (driver->usb_read_ptr == NULL)
 		driver->usb_read_ptr = kzalloc(
@@ -767,7 +806,8 @@ err:
 		kfree(driver->pkt_buf);
 		kfree(driver->usb_write_ptr_1);
 		kfree(driver->usb_write_ptr_2);
-		kfree(driver->usb_write_ptr_qdsp);
+		kfree(driver->usb_write_ptr_qdsp_1);
+		kfree(driver->usb_write_ptr_qdsp_2);
 		kfree(driver->usb_read_ptr);
 }
 
@@ -787,7 +827,8 @@ void diagfwd_exit(void)
 
 	kfree(driver->usb_buf_in_1);
 	kfree(driver->usb_buf_in_2);
-	kfree(driver->usb_buf_in_qdsp);
+	kfree(driver->usb_buf_in_qdsp_1);
+	kfree(driver->usb_buf_in_qdsp_2);
 	kfree(driver->usb_buf_out);
 	kfree(driver->hdlc_buf);
 	kfree(driver->msg_masks);
@@ -800,6 +841,7 @@ void diagfwd_exit(void)
 	kfree(driver->pkt_buf);
 	kfree(driver->usb_write_ptr_1);
 	kfree(driver->usb_write_ptr_2);
-	kfree(driver->usb_write_ptr_qdsp);
+	kfree(driver->usb_write_ptr_qdsp_1);
+	kfree(driver->usb_write_ptr_qdsp_2);
 	kfree(driver->usb_read_ptr);
 }

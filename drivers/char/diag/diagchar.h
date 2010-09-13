@@ -128,13 +128,15 @@ struct diagchar_dev {
 	/* State for diag forwarding */
 	unsigned char *usb_buf_in_1;
 	unsigned char *usb_buf_in_2;
-	unsigned char *usb_buf_in_qdsp;
+	unsigned char *usb_buf_in_qdsp_1;
+	unsigned char *usb_buf_in_qdsp_2;
 	unsigned char *usb_buf_out;
 	smd_channel_t *ch;
 	smd_channel_t *chqdsp;
 	int in_busy_1;
 	int in_busy_2;
-	int in_busy_qdsp;
+	int in_busy_qdsp_1;
+	int in_busy_qdsp_2;
 	int read_len;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
@@ -155,7 +157,8 @@ struct diagchar_dev {
 	struct diag_request *usb_write_ptr_2;
 	struct diag_request *usb_read_ptr;
 	struct diag_request *usb_write_ptr_svc;
-	struct diag_request *usb_write_ptr_qdsp;
+	struct diag_request *usb_write_ptr_qdsp_1;
+	struct diag_request *usb_write_ptr_qdsp_2;
 	int logging_mode;
 	int logging_process_id;
 };

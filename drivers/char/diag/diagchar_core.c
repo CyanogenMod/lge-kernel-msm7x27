@@ -310,12 +310,14 @@ static int diagchar_ioctl(struct inode *inode, struct file *filp,
 							== NO_LOGGING_MODE) {
 			driver->in_busy_1 = 1;
 			driver->in_busy_2 = 1;
-			driver->in_busy_qdsp = 1;
+			driver->in_busy_qdsp_1 = 1;
+			driver->in_busy_qdsp_2 = 1;
 		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
 			driver->in_busy_1 = 0;
 			driver->in_busy_2 = 0;
-			driver->in_busy_qdsp = 0;
+			driver->in_busy_qdsp_1 = 0;
+			driver->in_busy_qdsp_2 = 0;
 			/* Poll SMD channels to check for data*/
 			if (driver->ch)
 				queue_work(driver->diag_wq,
@@ -328,7 +330,8 @@ static int diagchar_ioctl(struct inode *inode, struct file *filp,
 			diagfwd_disconnect();
 			driver->in_busy_1 = 0;
 			driver->in_busy_2 = 0;
-			driver->in_busy_qdsp = 0;
+			driver->in_busy_qdsp_2 = 0;
+			driver->in_busy_qdsp_2 = 0;
 			/* Poll SMD channels to check for data*/
 			if (driver->ch)
 				queue_work(driver->diag_wq,
@@ -435,15 +438,27 @@ drop:
 		}
 
 		/* copy q6 data */
-		if (driver->in_busy_qdsp == 1) {
+		if (driver->in_busy_qdsp_1 == 1) {
 			num_data++;
 			/*Copy the length of data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
-				 (driver->usb_write_ptr_qdsp->length), 4);
+				 (driver->usb_write_ptr_qdsp_1->length), 4);
 			/*Copy the actual data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
-			usb_buf_in_qdsp), driver->usb_write_ptr_qdsp->length);
-			driver->in_busy_qdsp = 0;
+							usb_buf_in_qdsp_1),
+					 driver->usb_write_ptr_qdsp_1->length);
+			driver->in_busy_qdsp_1 = 0;
+		}
+		if (driver->in_busy_qdsp_2 == 1) {
+			num_data++;
+			/*Copy the length of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+				 (driver->usb_write_ptr_qdsp_2->length), 4);
+			/*Copy the actual data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
+				usb_buf_in_qdsp_2), driver->
+					usb_write_ptr_qdsp_2->length);
+			driver->in_busy_qdsp_2 = 0;
 		}
 
 		/* copy number of data fields */
