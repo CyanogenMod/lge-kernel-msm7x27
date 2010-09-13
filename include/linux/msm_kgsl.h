@@ -32,6 +32,7 @@
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM		1
 #define KGSL_CONTEXT_NO_GMEM_ALLOC	2
+#define KGSL_CONTEXT_SUBMIT_IB_LIST	4
 
 /* Memory allocayion flags */
 #define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
@@ -132,6 +133,14 @@ struct kgsl_platform_data {
 	const char *grp2d_clk_name;
 };
 
+/* structure holds list of ibs */
+struct kgsl_ibdesc {
+	unsigned int gpuaddr;
+	void *hostptr;
+	unsigned int sizedwords;
+	unsigned int ctrl;
+};
+
 /* ioctls */
 #define KGSL_IOC_TYPE 0x09
 
@@ -191,8 +200,8 @@ struct kgsl_device_waittimestamp {
  */
 struct kgsl_ringbuffer_issueibcmds {
 	unsigned int drawctxt_id;
-	unsigned int ibaddr;
-	unsigned int sizedwords;
+	unsigned int ibdesc_addr;
+	unsigned int numibs;
 	unsigned int timestamp; /*output param */
 	unsigned int flags;
 };
