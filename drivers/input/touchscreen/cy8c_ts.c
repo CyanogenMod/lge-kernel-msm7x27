@@ -41,6 +41,7 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/workqueue.h>
+#include <linux/mutex.h>
 #include <linux/input/cy8c_ts.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
@@ -103,6 +104,9 @@ struct cy8c_ts {
 	u8 *touch_data;
 	u8 device_id;
 	u8 prev_touches;
+	bool is_suspended;
+	bool int_pending;
+	struct mutex sus_lock;
 };
 
 static inline u16 join_bytes(u8 a, u8 b)
@@ -249,6 +253,15 @@ static void cy8c_ts_xy_worker(struct work_struct *work)
 	int rc;
 	struct cy8c_ts *ts = container_of(work, struct cy8c_ts,
 				 work.work);
+
+	mutex_lock(&ts->sus_lock);
+	if (ts->is_suspended == true) {
+		dev_dbg(&ts->client->dev, "TS is supended\n");
+		ts->int_pending = true;
+		mutex_unlock(&ts->sus_lock);
+		return;
+	}
+	mutex_unlock(&ts->sus_lock);
 
 	/* read data from DATA_REG */
 	rc = cy8c_ts_read(ts->client, ts->dd->data_reg, ts->touch_data,
@@ -465,19 +478,29 @@ static int cy8c_ts_suspend(struct device *dev)
 	struct cy8c_ts *ts = dev_get_drvdata(dev);
 	int rc = 0;
 
-	if (!ts->pdata->use_polling)
-		disable_irq_nosync(ts->client->irq);
+	if (device_may_wakeup(dev)) {
+		/* mark suspend flag */
+		mutex_lock(&ts->sus_lock);
+		ts->is_suspended = true;
+		mutex_unlock(&ts->sus_lock);
 
-	rc = cancel_delayed_work_sync(&ts->work);
+		if (!ts->pdata->use_polling)
+			enable_irq_wake(ts->client->irq);
+	} else {
+		if (!ts->pdata->use_polling)
+			disable_irq_nosync(ts->client->irq);
 
-	if (rc && !ts->pdata->use_polling)
-		enable_irq(ts->client->irq);
+		rc = cancel_delayed_work_sync(&ts->work);
 
-	if (ts->pdata->power_on) {
-		rc = ts->pdata->power_on(0);
-		if (rc) {
-			dev_err(dev, "unable to goto suspend\n");
-			return rc;
+		if (rc && !ts->pdata->use_polling)
+			enable_irq(ts->client->irq);
+
+		if (ts->pdata->power_on) {
+			rc = ts->pdata->power_on(0);
+			if (rc) {
+				dev_err(dev, "unable to goto suspend\n");
+				return rc;
+			}
 		}
 	}
 	return 0;
@@ -488,18 +511,36 @@ static int cy8c_ts_resume(struct device *dev)
 	struct cy8c_ts *ts = dev_get_drvdata(dev);
 	int rc = 0;
 
-	if (ts->pdata->power_on) {
-		rc = ts->pdata->power_on(1);
-		if (rc) {
-			dev_err(dev, "unable to resume\n");
-			return rc;
-		}
-	}
+	if (device_may_wakeup(dev)) {
+		if (!ts->pdata->use_polling)
+			disable_irq_wake(ts->client->irq);
 
-	if (ts->pdata->use_polling)
-		queue_delayed_work(ts->wq, &ts->work, TOUCHSCREEN_TIMEOUT);
-	else
-		enable_irq(ts->client->irq);
+		mutex_lock(&ts->sus_lock);
+		ts->is_suspended = false;
+
+		if (ts->int_pending == true) {
+			ts->int_pending = false;
+
+			/* start a delayed work */
+			queue_delayed_work(ts->wq, &ts->work, 0);
+		}
+		mutex_unlock(&ts->sus_lock);
+
+	} else {
+		if (ts->pdata->power_on) {
+			rc = ts->pdata->power_on(1);
+			if (rc) {
+				dev_err(dev, "unable to resume\n");
+				return rc;
+			}
+		}
+
+		if (ts->pdata->use_polling)
+			queue_delayed_work(ts->wq, &ts->work,
+					TOUCHSCREEN_TIMEOUT);
+		else
+			enable_irq(ts->client->irq);
+	}
 
 	return 0;
 }
@@ -563,15 +604,22 @@ static int __devinit cy8c_ts_probe(struct i2c_client *client,
 		}
 	}
 
+	ts->is_suspended = false;
+	ts->int_pending = false;
+	mutex_init(&ts->sus_lock);
+
 	rc = cy8c_ts_init_ts(client, ts);
 	if (rc < 0) {
 		dev_err(&client->dev, "CY8CTMG200-TMA300 init failed\n");
 		goto error_dev_setup;
 	}
 
+	device_init_wakeup(&client->dev, ts->pdata->wakeup);
+
 	return 0;
 
 error_dev_setup:
+	mutex_destroy(&ts->sus_lock);
 	if (ts->pdata->dev_setup)
 		ts->pdata->dev_setup(0);
 error_touch_data_alloc:
@@ -589,6 +637,7 @@ static int __devexit cy8c_ts_remove(struct i2c_client *client)
 	pm_runtime_set_suspended(&client->dev);
 	pm_runtime_disable(&client->dev);
 
+	device_init_wakeup(&client->dev, 0);
 	rc = cancel_delayed_work_sync(&ts->work);
 
 	if (rc && !ts->pdata->use_polling)
@@ -600,6 +649,8 @@ static int __devexit cy8c_ts_remove(struct i2c_client *client)
 	destroy_workqueue(ts->wq);
 
 	input_unregister_device(ts->input);
+
+	mutex_destroy(&ts->sus_lock);
 
 	if (ts->pdata->power_on)
 		ts->pdata->power_on(0);
