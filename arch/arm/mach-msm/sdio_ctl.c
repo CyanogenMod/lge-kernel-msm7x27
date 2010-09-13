@@ -118,6 +118,8 @@ static struct sdio_channel *sdio_ctl_chl;
 struct class *sdio_ctl_classp;
 static dev_t sdio_ctl_number;
 
+static uint32_t sdio_ctl_inited;
+
 #if defined(CONFIG_MSM_SDIO_CTL_DEBUG)
 #define D_DUMP_BUFFER(prestr, cnt, buf) \
 do { \
@@ -464,6 +466,9 @@ ssize_t sdio_ctl_read(struct file *file,
 
 	sdio_ctl_devp = file->private_data;
 
+	if (!sdio_ctl_devp)
+		return -EINVAL;
+
 	if (!sdio_ctl_devp->ch) {
 		D(KERN_ERR "%s: ch%d not opened\n",
 				 __func__, sdio_ctl_devp->id);
@@ -559,12 +564,14 @@ int sdio_ctl_open(struct inode *inode, struct file *file)
 	int r = 0;
 	struct sdio_ctl_dev *sdio_ctl_devp;
 
+	if (!sdio_ctl_inited)
+		return -EIO;
+
 	sdio_ctl_devp = container_of(inode->i_cdev, struct sdio_ctl_dev, cdev);
 
 	if (!sdio_ctl_devp)
 		return -EINVAL;
 
-	file->private_data = sdio_ctl_devp;
 	D(KERN_INFO "%s called on sdioctl%d device\n",
 		     __func__, sdio_ctl_devp->id);
 
@@ -591,12 +598,14 @@ int sdio_ctl_open(struct inode *inode, struct file *file)
 	if (r < 0) {
 		D(KERN_ERR "ERROR %s: sdio_cmux_open failed with rc %d\n",
 			    __func__, r);
+		return r;
 	}
 	mutex_lock(&sdio_ctl_devp->dev_lock);
 	sdio_ctl_devp->ref_count++;
 	mutex_unlock(&sdio_ctl_devp->dev_lock);
 
-	return r;
+	file->private_data = sdio_ctl_devp;
+	return 0;
 }
 
 int sdio_ctl_release(struct inode *inode, struct file *file)
@@ -850,10 +859,33 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 	int r;
 
 	printk(KERN_INFO "%s Begins\n", __func__);
+	sdio_mux_wq = create_singlethread_workqueue("sdio_mux");
+	if (IS_ERR(sdio_mux_wq)) {
+		printk(KERN_ERR "%s:%i:%s: create_singlethread_workqueue()"
+				" ENOMEM\n", __FILE__, __LINE__, __func__);
+		r = -ENOMEM;
+		goto error0;
+	}
+
+	sdio_demux_wq = create_singlethread_workqueue("sdio_demux");
+	if (IS_ERR(sdio_demux_wq)) {
+		printk(KERN_ERR "%s:%i:%s: create_singlethread_workqueue()"
+				" ENOMEM\n", __FILE__, __LINE__, __func__);
+		r = -ENOMEM;
+		goto error1;
+	}
+
+	r = sdio_open("SDIO_QMI", &sdio_ctl_chl, NULL, sdio_ctl_chl_notify);
+	if (r < 0) {
+		D(KERN_ERR "%s:%i:%s: sdio_open() failed\n",
+			   __FILE__, __LINE__, __func__);
+		goto error2;
+	}
+
 	r = alloc_chrdev_region(&sdio_ctl_number,
-			       0,
-			       NUM_SDIO_CTL_PORTS,
-			       DEVICE_NAME);
+				0,
+				NUM_SDIO_CTL_PORTS,
+				DEVICE_NAME);
 	if (IS_ERR_VALUE(r)) {
 		printk(KERN_ERR "ERROR:%s:%i:%s: "
 		       "alloc_chrdev_region() ret %i.\n",
@@ -861,7 +893,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 		       __LINE__,
 		       __func__,
 		       r);
-		goto error0;
+		goto error3;
 	}
 
 	sdio_ctl_classp = class_create(THIS_MODULE, DEVICE_NAME);
@@ -872,7 +904,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 		       __LINE__,
 		       __func__);
 		r = -ENOMEM;
-		goto error1;
+		goto error4;
 	}
 
 	for (i = 0; i < NUM_SDIO_CTL_PORTS; ++i) {
@@ -884,7 +916,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 			       __LINE__,
 			       __func__);
 			r = -ENOMEM;
-			goto error2;
+			goto error5;
 		}
 
 		sdio_ctl_devp[i]->id = i;
@@ -910,7 +942,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 			       __func__,
 			       r);
 			kfree(sdio_ctl_devp[i]);
-			goto error2;
+			goto error5;
 		}
 
 		sdio_ctl_devp[i]->devicep =
@@ -930,7 +962,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 			r = -ENOMEM;
 			cdev_del(&sdio_ctl_devp[i]->cdev);
 			kfree(sdio_ctl_devp[i]);
-			goto error2;
+			goto error5;
 		}
 	}
 
@@ -939,36 +971,11 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 	spin_lock_init(&tx_lock);
 	init_waitqueue_head(&write_wait_queue);
 
-	sdio_mux_wq = create_singlethread_workqueue("sdio_mux");
-	if (IS_ERR(sdio_mux_wq)) {
-		printk(KERN_ERR "%s:%i:%s: create_singlethread_workqueue()"
-				" ENOMEM\n", __FILE__, __LINE__, __func__);
-		r = -ENOMEM;
-		goto error2;
-	}
-
-	sdio_demux_wq = create_singlethread_workqueue("sdio_demux");
-	if (IS_ERR(sdio_demux_wq)) {
-		printk(KERN_ERR "%s:%i:%s: create_singlethread_workqueue()"
-				" ENOMEM\n", __FILE__, __LINE__, __func__);
-		destroy_workqueue(sdio_mux_wq);
-		r = -ENOMEM;
-		goto error2;
-	}
-
-	r = sdio_open("SDIO_QMI", &sdio_ctl_chl, NULL, sdio_ctl_chl_notify);
-	if (r < 0) {
-		D(KERN_ERR "%s:%i:%s: sdio_open() failed\n",
-			   __FILE__, __LINE__, __func__);
-		destroy_workqueue(sdio_mux_wq);
-		destroy_workqueue(sdio_demux_wq);
-		goto error2;
-	}
-
+	sdio_ctl_inited = 1;
 	D(KERN_INFO "SDIO Control Port Driver Initialized.\n");
 	return 0;
 
- error2:
+ error5:
 	if (i > 0) {
 		while (--i >= 0) {
 			cdev_del(&sdio_ctl_devp[i]->cdev);
@@ -979,8 +986,15 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 	}
 
 	class_destroy(sdio_ctl_classp);
- error1:
+ error4:
 	unregister_chrdev_region(MAJOR(sdio_ctl_number), NUM_SDIO_CTL_PORTS);
+ error3:
+	sdio_close(sdio_ctl_chl);
+	sdio_ctl_chl = NULL;
+ error2:
+	destroy_workqueue(sdio_demux_wq);
+ error1:
+	destroy_workqueue(sdio_mux_wq);
  error0:
 	return r;
 }
