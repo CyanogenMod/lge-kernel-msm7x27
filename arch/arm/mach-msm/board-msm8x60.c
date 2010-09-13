@@ -1423,7 +1423,6 @@ static struct i2c_board_info cy8ctmg200_board_info[] = {
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
        .inject_rx_on_wakeup = 1,
        .rx_to_inject = 0xFD,
-       .clk_name = "gsbi_uart_clk",
 };
 #endif
 

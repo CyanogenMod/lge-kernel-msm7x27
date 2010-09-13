@@ -3,7 +3,7 @@
  * MSM 7k High speed uart driver
  *
  * Copyright (c) 2008 Google Inc.
- * Copyright (c) 2007-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2010, Code Aurora Forum. All rights reserved.
  * Modified: Nick Pelly <npelly@google.com>
  *
  * All source code in this file is licensed under the following license
@@ -139,6 +139,7 @@ struct msm_hs_port {
 	struct uart_port uport;
 	unsigned long imr_reg;  /* shadow value of UARTDM_IMR */
 	struct clk *clk;
+	struct clk *pclk;
 	struct msm_hs_tx tx;
 	struct msm_hs_rx rx;
 	/* gsbi uarts have to do additional writes to gsbi memory */
@@ -386,6 +387,14 @@ static int msm_hs_init_clk(struct uart_port *uport)
 	if (ret) {
 		printk(KERN_ERR "Error could not turn on UART clk\n");
 		return ret;
+	}
+	if (msm_uport->pclk) {
+		ret = clk_enable(msm_uport->pclk);
+		if (ret) {
+			dev_err(uport->dev,
+				"Error could not turn on UART pclk\n");
+			return ret;
+		}
 	}
 
 	msm_uport->clk_state = MSM_HS_CLK_ON;
@@ -1176,6 +1185,8 @@ static int msm_hs_check_clock_off_locked(struct uart_port *uport)
 
 	/* we really want to clock off */
 	clk_disable(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_disable(msm_uport->pclk);
 	msm_uport->clk_state = MSM_HS_CLK_OFF;
 	if (use_low_power_wakeup(msm_uport)) {
 		msm_uport->wakeup.ignore = 1;
@@ -1299,13 +1310,21 @@ EXPORT_SYMBOL(msm_hs_request_clock_off);
 static void msm_hs_request_clock_on_locked(struct uart_port *uport) {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	unsigned int data;
+	int ret = 0;
 
 	switch (msm_uport->clk_state) {
 	case MSM_HS_CLK_OFF:
 		wake_lock(&msm_uport->dma_wake_lock);
 		clk_enable(msm_uport->clk);
+		if (msm_uport->pclk)
+			ret = clk_enable(msm_uport->pclk);
 		disable_irq_nosync(msm_uport->wakeup.irq);
-		/* fall-through */
+		if (unlikely(ret)) {
+			dev_err(uport->dev, "Clock ON Failure"
+				"Stalling HSUART\n");
+			break;
+		}
+		/* else fall-through */
 	case MSM_HS_CLK_REQUEST_OFF:
 		if (msm_uport->rx.flush == FLUSH_STOP ||
 		    msm_uport->rx.flush == FLUSH_SHUTDOWN) {
@@ -1641,12 +1660,17 @@ static int __init msm_hs_probe(struct platform_device *pdev)
 	uport->uartclk = 7372800;
 	msm_uport->imr_reg = 0x0;
 
-	if (pdata && pdata->clk_name)
-		msm_uport->clk = clk_get(&pdev->dev, pdata->clk_name);
-	else
-		msm_uport->clk = clk_get(&pdev->dev, "uartdm_clk");
+	msm_uport->clk = clk_get(&pdev->dev, "uartdm_clk");
 	if (IS_ERR(msm_uport->clk))
 		return PTR_ERR(msm_uport->clk);
+
+	msm_uport->pclk = clk_get(&pdev->dev, "uartdm_pclk");
+	/*
+	 * Some configurations do not require explicit pclk control so
+	 * do not flag error on pclk get failure.
+	 */
+	if (IS_ERR(msm_uport->pclk))
+		msm_uport->pclk = NULL;
 
 	ret = clk_set_rate(msm_uport->clk, uport->uartclk);
 	if (ret) {
@@ -1733,6 +1757,8 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	clk_disable(msm_uport->clk);  /* to balance local clk_enable() */
 	if (msm_uport->clk_state != MSM_HS_CLK_OFF) {
 		clk_disable(msm_uport->clk);  /* to balance clk_state */
+		if (msm_uport->pclk)
+			clk_disable(msm_uport->pclk);
 		wake_unlock(&msm_uport->dma_wake_lock);
 	}
 	msm_uport->clk_state = MSM_HS_CLK_PORT_OFF;
