@@ -4149,6 +4149,22 @@ static struct platform_device msm_adc_device = {
 	},
 };
 
+#ifdef CONFIG_MSM_SDIO_AL
+static struct msm_gpio mdm2ap_status = {
+	GPIO_CFG(77, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	"mdm2ap_status"
+};
+
+struct platform_device msm_device_sdio_al = {
+	.name = "msm_sdio_al",
+	.id = -1,
+	.dev		= {
+		.platform_data	= &mdm2ap_status,
+	},
+};
+
+#endif /* CONFIG_MSM_SDIO_AL */
+
 static struct platform_device *devices[] __initdata = {
 #if defined(CONFIG_SERIAL_MSM) || defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	&msm_device_uart2,
@@ -4235,6 +4251,9 @@ static struct platform_device *devices[] __initdata = {
 #endif
 #if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
 	&msm_device_tsif,
+#endif
+#ifdef CONFIG_MSM_SDIO_AL
+	&msm_device_sdio_al,
 #endif
 	&msm_batt_device,
 	&msm_adc_device,
