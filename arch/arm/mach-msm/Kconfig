@@ -67,6 +67,7 @@ config ARCH_MSM8X60
 	select MSM_RPM
 	select MSM_XO
 	select MSM_GPIOMUX
+	select MSM_BUS_SCALING
 
 endchoice
 
