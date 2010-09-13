@@ -120,7 +120,7 @@ static void tdisc_work_f(struct work_struct *work)
 	 * reschedule the work after 25ms. If pin is high, exit
 	 * and wait for next interrupt.
 	 */
-	rc = gpio_get_value(dd->pdata->tdisc_gpio);
+	rc = gpio_get_value_cansleep(dd->pdata->tdisc_gpio);
 	if (rc < 0) {
 		rc = pm_runtime_put_sync(&dd->clientp->dev);
 		if (rc < 0)
