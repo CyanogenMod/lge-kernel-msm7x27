@@ -230,9 +230,9 @@ static int diagchar_ioctl(struct inode *inode, struct file *filp,
 				driver->table[i].subsys_id =
 					pkt_params->params->subsys_id;
 				driver->table[i].cmd_code_lo =
-					pkt_params->params->cmd_code_hi;
-				driver->table[i].cmd_code_hi =
 					pkt_params->params->cmd_code_lo;
+				driver->table[i].cmd_code_hi =
+					pkt_params->params->cmd_code_hi;
 				driver->table[i].process_id = current->tgid;
 				count_entries++;
 				if (pkt_params->count > count_entries)
@@ -259,9 +259,9 @@ static int diagchar_ioctl(struct inode *inode, struct file *filp,
 				driver->table[j].subsys_id = pkt_params->
 							params->subsys_id;
 				driver->table[j].cmd_code_lo = pkt_params->
-							params->cmd_code_hi;
-				driver->table[j].cmd_code_hi = pkt_params->
 							params->cmd_code_lo;
+				driver->table[j].cmd_code_hi = pkt_params->
+							params->cmd_code_hi;
 				driver->table[j].process_id = current->tgid;
 				count_entries++;
 				if (pkt_params->count > count_entries)
