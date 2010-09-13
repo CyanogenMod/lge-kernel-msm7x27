@@ -384,12 +384,20 @@ static struct platform_device hs_device = {
 	},
 };
 
-#define HUB_RESET_GPIO 104
+#define HUB_3V3_GPIO		38		/* Power to HUB and switch */
+#define SWITCH_EN_GPIO		98		/* !CS of analog switch */
+#define SWITCH_CONTROL_GPIO	104		/* 0: Host, 1: Peripheral */
+#define HUB_RESET_GPIO		108		/* 0: HUB is RESET */
+
 static struct msm_gpio hsusb_gpio_config_data[] = {
-	{ GPIO_CFG(98, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "fs_power" },
-	{ GPIO_CFG(HUB_RESET_GPIO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-								"swch_ctrl" },
-	{ GPIO_CFG(108, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "hub_reset" },
+	{ GPIO_CFG(HUB_3V3_GPIO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+						GPIO_CFG_2MA), "hub_power" },
+	{ GPIO_CFG(SWITCH_EN_GPIO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+						GPIO_CFG_2MA), "swch_enable" },
+	{ GPIO_CFG(SWITCH_CONTROL_GPIO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+						GPIO_CFG_2MA), "swch_ctrl" },
+	{ GPIO_CFG(HUB_RESET_GPIO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+						GPIO_CFG_2MA), "hub_reset" },
 };
 
 static int msm_otg_gpio_init(void)
@@ -403,18 +411,34 @@ static int msm_otg_gpio_init(void)
 		printk(KERN_ERR "Error gpio req for hsusb\n");
 	return rc;
 }
-static void msm_otg_setup_gpio(unsigned int enable)
+
+static void msm_otg_setup_gpio(enum usb_switch_control mode)
 {
-	if (enable) {
-		/* Config analog switch as USB host. */
-		gpio_set_value(98, 0); /* USB_FS_POWER_EN */
-		gpio_set_value(HUB_RESET_GPIO, 0); /* SWITCH_CONTROL */
-		gpio_set_value(108, 1); /* USB_HUB_RESET */
-	} else {
-		/* Config analog switch as USB peripheral. */
-		gpio_set_value(98, 0); /* USB_FS_POWER_EN */
-		gpio_set_value(HUB_RESET_GPIO, 1); /* SWITCH_CONTROL */
-		gpio_set_value(108, 0); /* USB_HUB_RESET */
+	switch (mode) {
+	case USB_SWITCH_HOST:
+		gpio_set_value(HUB_3V3_GPIO, 1);
+		/* Configure analog switch as USB host. */
+		gpio_set_value(SWITCH_EN_GPIO, 0);
+		gpio_set_value(SWITCH_CONTROL_GPIO, 0);
+		/* Bring HUB out of RESET */
+		gpio_set_value(HUB_RESET_GPIO, 1);
+		break;
+
+	case USB_SWITCH_PERIPHERAL:
+		/* Power-up switch */
+		gpio_set_value(HUB_3V3_GPIO, 1);
+		/* Configure analog switch as USB peripheral. */
+		gpio_set_value(SWITCH_EN_GPIO, 0);
+		gpio_set_value(SWITCH_CONTROL_GPIO, 1);
+		break;
+
+	case USB_SWITCH_DISABLE:
+	default:
+		/* Disable Switch */
+		gpio_set_value(SWITCH_EN_GPIO, 1);
+		gpio_set_value(HUB_RESET_GPIO, 0);
+		/* Power-down HUB and analog switch */
+		gpio_set_value(HUB_3V3_GPIO, 0);
 	}
 }
 
