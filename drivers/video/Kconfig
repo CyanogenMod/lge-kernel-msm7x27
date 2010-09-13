@@ -2509,6 +2509,15 @@ config FB_MSM_HDMI_ADV7520_PANEL
         ---help---
         Support for LCDC 720p HDMI panel attached to ADV7520
 
+config FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+        depends on FB_MSM_HDMI_ADV7520_PANEL
+        bool "Use HDCP mode"
+        default y
+        ---help---
+          Support for HDCP mode for ADV7520 HDMI 720p Panel
+          Choose to enable HDCP
+
+
 config FB_MSM_HDMI_MSM_PANEL
 	depends on FB_MSM_MDP40
 	bool "MSM HDMI 1080p Panel"
