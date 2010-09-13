@@ -443,8 +443,6 @@ static int cy8c_ts_init_ts(struct i2c_client *client, struct cy8c_ts *ts)
 			ts->pdata->min_width, ts->pdata->max_width, 0, 0);
 	input_set_abs_params(input_device, ABS_MT_TRACKING_ID,
 			ts->pdata->min_tid, ts->pdata->max_tid, 0, 0);
-	/*setting dummy key to make it work for virutal keys*/
-	input_set_capability(input_device, EV_KEY, KEY_PROG1);
 
 	input_device->open = cy8c_ts_open;
 	input_device->close = cy8c_ts_close;
