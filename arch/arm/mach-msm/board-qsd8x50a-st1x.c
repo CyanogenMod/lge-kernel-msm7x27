@@ -30,6 +30,7 @@
 #include <linux/clk.h>
 #include <linux/gpio_keys.h>
 
+#include <linux/input/qci_kbd.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -1610,10 +1611,17 @@ static struct msm_hdmi_platform_data hdmi_sii9022_i2c_data = {
 	.cable_detect = hdmi_sii9022_cable_detect,
 };
 
+static struct qci_kbd_platform_data qci_i2ckbd_pdata = {
+#ifdef CONFIG_KEYBOARD_QCIKBD_REPEAT
+	.repeat = true,
+#endif
+};
+
 static struct i2c_board_info msm_i2c_st1_5_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("qci-i2ckbd", 0x18),
 		.irq = 37,
+		.platform_data = &qci_i2ckbd_pdata,
 	},
 	{
 		I2C_BOARD_INFO("qci-i2cpad", 0x19),
