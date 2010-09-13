@@ -543,10 +543,26 @@ static void msm_otg_start_peripheral(struct otg_transceiver *xceiv, int on)
 		 * power collapse(pc) while running in peripheral mode.
 		 */
 		otg_pm_qos_update_latency(dev, 1);
+
+		/* increment the clk reference count so that
+		 * it would be still on when disabled from
+		 * low power mode routine
+		 */
+		if (dev->pdata->pclk_required_during_lpm)
+			clk_enable(dev->hs_pclk);
+
 		usb_gadget_vbus_connect(xceiv->gadget);
 	} else {
 		atomic_set(&dev->chg_type, USB_CHG_TYPE__INVALID);
 		usb_gadget_vbus_disconnect(xceiv->gadget);
+
+		/* decrement the clk reference count so that
+		 * it would be off when disabled from
+		 * low power mode routine
+		 */
+		if (dev->pdata->pclk_required_during_lpm)
+			clk_disable(dev->hs_pclk);
+
 		otg_pm_qos_update_latency(dev, 0);
 		if (pdata->setup_gpio)
 			pdata->setup_gpio(USB_SWITCH_DISABLE);
@@ -565,7 +581,20 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 		/* Some targets, e.g. ST1.5, use GPIO to choose b/w connector */
 		if (on && pdata->setup_gpio)
 			pdata->setup_gpio(USB_SWITCH_HOST);
+
+		/* increment or decrement the clk reference count
+		 * to avoid usb h/w lockup issues when low power
+		 * mode is initiated and vbus is on.
+		 */
+		if (dev->pdata->pclk_required_during_lpm) {
+			if (on)
+				clk_enable(dev->hs_pclk);
+			else
+				clk_disable(dev->hs_pclk);
+		}
+
 		dev->start_host(xceiv->host, on);
+
 		if (!on && pdata->setup_gpio)
 			pdata->setup_gpio(USB_SWITCH_DISABLE);
 	}

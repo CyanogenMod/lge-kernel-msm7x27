@@ -168,6 +168,7 @@ struct msm_otg_platform_data {
 	enum se1_gate_state	se1_gating;
 	int			phy_reset_sig_inverted;
 	int			phy_can_powercollapse;
+	int			pclk_required_during_lpm;
 
 	int (*ldo_init) (int init);
 	int (*ldo_enable) (int enable);
