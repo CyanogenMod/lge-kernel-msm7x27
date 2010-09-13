@@ -968,9 +968,7 @@ static int vid_dec_ioctl(struct inode *inode, struct file *file,
 	switch (cmd) {
 	case VDEC_IOCTL_SET_CODEC:
 	{
-		struct vcd_property_hdr header;
 		enum vdec_codec vdec_codec;
-		struct vcd_property_meta_data_enable metdata_disable;
 		DBG("VDEC_IOCTL_SET_CODEC\n");
 		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
 			return -EFAULT;
@@ -981,18 +979,6 @@ static int vid_dec_ioctl(struct inode *inode, struct file *file,
 		result = vid_dec_set_codec(client_ctx, &vdec_codec);
 		if (!result)
 			return -EIO;
-		metdata_disable.meta_data_enable_flag = 0;
-		header.sz = sizeof(metdata_disable);
-		header.prop_id = VCD_I_METADATA_ENABLE;
-		vcd_status = vcd_set_property(client_ctx->vcd_handle,
-						  &header,
-						  (void *)&metdata_disable);
-		if (vcd_status) {
-			ERR("%s() : vcd_set_property Failed for"
-				"Meta Data Disable\n", __func__);
-			return -ENODEV;
-		}
-		DBG("Disabled Meta Data\n");
 		break;
 	}
 	case VDEC_IOCTL_SET_OUTPUT_FORMAT:
