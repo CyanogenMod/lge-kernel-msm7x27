@@ -68,6 +68,7 @@ struct smd_pkt_dev {
 	struct notifier_block nb;
 	int has_reset;
 	struct mutex has_reset_lock;
+	struct completion ch_allocated;
 
 } *smd_pkt_devp[NUM_SMD_PKT_PORTS];
 
@@ -410,11 +411,16 @@ static char *smd_ch_name[] = {
 	"LOOPBACK",
 };
 
-static DECLARE_COMPLETION(modem_loaded);
-
 static int smd_pkt_dummy_probe(struct platform_device *pdev)
 {
-	complete_all(&modem_loaded);
+	int i;
+
+	for (i = 0; i < NUM_SMD_PKT_PORTS; i++) {
+		if (!strcmp(pdev->name, smd_ch_name[i])) {
+			complete_all(&smd_pkt_devp[i]->ch_allocated);
+			break;
+		}
+	}
 	return 0;
 }
 
@@ -462,8 +468,9 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		 * Wait for a packet channel to be allocated so we know
 		 * the modem is ready enough.
 		 */
-		r = wait_for_completion_interruptible_timeout(&modem_loaded,
-				msecs_to_jiffies(60000));
+		r = wait_for_completion_interruptible_timeout(
+				&smd_pkt_devp->ch_allocated,
+				msecs_to_jiffies(120000));
 		if (r == 0) {
 			pr_err("Timed out waiting for SMD channel\n");
 			r = -ETIMEDOUT;
@@ -596,6 +603,7 @@ static int __init smd_pkt_init(void)
 		mutex_init(&smd_pkt_devp[i]->ch_lock);
 		mutex_init(&smd_pkt_devp[i]->rx_lock);
 		mutex_init(&smd_pkt_devp[i]->tx_lock);
+		init_completion(&smd_pkt_devp[i]->ch_allocated);
 
 		cdev_init(&smd_pkt_devp[i]->cdev, &smd_pkt_fops);
 		smd_pkt_devp[i]->cdev.owner = THIS_MODULE;
