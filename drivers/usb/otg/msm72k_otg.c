@@ -531,11 +531,14 @@ static int msm_otg_set_clk(struct otg_transceiver *xceiv, int on)
 static void msm_otg_start_peripheral(struct otg_transceiver *xceiv, int on)
 {
 	struct msm_otg *dev = container_of(xceiv, struct msm_otg, otg);
+	struct msm_otg_platform_data *pdata = dev->pdata;
 
 	if (!xceiv->gadget)
 		return;
 
 	if (on) {
+		if (pdata->setup_gpio)
+			pdata->setup_gpio(USB_SWITCH_PERIPHERAL);
 		/* vote for minimum dma_latency to prevent idle
 		 * power collapse(pc) while running in peripheral mode.
 		 */
@@ -545,6 +548,8 @@ static void msm_otg_start_peripheral(struct otg_transceiver *xceiv, int on)
 		atomic_set(&dev->chg_type, USB_CHG_TYPE__INVALID);
 		usb_gadget_vbus_disconnect(xceiv->gadget);
 		otg_pm_qos_update_latency(dev, 0);
+		if (pdata->setup_gpio)
+			pdata->setup_gpio(USB_SWITCH_DISABLE);
 	}
 }
 
@@ -559,10 +564,10 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 	if (dev->start_host) {
 		/* Some targets, e.g. ST1.5, use GPIO to choose b/w connector */
 		if (on && pdata->setup_gpio)
-			pdata->setup_gpio(on);
+			pdata->setup_gpio(USB_SWITCH_HOST);
 		dev->start_host(xceiv->host, on);
 		if (!on && pdata->setup_gpio)
-			pdata->setup_gpio(on);
+			pdata->setup_gpio(USB_SWITCH_DISABLE);
 	}
 }
 
@@ -2368,6 +2373,8 @@ free_otg_irq:
 free_ldo_enable:
 	if (dev->pdata->ldo_enable)
 		dev->pdata->ldo_enable(0);
+	if (dev->pdata->setup_gpio)
+		dev->pdata->setup_gpio(USB_SWITCH_DISABLE);
 free_ldo_init:
 	if (dev->pdata->ldo_init)
 		dev->pdata->ldo_init(0);
@@ -2413,6 +2420,9 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &msm_otg_attr_grp);
 	destroy_workqueue(dev->wq);
 	wake_lock_destroy(&dev->wlock);
+
+	if (dev->pdata->setup_gpio)
+		dev->pdata->setup_gpio(USB_SWITCH_DISABLE);
 
 	if (dev->pdata->ldo_enable)
 		dev->pdata->ldo_enable(0);
