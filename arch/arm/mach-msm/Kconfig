@@ -63,6 +63,7 @@ config ARCH_MSM8X60
 	select MSM_DIRECT_SCLK_ACCESS
 	select MSM_RPM
 	select MSM_XO
+	select MSM_WATCHDOG
 
 endchoice
 
@@ -1198,4 +1199,14 @@ config MSM_V2_TLMM
 config MSM_BUS_SCALING
 	bool "Bus scaling driver"
 	default n
+
+config MSM_WATCHDOG
+	bool "MSM Watchdog Support"
+	depends on ARCH_MSM8X60
+	help
+		This enables the watchdog as is present on 8x60. Currently we use
+		core 0's watchdog, and reset the entire SoC if it times out. It does
+		not run during the bootup process, so it will not catch any early
+		lockups.
+
 endif
