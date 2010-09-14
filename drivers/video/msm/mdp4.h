@@ -445,10 +445,6 @@ void mdp_dmap_vsync_set(int enable);
 int mdp_dmap_vsync_get(void);
 #endif
 
-#ifdef CONFIG_DEBUG_FS
-int mdp4_debugfs_init(void);
-#endif
-
 int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req);
 
 #endif /* MDP_H */
