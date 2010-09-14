@@ -2545,16 +2545,6 @@ config FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	  .
 	  .
 
-config FB_MSM_TVOUT_NTSC
-	bool
-	select FB_MSM_TVOUT
-	default n
-
-config FB_MSM_TVOUT_PAL
-	bool
-	select FB_MSM_TVOUT
-	default n
-
 choice
 	depends on  (FB_MSM_MDP22 || FB_MSM_MDP31 || FB_MSM_MDP40)
 	prompt "TVOut Region"
@@ -2562,33 +2552,53 @@ choice
 
 config FB_MSM_TVOUT_NTSC_M
 	bool "NTSC M"
-	select FB_MSM_TVOUT_NTSC
+	select FB_MSM_TVOUT
+        select FB_MSM_EXT_INTERFACE_COMMON
 	---help---
 	  Support for NTSC M region (North American and Korea)
+          .
+          .
+          .
 
 config FB_MSM_TVOUT_NTSC_J
-	select FB_MSM_TVOUT_NTSC
 	bool "NTSC J"
+	select FB_MSM_TVOUT
+        select FB_MSM_EXT_INTERFACE_COMMON
 	---help---
 	  Support for NTSC J region (Japan)
+          .
+          .
+          .
 
 config FB_MSM_TVOUT_PAL_BDGHIN
-	select FB_MSM_TVOUT_PAL
 	bool "PAL BDGHIN"
+	select FB_MSM_TVOUT
+        select FB_MSM_EXT_INTERFACE_COMMON
 	---help---
 	  Support for PAL BDGHIN region (Non-argentina PAL-N)
+          .
+          .
+          .
 
 config FB_MSM_TVOUT_PAL_M
-	select FB_MSM_TVOUT_PAL
 	bool "PAL M"
+	select FB_MSM_TVOUT
+        select FB_MSM_EXT_INTERFACE_COMMON
 	---help---
 	  Support for PAL M region
+          .
+          .
+          .
 
 config FB_MSM_TVOUT_PAL_N
-	select FB_MSM_TVOUT_PAL
 	bool "PAL N"
+	select FB_MSM_TVOUT
+        select FB_MSM_EXT_INTERFACE_COMMON
 	---help---
 	  Support for PAL N region (Argentina PAL-N)
+          .
+          .
+          .
 
 config FB_MSM_TVOUT_NONE
 	bool "NONE"
