@@ -3119,11 +3119,6 @@ static struct lcdc_platform_data dtv_pdata = {
 	.lcdc_power_save   = dtv_panel_power,
 };
 
-static struct platform_device hdmi_adv7520_panel_device = {
-	.name   = "adv7520",
-	.id     = 0,
-};
-
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
        .inject_rx_on_wakeup = 1,
        .rx_to_inject = 0xFD,
@@ -4203,7 +4198,6 @@ static struct platform_device *devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&lcdc_sharp_panel_device,
-	&hdmi_adv7520_panel_device,
 	&android_pmem_kernel_ebi1_device,
 	&android_pmem_adsp_device,
 	&android_pmem_audio_device,
