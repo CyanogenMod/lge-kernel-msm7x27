@@ -39,6 +39,12 @@
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio_ids.h>
 
+#include <linux/gpio.h>
+#include <mach/gpio.h>
+#include <linux/dma-mapping.h>
+#include <linux/earlysuspend.h>
+#include <mach/dma.h>
+#include "../../../drivers/mmc/host/msm_sdcc.h"
 #include <mach/sdio_al.h>
 
 #define MODULE_NAME "sdio_al"
@@ -130,6 +136,8 @@
 
 /* Vendor Specific Command */
 #define SD_IO_RW_EXTENDED_QCOM 54
+
+#define TIME_TO_WAIT_US 500
 
 /** Channel priority */
 enum sdio_priority {
@@ -424,6 +432,7 @@ struct sdio_al {
 	int lpm_chan;
 	int is_ok_to_sleep;
 	unsigned long inactivity_time;
+	struct msm_gpio *mdm2ap_status;
 
 	struct timer_list timer;
 	u32 poll_delay_msec;
@@ -1365,6 +1374,7 @@ static int sdio_al_wake_up(u32 enable_wake_up_func, int is_host_claimed)
 	int ret = 0, i;
 	struct sdio_func *wk_func =
 		sdio_al->card->sdio_func[SDIO_AL_WAKEUP_FUNC-1];
+	unsigned long time_to_wait;
 
 	/* Wake up sequence */
 	wake_lock(&sdio_al->wake_lock);
@@ -1372,6 +1382,22 @@ static int sdio_al_wake_up(u32 enable_wake_up_func, int is_host_claimed)
 
 	if (!is_host_claimed)
 		sdio_claim_host(wk_func);
+
+	pr_err(MODULE_NAME ":Turn clock on\n");
+	msmsdcc_set_pwrsave(sdio_al->card->host, 0);
+	/* Poll the GPIO */
+	time_to_wait = jiffies + msecs_to_jiffies(100);
+	while (time_before(jiffies, time_to_wait)) {
+			pr_err(MODULE_NAME ":GPIO (%d)=%d\n",
+			       GPIO_PIN(sdio_al->mdm2ap_status->gpio_cfg),
+			       gpio_get_value(GPIO_PIN(
+					sdio_al->mdm2ap_status->gpio_cfg)));
+			if (gpio_get_value(GPIO_PIN(
+					sdio_al->mdm2ap_status->gpio_cfg)))
+				break;
+			udelay(TIME_TO_WAIT_US);
+	}
+
 	if (enable_wake_up_func) {
 		/* Enable Wake up Function */
 		ret = sdio_al_enable_func_retry(wk_func, "wakeup func");
@@ -1406,6 +1432,9 @@ static int sdio_al_wake_up(u32 enable_wake_up_func, int is_host_claimed)
 	start_timer();
 
 	pr_info(MODULE_NAME "Finished Wake up sequence");
+
+	msmsdcc_set_pwrsave(sdio_al->card->host, 1);
+	pr_err(MODULE_NAME ":Turn clock off\n");
 
 	return ret;
 }
@@ -1472,6 +1501,12 @@ static int sdio_al_setup(void)
 	}
 
 	func1 = card->sdio_func[0];
+
+	ret = msm_gpios_request_enable(sdio_al->mdm2ap_status, 1);
+	if (ret) {
+		pr_err(MODULE_NAME "Could not request GPIO\n");
+		return ret;
+	}
 
 	sdio_claim_host(sdio_al->card->sdio_func[0]);
 
@@ -1570,6 +1605,7 @@ static void sdio_al_tear_down(void)
 		sdio_disable_func(func1);
 		sdio_release_host(func1);
 		wake_unlock(&sdio_al->wake_lock);
+		msm_gpios_disable_free(sdio_al->mdm2ap_status, 1);
 	}
 }
 
@@ -2008,6 +2044,26 @@ int sdio_set_poll_time(struct sdio_channel *ch, int poll_delay_msec)
 }
 EXPORT_SYMBOL(sdio_set_poll_time);
 
+static int __init msm_sdio_al_probe(struct platform_device *pdev)
+{
+	if (sdio_al)
+		sdio_al->mdm2ap_status = pdev->dev.platform_data;
+	return 0;
+}
+
+static int __devexit msm_sdio_al_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static struct platform_driver msm_sdio_al_driver = {
+	.probe          = msm_sdio_al_probe,
+	.remove         = __exit_p(msm_sdio_al_remove),
+	.driver         = {
+		.name   = "msm_sdio_al",
+	},
+};
+
 /**
  *  Default platform device release function.
  *
@@ -2077,14 +2133,15 @@ static void mmc_remove(struct mmc_card *card)
 	#endif
 
 	pr_info(MODULE_NAME ":sdio card removed.\n");
+	platform_driver_unregister(&msm_sdio_al_driver);
 }
 
 static struct mmc_driver mmc_driver = {
 	.drv		= {
 		.name   = "sdio_al",
 	},
-	.probe  	= mmc_probe,
-	.remove 	= mmc_remove,
+	.probe		= mmc_probe,
+	.remove		= mmc_remove,
 };
 
 /**
@@ -2111,8 +2168,19 @@ static int __init sdio_al_init(void)
 
 	set_default_channels_config();
 
-	ret = mmc_register_driver(&mmc_driver);
+	ret = platform_driver_register(&msm_sdio_al_driver);
+	if (ret) {
+		pr_err(MODULE_NAME ": platform_driver_register failed: %d\n",
+		       ret);
+		goto exit;
+	}
 
+	ret = mmc_register_driver(&mmc_driver);
+	if (ret)
+		pr_err(MODULE_NAME ": mmc_register_driver failed: %d\n", ret);
+exit:
+	if (ret)
+		kfree(sdio_al);
 	return ret;
 }
 
