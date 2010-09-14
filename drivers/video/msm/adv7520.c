@@ -666,7 +666,7 @@ static int __init adv7520_init(void)
 		goto init_exit;
 	}
 
-	if (machine_is_msm7x30_surf()) {
+	if (machine_is_msm7x30_surf() || machine_is_msm8x55_surf()) {
 		short *hdtv_mux = (short *)ioremap(0x8e000170 , 0x100);
 		*hdtv_mux++  = 0x020b;
 		*hdtv_mux  = 0x8000;
