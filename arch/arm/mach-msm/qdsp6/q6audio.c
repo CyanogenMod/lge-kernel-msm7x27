@@ -1417,7 +1417,8 @@ int q6audio_set_rx_volume(int level)
 
 static void do_rx_routing(uint32_t device_id, uint32_t acdb_id)
 {
-	if (device_id == audio_rx_device_id) {
+	if (device_id == audio_rx_device_id &&
+		audio_rx_path_id == q6_device_to_path(device_id, acdb_id)) {
 		if (acdb_id != rx_acdb) {
 			audio_update_acdb(device_id, acdb_id);
 			qdsp6_devchg_notify(ac_control, ADSP_AUDIO_RX_DEVICE, device_id);
@@ -1440,7 +1441,8 @@ static void do_rx_routing(uint32_t device_id, uint32_t acdb_id)
 
 static void do_tx_routing(uint32_t device_id, uint32_t acdb_id)
 {
-	if (device_id == audio_tx_device_id) {
+	if (device_id == audio_tx_device_id &&
+		audio_tx_path_id == q6_device_to_path(device_id, acdb_id)) {
 		if (acdb_id != tx_acdb) {
 			audio_update_acdb(device_id, acdb_id);
 			qdsp6_devchg_notify(ac_control, ADSP_AUDIO_TX_DEVICE, device_id);
