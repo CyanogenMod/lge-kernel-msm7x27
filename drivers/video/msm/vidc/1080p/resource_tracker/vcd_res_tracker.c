@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
 #include <mach/internal_power_rail.h>
 #include <mach/clk.h>
 #include <mach/msm_reqs.h>
@@ -68,6 +69,11 @@ static u32 res_trk_disable_pwr_rail(void)
 		regulator_put(resource_context.footswitch);
 	}
 	resource_context.rail_enabled = 0;
+	if (pm_runtime_put(resource_context.device) < 0) {
+		VCDRES_MSG_ERROR("Error : pm_runtime_put failed");
+		mutex_unlock(&resource_context.lock);
+		return false;
+	}
 	mutex_unlock(&resource_context.lock);
 	return true;
 }
@@ -162,6 +168,11 @@ static u32 res_trk_enable_pwr_rail(void)
 	if (clock_enabled == 1) {
 		mutex_unlock(&resource_context.lock);
 		return true;
+	}
+	if (pm_runtime_get(resource_context.device) < 0) {
+		VCDRES_MSG_ERROR("Error : pm_runtime_get failed");
+		mutex_unlock(&resource_context.lock);
+		return false;
 	}
 	if (!resource_context.rail_enabled) {
 		resource_context.vcodec_clk = clk_get(resource_context.device,

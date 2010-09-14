@@ -34,6 +34,7 @@
 #include <linux/delay.h>
 #include <mach/internal_power_rail.h>
 #include <mach/clk.h>
+#include <linux/pm_runtime.h>
 
 #include "vcd_api.h"
 #include "vidc_init_internal.h"
@@ -150,6 +151,8 @@ static int __init vidc_720p_probe(struct platform_device *pdev)
 		ERR("%s: create workque failed\n", __func__);
 		return -ENOMEM;
 	}
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 	return 0;
 }
 
@@ -159,15 +162,34 @@ static int __devexit vidc_720p_remove(struct platform_device *pdev)
 		ERR("Invalid plaform device ID = %d\n", pdev->id);
 		return -EINVAL;
 	}
+	pm_runtime_disable(&pdev->dev);
+
 	return 0;
 }
 
+static int vidc_runtime_suspend(struct device *dev)
+{
+	dev_dbg(dev, "pm_runtime: suspending...\n");
+	return 0;
+}
+
+static int vidc_runtime_resume(struct device *dev)
+{
+	dev_dbg(dev, "pm_runtime: resuming...\n");
+	return 0;
+}
+
+static const struct dev_pm_ops vidc_dev_pm_ops = {
+	.runtime_suspend = vidc_runtime_suspend,
+	.runtime_resume = vidc_runtime_resume,
+};
 
 static struct platform_driver msm_vidc_720p_platform_driver = {
 	.probe = vidc_720p_probe,
 	.remove = vidc_720p_remove,
 	.driver = {
-				.name = "msm_vidc",
+		.name = "msm_vidc",
+		.pm   = &vidc_dev_pm_ops,
 	},
 };
 
