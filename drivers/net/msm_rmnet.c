@@ -28,6 +28,7 @@
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/wakelock.h>
+#include <linux/platform_device.h>
 #include <linux/if_arp.h>
 #include <linux/msm_rmnet.h>
 
@@ -36,6 +37,7 @@
 #endif
 
 #include <mach/msm_smd.h>
+#include <mach/peripheral-loader.h>
 
 /* XXX should come from smd headers */
 #define SMD_PORT_ETHER0 11
@@ -48,6 +50,8 @@ static const char *ch_name[3] = {
 	"DATA6",
 	"DATA7",
 };
+
+static struct completion *port_complete[3];
 
 struct rmnet_private
 {
@@ -65,6 +69,10 @@ struct rmnet_private
 	spinlock_t lock;
 	struct tasklet_struct tsklt;
 	u32 operation_mode;    /* IOCTL specified mode (protocol, QoS header) */
+	struct platform_driver pdrv;
+	struct completion complete;
+	void *pil;
+	struct mutex pil_lock;
 };
 
 /* Forward declaration */
@@ -353,6 +361,38 @@ static void _rmnet_resume_flow(unsigned long param)
 		spin_unlock_irqrestore(&p->lock, flags);
 }
 
+static void msm_rmnet_unload_modem(void *pil)
+{
+	if (pil)
+		pil_put(pil);
+}
+
+static void *msm_rmnet_load_modem(struct net_device *dev)
+{
+	void *pil;
+	int rc;
+	struct rmnet_private *p = netdev_priv(dev);
+
+	pil = pil_get("modem");
+	if (IS_ERR(pil))
+		pr_err("%s: modem load failed\n", __func__);
+	else {
+		rc = wait_for_completion_interruptible_timeout(
+			&p->complete,
+			msecs_to_jiffies(120 * 1000));
+		if (!rc)
+			rc = -ETIMEDOUT;
+		if (rc < 0) {
+			pr_err("%s: wait for rmnet port failed %d\n",
+			       __func__, rc);
+			msm_rmnet_unload_modem(pil);
+			pil = ERR_PTR(rc);
+		}
+	}
+
+	return pil;
+}
+
 static void smd_net_notify(void *_dev, unsigned event)
 {
 	struct rmnet_private *p = netdev_priv((struct net_device *)_dev);
@@ -376,7 +416,19 @@ static void smd_net_notify(void *_dev, unsigned event)
 static int __rmnet_open(struct net_device *dev)
 {
 	int r;
+	void *pil;
 	struct rmnet_private *p = netdev_priv(dev);
+
+	mutex_lock(&p->pil_lock);
+	if (!p->pil) {
+		pil = msm_rmnet_load_modem(dev);
+		if (IS_ERR(pil)) {
+			mutex_unlock(&p->pil_lock);
+			return PTR_ERR(pil);
+		}
+		p->pil = pil;
+	}
+	mutex_unlock(&p->pil_lock);
 
 	if (!p->ch) {
 		r = smd_open(p->chname, &p->ch, dev, smd_net_notify);
@@ -422,6 +474,15 @@ static int rmnet_stop(struct net_device *dev)
 
 	netif_stop_queue(dev);
 	tasklet_kill(&p->tsklt);
+
+	/* TODO: unload modem safely,
+	   currently, this causes unnecessary unloads */
+	/*
+	mutex_lock(&p->pil_lock);
+	msm_rmnet_unload_modem(p->pil);
+	p->pil = NULL;
+	mutex_unlock(&p->pil_lock);
+	*/
 
 	return 0;
 }
@@ -616,6 +677,18 @@ static void __init rmnet_setup(struct net_device *dev)
 	dev->watchdog_timeo = 1000; /* 10 seconds? */
 }
 
+static int msm_rmnet_smd_probe(struct platform_device *pdev)
+{
+	int i;
+
+	for (i = 0; i < 3; i++)
+		if (!strcmp(pdev->name, ch_name[i])) {
+			complete_all(port_complete[i]);
+			break;
+		}
+
+	return 0;
+}
 
 static int __init rmnet_init(void)
 {
@@ -656,11 +729,25 @@ static int __init rmnet_init(void)
 		p->wakeups_xmit = p->wakeups_rcv = 0;
 #endif
 
-		ret = register_netdev(dev);
+		init_completion(&p->complete);
+		port_complete[n] = &p->complete;
+		mutex_init(&p->pil_lock);
+		p->pdrv.probe = msm_rmnet_smd_probe;
+		p->pdrv.driver.name = ch_name[n];
+		p->pdrv.driver.owner = THIS_MODULE;
+		ret = platform_driver_register(&p->pdrv);
 		if (ret) {
 			free_netdev(dev);
 			return ret;
 		}
+
+		ret = register_netdev(dev);
+		if (ret) {
+			platform_driver_unregister(&p->pdrv);
+			free_netdev(dev);
+			return ret;
+		}
+
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
 		if (device_create_file(d, &dev_attr_timeout))
