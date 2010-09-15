@@ -74,10 +74,11 @@
 #define DDL_INVALID_CHANNEL_ID  ((u32)~0)
 #define DDL_INVALID_CODEC_TYPE ((u32)~0)
 
-#define DDL_ENC_REQ_IFRAME                      0x1
-#define DDL_ENC_CHANGE_IPERIOD                  0x2
-#define DDL_ENC_CHANGE_BITRATE                  0x4
-#define DDL_ENC_CHANGE_FRAMERATE                0x8
+#define DDL_ENC_REQ_IFRAME                      0x01
+#define DDL_ENC_CHANGE_IPERIOD                  0x02
+#define DDL_ENC_CHANGE_BITRATE                  0x04
+#define DDL_ENC_CHANGE_FRAMERATE                0x08
+#define DDL_ENC_CHANGE_CIR                      0x10
 
 #define DDL_DEC_REQ_OUTPUT_FLUSH                0x1
 

@@ -301,6 +301,11 @@ void ddl_encode_dynamic_property(struct ddl_client_context *ddl,
 		enc_param_change |= VIDC_720P_ENC_BITRATE_CHANGE;
 		encoder->dynamic_prop_change &= ~(DDL_ENC_CHANGE_BITRATE);
 	}
+	if ((encoder->dynamic_prop_change & DDL_ENC_CHANGE_CIR)) {
+		vidc_720p_encode_set_intra_refresh_mb_number(
+			encoder->intra_refresh.cir_mb_number);
+		encoder->dynamic_prop_change &= ~(DDL_ENC_CHANGE_CIR);
+	}
 	if ((encoder->dynamic_prop_change & DDL_ENC_CHANGE_IPERIOD)) {
 		vidc_720p_encode_set_i_period
 			(encoder->i_period.p_frames);
