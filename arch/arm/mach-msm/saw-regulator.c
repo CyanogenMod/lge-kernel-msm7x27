@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
+#include <linux/mfd/pmic8901.h>
 
 #include "spm.h"
 #include "saw-regulator.h"
@@ -43,10 +44,53 @@
 #define SMPS_BAND_3_VMAX		3300000
 #define SMPS_BAND_3_VSTEP		50000
 
+#define IS_PMIC_8901_V1(rev)		((rev) == PM_8901_REV_1p0 || \
+					 (rev) == PM_8901_REV_1p1)
+
+#define PMIC_8901_V1_SCALE(uV)		((((uV) - 62100) * 23) / 25)
+
+/*
+ * This defines what the application processor believes the boot loader
+ * has set the processor core voltages to (in uV).  This is needed because the
+ * saw regulator must be initialized before SSBI is available, meaning that
+ * the revision of the PMIC 8901 cannot be read when saw_set_voltage is first
+ * called.
+ */
+#define BOOT_LOADER_CORE_VOLTAGE	1200000
+
+static int pmic8901_rev;
+
 static int saw_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 {
 	int rc;
 	u8 vlevel, band;
+
+	/*
+	 * Scale down setpoint for PMIC 8901 v1 as it outputs a voltage
+	 * that is ~10% higher than the setpoint for SMPS regulators
+	 */
+	if (pmic8901_rev <= 0)
+		pmic8901_rev = pm8901_rev(NULL);
+
+	if (pmic8901_rev < 0) {
+		/*
+		 * If the PMIC 8901 revision value is unavailable, then trust
+		 * the value set by the bootloader if it falls in the range:
+		 * [min_uV, max_uV].
+		 */
+		if (BOOT_LOADER_CORE_VOLTAGE >= min_uV &&
+		    BOOT_LOADER_CORE_VOLTAGE <= max_uV)
+			return 0;
+		else {
+			pr_err("%s: PMIC 8901 revision unavailable and expected"
+			       " bootloader core voltage: %d not in set point "
+			       "range: %d to %d\n", __func__,
+			       BOOT_LOADER_CORE_VOLTAGE, min_uV, max_uV);
+			return -ENODEV;
+		}
+
+	} else if (IS_PMIC_8901_V1(pmic8901_rev))
+		min_uV = PMIC_8901_V1_SCALE(min_uV);
 
 	if (min_uV < SMPS_BAND_2_VMIN) {
 		vlevel = ((min_uV - SMPS_BAND_1_VMIN) / SMPS_BAND_1_VSTEP);
