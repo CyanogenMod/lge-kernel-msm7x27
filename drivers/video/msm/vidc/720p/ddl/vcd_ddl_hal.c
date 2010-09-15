@@ -800,10 +800,8 @@ u32 ddl_decode_set_buffers(struct ddl_client_context *ddl)
 
 	if (comv_buf_no) {
 		comv_buf_size *= (comv_buf_no *
-				    (((decoder->client_frame_size.
-				     width + 15) >> 4)) *
-				    (((decoder->client_frame_size.
-				      height + 15) >> 4) + 1));
+			(decoder->client_frame_size.stride >> 4) *
+			((decoder->client_frame_size.scan_lines >> 4) + 1));
 		ddl_pmem_alloc(&decoder->dpb_comv_buffer, comv_buf_size,
 			       DDL_LINEAR_BUFFER_ALIGN_BYTES);
 		if (!decoder->dpb_comv_buffer.virtual_base_addr) {
