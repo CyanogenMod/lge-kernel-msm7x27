@@ -861,6 +861,37 @@ static int pdev_list_cnt;
 static int mdp_resource_initialized;
 static struct msm_panel_common_pdata *mdp_pdata;
 
+#ifdef CONFIG_ARCH_MSM7X30
+uint32 mdp_revision;
+
+/*
+ * mdp_revision:
+ * 0 == V1
+ * 1 == V2
+ * 2 == V2.1
+ *
+ */
+void mdp_hw_version(void)
+{
+	char *cp;
+	uint32 *hp;
+
+	cp = (char *)ioremap(0xac001000, 0x400);/* tlmm gpio-1 shadow */
+
+	if (cp == NULL)
+		return;
+
+	hp = (uint32 *)(cp + 0x270);	/* HW_REVISION_NUMBER */
+	mdp_revision = *hp;
+	iounmap(cp);
+
+	mdp_revision >>= 28;	/* bit 31:28 */
+	mdp_revision &= 0x0f;
+
+	printk(KERN_INFO "%s: mdp_revision=%x\n", __func__, mdp_revision);
+}
+#endif
+
 static int mdp_irq_clk_setup(void)
 {
 	int ret;
@@ -934,6 +965,9 @@ static int mdp_probe(struct platform_device *pdev)
 #ifdef CONFIG_FB_MSM_MDP40
 		mdp4_hw_init();
 		mdp4_fetch_cfg(clk_get_rate(mdp_clk));
+#ifdef CONFIG_ARCH_MSM7X30
+		mdp_hw_version();
+#endif
 #else
 		mdp_hw_init();
 #endif

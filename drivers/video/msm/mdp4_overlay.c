@@ -1238,24 +1238,30 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		return -ERANGE;
 	}
 
-	/*  non integer down saceling ratio  smaller than 1/4
-	 *  is not supportted
-	 */
-	if (req->src_rect.h > (req->dst_rect.h * 4)) {
-		if (req->src_rect.h % req->dst_rect.h) { /* need integer */
-			mdp4_stat.err_scale++;
-			printk(KERN_ERR "mpd_overlay_req2pipe: need integer (h)!\n");
-			return -ERANGE;
+#ifdef CONFIG_ARCH_MSM7X30
+	if (mdp_revision == MDP4_HALCYON_V1) {
+		/*  non integer down saceling ratio  smaller than 1/4
+		 *  is not supportted
+		 */
+		if (req->src_rect.h > (req->dst_rect.h * 4)) {
+			if (req->src_rect.h % req->dst_rect.h) {
+				mdp4_stat.err_scale++;
+				printk(KERN_ERR "mpd_overlay_req2pipe: \
+						need integer (h)!\n");
+				return -ERANGE;
+			}
 		}
-	}
 
-	if (req->src_rect.w > (req->dst_rect.w * 4)) {
-		if (req->src_rect.w % req->dst_rect.w) { /* need integer */
-			mdp4_stat.err_scale++;
-			printk(KERN_ERR "mpd_overlay_req2pipe: need integer (w)!\n");
-			return -ERANGE;
+		if (req->src_rect.w > (req->dst_rect.w * 4)) {
+			if (req->src_rect.w % req->dst_rect.w) {
+				mdp4_stat.err_scale++;
+				printk(KERN_ERR "mpd_overlay_req2pipe: \
+						need integer (w)!\n");
+				return -ERANGE;
+			}
 		}
 	}
+#endif
 
 	ptype = mdp4_overlay_format2type(req->src.format);
 	if (ptype < 0) {
