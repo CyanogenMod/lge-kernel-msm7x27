@@ -114,6 +114,17 @@ struct pm8901_vreg {
 	struct regulator_dev	*rdev;
 };
 
+/*
+ * These are used to compensate for the PMIC 8901 v1 FTS regulators which
+ * output ~10% higher than the programmed set point.
+ */
+#define IS_PMIC_8901_V1(rev)		((rev) == PM_8901_REV_1p0 || \
+					 (rev) == PM_8901_REV_1p1)
+
+#define PMIC_8901_V1_SCALE(uV)		((((uV) - 62100) * 23) / 25)
+
+#define PMIC_8901_V1_SCALE_INV(uV)	(((uV) * 25) / 23 + 62100)
+
 #define LDO(_id, _ctrl_addr, _pmr_addr, _test_addr, _is_nmos) \
 	[_id] = { \
 		.ctrl_addr = _ctrl_addr, \
@@ -447,6 +458,9 @@ static int pm8901_smps_set_voltage(struct regulator_dev *dev,
 	int rc;
 	u8 val, band;
 
+	if (IS_PMIC_8901_V1(pm8901_rev(chip)))
+		min_uV = PMIC_8901_V1_SCALE(min_uV);
+
 	if (min_uV < SMPS_BAND_2_UV_MIN) {
 		val = ((min_uV - SMPS_BAND_1_UV_MIN) / SMPS_BAND_1_UV_STEP);
 		band = SMPS_VCTRL_BAND_1;
@@ -470,17 +484,24 @@ static int pm8901_smps_set_voltage(struct regulator_dev *dev,
 static int pm8901_smps_get_voltage(struct regulator_dev *dev)
 {
 	struct pm8901_vreg *vreg = rdev_get_drvdata(dev);
+	struct pm8901_chip *chip = dev_get_drvdata(dev->dev.parent);
 	u8 vprog, band;
+	int ret = 0;
 
 	vprog = vreg->ctrl_reg & SMPS_VCTRL_VPROG_MASK;
 	band = vreg->ctrl_reg & SMPS_VCTRL_BAND_MASK;
 
 	if (band == SMPS_VCTRL_BAND_1)
-		return vprog * SMPS_BAND_1_UV_STEP + SMPS_BAND_1_UV_MIN;
+		ret = vprog * SMPS_BAND_1_UV_STEP + SMPS_BAND_1_UV_MIN;
 	else if (band == SMPS_VCTRL_BAND_2)
-		return vprog * SMPS_BAND_2_UV_STEP + SMPS_BAND_2_UV_MIN;
+		ret = vprog * SMPS_BAND_2_UV_STEP + SMPS_BAND_2_UV_MIN;
 	else
-		return vprog * SMPS_BAND_3_UV_STEP + SMPS_BAND_3_UV_MIN;
+		ret = vprog * SMPS_BAND_3_UV_STEP + SMPS_BAND_3_UV_MIN;
+
+	if (IS_PMIC_8901_V1(pm8901_rev(chip)))
+		ret = PMIC_8901_V1_SCALE_INV(ret);
+
+	return ret;
 }
 
 static struct regulator_ops pm8901_ldo_ops = {
