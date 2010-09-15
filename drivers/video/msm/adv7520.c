@@ -307,12 +307,6 @@ static int adv7520_power_on(struct platform_device *pdev)
 
 	hdmi_common_state->dev = &pdev->dev;
 	if (mfd != NULL) {
-		if (!hdmi_common_state->uevent_kobj) {
-			int ret = hdmi_common_state_create(pdev);
-			if (ret)
-				return ret;
-		}
-
 		DEV_INFO("adv7520_power: ON (%dx%d %d)\n",
 			mfd->var_xres, mfd->var_yres, mfd->var_pixclock);
 		hdmi_common_get_video_format_from_drv_data(mfd);
@@ -592,6 +586,8 @@ static int __devinit
 adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int rc;
+	struct platform_device *fb_dev;
+
 	dd = kzalloc(sizeof *dd, GFP_KERNEL);
 	if (!dd) {
 		rc = -ENOMEM;
@@ -618,7 +614,14 @@ adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
 #ifdef HDCP_ENABLE
 	INIT_WORK(&hdcp_handle_work, adv7520_hdcp_enable);
 #endif
-	msm_fb_add_device(&hdmi_device);
+	fb_dev = msm_fb_add_device(&hdmi_device);
+	if (fb_dev) {
+		rc = hdmi_common_state_create(fb_dev);
+		if (rc)
+			goto probe_free;
+	} else
+		DEV_ERR("adv7520_probe: failed to add fb device\n");
+
 	return 0;
 
 probe_free:
