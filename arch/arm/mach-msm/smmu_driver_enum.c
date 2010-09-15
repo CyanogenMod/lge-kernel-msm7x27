@@ -209,7 +209,7 @@ int smmu_driver_probe(struct platform_device *pdev)
 		mb();
 
 		if (GET_IDR((unsigned long) regs_base) == 0) {
-			pr_err("IDR reads as 0\n");
+			pr_err("SMMU IDR reads as 0\n");
 			goto fail_nodev;
 		}
 
@@ -280,23 +280,20 @@ static int ctx_driver_probe(struct platform_device *pdev)
 	struct smmu_driver *drv = NULL;
 	int i;
 	if (!c) {
-		pr_err("no platform data defined\n");
-		goto fail;
+		pr_err("No platform data defined\n");
+		return -ENODEV;
 	}
 
 	printk(KERN_INFO "Probing SMMU context %s with number %d\n", c->name,
 	       c->num);
-	if (!pdev->dev.parent) {
-		pr_err("context has no parent\n");
-		goto fail;
-	}
+
+	if (!pdev->dev.parent)
+		return -ENODEV;
 
 	drv = dev_get_drvdata(pdev->dev.parent);
 
-	if (!drv) {
-		pr_err("context's parent has no drvdata\n");
-		goto fail;
-	}
+	if (!drv)
+		return -ENODEV;
 
 	printk(KERN_INFO "Programming M2V tables for context at %08x\n",
 	       (unsigned int) drv->base);
@@ -324,8 +321,6 @@ static int ctx_driver_probe(struct platform_device *pdev)
 	}
 
 	return 0;
-fail:
-	return -1;
 }
 
 static int ctx_driver_remove(struct platform_device *pdev)
