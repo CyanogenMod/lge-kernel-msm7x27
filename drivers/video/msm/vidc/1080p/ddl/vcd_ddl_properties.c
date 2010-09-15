@@ -318,6 +318,9 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 		DDL_MSG_ERROR("Meta Data Interface is Not supported");
 		vcd_status = VCD_S_SUCCESS;
 		break;
+	case VCD_I_FRAME_RATE:
+		vcd_status = VCD_S_SUCCESS;
+		break;
 	default:
 		vcd_status = VCD_ERR_ILLEGAL_OP;
 		break;
