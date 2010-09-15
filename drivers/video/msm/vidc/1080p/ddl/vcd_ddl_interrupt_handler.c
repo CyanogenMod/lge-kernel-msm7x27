@@ -600,6 +600,11 @@ static u32 ddl_eos_frame_done_callback(
 		DDL_MSG_LOW("EOS_FRM_RUN_DONE");
 		ddl->cmd_state = DDL_CMD_INVALID;
 		vidc_1080p_get_display_frame_result(dec_disp_info);
+		if (decoder->flush_eos_case) {
+			dec_disp_info->display_status =
+			VIDC_1080P_DISPLAY_STATUS_DPB_EMPTY;
+			decoder->flush_eos_case = false;
+		}
 		ddl_vidc_decode_dynamic_property(ddl, false);
 		if (dec_disp_info->display_status ==
 			VIDC_1080P_DISPLAY_STATUS_DPB_EMPTY) {
