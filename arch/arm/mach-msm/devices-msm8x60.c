@@ -1207,7 +1207,6 @@ void __init msm_clock_temp_force_on(void)
 	 * they are turned on here and left on. Once their device
 	 * drivers implement support for them, they must be removed
 	 * from this list. */
-	clk_enable(clk_get(NULL, "vcodec_pclk"));
 }
 
 struct clk msm_clocks_8x60[] = {
