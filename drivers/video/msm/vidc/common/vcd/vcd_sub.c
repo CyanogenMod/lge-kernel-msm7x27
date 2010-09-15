@@ -2694,8 +2694,7 @@ u32 vcd_calculate_frame_delta(
 	 struct vcd_frame_data *frame)
 {
 	u32 frm_delta;
-	u64 temp, temp1;
-	u64 max = ~((u64)0);
+	u64 temp, max = ~((u64)0);
 
 	if (frame->time_stamp >= cctxt->status.prev_ts)
 		temp = frame->time_stamp - cctxt->status.prev_ts;
@@ -2706,22 +2705,17 @@ u32 vcd_calculate_frame_delta(
 	VCD_MSG_LOW("Curr_ts=%lld  Prev_ts=%lld Diff=%llu",
 			frame->time_stamp, cctxt->status.prev_ts, temp);
 
-	temp = temp * cctxt->time_resoln;
-	temp = (temp + (VCD_TIMESTAMP_RESOLUTION >> 1));
-	temp1 = do_div(temp, VCD_TIMESTAMP_RESOLUTION);
+	temp *= cctxt->time_resoln;
+	(void)do_div(temp, VCD_TIMESTAMP_RESOLUTION);
 	frm_delta = temp;
-	VCD_MSG_LOW("temp1=%lld  temp=%lld", temp1, temp);
 	cctxt->status.time_elapsed += frm_delta;
 
-	temp = ((u64)cctxt->status.time_elapsed \
-			  * VCD_TIMESTAMP_RESOLUTION);
-	temp = (temp + (cctxt->time_resoln >> 1));
-	temp1 = do_div(temp, cctxt->time_resoln);
-
+	temp = (cctxt->status.time_elapsed * VCD_TIMESTAMP_RESOLUTION);
+	(void)do_div(temp, cctxt->time_resoln);
 	cctxt->status.prev_ts = cctxt->status.first_ts + temp;
 
-	VCD_MSG_LOW("Time_elapsed=%u, Drift=%llu, new Prev_ts=%lld",
-			cctxt->status.time_elapsed, temp1,
+	VCD_MSG_LOW("Time_elapsed=%llu, Drift=%llu, new Prev_ts=%lld",
+			cctxt->status.time_elapsed, temp,
 			cctxt->status.prev_ts);
 
 	return frm_delta;
