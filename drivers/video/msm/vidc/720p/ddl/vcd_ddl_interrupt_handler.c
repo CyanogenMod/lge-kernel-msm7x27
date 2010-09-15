@@ -471,7 +471,8 @@ static u32 ddl_decoder_frame_run_callback(struct ddl_context
 			return true;
 	}
 
-	if (dec_disp_info->disp_status ==  VIDC_720P_DISPLAY_ONLY) {
+	if (dec_disp_info->disp_status ==  VIDC_720P_DISPLAY_ONLY ||
+		dec_disp_info->disp_status ==  VIDC_720P_EMPTY_BUFFER) {
 		/* send the same input once again for decoding */
 		ddl_decode_frame_run(ddl);
 		/* client need to ignore the interrupt */

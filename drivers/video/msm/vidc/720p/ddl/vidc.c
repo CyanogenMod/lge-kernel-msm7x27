@@ -548,9 +548,10 @@ void vidc_720p_decode_bitstream_header(u32 ch_id,
 					u32 ext_buffer_end,
 					enum
 					vidc_720p_memory_access_method
-					memory_access_model)
+					memory_access_model,
+					u32 decode_order)
 {
-	VIDC_IO_OUT(REG_965480, 0x0);
+	VIDC_IO_OUT(REG_965480, decode_order);
 
 	VIDC_IO_OUT(REG_639999, 0x8080);
 
