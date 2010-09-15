@@ -124,56 +124,55 @@ void ddl_set_default_meta_data_hdr(struct ddl_client_context *ddl)
 				     ddl->channel_id);
 
 	hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_QCOMFILLER);
-	hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 1;
+	hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
 	hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
 	hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_QCOMFILLER;
 
 	hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_DATANONE);
-	hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 2;
-	hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 2;
-	hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_DATANONE;
+	hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+	hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
+	hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_OMX_DATANONE;
 
 	if (ddl->decoding) {
 		hdr_entry =
 		    ddl_metadata_hdr_entry(ddl, VCD_METADATA_QPARRAY);
-		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 3;
-		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 3;
+		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
 		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_QPARRAY;
 
 		hdr_entry =
 		    ddl_metadata_hdr_entry(ddl, VCD_METADATA_CONCEALMB);
-		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 4;
-		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 4;
-		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] =
-		    VCD_METADATA_CONCEALMB;
+		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
+		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_OMX_CONCEALMB;
 
 		hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_SEI);
-		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 5;
-		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 5;
+		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
 		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_SEI;
 
 		hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_VUI);
-		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 6;
-		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 6;
+		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
 		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_VUI;
 
 		hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_VC1);
-		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 7;
-		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 7;
+		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
 		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_VC1;
 
 		hdr_entry =
 		    ddl_metadata_hdr_entry(ddl, VCD_METADATA_PASSTHROUGH);
-		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 8;
-		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 8;
+		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
 		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] =
 		    VCD_METADATA_PASSTHROUGH;
 
 	} else {
 		hdr_entry =
 		    ddl_metadata_hdr_entry(ddl, VCD_METADATA_ENC_SLICE);
-		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 9;
-		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 9;
+		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
+		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
 		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] =
 		    VCD_METADATA_ENC_SLICE;
 	}
@@ -205,7 +204,8 @@ static u32 ddl_supported_metadata_flag(struct ddl_client_context *ddl)
 void ddl_set_default_metadata_flag(struct ddl_client_context *ddl)
 {
 	if (ddl->decoding)
-		ddl->codec_data.decoder.meta_data_enable_flag = 0;
+		ddl->codec_data.decoder.meta_data_enable_flag |=
+		VCD_METADATA_QCOMFILLER | VCD_METADATA_CONCEALMB;
 	else
 		ddl->codec_data.encoder.meta_data_enable_flag = 0;
 }
@@ -235,8 +235,7 @@ void ddl_set_default_decoder_metadata_buffer_size(
 	if (flag & VCD_METADATA_CONCEALMB) {
 		u32 num_of_mb =
 		    ((frame_size->width * frame_size->height) >> 8);
-		sz = DDL_METADATA_HDR_SIZE;
-		sz *= (4 * num_of_mb / 2);
+		sz = DDL_METADATA_HDR_SIZE + (num_of_mb >> 3);
 		DDL_METADATA_ALIGNSIZE(sz);
 		suffix += sz;
 	}
