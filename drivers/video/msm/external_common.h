@@ -15,17 +15,17 @@
  * 02110-1301, USA.
  *
  */
-#ifndef __HDMI_COMMON_H__
-#define __HDMI_COMMON_H__
+#ifndef __EXTERNAL_COMMON_H__
+#define __EXTERNAL_COMMON_H__
 
 #ifdef DEBUG
-#define DEV_DBG(args...)	pr_info("HDMI: " args)
+#define DEV_DBG(args...)	pr_info("EXT_INTERFACE: " args)
 #else
 #define DEV_DBG(args...)	(void)0
 #endif /* DEBUG */
-#define DEV_INFO(args...)	dev_info(hdmi_common_state->dev, args)
-#define DEV_WARN(args...)	dev_warn(hdmi_common_state->dev, args)
-#define DEV_ERR(args...)	dev_err(hdmi_common_state->dev, args)
+#define DEV_INFO(args...)	dev_info(external_common_state->dev, args)
+#define DEV_WARN(args...)	dev_warn(external_common_state->dev, args)
+#define DEV_ERR(args...)	dev_err(external_common_state->dev, args)
 
 /* all video formats defined by EIA CEA 861D */
 #define HDMI_VFRMT_640x480p60_4_3	0
@@ -191,7 +191,7 @@ struct hdmi_disp_mode_list_type {
 	uint32	num_of_elements;
 };
 
-struct hdmi_common_state_type {
+struct external_common_state_type {
 	boolean hpd_state;
 	boolean hdcp_active;
 	boolean hpd_feature_on;
@@ -206,8 +206,8 @@ struct hdmi_common_state_type {
 };
 
 /* The HDMI driver needs to initialize the common state. */
-extern struct hdmi_common_state_type *hdmi_common_state;
-extern struct mutex hdmi_common_state_hpd_mutex;
+extern struct external_common_state_type *external_common_state;
+extern struct mutex external_common_state_hpd_mutex;
 
 #define VFRMT_NOT_SUPPORTED(VFRMT) \
 	{VFRMT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FALSE}
@@ -220,12 +220,12 @@ extern struct mutex hdmi_common_state_hpd_mutex;
 
 int hdmi_common_read_edid(void);
 const char *video_format_2string(uint32 format);
-int hdmi_common_state_create(struct platform_device *pdev);
-void hdmi_common_state_remove(void);
+int external_common_state_create(struct platform_device *pdev);
+void external_common_state_remove(void);
 void hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd);
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_mode(uint32 mode);
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_supported_mode(
 	uint32 mode);
 void hdmi_common_init_panel_info(struct msm_panel_info *pinfo);
 
-#endif /* __HDMI_COMMON_H__ */
+#endif /* __EXTERNAL_COMMON_H__ */

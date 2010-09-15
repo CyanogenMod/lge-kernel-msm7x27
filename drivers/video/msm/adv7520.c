@@ -23,12 +23,12 @@
 #include <linux/completion.h>
 #include "msm_fb.h"
 
-#include "hdmi_common.h"
+#include "external_common.h"
 
 /* #define PORT_DEBUG */
 /* #define HDCP_ENABLE */
 
-static struct hdmi_common_state_type hdmi_common;
+static struct external_common_state_type hdmi_common;
 
 static struct i2c_client *hclient;
 
@@ -54,21 +54,21 @@ static unsigned int monitor_sense;
 /* Change HDMI state */
 static void change_hdmi_state(int online)
 {
-	if (!hdmi_common_state)
+	if (!external_common_state)
 		return;
 
-	mutex_lock(&hdmi_common_state_hpd_mutex);
-	hdmi_common_state->hpd_state = online;
-	mutex_unlock(&hdmi_common_state_hpd_mutex);
+	mutex_lock(&external_common_state_hpd_mutex);
+	external_common_state->hpd_state = online;
+	mutex_unlock(&external_common_state_hpd_mutex);
 
-	if (!hdmi_common_state->uevent_kobj)
+	if (!external_common_state->uevent_kobj)
 		return;
 
 	if (online)
-		kobject_uevent(hdmi_common_state->uevent_kobj,
+		kobject_uevent(external_common_state->uevent_kobj,
 			KOBJ_ONLINE);
 	else
-		kobject_uevent(hdmi_common_state->uevent_kobj,
+		kobject_uevent(external_common_state->uevent_kobj,
 			KOBJ_OFFLINE);
 	DEV_DBG("adv7520_uevent: %d\n", online);
 }
@@ -248,7 +248,7 @@ static int adv7520_read_edid_block(int block, uint8 *edid_buf)
 
 static void adv7520_read_edid(void)
 {
-	hdmi_common_state->read_edid_block = adv7520_read_edid_block;
+	external_common_state->read_edid_block = adv7520_read_edid_block;
 	hdmi_common_read_edid();
 }
 
@@ -305,7 +305,7 @@ static int adv7520_power_on(struct platform_device *pdev)
 	static bool init_done;
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
-	hdmi_common_state->dev = &pdev->dev;
+	external_common_state->dev = &pdev->dev;
 	if (mfd != NULL) {
 		DEV_INFO("adv7520_power: ON (%dx%d %d)\n",
 			mfd->var_xres, mfd->var_yres, mfd->var_pixclock);
@@ -603,7 +603,7 @@ adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
 
-	hdmi_common_state->dev = &client->dev;
+	external_common_state->dev = &client->dev;
 
 	/* Init real i2c_client */
 	hclient = client;
@@ -622,7 +622,7 @@ adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
 #endif
 	fb_dev = msm_fb_add_device(&hdmi_device);
 	if (fb_dev) {
-		rc = hdmi_common_state_create(fb_dev);
+		rc = external_common_state_create(fb_dev);
 		if (rc)
 			goto probe_free;
 	} else
@@ -661,8 +661,8 @@ static int __init adv7520_init(void)
 {
 	int rc;
 
-	hdmi_common_state = &hdmi_common;
-	hdmi_common_state->video_resolution = HDMI_VFRMT_1280x720p60_16_9;
+	external_common_state = &hdmi_common;
+	external_common_state->video_resolution = HDMI_VFRMT_1280x720p60_16_9;
 	HDMI_SETUP_LUT(640x480p60_4_3);
 	HDMI_SETUP_LUT(720x480p60_16_9);
 	HDMI_SETUP_LUT(1280x720p60_16_9);

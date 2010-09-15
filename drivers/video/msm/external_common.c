@@ -23,12 +23,12 @@
 #define DEBUG
 
 #include "msm_fb.h"
-#include "hdmi_common.h"
+#include "external_common.h"
 
-struct hdmi_common_state_type *hdmi_common_state;
-EXPORT_SYMBOL(hdmi_common_state);
-DEFINE_MUTEX(hdmi_common_state_hpd_mutex);
-EXPORT_SYMBOL(hdmi_common_state_hpd_mutex);
+struct external_common_state_type *external_common_state;
+EXPORT_SYMBOL(external_common_state);
+DEFINE_MUTEX(external_common_state_hpd_mutex);
+EXPORT_SYMBOL(external_common_state_hpd_mutex);
 
 struct hdmi_disp_mode_timing_type
 	hdmi_common_supported_video_mode_lut[HDMI_VFRMT_MAX] = {
@@ -165,8 +165,9 @@ static ssize_t hdmi_common_rda_video_mode(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
-		hdmi_common_state->video_resolution+1);
-	DEV_DBG("%s: '%d'\n", __func__, hdmi_common_state->video_resolution+1);
+		external_common_state->video_resolution+1);
+	DEV_DBG("%s: '%d'\n", __func__,
+			external_common_state->video_resolution+1);
 	return ret;
 }
 
@@ -192,14 +193,14 @@ static ssize_t hdmi_common_wta_video_mode(struct device *dev,
 	uint32 video_mode;
 	const struct hdmi_disp_mode_timing_type *disp_mode;
 
-	mutex_lock(&hdmi_common_state_hpd_mutex);
-	if (!hdmi_common_state->hpd_state) {
-		mutex_unlock(&hdmi_common_state_hpd_mutex);
+	mutex_lock(&external_common_state_hpd_mutex);
+	if (!external_common_state->hpd_state) {
+		mutex_unlock(&external_common_state_hpd_mutex);
 		DEV_INFO("%s: FAILED: display off or cable disconnected\n",
 			__func__);
 		return ret;
 	}
-	mutex_unlock(&hdmi_common_state_hpd_mutex);
+	mutex_unlock(&external_common_state_hpd_mutex);
 
 	video_mode = atoi(buf)-1;
 	disp_mode = hdmi_common_get_supported_mode(video_mode);
@@ -209,14 +210,14 @@ static ssize_t hdmi_common_wta_video_mode(struct device *dev,
 		return ret;
 	}
 
-	kobject_uevent(hdmi_common_state->uevent_kobj, KOBJ_OFFLINE);
+	kobject_uevent(external_common_state->uevent_kobj, KOBJ_OFFLINE);
 
-	hdmi_common_state->disp_mode_list.num_of_elements = 1;
-	hdmi_common_state->disp_mode_list.disp_mode_list[0] = video_mode;
+	external_common_state->disp_mode_list.num_of_elements = 1;
+	external_common_state->disp_mode_list.disp_mode_list[0] = video_mode;
 	DEV_DBG("%s: 'mode=%d %s' successful (sending OFF/ONLINE)\n", __func__,
 		video_mode, video_format_2string(video_mode));
 
-	kobject_uevent(hdmi_common_state->uevent_kobj, KOBJ_ONLINE);
+	kobject_uevent(external_common_state->uevent_kobj, KOBJ_ONLINE);
 	return ret;
 }
 
@@ -224,9 +225,9 @@ static ssize_t hdmi_common_rda_video_mode_str(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = snprintf(buf, PAGE_SIZE, "%s\n",
-		video_format_2string(hdmi_common_state->video_resolution));
+		video_format_2string(external_common_state->video_resolution));
 	DEV_DBG("%s: '%s'\n", __func__,
-		video_format_2string(hdmi_common_state->video_resolution));
+		video_format_2string(external_common_state->video_resolution));
 	return ret;
 }
 
@@ -237,10 +238,10 @@ static ssize_t hdmi_common_rda_edid_modes(struct device *dev,
 	int i;
 
 	buf[0] = 0;
-	if (hdmi_common_state->disp_mode_list.num_of_elements) {
-		uint32 *video_mode = hdmi_common_state->disp_mode_list
+	if (external_common_state->disp_mode_list.num_of_elements) {
+		uint32 *video_mode = external_common_state->disp_mode_list
 			.disp_mode_list;
-		for (i = 0; i < hdmi_common_state->disp_mode_list
+		for (i = 0; i < external_common_state->disp_mode_list
 			.num_of_elements; ++i) {
 			if (ret > 0)
 				ret += snprintf(buf+ret, PAGE_SIZE-ret, ",%d",
@@ -251,23 +252,23 @@ static ssize_t hdmi_common_rda_edid_modes(struct device *dev,
 		}
 	} else
 		ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
-			hdmi_common_state->video_resolution+1);
+			external_common_state->video_resolution+1);
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
 	ret += snprintf(buf+ret, PAGE_SIZE-ret, "\n");
 	return ret;
 }
 
-static ssize_t hdmi_common_rda_connected(struct device *dev,
+static ssize_t external_common_rda_connected(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	mutex_lock(&hdmi_common_state_hpd_mutex);
+	mutex_lock(&external_common_state_hpd_mutex);
 	ret = snprintf(buf, PAGE_SIZE, "%d\n",
-		hdmi_common_state->hpd_state);
+		external_common_state->hpd_state);
 	DEV_DBG("%s: '%d'\n", __func__,
-		hdmi_common_state->hpd_state);
-	mutex_unlock(&hdmi_common_state_hpd_mutex);
+		external_common_state->hpd_state);
+	mutex_unlock(&external_common_state_hpd_mutex);
 	return ret;
 }
 
@@ -275,9 +276,9 @@ static ssize_t hdmi_common_rda_hdcp(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
-		hdmi_common_state->hdcp_active);
+		external_common_state->hdcp_active);
 	DEV_DBG("%s: '%d'\n", __func__,
-		hdmi_common_state->hdcp_active);
+		external_common_state->hdcp_active);
 	return ret;
 }
 
@@ -285,11 +286,11 @@ static ssize_t hdmi_common_rda_hpd(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	if (hdmi_common_state->hpd_feature) {
+	if (external_common_state->hpd_feature) {
 		ret = snprintf(buf, PAGE_SIZE, "%d\n",
-			hdmi_common_state->hpd_feature_on);
+			external_common_state->hpd_feature_on);
 		DEV_DBG("%s: '%d'\n", __func__,
-			hdmi_common_state->hpd_feature_on);
+			external_common_state->hpd_feature_on);
 	} else {
 		ret = snprintf(buf, PAGE_SIZE, "-1\n");
 		DEV_DBG("%s: 'not supported'\n", __func__);
@@ -303,20 +304,20 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	int hpd = atoi(buf);
 
-	if (hdmi_common_state->hpd_feature) {
-		if (hpd == 0 && hdmi_common_state->hpd_feature_on) {
-			hdmi_common_state->hpd_feature(0);
-			hdmi_common_state->hpd_feature_on = 0;
+	if (external_common_state->hpd_feature) {
+		if (hpd == 0 && external_common_state->hpd_feature_on) {
+			external_common_state->hpd_feature(0);
+			external_common_state->hpd_feature_on = 0;
 			DEV_DBG("%s: '%d'\n", __func__,
-				hdmi_common_state->hpd_feature_on);
-		} else if (hpd == 1 && !hdmi_common_state->hpd_feature_on) {
-			hdmi_common_state->hpd_feature(1);
-			hdmi_common_state->hpd_feature_on = 1;
+				external_common_state->hpd_feature_on);
+		} else if (hpd == 1 && !external_common_state->hpd_feature_on) {
+			external_common_state->hpd_feature(1);
+			external_common_state->hpd_feature_on = 1;
 			DEV_DBG("%s: '%d'\n", __func__,
-				hdmi_common_state->hpd_feature_on);
+				external_common_state->hpd_feature_on);
 		} else {
 			DEV_DBG("%s: '%d' (unchanged)\n", __func__,
-				hdmi_common_state->hpd_feature_on);
+				external_common_state->hpd_feature_on);
 		}
 	} else {
 		DEV_DBG("%s: 'not supported'\n", __func__);
@@ -331,11 +332,12 @@ static DEVICE_ATTR(video_mode, S_IRUGO | S_IWUGO, hdmi_common_rda_video_mode,
 static DEVICE_ATTR(video_mode_str, S_IRUGO, hdmi_common_rda_video_mode_str,
 	NULL);
 static DEVICE_ATTR(edid_modes, S_IRUGO, hdmi_common_rda_edid_modes, NULL);
-static DEVICE_ATTR(connected, S_IRUGO, hdmi_common_rda_connected, NULL);
+static DEVICE_ATTR(connected, S_IRUGO, external_common_rda_connected, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUGO, hdmi_common_rda_hpd,
 	hdmi_common_wta_hpd);
 static DEVICE_ATTR(hdcp, S_IRUGO, hdmi_common_rda_hdcp, NULL);
-static struct attribute *hdmi_common_fs_attrs[] = {
+
+static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_video_mode.attr,
 	&dev_attr_video_mode_str.attr,
 	&dev_attr_edid_modes.attr,
@@ -344,12 +346,12 @@ static struct attribute *hdmi_common_fs_attrs[] = {
 	&dev_attr_hpd.attr,
 	NULL,
 };
-static struct attribute_group hdmi_common_fs_attr_group = {
-	.attrs = hdmi_common_fs_attrs,
+static struct attribute_group external_common_fs_attr_group = {
+	.attrs = external_common_fs_attrs,
 };
 
 /* create HDMI kobject and initialize */
-int hdmi_common_state_create(struct platform_device *pdev)
+int external_common_state_create(struct platform_device *pdev)
 {
 	int rc;
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
@@ -368,31 +370,31 @@ int hdmi_common_state_create(struct platform_device *pdev)
 	}
 
 	rc = sysfs_create_group(&mfd->fbi->dev->kobj,
-		&hdmi_common_fs_attr_group);
+		&external_common_fs_attr_group);
 	if (rc) {
 		DEV_ERR("%s: sysfs group creation failed, rc=%d\n", __func__,
 			rc);
 		return rc;
 	}
 
-	hdmi_common_state->uevent_kobj = &mfd->fbi->dev->kobj;
+	external_common_state->uevent_kobj = &mfd->fbi->dev->kobj;
 	DEV_ERR("%s: sysfs group %p\n", __func__,
-		hdmi_common_state->uevent_kobj);
+		external_common_state->uevent_kobj);
 
-	kobject_uevent(hdmi_common_state->uevent_kobj, KOBJ_ADD);
+	kobject_uevent(external_common_state->uevent_kobj, KOBJ_ADD);
 	DEV_DBG("%s: kobject_uevent(KOBJ_ADD)\n", __func__);
 	return 0;
 }
-EXPORT_SYMBOL(hdmi_common_state_create);
+EXPORT_SYMBOL(external_common_state_create);
 
-void hdmi_common_state_remove(void)
+void external_common_state_remove(void)
 {
-	if (hdmi_common_state->uevent_kobj)
-		sysfs_remove_group(hdmi_common_state->uevent_kobj,
-			&hdmi_common_fs_attr_group);
-	hdmi_common_state->uevent_kobj = NULL;
+	if (external_common_state->uevent_kobj)
+		sysfs_remove_group(external_common_state->uevent_kobj,
+			&external_common_fs_attr_group);
+	external_common_state->uevent_kobj = NULL;
 }
-EXPORT_SYMBOL(hdmi_common_state_remove);
+EXPORT_SYMBOL(external_common_state_remove);
 
 /* The Logic ID for HDMI TX Core. Currently only support 1 HDMI TX Core. */
 struct hdmi_edid_video_mode_property_type {
@@ -781,7 +783,7 @@ static void hdmi_edid_get_display_mode(const uint8 *data_buf,
 static int hdmi_common_read_edid_block(int block, uint8 *edid_buf)
 {
 	uint32 ndx, check_sum;
-	int status = hdmi_common_state->read_edid_block(block, edid_buf);
+	int status = external_common_state->read_edid_block(block, edid_buf);
 	if (status)
 		goto error;
 
@@ -831,8 +833,8 @@ int hdmi_common_read_edid(void)
 	/* EDID_BLOCK_SIZE[0x80] Each page size in the EDID ROM */
 	uint8 edid_buf[0x80 * 2];
 
-	memset(&hdmi_common_state->disp_mode_list, 0,
-		sizeof(hdmi_common_state->disp_mode_list));
+	memset(&external_common_state->disp_mode_list, 0,
+		sizeof(external_common_state->disp_mode_list));
 	memset(edid_buf, 0, sizeof(edid_buf));
 
 	status = hdmi_common_read_edid_block(0, edid_buf);
@@ -899,15 +901,15 @@ int hdmi_common_read_edid(void)
 		cea_extension_ver, vendor_id, ieee_reg_id);
 
 	hdmi_edid_get_display_mode(edid_buf,
-		&hdmi_common_state->disp_mode_list,
+		&external_common_state->disp_mode_list,
 		num_og_cea_blocks, short_desc);
 
 	return 0;
 
 error:
-	hdmi_common_state->disp_mode_list.num_of_elements = 1;
-	hdmi_common_state->disp_mode_list.disp_mode_list[0] =
-		hdmi_common_state->video_resolution;
+	external_common_state->disp_mode_list.num_of_elements = 1;
+	external_common_state->disp_mode_list.disp_mode_list[0] =
+		external_common_state->video_resolution;
 	return status;
 }
 EXPORT_SYMBOL(hdmi_common_read_edid);
@@ -946,14 +948,14 @@ void hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	if (hdmi_common_state->video_resolution != format)
+	if (external_common_state->video_resolution != format)
 		DEV_DBG("switching %s => %s", video_format_2string(
-			hdmi_common_state->video_resolution),
+			external_common_state->video_resolution),
 			video_format_2string(format));
 	else
 		DEV_DBG("resolution %s", video_format_2string(
-			hdmi_common_state->video_resolution));
-	hdmi_common_state->video_resolution = format;
+			external_common_state->video_resolution));
+	external_common_state->video_resolution = format;
 }
 EXPORT_SYMBOL(hdmi_common_get_video_format_from_drv_data);
 
@@ -982,7 +984,7 @@ void hdmi_common_init_panel_info(struct msm_panel_info *pinfo)
 {
 	const struct hdmi_disp_mode_timing_type *timing =
 		hdmi_common_get_supported_mode(
-		hdmi_common_state->video_resolution);
+		external_common_state->video_resolution);
 
 	if (timing == NULL)
 		return;
