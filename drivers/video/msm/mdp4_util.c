@@ -182,7 +182,7 @@ void mdp4_fetch_cfg(uint32 core_clk)
 	/* dma_p fetch config */
 	outpdw(MDP_BASE + 0x91004, dmap_data);
 	/* dma_e fetch config */
-	outpdw(MDP_BASE + 0x91004, dmap_data);
+	outpdw(MDP_BASE + 0xB1004, dmap_data);
 
 	/*
 	 * set up two vg pipes and two rgb pipes
