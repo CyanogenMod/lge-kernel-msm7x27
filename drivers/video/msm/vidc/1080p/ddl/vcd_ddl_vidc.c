@@ -104,22 +104,21 @@ void ddl_vidc_channel_set(struct ddl_client_context *ddl)
 	enum vcd_codec *vcd_codec;
 	enum vidc_1080p_codec codec = VIDC_1080P_H264_DECODE;
 	const enum vidc_1080p_decode_p_cache_enable
-	dec_p_cache = VIDC_1080P_DECODE_PCACHE_DISABLE;
-
+		dec_pix_cache = VIDC_1080P_DECODE_PCACHE_DISABLE;
 	const enum vidc_1080p_encode_p_cache_enable
-	enc_p_cache = VIDC_1080P_ENCODE_PCACHE_ENABLE;
-	u32 p_cache_ctrl, ctxt_mem_offset, ctxt_mem_size;
+		enc_pix_cache = VIDC_1080P_ENCODE_PCACHE_ENABLE;
+	u32 pix_cache_ctrl, ctxt_mem_offset, ctxt_mem_size;
 
 	if (ddl->decoding) {
 		vcd_codec = &(ddl->codec_data.decoder.codec.codec);
-		p_cache_ctrl = (u32)dec_p_cache;
+		pix_cache_ctrl = (u32)dec_pix_cache;
 		ctxt_mem_offset = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 		ddl->codec_data.decoder.hw_bufs.context) >> 11;
 		ctxt_mem_size =
 			ddl->codec_data.decoder.hw_bufs.context.buffer_size;
 	} else {
 		vcd_codec = &(ddl->codec_data.encoder.codec.codec);
-		p_cache_ctrl = (u32)enc_p_cache;
+		pix_cache_ctrl = (u32)enc_pix_cache;
 		ctxt_mem_offset = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 			ddl->codec_data.encoder.hw_bufs.context) >> 11;
 		ctxt_mem_size =
@@ -184,7 +183,7 @@ void ddl_vidc_channel_set(struct ddl_client_context *ddl)
 	ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_CHDONE;
 	vidc_1080p_set_host2risc_cmd(VIDC_1080P_HOST2RISC_CMD_OPEN_CH,
-		(u32)codec, p_cache_ctrl, ctxt_mem_offset,
+		(u32)codec, pix_cache_ctrl, ctxt_mem_offset,
 		ctxt_mem_size);
 }
 
@@ -195,6 +194,7 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 	struct vidc_1080p_dec_seq_start_param seq_start_param;
 	u32 seq_size;
 
+	vidc_1080p_set_decode_mpeg4_pp_filter(decoder->post_filter.post_filter);
 	if ((decoder->codec.codec == VCD_CODEC_DIVX_3))
 		ddl_context->vidc_set_divx3_resolution
 		[ddl->command_channel](decoder->client_frame_size.width,
@@ -203,8 +203,8 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 	ddl_context->vidc_set_divx3_resolution
 	[ddl->command_channel](0x0, 0x0);
 	DDL_MSG_LOW("HEADER-PARSE-START");
-	DDL_MSG_LOW("ddl_state_transition: %s ~~> \
-	DDL_CLIENT_WAIT_FOR_INITCODECDONE",
+	DDL_MSG_LOW("ddl_state_transition: %s ~~>"
+	"DDL_CLIENT_WAIT_FOR_INITCODECDONE",
 	ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_INITCODECDONE;
 	ddl->cmd_state = DDL_CMD_HEADER_PARSE;
@@ -537,7 +537,7 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	vidc_1080p_set_h264_encode_loop_filter(db_config,
 		encoder->db_control.slice_alpha_offset,
 		encoder->db_control.slice_beta_offset);
-	vidc_1080p_set_h264_encoder_ref_count(encoder->\
+	vidc_1080p_set_h264_encoder_p_frame_ref_count(encoder->\
 		num_references_for_p_frame);
 	if (encoder->profile.profile == VCD_PROFILE_H264_HIGH)
 		vidc_1080p_set_h264_encode_8x8transform_control(true);
@@ -616,8 +616,8 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 		mem_access_method = VIDC_1080P_TILE_64x32;
 	vidc_1080p_set_encode_input_frame_format(mem_access_method);
 	vidc_1080p_set_encode_padding_control(0, 0, 0, 0);
-	DDL_MSG_LOW("ddl_state_transition: %s ~~> \
-		DDL_CLIENT_WAIT_FOR_INITCODECDONE",
+	DDL_MSG_LOW("ddl_state_transition: %s ~~>"
+		"DDL_CLIENT_WAIT_FOR_INITCODECDONE",
 		ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_INITCODECDONE;
 	ddl->cmd_state = DDL_CMD_INIT_CODEC;
@@ -663,14 +663,14 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 	c_addr = (y_addr + encoder->input_buf_size.size_y);
 	if (input_vcd_frm->flags & VCD_FRAME_FLAG_EOS) {
 		enc_param.encode = VIDC_1080P_ENC_TYPE_LAST_FRAME_DATA;
-		DDL_MSG_LOW("ddl_state_transition: %s ~~>\
-			DDL_CLIENT_WAIT_FOR_EOS_DONE",
+		DDL_MSG_LOW("ddl_state_transition: %s ~~>"
+			"DDL_CLIENT_WAIT_FOR_EOS_DONE",
 			ddl_get_state_string(ddl->client_state));
 		ddl->client_state = DDL_CLIENT_WAIT_FOR_EOS_DONE;
 	} else {
 		enc_param.encode = VIDC_1080P_ENC_TYPE_FRAME_DATA;
-		DDL_MSG_LOW("ddl_state_transition: %s ~~> \
-			DDL_CLIENT_WAIT_FOR_FRAME_DONE",
+		DDL_MSG_LOW("ddl_state_transition: %s ~~>"
+			"DDL_CLIENT_WAIT_FOR_FRAME_DONE",
 			ddl_get_state_string(ddl->client_state));
 		ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME_DONE;
 	}
@@ -783,8 +783,8 @@ void ddl_vidc_decode_frame_run(struct ddl_client_context *ddl)
 		ddl_vidc_decode_eos_run(ddl);
 		return;
 	}
-	DDL_MSG_LOW("ddl_state_transition: %s ~~>\
-		DDL_CLIENT_WAIT_FOR_FRAME_DONE",
+	DDL_MSG_LOW("ddl_state_transition: %s ~~"
+		"DDL_CLIENT_WAIT_FOR_FRAME_DONE",
 		ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME_DONE;
 	ddl_vidc_decode_dynamic_property(ddl, true);
