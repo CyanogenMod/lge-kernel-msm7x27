@@ -194,6 +194,7 @@ struct hdmi_disp_mode_list_type {
 struct hdmi_common_state_type {
 	boolean hpd_state;
 	boolean hdcp_active;
+	boolean hpd_feature_on;
 	struct kobject *uevent_kobj;
 
 	uint32 video_resolution;
@@ -201,6 +202,7 @@ struct hdmi_common_state_type {
 
 	struct hdmi_disp_mode_list_type disp_mode_list;
 	int (*read_edid_block)(int block, uint8 *edid_buf);
+	int (*hpd_feature)(int on);
 };
 
 /* The HDMI driver needs to initialize the common state. */
