@@ -560,23 +560,19 @@ static void flush_imgs(struct mdp_blit_req *req, int src_bpp, int dst_bpp,
 {
 	uint32_t src0_len, src1_len, dst0_len, dst1_len;
 
-	/* flush src images to memory before dma to mdp */
-	get_len(&req->src, &req->src_rect, src_bpp,
-	&src0_len, &src1_len);
+	if (!(req->flags & MDP_BLIT_NON_CACHED)) {
+		/* flush src images to memory before dma to mdp */
+		get_len(&req->src, &req->src_rect, src_bpp,
+		&src0_len, &src1_len);
 
-	flush_pmem_file(p_src_file,
-	req->src.offset, src0_len);
-
-	if (IS_PSEUDOPLNR(req->src.format))
 		flush_pmem_file(p_src_file,
-			req->src.offset + src0_len, src1_len);
+		req->src.offset, src0_len);
 
-	get_len(&req->dst, &req->dst_rect, dst_bpp, &dst0_len, &dst1_len);
-	flush_pmem_file(p_dst_file, req->dst.offset, dst0_len);
+		if (IS_PSEUDOPLNR(req->src.format))
+			flush_pmem_file(p_src_file,
+				req->src.offset + src0_len, src1_len);
+	}
 
-	if (IS_PSEUDOPLNR(req->dst.format))
-		flush_pmem_file(p_dst_file,
-			req->dst.offset + dst0_len, dst1_len);
 }
 #else
 static void flush_imgs(struct mdp_blit_req *req, int src_bpp, int dst_bpp,
