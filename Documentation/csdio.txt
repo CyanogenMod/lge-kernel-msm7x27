@@ -78,6 +78,13 @@ each CMD52 (read or write) consists from single ioctl system call.
 And each CMD53 invokes single ioctl system call followed by read or
 write system call.
 
+The Char SDIO Device Driver registers its own class of the devices
+called 'csdio'. This class will serve as a common roof for all SDIO
+devices served by different instances of the Char SDIO Device Driver.
+Additional benefit from maintaining its own class is the driver
+ability to overwrite default permissions of the dev nodes created by
+the driver.
+
 Power Management
 ================
 None
@@ -135,7 +142,9 @@ Char SDIO Device Driver Function Interface consists of:
 	            uint32_t    m_address;
             }__attribute__ ((packed));
    - CSDIO_IOC_CONNECT_ISR;
-   - CSDIO_IOC_DISCONNECT_ISR.
+   - CSDIO_IOC_DISCONNECT_ISR;
+   - CSDIO_IOC_GET_VDD;
+   - CSDIO_IOC_SET_VDD.
 
 Additionally, user space application can use fcntl system call with
 parameters F_SETOWN and F_SETFL in order to set an asynchronous
@@ -148,6 +157,9 @@ parameters can be used in order to provide Manufacturer and Device IDs
 upon module download:
  - csdio_vendor_id;
  - csdio_device_id.
+If the driver is intended to work with specific SDIO host the
+host_name parameter should be added followed by the name of the MMC
+host platform device.
 
 Config options
 ==============
@@ -173,4 +185,5 @@ None
 
 To do
 =====
-None
+Provide mechanism to support a number of SDIO devices simultaneously
+connected to different SDIO hosts.
