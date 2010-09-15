@@ -16,3 +16,4 @@ obj-y += adsp.o adsp_driver.o adsp_info.o
 obj-y += audio_acdb.o snddev_virtual.o
 obj-y += audio_fm.o
 obj-y += lpa.o snddev_mi2s.o
+obj-y += audio_mvs.o
