@@ -243,7 +243,7 @@ struct ddl_encoder_data{
 	struct vcd_property_adaptive_rc_params  adaptive_rc;
 	struct vcd_property_intra_refresh_mb_number  intra_refresh;
 	struct vcd_property_buffer_format  buf_format;
-	struct vcd_property_buffer_format  re_con_buf_format;
+	struct vcd_property_buffer_format  recon_buf_format;
 	struct ddl_buf_addr  seq_header;
 	struct vcd_buffer_requirement  input_buf_req;
 	struct vcd_buffer_requirement  output_buf_req;
@@ -380,7 +380,7 @@ u32  ddl_decoder_dpb_transact(struct ddl_decoder_data *decoder,
 	struct ddl_frame_data_tag *in_out_frame, u32 operation);
 u32  ddl_decoder_dpb_init(struct ddl_client_context *ddl);
 u32  ddl_client_transact(u32 , struct ddl_client_context **);
-void ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
+u32  ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 	u32 estimate);
 void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data
 	*encoder);

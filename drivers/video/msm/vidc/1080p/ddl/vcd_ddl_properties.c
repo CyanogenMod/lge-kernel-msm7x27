@@ -18,9 +18,6 @@
 
 #include "vcd_ddl.h"
 
-#define MAX_DPB_SIZE_L4PT0_MBS    DDL_KILO_BYTE(32)
-#define MAX_FRAME_SIZE_L4PT0_MBS  DDL_KILO_BYTE(8)
-
 static u32 ddl_set_dec_property(struct ddl_client_context *pddl,
 	struct vcd_property_hdr *property_hdr, void *property_value);
 static u32 ddl_set_enc_property(struct ddl_client_context *pddl,
@@ -141,8 +138,8 @@ u32 ddl_decoder_ready_to_start(struct ddl_client_context *ddl,
 	}
 	if ((!header) && (!decoder->client_frame_size.height ||
 		!decoder->client_frame_size.width)) {
-		DDL_MSG_ERROR("ddl_dec_start_check:\
-			Client_height_width_default");
+		DDL_MSG_ERROR("ddl_dec_start_check:"
+			"Client_height_width_default");
 		return false;
 	}
 	return true;
@@ -1225,8 +1222,8 @@ void ddl_set_default_dec_property(struct ddl_client_context *ddl)
 	struct ddl_decoder_data *decoder =
 		&(ddl->codec_data.decoder);
 
-	if (decoder->codec.codec == VCD_CODEC_MPEG4 ||
-		decoder->codec.codec == VCD_CODEC_MPEG2)
+	if (decoder->codec.codec >= VCD_CODEC_MPEG2 &&
+		decoder->codec.codec <=  VCD_CODEC_XVID)
 		decoder->post_filter.post_filter = true;
 	else
 		decoder->post_filter.post_filter = false;
@@ -1253,6 +1250,7 @@ static void ddl_set_default_enc_property(struct ddl_client_context *ddl)
 	encoder->intra_refresh.cir_mb_number = 0;
 	ddl_set_default_enc_vop_timing(encoder);
 	encoder->multi_slice.m_slice_sel = VCD_MSLICE_OFF;
+	encoder->multi_slice.m_slice_size = 0;
 	ddl->b_count = 0;
 	encoder->short_header.short_header    = false;
 	encoder->entropy_control.entropy_sel  = VCD_ENTROPY_SEL_CAVLC;
@@ -1261,7 +1259,7 @@ static void ddl_set_default_enc_property(struct ddl_client_context *ddl)
 		VCD_DB_ALL_BLOCKING_BOUNDARY;
 	encoder->db_control.slice_alpha_offset = 0;
 	encoder->db_control.slice_beta_offset = 0;
-	encoder->re_con_buf_format.buffer_format =
+	encoder->recon_buf_format.buffer_format =
 		VCD_BUFFER_FORMAT_TILE_1x1;
 	encoder->buf_format.buffer_format = VCD_BUFFER_FORMAT_NV12_16M2KA;
 	encoder->hdr_ext_control = 0;
@@ -1334,20 +1332,20 @@ static void ddl_set_default_enc_rc_params(
 	if (codec == VCD_CODEC_H264) {
 		encoder->qp_range.min_qp = 0x0;
 		encoder->qp_range.max_qp = 0x33;
-		encoder->session_qp.i_frame_qp = 0x19;
-		encoder->session_qp.p_frame_qp = 0x19;
-		encoder->session_qp.b_frame_qp = 0x19;
-		encoder->rc_level.mb_level_rc  = true;
-		encoder->adaptive_rc.activity_region_flag  = true;
-		encoder->adaptive_rc.dark_region_as_flag   = true;
-		encoder->adaptive_rc.smooth_region_as_flag = true;
-		encoder->adaptive_rc.static_region_as_flag = true;
-	} else {
-		encoder->qp_range.max_qp       = 0x1f;
-		encoder->qp_range.min_qp       = 0x1;
 		encoder->session_qp.i_frame_qp = 0x14;
 		encoder->session_qp.p_frame_qp = 0x14;
 		encoder->session_qp.b_frame_qp = 0x14;
+		encoder->rc_level.mb_level_rc  = true;
+		encoder->adaptive_rc.activity_region_flag  = false;
+		encoder->adaptive_rc.dark_region_as_flag   = false;
+		encoder->adaptive_rc.smooth_region_as_flag = false;
+		encoder->adaptive_rc.static_region_as_flag = false;
+	} else {
+		encoder->qp_range.max_qp       = 0x1f;
+		encoder->qp_range.min_qp       = 0x1;
+		encoder->session_qp.i_frame_qp = 0xd;
+		encoder->session_qp.p_frame_qp = 0xd;
+		encoder->session_qp.b_frame_qp = 0xd;
 		encoder->rc_level.frame_level_rc = true;
 		encoder->rc_level.mb_level_rc  = false;
 	}
@@ -1421,30 +1419,42 @@ void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data *encoder)
 	encoder->client_output_buf_req = encoder->output_buf_req;
 }
 
-void ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
+u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 	u32 estimate)
 {
 	struct vcd_property_frame_size *frame_size;
 	struct vcd_buffer_requirement *input_buf_req;
 	struct vcd_buffer_requirement *output_buf_req;
-	u32  min_dpb, y_cb_cr_size/*, y_size*/;
+	u32  min_dpb, y_cb_cr_size;
 
 	if (!decoder->codec.codec)
-		return;
+		return false;
+	min_dpb = ddl_decoder_min_num_dpb(decoder);
 	if (estimate) {
 		frame_size = &decoder->client_frame_size;
 		output_buf_req = &decoder->client_output_buf_req;
 		input_buf_req = &decoder->client_input_buf_req;
-		min_dpb = ddl_decoder_min_num_dpb(decoder);
 		y_cb_cr_size = ddl_get_yuv_buffer_size(frame_size,
 					&decoder->buf_format,
 					(!decoder->progressive_only), NULL);
 	} else {
-		frame_size = &decoder->frame_size;
-		output_buf_req = &decoder->actual_output_buf_req;
-		input_buf_req = &decoder->actual_input_buf_req;
-		min_dpb = decoder->min_dpb_num;
-		y_cb_cr_size = decoder->y_cb_cr_size;
+		if (min_dpb >= decoder->min_dpb_num) {
+			frame_size = &decoder->frame_size;
+			output_buf_req = &decoder->actual_output_buf_req;
+			input_buf_req = &decoder->actual_input_buf_req;
+			min_dpb = decoder->min_dpb_num;
+			y_cb_cr_size = decoder->y_cb_cr_size;
+		} else {
+			u32 max_dpb_size;
+
+			max_dpb_size = DDL_NO_OF_MB(
+				decoder->client_frame_size.stride,
+				decoder->client_frame_size.scan_lines);
+			max_dpb_size *= (decoder->min_dpb_num - 2);
+			DDL_MSG_ERROR("Error: H264MaxDpbSizeExceeded: %d > %d",
+				max_dpb_size, MAX_DPB_SIZE_L4PT0_MBS);
+			return false;
+		}
 	}
 	memset(output_buf_req, 0,
 		sizeof(struct vcd_buffer_requirement));
@@ -1473,6 +1483,7 @@ void ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 	input_buf_req->sz = (1024*1024*3) >> 1;
 	input_buf_req->align = DDL_LINEAR_BUFFER_ALIGN_BYTES;
 	decoder->min_input_buf_req = *input_buf_req;
+	return true;
 }
 
 u32 ddl_get_yuv_buffer_size(struct vcd_property_frame_size *frame_size,
@@ -1482,27 +1493,26 @@ u32 ddl_get_yuv_buffer_size(struct vcd_property_frame_size *frame_size,
 	struct vcd_property_frame_size frame_sz = *frame_size;
 	u32 total_memory_size = 0, c_offset = 0;
 	ddl_calculate_stride(&frame_sz, interlace);
-	if (/*(buf_format->buffer_format == VCD_BUFFER_FORMAT_TILE_1x1) ||*/
-		(buf_format->buffer_format == VCD_BUFFER_FORMAT_TILE_4x2)) {
+	if (buf_format->buffer_format == VCD_BUFFER_FORMAT_TILE_4x2) {
 		u32 component_mem_size, width_round_up;
 		u32 height_round_up, height_chroma = (frame_sz.scan_lines >> 1);
 
 		width_round_up =
-			DDL_TILE_ALIGN(frame_sz.stride, DDL_TILE_ALIGN_WIDTH);
+			DDL_ALIGN(frame_sz.stride, DDL_TILE_ALIGN_WIDTH);
 		height_round_up =
-			DDL_TILE_ALIGN(frame_sz.scan_lines,
+			DDL_ALIGN(frame_sz.scan_lines,
 						   DDL_TILE_ALIGN_HEIGHT);
 		component_mem_size = width_round_up * height_round_up;
-		component_mem_size = DDL_TILE_ALIGN(component_mem_size,
+		component_mem_size = DDL_ALIGN(component_mem_size,
 			DDL_TILE_MULTIPLY_FACTOR);
 		c_offset = component_mem_size;
 		total_memory_size = ((component_mem_size +
 					DDL_TILE_BUF_ALIGN_GUARD_BYTES) &
 					DDL_TILE_BUF_ALIGN_MASK);
-		height_round_up = DDL_TILE_ALIGN(height_chroma,
+		height_round_up = DDL_ALIGN(height_chroma,
 					DDL_TILE_ALIGN_HEIGHT);
 		component_mem_size = width_round_up * height_round_up;
-		component_mem_size = DDL_TILE_ALIGN(component_mem_size,
+		component_mem_size = DDL_ALIGN(component_mem_size,
 					DDL_TILE_MULTIPLY_FACTOR);
 		total_memory_size += component_mem_size;
 	} else {
@@ -1558,14 +1568,12 @@ static u32 ddl_decoder_min_num_dpb(struct ddl_decoder_data *decoder)
 	case VCD_CODEC_H264:
 	{
 		u32 yuv_size_in_mb = DDL_MIN(DDL_NO_OF_MB(
-			decoder->client_frame_size.height,
-			decoder->client_frame_size.width),
+			decoder->client_frame_size.stride,
+			decoder->client_frame_size.scan_lines),
 			MAX_FRAME_SIZE_L4PT0_MBS);
 		min_dpb = DDL_MIN((MAX_DPB_SIZE_L4PT0_MBS /
 				yuv_size_in_mb), 16);
 		min_dpb += 2;
-		if (min_dpb <= 6)
-			min_dpb += 2;
 	}
 	break;
 	case VCD_CODEC_H263:
@@ -1583,6 +1591,8 @@ static u32 ddl_decoder_min_num_dpb(struct ddl_decoder_data *decoder)
 	case VCD_CODEC_VC1:
 	case VCD_CODEC_VC1_RCV:
 		min_dpb = 4;
+		if (decoder->post_filter.post_filter)
+			min_dpb *= 2;
 	break;
 	}
 	return min_dpb;
@@ -1604,8 +1614,8 @@ static u32 ddl_set_dec_buffers(struct ddl_decoder_data *decoder,
 			vcd_status = VCD_ERR_ILLEGAL_PARM;
 	}
 	if (vcd_status) {
-		DDL_MSG_ERROR("ddl_set_prop:\
-			Dpb_align_fail_or_alloc_size_small");
+		DDL_MSG_ERROR("ddl_set_prop:"
+			"Dpb_align_fail_or_alloc_size_small");
 		return vcd_status;
 	}
 	if (decoder->dp_buf.no_of_dec_pic_buf) {
@@ -1645,7 +1655,7 @@ void ddl_set_initial_default_values(struct ddl_client_context *ddl)
 		encoder->frame_size.scan_lines =
 			VCD_DDL_TEST_DEFAULT_HEIGHT;
 		encoder->frame_size.stride = VCD_DDL_TEST_DEFAULT_WIDTH;
-		encoder->frame_rate.fps_numerator = 30;
+		encoder->frame_rate.fps_numerator = DDL_INITIAL_FRAME_RATE;
 		encoder->frame_rate.fps_denominator = 1;
 		ddl_set_default_enc_property(ddl);
 	}
