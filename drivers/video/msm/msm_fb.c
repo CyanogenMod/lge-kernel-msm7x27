@@ -2429,6 +2429,42 @@ static int msmfb_overlay_play_enable(struct fb_info *info, unsigned long *argp)
 	return 0;
 }
 
+
+static int msmfb_overlay_blt(struct fb_info *info, unsigned long *argp)
+{
+	int     ret;
+	struct msmfb_overlay_blt req;
+	struct file *p_src_file = 0;
+
+	ret = copy_from_user(&req, argp, sizeof(req));
+	if (ret) {
+		printk(KERN_ERR "%s:msmfb_overlay_blt ioctl failed\n",
+			__func__);
+		return ret;
+	}
+
+	ret = mdp4_overlay_blt(info, &req, &p_src_file);
+
+	if (p_src_file)
+		put_pmem_file(p_src_file);
+
+	return ret;
+}
+
+static int msmfb_overlay_blt_off(struct fb_info *info, unsigned long *argp)
+{
+	int	ret, off;
+
+	ret = mdp4_overlay_blt_offset(info, &off);
+
+	ret = copy_to_user(argp, &off, sizeof(off));
+	if (ret)
+		printk(KERN_ERR "%s:msmfb_overlay_blt_off ioctl failed\n",
+		__func__);
+
+	return ret;
+}
+
 #endif
 
 DECLARE_MUTEX(msm_fb_ioctl_ppp_sem);
@@ -2513,6 +2549,16 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_OVERLAY_PLAY_ENABLE:
 		down(&msm_fb_ioctl_ppp_sem);
 		ret = msmfb_overlay_play_enable(info, argp);
+		up(&msm_fb_ioctl_ppp_sem);
+		break;
+	case MSMFB_OVERLAY_BLT:
+		down(&msm_fb_ioctl_ppp_sem);
+		ret = msmfb_overlay_blt(info, argp);
+		up(&msm_fb_ioctl_ppp_sem);
+		break;
+	case MSMFB_OVERLAY_BLT_OFFSET:
+		down(&msm_fb_ioctl_ppp_sem);
+		ret = msmfb_overlay_blt_off(info, argp);
 		up(&msm_fb_ioctl_ppp_sem);
 		break;
 #endif

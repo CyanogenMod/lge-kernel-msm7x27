@@ -119,6 +119,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 		pipe->mixer_stage  = MDP4_MIXER_STAGE_BASE;
 		pipe->mixer_num  = MDP4_MIXER0;
 		pipe->src_format = mfd->fb_imgType;
+		mdp4_overlay_panel_mode(pipe->mixer_num, MDP4_PANEL_LCDC);
 		ret = mdp4_overlay_format2pipe(pipe);
 		if (ret < 0)
 			printk(KERN_INFO "%s: format2pipe failed\n", __func__);
@@ -259,6 +260,35 @@ int mdp_lcdc_off(struct platform_device *pdev)
 #endif
 
 	return ret;
+}
+
+int mdp4_lcdc_overlay_blt_offset(int *off)
+{
+	if (lcdc_pipe->blt_addr == 0) {
+		*off = -1;
+		return -EINVAL;
+	}
+
+	*off = 0;
+	return 0;
+}
+
+void mdp4_lcdc_overlay_blt(ulong addr)
+{
+	unsigned long flag;
+
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	lcdc_pipe->blt_addr = addr;
+	lcdc_pipe->blt_cnt = 0;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	MDP_OUTP(MDP_BASE + LCDC_BASE, 0);	/* stop lcdc */
+	msleep(50);
+	mdp4_overlayproc_cfg(lcdc_pipe);
+	mdp4_overlay_dmap_xy(lcdc_pipe);
+	MDP_OUTP(MDP_BASE + LCDC_BASE, 1);	/* start lcdc */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
 /*

@@ -550,6 +550,7 @@ struct mdp_dma_data {
 #define DMA_AHBM_LCD_SEL_PRIMARY            0
 #define DMA_AHBM_LCD_SEL_SECONDARY          0
 #define DMA_IBUF_C3ALPHA_EN                 0
+#define DMA_BUF_FORMAT_RGB565		BIT(25)
 #define DMA_DITHER_EN                       BIT(24)	/* dma_p */
 #define DMA_DEFLKR_EN                       BIT(24)	/* dma_e */
 #define DMA_MDDI_DMAOUT_LCD_SEL_PRIMARY     0
