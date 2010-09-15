@@ -1216,4 +1216,10 @@ config MSM_WATCHDOG
 		not run during the bootup process, so it will not catch any early
 		lockups.
 
+config MSM_WATCHDOG_DEBUG
+	bool "Enable download mode on Watchdog reset"
+	depends on MSM_WATCHDOG
+	help
+		This makes the target enter download mode when it is reset by
+		the watchdog. Provides debugging support with watchdog enabled
 endif
