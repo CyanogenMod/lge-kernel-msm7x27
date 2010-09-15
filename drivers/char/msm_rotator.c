@@ -1238,19 +1238,27 @@ static int __devexit msm_rotator_remove(struct platform_device *plat_dev)
 #ifdef CONFIG_PM
 static int msm_rotator_suspend(struct platform_device *dev, pm_message_t state)
 {
+	mutex_lock(&msm_rotator_dev->imem_lock);
 	if (msm_rotator_dev->imem_clk_state == CLK_EN)
 		clk_disable(msm_rotator_dev->imem_clk);
+	mutex_unlock(&msm_rotator_dev->imem_lock);
+	mutex_lock(&msm_rotator_dev->rotator_lock);
 	if (msm_rotator_dev->rot_clk_state == CLK_EN)
 		disable_rot_clks();
+	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	return 0;
 }
 
 static int msm_rotator_resume(struct platform_device *dev)
 {
+	mutex_lock(&msm_rotator_dev->imem_lock);
 	if (msm_rotator_dev->imem_clk_state == CLK_EN)
 		clk_enable(msm_rotator_dev->imem_clk);
+	mutex_unlock(&msm_rotator_dev->imem_lock);
+	mutex_lock(&msm_rotator_dev->rotator_lock);
 	if (msm_rotator_dev->rot_clk_state == CLK_EN)
 		enable_rot_clks();
+	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	return 0;
 }
 #endif
