@@ -1047,6 +1047,19 @@ config PL310_ERRATA_588369
 	   is not correctly implemented in PL310 as clean lines are not
 	   invalidated as a result of these operations. Note that this errata
 	   uses Texas Instrument's secure monitor api.
+
+config KSAPI
+        tristate "KSAPI support (EXPERIMENTAL)"
+	depends on ARCH_MSM_SCORPION || ARCH_MSM_SCORPIONMP
+        default n
+        help
+          KSAPI: Performance monitoring tool for linux.
+          KSAPI records performance statistics for Snapdragon linux platform.
+          It uses the /proc FS as a means to exchange configuration data and
+          counter statistics. It can monitor the counter statistics for
+          Scorpion processor supported hardware performance counters on a per
+          thread basis or AXI counters on an overall system basis.
+
 endmenu
 
 source "arch/arm/common/Kconfig"
