@@ -442,6 +442,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #endif
 	.ldo_init		= msm_hsusb_ldo_init,
 	.ldo_enable		= msm_hsusb_ldo_enable,
+	.pclk_required_during_lpm = 1
 };
 
 #ifdef CONFIG_USB_GADGET
