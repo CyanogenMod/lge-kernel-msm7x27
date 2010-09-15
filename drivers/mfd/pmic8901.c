@@ -123,8 +123,12 @@ ssbi_read(struct i2c_client *client, u16 addr, u8 *buf, size_t len)
 /* External APIs */
 int pm8901_rev(struct pm8901_chip *chip)
 {
-	if (chip == NULL)
-		return -EINVAL;
+	if (chip == NULL) {
+		if (pmic_chip != NULL)
+			return pmic_chip->revision;
+		else
+			return -EINVAL;
+	}
 
 	return chip->revision;
 }
