@@ -77,6 +77,8 @@ static const char *arm_pmu_names[] = {
 	[ARM_PERF_PMU_ID_V6MP]	  = "v6mpcore",
 	[ARM_PERF_PMU_ID_CA8]	  = "ARMv7 Cortex-A8",
 	[ARM_PERF_PMU_ID_CA9]	  = "ARMv7 Cortex-A9",
+	[ARM_PERF_PMU_ID_SCORPION]	  = "ARMv7 Scorpion",
+	[ARM_PERF_PMU_ID_SCORPIONMP]	  = "ARMv7 Scorpion-MP",
 };
 
 struct arm_pmu {
@@ -2106,6 +2108,19 @@ static struct arm_pmu armv7pmu = {
 	.max_period		= (1LLU << 32) - 1,
 };
 
+static struct arm_pmu scorpion_pmu = {
+	.handle_irq		= armv7pmu_handle_irq,
+	.enable			= armv7pmu_enable_event,
+	.disable		= armv7pmu_disable_event,
+	.raw_event		= armv7pmu_raw_event,
+	.read_counter		= armv7pmu_read_counter,
+	.write_counter		= armv7pmu_write_counter,
+	.get_event_idx		= armv7pmu_get_event_idx,
+	.start			= armv7pmu_start,
+	.stop			= armv7pmu_stop,
+	.max_period		= (1LLU << 32) - 1,
+};
+
 static u32 __init armv7_reset_read_pmnc(void)
 {
 	u32 nb_cnt;
@@ -2982,6 +2997,23 @@ init_hw_perf_events(void)
 			memcpy(armpmu_perf_cache_map, xscale_perf_cache_map,
 					sizeof(xscale_perf_cache_map));
 			perf_max_events	= xscale2pmu.num_events;
+			break;
+		}
+	/* Qualcomm CPUs */
+	} else if (0x51 == implementor) {
+		switch (part_number) {
+		case 0x00F0:	/* 8x50 & 7x30*/
+		case 0x02D0:	/* 8x60 */
+			scorpion_pmu.id = ARM_PERF_PMU_ID_SCORPION;
+			memcpy(armpmu_perf_cache_map, armv7_a8_perf_cache_map,
+				sizeof(armv7_a8_perf_cache_map));
+			scorpion_pmu.event_map = armv7_a8_pmu_event_map;
+			armpmu = &scorpion_pmu;
+
+			/* Reset PMNC and read the nb of CNTx counters
+			    supported */
+			scorpion_pmu.num_events = armv7_reset_read_pmnc();
+			perf_max_events = scorpion_pmu.num_events;
 			break;
 		}
 	}
