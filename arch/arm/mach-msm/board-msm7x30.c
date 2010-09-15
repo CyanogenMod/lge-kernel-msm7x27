@@ -3771,52 +3771,46 @@ static int atv_dac_power(int on)
 
 	vreg_s4 = vreg_get(NULL, "s4");
 	if (IS_ERR(vreg_s4)) {
-		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
-			   __func__, PTR_ERR(vreg_s4));
+		rc = PTR_ERR(vreg_s4);
+		pr_err("%s: s4 vreg get failed (%d)\n",
+			__func__, rc);
 		return -1;
+	}
+	vreg_ldo9 = vreg_get(NULL, "gp1");
+	if (IS_ERR(vreg_ldo9)) {
+		rc = PTR_ERR(vreg_ldo9);
+		pr_err("%s: ldo9 vreg get failed (%d)\n",
+			__func__, rc);
+		return rc;
 	}
 
 	if (on) {
 		rc = vreg_enable(vreg_s4);
 		if (rc) {
-			printk(KERN_ERR "%s: vreg_enable() = %d \n",
+			pr_err("%s: s4 vreg enable failed (%d)\n",
 				__func__, rc);
 			return rc;
 		}
-	} else {
-		rc = vreg_disable(vreg_s4);
-		if (rc) {
-			pr_err("%s: S4 vreg enable failed (%d)\n",
-				   __func__, rc);
-			return rc;
-		}
-	}
-
-	vreg_ldo9 = vreg_get(NULL, "gp1");
-	if (IS_ERR(vreg_ldo9)) {
-		rc = PTR_ERR(vreg_ldo9);
-		pr_err("%s: gp1 vreg get failed (%d)\n",
-			   __func__, rc);
-		return rc;
-	}
-
-
-	if (on) {
 		rc = vreg_enable(vreg_ldo9);
 		if (rc) {
-			pr_err("%s: LDO9 vreg enable failed (%d)\n",
+			pr_err("%s: ldo9 vreg enable failed (%d)\n",
 				__func__, rc);
 			return rc;
 		}
 	} else {
 		rc = vreg_disable(vreg_ldo9);
 		if (rc) {
-			pr_err("%s: LDO20 vreg enable failed (%d)\n",
+			pr_err("%s: ldo9 vreg disable failed (%d)\n",
+				   __func__, rc);
+			return rc;
+		}
+		rc = vreg_disable(vreg_s4);
+		if (rc) {
+			pr_err("%s: s4 vreg disable failed (%d)\n",
 				   __func__, rc);
 			return rc;
 		}
 	}
-
 	return rc;
 }
 
