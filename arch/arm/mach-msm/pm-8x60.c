@@ -42,6 +42,7 @@
 #endif
 
 #include "acpuclock.h"
+#include "avs.h"
 #include "cpuidle.h"
 #include "idle.h"
 #include "pm.h"
@@ -671,13 +672,19 @@ static void msm_pm_spm_power_collapse(
 static void msm_pm_power_collapse_standalone(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
+	unsigned int avsdscr_setting;
+
+	avsdscr_setting = avs_get_avsdscr();
+	avs_disable();
 	msm_pm_spm_power_collapse(dev, from_idle, false);
+	avs_reset_delays(avsdscr_setting);
 }
 
 static void msm_pm_power_collapse(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
 	unsigned long saved_acpuclk_rate;
+	unsigned int avsdscr_setting;
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: idle %d\n",
@@ -687,6 +694,8 @@ static void msm_pm_power_collapse(bool from_idle)
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: pre power down\n", dev->cpu, __func__);
 
+	avsdscr_setting = avs_get_avsdscr();
+	avs_disable();
 	saved_acpuclk_rate = acpuclk_power_collapse();
 	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
@@ -701,6 +710,7 @@ static void msm_pm_power_collapse(bool from_idle)
 		pr_err("CPU%u: %s: failed to restore clock rate(%lu)\n",
 			dev->cpu, __func__, saved_acpuclk_rate);
 
+	avs_reset_delays(avsdscr_setting);
 	msm_pm_config_hw_after_power_up();
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: post power up\n", dev->cpu, __func__);

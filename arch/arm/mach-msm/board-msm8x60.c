@@ -189,6 +189,9 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	[0] = {
 		.reg_base_addr = MSM_SAW0_BASE,
 
+#ifdef CONFIG_MSM_AVS_HW
+		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
+#endif
 		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x0F,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,
@@ -214,6 +217,9 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	[1] = {
 		.reg_base_addr = MSM_SAW1_BASE,
 
+#ifdef CONFIG_MSM_AVS_HW
+		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
+#endif
 		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x0F,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,

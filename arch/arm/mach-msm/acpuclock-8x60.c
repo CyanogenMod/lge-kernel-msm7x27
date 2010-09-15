@@ -32,6 +32,7 @@
 
 #include "acpuclock.h"
 #include "clock-8x60.h"
+#include "avs.h"
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -123,6 +124,7 @@ struct clkctl_acpu_speed {
 	unsigned int     l2_src_sel;
 	unsigned int     l2_l_val;
 	unsigned int     vdd_sc;
+	unsigned int     avsdscr_setting;
 	unsigned long    lpj; /* loops_per_jiffy */
 	struct clkctl_acpu_speed *up;
 	struct clkctl_acpu_speed *down;
@@ -136,24 +138,42 @@ static struct clkctl_acpu_speed *l2_vote[NR_CPUS];
 /* L_VAL's below assume 27 MHz sources for all SCPLLs.
  * SCPLL and L2 frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    0, 0,     950000 },
-	{ {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    0, 0,     950000 },
-	{ {0, 0},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    0, 0,     950000 },
-	{ {1, 1},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, 1, 0x08,  950000 },
-	{ {0, 0},  486000,  ACPU_SCPLL, 0, 0, 1, 0x09, 1, 0x09, 1100000 },
-	{ {0, 0},  540000,  ACPU_SCPLL, 0, 0, 1, 0x0A, 1, 0x0A, 1100000 },
-	{ {0, 0},  594000,  ACPU_SCPLL, 0, 0, 1, 0x0B, 1, 0x0B, 1100000 },
-	{ {1, 1},  648000,  ACPU_SCPLL, 0, 0, 1, 0x0C, 1, 0x0C, 1100000 },
-	{ {0, 0},  702000,  ACPU_SCPLL, 0, 0, 1, 0x0D, 1, 0x0D, 1100000 },
-	{ {0, 0},  756000,  ACPU_SCPLL, 0, 0, 1, 0x0E, 1, 0x0E, 1100000 },
-	{ {1, 1},  810000,  ACPU_SCPLL, 0, 0, 1, 0x0F, 1, 0x0F, 1100000 },
-	{ {0, 0},  864000,  ACPU_SCPLL, 0, 0, 1, 0x10, 1, 0x10, 1200000 },
-	{ {0, 0},  918000,  ACPU_SCPLL, 0, 0, 1, 0x11, 1, 0x10, 1200000 },
-	{ {0, 0},  972000,  ACPU_SCPLL, 0, 0, 1, 0x12, 1, 0x10, 1200000 },
-	{ {1, 1}, 1026000,  ACPU_SCPLL, 0, 0, 1, 0x13, 1, 0x10, 1200000 },
-	{ {0, 0}, 1080000,  ACPU_SCPLL, 0, 0, 1, 0x14, 1, 0x10, 1200000 },
-	{ {0, 0}, 1134000,  ACPU_SCPLL, 0, 0, 1, 0x15, 1, 0x10, 1200000 },
-	{ {1, 1}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, 1, 0x10, 1200000 },
+	{ {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    0, 0,     950000,
+		0x03006000 },
+	{ {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    0, 0,     950000,
+		0x03006000 },
+	{ {0, 0},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    0, 0,     950000,
+		0x03006000 },
+	{ {1, 1},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, 1, 0x08,  950000,
+		0x03006000 },
+	{ {0, 0},  486000,  ACPU_SCPLL, 0, 0, 1, 0x09, 1, 0x09, 1100000,
+		0x03006000 },
+	{ {0, 0},  540000,  ACPU_SCPLL, 0, 0, 1, 0x0A, 1, 0x0A, 1100000,
+		0x03006000 },
+	{ {0, 0},  594000,  ACPU_SCPLL, 0, 0, 1, 0x0B, 1, 0x0B, 1100000,
+		0x03006000 },
+	{ {1, 1},  648000,  ACPU_SCPLL, 0, 0, 1, 0x0C, 1, 0x0C, 1100000,
+		0x03006000 },
+	{ {0, 0},  702000,  ACPU_SCPLL, 0, 0, 1, 0x0D, 1, 0x0D, 1100000,
+		0x03006000 },
+	{ {0, 0},  756000,  ACPU_SCPLL, 0, 0, 1, 0x0E, 1, 0x0E, 1100000,
+		0x03006000 },
+	{ {1, 1},  810000,  ACPU_SCPLL, 0, 0, 1, 0x0F, 1, 0x0F, 1100000,
+		0x03006000 },
+	{ {0, 0},  864000,  ACPU_SCPLL, 0, 0, 1, 0x10, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0},  918000,  ACPU_SCPLL, 0, 0, 1, 0x11, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0},  972000,  ACPU_SCPLL, 0, 0, 1, 0x12, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {1, 1}, 1026000,  ACPU_SCPLL, 0, 0, 1, 0x13, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0}, 1080000,  ACPU_SCPLL, 0, 0, 1, 0x14, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0}, 1134000,  ACPU_SCPLL, 0, 0, 1, 0x15, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {1, 1}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, 1, 0x10, 1200000,
+		0x03006000 },
 	{ {0, 0}, 0 },
 };
 
@@ -371,8 +391,14 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 		goto out;
 	}
 
+	/* AVS needs SAW_VCTL to be intitialized correctly, before enable,
+	 * and is not initialized at acpuclk_init().
+	 */
+	if (reason == SETRATE_CPUFREQ)
+		AVS_DISABLE(cpu);
+
 	/* Increase VDD levels if needed. */
-	if (reason == SETRATE_CPUFREQ) {
+	if (reason == SETRATE_CPUFREQ || reason == SETRATE_INIT) {
 		if (tgt_s->vdd_sc > strt_s->vdd_sc) {
 			rc = regulator_set_voltage(regulator_sc[cpu],
 				tgt_s->vdd_sc, MAX_VDD_SC);
@@ -422,6 +448,11 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	}
 
 	dprintk("ACPU%d speed change complete\n", cpu);
+
+	/* Re-enable AVS */
+	if (reason == SETRATE_CPUFREQ)
+		AVS_ENABLE(cpu, tgt_s->avsdscr_setting);
+
 out:
 	if (reason == SETRATE_CPUFREQ)
 		mutex_unlock(&drv_state.lock);
@@ -655,7 +686,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 
 	/* Improve boot time by ramping up CPUs immediately. */
 	for_each_online_cpu(cpu)
-		acpuclk_set_rate(cpu, 810000, SETRATE_CPUFREQ);
+		acpuclk_set_rate(cpu, 810000, SETRATE_INIT);
 
 	cpufreq_table_init();
 }
