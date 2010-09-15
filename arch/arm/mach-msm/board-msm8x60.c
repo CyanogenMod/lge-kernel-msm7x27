@@ -620,6 +620,7 @@ static struct platform_device rndis_device = {
 		.platform_data = &rndis_pdata,
 	},
 };
+
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x05C6,
 	.product_id	= 0x9026,
@@ -1791,6 +1792,9 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_USB_ANDROID
 	&usb_mass_storage_device,
 	&rndis_device,
+#ifdef CONFIG_USB_ANDROID_DIAG
+	&usb_diag_device,
+#endif
 	&android_usb_device,
 #endif
 #ifdef CONFIG_BATTERY_MSM

@@ -32,6 +32,7 @@
 #include <linux/irq.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
+#include <mach/usbdiag.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -883,6 +884,73 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 	pdev->dev.platform_data = plat;
 	return platform_device_register(pdev);
 }
+#endif
+
+#ifdef CONFIG_USB_ANDROID_DIAG
+#define PID_MAGIC_ID		0x71432909
+#define SERIAL_NUM_MAGIC_ID	0x61945374
+#define SERIAL_NUMBER_LENGTH	127
+#define DLOAD_USB_BASE_ADD	0x2A05F0C8
+
+static struct magic_num_struct {
+	uint32_t pid;
+	uint32_t serial_num;
+};
+
+static struct dload_struct {
+	uint32_t	reserved1;
+	uint32_t	reserved2;
+	uint32_t	reserved3;
+	uint16_t	reserved4;
+	uint16_t	pid;
+	char		serial_number[SERIAL_NUMBER_LENGTH];
+	uint16_t	reserved5;
+	struct magic_num_struct
+			magic_struct;
+};
+
+static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
+{
+	struct dload_struct __iomem *dload = 0;
+
+	dload = ioremap(DLOAD_USB_BASE_ADD, sizeof(*dload));
+	if (!dload) {
+		pr_err("%s: cannot remap I/O memory region: %08x\n",
+					__func__, DLOAD_USB_BASE_ADD);
+		return -ENXIO;
+	}
+
+	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
+				__func__, dload, pid, snum);
+	/* update pid */
+	dload->magic_struct.pid = PID_MAGIC_ID;
+	dload->pid = pid;
+
+	/* update serial number */
+	dload->magic_struct.serial_num = 0;
+	if (!snum)
+		return 0;
+
+	dload->magic_struct.serial_num = SERIAL_NUM_MAGIC_ID;
+	strncpy(dload->serial_number, snum, SERIAL_NUMBER_LENGTH);
+	dload->serial_number[SERIAL_NUMBER_LENGTH - 1] = '\0';
+
+	iounmap(dload);
+
+	return 0;
+}
+
+struct usb_diag_platform_data usb_diag_pdata = {
+	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
+};
+
+struct platform_device usb_diag_device = {
+	.name	= "usb_diag",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &usb_diag_pdata,
+	},
+};
 #endif
 
 struct platform_device msm_device_smd = {

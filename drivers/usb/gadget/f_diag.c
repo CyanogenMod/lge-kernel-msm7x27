@@ -1,8 +1,8 @@
 /* drivers/usb/gadget/f_diag.c
- *Diag Function Device - Route ARM9 and ARM11 DIAG messages
- *between HOST and DEVICE.
+ * Diag Function Device - Route ARM9 and ARM11 DIAG messages
+ * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -111,6 +111,7 @@ struct diag_context {
 	struct work_struct diag_work;
 	unsigned diag_configured;
 	struct usb_composite_dev *cdev;
+	struct  usb_diag_platform_data *pdata;
 };
 
 static void usb_config_work_func(struct work_struct *);
@@ -145,31 +146,35 @@ static void usb_config_work_func(struct work_struct *work)
 	struct usb_gadget_strings *table;
 	struct usb_string *s;
 
+
 	if ((ctxt->operations) &&
 		(ctxt->operations->diag_connect))
 			ctxt->operations->diag_connect();
-	/*send serial number to A9 sw download, only if serial_number
-	* is not null and i_serial_number is non-zero
-	*/
-	if (cdev->desc.iSerialNumber) {
-		msm_hsusb_is_serial_num_null(FALSE);
-		/*
-		 * Serial number is filled by the composite driver. So
-		 * it is fair enough to assume that it will always be
-		 * found at first table of strings.
-		 */
-		table = *(cdev->driver->strings);
-		for (s = table->strings; s && s->s; s++)
-			if (s->id == cdev->desc.iSerialNumber)
-				break;
-		msm_hsusb_send_serial_number(s->s);
-	} else {
-		msm_hsusb_is_serial_num_null(TRUE);
+
+	if (!ctxt->pdata)
+		return;
+
+	/* pass on product id and serial number to dload */
+	if (!cdev->desc.iSerialNumber) {
+		ctxt->pdata->update_pid_and_serial_num(
+					cdev->desc.idProduct, 0);
+		return;
 	}
-	/* Send product ID to A9 for software download*/
-	if (cdev->desc.idProduct)
-		msm_hsusb_send_productID(cdev->desc.idProduct);
+
+	/*
+	 * Serial number is filled by the composite driver. So
+	 * it is fair enough to assume that it will always be
+	 * found at first table of strings.
+	 */
+	table = *(cdev->driver->strings);
+	for (s = table->strings; s && s->s; s++)
+		if (s->id == cdev->desc.iSerialNumber) {
+			ctxt->pdata->update_pid_and_serial_num(
+					cdev->desc.idProduct, s->s);
+			break;
+		}
 }
+
 static int diag_function_bind(struct usb_configuration *c,
 		struct usb_function *f)
 {
@@ -575,12 +580,35 @@ static struct android_usb_function diag_function = {
 	.bind_config = diag_function_add,
 };
 
-static int __init init(void)
+static int __devinit diag_probe(struct platform_device *pdev)
 {
-	printk(KERN_INFO "f_diag init\n");
+	struct diag_context *dev = &_context;
+
+	pr_debug("%s\n", __func__);
+
+	dev->pdata = pdev->dev.platform_data;
+
 	android_register_function(&diag_function);
+
 	return 0;
 }
-module_init(init);
 
+static struct platform_driver usb_diag_driver = {
+	.probe = diag_probe,
+	.driver = {
+		.name = "usb_diag",
+		.owner = THIS_MODULE,
+	},
+
+};
+
+static int __init usb_diag_init(void)
+{
+	return platform_driver_register(&usb_diag_driver);
+}
+module_init(usb_diag_init);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("usb diag gadget driver");
+MODULE_VERSION("1.00");
 #endif /* CONFIG_USB_ANDROID_DIAG */
