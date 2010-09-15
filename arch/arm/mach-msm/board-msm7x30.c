@@ -2461,8 +2461,19 @@ static struct ofn_atlab_platform_data optnav_data = {
 	},
 };
 
+static int hdmi_comm_power(int on, int show);
+static int hdmi_init_irq(void);
+static int hdmi_enable_5v(int on);
+static int hdmi_core_power(int on);
+static int hdmi_cec_power(int on);
+
 static struct msm_hdmi_platform_data adv7520_hdmi_data = {
-		.irq = MSM_GPIO_TO_INT(18),
+	.irq = MSM_GPIO_TO_INT(18),
+	.comm_power = hdmi_comm_power,
+	.init_irq = hdmi_init_irq,
+	.enable_5v = hdmi_enable_5v,
+	.core_power = hdmi_core_power,
+	.cec_power = hdmi_cec_power,
 };
 
 static struct i2c_board_info msm_i2c_board_info[] = {
@@ -2964,8 +2975,12 @@ static struct platform_device lcdc_sharp_panel_device = {
 	}
 };
 
+static struct msm_gpio dtv_panel_irq_gpios[] = {
+	{ GPIO_CFG(18, 0, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_4MA),
+		"hdmi_int" },
+};
+
 static struct msm_gpio dtv_panel_gpios[] = {
-	{ GPIO_CFG(18, 0, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "hdmi_int" },
 	{ GPIO_CFG(120, 1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "wca_mclk" },
 	{ GPIO_CFG(121, 1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "wca_sd0" },
 	{ GPIO_CFG(122, 1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_4MA), "wca_sd1" },
@@ -3035,12 +3050,52 @@ static int gpio_set(const char *label, const char *name, int level, int on)
 	return rc;
 }
 
-static int i2c_gpio_power(int on)
+static int hdmi_comm_power(int on, int show)
 {
 	int rc = gpio_set("gp7", "LDO8", 1800, on);
-	if (rc)
+	if (rc) {
+		pr_warning("hdmi_comm_power: LDO8 gpio failed: rc=%d\n", rc);
 		return rc;
-	return gpio_set("gp4", "LDO10", 2600, on);
+	}
+	rc = gpio_set("gp4", "LDO10", 2600, on);
+	if (rc)
+		pr_warning("hdmi_comm_power: LDO10 gpio failed: rc=%d\n", rc);
+	if (show)
+		pr_info("%s: i2c comm: %d <LDO8+LDO10>\n", __func__, on);
+	return rc;
+}
+
+static int hdmi_init_irq(void)
+{
+	int rc = msm_gpios_enable(dtv_panel_irq_gpios,
+			ARRAY_SIZE(dtv_panel_irq_gpios));
+	if (rc < 0) {
+		pr_err("%s: gpio enable failed: %d\n", __func__, rc);
+		return rc;
+	}
+	pr_info("%s\n", __func__);
+
+	return 0;
+}
+
+static int hdmi_enable_5v(int on)
+{
+	pr_info("%s: %d\n", __func__, on);
+	gpio_set_value_cansleep(
+		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HDMI_5V_EN), on);
+	return 0;
+}
+
+static int hdmi_core_power(int on)
+{
+	pr_info("%s: %d <LDO8>\n", __func__, on);
+	return gpio_set("gp7", "LDO8", 1800, on);
+}
+
+static int hdmi_cec_power(int on)
+{
+	pr_info("%s: %d <LDO17>\n", __func__, on);
+	return gpio_set("gp11", "LDO17", 2600, on);
 }
 
 static int dtv_panel_power(int on)
@@ -3053,10 +3108,8 @@ static int dtv_panel_power(int on)
 		return 0;
 
 	dtv_power_save_on = flag_on;
-	pr_info("%s: %d >>\n", __func__, on);
-
-	gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HDMI_5V_EN),
-		on);
+	pr_info("%s: %d\n", __func__, on);
+	hdmi_enable_5v(on);
 
 #ifdef HDMI_RESET
 	if (on) {
@@ -3091,14 +3144,13 @@ static int dtv_panel_power(int on)
 		}
 	}
 
-	rc = i2c_gpio_power(on);
+	rc = hdmi_comm_power(on, 1);
 	if (rc)
 		return rc;
 
 	mdelay(5);		/* ensure power is stable */
 
-	/*  -- LDO17 for HDMI */
-	rc = gpio_set("gp11", "LDO17", 2600, on);
+	rc = hdmi_cec_power(on);
 	if (rc)
 		return rc;
 
@@ -3110,7 +3162,6 @@ static int dtv_panel_power(int on)
 		mdelay(10);		/* 10 msec before IO can be accessed */
 	}
 #endif
-	pr_info("%s: %d <<\n", __func__, on);
 
 	return rc;
 }

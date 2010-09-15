@@ -314,7 +314,13 @@ static int adv7520_power_on(struct platform_device *pdev)
 
 	gpio_power_on = TRUE;
 	if (!init_done) {
+		int rc;
 		adb7520_chip_init();
+		rc = dd->pd->init_irq();
+		if (rc) {
+			DEV_ERR("adv7520_init: init_irq: %d\n", rc);
+			return rc;
+		}
 		init_done = TRUE;
 	}
 
