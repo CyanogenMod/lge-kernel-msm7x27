@@ -1740,21 +1740,20 @@ u32 vcd_handle_input_done_in_eos(
 	struct vcd_transc *transc;
 	struct ddl_frame_data_tag *frame =
 		(struct ddl_frame_data_tag *) payload;
-	u32 rc = VCD_ERR_FAIL;
-
+	u32 rc = VCD_ERR_FAIL, codec_config = 0;
 	rc = vcd_validate_io_done_pyld(cctxt, payload, status);
 	VCD_FAILED_RETURN(rc, "Failed: vcd_validate_io_done_pyld");
-
 	transc = (struct vcd_transc *)frame->vcd_frm.ip_frm_tag;
-
+	codec_config = frame->vcd_frm.flags & VCD_FRAME_FLAG_CODECCONFIG;
 	rc = vcd_handle_input_done(cctxt,
 		payload, VCD_EVT_RESP_INPUT_DONE, status);
 	VCD_FAILED_RETURN(rc, "Failed: vcd_handle_input_done");
-
-	if ((frame->vcd_frm.flags & VCD_FRAME_FLAG_EOS)) {
+	if (frame->vcd_frm.flags & VCD_FRAME_FLAG_EOS) {
 		VCD_MSG_HIGH("Got input done for EOS initiator");
 		transc->input_done = false;
 		transc->in_use = true;
+		if (codec_config || status == VCD_ERR_BITSTREAM_ERR)
+			vcd_handle_eos_done(cctxt, transc, VCD_S_SUCCESS);
 	}
 	return rc;
 }
@@ -2268,7 +2267,6 @@ void vcd_handle_eos_done(struct vcd_clnt_ctxt *cctxt,
 	}
 
 	vcd_release_trans_tbl_entry(transc);
-	vcd_mark_frame_channel(cctxt->dev_ctxt);
 	if (cctxt->status.mask & VCD_FLUSH_ALL)
 		vcd_process_pending_flush_in_eos(cctxt);
 
