@@ -502,6 +502,7 @@ typedef struct {
 #define MDDI_CMD_SEND_RTD            0x0700
 #define MDDI_CMD_LINK_ACTIVE         0x0900
 #define MDDI_CMD_PERIODIC_REV_ENCAP  0x0A00
+#define MDDI_CMD_FW_LINK_SKEW_CAL    0x0D00
 
 extern void mddi_host_init(mddi_host_type host);
 extern void mddi_host_powerdown(mddi_host_type host);
