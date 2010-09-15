@@ -31,7 +31,7 @@ int msm_hsusb_phy_reset(void);
 int msm_hsusb_vbus_powerup(void);
 int msm_hsusb_vbus_shutdown(void);
 int msm_hsusb_send_productID(uint32_t product_id);
-int msm_hsusb_send_serial_number(char *serial_number);
+int msm_hsusb_send_serial_number(const char *serial_number);
 int msm_hsusb_is_serial_num_null(uint32_t val);
 int msm_hsusb_reset_rework_installed(void);
 int msm_hsusb_enable_pmic_ulpidata0(void);
@@ -67,7 +67,7 @@ static inline int msm_hsusb_phy_reset(void) { return 0; }
 static inline int msm_hsusb_vbus_powerup(void) { return 0; }
 static inline int msm_hsusb_vbus_shutdown(void) { return 0; }
 static inline int msm_hsusb_send_productID(uint32_t product_id) { return 0; }
-static inline int msm_hsusb_send_serial_number(char *serial_number)
+static inline int msm_hsusb_send_serial_number(const char *serial_number)
 { return 0; }
 static inline int msm_hsusb_is_serial_num_null(uint32_t val) { return 0; }
 static inline int msm_hsusb_reset_rework_installed(void) { return 0; }
