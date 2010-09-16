@@ -38,6 +38,9 @@
 #define VIDC_1080P_SI_RG7_DISPLAY_RES_MASK       0x00000030
 #define VIDC_1080P_SI_RG7_DISPLAY_RES_SHIFT      4
 
+#define VIDC_1080P_SI_RG7_DISPLAY_CROP_MASK      0x00000040
+#define VIDC_1080P_SI_RG7_DISPLAY_CROP_SHIFT     6
+
 #define VIDC_1080P_SI_RG8_DECODE_FRAMETYPE_MASK  0x00000007
 
 #define VIDC_1080P_SI_RG10_NUM_DPB_BMSK      0x00003fff
@@ -61,13 +64,15 @@
 
 #define VIDC_1080P_DEC_LUMA_ADDR        HWIO_REG_759068_ADDR
 #define VIDC_1080P_DEC_CHROMA_ADDR      HWIO_REG_515200_ADDR
-#define VIDC_1080P_DEC_TYPE_SEQ_HEADER  0x00010000
 
+#define VIDC_1080P_DEC_TYPE_SEQ_HEADER         0x00010000
+#define VIDC_1080P_DEC_TYPE_FRAME_DATA         0x00020000
+#define VIDC_1080P_DEC_TYPE_LAST_FRAME_DATA    0x00030000
+#define VIDC_1080P_DEC_TYPE_INIT_BUFFERS       0x00040000
 
-#define VIDC_1080P_DEC_TYPE_INIT_BUFFERS  0x00040000
-#define VIDC_1080P_ENC_TYPE_SEQ_HEADER    0x00010000
-
-
+#define VIDC_1080P_ENC_TYPE_SEQ_HEADER       0x00010000
+#define VIDC_1080P_ENC_TYPE_FRAME_DATA       0x00020000
+#define VIDC_1080P_ENC_TYPE_LAST_FRAME_DATA  0x00030000
 
 u8 *VIDC_BASE_PTR;
 
@@ -126,6 +131,18 @@ void vidc_1080p_get_risc2host_cmd(u32 *pn_risc2host_command,
 	VIDC_HWIO_IN(REG_222292, pn_risc2host_arg2);
 	VIDC_HWIO_IN(REG_790962, pn_risc2host_arg3);
 	VIDC_HWIO_IN(REG_679882, pn_risc2host_arg4);
+}
+
+void vidc_1080p_get_risc2host_cmd_status(u32 err_status,
+	u32 *dec_err_status, u32 *disp_err_status)
+{
+	*dec_err_status = VIDC_GETFIELD(err_status,
+		VIDC_RISC2HOST_ARG2_VIDC_DEC_ERROR_STATUS_BMSK,
+		VIDC_RISC2HOST_ARG2_VIDC_DEC_ERROR_STATUS_SHFT);
+	*disp_err_status = VIDC_GETFIELD(err_status,
+		VIDC_RISC2HOST_ARG2_VIDC_DISP_ERROR_STATUS_BMSK,
+		VIDC_RISC2HOST_ARG2_VIDC_DISP_ERROR_STATUS_SHFT);
+
 }
 
 void vidc_1080p_clear_risc2host_cmd(void)
@@ -367,7 +384,7 @@ void vidc_1080p_set_encode_field_picture_structure(u32 enc_field_picture)
 	VIDC_HWIO_OUT(REG_786024, enc_field_picture);
 }
 
-void vidc_1080p_set_encode_deblock_filter(u32 lf_enables)
+void vidc_1080p_set_decode_mpeg4_pp_filter(u32 lf_enables)
 {
 	VIDC_HWIO_OUT(REG_152500, lf_enables);
 }
@@ -401,6 +418,10 @@ void vidc_1080p_get_decode_seq_start_result(
 	seq_hdr_info->progressive = VIDC_GETFIELD(display_result,
 					VIDC_1080P_SI_RG7_DISPLAY_CODING_MASK,
 					VIDC_1080P_SI_RG7_DISPLAY_CODING_SHIFT);
+	seq_hdr_info->crop_exists  = VIDC_GETFIELD(display_result,
+		VIDC_1080P_SI_RG7_DISPLAY_CROP_MASK,
+		VIDC_1080P_SI_RG7_DISPLAY_CROP_SHIFT);
+
 }
 
 void vidc_1080p_get_decoded_frame_size(u32 *pn_decoded_size)
@@ -829,14 +850,12 @@ void vidc_1080p_set_h264_encode_loop_filter(
 	VIDC_HWIO_OUT(REG_964731, slice_beta_offset);
 }
 
-void vidc_1080p_set_h264_encoder_ref_count(u32 max_reference)
+void vidc_1080p_set_h264_encoder_p_frame_ref_count(u32 max_reference)
 {
 	u32 ref_frames;
 	ref_frames = VIDC_SETFIELD(max_reference,
 		HWIO_REG_744348_P_SHFT,
 		HWIO_REG_744348_P_BMSK);
-	ref_frames |= VIDC_SETFIELD(2, HWIO_REG_744348_SHFT,
-		HWIO_REG_744348_BMSK);
 	VIDC_HWIO_OUT(REG_744348, ref_frames);
 }
 
