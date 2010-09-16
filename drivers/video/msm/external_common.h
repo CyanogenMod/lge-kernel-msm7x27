@@ -27,6 +27,13 @@
 #define DEV_WARN(args...)	dev_warn(external_common_state->dev, args)
 #define DEV_ERR(args...)	dev_err(external_common_state->dev, args)
 
+#ifdef CONFIG_FB_MSM_TVOUT
+#define TVOUT_VFRMT_NTSC_M_720x480i		0
+#define TVOUT_VFRMT_NTSC_J_720x480i		1
+#define TVOUT_VFRMT_PAL_BDGHIN_720x576i		2
+#define TVOUT_VFRMT_PAL_M_720x480i		3
+#define TVOUT_VFRMT_PAL_N_720x480i		4
+#elif defined(CONFIG_FB_MSM_HDMI_COMMON)
 /* all video formats defined by EIA CEA 861D */
 #define HDMI_VFRMT_640x480p60_4_3	0
 #define HDMI_VFRMT_720x480p60_4_3	1
@@ -190,25 +197,27 @@ struct hdmi_disp_mode_list_type {
 	uint32	disp_mode_list[HDMI_VFRMT_MAX];
 	uint32	num_of_elements;
 };
+#endif
 
 struct external_common_state_type {
 	boolean hpd_state;
-	boolean hdcp_active;
-	boolean hpd_feature_on;
 	struct kobject *uevent_kobj;
-
 	uint32 video_resolution;
 	struct device *dev;
-
+#ifdef CONFIG_FB_MSM_HDMI_COMMON
+	boolean hdcp_active;
+	boolean hpd_feature_on;
 	struct hdmi_disp_mode_list_type disp_mode_list;
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
+#endif
 };
 
-/* The HDMI driver needs to initialize the common state. */
+/* The external interface driver needs to initialize the common state. */
 extern struct external_common_state_type *external_common_state;
 extern struct mutex external_common_state_hpd_mutex;
 
+#ifdef CONFIG_FB_MSM_HDMI_COMMON
 #define VFRMT_NOT_SUPPORTED(VFRMT) \
 	{VFRMT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FALSE}
 #define HDMI_SETUP_LUT(MODE) do {					\
@@ -220,12 +229,14 @@ extern struct mutex external_common_state_hpd_mutex;
 
 int hdmi_common_read_edid(void);
 const char *video_format_2string(uint32 format);
-int external_common_state_create(struct platform_device *pdev);
-void external_common_state_remove(void);
 void hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd);
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_mode(uint32 mode);
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_supported_mode(
 	uint32 mode);
 void hdmi_common_init_panel_info(struct msm_panel_info *pinfo);
+#endif
+
+int external_common_state_create(struct platform_device *pdev);
+void external_common_state_remove(void);
 
 #endif /* __EXTERNAL_COMMON_H__ */
