@@ -3825,6 +3825,9 @@ static void __init msm_fb_add_devices(void)
 	msm_fb_register_device("lcdc", &lcdc_pdata);
 	msm_fb_register_device("dtv", &dtv_pdata);
 	msm_fb_register_device("tvenc", &atv_pdata);
+#ifdef CONFIG_FB_MSM_TVOUT
+	msm_fb_register_device("tvout_device", NULL);
+#endif
 }
 
 static struct msm_panel_common_pdata lcdc_toshiba_panel_data = {
