@@ -24,20 +24,18 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
-#ifndef __Q6AFE_H__
-#define __Q6AFE_H__
-#include "apr_audio.h"
+#ifndef __MACH_QDSP6_V2_SNDDEV_MI2S_H
+#define __MACH_QDSP6_V2_SNDDEV_MI2S_H
 
-#define MSM_AFE_MONO		0
-#define MSM_AFE_MONO_RIGHT	1
-#define MSM_AFE_MONO_LEFT	2
-#define MSM_AFE_STEREO		3
-
-int afe_open_pcmif(struct afe_port_pcm_cfg cfg);
-int afe_open(int port_id, int rate, int channel_mode);
-int afe_close(int port_id);
-int afe_loopback(u16 enable, u16 rx_port, u16 tx_port);
-
-
-#endif /* __Q6AFE_H__ */
+struct snddev_mi2s_data {
+	u32 capability; /* RX or TX */
+	const char *name;
+	u32 copp_id; /* audpp routing */
+	u32 acdb_id; /* Audio Cal purpose */
+	u16 channel_mode;
+	u16 sd_lines;
+	u32 sample_rate;
+};
+#endif
