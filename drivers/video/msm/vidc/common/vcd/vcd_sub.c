@@ -1970,8 +1970,10 @@ u32 vcd_handle_frame_done(
 	VCD_FAILED_RETURN(rc, "Bad output buffer pointer");
 	op_frm->vcd_frm.time_stamp = transc->time_stamp;
 	op_frm->vcd_frm.ip_frm_tag = transc->ip_frm_tag;
-	op_frm->vcd_frm.frame = transc->frame;
-
+	if (cctxt->decoding)
+		op_frm->vcd_frm.frame = transc->frame;
+	else
+		transc->frame = op_frm->vcd_frm.frame;
 	transc->frame_done = true;
 
 	if (transc->input_done && transc->frame_done)
@@ -2043,10 +2045,8 @@ void vcd_handle_frame_done_for_interlacing(
 	if (transc_ip2->input_done && transc_ip2->frame_done)
 		vcd_release_trans_tbl_entry(transc_ip2);
 
-	if (!transc_ip1->frame ||
-			!transc_ip2->frame) {
+	if (!transc_ip1->frame || !transc_ip2->frame) {
 		VCD_MSG_ERROR("DDL didn't provided frame type");
-
 		return;
 	}
 }
