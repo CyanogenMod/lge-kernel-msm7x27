@@ -35,6 +35,8 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 
+#include <linux/input/qci_kbd.h>
+
 /* Keyboard special scancode */
 #define RC_KEY_FN          0x70
 #define RC_KEY_BREAK       0x80
@@ -435,6 +437,13 @@ static int __devinit qcikbd_probe(struct i2c_client *client,
 	int err;
 	int i;
 	struct i2ckbd_drv_data *context;
+	struct qci_kbd_platform_data *pdata = client->dev.platform_data;
+
+	if (!pdata) {
+		pr_err("[KBD] platform data not supplied\n");
+		return -EINVAL;
+	}
+
 	context = kzalloc(sizeof(struct i2ckbd_drv_data), GFP_KERNEL);
 	if (!context)
 		return -ENOMEM;
@@ -477,7 +486,9 @@ static int __devinit qcikbd_probe(struct i2c_client *client,
 	context->qcikbd_dev->id.version = 0x0004;
 	context->qcikbd_dev->open       = qcikbd_open;
 	set_bit(EV_KEY, context->qcikbd_dev->evbit);
-	set_bit(EV_REP, context->qcikbd_dev->evbit);
+
+	if (pdata->repeat)
+		set_bit(EV_REP, context->qcikbd_dev->evbit);
 
 	/* Enable all supported keys */
 	for (i = 1; i < ARRAY_SIZE(on2_keycode) ; i++)
