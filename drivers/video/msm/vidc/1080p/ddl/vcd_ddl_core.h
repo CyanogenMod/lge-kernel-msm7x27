@@ -85,7 +85,7 @@
 #define DDL_DBG_CORE_DUMP_SIZE   (DDL_KILO_BYTE(10))
 
 #define DDL_BUFEND_PAD                    256
-#define DDL_ENC_SEQHEADER_SIZE            (256+DDL_BUFEND_PAD)
+#define DDL_ENC_SEQHEADER_SIZE            (512+DDL_BUFEND_PAD)
 #define DDL_MAX_BUFFER_COUNT              32
 
 #define DDL_MPEG_REFBUF_COUNT             2

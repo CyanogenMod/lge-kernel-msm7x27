@@ -17,6 +17,7 @@
  */
 
 #include "vcd_ddl.h"
+#include "vcd_ddl_metadata.h"
 #include "vcd_ddl_shared_mem.h"
 #include "vcd_core.h"
 
@@ -195,6 +196,13 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 	u32 seq_size;
 
 	vidc_1080p_set_decode_mpeg4_pp_filter(decoder->post_filter.post_filter);
+
+	ddl_vidc_metadata_enable(ddl);
+	vidc_sm_set_metadata_start_address(&ddl->shared_mem
+		[ddl->command_channel],
+		DDL_ADDR_OFFSET(ddl_context->dram_base_a,
+		ddl->codec_data.decoder.meta_data_input));
+
 	if ((decoder->codec.codec == VCD_CODEC_DIVX_3))
 		ddl_context->vidc_set_divx3_resolution
 		[ddl->command_channel](decoder->client_frame_size.width,
@@ -562,6 +570,12 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	}
 	vidc_1080p_set_encode_multi_slice_control(m_slice_sel,
 		i_multi_slice_size, i_multi_slice_byte);
+	ddl_vidc_metadata_enable(ddl);
+	if (encoder->meta_data_enable_flag)
+		vidc_sm_set_metadata_start_address(&ddl->shared_mem
+			[ddl->command_channel], DDL_ADDR_OFFSET(
+			ddl_context->dram_base_a,
+			ddl->codec_data.encoder.meta_data_input));
 	luma[0] = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 			enc_buffers->dpb_y[0]);
 	luma[1] = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
@@ -658,6 +672,10 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 	u32 dpb_addr_y[4], dpb_addr_c[4];
 	u32 index, y_addr, c_addr;
 
+	ddl_vidc_encode_set_metadata_output_buf(ddl);
+
+	encoder->enc_frame_info.meta_data_exists = false;
+
 	y_addr = DDL_OFFSET(ddl_context->dram_base_b.align_physical_addr,
 			input_vcd_frm->physical);
 	c_addr = (y_addr + encoder->input_buf_size.size_y);
@@ -733,6 +751,7 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 		DDL_MSG_ERROR("STATE-CRITICAL");
 		return VCD_ERR_FAIL;
 	}
+	ddl_vidc_decode_set_metadata_output(decoder);
 	if (decoder->dp_buf.no_of_dec_pic_buf <
 		decoder->client_output_buf_req.actual_count)
 		return VCD_ERR_BAD_STATE;

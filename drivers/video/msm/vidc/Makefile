@@ -48,6 +48,7 @@ vidc-objs +=	1080p/ddl/vcd_ddl_helper.o \
 		1080p/ddl/vidc_pix_cache.o \
 		1080p/ddl/vcd_ddl_vidc.o \
 		1080p/ddl/vcd_ddl.o \
+		1080p/ddl/vcd_ddl_metadata.o \
 		1080p/resource_tracker/vcd_res_tracker.o
 endif
 
