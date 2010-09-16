@@ -109,11 +109,11 @@ static int tvenc_off(struct platform_device *pdev)
 		printk(KERN_ERR "%s: pm_vid_en(off) failed! %d\n",
 		__func__, ret);
 
+	clk_disable(tvdac_clk);
+	clk_disable(tvenc_clk);
 #ifdef CONFIG_FB_MSM_MDP40
 	clk_disable(tv_src_clk);
 #endif
-	clk_disable(tvdac_clk);
-	clk_disable(tvenc_clk);
 
 	if (tvenc_pdata && tvenc_pdata->pm_vid_en)
 		ret = tvenc_pdata->pm_vid_en(0);
@@ -145,37 +145,46 @@ static int tvenc_on(struct platform_device *pdev)
 		__func__, ret);
 		return ret;
 	}
+#ifdef CONFIG_FB_MSM_MDP40
+	clk_set_rate(tv_src_clk, 27000000);
+	ret = clk_enable(tv_src_clk);
+	if (ret) {
+		printk(KERN_ERR "%s: tvsrc_clk enable failed! %d\n",
+			__func__, ret);
+		goto tvsrc_err;
+	}
+#endif
 	ret = clk_enable(tvenc_clk);
-    if (ret) {
+	if (ret) {
 		printk(KERN_ERR "%s: tvenc_clk enable failed! %d\n",
 			__func__, ret);
 		goto tvenc_err;
 	}
-    ret = clk_enable(tvdac_clk);
-    if (ret) {
+
+	ret = clk_enable(tvdac_clk);
+	if (ret) {
 		printk(KERN_ERR "%s: tvdac_clk enable failed! %d\n",
 			__func__, ret);
 		goto tvdac_err;
 	}
-#ifdef CONFIG_FB_MSM_MDP40
-    ret = clk_enable(tv_src_clk);
-    if (ret) {
-		printk(KERN_ERR "%s: tvsrc_clk enable failed! %d\n",
-			__func__, ret);
-		goto tvsrc_err;
-    }
-#endif
-    ret = panel_next_on(pdev);
-    return ret;
 
-#ifdef CONFIG_FB_MSM_MDP40
-tvsrc_err:
-    clk_disable(tvdac_clk);
+#ifdef DEBUG
+	pr_info("%s : TV_SRC_CLK %lu | TV_ENC_CLK %lu |TV_DAC_CLK %lu\n",
+		__func__, clk_get_rate(tv_src_clk), clk_get_rate(tvenc_clk),
+		clk_get_rate(tvdac_clk));
 #endif
+
+	ret = panel_next_on(pdev);
+	return ret;
+
 tvdac_err:
-    clk_disable(tvenc_clk);
+	clk_disable(tvenc_clk);
 tvenc_err:
-    return ret;
+#ifdef CONFIG_FB_MSM_MDP40
+	clk_disable(tv_src_clk);
+tvsrc_err:
+#endif
+	return ret;
 }
 
 void tvenc_gen_test_pattern(struct msm_fb_data_type *mfd)
