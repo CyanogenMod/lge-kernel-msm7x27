@@ -319,6 +319,14 @@ config MACH_MSM8X60_FFA
 	help
 	  Support for the Qualcomm MSM8x60 FFA eval board.
 
+config MACH_MSM8X60_QRDC
+	depends on ARCH_MSM8X60
+	default n
+	bool "MSM8x60 QRDC"
+	select SMP_PARALLEL_START
+	help
+	  Support for the Qualcomm MSM8x60 QRDC board.
+
 endmenu
 
 config MSM_STACKED_MEMORY
