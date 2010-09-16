@@ -1553,10 +1553,10 @@ static void ddl_set_default_enc_rc_params(
 		encoder->session_qp.p_frame_qp = 0x14;
 
 		encoder->rc_level.mb_level_rc = true;
-		encoder->adaptive_rc.activity_region_flag = true;
-		encoder->adaptive_rc.dark_region_as_flag = true;
-		encoder->adaptive_rc.smooth_region_as_flag = true;
-		encoder->adaptive_rc.static_region_as_flag = true;
+		encoder->adaptive_rc.activity_region_flag = false;
+		encoder->adaptive_rc.dark_region_as_flag = false;
+		encoder->adaptive_rc.smooth_region_as_flag = false;
+		encoder->adaptive_rc.static_region_as_flag = false;
 	} else {
 		encoder->qp_range.max_qp = 0x1f;
 		encoder->session_qp.i_frame_qp = 0xd;
