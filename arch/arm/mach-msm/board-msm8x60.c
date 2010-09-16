@@ -1600,6 +1600,70 @@ static struct platform_device msm_aux_pcm_device = {
 	.resource       = msm_aux_pcm_resources,
 };
 
+static uint32_t mi2s_config_gpio[] = {
+	GPIO_CFG(107, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(101, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(102, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(103, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+};
+
+static void fm_mi2s_enable(void)
+{
+	gpio_tlmm_config(mi2s_config_gpio[0], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(mi2s_config_gpio[1], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(mi2s_config_gpio[2], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(mi2s_config_gpio[3], GPIO_CFG_ENABLE);
+}
+
+static void fm_mi2s_disable(void)
+{
+	gpio_tlmm_config(mi2s_config_gpio[0], GPIO_CFG_DISABLE);
+	gpio_tlmm_config(mi2s_config_gpio[1], GPIO_CFG_DISABLE);
+	gpio_tlmm_config(mi2s_config_gpio[2], GPIO_CFG_DISABLE);
+	gpio_tlmm_config(mi2s_config_gpio[3], GPIO_CFG_DISABLE);
+}
+
+static struct resource msm_mi2s_gpio_resources[] = {
+
+	{
+		.name   = "mi2s_ws",
+		.start  = 101,
+		.end    = 101,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "mi2s_sclk",
+		.start  = 102,
+		.end    = 102,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "mi2s_mclk",
+		.start  = 103,
+		.end    = 103,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "fm_i2s_sd",
+		.start  = 107,
+		.end    = 107,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct msm_mi2s_gpio_data gpio_data = {
+
+	.enable		 = fm_mi2s_enable,
+	.disable	 = fm_mi2s_disable,
+};
+
+static struct platform_device msm_mi2s_device = {
+	.name		= "msm_mi2s",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(msm_mi2s_gpio_resources),
+	.resource	= msm_mi2s_gpio_resources,
+	.dev		= { .platform_data = &gpio_data },
+};
 
 static struct platform_device *rumi_sim_devices[] __initdata = {
 	&smc91x_device,
@@ -1655,6 +1719,7 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 #endif
 	&msm_device_vidc,
 	&msm_aux_pcm_device,
+	&msm_mi2s_device,
 };
 
 static struct platform_device *surf_devices[] __initdata = {
