@@ -127,7 +127,7 @@ int mdp4_dtv_on(struct platform_device *pdev)
 		ptype = mdp4_overlay_format2type(format);
 		if (ptype < 0)
 			printk(KERN_INFO "%s: format2type failed\n", __func__);
-		pipe = mdp4_overlay_pipe_alloc(ptype);
+		pipe = mdp4_overlay_pipe_alloc(ptype, FALSE);
 		if (pipe == NULL) {
 			printk(KERN_INFO "%s: pipe_alloc failed\n", __func__);
 			return -EBUSY;

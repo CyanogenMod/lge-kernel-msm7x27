@@ -1115,13 +1115,15 @@ struct mdp4_overlay_pipe *mdp4_overlay_ndx2pipe(int ndx)
 	return pipe;
 }
 
-struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype)
+struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype, boolean usevg)
 {
-	int i;
+	int i = 0;
 	struct mdp4_overlay_pipe *pipe;
 
-	pipe = &ctrl->plist[0];
-	for (i = 0; i < MDP4_MAX_PIPE; i++) {
+	if (usevg)
+		i = 2;
+	pipe = &ctrl->plist[i];
+	for (; i < MDP4_MAX_PIPE; i++) {
 		if (pipe->pipe_type == ptype && pipe->pipe_used == 0) {
 			init_completion(&pipe->comp);
 #ifdef MDP4_MDDI_DMA_SWITCH
@@ -1268,7 +1270,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	}
 
 	if (req->id == MSMFB_NEW_REQUEST)  /* new request */
-		pipe = mdp4_overlay_pipe_alloc(ptype);
+		pipe = mdp4_overlay_pipe_alloc(ptype, TRUE);
 	else
 		pipe = mdp4_overlay_ndx2pipe(req->id);
 
