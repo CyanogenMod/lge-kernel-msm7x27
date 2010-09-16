@@ -159,6 +159,12 @@ static void bind_functions(struct android_dev *dev)
 		else
 			printk(KERN_ERR "function %s not found in bind_functions\n", name);
 	}
+
+	/*
+	 * set_alt(), or next config->bind(), sets up
+	 * ep->driver_data as needed.
+	 */
+	usb_ep_autoconfig_reset(dev->cdev->gadget);
 }
 
 static int __init android_bind_config(struct usb_configuration *c)
