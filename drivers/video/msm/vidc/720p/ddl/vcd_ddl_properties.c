@@ -1505,9 +1505,12 @@ static void ddl_set_default_enc_level(struct ddl_encoder_data *encoder)
 static void ddl_set_default_enc_vop_timing
     (struct ddl_encoder_data *encoder)
 {
-	encoder->vop_timing.vop_time_resolution =
-	    (2 * encoder->frame_rate.fps_numerator) /
-	    encoder->frame_rate.fps_denominator;
+	if (encoder->codec.codec == VCD_CODEC_MPEG4)
+		encoder->vop_timing.vop_time_resolution =
+		    (2 * encoder->frame_rate.fps_numerator) /
+		    encoder->frame_rate.fps_denominator;
+	else
+		encoder->vop_timing.vop_time_resolution = 0x7530;
 }
 
 static void ddl_set_default_enc_intra_period(
