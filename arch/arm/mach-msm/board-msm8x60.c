@@ -1173,6 +1173,20 @@ static struct platform_device android_pmem_smipool_device = {
 
 #endif
 
+#define GPIO_DONGLE_PWR_EN 258
+static void setup_display_power(void);
+static int lcdc_vga_enabled;
+static int vga_enable_request(int enable)
+{
+	if (enable)
+		lcdc_vga_enabled = 1;
+	else
+		lcdc_vga_enabled = 0;
+	setup_display_power();
+
+	return 0;
+}
+
 #define GPIO_BACKLIGHT_PWM0 0
 #define GPIO_BACKLIGHT_PWM1 1
 
@@ -1180,6 +1194,7 @@ static int pmic_backlight_gpio[2]
 	= { GPIO_BACKLIGHT_PWM0, GPIO_BACKLIGHT_PWM1 };
 static struct msm_panel_common_pdata lcdc_samsung_panel_data = {
 	.gpio_num = pmic_backlight_gpio, /* two LPG CHANNELS for backlight */
+	.vga_switch = vga_enable_request,
 };
 
 static struct platform_device lcdc_samsung_panel_device = {
@@ -4033,6 +4048,31 @@ static inline void display_common_power(int on) {}
 /* the backlight control line is on the first expander pin 12 */
 #define GPIO_BACKLIGHT_EN (GPIO_EXPANDER_GPIO_BASE + 12)
 
+static int display_power_on;
+static void setup_display_power(void)
+{
+	if (display_power_on)
+		if (lcdc_vga_enabled) {
+			gpio_set_value_cansleep(GPIO_LVDS_STDN_OUT_N, 0);
+			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
+			if (machine_is_msm8x60_ffa())
+				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 1);
+		} else {
+			gpio_set_value_cansleep(GPIO_LVDS_STDN_OUT_N, 1);
+			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 1);
+			if (machine_is_msm8x60_ffa())
+				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
+		}
+	else {
+		if (machine_is_msm8x60_ffa())
+			gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
+		/* BACKLIGHT */
+		gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
+		/* LVDS */
+		gpio_set_value_cansleep(GPIO_LVDS_STDN_OUT_N, 0);
+	}
+}
+
 static void display_common_power(int on)
 {
 	static int rc = -EINVAL; /* remember if the gpio_requests succeeded */
@@ -4059,20 +4099,34 @@ static void display_common_power(int on)
 				return;
 			}
 
+			if (machine_is_msm8x60_ffa()) {
+				rc = gpio_request(GPIO_DONGLE_PWR_EN,
+						  "DONGLE_PWR_EN");
+				if (rc) {
+					printk(KERN_ERR "%s: DONGLE_PWR_EN gpio"
+					       " %d request failed\n", __func__,
+					       GPIO_DONGLE_PWR_EN);
+					gpio_free(GPIO_LVDS_STDN_OUT_N);
+					gpio_free(GPIO_BACKLIGHT_EN);
+					return;
+				}
+			}
+
 			gpio_direction_output(GPIO_LVDS_STDN_OUT_N, 0);
 			gpio_direction_output(GPIO_BACKLIGHT_EN, 0);
+			if (machine_is_msm8x60_ffa())
+				gpio_direction_output(GPIO_DONGLE_PWR_EN, 0);
 			mdelay(20);
-			gpio_set_value_cansleep(GPIO_LVDS_STDN_OUT_N, 1);
-			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 1);
+			display_power_on = 1;
+			setup_display_power();
 
 		} else {
 			if (!rc) {
-				/* BACKLIGHT */
-				gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
-				/* LVDS */
-				gpio_set_value_cansleep(GPIO_LVDS_STDN_OUT_N,
-				0);
+				display_power_on = 0;
+				setup_display_power();
 				mdelay(20);
+				if (machine_is_msm8x60_ffa())
+					gpio_free(GPIO_DONGLE_PWR_EN);
 				gpio_free(GPIO_BACKLIGHT_EN);
 				gpio_free(GPIO_LVDS_STDN_OUT_N);
 			}
