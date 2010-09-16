@@ -965,8 +965,8 @@ static void vcd_clnt_cb_in_eos
 	case VCD_EVT_RESP_EOS_DONE:
 		{
 			transc = (struct vcd_transc *)client_data;
-
 			vcd_handle_eos_done(cctxt, transc, status);
+			vcd_mark_frame_channel(cctxt->dev_ctxt);
 			break;
 		}
 	case VCD_EVT_IND_OUTPUT_RECONFIG:
