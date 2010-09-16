@@ -1234,11 +1234,13 @@ msmsdcc_platform_sdiowakeup_irq(int irq, void *dev_id)
 	struct msmsdcc_host	*host = dev_id;
 
 	pr_info("%s: SDIO Wake up IRQ : %d\n", __func__, irq);
-	wake_lock(&host->sdio_wlock);
-	disable_irq_nosync(irq);
-	disable_irq_wake(irq);
 	spin_lock(&host->lock);
-	host->sdio_irq_disabled = 1;
+	if (!host->sdio_irq_disabled) {
+		wake_lock(&host->sdio_wlock);
+		disable_irq_nosync(irq);
+		disable_irq_wake(irq);
+		host->sdio_irq_disabled = 1;
+	}
 	spin_unlock(&host->lock);
 
 	return IRQ_HANDLED;
@@ -1779,6 +1781,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 
 		if (host->plat->sdiowakeup_irq && mmc->card &&
 				mmc->card->type == MMC_TYPE_SDIO) {
+			host->sdio_irq_disabled = 0;
 			enable_irq_wake(host->plat->sdiowakeup_irq);
 			enable_irq(host->plat->sdiowakeup_irq);
 		}
@@ -1806,17 +1809,16 @@ msmsdcc_runtime_resume(struct device *dev)
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
 
 		if (host->plat->sdiowakeup_irq && !host->sdio_irq_disabled) {
-			spin_unlock_irqrestore(&host->lock, flags);
 			if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
-				disable_irq(host->plat->sdiowakeup_irq);
+				disable_irq_nosync(host->plat->sdiowakeup_irq);
 				disable_irq_wake(host->plat->sdiowakeup_irq);
+				host->sdio_irq_disabled = 1;
 			}
 		} else {
 			release_lock = 1;
-			host->sdio_irq_disabled = 0;
-			spin_unlock_irqrestore(&host->lock, flags);
 		}
 
+		spin_unlock_irqrestore(&host->lock, flags);
 		if (!mmc->card || mmc->card->type != MMC_TYPE_SDIO)
 			mmc_resume_host(mmc);
 
