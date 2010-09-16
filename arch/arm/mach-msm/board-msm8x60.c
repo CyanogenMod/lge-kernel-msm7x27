@@ -452,7 +452,7 @@ static int msm_hsusb_ldo_enable(int on)
  }
 #endif
 #ifdef CONFIG_USB_EHCI_MSM
-struct regulator *votg_5v_switch;
+static struct regulator *votg_5v_switch;
 static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 {
 	static int vbus_is_on;
