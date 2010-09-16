@@ -40,9 +40,16 @@ struct smd_tty_info {
 	struct wake_lock wake_lock;
 	int open_count;
 	struct tasklet_struct tty_tsklt;
+	struct timer_list buf_req_timer;
 };
 
 static struct smd_tty_info smd_tty[MAX_SMD_TTYS];
+
+static void buf_req_retry(unsigned long param)
+{
+	struct smd_tty_info *info = (struct smd_tty_info *)param;
+	tasklet_hi_schedule(&info->tty_tsklt);
+}
 
 static void smd_tty_read(unsigned long param)
 {
@@ -61,6 +68,17 @@ static void smd_tty_read(unsigned long param)
 			break;
 
 		avail = tty_prepare_flip_string(tty, &ptr, avail);
+		if (avail <= 0) {
+			if (!timer_pending(&info->buf_req_timer)) {
+				init_timer(&info->buf_req_timer);
+				info->buf_req_timer.expires = jiffies +
+							((30 * HZ)/1000);
+				info->buf_req_timer.function = buf_req_retry;
+				info->buf_req_timer.data = param;
+				add_timer(&info->buf_req_timer);
+			}
+			return;
+		}
 
 		if (smd_read(info->ch, ptr, avail) != avail) {
 			/* shouldn't be possible since we're in interrupt
@@ -150,6 +168,7 @@ static void smd_tty_close(struct tty_struct *tty, struct file *f)
 	if (--info->open_count == 0) {
 		info->tty = 0;
 		tty->driver_data = 0;
+		del_timer(&info->buf_req_timer);
 		tasklet_kill(&info->tty_tsklt);
 		wake_lock_destroy(&info->wake_lock);
 		if (info->ch) {
