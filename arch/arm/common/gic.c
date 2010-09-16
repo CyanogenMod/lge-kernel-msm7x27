@@ -122,14 +122,16 @@ static void gic_unmask_irq(unsigned int irq)
 static int gic_set_cpu(unsigned int irq, const struct cpumask *mask_val)
 {
 	void __iomem *reg = gic_dist_base(irq) + GIC_DIST_TARGET + (gic_irq(irq) & ~3);
-	unsigned int shift = (irq % 4) * 8;
-	unsigned int cpu = cpumask_first(mask_val);
+	unsigned int shift = (irq % 4)*8;
 	u32 val;
+	unsigned int cpu;
 
 	spin_lock(&irq_controller_lock);
-	irq_desc[irq].node = cpu;
-	val = readl(reg) & ~(0xff << shift);
-	val |= 1 << (cpu + shift);
+	val = readl(reg);
+	for_each_online_cpu(cpu) {
+		if (cpumask_test_cpu(cpu, mask_val))
+			val |= 1 << (cpu+shift);
+	}
 	writel(val, reg);
 	spin_unlock(&irq_controller_lock);
 
@@ -296,7 +298,10 @@ void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 			  unsigned int irq_start)
 {
 	unsigned int max_irq, i;
-	u32 cpumask = 1 << smp_processor_id();
+	unsigned long cpumask;
+
+	/* initialize for all cpus */
+	bitmap_fill(&cpumask, nr_cpumask_bits);
 
 	if (gic_nr >= MAX_GIC_NR)
 		BUG();
