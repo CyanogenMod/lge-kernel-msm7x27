@@ -431,6 +431,12 @@ static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
 	}
 	return ret;
 }
+
+static int msm_otg_rpc_phy_reset(void __iomem *regs)
+{
+	return msm_hsusb_phy_reset();
+}
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.rpc_connect	= hsusb_rpc_connect,
 	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
@@ -1991,7 +1997,7 @@ static void __init msm7x2x_init(void)
 			PRE_EMPHASIS_WITH_20_PERCENT;
 		msm_otg_pdata.drv_ampl = HS_DRV_AMPLITUDE_5_PERCENT;
 		msm_otg_pdata.cdr_autoreset = CDR_AUTO_RESET_ENABLE;
-		msm_otg_pdata.phy_reset_sig_inverted = 1;
+		msm_otg_pdata.phy_reset = msm_otg_rpc_phy_reset;
 	}
 	if (machine_is_msm7x27_surf() || machine_is_msm7x27_ffa()) {
 		msm_otg_pdata.pemp_level =
