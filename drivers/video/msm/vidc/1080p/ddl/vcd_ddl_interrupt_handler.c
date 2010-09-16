@@ -170,8 +170,8 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 		ddl_client_fatal_cb(ddl);
 	} else {
 		ddl->cmd_state = DDL_CMD_INVALID;
-		DDL_MSG_LOW("ddl_state_transition: %s ~~>\
-			DDL_CLIENT_WAIT_FOR_DPB",\
+		DDL_MSG_LOW("ddl_state_transition: %s ~~>"
+			"DDL_CLIENT_WAIT_FOR_DPB",
 			ddl_get_state_string(ddl->client_state));
 		ddl->client_state = DDL_CLIENT_WAIT_FOR_DPB;
 		DDL_MSG_LOW("HEADER_DONE");
@@ -288,6 +288,16 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 					VCD_S_SUCCESS, &ddl->input_frame,
 					sizeof(struct ddl_frame_data_tag),
 					(u32 *) ddl, ddl->client_data);
+			} else {
+				if (decoder->codec.codec ==
+					VCD_CODEC_VC1_RCV ||
+					decoder->codec.codec ==
+					VCD_CODEC_VC1) {
+					vidc_sm_set_start_byte_number(
+						&ddl->shared_mem
+						[ddl->command_channel],
+						seq_hdr_info.dec_frm_size);
+				}
 			}
 			if (need_reconfig) {
 				struct ddl_frame_data_tag *payload =
@@ -372,10 +382,6 @@ static u32 ddl_dpb_buffers_set_done_callback(
 				"DDL_CLIENT_WAIT_FOR_FRAME",
 				ddl_get_state_string(ddl->client_state));
 			ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
-			ddl->codec_data.decoder.dec_disp_info.\
-				img_size_x = 0;
-			ddl->codec_data.decoder.dec_disp_info.\
-				img_size_y = 0;
 			ddl_vidc_decode_frame_run(ddl);
 			ret_status = false;
 		}
@@ -839,6 +845,8 @@ static void ddl_decoder_input_done_callback(
 
 	vidc_1080p_get_decoded_frame_size(
 		&dec_disp_info->input_bytes_consumed);
+	vidc_sm_set_start_byte_number(&ddl->shared_mem
+		[ddl->command_channel], 0);
 	vidc_1080p_get_decode_frame(&dec_disp_info->input_frame);
 	ddl_get_decoded_frame(input_vcd_frm,
 		dec_disp_info->input_frame);
@@ -867,19 +875,16 @@ static u32 ddl_decoder_ouput_done_callback(
 
 	output_vcd_frm->physical =
 		(u8 *) (dec_disp_info->display_y_addr << 11);
-
-	vidc_sm_get_displayed_picture_frame(&ddl->shared_mem
-		[ddl->command_channel], &disp_pict);
-	if (!disp_pict)
-		output_vcd_frm->frame = VCD_FRAME_NOTCODED;
-	else
 		output_vcd_frm->frame = VCD_FRAME_YUV;
-
 	if (decoder->codec.codec == VCD_CODEC_MPEG4 ||
 		decoder->codec.codec == VCD_CODEC_VC1 ||
 		decoder->codec.codec == VCD_CODEC_VC1_RCV ||
 		(decoder->codec.codec >= VCD_CODEC_DIVX_3 &&
 		decoder->codec.codec <= VCD_CODEC_XVID)) {
+		vidc_sm_get_displayed_picture_frame(&ddl->shared_mem
+		[ddl->command_channel], &disp_pict);
+		if (!disp_pict)
+			output_vcd_frm->frame = VCD_FRAME_NOTCODED;
 		if (output_vcd_frm->frame == VCD_FRAME_NOTCODED) {
 			vidc_sm_get_available_luma_dpb_address(
 				&ddl->shared_mem[ddl->command_channel],
@@ -983,6 +988,7 @@ static u32 ddl_get_decoded_frame(struct vcd_frame_data  *frame,
 	case VIDC_1080P_DECODE_FRAMETYPE_NOT_CODED:
 		frame->frame = VCD_FRAME_NOTCODED;
 		frame->data_len = 0;
+		DDL_MSG_HIGH("DDL_INFO:Decoder:NotCodedFrame>");
 	break;
 	case VIDC_1080P_DECODE_FRAMETYPE_OTHERS:
 		frame->frame = VCD_FRAME_YUV;
