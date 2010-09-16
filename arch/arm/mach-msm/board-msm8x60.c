@@ -3085,11 +3085,6 @@ static struct i2c_board_info msm_i2c_gsbi7_bahama_info[] = {
 };
 #endif /* CONFIG_BAHAMA_CORE */
 
-unsigned long clk_get_max_axi_khz(void)
-{
-	return 0;
-}
-
 #ifdef CONFIG_I2C
 #define I2C_SURF 1
 #define I2C_FFA  (1 << 1)
