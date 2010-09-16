@@ -75,8 +75,6 @@ static void mdp_dma_s_update_lcd(struct msm_fb_data_type *mfd)
 		outp32(MDP_EBI2_LCD1, mfd->data_port_phys);
 	}
 
-	dma_s_cfg_reg |= DMA_DITHER_EN;
-
 	src = (uint8 *) iBuf->buf;
 	/* starting input address */
 	src += (iBuf->dma_x + iBuf->dma_y * iBuf->ibuf_width) * outBpp;
