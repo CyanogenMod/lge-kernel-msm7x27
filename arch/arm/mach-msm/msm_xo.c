@@ -73,10 +73,7 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 			    (msm_xo_sources[TCXO_D1].mode << 8) |
 			    (msm_xo_sources[TCXO_A0].mode << 16) |
 			    (msm_xo_sources[TCXO_A1].mode << 24);
-		/* FIXME: not yet supported.
-		 * ret = msm_rpm_set(MSM_RPM_CTX_SET_0, &cmd, 1);
-		 */
-		ret = 0;
+		ret = msm_rpm_set(MSM_RPM_CTX_SET_0, &cmd, 1);
 	}
 
 	if (ret)
