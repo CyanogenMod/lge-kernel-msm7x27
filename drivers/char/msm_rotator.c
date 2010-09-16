@@ -749,6 +749,13 @@ static int msm_rotator_do_rotate(unsigned long arg)
 #else
 	use_imem = 0;
 #endif
+	/*
+	 * workaround for a hardware bug. rotator hardware hangs when we
+	 * use write burst beat size 16 on 128X128 tile fetch mode. As a
+	 * temporary fix use 0x42 for BURST_SIZE when imem used.
+	 */
+	if (use_imem)
+		iowrite32(0x42, MSM_ROTATOR_MAX_BURST_SIZE);
 
 	iowrite32(((msm_rotator_dev->img_info[s]->src_rect.h & 0x1fff)
 				<< 16) |
@@ -1176,8 +1183,6 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	}
 
 	init_waitqueue_head(&msm_rotator_dev->wq);
-
-	iowrite32(0x42, MSM_ROTATOR_MAX_BURST_SIZE);
 
 	dev_dbg(msm_rotator_dev->device, "probe successful\n");
 	return rc;
