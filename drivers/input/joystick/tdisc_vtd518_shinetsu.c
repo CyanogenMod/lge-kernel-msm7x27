@@ -48,6 +48,7 @@ MODULE_ALIAS("platform:tdisc-shinetsu");
 #define TDISC_EAST_SWITCH_MASK		0x08
 #define TDISC_WEST_SWITCH_MASK		0x04
 #define TDISC_CENTER_SWITCH		0x01
+#define TDISC_BUTTON_PRESS_MASK		0x3F
 
 #define DRIVER_NAME			"tdisc-shinetsu"
 #define DEVICE_NAME			"vtd518"
@@ -64,6 +65,8 @@ struct tdisc_data {
 static void process_tdisc_data(struct tdisc_data *dd, u8 *data)
 {
 	int i;
+	static bool button_press;
+	s8 x, y;
 
 	/* Check if the user is actively navigating */
 	if (!(data[7] & TDISC_USER_ACTIVE_MASK)) {
@@ -72,40 +75,57 @@ static void process_tdisc_data(struct tdisc_data *dd, u8 *data)
 	}
 
 	for (i = 0; i < 8 ; i++)
-		pr_debug(" Data[%d] = %x \n", i, data[i]);
+		pr_debug(" Data[%d] = %x\n", i, data[i]);
 
-	/* Report relative motion values */
-	input_report_rel(dd->tdisc_device, REL_X, (s8) data[0]);
-	input_report_rel(dd->tdisc_device, REL_Y, (s8) data[1]);
-
-	/* Report absolute motion values */
-	/* TODO: Check if absolute screen values are to be passed*/
-	input_report_abs(dd->tdisc_device, ABS_X, data[2]);
-	input_report_abs(dd->tdisc_device, ABS_Y, data[3]);
-	input_report_abs(dd->tdisc_device, ABS_PRESSURE, data[4]);
-
-	/* Report Scroll  tics */
-	input_report_rel(dd->tdisc_device, REL_WHEEL, (s8) data[6]);
-
-	/* Report button status */
-	input_report_key(dd->tdisc_device, KEY_UP,
+	/* Check if there is a button press */
+	if (dd->pdata->tdisc_report_keys)
+		if (data[7] & TDISC_BUTTON_PRESS_MASK || button_press == true) {
+			input_report_key(dd->tdisc_device, KEY_UP,
 				(data[7] & TDISC_NORTH_SWITCH_MASK));
 
-	input_report_key(dd->tdisc_device, KEY_DOWN,
+			input_report_key(dd->tdisc_device, KEY_DOWN,
 				(data[7] & TDISC_SOUTH_SWITCH_MASK));
 
-	input_report_key(dd->tdisc_device, KEY_RIGHT,
+			input_report_key(dd->tdisc_device, KEY_RIGHT,
 				 (data[7] & TDISC_EAST_SWITCH_MASK));
 
-	input_report_key(dd->tdisc_device, KEY_LEFT,
+			input_report_key(dd->tdisc_device, KEY_LEFT,
 				 (data[7] & TDISC_WEST_SWITCH_MASK));
 
-	input_report_key(dd->tdisc_device, KEY_ENTER,
+			input_report_key(dd->tdisc_device, KEY_ENTER,
 				 (data[7] & TDISC_CENTER_SWITCH));
+
+			if (data[7] & TDISC_BUTTON_PRESS_MASK)
+				button_press = true;
+			else
+				button_press = false;
+		}
+
+	if (dd->pdata->tdisc_report_relative) {
+		/* Report relative motion values */
+		x = (s8) data[0];
+		y = (s8) data[1];
+
+		if (dd->pdata->tdisc_reverse_x)
+			x *= -1;
+		if (dd->pdata->tdisc_reverse_y)
+			y *= -1;
+
+		input_report_rel(dd->tdisc_device, REL_X, x);
+		input_report_rel(dd->tdisc_device, REL_Y, y);
+	}
+
+	if (dd->pdata->tdisc_report_absolute) {
+		input_report_abs(dd->tdisc_device, ABS_X, data[2]);
+		input_report_abs(dd->tdisc_device, ABS_Y, data[3]);
+		input_report_abs(dd->tdisc_device, ABS_PRESSURE, data[4]);
+	}
+
+	if (dd->pdata->tdisc_report_wheel)
+		input_report_rel(dd->tdisc_device, REL_WHEEL, (s8) data[6]);
 
 	input_sync(dd->tdisc_device);
 }
-
 
 static void tdisc_work_f(struct work_struct *work)
 {
@@ -359,6 +379,7 @@ static int __devinit tdisc_probe(struct i2c_client *client,
 	/* Device capablities for relative motion */
 	input_set_capability(dd->tdisc_device, EV_REL, REL_X);
 	input_set_capability(dd->tdisc_device, EV_REL, REL_Y);
+	input_set_capability(dd->tdisc_device, EV_KEY, BTN_MOUSE);
 
 	/* Device capablities for absolute motion */
 	input_set_capability(dd->tdisc_device, EV_ABS, ABS_X);

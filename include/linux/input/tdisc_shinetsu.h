@@ -46,6 +46,12 @@ struct tdisc_platform_data {
 	void	(*tdisc_disable)(void);
 	int	tdisc_wakeup;
 	int	tdisc_gpio;
+	bool	tdisc_report_keys;
+	bool	tdisc_report_relative;
+	bool	tdisc_report_absolute;
+	bool	tdisc_report_wheel;
+	bool	tdisc_reverse_x;
+	bool	tdisc_reverse_y;
 	struct	tdisc_abs_values *tdisc_abs;
 };
 
