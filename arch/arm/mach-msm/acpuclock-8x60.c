@@ -49,6 +49,7 @@
 #define L_VAL_SCPLL_CAL_MAX	0x1C /* = 1512 MHz with 27MHz source */
 
 #define MAX_VDD_SC		1200000 /* uV */
+#define MAX_AXI			262000 /* KHz */
 
 /* SCPLL Modes. */
 #define SCPLL_POWER_DOWN	0
@@ -133,15 +134,15 @@ static struct clkctl_acpu_speed *l2_vote[NR_CPUS];
 /* L_VAL's below assume 27 MHz sources for all SCPLLs.
  * SCPLL and L2 frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ {0, 0},  192000, ACPU_PLL_8, 3, 1, 0, 0,    0, 0,     950000 },
-	{ {1, 1},  262000, ACPU_AFAB,  1, 0, 0, 0,    0, 0,     950000 },
-	{ {1, 1},  384000, ACPU_PLL_8, 3, 0, 0, 0,    0, 0,     950000 },
-	{ {1, 1},  432000, ACPU_SCPLL, 0, 0, 1, 0x08, 1, 0x08,  950000 },
-	{ {1, 1},  648000, ACPU_SCPLL, 0, 0, 1, 0x0C, 1, 0x0C, 1100000 },
-	{ {1, 1},  810000, ACPU_SCPLL, 0, 0, 1, 0x0F, 1, 0x0F, 1100000 },
-	{ {0, 0},  972000, ACPU_SCPLL, 0, 0, 1, 0x12, 1, 0x10, 1200000 },
-	{ {1, 1}, 1080000, ACPU_SCPLL, 0, 0, 1, 0x14, 1, 0x10, 1200000 },
-	{ {0, 0}, 1188000, ACPU_SCPLL, 0, 0, 1, 0x16, 1, 0x10, 1200000 },
+	{ {0, 0},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    0, 0,     950000 },
+	{ {1, 1},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    0, 0,     950000 },
+	{ {1, 1},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    0, 0,     950000 },
+	{ {1, 1},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, 1, 0x08,  950000 },
+	{ {1, 1},  648000,  ACPU_SCPLL, 0, 0, 1, 0x0C, 1, 0x0C, 1100000 },
+	{ {1, 1},  810000,  ACPU_SCPLL, 0, 0, 1, 0x0F, 1, 0x0F, 1100000 },
+	{ {0, 0},  972000,  ACPU_SCPLL, 0, 0, 1, 0x12, 1, 0x10, 1200000 },
+	{ {1, 1}, 1080000,  ACPU_SCPLL, 0, 0, 1, 0x14, 1, 0x10, 1200000 },
+	{ {0, 0}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, 1, 0x10, 1200000 },
 	{ {0, 0}, 0 },
 };
 
@@ -155,7 +156,13 @@ uint32_t acpuclk_get_switch_time(void)
 	return drv_state.acpu_switch_time_us;
 }
 
-#define POWER_COLLAPSE_KHZ 262000
+unsigned long clk_get_max_axi_khz(void)
+{
+	return MAX_AXI;
+}
+EXPORT_SYMBOL(clk_get_max_axi_khz);
+
+#define POWER_COLLAPSE_KHZ MAX_AXI
 unsigned long acpuclk_power_collapse(void)
 {
 	int ret = acpuclk_get_rate(smp_processor_id());
@@ -163,7 +170,7 @@ unsigned long acpuclk_power_collapse(void)
 	return ret;
 }
 
-#define WAIT_FOR_IRQ_KHZ 262000
+#define WAIT_FOR_IRQ_KHZ MAX_AXI
 unsigned long acpuclk_wait_for_irq(void)
 {
 	int ret = acpuclk_get_rate(smp_processor_id());
