@@ -40,7 +40,7 @@ static void ddl_fw_status_done_callback(struct ddl_context *ddl_context)
 	} else {
 		DDL_MSG_LOW("FW_STATUS_DONE");
 		vidc_1080p_set_host2risc_cmd(VIDC_1080P_HOST2RISC_CMD_SYS_INIT,
-			ddl_context->fw_ctxt_memory_size, 0, 0, 0);
+			ddl_context->fw_memory_size, 0, 0, 0);
 	}
 }
 

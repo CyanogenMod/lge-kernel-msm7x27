@@ -63,6 +63,9 @@ s8 *ddl_get_state_string(enum ddl_client_state client_state)
 	case DDL_CLIENT_WAIT_FOR_CHEND:
 		ptr = "WAIT_FOR_CHEND ";
 	break;
+	case DDL_CLIENT_FATAL_ERROR:
+		ptr = "FATAL_ERROR";
+	break;
 	default:
 		ptr = "UNKNOWN        ";
 	break;
@@ -236,9 +239,8 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 	struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
 	struct ddl_dec_buffers *dec_buffers = &decoder->hw_bufs;
 	struct ddl_frame_data_tag *frame;
-
-	u32 luma_size, i, dpb;
-	u32 luma[32], chroma[32], mv[32];
+	u32 luma[DDL_MAX_BUFFER_COUNT], chroma[DDL_MAX_BUFFER_COUNT];
+	u32 mv[DDL_MAX_BUFFER_COUNT], luma_size, i, dpb;
 
 	frame = &decoder->dp_buf.dec_pic_buffers[0];
 	luma_size = ddl_get_yuv_buf_size(decoder->frame_size.width,
@@ -470,7 +472,7 @@ void ddl_free_dec_hw_buffers(struct ddl_client_context *ddl)
 		&ddl->codec_data.decoder.hw_bufs;
 	u32 i;
 
-	for (i = 0; i < 32; i++)
+	for (i = 0; i < DDL_MAX_BUFFER_COUNT; i++)
 		ddl_pmem_free(&dec_bufs->h264_mv[i]);
 	ddl_pmem_free(&dec_bufs->h264_nb_ip);
 	ddl_pmem_free(&dec_bufs->h264_vert_nb_mv);
