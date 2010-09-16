@@ -330,7 +330,7 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.set_grp3d_async = NULL,
 	.imem_clk_name = NULL,
 	.grp3d_clk_name = "gfx3d_clk",
-	.grp2d_clk_name = "gfx2d_clk",
+	.grp2d_clk_name = "gfx2d0_clk",
 };
 
 struct platform_device msm_device_kgsl = {
@@ -972,8 +972,8 @@ struct clk msm_clocks_8x60[] = {
 #endif
 	CLK_8X60("dsi_byte_div_clk",	DSI_BYTE_CLK,		NULL, 0),
 	CLK_8X60("dsi_esc_clk",		DSI_ESC_CLK,		NULL, 0),
-	CLK_8X60("gfx2d_clk",		GFX2D0_CLK,		NULL, 0),
-	CLK_8X60("gfx2d_clk",		GFX2D1_CLK,		NULL, 0),
+	CLK_8X60("gfx2d0_clk",		GFX2D0_CLK,		NULL, 0),
+	CLK_8X60("gfx2d1_clk",		GFX2D1_CLK,		NULL, 0),
 	CLK_8X60("gfx3d_clk",		GFX3D_CLK,		NULL, 0),
 	CLK_8X60("ijpeg_clk",		IJPEG_CLK,		NULL, 0),
 	CLK_8X60("jpegd_clk",		JPEGD_CLK,		NULL, 0),
@@ -1022,8 +1022,8 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("tv_enc_pclk",		TV_ENC_P_CLK,		NULL, 0),
 	CLK_8X60("vfe_pclk",		VFE_P_CLK,		NULL, 0),
 	CLK_8X60("vpe_pclk",		VPE_P_CLK,		NULL, 0),
-	CLK_8X60("gfx2d_pclk",		GFX2D0_P_CLK,		NULL, 0),
-	CLK_8X60("gfx2d_pclk",		GFX2D1_P_CLK,		NULL, 0),
+	CLK_8X60("gfx2d0_pclk",		GFX2D0_P_CLK,		NULL, 0),
+	CLK_8X60("gfx2d1_pclk",		GFX2D1_P_CLK,		NULL, 0),
 	CLK_8X60("gfx3d_pclk",		GFX3D_P_CLK,		NULL, 0),
 	CLK_8X60("mi2s_osr_clk",	MI2S_OSR_CLK,		NULL, 0),
 	CLK_8X60("mi2s_bit_clk",	MI2S_BIT_CLK,		NULL, 0),
