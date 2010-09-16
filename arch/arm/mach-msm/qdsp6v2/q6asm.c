@@ -1319,7 +1319,7 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 {
 	struct apr_hdr hdr;
 	int rc;
-	unsigned char state;
+	atomic_t *state;
 
 	if (!ac || ac->apr == NULL) {
 		pr_err("APR handle NULL\n");
@@ -1329,21 +1329,21 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 	switch (cmd) {
 	case CMD_PAUSE:
 		hdr.opcode = ASM_SESSION_CMD_PAUSE;
-		state = atomic_read(&ac->cmd_state);
+		state = &ac->cmd_state;
 		break;
 	case CMD_FLUSH:
 		hdr.opcode = ASM_STREAM_CMD_FLUSH;
-		state = atomic_read(&ac->cmd_state);
+		state = &ac->cmd_state;
 		break;
 	case CMD_EOS:
 		hdr.opcode = ASM_DATA_CMD_EOS;
 		atomic_set(&ac->eos_state, 1);
-		state = atomic_read(&ac->eos_state);
+		state = &ac->eos_state;
 		atomic_set(&ac->cmd_state, 0);
 		break;
 	case CMD_CLOSE:
 		hdr.opcode = ASM_STREAM_CMD_CLOSE;
-		state = atomic_read(&ac->cmd_state);
+		state = &ac->cmd_state;
 		break;
 	default:
 		pr_err("Invalid format[%d]\n", cmd);
@@ -1356,7 +1356,7 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 		pr_err("Commmand 0x%x failed\n", hdr.opcode);
 		goto fail_cmd;
 	}
-	rc = wait_event_timeout(ac->cmd_wait, (state == 0), 5*HZ);
+	rc = wait_event_timeout(ac->cmd_wait, (atomic_read(state) == 0), 5*HZ);
 	if (rc < 0) {
 		pr_err("timeout. waited for response opcode[0x%x]\n",
 							hdr.opcode);
