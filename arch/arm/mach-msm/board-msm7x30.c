@@ -730,6 +730,29 @@ static struct pmic8058_leds_platform_data pm8058_surf_leds_data = {
 	.leds	= pmic8058_surf_leds,
 };
 
+static struct pmic8058_led pmic8058_fluid_leds[] = {
+	[0] = {
+		.name		= "keyboard-backlight",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_LED_KB_LIGHT,
+	},
+	[1] = {
+		.name		= "flash:led_0",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_FLASH_LED_0,
+	},
+	[2] = {
+		.name		= "flash:led_1",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_FLASH_LED_1,
+	},
+};
+
+static struct pmic8058_leds_platform_data pm8058_fluid_leds_data = {
+	.num_leds = ARRAY_SIZE(pmic8058_fluid_leds),
+	.leds	= pmic8058_fluid_leds,
+};
+
 static struct pm8058_platform_data pm8058_7x30_data = {
 	.irq_base = PMIC8058_IRQ_BASE,
 
@@ -5379,6 +5402,11 @@ static void __init pmic8058_leds_init(void)
 			= &pm8058_ffa_leds_data;
 		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_LED].data_size
 			= sizeof(pm8058_ffa_leds_data);
+	} else if (machine_is_msm7x30_fluid()) {
+		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_LED].platform_data
+			= &pm8058_fluid_leds_data;
+		pm8058_7x30_data.sub_devices[PM8058_SUBDEV_LED].data_size
+			= sizeof(pm8058_fluid_leds_data);
 	}
 }
 
