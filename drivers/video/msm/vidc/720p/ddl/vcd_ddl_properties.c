@@ -1344,7 +1344,8 @@ static u32 ddl_set_enc_dynamic_property
 				(struct vcd_property_target_bitrate *)
 				property_value;
 			if (sizeof(struct vcd_property_target_bitrate) ==
-			 property_hdr->sz) {
+			 property_hdr->sz && bitrate->target_bitrate > 0
+			 && bitrate->target_bitrate <= DDL_MAX_BIT_RATE) {
 				encoder->target_bit_rate = *bitrate;
 				dynamic_prop_change = DDL_ENC_CHANGE_BITRATE;
 				vcd_status = VCD_S_SUCCESS;
