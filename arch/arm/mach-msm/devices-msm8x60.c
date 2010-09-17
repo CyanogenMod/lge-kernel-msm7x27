@@ -918,7 +918,15 @@ struct platform_device msm_device_vidc = {
 
 
 struct clk msm_clocks_8x60[] = {
+	CLK_RPM("afab_clk",		AFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("cfpb_clk",		CFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("dfab_clk",		DFAB_CLK,		NULL, CLK_MIN),
 	CLK_RPM("ebi1_clk",		EBI1_CLK,		NULL, CLK_MIN),
+	CLK_RPM("mmfab_clk",		MMFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("mmfpb_clk",		MMFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("sfab_clk",		SFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("sfpb_clk",		SFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("smi_clk",		SMI_CLK,		NULL, CLK_MIN),
 
 	CLK_8X60("gsbi_uart_clk",	GSBI1_UART_CLK,		NULL, 0),
 	CLK_8X60("gsbi_uart_clk",	GSBI2_UART_CLK,		NULL, 0),

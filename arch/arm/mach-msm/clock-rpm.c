@@ -19,8 +19,27 @@
 #include <linux/err.h>
 #include <mach/clk.h>
 
+#include "rpm.h"
 #include "clock.h"
 #include "clock-rpm.h"
+
+#define CLK_RESOURCE(id, name) \
+	[(id)] = { MSM_RPM_ID_##name##_CLK, MSM_RPM_STATUS_ID_##name##_CLK }
+
+static struct rpm_resource {
+	int rpm_clk_id;
+	int rpm_status_id;
+} resource[] = {
+	CLK_RESOURCE(R_AFAB_CLK,  APPS_FABRIC),
+	CLK_RESOURCE(R_CFPB_CLK,  CFPB),
+	CLK_RESOURCE(R_DFAB_CLK,  DAYTONA_FABRIC),
+	CLK_RESOURCE(R_EBI1_CLK,  EBI1),
+	CLK_RESOURCE(R_MMFAB_CLK, MM_FABRIC),
+	CLK_RESOURCE(R_MMFPB_CLK, MMFPB),
+	CLK_RESOURCE(R_SFAB_CLK,  SYSTEM_FABRIC),
+	CLK_RESOURCE(R_SFPB_CLK,  SFPB),
+	CLK_RESOURCE(R_SMI_CLK,   SMI),
+};
 
 int rpm_clk_enable(unsigned id)
 {
@@ -47,14 +66,13 @@ int rpm_clk_set_rate(unsigned id, unsigned rate)
 
 int rpm_clk_set_min_rate(unsigned id, unsigned rate)
 {
-	 /*
-	  * XXX Temporary until real ebi1_clk control is available from the RPM.
-	  */
+	struct msm_rpm_iv_pair iv = { resource[id].rpm_clk_id, (rate/1000) };
+
+	/* FIXME: Temporary until ebi1_clk is supported by the RPM. */
 	if (id == R_EBI1_CLK)
 		return 0;
 
-	/* Not yet supported. */
-	return -EPERM;
+	return msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
 }
 
 int rpm_clk_set_max_rate(unsigned id, unsigned rate)
@@ -71,8 +89,13 @@ int rpm_clk_set_flags(unsigned id, unsigned flags)
 
 unsigned rpm_clk_get_rate(unsigned id)
 {
-	/* Not yet supported. */
-	return 0;
+	struct msm_rpm_iv_pair iv = { resource[id].rpm_status_id };
+	int rc;
+
+	rc  = msm_rpm_get_status(&iv, 1);
+	if (rc < 0)
+		return rc;
+	return iv.value * 1000;
 }
 
 signed rpm_clk_measure_rate(unsigned id)

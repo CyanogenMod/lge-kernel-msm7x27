@@ -30,8 +30,18 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_RPM_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_RPM_H
 
-/* Placeholder for ebi1_clk until an actual ID is assigned. */
-#define R_EBI1_CLK	0
+/* RPM Clock IDs */
+enum {
+	R_AFAB_CLK,
+	R_CFPB_CLK,
+	R_DFAB_CLK,
+	R_EBI1_CLK,
+	R_MMFAB_CLK,
+	R_MMFPB_CLK,
+	R_SFAB_CLK,
+	R_SFPB_CLK,
+	R_SMI_CLK,
+};
 
 struct clk_ops;
 extern struct clk_ops clk_ops_remote;
