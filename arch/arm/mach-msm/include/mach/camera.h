@@ -251,6 +251,7 @@ struct msm_sync {
 
 	atomic_t vpe_enable;
 	uint32_t pp_mask;
+	uint8_t pp_frame_avail;
 	struct msm_queue_cmd *pp_prev;
 	struct msm_queue_cmd *pp_snap;
 	struct msm_queue_cmd *pp_thumb;

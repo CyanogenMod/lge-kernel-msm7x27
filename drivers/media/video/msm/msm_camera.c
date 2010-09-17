@@ -911,10 +911,23 @@ static int msm_get_stats(struct msm_sync *sync, void __user *arg)
 				goto failure;
 			}
 		} else {
-			if ((sync->pp_mask & PP_PREV) &&
-				(data->type == VFE_MSG_OUTPUT_P))
+			if ((sync->pp_frame_avail == 1) &&
+				(sync->pp_mask & PP_PREV) &&
+				(data->type == VFE_MSG_OUTPUT_P)) {
+					CDBG("%s:%d:preiew PP\n",
+					__func__, __LINE__);
 					rc = msm_divert_frame(sync, data, &se);
-			else if (sync->pp_mask & PP_SNAP)
+					sync->pp_frame_avail = 0;
+			} else {
+				if ((sync->pp_mask & PP_PREV) &&
+					(data->type == VFE_MSG_OUTPUT_P)) {
+					free_qcmd(qcmd);
+					return 0;
+				} else
+					CDBG("%s:indication type is %d\n",
+						__func__, data->type);
+			}
+			if (sync->pp_mask & PP_SNAP)
 				if (data->type == VFE_MSG_OUTPUT_S ||
 					data->type == VFE_MSG_OUTPUT_T)
 					rc = msm_divert_frame(sync, data, &se);
@@ -970,7 +983,6 @@ static int msm_get_stats(struct msm_sync *sync, void __user *arg)
 		rc = -EFAULT;
 		goto failure;
 	} /* switch qcmd->type */
-
 	if (copy_to_user((void *)arg, &se, sizeof(se))) {
 		ERR_COPY_TO_USER();
 		rc = -EFAULT;
@@ -1757,7 +1769,7 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 					flags);
 				return -EINVAL;
 			}
-			pr_info("%s: delivering pp_prev\n", __func__);
+			CDBG("%s: delivering pp_prev\n", __func__);
 
 			msm_enqueue(&sync->frame_q, &sync->pp_prev->list_frame);
 			sync->pp_prev = NULL;
@@ -1777,7 +1789,7 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 			return -EINVAL;
 		}
-		pr_info("%s: delivering pp_snap\n", __func__);
+		CDBG("%s: delivering pp_snap\n", __func__);
 		msm_enqueue(&sync->pict_q, &sync->pp_snap->list_pict);
 		sync->pp_snap = NULL;
 		spin_unlock_irqrestore(&pp_snap_spinlock, flags);
@@ -2218,9 +2230,10 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 			if (sync->pp_prev)
 				CDBG("%s: overwriting pp_prev!\n",
 					__func__);
-			pr_info("%s: sending preview to config\n", __func__);
+			CDBG("%s: sending preview to config\n", __func__);
 			sync->pp_prev = qcmd;
 			spin_unlock_irqrestore(&pp_prev_spinlock, flags);
+			sync->pp_frame_avail = 1;
 			break;
 		}
 		CDBG("%s: msm_enqueue frame_q\n", __func__);
@@ -2235,7 +2248,7 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 			if (sync->pp_thumb)
 				pr_warning("%s: overwriting pp_thumb!\n",
 					__func__);
-			pr_info("%s: pp sending thumbnail to config\n",
+			CDBG("%s: pp sending thumbnail to config\n",
 				__func__);
 			sync->pp_thumb = qcmd;
 			spin_unlock_irqrestore(&pp_thumb_spinlock, flags);
@@ -2255,7 +2268,7 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 			if (sync->pp_snap)
 				pr_warning("%s: overwriting pp_snap!\n",
 					__func__);
-			pr_info("%s: pp sending main image to config\n",
+			CDBG("%s: pp sending main image to config\n",
 				__func__);
 			sync->pp_snap = qcmd;
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
@@ -2331,7 +2344,7 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 			if (sync->pp_snap)
 				pr_warning("%s: overwriting pp_snap!\n",
 					__func__);
-			pr_info("%s: sending snapshot to config\n",
+			CDBG("%s: sending snapshot to config\n",
 				__func__);
 			sync->pp_snap = qcmd;
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
@@ -2461,6 +2474,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id)
 
 		msm_camvfe_fn_init(&sync->vfefn, sync);
 		if (sync->vfefn.vfe_init) {
+			sync->pp_frame_avail = 0;
 			sync->get_pic_abort = 0;
 			rc = msm_camio_sensor_clk_on(sync->pdev);
 			if (rc < 0) {
