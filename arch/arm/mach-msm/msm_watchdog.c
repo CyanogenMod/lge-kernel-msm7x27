@@ -41,6 +41,10 @@
 #define PET_DELAY 300
 static unsigned long delay_time;
 
+#define DLOAD_MODE_ADDR 0x2A03E008
+#define DLOAD_MAGIC_WRITE1 0xE47B337D
+#define DLOAD_MAGIC_WRITE2 0xCE14091A
+
 /*
  * On the kernel command line specify
  * msm_watchdog.enable=1 to enable the watchdog
@@ -79,6 +83,16 @@ static int __init init_watchdog(void)
 {
 	if (enable) {
 		printk(KERN_INFO "MSM Watchdog Initialized\n");
+
+#ifdef CONFIG_MSM_WATCHDOG_DEBUG
+		void *dload_mode_addr;
+		dload_mode_addr = ioremap_nocache(DLOAD_MODE_ADDR, SZ_4K);
+		writel(DLOAD_MAGIC_WRITE1, dload_mode_addr);
+		writel(DLOAD_MAGIC_WRITE2, dload_mode_addr +
+					sizeof(unsigned int));
+		iounmap(dload_mode_addr);
+		printk(KERN_INFO "MSM_WATCHDOG_DEBUG enabled\n");
+#endif
 
 		tcsr_base = ioremap_nocache(TCSR_BASE, SZ_4K);
 		if (tcsr_base == NULL)

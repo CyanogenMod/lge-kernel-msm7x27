@@ -36,6 +36,8 @@
 
 #define PSHOLD_CTL_SU (MSM_TLMM_BASE + 0x820)
 
+#define DLOAD_MODE_ADDR 0x2A03E008
+
 static void *tcsr_base;
 
 static void msm_power_off(void)
@@ -51,6 +53,15 @@ static void msm_power_off(void)
 static void msm_restart(char str, const char *cmd)
 {
 	printk(KERN_NOTICE "Going down for restart now\n");
+
+#ifdef CONFIG_MSM_WATCHDOG_DEBUG
+	void *dload_mode_addr;
+	dload_mode_addr = ioremap_nocache(DLOAD_MODE_ADDR, SZ_4K);
+	writel(0, dload_mode_addr);
+	writel(0, dload_mode_addr + sizeof(unsigned int));
+	iounmap(dload_mode_addr);
+#endif
+
 	writel(1, WDT0_RST);
 	writel(0, WDT0_EN);
 	writel(0x31F3, WDT0_BARK_TIME);
