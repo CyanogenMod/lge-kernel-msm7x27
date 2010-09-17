@@ -150,6 +150,7 @@ while (1) { \
 	} \
 	mutex_unlock(&kgsl_driver.mutex); \
 	wait_for_completion(&device->hwaccess_gate); \
+	mutex_lock(&kgsl_driver.mutex); \
 }
 
 #define KGSL_POST_HWACCESS() \
