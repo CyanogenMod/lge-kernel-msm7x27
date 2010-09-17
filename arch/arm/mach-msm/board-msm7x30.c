@@ -4629,6 +4629,468 @@ static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 out:
 	return rc;
 }
+
+#if (CONFIG_CSDIO_VENDOR_ID == 0x70 && CONFIG_CSDIO_DEVICE_ID == 0x1117) && \
+	defined(CONFIG_MMC_MSM_SDC1_SUPPORT)
+
+#define MBP_ON  1
+#define MBP_OFF 0
+
+#define MBP_RESET_N \
+	GPIO_CFG(44, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA)
+#define MBP_INT0 \
+	GPIO_CFG(46, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA)
+
+#define MBP_MODE_CTRL_0 \
+	GPIO_CFG(35, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
+#define MBP_MODE_CTRL_1 \
+	GPIO_CFG(36, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
+#define MBP_MODE_CTRL_2 \
+	GPIO_CFG(34, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
+#define TSIF_EN \
+	GPIO_CFG(35, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN,	GPIO_CFG_2MA)
+#define TSIF_DATA \
+	GPIO_CFG(36, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN,	GPIO_CFG_2MA)
+#define TSIF_CLK \
+	GPIO_CFG(34, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+
+static struct msm_gpio mbp_cfg_data[] = {
+	{GPIO_CFG(44, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA),
+		"mbp_reset"},
+	{GPIO_CFG(85, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA),
+		"mbp_io_voltage"},
+};
+
+static int mbp_config_gpios_pre_init(int enable)
+{
+	int rc = 0;
+
+	if (enable) {
+		rc = msm_gpios_request_enable(mbp_cfg_data,
+			ARRAY_SIZE(mbp_cfg_data));
+		if (rc) {
+			printk(KERN_ERR
+				"%s: Failed to turnon GPIOs for mbp chip(%d)\n",
+				__func__, rc);
+		}
+	} else
+		msm_gpios_disable_free(mbp_cfg_data, ARRAY_SIZE(mbp_cfg_data));
+	return rc;
+}
+
+static int mbp_setup_rf_vregs(int state)
+{
+	struct vreg *vreg_rf = NULL;
+	struct vreg *vreg_rf_switch	= NULL;
+	int rc;
+
+	vreg_rf = vreg_get(NULL, "s2");
+	if (IS_ERR(vreg_rf)) {
+		pr_err("%s: s2 vreg get failed (%ld)",
+				__func__, PTR_ERR(vreg_rf));
+		return -EFAULT;
+	}
+	vreg_rf_switch = vreg_get(NULL, "rf");
+	if (IS_ERR(vreg_rf_switch)) {
+		pr_err("%s: rf vreg get failed (%ld)",
+				__func__, PTR_ERR(vreg_rf_switch));
+		return -EFAULT;
+	}
+
+	if (state) {
+		rc = vreg_set_level(vreg_rf, 1300);
+		if (rc) {
+			pr_err("%s: vreg s2 set level failed (%d)\n",
+					__func__, rc);
+			return rc;
+		}
+
+		rc = vreg_enable(vreg_rf);
+		if (rc) {
+			printk(KERN_ERR "%s: vreg_enable(s2) = %d\n",
+					__func__, rc);
+		}
+
+		rc = vreg_set_level(vreg_rf_switch, 2600);
+		if (rc) {
+			pr_err("%s: vreg rf switch set level failed (%d)\n",
+					__func__, rc);
+			return rc;
+		}
+		rc = vreg_enable(vreg_rf_switch);
+		if (rc) {
+			printk(KERN_ERR "%s: vreg_enable(rf) = %d\n",
+					__func__, rc);
+		}
+	} else {
+		(void) vreg_disable(vreg_rf);
+		(void) vreg_disable(vreg_rf_switch);
+	}
+	return 0;
+}
+
+static int mbp_setup_vregs(int state)
+{
+	struct vreg *vreg_analog = NULL;
+	struct vreg *vreg_io = NULL;
+	int rc;
+
+	vreg_analog = vreg_get(NULL, "gp4");
+	if (IS_ERR(vreg_analog)) {
+		pr_err("%s: gp4 vreg get failed (%ld)",
+				__func__, PTR_ERR(vreg_analog));
+		return -EFAULT;
+	}
+	vreg_io = vreg_get(NULL, "s3");
+	if (IS_ERR(vreg_io)) {
+		pr_err("%s: s3 vreg get failed (%ld)",
+				__func__, PTR_ERR(vreg_io));
+		return -EFAULT;
+	}
+	if (state) {
+		rc = vreg_set_level(vreg_analog, 2600);
+		if (rc) {
+			pr_err("%s: vreg_set_level failed (%d)",
+					__func__, rc);
+		}
+		rc = vreg_enable(vreg_analog);
+		if (rc) {
+			pr_err("%s: analog vreg enable failed (%d)",
+					__func__, rc);
+		}
+		rc = vreg_set_level(vreg_io, 1800);
+		if (rc) {
+			pr_err("%s: vreg_set_level failed (%d)",
+					__func__, rc);
+		}
+		rc = vreg_enable(vreg_io);
+		if (rc) {
+			pr_err("%s: io vreg enable failed (%d)",
+					__func__, rc);
+		}
+	} else {
+		rc = vreg_disable(vreg_analog);
+		if (rc) {
+			pr_err("%s: analog vreg disable failed (%d)",
+					__func__, rc);
+		}
+		rc = vreg_disable(vreg_io);
+		if (rc) {
+			pr_err("%s: io vreg disable failed (%d)",
+					__func__, rc);
+		}
+	}
+	return rc;
+}
+
+static int mbp_set_tcxo_en(int enable)
+{
+	int rc;
+	const char *id = "UBMC";
+	struct vreg *vreg_analog = NULL;
+
+	rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_A1,
+		enable ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: unable to %svote for a1 clk\n",
+			__func__, enable ? "" : "de-");
+		return -EIO;
+	}
+	if (!enable) {
+		vreg_analog = vreg_get(NULL, "gp4");
+		if (IS_ERR(vreg_analog)) {
+			pr_err("%s: gp4 vreg get failed (%ld)",
+					__func__, PTR_ERR(vreg_analog));
+			return -EFAULT;
+		}
+
+		(void) vreg_disable(vreg_analog);
+	}
+	return rc;
+}
+
+static void mbp_set_freeze_io(int state)
+{
+	if (state)
+		gpio_set_value(85, 0);
+	else
+		gpio_set_value(85, 1);
+}
+
+static int mbp_set_core_voltage_en(int enable)
+{
+	int rc;
+	struct vreg *vreg_core1p2 = NULL;
+
+	vreg_core1p2 = vreg_get(NULL, "gp16");
+	if (IS_ERR(vreg_core1p2)) {
+		pr_err("%s: gp16 vreg get failed (%ld)",
+				__func__, PTR_ERR(vreg_core1p2));
+		return -EFAULT;
+	}
+	if (enable) {
+		rc = vreg_set_level(vreg_core1p2, 1200);
+		if (rc) {
+			pr_err("%s: vreg_set_level failed (%d)",
+					__func__, rc);
+		}
+		(void) vreg_enable(vreg_core1p2);
+
+		return 80;
+	} else {
+		gpio_set_value(85, 1);
+		return 0;
+	}
+	return rc;
+}
+
+static void mbp_set_reset(int state)
+{
+	if (state)
+		gpio_set_value(GPIO_PIN(MBP_RESET_N), 0);
+	else
+		gpio_set_value(GPIO_PIN(MBP_RESET_N), 1);
+}
+
+static int mbp_config_interface_mode(int state)
+{
+	if (state) {
+		gpio_tlmm_config(MBP_MODE_CTRL_0, GPIO_CFG_ENABLE);
+		gpio_tlmm_config(MBP_MODE_CTRL_1, GPIO_CFG_ENABLE);
+		gpio_tlmm_config(MBP_MODE_CTRL_2, GPIO_CFG_ENABLE);
+		gpio_set_value(GPIO_PIN(MBP_MODE_CTRL_0), 0);
+		gpio_set_value(GPIO_PIN(MBP_MODE_CTRL_1), 1);
+		gpio_set_value(GPIO_PIN(MBP_MODE_CTRL_2), 0);
+	} else {
+		gpio_tlmm_config(MBP_MODE_CTRL_0, GPIO_CFG_DISABLE);
+		gpio_tlmm_config(MBP_MODE_CTRL_1, GPIO_CFG_DISABLE);
+		gpio_tlmm_config(MBP_MODE_CTRL_2, GPIO_CFG_DISABLE);
+	}
+	return 0;
+}
+
+static int mbp_setup_adc_vregs(int state)
+{
+	struct vreg *vreg_adc = NULL;
+	int rc;
+
+	vreg_adc = vreg_get(NULL, "s4");
+	if (IS_ERR(vreg_adc)) {
+		pr_err("%s: s4 vreg get failed (%ld)",
+				__func__, PTR_ERR(vreg_adc));
+		return -EFAULT;
+	}
+	if (state) {
+		rc = vreg_set_level(vreg_adc, 2200);
+		if (rc) {
+			pr_err("%s: vreg_set_level failed (%d)",
+					__func__, rc);
+		}
+		rc = vreg_enable(vreg_adc);
+		if (rc) {
+			pr_err("%s: enable vreg adc failed (%d)",
+					__func__, rc);
+		}
+	} else {
+		rc = vreg_disable(vreg_adc);
+		if (rc) {
+			pr_err("%s: disable vreg adc failed (%d)",
+					__func__, rc);
+		}
+	}
+	return rc;
+}
+
+static int mbp_power_up(void)
+{
+	int rc;
+
+	rc = mbp_config_gpios_pre_init(MBP_ON);
+	if (rc)
+		goto exit;
+	pr_debug("%s: mbp_config_gpios_pre_init() done\n", __func__);
+
+	rc = mbp_setup_vregs(MBP_ON);
+	if (rc)
+		goto exit;
+	pr_debug("%s: gp4 (2.6) and s3 (1.8) done\n", __func__);
+
+	rc = mbp_set_tcxo_en(MBP_ON);
+	if (rc)
+		goto exit;
+	pr_debug("%s: tcxo clock done\n", __func__);
+
+	mbp_set_freeze_io(MBP_OFF);
+	pr_debug("%s: set gpio 85 to 1 done\n", __func__);
+
+	udelay(100);
+	mbp_set_reset(MBP_ON);
+
+	udelay(300);
+	rc = mbp_config_interface_mode(MBP_ON);
+	if (rc)
+		goto exit;
+	pr_debug("%s: mbp_config_interface_mode() done\n", __func__);
+
+	udelay(100 + mbp_set_core_voltage_en(MBP_ON));
+	pr_debug("%s: power gp16 1.2V done\n", __func__);
+
+	mbp_set_freeze_io(MBP_ON);
+	pr_debug("%s: set gpio 85 to 0 done\n", __func__);
+
+	udelay(100);
+
+	rc = mbp_setup_rf_vregs(MBP_ON);
+	if (rc)
+		goto exit;
+	pr_debug("%s: s2 1.3V and rf 2.6V done\n", __func__);
+
+	rc = mbp_setup_adc_vregs(MBP_ON);
+	if (rc)
+		goto exit;
+	pr_debug("%s: s4 2.2V  done\n", __func__);
+
+	udelay(200);
+
+	mbp_set_reset(MBP_OFF);
+	pr_debug("%s: close gpio 44 done\n", __func__);
+
+	msleep(20);
+exit:
+	return rc;
+}
+
+static int mbp_power_down(void)
+{
+	int rc;
+	struct vreg *vreg_adc = NULL;
+
+	vreg_adc = vreg_get(NULL, "s4");
+	if (IS_ERR(vreg_adc)) {
+		pr_err("%s: s4 vreg get failed (%ld)",
+				__func__, PTR_ERR(vreg_adc));
+		return -EFAULT;
+	}
+
+	mbp_set_reset(MBP_ON);
+	pr_debug("%s: mbp_set_reset(MBP_ON) done\n", __func__);
+
+	udelay(100);
+
+	rc = mbp_setup_adc_vregs(MBP_OFF);
+	if (rc)
+		goto exit;
+	pr_debug("%s: vreg_disable(vreg_adc) done\n", __func__);
+
+	udelay(5);
+
+	rc = mbp_setup_rf_vregs(MBP_OFF);
+	if (rc)
+		goto exit;
+	pr_debug("%s: mbp_setup_rf_vregs(MBP_OFF) done\n", __func__);
+
+	udelay(5);
+
+	mbp_set_freeze_io(MBP_OFF);
+	pr_debug("%s: mbp_set_freeze_io(MBP_OFF) done\n", __func__);
+
+	udelay(100);
+	rc = mbp_set_core_voltage_en(MBP_OFF);
+	if (rc)
+		goto exit;
+	pr_debug("%s: mbp_set_core_voltage_en(MBP_OFF) done\n", __func__);
+
+	gpio_set_value(85, 1);
+
+	rc = mbp_set_tcxo_en(MBP_OFF);
+	if (rc)
+		goto exit;
+	pr_debug("%s: mbp_set_tcxo_en(MBP_OFF) done\n", __func__);
+
+	rc = mbp_config_gpios_pre_init(MBP_OFF);
+	if (rc)
+		goto exit;
+exit:
+	return rc;
+}
+
+static void (*mbp_status_notify_cb)(int card_present, void *dev_id);
+static void *mbp_status_notify_cb_devid;
+static int mbp_power_status;
+static int mbp_power_init_done;
+
+static uint32_t mbp_setup_power(struct device *dv,
+	unsigned int power_status)
+{
+	int rc = 0;
+	struct platform_device *pdev;
+
+	pdev = container_of(dv, struct platform_device, dev);
+
+	if (power_status == mbp_power_status)
+		goto exit;
+	if (power_status) {
+		pr_debug("turn on power of mbp slot");
+		rc = mbp_power_up();
+		mbp_power_status = 1;
+	} else {
+		pr_debug("turn off power of mbp slot");
+		rc = mbp_power_down();
+		mbp_power_status = 0;
+	}
+exit:
+	return rc;
+};
+
+int mbp_register_status_notify(void (*callback)(int, void *),
+	void *dev_id)
+{
+	mbp_status_notify_cb = callback;
+	mbp_status_notify_cb_devid = dev_id;
+	return 0;
+}
+
+static unsigned int mbp_status(struct device *dev)
+{
+	return mbp_power_status;
+}
+
+static uint32_t msm_sdcc_setup_power_mbp(struct device *dv, unsigned int vdd)
+{
+	struct platform_device *pdev;
+	uint32_t rc = 0;
+
+	pdev = container_of(dv, struct platform_device, dev);
+	rc = msm_sdcc_setup_power(dv, vdd);
+	if (rc) {
+		pr_err("%s: Failed to setup power (%d)\n",
+			__func__, rc);
+		goto out;
+	}
+	if (!mbp_power_init_done) {
+		mbp_setup_power(dv, 1);
+		mbp_setup_power(dv, 0);
+		mbp_power_init_done = 1;
+	}
+	if (vdd >= 0x8000) {
+		rc = mbp_setup_power(dv, (0x8000 == vdd) ? 0 : 1);
+		if (rc) {
+			pr_err("%s: Failed to config mbp chip power (%d)\n",
+				__func__, rc);
+			goto out;
+		}
+		if (mbp_status_notify_cb) {
+			mbp_status_notify_cb(mbp_power_status,
+				mbp_status_notify_cb_devid);
+		}
+	}
+out:
+	/* should return 0 only */
+	return 0;
+}
+
+#endif
+
 #endif
 
 #ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
@@ -4667,6 +5129,22 @@ static int msm_sdcc_get_wpswitch(struct device *dv)
 #endif
 
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
+#if (CONFIG_CSDIO_VENDOR_ID == 0x70 && CONFIG_CSDIO_DEVICE_ID == 0x1117)
+static struct mmc_platform_data msm7x30_sdc1_data = {
+	.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_27_28 | MMC_VDD_28_29,
+	.translate_vdd	= msm_sdcc_setup_power_mbp,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.status	        = mbp_status,
+	.register_status_notify = mbp_register_status_notify,
+#ifdef CONFIG_MMC_MSM_SDC1_DUMMY52_REQUIRED
+	.dummy52_required = 1,
+#endif
+	.msmsdcc_fmin	= 144000,
+	.msmsdcc_fmid	= 24576000,
+	.msmsdcc_fmax	= 24576000,
+	.nonremovable	= 0,
+};
+#else
 static struct mmc_platform_data msm7x30_sdc1_data = {
 	.ocr_mask	= MMC_VDD_165_195,
 	.translate_vdd	= msm_sdcc_setup_power,
@@ -4679,6 +5157,7 @@ static struct mmc_platform_data msm7x30_sdc1_data = {
 	.msmsdcc_fmax	= 49152000,
 	.nonremovable	= 0,
 };
+#endif
 #endif
 
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
