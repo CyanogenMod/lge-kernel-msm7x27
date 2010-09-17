@@ -34,9 +34,6 @@
 #include <linux/smp.h>
 #include <asm/cacheflush.h>
 
-static unsigned long cpaccess_dummy(unsigned long write_val)
-	__attribute__((aligned(32)));
-
 /*
  * CP parameters
  */
@@ -69,12 +66,12 @@ static struct sysdev_class cpaccess_sysclass = {
  * See do_cpregister_rw function. Value passed to function is
  * accessed from r0 register.
  */
-static unsigned long cpaccess_dummy(unsigned long write_val)
+static noinline unsigned long cpaccess_dummy(unsigned long write_val)
 {
 	asm("mrc p15, 0, r0, c0, c0, 0\n\t");
 	asm("bx	lr\n\t");
 	return 0xBEEF;
-}
+} __attribute__((aligned(32)))
 
 /*
  * get_asm_value - Read/Write CP registers
