@@ -40,6 +40,8 @@
 
 #define LIBRA_MAN_ID              0x70
 
+typedef void (suspend_handler_t)(struct sdio_func *);
+typedef void (resume_handler_t)(struct sdio_func *);
 
 int    libra_sdio_configure(sdio_irq_handler_t libra_sdio_rxhandler,
 		void (*func_drv_fn)(int *status),
@@ -66,5 +68,10 @@ int    libra_sdio_writesb(struct sdio_func *func,
 int    libra_sdio_memcpy_toio(struct sdio_func *func,
 		unsigned int addr, void *src, int count);
 int    libra_sdio_enable_polling(void);
+
+int libra_sdio_configure_suspend_resume(
+		suspend_handler_t *libra_sdio_suspend_hdlr,
+		resume_handler_t *libra_sdio_resume_hdlr);
+
 
 #endif /* __LIBRA_SDIOIF_H__ */
