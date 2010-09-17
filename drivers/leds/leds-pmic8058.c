@@ -39,6 +39,7 @@
 #define PM8058_DRV_LED_CTRL_SHIFT	0x03
 
 #define MAX_FLASH_CURRENT	300
+#define MAX_KEYPAD_CURRENT 300
 #define MAX_KEYPAD_BL_LEVEL	(1 << 4)
 #define MAX_LED_DRV_LEVEL	20 /* 2 * 20 mA */
 
@@ -165,7 +166,8 @@ led_flash_set(struct pmic8058_led_data *led, enum led_brightness value)
 
 	rc = pm8058_write(led->pm_chip, reg_addr, &reg_flash_led, 1);
 	if (rc)
-		pr_err("%s: can't set flash led%d level\n", __func__, led->id);
+		pr_err("%s: can't set flash led%d level %d\n", __func__,
+			led->id, rc);
 }
 
 int pm8058_set_flash_led_current(enum pmic8058_leds id, unsigned mA)
@@ -191,6 +193,49 @@ int pm8058_set_flash_led_current(enum pmic8058_leds id, unsigned mA)
 	return 0;
 }
 EXPORT_SYMBOL(pm8058_set_flash_led_current);
+
+int pm8058_set_led_current(enum pmic8058_leds id, unsigned mA)
+{
+	struct pmic8058_led_data *led;
+	int brightness = 0;
+
+	if ((id < PMIC8058_ID_LED_KB_LIGHT) || (id > PMIC8058_ID_FLASH_LED_1)) {
+		pr_err("%s: invalid LED ID (%d) specified\n", __func__, id);
+		return -EINVAL;
+	}
+
+	led = &led_data[id];
+	if (!led) {
+		pr_err("%s: flash led not available\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (id) {
+	case PMIC8058_ID_LED_0:
+	case PMIC8058_ID_LED_1:
+	case PMIC8058_ID_LED_2:
+		brightness = mA / 2;
+		if (brightness  > led->cdev.max_brightness)
+			return -EINVAL;
+		led_lc_set(led, brightness);
+		break;
+
+	case PMIC8058_ID_LED_KB_LIGHT:
+	case PMIC8058_ID_FLASH_LED_0:
+	case PMIC8058_ID_FLASH_LED_1:
+		brightness = mA / 20;
+		if (brightness  > led->cdev.max_brightness)
+			return -EINVAL;
+		if (id == PMIC8058_ID_LED_KB_LIGHT)
+			kp_bl_set(led, brightness);
+		else
+			led_flash_set(led, brightness);
+		break;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(pm8058_set_led_current);
 
 static void pmic8058_led_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
