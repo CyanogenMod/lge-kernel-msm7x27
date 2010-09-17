@@ -1933,6 +1933,8 @@ static int msm72k_pullup(struct usb_gadget *_gadget, int is_active)
 	 */
 	if (is_active)
 		usb_reset(ui);
+	else
+		atomic_set(&ui->offline_pending, 1);
 
 	msm72k_pullup_internal(_gadget, is_active);
 
