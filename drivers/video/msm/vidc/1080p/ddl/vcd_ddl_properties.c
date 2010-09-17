@@ -1227,7 +1227,7 @@ void ddl_set_default_dec_property(struct ddl_client_context *ddl)
 
 	if (decoder->codec.codec >= VCD_CODEC_MPEG2 &&
 		decoder->codec.codec <=  VCD_CODEC_XVID)
-		decoder->post_filter.post_filter = true;
+		decoder->post_filter.post_filter = false;
 	else
 		decoder->post_filter.post_filter = false;
 	decoder->buf_format.buffer_format = VCD_BUFFER_FORMAT_TILE_4x2;
