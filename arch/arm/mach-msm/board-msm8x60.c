@@ -2585,6 +2585,12 @@ static struct tdisc_platform_data tdisc_data = {
 	.tdisc_disable = tdisc_shinetsu_disable,
 	.tdisc_wakeup  = 1,
 	.tdisc_gpio = PMIC_GPIO_TDISC,
+	.tdisc_report_keys = true,
+	.tdisc_report_relative = true,
+	.tdisc_report_absolute = false,
+	.tdisc_report_wheel = false,
+	.tdisc_reverse_x = false,
+	.tdisc_reverse_y = true,
 	.tdisc_abs  = &tdisc_abs,
 };
 
