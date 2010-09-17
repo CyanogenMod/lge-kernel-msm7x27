@@ -2006,7 +2006,7 @@ static struct mmc_platform_data qsd8x50_sdc1_data = {
 #endif
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 25000000,
-	.msmsdcc_fmax	= 49152000,
+	.msmsdcc_fmax	= 40000000,
 };
 #endif
 
@@ -2021,7 +2021,7 @@ static struct mmc_platform_data qsd8x50_sdc2_data = {
 #endif
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 25000000,
-	.msmsdcc_fmax	= 49152000,
+	.msmsdcc_fmax	= 40000000,
 };
 #endif
 
