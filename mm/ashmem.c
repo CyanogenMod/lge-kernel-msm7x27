@@ -682,6 +682,7 @@ static int ashmem_flush_cache_range(struct ashmem_area *asma, unsigned long cmd)
 			break;
 		}
 	}
+	mb();
 #endif
 done:
 	mutex_unlock(&ashmem_mutex);
