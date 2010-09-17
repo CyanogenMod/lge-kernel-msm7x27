@@ -3882,10 +3882,22 @@ static int msm_sdc3_get_wpswitch(struct device *dev)
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 static unsigned int msm8x60_sdcc_slot_status(struct device *dev)
 {
+	struct platform_device *pdev;
 	int status;
+	pdev = container_of(dev, struct platform_device, dev);
 
-	status = !(gpio_get_value_cansleep(
+	status = gpio_request(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC3_DET - 1)
+				, "SD_HW_Detect");
+	if (status) {
+		pr_err("%s:Failed to request GPIO %d\n", __func__,
+				PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC3_DET - 1));
+	} else {
+		status = !(gpio_get_value_cansleep(
 			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC3_DET - 1)));
+		pr_info("%s: WP Status for Slot %d = %d\n", __func__,
+							pdev->id, status);
+		gpio_free(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC3_DET - 1));
+	}
 	return (unsigned int) status;
 }
 #endif
