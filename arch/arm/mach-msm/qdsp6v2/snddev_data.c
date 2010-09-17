@@ -350,6 +350,44 @@ static struct platform_device msm_snddev_hdmi_stereo_rx_device = {
 };
 
 
+static struct adie_codec_action_unit iheadset_mic_tx_osr256_actions[] =
+	HEADSET_AMIC2_TX_MONO_PRI_OSR_256;
+
+static struct adie_codec_hwsetting_entry iheadset_mic_tx_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = iheadset_mic_tx_osr256_actions,
+		.action_sz = ARRAY_SIZE(iheadset_mic_tx_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile iheadset_mic_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = iheadset_mic_tx_settings,
+	.setting_sz = ARRAY_SIZE(iheadset_mic_tx_settings),
+};
+
+static struct snddev_icodec_data snddev_headset_mic_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "headset_mono_tx",
+	.copp_id = PRIMARY_I2S_TX,
+	.acdb_id = 8,
+	.profile = &iheadset_mic_profile,
+	.channel_mode = 1,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_tx_route_config,
+	.pamp_off = msm_snddev_tx_route_deconfig,
+};
+
+static struct platform_device msm_headset_mic_device = {
+	.name = "snddev_icodec",
+	.id = 33,
+	.dev = { .platform_data = &snddev_headset_mic_data },
+};
+
 static struct snddev_ecodec_data snddev_bt_sco_earpiece_data = {
 	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE),
 	.name = "bt_sco_rx",
@@ -457,6 +495,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_imic_ffa_device,
 	&msm_ispkr_stereo_device,
 	&msm_snddev_hdmi_stereo_rx_device,
+	&msm_headset_mic_device,
 	&msm_ispkr_mic_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
@@ -471,6 +510,7 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_imic_device,
 	&msm_ispkr_stereo_device,
 	&msm_snddev_hdmi_stereo_rx_device,
+	&msm_headset_mic_device,
 	&msm_ispkr_mic_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
