@@ -418,7 +418,7 @@ config KEYBOARD_XTKBD
 
 config KEYBOARD_QCIKBD
    tristate "Quanta Computer Inc. keyboard"
-   depends on I2C && ARCH_MSM_SCORPION
+   depends on I2C
    default n
    help
      Say Y here if you want to use the Quanta keyboard driver for ST 1.5
