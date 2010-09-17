@@ -54,6 +54,7 @@ static void _outer_cache_range_op(unsigned long addr, int size,
 		else if (flags & KGSL_MEMFLAGS_CACHE_INV)
 			outer_inv_range(physaddr, physaddr + KGSL_PAGESIZE);
 	}
+	mb();
 }
 #else
 static void _outer_cache_range_op(unsigned long addr, int size,
@@ -79,6 +80,7 @@ void kgsl_cache_range_op(unsigned long addr, int size,
 			       (const void *)(addr + size));
 
 	_outer_cache_range_op(addr, size, flags);
+
 }
 
 
