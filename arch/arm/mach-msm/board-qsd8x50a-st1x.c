@@ -2007,6 +2007,7 @@ static struct mmc_platform_data qsd8x50_sdc1_data = {
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 25000000,
 	.msmsdcc_fmax	= 40000000,
+	.nonremovable	= 0,
 };
 #endif
 
@@ -2022,6 +2023,7 @@ static struct mmc_platform_data qsd8x50_sdc2_data = {
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 25000000,
 	.msmsdcc_fmax	= 40000000,
+	.nonremovable   = 0,
 };
 #endif
 
@@ -2040,6 +2042,7 @@ static struct mmc_platform_data qsd8x50_sdc3_data = {
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 25000000,
 	.msmsdcc_fmax	= 49152000,
+	.nonremovable   = 1,
 };
 #endif
 
@@ -2055,6 +2058,7 @@ static struct mmc_platform_data qsd8x50_sdc4_data = {
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 25000000,
 	.msmsdcc_fmax	= 49152000,
+	.nonremovable   = 0,
 };
 #endif
 
