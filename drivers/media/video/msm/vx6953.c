@@ -3097,8 +3097,8 @@ int vx6953_sensor_open_init(const struct msm_camera_sensor_info *data)
 		rc = -ENOMEM;
 		goto init_done;
 	}
-	vx6953_ctrl->fps_divider = 1 * 0x00000100;
-	vx6953_ctrl->pict_fps_divider = 1 * 0x00000100;
+	vx6953_ctrl->fps_divider = 1 * 0x00000400;
+	vx6953_ctrl->pict_fps_divider = 1 * 0x00000400;
 	vx6953_ctrl->set_test = TEST_OFF;
 	vx6953_ctrl->prev_res = QTR_SIZE;
 	vx6953_ctrl->pict_res = FULL_SIZE;
