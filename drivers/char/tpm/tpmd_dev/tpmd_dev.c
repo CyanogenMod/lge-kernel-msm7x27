@@ -19,6 +19,7 @@
 #include <linux/init.h>
 #include <linux/miscdevice.h>
 #include <linux/poll.h>
+#include <linux/slab.h>
 
 #include <linux/socket.h>
 #include <linux/net.h>
