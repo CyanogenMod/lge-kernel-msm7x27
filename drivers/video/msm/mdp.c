@@ -238,6 +238,7 @@ static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 
 	mdp_enable_irq(MDP_HISTOGRAM_TERM);
 
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 #ifdef CONFIG_FB_MSM_MDP40
 	MDP_OUTP(MDP_BASE + 0x95004, hist->frame_cnt);
 	MDP_OUTP(MDP_BASE + 0x95000, 1);
@@ -245,6 +246,8 @@ static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 	MDP_OUTP(MDP_BASE + 0x94004, hist->frame_cnt);
 	MDP_OUTP(MDP_BASE + 0x94000, 1);
 #endif
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
 	wait_for_completion_killable(&mdp_hist_comp);
 
 	/* disable the irq for histogram since we handled it
