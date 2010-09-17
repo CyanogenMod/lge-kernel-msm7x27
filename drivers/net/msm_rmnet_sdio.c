@@ -48,6 +48,8 @@ module_param_named(debug_mask, msm_rmnet_sdio_debug_mask,
 #if defined(DEBUG)
 static uint32_t msm_rmnet_sdio_read_cnt;
 static uint32_t msm_rmnet_sdio_write_cnt;
+static uint32_t msm_rmnet_sdio_write_cpy_cnt;
+static uint32_t msm_rmnet_sdio_write_cpy_bytes;
 
 #define DBG(x...) do {		                \
 		if (msm_rmnet_sdio_debug_mask)	\
@@ -64,6 +66,14 @@ static uint32_t msm_rmnet_sdio_write_cnt;
 		msm_rmnet_sdio_write_cnt += (x);                  \
 		printk(KERN_DEBUG "%s: total written bytes %u\n", \
 		       __func__, msm_rmnet_sdio_write_cnt);	  \
+	} while (0)
+
+#define DBG_INC_WRITE_CPY(x)  do {	                                      \
+		msm_rmnet_sdio_write_cpy_bytes += (x);                        \
+		msm_rmnet_sdio_write_cpy_cnt++;                               \
+		printk(KERN_DEBUG "%s: total write copy cnt %u, bytes %u\n",  \
+		       __func__, msm_rmnet_sdio_write_cpy_cnt,                \
+		       msm_rmnet_sdio_write_cpy_bytes);	                      \
 	} while (0)
 #else
 #define DBG(x...) do { } while (0)
@@ -400,6 +410,7 @@ int msm_rmnet_sdio_write(uint32_t id, struct sk_buff *skb)
 	int rc = 0;
 	struct sdio_mux_hdr *hdr;
 	unsigned long flags;
+	struct sk_buff *new_skb;
 
 	if (!skb)
 		return -EINVAL;
@@ -416,6 +427,22 @@ int msm_rmnet_sdio_write(uint32_t id, struct sk_buff *skb)
 		pr_err("%s: packet pending ch: %d\n", __func__, id);
 		rc = -EPERM;
 		goto write_done;
+	}
+
+	/* if skb do not have any tailroom for padding,
+	   copy the skb into a new expanded skb */
+	if ((skb->len & 0x3) && (skb_tailroom(skb) < (4 - (skb->len & 0x3)))) {
+		/* revisit, probably dev_alloc_skb and memcpy is effecient */
+		new_skb = skb_copy_expand(skb, skb_headroom(skb),
+					  4 - (skb->len & 0x3), GFP_KERNEL);
+		if (new_skb == NULL) {
+			pr_err("%s: cannot allocate skb\n", __func__);
+			rc = -ENOMEM;
+			goto write_done;
+		}
+		dev_kfree_skb_any(skb);
+		skb = new_skb;
+		DBG_INC_WRITE_CPY(skb->len);
 	}
 
 	hdr = (struct sdio_mux_hdr *)skb_push(skb, sizeof(struct sdio_mux_hdr));
