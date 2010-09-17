@@ -50,7 +50,6 @@
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
-#include <asm/hardware/gic.h>
 #include <asm/setup.h>
 
 #include <mach/mpp.h>
@@ -106,8 +105,6 @@
 #define UI_INT1_N 25
 #define UI_INT2_N 34
 #define UI_INT3_N 14
-
-void __iomem *gic_cpu_base_addr;
 
 static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	[0] = {
@@ -3270,35 +3267,6 @@ static void __init msm8x60_map_io(void)
 	msm_map_msm8x60_io();
 	msm8x60_allocate_memory_regions();
 	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
-}
-
-static void __init msm8x60_init_irq(void)
-{
-	unsigned int i;
-
-	gic_dist_init(0, MSM_QGIC_DIST_BASE, GIC_PPI_START);
-	gic_cpu_base_addr = (void *)MSM_QGIC_CPU_BASE;
-	gic_cpu_init(0, MSM_QGIC_CPU_BASE);
-
-	/* Edge trigger PPIs except AVS_SVICINT and AVS_SVICINTSWDONE */
-	writel(0xFFFFD7FF, MSM_QGIC_DIST_BASE + GIC_DIST_CONFIG + 4);
-
-	/* RUMI does not adhere to GIC spec by enabling STIs by default.
-	 * Enable/clear is supposed to be RO for STIs, but is RW on RUMI.
-	 */
-	if (machine_is_msm8x60_surf() ||
-	    machine_is_msm8x60_ffa()  ||
-	    machine_is_msm8x60_rumi3())
-		writel(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
-
-	/* FIXME: Not installing AVS_SVICINT and AVS_SVICINTSWDONE yet
-	 * as they are configured as level, which does not play nice with
-	 * handle_percpu_irq.
-	 */
-	for (i = GIC_PPI_START; i < GIC_SPI_START; i++) {
-		if (i != AVS_SVICINT && i != AVS_SVICINTSWDONE)
-			set_irq_handler(i, handle_percpu_irq);
-	}
 }
 
 /*

@@ -29,6 +29,8 @@
 #include "clock-rpm.h"
 #include "devices-msm8x60.h"
 #include <linux/dma-mapping.h>
+#include <linux/irq.h>
+#include <asm/hardware/gic.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -64,6 +66,34 @@
 #define INT_UART2DM_IRQ     GSBI12_UARTDM_IRQ
 #define MSM_UART2DM_PHYS    0x19C40000
 #define TCSR_BASE_PHYS      0x16b00000
+
+void __iomem *gic_cpu_base_addr;
+
+void __init msm8x60_init_irq(void)
+{
+	unsigned int i;
+
+	gic_dist_init(0, MSM_QGIC_DIST_BASE, GIC_PPI_START);
+	gic_cpu_base_addr = (void *)MSM_QGIC_CPU_BASE;
+	gic_cpu_init(0, MSM_QGIC_CPU_BASE);
+
+	/* Edge trigger PPIs except AVS_SVICINT and AVS_SVICINTSWDONE */
+	writel(0xFFFFD7FF, MSM_QGIC_DIST_BASE + GIC_DIST_CONFIG + 4);
+
+	/* QGIC does not adhere to GIC spec by enabling STIs by default.
+	 * Enable/clear is supposed to be RO for STIs, but is RW on QGIC.
+	 */
+	writel(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
+
+	/* FIXME: Not installing AVS_SVICINT and AVS_SVICINTSWDONE yet
+	 * as they are configured as level, which does not play nice with
+	 * handle_percpu_irq.
+	 */
+	for (i = GIC_PPI_START; i < GIC_SPI_START; i++) {
+		if (i != AVS_SVICINT && i != AVS_SVICINTSWDONE)
+			set_irq_handler(i, handle_percpu_irq);
+	}
+}
 
 static struct resource msm_uart1_dm_resources[] = {
 	{

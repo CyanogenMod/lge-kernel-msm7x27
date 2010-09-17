@@ -49,5 +49,6 @@ extern struct platform_device msm_device_vidc;
 #ifdef CONFIG_WEBCAM_OV7692
 extern struct platform_device msm_camera_sensor_webcam;
 #endif
+void __init msm8x60_init_irq(void);
 
 #endif
