@@ -2558,7 +2558,7 @@ static int __init hdmi_msm_probe(struct platform_device *pdev)
 
 	fb_dev = msm_fb_add_device(pdev);
 	if (fb_dev) {
-		rc = external_common_state_create(pdev);
+		rc = external_common_state_create(fb_dev);
 		if (rc) {
 			DEV_ERR("Init FAILED: hdmi_msm_state_create, rc=%d\n",
 				rc);
