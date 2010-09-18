@@ -875,21 +875,43 @@ EXPORT_SYMBOL(msm_rpm_unregister_notification);
 
 int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 {
+	uint32_t major;
+	uint32_t minor;
+	uint32_t build;
+	unsigned int irq;
 	int rc;
 
 	msm_rpm_platform = data;
+
+	major = msm_rpm_read(MSM_RPM_PAGE_STATUS,
+					MSM_RPM_STATUS_ID_VERSION_MAJOR);
+	minor = msm_rpm_read(MSM_RPM_PAGE_STATUS,
+					MSM_RPM_STATUS_ID_VERSION_MINOR);
+	build = msm_rpm_read(MSM_RPM_PAGE_STATUS,
+					MSM_RPM_STATUS_ID_VERSION_BUILD);
+	pr_info("%s: RPM firmware %u.%u.%u\n", __func__, major, minor, build);
 
 	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MAJOR, 2);
 	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_MINOR, 0);
 	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_VERSION_BUILD, 0);
 
-	rc = request_irq(msm_rpm_platform->irq_ack, msm_rpm_ack_interrupt,
+	irq = msm_rpm_platform->irq_ack;
+
+	rc = request_irq(irq, msm_rpm_ack_interrupt,
 			IRQF_TRIGGER_RISING, "rpm_drv", msm_rpm_ack_interrupt);
-	if (rc)
+	if (rc) {
 		pr_err("%s: failed to request irq %d: %d\n",
-			__func__, msm_rpm_platform->irq_ack, rc);
+			__func__, irq, rc);
+		return rc;
+	}
+
+	rc = set_irq_wake(irq, 1);
+	if (rc) {
+		pr_err("%s: failed to set wakeup irq %u: %d\n",
+			__func__, irq, rc);
+		return rc;
+	}
 
 	msm_rpm_populate_map();
-
-	return rc;
+	return 0;
 }
