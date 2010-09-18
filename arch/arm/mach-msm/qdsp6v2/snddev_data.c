@@ -112,6 +112,44 @@ static struct platform_device msm_imic_device = {
 	.dev = { .platform_data = &snddev_imic_data },
 };
 
+static struct adie_codec_action_unit headset_ab_cpls_48KHz_osr256_actions[] =
+	HEADSET_AB_CPLS_48000_OSR_256;
+
+static struct adie_codec_hwsetting_entry headset_ab_cpls_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = headset_ab_cpls_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(headset_ab_cpls_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile headset_ab_cpls_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = headset_ab_cpls_settings,
+	.setting_sz = ARRAY_SIZE(headset_ab_cpls_settings),
+};
+
+static struct snddev_icodec_data snddev_ihs_stereo_rx_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE),
+	.name = "headset_stereo_rx",
+	.copp_id = 0,
+	.acdb_id = 10,
+	.profile = &headset_ab_cpls_profile,
+	.channel_mode = 2,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_poweramp_on,
+	.pamp_off = msm_snddev_poweramp_off,
+};
+
+static struct platform_device msm_headset_ab_cpls_device = {
+	.name = "snddev_icodec",
+	.id = 34,
+	.dev = { .platform_data = &snddev_ihs_stereo_rx_data },
+};
+
 static struct adie_codec_action_unit ispkr_stereo_48KHz_osr256_actions[] =
 	SPEAKER_PRI_STEREO_48000_OSR_256;
 
@@ -306,6 +344,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_ispkr_mic_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
+	&msm_headset_ab_cpls_device,
 };
 
 static struct platform_device *snd_devices_surf[] __initdata = {
@@ -316,6 +355,7 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_ispkr_mic_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
+	&msm_headset_ab_cpls_device,
 };
 
 void __init msm_snddev_init(void)
