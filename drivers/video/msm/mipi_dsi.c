@@ -29,6 +29,7 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos_params.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
@@ -43,16 +44,6 @@ static int mipi_dsi_remove(struct platform_device *pdev);
 
 static int mipi_dsi_off(struct platform_device *pdev);
 static int mipi_dsi_on(struct platform_device *pdev);
-
-#ifdef CONFIG_PM
-static int mipi_dsi_suspend(struct platform_device *pdev, pm_message_t state);
-static int mipi_dsi_resume(struct platform_device *pdev);
-#endif
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void mipi_dsi_early_suspend(struct early_suspend *h);
-static void mipi_dsi_early_resume(struct early_suspend *h);
-#endif
 
 static struct clk *dsi_byte_div_clk;
 static struct clk *dsi_esc_clk;
@@ -69,12 +60,6 @@ static struct mipi_dsi_platform_data *mipi_dsi_pdata;
 static struct platform_driver mipi_dsi_driver = {
 	.probe = mipi_dsi_probe,
 	.remove = mipi_dsi_remove,
-#ifndef CONFIG_HAS_EARLYSUSPEND
-#ifdef CONFIG_PM
-	.suspend = mipi_dsi_suspend,
-	.resume = mipi_dsi_resume,
-#endif
-#endif
 	.shutdown = NULL,
 	.driver = {
 		   .name = "mipi_dsi",
@@ -323,11 +308,17 @@ void mipi_dsi_phy_init(int panel_ndx)
 static int mipi_dsi_off(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct msm_fb_data_type *mfd;
 
+	mfd = platform_get_drvdata(pdev);
 	ret = panel_next_off(pdev);
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(0);
+
+	pm_qos_update_request(mfd->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+
+	disable_irq(DSI_IRQ);
 
 	return ret;
 }
@@ -418,6 +409,8 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	/* video mode */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0, 0x133);
 	wmb();
+
+	pm_qos_update_request(mfd->pm_qos_req, 122000);
 
 	return ret;
 }
@@ -568,12 +561,10 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 	pdev_list[pdev_list_cnt++] = pdev;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	mfd->mipi_dsi_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-	mfd->mipi_dsi_early_suspend.suspend = mipi_dsi_early_suspend;
-	mfd->mipi_dsi_early_suspend.resume = mipi_dsi_early_resume;
-	register_early_suspend(&mfd->mipi_dsi_early_suspend);
-#endif
+	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
+					       PM_QOS_DEFAULT_VALUE);
+	if (!mfd->pm_qos_req)
+		goto mipi_dsi_probe_err;
 
 	return 0;
 
@@ -582,62 +573,13 @@ mipi_dsi_probe_err:
 	return rc;
 }
 
-#ifdef CONFIG_PM
-static int mipi_dsi_is_in_suspend;
-
-static int mipi_dsi_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	if (mipi_dsi_is_in_suspend)
-		return 0;
-
-	mipi_dsi_is_in_suspend = 1;
-
-
-	/*
-	 * set clock rate to 0
-	 * disable clocks
-	 */
-
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
-		mipi_dsi_pdata->dsi_power_save(0);
-
-	return 0;
-}
-
-static int mipi_dsi_resume(struct platform_device *pdev)
-{
-	if (!mipi_dsi_is_in_suspend)
-		return 0;
-
-	mipi_dsi_is_in_suspend = 0;
-
-	/* clocks enable */
-
-	return 0;
-}
-#endif
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void mipi_dsi_early_suspend(struct early_suspend *h)
-{
-	pm_message_t state;
-	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
-							mipi_dsi_early_suspend);
-
-	state.event = PM_EVENT_SUSPEND;
-	mipi_dsi_suspend(mfd->pdev, state);
-}
-
-static void mipi_dsi_early_resume(struct early_suspend *h)
-{
-	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
-							mipi_dsi_early_suspend);
-	mipi_dsi_resume(mfd->pdev);
-}
-#endif
-
 static int mipi_dsi_remove(struct platform_device *pdev)
 {
+	struct msm_fb_data_type *mfd;
+
+	mfd = platform_get_drvdata(pdev);
+	pm_qos_remove_request(mfd->pm_qos_req);
+
 	iounmap(msm_pmdh_base);
 
 	return 0;

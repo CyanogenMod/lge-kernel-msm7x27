@@ -158,9 +158,6 @@ struct msm_fb_data_type {
 	struct early_suspend mddi_early_suspend;
 	struct early_suspend mddi_ext_early_suspend;
 #endif
-#ifdef CONFIG_FB_MSM_MIPI_DSI
-	struct early_suspend mipi_dsi_early_suspend;
-#endif
 #endif
 	u32 mdp_fb_page_protection;
 
