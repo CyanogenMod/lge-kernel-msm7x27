@@ -1505,9 +1505,12 @@ static void ddl_set_default_enc_level(struct ddl_encoder_data *encoder)
 static void ddl_set_default_enc_vop_timing
     (struct ddl_encoder_data *encoder)
 {
-	encoder->vop_timing.vop_time_resolution =
-	    (2 * encoder->frame_rate.fps_numerator) /
-	    encoder->frame_rate.fps_denominator;
+	if (encoder->codec.codec == VCD_CODEC_MPEG4)
+		encoder->vop_timing.vop_time_resolution =
+		    (2 * encoder->frame_rate.fps_numerator) /
+		    encoder->frame_rate.fps_denominator;
+	else
+		encoder->vop_timing.vop_time_resolution = 0x7530;
 }
 
 static void ddl_set_default_enc_intra_period(
@@ -1550,10 +1553,10 @@ static void ddl_set_default_enc_rc_params(
 		encoder->session_qp.p_frame_qp = 0x14;
 
 		encoder->rc_level.mb_level_rc = true;
-		encoder->adaptive_rc.activity_region_flag = true;
-		encoder->adaptive_rc.dark_region_as_flag = true;
-		encoder->adaptive_rc.smooth_region_as_flag = true;
-		encoder->adaptive_rc.static_region_as_flag = true;
+		encoder->adaptive_rc.activity_region_flag = false;
+		encoder->adaptive_rc.dark_region_as_flag = false;
+		encoder->adaptive_rc.smooth_region_as_flag = false;
+		encoder->adaptive_rc.static_region_as_flag = false;
 	} else {
 		encoder->qp_range.max_qp = 0x1f;
 		encoder->session_qp.i_frame_qp = 0xd;
