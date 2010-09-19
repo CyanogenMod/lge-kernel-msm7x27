@@ -290,9 +290,7 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 					(u32 *) ddl, ddl->client_data);
 			} else {
 				if (decoder->codec.codec ==
-					VCD_CODEC_VC1_RCV ||
-					decoder->codec.codec ==
-					VCD_CODEC_VC1) {
+					VCD_CODEC_VC1_RCV) {
 					vidc_sm_set_start_byte_number(
 						&ddl->shared_mem
 						[ddl->command_channel],
