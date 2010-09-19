@@ -239,6 +239,10 @@ static u32 ddl_set_dec_property
 						&decoder->min_input_buf_req,
 						buffer_req))) {
 				decoder->client_input_buf_req = *buffer_req;
+				decoder->client_input_buf_req.min_count =
+					decoder->min_input_buf_req.min_count;
+				decoder->client_input_buf_req.max_count =
+					decoder->min_input_buf_req.max_count;
 				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
@@ -255,6 +259,10 @@ static u32 ddl_set_dec_property
 						buffer_req))) {
 				decoder->client_output_buf_req =
 				    *buffer_req;
+				decoder->client_output_buf_req.min_count =
+					decoder->min_output_buf_req.min_count;
+				decoder->client_output_buf_req.max_count =
+					decoder->min_output_buf_req.max_count;
 				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
@@ -772,6 +780,10 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				&encoder->input_buf_req, buffer_req))
 				) {
 				encoder->client_input_buf_req = *buffer_req;
+				encoder->client_input_buf_req.min_count =
+					encoder->input_buf_req.min_count;
+				encoder->client_input_buf_req.max_count =
+					encoder->input_buf_req.max_count;
 				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
@@ -788,6 +800,10 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				) {
 				encoder->client_output_buf_req =
 					*buffer_req;
+				encoder->client_output_buf_req.min_count =
+					encoder->output_buf_req.min_count;
+				encoder->client_output_buf_req.max_count =
+					encoder->output_buf_req.max_count;
 				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
@@ -862,15 +878,10 @@ static u32 ddl_get_dec_property
 		{
 			if (sizeof(struct vcd_buffer_requirement) ==
 			    property_hdr->sz) {
-				if (decoder->
-						client_input_buf_req.sz) {
-					*(struct vcd_buffer_requirement *)
-					    property_value =
-					    decoder->client_input_buf_req;
-					vcd_status = VCD_S_SUCCESS;
-				} else {
-					vcd_status = VCD_ERR_ILLEGAL_OP;
-				}
+				*(struct vcd_buffer_requirement *)
+				    property_value =
+						decoder->client_input_buf_req;
+				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
 		}
@@ -878,14 +889,10 @@ static u32 ddl_get_dec_property
 		{
 			if (sizeof(struct vcd_buffer_requirement) ==
 			    property_hdr->sz) {
-				if (decoder->client_output_buf_req.sz) {
-					*(struct vcd_buffer_requirement *)
-					    property_value =
-					    decoder->client_output_buf_req;
-					vcd_status = VCD_S_SUCCESS;
-				} else {
-					vcd_status = VCD_ERR_ILLEGAL_OP;
-				}
+				*(struct vcd_buffer_requirement *)
+				    property_value =
+						decoder->client_output_buf_req;
+				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
 		}
@@ -893,14 +900,9 @@ static u32 ddl_get_dec_property
 		{
 			if (sizeof(struct vcd_property_codec) ==
 			    property_hdr->sz) {
-				if (decoder->codec.codec) {
-					*(struct vcd_property_codec *)
-					    property_value =
-					    decoder->codec;
-					vcd_status = VCD_S_SUCCESS;
-				} else {
-					vcd_status = VCD_ERR_ILLEGAL_OP;
-				}
+				*(struct vcd_property_codec *)
+				    property_value = decoder->codec;
+				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
 		}
@@ -935,9 +937,7 @@ static u32 ddl_get_dec_property
 		}
 	case DDL_I_FRAME_PROC_UNITS:
 		{
-			if (sizeof(u32) == property_hdr->sz &&
-			    decoder->client_frame_size.width &&
-			    decoder->client_frame_size.height) {
+			if (sizeof(u32) == property_hdr->sz) {
 				struct vcd_property_frame_size frame_sz =
 					decoder->client_frame_size;
 				ddl_calculate_stride(&frame_sz,
@@ -1246,14 +1246,10 @@ static u32 ddl_get_enc_property
 		{
 			if (sizeof(struct vcd_buffer_requirement) ==
 			    property_hdr->sz) {
-				if (encoder->output_buf_req.sz) {
-					*(struct vcd_buffer_requirement *)
-					    property_value =
-					    encoder->client_input_buf_req;
-					vcd_status = VCD_S_SUCCESS;
-				} else {
-					vcd_status = VCD_ERR_ILLEGAL_OP;
-				}
+				*(struct vcd_buffer_requirement *)
+				    property_value =
+						encoder->client_input_buf_req;
+				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
 		}
@@ -1261,14 +1257,10 @@ static u32 ddl_get_enc_property
 		{
 			if (sizeof(struct vcd_buffer_requirement) ==
 			    property_hdr->sz) {
-				if (encoder->output_buf_req.sz) {
-					*(struct vcd_buffer_requirement *)
-					    property_value =
-					    encoder->client_output_buf_req;
-					vcd_status = VCD_S_SUCCESS;
-				} else {
-					vcd_status = VCD_ERR_ILLEGAL_OP;
-				}
+				*(struct vcd_buffer_requirement *)
+				    property_value =
+						encoder->client_output_buf_req;
+				vcd_status = VCD_S_SUCCESS;
 			}
 			break;
 		}
@@ -1284,9 +1276,7 @@ static u32 ddl_get_enc_property
 		}
 	case DDL_I_FRAME_PROC_UNITS:
 		{
-			if (sizeof(u32) == property_hdr->sz &&
-			    encoder->frame_size.width &&
-			    encoder->frame_size.height) {
+			if (sizeof(u32) == property_hdr->sz) {
 				*(u32 *) property_value =
 				    ((encoder->frame_size.width >> 4) *
 				     (encoder->frame_size.height >> 4)
