@@ -2064,6 +2064,8 @@ static struct platform_driver msm_sdio_al_driver = {
 	},
 };
 
+
+#ifndef DEBUG_SDIO_AL_UNIT_TEST
 /**
  *  Default platform device release function.
  *
@@ -2072,6 +2074,7 @@ static void default_sdio_al_release(struct device *dev)
 {
 	pr_info(MODULE_NAME ":platform device released.\n");
 }
+#endif
 
 /**
  *  Probe to claim the SDIO card.
@@ -2080,7 +2083,10 @@ static void default_sdio_al_release(struct device *dev)
 static int mmc_probe(struct mmc_card *card)
 {
 	int ret = 0;
+
+#ifndef DEBUG_SDIO_AL_UNIT_TEST
 	int i;
+#endif
 
 	dev_info(&card->dev, "Probing..\n");
 
