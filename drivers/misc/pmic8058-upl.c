@@ -263,7 +263,7 @@ static int pm8058_upl_debug_init(struct pm8058_upl_device *upldev)
 		return -ENOMEM;
 	}
 
-	temp = debugfs_create_file("truthtable", S_IRUGO | S_IWUGO, dent,
+	temp = debugfs_create_file("truthtable", S_IRUSR | S_IWUSR, dent,
 					upldev, &upl_truthtable_fops);
 	if (temp == NULL || IS_ERR(temp)) {
 		pr_err("%s: ERR debugfs_create_file: dent=0x%X\n",
@@ -271,7 +271,7 @@ static int pm8058_upl_debug_init(struct pm8058_upl_device *upldev)
 		goto debug_error;
 	}
 
-	temp = debugfs_create_file("control", S_IRUGO | S_IWUGO, dent,
+	temp = debugfs_create_file("control", S_IRUSR | S_IWUSR, dent,
 					upldev, &upl_control_fops);
 	if (temp == NULL || IS_ERR(temp)) {
 		pr_err("%s: ERR debugfs_create_file: dent=0x%X\n",
