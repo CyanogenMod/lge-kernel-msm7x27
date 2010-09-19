@@ -217,34 +217,28 @@ u32 res_trk_get_max_perf_level(u32 *pn_max_perf_lvl)
 }
 
 u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
-	struct vcd_clnt_ctxt *cctxt)
+	struct vcd_dev_ctxt *dev_ctxt)
 {
 	u32 vidc_freq = 0;
-
-	if (!pn_set_perf_lvl) {
-		VCDRES_MSG_ERROR("%s(): pn_perf_lvl is NULL\n",
-			__func__);
+	if (!pn_set_perf_lvl || !dev_ctxt) {
+		VCDRES_MSG_ERROR("%s(): NULL pointer! dev_ctxt(%p)\n",
+			__func__, dev_ctxt);
 		return false;
 	}
 	VCDRES_MSG_LOW("%s(), req_perf_lvl = %d", __func__, req_perf_lvl);
-	if (cctxt) {
-		if (req_perf_lvl <= RESTRK_1080P_VGA_PERF_LEVEL) {
-			vidc_freq = vidc_clk_table[0];
-			*pn_set_perf_lvl = RESTRK_1080P_VGA_PERF_LEVEL;
-		} else if (req_perf_lvl <= RESTRK_1080P_720P_PERF_LEVEL) {
-			vidc_freq = vidc_clk_table[1];
-			*pn_set_perf_lvl = RESTRK_1080P_720P_PERF_LEVEL;
-		} else {
-			vidc_freq = vidc_clk_table[2];
-			*pn_set_perf_lvl = RESTRK_1080P_MAX_PERF_LEVEL;
-		}
-		resource_context.perf_level = *pn_set_perf_lvl;
-		VCDRES_MSG_HIGH("\n VIDC: vidc_freq = %u, req_perf_lvl = %u",
-			vidc_freq, req_perf_lvl);
+	if (req_perf_lvl <= RESTRK_1080P_VGA_PERF_LEVEL) {
+		vidc_freq = vidc_clk_table[0];
+		*pn_set_perf_lvl = RESTRK_1080P_VGA_PERF_LEVEL;
+	} else if (req_perf_lvl <= RESTRK_1080P_720P_PERF_LEVEL) {
+		vidc_freq = vidc_clk_table[1];
+		*pn_set_perf_lvl = RESTRK_1080P_720P_PERF_LEVEL;
 	} else {
-		VCDRES_MSG_HIGH("%s() WARNING:: cctxt is NULL", __func__);
-		return true;
+		vidc_freq = vidc_clk_table[2];
+		*pn_set_perf_lvl = RESTRK_1080P_MAX_PERF_LEVEL;
 	}
+	resource_context.perf_level = *pn_set_perf_lvl;
+	VCDRES_MSG_HIGH("\n VIDC: vidc_freq = %u, req_perf_lvl = %u",
+		vidc_freq, req_perf_lvl);
 #ifdef USE_RES_TRACKER
     if (req_perf_lvl != RESTRK_1080P_MIN_PERF_LEVEL) {
 		VCDRES_MSG_HIGH("\n %s(): Setting vidc freq to %u",

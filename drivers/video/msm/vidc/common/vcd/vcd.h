@@ -341,8 +341,7 @@ u32 vcd_enable_clock(struct vcd_dev_ctxt *dev_ctxt,
 
 u32 vcd_disable_clock(struct vcd_dev_ctxt *dev_ctxt);
 
-u32 vcd_set_perf_level(struct vcd_dev_ctxt *dev_ctxt,
-	u32 perf_lvl, struct vcd_clnt_ctxt *cctxt);
+u32 vcd_set_perf_level(struct vcd_dev_ctxt *dev_ctxt, u32 perf_lvl);
 
 u32 vcd_update_clnt_perf_lvl
     (struct vcd_clnt_ctxt *cctxt,
