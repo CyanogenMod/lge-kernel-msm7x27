@@ -29,6 +29,7 @@
 #include <linux/platform_device.h>
 #include <linux/ratelimit.h>
 #include <linux/slab.h>
+#include <linux/debugfs.h>
 
 /* PMIC8058 Revision */
 #define SSBI_REG_REV			0x002  /* PMIC4 revision */
@@ -94,6 +95,17 @@ struct pm8058_chip {
 
 	spinlock_t	pm_lock;
 };
+
+#if defined(CONFIG_DEBUG_FS)
+struct pm8058_dbg_device {
+	struct mutex		dbg_mutex;
+	struct pm8058_chip	*pm_chip;
+	struct dentry		*dent;
+	int			addr;
+};
+
+static struct pm8058_dbg_device *pmic_dbg_device;
+#endif
 
 static struct pm8058_chip *pmic_chip;
 
@@ -599,6 +611,184 @@ bail_out:
 	return IRQ_HANDLED;
 }
 
+#if defined(CONFIG_DEBUG_FS)
+
+static int check_addr(int addr, const char *func_name)
+{
+	if (addr < 0 || addr > 0x3FF) {
+		pr_err("%s: PMIC 8058 register address is invalid: %d\n",
+			func_name, addr);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int data_set(void *data, u64 val)
+{
+	struct pm8058_dbg_device *dbgdev = data;
+	u8 reg = val;
+	int rc;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+
+	rc = check_addr(dbgdev->addr, __func__);
+	if (rc)
+		goto done;
+
+	rc = pm8058_write(dbgdev->pm_chip, dbgdev->addr, &reg, 1);
+
+	if (rc)
+		pr_err("%s: FAIL pm8058_write(0x%03X)=0x%02X: rc=%d\n",
+			__func__, dbgdev->addr, reg, rc);
+done:
+	mutex_unlock(&dbgdev->dbg_mutex);
+	return rc;
+}
+
+static int data_get(void *data, u64 *val)
+{
+	struct pm8058_dbg_device *dbgdev = data;
+	int rc;
+	u8 reg;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+
+	rc = check_addr(dbgdev->addr, __func__);
+	if (rc)
+		goto done;
+
+	rc = pm8058_read(dbgdev->pm_chip, dbgdev->addr, &reg, 1);
+
+	if (rc) {
+		pr_err("%s: FAIL pm8058_read(0x%03X)=0x%02X: rc=%d\n",
+			__func__, dbgdev->addr, reg, rc);
+		goto done;
+	}
+
+	*val = reg;
+done:
+	mutex_unlock(&dbgdev->dbg_mutex);
+	return rc;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(dbg_data_fops, data_get, data_set, "0x%02llX\n");
+
+static int addr_set(void *data, u64 val)
+{
+	struct pm8058_dbg_device *dbgdev = data;
+	int rc;
+
+	rc = check_addr(val, __func__);
+	if (rc)
+		return rc;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+	dbgdev->addr = val;
+	mutex_unlock(&dbgdev->dbg_mutex);
+
+	return 0;
+}
+
+static int addr_get(void *data, u64 *val)
+{
+	struct pm8058_dbg_device *dbgdev = data;
+	int rc;
+
+	mutex_lock(&dbgdev->dbg_mutex);
+
+	rc = check_addr(dbgdev->addr, __func__);
+	if (rc) {
+		mutex_unlock(&dbgdev->dbg_mutex);
+		return rc;
+	}
+	*val = dbgdev->addr;
+
+	mutex_unlock(&dbgdev->dbg_mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(dbg_addr_fops, addr_get, addr_set, "0x%03llX\n");
+
+static int __devinit pmic8058_dbg_probe(struct pm8058_chip *chip)
+{
+	struct pm8058_dbg_device *dbgdev;
+	struct dentry *dent;
+	struct dentry *temp;
+
+	if (chip == NULL) {
+		pr_err("%s: no parent data passed in.\n", __func__);
+		return -EINVAL;
+	}
+
+	dbgdev = kzalloc(sizeof *dbgdev, GFP_KERNEL);
+	if (dbgdev == NULL) {
+		pr_err("%s: kzalloc() failed.\n", __func__);
+		return -ENOMEM;
+	}
+
+	mutex_init(&dbgdev->dbg_mutex);
+
+	dbgdev->pm_chip = chip;
+	dbgdev->addr = -1;
+
+	dent = debugfs_create_dir("pm8058-dbg", NULL);
+	if (dent == NULL || IS_ERR(dent)) {
+		pr_err("%s: ERR debugfs_create_dir: dent=0x%X\n",
+					__func__, (unsigned)dent);
+		return -ENOMEM;
+	}
+
+	temp = debugfs_create_file("addr", S_IRUSR | S_IWUSR, dent,
+					dbgdev, &dbg_addr_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("%s: ERR debugfs_create_file: dent=0x%X\n",
+					__func__, (unsigned)temp);
+		goto debug_error;
+	}
+
+	temp = debugfs_create_file("data", S_IRUSR | S_IWUSR, dent,
+					dbgdev, &dbg_data_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("%s: ERR debugfs_create_file: dent=0x%X\n",
+					__func__, (unsigned)temp);
+		goto debug_error;
+	}
+
+	dbgdev->dent = dent;
+
+	pmic_dbg_device = dbgdev;
+
+	return 0;
+
+debug_error:
+	debugfs_remove_recursive(dent);
+	return -ENOMEM;
+}
+
+static int __devexit pmic8058_dbg_remove(struct pm8058_dbg_device * dbgdev)
+{
+	if (dbgdev) {
+		debugfs_remove_recursive(dbgdev->dent);
+		kfree(dbgdev);
+	}
+	return 0;
+}
+
+#else
+
+static int __devinit pmic8058_dbg_probe(struct pm8058_chip *chip)
+{
+	return 0;
+}
+
+static int __devexit pmic8058_dbg_remove(struct pm8058_dbg_device * dbgdev)
+{
+	return 0;
+}
+
+#endif
+
 static struct irq_chip pm8058_irq_chip = {
 	.name      = "pm8058",
 	.ack       = pm8058_irq_ack,
@@ -691,6 +881,10 @@ static int pm8058_probe(struct i2c_client *client,
 		pr_err("%s: could not request irq %d: %d\n", __func__,
 				chip->dev->irq, rc);
 
+	rc = pmic8058_dbg_probe(chip);
+	if (rc < 0)
+		pr_err("%s: could not set up debugfs: %d\n", __func__, rc);
+
 	return 0;
 }
 
@@ -709,6 +903,8 @@ static int __devexit pm8058_remove(struct i2c_client *client)
 
 		kfree(chip);
 	}
+
+	pmic8058_dbg_remove(pmic_dbg_device);
 
 	return 0;
 }
