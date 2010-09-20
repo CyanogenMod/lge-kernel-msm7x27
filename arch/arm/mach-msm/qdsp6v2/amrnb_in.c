@@ -480,13 +480,16 @@ static long amrnb_in_ioctl(struct file *file,
 			rc = -EFAULT;
 			break;
 		}
-		if (cfg.band_mode > 7 ||
+		if (cfg.band_mode > 8 ||
 			 cfg.band_mode < 1) {
 			MM_ERR("invalid band mode\n");
 			rc = -EINVAL;
 			break;
 		}
-		audio->enc_cfg.band_mode = cfg.band_mode;
+		/* AMR NB encoder accepts values between 0-7
+		   while openmax provides value between 1-8
+		   as per spec */
+		audio->enc_cfg.band_mode = (cfg.band_mode - 1);
 		audio->enc_cfg.dtx_enable = (cfg.dtx_enable ? 1 : 0);
 		audio->enc_cfg.frame_format = 0;
 		MM_DBG("band_mode = 0x%x dtx_enable=0x%x\n",\
