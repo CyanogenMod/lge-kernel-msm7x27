@@ -72,16 +72,7 @@ static struct smsm_shared_info smsm_info;
 
 /* Internal definitions which are not exported in some targets */
 enum {
-	SMSM_Q6_I = 2,
-};
-
-enum {
 	SMSM_APPS_DEM_I = 3,
-};
-
-enum {
-	SMD_APPS_QDSP_I = 1,
-	SMD_APPS_DSPS_I = 3,
 };
 
 static int msm_smd_debug_mask;
@@ -152,7 +143,7 @@ static void notify_other_smsm(uint32_t smsm_entry, uint32_t notify_mask)
 		MSM_TRIG_A2M_SMSM_INT;
 
 	if (smsm_info.intr_mask &&
-	    (readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_Q6_I)) & notify_mask)) {
+	    (readl(SMSM_INTR_MASK_ADDR(smsm_entry, SMSM_Q6)) & notify_mask)) {
 		if (smsm_info.intr_mux) {
 			mux_val = readl(SMSM_INTR_MUX_ADDR(SMEM_APPS_Q6_SMSM));
 			mux_val++;
@@ -311,8 +302,8 @@ static void smd_channel_probe_worker(struct work_struct *work)
 		/* channel should be allocated only if APPS
 		   processor is involved */
 		type = SMD_CHANNEL_TYPE(shared[n].type);
-		if ((type != SMD_APPS_MODEM) && (type != SMD_APPS_QDSP_I) &&
-		    (type != SMD_APPS_DSPS_I))
+		if ((type != SMD_APPS_MODEM) && (type != SMD_APPS_QDSP) &&
+		    (type != SMD_APPS_DSPS))
 			continue;
 		if (!shared[n].ref_count)
 			continue;
@@ -1012,9 +1003,9 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 	spin_lock_irqsave(&smd_lock, flags);
 	if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_MODEM)
 		list_add(&ch->ch_list, &smd_ch_list_modem);
-	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_QDSP_I)
+	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_QDSP)
 		list_add(&ch->ch_list, &smd_ch_list_dsp);
-	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_DSPS_I)
+	else if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_DSPS)
 		list_add(&ch->ch_list, &smd_ch_list_dsps);
 	else
 		list_add(&ch->ch_list, &smd_ch_list_loopback);
