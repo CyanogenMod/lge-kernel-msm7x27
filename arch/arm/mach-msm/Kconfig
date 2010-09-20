@@ -746,13 +746,6 @@ config MSM_SDIO_CTL
 	help
 	  Provides a binay SDIO muxed control port interface.
 
-config MSM_SDIO_CTL_DEBUG
-	bool "SDIO CTL DEBUG Enable"
-	depends on MSM_SDIO_CTL
-	default y
-	help
-	  Support for debugging the SDIO Control Driver
-
 config MSM_ONCRPCROUTER
 	depends on MSM_SMD
 	default y
