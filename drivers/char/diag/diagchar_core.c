@@ -707,39 +707,67 @@ fail_free_copy:
 
 int mask_request_validate(unsigned char mask_buf[])
 {
-	if (mask_buf[4] == 0x1D || mask_buf[4] == 0x00 ||
-		mask_buf[4] == 0x7C || mask_buf[4] == 0x1C ||
-		mask_buf[4] == 0x0C || mask_buf[4] == 0x63 ||
-		mask_buf[4] == 0x73 || mask_buf[4] == 0x7D ||
-		mask_buf[4] == 0x81 || mask_buf[4] == 0x60 ||
-		mask_buf[4] == 0x82)
-			return 1;
-	else if (mask_buf[4] == 0x4B) {
-		switch (mask_buf[5]) {
-		case 0xF:
-		case 0x9:
-			if (mask_buf[6] == 0 && mask_buf[7] == 0)
+	uint8_t packet_id;
+	uint8_t subsys_id;
+	uint16_t ss_cmd;
+
+	packet_id = mask_buf[4];
+
+	if (packet_id == 0x4B) {
+		subsys_id = mask_buf[5];
+		ss_cmd = *(uint16_t *)(mask_buf + 6);
+		/* Packets with SSID which are allowed */
+		switch (subsys_id) {
+		case 0x04: /* DIAG_SUBSYS_WCDMA */
+			if ((ss_cmd == 0) || (ss_cmd == 0xF))
 				return 1;
-			else
-				return 0;
-		case 0x8:
-		case 0x13:
-			if ((mask_buf[6] == 1 || mask_buf[6] == 0) &&
-						 mask_buf[7] == 0)
+			break;
+		case 0x08: /* DIAG_SUBSYS_GSM */
+			if ((ss_cmd == 0) || (ss_cmd == 0x1))
 				return 1;
-			else
-				return 0;
-		case 0x4:
-			if ((mask_buf[6] == 0 || mask_buf[6] == 0xF) &&
-							 mask_buf[7] == 0)
+			break;
+		case 0x09: /* DIAG_SUBSYS_UMTS */
+		case 0x0F: /* DIAG_SUBSYS_CM */
+			if (ss_cmd == 0)
 				return 1;
-			else
-				return 0;
+			break;
+		case 0x0C: /* DIAG_SUBSYS_OS */
+			if ((ss_cmd == 2) || (ss_cmd == 0x100))
+				return 1; /* MPU and APU */
+			break;
+		case 0x12: /* DIAG_SUBSYS_DIAG_SERV */
+			if ((ss_cmd == 0) || (ss_cmd == 0x6) || (ss_cmd == 0x7))
+				return 1;
+			break;
+		case 0x13: /* DIAG_SUBSYS_FS */
+			if ((ss_cmd == 0) || (ss_cmd == 0x1))
+				return 1;
+			break;
 		default:
-				return 0;
+			return 0;
+			break;
 		}
-	} else
-		return 0;
+	} else {
+		switch (packet_id) {
+		case 0x00:    /* Version Number */
+		case 0x0C:    /* CDMA status packet */
+		case 0x1C:    /* Diag Version */
+		case 0x1D:    /* Time Stamp */
+		case 0x60:    /* Event Report Control */
+		case 0x63:    /* Status snapshot */
+		case 0x73:    /* Logging Configuration */
+		case 0x7C:    /* Extended build ID */
+		case 0x7D:    /* Extended Message configuration */
+		case 0x81:    /* Event get mask */
+		case 0x82:    /* Set the event mask */
+			return 1;
+			break;
+		default:
+			return 0;
+			break;
+		}
+	}
+	return 0;
 }
 
 static const struct file_operations diagcharfops = {
