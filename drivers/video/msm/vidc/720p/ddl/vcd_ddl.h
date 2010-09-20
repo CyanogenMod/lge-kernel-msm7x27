@@ -185,6 +185,7 @@ struct ddl_decoder_data {
 	struct vcd_property_profile profile;
 	struct vcd_property_level level;
 	u32 progressive_only;
+	u32 output_order;
 	u32 meta_data_enable_flag;
 	u32 suffix;
 	struct ddl_buf_addr meta_data_input;

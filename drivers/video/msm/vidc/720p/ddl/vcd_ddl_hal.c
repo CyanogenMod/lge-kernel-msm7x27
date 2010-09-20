@@ -229,7 +229,8 @@ void ddl_decode_init_codec(struct ddl_client_context *ddl)
 		   start_byte_num,
 		   seq_h,
 		   seq_e,
-		   mem_access_method);
+		   mem_access_method,
+		   decoder->output_order);
 }
 
 void ddl_decode_dynamic_property(struct ddl_client_context *ddl,
