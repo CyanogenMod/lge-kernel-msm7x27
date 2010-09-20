@@ -50,6 +50,7 @@ struct pmic8058_leds_platform_data {
 	struct pmic8058_led *leds;
 };
 
-int pm8058_set_flash_led_current(enum pmic8058_leds leds, unsigned mA);
+int pm8058_set_flash_led_current(enum pmic8058_leds id, unsigned mA);
+int pm8058_set_led_current(enum pmic8058_leds id, unsigned mA);
 
 #endif /* __LEDS_PMIC8058_H__ */
