@@ -1,6 +1,7 @@
 /* Quanta I2C Keyboard Driver
  *
  * Copyright (C) 2009 Quanta Computer Inc.
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  * Author: Hsin Wu <hsin.wu@quantatw.com>
  * Author: Austin Lai <austin.lai@quantatw.com>
  *
@@ -333,6 +334,7 @@ struct i2ckbd_drv_data {
 	unsigned int escape;
 	unsigned int pause_seq;
 	unsigned int fn;
+	bool standard_scancodes;
 };
 #ifdef CONFIG_PM
 static int qcikbd_suspend(struct device *dev)
@@ -404,9 +406,23 @@ static void qcikbd_work_handler(struct work_struct *_work)
 
 	scancode = i2c_smbus_read_byte(ikbdclient);
 
-	if (scancode == KEY_ACK_FA) {
+	if (scancode == KEY_ACK_FA)
 		return;
-	} else if (scancode == RC_KEY_FN) {
+
+	if (ikbd_drv_data->standard_scancodes) {
+		/* MS bit of scancode indicates direction of keypress */
+		ikbd_drv_data->key_down = !(scancode & 0x80);
+		keycode = scancode & 0x7F;
+		if (keycode) {
+			input_event(ikbdev, EV_MSC, MSC_SCAN, scancode);
+			input_report_key(ikbdev, keycode,
+					 ikbd_drv_data->key_down);
+			input_sync(ikbdev);
+		}
+		return;
+	}
+
+	if (scancode == RC_KEY_FN) {
 		ikbd_drv_data->fn = 0x80;     /* select keycode table  > 0x7F */
 	} else {
 		ikbd_drv_data->key_down = 1;
@@ -491,6 +507,7 @@ static int __devinit qcikbd_probe(struct i2c_client *client,
 	context->qcikbd_dev->id.version = 0x0004;
 	context->qcikbd_dev->open       = qcikbd_open;
 	set_bit(EV_KEY, context->qcikbd_dev->evbit);
+	__set_bit(MSC_SCAN, context->qcikbd_dev->mscbit);
 
 	if (pdata->repeat)
 		set_bit(EV_REP, context->qcikbd_dev->evbit);
@@ -513,6 +530,7 @@ static int __devinit qcikbd_probe(struct i2c_client *client,
 		goto register_fail;
 	}
 	g_qci_keyboard_dev = context->qcikbd_dev;
+	context->standard_scancodes = pdata->standard_scancodes;
 	return 0;
 register_fail:
 	input_free_device(context->qcikbd_dev);
