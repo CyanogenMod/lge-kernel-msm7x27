@@ -1156,6 +1156,9 @@ void __init msm_clk_soc_init(void)
 	set_1rate(UART2);
 	set_1rate(LPA_CODEC);
 	set_1rate(GLBL_ROOT);
+
+	/* Sync the GRP2D clock to AXI */
+	local_clk_set_rate(C(GRP_2D), 1);
 }
 
 /*
