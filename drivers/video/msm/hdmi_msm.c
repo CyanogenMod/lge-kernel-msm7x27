@@ -238,6 +238,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	}
 
 	mutex_lock(&external_common_state_hpd_mutex);
+	mutex_lock(&hdmi_msm_state_mutex);
 	if ((external_common_state->hpd_state != hpd_state) || (hdmi_msm_state->
 			hpd_prev_state != external_common_state->hpd_state)) {
 		external_common_state->hpd_state = hpd_state;
@@ -247,17 +248,15 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			__func__, hdmi_msm_state->hpd_prev_state,
 			external_common_state->hpd_state, hpd_state);
 		mutex_unlock(&external_common_state_hpd_mutex);
-		disable_irq(hdmi_msm_state->irq);
 		hdmi_msm_state->hpd_stable = 0;
+		mutex_unlock(&hdmi_msm_state_mutex);
 		mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + HZ/10);
-		enable_irq(hdmi_msm_state->irq);
 		return;
 	}
 	mutex_unlock(&external_common_state_hpd_mutex);
 
-	disable_irq(hdmi_msm_state->irq);
 	if (hdmi_msm_state->hpd_stable++) {
-		enable_irq(hdmi_msm_state->irq);
+		mutex_unlock(&hdmi_msm_state_mutex);
 		DEV_DBG("%s: no more timer, depending for IRQ now\n",
 			__func__);
 		return;
@@ -267,7 +266,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + HZ);
 
 	if (!hdmi_msm_state->hpd_cable_chg_detected) {
-		enable_irq(hdmi_msm_state->irq);
+		mutex_unlock(&hdmi_msm_state_mutex);
 		if (hpd_state) {
 			/* Turn on the audio and video components */
 			hdmi_msm_turn_on();
@@ -277,7 +276,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 		}
 	} else {
 		hdmi_msm_state->hpd_cable_chg_detected = FALSE;
-		enable_irq(hdmi_msm_state->irq);
+		mutex_unlock(&hdmi_msm_state_mutex);
 		if (hpd_state) {
 			/* Turn on the audio and video components */
 			hdmi_msm_turn_on();
@@ -376,6 +375,7 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 		/* Clear all interrupts, timer will turn IRQ back on */
 		HDMI_OUTP(0x0254, 1 << 0);
 
+		mutex_lock(&hdmi_msm_state_mutex);
 		hdmi_msm_state->hpd_cable_chg_detected = TRUE;
 
 		/* ensure 2 readouts */
@@ -383,6 +383,7 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 		external_common_state->hpd_state = cable_detected ? 1 : 0;
 		hdmi_msm_state->hpd_stable = 0;
 		mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + HZ/10);
+		mutex_unlock(&hdmi_msm_state_mutex);
 		return IRQ_HANDLED;
 	}
 
@@ -2412,15 +2413,15 @@ static int hdmi_msm_hpd_on(void)
 		HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
 
 		/* Set HPD state machine: ensure at least 2 readouts */
-		disable_irq(hdmi_msm_state->irq);
+		mutex_lock(&hdmi_msm_state_mutex);
 		hdmi_msm_state->hpd_stable = 0;
 		hdmi_msm_state->hpd_prev_state = TRUE;
 		mutex_lock(&external_common_state_hpd_mutex);
 		external_common_state->hpd_state = FALSE;
 		mutex_unlock(&external_common_state_hpd_mutex);
 		hdmi_msm_state->hpd_cable_chg_detected = TRUE;
+		mutex_unlock(&hdmi_msm_state_mutex);
 		mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + HZ/10);
-		enable_irq(hdmi_msm_state->irq);
 
 		hdmi_msm_state->hpd_initialized = TRUE;
 	}
@@ -2567,8 +2568,8 @@ static int __init hdmi_msm_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	rc = request_irq(hdmi_msm_state->irq, &hdmi_msm_isr,
-		IRQF_TRIGGER_HIGH, "hdmi_msm_isr", NULL);
+	rc = request_threaded_irq(hdmi_msm_state->irq, NULL, &hdmi_msm_isr,
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "hdmi_msm_isr", NULL);
 	if (rc) {
 		DEV_ERR("Init FAILED: IRQ request, rc=%d\n", rc);
 		goto error;
