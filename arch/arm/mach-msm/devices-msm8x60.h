@@ -42,6 +42,14 @@
 extern struct platform_device msm_gsbi1_qup_spi_device;
 #endif
 
+#ifdef CONFIG_MSM_BUS_SCALING
+extern struct platform_device msm_bus_apps_fabric;
+extern struct platform_device msm_bus_sys_fabric;
+extern struct platform_device msm_bus_mm_fabric;
+extern struct platform_device msm_bus_sys_fpb;
+extern struct platform_device msm_bus_cpss_fpb;
+#endif
+
 extern struct platform_device msm_device_smd;
 extern struct platform_device msm_device_kgsl;
 extern struct platform_device msm_device_gpio;

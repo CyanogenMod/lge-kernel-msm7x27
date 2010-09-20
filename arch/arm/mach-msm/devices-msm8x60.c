@@ -33,6 +33,8 @@
 #include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
 #include <mach/usbdiag.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -1010,6 +1012,28 @@ struct platform_device msm_device_vidc = {
 	.resource = msm_device_vidc_resources,
 };
 
+#ifdef CONFIG_MSM_BUS_SCALING
+struct platform_device msm_bus_sys_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    =  MSM_BUS_FAB_SYSTEM,
+};
+struct platform_device msm_bus_apps_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_APPSS,
+};
+struct platform_device msm_bus_mm_fabric = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_MMSS,
+};
+struct platform_device msm_bus_sys_fpb = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_SYSTEM_FPB,
+};
+struct platform_device msm_bus_cpss_fpb = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_CPSS_FPB,
+};
+#endif
 
 struct clk msm_clocks_8x60[] = {
 	CLK_RPM("afab_clk",		AFAB_CLK,		NULL, CLK_MIN),

@@ -62,6 +62,7 @@
 #include <mach/msm_battery.h>
 #include <mach/msm_hsusb.h>
 #include <mach/msm_xo.h>
+#include <mach/msm_bus_board.h>
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
 #endif
@@ -1658,6 +1659,13 @@ static struct platform_device msm_rpm_log_device = {
 static struct platform_device *early_devices[] __initdata = {
 	&msm_device_saw_s0,
 	&msm_device_saw_s1,
+#ifdef CONFIG_MSM_BUS_SCALING
+	&msm_bus_apps_fabric,
+	&msm_bus_sys_fabric,
+	&msm_bus_mm_fabric,
+	&msm_bus_sys_fpb,
+	&msm_bus_cpss_fpb,
+#endif
 };
 
 #if (defined(CONFIG_BAHAMA_CORE)) && \
@@ -3369,6 +3377,13 @@ static void __init msm8x60_init_buses(void)
 	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(54); /* GSBI6(2) */
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
+#ifdef CONFIG_MSM_BUS_SCALING
+	msm_bus_apps_fabric.dev.platform_data = &msm_bus_apps_fabric_pdata;
+	msm_bus_sys_fabric.dev.platform_data = &msm_bus_sys_fabric_pdata;
+	msm_bus_mm_fabric.dev.platform_data = &msm_bus_mm_fabric_pdata;
+	msm_bus_sys_fpb.dev.platform_data = &msm_bus_sys_fpb_pdata;
+	msm_bus_cpss_fpb.dev.platform_data = &msm_bus_cpss_fpb_pdata;
+#endif
 }
 
 static void __init msm8x60_map_io(void)
@@ -4963,6 +4978,10 @@ static void __init msm8x60_init(void)
 	 * driver to set ACPU voltages.
 	 */
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	/* Buses need to be initialized before early-device registration
+	 * to get the platform data for fabrics.
+	 */
+	msm8x60_init_buses();
 	platform_add_devices(early_devices, ARRAY_SIZE(early_devices));
 	/* CPU frequency control is not supported on simulated targets. */
 	if (!machine_is_msm8x60_rumi3() && !machine_is_msm8x60_sim())
@@ -4972,7 +4991,6 @@ static void __init msm8x60_init(void)
 	msm8x60_init_tlmm();
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
-	msm8x60_init_buses();
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
 	    machine_is_msm8x60_fluid()) {
 		msm8x60_cfg_smsc911x();
