@@ -2330,6 +2330,21 @@ config FB_MSM_LCDC_ST15_PANEL
     ---help---
       Support for ST1.5 WXGA (1366x768) panel
 
+config FB_MSM_LCDC_QRDC_WXGA
+    bool
+    select FB_MSM_LCDC_PANEL
+    default n
+
+config FB_MSM_LCDC_QRDC_PANEL
+    depends on FB_MSM_LCDC_HW
+    bool "LCDC QRDC Panel"
+    select FB_MSM_LCDC_QRDC_WXGA
+    ---help---
+      Support for QRDC WXGA (1366x768) panel.
+      This will select the on-board WXGA display
+      used on the Quanta QRDC smartbook
+      reference design.
+
 config FB_MSM_LCDC_PRISM_WVGA
 	bool
 	select FB_MSM_LCDC_PANEL
