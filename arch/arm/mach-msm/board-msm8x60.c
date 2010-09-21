@@ -4600,14 +4600,12 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			goto fail_clock;
 
-#ifdef CAN_HANDLE_PIN_CTRL
 		rc = msm_xo_mode_vote(bt_clock, XO_MODE_PIN_CTRL);
 
 		if (rc < 0) {
 			pr_err("Failed to vote for TCXO_DO pin control\n");
 			goto fail_vote;
 		}
-#endif
 	} else {
 		/* check for initial RFKILL block (power off) */
 		/* some RFKILL versions/configurations rfkill_register */
