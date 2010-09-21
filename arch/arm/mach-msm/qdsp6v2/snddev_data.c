@@ -336,6 +336,80 @@ struct platform_device msm_bt_sco_mic_device = {
 	.dev = { .platform_data = &snddev_bt_sco_mic_data },
 };
 
+static struct adie_codec_action_unit itty_mono_tx_actions[] =
+	TTY_HEADSET_MONO_TX_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry itty_mono_tx_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = itty_mono_tx_actions,
+		.action_sz = ARRAY_SIZE(itty_mono_tx_actions),
+	},
+};
+
+static struct adie_codec_dev_profile itty_mono_tx_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = itty_mono_tx_settings,
+	.setting_sz = ARRAY_SIZE(itty_mono_tx_settings),
+};
+
+static struct snddev_icodec_data snddev_itty_mono_tx_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE | SNDDEV_CAP_TTY),
+	.name = "tty_headset_mono_tx",
+	.copp_id = PRIMARY_I2S_TX,
+	.acdb_id = 16,
+	.profile = &itty_mono_tx_profile,
+	.channel_mode = 1,
+	.default_sample_rate = 48000,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.pamp_on = msm_snddev_tx_route_config,
+	.pamp_off = msm_snddev_tx_route_deconfig,
+};
+
+static struct platform_device msm_itty_mono_tx_device = {
+	.name = "snddev_icodec",
+	.id = 16,
+	.dev = { .platform_data = &snddev_itty_mono_tx_data },
+};
+
+static struct adie_codec_action_unit itty_mono_rx_actions[] =
+	TTY_HEADSET_MONO_RX_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry itty_mono_rx_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = itty_mono_rx_actions,
+		.action_sz = ARRAY_SIZE(itty_mono_rx_actions),
+	},
+};
+
+static struct adie_codec_dev_profile itty_mono_rx_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = itty_mono_rx_settings,
+	.setting_sz = ARRAY_SIZE(itty_mono_rx_settings),
+};
+
+static struct snddev_icodec_data snddev_itty_mono_rx_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE | SNDDEV_CAP_TTY),
+	.name = "tty_headset_mono_rx",
+	.copp_id = PRIMARY_I2S_RX,
+	.acdb_id = 17,
+	.profile = &itty_mono_rx_profile,
+	.channel_mode = 1,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_rx_route_config,
+	.pamp_off = msm_snddev_rx_route_deconfig,
+};
+
+static struct platform_device msm_itty_mono_rx_device = {
+	.name = "snddev_icodec",
+	.id = 17,
+	.dev = { .platform_data = &snddev_itty_mono_rx_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -345,6 +419,8 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
 	&msm_headset_ab_cpls_device,
+	&msm_itty_mono_tx_device,
+	&msm_itty_mono_rx_device,
 };
 
 static struct platform_device *snd_devices_surf[] __initdata = {
@@ -356,6 +432,8 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
 	&msm_headset_ab_cpls_device,
+	&msm_itty_mono_tx_device,
+	&msm_itty_mono_rx_device,
 };
 
 void __init msm_snddev_init(void)
