@@ -1226,11 +1226,23 @@ static struct resource hdmi_msm_resources[] = {
 	},
 };
 
+static int hdmi_enable_5v(int on);
+static int hdmi_core_power(int on);
+static int hdmi_cec_power(int on);
+
+static struct msm_hdmi_platform_data hdmi_msm_data = {
+	.irq = HDMI_IRQ,
+	.enable_5v = hdmi_enable_5v,
+	.core_power = hdmi_core_power,
+	.cec_power = hdmi_cec_power,
+};
+
 static struct platform_device hdmi_msm_device = {
 	.name = "hdmi_msm",
 	.id = 0,
 	.num_resources = ARRAY_SIZE(hdmi_msm_resources),
 	.resource = hdmi_msm_resources,
+	.dev.platform_data = &hdmi_msm_data,
 };
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
@@ -4163,41 +4175,52 @@ static void lcdc_samsung_panel_power(int on)
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-static struct regulator *reg_8058_l16;
-static struct regulator *reg_8901_l3;
-static struct regulator *reg_8901_hdmi_mvs;
-static int __init hdmi_msm_init(void)
+#define _GET_REGULATOR(var, name) do {				\
+	var = regulator_get(NULL, name);			\
+	if (IS_ERR(var)) {					\
+		pr_err("'%s' regulator not found, rc=%ld\n",	\
+			name, IS_ERR(var));			\
+		var = NULL;					\
+		return -ENODEV;					\
+	}							\
+} while (0)
+
+static struct regulator *reg_8058_l16;		/* VDD_HDMI */
+static struct regulator *reg_8901_l3;		/* HDMI_CEC */
+static struct regulator *reg_8901_hdmi_mvs;	/* HDMI_5V */
+
+static int hdmi_enable_5v(int on)
 {
-	#define _GET_REGULATOR(var, name) do {				\
-		var = regulator_get(NULL, name);			\
-		if (IS_ERR(var)) {					\
-			pr_err("'%s' regulator not found, rc=%ld\n",	\
-				name, IS_ERR(var));			\
-			var = NULL;					\
-			return -ENODEV;					\
-		}							\
-	} while (0)
+	int rc;
 
-	_GET_REGULATOR(reg_8058_l16, "8058_l16");
-	_GET_REGULATOR(reg_8901_l3, "8901_l3");
-	_GET_REGULATOR(reg_8901_hdmi_mvs, "8901_hdmi_mvs");
+	if (!reg_8901_hdmi_mvs)
+		_GET_REGULATOR(reg_8901_hdmi_mvs, "8901_hdmi_mvs");
 
-	#undef _GET_REGULATOR
+	if (on) {
+		rc = regulator_enable(reg_8901_hdmi_mvs);
+		if (rc) {
+			pr_err("'%s' regulator enable failed, rc=%d\n",
+				"8901_hdmi_mvs", rc);
+			return rc;
+		}
+		pr_info("%s(on): success\n", __func__);
+	} else {
+		rc = regulator_disable(reg_8901_hdmi_mvs);
+		if (rc)
+			pr_warning("'%s' regulator disable failed, rc=%d\n",
+				"8901_hdmi_mvs", rc);
+		pr_info("%s(off): success\n", __func__);
+	}
 
 	return 0;
 }
 
-static int hdmi_msm_regulators(int on)
+static int hdmi_core_power(int on)
 {
 	int rc;
 
-	if (!reg_8058_l16 || !reg_8901_l3 || !reg_8901_hdmi_mvs) {
-		if (hdmi_msm_init()) {
-			pr_err("%s: failed, HDMI regulators not initialized\n",
-				__func__);
-			return -ENODEV;
-		}
-	}
+	if (!reg_8058_l16)
+		_GET_REGULATOR(reg_8058_l16, "8058_l16");
 
 	if (on) {
 		rc = regulator_set_voltage(reg_8058_l16, 1800000, 1800000);
@@ -4208,6 +4231,26 @@ static int hdmi_msm_regulators(int on)
 				"8058_l16", rc);
 			return rc;
 		}
+		pr_info("%s(on): success\n", __func__);
+	} else {
+		rc = regulator_disable(reg_8058_l16);
+		if (rc)
+			pr_warning("'%s' regulator disable failed, rc=%d\n",
+				"8058_l16", rc);
+		pr_info("%s(off): success\n", __func__);
+	}
+
+	return 0;
+}
+
+static int hdmi_cec_power(int on)
+{
+	int rc;
+
+	if (!reg_8901_l3)
+		_GET_REGULATOR(reg_8901_l3, "8901_l3");
+
+	if (on) {
 		rc = regulator_set_voltage(reg_8901_l3, 3300000, 3300000);
 		if (!rc)
 			rc = regulator_enable(reg_8901_l3);
@@ -4216,33 +4259,19 @@ static int hdmi_msm_regulators(int on)
 				"8901_l3", rc);
 			return rc;
 		}
-		rc = regulator_enable(reg_8901_hdmi_mvs);
-		if (rc) {
-			pr_err("'%s' regulator enable failed, rc=%d\n",
-				"8901_hdmi_mvs", rc);
-			return rc;
-		}
 		pr_info("%s(on): success\n", __func__);
 	} else {
-		rc = regulator_disable(reg_8058_l16);
-		if (rc)
-			pr_warning("'%s' regulator disable failed, rc=%d\n",
-				"8058_l16", rc);
-
 		rc = regulator_disable(reg_8901_l3);
 		if (rc)
 			pr_warning("'%s' regulator disable failed, rc=%d\n",
 				"8901_l3", rc);
-
-		rc = regulator_disable(reg_8901_hdmi_mvs);
-		if (rc)
-			pr_warning("'%s' regulator disable failed, rc=%d\n",
-				"8901_hdmi_mvs", rc);
-		pr_info("%s(off): done\n", __func__);
+		pr_info("%s(off): success\n", __func__);
 	}
 
 	return 0;
 }
+#undef _GET_REGULATOR
+
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
 static int lcdc_panel_power(int on)
@@ -4262,10 +4291,6 @@ static int lcdc_panel_power(int on)
 
 static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_power_save   = lcdc_panel_power,
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-	/* TODO: consider moving this into the hdmi platform data */
-	.lcdc_gpio_config  = hdmi_msm_regulators,
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 };
 
 static uint32_t msm_snddev_rx_gpio[] = {
