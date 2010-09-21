@@ -112,6 +112,7 @@
 #define PM8058_GPIO_PM_TO_SYS(pm_gpio)     (pm_gpio + NR_GPIO_IRQS)
 #define PM8058_GPIO_SYS_TO_PM(sys_gpio)    (sys_gpio - NR_GPIO_IRQS)
 
+#define PMIC_GPIO_FLASH_BOOST_ENABLE	15	/* PMIC GPIO Number 16 */
 #define PMIC_GPIO_HAP_ENABLE   16  /* PMIC GPIO Number 17 */
 
 #define HAP_LVL_SHFT_MSM_GPIO 24
@@ -155,11 +156,28 @@ static int pm8058_gpios_init(void)
 		.function       = PM_GPIO_FUNC_NORMAL,
 	};
 
+	struct pm8058_gpio flash_boost_enable = {
+		.direction      = PM_GPIO_DIR_OUT,
+		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+		.output_value   = 0,
+		.pull           = PM_GPIO_PULL_NO,
+		.vin_sel        = PM_GPIO_VIN_S3,
+		.out_strength   = PM_GPIO_STRENGTH_HIGH,
+		.function       = PM_GPIO_FUNC_2,
+	};
+
 	if (machine_is_msm7x30_fluid()) {
 		rc = pm8058_gpio_config(PMIC_GPIO_HAP_ENABLE, &haptics_enable);
 		if (rc) {
 			pr_err("%s: PMIC GPIO %d write failed\n", __func__,
 				(PMIC_GPIO_HAP_ENABLE + 1));
+			return rc;
+		}
+		rc = pm8058_gpio_config(PMIC_GPIO_FLASH_BOOST_ENABLE,
+			&flash_boost_enable);
+		if (rc) {
+			pr_err("%s: PMIC GPIO %d write failed\n", __func__,
+				(PMIC_GPIO_FLASH_BOOST_ENABLE + 1));
 			return rc;
 		}
 	}
@@ -887,18 +905,26 @@ static void config_camera_on_gpios(void)
 {
 	config_gpio_table(camera_on_gpio_table,
 		ARRAY_SIZE(camera_on_gpio_table));
-	if (machine_is_msm7x30_fluid())
+	if (machine_is_msm7x30_fluid()) {
 		config_gpio_table(camera_on_gpio_fluid_table,
 			ARRAY_SIZE(camera_on_gpio_fluid_table));
+		/* FLUID: turn on 5V booster */
+		gpio_set_value(
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_FLASH_BOOST_ENABLE), 1);
+	}
 }
 
 static void config_camera_off_gpios(void)
 {
 	config_gpio_table(camera_off_gpio_table,
 		ARRAY_SIZE(camera_off_gpio_table));
-	if (machine_is_msm7x30_fluid())
+	if (machine_is_msm7x30_fluid()) {
 		config_gpio_table(camera_off_gpio_fluid_table,
 			ARRAY_SIZE(camera_off_gpio_fluid_table));
+		/* FLUID: turn off 5V booster */
+		gpio_set_value(
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_FLASH_BOOST_ENABLE), 0);
+	}
 }
 
 struct resource msm_camera_resources[] = {
@@ -926,7 +952,7 @@ struct msm_camera_device_platform_data msm_camera_device_data = {
 	.ioclk.vfe_clk_rate  = 122880000,
 };
 
-static struct msm_camera_sensor_flash_src msm_flash_src = {
+static struct msm_camera_sensor_flash_src msm_flash_src_pwm = {
 	.flash_sr_type = MSM_CAMERA_FLASH_SRC_PWM,
 	._fsrc.pwm_src.freq  = 1000,
 	._fsrc.pwm_src.max_load = 300,
@@ -935,10 +961,17 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 	._fsrc.pwm_src.channel = 7,
 };
 
+static struct msm_camera_sensor_flash_src msm_flash_src_current_driver = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
+	._fsrc.current_driver_src.low_current = 210,
+	._fsrc.current_driver_src.high_current = 700,
+	._fsrc.current_driver_src.driver_channel = &pm8058_fluid_leds_data,
+};
+
 #ifdef CONFIG_MT9D112
 static struct msm_camera_sensor_flash_data flash_mt9d112 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
-	.flash_src  = &msm_flash_src
+	.flash_src  = &msm_flash_src_pwm
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9d112_data = {
@@ -965,7 +998,7 @@ static struct platform_device msm_camera_sensor_mt9d112 = {
 #ifdef CONFIG_S5K3E2FX
 static struct msm_camera_sensor_flash_data flash_s5k3e2fx = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
-	.flash_src  = &msm_flash_src
+	.flash_src  = &msm_flash_src_pwm,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_s5k3e2fx_data = {
@@ -992,7 +1025,7 @@ static struct platform_device msm_camera_sensor_s5k3e2fx = {
 #ifdef CONFIG_MT9P012
 static struct msm_camera_sensor_flash_data flash_mt9p012 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
-	.flash_src  = &msm_flash_src
+	.flash_src  = &msm_flash_src_pwm
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9p012_data = {
@@ -1018,7 +1051,7 @@ static struct platform_device msm_camera_sensor_mt9p012 = {
 #ifdef CONFIG_VX6953
 static struct msm_camera_sensor_flash_data flash_vx6953 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
-	.flash_src  = &msm_flash_src
+	.flash_src  = &msm_flash_src_pwm
 };
 static struct msm_camera_sensor_info msm_camera_sensor_vx6953_data = {
 	.sensor_name    = "vx6953",
@@ -1043,7 +1076,7 @@ static struct platform_device msm_camera_sensor_vx6953 = {
 #ifdef CONFIG_SN12M0PZ
 static struct msm_camera_sensor_flash_data flash_sn12m0pz = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
-	.flash_src  = &msm_flash_src
+	.flash_src  = &msm_flash_src_current_driver
 };
 static struct msm_camera_sensor_info msm_camera_sensor_sn12m0pz_data = {
 	.sensor_name    = "sn12m0pz",
@@ -1069,7 +1102,7 @@ static struct platform_device msm_camera_sensor_sn12m0pz = {
 #ifdef CONFIG_MT9T013
 static struct msm_camera_sensor_flash_data flash_mt9t013 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
-	.flash_src  = &msm_flash_src
+	.flash_src  = &msm_flash_src_pwm
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9t013_data = {

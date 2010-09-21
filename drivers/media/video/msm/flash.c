@@ -18,6 +18,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/leds-pmic8058.h>
 #include <linux/pwm.h>
 #include <linux/pmic8058-pwm.h>
 #include <linux/hrtimer.h>
@@ -26,6 +27,74 @@
 #include <mach/gpio.h>
 
 struct timer_list timer_flash;
+
+int msm_camera_flash_current_driver(
+	struct msm_camera_sensor_flash_current_driver *current_driver,
+	unsigned led_state)
+{
+	int rc = 0;
+	int idx;
+	struct pmic8058_leds_platform_data *driver_channel =
+		current_driver->driver_channel;
+	int num_leds = driver_channel->num_leds;
+
+	CDBG("%s: led_state = %d\n", __func__, led_state);
+
+#if defined CONFIG_LEDS_PMIC8058
+	/* Evenly distribute current across all channels */
+	switch (led_state) {
+	case MSM_CAMERA_LED_OFF:
+		for (idx = 0; idx < num_leds; ++idx) {
+			rc = pm8058_set_led_current(
+				driver_channel->leds[idx].id, 0);
+			if (rc < 0)
+				pr_err(
+					"%s: FAIL name = %s, rc = %d\n",
+					__func__,
+					driver_channel->leds[idx].name,
+					rc);
+		}
+		break;
+
+	case MSM_CAMERA_LED_LOW:
+		for (idx = 0; idx < num_leds; ++idx) {
+			rc = pm8058_set_led_current(
+				driver_channel->leds[idx].id,
+				current_driver->low_current/num_leds);
+			if (rc < 0)
+				pr_err(
+					"%s: FAIL name = %s, rc = %d\n",
+					__func__,
+					driver_channel->leds[idx].name,
+					rc);
+		}
+		break;
+
+	case MSM_CAMERA_LED_HIGH:
+		for (idx = 0; idx < num_leds; ++idx) {
+			rc = pm8058_set_led_current(
+				driver_channel->leds[idx].id,
+				current_driver->high_current/num_leds);
+			if (rc < 0)
+				pr_err(
+					"%s: FAIL name = %s, rc = %d\n",
+					__func__,
+					driver_channel->leds[idx].name,
+					rc);
+		}
+		break;
+
+	default:
+		rc = -EFAULT;
+		break;
+	}
+#endif /* CONFIG_LEDS_PMIC8058 */
+
+	CDBG("msm_camera_flash_led_pmic8058: return %d\n", rc);
+
+	return rc;
+}
+
 
 static int msm_camera_flash_pwm(
 	struct msm_camera_sensor_flash_pwm *pwm,
@@ -131,6 +200,12 @@ int32_t msm_camera_flash_set_led_state(
 
 	case MSM_CAMERA_FLASH_SRC_PWM:
 		rc = msm_camera_flash_pwm(&fdata->flash_src->_fsrc.pwm_src,
+			led_state);
+		break;
+
+	case MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER:
+		rc = msm_camera_flash_current_driver(
+			&fdata->flash_src->_fsrc.current_driver_src,
 			led_state);
 		break;
 
