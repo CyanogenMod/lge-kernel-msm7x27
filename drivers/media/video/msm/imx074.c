@@ -157,6 +157,7 @@ struct imx074_ctrl_t {
 };
 static uint8_t imx074_delay_msecs_stdby = 20;
 static uint16_t imx074_delay_msecs_stream = 60;
+static int32_t config_csi;
 
 static struct imx074_ctrl_t *imx074_ctrl;
 static DECLARE_WAIT_QUEUE_HEAD(imx074_wait_queue);
@@ -704,17 +705,6 @@ static int32_t imx074_sensor_setting(int update_type, int rt)
 				MODE_SELECT_STANDBY_MODE);
 			if (rc < 0)
 				return rc;
-			imx074_csi_params.lane_cnt = 4;
-			imx074_csi_params.data_format = CSI_10BIT;
-			imx074_csi_params.lane_assign = 0xe4;
-			imx074_csi_params.dpcm_scheme = 0;
-			imx074_csi_params.settle_cnt = 0x14;
-
-			rc = msm_camio_csi_config(&imx074_csi_params);
-			if (rc < 0)
-				CDBG("config csi controller failed \n");
-
-			/*imx074_delay_msecs_stdby*/
 			msleep(imx074_delay_msecs_stdby);
 			rc = imx074_i2c_write_w_table(&init_tbl[0],
 				ARRAY_SIZE(init_tbl));
@@ -725,14 +715,6 @@ static int32_t imx074_sensor_setting(int update_type, int rt)
 			if (rc < 0)
 				return rc;
 			rc = imx074_test(imx074_ctrl->set_test);
-			if (rc < 0)
-				return rc;
-			/* Start sensor streaming */
-			rc = imx074_i2c_write_b_sensor(REG_MODE_SELECT,
-				MODE_SELECT_STREAM);
-			if (rc < 0)
-				return rc;
-			msleep(imx074_delay_msecs_stream);
 			return rc;
 		}
 		break;
@@ -808,8 +790,18 @@ static int32_t imx074_sensor_setting(int update_type, int rt)
 			/* stop streaming */
 			rc = imx074_i2c_write_b_sensor(REG_MODE_SELECT,
 				MODE_SELECT_STANDBY_MODE);
-			if (rc < 0)
-				return rc;
+			msleep(imx074_delay_msecs_stdby);
+			if (config_csi == 0) {
+				imx074_csi_params.lane_cnt = 4;
+				imx074_csi_params.data_format = CSI_10BIT;
+				imx074_csi_params.lane_assign = 0xe4;
+				imx074_csi_params.dpcm_scheme = 0;
+				imx074_csi_params.settle_cnt = 0x14;
+				rc = msm_camio_csi_config(&imx074_csi_params);
+				/*imx074_delay_msecs_stdby*/
+				msleep(imx074_delay_msecs_stream);
+				config_csi = 1;
+			}
 			rc = imx074_i2c_write_w_table(&mode_tbl[0],
 				ARRAY_SIZE(mode_tbl));
 			if (rc < 0)
@@ -924,6 +916,9 @@ static int32_t imx074_set_sensor_mode(int mode,
 }
 static int32_t imx074_power_down(void)
 {
+	imx074_i2c_write_b_sensor(REG_MODE_SELECT,
+		MODE_SELECT_STANDBY_MODE);
+	msleep(imx074_delay_msecs_stdby);
 	return 0;
 }
 static int imx074_probe_init_done(const struct msm_camera_sensor_info *data)
@@ -998,6 +993,7 @@ int imx074_sensor_open_init(const struct msm_camera_sensor_info *data)
 	imx074_ctrl->prev_res = QTR_SIZE;
 	imx074_ctrl->pict_res = FULL_SIZE;
 	imx074_ctrl->curr_res = INVALID_SIZE;
+	config_csi = 0;
 
 	if (data)
 		imx074_ctrl->sensordata = data;

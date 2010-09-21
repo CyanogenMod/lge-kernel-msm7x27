@@ -2093,15 +2093,7 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 			/*vx6953_stm5m0edof_delay_msecs_stdby*/
 			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
 
-			vx6953_csi_params.data_format = CSI_8BIT;
-			vx6953_csi_params.lane_cnt = 1;
-			vx6953_csi_params.lane_assign = 0xe4;
-			vx6953_csi_params.dpcm_scheme = 0;
-			vx6953_csi_params.settle_cnt = 7;
-			rc = msm_camio_csi_config(&vx6953_csi_params);
-			if (rc < 0)
-				CDBG(" config csi controller failed \n");
-			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
+
 
 			vx6953_patch_for_cut3();
 			rc = vx6953_i2c_write_w_table(&init_tbl[0],
@@ -2114,25 +2106,11 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 			vx6953_i2c_write_b_sensor(0x0b80, 0x00);
 			vx6953_i2c_write_b_sensor(0x3388, 0x03);
 			vx6953_i2c_write_b_sensor(0x3640, 0x00);
-			/* Start sensor streaming */
-			if (vx6953_i2c_write_b_sensor(REG_MODE_SELECT,
-				MODE_SELECT_STREAM) < 0)
-				return rc;
-			CDBG("Init vx6953_sensor_setting stream\n");
-			msleep(vx6953_stm5m0edof_delay_msecs_stream);
-			if (vx6953_i2c_read(0x0005, &frame_cnt, 1) < 0)
-				return rc;
 
 			rc = vx6953_i2c_write_w_table(&edof_tbl[0],
 				ARRAY_SIZE(edof_tbl));
 			vx6953_i2c_write_b_sensor(0x3388, 0x00);
 
-			while (frame_cnt == 0xFF) {
-				if (vx6953_i2c_read(0x0005, &frame_cnt, 1) < 0)
-					return rc;
-				CDBG("frame_cnt=%d", frame_cnt);
-				msleep(10);
-			}
 		}
 		return rc;
 		case UPDATE_PERIODIC:
@@ -2604,40 +2582,12 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 				return rc;
 				/*vx6953_stm5m0edof_delay_msecs_stdby*/
 			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
-
-
-			vx6953_csi_params.data_format = CSI_8BIT;
-			vx6953_csi_params.lane_cnt = 1;
-			vx6953_csi_params.lane_assign = 0xe4;
-			vx6953_csi_params.dpcm_scheme = 0;
-			vx6953_csi_params.settle_cnt = 7;
-			rc = msm_camio_csi_config(&vx6953_csi_params);
-			if (rc < 0)
-				CDBG(" config csi controller failed \n");
-
-			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
-
-
 			vx6953_patch_for_cut2();
 			rc = vx6953_i2c_write_w_table(&init_tbl[0],
 				ARRAY_SIZE(init_tbl));
 			if (rc < 0)
 				return rc;
 				msleep(vx6953_stm5m0edof_delay_msecs_stdby);
-			/* Start sensor streaming */
-			if (vx6953_i2c_write_b_sensor(REG_MODE_SELECT,
-				MODE_SELECT_STREAM) < 0)
-				return rc;
-				CDBG("Init vx6953_sensor_setting stream\n");
-			msleep(vx6953_stm5m0edof_delay_msecs_stream);
-			if (vx6953_i2c_read(0x0005, &frame_cnt, 1) < 0)
-				return rc;
-			while (frame_cnt == 0xFF) {
-				if (vx6953_i2c_read(0x0005, &frame_cnt, 1) < 0)
-					return rc;
-				CDBG("frame_cnt=%d", frame_cnt);
-				msleep(10);
-			}
 		}
 	return rc;
 	case UPDATE_PERIODIC:
@@ -3087,8 +3037,7 @@ int vx6953_sensor_open_init(const struct msm_camera_sensor_info *data)
 {
 	unsigned short revision_number;
 	int32_t rc = 0;
-	struct msm_camera_csi_params *vx6953_csi_params =
-		kzalloc(sizeof(struct msm_camera_csi_params), GFP_KERNEL);
+
 	CDBG("%s: %d\n", __func__, __LINE__);
 	CDBG("Calling vx6953_sensor_open_init\n");
 	vx6953_ctrl = kzalloc(sizeof(struct vx6953_ctrl_t), GFP_KERNEL);
@@ -3139,18 +3088,8 @@ int vx6953_sensor_open_init(const struct msm_camera_sensor_info *data)
 		CDBG("VX6953 EDof Cut 2.0 sensor\n ");
 	} else {/* Cut1.0 reads 0x00 for register 0x0018*/
 		vx6953_ctrl->sensor_type = VX6953_STM5M0EDOF_CUT_1;
-		CDBG("VX6953 EDof Cut 1.0 sensor \n");
+		CDBG("VX6953 EDof Cut 1.0 sensor\n ");
 	}
-	/* config mipi csi controller */
-	CDBG("vx6953_sensor_open_init: config csi controller \n");
-	vx6953_csi_params->data_format = CSI_8BIT;
-	vx6953_csi_params->lane_cnt = 1;
-	vx6953_csi_params->lane_assign = 0xe4;
-	vx6953_csi_params->dpcm_scheme = 0;
-	vx6953_csi_params->settle_cnt = 7;
-	rc = msm_camio_csi_config(vx6953_csi_params);
-	if (rc < 0)
-		CDBG(" config csi controller failed \n");
 	if (vx6953_ctrl->prev_res == QTR_SIZE) {
 		if (vx6953_sensor_setting(REG_INIT, RES_PREVIEW) < 0)
 			return rc;

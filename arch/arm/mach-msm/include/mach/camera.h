@@ -439,6 +439,8 @@ void msm_camio_clk_sel(enum msm_camio_clk_src_type);
 void msm_camio_disable(struct platform_device *);
 int msm_camio_probe_on(struct platform_device *);
 int msm_camio_probe_off(struct platform_device *);
+int msm_camio_sensor_clk_off(struct platform_device *);
+int msm_camio_sensor_clk_on(struct platform_device *);
 int msm_camio_csi_config(struct msm_camera_csi_params *csi_params);
 int add_axi_qos(void);
 int update_axi_qos(uint32_t freq);

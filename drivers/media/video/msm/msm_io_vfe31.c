@@ -444,31 +444,14 @@ int msm_camio_enable(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-
-	camio_ext = camdev->ioext;
+	uint32_t val;
 	camio_clk = camdev->ioclk;
 
-	camdev->camera_gpio_on();
-	msm_camera_vreg_enable();
 	msm_camio_clk_enable(CAMIO_VFE_PBDG_CLK);
-	msm_camio_clk_enable(CAMIO_CAMIF_PAD_PBDG_CLK);
-	msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
-	msm_camio_clk_enable(CAMIO_VFE_CLK);
-	if (!sinfo->csi_if) {
-		camifpadio = request_mem_region(camio_ext.camifpadphy,
-			camio_ext.camifpadsz, pdev->name);
-		if (!camifpadio) {
-			rc = -EBUSY;
-			goto common_fail;
-		}
-		camifpadbase = ioremap(camio_ext.camifpadphy,
-			camio_ext.camifpadsz);
-		if (!camifpadbase) {
-			rc = -ENOMEM;
-			goto parallel_busy;
-		}
+	if (!sinfo->csi_if)
 		msm_camio_clk_enable(CAMIO_VFE_CAMIF_CLK);
-	} else {
+	else {
+		msm_camio_clk_enable(CAMIO_VFE_CLK);
 		csiio = request_mem_region(camio_ext.csiphy,
 			camio_ext.csisz, pdev->name);
 		if (!csiio) {
@@ -489,51 +472,66 @@ int msm_camio_enable(struct platform_device *pdev)
 		msm_camio_clk_enable(CAMIO_CSI0_PCLK);
 		msm_camio_clk_enable(CAMIO_CSI0_VFE_CLK);
 		msm_camio_clk_enable(CAMIO_CSI0_CLK);
+
+		msleep(10);
+		val = (20 <<
+			MIPI_PHY_D0_CONTROL2_SETTLE_COUNT_SHFT) |
+			(0x0F << MIPI_PHY_D0_CONTROL2_HS_TERM_IMP_SHFT) |
+			(0x0 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
+			(0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
+		CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+		msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
+		msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
+		msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
+		msm_io_w(val, csibase + MIPI_PHY_D3_CONTROL2);
+
+		val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
+			(0x0 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
+		CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+		msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
 	}
 	return 0;
-
-parallel_busy:
-	release_mem_region(camio_ext.camifpadphy, camio_ext.camifpadsz);
-	goto common_fail;
 csi_irq_fail:
 	iounmap(csibase);
 csi_busy:
 	release_mem_region(camio_ext.csiphy, camio_ext.csisz);
 common_fail:
-	msm_camio_clk_disable(CAMIO_VFE_CLK);
-	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
-	msm_camio_clk_disable(CAMIO_CAMIF_PAD_PBDG_CLK);
 	msm_camio_clk_disable(CAMIO_VFE_PBDG_CLK);
-	msm_camera_vreg_disable();
-	camdev->camera_gpio_off();
+	msm_camio_clk_disable(CAMIO_VFE_CLK);
 	return rc;
 }
 
 void msm_camio_disable(struct platform_device *pdev)
 {
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-
+	uint32_t val;
 	if (!sinfo->csi_if) {
 		msm_camio_clk_disable(CAMIO_VFE_CAMIF_CLK);
-		iounmap(camifpadbase);
-		release_mem_region(camio_ext.camifpadphy, camio_ext.camifpadsz);
 	} else {
+		val = (20 <<
+			MIPI_PHY_D0_CONTROL2_SETTLE_COUNT_SHFT) |
+			(0x0F << MIPI_PHY_D0_CONTROL2_HS_TERM_IMP_SHFT) |
+			(0x0 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
+			(0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
+		CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+		msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
+		msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
+		msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
+		msm_io_w(val, csibase + MIPI_PHY_D3_CONTROL2);
+		val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
+			(0x0 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
+		CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+		msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
+		msleep(10);
 		free_irq(camio_ext.csiirq, 0);
 		msm_camio_clk_disable(CAMIO_CSI0_PCLK);
 		msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
 		msm_camio_clk_disable(CAMIO_CSI0_CLK);
+		msm_camio_clk_disable(CAMIO_VFE_CLK);
 		iounmap(csibase);
 		release_mem_region(camio_ext.csiphy, camio_ext.csisz);
 	}
-	CDBG("disable clocks\n");
-
-	msm_camio_clk_disable(CAMIO_VFE_CLK);
-	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
-	msm_camio_clk_disable(CAMIO_CAMIF_PAD_PBDG_CLK);
 	msm_camio_clk_disable(CAMIO_VFE_PBDG_CLK);
-	msm_camera_vreg_disable();
-	camdev->camera_gpio_off();
 }
 
 void msm_camio_camif_pad_reg_reset(void)
@@ -620,6 +618,62 @@ int msm_camio_probe_off(struct platform_device *pdev)
 	msm_camera_vreg_disable();
 	camdev->camera_gpio_off();
 	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+}
+
+int msm_camio_sensor_clk_on(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	camio_ext = camdev->ioext;
+	camdev->camera_gpio_on();
+	msm_camera_vreg_enable();
+	msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+	msm_camio_clk_enable(CAMIO_CAMIF_PAD_PBDG_CLK);
+	if (!sinfo->csi_if) {
+		camifpadio = request_mem_region(camio_ext.camifpadphy,
+			camio_ext.camifpadsz, pdev->name);
+		msm_camio_clk_enable(CAMIO_VFE_CLK);
+		if (!camifpadio) {
+			rc = -EBUSY;
+			goto common_fail;
+		}
+		camifpadbase = ioremap(camio_ext.camifpadphy,
+			camio_ext.camifpadsz);
+		if (!camifpadbase) {
+			CDBG("msm_camio_sensor_clk_on fail\n");
+			rc = -ENOMEM;
+			goto parallel_busy;
+		}
+	}
+	return rc;
+parallel_busy:
+	release_mem_region(camio_ext.camifpadphy, camio_ext.camifpadsz);
+	goto common_fail;
+common_fail:
+	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	msm_camio_clk_disable(CAMIO_VFE_CLK);
+	msm_camio_clk_disable(CAMIO_CAMIF_PAD_PBDG_CLK);
+	msm_camera_vreg_disable();
+	camdev->camera_gpio_off();
+	return rc;
+}
+
+int msm_camio_sensor_clk_off(struct platform_device *pdev)
+{
+	uint32_t rc = 0;
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	camdev->camera_gpio_off();
+	msm_camera_vreg_disable();
+	rc = msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	rc = msm_camio_clk_disable(CAMIO_CAMIF_PAD_PBDG_CLK);
+	if (!sinfo->csi_if) {
+		iounmap(camifpadbase);
+		release_mem_region(camio_ext.camifpadphy, camio_ext.camifpadsz);
+		rc = msm_camio_clk_disable(CAMIO_VFE_CLK);
+	}
+	return rc;
 }
 
 int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
