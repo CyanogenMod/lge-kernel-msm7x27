@@ -935,6 +935,17 @@ static struct msm_pm_smem_t *msm_pm_smem_data;
 static uint32_t *msm_pm_reset_vector;
 static atomic_t msm_pm_init_done = ATOMIC_INIT(0);
 
+static int msm_pm_modem_busy(void)
+{
+	if (!(smsm_get_state(SMSM_POWER_MASTER_DEM) & DEM_MASTER_SMSM_READY)) {
+		MSM_PM_DPRINTK(MSM_PM_DEBUG_POWER_COLLAPSE,
+			KERN_INFO, "%s(): master not ready\n", __func__);
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
 /*
  * Power collapse the Apps processor.  This function executes the handshake
  * protocol with Modem.
@@ -1421,7 +1432,7 @@ void arch_idle(void)
 #ifdef CONFIG_HAS_WAKELOCK
 		has_wake_lock(WAKE_LOCK_IDLE) ||
 #endif
-		!msm_irq_idle_sleep_allowed()) {
+		!msm_irq_idle_sleep_allowed() || msm_pm_modem_busy()) {
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = false;
 		allow[MSM_PM_SLEEP_MODE_APPS_SLEEP] = false;
@@ -1642,6 +1653,9 @@ static int msm_pm_enter(suspend_state_t state)
 		if (get_msm_migrate_pages_status() != MEM_OFFLINE)
 			sleep_limit |= SLEEP_RESOURCE_MEMORY_BIT0;
 #endif
+
+		for (i = 0; i < 30 && msm_pm_modem_busy(); i++)
+			udelay(500);
 
 		ret = msm_pm_power_collapse(
 			false, msm_pm_max_sleep_time, sleep_limit);
