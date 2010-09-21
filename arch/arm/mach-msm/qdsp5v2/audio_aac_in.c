@@ -1245,6 +1245,10 @@ static int audaac_in_release(struct inode *inode, struct file *file)
 	audpreproc_aenc_free(audio->enc_id);
 	audio->audrec = NULL;
 	audio->opened = 0;
+	if (audio->out_data) {
+		iounmap(audio->out_data);
+		pmem_kfree(audio->out_phys);
+	}
 	mutex_unlock(&audio->lock);
 	return 0;
 }
@@ -1354,6 +1358,8 @@ static int audaac_in_open(struct inode *inode, struct file *file)
 					aac_in_listener, (void *) audio);
 	if (rc) {
 		MM_ERR("failed to register device event listener\n");
+		iounmap(audio->out_data);
+		pmem_kfree(audio->out_phys);
 		goto evt_error;
 	}
 	audio->mfield = META_OUT_SIZE;
