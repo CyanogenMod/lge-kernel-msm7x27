@@ -63,6 +63,7 @@
 #include <mach/msm_battery.h>
 #include <mach/msm_hsusb.h>
 #include <mach/msm_xo.h>
+#include <mach/tpm_st_i2c.h>
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
 #endif
@@ -1970,6 +1971,97 @@ static struct i2c_board_info msm_i2c_gsbi3_tdisc_info[] = {
 };
 #endif
 
+#define TPM_PWR_EN_GPIO 94
+#define TPM_RESET_GPIO 66
+#define TPM_DATA_AVAIL_GPIO 67
+#define TPM_ACCEPT_CMD_GPIO 68
+
+struct tpm_gpio {
+	int gpio;
+	const char *name;
+};
+static struct tpm_gpio tpm_gpios[] = {
+	{
+		.gpio = TPM_PWR_EN_GPIO,
+		.name = "tpm_pwr_en",
+	},
+	{
+		.gpio = TPM_RESET_GPIO,
+		.name = "tpm_reset",
+	},
+	{
+		.gpio = TPM_ACCEPT_CMD_GPIO,
+		.name = "tpm_accept_cmd",
+	},
+	{
+		.gpio = TPM_DATA_AVAIL_GPIO,
+		.name = "tpm_data_avail",
+	},
+};
+
+static void tpm_st_i2c_gpio_release(void)
+{
+	int i;
+
+	gpio_set_value_cansleep(TPM_RESET_GPIO, 0);
+	gpio_set_value_cansleep(TPM_PWR_EN_GPIO, 0);
+	for (i = 0; i < ARRAY_SIZE(tpm_gpios); i++)
+		gpio_free(tpm_gpios[i].gpio);
+}
+
+static int tpm_st_i2c_gpio_setup(void)
+{
+	int rc = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(tpm_gpios); i++) {
+		rc = gpio_request(tpm_gpios[i].gpio, tpm_gpios[i].name);
+		if (rc) {
+			pr_err("%s: gpio request failed for gpio #%d, %s",
+			       __func__, GPIO_PIN(tpm_gpios[i].gpio),
+			       tpm_gpios[i].name);
+			goto free_gpios;
+		}
+	}
+
+	rc = gpio_direction_output(TPM_RESET_GPIO, 0);
+	if (rc) {
+		pr_err("%s: failed to setup tpm_reset\n", __func__);
+		goto free_gpios;
+	}
+	rc = gpio_direction_output(TPM_PWR_EN_GPIO, 1);
+	if (rc) {
+		pr_err("%s: failed to set tpm_pwr_en\n", __func__);
+		goto free_gpios;
+	}
+	msleep(1);
+	gpio_set_value_cansleep(TPM_RESET_GPIO, 1);
+	msleep(1);
+
+	return rc;
+
+free_gpios:
+	for (i--; i >= 0; i--)
+		gpio_free(tpm_gpios[i].gpio);
+	return rc;
+}
+
+static struct tpm_st_i2c_platform_data tpm_st_i2c_data = {
+	.accept_cmd_gpio = TPM_ACCEPT_CMD_GPIO,
+	.data_avail_gpio = TPM_DATA_AVAIL_GPIO,
+	.accept_cmd_irq = MSM_GPIO_TO_INT(TPM_ACCEPT_CMD_GPIO),
+	.data_avail_irq = MSM_GPIO_TO_INT(TPM_DATA_AVAIL_GPIO),
+	.gpio_setup = tpm_st_i2c_gpio_setup,
+	.gpio_release = tpm_st_i2c_gpio_release,
+};
+
+static struct i2c_board_info msm_i2c_gsbi3_tpm_info[] = {
+	{
+		I2C_BOARD_INFO("tpm_st_i2c", 0x13),
+		.platform_data = &tpm_st_i2c_data,
+	},
+};
+
 static struct regulator *vreg_timpani_1;
 static struct regulator *vreg_timpani_2;
 
@@ -2332,6 +2424,11 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		MSM_GSBI3_QUP_I2C_BUS_ID,
 		msm_i2c_gsbi3_qci_input_info,
 		ARRAY_SIZE(msm_i2c_gsbi3_qci_input_info),
+	},
+	{
+		MSM_GSBI3_QUP_I2C_BUS_ID,
+		msm_i2c_gsbi3_tpm_info,
+		ARRAY_SIZE(msm_i2c_gsbi3_tpm_info),
 	},
 };
 #endif /* CONFIG_I2C */
