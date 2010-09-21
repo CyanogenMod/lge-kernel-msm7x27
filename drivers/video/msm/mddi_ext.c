@@ -98,6 +98,7 @@ static struct platform_driver mddi_ext_driver = {
 };
 
 static struct clk *mddi_ext_clk;
+static struct clk *mddi_ext_pclk;
 static struct mddi_platform_data *mddi_ext_pdata;
 
 extern int int_mddi_ext_flag;
@@ -273,6 +274,9 @@ static int mddi_ext_suspend(struct platform_device *pdev, pm_message_t state)
 		printk(KERN_ERR "%s: clk_set_min_rate failed\n", __func__);
 
 	clk_disable(mddi_ext_clk);
+	if (mddi_ext_pclk)
+		clk_disable(mddi_ext_pclk);
+
 	disable_irq(INT_MDDI_EXT);
 
 	return 0;
@@ -291,6 +295,8 @@ static int mddi_ext_resume(struct platform_device *pdev)
 	enable_irq(INT_MDDI_EXT);
 
 	clk_enable(mddi_ext_clk);
+	if (mddi_ext_pclk)
+		clk_enable(mddi_ext_pclk);
 
 	return 0;
 }
@@ -337,10 +343,20 @@ static int __init mddi_ext_driver_init(void)
 	}
 	clk_enable(mddi_ext_clk);
 
+	mddi_ext_pclk = clk_get(NULL, "emdh_pclk");
+	if (IS_ERR(mddi_ext_pclk))
+		mddi_ext_pclk = NULL;
+	else
+		clk_enable(mddi_ext_pclk);
+
 	ret = mddi_ext_register_driver();
 	if (ret) {
 		clk_disable(mddi_ext_clk);
 		clk_put(mddi_ext_clk);
+		if (mddi_ext_pclk) {
+			clk_disable(mddi_ext_pclk);
+			clk_put(mddi_ext_pclk);
+		}
 		printk(KERN_ERR "mddi_ext_register_driver() failed!\n");
 		return ret;
 	}
