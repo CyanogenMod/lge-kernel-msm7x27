@@ -64,7 +64,6 @@ int smd_wait_until_writable(smd_channel_t *ch, int bytes);
 int smd_tiocmget(smd_channel_t *ch);
 int smd_tiocmset(smd_channel_t *ch, unsigned int set, unsigned int clear);
 
-#if defined(CONFIG_MSM_N_WAY_SMD)
 enum {
 	SMD_APPS_MODEM = 0,
 	SMD_APPS_QDSP,
@@ -75,12 +74,6 @@ enum {
 	SMD_LOOPBACK_TYPE = 100,
 
 };
-#else
-enum {
-	SMD_APPS_MODEM = 0,
-	SMD_LOOPBACK_TYPE = 100,
-};
-#endif
 
 int smd_named_open_on_edge(const char *name, uint32_t edge, smd_channel_t **_ch,
 			   void *priv, void (*notify)(void *, unsigned));
