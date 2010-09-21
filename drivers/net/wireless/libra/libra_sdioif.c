@@ -18,11 +18,18 @@
 
 #include <linux/libra_sdioif.h>
 #include <linux/delay.h>
+#include <linux/mmc/sdio.h>
+#include <linux/mmc/mmc.h>
+#include <linux/mmc/host.h>
+#include <linux/mmc/card.h>
 
 /* Libra SDIO function device */
 static struct sdio_func *libra_sdio_func;
 static struct mmc_host *libra_mmc_host;
 static int libra_mmc_host_index;
+
+static suspend_handler_t *libra_suspend_hldr;
+static resume_handler_t *libra_resume_hldr;
 
 /**
  * libra_sdio_configure() - Function to configure the SDIO device param
@@ -92,6 +99,16 @@ cfg_error:
 
 }
 EXPORT_SYMBOL(libra_sdio_configure);
+
+int libra_sdio_configure_suspend_resume(
+		suspend_handler_t *libra_sdio_suspend_hdlr,
+		resume_handler_t *libra_sdio_resume_hdlr)
+{
+	libra_suspend_hldr = libra_sdio_suspend_hdlr;
+	libra_resume_hldr = libra_sdio_resume_hdlr;
+	return 0;
+}
+EXPORT_SYMBOL(libra_sdio_configure_suspend_resume);
 
 /*
  * libra_sdio_deconfigure() - Function to reset the SDIO device param
@@ -260,15 +277,52 @@ static void libra_sdio_remove(struct sdio_func *func)
 	printk(KERN_INFO "%s : Module removed.\n", __func__);
 }
 
+static int libra_sdio_suspend(struct device *dev)
+{
+	struct sdio_func *func = dev_to_sdio_func(dev);
+	int ret = 0;
+
+	ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
+
+	if (ret) {
+		printk(KERN_ERR "%s: Error Host doesn't support the keep power capability\n" ,
+			__func__);
+		return ret;
+	}
+
+	if (libra_suspend_hldr)
+		libra_suspend_hldr(func);
+
+	return sdio_set_host_pm_flags(func, MMC_PM_WAKE_SDIO_IRQ);
+}
+
+static int libra_sdio_resume(struct device *dev)
+{
+	struct sdio_func *func = dev_to_sdio_func(dev);
+
+	if (libra_resume_hldr)
+		libra_resume_hldr(func);
+
+	return 0;
+}
+
+
 static struct sdio_device_id libra_sdioid[] = {
     {.class = 0, .vendor = LIBRA_MAN_ID, .device = 0},
     {}
 };
+
+static const struct dev_pm_ops libra_sdio_pm_ops = {
+    .suspend = libra_sdio_suspend,
+    .resume = libra_sdio_resume,
+};
+
 static struct sdio_driver libra_sdiofn_driver = {
     .name      = "libra_sdiofn",
     .id_table  = libra_sdioid,
     .probe     = libra_sdio_probe,
     .remove    = libra_sdio_remove,
+    .drv.pm    = &libra_sdio_pm_ops,
 };
 
 static int __init libra_sdioif_init(void)
@@ -276,6 +330,8 @@ static int __init libra_sdioif_init(void)
 	libra_sdio_func = NULL;
 	libra_mmc_host = NULL;
 	libra_mmc_host_index = -1;
+	libra_suspend_hldr = NULL;
+	libra_resume_hldr = NULL;
 
 	sdio_register_driver(&libra_sdiofn_driver);
 
