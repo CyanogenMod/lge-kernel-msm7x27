@@ -2377,6 +2377,9 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 	uint32 hpd_ctrl;
 
+	if (!hdmi_msm_state->hdmi_app_clk)
+		return -ENODEV;
+
 	DEV_DBG("power: ON (%dx%d %d)\n", mfd->var_xres, mfd->var_yres,
 		mfd->var_pixclock);
 
@@ -2463,6 +2466,9 @@ error:
  */
 static int hdmi_msm_power_off(struct platform_device *pdev)
 {
+	if (!hdmi_msm_state->hdmi_app_clk)
+		return -ENODEV;
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	mutex_lock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->hdcp_activating) {
@@ -2521,6 +2527,8 @@ static int __init hdmi_msm_probe(struct platform_device *pdev)
 		IO_REMAP(hdmi_msm_state->hdmi_io, "hdmi_msm_hdmi_addr");
 		GET_IRQ(hdmi_msm_state->irq, "hdmi_msm_irq");
 
+		hdmi_msm_state->pd = pdev->dev.platform_data;
+
 		#undef GET_RES
 		#undef IO_REMAP
 		#undef GET_IRQ
@@ -2537,6 +2545,17 @@ static int __init hdmi_msm_probe(struct platform_device *pdev)
 	rc = check_hdmi_features();
 	if (rc) {
 		DEV_ERR("Init FAILED: check_hdmi_features rc=%d\n", rc);
+		goto error;
+	}
+
+	if (!hdmi_msm_state->pd->core_power) {
+		DEV_ERR("Init FAILED: core_power function missing\n");
+		rc = -ENODEV;
+		goto error;
+	}
+	if (!hdmi_msm_state->pd->enable_5v) {
+		DEV_ERR("Init FAILED: enable_5v function missing\n");
+		rc = -ENODEV;
 		goto error;
 	}
 
@@ -2567,6 +2586,9 @@ static int __init hdmi_msm_probe(struct platform_device *pdev)
 	} else
 		DEV_ERR("Init FAILED: failed to add fb device\n");
 
+	hdmi_msm_state->pd->core_power(1);
+	hdmi_msm_state->pd->enable_5v(1);
+	enable_irq(hdmi_msm_state->irq);
 	return 0;
 
 error:
@@ -2590,6 +2612,12 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 {
 	DEV_DBG("remove\n");
 
+	mod_timer(&hdmi_msm_state->hpd_state_timer, 0xffffffffL);
+	free_irq(hdmi_msm_state->irq, NULL);
+
+	hdmi_msm_state->pd->enable_5v(0);
+	hdmi_msm_state->pd->core_power(0);
+
 	if (hdmi_msm_state->qfprom_io)
 		iounmap(hdmi_msm_state->qfprom_io);
 	hdmi_msm_state->qfprom_io = NULL;
@@ -2597,8 +2625,6 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 	if (hdmi_msm_state->hdmi_io)
 		iounmap(hdmi_msm_state->hdmi_io);
 	hdmi_msm_state->hdmi_io = NULL;
-
-	free_irq(hdmi_msm_state->irq, NULL);
 
 	external_common_state_remove();
 
@@ -2612,10 +2638,44 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_SUSPEND
+static int hdmi_msm_device_pm_suspend(struct device *dev)
+{
+	DEV_DBG("pm_suspend\n");
+
+	mod_timer(&hdmi_msm_state->hpd_state_timer, 0xffffffffL);
+	disable_irq(hdmi_msm_state->irq);
+	clk_disable(hdmi_msm_state->hdmi_app_clk);
+	hdmi_msm_state->pd->enable_5v(0);
+	hdmi_msm_state->pd->core_power(0);
+	return 0;
+}
+
+static int hdmi_msm_device_pm_resume(struct device *dev)
+{
+	DEV_DBG("pm_resume\n");
+
+	hdmi_msm_state->pd->core_power(1);
+	hdmi_msm_state->pd->enable_5v(1);
+	clk_enable(hdmi_msm_state->hdmi_app_clk);
+	enable_irq(hdmi_msm_state->irq);
+	return 0;
+}
+#else
+#define hdmi_msm_device_device_pm_suspend   NULL
+#define hdmi_msm_device_device_pm_suspend   NULL
+#endif
+
+static const struct dev_pm_ops hdmi_msm_device_pm_ops = {
+	.suspend = hdmi_msm_device_pm_suspend,
+	.resume = hdmi_msm_device_pm_resume,
+};
+
 static struct platform_driver this_driver = {
 	.probe = hdmi_msm_probe,
 	.remove = hdmi_msm_remove,
 	.driver.name = "hdmi_msm",
+	.driver.pm = &hdmi_msm_device_pm_ops,
 };
 
 static struct msm_fb_panel_data hdmi_msm_panel_data = {
