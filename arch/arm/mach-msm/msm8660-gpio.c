@@ -40,12 +40,17 @@
  * @wake_irqs: a bitmap for tracking which interrupt lines are enabled
  * as wakeup sources.  When the device is suspended, interrupts which are
  * not wakeup sources are disabled.
+ *
+ * @dual_edge_irqs: a bitmap used to track which irqs are configured
+ * as dual-edge, as this is not supported by the hardware and requires
+ * some special handling in the driver.
  */
 struct msm_gpio_dev {
 	struct gpio_chip gpio_chip;
 	spinlock_t       lock;
 	DECLARE_BITMAP(enabled_irqs, NR_MSM_GPIOS);
 	DECLARE_BITMAP(wake_irqs, NR_MSM_GPIOS);
+	DECLARE_BITMAP(dual_edge_irqs, NR_MSM_GPIOS);
 };
 
 static inline struct msm_gpio_dev *to_msm_gpio_dev(struct gpio_chip *chip)
@@ -132,10 +137,54 @@ static struct msm_gpio_dev msm_gpio = {
 	},
 };
 
+/* For dual-edge interrupts in software, since the hardware has no
+ * such support:
+ *
+ * At appropriate moments, this function may be called to flip the polarity
+ * settings of dual-edge irq lines to try and catch the next edge.
+ *
+ * The attempt is considered successful if:
+ * - the status bit goes high, indicating that an edge was caught, or
+ * - the input value of the gpio doesn't change during the attempt.
+ * If the value changes twice during the process, that would cause the first
+ * test to fail but would force the second, as two opposite
+ * transitions would cause a detection no matter the polarity setting.
+ *
+ * The do-loop tries to sledge-hammer closed the timing hole between
+ * the initial value-read and the polarity-write - if the line value changes
+ * during that window, an interrupt is lost, the new polarity setting is
+ * incorrect, and the first success test will fail, causing a retry.
+ *
+ * Algorithm comes from Google's msmgpio driver, see mach-msm/gpio.c.
+ */
+static void msm_gpio_update_dual_edge_pos(unsigned gpio)
+{
+	int loop_limit = 100;
+	unsigned val, val2, intstat;
+
+	do {
+		val = readl(GPIO_IN_OUT(gpio)) & BIT(GPIO_IN_BIT);
+		if (val)
+			clr_gpio_bits(INTR_POL_CTL_HI, GPIO_INTR_CFG(gpio));
+		else
+			set_gpio_bits(INTR_POL_CTL_HI, GPIO_INTR_CFG(gpio));
+		val2 = readl(GPIO_IN_OUT(gpio)) & BIT(GPIO_IN_BIT);
+		intstat = readl(GPIO_INTR_STATUS(gpio)) & BIT(INTR_STATUS_BIT);
+		if (intstat || val == val2)
+			return;
+	} while (loop_limit-- > 0);
+	pr_err("%s: dual-edge irq failed to stabilize, "
+	       "interrupts dropped. %#08x != %#08x\n",
+	       __func__, val, val2);
+}
+
 static void msm_gpio_irq_ack(unsigned int irq)
 {
-	writel(BIT(INTR_STATUS_BIT),
-	       GPIO_INTR_STATUS(msm_irq_to_gpio(&msm_gpio.gpio_chip, irq)));
+	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, irq);
+
+	writel(BIT(INTR_STATUS_BIT), GPIO_INTR_STATUS(gpio));
+	if (test_bit(gpio, msm_gpio.dual_edge_irqs))
+		msm_gpio_update_dual_edge_pos(gpio);
 }
 
 static void msm_gpio_irq_mask(unsigned int irq)
@@ -164,23 +213,25 @@ static void msm_gpio_irq_unmask(unsigned int irq)
 
 static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
 {
-	void *addr = GPIO_INTR_CFG(msm_irq_to_gpio(&msm_gpio.gpio_chip, irq));
+	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, irq);
 	unsigned long irq_flags;
 	uint32_t bits;
 
-	if ((flow_type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH)
-		return -EINVAL;
-
 	spin_lock_irqsave(&msm_gpio.lock, irq_flags);
 
-	bits = readl(addr);
+	bits = readl(GPIO_INTR_CFG(gpio));
 
 	if (flow_type & IRQ_TYPE_EDGE_BOTH) {
 		bits |= INTR_DECT_CTL_EDGE;
 		irq_desc[irq].handle_irq = handle_edge_irq;
+		if ((flow_type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH)
+			__set_bit(gpio, msm_gpio.dual_edge_irqs);
+		else
+			__clear_bit(gpio, msm_gpio.dual_edge_irqs);
 	} else {
 		bits &= ~INTR_DECT_CTL_EDGE;
 		irq_desc[irq].handle_irq = handle_level_irq;
+		__clear_bit(gpio, msm_gpio.dual_edge_irqs);
 	}
 
 	if (flow_type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
@@ -188,7 +239,10 @@ static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
 	else
 		bits &= ~INTR_POL_CTL_HI;
 
-	writel(bits, addr);
+	writel(bits, GPIO_INTR_CFG(gpio));
+
+	if ((flow_type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH)
+		msm_gpio_update_dual_edge_pos(gpio);
 
 	spin_unlock_irqrestore(&msm_gpio.lock, irq_flags);
 
@@ -248,6 +302,7 @@ static int __devinit msm_gpio_probe(struct platform_device *dev)
 	spin_lock_init(&msm_gpio.lock);
 	bitmap_zero(msm_gpio.enabled_irqs, NR_MSM_GPIOS);
 	bitmap_zero(msm_gpio.wake_irqs, NR_MSM_GPIOS);
+	bitmap_zero(msm_gpio.dual_edge_irqs, NR_MSM_GPIOS);
 	msm_gpio.gpio_chip.label = dev->name;
 	ret = gpiochip_add(&msm_gpio.gpio_chip);
 	if (ret < 0)
