@@ -66,7 +66,6 @@ config ARCH_MSM8X60
 	select MSM_DIRECT_SCLK_ACCESS
 	select MSM_RPM
 	select MSM_XO
-	select MSM_WATCHDOG
 	select MSM_GPIOMUX
 
 endchoice
