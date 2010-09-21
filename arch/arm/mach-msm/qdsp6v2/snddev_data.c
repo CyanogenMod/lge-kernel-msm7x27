@@ -292,6 +292,48 @@ static struct platform_device msm_imic_ffa_device = {
 	.dev = { .platform_data = &snddev_imic_ffa_data },
 };
 
+static struct adie_codec_action_unit idual_mic_endfire_8KHz_osr256_actions[] =
+	DMIC1_PRI_STEREO_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry idual_mic_endfire_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = idual_mic_endfire_8KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(idual_mic_endfire_8KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile idual_mic_endfire_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = idual_mic_endfire_settings,
+	.setting_sz = ARRAY_SIZE(idual_mic_endfire_settings),
+};
+
+static enum hsed_controller idual_mic_endfire_pmctl_id[] = {
+	PM_HSED_CONTROLLER_0, PM_HSED_CONTROLLER_2};
+
+static struct snddev_icodec_data snddev_idual_mic_endfire_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "handset_dual_mic_device",
+	.copp_id = PRIMARY_I2S_TX,
+	.acdb_id = 6,
+	.profile = &idual_mic_endfire_profile,
+	.channel_mode = 2,
+	.default_sample_rate = 48000,
+	.pmctl_id = idual_mic_endfire_pmctl_id,
+	.pmctl_id_sz = ARRAY_SIZE(idual_mic_endfire_pmctl_id),
+	.pamp_on = msm_snddev_enable_dmic_power,
+	.pamp_off = msm_snddev_disable_dmic_power,
+};
+
+static struct platform_device msm_handset_dual_mic_endfire_device = {
+	.name = "snddev_icodec",
+	.id = 12,
+	.dev = { .platform_data = &snddev_idual_mic_endfire_data },
+};
+
+
 static struct snddev_hdmi_data snddev_hdmi_stereo_rx_data = {
 	.capability = SNDDEV_CAP_RX ,
 	.name = "hdmi_stereo_rx",
@@ -421,6 +463,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_headset_ab_cpls_device,
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
+	&msm_handset_dual_mic_endfire_device,
 };
 
 static struct platform_device *snd_devices_surf[] __initdata = {
@@ -434,6 +477,7 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_headset_ab_cpls_device,
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
+	&msm_handset_dual_mic_endfire_device,
 };
 
 void __init msm_snddev_init(void)
