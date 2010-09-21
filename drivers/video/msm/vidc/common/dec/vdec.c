@@ -592,6 +592,30 @@ static u32 vid_dec_set_picture_order(struct video_client_ctx *client_ctx,
 	return ret;
 }
 
+static u32 vid_dec_set_frame_rate(struct video_client_ctx *client_ctx,
+					struct vdec_framerate *frame_rate)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_frame_rate vcd_frame_rate;
+	u32 vcd_status = VCD_ERR_FAIL;
+
+	if (!client_ctx || !frame_rate)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_FRAME_RATE;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_frame_rate);
+	vcd_frame_rate.fps_numerator = frame_rate->fps_numerator;
+	vcd_frame_rate.fps_denominator = frame_rate->fps_denominator;
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &vcd_frame_rate);
+
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
 static u32 vid_dec_get_buffer_req(struct video_client_ctx *client_ctx,
 				  struct vdec_allocatorproperty *vdec_buf_req)
 {
@@ -1330,6 +1354,20 @@ static int vid_dec_ioctl(struct inode *inode, struct file *file,
 						   sizeof(u32)))
 			return -EFAULT;
 		result =  vid_dec_set_picture_order(client_ctx, &picture_order);
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_SET_FRAME_RATE:
+	{
+		struct vdec_framerate frame_rate;
+		DBG("VDEC_IOCTL_SET_FRAME_RATE\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&frame_rate, vdec_msg.in,
+						   sizeof(frame_rate)))
+			return -EFAULT;
+		result = vid_dec_set_frame_rate(client_ctx, &frame_rate);
 		if (!result)
 			return -EIO;
 		break;

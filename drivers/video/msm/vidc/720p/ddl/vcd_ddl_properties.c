@@ -370,6 +370,11 @@ static u32 ddl_set_dec_property
 			}
 			break;
 		}
+	case VCD_I_FRAME_RATE:
+		{
+			vcd_status = VCD_S_SUCCESS;
+			break;
+		}
 	default:
 		{
 			vcd_status = VCD_ERR_ILLEGAL_OP;
