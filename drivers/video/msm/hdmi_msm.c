@@ -232,8 +232,8 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	/* HPD_INT_STATUS[0x0250] */
 	boolean hpd_state = (HDMI_INP(0x0250) & 0x2) >> 1;
 
-	if (!hdmi_msm_state || !hdmi_msm_state->disp_powered_up) {
-		DEV_DBG("%s: ignored, display powered off\n", __func__);
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk) {
+		DEV_DBG("%s: ignored, hdmi_app_clk off\n", __func__);
 		return;
 	}
 
@@ -357,8 +357,8 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	static uint32 sample_drop_int_occurred;
 	const uint32 occurrence_limit = 10;
 
-	if (!hdmi_msm_state || !hdmi_msm_state->disp_powered_up) {
-		DEV_DBG("ISR ignored, display not yet powered on\n");
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk) {
+		DEV_DBG("ISR ignored, hdmi_app_clk off\n");
 		return IRQ_HANDLED;
 	}
 
@@ -2371,43 +2371,37 @@ static void hdmi_msm_hpd_state_timer(unsigned long data)
 	schedule_work(&hdmi_msm_state->hpd_state_work);
 }
 
-static int hdmi_msm_power_on(struct platform_device *pdev)
+static void hdmi_msm_hpd_off(void)
+{
+	mod_timer(&hdmi_msm_state->hpd_state_timer, 0xffffffffL);
+	free_irq(hdmi_msm_state->irq, NULL);
+
+	hdmi_msm_state->pd->enable_5v(0);
+	hdmi_msm_state->pd->core_power(0);
+	clk_disable(hdmi_msm_state->hdmi_app_clk);
+	hdmi_msm_set_mode(FALSE);
+}
+
+static int hdmi_msm_hpd_on(void)
 {
 	int rc;
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-	uint32 hpd_ctrl;
 
-	if (!hdmi_msm_state->hdmi_app_clk)
-		return -ENODEV;
-
-	DEV_DBG("power: ON (%dx%d %d)\n", mfd->var_xres, mfd->var_yres,
-		mfd->var_pixclock);
-
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
-	mutex_lock(&hdmi_msm_state_mutex);
-	if (hdmi_msm_state->hdcp_activating) {
-		mutex_unlock(&hdmi_msm_state_mutex);
-		DEV_INFO("HDCP: activating, returning\n");
-		return 0;
-	}
-	mutex_unlock(&hdmi_msm_state_mutex);
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
-
-	hdmi_common_get_video_format_from_drv_data(mfd);
 	rc = clk_enable(hdmi_msm_state->hdmi_app_clk);
 	if (rc) {
 		DEV_ERR("'hdmi_app_clk' clock enable failed, rc=%d\n", rc);
-		goto error;
+		return rc;
 	}
 
+	hdmi_msm_state->pd->core_power(1);
+	hdmi_msm_state->pd->enable_5v(1);
 	hdmi_msm_set_mode(FALSE);
 	hdmi_msm_init_phy(external_common_state->video_resolution);
-	hdmi_msm_video_setup(external_common_state->video_resolution);
 	/* HDMI_USEC_REFTIMER[0x0208] */
 	HDMI_OUTP(0x0208, 0x0001001B);
 
 	/* Check HPD State */
 	if (!hdmi_msm_state->hpd_initialized) {
+		uint32 hpd_ctrl;
 		enable_irq(hdmi_msm_state->irq);
 
 		/* set timeout to 4.1ms (max) for hardware debounce */
@@ -2431,10 +2425,35 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 		hdmi_msm_state->hpd_initialized = TRUE;
 	}
 
-	hdmi_msm_state->disp_powered_up = TRUE;
-
 	/* Turn on HDMI Engine */
 	hdmi_msm_set_mode(TRUE);
+	return 0;
+}
+
+static int hdmi_msm_power_on(struct platform_device *pdev)
+{
+	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
+
+	if (!hdmi_msm_state->hdmi_app_clk)
+		return -ENODEV;
+
+	DEV_DBG("power: ON (%dx%d %d)\n", mfd->var_xres, mfd->var_yres,
+		mfd->var_pixclock);
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->hdcp_activating) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_INFO("HDCP: activating, returning\n");
+		return 0;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
+#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
+
+	hdmi_common_get_video_format_from_drv_data(mfd);
+	hdmi_msm_video_setup(external_common_state->video_resolution);
+
+	hdmi_msm_state->disp_powered_up = TRUE;
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT
 	DEV_DBG("power=%s, DVI=%s\n",
@@ -2445,17 +2464,6 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT */
 
 	return 0;
-
-error:
-	hdmi_msm_state->disp_powered_up = FALSE;
-	disable_irq(hdmi_msm_state->irq);
-
-	hdmi_msm_set_mode(FALSE);
-
-	hdmi_msm_audio_off();
-	clk_disable(hdmi_msm_state->hdmi_app_clk);
-
-	return rc;
 }
 
 /* Note that power-off will also be called when the cable-remove event is
@@ -2586,9 +2594,10 @@ static int __init hdmi_msm_probe(struct platform_device *pdev)
 	} else
 		DEV_ERR("Init FAILED: failed to add fb device\n");
 
-	hdmi_msm_state->pd->core_power(1);
-	hdmi_msm_state->pd->enable_5v(1);
-	enable_irq(hdmi_msm_state->irq);
+	rc = hdmi_msm_hpd_on();
+	if (rc)
+		goto error;
+
 	return 0;
 
 error:
@@ -2612,11 +2621,7 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 {
 	DEV_DBG("remove\n");
 
-	mod_timer(&hdmi_msm_state->hpd_state_timer, 0xffffffffL);
-	free_irq(hdmi_msm_state->irq, NULL);
-
-	hdmi_msm_state->pd->enable_5v(0);
-	hdmi_msm_state->pd->core_power(0);
+	hdmi_msm_hpd_off();
 
 	if (hdmi_msm_state->qfprom_io)
 		iounmap(hdmi_msm_state->qfprom_io);
