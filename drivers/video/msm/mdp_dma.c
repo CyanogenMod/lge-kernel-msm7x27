@@ -147,8 +147,6 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	dma2_cfg_reg |= DMA_DITHER_EN;
-
 	src = (uint8 *) iBuf->buf;
 	/* starting input address */
 	src += iBuf->dma_x * outBpp + iBuf->dma_y * ystride;
