@@ -34,7 +34,9 @@
 
 #include "mdp.h"
 #include "msm_fb.h"
+#ifdef CONFIG_FB_MSM_MDP40
 #include "mdp4.h"
+#endif
 #include "mddihosti.h"
 #include "tvenc.h"
 
@@ -234,6 +236,7 @@ static const struct file_operations mdp_reg_fops = {
 	.write = mdp_reg_write,
 };
 
+#ifdef CONFIG_FB_MSM_MDP40
 static int mdp_stat_open(struct inode *inode, struct file *file)
 {
 	/* non-seekable */
@@ -415,6 +418,7 @@ static const struct file_operations mdp_stat_fops = {
 	.read = mdp_stat_read,
 	.write = mdp_stat_write,
 };
+#endif
 
 /*
  * MDDI
@@ -966,15 +970,14 @@ static const struct file_operations dbg_reg_fops = {
 	.write = dbg_reg_write,
 };
 
-
 /*
  * debugfs
  *
  */
 
-int mdp4_debugfs_init(void)
+int mdp_debugfs_init(void)
 {
-	struct dentry *dent = debugfs_create_dir("mdp4", NULL);
+	struct dentry *dent = debugfs_create_dir("mdp", NULL);
 
 	if (IS_ERR(dent)) {
 		printk(KERN_ERR "%s(%d): debugfs_create_dir fail, error %ld\n",
@@ -996,12 +999,14 @@ int mdp4_debugfs_init(void)
 		return -1;
 	}
 
+#ifdef CONFIG_FB_MSM_MDP40
 	if (debugfs_create_file("stat", 0644, dent, 0, &mdp_stat_fops)
 			== NULL) {
 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
 			__FILE__, __LINE__);
 		return -1;
 	}
+#endif
 
 	dent = debugfs_create_dir("mddi", NULL);
 
