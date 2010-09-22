@@ -50,6 +50,17 @@ struct afe_cmd_codec_config{
 	uint16_t reserved;
 } __attribute__ ((packed));
 
+#define AFE_CMD_DEVICE_VOLUME_CTRL	0x2
+#define AFE_CMD_DEVICE_VOLUME_CTRL_LEN \
+		sizeof(struct afe_cmd_device_volume_ctrl)
+
+struct afe_cmd_device_volume_ctrl {
+	uint16_t cmd_id;
+	uint16_t device_id;
+	uint16_t device_volume;
+	uint16_t reserved;
+} __attribute__ ((packed));
+
 #define AFE_CMD_AUX_CODEC_CONFIG_CMD 	0x3
 #define AFE_CMD_AUX_CODEC_CONFIG_LEN sizeof(struct afe_cmd_aux_codec_config)
 
@@ -78,6 +89,17 @@ struct afe_cmd_fm_volume_config{
 	uint16_t cmd_id;
 	uint16_t volume;
 	uint16_t reserved;
+} __attribute__ ((packed));
+
+#define AFE_CMD_LOOPBACK	0xD
+#define AFE_CMD_LOOPBACK_LEN sizeof(struct afe_cmd_loopback)
+#define AFE_LOOPBACK_ENABLE_COMMAND 0xFFFF
+#define AFE_LOOPBACK_DISABLE_COMMAND 0x0000
+
+struct afe_cmd_loopback {
+	uint16_t cmd_id;
+	uint16_t enable_flag;
+	uint16_t reserved[2];
 } __attribute__ ((packed));
 
 #endif

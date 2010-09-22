@@ -57,4 +57,8 @@ int afe_config_fm_codec(int fm_enable, uint16_t source);
 
 int afe_config_fm_volume(uint16_t volume);
 
+void afe_loopback(int enable);
+
+void afe_device_volume_ctrl(u16 device_id, u16 device_volume);
+
 #endif
