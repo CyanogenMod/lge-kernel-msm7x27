@@ -111,7 +111,8 @@ struct kgsl_functable {
 					enum kgsl_timestamp_type type);
 	int (*device_issueibcmds) (struct kgsl_device_private *dev_priv,
 				int drawctxt_index,
-				uint32_t ibaddr, int sizedwords,
+				struct kgsl_ibdesc *ibdesc,
+				unsigned int sizedwords,
 				uint32_t *timestamp,
 				unsigned int flags);
 	int (*device_drawctxt_create) (struct kgsl_device_private *dev_priv,

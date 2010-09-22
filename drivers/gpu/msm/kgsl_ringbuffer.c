@@ -19,6 +19,7 @@
 #include <linux/io.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/slab.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
@@ -721,20 +722,22 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 int
 kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				int drawctxt_index,
-				uint32_t ibaddr,
-				int sizedwords,
+				struct kgsl_ibdesc *ibdesc,
+				unsigned int numibs,
 				uint32_t *timestamp,
 				unsigned int flags)
 {
-	unsigned int link[3];
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
 							device;
+	unsigned int *link;
+	unsigned int *cmds;
+	unsigned int i;
 
-	KGSL_CMD_VDBG("enter (device_id=%d, drawctxt_index=%d, ibaddr=0x%08x,"
-			" sizedwords=%d, timestamp=%p)\n",
-			device->id, drawctxt_index, ibaddr,
-			sizedwords, timestamp);
+	KGSL_CMD_VDBG("enter (device_id=%d, drawctxt_index=%d, ibdesc=0x%08x,"
+			" numibs=%d, timestamp=%p)\n",
+			device->id, drawctxt_index, (unsigned int)ibdesc,
+			numibs, timestamp);
 
 
 	if (!(device->ringbuffer.flags & KGSL_FLAGS_STARTED) ||
@@ -743,12 +746,22 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		return -EINVAL;
 	}
 
-	BUG_ON(ibaddr == 0);
-	BUG_ON(sizedwords == 0);
+	BUG_ON(ibdesc == 0);
+	BUG_ON(numibs == 0);
 
-	link[0] = PM4_HDR_INDIRECT_BUFFER_PFD;
-	link[1] = ibaddr;
-	link[2] = sizedwords;
+	link = kzalloc(sizeof(unsigned int) * numibs * 3, GFP_KERNEL);
+	cmds = link;
+	if (!link) {
+		KGSL_MEM_ERR("Failed to allocate memory for for command"
+				" submission, size %x\n", numibs * 3);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < numibs; i++) {
+		*cmds++ = PM4_HDR_INDIRECT_BUFFER_PFD;
+		*cmds++ = ibdesc[i].gpuaddr;
+		*cmds++ = ibdesc[i].sizedwords;
+	}
 
 	kgsl_setstate(device, device->mmu.tlb_flags);
 
@@ -756,13 +769,14 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 			&yamato_device->drawctxt[drawctxt_index], flags);
 
 	*timestamp = kgsl_ringbuffer_addcmds(&device->ringbuffer,
-					0, &link[0], 3);
+					0, &link[0], (cmds - link));
 
-
-	KGSL_CMD_INFO("ctxt %d g %08x sd %d ts %d\n",
-			drawctxt_index, ibaddr, sizedwords, *timestamp);
+	KGSL_CMD_INFO("ctxt %d g %08x numibs %d ts %d\n",
+		drawctxt_index, (unsigned int)ibdesc, numibs, *timestamp);
 
 	KGSL_CMD_VDBG("return %d\n", 0);
+
+	kfree(link);
 
 	return 0;
 }

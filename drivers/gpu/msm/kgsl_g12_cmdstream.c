@@ -147,8 +147,8 @@ static int room_in_rb(struct kgsl_g12_device *device)
 int
 kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 			int drawctxt_index,
-			uint32_t ibaddr,
-			int sizedwords,
+			struct kgsl_ibdesc *ibdesc,
+			unsigned int numibs,
 			uint32_t *timestamp,
 			unsigned int ctrl)
 {
@@ -164,13 +164,21 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_pagetable *pagetable = dev_priv->process_priv->pagetable;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	unsigned int sizedwords;
 
-	cmd = ibaddr;
+	if (numibs != 1) {
+		KGSL_DRV_ERR("Invalid number of ib's passed for z180,"
+				" numibs: %d\n", numibs);
+		result = -EINVAL;
+		goto error;
+	}
+	cmd = ibdesc[0].gpuaddr;
+	sizedwords = ibdesc[0].sizedwords;
 
 	tmp.hostptr = (void *)*timestamp;
 
 	KGSL_CMD_INFO("ctxt %d ibaddr 0x%08x sizedwords %d",
-		      drawctxt_index, ibaddr, sizedwords);
+		      drawctxt_index, cmd, sizedwords);
 	/* context switch */
 	if (drawctxt_index != (int)g12_device->ringbuffer.prevctx) {
 		KGSL_CMD_INFO("context switch %d -> %d",

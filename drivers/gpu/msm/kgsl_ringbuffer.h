@@ -240,7 +240,7 @@ struct kgsl_mem_entry;
 
 int kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				int drawctxt_index,
-				uint32_t ibaddr, int sizedwords,
+				struct kgsl_ibdesc *ibdesc, unsigned int numibs,
 				uint32_t *timestamp,
 				unsigned int flags);
 
