@@ -1673,7 +1673,7 @@ const struct file_operations debug_wlocks_ops = {
 static void usb_debugfs_init(struct usb_info *ui)
 {
 	struct dentry *dent;
-	dent = debugfs_create_dir("usb", 0);
+	dent = debugfs_create_dir(dev_name(&ui->pdev->dev), 0);
 	if (IS_ERR(dent))
 		return;
 
