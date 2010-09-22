@@ -45,6 +45,8 @@
 /* allow larger frames */
 #define RMNET_DATA_LEN 2000
 
+#define HEADROOM_FOR_QOS    8
+
 static const char *ch_name[3] = {
 	"DATA5",
 	"DATA6",
@@ -444,10 +446,13 @@ static int __rmnet_close(struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
 	int rc;
+	unsigned long flags;
 
 	if (p->ch) {
 		rc = smd_close(p->ch);
+		spin_lock_irqsave(&p->lock, flags);
 		p->ch = 0;
+		spin_unlock_irqrestore(&p->lock, flags);
 		return rc;
 	} else
 		return -EBADF;
@@ -671,6 +676,7 @@ static void __init rmnet_setup(struct net_device *dev)
 
 	/* set this after calling ether_setup */
 	dev->mtu = RMNET_DATA_LEN;
+	dev->needed_headroom = HEADROOM_FOR_QOS;
 
 	random_ether_addr(dev->dev_addr);
 
