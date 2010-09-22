@@ -1587,6 +1587,21 @@ done:
 	return result;
 }
 
+static int kgsl_pm_suspend(struct device *dev)
+{
+	pm_message_t arg = {0};
+	dev_dbg(dev, "pm: suspending...\n");
+	kgsl_suspend(NULL, arg);
+	return 0;
+}
+
+static int kgsl_pm_resume(struct device *dev)
+{
+	dev_dbg(dev, "pm: resuming...\n");
+	kgsl_resume(NULL);
+	return 0;
+}
+
 static int kgsl_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "pm_runtime: suspending...\n");
@@ -1600,6 +1615,8 @@ static int kgsl_runtime_resume(struct device *dev)
 }
 
 static struct dev_pm_ops kgsl_dev_pm_ops = {
+	.suspend = kgsl_pm_suspend,
+	.resume = kgsl_pm_resume,
 	.runtime_suspend = kgsl_runtime_suspend,
 	.runtime_resume = kgsl_runtime_resume,
 };
