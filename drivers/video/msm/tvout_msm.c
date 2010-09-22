@@ -17,100 +17,195 @@
  */
 
 #include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/sched.h>
-#include <linux/time.h>
-#include <linux/init.h>
-#include <linux/interrupt.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/delay.h>
-#include <mach/hardware.h>
-#include <linux/io.h>
-
-#include <asm/system.h>
-#include <asm/mach-types.h>
-#include <linux/semaphore.h>
-#include <linux/uaccess.h>
-#include <linux/clk.h>
 
 #include "msm_fb.h"
 #include "tvenc.h"
+#include "external_common.h"
 
-#define TV_DIMENSION_MAX_WIDTH      720
-#define TV_DIMENSION_MAX_HEIGHT     576
+#define TVOUT_HPD_DUTY_CYCLE 3000
+
+#define TV_DIMENSION_MAX_WIDTH		720
+#define TV_DIMENSION_MAX_HEIGHT		576
 
 struct tvout_msm_state_type {
-	struct kobject *uevent_kobj;
-	int irq;
-	int video_mode;
-	uint16 y_res;
+	struct external_common_state_type common;
 	struct platform_device *pdev;
+	struct timer_list hpd_state_timer;
+	struct timer_list hpd_work_timer;
+	struct work_struct hpd_work;
+	uint32 hpd_int_status;
+	uint32 prev_hpd_int_status;
+	uint32 five_retry;
+	int irq;
+	uint16 y_res;
+	boolean hpd_initialized;
+	boolean disp_powered_up;
 };
 
 static struct tvout_msm_state_type *tvout_msm_state;
 
 static int tvout_off(struct platform_device *pdev);
 static int tvout_on(struct platform_device *pdev);
+static void tvout_check_status(void);
 
-static ssize_t tvout_msm_rda_video_mode(struct device *dev,
-	struct device_attribute *attr, char *buf)
+static void tvout_msm_turn_on(boolean power_on)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
-		tvout_msm_state->video_mode);
-	pr_info("%s: '%d'\n", __func__, tvout_msm_state->video_mode);
-	return ret;
+	uint32 reg_val = 0;
+	reg_val = TV_IN(TV_ENC_CTL);
+	if (power_on) {
+		DEV_DBG("%s: TV Encoder turned on\n", __func__);
+		reg_val |= TVENC_CTL_ENC_EN;
+	} else {
+		DEV_DBG("%s: TV Encoder turned off\n", __func__);
+		reg_val = 0;
+	}
+	/* Enable TV Encoder*/
+	TV_OUT(TV_ENC_CTL, reg_val);
 }
 
-static ssize_t tvout_msm_wta_video_mode(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static void tvout_check_status()
 {
-	ssize_t ret = strnlen(buf, PAGE_SIZE);
-	kobject_uevent(tvout_msm_state->uevent_kobj,
-		KOBJ_OFFLINE);
-	strict_strtoul(buf, 10,
-		(unsigned long *)&tvout_msm_state->video_mode);
-	kobject_uevent(tvout_msm_state->uevent_kobj,
-		KOBJ_ONLINE);
-	pr_info("%s: '%d'\n", __func__, tvout_msm_state->video_mode);
-	return ret;
-}
-
-/* sysfs attribute for TVOut video mode */
-static DEVICE_ATTR(video_mode, S_IRUGO | S_IWUGO, tvout_msm_rda_video_mode,
-	tvout_msm_wta_video_mode);
-
-static struct attribute *tvout_msm_fs_attrs[] = {
-	&dev_attr_video_mode.attr,
-	NULL,
-};
-static struct attribute_group tvout_msm_fs_attr_group = {
-	.attrs = tvout_msm_fs_attrs,
-};
-
-/* create TVOut kobject and initialize */
-static int tvout_msm_state_create(struct platform_device *pdev)
-{
-	int rc;
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-
-	rc = sysfs_create_group(&mfd->fbi->dev->kobj,
-			&tvout_msm_fs_attr_group);
-	if (rc) {
-		pr_err("%s: sysfs group creation failed, rc=%d\n", __func__,
-			rc);
-		return rc;
+	if ((tvout_msm_state->hpd_int_status & 0x05) ==
+		(tvout_msm_state->prev_hpd_int_status & 0x05)) {
+		DEV_DBG("%s: cable event sent already!", __func__);
+		return;
 	}
 
-	tvout_msm_state->uevent_kobj = &mfd->fbi->dev->kobj;
-	return 0;
+	if (tvout_msm_state->hpd_int_status & BIT(2)) {
+		DEV_DBG("%s: cable plug-out\n", __func__);
+		mutex_lock(&external_common_state_hpd_mutex);
+		external_common_state->hpd_state = FALSE;
+		mutex_unlock(&external_common_state_hpd_mutex);
+		kobject_uevent(external_common_state->uevent_kobj,
+				KOBJ_OFFLINE);
+	} else if (tvout_msm_state->hpd_int_status & BIT(0)) {
+		DEV_DBG("%s: cable plug-in\n", __func__);
+		mutex_lock(&external_common_state_hpd_mutex);
+		external_common_state->hpd_state = TRUE;
+		mutex_unlock(&external_common_state_hpd_mutex);
+		kobject_uevent(external_common_state->uevent_kobj,
+				KOBJ_ONLINE);
+	}
+	tvout_msm_state->prev_hpd_int_status = tvout_msm_state->hpd_int_status;
+}
+
+/* ISR for TV out cable detect */
+static irqreturn_t tvout_msm_isr(int irq, void *dev_id)
+{
+	tvout_msm_state->hpd_int_status = TV_IN(TV_INTR_STATUS);
+	TV_OUT(TV_INTR_CLEAR, tvout_msm_state->hpd_int_status);
+	DEV_DBG("%s: ISR: 0x%02x\n", __func__,
+		tvout_msm_state->hpd_int_status & 0x05);
+
+	if (!tvout_msm_state || !tvout_msm_state->disp_powered_up) {
+		DEV_DBG("%s: ISR ignored, display not yet powered on\n",
+			__func__);
+		return IRQ_HANDLED;
+	}
+	if (tvout_msm_state->hpd_int_status & BIT(0) ||
+		tvout_msm_state->hpd_int_status & BIT(2)) {
+		/* Use .75sec to debounce the interrupt */
+		mod_timer(&tvout_msm_state->hpd_state_timer, jiffies
+			+ msecs_to_jiffies(750));
+	}
+
+	return IRQ_HANDLED;
+}
+
+/* Interrupt debounce timer */
+static void tvout_msm_hpd_state_timer(unsigned long data)
+{
+	if (!tvout_msm_state || !tvout_msm_state->disp_powered_up) {
+		DEV_DBG("%s: ignored, display powered off\n", __func__);
+		return;
+	}
+
+	/* TV_INTR_STATUS[0x204]
+		When a TV_ENC interrupt occurs, then reading this register will
+		indicate what caused the interrupt since that each bit indicates
+		the source of the interrupt that had happened. If multiple
+		interrupt sources had happened, then multiple bits of this
+		register will be set
+		Bit 0 : Load present on Video1
+		Bit 1 : Load present on Video2
+		Bit 2 : Load removed on Video1
+		Bit 3 : Load removed on Video2
+	*/
+
+	/* Locking interrupt status is not required because
+	last status read after debouncing is used */
+	if ((tvout_msm_state->hpd_int_status & 0x05) == 0x05) {
+		/* SW-workaround :If the status read after debouncing is
+		0x05(indicating both load present & load removed- which can't
+		happen in reality), force an update. If status remains 0x05
+		after retry, it's a cable unplug event */
+		if (++tvout_msm_state->five_retry < 2) {
+			uint32 reg;
+			DEV_DBG("tvout: Timer: 0x05\n");
+			TV_OUT(TV_INTR_CLEAR, 0xf);
+			reg = TV_IN(TV_DAC_INTF);
+			TV_OUT(TV_DAC_INTF, reg & ~TVENC_LOAD_DETECT_EN);
+			TV_OUT(TV_INTR_CLEAR, 0xf);
+			reg = TV_IN(TV_DAC_INTF);
+			TV_OUT(TV_DAC_INTF, reg | TVENC_LOAD_DETECT_EN);
+			return;
+		}
+	}
+	tvout_msm_state->five_retry = 0;
+	tvout_check_status();
+}
+
+static void tvout_msm_hpd_work(struct work_struct *work)
+{
+	uint32 reg;
+	DEV_DBG("%s: in work timer\n", __func__);
+
+	/* Enable power lines & clocks */
+	tvenc_pdata->pm_vid_en(1);
+	tvenc_set_clock(CLOCK_ON);
+
+	/* Enable encoder to get a stable interrupt */
+	reg = TV_IN(TV_ENC_CTL);
+	TV_OUT(TV_ENC_CTL, reg | TVENC_CTL_ENC_EN);
+
+	/* SW- workaround to update status register */
+	reg = TV_IN(TV_DAC_INTF);
+	TV_OUT(TV_DAC_INTF, reg & ~TVENC_LOAD_DETECT_EN);
+	TV_OUT(TV_INTR_CLEAR, 0xf);
+	reg = TV_IN(TV_DAC_INTF);
+	TV_OUT(TV_DAC_INTF, reg | TVENC_LOAD_DETECT_EN);
+
+	tvout_msm_state->hpd_int_status = TV_IN(TV_INTR_STATUS);
+
+	/* Disable TV encoder */
+	reg = TV_IN(TV_ENC_CTL);
+	TV_OUT(TV_ENC_CTL, reg & ~TVENC_CTL_ENC_EN);
+
+	/*Disable power lines & clocks */
+	tvenc_set_clock(CLOCK_OFF);
+	tvenc_pdata->pm_vid_en(0);
+
+	DEV_DBG("%s: ISR: 0x%02x\n", __func__,
+		tvout_msm_state->hpd_int_status & 0x05);
+
+	mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
+		+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
+
+	tvout_check_status();
+}
+
+static void tvout_msm_hpd_work_timer(unsigned long data)
+{
+	schedule_work(&tvout_msm_state->hpd_work);
 }
 
 static int tvout_on(struct platform_device *pdev)
 {
 	uint32 reg = 0;
-	int ret = 0, rc;
 	struct fb_var_screeninfo *var;
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);;
+	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
 	if (!mfd)
 		return -ENODEV;
@@ -119,21 +214,12 @@ static int tvout_on(struct platform_device *pdev)
 		return -EINVAL;
 
 	var = &mfd->fbi->var;
-
-	if (!tvout_msm_state->uevent_kobj) {
-		rc = tvout_msm_state_create(pdev);
-		if (rc) {
-			pr_err("Init FAILED: tvout_msm_state_create, rc=%d\n",
-				rc);
-			goto error;
-		}
-		kobject_uevent(tvout_msm_state->uevent_kobj, KOBJ_ADD);
-		pr_info("%s: kobject_uevent(KOBJ_ADD)\n", __func__);
-	}
-
+	tvout_msm_state->pdev = pdev;
+	if (del_timer(&tvout_msm_state->hpd_work_timer))
+		DEV_DBG("%s: work timer stopped\n", __func__);
 	TV_OUT(TV_ENC_CTL, 0);	/* disable TV encoder */
 
-	switch (tvout_msm_state->video_mode) {
+	switch (external_common_state->video_resolution) {
 	case NTSC_M:
 	case NTSC_J:
 		TV_OUT(TV_CGMS, 0x0);
@@ -155,7 +241,7 @@ static int tvout_on(struct platform_device *pdev)
 
 		reg |= TVENC_CTL_TV_MODE_NTSC_M_PAL60;
 
-		if (tvout_msm_state->video_mode == NTSC_M) {
+		if (external_common_state->video_resolution == NTSC_M) {
 			/* Cr gain 11, Cb gain C6, y_gain 97 */
 			TV_OUT(TV_GAIN, 0x0081B697);
 		} else {
@@ -182,7 +268,7 @@ static int tvout_on(struct platform_device *pdev)
 		TV_OUT(TV_SOL_REQ_ODD, 0x0030026e);
 		TV_OUT(TV_SOL_REQ_EVEN, 0x0031026f);
 
-		if (tvout_msm_state->video_mode == PAL_BDGHIN) {
+		if (external_common_state->video_resolution == PAL_BDGHIN) {
 			/* Cr gain 11, Cb gain C6, y_gain 97 */
 			TV_OUT(TV_GAIN, 0x0088c1a0);
 			TV_OUT(TV_CGMS, 0x00012345);
@@ -228,71 +314,167 @@ static int tvout_on(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-#ifdef CONFIG_FB_MSM_TVOUT_SVIDEO
-	reg |= TVENC_CTL_S_VIDEO_EN;
-#endif
-
-	reg |= TVENC_CTL_Y_FILTER_EN |
-	    TVENC_CTL_CR_FILTER_EN |
-	    TVENC_CTL_CB_FILTER_EN | TVENC_CTL_SINX_FILTER_EN;
+	reg |= TVENC_CTL_Y_FILTER_EN | TVENC_CTL_CR_FILTER_EN |
+		TVENC_CTL_CB_FILTER_EN | TVENC_CTL_SINX_FILTER_EN;
 
 	/* DC offset to 0. */
 	TV_OUT(TV_LEVEL, 0x00000000);
 	TV_OUT(TV_OFFSET, 0x008080f0);
 
+#ifdef CONFIG_FB_MSM_TVOUT_SVIDEO
+	reg |= TVENC_CTL_S_VIDEO_EN;
+#endif
 #if defined(CONFIG_FB_MSM_MDP31)
 	TV_OUT(TV_DAC_INTF, 0x29);
 #endif
 	TV_OUT(TV_ENC_CTL, reg);
 
-	/* Enable TV Out */
-	reg |= TVENC_CTL_ENC_EN;
-	TV_OUT(TV_ENC_CTL, reg);
+	if (!tvout_msm_state->hpd_initialized) {
+		tvout_msm_state->hpd_initialized = TRUE;
+		/* Load detect enable */
+		reg = TV_IN(TV_DAC_INTF);
+		reg |= TVENC_LOAD_DETECT_EN;
+		TV_OUT(TV_DAC_INTF, reg);
+	}
 
-error:
-	return ret;
+	tvout_msm_state->disp_powered_up = TRUE;
+	tvout_msm_turn_on(TRUE);
+
+	/* Enable Load present & removal interrupts for Video1 */
+	TV_OUT(TV_INTR_ENABLE, 0x5);
+
+	/* Enable interrupts when display is on */
+	enable_irq(tvout_msm_state->irq);
+	return 0;
 }
 
 static int tvout_off(struct platform_device *pdev)
 {
-	TV_OUT(TV_ENC_CTL, 0);	/* disable TV encoder */
+	/* Disable TV encoder irqs when display is off */
+	disable_irq(tvout_msm_state->irq);
+	tvout_msm_turn_on(FALSE);
+	tvout_msm_state->hpd_initialized = FALSE;
+	tvout_msm_state->disp_powered_up = FALSE;
+	mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
+			+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
 	return 0;
 }
 
 static int __init tvout_probe(struct platform_device *pdev)
 {
+	int rc = 0;
+	struct platform_device *fb_dev;
+
 #ifdef CONFIG_FB_MSM_TVOUT_NTSC_M
-	tvout_msm_state->video_mode = NTSC_M;
+	external_common_state->video_resolution = NTSC_M;
 #elif defined CONFIG_FB_MSM_TVOUT_NTSC_J
-	tvout_msm_state->video_mode = NTSC_J;
+	external_common_state->video_resolution = NTSC_J;
 #elif defined CONFIG_FB_MSM_TVOUT_PAL_M
-	tvout_msm_state->video_mode = PAL_M;
+	external_common_state->video_resolution = PAL_M;
 #elif defined CONFIG_FB_MSM_TVOUT_PAL_N
-	tvout_msm_state->video_mode = PAL_N;
+	external_common_state->video_resolution = PAL_N;
 #elif defined CONFIG_FB_MSM_TVOUT_PAL_BDGHIN
-	tvout_msm_state->video_mode = PAL_BDGHIN;
+	external_common_state->video_resolution = PAL_BDGHIN;
 #endif
-	msm_fb_add_device(pdev);
+	external_common_state->dev = &pdev->dev;
+	if (pdev->id == 0) {
+		struct resource *res;
+
+		#define GET_RES(name, mode) do {			\
+			res = platform_get_resource_byname(pdev, mode, name); \
+			if (!res) {					\
+				DEV_DBG("'" name "' resource not found\n"); \
+				rc = -ENODEV;				\
+				goto error;				\
+			}						\
+		} while (0)
+
+		#define GET_IRQ(var, name) do {				\
+			GET_RES(name, IORESOURCE_IRQ);			\
+			var = res->start;				\
+		} while (0)
+
+		GET_IRQ(tvout_msm_state->irq, "tvout_device_irq");
+		#undef GET_IRQ
+		#undef GET_RES
+		return 0;
+	}
+
+	DEV_DBG("%s: tvout_msm_state->irq : %d",
+			__func__, tvout_msm_state->irq);
+
+	rc = request_irq(tvout_msm_state->irq, &tvout_msm_isr,
+		IRQF_TRIGGER_HIGH, "tvout_msm_isr", NULL);
+
+	if (rc) {
+		DEV_DBG("Init FAILED: IRQ request, rc=%d\n", rc);
+		goto error;
+	}
+	disable_irq(tvout_msm_state->irq);
+
+	init_timer(&tvout_msm_state->hpd_state_timer);
+	tvout_msm_state->hpd_state_timer.function =
+		tvout_msm_hpd_state_timer;
+	tvout_msm_state->hpd_state_timer.data = (uint32)NULL;
+	tvout_msm_state->hpd_state_timer.expires = jiffies
+						+ msecs_to_jiffies(1000);
+
+	init_timer(&tvout_msm_state->hpd_work_timer);
+	tvout_msm_state->hpd_work_timer.function =
+		tvout_msm_hpd_work_timer;
+	tvout_msm_state->hpd_work_timer.data = (uint32)NULL;
+	tvout_msm_state->hpd_work_timer.expires = jiffies
+						+ msecs_to_jiffies(1000);
+	fb_dev = msm_fb_add_device(pdev);
+	if (fb_dev) {
+		rc = external_common_state_create(fb_dev);
+		if (rc) {
+			DEV_ERR("Init FAILED: hdmi_msm_state_create, rc=%d\n",
+				rc);
+			goto error;
+		}
+		mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
+			+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
+	} else
+		DEV_ERR("Init FAILED: failed to add fb device\n");
+
+error:
 	return 0;
 }
 
 static int __devexit tvout_remove(struct platform_device *pdev)
 {
-	if (tvout_msm_state->uevent_kobj) {
-		sysfs_remove_group(tvout_msm_state->uevent_kobj,
-			&tvout_msm_fs_attr_group);
-		tvout_msm_state->uevent_kobj = NULL;
-	}
+	external_common_state_remove();
 	kfree(tvout_msm_state);
 	tvout_msm_state = NULL;
 	return 0;
 }
+static int tvout_device_pm_suspend(struct device *dev)
+{
+	if (del_timer(&tvout_msm_state->hpd_work_timer))
+		DEV_DBG("%s: suspending cable detect timer\n", __func__);
+	return 0;
+}
+
+static int tvout_device_pm_resume(struct device *dev)
+{
+	mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
+			+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
+	DEV_DBG("%s: resuming cable detect timer\n", __func__);
+	return 0;
+}
+
+static const struct dev_pm_ops tvout_device_pm_ops = {
+	.suspend = tvout_device_pm_suspend,
+	.resume = tvout_device_pm_resume,
+};
 
 static struct platform_driver this_driver = {
 	.probe  = tvout_probe,
 	.remove = tvout_remove,
 	.driver = {
-		.name   = "tvout_device",
+		.name	= "tvout_device",
+		.pm	= &tvout_device_pm_ops,
 	},
 };
 
@@ -314,6 +496,7 @@ static struct msm_fb_panel_data tvout_panel_data = {
 
 static struct platform_device this_device = {
 	.name   = "tvout_device",
+	.id = 1,
 	.dev	= {
 		.platform_data = &tvout_panel_data,
 	}
@@ -324,19 +507,30 @@ static int __init tvout_init(void)
 	int ret;
 	tvout_msm_state = kzalloc(sizeof(*tvout_msm_state), GFP_KERNEL);
 	if (!tvout_msm_state) {
-		pr_err("tvout_msm_init FAILED: out of memory\n");
+		DEV_ERR("tvout_msm_init FAILED: out of memory\n");
 		ret = -ENOMEM;
 		goto init_exit;
 	}
 
+	external_common_state = &tvout_msm_state->common;
 	ret = platform_driver_register(&this_driver);
-	if (!ret) {
-		ret = platform_device_register(&this_device);
-		if (ret)
-			platform_driver_unregister(&this_driver);
+	if (ret) {
+		DEV_ERR("tvout_device_init FAILED: platform_driver_register\
+			rc=%d\n", ret);
+		goto init_exit;
 	}
 
+	ret = platform_device_register(&this_device);
+	if (ret) {
+		DEV_ERR("tvout_device_init FAILED: platform_driver_register\
+			rc=%d\n", ret);
+		platform_driver_unregister(&this_driver);
+		goto init_exit;
+	}
+
+	INIT_WORK(&tvout_msm_state->hpd_work, tvout_msm_hpd_work);
 	return 0;
+
 init_exit:
 	kfree(tvout_msm_state);
 	tvout_msm_state = NULL;

@@ -106,8 +106,7 @@ obj-$(CONFIG_FB_MSM_LCDC_ST15_WXGA) += lcdc_st15.o
 obj-$(CONFIG_FB_MSM_HDMI_MSM_PANEL) += hdmi_msm.o
 obj-$(CONFIG_FB_MSM_EXT_INTERFACE_COMMON) += external_common.o
 
-obj-$(CONFIG_FB_MSM_TVOUT_NTSC) += tvout_msm.o
-obj-$(CONFIG_FB_MSM_TVOUT_PAL) += tvout_msm.o
+obj-$(CONFIG_FB_MSM_TVOUT) += tvout_msm.o
 
 obj-$(CONFIG_FB_MSM_EXTMDDI_SVGA) += mddi_ext_lcd.o
 
