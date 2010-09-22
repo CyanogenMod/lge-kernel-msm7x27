@@ -2614,105 +2614,6 @@ static struct i2c_board_info msm_i2c_gsbi3_tdisc_info[] = {
 };
 #endif
 
-
-void msm_snddev_enable_amic_power(void)
-{
-#ifdef CONFIG_PMIC8058_OTHC
-	int ret;
-
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_ALWAYS_ON);
-	if (ret)
-		pr_err("%s: Enabling amic power failed\n", __func__);
-#endif
-
-	msm_snddev_tx_route_config();
-
-}
-
-void msm_snddev_disable_amic_power(void)
-{
-#ifdef CONFIG_PMIC8058_OTHC
-	int ret;
-
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
-	if (ret)
-		pr_err("%s: Disabling amic power failed\n", __func__);
-#endif
-
-	msm_snddev_tx_route_deconfig();
-}
-
-static struct regulator *s3;
-static struct regulator *mvs;
-
-void msm_snddev_enable_dmic_power(void)
-{
-	int ret;
-
-	msm_snddev_tx_route_config();
-
-	s3 = regulator_get(NULL, "8058_s3");
-	if (IS_ERR(s3))
-		return;
-
-	ret = regulator_set_voltage(s3, 1800000, 1800000);
-	if (ret) {
-		pr_err("%s: error setting voltage\n", __func__);
-		goto fail_s3;
-	}
-
-	ret = regulator_enable(s3);
-	if (ret) {
-		pr_err("%s: error enabling regulator\n", __func__);
-		goto fail_s3;
-	}
-
-	mvs = regulator_get(NULL, "8901_mvs0");
-	if (IS_ERR(mvs))
-		goto fail_mvs0_get;
-
-	ret = regulator_enable(mvs);
-
-	if (ret) {
-		pr_err("%s: error enabling regulator\n", __func__);
-		goto fail_mvs0_enable;
-	}
-
-	return;
-
-fail_mvs0_enable:
-	regulator_put(mvs);
-	mvs = NULL;
-fail_mvs0_get:
-	regulator_disable(s3);
-fail_s3:
-	regulator_put(s3);
-	s3 = NULL;
-}
-
-void msm_snddev_disable_dmic_power(void)
-{
-	int ret;
-
-	msm_snddev_tx_route_deconfig();
-
-	if (mvs) {
-		ret = regulator_disable(mvs);
-		if (ret < 0)
-			pr_err("%s: error disabling vreg mvs\n", __func__);
-		regulator_put(mvs);
-		mvs = NULL;
-	}
-
-	if (s3) {
-		ret = regulator_disable(s3);
-		if (ret < 0)
-			pr_err("%s: error disabling regulator s3\n", __func__);
-		regulator_put(s3);
-		s3 = NULL;
-	}
-}
-
 static struct regulator *vreg_timpani_1;
 static struct regulator *vreg_timpani_2;
 
@@ -4293,6 +4194,101 @@ static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_power_save   = lcdc_panel_power,
 };
 
+#ifdef CONFIG_MSM8X60_AUDIO
+void msm_snddev_enable_amic_power(void)
+{
+#ifdef CONFIG_PMIC8058_OTHC
+	int ret;
+
+	ret = pm8058_micbias_enable(OTHC_MICBIAS_0, OTHC_SIGNAL_ALWAYS_ON);
+	if (ret)
+		pr_err("Epickrror Enabling Mic Bias....\n");
+#endif
+
+	msm_snddev_tx_route_config();
+}
+
+void msm_snddev_disable_amic_power(void)
+{
+#ifdef CONFIG_PMIC8058_OTHC
+	int ret;
+
+	ret = pm8058_micbias_enable(OTHC_MICBIAS_0, OTHC_SIGNAL_OFF);
+	if (ret)
+		pr_err("Error Enabling Mic Bias....\n");
+#endif
+
+	msm_snddev_tx_route_deconfig();
+}
+
+static struct regulator *s3;
+static struct regulator *mvs;
+
+void msm_snddev_enable_dmic_power(void)
+{
+	int ret;
+
+	msm_snddev_tx_route_config();
+
+	s3 = regulator_get(NULL, "8058_s3");
+	if (IS_ERR(s3))
+		return;
+
+	ret = regulator_set_voltage(s3, 1800000, 1800000);
+	if (ret) {
+		pr_err("%s: error setting voltage\n", __func__);
+		goto fail;
+	}
+
+	ret = regulator_enable(s3);
+	if (ret) {
+		pr_err("%s: error enabling regulator\n", __func__);
+		goto fail;
+	}
+
+	mvs = regulator_get(NULL, "8901_mvs0");
+	if (IS_ERR(mvs))
+		goto fail;
+
+	ret = regulator_set_voltage(mvs, 1800000, 1800000);
+	if (ret) {
+		pr_err("%s: error setting voltage\n", __func__);
+		goto fail;
+	}
+
+	ret = regulator_enable(mvs);
+	if (ret) {
+		pr_err("%s: error enabling regulator\n", __func__);
+		goto fail;
+	}
+fail:
+	if (s3) {
+		regulator_disable(s3);
+		regulator_put(s3);
+	}
+	if (mvs)
+		regulator_put(mvs);
+}
+
+void msm_snddev_disable_dmic_power(void)
+{
+	int ret;
+
+	msm_snddev_tx_route_deconfig();
+
+	ret = regulator_disable(mvs);
+	if (ret < 0)
+		pr_err("%s: error disabling regulator mvs\n", __func__);
+	regulator_put(mvs);
+	mvs = NULL;
+
+	ret = regulator_disable(s3);
+	if (ret < 0)
+		pr_err("%s: error disabling regulator s3\n", __func__);
+	regulator_put(s3);
+	s3 = NULL;
+}
+
 static uint32_t msm_snddev_rx_gpio[] = {
 	GPIO_CFG(109, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
@@ -4401,6 +4397,22 @@ void msm_snddev_poweramp_off(void)
 	config_class_d0_gpio(0);
 	config_class_d1_gpio(0);
 }
+
+static uint32_t auxpcm_gpio_table[] = {
+	GPIO_CFG(111, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(112, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(113, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(114, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+};
+
+static void msm_auxpcm_init(void)
+{
+	gpio_tlmm_config(auxpcm_gpio_table[0], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(auxpcm_gpio_table[1], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(auxpcm_gpio_table[2], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(auxpcm_gpio_table[3], GPIO_CFG_ENABLE);
+}
+#endif /* CONFIG_MSM8X60_AUDIO */
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_core_clk_rate = 200000000,
@@ -4688,21 +4700,6 @@ static struct msm_rpm_platform_data msm_rpm_data = {
 };
 #endif
 
-static uint32_t auxpcm_gpio_table[] = {
-	GPIO_CFG(111, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(112, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(113, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(114, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-};
-
-static void msm_auxpcm_init(void)
-{
-	gpio_tlmm_config(auxpcm_gpio_table[0], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(auxpcm_gpio_table[1], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(auxpcm_gpio_table[2], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(auxpcm_gpio_table[3], GPIO_CFG_ENABLE);
-}
-
 
 static void __init msm8x60_init(void)
 {
@@ -4748,8 +4745,10 @@ static void __init msm8x60_init(void)
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
 				msm_pm_data);
 
+#ifdef CONFIG_MSM8X60_AUDIO
 	msm_auxpcm_init();
 	msm_snddev_init();
+#endif
 }
 
 MACHINE_START(MSM8X60_RUMI3, "QCT MSM8X60 RUMI3")
