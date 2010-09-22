@@ -121,9 +121,7 @@ void platform_secondary_init(unsigned int cpu)
 	/* RUMI does not adhere to GIC spec by enabling STIs by default.
 	 * Enable/clear is supposed to be RO for STIs, but is RW on RUMI.
 	 */
-	if (machine_is_msm8x60_surf() ||
-	    machine_is_msm8x60_ffa()  ||
-	    machine_is_msm8x60_rumi3())
+	if (!machine_is_msm8x60_sim())
 		writel(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
 
 	/*
