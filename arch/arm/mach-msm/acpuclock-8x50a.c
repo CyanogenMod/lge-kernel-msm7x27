@@ -28,6 +28,7 @@
 
 #include "acpuclock.h"
 #include "clock.h"
+#include "socinfo.h"
 
 /* Frequency switch modes. */
 #define SHOT_SWITCH		4
@@ -96,28 +97,35 @@ struct clkctl_acpu_speed {
 
 #define PLL3_CALIBRATION_IDX 2 /* PLL0 */
 struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0,  19200, ACPU_PLL_TCXO, 0, 0, 0, 0, 14000, 0, 0, 1225 },
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 0, 0, 14000, 0, 0, 825 },
 	/* Use AXI source. Row number in acpuclk_init() must match this. */
-	{ 0,  MAX_AXI_KHZ, ACPU_PLL_1, 1, 5, 0, 0, 14000, 2, 0, 1225 },
-	{ 1,  245760, ACPU_PLL_0, 4, 0, 0, 0, 29000, 0, 0, 1225 },
-	{ 1,  384000, ACPU_PLL_3, 0, 0, 0, 0, 58000, 1, 0xA, 1225 },
-	{ 0,  422400, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xB, 1225 },
-	{ 0,  460800, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xC, 1225 },
-	{ 0,  499200, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xD, 1225 },
-	{ 0,  537600, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xE, 1225 },
-	{ 1,  576000, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xF, 1225 },
-	{ 0,  614400, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0x10, 1225 },
-	{ 0,  652800, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0x11, 1225 },
-	{ 0,  691200, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0x12, 1225 },
-	{ 0,  729600, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0x13, 1225 },
-	{ 1,  768000, ACPU_PLL_3, 0, 0, 0, 0, 128000, 1, 0x14, 1225 },
-	{ 0,  806400, ACPU_PLL_3, 0, 0, 0, 0, 128000, 1, 0x15, 1225 },
-	{ 0,  844800, ACPU_PLL_3, 0, 0, 0, 0, 128000, 1, 0x16, 1225 },
-	{ 0,  883200, ACPU_PLL_3, 0, 0, 0, 0, 160000, 1, 0x17, 1225 },
-	{ 0,  921600, ACPU_PLL_3, 0, 0, 0, 0, 160000, 1, 0x18, 1225 },
-	{ 0,  960000, ACPU_PLL_3, 0, 0, 0, 0, 192000, 1, 0x19, 1225 },
-	{ 1,  998400, ACPU_PLL_3, 0, 0, 0, 0, 192000, 1, 0x1A, 1225 },
-	{ 1, 1190400, ACPU_PLL_3, 0, 0, 0, 0, 259200, 1, 0x1F, 1225 },
+	{ 0, MAX_AXI_KHZ, ACPU_PLL_1, 1, 5, 0, 0, 14000, 2, 0, 825 },
+	{ 0, 245760, ACPU_PLL_0, 4, 0, 0, 0, 29000, 0, 0, 825 },
+	{ 0, 384000, ACPU_PLL_3, 0, 0, 0, 0, 58000, 1, 0xA, 875 },
+	{ 0, 422400, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xB, 900 },
+	{ 0, 460800, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xC, 900 },
+	{ 0, 499200, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xD, 925 },
+	{ 0, 537600, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xE, 925 },
+	{ 0, 576000, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0xF, 950 },
+	{ 0, 614400, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0x10, 950 },
+	{ 0, 652800, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0x11, 975 },
+	{ 0, 691200, ACPU_PLL_3, 0, 0, 0, 0, 117000, 1, 0x12, 975 },
+	{ 0, 729600, ACPU_PLL_3, 0, 0, 0, 0, 128000, 1, 0x13, 1000 },
+	{ 0, 768000, ACPU_PLL_3, 0, 0, 0, 0, 128000, 1, 0x14, 1000 },
+	{ 0, 806400, ACPU_PLL_3, 0, 0, 0, 0, 128000, 1, 0x15, 1025 },
+	{ 0, 844800, ACPU_PLL_3, 0, 0, 0, 0, 128000, 1, 0x16, 1025 },
+	{ 0, 883200, ACPU_PLL_3, 0, 0, 0, 0, 160000, 1, 0x17, 1050 },
+	{ 0, 921600, ACPU_PLL_3, 0, 0, 0, 0, 160000, 1, 0x18, 1075 },
+	{ 0, 960000, ACPU_PLL_3, 0, 0, 0, 0, 160000, 1, 0x19, 1075 },
+	{ 0, 998400, ACPU_PLL_3, 0, 0, 0, 0, 160000, 1, 0x1A, 1100 },
+	{ 0, 1036800, ACPU_PLL_3, 0, 0, 0, 0, 192000, 1, 0x1B, 1125 },
+	{ 0, 1075200, ACPU_PLL_3, 0, 0, 0, 0, 192000, 1, 0x1C, 1125 },
+	{ 0, 1113600, ACPU_PLL_3, 0, 0, 0, 0, 192000, 1, 0x1D, 1150 },
+	{ 0, 1152000, ACPU_PLL_3, 0, 0, 0, 0, 192000, 1, 0x1E, 1175 },
+	{ 0, 1190400, ACPU_PLL_3, 0, 0, 0, 0, 259200, 1, 0x1F, 1175 },
+	{ 0, 1228800, ACPU_PLL_3, 0, 0, 0, 0, 259200, 1, 0x20, 1200 },
+	{ 0, 1267200, ACPU_PLL_3, 0, 0, 0, 0, 259200, 1, 0x21, 1225 },
+	{ 0, 1305600, ACPU_PLL_3, 0, 0, 0, 0, 259200, 1, 0x22, 1225 },
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
@@ -421,6 +429,15 @@ static void __init lpj_init(void)
 #ifdef CONFIG_CPU_FREQ_MSM
 static struct cpufreq_frequency_table freq_table[20];
 
+/*
+ * Pick the highest frequency within the set of frequencies using the same vdd.
+ */
+static inline int use_for_scaling(const struct clkctl_acpu_speed *freq)
+{
+	const struct clkctl_acpu_speed *next = freq + 1;
+	return freq->vdd < next->vdd || next->vdd == 0;
+}
+
 static void __init cpufreq_table_init(void)
 {
 	unsigned int i;
@@ -432,6 +449,8 @@ static void __init cpufreq_table_init(void)
 	 */
 	for (i = 0; acpu_freq_tbl[i].acpuclk_khz != 0
 			&& freq_cnt < ARRAY_SIZE(freq_table)-1; i++) {
+		acpu_freq_tbl[i].use_for_scaling |=
+			use_for_scaling(&acpu_freq_tbl[i]);
 		if (acpu_freq_tbl[i].use_for_scaling) {
 			freq_table[freq_cnt].index = freq_cnt;
 			freq_table[freq_cnt].frequency
@@ -450,13 +469,41 @@ static void __init cpufreq_table_init(void)
 }
 #endif
 
+/*
+ * Version 1.0 parts can't reliably support more than 1 GHz, therefore truncate
+ * the frequency table at that point if we're running on such parts.
+ */
+unsigned int __init msm_acpu_clock_fixup(void)
+{
+	unsigned int max;
+	struct clkctl_acpu_speed *f;
+	uint32_t version = socinfo_get_version();
+
+	if (SOCINFO_VERSION_MINOR(version) == 0)
+		max = 998400;
+	else
+		max = 1305600;
+
+	for (f = acpu_freq_tbl; f->acpuclk_khz != 0; f++) {
+		if (f->acpuclk_khz > max) {
+			f->acpuclk_khz = 0;
+			break;
+		}
+	}
+
+	return (f - 1)->acpuclk_khz;
+}
+
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 {
+	unsigned int max_freq;
 	mutex_init(&drv_state.lock);
 	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.max_speed_delta_khz = clkdata->max_speed_delta_khz;
 	drv_state.max_vdd = clkdata->max_vdd;
 	drv_state.acpu_set_vdd = clkdata->acpu_set_vdd;
+
+	max_freq = msm_acpu_clock_fixup();
 
 	/* Configure hardware. */
 	move_off_scpll();
@@ -464,8 +511,8 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 
 	lpj_init();
 
-	/* Improve boot time by ramping up to 1190.4MHz immediately. */
-	acpuclk_set_rate(smp_processor_id(), 1190400, SETRATE_CPUFREQ);
+	/* Improve boot time */
+	acpuclk_set_rate(smp_processor_id(), max_freq, SETRATE_CPUFREQ);
 
 #ifdef CONFIG_CPU_FREQ_MSM
 	cpufreq_table_init();
