@@ -1484,9 +1484,9 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 	memset(input_buf_req, 0,
 		sizeof(struct vcd_buffer_requirement));
 	input_buf_req->min_count = 1;
-	input_buf_req->actual_count = input_buf_req->min_count + 3;
+	input_buf_req->actual_count = input_buf_req->min_count + 2;
 	input_buf_req->max_count = DDL_MAX_BUFFER_COUNT;
-	input_buf_req->sz = (1024*1024*3) >> 1;
+	input_buf_req->sz = (1024 * 1024);
 	input_buf_req->align = DDL_LINEAR_BUFFER_ALIGN_BYTES;
 	decoder->min_input_buf_req = *input_buf_req;
 	return true;
