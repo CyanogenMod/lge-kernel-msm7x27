@@ -1681,8 +1681,8 @@ void ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 
 	output_buf_req->min_count = min_dpb;
 
-	num_mb = (frame_size->width * frame_size->height) >> 8;
-	if (num_mb >= VIDC_DDL_WVGA_MBS) {
+	num_mb = DDL_NO_OF_MB(frame_size->width, frame_size->height);
+	if (num_mb >= DDL_WVGA_MBS) {
 		output_buf_req->actual_count = min_dpb + 2;
 		if (output_buf_req->actual_count < 10)
 			output_buf_req->actual_count = 10;

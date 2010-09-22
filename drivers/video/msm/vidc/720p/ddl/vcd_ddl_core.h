@@ -84,21 +84,25 @@
  (addr) = (u32)((((u32)(addr) + DDL_STREAMBUF_ALIGN_GUARD_BYTES) & \
 			 ~(DDL_STREAMBUF_ALIGN_GUARD_BYTES)) + DDL_BUFEND_PAD)
 
+#define DDL_QCIF_MBS 99
+#define DDL_CIF_MBS  396
+#define DDL_QVGA_MBS 300
+#define DDL_VGA_MBS  1200
+#define DDL_WVGA_MBS 1500
+#define DDL_720P_MBS 3600
+
 #define DDL_FRAMESIZE_DIV_FACTOR   (0xF)
-#define DDL_ALLOW_ENC_FRAMESIZE(width, height)             \
-(\
-   (\
-      ((width) <= DDL_MAX_FRAME_WIDTH)  &&                 \
-      ((height) <= DDL_MAX_FRAME_HEIGHT)                   \
-   ) &&                                                     \
-   (\
-      ((width) >= 32 && (height) >= 32)                      \
-   ) &&                                                     \
-   (\
-      !((width) & DDL_FRAMESIZE_DIV_FACTOR) &&              \
-      !((height) & DDL_FRAMESIZE_DIV_FACTOR)                \
-   )                                                        \
-)
+
+#define DDL_NO_OF_MB(width, height) \
+	(((width + 15) >> 4) * ((height + 15) >> 4))
+
+#define DDL_ALLOW_ENC_FRAMESIZE(width, height) \
+((DDL_NO_OF_MB(width, height) <= DDL_720P_MBS) \
+ && (((width) <= DDL_MAX_FRAME_WIDTH) &&            \
+     ((height) <= DDL_MAX_FRAME_WIDTH))            \
+ && ((width) >= 32 && (height) >= 32)               \
+ && (!((width) & DDL_FRAMESIZE_DIV_FACTOR) &&       \
+     !((height) & DDL_FRAMESIZE_DIV_FACTOR)))
 
 #define DDL_TILE_ALIGN_WIDTH     128
 #define DDL_TILE_ALIGN_HEIGHT    32
