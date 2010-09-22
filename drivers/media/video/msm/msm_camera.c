@@ -2289,9 +2289,6 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 					&qcmd->list_vpe_frame);
 				return;
 			} else if (sync->vpefn.vpe_cfg_update(sync->cropinfo)) {
-				if (qcmd->on_heap)
-					qcmd->on_heap++;
-
 				CDBG("%s: msm_enqueue video frame to vpe time "
 					"= %ld\n", __func__, qcmd->ts.tv_nsec);
 
@@ -2403,8 +2400,11 @@ static void msm_vpe_sync(struct msm_vpe_resp *vdata,
 	qcmd->command = vdata;
 	qcmd->ts = *((struct timespec *)ts);
 
-	if (qtype != MSM_CAM_Q_VPE_MSG)
-		goto vpe_for_config;
+	if (qtype != MSM_CAM_Q_VPE_MSG) {
+		pr_err("%s: Invalid qcmd type = %d.\n", __func__, qcmd->type);
+		free_qcmd(qcmd);
+		return;
+	}
 
 	CDBG("%s: vdata->type %d\n", __func__, vdata->type);
 	switch (vdata->type) {
@@ -2417,14 +2417,11 @@ static void msm_vpe_sync(struct msm_vpe_resp *vdata,
 			sync->liveshot_enabled = false;
 		}
 		msm_enqueue(&sync->frame_q, &qcmd->list_frame);
-		if (qcmd->on_heap)
-			qcmd->on_heap++;
-		break;
+		return;
 	default:
 		CDBG("%s: qtype %d not handled\n", __func__, vdata->type);
 		/* fall through, send to config. */
 	}
-vpe_for_config:
 	CDBG("%s: msm_enqueue event_q\n", __func__);
 	msm_enqueue(&sync->event_q, &qcmd->list_config);
 }
