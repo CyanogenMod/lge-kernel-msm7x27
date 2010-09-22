@@ -566,7 +566,9 @@ static u32 ddl_decoder_frame_run_callback(
 					return true;
 			}
 			if (dec_disp_info->display_status ==
-				VIDC_1080P_DISPLAY_STATUS_DISPLAY_ONLY) {
+				VIDC_1080P_DISPLAY_STATUS_DISPLAY_ONLY ||
+				dec_disp_info->display_status ==
+				VIDC_1080P_DISPLAY_STATUS_DPB_EMPTY) {
 				ddl_vidc_decode_frame_run(ddl);
 				ret_status = false;
 			} else if (eos_present) {
