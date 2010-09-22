@@ -870,6 +870,7 @@ static void tavarua_handle_interrupts(struct tavarua_device *radio)
 							XFR_REG_NUM);
 				request_read_xfr(radio,	RX_STATIONS_1);
 			} else if (radio->xfr_bytes_left) {
+				FMDBG("In else RX_STATIONS_0\n");
 				copy_from_xfr(radio, TAVARUA_BUF_SRCH_LIST,
 						radio->xfr_bytes_left+1);
 				tavarua_q_event(radio,
@@ -878,6 +879,7 @@ static void tavarua_handle_interrupts(struct tavarua_device *radio)
 			}
 			break;
 		case RX_STATIONS_1:
+			FMDBG("In RX_STATIONS_1");
 			copy_from_xfr(radio, TAVARUA_BUF_SRCH_LIST,
 						radio->xfr_bytes_left);
 			tavarua_q_event(radio, TAVARUA_EVT_NEW_SRCH_LIST);
@@ -1039,6 +1041,8 @@ FUNCTION:  tavarua_search
 static int tavarua_search(struct tavarua_device *radio, int on, int dir)
 {
 	enum search_t srch = radio->registers[SRCHCTRL] & SRCH_MODE;
+
+	FMDBG("In tavarua_search\n");
 	if (on) {
 		radio->registers[SRCHRDS1] = 0x00;
 		radio->registers[SRCHRDS2] = 0x00;
@@ -1072,7 +1076,8 @@ static int tavarua_search(struct tavarua_device *radio, int on, int dir)
 	radio->registers[SRCHCTRL] = (dir << 3) |
 				(radio->registers[SRCHCTRL] & 0xF7);
 
-	FMDBG("registers <%x>\n", radio->registers[SRCHCTRL]);
+	FMDBG("SRCHCTRL <%x>\n", radio->registers[SRCHCTRL]);
+	FMDBG("Search Started\n");
 	return tavarua_write_registers(radio, SRCHRDS1,
 				&radio->registers[SRCHRDS1], 3);
 }
@@ -1573,10 +1578,12 @@ static int tavarua_fops_release(struct file *file)
 	unsigned char value;
 	if (!radio)
 		return -ENODEV;
+	FMDBG("In %s", __func__);
 
 	/* disable radio ctrl */
 	retval = tavarua_write_register(radio, RDCTRL, 0x00);
 
+	FMDBG("%s, Disable IRQs\n", __func__);
 	/* disable irq */
 	retval = tavarua_disable_irq(radio);
 	if (retval < 0) {
@@ -1593,6 +1600,7 @@ static int tavarua_fops_release(struct file *file)
 		printk(KERN_ERR "%s:XO_BUFF_CNTRL write failed\n", __func__);
 		return retval;
 	}
+	FMDBG("%s, Calling fm_shutdown\n", __func__);
 	/* teardown gpio and pmic */
 	radio->pdata->fm_shutdown(radio->pdata);
 	radio->handle_irq = 1;
@@ -2085,6 +2093,13 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 			FMDBG("turning off...\n");
 			retval = tavarua_write_register(radio, RDCTRL,
 							ctrl->value);
+			/*Make it synchronous
+			Block it till READY interrupt
+			Wait for interrupt i.e. complete(&radio->sync_req_done)
+			*/
+			if (!wait_for_completion_timeout(&radio->sync_req_done,
+				msecs_to_jiffies(WAIT_TIMEOUT)))
+				retval = -ETIME;
 		} else if ((ctrl->value == FM_TRANS) &&
 			   ((radio->registers[RDCTRL] & 0x03) != FM_TRANS)) {
 			FMDBG("transmit mode\n");
@@ -2597,9 +2612,15 @@ static int tavarua_disable_interrupts(struct tavarua_device *radio)
 	else
 		retval = tavarua_write_registers(radio, STATUS_REG1, lpm_buf,
 							ARRAY_SIZE(lpm_buf));
-	if (retval > -1)
-		radio->lp_mode = 1;
 
+	/*INT_CTL writes may fail with TIME_OUT as all the
+	interrupts have been disabled
+	*/
+	if (retval > -1 || retval == -ETIME) {
+		radio->lp_mode = 1;
+		/*Consider timeout as a valid case here*/
+		retval = 0;
+	}
 	return retval;
 
 }
