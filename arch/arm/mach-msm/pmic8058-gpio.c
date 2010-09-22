@@ -76,7 +76,7 @@
 struct pm8058_gpio_chip {
 	struct gpio_chip	gpio_chip;
 	struct pm8058_chip	*pm_chip;
-	spinlock_t		pm_lock;
+	struct mutex		pm_lock;
 	u8			bank1[PM8058_GPIOS];
 };
 
@@ -107,12 +107,11 @@ static int pm8058_gpio_set(struct pm8058_gpio_chip *chip,
 {
 	int	rc;
 	u8	bank1;
-	unsigned long	irqsave;
 
 	if (gpio >= PM8058_GPIOS || chip == NULL)
 		return -EINVAL;
 
-	spin_lock_irqsave(&chip->pm_lock, irqsave);
+	mutex_lock(&chip->pm_lock);
 	bank1 = chip->bank1[gpio] & ~PM8058_GPIO_OUT_INVERT;
 
 	if (value)
@@ -120,7 +119,7 @@ static int pm8058_gpio_set(struct pm8058_gpio_chip *chip,
 
 	chip->bank1[gpio] = bank1;
 	rc = pm8058_write(chip->pm_chip, SSBI_REG_ADDR_GPIO(gpio), &bank1, 1);
-	spin_unlock_irqrestore(&chip->pm_lock, irqsave);
+	mutex_unlock(&chip->pm_lock);
 
 	if (rc)
 		pr_err("%s: FAIL pm8058_write(): rc=%d. "
@@ -141,12 +140,11 @@ static int pm8058_gpio_set_direction(struct pm8058_gpio_chip *chip,
 		PM8058_GPIO_MODE_INPUT,
 		PM8058_GPIO_MODE_BOTH,
 	};
-	unsigned long	irqsave;
 
 	if (!direction || chip == NULL)
 		return -EINVAL;
 
-	spin_lock_irqsave(&chip->pm_lock, irqsave);
+	mutex_lock(&chip->pm_lock);
 	bank1 = chip->bank1[gpio] & ~PM8058_GPIO_MODE_MASK;
 
 	bank1 |= ((dir_map[direction] << PM8058_GPIO_MODE_SHIFT)
@@ -154,7 +152,7 @@ static int pm8058_gpio_set_direction(struct pm8058_gpio_chip *chip,
 
 	chip->bank1[gpio] = bank1;
 	rc = pm8058_write(chip->pm_chip, SSBI_REG_ADDR_GPIO(gpio), &bank1, 1);
-	spin_unlock_irqrestore(&chip->pm_lock, irqsave);
+	mutex_unlock(&chip->pm_lock);
 
 	if (rc)
 		pr_err("%s: Failed on pm8058_write(): rc=%d (GPIO config)\n",
@@ -281,7 +279,7 @@ static int __devinit pm8058_gpio_probe(struct platform_device *pdev)
 	int	rc = 0;
 	struct pm8058_gpio_platform_data *pdata = pdev->dev.platform_data;
 
-	spin_lock_init(&pm8058_gpio_chip.pm_lock);
+	mutex_init(&pm8058_gpio_chip.pm_lock);
 	pm8058_gpio_chip.gpio_chip.dev = &pdev->dev;
 	pm8058_gpio_chip.gpio_chip.start = pdata->gpio_base;
 	pm8058_gpio_chip.gpio_chip.end = pdata->gpio_base +
@@ -412,7 +410,7 @@ static int __devinit pm8058_gpio_probe(struct platform_device *pdev)
 	int ret;
 	struct pm8058_gpio_platform_data *pdata = pdev->dev.platform_data;
 
-	spin_lock_init(&pm8058_gpio_chip.pm_lock);
+	mutex_init(&pm8058_gpio_chip.pm_lock);
 	pm8058_gpio_chip.gpio_chip.dev = &pdev->dev;
 	pm8058_gpio_chip.gpio_chip.base = pdata->gpio_base;
 	pm8058_gpio_chip.pm_chip = platform_get_drvdata(pdev);
@@ -459,7 +457,6 @@ int pm8058_gpio_config(int gpio, struct pm8058_gpio *param)
 		PM8058_GPIO_MODE_INPUT,
 		PM8058_GPIO_MODE_BOTH,
 	};
-	unsigned long	irqsave;
 
 	if (param == NULL)
 		return -EINVAL;
@@ -500,12 +497,12 @@ int pm8058_gpio_config(int gpio, struct pm8058_gpio *param)
 		((5 << PM8058_GPIO_BANK_SHIFT) & PM8058_GPIO_BANK_MASK) |
 		(param->inv_int_pol ? 0 : PM8058_GPIO_NON_INT_POL_INV);
 
-	spin_lock_irqsave(&pm8058_gpio_chip.pm_lock, irqsave);
+	mutex_lock(&pm8058_gpio_chip.pm_lock);
 	/* Remember bank1 for later use */
 	pm8058_gpio_chip.bank1[gpio] = bank[1];
 	rc = pm8058_write(pm8058_gpio_chip.pm_chip,
 			SSBI_REG_ADDR_GPIO(gpio), bank, 6);
-	spin_unlock_irqrestore(&pm8058_gpio_chip.pm_lock, irqsave);
+	mutex_unlock(&pm8058_gpio_chip.pm_lock);
 
 	if (rc)
 		pr_err("%s: Failed on pm8058_write(): rc=%d (GPIO config)\n",
@@ -545,9 +542,8 @@ static int debug_open(struct inode *inode, struct file *file)
 static int debug_read_gpio_bank(int gpio, int bank, u8 *data)
 {
 	int rc;
-	unsigned long irqsave;
 
-	spin_lock_irqsave(&pm8058_gpio_chip.pm_lock, irqsave);
+	mutex_lock(&pm8058_gpio_chip.pm_lock);
 
 	*data = bank << PM8058_GPIO_BANK_SHIFT;
 	rc = pm8058_write(pm8058_gpio_chip.pm_chip,
@@ -560,7 +556,7 @@ static int debug_read_gpio_bank(int gpio, int bank, u8 *data)
 			SSBI_REG_ADDR_GPIO(gpio), data, 1);
 
 bail_out:
-	spin_unlock_irqrestore(&pm8058_gpio_chip.pm_lock, irqsave);
+	mutex_unlock(&pm8058_gpio_chip.pm_lock);
 
 	return rc;
 }
