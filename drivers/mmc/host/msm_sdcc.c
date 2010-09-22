@@ -1488,6 +1488,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->f_min = plat->msmsdcc_fmin;
 	mmc->f_max = plat->msmsdcc_fmax;
 	mmc->ocr_avail = plat->ocr_mask;
+	mmc->pm_caps |= MMC_PM_KEEP_POWER;
 	mmc->caps |= plat->mmc_bus_width;
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
@@ -1534,6 +1535,7 @@ msmsdcc_probe(struct platform_device *pdev)
 				plat->sdiowakeup_irq, ret);
 			goto pio_irq_free;
 		} else {
+			mmc->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
 			disable_irq(plat->sdiowakeup_irq);
 			wake_lock_init(&host->sdio_wlock, WAKE_LOCK_SUSPEND,
 					mmc_hostname(mmc));
@@ -1748,7 +1750,9 @@ msmsdcc_runtime_suspend(struct device *dev)
 	int rc = 0;
 
 	if (mmc) {
-		if (!mmc->card || mmc->card->type != MMC_TYPE_SDIO) {
+		if (!mmc->card || (host->plat->sdiowakeup_irq &&
+				mmc->card->type == MMC_TYPE_SDIO) ||
+				mmc->card->type != MMC_TYPE_SDIO) {
 			/*
 			 * MMC core thinks that host is disabled by now since
 			 * runtime suspend is scheduled after msmsdcc_disable()
@@ -1779,7 +1783,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 			}
 		}
 
-		if (host->plat->sdiowakeup_irq && mmc->card &&
+		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && mmc->card &&
 				mmc->card->type == MMC_TYPE_SDIO) {
 			host->sdio_irq_disabled = 0;
 			enable_irq_wake(host->plat->sdiowakeup_irq);
@@ -1808,7 +1812,8 @@ msmsdcc_runtime_resume(struct device *dev)
 
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
 
-		if (host->plat->sdiowakeup_irq && !host->sdio_irq_disabled) {
+		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
+				!host->sdio_irq_disabled) {
 			if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
 				disable_irq_nosync(host->plat->sdiowakeup_irq);
 				disable_irq_wake(host->plat->sdiowakeup_irq);
@@ -1819,14 +1824,16 @@ msmsdcc_runtime_resume(struct device *dev)
 		}
 
 		spin_unlock_irqrestore(&host->lock, flags);
-		if (!mmc->card || mmc->card->type != MMC_TYPE_SDIO)
+		if (!mmc->card || (host->plat->sdiowakeup_irq &&
+				mmc->card->type == MMC_TYPE_SDIO) ||
+				mmc->card->type != MMC_TYPE_SDIO)
 			mmc_resume_host(mmc);
 
 		/*
 		 * After resuming the host wait for sometime so that
 		 * the SDIO work will be processed.
 		 */
-		if (host->plat->sdiowakeup_irq && release_lock)
+		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && release_lock)
 			wake_lock_timeout(&host->sdio_wlock, HZ / 2);
 	}
 	return 0;
