@@ -217,13 +217,17 @@ int32_t msm_camera_flash_set_led_state(
 	return rc;
 }
 
-static int msm_strobe_flash_xenon_charge(
-		int32_t flash_charge, int32_t charge_enable)
+static int msm_strobe_flash_xenon_charge(int32_t flash_charge,
+		int32_t charge_enable, uint32_t flash_recharge_duration)
 {
 	gpio_direction_output(flash_charge, charge_enable);
-	/* add timer for the recharge */
-	add_timer(&timer_flash);
-
+	if (charge_enable) {
+		timer_flash.expires = jiffies +
+			msecs_to_jiffies(flash_recharge_duration);
+		/* add timer for the recharge */
+		add_timer(&timer_flash);
+	} else
+		del_timer_sync(&timer_flash);
 	return 0;
 }
 
@@ -234,7 +238,8 @@ static void strobe_flash_xenon_recharge_handler(unsigned long data)
 		(struct msm_camera_sensor_strobe_flash_data *)data;
 
 	spin_lock_irqsave(&sfdata->timer_lock, flags);
-	msm_strobe_flash_xenon_charge(sfdata->flash_charge, 1);
+	msm_strobe_flash_xenon_charge(sfdata->flash_charge, 1,
+		sfdata->flash_recharge_duration);
 	spin_unlock_irqrestore(&sfdata->timer_lock, flags);
 
 	return;
@@ -273,8 +278,6 @@ static int msm_strobe_flash_xenon_init(
 	init_timer(&timer_flash);
 	timer_flash.function = strobe_flash_xenon_recharge_handler;
 	timer_flash.data = (unsigned long)sfdata;
-	timer_flash.expires = jiffies +
-		msecs_to_jiffies(sfdata->flash_recharge_duration);
 
 	return rc;
 }
@@ -284,7 +287,8 @@ static int msm_strobe_flash_xenon_release
 {
 	free_irq(sfdata->irq, sfdata);
 	gpio_free(sfdata->flash_charge);
-	del_timer_sync(&timer_flash);
+	if (timer_pending(&timer_flash))
+		del_timer_sync(&timer_flash);
 	return 0;
 }
 

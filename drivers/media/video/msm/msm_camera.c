@@ -1931,7 +1931,8 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 		} else
 			rc = pmsm->sync->sfctrl.strobe_flash_charge(
 			pmsm->sync->sdata->strobe_flash_data->flash_charge,
-			charge_en);
+			charge_en, pmsm->sync->sdata->strobe_flash_data->
+				flash_recharge_duration);
 		break;
 	}
 
