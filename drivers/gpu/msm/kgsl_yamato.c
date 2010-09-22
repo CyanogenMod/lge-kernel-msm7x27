@@ -660,7 +660,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	kgsl_driver.is_suspended = KGSL_FALSE;
 
 	device->chip_id = kgsl_yamato_getchipid(device);
-	device->hwaccess_blocked = KGSL_FALSE;
 
 	if (kgsl_mmu_start(device))
 		goto error_clk_off;
@@ -724,6 +723,7 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 	device->flags |= KGSL_FLAGS_STARTED;
+	device->hwaccess_blocked = KGSL_FALSE;
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	pr_info("msm_kgsl: initialized dev=%d mmu=%s "
 		"per_process_pagetable=on\n",
@@ -766,6 +766,7 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 		/* For some platforms, power needs to go off before clocks */
 		kgsl_pwrctrl(KGSL_PWRFLAGS_YAMATO_POWER_OFF);
 		kgsl_pwrctrl(KGSL_PWRFLAGS_YAMATO_CLK_OFF);
+		device->hwaccess_blocked = KGSL_TRUE;
 
 		device->flags &= ~KGSL_FLAGS_STARTED;
 	}

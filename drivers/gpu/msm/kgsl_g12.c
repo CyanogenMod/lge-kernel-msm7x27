@@ -404,6 +404,7 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 
 	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_CLK_OFF);
 	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_POWER_OFF);
+	device->hwaccess_blocked = KGSL_TRUE;
 
 	device->flags &= ~KGSL_FLAGS_STARTED;
 	return 0;
