@@ -159,8 +159,8 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	lcdc_underflow_clr = mfd->panel_info.lcdc.underflow_clr;
 	lcdc_hsync_skew = mfd->panel_info.lcdc.hsync_skew;
 
-	lcdc_width = mfd->panel_info.xres;
-	lcdc_height = mfd->panel_info.yres;
+	lcdc_width = var->xres;
+	lcdc_height = var->yres;
 	lcdc_bpp = mfd->panel_info.bpp;
 
 	hsync_period =
