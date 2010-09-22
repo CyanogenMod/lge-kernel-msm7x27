@@ -929,11 +929,16 @@ static int msm_qsd_spi_dma_config(void)
 }
 
 static struct msm_gpio qsd_spi_gpio_config_data[] = {
-	{ GPIO_CFG(17, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_clk" },
-	{ GPIO_CFG(18, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_mosi" },
-	{ GPIO_CFG(19, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_miso" },
-	{ GPIO_CFG(20, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "spi_cs0" },
-	{ GPIO_CFG(21, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_16MA), "spi_pwr" },
+	{ GPIO_CFG(17, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL,
+		       GPIO_CFG_2MA), "spi_clk" },
+	{ GPIO_CFG(18, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL,
+			GPIO_CFG_2MA), "spi_mosi" },
+	{ GPIO_CFG(19, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL,
+			GPIO_CFG_2MA), "spi_miso" },
+	{ GPIO_CFG(20, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL,
+			GPIO_CFG_2MA), "spi_cs0" },
+	{ GPIO_CFG(21, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+			GPIO_CFG_16MA), "spi_pwr" },
 };
 
 static int msm_qsd_spi_gpio_config(void)
@@ -2135,7 +2140,7 @@ static int __init qsd8x50_cfg_smsc911x(void)
 	gpio_direction_input(irq_gpio);
 
 	rc = gpio_tlmm_config(GPIO_CFG(enet_clk_en_gpio, 0, GPIO_CFG_OUTPUT,
-					GPIO_CFG_PULL_UP, GPIO_CFG_16MA),
+					GPIO_CFG_NO_PULL, GPIO_CFG_16MA),
 					GPIO_CFG_ENABLE);
 	if (rc) {
 		printk(KERN_ERR
