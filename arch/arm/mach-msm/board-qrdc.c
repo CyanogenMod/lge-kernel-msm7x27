@@ -43,6 +43,7 @@
 #include <linux/spi/spi.h>
 #include <linux/input/tdisc_shinetsu.h>
 #include <linux/input/cy8c_ts.h>
+#include <linux/input/qci_kbd.h>
 
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -2187,10 +2188,18 @@ static struct i2c_board_info pm8901_boardinfo[] __initdata = {
 
 #endif /* CONFIG_PMIC8901 */
 
+static struct qci_kbd_platform_data qci_i2ckbd_pdata = {
+#ifdef CONFIG_KEYBOARD_QCIKBD_REPEAT
+	.repeat = true,
+#endif
+       .standard_scancodes = true,
+};
+
 static struct i2c_board_info msm_i2c_gsbi3_qci_input_info[] = {
 	{
 		I2C_BOARD_INFO("qci-i2ckbd", 0x18),
 		.irq = 58,
+		.platform_data = &qci_i2ckbd_pdata,
 	},
 	{
 		I2C_BOARD_INFO("qci-i2cpad", 0x19),
