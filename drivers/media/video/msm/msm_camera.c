@@ -305,14 +305,14 @@ static uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,
 	regptr = reg;
 	mutex_lock(&hlist_mut);
 	hlist_for_each_entry_safe(region, node, n, ptype, list) {
-		printk(KERN_ERR "Mio: info.type=%d, pmem_type = %d,"
+		CDBG("%s:info.type=%d, pmem_type = %d,"
 						"info.active = %d\n",
-		region->info.type, pmem_type, region->info.active);
+		__func__, region->info.type, pmem_type, region->info.active);
 
 		if (region->info.type == pmem_type && region->info.active) {
-			printk(KERN_ERR "info.type=%d, pmem_type = %d,"
+			CDBG("%s:info.type=%d, pmem_type = %d,"
 							"info.active = %d,\n",
-				region->info.type, pmem_type,
+				__func__, region->info.type, pmem_type,
 				region->info.active);
 			*regptr = *region;
 			region->info.type = MSM_PMEM_VIDEO;
