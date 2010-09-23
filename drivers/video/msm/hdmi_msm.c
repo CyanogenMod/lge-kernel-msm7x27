@@ -272,8 +272,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			if (!external_common_state->
 					disp_mode_list.num_of_elements)
 				hdmi_msm_read_edid();
-			if (hdmi_msm_state->panel_power_on)
-				hdmi_msm_turn_on();
+			hdmi_msm_turn_on();
 		} else if (hdmi_msm_state->panel_power_on)
 			hdmi_msm_audio_off();
 	} else {
@@ -286,8 +285,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_ONLINE);
 
-			if (hdmi_msm_state->panel_power_on)
-				hdmi_msm_turn_on();
+			hdmi_msm_turn_on();
 		} else {
 			if (hdmi_msm_state->panel_power_on)
 				hdmi_msm_audio_off();
@@ -2362,15 +2360,18 @@ static void hdmi_msm_avi_info_frame(void)
 
 static void hdmi_msm_turn_on(void)
 {
+	hdmi_msm_set_mode(FALSE);
+	hdmi_msm_init_phy(external_common_state->video_resolution);
+	/* HDMI_USEC_REFTIMER[0x0208] */
+	HDMI_OUTP(0x0208, 0x0001001B);
+
 	hdmi_msm_video_setup(external_common_state->video_resolution);
 	hdmi_msm_audio_setup();
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	hdmi_msm_avi_info_frame();
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
-	/* Turn on HDMI Engine */
-	if (!hdmi_msm_is_power_on())
-		hdmi_msm_set_mode(TRUE);
+	hdmi_msm_set_mode(TRUE);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	hdmi_msm_hdcp_enable();
