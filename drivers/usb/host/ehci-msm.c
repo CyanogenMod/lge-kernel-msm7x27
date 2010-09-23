@@ -275,9 +275,12 @@ static irqreturn_t ehci_msm_irq(struct usb_hcd *hcd)
 	struct msmusb_hcd *mhcd = hcd_to_mhcd(hcd);
 	struct msm_otg *otg = container_of(mhcd->xceiv, struct msm_otg, otg);
 
-	/* OTG scheduled a work to get PHY out of LPM, WAIT till then */
-	if (unlikely(atomic_read(&otg->in_lpm)))
-		return IRQ_HANDLED;
+	/*
+	 * OTG scheduled a work to get Integrated PHY out of LPM,
+	 * WAIT till then */
+	if (PHY_TYPE(mhcd->pdata->phy_info) == USB_PHY_INTEGRATED)
+		if (atomic_read(&otg->in_lpm))
+			return IRQ_HANDLED;
 
 	return ehci_irq(hcd);
 }
