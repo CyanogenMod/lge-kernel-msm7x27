@@ -39,6 +39,7 @@
 #include <linux/workqueue.h>
 #include <linux/byteorder/generic.h>
 #include <linux/bitops.h>
+#include <linux/pm_runtime.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -1780,6 +1781,12 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 		retval = -ENOMEM;
 	}
 
+	/* Enable runtime PM ops, start in ACTIVE mode */
+	error = pm_runtime_set_active(&client->dev);
+	if (error < 0)
+		dev_dbg(&client->dev, "unable to set runtime pm state\n");
+	pm_runtime_enable(&client->dev);
+
 	if (!(retval < CY_OK)) {
 		/* register driver_data */
 		ts->client = client;
@@ -1926,6 +1933,9 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 	int err;
 
 	cyttsp_alert("Unregister\n");
+
+	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_disable(&client->dev);
 
 	/* clientdata registered on probe */
 	ts = i2c_get_clientdata(client);
