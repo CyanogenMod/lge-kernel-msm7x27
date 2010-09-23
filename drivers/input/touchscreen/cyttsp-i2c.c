@@ -66,6 +66,7 @@ struct cyttsp {
 	u16 prv_mt_tch[CY_NUM_MT_TCH_ID];
 	u16 prv_mt_pos[CY_NUM_TRK_ID][2];
 	atomic_t irq_enabled;
+	char cyttsp_fw_ver[10];
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -186,6 +187,15 @@ static ssize_t cyttsp_irq_enable(struct device *dev,
 }
 
 static DEVICE_ATTR(irq_enable, 0777, cyttsp_irq_status, cyttsp_irq_enable);
+
+static ssize_t cyttsp_fw_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cyttsp *ts = dev_get_drvdata(dev);
+	return sprintf(buf, "%s\n", ts->cyttsp_fw_ver);
+}
+
+static DEVICE_ATTR(cyttsp_fw_ver, 0777, cyttsp_fw_show, NULL);
 
 /* The cyttsp_xy_worker function reads the XY coordinates and sends them to
  * the input layer.  It is scheduled from the interrupt (or timer).
@@ -1749,9 +1759,20 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		goto error_free_irq;
 	}
 
+	retval = device_create_file(&client->dev, &dev_attr_cyttsp_fw_ver);
+	if (retval) {
+		cyttsp_alert("sysfs entry for firmware version failed\n");
+		goto error_rm_dev_file_irq_en;
+	}
+
+	sprintf(ts->cyttsp_fw_ver, "%d.%d", g_bl_data.ttspver_hi,
+						g_bl_data.ttspver_lo);
+
 	cyttsp_info("%s: Successful registration\n", CY_I2C_NAME);
 	goto success;
 
+error_rm_dev_file_irq_en:
+	device_remove_file(&client->dev, &dev_attr_irq_enable);
 error_free_irq:
 	cyttsp_alert("Error: Failed to register IRQ handler\n");
 	free_irq(client->irq, ts);
@@ -1940,6 +1961,7 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 	/* clientdata registered on probe */
 	ts = i2c_get_clientdata(client);
 	device_remove_file(&ts->client->dev, &dev_attr_irq_enable);
+	device_remove_file(&client->dev, &dev_attr_cyttsp_fw_ver);
 
 	/* Start cleaning up by removing any delayed work and the timer */
 	if (cancel_delayed_work((struct delayed_work *)&ts->work) < CY_OK)
