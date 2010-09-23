@@ -26,6 +26,7 @@
 #include <linux/delay.h>
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
+#include <mach/msm_xo.h>
 
 #include "clock-local.h"
 #include "clock-8x60.h"
@@ -1499,15 +1500,18 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 };
 
 #ifndef _MXO_PLAN
+static struct msm_xo_voter *xo_pxo;
 /*
  * SoC-specific functions required by clock-local driver
  */
 
-/* Enable/disable for XO sources. */
+/* Enable/disable for voteable XOs. */
 static int xo_enable(unsigned src, unsigned enable)
 {
-	/* TODO */
-	return 0;
+	if (!xo_pxo)
+		return -ENODEV;
+
+	return msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_ON);
 }
 
 /* Enable/disable for hardware-voteable PLLs. */
@@ -1596,7 +1600,7 @@ static int pll4_enable(unsigned src, unsigned enable)
 #define CLK_SRC(_src, _func, _par) \
 	[(_src)] = { .enable_func = (_func), .par = (_par), }
 struct clk_source soc_clk_sources[NUM_SRC] = {
-	CLK_SRC(CXO,   xo_enable, SRC_NONE),
+	CLK_SRC(CXO,   NULL, SRC_NONE),
 	CLK_SRC(MXO,   NULL, SRC_NONE),
 	CLK_SRC(PXO,   xo_enable, SRC_NONE),
 	CLK_SRC(PLL_0, voteable_pll_enable, PXO),
@@ -1906,9 +1910,14 @@ void __init msm_clk_soc_init(void)
 
 	/* Select correct frequency table for hardware XO configuration. */
 	use_pxo = pxo_is_27mhz();
-	if (use_pxo)
+	if (use_pxo) {
 		soc_clk_local_tbl = soc_clk_local_tbl_pxo;
-	else {
+		xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8x60");
+		if (IS_ERR(xo_pxo)) {
+			pr_err("%s: msm_xo_get(PXO) failed.\n", __func__);
+			BUG();
+		}
+	} else {
 		soc_clk_local_tbl = soc_clk_local_tbl_mxo;
 		soc_clk_sources[PXO].enable_func = NULL;
 	}
