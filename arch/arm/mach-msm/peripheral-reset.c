@@ -25,6 +25,7 @@
 #include <mach/msm_iomap.h>
 
 #include "peripheral-reset.h"
+#include "clock-8x60.h"
 
 #define MSM_MMS_REGS_BASE		0x10200000
 #define MSM_LPASS_QDSP6SS_BASE		0x28800000
@@ -238,6 +239,10 @@ static int reset_q6(void)
 	/* Wait for VDD to settle */
 	usleep_range(1000, 2000);
 
+	ret = local_src_enable(PLL_4);
+	if (ret)
+		goto err;
+
 	/* Put Q6 into reset */
 	reg = readl(LCC_Q6_FUNC);
 	reg |= Q6SS_SS_ARES | Q6SS_ISDB_ARES | Q6SS_ETM_ARES | STOP_CORE |
@@ -274,6 +279,10 @@ static int reset_q6(void)
 	writel(reg, LCC_Q6_FUNC);
 
 	return 0;
+
+err:
+	regulator_disable(s3);
+	return ret;
 }
 
 static int shutdown_q6(void)
