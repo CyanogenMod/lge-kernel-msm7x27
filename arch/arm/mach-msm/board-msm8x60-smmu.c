@@ -259,7 +259,26 @@ static struct resource msm_smmu_gfx2d0_resources[] = {
 	},
 };
 
-/* TODO GFX2D1 once it gets into irqs-8x60.h */
+static struct resource msm_smmu_gfx2d1_resources[] = {
+	{
+		.start = MSM_SMMU_GFX2D1_PHYS,
+		.end   = MSM_SMMU_GFX2D1_PHYS + MSM_SMMU_GFX2D1_SIZE - 1,
+		.name  = "physbase",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name = "nonsecure_irq",
+		.start = SMMU_GFX2D1_CB_SC_NON_SECURE_IRQ,
+		.end   = SMMU_GFX2D1_CB_SC_NON_SECURE_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "secure_irq",
+		.start = SMMU_GFX2D1_CB_SC_SECURE_IRQ,
+		.end   = SMMU_GFX2D1_CB_SC_SECURE_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+};
 
 static void ctx_release(struct device *dev)
 {
@@ -333,7 +352,13 @@ static struct smmu_device gfx3d_smmu = {
 
 static struct smmu_device gfx2d0_smmu = {
 	.name = "gfx2d0",
-	.clk = "gfx2d_clk",
+	.clk = "gfx2d0_clk",
+	.clk_rate = 27000000
+};
+
+static struct smmu_device gfx2d1_smmu = {
+	.name = "gfx2d1",
+	.clk = "gfx2d1_clk",
 	.clk_rate = 27000000
 };
 
@@ -436,7 +461,6 @@ static struct platform_device msm_device_smmu_vcodec_b = {
 	.resource = msm_smmu_vcodec_b_resources,
 };
 
-
 static struct platform_device msm_device_smmu_gfx3d = {
 	.name = "smmu",
 	.id = 9,
@@ -448,8 +472,6 @@ static struct platform_device msm_device_smmu_gfx3d = {
 	.resource = msm_smmu_gfx3d_resources,
 };
 
-
-
 static struct platform_device msm_device_smmu_gfx2d0 = {
 	.name = "smmu",
 	.id = 10,
@@ -459,6 +481,17 @@ static struct platform_device msm_device_smmu_gfx2d0 = {
 	},
 	.num_resources = ARRAY_SIZE(msm_smmu_gfx2d0_resources),
 	.resource = msm_smmu_gfx2d0_resources,
+};
+
+static struct platform_device msm_device_smmu_gfx2d1 = {
+	.name = "smmu",
+	.id = 11,
+	.dev = {
+		.release = smmu_release,
+		.parent = &msm_device_all_smmus.dev,
+	},
+	.num_resources = ARRAY_SIZE(msm_smmu_gfx2d1_resources),
+	.resource = msm_smmu_gfx2d1_resources,
 };
 
 
@@ -583,13 +616,25 @@ static struct smmu_ctx gfx3d_smmu_ctx = {
 };
 
 static struct smmu_ctx gfx2d0_pixv1_ctx = {
-	.name = "gfx2d0_pixv1_smmu",
+	.name = "gfx2d0_pixv1",
 	.num = 0,
 	.mids = {0, 3, 4, -1}
 };
 
 static struct smmu_ctx gfx2d0_texv3_ctx = {
-	.name = "gfx2d0_texv3_smmu",
+	.name = "gfx2d0_texv3",
+	.num = 1,
+	.mids = {1, 6, 7, -1}
+};
+
+static struct smmu_ctx gfx2d1_pixv1_ctx = {
+	.name = "gfx2d1_pixv1",
+	.num = 0,
+	.mids = {0, 3, 4, -1}
+};
+
+static struct smmu_ctx gfx2d1_texv3_ctx = {
+	.name = "gfx2d1_texv3",
 	.num = 1,
 	.mids = {1, 6, 7, -1}
 };
@@ -792,6 +837,24 @@ static struct platform_device msm_device_gfx2d0_texv3_ctx = {
 	},
 };
 
+static struct platform_device msm_device_gfx2d1_pixv1_ctx = {
+	.name = "ctx",
+	.id = 22,
+	.dev = {
+		.release = ctx_release,
+		.parent = &msm_device_smmu_gfx2d1.dev,
+	},
+};
+
+static struct platform_device msm_device_gfx2d1_texv3_ctx = {
+	.name = "ctx",
+	.id = 23,
+	.dev = {
+		.release = ctx_release,
+		.parent = &msm_device_smmu_gfx2d1.dev,
+	},
+};
+
 static struct platform_device *smmu_devices[] = {
 	&msm_device_smmu_jpegd,
 	&msm_device_smmu_vpe,
@@ -804,6 +867,7 @@ static struct platform_device *smmu_devices[] = {
 	&msm_device_smmu_vcodec_b,
 	&msm_device_smmu_gfx3d,
 	&msm_device_smmu_gfx2d0,
+	&msm_device_smmu_gfx2d1,
 };
 
 static struct smmu_device *smmu_device_data[] = {
@@ -818,6 +882,7 @@ static struct smmu_device *smmu_device_data[] = {
 	&vcodec_b_smmu,
 	&gfx3d_smmu,
 	&gfx2d0_smmu,
+	&gfx2d1_smmu,
 };
 
 static struct platform_device *smmu_ctxs[] = {
@@ -843,6 +908,8 @@ static struct platform_device *smmu_ctxs[] = {
 	&msm_device_gfx3d_smmu_ctx,
 	&msm_device_gfx2d0_pixv1_ctx,
 	&msm_device_gfx2d0_texv3_ctx,
+	&msm_device_gfx2d1_pixv1_ctx,
+	&msm_device_gfx2d1_texv3_ctx,
 };
 
 static struct smmu_ctx *smmu_ctxs_data[] = {
@@ -868,6 +935,8 @@ static struct smmu_ctx *smmu_ctxs_data[] = {
 	&gfx3d_smmu_ctx,
 	&gfx2d0_pixv1_ctx,
 	&gfx2d0_texv3_ctx,
+	&gfx2d1_pixv1_ctx,
+	&gfx2d1_texv3_ctx,
 };
 
 #define SMI_16M	0
