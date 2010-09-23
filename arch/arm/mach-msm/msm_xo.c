@@ -29,7 +29,7 @@
 static DEFINE_SPINLOCK(msm_xo_lock);
 
 struct msm_xo {
-	unsigned votes[NUM_XO_MODES];
+	unsigned votes[NUM_MSM_XO_MODES];
 	unsigned mode;
 };
 
@@ -39,7 +39,7 @@ struct msm_xo_voter {
 	struct msm_xo *xo;
 };
 
-static struct msm_xo msm_xo_sources[NUM_XO_IDS];
+static struct msm_xo msm_xo_sources[NUM_MSM_XO_IDS];
 
 static int msm_xo_update_vote(struct msm_xo *xo)
 {
@@ -47,12 +47,12 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 	unsigned vote, prev_vote = xo->mode;
 	struct msm_rpm_iv_pair cmd;
 
-	if (xo->votes[XO_MODE_ON])
-		vote = XO_MODE_ON;
-	else if (xo->votes[XO_MODE_PIN_CTRL])
-		vote = XO_MODE_PIN_CTRL;
+	if (xo->votes[MSM_XO_MODE_ON])
+		vote = MSM_XO_MODE_ON;
+	else if (xo->votes[MSM_XO_MODE_PIN_CTRL])
+		vote = MSM_XO_MODE_PIN_CTRL;
 	else
-		vote = XO_MODE_OFF;
+		vote = MSM_XO_MODE_OFF;
 
 	if (vote == prev_vote)
 		return 0;
@@ -63,16 +63,16 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 	 */
 	xo->mode = vote;
 
-	if (xo == &msm_xo_sources[PXO]) {
+	if (xo == &msm_xo_sources[MSM_XO_PXO]) {
 		cmd.id = MSM_RPM_ID_PXO_CLK;
-		cmd.value = msm_xo_sources[PXO].mode ? 1 : 0;
+		cmd.value = msm_xo_sources[MSM_XO_PXO].mode ? 1 : 0;
 		ret = msm_rpmrs_set_noirq(MSM_RPM_CTX_SET_SLEEP, &cmd, 1);
 	} else {
 		cmd.id = MSM_RPM_ID_CXO_BUFFERS;
-		cmd.value = (msm_xo_sources[TCXO_D0].mode << 0) |
-			    (msm_xo_sources[TCXO_D1].mode << 8) |
-			    (msm_xo_sources[TCXO_A0].mode << 16) |
-			    (msm_xo_sources[TCXO_A1].mode << 24);
+		cmd.value = (msm_xo_sources[MSM_XO_TCXO_D0].mode << 0)  |
+			    (msm_xo_sources[MSM_XO_TCXO_D1].mode << 8)  |
+			    (msm_xo_sources[MSM_XO_TCXO_A0].mode << 16) |
+			    (msm_xo_sources[MSM_XO_TCXO_A1].mode << 24);
 		ret = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &cmd, 1);
 	}
 
@@ -119,7 +119,7 @@ int msm_xo_mode_vote(struct msm_xo_voter *xo_voter, enum msm_xo_modes mode)
 	int ret;
 	unsigned long flags;
 
-	if (mode >= NUM_XO_MODES)
+	if (mode >= NUM_MSM_XO_MODES)
 		return -EINVAL;
 
 	spin_lock_irqsave(&msm_xo_lock, flags);
@@ -146,7 +146,7 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 	unsigned long flags;
 	struct msm_xo_voter *xo_voter;
 
-	if (xo_id >= NUM_XO_IDS) {
+	if (xo_id >= NUM_MSM_XO_IDS) {
 		ret = -EINVAL;
 		goto err;
 	}
@@ -167,7 +167,7 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter)
 
 	/* Voters vote for OFF by default */
 	spin_lock_irqsave(&msm_xo_lock, flags);
-	xo_voter->xo->votes[XO_MODE_OFF]++;
+	xo_voter->xo->votes[MSM_XO_MODE_OFF]++;
 	spin_unlock_irqrestore(&msm_xo_lock, flags);
 
 	return xo_voter;
@@ -184,16 +184,16 @@ EXPORT_SYMBOL(msm_xo_get);
  * @xo_voter - Valid handle returned from msm_xo_get()
  *
  * Release a reference to an XO voting handle. This also removes the voter's
- * vote, therefore calling msm_xo_mode_vote(xo_voter, XO_MODE_OFF) beforehand
- * is unnecessary.
+ * vote, therefore calling msm_xo_mode_vote(xo_voter, MSM_XO_MODE_OFF)
+ * beforehand is unnecessary.
  */
 void msm_xo_put(struct msm_xo_voter *xo_voter)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&msm_xo_lock, flags);
-	__msm_xo_mode_vote(xo_voter, XO_MODE_OFF);
-	xo_voter->xo->votes[XO_MODE_OFF]--;
+	__msm_xo_mode_vote(xo_voter, MSM_XO_MODE_OFF);
+	xo_voter->xo->votes[MSM_XO_MODE_OFF]--;
 	spin_unlock_irqrestore(&msm_xo_lock, flags);
 
 	kfree(xo_voter->name);

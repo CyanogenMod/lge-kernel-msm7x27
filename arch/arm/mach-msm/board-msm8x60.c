@@ -4682,14 +4682,14 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			goto fail_put;
 
-		bt_clock = msm_xo_get(TCXO_D0, "bt_power");
+		bt_clock = msm_xo_get(MSM_XO_TCXO_D0, "bt_power");
 
 		if (IS_ERR(bt_clock)) {
 			pr_err("Couldn't get TCXO_D0 voter\n");
 			goto fail_switch;
 		}
 
-		rc = msm_xo_mode_vote(bt_clock, XO_MODE_ON);
+		rc = msm_xo_mode_vote(bt_clock, MSM_XO_MODE_ON);
 
 		if (rc < 0) {
 			pr_err("Failed to vote for TCXO_DO ON\n");
@@ -4701,7 +4701,7 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			goto fail_clock;
 
-		rc = msm_xo_mode_vote(bt_clock, XO_MODE_PIN_CTRL);
+		rc = msm_xo_mode_vote(bt_clock, MSM_XO_MODE_PIN_CTRL);
 
 		if (rc < 0) {
 			pr_err("Failed to vote for TCXO_DO pin control\n");
@@ -4721,7 +4721,7 @@ static int bluetooth_power(int on)
 		bahama_bt(0);
 
 fail_clock:
-		msm_xo_mode_vote(bt_clock, XO_MODE_OFF);
+		msm_xo_mode_vote(bt_clock, MSM_XO_MODE_OFF);
 fail_vote:
 		msm_xo_put(bt_clock);
 fail_switch:

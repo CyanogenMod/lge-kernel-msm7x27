@@ -29,19 +29,19 @@
 #define __MACH_MSM_XO_H
 
 enum msm_xo_ids {
-	TCXO_D0,
-	TCXO_D1,
-	TCXO_A0,
-	TCXO_A1,
-	PXO,
-	NUM_XO_IDS
+	MSM_XO_TCXO_D0,
+	MSM_XO_TCXO_D1,
+	MSM_XO_TCXO_A0,
+	MSM_XO_TCXO_A1,
+	MSM_XO_PXO,
+	NUM_MSM_XO_IDS
 };
 
 enum msm_xo_modes {
-	XO_MODE_OFF,
-	XO_MODE_PIN_CTRL,
-	XO_MODE_ON,
-	NUM_XO_MODES
+	MSM_XO_MODE_OFF,
+	MSM_XO_MODE_PIN_CTRL,
+	MSM_XO_MODE_ON,
+	NUM_MSM_XO_MODES
 };
 
 struct msm_xo_voter;
