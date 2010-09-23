@@ -315,7 +315,7 @@ static enum hsed_controller idual_mic_endfire_pmctl_id[] = {
 
 static struct snddev_icodec_data snddev_idual_mic_endfire_data = {
 	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
-	.name = "handset_dual_mic_device",
+	.name = "handset_dual_mic_endfire_tx",
 	.copp_id = PRIMARY_I2S_TX,
 	.acdb_id = 6,
 	.profile = &idual_mic_endfire_profile,
