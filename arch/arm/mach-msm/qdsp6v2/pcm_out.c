@@ -44,6 +44,7 @@ struct pcm {
 	uint32_t rec_mode;
 	atomic_t out_count;
 	atomic_t out_enabled;
+	atomic_t out_opened;
 	atomic_t out_stopped;
 	atomic_t out_prefill;
 };
@@ -77,8 +78,9 @@ static int pcm_out_disable(struct pcm *pcm)
 {
 	int rc = 0;
 
-	if (atomic_read(&pcm->out_enabled)) {
+	if (atomic_read(&pcm->out_opened)) {
 		atomic_set(&pcm->out_enabled, 0);
+		atomic_set(&pcm->out_opened, 0);
 		rc = q6asm_cmd(pcm->ac, CMD_CLOSE);
 
 		atomic_set(&pcm->out_stopped, 1);
@@ -257,6 +259,7 @@ static int pcm_out_open(struct inode *inode, struct file *file)
 	atomic_set(&pcm->out_stopped, 0);
 	atomic_set(&pcm->out_count, pcm->buffer_count);
 	atomic_set(&pcm->out_prefill, 0);
+	atomic_set(&pcm->out_opened, 1);
 	file->private_data = pcm;
 	return 0;
 fail:

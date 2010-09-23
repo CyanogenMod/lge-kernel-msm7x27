@@ -46,6 +46,7 @@ struct pcm {
 	uint32_t in_frame_info[MAX_BUF][2];
 	atomic_t in_count;
 	atomic_t in_enabled;
+	atomic_t in_opened;
 	atomic_t in_stopped;
 };
 
@@ -90,8 +91,9 @@ static int pcm_in_disable(struct pcm *pcm)
 {
 	int rc = 0;
 
-	if (atomic_read(&pcm->in_enabled)) {
+	if (atomic_read(&pcm->in_opened)) {
 		atomic_set(&pcm->in_enabled, 0);
+		atomic_set(&pcm->in_opened, 0);
 		rc = q6asm_cmd(pcm->ac, CMD_CLOSE);
 
 		atomic_set(&pcm->in_stopped, 1);
@@ -261,7 +263,9 @@ static int pcm_in_open(struct inode *inode, struct file *file)
 	atomic_set(&pcm->in_stopped, 0);
 	atomic_set(&pcm->in_enabled, 0);
 	atomic_set(&pcm->in_count, 0);
+	atomic_set(&pcm->in_opened, 1);
 	file->private_data = pcm;
+	pr_info("pcm in open\n");
 	return 0;
 fail:
 	if (pcm->ac)
@@ -336,8 +340,7 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct pcm *pcm = file->private_data;
 
-	if (atomic_read(&pcm->in_enabled))
-		rc = pcm_in_disable(pcm);
+	rc = pcm_in_disable(pcm);
 
 	q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
