@@ -447,11 +447,8 @@ int msm_camio_vpe_clk_enable(void)
 int msm_camio_enable(struct platform_device *pdev)
 {
 	int rc = 0;
-	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint32_t val;
-	camio_clk = camdev->ioclk;
-
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	msm_camio_clk_enable(CAMIO_VFE_PBDG_CLK);
 	if (!sinfo->csi_if)
 		msm_camio_clk_enable(CAMIO_VFE_CAMIF_CLK);
@@ -630,6 +627,7 @@ int msm_camio_sensor_clk_on(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	camio_clk = camdev->ioclk;
 	camio_ext = camdev->ioext;
 	camdev->camera_gpio_on();
 	msm_camera_vreg_enable();
