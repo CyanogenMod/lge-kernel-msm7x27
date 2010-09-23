@@ -110,9 +110,7 @@ struct diag_context {
 	struct diag_operations *operations;
 	struct work_struct diag_work;
 	unsigned diag_configured;
-	unsigned char i_serial_number;
-	char *serial_number;
-	unsigned short  product_id;
+	struct usb_composite_dev *cdev;
 };
 
 static void usb_config_work_func(struct work_struct *);
@@ -143,20 +141,34 @@ static void diag_function_unbind(struct usb_configuration *c,
 static void usb_config_work_func(struct work_struct *work)
 {
 	struct diag_context *ctxt = &_context;
+	struct usb_composite_dev *cdev = ctxt->cdev;
+	struct usb_gadget_strings *table;
+	struct usb_string *s;
+
 	if ((ctxt->operations) &&
 		(ctxt->operations->diag_connect))
 			ctxt->operations->diag_connect();
 	/*send serial number to A9 sw download, only if serial_number
 	* is not null and i_serial_number is non-zero
 	*/
-	if (ctxt->serial_number && ctxt->i_serial_number) {
+	if (cdev->desc.iSerialNumber) {
 		msm_hsusb_is_serial_num_null(FALSE);
-		msm_hsusb_send_serial_number(ctxt->serial_number);
-	} else
+		/*
+		 * Serial number is filled by the composite driver. So
+		 * it is fair enough to assume that it will always be
+		 * found at first table of strings.
+		 */
+		table = *(cdev->driver->strings);
+		for (s = table->strings; s && s->s; s++)
+			if (s->id == cdev->desc.iSerialNumber)
+				break;
+		msm_hsusb_send_serial_number(s->s);
+	} else {
 		msm_hsusb_is_serial_num_null(TRUE);
+	}
 	/* Send product ID to A9 for software download*/
-	if (ctxt->product_id)
-		msm_hsusb_send_productID(ctxt->product_id);
+	if (cdev->desc.idProduct)
+		msm_hsusb_send_productID(cdev->desc.idProduct);
 }
 static int diag_function_bind(struct usb_configuration *c,
 		struct usb_function *f)
@@ -219,8 +231,6 @@ static int diag_function_set_alt(struct usb_function *f,
 			&hs_bulk_out_desc, &fs_bulk_in_desc);
 	usb_ep_enable(dev->in, dev->in_desc);
 	usb_ep_enable(dev->out, dev->out_desc);
-	dev->i_serial_number = cdev->desc.iSerialNumber;
-	dev->product_id   = cdev->desc.idProduct;
 	schedule_work(&dev->diag_work);
 
 	spin_lock_irqsave(&dev_lock , flags);
@@ -549,6 +559,7 @@ int diag_function_add(struct usb_configuration *c)
 	INIT_LIST_HEAD(&dev->dev_read_req_list);
 	INIT_LIST_HEAD(&dev->dev_write_req_list);
 	INIT_WORK(&dev->diag_work, usb_config_work_func);
+	dev->cdev = c->cdev;
 	ret = usb_add_function(c, &dev->function);
 	if (ret)
 		goto err1;
@@ -566,11 +577,7 @@ static struct android_usb_function diag_function = {
 
 static int __init init(void)
 {
-	struct diag_context *dev = &_context;
-
 	printk(KERN_INFO "f_diag init\n");
-	/* TBD: serial number should come from platform data */
-	dev->serial_number    = "1234567890ABCDEF";
 	android_register_function(&diag_function);
 	return 0;
 }

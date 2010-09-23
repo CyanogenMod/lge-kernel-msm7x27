@@ -295,7 +295,7 @@ int msm_hsusb_send_productID(uint32_t product_id)
 }
 EXPORT_SYMBOL(msm_hsusb_send_productID);
 
-int msm_hsusb_send_serial_number(char *serial_number)
+int msm_hsusb_send_serial_number(const char *serial_number)
 {
 	int rc = 0, serial_len;
 	struct hsusb_phy_start_req {
