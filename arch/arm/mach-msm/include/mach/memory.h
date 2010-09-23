@@ -53,7 +53,7 @@ extern void l2x0_cache_sync(void);
 
 #endif
 
-#ifdef CONFIG_ARCH_MSM_SCORPION
+#if defined CONFIG_ARCH_MSM_SCORPION || defined CONFIG_ARCH_MSM_SCORPIONMP
 #define arch_has_speculative_dfetch()	1
 #endif
 
