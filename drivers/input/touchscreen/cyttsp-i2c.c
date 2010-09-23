@@ -40,6 +40,7 @@
 #include <linux/byteorder/generic.h>
 #include <linux/bitops.h>
 #include <linux/pm_runtime.h>
+#include <linux/firmware.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -67,6 +68,7 @@ struct cyttsp {
 	u16 prv_mt_pos[CY_NUM_TRK_ID][2];
 	atomic_t irq_enabled;
 	char cyttsp_fw_ver[10];
+	bool cyttsp_update_fw;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -196,6 +198,50 @@ static ssize_t cyttsp_fw_show(struct device *dev,
 }
 
 static DEVICE_ATTR(cyttsp_fw_ver, 0777, cyttsp_fw_show, NULL);
+
+static ssize_t cyttsp_update_fw_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cyttsp *ts = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n", ts->cyttsp_update_fw);
+}
+
+static ssize_t cyttsp_update_fw_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct cyttsp *ts = dev_get_drvdata(dev);
+	const struct firmware *cyttsp_fw = NULL;
+	unsigned long val;
+	int i, data_len, rc;
+	const u8 *data = NULL;
+
+	if (size > 2)
+		return -EINVAL;
+
+	rc = strict_strtoul(buf, 10, &val);
+	if (rc != 0)
+		return rc;
+
+	if ((ts->cyttsp_update_fw ^ val) && val) {
+		ts->cyttsp_update_fw = 1;
+		/* read fw file */
+		if (request_firmware(&cyttsp_fw, "ttsp.fw", dev))
+			pr_err("%s: ttsp.fw request failed\n", __func__);
+		else {
+			data = cyttsp_fw->data;
+			data_len = cyttsp_fw->size;
+
+			for (i = 0; i < data_len; i++)
+				pr_debug("%x ", data[i]);
+		}
+		ts->cyttsp_update_fw = 0;
+	}
+	return size;
+}
+
+static DEVICE_ATTR(cyttsp_update_fw, 0777, cyttsp_update_fw_show,
+					cyttsp_update_fw_store);
 
 /* The cyttsp_xy_worker function reads the XY coordinates and sends them to
  * the input layer.  It is scheduled from the interrupt (or timer).
@@ -1759,6 +1805,7 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		goto error_free_irq;
 	}
 
+	pr_err("%s: add sysfs entires\n", __func__);
 	retval = device_create_file(&client->dev, &dev_attr_cyttsp_fw_ver);
 	if (retval) {
 		cyttsp_alert("sysfs entry for firmware version failed\n");
@@ -1768,9 +1815,17 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 	sprintf(ts->cyttsp_fw_ver, "%d.%d", g_bl_data.ttspver_hi,
 						g_bl_data.ttspver_lo);
 
+	retval = device_create_file(&client->dev, &dev_attr_cyttsp_update_fw);
+	if (retval) {
+		cyttsp_alert("sysfs entry for firmware update failed\n");
+		goto error_rm_dev_file_fw_ver;
+	}
+
 	cyttsp_info("%s: Successful registration\n", CY_I2C_NAME);
 	goto success;
 
+error_rm_dev_file_fw_ver:
+	device_remove_file(&client->dev, &dev_attr_cyttsp_fw_ver);
 error_rm_dev_file_irq_en:
 	device_remove_file(&client->dev, &dev_attr_irq_enable);
 error_free_irq:
@@ -1962,6 +2017,7 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 	ts = i2c_get_clientdata(client);
 	device_remove_file(&ts->client->dev, &dev_attr_irq_enable);
 	device_remove_file(&client->dev, &dev_attr_cyttsp_fw_ver);
+	device_remove_file(&client->dev, &dev_attr_cyttsp_update_fw);
 
 	/* Start cleaning up by removing any delayed work and the timer */
 	if (cancel_delayed_work((struct delayed_work *)&ts->work) < CY_OK)
@@ -2034,4 +2090,5 @@ static void cyttsp_exit(void)
 
 module_init(cyttsp_init);
 module_exit(cyttsp_exit);
+MODULE_FIRMWARE("ttsp.fw");
 
