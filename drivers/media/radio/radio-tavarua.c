@@ -1513,7 +1513,10 @@ static int tavarua_fops_open(struct file *file)
 						__func__);
 		goto open_err_all;
 	}
-  /* Wait for interrupt i.e. complete(&radio->sync_req_done); call */
+	/* Wait for interrupt i.e. complete(&radio->sync_req_done); call */
+	/*Initialize the completion variable for
+	for the proper behavior*/
+	init_completion(&radio->sync_req_done);
 	if (!wait_for_completion_timeout(&radio->sync_req_done,
 		msecs_to_jiffies(WAIT_TIMEOUT))) {
 		retval = -1;
