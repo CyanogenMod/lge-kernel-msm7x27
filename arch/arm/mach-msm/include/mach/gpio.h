@@ -169,4 +169,51 @@ enum {
 
 int gpio_tlmm_config(unsigned config, unsigned disable);
 
+enum msm_tlmm_hdrive_tgt {
+	TLMM_HDRV_SDC4_CLK = 0,
+	TLMM_HDRV_SDC4_CMD,
+	TLMM_HDRV_SDC4_DATA,
+	TLMM_HDRV_SDC3_CLK,
+	TLMM_HDRV_SDC3_CMD,
+	TLMM_HDRV_SDC3_DATA,
+};
+
+enum msm_tlmm_pull_tgt {
+	TLMM_PULL_SDC4_CMD = 0,
+	TLMM_PULL_SDC4_DATA,
+	TLMM_PULL_SDC3_CMD,
+	TLMM_PULL_SDC3_DATA,
+};
+
+#ifdef CONFIG_MSM_V2_TLMM
+void msm_tlmm_set_hdrive(enum msm_tlmm_hdrive_tgt tgt, int drv_str);
+void msm_tlmm_set_pull(enum msm_tlmm_pull_tgt tgt, int pull);
+
+/*
+ * A GPIO can be set as a direct-connect IRQ.  This can be used to bypass
+ * the normal summary-interrupt mechanism for those GPIO lines deemed to be
+ * higher priority or otherwise worthy of special treatment, but resources
+ * are limited: only a few DC interrupt lines are available.
+ * Care must be taken when usurping a GPIO in this manner, as the summary
+ * interrupt controller has no idea that the GPIO has been taken away from it.
+ * Clients can still register to receive the summary interrupt assigned
+ * to that GPIO, which will uninstall it as a direct connect IRQ with
+ * no warning.
+ *
+ * The irq passed to this function is the DC IRQ number, not the
+ * irq number seen by the scorpion when the interrupt triggers.  For example,
+ * if 0 is specified, then when DC IRQ 0 triggers, the scorpion will see
+ * interrupt TLMM_SCSS_DIR_CONN_IRQ_0.
+ */
+int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq);
+#else
+static inline void msm_tlmm_set_hdrive(enum msm_tlmm_hdrive_tgt tgt,
+				       int drv_str) {}
+static inline void msm_tlmm_set_pull(enum msm_tlmm_pull_tgt tgt, int pull) {}
+static inline int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq)
+{
+	return -ENOSYS;
+}
+#endif
+
 #endif /* __ASM_ARCH_MSM_GPIO_H */
