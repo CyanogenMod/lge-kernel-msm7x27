@@ -275,7 +275,7 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 {
 	struct apr_hdr cvs_cal_cmd_hdr;
 	uint32_t *cmd_buf;
-	struct acdb_cal_table cal_tbl;
+	struct acdb_cal_data cal_data;
 	struct acdb_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
@@ -295,8 +295,8 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 
 	pr_debug("voice_send_cvs_cal_to_modem\n");
 	/* get the cvs cal data */
-	get_vocproc_stream_cal(&cal_tbl);
-	if (cal_tbl.idx_table_size == 0) {
+	get_vocstrm_cal(&cal_data);
+	if (cal_data.num_cal_blocks == 0) {
 		pr_err("%s: No calibration data to send!\n", __func__);
 		goto done;
 	}
@@ -308,11 +308,11 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 		pr_err("No memory is allocated.\n");
 		return -ENOMEM;
 	}
-	pr_debug("----- idx_table_size=%d\n", (s32)cal_tbl.idx_table_size);
-	cal_blk = cal_tbl.idx_table;
-	pr_debug("cal_blk =%x\n", (uint32_t)cal_tbl.idx_table);
+	pr_debug("----- num_cal_blocks=%d\n", (s32)cal_data.num_cal_blocks);
+	cal_blk = cal_data.cal_blocks;
+	pr_debug("cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
-	for (; index < cal_tbl.idx_table_size; index++) {
+	for (; index < cal_data.num_cal_blocks; index++) {
 		cal_size_per_network = cal_blk[index].cal_size;
 		pr_debug(" cal size =%d\n", cal_size_per_network);
 		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
@@ -349,7 +349,7 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 {
 	struct apr_hdr cvp_cal_cmd_hdr;
 	uint32_t *cmd_buf;
-	struct acdb_cal_table cal_tbl;
+	struct acdb_cal_data cal_data;
 	struct acdb_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
@@ -366,11 +366,11 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 	cvp_cal_cmd_hdr.dest_port = v->cvp_handle;
 	cvp_cal_cmd_hdr.token = 0;
 	cvp_cal_cmd_hdr.opcode =
-	VSS_IVOCPROC_CMD_CACHE_CALIBRATION_DATA;
+		VSS_IVOCPROC_CMD_CACHE_CALIBRATION_DATA;
 
 	/* get cal data */
-	get_vocproc_cal(&cal_tbl);
-	if (cal_tbl.idx_table_size == 0) {
+	get_vocproc_cal(&cal_data);
+	if (cal_data.num_cal_blocks == 0) {
 		pr_err("%s: No calibration data to send!\n", __func__);
 		goto done;
 	}
@@ -382,11 +382,11 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 		pr_err("No memory is allocated.\n");
 		return -ENOMEM;
 	}
-	pr_debug("----- idx_table_size=%d\n", (s32)cal_tbl.idx_table_size);
-	cal_blk = cal_tbl.idx_table;
-	pr_debug(" cal_blk =%x\n", (uint32_t)cal_tbl.idx_table);
+	pr_debug("----- num_cal_blocks=%d\n", (s32)cal_data.num_cal_blocks);
+	cal_blk = cal_data.cal_blocks;
+	pr_debug(" cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
-	for (; index < cal_tbl.idx_table_size; index++) {
+	for (; index < cal_data.num_cal_blocks; index++) {
 		cal_size_per_network = cal_blk[index].cal_size;
 		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
 			pr_err("Cal size is too big\n");
@@ -422,7 +422,7 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 {
 	struct apr_hdr cvp_vol_cal_cmd_hdr;
 	uint32_t *cmd_buf;
-	struct acdb_cal_table cal_tbl;
+	struct acdb_cal_data cal_data;
 	struct acdb_cal_block *cal_blk;
 	int32_t cal_size_per_network;
 	uint32_t *cal_data_per_network;
@@ -439,11 +439,11 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 	cvp_vol_cal_cmd_hdr.dest_port = v->cvp_handle;
 	cvp_vol_cal_cmd_hdr.token = 0;
 	cvp_vol_cal_cmd_hdr.opcode =
-			VSS_IVOCPROC_CMD_CACHE_VOLUME_CALIBRATION_TABLE;
+		VSS_IVOCPROC_CMD_CACHE_VOLUME_CALIBRATION_TABLE;
 
 	/* get cal data */
-	get_vocproc_vol_cal(&cal_tbl);
-	if (cal_tbl.idx_table_size == 0) {
+	get_vocvol_cal(&cal_data);
+	if (cal_data.num_cal_blocks == 0) {
 		pr_err("%s: No calibration data to send!\n", __func__);
 		goto done;
 	}
@@ -455,11 +455,11 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 		pr_err("No memory is allocated.\n");
 		return -ENOMEM;
 	}
-	pr_debug("----- idx_table_size=%d\n", (s32)cal_tbl.idx_table_size);
-	cal_blk = cal_tbl.idx_table;
-	pr_debug("Cal_blk =%x\n", (uint32_t)cal_tbl.idx_table);
+	pr_debug("----- num_cal_blocks=%d\n", (s32)cal_data.num_cal_blocks);
+	cal_blk = cal_data.cal_blocks;
+	pr_debug("Cal_blk =%x\n", (uint32_t)cal_data.cal_blocks);
 
-	for (; index < cal_tbl.idx_table_size; index++) {
+	for (; index < cal_data.num_cal_blocks; index++) {
 		cal_size_per_network = cal_blk[index].cal_size;
 		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
 		pr_debug("Cal size =%d, index=%d\n", cal_size_per_network,

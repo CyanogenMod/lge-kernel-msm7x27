@@ -20,8 +20,9 @@
 #include <linux/sched.h>
 #include <linux/jiffies.h>
 #include <asm/atomic.h>
+#include "audio_acdb.h"
 #include "apr_audio.h"
-
+#include "q6adm.h"
 
 #define TIMEOUT_MS 1000
 #define AUDIO_RX 0x0
@@ -37,7 +38,8 @@ struct adm_ctl {
 	wait_queue_head_t wait;
 };
 
-static struct adm_ctl this_adm;
+static struct audproc_buffer_data	audproc_buffer_data;
+static struct adm_ctl			this_adm;
 
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
 {
@@ -56,6 +58,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			case ADM_CMD_MEMORY_MAP_REGIONS:
 			case ADM_CMD_MEMORY_UNMAP_REGIONS:
 			case ADM_CMD_MATRIX_MAP_ROUTINGS:
+			case ADM_CMD_SET_PARAMS:
 				atomic_set(&this_adm.copp_test[data->token],
 									1);
 				wake_up(&this_adm.wait);
@@ -84,11 +87,85 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
+void send_cal(int port_id, struct acdb_cal_block *aud_cal)
+{
+	s32				result;
+	struct adm_set_params_command	adm_params;
+	pr_debug("%s\n", __func__);
+
+	if (aud_cal->cal_size == 0) {
+		pr_err("%s: No calibration data to send!\n", __func__);
+		goto done;
+	}
+
+	adm_params.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(20), APR_PKT_VER);
+	adm_params.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(adm_params));
+	adm_params.hdr.src_svc = APR_SVC_ADM;
+	adm_params.hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params.hdr.src_port = port_id;
+	adm_params.hdr.dest_svc = APR_SVC_ADM;
+	adm_params.hdr.dest_domain = APR_DOMAIN_ADSP;
+	adm_params.hdr.dest_port = atomic_read(&this_adm.copp_id[port_id]);
+	adm_params.hdr.token = port_id;
+	adm_params.hdr.opcode = ADM_CMD_SET_PARAMS;
+	adm_params.payload = aud_cal->cal_paddr;
+	adm_params.payload_size = aud_cal->cal_size;
+
+	atomic_set(&this_adm.copp_test[port_id], 0);
+
+	pr_debug("Sending SET_PARAMS payload = 0x%x, size = %d\n",
+		adm_params.payload, adm_params.payload_size);
+	result = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_params);
+	if (result < 0) {
+		pr_err("%s: Set params failed port = %d payload = 0x%x\n",
+			__func__, port_id, aud_cal->cal_paddr);
+		goto done;
+	}
+	/* Wait for the callback */
+	result = wait_event_timeout(this_adm.wait,
+		atomic_read(&this_adm.copp_test[port_id]),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (result < 0)
+		pr_err("%s: Set params timed out port = %d, payload = 0x%x\n",
+			__func__, port_id, aud_cal->cal_paddr);
+done:
+	return;
+}
+
+void send_adm_cal(int port_id, int path)
+{
+	s32			acdb_path;
+	struct acdb_cal_block	aud_cal;
+
+	pr_debug("%s\n", __func__);
+
+	/* Maps audio_dev_ctrl path definition to ACDB definition */
+	acdb_path = path - 1;
+	if ((acdb_path >= NUM_AUDPROC_BUFFERS) ||
+		(acdb_path < 0)) {
+		pr_err("%s: Path is not RX or TX, path = %d\n",
+			__func__, path);
+		goto done;
+	}
+
+	pr_debug("%s: Sending audproc cal\n", __func__);
+	get_audproc_cal(acdb_path, &aud_cal);
+	send_cal(port_id, &aud_cal);
+
+	pr_debug("%s: Sending audvol cal\n", __func__);
+	get_audvol_cal(acdb_path, &aud_cal);
+	send_cal(port_id, &aud_cal);
+done:
+	return;
+}
+
 int adm_open(int port_id, int session_id , int path,
 				int rate, int channel_mode)
 {
-	struct adm_copp_open_command open;
-	struct adm_routings_command route;
+	struct adm_copp_open_command	open;
+	struct adm_routings_command	route;
 	int ret = 0;
 
 	pr_info("%s: port %d session 0x%x path:%d rate:%d mode:%d\n", __func__,
@@ -105,7 +182,15 @@ int adm_open(int port_id, int session_id , int path,
 			ret = -ENODEV;
 			return ret;
 		}
+
+		get_audproc_buffer_data(&audproc_buffer_data);
+		if (adm_memory_map_regions(audproc_buffer_data.phys_addr, 0,
+			audproc_buffer_data.buf_size,
+			NUM_AUDPROC_BUFFERS) < 0)
+
+			pr_err("Audcal mmap did not work!\n");
 	}
+
 
 	/* Create a COPP if port id are not enabled */
 	if (atomic_read(&this_adm.copp_cnt[port_id]) == 0) {
@@ -161,7 +246,7 @@ int adm_open(int port_id, int session_id , int path,
 		route.hdr.pkt_size = sizeof(route);
 		route.hdr.src_svc = 0;
 		route.hdr.src_domain = APR_DOMAIN_APPS;
-		route.hdr.src_port = atomic_read(&this_adm.copp_id[port_id]);
+		route.hdr.src_port = port_id;
 		route.hdr.dest_svc = APR_SVC_ADM;
 		route.hdr.dest_domain = APR_DOMAIN_ADSP;
 		route.hdr.dest_port = atomic_read(&this_adm.copp_id[port_id]);
@@ -207,11 +292,20 @@ int adm_open(int port_id, int session_id , int path,
 	}
 
 	atomic_inc(&this_adm.ref_cnt);
+	send_adm_cal(port_id, path);
 	return 0;
 
 fail_cmd:
-	if (atomic_read(&this_adm.ref_cnt) == 0)
+	if (atomic_read(&this_adm.ref_cnt) == 0) {
+		if (adm_memory_unmap_regions(audproc_buffer_data.phys_addr,
+			audproc_buffer_data.buf_size, NUM_AUDPROC_BUFFERS)
+			< 0)
+
+			pr_err("Audcal unmap did not work!\n");
+
 		apr_deregister(this_adm.apr);
+	}
+
 	return ret;
 }
 
@@ -398,9 +492,14 @@ int adm_close(int port_id)
 
 fail_cmd:
 	atomic_dec(&this_adm.ref_cnt);
-	if (atomic_read(&this_adm.ref_cnt) == 0)
-		apr_deregister(this_adm.apr);
+	if (atomic_read(&this_adm.ref_cnt) == 0) {
+		if (adm_memory_unmap_regions(audproc_buffer_data.phys_addr,
+			audproc_buffer_data.buf_size, NUM_AUDPROC_BUFFERS) < 0)
 
+			pr_err("Audcal unmap did not work!\n");
+
+		apr_deregister(this_adm.apr);
+	}
 	return ret;
 }
 

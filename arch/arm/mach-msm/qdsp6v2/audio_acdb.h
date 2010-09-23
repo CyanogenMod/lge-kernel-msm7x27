@@ -31,22 +31,30 @@
 
 #include <linux/msm_audio_acdb.h>
 
+#define NUM_AUDPROC_BUFFERS	6
+
 struct acdb_cal_block {
 	uint32_t		cal_size;
 	uint32_t		cal_kvaddr;
+	uint32_t		cal_paddr;
 };
 
-struct acdb_cal_table {
-	uint32_t		idx_table_size;
-	struct acdb_cal_block	*idx_table;
+struct acdb_cal_data {
+	uint32_t		num_cal_blocks;
+	struct acdb_cal_block	*cal_blocks;
 };
 
+struct audproc_buffer_data {
+	uint32_t	buf_size[NUM_AUDPROC_BUFFERS];
+	uint32_t	phys_addr[NUM_AUDPROC_BUFFERS];
+};
 
-void get_audproc_cal(struct acdb_cal_table *cal_table);
-void get_audproc_stream_cal(struct acdb_cal_table *cal_table);
-void get_audproc_vol_cal(struct acdb_cal_table *cal_table);
-void get_vocproc_cal(struct acdb_cal_table *cal_table);
-void get_vocproc_stream_cal(struct acdb_cal_table *cal_table);
-void get_vocproc_vol_cal(struct acdb_cal_table *cal_table);
+void get_audproc_buffer_data(struct audproc_buffer_data *cal_buffers);
+void get_audproc_cal(int32_t path, struct acdb_cal_block *cal_block);
+void get_audstrm_cal(int32_t path, struct acdb_cal_block *cal_block);
+void get_audvol_cal(int32_t path, struct acdb_cal_block *cal_block);
+void get_vocproc_cal(struct acdb_cal_data *cal_data);
+void get_vocstrm_cal(struct acdb_cal_data *cal_data);
+void get_vocvol_cal(struct acdb_cal_data *cal_data);
 
 #endif
