@@ -212,6 +212,9 @@ static long pcm_out_ioctl(struct file *file, unsigned int cmd,
 			rc = -EFAULT;
 			break;
 		}
+		rc = q6asm_equalizer(pcm->ac, (void *) &eq_config);
+		if (rc < 0)
+			pr_err("%s: EQUALIZER FAILED\n", __func__);
 		break;
 	}
 	default:

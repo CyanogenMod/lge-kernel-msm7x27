@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
+#include <linux/msm_audio.h>
 #include <mach/debug_mm.h>
 #include <mach/peripheral-loader.h>
 #include <asm/atomic.h>
@@ -362,6 +363,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_READWRITE:
 		case ASM_DATA_CMD_MEDIA_FORMAT_UPDATE:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
+		case ASM_STREAM_CMD_SET_PP_PARAMS:
 			pr_debug("command[0x%x]success [0x%x]",
 						payload[0], payload[1]);
 			if (atomic_read(&ac->cmd_state)) {
@@ -1055,6 +1057,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
+	rc = 0;
 fail_cmd:
 	return rc;
 }
@@ -1091,6 +1094,70 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
+	rc = 0;
+fail_cmd:
+	return rc;
+}
+
+int q6asm_equalizer(struct audio_client *ac, void *eq)
+{
+	struct msm_audio_eq_stream_config *eq_params = NULL;
+	struct asm_pp_params_command eq_cmd;
+	int i  = 0;
+	int rc  = 0;
+
+	pr_info("%s:\n", __func__);
+	eq_params = (struct msm_audio_eq_stream_config *) eq;
+
+	q6asm_add_hdr(ac, &eq_cmd.hdr, (sizeof(eq_cmd) - APR_HDR_SIZE), TRUE);
+
+	eq_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
+	eq_cmd.payload = NULL;
+	eq_cmd.payload_size = sizeof(struct  asm_pp_param_data_hdr);
+	eq_cmd.params.module_id = EQUALIZER_MODULE_ID;
+	eq_cmd.params.param_id = EQUALIZER_PARAM_ID;
+	eq_cmd.params.param_size = sizeof(struct asm_equalizer_params);
+	eq_cmd.params.reserved = 0;
+	eq_cmd.params.pp_param.eq_params.enable = eq_params->enable;
+	eq_cmd.params.pp_param.eq_params.num_bands = eq_params->num_bands;
+	pr_debug("%s: enable:%d numbands:%d\n", __func__, eq_params->enable,
+							eq_params->num_bands);
+	for (i = 0; i < eq_params->num_bands; i++) {
+		eq_cmd.params.pp_param.eq_params.eq_bands[i].band_idx =
+					eq_params->eq_bands[i].band_idx;
+		eq_cmd.params.pp_param.eq_params.eq_bands[i].filter_type =
+					eq_params->eq_bands[i].filter_type;
+		eq_cmd.params.pp_param.eq_params.eq_bands[i].center_freq_hz =
+					eq_params->eq_bands[i].center_freq_hz;
+		eq_cmd.params.pp_param.eq_params.eq_bands[i].filter_gain =
+					eq_params->eq_bands[i].filter_gain;
+		eq_cmd.params.pp_param.eq_params.eq_bands[i].q_factor =
+					eq_params->eq_bands[i].q_factor;
+		pr_debug("%s: filter_type:%u bandnum:%d\n", __func__,
+				eq_params->eq_bands[i].filter_type, i);
+		pr_debug("%s: center_freq_hz:%u bandnum:%d\n", __func__,
+				eq_params->eq_bands[i].center_freq_hz, i);
+		pr_debug("%s: filter_gain:%d bandnum:%d\n", __func__,
+				eq_params->eq_bands[i].filter_gain, i);
+		pr_debug("%s: q_factor:%d bandnum:%d\n", __func__,
+				eq_params->eq_bands[i].q_factor, i);
+	}
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &eq_cmd);
+	if (rc < 0) {
+		pr_err("Comamnd failed\n");
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (rc < 0) {
+		pr_err("timeout. waited for FORMAT_UPDATE\n");
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = 0;
 fail_cmd:
 	return rc;
 }
@@ -1153,6 +1220,7 @@ int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
+	rc = 0;
 fail_cmd:
 	kfree(mmap_region_cmd);
 	return rc;
@@ -1210,6 +1278,7 @@ int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
 		pr_err("timeout. waited for memory_unmap\n");
 		goto fail_cmd;
 	}
+	rc = 0;
 
 fail_cmd:
 	kfree(unmap_region_cmd);

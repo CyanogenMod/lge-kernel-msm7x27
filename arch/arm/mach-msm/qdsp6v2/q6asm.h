@@ -177,5 +177,7 @@ int q6asm_enc_cfg_blk_amrnb(struct audio_client *ac, uint32_t frames_per_buf,
 
 int q6asm_media_format_block_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
+/* PP specific */
+int q6asm_equalizer(struct audio_client *ac, void *eq);
 
 #endif /* __Q6_ASM_H__ */

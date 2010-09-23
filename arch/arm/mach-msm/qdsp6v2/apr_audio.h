@@ -336,13 +336,72 @@ struct adm_cmd_memory_unmap_regions{
 
 #define DEFAULT_TOPOLOGY				0x00010be3
 
+#define ASM_MAX_EQ_BANDS 12
+
+struct asm_eq_band {
+	u32 band_idx; /* The band index, 0 .. 11 */
+	u32 filter_type; /* Filter band type */
+	u32 center_freq_hz; /* Filter band center frequency */
+	u32 filter_gain; /* Filter band initial gain (dB) */
+			/* Range is +12 dB to -12 dB with 1dB increments. */
+	u32 q_factor;
+} __attribute__ ((packed));
+
+struct asm_equalizer_params {
+	u32 enable;
+	u32 num_bands;
+	struct asm_eq_band eq_bands[ASM_MAX_EQ_BANDS];
+} __attribute__ ((packed));
+
+struct asm_master_gain_params {
+	u16 master_gain;
+	u16 padding;
+} __attribute__ ((packed));
+
+struct asm_lrchannel_gain_params {
+	u16 left_gain;
+	u16 right_gain;
+} __attribute__ ((packed));
+
+struct asm_mute_params {
+	u32 muteflag;
+} __attribute__ ((packed));
+
+struct asm_softvolume_params {
+	u32 period;
+	u32 step;
+	u32 rampingcurve;
+} __attribute__ ((packed));
+
+struct asm_volume_params {
+	union {
+		struct asm_master_gain_params m_gain;;
+		struct asm_lrchannel_gain_params lr_gain;
+		struct asm_mute_params mute;
+		struct asm_softvolume_params softvol;
+	} __attribute__ ((packed)) vparams;
+} __attribute__ ((packed));
+
 struct asm_pp_param_data_hdr {
 	u32 module_id;
 	u32 param_id;
 	u16 param_size;
-	u16 updated_flag;
+	u16 reserved;
+	union {
+		struct asm_equalizer_params eq_params;
+		struct asm_volume_params vol_params;
+	} __attribute__ ((packed)) pp_param;
 } __attribute__ ((packed));
 
+struct asm_pp_params_command {
+	struct apr_hdr	hdr;
+	u32    *payload;
+	u32	payload_size;
+	struct  asm_pp_param_data_hdr params;
+} __attribute__ ((packed));
+
+#define EQUALIZER_MODULE_ID		0x00010c27
+#define EQUALIZER_PARAM_ID		0x00010c28
 
 #define VOLUME_CONTROL_MODULE_ID	0x00010bfe
 #define MASTER_GAIN_PARAM_ID		0x00010bff
