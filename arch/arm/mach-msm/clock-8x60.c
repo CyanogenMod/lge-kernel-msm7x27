@@ -29,6 +29,7 @@
 
 #include "clock-local.h"
 #include "clock-8x60.h"
+#include "rpm.h"
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_MM(off)	(MSM_MMSS_CLK_CTL_BASE + (off))
@@ -1584,6 +1585,14 @@ static int nt_pll_enable(unsigned src, unsigned enable)
 	return 0;
 }
 
+/* Enable/disable for RPM-controlled voteable PLL4. */
+static int pll4_enable(unsigned src, unsigned enable)
+{
+	struct msm_rpm_iv_pair iv = { MSM_RPM_ID_PLL_4, enable };
+
+	return msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
+}
+
 #define CLK_SRC(_src, _func, _par) \
 	[(_src)] = { .enable_func = (_func), .par = (_par), }
 struct clk_source soc_clk_sources[NUM_SRC] = {
@@ -1594,7 +1603,7 @@ struct clk_source soc_clk_sources[NUM_SRC] = {
 	CLK_SRC(PLL_1, nt_pll_enable, PXO),
 	CLK_SRC(PLL_2, nt_pll_enable, PXO),
 	CLK_SRC(PLL_3, nt_pll_enable, PXO),
-	CLK_SRC(PLL_4, NULL, PXO),	/* TODO */
+	CLK_SRC(PLL_4, pll4_enable, PXO),
 	CLK_SRC(PLL_5, NULL, CXO),
 	CLK_SRC(PLL_6, voteable_pll_enable, CXO),
 	CLK_SRC(PLL_7, nt_pll_enable, PXO),
@@ -1805,22 +1814,6 @@ static void reg_init(int use_pxo)
 	writel(0x14580, MM_PLL0_CONFIG_REG);  /* Enable MN, set VCO, misc */
 	rmwreg(B(2), MM_PLL0_MODE_REG, B(2)); /* Deassert reset */
 	rmwreg(B(0), MM_PLL0_MODE_REG, B(0)); /* Enable output */
-
-	/* Program LPA_PLL (PLL4) @ 540.6720 MHz and turn it on. */
-	rmwreg(0,    LCC_PLL0_MODE_REG, B(0)); /* Disable output */
-	writel(B(0), LCC_PRI_PLL_CLK_CTL_REG); /* PLL clock select = PLL0 */
-	writel(20,   LCC_PLL0_L_VAL_REG);
-	writel(28,   LCC_PLL0_M_VAL_REG);
-	writel(1125, LCC_PLL0_N_VAL_REG);
-	/* Set ref, enable. */
-	if (use_pxo)
-		rmwreg(B(1),      LCC_PLL0_MODE_REG, B(4)|B(1)); /* PXO */
-	else
-		rmwreg(B(4)|B(1), LCC_PLL0_MODE_REG, B(4)|B(1)); /* MXO */
-	udelay(10);
-	writel(0x00822080, LCC_PLL0_CONFIG_REG); /* Enable MN, set VCO, misc */
-	rmwreg(B(2), LCC_PLL0_MODE_REG, B(2));   /* Deassert reset */
-	rmwreg(B(0), LCC_PLL0_MODE_REG, B(0));   /* Enable output */
 
 	/* Set up MM AHB clock to PLL8/5. */
 	local_src_enable(PLL_8);
