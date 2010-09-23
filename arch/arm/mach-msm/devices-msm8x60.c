@@ -31,6 +31,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/irq.h>
 #include <asm/hardware/gic.h>
+#include <asm/mach-types.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -83,7 +84,8 @@ void __init msm8x60_init_irq(void)
 	/* QGIC does not adhere to GIC spec by enabling STIs by default.
 	 * Enable/clear is supposed to be RO for STIs, but is RW on QGIC.
 	 */
-	writel(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
+	if (!machine_is_msm8x60_sim())
+		writel(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
 
 	/* FIXME: Not installing AVS_SVICINT and AVS_SVICINTSWDONE yet
 	 * as they are configured as level, which does not play nice with
