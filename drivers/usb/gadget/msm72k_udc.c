@@ -979,7 +979,7 @@ static void flush_endpoint_hw(struct usb_info *ui, unsigned bits)
 static void flush_endpoint_sw(struct msm_endpoint *ept)
 {
 	struct usb_info *ui = ept->ui;
-	struct msm_request *req;
+	struct msm_request *req, *next_req = NULL;
 	unsigned long flags;
 
 	/* inactive endpoints have nothing to do here */
@@ -1000,12 +1000,18 @@ static void flush_endpoint_sw(struct msm_endpoint *ept)
 		req->live = 0;
 		req->req.status = -ESHUTDOWN;
 		req->req.actual = 0;
+
+		/* Gadget driver may free the request in completion
+		 * handler. So keep a copy of next req pointer
+		 * before calling completion handler.
+		 */
+		next_req = req->next;
 		if (req->req.complete) {
 			spin_unlock_irqrestore(&ui->lock, flags);
 			req->req.complete(&ept->ep, &req->req);
 			spin_lock_irqsave(&ui->lock, flags);
 		}
-		req = req->next;
+		req = next_req;
 	}
 	spin_unlock_irqrestore(&ui->lock, flags);
 }
