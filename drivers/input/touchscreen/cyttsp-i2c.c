@@ -97,8 +97,8 @@ static int cyttsp_putbl(struct cyttsp *ts, int show,
 static int __devinit cyttsp_probe(struct i2c_client *client,
 			const struct i2c_device_id *id);
 static int __devexit cyttsp_remove(struct i2c_client *client);
-static int cyttsp_resume(struct i2c_client *client);
-static int cyttsp_suspend(struct i2c_client *client, pm_message_t message);
+static int cyttsp_resume(struct device *dev);
+static int cyttsp_suspend(struct device *dev);
 
 /* Static variables */
 static struct cyttsp_gen3_xydata_t g_xy_data;
@@ -115,15 +115,19 @@ static u8 bl_cmd[] = {
 
 MODULE_DEVICE_TABLE(i2c, cyttsp_id);
 
+static const struct dev_pm_ops cyttsp_pm_ops = {
+	.suspend = cyttsp_suspend,
+	.resume = cyttsp_resume,
+};
+
 static struct i2c_driver cyttsp_driver = {
 	.driver = {
 		.name = CY_I2C_NAME,
 		.owner = THIS_MODULE,
+		.pm = &cyttsp_pm_ops,
 	},
 	.probe = cyttsp_probe,
 	.remove = __devexit_p(cyttsp_remove),
-	.suspend = cyttsp_suspend,
-	.resume = cyttsp_resume,
 	.id_table = cyttsp_id,
 };
 
@@ -1813,13 +1817,12 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 }
 
 /* Function to manage power-on resume */
-static int cyttsp_resume(struct i2c_client *client)
+static int cyttsp_resume(struct device *dev)
 {
-	struct cyttsp *ts;
+	struct cyttsp *ts = dev_get_drvdata(dev);
 	int retval = CY_OK;
 
 	cyttsp_debug("Wake Up\n");
-	ts = (struct cyttsp *) i2c_get_clientdata(client);
 
 	/* re-enable the interrupt prior to wake device */
 	if (ts->client->irq)
@@ -1828,7 +1831,7 @@ static int cyttsp_resume(struct i2c_client *client)
 	if (ts->platform_data->use_sleep &&
 		(ts->platform_data->power_state != CY_ACTIVE_STATE)) {
 		if (ts->platform_data->resume)
-			retval = ts->platform_data->resume(client);
+			retval = ts->platform_data->resume(ts->client);
 		if (!(retval < CY_OK)) {
 			/* take TTSP device out of bootloader mode;
 			 * switch back to TrueTouch operational mode */
@@ -1868,14 +1871,13 @@ static int cyttsp_resume(struct i2c_client *client)
 
 
 /* Function to manage low power suspend */
-static int cyttsp_suspend(struct i2c_client *client, pm_message_t message)
+static int cyttsp_suspend(struct device *dev)
 {
-	struct cyttsp *ts;
+	struct cyttsp *ts = dev_get_drvdata(dev);
 	u8 sleep_mode = CY_OK;
 	int retval = CY_OK;
 
 	cyttsp_debug("Enter Sleep\n");
-	ts = (struct cyttsp *) i2c_get_clientdata(client);
 
 	/* disable worker */
 	if (ts->client->irq == 0)
@@ -1960,7 +1962,7 @@ static void cyttsp_early_suspend(struct early_suspend *handler)
 	struct cyttsp *ts;
 
 	ts = container_of(handler, struct cyttsp, early_suspend);
-	cyttsp_suspend(ts->client, PMSG_SUSPEND);
+	cyttsp_suspend(&ts->client->dev);
 }
 
 static void cyttsp_late_resume(struct early_suspend *handler)
@@ -1968,7 +1970,7 @@ static void cyttsp_late_resume(struct early_suspend *handler)
 	struct cyttsp *ts;
 
 	ts = container_of(handler, struct cyttsp, early_suspend);
-	cyttsp_resume(ts->client);
+	cyttsp_resume(&ts->client->dev);
 }
 #endif  /* CONFIG_HAS_EARLYSUSPEND */
 
