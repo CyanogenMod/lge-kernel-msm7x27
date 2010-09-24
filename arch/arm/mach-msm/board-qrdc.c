@@ -60,7 +60,6 @@
 #include <mach/msm_serial_hs.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach/mmc.h>
-#include <mach/tlmm.h>
 #include <mach/msm_battery.h>
 #include <mach/msm_hsusb.h>
 #include <mach/msm_xo.h>
@@ -1068,7 +1067,6 @@ static void __init msm8x60_allocate_memory_regions(void)
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
        .inject_rx_on_wakeup = 1,
        .rx_to_inject = 0xFD,
-       .clk_name = "gsbi_uart_clk",
 };
 #endif
 
