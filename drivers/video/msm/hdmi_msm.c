@@ -52,6 +52,9 @@
 struct hdmi_msm_state_type {
 	boolean panel_power_on;
 	boolean hpd_initialized;
+#ifdef CONFIG_SUSPEND
+	boolean pm_suspended;
+#endif
 	int hpd_stable;
 	boolean hpd_prev_state;
 	boolean hpd_cable_chg_detected;
@@ -237,6 +240,13 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 		DEV_DBG("%s: ignored, hdmi_app_clk off\n", __func__);
 		return;
 	}
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->pm_suspended) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
+		return;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
 
 	mutex_lock(&external_common_state_hpd_mutex);
 	mutex_lock(&hdmi_msm_state_mutex);
@@ -326,6 +336,14 @@ static void hdcp_deauthenticate(void);
 static void hdmi_msm_hdcp_enable(void);
 static void hdmi_msm_hdcp_reauth_work(struct work_struct *work)
 {
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->pm_suspended) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_WARN("HDCP Re-auth ignored, pm_suspended\n");
+		return;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
+
 	/* Don't process recursive actions */
 	mutex_lock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->hdcp_activating) {
@@ -363,6 +381,13 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 		DEV_DBG("ISR ignored, hdmi_app_clk off\n");
 		return IRQ_HANDLED;
 	}
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->pm_suspended) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_WARN("ISR ignored, pm_suspended\n");
+		return IRQ_HANDLED;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
 
 	/* Process HPD Interrupt */
 	/* HDMI_HPD_INT_STATUS[0x0250] */
@@ -2449,6 +2474,13 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 
 	if (!hdmi_msm_state->hdmi_app_clk)
 		return -ENODEV;
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->pm_suspended) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
+		return -ENODEV;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
 
 	DEV_DBG("power: ON (%dx%d %d)\n", mfd->var_xres, mfd->var_yres,
 		mfd->var_pixclock);
@@ -2495,6 +2527,13 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 {
 	if (!hdmi_msm_state->hdmi_app_clk)
 		return -ENODEV;
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->pm_suspended) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
+		return -ENODEV;
+	}
+	mutex_unlock(&hdmi_msm_state_mutex);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	mutex_lock(&hdmi_msm_state_mutex);
@@ -2667,11 +2706,21 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 #ifdef CONFIG_SUSPEND
 static int hdmi_msm_device_pm_suspend(struct device *dev)
 {
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (hdmi_msm_state->pm_suspended) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		return 0;
+	}
+
 	DEV_DBG("pm_suspend\n");
 
 	mod_timer(&hdmi_msm_state->hpd_state_timer, 0xffffffffL);
 	disable_irq(hdmi_msm_state->irq);
 	clk_disable(hdmi_msm_state->hdmi_app_clk);
+
+	hdmi_msm_state->pm_suspended = TRUE;
+	mutex_unlock(&hdmi_msm_state_mutex);
+
 	hdmi_msm_state->pd->enable_5v(0);
 	hdmi_msm_state->pd->core_power(0);
 	return 0;
@@ -2679,11 +2728,20 @@ static int hdmi_msm_device_pm_suspend(struct device *dev)
 
 static int hdmi_msm_device_pm_resume(struct device *dev)
 {
+	mutex_lock(&hdmi_msm_state_mutex);
+	if (!hdmi_msm_state->pm_suspended) {
+		mutex_unlock(&hdmi_msm_state_mutex);
+		return 0;
+	}
+
 	DEV_DBG("pm_resume\n");
 
 	hdmi_msm_state->pd->core_power(1);
 	hdmi_msm_state->pd->enable_5v(1);
 	clk_enable(hdmi_msm_state->hdmi_app_clk);
+
+	hdmi_msm_state->pm_suspended = FALSE;
+	mutex_unlock(&hdmi_msm_state_mutex);
 	enable_irq(hdmi_msm_state->irq);
 	return 0;
 }
