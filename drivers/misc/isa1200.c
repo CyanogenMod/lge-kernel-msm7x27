@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/pwm.h>
 #include <linux/workqueue.h>
+#include <linux/slab.h>
 #include <linux/i2c/isa1200.h>
 #include "../staging/android/timed_output.h"
 
