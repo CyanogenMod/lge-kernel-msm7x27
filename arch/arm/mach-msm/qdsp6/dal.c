@@ -349,9 +349,10 @@ int dal_call_raw(struct dal_client *client,
 	client->status = -EBUSY;
 
 #if DAL_TRACE
-	pr_info("[%s:%s] dal send %p -> %p %02x:%04x:%02x %d\n",
-		__MM_FILE__, __func__, hdr->from, hdr->to, hdr->msgid,
-		hdr->ddi, hdr->prototype, hdr->length - sizeof(*hdr));
+	pr_info("[%s:%s:%x] dal send %p -> %p %02x:%04x:%02x %d\n",
+		__MM_FILE__, __func__, (unsigned int)client, hdr->from, hdr->to,
+		hdr->msgid, hdr->ddi, hdr->prototype,
+		hdr->length - sizeof(*hdr));
 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, data, data_len);
 #endif
 
@@ -458,8 +459,9 @@ struct dal_client *dal_attach(uint32_t device_id, const char *name,
 
 	if ((r == sizeof(reply)) && (reply.status == 0)) {
 		reply.name[63] = 0;
-		pr_info("[%s:%s] status = %d, name = '%s'\n", __MM_FILE__,
-				__func__, reply.status, reply.name);
+		pr_info("[%s:%s] status = %d, name = '%s' dal_client %x\n",
+			__MM_FILE__, __func__, reply.status,
+			reply.name, (unsigned int)client);
 		return client;
 	}
 

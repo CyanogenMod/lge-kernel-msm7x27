@@ -60,7 +60,89 @@
 #define TRACE(fmt,x...)		do { } while (0)
 #endif
 
-#define MAX_SUPPORTED_INSTANCES 3
+#define VDEC_MAX_PORTS 4
+
+char *Q6Portnames[] = {
+"DAL_AQ_VID_0",
+"DAL_AQ_VID_1",
+"DAL_AQ_VID_2",
+"DAL_AQ_VID_3"
+};
+
+
+
+#define DALDEVICEID_VDEC_DEVICE_0        0x020000D2
+#define DALDEVICEID_VDEC_DEVICE_1        0x020000D3
+#define DALDEVICEID_VDEC_DEVICE_2        0x020000D4
+#define DALDEVICEID_VDEC_DEVICE_3        0x020000D5
+#define DALDEVICEID_VDEC_DEVICE_4        0x020000D6
+#define DALDEVICEID_VDEC_DEVICE_5        0x020000D7
+#define DALDEVICEID_VDEC_DEVICE_6        0x020000D8
+#define DALDEVICEID_VDEC_DEVICE_7        0x020000D9
+#define DALDEVICEID_VDEC_DEVICE_8        0x020000DA
+#define DALDEVICEID_VDEC_DEVICE_9        0x020000DB
+#define DALDEVICEID_VDEC_DEVICE_10        0x020000DC
+#define DALDEVICEID_VDEC_DEVICE_11        0x020000DD
+#define DALDEVICEID_VDEC_DEVICE_12        0x020000DE
+#define DALDEVICEID_VDEC_DEVICE_13        0x020000DF
+#define DALDEVICEID_VDEC_DEVICE_14        0x020000E0
+#define DALDEVICEID_VDEC_DEVICE_15        0x020000E1
+#define DALDEVICEID_VDEC_DEVICE_16        0x020000E2
+#define DALDEVICEID_VDEC_DEVICE_17        0x020000E3
+#define DALDEVICEID_VDEC_DEVICE_18        0x020000E4
+#define DALDEVICEID_VDEC_DEVICE_19        0x020000E5
+#define DALDEVICEID_VDEC_DEVICE_20        0x020000E6
+#define DALDEVICEID_VDEC_DEVICE_21        0x020000E7
+#define DALDEVICEID_VDEC_DEVICE_22        0x020000E8
+#define DALDEVICEID_VDEC_DEVICE_23        0x020000E9
+#define DALDEVICEID_VDEC_DEVICE_24        0x020000EA
+#define DALDEVICEID_VDEC_DEVICE_25        0x020000EB
+#define DALDEVICEID_VDEC_DEVICE_26        0x020000EC
+#define DALDEVICEID_VDEC_DEVICE_27        0x020000ED
+#define DALDEVICEID_VDEC_DEVICE_28        0x020000EE
+#define DALDEVICEID_VDEC_DEVICE_29        0x020000EF
+#define DALDEVICEID_VDEC_DEVICE_30        0x020000F0
+#define DALDEVICEID_VDEC_DEVICE_31        0x020000F1
+
+#define DALVDEC_MAX_DEVICE_IDS        32
+
+
+static int numOfPorts;
+
+
+static char loadOnPorts[VDEC_MAX_PORTS];
+
+static char deviceIdRegistry[DALVDEC_MAX_DEVICE_IDS];
+
+
+#define VDEC_DEVID_FREE 0
+#define VDEC_DEVID_OCCUPIED 1
+
+#define MAX_SUPPORTED_INSTANCES 6
+
+#define  MAKEFOURCC(ch0, ch1, ch2, ch3) ((unsigned int)(unsigned char)(ch0) | \
+	((unsigned int)(unsigned char)(ch1) << 8) | \
+	((unsigned int)(unsigned char)(ch2) << 16) | \
+	((unsigned int)(unsigned char)(ch3) << 24))
+
+#define FOURCC_MPEG4 MAKEFOURCC('m', 'p', '4', 'v')
+#define FOURCC_H263 MAKEFOURCC('h', '2', '6', '3')
+#define FOURCC_H264 MAKEFOURCC('h', '2', '6', '4')
+#define FOURCC_VC1 MAKEFOURCC('w', 'm', 'v', '3')
+#define FOURCC_DIVX MAKEFOURCC('D', 'I', 'V', 'X')
+#define FOURCC_SPARK MAKEFOURCC('F', 'L', 'V', '1')
+#define FOURCC_VP6 MAKEFOURCC('V', 'P', '6', '0')
+
+/* static struct vdec_data *multiInstances[MAX_SUPPORTED_INSTANCES];*/
+
+static int totalPlaybackQ6load;
+static int totalTnailQ6load;
+
+#define FLAG_THUMBNAIL_MODE  0x8
+#define MAX_TNAILS  3
+
+#define TRUE 1
+#define FALSE 0
 
 enum {
 	VDEC_DALRPC_INITIALIZE = DAL_OP_FIRST_DEVICE_API,
@@ -119,8 +201,19 @@ struct vdec_mem_list {
 	struct vdec_mem_info	mem;
 };
 
+struct videoStreamDetails{
+	int height;
+	int width;
+	unsigned int fourcc;
+	int Q6usage;
+	bool isThisTnail;
+	bool isTnailGranted;
+};
+
 struct vdec_data {
 	struct dal_client	*vdec_handle;
+	unsigned int Q6deviceId;
+	struct videoStreamDetails streamDetails;
 	struct list_head	vdec_msg_list_head;
 	struct list_head	vdec_msg_list_free;
 	wait_queue_head_t	vdec_msg_evt;
@@ -139,6 +232,9 @@ static int ref_cnt;
 static DEFINE_MUTEX(vdec_ref_lock);
 
 static DEFINE_MUTEX(idlecount_lock);
+
+static DEFINE_MUTEX(vdec_rm_lock);
+
 static int idlecount;
 static struct wake_lock wakelock;
 static struct wake_lock idlelock;
@@ -286,6 +382,245 @@ static int vdec_performance_change_request(struct vdec_data *vd, void* argp)
 	}
 	return ret;
 }
+
+#ifdef TRACE_PORTS
+static void printportsanddeviceids(void)
+{
+	int i;
+
+	pr_err("\n\n%s:loadOnPorts", __func__);
+	for (i = 0; i < numOfPorts; i++)
+		pr_err("\t%d", loadOnPorts[i]);
+
+	pr_err("\n\n");
+
+	pr_err("\n\n%s:Devids", __func__);
+	for (i = 0; i < DALVDEC_MAX_DEVICE_IDS; i++)
+		pr_err("Devid[%d]:%d\n", i, deviceIdRegistry[i]);
+
+
+	pr_err("\n\n");
+}
+#endif /*TRACE_PORTS*/
+
+
+/*
+ *
+ * This method is used to get the number of ports supported on the Q6
+ *
+ */
+static int vdec_get_numberofq6ports(void)
+{
+	struct dal_client *vdec_handle = NULL;
+	int retval = 0;
+	union vdec_property property = {0};
+
+	vdec_handle = dal_attach(DALDEVICEID_VDEC_DEVICE,
+			     DALDEVICEID_VDEC_PORTNAME, 1, NULL, NULL);
+	if (!vdec_handle) {
+		pr_err("%s: failed to attach\n", __func__);
+		return 1;/* default setting */
+	}
+
+	retval = dal_call_f6(vdec_handle, VDEC_DALRPC_GETPROPERTY,
+      VDEC_NUM_DAL_PORTS, (void *)&property, sizeof(union vdec_property));
+	if (retval) {
+		pr_err("%s: Q6get prperty failed\n", __func__);
+		return 1;/* default setting */
+	}
+
+	dal_detach(vdec_handle);
+	return property.num_dal_ports ;
+}
+
+
+/**
+  * This method is used to get the find the least loaded port and a corresponding
+  * free device id in that port.
+  *
+  * Prerequisite: vdec_open should have been called.
+  *
+  *  @param[in] deviceid
+  *     device id will be populated here.
+  *
+  *  @param[in] portname
+  *     portname will be populated here.
+  */
+static void vdec_get_next_portanddevid(int *deviceid, char **portname)
+{
+
+	int i = 0;
+	int leastLoad = 0;
+	int leastLoadedIndex = 0;
+
+	if (0 == numOfPorts) {
+		numOfPorts = vdec_get_numberofq6ports();
+		pr_err("%s: Q6get numOfPorts %d\n", __func__, numOfPorts);
+		numOfPorts = 4;
+		/*fix: me currently hard coded to 4 as
+		 *the Q6 getproperty is failing
+		 */
+	}
+
+	if ((NULL == deviceid) || (NULL == portname))
+		return;
+	else
+		*deviceid = 0; /* init value */
+
+	if (numOfPorts > 1) {
+		/* multi ports mode*/
+
+		/* find the least loaded port*/
+		for (i = 1, leastLoad = loadOnPorts[0], leastLoadedIndex = 0;
+					i < numOfPorts; i++) {
+			if (leastLoad > loadOnPorts[i]) {
+				leastLoadedIndex = i;
+				leastLoad = loadOnPorts[i];
+			}
+		}
+
+		/* register the load */
+		loadOnPorts[leastLoadedIndex]++;
+		*portname = Q6Portnames[leastLoadedIndex];
+
+		/* find a free device id corresponding to the port*/
+		for (i = leastLoadedIndex; i < DALVDEC_MAX_DEVICE_IDS;
+					i += numOfPorts) {
+			if (VDEC_DEVID_FREE == deviceIdRegistry[i]) {
+				deviceIdRegistry[i] = VDEC_DEVID_OCCUPIED;
+				*deviceid = DALDEVICEID_VDEC_DEVICE_0 + i;
+				break;
+			}
+		}
+
+#ifdef TRACE_PORTS
+		printportsanddeviceids();
+#endif /*TRACE_PORTS*/
+	} else if (1 == numOfPorts) {
+		/* single port mode */
+		*deviceid = DALDEVICEID_VDEC_DEVICE;
+		*portname = DALDEVICEID_VDEC_PORTNAME;
+	} else if (numOfPorts <= 0) {
+		pr_err("%s: FATAL error numOfPorts cannot be \
+			less than or equal to zero\n", __func__);
+	}
+
+
+}
+
+
+/**
+  * This method frees up the used dev id and decrements the port load.
+  *
+  */
+
+static void vdec_freeup_portanddevid(int deviceid)
+{
+
+	if (numOfPorts > 1) {
+		/* multi ports mode*/
+		if (VDEC_DEVID_FREE ==
+			deviceIdRegistry[deviceid - DALDEVICEID_VDEC_DEVICE_0])
+			pr_err("device id cannot be already free\n");
+		deviceIdRegistry[deviceid - DALDEVICEID_VDEC_DEVICE_0] =
+			VDEC_DEVID_FREE;
+
+		loadOnPorts[(deviceid - DALDEVICEID_VDEC_DEVICE_0)
+			% numOfPorts]--;
+
+		if (loadOnPorts[(deviceid - DALDEVICEID_VDEC_DEVICE_0)
+			% numOfPorts] < 0)
+			pr_err("Warning:load cannot be negative\n");
+
+		pr_err("dettaching on deviceid %x portname %s\n", deviceid,
+			Q6Portnames[(deviceid - DALDEVICEID_VDEC_DEVICE_0)
+			% numOfPorts]);
+
+#ifdef TRACE_PORTS
+		printportsanddeviceids();
+#endif /*TRACE_PORTS*/
+	} else {
+		/*single port mode, nothing to be done here*/
+	}
+
+}
+
+
+/**
+  * This method validates whether a new instance can be houred or not.
+  *
+  */
+static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance)
+{
+
+	unsigned int maxQ6load = 0;/* in the units of macro blocks per second */
+	unsigned int currentq6load = 0;
+	struct videoStreamDetails *streamDetails = &vdecInstance->streamDetails;
+
+
+
+	if (streamDetails->isThisTnail) {
+		if (totalTnailQ6load < MAX_TNAILS) {
+
+			totalTnailQ6load++;
+			streamDetails->isTnailGranted = TRUE;
+			pr_info("%s: thumbnail granted %d\n", __func__,
+				totalTnailQ6load);
+			return 0;
+
+		} else {
+
+			pr_err("%s: thumbnails load max this instance cannot \
+					be supported\n", __func__);
+			streamDetails->isTnailGranted = FALSE;
+			return -ENOSPC;
+
+		}
+	}
+
+	/* calculate the Q6 percentage instance would need */
+	if ((streamDetails->fourcc == FOURCC_MPEG4) ||
+		 (streamDetails->fourcc  == FOURCC_H264) ||
+		 (streamDetails->fourcc  == FOURCC_DIVX) ||
+		 (streamDetails->fourcc  == FOURCC_VC1) ||
+		 (streamDetails->fourcc  == FOURCC_SPARK) ||
+		 (streamDetails->fourcc  == FOURCC_H263)
+		){
+
+		maxQ6load = ((720*1280)/256); /* 720p */
+
+	} else if (streamDetails->fourcc  == FOURCC_VP6) {
+
+		maxQ6load = ((800*480)/256); /* FWVGA */
+
+	} else {
+
+		pr_err("%s: unknown fourcc %d  maxQ6load %u\n", __func__,
+			streamDetails->fourcc, maxQ6load);
+		return -EINVAL;
+
+	}
+
+	currentq6load = ((streamDetails->height)*(streamDetails->width) / 256);
+	currentq6load = ((currentq6load * 100)/maxQ6load);
+	if ((currentq6load+totalPlaybackQ6load) > 100) {
+		/* reject this instance */
+		pr_err("%s: too much Q6load %d rejecting the instance\n",
+			__func__, (currentq6load+totalPlaybackQ6load));
+		streamDetails->Q6usage = 0;
+		return -ENOSPC;
+	}
+
+	totalPlaybackQ6load += currentq6load;
+	streamDetails->Q6usage = currentq6load;
+
+	pr_info("%s: adding a load [%d%%] bringing total Q6load to [%d%%]\n",
+		__func__, currentq6load, totalPlaybackQ6load);
+
+	return 0;
+}
+
+
 static int vdec_initialize(struct vdec_data *vd, void *argp)
 {
 	struct vdec_config_sps vdec_cfg_sps;
@@ -330,6 +665,21 @@ static int vdec_initialize(struct vdec_data *vd, void *argp)
 	      vi_cfg.cfg.vc1_rowbase, vi_cfg.cfg.h264_startcode_detect,
 	      vi_cfg.cfg.h264_nal_len_size, vi_cfg.cfg.postproc_flag,
 	      vi_cfg.cfg.fruc_enable);
+
+	vd->streamDetails.height = vi_cfg.cfg.height;
+	vd->streamDetails.width = vi_cfg.cfg.width;
+	vd->streamDetails.fourcc = vi_cfg.cfg.fourcc;
+	if (FLAG_THUMBNAIL_MODE == vi_cfg.cfg.postproc_flag)
+		vd->streamDetails.isThisTnail = TRUE;
+	else
+		vd->streamDetails.isThisTnail = FALSE;
+
+	mutex_lock(&vdec_rm_lock);
+	ret = vdec_rm_checkWithRm(vd);
+	mutex_unlock(&vdec_rm_lock);
+	if (ret)
+		return ret;
+
 	ret = dal_call_f13(vd->vdec_handle, VDEC_DALRPC_INITIALIZE,
 			   &vi_cfg, sizeof(vi_cfg),
 			   header, vdec_cfg_sps.seq.len,
@@ -345,6 +695,32 @@ static int vdec_initialize(struct vdec_data *vd, void *argp)
 
 	vd->close_decode = 0;
 	return ret;
+}
+
+static void vdec_rm_freeupResources(struct vdec_data *vdecInstance)
+{
+	struct videoStreamDetails *streamDetails = &vdecInstance->streamDetails;
+
+
+
+	if ((streamDetails->isThisTnail) &&
+		 (streamDetails->isTnailGranted)) {
+
+			totalTnailQ6load--;
+			pr_info("%s: Thumbnail released %d\n", __func__,
+				totalTnailQ6load);
+
+	} else if (streamDetails->Q6usage > 0) {
+
+		totalPlaybackQ6load -= streamDetails->Q6usage;
+		if (totalPlaybackQ6load < 0)
+			pr_err("Warning:Q6load cannot be negative\n");
+
+		pr_info("%s:Releasing [%d%%] of Q6load from a total of [%d%%]\n"
+			, __func__, streamDetails->Q6usage,
+			(streamDetails->Q6usage+totalPlaybackQ6load));
+	}
+
 }
 
 static int vdec_setbuffers(struct vdec_data *vd, void *argp)
@@ -853,6 +1229,7 @@ static void callback(void *data, int len, void *cookie)
 		       __func__, tmp[0], tmp[2]);
 	}
 }
+
 static int vdec_open(struct inode *inode, struct file *file)
 {
 	int ret;
@@ -860,6 +1237,7 @@ static int vdec_open(struct inode *inode, struct file *file)
 	struct vdec_msg_list *l;
 	struct vdec_data *vd;
 	struct dal_info version_info;
+	char *portname = NULL;
 
 	pr_info("q6vdec_open()\n");
 	mutex_lock(&vdec_ref_lock);
@@ -897,12 +1275,26 @@ static int vdec_open(struct inode *inode, struct file *file)
 		list_add(&l->list, &vd->vdec_msg_list_free);
 	}
 
-	vd->vdec_handle = dal_attach(DALDEVICEID_VDEC_DEVICE,
-				     DALDEVICEID_VDEC_PORTNAME,
-				     1, callback, vd);
+	memset(&vd->streamDetails, 0, sizeof(struct videoStreamDetails));
+
+	mutex_lock(&vdec_ref_lock);
+	vdec_get_next_portanddevid(&vd->Q6deviceId, &portname);
+	mutex_unlock(&vdec_ref_lock);
+
+	if ((0 == vd->Q6deviceId) || (NULL == portname)) {
+		pr_err("%s: FATAL error portname %s or deviceId %d not picked properly\n",
+			__func__, portname, vd->Q6deviceId);
+		ret = -EIO;
+		goto vdec_open_err_handle_list;
+	} else {
+		pr_err("attaching on deviceid %x portname %s\n",
+			vd->Q6deviceId, portname);
+		vd->vdec_handle = dal_attach(vd->Q6deviceId,
+					     portname, 1, callback, vd);
+	}
 
 	if (!vd->vdec_handle) {
-		pr_err("%s: failed to attach \n", __func__);
+		pr_err("%s: failed to attach\n", __func__);
 		ret = -EIO;
 		goto vdec_open_err_handle_list;
 	}
@@ -937,6 +1329,7 @@ vdec_open_err_handle_list:
 	}
 vdec_open_err_handle_vd:
 	mutex_lock(&vdec_ref_lock);
+	vdec_freeup_portanddevid(vd->Q6deviceId);
 	ref_cnt--;
 	mutex_unlock(&vdec_ref_lock);
 	kfree(vd);
@@ -977,7 +1370,13 @@ static int vdec_release(struct inode *inode, struct file *file)
 	mutex_lock(&vdec_ref_lock);
 	BUG_ON(ref_cnt <= 0);
 	ref_cnt--;
+	vdec_freeup_portanddevid(vd->Q6deviceId);
 	mutex_unlock(&vdec_ref_lock);
+
+	mutex_lock(&vdec_rm_lock);
+	vdec_rm_freeupResources(vd);
+	mutex_unlock(&vdec_rm_lock);
+
 
 	kfree(vd);
 	allow_sleep();
@@ -1027,6 +1426,10 @@ static int __init vdec_init(void)
 		pr_err("%s: cdev_add failed %d\n", __func__, rc);
 		goto vdec_init_err_class_device_destroy;
 	}
+
+	memset(&deviceIdRegistry, 0, sizeof(deviceIdRegistry));
+	memset(&loadOnPorts, 0, sizeof(loadOnPorts));
+	numOfPorts = 0;
 
 	return 0;
 
