@@ -75,7 +75,7 @@
 
 #define ALU_CONSTANTS	2048	/* DWORDS */
 #define NUM_REGISTERS	1024	/* DWORDS */
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 #define CMD_BUFFER_LEN  9216	/* DWORDS */
 #else
 #define CMD_BUFFER_LEN	3072	/* DWORDS */
@@ -97,7 +97,7 @@
 
 #define ALU_SHADOW_SIZE		LCC_SHADOW_SIZE	/* 8KB */
 #define REG_SHADOW_SIZE		0x1000	/* 4KB */
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 #define CMD_BUFFER_SIZE     0x9000	/* 36KB */
 #else
 #define CMD_BUFFER_SIZE		0x3000	/* 12KB */
@@ -130,7 +130,7 @@ struct tmp_ctx {
 	/* Addresses in command buffer where separately handled registers
 	 * are saved
 	 */
-	uint32_t reg_values[4];
+	uint32_t reg_values[33];
 	uint32_t chicken_restore;
 
 	uint32_t gmem_base;	/* Base gpu address of GMEM */
@@ -423,7 +423,7 @@ static unsigned int *reg_to_mem(unsigned int *cmds, uint32_t dst,
 	return cmds;
 }
 
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 
 static void build_reg_to_mem_range(unsigned int start, unsigned int end,
 				   unsigned int **cmd,
@@ -478,7 +478,7 @@ static void build_regsave_cmds(struct kgsl_device *device,
 	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
 
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Make sure the HW context has the correct register values
 	 * before reading them. */
 	*cmd++ = pm4_type3_packet(PM4_CONTEXT_UPDATE, 1);
@@ -489,74 +489,100 @@ static void build_regsave_cmds(struct kgsl_device *device,
 	*cmd++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
 	*cmd++ = pm_override1 | (1 << 6);
 
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Write HW registers into shadow */
-	build_reg_to_mem_range(REG_RB_SURFACE_INFO, REG_RB_DEPTH_INFO, &cmd,
-			       drawctxt);
-	build_reg_to_mem_range(REG_COHER_DEST_BASE_0,
-			       REG_PA_SC_SCREEN_SCISSOR_BR, &cmd, drawctxt);
-	build_reg_to_mem_range(REG_PA_SC_WINDOW_OFFSET,
-			       REG_PA_SC_WINDOW_SCISSOR_BR, &cmd, drawctxt);
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
-		build_reg_to_mem_range(REG_VGT_MAX_VTX_INDX,
-				       REG_RB_FOG_COLOR, &cmd,
-				       drawctxt);
-	} else {
-		build_reg_to_mem_range(REG_VGT_MAX_VTX_INDX,
-				       REG_PC_INDEX_OFFSET, &cmd,
-				       drawctxt);
-		build_reg_to_mem_range(REG_RB_COLOR_MASK,
-				       REG_RB_FOG_COLOR, &cmd,
-				       drawctxt);
-	}
-
-	build_reg_to_mem_range(REG_RB_STENCILREFMASK_BF,
-			       REG_PA_CL_VPORT_ZOFFSET, &cmd, drawctxt);
-	build_reg_to_mem_range(REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1, &cmd,
-			       drawctxt);
-	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
+		build_reg_to_mem_range(REG_RB_SURFACE_INFO, REG_RB_DEPTH_INFO,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_COHER_DEST_BASE_0,
+				REG_PA_SC_SCREEN_SCISSOR_BR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_PA_SC_WINDOW_OFFSET,
+				REG_PA_SC_WINDOW_SCISSOR_BR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_VGT_MAX_VTX_INDX, REG_RB_FOG_COLOR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_RB_STENCILREFMASK_BF,
+				REG_PA_CL_VPORT_ZOFFSET,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1,
+				&cmd, drawctxt);
 		build_reg_to_mem_range(REG_RB_DEPTHCONTROL, REG_RB_MODECONTROL,
-					&cmd, drawctxt);
-	} else {
-		build_reg_to_mem_range(REG_RB_DEPTHCONTROL, REG_RB_COLORCONTROL,
-				       &cmd, drawctxt);
-		build_reg_to_mem_range(REG_RA_CL_CLIP_CNTL, REG_PA_CL_VTE_CNTL,
-				       &cmd, drawctxt);
-		build_reg_to_mem_range(REG_RB_MODECONTROL, REG_RB_SAMPLE_POS,
-				       &cmd, drawctxt);
-	}
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_PA_SU_POINT_SIZE,
+				REG_PA_SC_LINE_STIPPLE,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_PA_SC_VIZ_QUERY, REG_PA_SC_VIZ_QUERY,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_PA_SC_LINE_CNTL, REG_SQ_PS_CONST,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_VGT_VERTEX_REUSE_BLOCK_CNTL,
+				REG_RB_DEPTH_CLEAR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_RB_SAMPLE_COUNT_CTL,
+				REG_RB_COLOR_DEST_MASK,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
+				REG_PA_SU_POLY_OFFSET_BACK_OFFSET,
+				&cmd, drawctxt);
 
-	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
-		build_reg_to_mem_range(REG_PA_SU_POINT_SIZE,
-					REG_PA_SC_LINE_STIPPLE,
-					&cmd, drawctxt);
-		build_reg_to_mem_range(REG_PA_SC_VIZ_QUERY,
-					REG_PA_SC_VIZ_QUERY,
-					&cmd, drawctxt);
+
+
 	} else {
-		build_reg_to_mem_range(REG_PA_SU_POINT_SIZE,
-					REG_PA_SC_LINE_CNTL,
-					&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_RB_SURFACE_INFO,
+				REG_LEIA_RB_DEPTH_INFO,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_COHER_DEST_BASE_0,
+				REG_LEIA_PA_SC_SCREEN_SCISSOR_BR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PA_SC_WINDOW_OFFSET,
+				REG_LEIA_PA_SC_WINDOW_SCISSOR_BR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PC_MAX_VTX_INDX,
+				REG_LEIA_PC_INDX_OFFSET,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_RB_COLOR_MASK,
+				REG_LEIA_RB_FOG_COLOR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_RB_STENCILREFMASK_BF,
+				REG_LEIA_PA_CL_VPORT_ZOFFSET,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_SQ_PROGRAM_CNTL,
+				REG_LEIA_SQ_WRAPPING_1,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_RB_DEPTHCONTROL,
+				REG_LEIA_RB_COLORCONTROL,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PA_CL_CLIP_CNTL,
+				REG_LEIA_PA_CL_VTE_CNTL,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_RB_MODECONTROL,
+				REG_LEIA_GRAS_CONTROL,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PA_SU_POINT_SIZE,
+				REG_LEIA_PA_SU_LINE_CNTL,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PA_SC_LINE_CNTL,
+				REG_LEIA_SQ_PS_CONST,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PA_SC_AA_MASK,
+				REG_LEIA_PA_SC_AA_MASK,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
+				REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_RB_COPY_CONTROL,
+				REG_LEIA_RB_DEPTH_CLEAR,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_RB_SAMPLE_COUNT_CTL,
+				REG_LEIA_RB_COLOR_DEST_MASK,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_LEIA_PA_SU_POLY_OFFSET_FRONT_SCALE,
+				REG_LEIA_PA_SU_POLY_OFFSET_BACK_OFFSET,
+				&cmd, drawctxt);
 	}
-	build_reg_to_mem_range(REG_PA_SC_LINE_CNTL, REG_SQ_PS_CONST, &cmd,
-			       drawctxt);
-	build_reg_to_mem_range(REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK, &cmd,
-			       drawctxt);
-	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
-		build_reg_to_mem_range(REG_VGT_VERTEX_REUSE_BLOCK_CNTL,
-				       REG_RB_DEPTH_CLEAR, &cmd, drawctxt);
-	} else {
-		build_reg_to_mem_range(REG_VGT_VERTEX_REUSE_BLOCK_CNTL,
-				       REG_VGT_VERTEX_REUSE_BLOCK_CNTL,
-					&cmd, drawctxt);
-		build_reg_to_mem_range(REG_RB_COPY_CONTROL,
-				       REG_RB_DEPTH_CLEAR, &cmd, drawctxt);
-	}
-	build_reg_to_mem_range(REG_RB_SAMPLE_COUNT_CTL, REG_RB_COLOR_DEST_MASK,
-			       &cmd, drawctxt);
-	build_reg_to_mem_range(REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
-			       REG_PA_SU_POLY_OFFSET_BACK_OFFSET, &cmd,
-			       drawctxt);
 
 	/* Copy ALU constants */
 	cmd =
@@ -620,6 +646,18 @@ static void build_regsave_cmds(struct kgsl_device *device,
 	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
 	*cmd++ = REG_RBBM_PM_OVERRIDE2;
 	*cmd++ = ctx->reg_values[3];
+
+	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
+		unsigned int i;
+		unsigned int j = 4;
+		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
+				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
+			*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
+			*cmd++ = i;
+			*cmd++ = ctx->reg_values[j];
+			j++;
+		}
+	}
 
 	/* Copy Boolean constants */
 	cmd = reg_to_mem(cmd, ctx->bool_shadow, REG_SQ_CF_BOOLEANS,
@@ -1088,30 +1126,65 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	/* H/W Registers */
 	/* deferred pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, ???); */
 	cmd++;
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Force mismatch */
 	*cmd++ = ((drawctxt->gpustate.gpuaddr + REG_OFFSET) & 0xFFFFE000) | 1;
 #else
 	*cmd++ = (drawctxt->gpustate.gpuaddr + REG_OFFSET) & 0xFFFFE000;
 #endif
 
-	cmd = reg_range(cmd, REG_RB_SURFACE_INFO, REG_PA_SC_SCREEN_SCISSOR_BR);
-	cmd = reg_range(cmd, REG_PA_SC_WINDOW_OFFSET,
-			REG_PA_SC_WINDOW_SCISSOR_BR);
-	cmd = reg_range(cmd, REG_VGT_MAX_VTX_INDX, REG_PA_CL_VPORT_ZOFFSET);
-	cmd = reg_range(cmd, REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1);
-	cmd = reg_range(cmd, REG_RB_DEPTHCONTROL, REG_RB_MODECONTROL);
-
-	if (device->chip_id != KGSL_CHIPID_LEIA_REV470)
+	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
+		cmd = reg_range(cmd, REG_RB_SURFACE_INFO,
+				REG_PA_SC_SCREEN_SCISSOR_BR);
+		cmd = reg_range(cmd, REG_PA_SC_WINDOW_OFFSET,
+				REG_PA_SC_WINDOW_SCISSOR_BR);
+		cmd = reg_range(cmd, REG_VGT_MAX_VTX_INDX,
+				REG_PA_CL_VPORT_ZOFFSET);
+		cmd = reg_range(cmd, REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1);
+		cmd = reg_range(cmd, REG_RB_DEPTHCONTROL, REG_RB_MODECONTROL);
 		cmd = reg_range(cmd, REG_PA_SU_POINT_SIZE,
 				REG_PA_SC_VIZ_QUERY); /*REG_VGT_ENHANCE */
-	else
-		cmd = reg_range(cmd, REG_PA_SU_POINT_SIZE,
-				REG_PA_SU_LINE_CNTL);
+		cmd = reg_range(cmd, REG_PA_SC_LINE_CNTL,
+				REG_RB_COLOR_DEST_MASK);
+		cmd = reg_range(cmd, REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
+				REG_PA_SU_POLY_OFFSET_BACK_OFFSET);
+	} else {
+		cmd = reg_range(cmd, REG_LEIA_RB_SURFACE_INFO,
+				REG_LEIA_RB_DEPTH_INFO);
+		cmd = reg_range(cmd, REG_LEIA_COHER_DEST_BASE_0,
+				REG_LEIA_PA_SC_SCREEN_SCISSOR_BR);
+		cmd = reg_range(cmd, REG_LEIA_PA_SC_WINDOW_OFFSET,
+				REG_LEIA_PA_SC_WINDOW_SCISSOR_BR);
+		cmd = reg_range(cmd, REG_LEIA_PC_MAX_VTX_INDX,
+				REG_LEIA_PC_INDX_OFFSET);
+		cmd = reg_range(cmd, REG_LEIA_RB_COLOR_MASK,
+				REG_LEIA_RB_FOG_COLOR);
+		cmd = reg_range(cmd, REG_LEIA_RB_STENCILREFMASK_BF,
+				REG_LEIA_PA_CL_VPORT_ZOFFSET);
+		cmd = reg_range(cmd, REG_LEIA_SQ_PROGRAM_CNTL,
+				REG_LEIA_SQ_WRAPPING_1);
+		cmd = reg_range(cmd, REG_LEIA_RB_DEPTHCONTROL,
+				REG_LEIA_RB_COLORCONTROL);
+		cmd = reg_range(cmd, REG_LEIA_PA_CL_CLIP_CNTL,
+				REG_LEIA_PA_CL_VTE_CNTL);
+		cmd = reg_range(cmd, REG_LEIA_RB_MODECONTROL,
+				REG_LEIA_GRAS_CONTROL);
+		cmd = reg_range(cmd, REG_LEIA_PA_SU_POINT_SIZE,
+				REG_LEIA_PA_SU_LINE_CNTL);
+		cmd = reg_range(cmd, REG_LEIA_PA_SC_LINE_CNTL,
+				REG_LEIA_SQ_PS_CONST);
+		cmd = reg_range(cmd, REG_LEIA_PA_SC_AA_MASK,
+				REG_LEIA_PA_SC_AA_MASK);
+		cmd = reg_range(cmd, REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
+				REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL);
+		cmd = reg_range(cmd, REG_LEIA_RB_COPY_CONTROL,
+				REG_LEIA_RB_DEPTH_CLEAR);
+		cmd = reg_range(cmd, REG_LEIA_RB_SAMPLE_COUNT_CTL,
+				REG_LEIA_RB_COLOR_DEST_MASK);
+		cmd = reg_range(cmd, REG_LEIA_PA_SU_POLY_OFFSET_FRONT_SCALE,
+				REG_LEIA_PA_SU_POLY_OFFSET_BACK_OFFSET);
 
-	cmd = reg_range(cmd, REG_PA_SC_LINE_CNTL, REG_RB_COLOR_DEST_MASK);
-	cmd = reg_range(cmd, REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
-			REG_PA_SU_POLY_OFFSET_BACK_OFFSET);
+	}
 
 	/* Now we know how many register blocks we have, we can compute command
 	 * length
@@ -1119,7 +1192,7 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	start[4] =
 	    pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, (cmd - start) - 5);
 	/* Enable shadowing for the entire register block. */
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	start[6] |= (0 << 24) | (4 << 16);	/* Disable shadowing. */
 #else
 	start[6] |= (1 << 24) | (4 << 16);
@@ -1147,11 +1220,22 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	else
 		*cmd++ = 0xffffffff;
 
+	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
+		unsigned int i;
+		unsigned int j = 4;
+		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
+				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
+			*cmd++ = pm4_type0_packet(i, 1);
+			ctx->reg_values[j] = gpuaddr(cmd, &drawctxt->gpustate);
+			*cmd++ = 0x00000000;
+			j++;
+		}
+	}
 
 	/* ALU Constants */
 	*cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
 	*cmd++ = drawctxt->gpustate.gpuaddr & 0xFFFFE000;
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	*cmd++ = (0 << 24) | (0 << 16) | 0;	/* Disable shadowing */
 #else
 	*cmd++ = (1 << 24) | (0 << 16) | 0;
@@ -1161,7 +1245,7 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	/* Texture Constants */
 	*cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
 	*cmd++ = (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000;
-#ifdef DISABLE_SHADOW_WRITES
+#ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Disable shadowing */
 	*cmd++ = (0 << 24) | (1 << 16) | 0;
 #else
@@ -1560,12 +1644,14 @@ kgsl_drawctxt_create(struct kgsl_device_private *dev_priv,
 	/* Save the shader instruction memory on context switching */
 	drawctxt->flags |= CTXT_FLAGS_SHADER_SAVE;
 
+	memset(drawctxt->user_gmem_shadow, 0,
+			sizeof(struct gmem_shadow_t) *
+			KGSL_MAX_GMEM_SHADOW_BUFFERS);
+	memset(&drawctxt->context_gmem_shadow.gmemshadow,
+			0, sizeof(struct kgsl_memdesc));
+
 	if (!(flags & KGSL_CONTEXT_NO_GMEM_ALLOC)) {
 		/* create gmem shadow */
-		memset(drawctxt->user_gmem_shadow, 0,
-		       sizeof(struct gmem_shadow_t) *
-				KGSL_MAX_GMEM_SHADOW_BUFFERS);
-
 		if (create_gmem_shadow(yamato_device, drawctxt, &ctx)
 				!= 0) {
 			kgsl_drawctxt_destroy(device, index);
@@ -1779,7 +1865,8 @@ kgsl_drawctxt_switch(struct kgsl_yamato_device *yamato_device,
 	unsigned int cmds[2];
 
 	if (drawctxt) {
-		if (flags & KGSL_CONTEXT_SAVE_GMEM)
+		if ((flags & KGSL_CONTEXT_SAVE_GMEM) &&
+			(device->chip_id != KGSL_CHIPID_LEIA_REV470))
 			/* Set the flag in context so that the save is done
 			* when this context is switched out. */
 			drawctxt->flags |= CTXT_FLAGS_GMEM_SAVE;

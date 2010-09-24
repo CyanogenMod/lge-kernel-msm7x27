@@ -31,3 +31,8 @@ config MSM_KGSL_MMU_PAGE_FAULT
 	bool "Force the GPU MMU to page fault for unmapped regions"
 	default n
 	depends on MSM_KGSL_MMU && !MSM_KGSL_DRM
+
+config MSM_KGSL_DISABLE_SHADOW_WRITES
+	bool "Disable register shadow writes for context switches"
+	default n
+	depends on MSM_KGSL
