@@ -1823,16 +1823,13 @@ static struct marimba_platform_data marimba_pdata = {
 
 static void __init msm7x30_init_marimba(void)
 {
-#ifdef CONFIG_TIMPANI_CODEC
 	vreg_marimba_1 = vreg_get(NULL, "s3");
-#else
-	vreg_marimba_1 = vreg_get(NULL, "s2");
-#endif
 	if (IS_ERR(vreg_marimba_1)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
 			__func__, PTR_ERR(vreg_marimba_1));
 		return;
 	}
+
 	vreg_marimba_2 = vreg_get(NULL, "gp16");
 	if (IS_ERR(vreg_marimba_1)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
