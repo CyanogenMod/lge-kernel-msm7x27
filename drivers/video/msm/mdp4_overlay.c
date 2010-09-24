@@ -1421,14 +1421,20 @@ int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req,
 		printk(KERN_INFO "mdp4_overlay_blt: start=%x off=%x\n",
 					(int)start, img->offset);
 
+#ifdef CONFIG_FB_MSM_MDDI
 		if (ctrl->panel_mode & MDP4_PANEL_MDDI)
 			mdp4_mddi_overlay_blt(addr); /* enable */
 		else
+#endif
+		if (ctrl->panel_mode & MDP4_PANEL_LCDC)
 			mdp4_lcdc_overlay_blt(addr); /* enable */
 	} else {
+#ifdef CONFIG_FB_MSM_MDDI
 		if (ctrl->panel_mode & MDP4_PANEL_MDDI)
 			mdp4_mddi_overlay_blt(0); /* disable */
 		else
+#endif
+		if (ctrl->panel_mode & MDP4_PANEL_LCDC)
 			mdp4_lcdc_overlay_blt(0); /* disable */
 
 		printk(KERN_INFO "mdp4_overlay_blt: END\n");
@@ -1441,9 +1447,12 @@ int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req,
 
 int mdp4_overlay_blt_offset(struct fb_info *info, int *off)
 {
+#ifdef CONFIG_FB_MSM_MDDI
 	if (ctrl->panel_mode & MDP4_PANEL_MDDI)
 		return mdp4_mddi_overlay_blt_offset(off);
 	else
+#endif
+	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
 		return mdp4_lcdc_overlay_blt_offset(off);
 }
 
@@ -1519,9 +1528,11 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 
 	mdp4_mixer_stage_down(pipe);
 
+#ifdef CONFIG_FB_MSM_MDDI
 	if (ctrl->panel_mode & MDP4_PANEL_MDDI) /* MDDI panel */
 		mdp4_mddi_overlay_restore();
-	else	/* LCDC, DTV panel */
+	else	/* LCDC, DTV, ATV, MIPI_VIDEO panel */
+#endif
 		mdp4_overlay_reg_flush(pipe, 0);
 
 	mdp4_stat.overlay_unset[pipe->mixer_num]++;
@@ -1648,6 +1659,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 			mdp4_overlay_reg_flush(pipe, 1);
 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
 			mdp4_overlay_reg_flush(pipe, 1);
+#ifdef CONFIG_FB_MSM_MDDI
 		else if (ctrl->panel_mode & MDP4_PANEL_MDDI) {
 
 #ifdef MDP4_NONBLOCKING
@@ -1657,6 +1669,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 #endif
 				mdp4_mddi_overlay_kickoff(mfd, pipe);
 		}
+#endif
 	}
 
 	mdp4_stat.overlay_play[pipe->mixer_num]++;
