@@ -34,11 +34,13 @@
 #include "clock-local.h"
 #include "clock-7x30.h"
 #include "acpuclock.h"
-#include "socinfo.h"
 #include "spm.h"
 
 #define SCSS_CLK_CTL_ADDR	(MSM_ACC_BASE + 0x04)
 #define SCSS_CLK_SEL_ADDR	(MSM_ACC_BASE + 0x08)
+
+#define PLL2_L_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x33C)
+#define PLL2_1024_MHZ		53
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -390,9 +392,16 @@ static void __init lpj_init(void)
 	}
 }
 
-/* Update frequency tables for a 1024MHz PLL2. */
-void __init pll2_1024mhz_fixup(void)
+/* Update frequency tables for PLL2. */
+void __init pll2_fixup(void)
 {
+	uint32_t pll2_l = readl(PLL2_L_VAL_ADDR) & 0x3f;
+
+	BUG_ON(pll2_l == 0);
+
+	if (pll2_l != PLL2_1024_MHZ)
+		return;
+
 	if (acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz != 806400
 		  || freq_table[ARRAY_SIZE(freq_table)-2].frequency != 806400) {
 		pr_err("Frequency table fixups for PLL2 rate failed.\n");
@@ -415,9 +424,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	mutex_init(&drv_state.lock);
 	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
-	/* PLL2 runs at 1024MHz for MSM8x55. */
-	if (cpu_is_msm8x55())
-		pll2_1024mhz_fixup();
+	pll2_fixup();
 	acpuclk_init();
 	lpj_init();
 #ifdef CONFIG_CPU_FREQ_MSM
