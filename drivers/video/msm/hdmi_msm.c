@@ -50,7 +50,7 @@
 #define MSM_HDMI_SAMPLE_RATE_FORCE_32BIT	0x7FFFFFFF
 
 struct hdmi_msm_state_type {
-	boolean disp_powered_up;
+	boolean panel_power_on;
 	boolean hpd_initialized;
 	int hpd_stable;
 	boolean hpd_prev_state;
@@ -225,6 +225,7 @@ static uint32 __hdmi_inp(uint32 offset)
 #endif /* DEBUG */
 
 static void hdmi_msm_turn_on(void);
+static void hdmi_msm_audio_off(void);
 static int hdmi_msm_read_edid(void);
 
 static void hdmi_msm_hpd_state_work(struct work_struct *work)
@@ -268,25 +269,29 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	if (!hdmi_msm_state->hpd_cable_chg_detected) {
 		mutex_unlock(&hdmi_msm_state_mutex);
 		if (hpd_state) {
-			/* Turn on the audio and video components */
-			hdmi_msm_turn_on();
 			if (!external_common_state->
 					disp_mode_list.num_of_elements)
 				hdmi_msm_read_edid();
-		}
+			if (hdmi_msm_state->panel_power_on)
+				hdmi_msm_turn_on();
+		} else if (hdmi_msm_state->panel_power_on)
+			hdmi_msm_audio_off();
 	} else {
 		hdmi_msm_state->hpd_cable_chg_detected = FALSE;
 		mutex_unlock(&hdmi_msm_state_mutex);
 		if (hpd_state) {
-			/* Turn on the audio and video components */
-			hdmi_msm_turn_on();
 			/* Build EDID table */
 			hdmi_msm_read_edid();
-
 			DEV_DBG("%s: sense CONNECTED: send ONLINE\n", __func__);
 			kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_ONLINE);
+
+			if (hdmi_msm_state->panel_power_on)
+				hdmi_msm_turn_on();
 		} else {
+			if (hdmi_msm_state->panel_power_on)
+				hdmi_msm_audio_off();
+
 			DEV_DBG("%s: sense DISCONNECTED: send OFFLINE\n",
 				__func__);
 			kobject_uevent(external_common_state->uevent_kobj,
@@ -2183,6 +2188,10 @@ static void hdmi_msm_audio_setup(void)
 		MSM_HDMI_SAMPLE_RATE_48KHZ, channels);
 	hdmi_msm_audio_info_setup(TRUE, channels, 0, FALSE);
 	hdmi_msm_audio_ctrl_setup(TRUE, 1);
+
+	/* Turn on Audio FIFO and SAM DROP ISR */
+	HDMI_OUTP(0x02CC, HDMI_INP(0x02CC) | BIT(1) | BIT(3));
+	DEV_INFO("%s: done\n", __func__);
 }
 
 static void hdmi_msm_audio_off(void)
@@ -2353,6 +2362,7 @@ static void hdmi_msm_avi_info_frame(void)
 
 static void hdmi_msm_turn_on(void)
 {
+	hdmi_msm_video_setup(external_common_state->video_resolution);
 	hdmi_msm_audio_setup();
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	hdmi_msm_avi_info_frame();
@@ -2365,6 +2375,7 @@ static void hdmi_msm_turn_on(void)
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	hdmi_msm_hdcp_enable();
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
+	DEV_INFO("%s: done\n", __func__);
 }
 
 static void hdmi_msm_hpd_state_timer(unsigned long data)
@@ -2452,9 +2463,15 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
 	hdmi_common_get_video_format_from_drv_data(mfd);
-	hdmi_msm_video_setup(external_common_state->video_resolution);
 
-	hdmi_msm_state->disp_powered_up = TRUE;
+	mutex_lock(&external_common_state_hpd_mutex);
+	if (external_common_state->hpd_state) {
+		mutex_unlock(&external_common_state_hpd_mutex);
+		hdmi_msm_turn_on();
+	} else
+		mutex_unlock(&external_common_state_hpd_mutex);
+
+	hdmi_msm_state->panel_power_on = TRUE;
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT
 	DEV_DBG("power=%s, DVI=%s\n",
@@ -2488,8 +2505,10 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	mutex_unlock(&hdmi_msm_state_mutex);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
-	DEV_DBG("power: OFF\n");
+	DEV_DBG("power: OFF (audio off)\n");
 	hdmi_msm_audio_off();
+
+	hdmi_msm_state->panel_power_on = FALSE;
 	return 0;
 }
 
