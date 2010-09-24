@@ -641,7 +641,7 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	if (dev->hs_cclk)
 		clk_disable(dev->hs_cclk);
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable*/
-	ret = msm_xo_mode_vote(dev->xo_handle, XO_MODE_OFF);
+	ret = msm_xo_mode_vote(dev->xo_handle, MSM_XO_MODE_OFF);
 	if (ret)
 		pr_err("%s failed to devote for"
 			"TCXO D1 buffer%d\n", __func__, ret);
@@ -690,7 +690,7 @@ static int msm_otg_resume(struct msm_otg *dev)
 		dev->pdata->ldo_set_voltage(3400);
 
 	/* Vote for TCXO when waking up the phy */
-	ret = msm_xo_mode_vote(dev->xo_handle, XO_MODE_ON);
+	ret = msm_xo_mode_vote(dev->xo_handle, MSM_XO_MODE_ON);
 	if (ret)
 		pr_err("%s failed to vote for"
 			"TCXO D1 buffer%d\n", __func__, ret);
@@ -2254,7 +2254,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto free_regs;
 	}
-	dev->xo_handle = msm_xo_get(TCXO_D1, "usb");
+	dev->xo_handle = msm_xo_get(MSM_XO_TCXO_D1, "usb");
 	if (IS_ERR(dev->xo_handle)) {
 		pr_err(" %s not able to get the handle"
 			"to vote for TCXO D1 buffer\n", __func__);
@@ -2262,7 +2262,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_regs;
 	}
 
-	ret = msm_xo_mode_vote(dev->xo_handle, XO_MODE_ON);
+	ret = msm_xo_mode_vote(dev->xo_handle, MSM_XO_MODE_ON);
 	if (ret) {
 		pr_err("%s failed to vote for TCXO"
 			"D1 buffer%d\n", __func__, ret);
