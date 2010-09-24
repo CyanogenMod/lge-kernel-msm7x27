@@ -5026,7 +5026,7 @@ MACHINE_END
 
 MACHINE_START(MSM8X60_SURF, "QCT MSM8X60 SURF")
 #ifdef CONFIG_MSM_DEBUG_UART
-	.phys_io = MSM_DEBUG_UART_PHYS
+	.phys_io = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
 #endif
 	.map_io = msm8x60_map_io,
@@ -5037,7 +5037,7 @@ MACHINE_END
 
 MACHINE_START(MSM8X60_FFA, "QCT MSM8X60 FFA")
 #ifdef CONFIG_MSM_DEBUG_UART
-	.phys_io = MSM_DEBUG_UART_PHYS
+	.phys_io = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
 #endif
 	.map_io = msm8x60_map_io,
@@ -5048,7 +5048,7 @@ MACHINE_END
 
 MACHINE_START(MSM8X60_FLUID, "QCT MSM8X60 FLUID")
 #ifdef CONFIG_MSM_DEBUG_UART
-	.phys_io = MSM_DEBUG_UART_PHYS
+	.phys_io = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
 #endif
 	.map_io = msm8x60_map_io,

@@ -20,7 +20,7 @@
 #include <mach/msm_iomap.h>
 
 #ifdef CONFIG_MSM_DEBUG_UART
-	.macro	addruart,rx
+	.macro	addruart,rx,tmp
 	@ see if the MMU is enabled and select appropriate base address
 	mrc	p15, 0, \rx, c1, c0
 	tst	\rx, #1
@@ -29,19 +29,35 @@
 	.endm
 
 	.macro	senduart,rd,rx
-	teq	\rx, #0
-	strne	\rd, [\rx, #0x0C]
+#ifdef CONFIG_SERIAL_MSM_HSL
+	mov 	r12, #0x1
+	str	r12, [\rx, #0x40]
+	str	\rd, [\rx, #0x70]
+#else
+	teq     \rx, #0
+	strne   \rd, [\rx, #0x0C]
+#endif
 	.endm
 
 	.macro	waituart,rd,rx
 	@ wait for TX_READY
-1001:	ldr	\rd, [\rx, #0x08]
-	tst	\rd, #0x04
-	beq	1001b
+#ifdef CONFIG_SERIAL_MSM_HSL
+	ldr	\rd, [\rx, #0x08]
+	tst	\rd, #0x08
+	bne	1002f
+1001:	ldreq	\rd, [\rx, #0x14]
+	tst	\rd, #0x80
+	beq 	1001b
+#else
+	1001:   ldr \rd, [\rx, #0x08]
+	tst     \rd, #0x04
+	beq     1001b
+#endif
 1002:
 	.endm
+
 #else
-	.macro	addruart,rx
+	.macro	addruart,rx,tmp
 	.endm
 
 	.macro	senduart,rd,rx
