@@ -3245,7 +3245,6 @@ static void __init msm8x60_map_io(void)
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_msm8x60_io();
 	msm8x60_allocate_memory_regions();
-	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
 }
 
 /*
@@ -4774,6 +4773,7 @@ static void __init msm8x60_init(void)
 #ifdef CONFIG_MSM_RPM
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
 #endif
+	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
 	/* initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
 	 */
