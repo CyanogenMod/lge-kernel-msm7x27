@@ -30,6 +30,7 @@
 #ifndef MDP4_H
 #define MDP4_H
 
+extern uint32 mdp_revision;
 extern struct mdp_dma_data dma2_data;
 extern struct mdp_dma_data dma_s_data;
 extern struct mdp_dma_data dma_e_data;
@@ -39,6 +40,11 @@ extern boolean mdp_is_in_isr;
 extern uint32 mdp_intr_mask;
 extern spinlock_t mdp_spin_lock;
 extern struct mdp4_statistic mdp4_stat;
+
+
+#define MDP4_HALCYON_V1		0
+#define MDP4_HALCYON_V2		1
+#define MDP4_HALCYON_V2_1	2
 
 #define MDP4_NONBLOCKING
 
