@@ -4263,9 +4263,9 @@ void msm_snddev_enable_amic_power(void)
 #ifdef CONFIG_PMIC8058_OTHC
 	int ret;
 
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_0, OTHC_SIGNAL_ALWAYS_ON);
+	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_ALWAYS_ON);
 	if (ret)
-		pr_err("Epickrror Enabling Mic Bias....\n");
+		pr_err("%s: Enabling amic power failed\n", __func__);
 #endif
 
 	msm_snddev_tx_route_config();
@@ -4276,9 +4276,9 @@ void msm_snddev_disable_amic_power(void)
 #ifdef CONFIG_PMIC8058_OTHC
 	int ret;
 
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_0, OTHC_SIGNAL_OFF);
+	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
 	if (ret)
-		pr_err("Error Enabling Mic Bias....\n");
+		pr_err("%s: Disabling amic power failed\n", __func__);
 #endif
 
 	msm_snddev_tx_route_deconfig();
@@ -4300,37 +4300,34 @@ void msm_snddev_enable_dmic_power(void)
 	ret = regulator_set_voltage(s3, 1800000, 1800000);
 	if (ret) {
 		pr_err("%s: error setting voltage\n", __func__);
-		goto fail;
+		goto fail_s3;
 	}
 
 	ret = regulator_enable(s3);
 	if (ret) {
 		pr_err("%s: error enabling regulator\n", __func__);
-		goto fail;
+		goto fail_s3;
 	}
 
 	mvs = regulator_get(NULL, "8901_mvs0");
 	if (IS_ERR(mvs))
-		goto fail;
-
-	ret = regulator_set_voltage(mvs, 1800000, 1800000);
-	if (ret) {
-		pr_err("%s: error setting voltage\n", __func__);
-		goto fail;
-	}
+		goto fail_mvs0_get;
 
 	ret = regulator_enable(mvs);
 	if (ret) {
-		pr_err("%s: error enabling regulator\n", __func__);
-		goto fail;
+		pr_err("%s: error setting regulator\n", __func__);
+		goto fail_mvs0_enable;
 	}
-fail:
-	if (s3) {
-		regulator_disable(s3);
-		regulator_put(s3);
-	}
-	if (mvs)
-		regulator_put(mvs);
+	return;
+
+fail_mvs0_enable:
+	regulator_put(mvs);
+	mvs = NULL;
+fail_mvs0_get:
+	regulator_disable(s3);
+fail_s3:
+	regulator_put(s3);
+	s3 = NULL;
 }
 
 void msm_snddev_disable_dmic_power(void)
@@ -4339,17 +4336,21 @@ void msm_snddev_disable_dmic_power(void)
 
 	msm_snddev_tx_route_deconfig();
 
-	ret = regulator_disable(mvs);
-	if (ret < 0)
-		pr_err("%s: error disabling regulator mvs\n", __func__);
-	regulator_put(mvs);
-	mvs = NULL;
+	if (mvs) {
+		ret = regulator_disable(mvs);
+		if (ret < 0)
+			pr_err("%s: error disabling vreg mvs\n", __func__);
+		regulator_put(mvs);
+		mvs = NULL;
+	}
 
-	ret = regulator_disable(s3);
-	if (ret < 0)
-		pr_err("%s: error disabling regulator s3\n", __func__);
-	regulator_put(s3);
-	s3 = NULL;
+	if (s3) {
+		ret = regulator_disable(s3);
+		if (ret < 0)
+			pr_err("%s: error disabling regulator s3\n", __func__);
+		regulator_put(s3);
+		s3 = NULL;
+	}
 }
 
 static uint32_t msm_snddev_rx_gpio[] = {
