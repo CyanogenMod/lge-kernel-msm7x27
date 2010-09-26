@@ -269,7 +269,7 @@ int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
 {
 	unsigned int cpu;
 
-	BUG_ON(nr_devs != num_possible_cpus());
+	BUG_ON(nr_devs < num_possible_cpus());
 	for_each_possible_cpu(cpu) {
 		struct msm_spm_device *dev = &per_cpu(msm_spm_devices, cpu);
 		int i;
