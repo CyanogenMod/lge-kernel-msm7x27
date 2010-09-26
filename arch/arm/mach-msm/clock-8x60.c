@@ -1748,31 +1748,6 @@ static void rmwreg(uint32_t val, void *reg, uint32_t mask)
 
 static void reg_init(int use_pxo)
 {
-/* XXX Start of temporary code, until the RPM takes care of this XXX */
-	/* Program MM_PLL0 (PLL1) @ 1320 MHz and turn it on. */
-	rmwreg(0,  MM_PLL0_MODE_REG, B(0)); /* Disable output */
-	writel(48, MM_PLL0_L_VAL_REG);
-	writel(8,  MM_PLL0_M_VAL_REG);
-	writel(9,  MM_PLL0_N_VAL_REG);
-	/* Set ref, enable. */
-	if (use_pxo)
-		rmwreg(B(1),      MM_PLL0_MODE_REG, B(4)|B(1)); /* PXO */
-	else
-		rmwreg(B(4)|B(1), MM_PLL0_MODE_REG, B(4)|B(1)); /* MXO */
-	udelay(10);
-	writel(0x14580, MM_PLL0_CONFIG_REG);  /* Enable MN, set VCO, misc */
-	rmwreg(B(2), MM_PLL0_MODE_REG, B(2)); /* Deassert reset */
-	rmwreg(B(0), MM_PLL0_MODE_REG, B(0)); /* Enable output */
-
-	/* Set up MM AHB clock to PLL8/5. */
-	local_src_enable(PLL_8);
-	rmwreg(0x0102, AHB_NS_REG, 0x43C7);
-	udelay(200); /* Wait before using registers clocked by MM AHB_CLK. */
-
-	/* Set up MM Fabric (AXI). */
-	writel(0x4248451, AXI_NS_REG);
-/* XXX End of temporary code XXX */
-
 	/* Set MM_PLL1 (PLL2) @ 800 MHz but leave it off. */
 	rmwreg(0,  MM_PLL1_MODE_REG, B(0)); /* Disable output */
 	writel(29, MM_PLL1_L_VAL_REG);
