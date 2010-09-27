@@ -926,6 +926,7 @@ static struct clk_freq_tbl clk_tbl_mdp_vsync[] = {
 			NS_MM(31, 16, n, m, 15, 14, d, 2, 0, s), \
 			CC(6, n), MND_EN(B(5), n), v, NULL)
 static struct clk_freq_tbl clk_tbl_pixel_mdp[] = {
+	F_PIXEL_MDP(25600000, MM_GPERF, 3,   1,   5, LOW),
 	F_PIXEL_MDP(43192000, MM_GPERF, 1,  64, 569, LOW),
 	F_PIXEL_MDP(48000000, MM_GPERF, 4,   1,   2, LOW),
 	F_PIXEL_MDP(53990000, MM_GPERF, 2, 169, 601, LOW),
