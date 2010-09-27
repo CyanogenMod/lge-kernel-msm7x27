@@ -2659,7 +2659,7 @@ static int tdisc_shinetsu_enable(void)
 	}
 
 	/* Enable the OE (output enable) gpio */
-	gpio_set_value(TDISC_OE, 1);
+	gpio_set_value_cansleep(TDISC_OE, 1);
 
 	return 0;
 vreg_fail:
@@ -2680,7 +2680,7 @@ static void tdisc_shinetsu_disable(void)
 	}
 
 	/* Disable the OE (output enable) gpio */
-	gpio_set_value(TDISC_OE, 0);
+	gpio_set_value_cansleep(TDISC_OE, 0);
 }
 
 static struct tdisc_abs_values tdisc_abs = {
