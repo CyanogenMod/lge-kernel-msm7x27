@@ -78,6 +78,7 @@
 #include "timer.h"
 #include "saw-regulator.h"
 #include "socinfo.h"
+#include "gpiomux.h"
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
@@ -1535,9 +1536,30 @@ static struct i2c_board_info cy8ctmg200_board_info[] = {
 };
 
 #ifdef CONFIG_SERIAL_MSM_HS
+static int configure_uart_gpios(int on)
+{
+	int ret = 0, i;
+	int uart_gpios[] = {53, 54, 55, 56};
+	for (i = 0; i < ARRAY_SIZE(uart_gpios); i++) {
+		if (on) {
+			ret = msm_gpiomux_get(uart_gpios[i]);
+			if (unlikely(ret))
+				break;
+		} else {
+			ret = msm_gpiomux_put(uart_gpios[i]);
+			if (unlikely(ret))
+				return ret;
+		}
+	}
+	if (ret)
+		for (; i >= 0; i--)
+			msm_gpiomux_put(uart_gpios[i]);
+	return ret;
+}
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
        .inject_rx_on_wakeup = 1,
        .rx_to_inject = 0xFD,
+       .gpio_config = configure_uart_gpios,
 };
 #endif
 
@@ -3450,16 +3472,6 @@ static uint32_t msm8x60_tlmm_cfgs[] = {
 	GPIO_CFG(PM8058_GPIO_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 #endif
 
-#ifdef CONFIG_SERIAL_MSM_HS
-	/* UARTDM_TX */
-	GPIO_CFG(53, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	/* UARTDM_RX */
-	GPIO_CFG(54, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	/* UARTDM_CTS */
-	GPIO_CFG(55, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	/* UARTDM_RFR */
-	GPIO_CFG(56, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-#endif
 #ifdef CONFIG_PMIC8901
 	/* PMIC8901 */
 	GPIO_CFG(PM8901_GPIO_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
