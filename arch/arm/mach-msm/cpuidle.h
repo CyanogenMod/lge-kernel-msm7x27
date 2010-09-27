@@ -45,4 +45,13 @@ void msm_cpuidle_set_states(struct msm_cpuidle_state *states,
 
 int msm_cpuidle_init(void);
 
+#ifdef CONFIG_MSM_SLEEP_STATS
+int msm_idle_register_cb(void (*pre)(int, unsigned int),
+			void (*post)(int, unsigned int));
+#else
+static inline int msm_idle_register_cb(void (*pre)(int, unsigned int),
+			void (*post)(int, unsigned int))
+{ return -ENODEV; }
+#endif
+
 #endif /* __ARCH_ARM_MACH_MSM_CPUIDLE_H */

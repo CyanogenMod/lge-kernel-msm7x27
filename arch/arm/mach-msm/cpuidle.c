@@ -29,13 +29,61 @@ static struct cpuidle_driver msm_cpuidle_driver = {
 	.owner = THIS_MODULE,
 };
 
+#ifdef CONFIG_MSM_SLEEP_STATS
+static void (*pre_idle_cb)(int cpu, unsigned int microsec);
+static void (*post_idle_cb)(int cpu, unsigned int microsec);
+
+static DEFINE_PER_CPU(struct timespec, ts_busy);
+
+static int pre_idle(int cpu)
+{
+	struct timespec *ts_notidle = &per_cpu(ts_busy, cpu);
+	struct timespec ts_now, ts_diff;
+
+	getnstimeofday(&ts_now);
+	ts_diff = timespec_sub(ts_now, *ts_notidle);
+
+	if (pre_idle_cb)
+		pre_idle_cb(cpu, (u32)timespec_to_ns(&ts_diff)/1000);
+
+	return 0;
+}
+
+static int post_idle(int cpu, unsigned int microsec)
+{
+	struct timespec *ts_notidle = &per_cpu(ts_busy, cpu);
+
+	getnstimeofday(ts_notidle);
+
+	if (post_idle_cb)
+		post_idle_cb(cpu, microsec);
+
+	return 0;
+}
+
+int msm_idle_register_cb(void (*pre)(int, unsigned int),
+		void (*post)(int, unsigned int))
+{
+	pre_idle_cb = pre;
+	post_idle_cb = post;
+	return 0;
+}
+EXPORT_SYMBOL(msm_idle_register_cb);
+#endif
+
 static int msm_cpuidle_enter(
 	struct cpuidle_device *dev, struct cpuidle_state *state)
 {
 	int ret;
 
 	local_irq_disable();
+#ifdef CONFIG_MSM_SLEEP_STATS
+	pre_idle(dev->cpu);
+#endif
 	ret = msm_pm_idle_enter((enum msm_pm_sleep_mode) (state->driver_data));
+#ifdef CONFIG_MSM_SLEEP_STATS
+	post_idle(dev->cpu, ret);
+#endif
 	local_irq_enable();
 
 	return ret;
