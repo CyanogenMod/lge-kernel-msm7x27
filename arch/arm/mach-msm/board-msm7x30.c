@@ -117,6 +117,8 @@
 
 #define HAP_LVL_SHFT_MSM_GPIO 24
 
+#define PMIC_GPIO_QUICKVX_CLK 37 /* PMIC GPIO 38 */
+
 #define	PM_FLIP_MPP 5 /* PMIC MPP 06 */
 static int pm8058_gpios_init(void)
 {
@@ -3246,6 +3248,8 @@ static int msm_fb_detect_panel(const char *name)
 			return 0;
 		else if (!strcmp(name, "mddi_orise"))
 			return -EPERM;
+		else if (!strcmp(name, "mddi_quickvx"))
+			return -EPERM;
 	}
 	return -ENODEV;
 }
@@ -3406,6 +3410,19 @@ static struct msm_gpio fluid_vee_reset_gpio[] = {
 	{ GPIO_CFG(20, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "vee_reset" },
 };
 
+static unsigned quickvx_vlp_gpio =
+	GPIO_CFG(97, 0, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL,	GPIO_CFG_2MA);
+
+static struct pm8058_gpio pmic_quickvx_clk_gpio = {
+	.direction      = PM_GPIO_DIR_OUT,
+	.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+	.output_value   = 1,
+	.pull           = PM_GPIO_PULL_NO,
+	.vin_sel        = PM_GPIO_VIN_S3,
+	.out_strength   = PM_GPIO_STRENGTH_HIGH,
+	.function       = PM_GPIO_FUNC_2,
+};
+
 static int display_common_power(int on)
 {
 	int rc = 0, flag_on = !!on;
@@ -3429,6 +3446,28 @@ static int display_common_power(int on)
 
 		/* bring reset line low to hold reset*/
 		gpio_set_value(180, 0);
+
+		/* QuickVX chip -- VLP pin -- gpio 97 */
+		rc = gpio_tlmm_config(quickvx_vlp_gpio, GPIO_CFG_ENABLE);
+		if (rc) {
+			pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
+				__func__, quickvx_vlp_gpio, rc);
+			return rc;
+		}
+
+		/* bring QuickVX VLP line low */
+		gpio_set_value(97, 0);
+
+		rc = pm8058_gpio_config(PMIC_GPIO_QUICKVX_CLK,
+			&pmic_quickvx_clk_gpio);
+		if (rc) {
+			pr_err("%s: pm8058_gpio_config(%#x)=%d\n",
+				__func__, PMIC_GPIO_QUICKVX_CLK + 1, rc);
+			return rc;
+		}
+
+		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+			PMIC_GPIO_QUICKVX_CLK), 0);
 	}
 
 	/* Toshiba WeGA power -- has 3 power source */
@@ -3485,7 +3524,9 @@ static int display_common_power(int on)
 		}
 	}
 
-	rc = vreg_set_level(vreg_ldo20, 1500);
+	/* For QuickLogic chip, LDO20 requires 1.8V */
+	/* Toshiba chip requires 1.5V, but can tolerate 1.8V since max is 3V */
+	rc = vreg_set_level(vreg_ldo20, 1800);
 	if (rc) {
 		pr_err("%s: vreg LDO20 set level failed (%d)\n",
 		       __func__, rc);
@@ -3579,6 +3620,11 @@ static int display_common_power(int on)
 
 		gpio_set_value(180, 1); /* bring reset line high */
 		mdelay(10);	/* 10 msec before IO can be accessed */
+		gpio_set_value(97, 1);
+		msleep(2);
+		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+			PMIC_GPIO_QUICKVX_CLK), 1);
+		msleep(2);
 		rc = pmapp_display_clock_config(1);
 		if (rc) {
 			pr_err("%s pmapp_display_clock_config rc=%d\n",
@@ -3603,6 +3649,9 @@ static int display_common_power(int on)
 		}
 
 		gpio_set_value(180, 0); /* bring reset line low */
+		gpio_set_value(97, 0);
+		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+			PMIC_GPIO_QUICKVX_CLK), 0);
 
 		if (machine_is_msm7x30_fluid()) {
 			rc = vreg_disable(vreg_ldo8);
