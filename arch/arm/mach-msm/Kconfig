@@ -1229,4 +1229,9 @@ config MSM_WATCHDOG_DEBUG
 	help
 		This makes the target enter download mode when it is reset by
 		the watchdog. Provides debugging support with watchdog enabled
+
+config MSM_SLEEP_STATS
+	bool "Enable exporting of MSM sleep stats to userspace"
+	depends on CPU_IDLE
+	default n
 endif
