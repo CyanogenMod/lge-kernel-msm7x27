@@ -4977,6 +4977,11 @@ static void __init msm8x60_init(void)
 	 * driver to set ACPU voltages.
 	 */
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	/*
+	 * Disable regulator info printing so that regulator registration
+	 * messages do not enter the kmsg log.
+	 */
+	regulator_suppress_info_printing();
 	/* Buses need to be initialized before early-device registration
 	 * to get the platform data for fabrics.
 	 */
