@@ -107,6 +107,8 @@ static int lcdc_on(struct platform_device *pdev)
 	pm_qos_update_request(mfd->pm_qos_req, pm_qos_rate);
 	mfd = platform_get_drvdata(pdev);
 
+	mfd->fbi->var.pixclock = clk_round_rate(pixel_mdp_clk,
+					mfd->fbi->var.pixclock);
 	ret = clk_set_rate(pixel_mdp_clk, mfd->fbi->var.pixclock);
 	if (ret) {
 		pr_err("%s: Can't set MDP LCDC pixel clock to rate %u\n",
