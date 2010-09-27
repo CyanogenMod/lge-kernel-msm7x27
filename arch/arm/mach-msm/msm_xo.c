@@ -200,3 +200,25 @@ void msm_xo_put(struct msm_xo_voter *xo_voter)
 	kfree(xo_voter);
 }
 EXPORT_SYMBOL(msm_xo_put);
+
+int __init msm_xo_init(void)
+{
+	int ret;
+	struct msm_rpm_iv_pair cmd[2];
+
+	cmd[0].id = MSM_RPM_ID_PXO_CLK;
+	cmd[0].value = 1;
+	cmd[1].id = MSM_RPM_ID_CXO_BUFFERS;
+	cmd[1].value = 0;
+	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_0, cmd, 2);
+	if (ret)
+		goto out;
+
+	cmd[0].id = MSM_RPM_ID_PXO_CLK;
+	cmd[0].value = 0;
+	ret = msm_rpmrs_set(MSM_RPM_CTX_SET_SLEEP, cmd, 1);
+	if (ret)
+		goto out;
+out:
+	return ret;
+}
