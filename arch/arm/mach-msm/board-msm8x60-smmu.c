@@ -597,46 +597,29 @@ static struct smmu_ctx vcodec_b_mm2_ctx = {
 	.mids = {0, 1, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, -1}
 };
 
-static struct smmu_ctx gfx3d_rbpa_ctx = {
-	.name = "gfx3d_rbpa",
+static struct smmu_ctx gfx3d_user_ctx = {
+	.name = "gfx3d_user",
 	.num = 0,
-	.mids = {-1}
+	.mids = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, -1}
 };
 
-static struct smmu_ctx gfx3d_cpvgttc_ctx = {
-	.name = "gfx3d_cpvgttc",
+static struct smmu_ctx gfx3d_priv_ctx = {
+	.name = "gfx3d_priv",
 	.num = 1,
+	.mids = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+		 31, -1}
+};
+
+static struct smmu_ctx gfx2d0_2d0_ctx = {
+	.name = "gfx2d0_2d0",
+	.num = 0,
 	.mids = {0, 1, 2, 3, 4, 5, 6, 7, -1}
 };
 
-static struct smmu_ctx gfx3d_smmu_ctx = {
-	.name = "gfx3d_smmu",
-	.num = 2,
-	.mids = {8, 9, 10, 11, 12, -1}
-};
-
-static struct smmu_ctx gfx2d0_pixv1_ctx = {
-	.name = "gfx2d0_pixv1",
+static struct smmu_ctx gfx2d1_2d1_ctx = {
+	.name = "gfx2d1_2d1",
 	.num = 0,
-	.mids = {0, 3, 4, -1}
-};
-
-static struct smmu_ctx gfx2d0_texv3_ctx = {
-	.name = "gfx2d0_texv3",
-	.num = 1,
-	.mids = {1, 6, 7, -1}
-};
-
-static struct smmu_ctx gfx2d1_pixv1_ctx = {
-	.name = "gfx2d1_pixv1",
-	.num = 0,
-	.mids = {0, 3, 4, -1}
-};
-
-static struct smmu_ctx gfx2d1_texv3_ctx = {
-	.name = "gfx2d1_texv3",
-	.num = 1,
-	.mids = {1, 6, 7, -1}
+	.mids = {0, 1, 2, 3, 4, 5, 6, 7, -1}
 };
 
 static struct platform_device msm_device_jpegd_src_ctx = {
@@ -792,7 +775,7 @@ static struct platform_device msm_device_vcodec_b_mm2_ctx = {
 	},
 };
 
-static struct platform_device msm_device_gfx3d_rbpa_ctx = {
+static struct platform_device msm_device_gfx3d_user_ctx = {
 	.name = "ctx",
 	.id = 17,
 	.dev = {
@@ -801,7 +784,7 @@ static struct platform_device msm_device_gfx3d_rbpa_ctx = {
 	},
 };
 
-static struct platform_device msm_device_gfx3d_cpvgttc_ctx = {
+static struct platform_device msm_device_gfx3d_priv_ctx = {
 	.name = "ctx",
 	.id = 18,
 	.dev = {
@@ -810,45 +793,18 @@ static struct platform_device msm_device_gfx3d_cpvgttc_ctx = {
 	},
 };
 
-static struct platform_device msm_device_gfx3d_smmu_ctx = {
+static struct platform_device msm_device_gfx2d0_2d0_ctx = {
 	.name = "ctx",
 	.id = 19,
 	.dev = {
 		.release = ctx_release,
-		.parent = &msm_device_smmu_gfx3d.dev,
+		.parent = &msm_device_smmu_gfx2d0.dev,
 	},
 };
 
-static struct platform_device msm_device_gfx2d0_pixv1_ctx = {
+static struct platform_device msm_device_gfx2d1_2d1_ctx = {
 	.name = "ctx",
 	.id = 20,
-	.dev = {
-		.release = ctx_release,
-		.parent = &msm_device_smmu_gfx2d0.dev,
-	},
-};
-
-static struct platform_device msm_device_gfx2d0_texv3_ctx = {
-	.name = "ctx",
-	.id = 21,
-	.dev = {
-		.release = ctx_release,
-		.parent = &msm_device_smmu_gfx2d0.dev,
-	},
-};
-
-static struct platform_device msm_device_gfx2d1_pixv1_ctx = {
-	.name = "ctx",
-	.id = 22,
-	.dev = {
-		.release = ctx_release,
-		.parent = &msm_device_smmu_gfx2d1.dev,
-	},
-};
-
-static struct platform_device msm_device_gfx2d1_texv3_ctx = {
-	.name = "ctx",
-	.id = 23,
 	.dev = {
 		.release = ctx_release,
 		.parent = &msm_device_smmu_gfx2d1.dev,
@@ -903,13 +859,10 @@ static struct platform_device *smmu_ctxs[] = {
 	&msm_device_vcodec_a_stream_ctx,
 	&msm_device_vcodec_a_mm1_ctx,
 	&msm_device_vcodec_b_mm2_ctx,
-	&msm_device_gfx3d_rbpa_ctx,
-	&msm_device_gfx3d_cpvgttc_ctx,
-	&msm_device_gfx3d_smmu_ctx,
-	&msm_device_gfx2d0_pixv1_ctx,
-	&msm_device_gfx2d0_texv3_ctx,
-	&msm_device_gfx2d1_pixv1_ctx,
-	&msm_device_gfx2d1_texv3_ctx,
+	&msm_device_gfx3d_user_ctx,
+	&msm_device_gfx3d_priv_ctx,
+	&msm_device_gfx2d0_2d0_ctx,
+	&msm_device_gfx2d1_2d1_ctx,
 };
 
 static struct smmu_ctx *smmu_ctxs_data[] = {
@@ -930,13 +883,10 @@ static struct smmu_ctx *smmu_ctxs_data[] = {
 	&vcodec_a_stream_ctx,
 	&vcodec_a_mm1_ctx,
 	&vcodec_b_mm2_ctx,
-	&gfx3d_rbpa_ctx,
-	&gfx3d_cpvgttc_ctx,
-	&gfx3d_smmu_ctx,
-	&gfx2d0_pixv1_ctx,
-	&gfx2d0_texv3_ctx,
-	&gfx2d1_pixv1_ctx,
-	&gfx2d1_texv3_ctx,
+	&gfx3d_user_ctx,
+	&gfx3d_priv_ctx,
+	&gfx2d0_2d0_ctx,
+	&gfx2d1_2d1_ctx,
 };
 
 #define SMI_16M	0
