@@ -63,13 +63,12 @@ enum {
 
 #ifdef CONFIG_MSM_GPIOMUX
 
-/* Each architecture must provide its own instance of this table.
- * To avoid having gpiomux manage any given gpio, one or both of
- * the entries can avoid setting GPIOMUX_VALID - the absence
- * of that flag will prevent the configuration from being applied
- * during state transitions.
+/* When the board-specific init code has selected the correct configuration
+ * table for the running board, it must call msm_gpiomux_init to install
+ * the table and initialize the controlled gpio lines.  This must be done
+ * before any of the referenced gpios are used.
  */
-extern struct msm_gpiomux_config msm_gpiomux_configs[GPIOMUX_NGPIOS];
+int msm_gpiomux_init(struct msm_gpiomux_config *configs, unsigned nconfigs);
 
 /* Increment a gpio's reference count, possibly activating the line. */
 int __must_check msm_gpiomux_get(unsigned gpio);
@@ -94,6 +93,12 @@ int msm_gpiomux_write(unsigned gpio,
  */
 void __msm_gpiomux_write(unsigned gpio, gpiomux_config_t val);
 #else
+static inline int msm_gpiomux_init(struct msm_gpiomux_config *configs,
+				   unsigned nconfigs)
+{
+	return -ENOSYS;
+}
+
 static inline int __must_check msm_gpiomux_get(unsigned gpio)
 {
 	return -ENOSYS;

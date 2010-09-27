@@ -14,6 +14,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
  */
+#include <linux/module.h>
+#include <mach/irqs.h>
 #include "gpiomux.h"
 
-struct msm_gpiomux_config msm_gpiomux_configs[GPIOMUX_NGPIOS] = {};
+struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {};
+
+static int __init gpiomux_init(void)
+{
+	return msm_gpiomux_init(msm_gpiomux_configs, NR_GPIO_IRQS);
+}
+postcore_initcall(gpiomux_init);

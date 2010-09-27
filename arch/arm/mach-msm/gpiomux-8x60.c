@@ -14,6 +14,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
  */
+#include <linux/module.h>
+#include <mach/irqs.h>
 #include "gpiomux.h"
 
 #define CONSOLE_UART	(GPIOMUX_FUNC_2 | GPIOMUX_DRV_8MA | GPIOMUX_VALID)
@@ -112,7 +114,7 @@
 
 #define SDCC5_SUSPEND_CONFIG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
 
-struct msm_gpiomux_config msm_gpiomux_configs[GPIOMUX_NGPIOS] = {
+static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	[33] = {
 		.suspended = GSBI1,
 	},
@@ -302,3 +304,9 @@ struct msm_gpiomux_config msm_gpiomux_configs[GPIOMUX_NGPIOS] = {
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 };
+
+static int __init gpiomux_init(void)
+{
+	return msm_gpiomux_init(msm_gpiomux_configs, NR_GPIO_IRQS);
+}
+postcore_initcall(gpiomux_init);
