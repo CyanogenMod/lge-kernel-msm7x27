@@ -30,7 +30,6 @@ struct snd_soc_dai msm_mvs_dais[] = {
 	.name = "MVS_CODEC_DAI",
 	.playback = {
 		.stream_name = "Playback",
-		.channels_min = 1,
 		.channels_max = 2,
 		.rates = (SNDRV_PCM_RATE_8000),
 		.rate_min = 8000,
@@ -39,7 +38,6 @@ struct snd_soc_dai msm_mvs_dais[] = {
 	},
 	.capture = {
 		.stream_name = "Capture",
-		.channels_min = 1,
 		.channels_max = 2,
 		.rate_min = 8000,
 		.rates = (SNDRV_PCM_RATE_8000),
@@ -97,9 +95,6 @@ int msm_mvs_pcm_probe(struct platform_device *devptr)
 	}
 
 	return 0;
-
-__nodev:
-	snd_soc_free_pcms(socdev);
 __nopcm:
 	kfree(codec);
 	return ret;

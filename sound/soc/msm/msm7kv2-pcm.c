@@ -56,7 +56,7 @@ static struct snd_pcm_hardware msm_pcm_playback_hardware = {
 	.rate_min =             USE_RATE_MIN,
 	.rate_max =             48000,
 	.channels_min =         1,
-	.channels_max =         1,
+	.channels_max =         2,
 	.buffer_bytes_max =     MAX_BUFFER_PLAYBACK_SIZE,
 	.period_bytes_min =     BUFSZ,
 	.period_bytes_max =     BUFSZ,
@@ -72,9 +72,9 @@ static struct snd_pcm_hardware msm_pcm_capture_hardware = {
 	.rate_min =             8000,
 	.rate_max =             48000,
 	.channels_min =         1,
-	.channels_max =         1,
+	.channels_max =         2,
 	.buffer_bytes_max =     MAX_BUFFER_CAPTURE_SIZE,
-	.period_bytes_min =    	4096,
+	.period_bytes_min =	4096,
 	.period_bytes_max =     4096,
 	.periods_min =          4,
 	.periods_max =          4,
@@ -714,29 +714,35 @@ static int msm_pcm_new(struct snd_card *card,
 			struct snd_pcm *pcm)
 {
 	int ret = 0;
+
+
+	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_PLAYBACK, 1);
+	if (ret)
+		return ret;
+	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_CAPTURE, 1);
+	if (ret)
+		return ret;
+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &msm_pcm_ops);
+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &msm_pcm_ops);
+
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
-	if (codec_dai->playback.channels_min) {
-		ret = pcm_preallocate_buffer(pcm,
+	ret = pcm_preallocate_buffer(pcm,
 			SNDRV_PCM_STREAM_PLAYBACK);
-		if (ret)
-			return ret;
-	}
-	if (codec_dai->playback.channels_min) {
-		ret = pcm_preallocate_buffer(pcm,
+	if (ret)
+		return ret;
+	ret = pcm_preallocate_buffer(pcm,
 			SNDRV_PCM_STREAM_CAPTURE);
-		if (ret)
-			msm_pcm_free_buffers(pcm);
-	}
-
+	if (ret)
+		msm_pcm_free_buffers(pcm);
 	return ret;
 }
 
 struct snd_soc_platform msm_soc_platform = {
 	.name		= "msm-audio",
 	.remove         = msm_pcm_remove,
-	.pcm_ops 	= &msm_pcm_ops,
+	.pcm_ops	= &msm_pcm_ops,
 	.pcm_new	= msm_pcm_new,
 	.pcm_free	= msm_pcm_free_buffers,
 };

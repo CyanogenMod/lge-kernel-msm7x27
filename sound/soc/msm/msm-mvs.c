@@ -407,6 +407,10 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 				SNDRV_PCM_HW_PARAM_PERIODS);
 		if (ret < 0) {
 			MM_ERR("snd_pcm_hw_constraint_integer failed\n");
+			if (!audio->instance) {
+				msm_rpc_close(audio->rpc_endpt);
+				audio->rpc_endpt = NULL;
+			}
 			goto err;
 		}
 			audio->instance++;
@@ -558,29 +562,30 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 						 MVS_RELEASE_PROC);
 			audio->rpc_status = RPC_STATUS_FAILURE;
 			rc = msm_rpc_write(audio->rpc_endpt, &release_msg,
-						 sizeof(release_msg));
+					sizeof(release_msg));
 			if (rc >= 0) {
 				MM_DBG("RPC write for release done\n");
 				rc = wait_event_timeout(audio->wait,
-					 (audio->rpc_status !=
+						(audio->rpc_status !=
 						 RPC_STATUS_FAILURE), 1 * HZ);
 				if (rc != 0) {
 					MM_DBG
 					("Wait event for release succeeded\n");
 					rc = 0;
+					kthread_stop(audio->task);
+					audio->prepare_ack = 0;
+					audio->task = NULL;
+					del_timer_sync(&audio->timer);
 				} else {
 					MM_ERR
 					("Wait event for release failed %d\n",
 						 rc);
 				}
-			} else
+			} else	{
 				MM_ERR("RPC write for release failed %d\n", rc);
-			kthread_stop(audio->task);
-			audio->state = AUDIO_MVS_CLOSED;
-			audio->prepare_ack = 0;
-			audio->task = NULL;
-			del_timer_sync(&audio->timer);
+			}
 		}
+		audio->state = AUDIO_MVS_CLOSED;
 		msm_rpc_close(audio->rpc_endpt);
 		audio->rpc_endpt = NULL;
 	}
@@ -841,7 +846,7 @@ static int msm_pcm_new(struct snd_card *card,
 			struct snd_soc_dai *codec_dai,
 			struct snd_pcm *pcm)
 {
-	int   i, offset = 0;
+	int   i, ret, offset = 0;
 
 	audio_mvs_info.mem_chunk = kmalloc(
 		2 * MVS_MAX_VOC_PKT_SIZE * MVS_MAX_Q_LEN, GFP_KERNEL);
@@ -857,7 +862,7 @@ static int msm_pcm_new(struct snd_card *card,
 		}
 		for (i = 0; i < MVS_MAX_Q_LEN; i++) {
 			audio_mvs_info.out[i].voc_pkt =
-			audio_mvs_info.mem_chunk + offset;
+				audio_mvs_info.mem_chunk + offset;
 			offset = offset + MVS_MAX_VOC_PKT_SIZE;
 		}
 		audio_mvs_info.playback_substream = NULL;
@@ -866,6 +871,17 @@ static int msm_pcm_new(struct snd_card *card,
 		MM_ERR("MSM MVS kmalloc failed\n");
 		return -ENODEV;
 	}
+
+
+	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_PLAYBACK, 1);
+	if (ret)
+		return ret;
+	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_CAPTURE, 1);
+	if (ret)
+		return ret;
+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &msm_mvs_pcm_ops);
+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &msm_mvs_pcm_ops);
+
 	return 0;
 }
 
