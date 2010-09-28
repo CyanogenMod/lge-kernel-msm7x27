@@ -568,9 +568,9 @@ static int __init rmnet_init(void)
 #endif
 #endif
 
-	for (n = 3; n < 11; n++) {
+	for (n = 0; n < 8; n++) {
 		dev = alloc_netdev(sizeof(struct rmnet_private),
-				   "rmnet%d", rmnet_setup);
+				   "rmnet_sdio%d", rmnet_setup);
 
 		if (!dev)
 			return -ENOMEM;
@@ -579,7 +579,7 @@ static int __init rmnet_init(void)
 		p = netdev_priv(dev);
 		/* Initial config uses Ethernet */
 		p->operation_mode = RMNET_MODE_LLP_ETH;
-		p->ch_id = n - 3;
+		p->ch_id = n;
 		spin_lock_init(&p->lock);
 #ifdef CONFIG_MSM_RMNET_DEBUG
 		p->timeout_us = timeout_us;
