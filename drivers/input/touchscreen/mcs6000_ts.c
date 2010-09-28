@@ -300,10 +300,12 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 	static unsigned int s_input_type = NON_TOUCHED_STATE;
 #endif
 	unsigned int input_type;
-	unsigned int key_touch;	
+	/* touch key function disable by younchan.kim,2010-09-24 */
+	//unsigned int key_touch;
 	unsigned char read_buf[READ_NUM];
 
-	static int key_pressed = 0;
+	/* touch key function disable by younchan.kim,2010-09-24 */
+	//static int key_pressed = 0;
 	static int touch_pressed = 0;
 
 	struct mcs6000_ts_data *ts = container_of(work, struct mcs6000_ts_data, work);
@@ -320,12 +322,9 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 	}
 
 	input_type = read_buf[0] & 0x0f;
-	key_touch = (read_buf[0] & 0xf0) >> 4;
+	/* touch key function disable by younchan.kim,2010-09-24 */
+	//key_touch = (read_buf[0] & 0xf0) >> 4;
 
-	x1 = y1 =0;
-#ifdef LG_FW_MULTI_TOUCH
-	x2 = y2 = 0;
-#endif
 	x1 = (read_buf[1] & 0xf0) << 4;
 	y1 = (read_buf[1] & 0x0f) << 8;
 
@@ -343,19 +342,24 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 #endif
 
 	if (ts->pendown) { /* touch pressed case */
+	/* touch key function disable by younchan.kim,2010-09-24 */
+	/*
 		if (key_touch) {
 			mcs6000_key_event_touch(key_touch, PRESSED, ts);
 			key_pressed = key_touch;
 		}
-
+	*/
 		if (input_type) {
 			touch_pressed = 1;
 
 			/* exceptional routine for the touch case moving from key area to touch area of touch screen */
+			/* touch key function disable by younchan.kim,2010-09-24 */
+			/*
 			if (key_pressed) {
 				mcs6000_key_event_touch(key_pressed, RELEASED, ts);
 				key_pressed = 0;
 			}
+			*/
 #ifdef LG_FW_MULTI_TOUCH
 			if (input_type == MULTI_POINT_TOUCH) {
 				mcs6000_multi_ts_event_touch(x1, y1, x2, y2, PRESSED, ts);
@@ -376,11 +380,13 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 		}
 	} 
 	else { /* touch released case */
+	/* touch key function disable by younchan.kim,2010-09-24 */
+	/*
 		if (key_pressed) {
 			mcs6000_key_event_touch(key_pressed, RELEASED, ts);
 			key_pressed = 0;
 		}
-
+	*/
 		if (touch_pressed) {
 #ifdef LG_FW_MULTI_TOUCH
 			if (s_input_type == MULTI_POINT_TOUCH) {
@@ -1042,15 +1048,22 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	}
 	ts->input_dev->name = MCS6000_I2C_TS_NAME;
 
+	/* touch key function disable by younchan.kim,2010-09-24 */
 	set_bit(EV_SYN, ts->input_dev->evbit);
-	set_bit(EV_KEY, ts->input_dev->evbit);
+	//set_bit(EV_KEY, ts->input_dev->evbit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
 #ifdef LG_FW_MULTI_TOUCH
 	set_bit(ABS_MT_TOUCH_MAJOR, ts->input_dev->absbit);
+	/* copy form LS670 touch by younchan.kim
+	   LGE_CHANGE [dojip.kim@lge.com] 2010-09-23, android multi touch
+	 */
+	set_bit(ABS_MT_POSITION_X, ts->input_dev->absbit);
+	set_bit(ABS_MT_POSITION_Y, ts->input_dev->absbit);
 #else
 	set_bit(BTN_TOUCH, ts->input_dev->keybit);
 #endif
-
+/* touch key function disable by younchan.kim,2010-09-24 */
+/*
 #if defined(LG_FW_TOUCH_SOFT_KEY) 
 	set_bit(TOUCH_BACK, ts->input_dev->keybit);
 	set_bit(TOUCH_SEARCH, ts->input_dev->keybit);
@@ -1058,7 +1071,7 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	set_bit(KEY_BACK, ts->input_dev->keybit);
 	set_bit(KEY_SEARCH, ts->input_dev->keybit);
 #endif
-
+*/
 #ifdef LG_FW_MULTI_TOUCH
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, pdata->ts_x_min, pdata->ts_x_max, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, pdata->ts_y_min, pdata->ts_y_max, 0, 0);
