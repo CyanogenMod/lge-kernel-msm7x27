@@ -78,14 +78,12 @@ struct usb_composition {
 };
 #endif
 
-#ifdef CONFIG_USB_GADGET_MSM_72K
 enum chg_type {
 	USB_CHG_TYPE__SDP,
 	USB_CHG_TYPE__CARKIT,
 	USB_CHG_TYPE__WALLCHARGER,
 	USB_CHG_TYPE__INVALID
 };
-#endif
 
 enum pre_emphasis_level {
 	PRE_EMPHASIS_DEFAULT,
