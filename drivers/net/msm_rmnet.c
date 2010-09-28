@@ -47,13 +47,18 @@
 
 #define HEADROOM_FOR_QOS    8
 
-static const char *ch_name[3] = {
+static const char *ch_name[8] = {
 	"DATA5",
 	"DATA6",
 	"DATA7",
+	"DATA8",
+	"DATA9",
+	"DATA12",
+	"DATA13",
+	"DATA14",
 };
 
-static struct completion *port_complete[3];
+static struct completion *port_complete[8];
 
 struct rmnet_private
 {
@@ -76,6 +81,10 @@ struct rmnet_private
 	void *pil;
 	struct mutex pil_lock;
 };
+
+static uint msm_rmnet_modem_wait;
+module_param_named(modem_wait, msm_rmnet_modem_wait,
+		   uint, S_IRUGO | S_IWUSR | S_IWGRP);
 
 /* Forward declaration */
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
@@ -378,10 +387,10 @@ static void *msm_rmnet_load_modem(struct net_device *dev)
 	pil = pil_get("modem");
 	if (IS_ERR(pil))
 		pr_err("%s: modem load failed\n", __func__);
-	else {
+	else if (msm_rmnet_modem_wait) {
 		rc = wait_for_completion_interruptible_timeout(
 			&p->complete,
-			msecs_to_jiffies(120 * 1000));
+			msecs_to_jiffies(msm_rmnet_modem_wait * 1000));
 		if (!rc)
 			rc = -ETIMEDOUT;
 		if (rc < 0) {
@@ -687,7 +696,7 @@ static int msm_rmnet_smd_probe(struct platform_device *pdev)
 {
 	int i;
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < 8; i++)
 		if (!strcmp(pdev->name, ch_name[i])) {
 			complete_all(port_complete[i]);
 			break;
@@ -713,7 +722,7 @@ static int __init rmnet_init(void)
 #endif
 #endif
 
-	for (n = 0; n < 3; n++) {
+	for (n = 0; n < 8; n++) {
 		dev = alloc_netdev(sizeof(struct rmnet_private),
 				   "rmnet%d", rmnet_setup);
 
