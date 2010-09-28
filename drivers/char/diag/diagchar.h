@@ -40,21 +40,18 @@
 
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096
-#define USB_MAX_IN_BUF  8192
-#define MAX_BUF_SIZE  	32768
+#define IN_BUF_SIZE		8192
+#define MAX_IN_BUF_SIZE	32768
 /* Size of the buffer used for deframing a packet
   reveived from the PC tool*/
 #define HDLC_MAX 4096
 #define HDLC_OUT_BUF_SIZE	8192
 #define POOL_TYPE_COPY		1
 #define POOL_TYPE_HDLC		0
-#define POOL_TYPE_USB_STRUCT	2
+#define POOL_TYPE_WRITE_STRUCT	2
 #define MODEM_DATA 		1
 #define QDSP_DATA  		2
 #define APPS_DATA  		3
-/* Number of maximum USB requests that the USB layer should handle at
-   one time. */
-#define MAX_DIAG_USB_REQUESTS 12
 #define MSG_MASK_SIZE 8000
 #define LOG_MASK_SIZE 1000
 #define EVENT_MASK_SIZE 1000
@@ -111,25 +108,25 @@ struct diagchar_dev {
 	unsigned int poolsize;
 	unsigned int itemsize_hdlc;
 	unsigned int poolsize_hdlc;
-	unsigned int itemsize_usb_struct;
-	unsigned int poolsize_usb_struct;
+	unsigned int itemsize_write_struct;
+	unsigned int poolsize_write_struct;
 	unsigned int debug_flag;
 	unsigned int alert_count;
 	/* State for the mempool for the char driver */
 	mempool_t *diagpool;
 	mempool_t *diag_hdlc_pool;
-	mempool_t *diag_usb_struct_pool;
+	mempool_t *diag_write_struct_pool;
 	struct mutex diagmem_mutex;
 	int count;
 	int count_hdlc_pool;
-	int count_usb_struct_pool;
+	int count_write_struct_pool;
 	int used;
 
 	/* State for diag forwarding */
-	unsigned char *usb_buf_in_1;
-	unsigned char *usb_buf_in_2;
-	unsigned char *usb_buf_in_qdsp_1;
-	unsigned char *usb_buf_in_qdsp_2;
+	unsigned char *buf_in_1;
+	unsigned char *buf_in_2;
+	unsigned char *buf_in_qdsp_1;
+	unsigned char *buf_in_qdsp_2;
 	unsigned char *usb_buf_out;
 	smd_channel_t *ch;
 	smd_channel_t *chqdsp;
@@ -153,12 +150,12 @@ struct diagchar_dev {
 	struct diag_master_table *table;
 	uint8_t *pkt_buf;
 	int pkt_length;
-	struct diag_request *usb_write_ptr_1;
-	struct diag_request *usb_write_ptr_2;
+	struct diag_request *write_ptr_1;
+	struct diag_request *write_ptr_2;
 	struct diag_request *usb_read_ptr;
-	struct diag_request *usb_write_ptr_svc;
-	struct diag_request *usb_write_ptr_qdsp_1;
-	struct diag_request *usb_write_ptr_qdsp_2;
+	struct diag_request *write_ptr_svc;
+	struct diag_request *write_ptr_qdsp_1;
+	struct diag_request *write_ptr_qdsp_2;
 	int logging_mode;
 	int logging_process_id;
 };
