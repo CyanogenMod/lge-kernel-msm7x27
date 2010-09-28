@@ -329,7 +329,6 @@ u32 ddl_decode_start(u32 *ddl_handle, struct vcd_sequence_hdr *header,
 	} else {
 		decoder->header_in_start = false;
 		decoder->decode_config.sequence_header_len = 0;
-		ddl_set_default_decoder_buffer_req(decoder, true);
 	}
 	ddl_vidc_channel_set(ddl);
 	return status;
