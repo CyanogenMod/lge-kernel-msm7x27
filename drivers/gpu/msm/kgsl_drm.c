@@ -500,7 +500,7 @@ kgsl_gem_obj_addr(int drm_fd, int handle, unsigned long *start,
 	if (unlikely(obj == NULL)) {
 		printk(KERN_ERR "%s:%u\n", __func__, __LINE__);
 		fput(filp);
-		return -EINVAL;
+		return -EBADF;
 	}
 
 	mutex_lock(&dev->struct_mutex);
@@ -598,7 +598,7 @@ kgsl_gem_setmemtype_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -625,7 +625,7 @@ kgsl_gem_getmemtype_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -649,7 +649,7 @@ kgsl_gem_unbind_gpu_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -744,7 +744,7 @@ kgsl_gem_bind_gpu_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -782,7 +782,7 @@ kgsl_gem_alloc_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -816,7 +816,7 @@ kgsl_gem_mmap_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	down_write(&current->mm->mmap_sem);
 
@@ -851,7 +851,7 @@ kgsl_gem_prep_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -895,7 +895,7 @@ kgsl_gem_get_bufinfo_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -937,7 +937,7 @@ kgsl_gem_set_bufcount_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -973,7 +973,7 @@ kgsl_gem_set_active_ioctl(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 
 	if (obj == NULL)
-		return -EINVAL;
+		return -EBADF;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
@@ -1377,7 +1377,7 @@ kgsl_gem_lock_handle_ioctl(struct drm_device *dev, void *data,
 		obj = drm_gem_object_lookup(dev, file_priv, *lock_list);
 
 		if (obj == NULL) {
-			result = -EINVAL;
+			result = -EBADF;
 			goto out_unlock;
 		}
 
