@@ -32,3 +32,8 @@ endif
 
 # MSM8x60
    zreladdr-$(CONFIG_ARCH_MSM8X60)	:= 0x40208000
+
+# MSM8x72
+   zreladdr-$(CONFIG_ARCH_QSD8X72)	:= 0x80208000
+params_phys-$(CONFIG_ARCH_QSD8X72)	:= 0x80200100
+initrd_phys-$(CONFIG_ARCH_QSD8X72)	:= 0x80A00000
