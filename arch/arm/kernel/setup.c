@@ -91,6 +91,8 @@ EXPORT_SYMBOL(system_serial_high);
 unsigned int elf_hwcap;
 EXPORT_SYMBOL(elf_hwcap);
 
+unsigned int boot_reason;
+EXPORT_SYMBOL(boot_reason);
 
 #ifdef MULTI_CPU
 struct processor processor;
