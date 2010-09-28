@@ -197,7 +197,7 @@ struct msm_queue_cmd {
 	struct list_head list_vpe_frame;
 	enum msm_queue type;
 	void *command;
-	int on_heap;
+	atomic_t on_heap;
 	struct timespec ts;
 	uint32_t error_code;
 };
