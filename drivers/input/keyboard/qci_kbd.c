@@ -342,6 +342,11 @@ static int qcikbd_suspend(struct device *dev)
 
 static int qcikbd_resume(struct device *dev)
 {
+	struct i2ckbd_drv_data *context = input_get_drvdata(g_qci_keyboard_dev);
+	struct i2c_client *ikbdclient = context->ki2c_client;
+
+	/* consume any keypress generated while suspended */
+	i2c_smbus_read_byte(ikbdclient);
 	return 0;
 }
 #endif
