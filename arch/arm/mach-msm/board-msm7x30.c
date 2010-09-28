@@ -3917,7 +3917,8 @@ static int atv_dac_power(int on)
 }
 
 static struct tvenc_platform_data atv_pdata = {
-	.pm_vid_en   = atv_dac_power,
+	.poll		 = 1,
+	.pm_vid_en	 = atv_dac_power,
 };
 
 static void __init msm_fb_add_devices(void)

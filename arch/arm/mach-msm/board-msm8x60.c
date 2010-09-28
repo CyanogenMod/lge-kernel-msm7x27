@@ -1009,6 +1009,11 @@ static struct platform_device msm_batt_device = {
  * hdmi = 1920 x 1080 x 2(bpp) x 1(page)
  * Note: must be multiple of 4096 */
 #define MSM_FB_SIZE 0x8A5000
+#elif defined(CONFIG_FB_MSM_TVOUT)
+/* prim = 1024 x 600 x 4(bpp) x 2(pages)
+ * tvout = 720 x 576 x 2(bpp) x 2(pages)
+ * Note: must be multiple of 4096 */
+#define MSM_FB_SIZE 0x645000
 #else /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 #define MSM_FB_SIZE 0x500000
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
@@ -4300,6 +4305,51 @@ static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_power_save   = lcdc_panel_power,
 };
 
+#ifdef CONFIG_FB_MSM_TVOUT
+static struct regulator *reg_8058_l13;
+
+static int atv_dac_power(int on)
+{
+	int rc = 0;
+	#define _GET_REGULATOR(var, name) do {				\
+		var = regulator_get(NULL, name);			\
+		if (IS_ERR(var)) {					\
+			pr_info("'%s' regulator not found, rc=%ld\n",	\
+				name, IS_ERR(var));			\
+			var = NULL;					\
+			return -ENODEV;					\
+		}							\
+	} while (0)
+
+	if (!reg_8058_l13)
+		_GET_REGULATOR(reg_8058_l13, "8058_l13");
+	#undef _GET_REGULATOR
+
+	if (on) {
+		rc = regulator_set_voltage(reg_8058_l13, 2050000, 2050000);
+		if (rc) {
+			pr_info("%s: '%s' regulator set voltage failed,\
+				rc=%d\n", __func__, "8058_l13", rc);
+			return rc;
+		}
+
+		rc = regulator_enable(reg_8058_l13);
+		if (rc) {
+			pr_err("%s: '%s' regulator enable failed,\
+				rc=%d\n", __func__, "8058_l13", rc);
+			return rc;
+		}
+	} else {
+		rc = regulator_force_disable(reg_8058_l13);
+		if (rc)
+			pr_warning("%s: '%s' regulator disable failed, rc=%d\n",
+				__func__, "8058_l13", rc);
+	}
+	return rc;
+
+}
+#endif
+
 #ifdef CONFIG_MSM8X60_AUDIO
 void msm_snddev_enable_amic_power(void)
 {
@@ -4525,6 +4575,13 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_core_clk_rate = 200000000,
 };
 
+#ifdef CONFIG_FB_MSM_TVOUT
+static struct tvenc_platform_data atv_pdata = {
+	.poll		 = 0,
+	.pm_vid_en	 = atv_dac_power,
+};
+#endif
+
 static void __init msm_fb_add_devices(void)
 {
 	if (machine_is_msm8x60_rumi3())
@@ -4534,6 +4591,10 @@ static void __init msm_fb_add_devices(void)
 
 	msm_fb_register_device("lcdc", &lcdc_pdata);
 	msm_fb_register_device("mipi_dsi", 0);
+#ifdef CONFIG_FB_MSM_TVOUT
+	msm_fb_register_device("tvenc", &atv_pdata);
+	msm_fb_register_device("tvout_device", NULL);
+#endif
 }
 
 #if (defined(CONFIG_BAHAMA_CORE)) && \

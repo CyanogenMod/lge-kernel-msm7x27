@@ -728,6 +728,26 @@ struct platform_device msm_rotator_device = {
 };
 #endif
 
+
+#ifdef CONFIG_FB_MSM_TVOUT
+static struct resource msm_tvenc_resources[] = {
+	{
+		.name   = "tvenc",
+		.start  = TVENC_HW_BASE,
+		.end    = TVENC_HW_BASE + PAGE_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	}
+};
+
+static struct resource tvout_device_resources[] = {
+	{
+		.name  = "tvout_device_irq",
+		.start = TV_ENC_IRQ,
+		.end   = TV_ENC_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+#endif
 static void __init msm_register_device(struct platform_device *pdev, void *data)
 {
 	int ret;
@@ -746,6 +766,22 @@ static struct platform_device msm_lcdc_device = {
 	.id     = 0,
 };
 
+#ifdef CONFIG_FB_MSM_TVOUT
+static struct platform_device msm_tvenc_device = {
+	.name   = "tvenc",
+	.id     = 0,
+	.num_resources  = ARRAY_SIZE(msm_tvenc_resources),
+	.resource       = msm_tvenc_resources,
+};
+
+static struct platform_device msm_tvout_device = {
+	.name = "tvout_device",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(tvout_device_resources),
+	.resource = tvout_device_resources,
+};
+#endif
+
 void __init msm_fb_register_device(char *name, void *data)
 {
 	if (!strncmp(name, "mdp", 3))
@@ -754,6 +790,12 @@ void __init msm_fb_register_device(char *name, void *data)
 		msm_register_device(&msm_lcdc_device, data);
 	else if (!strncmp(name, "mipi_dsi", 8))
 		msm_register_device(&msm_mipi_dsi_device, data);
+#ifdef CONFIG_FB_MSM_TVOUT
+	else if (!strncmp(name, "tvenc", 5))
+		msm_register_device(&msm_tvenc_device, data);
+	else if (!strncmp(name, "tvout_device", 12))
+		msm_register_device(&msm_tvout_device, data);
+#endif
 	else
 		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
 }

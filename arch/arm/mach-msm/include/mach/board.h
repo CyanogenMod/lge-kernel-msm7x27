@@ -232,6 +232,7 @@ struct lcdc_platform_data {
 };
 
 struct tvenc_platform_data {
+	int poll;
 	int (*pm_vid_en)(int on);
 };
 
