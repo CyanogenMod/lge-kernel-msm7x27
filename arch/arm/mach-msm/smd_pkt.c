@@ -41,7 +41,7 @@
 #include "modem_notifier.h"
 #include "smd_private.h"
 
-#define NUM_SMD_PKT_PORTS 6
+#define NUM_SMD_PKT_PORTS 11
 #define DEVICE_NAME "smdpkt"
 #define MAX_BUF_SIZE 2048
 
@@ -74,6 +74,9 @@ struct smd_pkt_dev {
 struct class *smd_pkt_classp;
 static dev_t smd_pkt_number;
 static void check_and_wakeup(struct smd_pkt_dev *smd_pkt_devp);
+static uint smd_pkt_modem_wait;
+module_param_named(modem_wait_timeout, smd_pkt_modem_wait,
+		   uint, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #define DEBUG
 #undef DEBUG
@@ -398,6 +401,11 @@ static char *smd_pkt_dev_name[] = {
 	"smdcntl0",
 	"smdcntl1",
 	"smdcntl2",
+	"smdcntl3",
+	"smdcntl4",
+	"smdcntl5",
+	"smdcntl6",
+	"smdcntl7",
 	"smd22",
 	"smd_sns_dsps",
 	"smd_pkt_loopback",
@@ -407,12 +415,22 @@ static char *smd_ch_name[] = {
 	"DATA5_CNTL",
 	"DATA6_CNTL",
 	"DATA7_CNTL",
+	"DATA8_CNTL",
+	"DATA9_CNTL",
+	"DATA12_CNTL",
+	"DATA13_CNTL",
+	"DATA14_CNTL",
 	"DATA22",
 	"SENSOR",
 	"LOOPBACK",
 };
 
 static uint32_t smd_ch_edge[] = {
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
 	SMD_APPS_MODEM,
 	SMD_APPS_MODEM,
 	SMD_APPS_MODEM,
@@ -483,15 +501,18 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			 * Wait for a packet channel to be allocated so we know
 			 * the modem is ready enough.
 			 */
-			r = wait_for_completion_interruptible_timeout(
-				&smd_pkt_devp->ch_allocated,
-				msecs_to_jiffies(120000));
-			if (r == 0)
-				r = -ETIMEDOUT;
-			if (r < 0) {
-				pr_err("%s: wait failed for smd port: %d\n",
-				       __func__, r);
-				goto release_pil;
+			if (smd_pkt_modem_wait) {
+				r = wait_for_completion_interruptible_timeout(
+					&smd_pkt_devp->ch_allocated,
+					msecs_to_jiffies(smd_pkt_modem_wait
+							 * 1000));
+				if (r == 0)
+					r = -ETIMEDOUT;
+				if (r < 0) {
+					pr_err("%s: wait failed for smd port:"
+					       " %d\n", __func__, r);
+					goto release_pil;
+				}
 			}
 		}
 
