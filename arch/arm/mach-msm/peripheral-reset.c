@@ -361,7 +361,7 @@ int peripheral_shutdown(int id)
 	return ret;
 }
 
-static int msm_peripheral_reset_init(void)
+static int __init msm_peripheral_reset_init(void)
 {
 	msm_mms_regs_base = ioremap(MSM_MMS_REGS_BASE, SZ_256);
 	if (!msm_mms_regs_base)
@@ -379,7 +379,7 @@ err:
 	return -ENOMEM;
 }
 
-static void msm_peripheral_reset_exit(void)
+static void __exit msm_peripheral_reset_exit(void)
 {
 	iounmap(msm_mms_regs_base);
 	iounmap(msm_lpass_qdsp6ss_base);
