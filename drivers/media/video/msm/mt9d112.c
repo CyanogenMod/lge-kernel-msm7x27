@@ -318,6 +318,7 @@ static long mt9d112_set_effect(int mode, int effect)
 		reg_addr = 0x2799;
 		break;
 
+	case SENSOR_RAW_SNAPSHOT_MODE:
 	case SENSOR_SNAPSHOT_MODE:
 		/* Context B Special Effects */
 		reg_addr = 0x279B;
