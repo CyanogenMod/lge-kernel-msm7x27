@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/mfd/msm-adie-codec.h>
+#include <linux/mfd/marimba.h>
 #include <linux/uaccess.h>
 #include <mach/qdsp5v2/snddev_icodec.h>
 #include <mach/qdsp5v2/marimba_profile.h>
@@ -1492,8 +1493,11 @@ static const struct file_operations snddev_hsed_config_debug_fops = {
 };
 #endif
 
-void __init msm_snddev_init(void)
+static int __init msm_snddev_init_marimba(void)
 {
+	if (adie_get_detected_codec_type() != MARIMBA_ID)
+		return -ENODEV;
+
 	if (machine_is_msm7x30_ffa() || machine_is_msm8x55_ffa() ||
 		machine_is_msm8x55_svlte_ffa()) {
 		platform_add_devices(snd_devices_ffa,
@@ -1510,6 +1514,15 @@ void __init msm_snddev_init(void)
 	else if (machine_is_msm7x30_fluid())
 		platform_add_devices(snd_devices_fluid,
 		ARRAY_SIZE(snd_devices_fluid));
-	else
+	else {
 		pr_err("%s: Unknown machine type\n", __func__);
+		return -ENODEV;
+	}
+
+	return 0;
 }
+
+late_initcall(msm_snddev_init_marimba);
+
+MODULE_DESCRIPTION("MSM Marimba Sound Device Profile");
+MODULE_LICENSE("GPL v2");

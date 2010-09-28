@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/mfd/msm-adie-codec.h>
+#include <linux/mfd/marimba.h>
 #include <linux/uaccess.h>
 #include <asm/mach-types.h>
 #include <mach/board.h>
@@ -112,8 +113,17 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_imic_ffa_device,
 };
 
-void __init msm_snddev_init(void)
+static int __init msm_snddev_init_timpani(void)
 {
+	if (adie_get_detected_codec_type() != TIMPANI_ID)
+		return -ENODEV;
+
 	platform_add_devices(snd_devices_ffa,
 			ARRAY_SIZE(snd_devices_ffa));
+	return 0;
 }
+
+late_initcall(msm_snddev_init_timpani);
+
+MODULE_DESCRIPTION("MSM Timpani Sound Device Profile");
+MODULE_LICENSE("GPL v2");
