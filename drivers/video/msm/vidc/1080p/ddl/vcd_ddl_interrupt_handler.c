@@ -108,7 +108,7 @@ static u32 ddl_channel_set_callback(struct ddl_context *ddl_context,
 				"DDL_CLIENT_WAIT_FOR_INITCODEC",
 				ddl_get_state_string(ddl->client_state));
 			ddl->client_state = DDL_CLIENT_WAIT_FOR_INITCODEC;
-			ddl->channel_id = instance_id;
+			ddl->instance_id = instance_id;
 			if (ddl->decoding) {
 				if (ddl->codec_data.decoder.header_in_start)
 					ddl_vidc_decode_init_codec(ddl);
