@@ -2636,21 +2636,48 @@ static struct pmic8058_vibrator_pdata pmic_vib_pdata = {
 	.max_timeout_ms = 15000,
 };
 
-
 #define PM8058_OTHC_CNTR_BASE0	0xA0
 #define PM8058_OTHC_CNTR_BASE1	0x134
 #define PM8058_OTHC_CNTR_BASE2	0x137
 
+static struct othc_switch_info switch_info[] = {
+	{
+		.min_adc_threshold = 0,
+		.max_adc_threshold = 100,
+		.key_code = KEY_PLAYPAUSE,
+	},
+	{
+		.min_adc_threshold = 100,
+		.max_adc_threshold = 200,
+		.key_code = KEY_REWIND,
+	},
+	{
+		.min_adc_threshold = 200,
+		.max_adc_threshold = 500,
+		.key_code = KEY_FASTFORWARD,
+	},
+};
+
+static struct othc_n_switch_config switch_config = {
+	.voltage_settling_time_ms = 0,
+	.num_adc_samples = 3,
+	.adc_channel = CHANNEL_ADC_HDSET,
+	.switch_info = switch_info,
+	.num_keys = ARRAY_SIZE(switch_info),
+};
+
 static struct othc_hsed_config hsed_config_1 = {
 	.othc_headset = OTHC_HEADSET_NO,
 	.othc_lowcurr_thresh_uA = 100,
-	.othc_highcurr_thresh_uA = 700,
+	.othc_highcurr_thresh_uA = 600,
 	.othc_hyst_prediv_us = 7800,
 	.othc_period_clkdiv_us = 62500,
 	.othc_hyst_clk_us = 121000,
 	.othc_period_clk_us = 312500,
 	.othc_wakeup = 1,
 	.switch_debounce_ms = 1000,
+	.othc_support_n_switch = false,
+	.switch_config = &switch_config,
 };
 
 /* MIC_BIAS0 is configured as normal MIC BIAS */
