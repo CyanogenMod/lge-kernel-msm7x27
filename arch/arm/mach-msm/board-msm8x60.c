@@ -1852,9 +1852,9 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 	[0] = {
 		.gpio_base         = GPIO_EXPANDER_GPIO_BASE,
 		.oscio_is_gpo      = false,
-		.io_pullup_ena     = 0xCFFB,
-		.io_pulldn_ena     = 0,
-		.io_open_drain_ena = 0xCFFF,
+		.io_pullup_ena     = 0x0400,
+		.io_pulldn_ena     = 0x4060,
+		.io_open_drain_ena = 0x0004,
 		.io_polarity       = 0,
 		.irq_summary       = -1, /* see fixup_i2c_configs() */
 		.irq_base          = GPIO_EXPANDER_IRQ_BASE,
@@ -1863,8 +1863,8 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 	[1] = {
 		.gpio_base         = GPIO_EXPANDER_GPIO_BASE + 16,
 		.oscio_is_gpo      = false,
-		.io_pullup_ena     = 0,
-		.io_pulldn_ena     = 0,
+		.io_pullup_ena     = 0x5e46,
+		.io_pulldn_ena     = 0x81b8,
 		.io_open_drain_ena = 0,
 		.io_polarity       = 0,
 		.irq_summary       = PM8058_GPIO_IRQ(PM8058_IRQ_BASE,
@@ -1888,7 +1888,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 		.gpio_base         = GPIO_EXPANDER_GPIO_BASE + (16 * 3),
 		.oscio_is_gpo      = false,
 		.io_pullup_ena     = 0,
-		.io_pulldn_ena     = 0,
+		.io_pulldn_ena     = 0x40,
 		.io_open_drain_ena = 0,
 		.io_polarity       = 0,
 		.irq_summary       = PM8058_GPIO_IRQ(PM8058_IRQ_BASE,
@@ -1908,6 +1908,83 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 		.irq_base          = GPIO_EXPANDER_IRQ_BASE + (16 * 3) + 8,
 	},
 };
+
+/* msm_sx150x_low_power_cfgs
+ * msm_sleep_sx150xs
+ *
+ * This data and init function are used to put gpio-expander output lines
+ * into their pre-determined low-power 'sleep' states at boot. The sleep
+ * function must be deferred until a later init stage because the i2c
+ * gpio expander drivers do not probe until after they are registered
+ * (see register_i2c_devices) and the work-queues for those registrations
+ * are processed.  It is not an error if a particular gpio cannot be obtained
+ * to be slept - it is likely that, in those cases, a competing driver
+ * has beaten us to the gpio and is now using it.
+ *
+ * gpio lines whose low-power states are input are naturally in their low-
+ * power configurations once probed, see the platform data structures above.
+ */
+struct sx150x_low_power_cfg {
+	unsigned gpio;
+	unsigned val;
+};
+
+static struct sx150x_low_power_cfg
+msm_sx150x_low_power_cfgs[] __initdata = {
+	{GPIO_EXPANDER_GPIO_BASE +  0, 0},
+	{GPIO_EXPANDER_GPIO_BASE +  1, 0},
+	{GPIO_EXPANDER_GPIO_BASE +  2, 0},
+	{GPIO_EXPANDER_GPIO_BASE +  3, 1},
+	{GPIO_EXPANDER_GPIO_BASE +  4, 1},
+	{GPIO_EXPANDER_GPIO_BASE +  7, 0},
+	{GPIO_EXPANDER_GPIO_BASE +  8, 0},
+	{GPIO_EXPANDER_GPIO_BASE +  9, 0},
+	{GPIO_EXPANDER_GPIO_BASE + 11, 0},
+	{GPIO_EXPANDER_GPIO_BASE + 12, 0},
+	{GPIO_EXPANDER_GPIO_BASE + 13, 0},
+	{GPIO_EXPANDER_GPIO_BASE + 15, 0},
+	{GPIO_EXPANDER_GPIO_BASE + 16 +  0, 0},
+	{GPIO_EXPANDER_GPIO_BASE + 16 + 13, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3)     +  0, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3)     +  1, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3)     +  2, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3)     +  3, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3)     +  4, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3)     +  5, 1},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3)     +  7, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  0, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  1, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  2, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  3, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  4, 1},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  5, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  6, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  7, 0},
+	{GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 +  8, 0},
+};
+
+static int __init msm_sleep_sx150xs(void)
+{
+	struct sx150x_low_power_cfg *cfgs = msm_sx150x_low_power_cfgs;
+	unsigned nelems = ARRAY_SIZE(msm_sx150x_low_power_cfgs);
+	unsigned n;
+	int rc;
+
+	for (n = 0; n < nelems; ++n) {
+		rc = gpio_request(cfgs[n].gpio, NULL);
+		if (!rc) {
+			rc = gpio_direction_output(cfgs[n].gpio, cfgs[n].val);
+			gpio_free(cfgs[n].gpio);
+		}
+
+		if (rc) {
+			printk(KERN_NOTICE "%s: failed to sleep gpio %d: %d\n",
+			       __func__, cfgs[n].gpio, rc);
+		}
+	}
+	return 0;
+}
+module_init(msm_sleep_sx150xs);
 
 #ifdef CONFIG_I2C
 static struct i2c_board_info core_expanders_i2c_info[] __initdata = {
