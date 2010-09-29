@@ -69,6 +69,8 @@
    ((_t & DRM_KGSL_GEM_TYPE_MEM_MASK) == DRM_KGSL_GEM_TYPE_KMEM_NOCACHE) || \
    ((_t) & DRM_KGSL_GEM_TYPE_MEM))
 
+#define TYPE_IS_FD(_t) ((_t) & DRM_KGSL_GEM_TYPE_FD_MASK)
+
 /* Returns true if KMEM region is uncached */
 
 #define IS_MEM_UNCACHED(_t) \
@@ -159,7 +161,7 @@ static void kgsl_gem_mem_flush(void *addr,
 	if (!flags)
 		return;
 
-	if (TYPE_IS_PMEM(type)) {
+	if (TYPE_IS_PMEM(type) || type == DRM_KGSL_GEM_TYPE_FD_FBMEM) {
 		flags |= KGSL_MEMFLAGS_CONPHYS;
 		addr = __va(addr);
 	}
@@ -295,7 +297,7 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 
 	/* Return if the memory is already allocated */
 
-	if (kgsl_gem_memory_allocated(obj))
+	if (kgsl_gem_memory_allocated(obj) || TYPE_IS_FD(priv->type))
 		return 0;
 
 	if (TYPE_IS_PMEM(priv->type)) {
@@ -373,7 +375,7 @@ kgsl_gem_free_memory(struct drm_gem_object *obj)
 	struct drm_kgsl_gem_object *priv = obj->driver_private;
 	int index;
 
-	if (!kgsl_gem_memory_allocated(obj))
+	if (!kgsl_gem_memory_allocated(obj) || TYPE_IS_FD(priv->type))
 		return;
 
 	/* invalidate cached region before releasing */
@@ -529,29 +531,20 @@ kgsl_gem_obj_addr(int drm_fd, int handle, unsigned long *start,
 	return ret;
 }
 
-int
-kgsl_gem_create_ioctl(struct drm_device *dev, void *data,
-		      struct drm_file *file_priv)
+static int
+kgsl_gem_init_obj(struct drm_device *dev,
+		  struct drm_file *file_priv,
+		  struct drm_gem_object *obj,
+		  int *handle)
 {
-	struct drm_kgsl_gem_create *create = data;
-	struct drm_gem_object *obj;
-	int ret, handle;
 	struct drm_kgsl_gem_object *priv;
-	int i;
-
-	/* Page align the size so we can allocate multiple buffers */
-	create->size = ALIGN(create->size, 4096);
-
-	obj = drm_gem_object_alloc(dev, create->size);
-
-	if (obj == NULL)
-		return -ENOMEM;
+	int ret, i;
 
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
 
 	priv->cpuaddr = 0;
-	priv->size = create->size;
+	priv->size = obj->size;
 	priv->bufcount = 1;
 	priv->active = 0;
 	priv->bound = 0;
@@ -561,7 +554,7 @@ kgsl_gem_create_ioctl(struct drm_device *dev, void *data,
 
 	priv->type = DRM_KGSL_GEM_TYPE_PMEM | DRM_KGSL_GEM_PMEM_EBI;
 
-	ret = drm_gem_handle_create(file_priv, obj, &handle);
+	ret = drm_gem_handle_create(file_priv, obj, handle);
 
 	drm_gem_object_handle_unreference(obj);
 	INIT_LIST_HEAD(&priv->wait_list);
@@ -577,13 +570,93 @@ kgsl_gem_create_ioctl(struct drm_device *dev, void *data,
 		priv->fence_entries[i].in_use = 0;
 		priv->fence_entries[i].gem_obj = obj;
 	}
-	mutex_unlock(&dev->struct_mutex);
 
+	mutex_unlock(&dev->struct_mutex);
+	return ret;
+}
+
+int
+kgsl_gem_create_ioctl(struct drm_device *dev, void *data,
+		      struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_create *create = data;
+	struct drm_gem_object *obj;
+	int ret, handle;
+
+	/* Page align the size so we can allocate multiple buffers */
+	create->size = ALIGN(create->size, 4096);
+
+	obj = drm_gem_object_alloc(dev, create->size);
+
+	if (obj == NULL)
+		return -ENOMEM;
+
+	ret = kgsl_gem_init_obj(dev, file_priv, obj, &handle);
 	if (ret)
 		return ret;
 
 	create->handle = handle;
 	return 0;
+}
+
+int
+kgsl_gem_create_fd_ioctl(struct drm_device *dev, void *data,
+			      struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_create_fd *args = data;
+	struct file *file;
+	dev_t rdev;
+	struct fb_info *info;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+	int ret, put_needed, handle;
+
+	file = fget_light(args->fd, &put_needed);
+
+	if (file == NULL)
+		return -EBADF;
+
+	rdev = file->f_dentry->d_inode->i_rdev;
+
+	/* Only framebuffer objects are supported ATM */
+
+	if (MAJOR(rdev) != FB_MAJOR) {
+		ret = -EBADF;
+		goto error_fput;
+	}
+
+	info = registered_fb[MINOR(rdev)];
+
+	if (info == NULL) {
+		ret = -EBADF;
+		goto error_fput;
+	}
+
+	obj = drm_gem_object_alloc(dev, info->fix.smem_len);
+
+	if (obj == NULL) {
+		ret = -ENOMEM;
+		goto error_fput;
+	}
+
+	ret = kgsl_gem_init_obj(dev, file_priv, obj, &handle);
+
+	if (ret)
+		goto error_fput;
+
+	mutex_lock(&dev->struct_mutex);
+
+	priv = obj->driver_private;
+	priv->cpuaddr = info->fix.smem_start;
+	priv->type = DRM_KGSL_GEM_TYPE_FD_FBMEM;
+
+	mutex_unlock(&dev->struct_mutex);
+	args->handle = handle;
+
+error_fput:
+	fput_light(file, put_needed);
+
+	return ret;
 }
 
 int
@@ -603,10 +676,14 @@ kgsl_gem_setmemtype_ioctl(struct drm_device *dev, void *data,
 	mutex_lock(&dev->struct_mutex);
 	priv = obj->driver_private;
 
-	if (TYPE_IS_PMEM(args->type) || TYPE_IS_MEM(args->type))
-		priv->type = args->type;
-	else
+	if (TYPE_IS_FD(priv->type))
 		ret = -EINVAL;
+	else {
+		if (TYPE_IS_PMEM(args->type) || TYPE_IS_MEM(args->type))
+			priv->type = args->type;
+		else
+			ret = -EINVAL;
+	}
 
 	drm_gem_object_unreference(obj);
 	mutex_unlock(&dev->struct_mutex);
@@ -674,7 +751,8 @@ kgsl_gem_map(struct drm_gem_object *obj)
 	if (priv->flags & DRM_KGSL_GEM_FLAG_MAPPED)
 		return 0;
 
-	if (TYPE_IS_PMEM(priv->type))
+	if (TYPE_IS_PMEM(priv->type) ||
+	    priv->type == DRM_KGSL_GEM_TYPE_FD_FBMEM)
 		flags = KGSL_MEMFLAGS_CONPHYS;
 	else
 		flags = KGSL_MEMFLAGS_VMALLOC_MEM;
@@ -1555,6 +1633,8 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 				  kgsl_gem_unlock_handle_ioctl, 0),
 	DRM_IOCTL_DEF(DRM_KGSL_GEM_UNLOCK_ON_TS,
 				  kgsl_gem_unlock_on_ts_ioctl, 0),
+	DRM_IOCTL_DEF(DRM_KGSL_GEM_CREATE_FD, kgsl_gem_create_fd_ioctl,
+		      DRM_MASTER),
 };
 
 static struct drm_driver driver = {

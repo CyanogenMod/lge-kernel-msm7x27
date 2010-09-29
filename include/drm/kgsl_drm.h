@@ -47,6 +47,7 @@
 #define DRM_KGSL_GEM_LOCK_HANDLE 0x0B
 #define DRM_KGSL_GEM_UNLOCK_HANDLE 0x0C
 #define DRM_KGSL_GEM_UNLOCK_ON_TS 0x0D
+#define DRM_KGSL_GEM_CREATE_FD 0x0E
 
 #define DRM_IOCTL_KGSL_GEM_CREATE \
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_CREATE, struct drm_kgsl_gem_create)
@@ -99,6 +100,10 @@ struct drm_kgsl_gem_unlock_handles)
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_UNLOCK_ON_TS, \
 struct drm_kgsl_gem_unlock_on_ts)
 
+#define DRM_IOCTL_KGSL_GEM_CREATE_FD \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_CREATE_FD, \
+struct drm_kgsl_gem_create_fd)
+
 /* Maximum number of sub buffers per GEM object */
 #define DRM_KGSL_GEM_MAX_BUFFERS 2
 
@@ -130,6 +135,10 @@ struct drm_kgsl_gem_unlock_on_ts)
 #define DRM_KGSL_GEM_CACHE_WBACK     0x400000
 #define DRM_KGSL_GEM_CACHE_WBACKWA   0x800000
 #define DRM_KGSL_GEM_CACHE_MASK      0xF00000
+
+/* FD based objects */
+#define DRM_KGSL_GEM_TYPE_FD_FBMEM   0x1000000
+#define DRM_KGSL_GEM_TYPE_FD_MASK    0xF000000
 
 /* Timestamp types */
 #define DRM_KGSL_GEM_TS_3D         0x00000430
@@ -202,6 +211,11 @@ struct drm_kgsl_gem_unlock_on_ts {
 	uint32_t lock_id;
 	uint32_t timestamp;	 /* This field is a hw generated ts */
 	uint32_t type;		 /* Which pipe to check for ts generation */
+};
+
+struct drm_kgsl_gem_create_fd {
+	uint32_t fd;
+	uint32_t handle;
 };
 
 #endif
