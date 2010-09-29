@@ -112,7 +112,8 @@ irqreturn_t kgsl_g12_isr(int irq, void *data)
 		}
 	}
 
-	mod_timer(&device->idle_timer, jiffies + device->interval_timeout);
+	mod_timer(&device->idle_timer,
+			jiffies + device->pwrctrl.interval_timeout);
 
 	return result;
 }
@@ -198,6 +199,67 @@ int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags)
 }
 
 int __init
+kgsl_g12_init_pwrctrl(struct kgsl_device *device)
+{
+	int result = 0;
+	struct clk *clk;
+	struct platform_device *pdev = kgsl_driver.pdev;
+	struct kgsl_platform_data *pdata = pdev->dev.platform_data;
+
+	clk = clk_get(&pdev->dev, "grp_2d_pclk");
+	if (IS_ERR(clk))
+		clk = NULL;
+	device->pwrctrl.grp_pclk = clk;
+
+	clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
+	if (IS_ERR(clk)) {
+		clk = NULL;
+		result = PTR_ERR(clk);
+		KGSL_DRV_ERR("clk_get(%s) returned %d\n",
+						pdata->grp2d0_clk_name, result);
+		goto done;
+	}
+	device->pwrctrl.grp_clk = clk;
+	device->pwrctrl.grp_src_clk = NULL;
+
+	if (clk != NULL) {
+		if ((pdata->set_grp2d_async != NULL) &&
+			(pdata->max_grp2d_freq) &&
+			(!pdata->set_grp2d_async()))
+			clk_set_min_rate(clk, pdata->max_grp2d_freq);
+	}
+
+	device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx2d0");
+	if (IS_ERR(device->pwrctrl.gpu_reg))
+		device->pwrctrl.gpu_reg = NULL;
+
+	device->pwrctrl.power_flags = 0;
+	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
+	device->pwrctrl.clk_freq[KGSL_MIN_FREQ] = pdata->min_grp2d_freq;
+	device->pwrctrl.clk_freq[KGSL_MAX_FREQ] = pdata->max_grp2d_freq;
+
+	/*acquire g12 interrupt */
+	device->pwrctrl.interrupt_num =
+	platform_get_irq_byname(pdev, "kgsl_2d0_irq");
+
+	if (device->pwrctrl.interrupt_num <= 0) {
+		KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
+					 device->pwrctrl.interrupt_num);
+		result = -EINVAL;
+		goto done;
+	}
+
+	device->pwrctrl.pm_qos_req = pm_qos_add_request(
+					PM_QOS_SYSTEM_BUS_FREQ,
+					PM_QOS_DEFAULT_VALUE);
+	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
+	device->pwrctrl.interval_timeout = INTERVAL_G12_TIMEOUT;
+
+done:
+	return result;
+}
+
+int __init
 kgsl_g12_init(struct kgsl_device *device,
 		struct kgsl_devconfig *config)
 {
@@ -243,15 +305,15 @@ kgsl_g12_init(struct kgsl_device *device,
 		goto error_release_mem;
 	}
 
-	status = request_irq(kgsl_driver.g12_interrupt_num, kgsl_g12_isr,
+	status = request_irq(device->pwrctrl.interrupt_num, kgsl_g12_isr,
 			     IRQF_TRIGGER_HIGH, DRIVER_NAME, device);
 	if (status) {
 		KGSL_DRV_ERR("request_irq(%d) returned %d\n",
-			      kgsl_driver.g12_interrupt_num, status);
+			      device->pwrctrl.interrupt_num, status);
 		goto error_iounmap;
 	}
-	kgsl_driver.g12_have_irq = 1;
-	disable_irq(kgsl_driver.g12_interrupt_num);
+	device->pwrctrl.have_irq = 1;
+	disable_irq(device->pwrctrl.interrupt_num);
 
 	KGSL_DRV_INFO("dev_id %d regs phys 0x%08x size 0x%08x virt %p\n",
 			device->id, regspace->mmio_phys_base,
@@ -261,7 +323,7 @@ kgsl_g12_init(struct kgsl_device *device,
 	device->id = KGSL_DEVICE_G12;
 	init_completion(&device->hwaccess_gate);
 	kgsl_g12_getfunctable(&device->ftbl);
-	device->interval_timeout = INTERVAL_G12_TIMEOUT;
+	device->pwrctrl.interval_timeout = INTERVAL_G12_TIMEOUT;
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 
@@ -302,8 +364,8 @@ error_close_mmu:
 error_close_cmdstream:
 	kgsl_g12_cmdstream_close(device);
 error_free_irq:
-	free_irq(kgsl_driver.g12_interrupt_num, NULL);
-	kgsl_driver.g12_have_irq = 0;
+	free_irq(device->pwrctrl.interrupt_num, NULL);
+	device->pwrctrl.have_irq = 0;
 error_iounmap:
 	iounmap(regspace->mmio_virt_base);
 	regspace->mmio_virt_base = NULL;
@@ -332,8 +394,8 @@ int kgsl_g12_close(struct kgsl_device *device)
 		release_mem_region(regspace->mmio_phys_base,
 					regspace->sizebytes);
 	}
-	free_irq(kgsl_driver.g12_interrupt_num, NULL);
-	kgsl_driver.g12_have_irq = 0;
+
+	kgsl_pwrctrl_close(device);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
 	device->flags &= ~KGSL_FLAGS_INITIALIZED;
@@ -354,11 +416,11 @@ static int kgsl_g12_start(struct kgsl_device *device)
 		KGSL_DRV_VDBG("already started");
 		return 0;
 	}
-	kgsl_driver.power_flags |= KGSL_PWRFLAGS_G12_CLK_OFF |
-		KGSL_PWRFLAGS_G12_POWER_OFF | KGSL_PWRFLAGS_G12_IRQ_OFF;
+	device->pwrctrl.power_flags |= KGSL_PWRFLAGS_CLK_OFF |
+		KGSL_PWRFLAGS_POWER_OFF | KGSL_PWRFLAGS_IRQ_OFF;
 
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_POWER_ON);
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_CLK_ON);
+	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
 
 	/* Set up MH arbiter.  MH offsets are considered to be dword
 	 * based, therefore no down shift. */
@@ -381,12 +443,12 @@ static int kgsl_g12_start(struct kgsl_device *device)
 	device->hwaccess_blocked = KGSL_FALSE;
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 	device->flags |= KGSL_FLAGS_STARTED;
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_IRQ_ON);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 	return 0;
 error_clk_off:
 	kgsl_g12_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0);
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_CLK_OFF);
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_POWER_OFF);
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 error_mmu_stop:
 	kgsl_mmu_stop(device);
 	return status;
@@ -396,14 +458,14 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 {
 	kgsl_g12_idle(device, KGSL_TIMEOUT_DEFAULT);
 
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_IRQ_OFF);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 
 	del_timer(&device->idle_timer);
 
 	kgsl_mmu_stop(device);
 
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_CLK_OFF);
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_POWER_OFF);
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 	device->hwaccess_blocked = KGSL_TRUE;
 
 	device->flags &= ~KGSL_FLAGS_STARTED;
@@ -527,9 +589,10 @@ static int kgsl_g12_sleep(struct kgsl_device *device, const int idle)
 		/* See if the device is idle. If it is, we can shut down */
 		/* the core clock until the next attempt to access the HW. */
 		if (idle || kgsl_g12_isidle(g12_device)) {
-			kgsl_pwrctrl(KGSL_PWRFLAGS_G12_IRQ_OFF);
+			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 			/* Turn off the core clocks */
-			status = kgsl_pwrctrl(KGSL_PWRFLAGS_G12_CLK_OFF);
+			status = kgsl_pwrctrl_clk(device,
+				KGSL_PWRFLAGS_CLK_OFF);
 
 			/* Block further access to this core until it's awake */
 			device->hwaccess_blocked = KGSL_TRUE;
@@ -548,8 +611,8 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 	int status = KGSL_SUCCESS;
 
 	/* Turn on the core clocks */
-	status = kgsl_pwrctrl(KGSL_PWRFLAGS_G12_CLK_ON);
-	kgsl_pwrctrl(KGSL_PWRFLAGS_G12_IRQ_ON);
+	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 
 	/* Re-enable HW access */
 	device->hwaccess_blocked = KGSL_FALSE;
@@ -586,7 +649,7 @@ int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value)
 {
 	unsigned int *reg;
-	KGSL_PRE_HWACCESS();
+	kgsl_pre_hwaccess(device);
 	if ((offsetwords >= ADDR_MH_ARBITER_CONFIG &&
 	     offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
 	    (offsetwords >= ADDR_MH_MMU_CONFIG &&
@@ -616,7 +679,7 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 {
 	unsigned int *reg;
 
-	KGSL_PRE_HWACCESS();
+	kgsl_pre_hwaccess(device);
 	if ((offsetwords >= ADDR_MH_ARBITER_CONFIG &&
 	     offsetwords <= ADDR_MH_CLNT_INTF_CTRL_CONFIG2) ||
 	    (offsetwords >= ADDR_MH_MMU_CONFIG &&

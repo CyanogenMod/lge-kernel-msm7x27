@@ -49,6 +49,7 @@ int __init kgsl_yamato_config(struct kgsl_devconfig *,
 
 int __init kgsl_yamato_init(struct kgsl_device *device,
 			    struct kgsl_devconfig *config);
+int __init kgsl_yamato_init_pwrctrl(struct kgsl_device *device);
 
 int kgsl_yamato_close(struct kgsl_device *device);
 

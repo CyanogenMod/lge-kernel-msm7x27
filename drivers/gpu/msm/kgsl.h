@@ -46,16 +46,6 @@
 #define CLASS_NAME "msm_kgsl"
 #define CHIP_REV_251 0x020501
 
-enum kgsl_clk_freq {
-	KGSL_AXI_HIGH_2D = 0,
-	KGSL_AXI_HIGH_3D = 1,
-	KGSL_2D_MIN_FREQ = 2,
-	KGSL_2D_MAX_FREQ = 3,
-	KGSL_3D_MIN_FREQ = 4,
-	KGSL_3D_MAX_FREQ = 5,
-	KGSL_NUM_FREQ
-};
-
 /* Flags to control whether to flush or invalidate a cached memory range */
 #define KGSL_CACHE_INV		0x00000000
 #define KGSL_CACHE_CLEAN	0x00000001
@@ -77,24 +67,7 @@ struct kgsl_driver {
 	int num_devs;
 	struct platform_device *pdev;
 	struct mutex mutex;
-
-	int yamato_interrupt_num;
-	int yamato_have_irq;
-	int g12_interrupt_num;
-	int g12_have_irq;
-
-	struct clk *g12_grp_pclk;
-	struct clk *g12_grp_clk;
-	struct clk *yamato_grp_pclk;
-	struct clk *yamato_grp_clk;
-	struct clk *yamato_grp_src_clk;
-	struct clk *imem_clk;
-	unsigned int power_flags;
 	unsigned int is_suspended;
-	unsigned int clk_freq[KGSL_NUM_FREQ];
-
-	struct regulator *yamato_reg;
-	struct regulator *g12_reg;
 
 	struct kgsl_devconfig g12_config;
 	struct kgsl_devconfig yamato_config;
@@ -111,9 +84,6 @@ struct kgsl_driver {
 	struct mutex pt_mutex;
 
 	struct kgsl_pagetable *global_pt;
-
-	struct pm_qos_request_list *pm_qos_req;
-	struct pm_qos_request_list *g12_pm_qos_req;
 };
 
 extern struct kgsl_driver kgsl_driver;
@@ -137,25 +107,6 @@ enum kgsl_status {
 #define KGSL_TRUE 1
 #define KGSL_FALSE 0
 
-#define KGSL_PRE_HWACCESS() \
-while (1) { \
-	if (device == NULL) \
-		break; \
-	if (device->hwaccess_blocked == KGSL_FALSE) { \
-		break; \
-	} \
-	if (kgsl_driver.is_suspended != KGSL_TRUE) { \
-		device->ftbl.device_wake(device); \
-		break; \
-	} \
-	mutex_unlock(&kgsl_driver.mutex); \
-	wait_for_completion(&device->hwaccess_gate); \
-	mutex_lock(&kgsl_driver.mutex); \
-}
-
-#define KGSL_POST_HWACCESS() \
-	mutex_unlock(&kgsl_driver.mutex)
-
 #ifdef CONFIG_MSM_KGSL_MMU_PAGE_FAULT
 #define MMU_CONFIG 2
 #else
@@ -164,9 +115,6 @@ while (1) { \
 
 void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry, bool preserve);
 
-int kgsl_pwrctrl(unsigned int pwrflag);
-void kgsl_timer(unsigned long data);
-void kgsl_idle_check(struct work_struct *work);
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);
 int kgsl_setstate(struct kgsl_device *device, uint32_t flags);
 int kgsl_regread(struct kgsl_device *device, unsigned int offsetwords,
