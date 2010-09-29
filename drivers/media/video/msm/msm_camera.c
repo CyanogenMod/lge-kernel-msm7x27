@@ -2272,6 +2272,8 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 			sync->pp_prev = qcmd;
 			spin_unlock_irqrestore(&pp_prev_spinlock, flags);
 			sync->pp_frame_avail = 1;
+			if (atomic_read(&qcmd->on_heap))
+				atomic_add(1, &qcmd->on_heap);
 			break;
 		}
 		CDBG("%s: msm_enqueue frame_q\n", __func__);
@@ -2310,6 +2312,8 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 				__func__);
 			sync->pp_snap = qcmd;
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
+			if (atomic_read(&qcmd->on_heap))
+				atomic_add(1, &qcmd->on_heap);
 			break;
 		} else {
 		/* this is for normal snapshot case. right now we only have
