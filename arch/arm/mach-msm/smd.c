@@ -1103,6 +1103,7 @@ int smd_cur_packet_size(smd_channel_t *ch)
 {
 	return ch->current_packet;
 }
+EXPORT_SYMBOL(smd_cur_packet_size);
 
 int smd_tiocmget(smd_channel_t *ch)
 {
@@ -1113,6 +1114,7 @@ int smd_tiocmget(smd_channel_t *ch)
 		(ch->send->fCTS ? TIOCM_RTS : 0) |
 		(ch->send->fDSR ? TIOCM_DTR : 0);
 }
+EXPORT_SYMBOL(smd_tiocmget);
 
 int smd_tiocmset(smd_channel_t *ch, unsigned int set, unsigned int clear)
 {
@@ -1138,6 +1140,7 @@ int smd_tiocmset(smd_channel_t *ch, unsigned int set, unsigned int clear)
 
 	return 0;
 }
+EXPORT_SYMBOL(smd_tiocmset);
 
 
 /* -------------------------------------------------------------------------- */
