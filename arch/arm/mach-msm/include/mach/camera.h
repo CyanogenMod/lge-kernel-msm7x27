@@ -185,7 +185,7 @@ struct msm_strobe_flash_ctrl {
 		(struct msm_camera_sensor_strobe_flash_data *);
 	int (*strobe_flash_release)
 		(struct msm_camera_sensor_strobe_flash_data *);
-	int (*strobe_flash_charge)(int32_t, int32_t);
+	int (*strobe_flash_charge)(int32_t, int32_t, uint32_t);
 };
 
 /* this structure is used in kernel */
