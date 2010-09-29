@@ -3329,7 +3329,7 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.set_grp3d_async = set_grp3d_async,
 	.imem_clk_name = "imem_clk",
 	.grp3d_clk_name = "grp_clk",
-	.grp2d_clk_name = "grp_2d_clk",
+	.grp2d0_clk_name = "grp_2d_clk",
 };
 
 static struct resource kgsl_resources[] = {
@@ -3352,13 +3352,13 @@ static struct resource kgsl_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	},
 	{
-		.name = "kgsl_g12_reg_memory",
+		.name = "kgsl_2d0_reg_memory",
 		.start = 0xA3900000, /* Z180 base address */
 		.end = 0xA3900FFF,
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.name  = "kgsl_g12_irq",
+		.name  = "kgsl_2d0_irq",
 		.start = INT_GRP_2D,
 		.end = INT_GRP_2D,
 		.flags = IORESOURCE_IRQ,

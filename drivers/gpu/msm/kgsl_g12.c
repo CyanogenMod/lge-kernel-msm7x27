@@ -687,7 +687,7 @@ int __init kgsl_g12_config(struct kgsl_devconfig *devconfig,
 
 	/*find memory regions */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"kgsl_g12_reg_memory");
+			"kgsl_2d0_reg_memory");
 	if (res == NULL) {
 		KGSL_DRV_ERR("platform_get_resource_byname failed\n");
 		result = -EINVAL;

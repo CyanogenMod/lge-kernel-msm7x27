@@ -1224,7 +1224,7 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.set_grp3d_async = NULL,
 	.imem_clk_name = "imem_clk",
 	.grp3d_clk_name = "grp_clk",
-	.grp2d_clk_name = NULL,
+	.grp2d0_clk_name = NULL,
 };
 
 static struct platform_device msm_device_kgsl = {
