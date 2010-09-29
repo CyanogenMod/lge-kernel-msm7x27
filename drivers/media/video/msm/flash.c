@@ -259,36 +259,56 @@ static irqreturn_t strobe_flash_charge_ready_irq(int irq_num, void *data)
 static int msm_strobe_flash_xenon_init(
 	struct msm_camera_sensor_strobe_flash_data *sfdata)
 {
+	unsigned long flags;
 	int rc = 0;
 
-	rc = request_irq(sfdata->irq, strobe_flash_charge_ready_irq,
+	spin_lock_irqsave(&sfdata->spin_lock, flags);
+	if (!sfdata->state) {
+		rc = request_irq(sfdata->irq, strobe_flash_charge_ready_irq,
 			IRQF_TRIGGER_FALLING, "charge_ready", sfdata);
-	if (rc < 0) {
-		pr_err("%s: request_irq failed %d\n", __func__, rc);
-		return rc;
+		if (rc < 0) {
+			pr_err("%s: request_irq failed %d\n", __func__, rc);
+			return rc;
+		}
+		rc = gpio_request(sfdata->flash_charge, "charge");
+		if (rc < 0) {
+			pr_err("%s: gpio_request failed\n", __func__);
+			free_irq(sfdata->irq, sfdata);
+			return rc;
+		}
+		spin_lock_init(&sfdata->timer_lock);
+		/* setup timer */
+		init_timer(&timer_flash);
+		timer_flash.function = strobe_flash_xenon_recharge_handler;
+		timer_flash.data = (unsigned long)sfdata;
 	}
-	rc = gpio_request(sfdata->flash_charge, "charge");
-	if (rc < 0) {
-		pr_err("%s: gpio_request failed\n", __func__);
-		free_irq(sfdata->irq, sfdata);
-		return rc;
-	}
-	spin_lock_init(&sfdata->timer_lock);
-	/* setup timer */
-	init_timer(&timer_flash);
-	timer_flash.function = strobe_flash_xenon_recharge_handler;
-	timer_flash.data = (unsigned long)sfdata;
+	sfdata->state++;
+
+	spin_unlock_irqrestore(&sfdata->spin_lock, flags);
 
 	return rc;
 }
 
 static int msm_strobe_flash_xenon_release
-	(struct msm_camera_sensor_strobe_flash_data *sfdata)
+(struct msm_camera_sensor_strobe_flash_data *sfdata, int32_t final_release)
 {
-	free_irq(sfdata->irq, sfdata);
-	gpio_free(sfdata->flash_charge);
-	if (timer_pending(&timer_flash))
-		del_timer_sync(&timer_flash);
+	unsigned long flags;
+
+	spin_lock_irqsave(&sfdata->spin_lock, flags);
+	if (sfdata->state > 0) {
+		if (final_release)
+			sfdata->state = 0;
+		else
+			sfdata->state--;
+
+		if (!sfdata->state) {
+			free_irq(sfdata->irq, sfdata);
+			gpio_free(sfdata->flash_charge);
+			if (timer_pending(&timer_flash))
+				del_timer_sync(&timer_flash);
+		}
+	}
+	spin_unlock_irqrestore(&sfdata->spin_lock, flags);
 	return 0;
 }
 
@@ -308,9 +328,12 @@ int msm_strobe_flash_init(struct msm_sync *sync, uint32_t sftype)
 	int rc = 0;
 	switch (sftype) {
 	case MSM_CAMERA_STROBE_FLASH_XENON:
-		msm_strobe_flash_xenon_fn_init(&sync->sfctrl);
-		rc = sync->sfctrl.strobe_flash_init(
+		if (sync->sdata->strobe_flash_data) {
+			msm_strobe_flash_xenon_fn_init(&sync->sfctrl);
+			rc = sync->sfctrl.strobe_flash_init(
 			sync->sdata->strobe_flash_data);
+		} else
+			return -ENODEV;
 		break;
 	default:
 		rc = -ENODEV;

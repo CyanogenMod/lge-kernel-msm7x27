@@ -1919,8 +1919,10 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 	}
 
 	case MSM_CAM_IOCTL_STROBE_FLASH_RELEASE:
-		rc = pmsm->sync->sfctrl.strobe_flash_release(pmsm->sync->
-			sdata->strobe_flash_data);
+		if (pmsm->sync->sdata->strobe_flash_data) {
+			rc = pmsm->sync->sfctrl.strobe_flash_release(
+				pmsm->sync->sdata->strobe_flash_data, 0);
+		}
 		break;
 
 	case MSM_CAM_IOCTL_STROBE_FLASH_CHARGE: {
@@ -2032,6 +2034,9 @@ static int __msm_release(struct msm_sync *sync)
 		/*sensor release */
 		sync->sctrl.s_release();
 		msm_camio_sensor_clk_off(sync->pdev);
+		if (sync->sfctrl.strobe_flash_release)
+			sync->sfctrl.strobe_flash_release(
+				sync->sdata->strobe_flash_data, 1);
 		kfree(sync->cropinfo);
 		sync->cropinfo = NULL;
 		sync->croplen = 0;
@@ -2747,6 +2752,10 @@ static int msm_sync_init(struct msm_sync *sync,
 
 	sync->opencnt = 0;
 	mutex_init(&sync->lock);
+	if (sync->sdata->strobe_flash_data) {
+		sync->sdata->strobe_flash_data->state = 0;
+		spin_lock_init(&sync->sdata->strobe_flash_data->spin_lock);
+	}
 	CDBG("%s: initialized %s\n", __func__, sync->sdata->sensor_name);
 	return rc;
 }
