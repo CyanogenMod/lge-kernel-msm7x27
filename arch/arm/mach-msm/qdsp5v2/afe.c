@@ -19,6 +19,8 @@
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/jiffies.h>
+#include <linux/debugfs.h>
+#include <asm/uaccess.h>
 #include <mach/qdsp5v2/qdsp5afecmdi.h>
 #include <mach/qdsp5v2/qdsp5afemsg.h>
 #include <mach/qdsp5v2/afe.h>
@@ -38,6 +40,11 @@ struct msm_afe_state {
 	wait_queue_head_t      wait;
 	u8			aux_conf_flag;
 };
+
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *debugfs_afelb;
+#endif
+
 
 static struct msm_afe_state the_afe_state;
 
@@ -100,6 +107,37 @@ static void afe_dsp_codec_config(struct msm_afe_state *afe,
 	}
 	afe_send_queue(afe, &cmd, sizeof(cmd));
 }
+/* Function is called after afe module been enabled */
+void afe_loopback(int enable)
+{
+	struct afe_cmd_loopback cmd;
+	struct msm_afe_state *afe;
+
+	afe = &the_afe_state;
+	MM_DBG("enable %d\n", enable);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd_id = AFE_CMD_LOOPBACK;
+	if (enable)
+		cmd.enable_flag = AFE_LOOPBACK_ENABLE_COMMAND;
+
+	afe_send_queue(afe, &cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(afe_loopback);
+
+void afe_device_volume_ctrl(u16 device_id, u16 device_volume)
+{
+	struct afe_cmd_device_volume_ctrl cmd;
+	struct msm_afe_state *afe;
+
+	afe = &the_afe_state;
+	MM_DBG("device 0x%4x volume 0x%4x\n", device_id, device_volume);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd_id = AFE_CMD_DEVICE_VOLUME_CTRL;
+	cmd.device_id = device_id;
+	cmd.device_volume = device_volume;
+	afe_send_queue(afe, &cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(afe_device_volume_ctrl);
 
 int afe_enable(u8 path_id, struct msm_afe_config *config)
 {
@@ -302,6 +340,46 @@ int afe_disable(u8 path_id)
 }
 EXPORT_SYMBOL(afe_disable);
 
+
+#ifdef CONFIG_DEBUG_FS
+static int afe_debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	MM_INFO("debug intf %s\n", (char *) file->private_data);
+	return 0;
+}
+
+static ssize_t afe_debug_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	char *lb_str = filp->private_data;
+	char cmd;
+
+	if (get_user(cmd, ubuf))
+		return -EFAULT;
+
+	MM_INFO("%s %c\n", lb_str, cmd);
+
+	if (!strcmp(lb_str, "afe_loopback")) {
+		switch (cmd) {
+		case '1':
+			afe_loopback(1);
+			break;
+		case '0':
+			afe_loopback(0);
+			break;
+		}
+	}
+
+	return cnt;
+}
+
+static const struct file_operations afe_debug_fops = {
+	.open = afe_debug_open,
+	.write = afe_debug_write
+};
+#endif
+
 static int __init afe_init(void)
 {
 	struct msm_afe_state *afe = &the_afe_state;
@@ -313,12 +391,22 @@ static int __init afe_init(void)
 	mutex_init(&afe->lock);
 	init_waitqueue_head(&afe->wait);
 
+#ifdef CONFIG_DEBUG_FS
+	debugfs_afelb = debugfs_create_file("afe_loopback",
+	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback",
+	&afe_debug_fops);
+#endif
+
 	return 0;
 }
 
 static void __exit afe_exit(void)
 {
 	MM_INFO("AFE driver exit\n");
+#ifdef CONFIG_DEBUG_FS
+	if (debugfs_afelb)
+		debugfs_remove(debugfs_afelb);
+#endif
 	if (the_afe_state.mod)
 		msm_adsp_put(the_afe_state.mod);
 	return;
