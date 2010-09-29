@@ -463,6 +463,9 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 #endif
 			}
 #endif
+#ifdef CONFIG_FB_MSM_OVERLAY
+			mdp_hw_cursor_done();
+#endif
 		}
 		if (isr & INTR_OVERLAY1_DONE) {
 			mdp4_stat.intr_overlay1++;
