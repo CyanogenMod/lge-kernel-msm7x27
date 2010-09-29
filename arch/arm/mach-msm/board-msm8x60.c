@@ -731,21 +731,22 @@ static void config_gpio_table(uint32_t *table, int len)
 	}
 }
 #define GPIO_CAM_EN (GPIO_EXPANDER_GPIO_BASE + 13)
-static void config_camera_on_gpios(void)
+static int config_camera_on_gpios(void)
 {
-	int rc;
+	int rc = 0;
 	config_gpio_table(camera_on_gpio_table,
 		ARRAY_SIZE(camera_on_gpio_table));
 
 	rc = gpio_request(GPIO_CAM_EN, "CAM_EN");
-	if (rc) {
+	if (rc < 0) {
 		printk(KERN_ERR "%s: CAMSENSOR gpio %d request"
 			"failed\n", __func__, GPIO_CAM_EN);
-		return;
+		return rc;
 	}
 	gpio_direction_output(GPIO_CAM_EN, 0);
 	mdelay(20);
 	gpio_set_value(GPIO_CAM_EN, 1);
+	return rc;
 }
 
 static void config_camera_off_gpios(void)
@@ -760,22 +761,23 @@ static void config_camera_off_gpios(void)
 
 #define GPIO_CAM_EN_WEB_CAM (GPIO_EXPANDER_GPIO_BASE + (16 * 3) + 8 + 4)
 
-static void config_camera_on_gpios_web_cam(void)
+static int config_camera_on_gpios_web_cam(void)
 {
-	int rc;
+	int rc = 0;
 	config_gpio_table(camera_on_gpio_table,
 		ARRAY_SIZE(camera_on_gpio_table));
 
 	rc = gpio_request(GPIO_CAM_EN_WEB_CAM, "CAM_EN");
-	if (rc) {
+	if (rc < 0) {
 		pr_err(KERN_ERR "%s: CAMSENSOR gpio %d request"
 			"failed\n", __func__, GPIO_CAM_EN_WEB_CAM);
-		return;
+		return rc;
 	}
 	gpio_direction_output(GPIO_CAM_EN_WEB_CAM, 0);
 	msleep(20);
 	gpio_set_value(GPIO_CAM_EN_WEB_CAM, 0);
 	msleep(50);
+	return rc;
 }
 
 static void config_camera_off_gpios_web_cam(void)

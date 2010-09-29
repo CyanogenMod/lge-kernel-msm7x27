@@ -603,11 +603,14 @@ void msm_camio_disable(struct platform_device *pdev)
 
 int msm_camio_sensor_clk_on(struct platform_device *pdev)
 {
+	int rc = 0;
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	msm_camera_vreg_enable();
 	msleep(10);
-	camdev->camera_gpio_on();
+	rc = camdev->camera_gpio_on();
+	if (rc < 0)
+		return rc;
 	return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
 }
 
@@ -628,9 +631,12 @@ void msm_camio_vfe_blk_reset(void)
 
 int msm_camio_probe_on(struct platform_device *pdev)
 {
+	int rc = 0;
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	camdev->camera_gpio_on();
+	rc = camdev->camera_gpio_on();
+	if (rc < 0)
+		return rc;
 	msm_camera_vreg_enable();
 	return msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
 }
