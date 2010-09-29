@@ -181,6 +181,20 @@ static int msmrtc_tod_proc_args(struct msm_rpc_client *client, void *buff,
 		return 0;
 }
 
+static bool rtc_check_overflow(struct rtc_time *tm)
+{
+	if (tm->tm_year < 138)
+		return false;
+
+	if (tm->tm_year > 138)
+		return true;
+
+	if ((tm->tm_year == 138) && (tm->tm_mon == 0) && (tm->tm_mday < 19))
+		return false;
+
+	return true;
+}
+
 static int msmrtc_tod_proc_result(struct msm_rpc_client *client, void *buff,
 							void *data)
 {
@@ -221,6 +235,15 @@ static int msmrtc_tod_proc_result(struct msm_rpc_client *client, void *buff,
 
 		if (rtc_valid_tm(rtc_args->tm) < 0) {
 			pr_err("%s: Retrieved data/time not valid\n", __func__);
+			rtc_time_to_tm(0, rtc_args->tm);
+		}
+
+		/*
+		 * Check if the time received is > 01-19-2038, to prevent
+		 * overflow. In such a case, return the EPOCH time.
+		 */
+		if (rtc_check_overflow(rtc_args->tm) == true) {
+			pr_err("Invalid time (year > 2038)\n");
 			rtc_time_to_tm(0, rtc_args->tm);
 		}
 
