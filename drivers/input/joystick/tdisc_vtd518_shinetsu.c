@@ -165,7 +165,7 @@ static void tdisc_work_f(struct work_struct *work)
 		rc = i2c_smbus_read_i2c_block_data(dd->clientp,
 				TDSIC_BLK_READ_CMD, 8, data);
 		if (rc < 0) {
-			pr_err("%s:I2C read failed,trying again\n", __func__);
+			pr_debug("%s:I2C read failed,trying again\n", __func__);
 			rc = i2c_smbus_read_i2c_block_data(dd->clientp,
 						TDSIC_BLK_READ_CMD, 8, data);
 			if (rc < 0) {
