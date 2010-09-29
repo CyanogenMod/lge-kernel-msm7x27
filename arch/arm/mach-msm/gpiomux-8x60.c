@@ -114,6 +114,13 @@
 
 #define SDCC5_SUSPEND_CONFIG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
 
+
+#define AUX_PCM_ACTIVE_CONFIG (GPIOMUX_VALID | GPIOMUX_PULL_NONE\
+					| GPIOMUX_FUNC_1 | GPIOMUX_DRV_2MA)
+
+#define AUX_PCM_SUSPEND_CONFIG    (GPIOMUX_VALID | GPIOMUX_PULL_NONE)
+
+
 static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	[33] = {
 		.suspended = GSBI1,
@@ -156,6 +163,22 @@ static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	},
 	[92] = {
 		.suspended = PS_HOLD,
+	},
+	[111] = {
+		.active = AUX_PCM_ACTIVE_CONFIG,
+		.suspended = AUX_PCM_SUSPEND_CONFIG
+	},
+	[112] = {
+		.active = AUX_PCM_ACTIVE_CONFIG,
+		.suspended = AUX_PCM_SUSPEND_CONFIG
+	},
+	[113] = {
+		.active = AUX_PCM_ACTIVE_CONFIG,
+		.suspended = AUX_PCM_SUSPEND_CONFIG
+	},
+	[114] = {
+		.active = AUX_PCM_ACTIVE_CONFIG,
+		.suspended = AUX_PCM_SUSPEND_CONFIG
 	},
 	[115] = {
 		.suspended = CONSOLE_UART,
