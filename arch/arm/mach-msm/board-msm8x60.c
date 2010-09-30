@@ -1955,9 +1955,19 @@ static struct platform_device *surf_devices[] __initdata = {
 };
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+enum {
+	SX150X_CORE,
+	SX150X_DOCKING,
+	SX150X_SURF,
+	SX150X_LEFT_FHA,
+	SX150X_RIGHT_FHA,
+	SX150X_SOUTH,
+	SX150X_NORTH,
+	SX150X_CORE_FLUID,
+};
+
 static struct sx150x_platform_data sx150x_data[] __initdata = {
-	/* "CORE" expander */
-	[0] = {
+	[SX150X_CORE] = {
 		.gpio_base         = GPIO_CORE_EXPANDER_BASE,
 		.oscio_is_gpo      = false,
 		.io_pullup_ena     = 0x0409,
@@ -1967,8 +1977,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 		.irq_summary       = -1, /* see fixup_i2c_configs() */
 		.irq_base          = GPIO_EXPANDER_IRQ_BASE,
 	},
-	/* "DOCKING" expander */
-	[1] = {
+	[SX150X_DOCKING] = {
 		.gpio_base         = GPIO_DOCKING_EXPANDER_BASE,
 		.oscio_is_gpo      = false,
 		.io_pullup_ena     = 0x5e06,
@@ -1981,8 +1990,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 				     GPIO_DOCKING_EXPANDER_BASE -
 				     GPIO_EXPANDER_GPIO_BASE,
 	},
-	/* "SURF" expander */
-	[2] = {
+	[SX150X_SURF] = {
 		.gpio_base         = GPIO_SURF_EXPANDER_BASE,
 		.oscio_is_gpo      = false,
 		.io_pullup_ena     = 0,
@@ -1995,8 +2003,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 				     GPIO_SURF_EXPANDER_BASE -
 				     GPIO_EXPANDER_GPIO_BASE,
 	},
-	/* left keyboard FHA/FFA I/O */
-	[3] = {
+	[SX150X_LEFT_FHA] = {
 		.gpio_base         = GPIO_LEFT_KB_EXPANDER_BASE,
 		.oscio_is_gpo      = false,
 		.io_pullup_ena     = 0,
@@ -2009,8 +2016,7 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 				     GPIO_LEFT_KB_EXPANDER_BASE -
 				     GPIO_EXPANDER_GPIO_BASE,
 	},
-	/* right keyboard FHA/FFA I/O */
-	[4] = {
+	[SX150X_RIGHT_FHA] = {
 		.gpio_base         = GPIO_RIGHT_KB_EXPANDER_BASE,
 		.oscio_is_gpo      = true,
 		.io_pullup_ena     = 0,
@@ -2023,22 +2029,30 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 				     GPIO_RIGHT_KB_EXPANDER_BASE -
 				     GPIO_EXPANDER_GPIO_BASE,
 	},
-	/* FLUID south I/O */
-	[5] = {
+	[SX150X_SOUTH] = {
 		.gpio_base    = GPIO_SOUTH_EXPANDER_BASE,
 		.irq_base     = GPIO_EXPANDER_IRQ_BASE +
 				GPIO_SOUTH_EXPANDER_BASE -
 				GPIO_EXPANDER_GPIO_BASE,
 		.irq_summary  = PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT3_N),
 	},
-	/* FLUID north I/O */
-	[6] = {
+	[SX150X_NORTH] = {
 		.gpio_base    = GPIO_NORTH_EXPANDER_BASE,
 		.irq_base     = GPIO_EXPANDER_IRQ_BASE +
 				GPIO_NORTH_EXPANDER_BASE -
 				GPIO_EXPANDER_GPIO_BASE,
 		.irq_summary  = PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT3_N),
 		.oscio_is_gpo = true,
+	},
+	[SX150X_CORE_FLUID] = {
+		.gpio_base         = GPIO_CORE_EXPANDER_BASE,
+		.oscio_is_gpo      = false,
+		.io_pullup_ena     = 0x0409,
+		.io_pulldn_ena     = 0x4060,
+		.io_open_drain_ena = 0x0009,
+		.io_polarity       = 0,
+		.irq_summary       = -1, /* see fixup_i2c_configs() */
+		.irq_base          = GPIO_EXPANDER_IRQ_BASE,
 	},
 };
 
@@ -2115,44 +2129,51 @@ module_init(cfg_sx150xs_low_power);
 static struct i2c_board_info core_expander_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1509q", 0x3e),
-		.platform_data = &sx150x_data[0]
+		.platform_data = &sx150x_data[SX150X_CORE]
 	},
 };
 
 static struct i2c_board_info docking_expander_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1509q", 0x3f),
-		.platform_data = &sx150x_data[1]
+		.platform_data = &sx150x_data[SX150X_DOCKING]
 	},
 };
 
 static struct i2c_board_info surf_expanders_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1509q", 0x70),
-		.platform_data = &sx150x_data[2]
+		.platform_data = &sx150x_data[SX150X_SURF]
 	}
 };
 
 static struct i2c_board_info fha_expanders_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1508q", 0x21),
-		.platform_data = &sx150x_data[3]
+		.platform_data = &sx150x_data[SX150X_LEFT_FHA]
 	},
 	{
 		I2C_BOARD_INFO("sx1508q", 0x22),
-		.platform_data = &sx150x_data[4]
+		.platform_data = &sx150x_data[SX150X_RIGHT_FHA]
 	}
 };
 
 static struct i2c_board_info fluid_expanders_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1508q", 0x23),
-		.platform_data = &sx150x_data[5]
+		.platform_data = &sx150x_data[SX150X_SOUTH]
 	},
 	{
 		I2C_BOARD_INFO("sx1508q", 0x20),
-		.platform_data = &sx150x_data[6]
+		.platform_data = &sx150x_data[SX150X_NORTH]
 	}
+};
+
+static struct i2c_board_info fluid_core_expander_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("sx1509q", 0x3e),
+		.platform_data = &sx150x_data[SX150X_CORE_FLUID]
+	},
 };
 #endif
 #endif
@@ -3540,7 +3561,7 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 #endif
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 	{
-		I2C_SURF | I2C_FFA | I2C_FLUID,
+		I2C_SURF | I2C_FFA,
 		MSM_GSBI8_QUP_I2C_BUS_ID,
 		core_expander_i2c_info,
 		ARRAY_SIZE(core_expander_i2c_info),
@@ -3568,6 +3589,12 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		MSM_GSBI3_QUP_I2C_BUS_ID,
 		fluid_expanders_i2c_info,
 		ARRAY_SIZE(fluid_expanders_i2c_info),
+	},
+	{
+		I2C_FLUID,
+		MSM_GSBI8_QUP_I2C_BUS_ID,
+		fluid_core_expander_i2c_info,
+		ARRAY_SIZE(fluid_core_expander_i2c_info),
 	},
 #endif
 #if defined(CONFIG_TOUCHDISC_VTD518_SHINETSU) || \
@@ -3615,11 +3642,14 @@ static void fixup_i2c_configs(void)
 #ifdef CONFIG_I2C
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 	if (machine_is_msm8x60_surf())
-		sx150x_data[0].irq_summary = PM8058_GPIO_IRQ(PM8058_IRQ_BASE,
-							     UI_INT2_N);
-	else if (machine_is_msm8x60_ffa() || machine_is_msm8x60_fluid())
-		sx150x_data[0].irq_summary = PM8058_GPIO_IRQ(PM8058_IRQ_BASE,
-							     UI_INT1_N);
+		sx150x_data[SX150X_CORE].irq_summary =
+			PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT2_N);
+	else if (machine_is_msm8x60_ffa())
+		sx150x_data[SX150X_CORE].irq_summary =
+			PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT1_N);
+	else if (machine_is_msm8x60_fluid())
+		sx150x_data[SX150X_CORE_FLUID].irq_summary =
+			PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT1_N);
 #endif
 #endif
 }
