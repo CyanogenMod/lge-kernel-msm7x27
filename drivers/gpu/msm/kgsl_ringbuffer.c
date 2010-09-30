@@ -312,7 +312,7 @@ static int kgsl_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 				"request_firmware failed for %s  \
 				 with error %d\n",
 				LEIA_PM4_470_FW, status);
-			goto done;
+			goto error;
 		}
 	} else {
 		status = request_firmware(&fw, YAMATO_PM4_FW,
@@ -322,14 +322,14 @@ static int kgsl_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 				"request_firmware failed for %s  \
 				 with error %d\n",
 				YAMATO_PM4_FW, status);
-			goto done;
+			goto error;
 		}
 	}
 	/*this firmware must come in 3 word chunks. plus 1 word of version*/
 	if ((fw->size % (sizeof(uint32_t)*3)) != 4) {
 		KGSL_DRV_ERR("bad firmware size %d.\n", fw->size);
 		status = -EINVAL;
-		goto done;
+		goto error_release_fw;
 	}
 	fw_ptr = (unsigned int *)fw->data;
 	fw_word_size = fw->size/sizeof(uint32_t);
@@ -340,8 +340,9 @@ static int kgsl_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 	for (i = 1; i < fw_word_size; i++)
 		kgsl_yamato_regwrite(device, REG_CP_ME_RAM_DATA, fw_ptr[i]);
 
-done:
+error_release_fw:
 	release_firmware(fw);
+error:
 	return status;
 }
 
