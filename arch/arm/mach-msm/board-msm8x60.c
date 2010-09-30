@@ -3111,6 +3111,7 @@ static struct i2c_board_info msm_i2c_gsbi7_bahama_info[] = {
 #define I2C_FFA  (1 << 1)
 #define I2C_RUMI (1 << 2)
 #define I2C_SIM  (1 << 3)
+#define I2C_FLUID (1 << 4)
 
 struct i2c_registry {
 	u8                     machs;
@@ -3122,7 +3123,7 @@ struct i2c_registry {
 static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 #ifdef CONFIG_PMIC8058
 	{
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_SSBI1_I2C_BUS_ID,
 		pm8058_boardinfo,
 		ARRAY_SIZE(pm8058_boardinfo),
@@ -3130,7 +3131,7 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 #endif
 #ifdef CONFIG_PMIC8901
 	{
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_SSBI2_I2C_BUS_ID,
 		pm8901_boardinfo,
 		ARRAY_SIZE(pm8901_boardinfo),
@@ -3138,7 +3139,7 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 #endif
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 	{
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI8_QUP_I2C_BUS_ID,
 		core_expanders_i2c_info,
 		ARRAY_SIZE(core_expanders_i2c_info),
@@ -3159,35 +3160,35 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 #if defined(CONFIG_TOUCHDISC_VTD518_SHINETSU) || \
 		defined(CONFIG_TOUCHDISC_VTD518_SHINETSU_MODULE)
 	{
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI3_QUP_I2C_BUS_ID,
 		msm_i2c_gsbi3_tdisc_info,
 		ARRAY_SIZE(msm_i2c_gsbi3_tdisc_info),
 	},
 #endif
 	{
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI3_QUP_I2C_BUS_ID,
 		cy8ctmg200_board_info,
 		ARRAY_SIZE(cy8ctmg200_board_info),
 	},
 #ifdef CONFIG_MSM_CAMERA
     {
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI4_QUP_I2C_BUS_ID,
 		msm_camera_boardinfo,
 		ARRAY_SIZE(msm_camera_boardinfo),
 	},
 #endif
 	{
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI7_QUP_I2C_BUS_ID,
 		msm_i2c_gsbi7_timpani_info,
 		ARRAY_SIZE(msm_i2c_gsbi7_timpani_info),
 	},
 #if defined(CONFIG_BAHAMA_CORE)
 	{
-		I2C_SURF | I2C_FFA,
+		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI7_QUP_I2C_BUS_ID,
 		msm_i2c_gsbi7_bahama_info,
 		ARRAY_SIZE(msm_i2c_gsbi7_bahama_info),
@@ -3203,7 +3204,7 @@ static void fixup_i2c_configs(void)
 	if (machine_is_msm8x60_surf())
 		sx150x_data[0].irq_summary = PM8058_GPIO_IRQ(PM8058_IRQ_BASE,
 							     UI_INT2_N);
-	else if (machine_is_msm8x60_ffa())
+	else if (machine_is_msm8x60_ffa() || machine_is_msm8x60_fluid())
 		sx150x_data[0].irq_summary = PM8058_GPIO_IRQ(PM8058_IRQ_BASE,
 							     UI_INT1_N);
 #endif
@@ -3225,6 +3226,8 @@ static void register_i2c_devices(void)
 		mach_mask = I2C_RUMI;
 	else if (machine_is_msm8x60_sim())
 		mach_mask = I2C_SIM;
+	else if (machine_is_msm8x60_fluid())
+		mach_mask = I2C_FLUID;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
 
@@ -3298,7 +3301,8 @@ static void __init msm8x60_init_ebi2(void)
 	if (ebi2_cfg_ptr != 0) {
 		ebi2_cfg = readl(ebi2_cfg_ptr);
 
-		if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa())
+		if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+		    machine_is_msm8x60_fluid())
 			ebi2_cfg |= (1 << 4) | (1 << 5); /* CS2, CS3 */
 		else if (machine_is_msm8x60_sim())
 			ebi2_cfg |= (1 << 4); /* CS2 */
@@ -3309,7 +3313,8 @@ static void __init msm8x60_init_ebi2(void)
 		iounmap(ebi2_cfg_ptr);
 	}
 
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa()) {
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+	    machine_is_msm8x60_fluid()) {
 		ebi2_cfg_ptr = ioremap_nocache(0x1a110000, SZ_4K);
 		if (ebi2_cfg_ptr != 0) {
 			/* EBI2_XMEM_CFG:PWRSAVE_MODE off */
@@ -3393,7 +3398,8 @@ static void __init msm8x60_init_tlmm(void)
 
 	if (machine_is_msm8x60_rumi3())
 		msm_gpio_install_direct_irq(0, 0);
-	else if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa()) {
+	else if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+		 machine_is_msm8x60_fluid()) {
 		for (n = 0; n < ARRAY_SIZE(msm8x60_tlmm_cfgs); ++n)
 			gpio_tlmm_config(msm8x60_tlmm_cfgs[n], 0);
 	}
@@ -4126,7 +4132,6 @@ static void display_common_power(int on)
 			mdelay(20);
 			display_power_on = 1;
 			setup_display_power();
-
 		} else {
 			if (!rc) {
 				display_power_on = 0;
@@ -4893,7 +4898,8 @@ static void __init msm8x60_init(void)
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
 	msm8x60_init_buses();
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa()) {
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+	    machine_is_msm8x60_fluid()) {
 		msm8x60_cfg_smsc911x();
 		platform_add_devices(surf_devices,
 				     ARRAY_SIZE(surf_devices));
@@ -4954,6 +4960,17 @@ MACHINE_START(MSM8X60_SURF, "QCT MSM8X60 SURF")
 MACHINE_END
 
 MACHINE_START(MSM8X60_FFA, "QCT MSM8X60 FFA")
+#ifdef CONFIG_MSM_DEBUG_UART
+	.phys_io = MSM_DEBUG_UART_PHYS
+	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
+#endif
+	.map_io = msm8x60_map_io,
+	.init_irq = msm8x60_init_irq,
+	.init_machine = msm8x60_init,
+	.timer = &msm_timer,
+MACHINE_END
+
+MACHINE_START(MSM8X60_FLUID, "QCT MSM8X60 FLUID")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io = MSM_DEBUG_UART_PHYS
 	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,

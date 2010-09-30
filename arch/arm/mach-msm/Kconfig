@@ -327,6 +327,16 @@ config MACH_MSM8X60_QRDC
 	help
 	  Support for the Qualcomm MSM8x60 QRDC board.
 
+config MACH_MSM8X60_FLUID
+	depends on ARCH_MSM8X60
+	default n
+	bool "MSM8x60 FLUID"
+	help
+	  Support for the Qualcomm MSM8x60 FLUID platform. The FLUID is an
+	  8x60 target which has a form factor that is much closer to that
+	  of a phone than other targets. It also has a new display and
+	  touchscreen controller.
+
 endmenu
 
 config MSM_STACKED_MEMORY
