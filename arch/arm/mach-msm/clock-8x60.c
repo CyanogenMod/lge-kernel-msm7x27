@@ -900,10 +900,10 @@ static struct clk_freq_tbl clk_tbl_mdp[] = {
 };
 
 /* MDP VSYNC */
-#define NS_MASK_MDP_VSYNC BM(13, 13)
+#define NS_MASK_MDP_VSYNC B(13)
 #define CLK_MDP_VSYNC(id, ns, h_r, h_c, h_b, tv) \
 		CLK(id, BASIC, ns, (ns-4), NULL, NULL, 0, h_r, h_c, h_b, \
-				B(6), 0, 0, 0, set_rate_basic, \
+				B(6), 0, NS_MASK_MDP_VSYNC, 0, set_rate_basic, \
 				clk_tbl_mdp_vsync, NULL, NONE, NULL, tv)
 #define F_MDP_VSYNC(f, s, d, m, n, v) \
 		F_RAW(f, SRC_##s, 0, SRC_SEL_NS(13, 13, s), 0, 0, v, NULL)
