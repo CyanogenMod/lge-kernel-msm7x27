@@ -20,6 +20,7 @@
 #include <linux/msm_kgsl.h>
 
 #include "yamato_reg.h"
+#include "leia_reg.h"
 #include "kgsl.h"
 #include "kgsl_yamato.h"
 #include "kgsl_log.h"
@@ -491,22 +492,31 @@ static void build_regsave_cmds(struct kgsl_device *device,
 
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Write HW registers into shadow */
-	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
-		build_reg_to_mem_range(REG_RB_SURFACE_INFO, REG_RB_DEPTH_INFO,
+	build_reg_to_mem_range(REG_RB_SURFACE_INFO, REG_RB_DEPTH_INFO,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_COHER_DEST_BASE_0,
+	build_reg_to_mem_range(REG_COHER_DEST_BASE_0,
 				REG_PA_SC_SCREEN_SCISSOR_BR,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_PA_SC_WINDOW_OFFSET,
+	build_reg_to_mem_range(REG_PA_SC_WINDOW_OFFSET,
 				REG_PA_SC_WINDOW_SCISSOR_BR,
 				&cmd, drawctxt);
+	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
 		build_reg_to_mem_range(REG_VGT_MAX_VTX_INDX, REG_RB_FOG_COLOR,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_RB_STENCILREFMASK_BF,
+	} else {
+		build_reg_to_mem_range(REG_LEIA_PC_MAX_VTX_INDX,
+				REG_LEIA_PC_INDX_OFFSET,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_RB_COLOR_MASK,
+				REG_RB_FOG_COLOR,
+				&cmd, drawctxt);
+	}
+	build_reg_to_mem_range(REG_RB_STENCILREFMASK_BF,
 				REG_PA_CL_VPORT_ZOFFSET,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1,
+	build_reg_to_mem_range(REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1,
 				&cmd, drawctxt);
+	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
 		build_reg_to_mem_range(REG_RB_DEPTHCONTROL, REG_RB_MODECONTROL,
 				&cmd, drawctxt);
 		build_reg_to_mem_range(REG_PA_SU_POINT_SIZE,
@@ -514,75 +524,42 @@ static void build_regsave_cmds(struct kgsl_device *device,
 				&cmd, drawctxt);
 		build_reg_to_mem_range(REG_PA_SC_VIZ_QUERY, REG_PA_SC_VIZ_QUERY,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_PA_SC_LINE_CNTL, REG_SQ_PS_CONST,
+	} else {
+		build_reg_to_mem_range(REG_RB_DEPTHCONTROL,
+				REG_RB_COLORCONTROL,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK,
+		build_reg_to_mem_range(REG_PA_CL_CLIP_CNTL,
+				REG_PA_CL_VTE_CNTL,
 				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_RB_MODECONTROL,
+				REG_LEIA_GRAS_CONTROL,
+				&cmd, drawctxt);
+		build_reg_to_mem_range(REG_PA_SU_POINT_SIZE,
+				REG_PA_SU_LINE_CNTL,
+				&cmd, drawctxt);
+	}
+	build_reg_to_mem_range(REG_PA_SC_LINE_CNTL, REG_SQ_PS_CONST,
+				&cmd, drawctxt);
+	build_reg_to_mem_range(REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK,
+				&cmd, drawctxt);
+	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
 		build_reg_to_mem_range(REG_VGT_VERTEX_REUSE_BLOCK_CNTL,
 				REG_RB_DEPTH_CLEAR,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_RB_SAMPLE_COUNT_CTL,
-				REG_RB_COLOR_DEST_MASK,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
-				REG_PA_SU_POLY_OFFSET_BACK_OFFSET,
-				&cmd, drawctxt);
-
-
-
 	} else {
-		build_reg_to_mem_range(REG_LEIA_RB_SURFACE_INFO,
-				REG_LEIA_RB_DEPTH_INFO,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_COHER_DEST_BASE_0,
-				REG_LEIA_PA_SC_SCREEN_SCISSOR_BR,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_PA_SC_WINDOW_OFFSET,
-				REG_LEIA_PA_SC_WINDOW_SCISSOR_BR,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_PC_MAX_VTX_INDX,
-				REG_LEIA_PC_INDX_OFFSET,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_RB_COLOR_MASK,
-				REG_LEIA_RB_FOG_COLOR,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_RB_STENCILREFMASK_BF,
-				REG_LEIA_PA_CL_VPORT_ZOFFSET,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_SQ_PROGRAM_CNTL,
-				REG_LEIA_SQ_WRAPPING_1,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_RB_DEPTHCONTROL,
-				REG_LEIA_RB_COLORCONTROL,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_PA_CL_CLIP_CNTL,
-				REG_LEIA_PA_CL_VTE_CNTL,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_RB_MODECONTROL,
-				REG_LEIA_GRAS_CONTROL,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_PA_SU_POINT_SIZE,
-				REG_LEIA_PA_SU_LINE_CNTL,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_PA_SC_LINE_CNTL,
-				REG_LEIA_SQ_PS_CONST,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_PA_SC_AA_MASK,
-				REG_LEIA_PA_SC_AA_MASK,
-				&cmd, drawctxt);
 		build_reg_to_mem_range(REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
 				REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
 				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_RB_COPY_CONTROL,
-				REG_LEIA_RB_DEPTH_CLEAR,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_RB_SAMPLE_COUNT_CTL,
-				REG_LEIA_RB_COLOR_DEST_MASK,
-				&cmd, drawctxt);
-		build_reg_to_mem_range(REG_LEIA_PA_SU_POLY_OFFSET_FRONT_SCALE,
-				REG_LEIA_PA_SU_POLY_OFFSET_BACK_OFFSET,
+		build_reg_to_mem_range(REG_RB_COPY_CONTROL,
+				REG_RB_DEPTH_CLEAR,
 				&cmd, drawctxt);
 	}
+	build_reg_to_mem_range(REG_RB_SAMPLE_COUNT_CTL,
+				REG_RB_COLOR_DEST_MASK,
+				&cmd, drawctxt);
+	build_reg_to_mem_range(REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
+				REG_PA_SU_POLY_OFFSET_BACK_OFFSET,
+				&cmd, drawctxt);
 
 	/* Copy ALU constants */
 	cmd =
@@ -1136,55 +1113,45 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
 		cmd = reg_range(cmd, REG_RB_SURFACE_INFO,
 				REG_PA_SC_SCREEN_SCISSOR_BR);
-		cmd = reg_range(cmd, REG_PA_SC_WINDOW_OFFSET,
+	} else {
+		cmd = reg_range(cmd, REG_RB_SURFACE_INFO, REG_RB_DEPTH_INFO);
+		cmd = reg_range(cmd, REG_COHER_DEST_BASE_0,
+				REG_PA_SC_SCREEN_SCISSOR_BR);
+	}
+	cmd = reg_range(cmd, REG_PA_SC_WINDOW_OFFSET,
 				REG_PA_SC_WINDOW_SCISSOR_BR);
+	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
 		cmd = reg_range(cmd, REG_VGT_MAX_VTX_INDX,
 				REG_PA_CL_VPORT_ZOFFSET);
-		cmd = reg_range(cmd, REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1);
+	} else {
+		cmd = reg_range(cmd, REG_LEIA_PC_MAX_VTX_INDX,
+				REG_LEIA_PC_INDX_OFFSET);
+		cmd = reg_range(cmd, REG_RB_COLOR_MASK, REG_RB_FOG_COLOR);
+		cmd = reg_range(cmd, REG_RB_STENCILREFMASK_BF,
+				REG_PA_CL_VPORT_ZOFFSET);
+	}
+	cmd = reg_range(cmd, REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1);
+	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
 		cmd = reg_range(cmd, REG_RB_DEPTHCONTROL, REG_RB_MODECONTROL);
 		cmd = reg_range(cmd, REG_PA_SU_POINT_SIZE,
 				REG_PA_SC_VIZ_QUERY); /*REG_VGT_ENHANCE */
 		cmd = reg_range(cmd, REG_PA_SC_LINE_CNTL,
 				REG_RB_COLOR_DEST_MASK);
-		cmd = reg_range(cmd, REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
-				REG_PA_SU_POLY_OFFSET_BACK_OFFSET);
 	} else {
-		cmd = reg_range(cmd, REG_LEIA_RB_SURFACE_INFO,
-				REG_LEIA_RB_DEPTH_INFO);
-		cmd = reg_range(cmd, REG_LEIA_COHER_DEST_BASE_0,
-				REG_LEIA_PA_SC_SCREEN_SCISSOR_BR);
-		cmd = reg_range(cmd, REG_LEIA_PA_SC_WINDOW_OFFSET,
-				REG_LEIA_PA_SC_WINDOW_SCISSOR_BR);
-		cmd = reg_range(cmd, REG_LEIA_PC_MAX_VTX_INDX,
-				REG_LEIA_PC_INDX_OFFSET);
-		cmd = reg_range(cmd, REG_LEIA_RB_COLOR_MASK,
-				REG_LEIA_RB_FOG_COLOR);
-		cmd = reg_range(cmd, REG_LEIA_RB_STENCILREFMASK_BF,
-				REG_LEIA_PA_CL_VPORT_ZOFFSET);
-		cmd = reg_range(cmd, REG_LEIA_SQ_PROGRAM_CNTL,
-				REG_LEIA_SQ_WRAPPING_1);
-		cmd = reg_range(cmd, REG_LEIA_RB_DEPTHCONTROL,
-				REG_LEIA_RB_COLORCONTROL);
-		cmd = reg_range(cmd, REG_LEIA_PA_CL_CLIP_CNTL,
-				REG_LEIA_PA_CL_VTE_CNTL);
-		cmd = reg_range(cmd, REG_LEIA_RB_MODECONTROL,
-				REG_LEIA_GRAS_CONTROL);
-		cmd = reg_range(cmd, REG_LEIA_PA_SU_POINT_SIZE,
-				REG_LEIA_PA_SU_LINE_CNTL);
-		cmd = reg_range(cmd, REG_LEIA_PA_SC_LINE_CNTL,
-				REG_LEIA_SQ_PS_CONST);
-		cmd = reg_range(cmd, REG_LEIA_PA_SC_AA_MASK,
-				REG_LEIA_PA_SC_AA_MASK);
+		cmd = reg_range(cmd, REG_RB_DEPTHCONTROL, REG_RB_COLORCONTROL);
+		cmd = reg_range(cmd, REG_PA_CL_CLIP_CNTL, REG_PA_CL_VTE_CNTL);
+		cmd = reg_range(cmd, REG_RB_MODECONTROL, REG_LEIA_GRAS_CONTROL);
+		cmd = reg_range(cmd, REG_PA_SU_POINT_SIZE, REG_PA_SU_LINE_CNTL);
+		cmd = reg_range(cmd, REG_PA_SC_LINE_CNTL, REG_SQ_PS_CONST);
+		cmd = reg_range(cmd, REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK);
 		cmd = reg_range(cmd, REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL,
 				REG_LEIA_PC_VERTEX_REUSE_BLOCK_CNTL);
-		cmd = reg_range(cmd, REG_LEIA_RB_COPY_CONTROL,
-				REG_LEIA_RB_DEPTH_CLEAR);
-		cmd = reg_range(cmd, REG_LEIA_RB_SAMPLE_COUNT_CTL,
-				REG_LEIA_RB_COLOR_DEST_MASK);
-		cmd = reg_range(cmd, REG_LEIA_PA_SU_POLY_OFFSET_FRONT_SCALE,
-				REG_LEIA_PA_SU_POLY_OFFSET_BACK_OFFSET);
-
+		cmd = reg_range(cmd, REG_RB_COPY_CONTROL, REG_RB_DEPTH_CLEAR);
+		cmd = reg_range(cmd, REG_RB_SAMPLE_COUNT_CTL,
+				REG_RB_COLOR_DEST_MASK);
 	}
+	cmd = reg_range(cmd, REG_PA_SU_POLY_OFFSET_FRONT_SCALE,
+				REG_PA_SU_POLY_OFFSET_BACK_OFFSET);
 
 	/* Now we know how many register blocks we have, we can compute command
 	 * length
