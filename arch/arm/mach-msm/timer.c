@@ -924,54 +924,32 @@ int __init msm_timer_init_time_sync(void (*timeout)(void))
 	return 0;
 }
 
+
 unsigned long long sched_clock(void)
 {
-	static cycle_t saved_ticks;
-	static int saved_ticks_valid;
-	static unsigned long long base;
-	static unsigned long long last_result;
-
-	unsigned long irq_flags;
 	static cycle_t last_ticks;
-	cycle_t ticks;
-	static unsigned long long result;
-	struct clocksource *cs;
-	struct msm_clock *clock;
 	static DEFINE_SPINLOCK(msm_timer_sched_clock_lock);
 
-	spin_lock_irqsave(&msm_timer_sched_clock_lock, irq_flags);
+	struct msm_clock *clock;
+	struct clocksource *cs;
+	cycle_t ticks, delta;
+	unsigned long irq_flags;
 
 	clock = &msm_clocks[MSM_GLOBAL_TIMER];
-	if (clock) {
-		cs = &clock->clocksource;
+	cs = &clock->clocksource;
 
-		last_ticks = saved_ticks;
-		saved_ticks = ticks = cs->read(cs);
-		if (!saved_ticks_valid) {
-			saved_ticks_valid = 1;
-			last_ticks = ticks;
+	ticks  = cs->read(clock);
 
-			base -=  clocksource_cyc2ns(ticks,
-						    cs->mult,
-						    cs->shift);
-		}
-		if (ticks < last_ticks) {
-			base += clocksource_cyc2ns(cs->mask,
-						   cs->mult,
-						   cs->shift);
-			base += clocksource_cyc2ns(1,
-						   cs->mult,
-						   cs->shift);
-		}
-		last_result = result = clocksource_cyc2ns(ticks,
-						    cs->mult,
-						    cs->shift) + base;
-	} else {
-		base = result = last_result;
-		saved_ticks_valid = 0;
-	}
+	spin_lock_irqsave(&msm_timer_sched_clock_lock, irq_flags);
+	delta = (ticks - last_ticks) & cs->mask;
+
+	if (delta < cs->mask/2)
+		last_ticks += delta;
+
+	ticks = last_ticks;
 	spin_unlock_irqrestore(&msm_timer_sched_clock_lock, irq_flags);
-	return result; 
+
+	return clocksource_cyc2ns(ticks, cs->mult, cs->shift);
 }
 
 static void __init msm_timer_init(void)
