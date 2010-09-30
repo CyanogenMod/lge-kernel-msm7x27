@@ -71,7 +71,8 @@ void mdp4_mddi_vsync_enable(struct msm_fb_data_type *mfd,
 		(mfd->panel_info.lcd.vsync_enable)) {
 
 #ifdef MDP4_MDDI_DMA_SWITCH
-		if (which == 0 && dmap_vsync_enable == 0) /* dma_p */
+		if (which == 0 && dmap_vsync_enable == 0 &&
+			mfd->panel_info.lcd.rev < 2) /* dma_p */
 			return;
 #endif
 		if (vsync_start_y_adjust <= pipe->dst_y)
