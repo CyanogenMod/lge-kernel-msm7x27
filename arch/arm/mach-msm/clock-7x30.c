@@ -570,7 +570,7 @@ static struct clk_local soc_clk_local_tbl_7x30[] = {
 			0x0F),
 
 	CLK_MND8(CSI0, CSI_NS_REG, 24, 17, B(9), B(11), clk_tbl_csi, NULL,
-			CLK_HALT_STATEB_REG, HALT, 9, 0x5F00),
+			CLK_HALT_STATEC_REG, HALT, 17, 0x5F00),
 
 	/* For global clocks to be on we must have GLBL_ROOT_ENA set */
 	CLK_1RATE(GLBL_ROOT, GLBL_CLK_ENA_SC_REG, 0, B(29), clk_tbl_axi,
