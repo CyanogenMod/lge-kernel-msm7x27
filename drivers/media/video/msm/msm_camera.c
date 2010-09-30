@@ -39,7 +39,6 @@
 #include <mach/camera.h>
 #include <linux/syscalls.h>
 #include <linux/hrtimer.h>
-DEFINE_MUTEX(hlist_mut);
 DEFINE_MUTEX(ctrl_cmd_lock);
 
 spinlock_t pp_prev_spinlock;
@@ -98,6 +97,14 @@ static inline void free_qcmd(struct msm_queue_cmd *qcmd)
 		return;
 	if (!atomic_sub_return(1, &qcmd->on_heap))
 		kfree(qcmd);
+}
+
+static void msm_region_init(struct msm_sync *sync)
+{
+	INIT_HLIST_HEAD(&sync->pmem_frames);
+	INIT_HLIST_HEAD(&sync->pmem_stats);
+	spin_lock_init(&sync->pmem_frame_spinlock);
+	spin_lock_init(&sync->pmem_stats_spinlock);
 }
 
 static void msm_queue_init(struct msm_device_queue *queue, const char *name)
@@ -220,7 +227,7 @@ static int check_pmem_info(struct msm_pmem_info *info, int len)
 	return -EINVAL;
 }
 static int msm_pmem_table_add(struct hlist_head *ptype,
-	struct msm_pmem_info *info)
+	struct msm_pmem_info *info, spinlock_t* pmem_spinlock)
 {
 	struct file *file;
 	unsigned long paddr;
@@ -228,6 +235,8 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	unsigned long len;
 	int rc;
 	struct msm_pmem_region *region;
+	unsigned long flags;
+
 
 	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
 	if (rc < 0) {
@@ -247,8 +256,12 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	paddr += info->offset;
 	len = info->len;
 
-	if (check_overlap(ptype, paddr, len) < 0)
+	spin_lock_irqsave(pmem_spinlock, flags);
+	if (check_overlap(ptype, paddr, len) < 0) {
+		spin_unlock_irqrestore(pmem_spinlock, flags);
 		return -EINVAL;
+	}
+	spin_unlock_irqrestore(pmem_spinlock, flags);
 
 	CDBG("%s: type %d, paddr 0x%lx, vaddr 0x%lx\n",
 		__func__, info->type, paddr, (unsigned long)info->vaddr);
@@ -257,6 +270,7 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	if (!region)
 		return -ENOMEM;
 
+	spin_lock_irqsave(pmem_spinlock, flags);
 	INIT_HLIST_NODE(&region->list);
 
 	region->paddr = paddr;
@@ -265,22 +279,25 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	memcpy(&region->info, info, sizeof(region->info));
 
 	hlist_add_head(&(region->list), ptype);
+	spin_unlock_irqrestore(pmem_spinlock, flags);
 
 	return 0;
 }
 
 /* return of 0 means failure */
 static uint8_t msm_pmem_region_lookup(struct hlist_head *ptype,
-	int pmem_type, struct msm_pmem_region *reg, uint8_t maxcount)
+	int pmem_type, struct msm_pmem_region *reg, uint8_t maxcount,
+	spinlock_t *pmem_spinlock)
 {
 	struct msm_pmem_region *region;
 	struct msm_pmem_region *regptr;
 	struct hlist_node *node, *n;
+	unsigned long flags = 0;
 
 	uint8_t rc = 0;
 
 	regptr = reg;
-	mutex_lock(&hlist_mut);
+	spin_lock_irqsave(pmem_spinlock, flags);
 	hlist_for_each_entry_safe(region, node, n, ptype, list) {
 		if (region->info.type == pmem_type && region->info.active) {
 			*regptr = *region;
@@ -290,21 +307,23 @@ static uint8_t msm_pmem_region_lookup(struct hlist_head *ptype,
 			regptr++;
 		}
 	}
-	mutex_unlock(&hlist_mut);
+	spin_unlock_irqrestore(pmem_spinlock, flags);
 	return rc;
 }
 
 static uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,
 					int pmem_type,
 					struct msm_pmem_region *reg,
-					uint8_t maxcount)
+					uint8_t maxcount,
+					spinlock_t *pmem_spinlock)
 {
 	struct msm_pmem_region *region;
 	struct msm_pmem_region *regptr;
 	struct hlist_node *node, *n;
 	uint8_t rc = 0;
+	unsigned long flags = 0;
 	regptr = reg;
-	mutex_lock(&hlist_mut);
+	spin_lock_irqsave(pmem_spinlock, flags);
 	hlist_for_each_entry_safe(region, node, n, ptype, list) {
 		CDBG("%s:info.type=%d, pmem_type = %d,"
 						"info.active = %d\n",
@@ -323,7 +342,7 @@ static uint8_t msm_pmem_region_lookup_2(struct hlist_head *ptype,
 			regptr++;
 		}
 	}
-	mutex_unlock(&hlist_mut);
+	spin_unlock_irqrestore(pmem_spinlock, flags);
 	return rc;
 }
 
@@ -335,7 +354,9 @@ static int msm_pmem_frame_ptov_lookup(struct msm_sync *sync,
 {
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&sync->pmem_frame_spinlock, flags);
 	hlist_for_each_entry_safe(region, node, n, &sync->pmem_frames, list) {
 		if (pyaddr == (region->paddr + region->info.y_off) &&
 				pcbcraddr == (region->paddr +
@@ -347,10 +368,13 @@ static int msm_pmem_frame_ptov_lookup(struct msm_sync *sync,
 			memcpy(pmem_info, &region->info, sizeof(*pmem_info));
 			if (clear_active)
 				region->info.active = 0;
+			spin_unlock_irqrestore(&sync->pmem_frame_spinlock,
+				flags);
 			return 0;
 		}
 	}
 
+	spin_unlock_irqrestore(&sync->pmem_frame_spinlock, flags);
 	return -EINVAL;
 }
 
@@ -359,16 +383,21 @@ static unsigned long msm_pmem_stats_ptov_lookup(struct msm_sync *sync,
 {
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&sync->pmem_stats_spinlock, flags);
 	hlist_for_each_entry_safe(region, node, n, &sync->pmem_stats, list) {
 		if (addr == region->paddr && region->info.active) {
 			/* offset since we could pass vaddr inside a
 			 * registered pmem buffer */
 			*fd = region->info.fd;
 			region->info.active = 0;
+			spin_unlock_irqrestore(&sync->pmem_stats_spinlock,
+				flags);
 			return (unsigned long)(region->info.vaddr);
 		}
 	}
+	spin_unlock_irqrestore(&sync->pmem_stats_spinlock, flags);
 
 	return 0;
 }
@@ -379,7 +408,9 @@ static unsigned long msm_pmem_frame_vtop_lookup(struct msm_sync *sync,
 {
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&sync->pmem_frame_spinlock, flags);
 	hlist_for_each_entry_safe(region,
 		node, n, &sync->pmem_frames, list) {
 		if (((unsigned long)(region->info.vaddr) == buffer) &&
@@ -388,9 +419,12 @@ static unsigned long msm_pmem_frame_vtop_lookup(struct msm_sync *sync,
 				(region->info.fd == fd) &&
 				(region->info.active == 0)) {
 			region->info.active = 1;
+			spin_unlock_irqrestore(&sync->pmem_frame_spinlock,
+				flags);
 			return region->paddr;
 		}
 	}
+	spin_unlock_irqrestore(&sync->pmem_frame_spinlock, flags);
 
 	return 0;
 }
@@ -402,15 +436,20 @@ static unsigned long msm_pmem_stats_vtop_lookup(
 {
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&sync->pmem_stats_spinlock, flags);
 	hlist_for_each_entry_safe(region, node, n, &sync->pmem_stats, list) {
 		if (((unsigned long)(region->info.vaddr) == buffer) &&
 				(region->info.fd == fd) &&
 				region->info.active == 0) {
 			region->info.active = 1;
+			spin_unlock_irqrestore(&sync->pmem_stats_spinlock,
+				flags);
 			return region->paddr;
 		}
 	}
+	spin_unlock_irqrestore(&sync->pmem_stats_spinlock, flags);
 
 	return 0;
 }
@@ -421,6 +460,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 	int rc = 0;
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
+	unsigned long flags = 0;
 
 	switch (pinfo->type) {
 	case MSM_PMEM_VIDEO:
@@ -429,6 +469,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 	case MSM_PMEM_MAINIMG:
 	case MSM_PMEM_RAW_MAINIMG:
 	case MSM_PMEM_VIDEO_VPE:
+		spin_lock_irqsave(&sync->pmem_frame_spinlock, flags);
 		hlist_for_each_entry_safe(region, node, n,
 			&sync->pmem_frames, list) {
 
@@ -440,10 +481,12 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				kfree(region);
 			}
 		}
+		spin_unlock_irqrestore(&sync->pmem_frame_spinlock, flags);
 		break;
 
 	case MSM_PMEM_AEC_AWB:
 	case MSM_PMEM_AF:
+		spin_lock_irqsave(&sync->pmem_stats_spinlock, flags);
 		hlist_for_each_entry_safe(region, node, n,
 			&sync->pmem_stats, list) {
 
@@ -455,6 +498,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				kfree(region);
 			}
 		}
+		spin_unlock_irqrestore(&sync->pmem_stats_spinlock, flags);
 		break;
 
 	default:
@@ -1084,12 +1128,14 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 	case CMD_STATS_ENABLE:
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
-					MSM_PMEM_AEC_AWB, &region[0],
-					NUM_STAT_OUTPUT_BUFFERS);
+				MSM_PMEM_AEC_AWB, &region[0],
+				NUM_STAT_OUTPUT_BUFFERS,
+				&sync->pmem_stats_spinlock);
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
-					MSM_PMEM_AF, &region[axi_data.bufnum1],
-					NUM_STAT_OUTPUT_BUFFERS);
+				MSM_PMEM_AF, &region[axi_data.bufnum1],
+				NUM_STAT_OUTPUT_BUFFERS,
+				&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1 || !axi_data.bufnum2) {
 			pr_err("%s: pmem region lookup error\n", __func__);
 			return -EINVAL;
@@ -1099,8 +1145,9 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 	case CMD_STATS_AF_ENABLE:
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
-					MSM_PMEM_AF, &region[0],
-					NUM_STAT_OUTPUT_BUFFERS);
+				MSM_PMEM_AF, &region[0],
+				NUM_STAT_OUTPUT_BUFFERS,
+				&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1111,8 +1158,9 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 	case CMD_STATS_AEC_AWB_ENABLE:
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
-			MSM_PMEM_AEC_AWB, &region[0],
-			NUM_STAT_OUTPUT_BUFFERS);
+				MSM_PMEM_AEC_AWB, &region[0],
+				NUM_STAT_OUTPUT_BUFFERS,
+				&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1124,7 +1172,8 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
 			MSM_PMEM_AEC, &region[0],
-			NUM_STAT_OUTPUT_BUFFERS);
+			NUM_STAT_OUTPUT_BUFFERS,
+			&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1136,7 +1185,8 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
 			MSM_PMEM_AWB, &region[0],
-			NUM_STAT_OUTPUT_BUFFERS);
+			NUM_STAT_OUTPUT_BUFFERS,
+			&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1150,7 +1200,8 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
 			MSM_PMEM_IHIST, &region[0],
-			NUM_STAT_OUTPUT_BUFFERS);
+			NUM_STAT_OUTPUT_BUFFERS,
+			&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1163,7 +1214,8 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
 			MSM_PMEM_RS, &region[0],
-			NUM_STAT_OUTPUT_BUFFERS);
+			NUM_STAT_OUTPUT_BUFFERS,
+			&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1176,7 +1228,8 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
 			MSM_PMEM_CS, &region[0],
-			NUM_STAT_OUTPUT_BUFFERS);
+			NUM_STAT_OUTPUT_BUFFERS,
+			&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1215,7 +1268,7 @@ static int msm_vpe_frame_cfg(struct msm_sync *sync,
 		pmem_type = MSM_PMEM_VIDEO_VPE;
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup_2(&sync->pmem_frames, pmem_type,
-								&region[0], 8);
+				&region[0], 8, &sync->pmem_frame_spinlock);
 		CDBG("axi_data.bufnum1 = %d\n", axi_data.bufnum1);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
@@ -1255,7 +1308,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		pmem_type = MSM_PMEM_PREVIEW;
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
-				&region[0], 8);
+				&region[0], 8, &sync->pmem_frame_spinlock);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error (empty %d)\n",
 				__func__, __LINE__,
@@ -1268,7 +1321,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		pmem_type = MSM_PMEM_PREVIEW;
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
-				&region[0], 8);
+				&region[0], 8, &sync->pmem_frame_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1279,7 +1332,8 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
 				&region[axi_data.bufnum1],
-				(8-(axi_data.bufnum1)));
+				(8-(axi_data.bufnum1)),
+				&sync->pmem_frame_spinlock);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1292,7 +1346,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		pmem_type = MSM_PMEM_THUMBNAIL;
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
-				&region[0], 8);
+				&region[0], 8, &sync->pmem_frame_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1303,7 +1357,8 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
 				&region[axi_data.bufnum1],
-				(8-(axi_data.bufnum1)));
+				(8-(axi_data.bufnum1)),
+				 &sync->pmem_frame_spinlock);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1315,7 +1370,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		pmem_type = MSM_PMEM_RAW_MAINIMG;
 		axi_data.bufnum2 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
-				&region[0], 8);
+				&region[0], 8, &sync->pmem_frame_spinlock);
 		if (!axi_data.bufnum2) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -1430,7 +1485,8 @@ static int __msm_register_pmem(struct msm_sync *sync,
 	case MSM_PMEM_MAINIMG:
 	case MSM_PMEM_RAW_MAINIMG:
 	case MSM_PMEM_VIDEO_VPE:
-		rc = msm_pmem_table_add(&sync->pmem_frames, pinfo);
+		rc = msm_pmem_table_add(&sync->pmem_frames, pinfo,
+			&sync->pmem_frame_spinlock);
 		break;
 
 	case MSM_PMEM_AEC_AWB:
@@ -1442,7 +1498,8 @@ static int __msm_register_pmem(struct msm_sync *sync,
 	case MSM_PMEM_IHIST:
 	case MSM_PMEM_SKIN:
 
-		rc = msm_pmem_table_add(&sync->pmem_stats, pinfo);
+		rc = msm_pmem_table_add(&sync->pmem_stats, pinfo,
+			 &sync->pmem_stats_spinlock);
 		break;
 
 	default:
@@ -1496,7 +1553,8 @@ static int msm_stats_axi_cfg(struct msm_sync *sync,
 	if (cfgcmd->cmd_type != CMD_GENERAL) {
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats, pmem_type,
-				&region[0], NUM_STAT_OUTPUT_BUFFERS);
+				&region[0], NUM_STAT_OUTPUT_BUFFERS,
+				&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
 				__func__, __LINE__);
@@ -2540,8 +2598,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id)
 		msm_camvpe_fn_init(&sync->vpefn, sync);
 
 		if (rc >= 0) {
-			INIT_HLIST_HEAD(&sync->pmem_frames);
-			INIT_HLIST_HEAD(&sync->pmem_stats);
+			msm_region_init(sync);
 			if (sync->vpefn.vpe_reg)
 				sync->vpefn.vpe_reg(&msm_vpe_s);
 			sync->unblock_poll_frame = 0;
