@@ -30,6 +30,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H
 #define __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H
 
+#include "pm.h"
 #include "rpm.h"
 
 struct msm_rpmrs_limits {
@@ -37,13 +38,20 @@ struct msm_rpmrs_limits {
 	uint32_t l2_cache;
 	uint32_t vdd_mem;
 	uint32_t vdd_dig;
+
+	uint32_t latency_us[NR_CPUS];
+	uint32_t power[NR_CPUS];
 };
 
 int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_clear(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
-int msm_rpmrs_flush_buffer_noirq(
+
+int msm_rpmrs_flush_buffer(
 	uint32_t sclk_count, struct msm_rpmrs_limits *limits);
+struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
+	enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
+	uint32_t sleep_us);
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H */
