@@ -233,11 +233,10 @@ static int hdmi_msm_read_edid(void);
 
 static void hdmi_msm_hpd_state_work(struct work_struct *work)
 {
-	/* HPD_INT_STATUS[0x0250] */
-	boolean hpd_state = (HDMI_INP(0x0250) & 0x2) >> 1;
+	boolean hpd_state;
 
-	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk) {
-		DEV_DBG("%s: ignored, hdmi_app_clk off\n", __func__);
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk || !HDMI_BASE) {
+		DEV_DBG("%s: ignored, probe failed\n", __func__);
 		return;
 	}
 	mutex_lock(&hdmi_msm_state_mutex);
@@ -248,6 +247,8 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	}
 	mutex_unlock(&hdmi_msm_state_mutex);
 
+	/* HPD_INT_STATUS[0x0250] */
+	hpd_state = (HDMI_INP(0x0250) & 0x2) >> 1;
 	mutex_lock(&external_common_state_hpd_mutex);
 	mutex_lock(&hdmi_msm_state_mutex);
 	if ((external_common_state->hpd_state != hpd_state) || (hdmi_msm_state->
@@ -377,8 +378,8 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	static uint32 sample_drop_int_occurred;
 	const uint32 occurrence_limit = 10;
 
-	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk) {
-		DEV_DBG("ISR ignored, hdmi_app_clk off\n");
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk || !HDMI_BASE) {
+		DEV_DBG("ISR ignored, probe failed\n");
 		return IRQ_HANDLED;
 	}
 	mutex_lock(&hdmi_msm_state_mutex);
@@ -2472,7 +2473,7 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
-	if (!hdmi_msm_state->hdmi_app_clk)
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk || !HDMI_BASE)
 		return -ENODEV;
 	mutex_lock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->pm_suspended) {
