@@ -24,7 +24,9 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/diagchar.h>
+#ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
+#endif
 #include <mach/msm_smd.h>
 #include "diagmem.h"
 #include "diagchar.h"
@@ -113,30 +115,7 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 {
 	int i, err = 0;
 
-	if (driver->logging_mode == USB_MODE) {
-		if (proc_num == APPS_DATA) {
-			driver->write_ptr_svc = (struct diag_request *)
-			(diagmem_alloc(driver, sizeof(struct diag_request),
-				 POOL_TYPE_WRITE_STRUCT));
-			driver->write_ptr_svc->length = driver->used;
-			driver->write_ptr_svc->buf = buf;
-			err = diag_write(driver->write_ptr_svc);
-		} else if (proc_num == MODEM_DATA) {
-			write_ptr->buf = buf;
-#ifdef DIAG_DEBUG
-			printk(KERN_INFO "writing data to USB,"
-				"pkt length %d\n", write_ptr->length);
-			print_hex_dump(KERN_DEBUG, "Written Packet Data to"
-					   " USB: ", 16, 1, DUMP_PREFIX_ADDRESS,
-					    buf, write_ptr->length, 1);
-#endif
-			err = diag_write(write_ptr);
-		} else if (proc_num == QDSP_DATA) {
-			write_ptr->buf = buf;
-			err = diag_write(write_ptr);
-		}
-		APPEND_DEBUG('k');
-	} else if (driver->logging_mode == MEMORY_DEVICE_MODE) {
+	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
 		if (proc_num == APPS_DATA) {
 			for (i = 0; i < driver->poolsize_write_struct; i++)
 				if (driver->buf_tbl[i].length == 0) {
@@ -175,6 +154,32 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 		}
 		err = -1;
 	}
+#ifdef CONFIG_DIAG_OVER_USB
+	else if (driver->logging_mode == USB_MODE) {
+		if (proc_num == APPS_DATA) {
+			driver->write_ptr_svc = (struct diag_request *)
+			(diagmem_alloc(driver, sizeof(struct diag_request),
+				 POOL_TYPE_WRITE_STRUCT));
+			driver->write_ptr_svc->length = driver->used;
+			driver->write_ptr_svc->buf = buf;
+			err = diag_write(driver->write_ptr_svc);
+		} else if (proc_num == MODEM_DATA) {
+			write_ptr->buf = buf;
+#ifdef DIAG_DEBUG
+			printk(KERN_INFO "writing data to USB,"
+				"pkt length %d\n", write_ptr->length);
+			print_hex_dump(KERN_DEBUG, "Written Packet Data to"
+					   " USB: ", 16, 1, DUMP_PREFIX_ADDRESS,
+					    buf, write_ptr->length, 1);
+#endif /* DIAG DEBUG */
+			err = diag_write(write_ptr);
+		} else if (proc_num == QDSP_DATA) {
+			write_ptr->buf = buf;
+			err = diag_write(write_ptr);
+		}
+		APPEND_DEBUG('k');
+	}
+#endif /* DIAG OVER USB */
     return err;
 }
 
@@ -418,7 +423,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	if ((*buf == 0x7d) && (*(++buf) == 0x5)) {
 		TO DO
 	} */
-#ifdef CONFIG_DIAG_NO_MODEM
+#if defined(CONFIG_DIAG_NO_MODEM) && defined(CONFIG_DIAG_OVER_USB)
 	/* Respond to polling for Apps only DIAG */
 	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) && (*(buf+2) == 0x03)) {
 		for (i = 0; i < 3; i++)
@@ -449,7 +454,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		ENCODE_RSP_AND_SEND(13);
 		return 0;
 	}
-#endif
+#endif /* DIAG over USB & NO MODEM present */
 	/* Check for registered clients and forward packet to user-space */
 	else{
 		cmd_code = (int)(*(char *)buf);
@@ -546,27 +551,29 @@ void diag_process_hdlc(void *data, unsigned len)
 							 hdlc.dest_idx - 3);
 		type = 0;
 	}
-#endif
+#endif /* NO MODEM present */
+
 #ifdef DIAG_DEBUG
 	printk(KERN_INFO "\n hdlc.dest_idx = %d", hdlc.dest_idx);
 	for (i = 0; i < hdlc.dest_idx; i++)
 		printk(KERN_DEBUG "\t%x", *(((unsigned char *)
 							driver->hdlc_buf)+i));
-#endif
+#endif /* DIAG DEBUG */
 	/* ignore 2 bytes for CRC, one for 7E and send */
 	if ((driver->ch) && (ret) && (type) && (hdlc.dest_idx > 3)) {
 		APPEND_DEBUG('g');
 		smd_write(driver->ch, driver->hdlc_buf, hdlc.dest_idx - 3);
 		APPEND_DEBUG('h');
 #ifdef DIAG_DEBUG
-		printk(KERN_INFO "writing data to SMD, pkt length %d \n", len);
+		printk(KERN_INFO "writing data to SMD, pkt length %d\n", len);
 		print_hex_dump(KERN_DEBUG, "Written Packet Data to SMD: ", 16,
 			       1, DUMP_PREFIX_ADDRESS, data, len, 1);
-#endif
+#endif /* DIAG DEBUG */
 	}
 
 }
 
+#ifdef CONFIG_DIAG_OVER_USB
 int diagfwd_connect(void)
 {
 	int err;
@@ -648,7 +655,7 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 	print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
 		       DUMP_PREFIX_ADDRESS, diag_read_ptr->buf,
 		       diag_read_ptr->actual, 1);
-#endif
+#endif /* DIAG DEBUG */
 	driver->read_len = len;
 	if (driver->logging_mode == USB_MODE)
 		queue_work(driver->diag_wq , &(driver->diag_read_work));
@@ -661,6 +668,18 @@ static struct diag_operations diagfwdops = {
 	.diag_char_write_complete = diagfwd_write_complete,
 	.diag_char_read_complete = diagfwd_read_complete
 };
+
+void diag_read_work_fn(struct work_struct *work)
+{
+	APPEND_DEBUG('d');
+	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
+	driver->usb_read_ptr->buf = driver->usb_buf_out;
+	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
+	APPEND_DEBUG('e');
+	diag_read(driver->usb_read_ptr);
+	APPEND_DEBUG('f');
+}
+#endif /* DIAG OVER USB */
 
 static void diag_smd_notify(void *ctxt, unsigned event)
 {
@@ -719,18 +738,6 @@ static struct platform_driver msm_smd_ch1_driver = {
 		   .pm   = &diagfwd_dev_pm_ops,
 		   },
 };
-
-
-void diag_read_work_fn(struct work_struct *work)
-{
-	APPEND_DEBUG('d');
-	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
-	driver->usb_read_ptr->buf = driver->usb_buf_out;
-	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
-	APPEND_DEBUG('e');
-	diag_read(driver->usb_read_ptr);
-	APPEND_DEBUG('f');
-}
 
 void diagfwd_init(void)
 {
@@ -824,9 +831,10 @@ void diagfwd_init(void)
 			goto err;
 #endif
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
+#ifdef CONFIG_DIAG_OVER_USB
 	INIT_WORK(&(driver->diag_read_work), diag_read_work_fn);
-
 	diag_usb_register(&diagfwdops);
+#endif
 
 	platform_driver_register(&msm_smd_ch1_driver);
 
@@ -863,13 +871,14 @@ void diagfwd_exit(void)
 	smd_close(driver->chqdsp);
 	driver->ch = 0;		/*SMD can make this NULL */
 	driver->chqdsp = 0;
-
+#ifdef CONFIG_DIAG_OVER_USB
 	if (driver->usb_connected)
 		diag_close();
-
+#endif
 	platform_driver_unregister(&msm_smd_ch1_driver);
-
+#ifdef CONFIG_DIAG_OVER_USB
 	diag_usb_unregister();
+#endif
 
 	kfree(driver->buf_in_1);
 	kfree(driver->buf_in_2);
