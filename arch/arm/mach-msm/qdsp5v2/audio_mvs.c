@@ -37,6 +37,8 @@
 #define MVS_RELEASE_PROC 6
 #define MVS_AMR_SET_AMR_MODE_PROC 7
 #define MVS_AMR_SET_AWB_MODE_PROC 8
+#define MVS_VOC_SET_FRAME_RATE_PROC 10
+#define MVS_SET_DTX_MODE_PROC 22
 
 #define MVS_EVENT_CB_TYPE_PROC 1
 #define MVS_PACKET_UL_FN_TYPE_PROC 2
@@ -46,6 +48,8 @@
 #define MVS_UL_CB_FUNC_ID 0xBBBBCCCC
 #define MVS_DL_CB_FUNC_ID 0xCCCCDDDD
 
+#define MVS_FRAME_MODE_VOC_TX 1
+#define MVS_FRAME_MODE_VOC_RX 2
 #define MVS_FRAME_MODE_AMR_UL 3
 #define MVS_FRAME_MODE_AMR_DL 4
 #define MVS_FRAME_MODE_PCM_UL 13
@@ -132,10 +136,17 @@ struct audio_mvs_set_amr_mode_msg {
 	uint32_t amr_mode;
 };
 
-/* Parameters required for setting AMR-WB mode. */
-struct audio_mvs_set_amrwb_mode_msg {
+/* Parameters required for setting DTX. */
+struct audio_mvs_set_dtx_mode_msg {
 	struct rpc_request_hdr rpc_hdr;
-	uint32_t amrwb_mode;
+	uint32_t dtx_mode;
+};
+
+/* Parameters required for setting EVRC mode. */
+struct audio_mvs_set_voc_mode_msg {
+	struct rpc_request_hdr rpc_hdr;
+	uint32_t max_rate;
+	uint32_t min_rate;
 };
 
 union audio_mvs_event_data {
@@ -203,8 +214,8 @@ struct audio_mvs_dl_reply {
 
 	struct audio_mvs_frame_info_hdr frame_info_hdr;
 
-	uint32_t amr_frame;
-	uint32_t amr_mode;
+	uint32_t param1;
+	uint32_t param2;
 
 	uint32_t valid_pkt_status_ptr;
 	uint32_t pkt_status;
@@ -257,6 +268,7 @@ static int audio_mvs_setup_amr(struct audio_mvs_info_type *audio)
 {
 	int rc = 0;
 	struct audio_mvs_set_amr_mode_msg set_amr_mode_msg;
+	struct audio_mvs_set_dtx_mode_msg set_dtx_mode_msg;
 
 	pr_debug("%s:\n", __func__);
 
@@ -264,10 +276,17 @@ static int audio_mvs_setup_amr(struct audio_mvs_info_type *audio)
 	memset(&set_amr_mode_msg, 0, sizeof(set_amr_mode_msg));
 	set_amr_mode_msg.amr_mode = cpu_to_be32(audio->rate_type);
 
-	msm_rpc_setup_req(&set_amr_mode_msg.rpc_hdr,
-			  audio->rpc_prog,
-			  audio->rpc_ver,
-			  MVS_AMR_SET_AMR_MODE_PROC);
+	if (audio->mvs_mode == MVS_MODE_AMR) {
+		msm_rpc_setup_req(&set_amr_mode_msg.rpc_hdr,
+				  audio->rpc_prog,
+				  audio->rpc_ver,
+				  MVS_AMR_SET_AMR_MODE_PROC);
+	} else {
+		msm_rpc_setup_req(&set_amr_mode_msg.rpc_hdr,
+				  audio->rpc_prog,
+				  audio->rpc_ver,
+				  MVS_AMR_SET_AWB_MODE_PROC);
+	}
 
 	audio->rpc_status = RPC_STATUS_FAILURE;
 	rc = msm_rpc_write(audio->rpc_endpt,
@@ -275,7 +294,7 @@ static int audio_mvs_setup_amr(struct audio_mvs_info_type *audio)
 			   sizeof(set_amr_mode_msg));
 
 	if (rc >= 0) {
-		pr_debug("%s; RPC write for set amr mode done\n", __func__);
+		pr_debug("%s: RPC write for set amr mode done\n", __func__);
 
 		rc = wait_event_timeout(audio->wait,
 				(audio->rpc_status != RPC_STATUS_FAILURE),
@@ -288,7 +307,35 @@ static int audio_mvs_setup_amr(struct audio_mvs_info_type *audio)
 			/* Save the MVS configuration information. */
 			audio->frame_mode = MVS_FRAME_MODE_AMR_DL;
 
-			rc = 0;
+			/* Disable DTX. */
+			memset(&set_dtx_mode_msg, 0, sizeof(set_dtx_mode_msg));
+			set_dtx_mode_msg.dtx_mode = cpu_to_be32(0);
+
+			msm_rpc_setup_req(&set_dtx_mode_msg.rpc_hdr,
+					  audio->rpc_prog,
+					  audio->rpc_ver,
+					  MVS_SET_DTX_MODE_PROC);
+
+			audio->rpc_status = RPC_STATUS_FAILURE;
+			rc = msm_rpc_write(audio->rpc_endpt,
+					   &set_dtx_mode_msg,
+					   sizeof(set_dtx_mode_msg));
+
+			if (rc >= 0) {
+				pr_debug("%s: RPC write for set dtx done\n",
+					 __func__);
+
+				rc = wait_event_timeout(audio->wait,
+				      (audio->rpc_status != RPC_STATUS_FAILURE),
+				      1 * HZ);
+
+				if (rc > 0) {
+					pr_debug("%s: Wait event for set dtx"
+						 "succeeded\n", __func__);
+
+					rc = 0;
+				}
+			}
 		} else {
 			pr_err("%s: Wait event for set amr mode failed %d\n",
 			       __func__, rc);
@@ -311,6 +358,55 @@ static int audio_mvs_setup_pcm(struct audio_mvs_info_type *audio)
 	audio->frame_mode = MVS_FRAME_MODE_PCM_DL;
 
 	return 0;
+}
+
+static int audio_mvs_setup_voc(struct audio_mvs_info_type *audio)
+{
+	int rc = 0;
+	struct audio_mvs_set_voc_mode_msg set_voc_mode_msg;
+
+	pr_debug("%s:\n", __func__);
+
+	/* Set EVRC mode. */
+	memset(&set_voc_mode_msg, 0, sizeof(set_voc_mode_msg));
+	set_voc_mode_msg.min_rate = cpu_to_be32(audio->rate_type);
+	set_voc_mode_msg.max_rate = cpu_to_be32(audio->rate_type);
+
+	msm_rpc_setup_req(&set_voc_mode_msg.rpc_hdr,
+			  audio->rpc_prog,
+			  audio->rpc_ver,
+			  MVS_VOC_SET_FRAME_RATE_PROC);
+
+	audio->rpc_status = RPC_STATUS_FAILURE;
+	rc = msm_rpc_write(audio->rpc_endpt,
+			   &set_voc_mode_msg,
+			   sizeof(set_voc_mode_msg));
+
+	if (rc >= 0) {
+		pr_debug("%s: RPC write for set voc mode done\n", __func__);
+
+		rc = wait_event_timeout(audio->wait,
+				      (audio->rpc_status != RPC_STATUS_FAILURE),
+				      1 * HZ);
+
+		if (rc > 0) {
+			pr_debug("%s: Wait event for set voc mode succeeded\n",
+				 __func__);
+
+			/* Save the MVS configuration information. */
+			audio->frame_mode = MVS_FRAME_MODE_VOC_RX;
+
+			rc = 0;
+		} else {
+			pr_err("%s: Wait event for set voc mode failed %d\n",
+			       __func__, rc);
+		}
+	} else {
+		pr_err("%s: RPC write for set voc mode failed %d\n",
+		       __func__, rc);
+	}
+
+	return rc;
 }
 
 static int audio_mvs_setup(struct audio_mvs_info_type *audio)
@@ -353,6 +449,8 @@ static int audio_mvs_setup(struct audio_mvs_info_type *audio)
 			} else if (audio->mvs_mode == MVS_MODE_PCM ||
 				   audio->mvs_mode == MVS_MODE_LINEAR_PCM) {
 				rc = audio_mvs_setup_pcm(audio);
+			} else if (audio->mvs_mode == MVS_MODE_IS127) {
+				rc = audio_mvs_setup_voc(audio);
 			} else {
 				pr_err("%s: Unknown MVS mode %d\n",
 				       __func__, audio->mvs_mode);
@@ -443,14 +541,14 @@ static int audio_mvs_stop(struct audio_mvs_info_type *audio)
 	rc = msm_rpc_write(audio->rpc_endpt, &release_msg, sizeof(release_msg));
 
 	if (rc >= 0) {
-		pr_debug("%s; RPC write for release done\n", __func__);
+		pr_debug("%s: RPC write for release done\n", __func__);
 
 		rc = wait_event_timeout(audio->wait,
 				(audio->rpc_status != RPC_STATUS_FAILURE),
 				1 * HZ);
 
 		if (rc > 0) {
-			pr_debug("%s; Wait event for release succeeded\n",
+			pr_debug("%s: Wait event for release succeeded\n",
 				 __func__);
 
 			audio->state = AUDIO_MVS_STOPPED;
@@ -576,15 +674,16 @@ static void audio_mvs_process_rpc_request(uint32_t procedure,
 			list_del(&buf_node->list);
 
 			memcpy(&buf_node->frame.voc_pkt[0], args, pkt_len);
-			args = args + (pkt_len/4);
 			buf_node->frame.len = pkt_len;
+			pkt_len = ALIGN(pkt_len, 4);
+			args = args + pkt_len/4;
 
 			pr_debug("%s: UL valid_ptr 0x%x\n",
 				 __func__, be32_to_cpu(*args));
 			args++;
 
 			frame_mode = be32_to_cpu(*args);
-			pr_debug("%s; UL frame_mode %d\n",
+			pr_debug("%s: UL frame_mode %d\n",
 				 __func__, frame_mode);
 			args++;
 
@@ -610,8 +709,9 @@ static void audio_mvs_process_rpc_request(uint32_t procedure,
 
 				pr_debug("%s: UL AMR frame_type %d\n",
 					 __func__, be32_to_cpu(*args));
-			} else if (frame_mode == MVS_FRAME_MODE_PCM_UL) {
-				/* PCM does not have frame_type */
+			} else if ((frame_mode == MVS_FRAME_MODE_PCM_UL) ||
+				   (frame_mode == MVS_FRAME_MODE_VOC_TX)) {
+				/* PCM and EVRC don't have frame_type */
 				buf_node->frame.frame_type = 0;
 			} else {
 				pr_err("%s: UL Unknown frame mode %d\n",
@@ -690,15 +790,17 @@ static void audio_mvs_process_rpc_request(uint32_t procedure,
 			       buf_node->frame.len);
 
 			if (frame_mode == MVS_FRAME_MODE_AMR_DL) {
-				dl_reply.amr_frame = cpu_to_be32(
+				dl_reply.param1 = cpu_to_be32(
 					buf_node->frame.frame_type);
-				dl_reply.amr_mode = cpu_to_be32(
-					audio->rate_type);
+				dl_reply.param2 = cpu_to_be32(audio->rate_type);
 			} else if (frame_mode == MVS_FRAME_MODE_PCM_DL) {
-				dl_reply.amr_frame = 0;
-				dl_reply.amr_mode = 0;
+				dl_reply.param1 = 0;
+				dl_reply.param2 = 0;
+			} else if (frame_mode == MVS_FRAME_MODE_VOC_RX) {
+				dl_reply.param1 = cpu_to_be32(audio->rate_type);
+				dl_reply.param2 = 0;
 			} else {
-				pr_err("DL Unknown frame mode %d\n",
+				pr_err("%s: DL Unknown frame mode %d\n",
 				       __func__, frame_mode);
 			}
 
@@ -738,7 +840,7 @@ static void audio_mvs_process_rpc_request(uint32_t procedure,
 	}
 
 	default:
-		pr_err("%s; Unknown CB type %d\n", __func__, procedure);
+		pr_err("%s: Unknown CB type %d\n", __func__, procedure);
 	}
 }
 
@@ -756,7 +858,7 @@ static int audio_mvs_thread(void *data)
 					       -1);
 
 		if (rpc_hdr_len < 0) {
-			pr_err("%s; RPC read failed %d\n",
+			pr_err("%s: RPC read failed %d\n",
 			       __func__, rpc_hdr_len);
 
 			break;
