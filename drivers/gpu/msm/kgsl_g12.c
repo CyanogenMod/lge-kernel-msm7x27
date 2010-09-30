@@ -108,7 +108,7 @@ irqreturn_t kgsl_g12_isr(int irq, void *data)
 
 			atomic_notifier_call_chain(
 				&(device->ts_notifier_list),
-				KGSL_DEVICE_G12, NULL);
+				device->id, NULL);
 		}
 	}
 
@@ -199,12 +199,17 @@ int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags)
 }
 
 int __init
-kgsl_g12_init_pwrctrl(struct kgsl_device *device)
+kgsl_g12_init_pwrctrl(struct kgsl_device *device, enum kgsl_deviceid dev_id)
 {
 	int result = 0;
 	struct clk *clk;
 	struct platform_device *pdev = kgsl_driver.pdev;
 	struct kgsl_platform_data *pdata = pdev->dev.platform_data;
+
+	if ((dev_id != KGSL_DEVICE_2D0) && (dev_id != KGSL_DEVICE_2D1))
+		KGSL_DRV_WARN("Warning, 2d pwrctrl with incorrect device id\n");
+
+	device->id = dev_id;
 
 	clk = clk_get(&pdev->dev, "grp_2d_pclk");
 	if (IS_ERR(clk))
@@ -241,8 +246,18 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
 
 	/*acquire g12 interrupt */
-	device->pwrctrl.interrupt_num =
-	platform_get_irq_byname(pdev, "kgsl_2d0_irq");
+	switch (device->id) {
+	case (KGSL_DEVICE_2D0):
+		device->pwrctrl.interrupt_num =
+			platform_get_irq_byname(pdev, "kgsl_2d0_irq");
+		break;
+	case (KGSL_DEVICE_2D1):
+		device->pwrctrl.interrupt_num =
+			platform_get_irq_byname(pdev, "kgsl_2d1_irq");
+		break;
+	default:
+		break;
+	}
 
 	if (device->pwrctrl.interrupt_num <= 0) {
 		KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
@@ -276,6 +291,12 @@ kgsl_g12_init(struct kgsl_device *device,
 
 	if (device->flags & KGSL_FLAGS_INITIALIZED) {
 		KGSL_DRV_VDBG("return %d\n", 0);
+		return 0;
+	}
+
+	if ((device->id != KGSL_DEVICE_2D0) &&
+	    (device->id != KGSL_DEVICE_2D1)) {
+		KGSL_DRV_VDBG("2D init must have the correct device id!");
 		return 0;
 	}
 
@@ -321,8 +342,6 @@ kgsl_g12_init(struct kgsl_device *device,
 			device->id, regspace->mmio_phys_base,
 			regspace->sizebytes, regspace->mmio_virt_base);
 
-
-	device->id = KGSL_DEVICE_G12;
 	init_completion(&device->hwaccess_gate);
 	kgsl_g12_getfunctable(&device->ftbl);
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
@@ -471,18 +490,39 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 	return 0;
 }
 
-static struct kgsl_g12_device *kgsl_get_g12_device(void)
+static struct kgsl_g12_device *kgsl_get_2d0_device(void)
 {
-	static struct kgsl_g12_device g12_device;
+	static struct kgsl_g12_device device_2d0;
 
-	return &g12_device;
+	return &device_2d0;
 }
 
-struct kgsl_device *kgsl_get_g12_generic_device(void)
+static struct kgsl_g12_device *kgsl_get_2d1_device(void)
 {
-	struct kgsl_g12_device *g12_device = kgsl_get_g12_device();
+	static struct kgsl_g12_device device_2d1;
 
-	return &g12_device->dev;
+	return &device_2d1;
+}
+
+struct kgsl_device *kgsl_get_2d_device(enum kgsl_deviceid dev_id)
+{
+	struct kgsl_g12_device *device_2d;
+	device_2d = NULL;
+	switch (dev_id) {
+	case(KGSL_DEVICE_2D0):
+		device_2d = kgsl_get_2d0_device();
+	break;
+	case(KGSL_DEVICE_2D1):
+		device_2d = kgsl_get_2d1_device();
+	break;
+	default:
+		KGSL_DRV_WARN("no valid device specified!");
+		return NULL;
+	break;
+
+	}
+
+	return &device_2d->dev;
 }
 
 static int kgsl_g12_getproperty(struct kgsl_device *device,
@@ -740,7 +780,8 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 }
 
 int __init kgsl_g12_config(struct kgsl_devconfig *devconfig,
-				struct platform_device *pdev)
+				struct platform_device *pdev,
+				enum kgsl_deviceid dev_id)
 {
 	int result = 0;
 	struct resource *res = NULL;
@@ -748,8 +789,20 @@ int __init kgsl_g12_config(struct kgsl_devconfig *devconfig,
 	memset(devconfig, 0, sizeof(*devconfig));
 
 	/*find memory regions */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"kgsl_2d0_reg_memory");
+	switch (dev_id) {
+	case (KGSL_DEVICE_2D0):
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					"kgsl_2d0_reg_memory");
+	break;
+	case (KGSL_DEVICE_2D1):
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					"kgsl_2d1_reg_memory");
+	break;
+	default:
+		KGSL_DRV_WARN("kgsl_2d_config with incorrect device id!");
+	break;
+	}
+
 	if (res == NULL) {
 		KGSL_DRV_ERR("platform_get_resource_byname failed\n");
 		result = -EINVAL;
