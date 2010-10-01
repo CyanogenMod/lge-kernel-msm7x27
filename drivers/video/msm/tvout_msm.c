@@ -214,6 +214,9 @@ static int tvout_on(struct platform_device *pdev)
 		return -EINVAL;
 
 	var = &mfd->fbi->var;
+	if (var->reserved[3] >= NTSC_M && var->reserved[3] <= PAL_N)
+		external_common_state->video_resolution = var->reserved[3];
+
 	tvout_msm_state->pdev = pdev;
 	if (del_timer(&tvout_msm_state->hpd_work_timer))
 		DEV_DBG("%s: work timer stopped\n", __func__);
