@@ -769,12 +769,12 @@ static struct platform_device msm_batt_device = {
 #endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-/* prim = 1024 x 600 x 4(bpp) x 2(pages)
+/* prim = 1366 (rounds up to 1376) x 768 x 4(bpp) x 2(pages)
  * hdmi = 1920 x 1080 x 2(bpp) x 1(page)
  * Note: must be multiple of 4096 */
-#define MSM_FB_SIZE 0x8A5000
+#define MSM_FB_SIZE 0xC08000
 #else /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
-#define MSM_FB_SIZE 0x500000
+#define MSM_FB_SIZE 0x811000
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 #define MSM_PMEM_SF_SIZE 0x1700000
 #define MSM_GPU_PHYS_SIZE       SZ_2M
@@ -846,10 +846,13 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 static int msm_fb_detect_panel(const char *name)
 {
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	if (!strcmp(name, "hdmi_msm"))
+		return 0;
+#endif
+	if (!strcmp(name, "lcdc_qrdc"))
 		return 0;
 	pr_warning("%s: not supported '%s'", __func__, name);
 	return -ENODEV;
@@ -858,16 +861,15 @@ static int msm_fb_detect_panel(const char *name)
 static struct msm_fb_platform_data msm_fb_pdata = {
 	.detect_client = msm_fb_detect_panel,
 };
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
 static struct platform_device msm_fb_device = {
 	.name   = "msm_fb",
 	.id     = 0,
 	.num_resources     = ARRAY_SIZE(msm_fb_resources),
 	.resource          = msm_fb_resources,
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-	.dev.platform_data = &msm_fb_pdata,
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
+	.dev    = {
+		.platform_data = &msm_fb_pdata,
+	}
 };
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
@@ -3010,63 +3012,6 @@ static void __init msm8x60_init_mmc(void)
 #endif
 }
 
-#if !defined(CONFIG_GPIO_SX150X) && !defined(CONFIG_GPIO_SX150X_MODULE)
-static inline void display_common_power(int on) {}
-#else
-/* the LVDS reset line is on the first expander pin 2 */
-#define GPIO_LVDS_STDN_OUT_N (GPIO_EXPANDER_GPIO_BASE + 2)
-/* the backlight control line is on the first expander pin 12 */
-#define GPIO_BACKLIGHT_EN (GPIO_EXPANDER_GPIO_BASE + 12)
-
-static void display_common_power(int on)
-{
-	static int rc = -EINVAL; /* remember if the gpio_requests succeeded */
-
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa()) {
-		if (on) {
-			/* LVDS */
-			rc = gpio_request(GPIO_LVDS_STDN_OUT_N,
-				"LVDS_STDN_OUT_N");
-			if (rc) {
-				printk(KERN_ERR "%s: LVDS gpio %d request"
-					"failed\n", __func__,
-					 GPIO_LVDS_STDN_OUT_N);
-				return;
-			}
-
-			/* BACKLIGHT */
-			rc = gpio_request(GPIO_BACKLIGHT_EN, "BACKLIGHT_EN");
-			if (rc) {
-				printk(KERN_ERR "%s: BACKLIGHT gpio %d request"
-					"failed\n", __func__,
-					 GPIO_BACKLIGHT_EN);
-				gpio_free(GPIO_LVDS_STDN_OUT_N);
-				return;
-			}
-
-			gpio_direction_output(GPIO_LVDS_STDN_OUT_N, 0);
-			gpio_direction_output(GPIO_BACKLIGHT_EN, 0);
-			mdelay(20);
-			gpio_set_value_cansleep(GPIO_LVDS_STDN_OUT_N, 1);
-			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 1);
-
-		} else {
-			if (!rc) {
-				/* BACKLIGHT */
-				gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
-				/* LVDS */
-				gpio_set_value_cansleep(GPIO_LVDS_STDN_OUT_N,
-				0);
-				mdelay(20);
-				gpio_free(GPIO_BACKLIGHT_EN);
-				gpio_free(GPIO_LVDS_STDN_OUT_N);
-			}
-		}
-
-	}
-}
-#endif
-
 static uint32_t lcd_panel_gpios[] = {
 	GPIO_CFG(0,  1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_16MA), /* lcdc_pclk */
 	GPIO_CFG(1,  1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_16MA), /* lcdc_hsync*/
@@ -3099,11 +3044,9 @@ static uint32_t lcd_panel_gpios[] = {
 };
 
 
-static void lcdc_samsung_panel_power(int on)
+static void lcd_panel_power(int on)
 {
 	int n;
-
-	display_common_power(on);
 
 	/*TODO if on = 0 free the gpio's */
 	for (n = 0; n < ARRAY_SIZE(lcd_panel_gpios); ++n)
@@ -3203,7 +3146,7 @@ static int lcdc_panel_power(int on)
 
 	lcdc_power_save_on = flag_on;
 
-	lcdc_samsung_panel_power(on);
+	lcd_panel_power(on);
 
 	return 0;
 }
@@ -3295,6 +3238,12 @@ static void __init msm8x60_init(void)
 #endif
 	msm_fb_add_devices();
 	register_i2c_devices();
+	/* BACKLIGHT */
+	gpio_request(30, "BACKLIGHT_EN");
+	gpio_direction_output(30, 0);
+	msleep(20);
+	gpio_set_value_cansleep(30, 1);
+
 
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
