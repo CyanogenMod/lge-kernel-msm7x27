@@ -450,7 +450,7 @@ static void set_rate_div_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 #define NS_DIV(d_msb , d_lsb, d) \
 		BVAL(d_msb, d_lsb, (d-1))
 
-#define SRC_SEL_NS(s_msb, s_lsb, s) \
+#define NS_SRC_SEL(s_msb, s_lsb, s) \
 		BVAL(s_msb, s_lsb, SRC_SEL_##s)
 
 #define NS_MND_BANKED4(n0_lsb, n1_lsb, n, m, s0_lsb, s1_lsb, s) \
@@ -557,7 +557,7 @@ static struct clk_freq_tbl clk_tbl_gsbi_sim[] = {
 				set_rate_basic, clk_tbl_pdm, NULL, NONE, \
 				NULL, 0)
 #define F_PDM(f, s, d, m, n, v) \
-		F_RAW(f, SRC_##s, 0, SRC_SEL_NS(1, 0, s), 0, 0, v, NULL)
+		F_RAW(f, SRC_##s, 0, NS_SRC_SEL(1, 0, s), 0, 0, v, NULL)
 static struct clk_freq_tbl clk_tbl_pdm[] = {
 	F_PDM(27000000, XO_PXO, 1, 0, 0, LOW),
 	F_END,
@@ -622,7 +622,7 @@ static struct clk_freq_tbl clk_tbl_tsif_ref[] = {
 				B(4), 0, NS_MASK_TSSC, 0, set_rate_basic, \
 				clk_tbl_tssc, NULL, NONE, NULL, tv)
 #define F_TSSC(f, s, d, m, n, v) \
-		F_RAW(f, SRC_##s, 0, SRC_SEL_NS(1, 0, s), 0, 0, v, NULL)
+		F_RAW(f, SRC_##s, 0, NS_SRC_SEL(1, 0, s), 0, 0, v, NULL)
 static struct clk_freq_tbl clk_tbl_tssc[] = {
 	F_TSSC(27000000, XO_PXO, 0, 0, 0, LOW),
 	F_END,
@@ -906,7 +906,7 @@ static struct clk_freq_tbl clk_tbl_mdp[] = {
 				B(6), 0, NS_MASK_MDP_VSYNC, 0, set_rate_basic, \
 				clk_tbl_mdp_vsync, NULL, NONE, NULL, tv)
 #define F_MDP_VSYNC(f, s, d, m, n, v) \
-		F_RAW(f, SRC_##s, 0, SRC_SEL_NS(13, 13, s), 0, 0, v, NULL)
+		F_RAW(f, SRC_##s, 0, NS_SRC_SEL(13, 13, s), 0, 0, v, NULL)
 static struct clk_freq_tbl clk_tbl_mdp_vsync[] = {
 	F_MDP_VSYNC(27000000, BB_PXO, 0, 0, 0, LOW),
 	F_END,
