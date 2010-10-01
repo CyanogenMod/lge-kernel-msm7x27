@@ -46,14 +46,14 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 								 GFP_ATOMIC);
 			}
 		}
-	} else if (pool_type == POOL_TYPE_USB_STRUCT) {
-		if (driver->diag_usb_struct_pool) {
-			if (driver->count_usb_struct_pool <
-					 driver->poolsize_usb_struct) {
+	} else if (pool_type == POOL_TYPE_WRITE_STRUCT) {
+		if (driver->diag_write_struct_pool) {
+			if (driver->count_write_struct_pool <
+					 driver->poolsize_write_struct) {
 				atomic_add(1,
-				 (atomic_t *)&driver->count_usb_struct_pool);
+				 (atomic_t *)&driver->count_write_struct_pool);
 				buf = mempool_alloc(
-				driver->diag_usb_struct_pool, GFP_ATOMIC);
+				driver->diag_write_struct_pool, GFP_ATOMIC);
 			}
 		}
 	}
@@ -80,11 +80,11 @@ void diagmem_exit(struct diagchar_dev *driver)
 		printk(KERN_ALERT "\n Attempt to free up "
 					 "non existing HDLC pool");
 
-	if (driver->diag_usb_struct_pool) {
-		if (driver->count_usb_struct_pool == 0 &&
+	if (driver->diag_write_struct_pool) {
+		if (driver->count_write_struct_pool == 0 &&
 						 driver->ref_count == 0) {
-			mempool_destroy(driver->diag_usb_struct_pool);
-			driver->diag_usb_struct_pool = NULL;
+			mempool_destroy(driver->diag_write_struct_pool);
+			driver->diag_write_struct_pool = NULL;
 		}
 	} else
 		printk(KERN_ALERT "\n Attempt to free up "
@@ -109,16 +109,16 @@ void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 		} else
 			printk(KERN_ALERT "\n Attempt to free up DIAG driver "
 	"HDLC mempool which is already free %d ", driver->count_hdlc_pool);
-	} else if (pool_type == POOL_TYPE_USB_STRUCT) {
-		if (driver->diag_usb_struct_pool != NULL &&
-			 driver->count_usb_struct_pool > 0) {
-			mempool_free(buf, driver->diag_usb_struct_pool);
+	} else if (pool_type == POOL_TYPE_WRITE_STRUCT) {
+		if (driver->diag_write_struct_pool != NULL &&
+			 driver->count_write_struct_pool > 0) {
+			mempool_free(buf, driver->diag_write_struct_pool);
 			atomic_add(-1,
-				 (atomic_t *)&driver->count_usb_struct_pool);
+				 (atomic_t *)&driver->count_write_struct_pool);
 		} else
 			printk(KERN_ALERT "\n Attempt to free up DIAG driver "
 			   "USB structure mempool which is already free %d ",
-				    driver->count_usb_struct_pool);
+				    driver->count_write_struct_pool);
 	}
 
 	diagmem_exit(driver);
@@ -136,9 +136,9 @@ void diagmem_init(struct diagchar_dev *driver)
 		driver->diag_hdlc_pool = mempool_create_kmalloc_pool(
 				driver->poolsize_hdlc, driver->itemsize_hdlc);
 
-	if (driver->count_usb_struct_pool == 0)
-		driver->diag_usb_struct_pool = mempool_create_kmalloc_pool(
-		driver->poolsize_usb_struct, driver->itemsize_usb_struct);
+	if (driver->count_write_struct_pool == 0)
+		driver->diag_write_struct_pool = mempool_create_kmalloc_pool(
+		driver->poolsize_write_struct, driver->itemsize_write_struct);
 
 	if (!driver->diagpool)
 		printk(KERN_INFO "Cannot allocate diag mempool\n");
@@ -146,7 +146,7 @@ void diagmem_init(struct diagchar_dev *driver)
 	if (!driver->diag_hdlc_pool)
 		printk(KERN_INFO "Cannot allocate diag HDLC mempool\n");
 
-	if (!driver->diag_usb_struct_pool)
+	if (!driver->diag_write_struct_pool)
 		printk(KERN_INFO "Cannot allocate diag USB struct mempool\n");
 }
 
