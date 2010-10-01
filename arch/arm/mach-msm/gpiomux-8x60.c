@@ -145,6 +145,11 @@
 #define UART1DM_SUSPENDED  0
 #endif
 
+#define MI2S_ACTIVE_CFG (GPIOMUX_VALID | GPIOMUX_PULL_NONE\
+					| GPIOMUX_FUNC_1 | GPIOMUX_DRV_2MA)
+
+#define MI2S_SUSPEND_CFG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
+
 static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	[33] = {
 		.suspended = GSBI1,
@@ -208,6 +213,26 @@ static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	},
 	[92] = {
 		.suspended = PS_HOLD,
+	},
+	/* MI2S WS */
+	[101] = {
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
+	},
+	/* MI2S SCLK */
+	[102] = {
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
+	},
+	/* MI2S MCLK */
+	[103] = {
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
+	},
+	/* MI2S SD3 */
+	[107] = {
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
 	},
 	[108] = {
 		.active = MSM_SNDDEV_ACTIVE_CONFIG,

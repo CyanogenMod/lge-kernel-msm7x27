@@ -276,11 +276,6 @@ struct msm_i2c_platform_data {
 	void (*msm_i2c_config_gpio)(int iface, int config_type);
 };
 
-struct msm_mi2s_gpio_data {
-	void (*enable)(void);
-	void (*disable)(void);
-};
-
 enum msm_ssbi_controller_type {
 	MSM_SBI_CTRL_SSBI = 0,
 	MSM_SBI_CTRL_SSBI2,

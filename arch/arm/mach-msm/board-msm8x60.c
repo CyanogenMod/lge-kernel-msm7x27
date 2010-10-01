@@ -1737,29 +1737,6 @@ static struct platform_device msm_aux_pcm_device = {
 	.resource       = msm_aux_pcm_resources,
 };
 
-static uint32_t mi2s_config_gpio[] = {
-	GPIO_CFG(107, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(101, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(102, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(103, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-};
-
-static void fm_mi2s_enable(void)
-{
-	gpio_tlmm_config(mi2s_config_gpio[0], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(mi2s_config_gpio[1], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(mi2s_config_gpio[2], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(mi2s_config_gpio[3], GPIO_CFG_ENABLE);
-}
-
-static void fm_mi2s_disable(void)
-{
-	gpio_tlmm_config(mi2s_config_gpio[0], GPIO_CFG_DISABLE);
-	gpio_tlmm_config(mi2s_config_gpio[1], GPIO_CFG_DISABLE);
-	gpio_tlmm_config(mi2s_config_gpio[2], GPIO_CFG_DISABLE);
-	gpio_tlmm_config(mi2s_config_gpio[3], GPIO_CFG_DISABLE);
-}
-
 static struct resource msm_mi2s_gpio_resources[] = {
 
 	{
@@ -1788,18 +1765,11 @@ static struct resource msm_mi2s_gpio_resources[] = {
 	},
 };
 
-static struct msm_mi2s_gpio_data gpio_data = {
-
-	.enable		 = fm_mi2s_enable,
-	.disable	 = fm_mi2s_disable,
-};
-
 static struct platform_device msm_mi2s_device = {
 	.name		= "msm_mi2s",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(msm_mi2s_gpio_resources),
 	.resource	= msm_mi2s_gpio_resources,
-	.dev		= { .platform_data = &gpio_data },
 };
 
 static struct platform_device *rumi_sim_devices[] __initdata = {
@@ -1953,6 +1923,7 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_bt_power_device,
 #endif
 	&msm_aux_pcm_device,
+	&msm_mi2s_device,
 };
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)

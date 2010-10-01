@@ -217,8 +217,6 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 		return rc;
 	}
 
-	mi2s_gpio->enable();
-
 	pr_info("%s:  afe_open  done\n", __func__);
 
 	return rc;
@@ -242,8 +240,6 @@ static int snddev_mi2s_close(struct msm_snddev_info *dev_info)
 	afe_close(RSVD_1);
 	clk_disable(mi2s_drv->tx_bitclk);
 	clk_disable(mi2s_drv->tx_osrclk);
-
-	mi2s_gpio->disable();
 
 	mi2s_gpios_free();
 
