@@ -41,12 +41,6 @@ void msm_dmov_flush(unsigned int id);
 int msm_dmov_exec_cmd(unsigned id, unsigned int crci_mask, unsigned int cmdptr);
 unsigned int msm_dmov_build_crci_mask(int n, ...);
 
-#ifdef CONFIG_ARCH_MSM8X60
-#define DMOV_BASE_ADDR MSM_DMOV_ADM0_BASE
-#else
-#define DMOV_BASE_ADDR MSM_DMOV_BASE
-#endif
-
 #define DMOV_CRCIS_PER_CONF 10
 
 #define DMOV_ADDR(off, ch, sd) ((DMOV_SD_SIZE*(sd)) + (off) + ((ch) << 2))
