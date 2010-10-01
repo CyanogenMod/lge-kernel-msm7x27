@@ -301,13 +301,13 @@ static struct resource kgsl_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	},
 	{
-		.name = "kgsl_g12_reg_memory",
+		.name = "kgsl_2d0_reg_memory",
 		.start = 0x04100000, /* Z180 base address */
 		.end = 0x04100FFF,
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.name  = "kgsl_g12_irq",
+		.name  = "kgsl_2d0_irq",
 		.start = GFX2D0_IRQ,
 		.end = GFX2D0_IRQ,
 		.flags = IORESOURCE_IRQ,
@@ -332,7 +332,7 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.set_grp3d_async = NULL,
 	.imem_clk_name = NULL,
 	.grp3d_clk_name = "gfx3d_clk",
-	.grp2d_clk_name = "gfx2d0_clk",
+	.grp2d0_clk_name = "gfx2d0_clk",
 };
 
 struct platform_device msm_device_kgsl = {
