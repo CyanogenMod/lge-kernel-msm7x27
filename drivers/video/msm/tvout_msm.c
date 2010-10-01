@@ -42,9 +42,14 @@ struct tvout_msm_state_type {
 	uint16 y_res;
 	boolean hpd_initialized;
 	boolean disp_powered_up;
+#ifdef CONFIG_SUSPEND
+	boolean pm_suspended;
+#endif
+
 };
 
 static struct tvout_msm_state_type *tvout_msm_state;
+static DEFINE_MUTEX(tvout_msm_state_mutex);
 
 static int tvout_off(struct platform_device *pdev);
 static int tvout_on(struct platform_device *pdev);
@@ -99,11 +104,22 @@ static irqreturn_t tvout_msm_isr(int irq, void *dev_id)
 	DEV_DBG("%s: ISR: 0x%02x\n", __func__,
 		tvout_msm_state->hpd_int_status & 0x05);
 
-	if (!tvout_msm_state || !tvout_msm_state->disp_powered_up) {
-		DEV_DBG("%s: ISR ignored, display not yet powered on\n",
-			__func__);
+#ifdef CONFIG_SUSPEND
+	mutex_lock(&tvout_msm_state_mutex);
+	if (tvout_msm_state->pm_suspended) {
+		mutex_unlock(&tvout_msm_state_mutex);
+		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
 		return IRQ_HANDLED;
 	}
+	mutex_unlock(&tvout_msm_state_mutex);
+#endif
+
+	if (tvenc_pdata->poll)
+		if (!tvout_msm_state || !tvout_msm_state->disp_powered_up) {
+			DEV_DBG("%s: ISR ignored, display not yet powered on\n",
+				__func__);
+			return IRQ_HANDLED;
+		}
 	if (tvout_msm_state->hpd_int_status & BIT(0) ||
 		tvout_msm_state->hpd_int_status & BIT(2)) {
 		/* Use .75sec to debounce the interrupt */
@@ -117,10 +133,21 @@ static irqreturn_t tvout_msm_isr(int irq, void *dev_id)
 /* Interrupt debounce timer */
 static void tvout_msm_hpd_state_timer(unsigned long data)
 {
-	if (!tvout_msm_state || !tvout_msm_state->disp_powered_up) {
-		DEV_DBG("%s: ignored, display powered off\n", __func__);
+#ifdef CONFIG_SUSPEND
+	mutex_lock(&tvout_msm_state_mutex);
+	if (tvout_msm_state->pm_suspended) {
+		mutex_unlock(&tvout_msm_state_mutex);
+		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
 		return;
 	}
+	mutex_unlock(&tvout_msm_state_mutex);
+#endif
+
+	if (tvenc_pdata->poll)
+		if (!tvout_msm_state || !tvout_msm_state->disp_powered_up) {
+			DEV_DBG("%s: ignored, display powered off\n", __func__);
+			return;
+		}
 
 	/* TV_INTR_STATUS[0x204]
 		When a TV_ENC interrupt occurs, then reading this register will
@@ -160,7 +187,16 @@ static void tvout_msm_hpd_state_timer(unsigned long data)
 static void tvout_msm_hpd_work(struct work_struct *work)
 {
 	uint32 reg;
-	DEV_DBG("%s: in work timer\n", __func__);
+
+#ifdef CONFIG_SUSPEND
+	mutex_lock(&tvout_msm_state_mutex);
+	if (tvout_msm_state->pm_suspended) {
+		mutex_unlock(&tvout_msm_state_mutex);
+		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
+		return;
+	}
+	mutex_unlock(&tvout_msm_state_mutex);
+#endif
 
 	/* Enable power lines & clocks */
 	tvenc_pdata->pm_vid_en(1);
@@ -213,6 +249,16 @@ static int tvout_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
+#ifdef CONFIG_SUSPEND
+	mutex_lock(&tvout_msm_state_mutex);
+	if (tvout_msm_state->pm_suspended) {
+		mutex_unlock(&tvout_msm_state_mutex);
+		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
+		return -ENODEV;
+	}
+	mutex_unlock(&tvout_msm_state_mutex);
+#endif
+
 	var = &mfd->fbi->var;
 	if (var->reserved[3] >= NTSC_M && var->reserved[3] <= PAL_N)
 		external_common_state->video_resolution = var->reserved[3];
@@ -220,6 +266,7 @@ static int tvout_on(struct platform_device *pdev)
 	tvout_msm_state->pdev = pdev;
 	if (del_timer(&tvout_msm_state->hpd_work_timer))
 		DEV_DBG("%s: work timer stopped\n", __func__);
+
 	TV_OUT(TV_ENC_CTL, 0);	/* disable TV encoder */
 
 	switch (external_common_state->video_resolution) {
@@ -343,29 +390,35 @@ static int tvout_on(struct platform_device *pdev)
 	tvout_msm_state->disp_powered_up = TRUE;
 	tvout_msm_turn_on(TRUE);
 
-	/* Enable Load present & removal interrupts for Video1 */
-	TV_OUT(TV_INTR_ENABLE, 0x5);
+	if (tvenc_pdata->poll) {
+		/* Enable Load present & removal interrupts for Video1 */
+		TV_OUT(TV_INTR_ENABLE, 0x5);
 
-	/* Enable interrupts when display is on */
-	enable_irq(tvout_msm_state->irq);
+		/* Enable interrupts when display is on */
+		enable_irq(tvout_msm_state->irq);
+	}
 	return 0;
 }
 
 static int tvout_off(struct platform_device *pdev)
 {
 	/* Disable TV encoder irqs when display is off */
-	disable_irq(tvout_msm_state->irq);
+	if (tvenc_pdata->poll)
+		disable_irq(tvout_msm_state->irq);
 	tvout_msm_turn_on(FALSE);
 	tvout_msm_state->hpd_initialized = FALSE;
 	tvout_msm_state->disp_powered_up = FALSE;
-	mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
+	if (tvenc_pdata->poll) {
+		mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
 			+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
+	}
 	return 0;
 }
 
 static int __init tvout_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+	uint32 reg;
 	struct platform_device *fb_dev;
 
 #ifdef CONFIG_FB_MSM_TVOUT_NTSC_M
@@ -422,25 +475,37 @@ static int __init tvout_probe(struct platform_device *pdev)
 	tvout_msm_state->hpd_state_timer.expires = jiffies
 						+ msecs_to_jiffies(1000);
 
-	init_timer(&tvout_msm_state->hpd_work_timer);
-	tvout_msm_state->hpd_work_timer.function =
-		tvout_msm_hpd_work_timer;
-	tvout_msm_state->hpd_work_timer.data = (uint32)NULL;
-	tvout_msm_state->hpd_work_timer.expires = jiffies
+	if (tvenc_pdata->poll) {
+		init_timer(&tvout_msm_state->hpd_work_timer);
+		tvout_msm_state->hpd_work_timer.function =
+			tvout_msm_hpd_work_timer;
+		tvout_msm_state->hpd_work_timer.data = (uint32)NULL;
+		tvout_msm_state->hpd_work_timer.expires = jiffies
 						+ msecs_to_jiffies(1000);
+	}
 	fb_dev = msm_fb_add_device(pdev);
 	if (fb_dev) {
 		rc = external_common_state_create(fb_dev);
 		if (rc) {
-			DEV_ERR("Init FAILED: hdmi_msm_state_create, rc=%d\n",
+			DEV_ERR("Init FAILED: tvout_msm_state_create, rc=%d\n",
 				rc);
 			goto error;
 		}
-		mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
-			+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
+		if (tvenc_pdata->poll) {
+			/* Start polling timer to detect load */
+			mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
+				+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
+		} else {
+			/* Enable interrupt to detect load */
+			tvenc_set_encoder_clock(CLOCK_ON);
+			reg = TV_IN(TV_DAC_INTF);
+			reg |= TVENC_LOAD_DETECT_EN;
+			TV_OUT(TV_DAC_INTF, reg);
+			TV_OUT(TV_INTR_ENABLE, 0x5);
+			enable_irq(tvout_msm_state->irq);
+		}
 	} else
 		DEV_ERR("Init FAILED: failed to add fb device\n");
-
 error:
 	return 0;
 }
@@ -452,20 +517,56 @@ static int __devexit tvout_remove(struct platform_device *pdev)
 	tvout_msm_state = NULL;
 	return 0;
 }
+
+#ifdef CONFIG_SUSPEND
 static int tvout_device_pm_suspend(struct device *dev)
 {
-	if (del_timer(&tvout_msm_state->hpd_work_timer))
-		DEV_DBG("%s: suspending cable detect timer\n", __func__);
+	mutex_lock(&tvout_msm_state_mutex);
+	if (tvout_msm_state->pm_suspended) {
+		mutex_unlock(&tvout_msm_state_mutex);
+		return 0;
+	}
+	if (tvenc_pdata->poll) {
+		if (del_timer(&tvout_msm_state->hpd_work_timer))
+			DEV_DBG("%s: suspending cable detect timer\n",
+				__func__);
+	} else {
+		disable_irq(tvout_msm_state->irq);
+		tvenc_set_encoder_clock(CLOCK_OFF);
+	}
+	tvout_msm_state->pm_suspended = TRUE;
+	mutex_unlock(&tvout_msm_state_mutex);
 	return 0;
 }
 
 static int tvout_device_pm_resume(struct device *dev)
 {
-	mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
-			+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
-	DEV_DBG("%s: resuming cable detect timer\n", __func__);
+	mutex_lock(&tvout_msm_state_mutex);
+	if (!tvout_msm_state->pm_suspended) {
+		mutex_unlock(&tvout_msm_state_mutex);
+		return 0;
+	}
+
+	if (tvenc_pdata->poll) {
+		tvout_msm_state->pm_suspended = FALSE;
+		mod_timer(&tvout_msm_state->hpd_work_timer, jiffies
+				+ msecs_to_jiffies(TVOUT_HPD_DUTY_CYCLE));
+		mutex_unlock(&tvout_msm_state_mutex);
+		DEV_DBG("%s: resuming cable detect timer\n", __func__);
+	} else {
+		tvenc_set_encoder_clock(CLOCK_ON);
+		tvout_msm_state->pm_suspended = FALSE;
+		mutex_unlock(&tvout_msm_state_mutex);
+		enable_irq(tvout_msm_state->irq);
+		DEV_DBG("%s: enable cable detect interrupt\n", __func__);
+	}
 	return 0;
 }
+#else
+#define tvout_device_pm_suspend	NULL
+#define tvout_device_pm_resume		NULL
+#endif
+
 
 static const struct dev_pm_ops tvout_device_pm_ops = {
 	.suspend = tvout_device_pm_suspend,
