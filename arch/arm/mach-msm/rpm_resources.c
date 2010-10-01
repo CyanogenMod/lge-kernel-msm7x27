@@ -101,10 +101,10 @@ static struct msm_rpmrs_resource msm_rpmrs_pxo = {
 
 static struct msm_rpmrs_resource msm_rpmrs_l2_cache = {
 	.rs[0].id = MSM_RPM_ID_APPS_L2_CACHE_CTL,
-	/*.rs[0].value = 0,*/
+	.rs[0].value = 0,
 	.size = 1,
 	.name = "L2_cache",
-	/*.is_set = true,*/
+	.is_set = true,
 	.append_req = msm_rpmrs_append_l2_cache,
 };
 
