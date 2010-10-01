@@ -41,8 +41,8 @@
 
 #define DEBUG
 
-static int msm_rmnet_sdio_debug_mask;
-module_param_named(debug_mask, msm_rmnet_sdio_debug_mask,
+static int msm_rmnet_sdio_debug_enable;
+module_param_named(debug_enable, msm_rmnet_sdio_debug_enable,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #if defined(DEBUG)
@@ -51,34 +51,38 @@ static uint32_t msm_rmnet_sdio_write_cnt;
 static uint32_t msm_rmnet_sdio_write_cpy_cnt;
 static uint32_t msm_rmnet_sdio_write_cpy_bytes;
 
-#define DBG(x...) do {		                \
-		if (msm_rmnet_sdio_debug_mask)	\
-			printk(KERN_DEBUG x);	\
+#define DBG(x...) do {		                 \
+		if (msm_rmnet_sdio_debug_enable) \
+			pr_debug(x);	         \
 	} while (0)
 
-#define DBG_INC_READ_CNT(x) do {	                       \
-		msm_rmnet_sdio_read_cnt += (x);                \
-		printk(KERN_DEBUG "%s: total read bytes %u\n", \
-		       __func__, msm_rmnet_sdio_read_cnt);     \
+#define DBG_INC_READ_CNT(x) do {	                               \
+		msm_rmnet_sdio_read_cnt += (x);                        \
+		if (msm_rmnet_sdio_debug_enable)                       \
+			pr_debug("%s: total read bytes %u\n",          \
+				 __func__, msm_rmnet_sdio_read_cnt);   \
 	} while (0)
 
-#define DBG_INC_WRITE_CNT(x)  do {	                          \
-		msm_rmnet_sdio_write_cnt += (x);                  \
-		printk(KERN_DEBUG "%s: total written bytes %u\n", \
-		       __func__, msm_rmnet_sdio_write_cnt);	  \
+#define DBG_INC_WRITE_CNT(x)  do {	                                  \
+		msm_rmnet_sdio_write_cnt += (x);                          \
+		if (msm_rmnet_sdio_debug_enable)                          \
+			pr_debug("%s: total written bytes %u\n",          \
+				 __func__, msm_rmnet_sdio_write_cnt);	  \
 	} while (0)
 
-#define DBG_INC_WRITE_CPY(x)  do {	                                      \
-		msm_rmnet_sdio_write_cpy_bytes += (x);                        \
-		msm_rmnet_sdio_write_cpy_cnt++;                               \
-		printk(KERN_DEBUG "%s: total write copy cnt %u, bytes %u\n",  \
-		       __func__, msm_rmnet_sdio_write_cpy_cnt,                \
-		       msm_rmnet_sdio_write_cpy_bytes);	                      \
+#define DBG_INC_WRITE_CPY(x)  do {	                                     \
+		msm_rmnet_sdio_write_cpy_bytes += (x);                       \
+		msm_rmnet_sdio_write_cpy_cnt++;                              \
+		if (msm_rmnet_sdio_debug_enable)                             \
+			pr_debug("%s: total write copy cnt %u, bytes %u\n",  \
+				 __func__, msm_rmnet_sdio_write_cpy_cnt,     \
+				 msm_rmnet_sdio_write_cpy_bytes);            \
 	} while (0)
 #else
 #define DBG(x...) do { } while (0)
 #define DBG_INC_READ_CNT(x...) do { } while (0)
 #define DBG_INC_WRITE_CNT(x...) do { } while (0)
+#define DBG_INC_WRITE_CPY(x...) do { } while (0)
 #endif
 
 struct sdio_ch_info {
