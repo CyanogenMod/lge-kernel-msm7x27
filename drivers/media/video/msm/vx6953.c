@@ -669,7 +669,7 @@ static struct vx6953_i2c_reg_conf patch_tbl_cut2[] = {
 	/* Offsets:*/
 	{0x35C6, 0x00},/* FIDDLEDARKCAL*/
 	{0x35C7, 0x00},
-	{0x35C8, 0x01},/* STOREDISTANCEATSTOPSTREAMING*/
+	{0x35C8, 0x01},/*STOREDISTANCEATSTOPSTREAMING*/
 	{0x35C9, 0x20},
 	{0x35CA, 0x01},/*BRUCEFIX*/
 	{0x35CB, 0x62},
@@ -1646,7 +1646,6 @@ static int32_t vx6953_i2c_write_b_sensor(unsigned short waddr, uint8_t bdata)
 		CDBG("i2c_write_b failed, addr = 0x%x, val = 0x%x!\n",
 			waddr, bdata);
 	}
-	udelay(250);
 	return rc;
 }
 static int32_t vx6953_i2c_write_seq_sensor(unsigned short waddr,
@@ -1665,7 +1664,6 @@ static int32_t vx6953_i2c_write_seq_sensor(unsigned short waddr,
 		CDBG("i2c_write_b failed, addr = 0x%x, val = 0x%x!\n",
 			 waddr, bdata[0]);
 	}
-	mdelay(1);
 	return rc;
 }
 
@@ -2869,21 +2867,19 @@ static int32_t vx6953_video_config(int mode)
 	int32_t	rc = 0;
 	int	rt;
 	/* change sensor resolution	if needed */
-	if (vx6953_ctrl->curr_res != vx6953_ctrl->prev_res)	{
-		if (vx6953_ctrl->prev_res == QTR_SIZE) {
-			rt = RES_PREVIEW;
-			vx6953_stm5m0edof_delay_msecs_stdby	=
-				((((2 * 1000 * vx6953_ctrl->fps_divider) /
-				vx6953_ctrl->fps) * Q8) / Q10) + 1;
-		} else {
-			rt = RES_CAPTURE;
-			vx6953_stm5m0edof_delay_msecs_stdby	=
-				((((1000 * vx6953_ctrl->fps_divider) /
-				vx6953_ctrl->fps) * Q8) / Q10) + 1;
-		}
-		if (vx6953_sensor_setting(UPDATE_PERIODIC, rt) < 0)
-			return rc;
+	if (vx6953_ctrl->prev_res == QTR_SIZE) {
+		rt = RES_PREVIEW;
+		vx6953_stm5m0edof_delay_msecs_stdby	=
+			((((2 * 1000 * vx6953_ctrl->fps_divider) /
+			vx6953_ctrl->fps) * Q8) / Q10) + 1;
+	} else {
+		rt = RES_CAPTURE;
+		vx6953_stm5m0edof_delay_msecs_stdby	=
+			((((1000 * vx6953_ctrl->fps_divider) /
+			vx6953_ctrl->fps) * Q8) / Q10) + 1;
 	}
+	if (vx6953_sensor_setting(UPDATE_PERIODIC, rt) < 0)
+		return rc;
 	if (vx6953_ctrl->set_test) {
 		if (vx6953_test(vx6953_ctrl->set_test) < 0)
 			return	rc;
@@ -2975,18 +2971,22 @@ static int32_t vx6953_set_sensor_mode(int mode,
 }
 static int32_t vx6953_power_down(void)
 {
+	vx6953_i2c_write_b_sensor(REG_MODE_SELECT,
+	MODE_SELECT_STANDBY_MODE);
 	return 0;
 }
 
 
 static int vx6953_probe_init_done(const struct msm_camera_sensor_info *data)
 {
-	gpio_direction_output(data->sensor_reset, 0);
 	gpio_free(data->sensor_reset);
+	kfree(vx6953_ctrl);
+	vx6953_ctrl = NULL;
 	return 0;
 }
 static int vx6953_probe_init_sensor(const struct msm_camera_sensor_info *data)
 {
+	unsigned short revision_number;
 	int32_t rc = 0;
 	unsigned short chipidl, chipidh;
 	CDBG("%s: %d\n", __func__, __LINE__);
@@ -3024,9 +3024,53 @@ static int vx6953_probe_init_sensor(const struct msm_camera_sensor_info *data)
 		CDBG("vx6953_probe_init_sensor fail chip id doesnot match\n");
 		goto init_probe_fail;
 	}
+
+	vx6953_ctrl = kzalloc(sizeof(struct vx6953_ctrl_t), GFP_KERNEL);
+	if (!vx6953_ctrl) {
+		CDBG("vx6953_init failed!\n");
+		rc = -ENOMEM;
+	}
+	vx6953_ctrl->fps_divider = 1 * 0x00000400;
+	vx6953_ctrl->pict_fps_divider = 1 * 0x00000400;
+	vx6953_ctrl->set_test = TEST_OFF;
+	vx6953_ctrl->prev_res = QTR_SIZE;
+	vx6953_ctrl->pict_res = FULL_SIZE;
+	vx6953_ctrl->curr_res = INVALID_SIZE;
+	vx6953_ctrl->sensor_type = VX6953_STM5M0EDOF_CUT_2;
+	vx6953_ctrl->edof_mode = VX6953_EDOF_ESTIMATION;
+
+	if (data)
+		vx6953_ctrl->sensordata = data;
+
+	if (vx6953_i2c_read(0x0002, &revision_number, 1) < 0)
+		return rc;
+		CDBG("sensor revision number major = 0x%x\n", revision_number);
+	if (vx6953_i2c_read(0x0018, &revision_number, 1) < 0)
+		return rc;
+		CDBG("sensor revision number = 0x%x\n", revision_number);
+	if (revision_number == VX6953_REVISION_NUMBER_CUT3) {
+		vx6953_ctrl->sensor_type = VX6953_STM5M0EDOF_CUT_3;
+		CDBG("VX6953 EDof Cut 3.0 sensor\n ");
+	} else if (revision_number == VX6953_REVISION_NUMBER_CUT2) {
+		vx6953_ctrl->sensor_type = VX6953_STM5M0EDOF_CUT_2;
+		CDBG("VX6953 EDof Cut 2.0 sensor\n ");
+	} else {/* Cut1.0 reads 0x00 for register 0x0018*/
+		vx6953_ctrl->sensor_type = VX6953_STM5M0EDOF_CUT_1;
+		CDBG("VX6953 EDof Cut 1.0 sensor\n ");
+	}
+
+	if (vx6953_ctrl->prev_res == QTR_SIZE) {
+		if (vx6953_sensor_setting(REG_INIT, RES_PREVIEW) < 0)
+			goto init_probe_fail;
+	} else {
+		if (vx6953_sensor_setting(REG_INIT, RES_CAPTURE) < 0)
+			goto init_probe_fail;
+	}
+
 	goto init_probe_done;
 init_probe_fail:
 	CDBG(" vx6953_probe_init_sensor fails\n");
+	gpio_direction_output(data->sensor_reset, 0);
 	vx6953_probe_init_done(data);
 init_probe_done:
 	CDBG(" vx6953_probe_init_sensor finishes\n");
@@ -3040,6 +3084,10 @@ int vx6953_sensor_open_init(const struct msm_camera_sensor_info *data)
 
 	CDBG("%s: %d\n", __func__, __LINE__);
 	CDBG("Calling vx6953_sensor_open_init\n");
+	rc = gpio_request(data->sensor_reset, "vx6953");
+	if (!rc)
+		CDBG("vx6953 gpio_request fail\n");
+
 	vx6953_ctrl = kzalloc(sizeof(struct vx6953_ctrl_t), GFP_KERNEL);
 	if (!vx6953_ctrl) {
 		CDBG("vx6953_init failed!\n");
@@ -3063,17 +3111,7 @@ int vx6953_sensor_open_init(const struct msm_camera_sensor_info *data)
 	CDBG("%s: %d\n", __func__, __LINE__);
 	/* enable mclk first */
 	msm_camio_clk_rate_set(VX6953_STM5M0EDOF_DEFAULT_MASTER_CLK_RATE);
-	mdelay(20);
 	CDBG("%s: %d\n", __func__, __LINE__);
-	rc = vx6953_probe_init_sensor(data);
-	if (rc < 0) {
-		CDBG("Calling vx6953_sensor_open_init fail3\n");
-		goto init_fail;
-	}
-	if (rc < 0) {
-		CDBG("Calling vx6953_sensor_open_init fail5\n");
-		return rc;
-	}
 	if (vx6953_i2c_read(0x0002, &revision_number, 1) < 0)
 		return rc;
 		CDBG("sensor revision number major = 0x%x\n", revision_number);
@@ -3090,13 +3128,6 @@ int vx6953_sensor_open_init(const struct msm_camera_sensor_info *data)
 		vx6953_ctrl->sensor_type = VX6953_STM5M0EDOF_CUT_1;
 		CDBG("VX6953 EDof Cut 1.0 sensor\n ");
 	}
-	if (vx6953_ctrl->prev_res == QTR_SIZE) {
-		if (vx6953_sensor_setting(REG_INIT, RES_PREVIEW) < 0)
-			return rc;
-	} else {
-		if (vx6953_sensor_setting(REG_INIT, RES_CAPTURE) < 0)
-			return rc;
-	}
 
 	vx6953_ctrl->fps = 30*Q8;
 	if (rc < 0)
@@ -3104,11 +3135,11 @@ int vx6953_sensor_open_init(const struct msm_camera_sensor_info *data)
 	else
 		goto init_done;
 init_fail:
-	CDBG(" init_fail \n");
-		vx6953_probe_init_done(data);
-		kfree(vx6953_ctrl);
+	CDBG("init_fail\n");
+	gpio_direction_output(data->sensor_reset, 0);
+	vx6953_probe_init_done(data);
 init_done:
-	CDBG("init_done \n");
+	CDBG("init_done\n");
 	return rc;
 } /*endof vx6953_sensor_open_init*/
 
@@ -3350,8 +3381,6 @@ static int vx6953_sensor_release(void)
 	int rc = -EBADF;
 	mutex_lock(&vx6953_mut);
 	vx6953_power_down();
-	gpio_direction_output(vx6953_ctrl->sensordata->sensor_reset,
-		0);
 	gpio_free(vx6953_ctrl->sensordata->sensor_reset);
 	kfree(vx6953_ctrl);
 	vx6953_ctrl = NULL;
@@ -3378,7 +3407,6 @@ static int vx6953_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_release = vx6953_sensor_release;
 	s->s_config  = vx6953_sensor_config;
 	vx6953_probe_init_done(info);
-
 	return rc;
 
 probe_fail:
