@@ -281,6 +281,15 @@ static void __init msm_rpm_populate_map(void)
 	}
 }
 
+static inline void msm_rpm_write_barrier(void)
+{
+	/*
+	 * By the time the read from RPM memory returns, all previous
+	 * writes are guaranteed visible to RPM.
+	 */
+	msm_rpm_read(MSM_RPM_PAGE_STATUS, MSM_RPM_STATUS_ID_VERSION_MAJOR);
+}
+
 static inline void msm_rpm_send_req_interrupt(void)
 {
 	writel(APPS_IPC_RPM, APPS_IPC);
@@ -415,6 +424,7 @@ static int msm_rpm_set_exclusive(int ctx,
 		MSM_RPM_CTRL_REQ_SEL_0, sel_masks, MSM_RPM_SEL_MASK_SIZE);
 	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_REQ_CTX_0, ctx_mask);
 
+	msm_rpm_write_barrier();
 	msm_rpm_send_req_interrupt();
 	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
 	wait_for_completion(&ack);
@@ -469,6 +479,7 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 		MSM_RPM_CTRL_REQ_SEL_0, sel_masks, MSM_RPM_SEL_MASK_SIZE);
 	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_REQ_CTX_0, ctx_mask);
 
+	msm_rpm_write_barrier();
 	msm_rpm_send_req_interrupt();
 	msm_rpm_busy_wait_for_request_completion();
 
