@@ -44,6 +44,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			case AFE_PORT_AUDIO_IF_CONFIG:
 			case AFE_PORT_CMD_STOP:
 			case AFE_PORT_CMD_START:
+			case AFE_PORT_CMD_LOOPBACK:
 				atomic_set(&this_afe.state, 0);
 				wake_up(&this_afe.wait);
 				break;
@@ -185,6 +186,15 @@ int afe_open(int port_id, int rate, int channel_mode)
 		config.port.hdmi.bitwidth = 16;
 		config.port.hdmi.channel_mode = channel_mode;
 		config.port.hdmi.data_type = 0;
+
+	} else if (port_id == RSVD_1) {
+
+		config.port.mi2s.port_id = port_id;
+		config.port.mi2s.bitwidth = 16;
+		config.port.mi2s.line = 4; /*mi2s tx*/
+		config.port.mi2s.channel = channel_mode;
+		config.port.mi2s.ws = 1;
+
 	} else {
 		pr_err("%s: Failed : Invalid Port id = %d\n", __func__,
 				port_id);
@@ -246,6 +256,47 @@ fail_cmd:
 		apr_deregister(this_afe.apr);
 	return ret;
 }
+
+int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
+{
+	struct afe_loopback_command lb_cmd;
+	int ret = 0;
+	if (atomic_read(&this_afe.ref_cnt) <= 0) {
+		pr_err("AFE is not opened\n");
+		ret = -1;
+		goto done;
+	}
+	lb_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						APR_HDR_LEN(20), APR_PKT_VER);
+	lb_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+						sizeof(lb_cmd) - APR_HDR_SIZE);
+	lb_cmd.hdr.src_port = 0;
+	lb_cmd.hdr.dest_port = 0;
+	lb_cmd.hdr.token = 0;
+	lb_cmd.hdr.opcode = AFE_PORT_CMD_LOOPBACK;
+	lb_cmd.tx_port_id = tx_port;
+	lb_cmd.rx_port_id = rx_port;
+	lb_cmd.mode = 0xFFFF;
+	lb_cmd.enable = (enable ? 1 : 0);
+	atomic_set(&this_afe.state, 1);
+
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &lb_cmd);
+	if (ret < 0) {
+		pr_err("AFE loopback failed\n");
+		ret = -EINVAL;
+		goto done;
+	}
+	ret = wait_event_timeout(this_afe.wait,
+		(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+	}
+done:
+	return ret;
+}
+
 
 int afe_close(int port_id)
 {

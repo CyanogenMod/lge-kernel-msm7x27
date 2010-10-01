@@ -26,6 +26,7 @@
 #include "snddev_ecodec.h"
 #include "timpani_profile_8x60.h"
 #include "snddev_hdmi.h"
+#include "snddev_mi2s.h"
 #include "apr_audio.h"
 
 /* define the value for BT_SCO */
@@ -349,6 +350,21 @@ static struct platform_device msm_snddev_hdmi_stereo_rx_device = {
 	.dev = { .platform_data = &snddev_hdmi_stereo_rx_data },
 };
 
+static struct snddev_mi2s_data snddev_mi2s_fm_tx_data = {
+	.capability = SNDDEV_CAP_TX ,
+	.name = "fmradio_stereo_tx",
+	.copp_id = RSVD_1,
+	.acdb_id = 3,
+	.channel_mode = 3, /* stereo */
+	.sd_lines = 4, /* sd3 */
+	.sample_rate = 48000,
+};
+
+static struct platform_device msm_mi2s_fm_tx_device = {
+	.name = "snddev_mi2s",
+	.id = 0,
+	.dev = { .platform_data = &snddev_mi2s_fm_tx_data },
+};
 
 static struct adie_codec_action_unit iheadset_mic_tx_osr256_actions[] =
 	HEADSET_AMIC2_TX_MONO_PRI_OSR_256;
@@ -503,6 +519,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
 	&msm_handset_dual_mic_endfire_device,
+	&msm_mi2s_fm_tx_device
 };
 
 static struct platform_device *snd_devices_surf[] __initdata = {
@@ -518,6 +535,7 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
 	&msm_handset_dual_mic_endfire_device,
+	&msm_mi2s_fm_tx_device
 };
 
 void __init msm_snddev_init(void)
