@@ -1465,6 +1465,9 @@ static int timpani_adie_codec_setpath(struct adie_codec_path *path_ptr,
 	int rc = 0;
 	u32 i, freq_idx = 0, freq = 0;
 
+	if (path_ptr == NULL)
+		return -EINVAL;
+
 	if (path_ptr->curr_stage != ADIE_CODEC_DIGITAL_OFF) {
 		rc = -EBUSY;
 		goto error;
@@ -1536,6 +1539,10 @@ static void adie_codec_reach_stage_action(struct adie_codec_path *path_ptr,
 {
 	u32 iblk, iowner; /* iterators */
 
+	if (path_ptr == NULL)
+		return;
+
+
 	if (stage != ADIE_CODEC_FLASH_IMAGE)
 		return;
 
@@ -1557,6 +1564,9 @@ static int timpani_adie_codec_proceed_stage(struct adie_codec_path *path_ptr,
 	struct adie_codec_action_unit *curr_action;
 	struct adie_codec_hwsetting_entry *setting;
 	u8 reg, mask, val;
+
+	if (path_ptr == NULL)
+		return -EINVAL;
 
 	mutex_lock(&adie_codec.lock);
 	setting = &path_ptr->profile->settings[path_ptr->hwsetting_idx];
@@ -1642,8 +1652,12 @@ static int timpani_adie_codec_open(struct adie_codec_dev_profile *profile,
 						"codec\n", __func__);
 				goto error;
 			}
+			timpani_codec_bring_up();
+		} else {
+			pr_err("%s: couldn't detect timpani codec\n", __func__);
+			rc = -ENODEV;
+			goto error;
 		}
-		timpani_codec_bring_up();
 
 	}
 
