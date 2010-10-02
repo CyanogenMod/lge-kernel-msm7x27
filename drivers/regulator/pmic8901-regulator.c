@@ -627,7 +627,8 @@ static int __devinit pm8901_vreg_probe(struct platform_device *pdev)
 	}
 
 bail:
-	pr_info("%s: id=%d, rc=%d\n", __func__, pdev->id, rc);
+	if (rc)
+		pr_info("%s: id=%d, rc=%d\n", __func__, pdev->id, rc);
 
 	return rc;
 }
