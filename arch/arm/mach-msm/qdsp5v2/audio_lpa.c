@@ -184,11 +184,18 @@ static void lpa_listner(u32 evt_id, union auddev_evt_data *evt_payload,
 		} else
 			audio->source |= (0x1 << evt_payload->routing_id);
 
+		MM_DBG("running = %d, enabled = %d, source = 0x%x\n",
+			audio->running, audio->enabled, audio->source);
 		if (audio->running == 1 && audio->enabled == 1) {
 			audpp_route_stream(audio->dec_id, audio->source);
-			audpp_dsp_set_vol_pan(AUDPP_CMD_CFG_DEV_MIXER_ID_4,
-				&audio->vol_pan,
-				COPP);
+			if (audio->source & AUDPP_MIXER_HLB)
+				audpp_dsp_set_vol_pan(
+					AUDPP_CMD_CFG_DEV_MIXER_ID_4,
+					&audio->vol_pan,
+					COPP);
+			else if (audio->source & AUDPP_MIXER_NONHLB)
+				audpp_dsp_set_vol_pan(
+					audio->dec_id, &audio->vol_pan, POPP);
 			if (audio->device_switch == DEVICE_SWITCH_STATE_READY) {
 				audio->wflush = 1;
 				audio->device_switch =
@@ -249,12 +256,19 @@ static void lpa_listner(u32 evt_id, union auddev_evt_data *evt_payload,
 		break;
 	case AUDDEV_EVT_STREAM_VOL_CHG:
 		audio->vol_pan.volume = evt_payload->session_vol;
-		MM_DBG("\n:AUDDEV_EVT_STREAM_VOL_CHG, stream vol %d\n",
-						audio->vol_pan.volume);
-		if (audio->running)
-			audpp_dsp_set_vol_pan(AUDPP_CMD_CFG_DEV_MIXER_ID_4,
-						&audio->vol_pan,
-						COPP);
+		MM_DBG("\n:AUDDEV_EVT_STREAM_VOL_CHG, stream vol %d\n"
+			"running = %d, enabled = %d, source = 0x%x",
+			audio->vol_pan.volume, audio->running,
+			audio->enabled, audio->source);
+		if (audio->running == 1 && audio->enabled == 1) {
+			if (audio->source & AUDPP_MIXER_HLB)
+				audpp_dsp_set_vol_pan(
+					AUDPP_CMD_CFG_DEV_MIXER_ID_4,
+					&audio->vol_pan, COPP);
+			else if (audio->source & AUDPP_MIXER_NONHLB)
+				audpp_dsp_set_vol_pan(
+					audio->dec_id, &audio->vol_pan, POPP);
+		}
 		break;
 	default:
 		MM_ERR(":ERROR:wrong event\n");
@@ -381,9 +395,17 @@ static void audio_dsp_event(void *private, unsigned id, uint16_t *msg)
 			auddec_dsp_config(audio, 1);
 			audio->out_needed = 0;
 			audio->running = 1;
-			audpp_dsp_set_vol_pan(AUDPP_CMD_CFG_DEV_MIXER_ID_4,
+			if (audio->enabled == 1) {
+				if (audio->source & AUDPP_MIXER_HLB)
+					audpp_dsp_set_vol_pan(
+						AUDPP_CMD_CFG_DEV_MIXER_ID_4,
 						&audio->vol_pan,
 						COPP);
+				else if (audio->source & AUDPP_MIXER_NONHLB)
+					audpp_dsp_set_vol_pan(
+						audio->dec_id, &audio->vol_pan,
+						POPP);
+			}
 			audpp_dsp_set_eq(audio->dec_id, audio->eq_enable,
 					&audio->eq, POPP);
 		} else if (msg[0] == AUDPP_MSG_ENA_DIS) {
