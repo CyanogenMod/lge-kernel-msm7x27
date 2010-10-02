@@ -4,5 +4,6 @@
 # CONFIG_TCG_ATMEL is not set
 # CONFIG_TCG_INFINEON is not set
 # CONFIG_TCG_NSC is not set
+# CONFIG_TCG_ST_I2C is not set
 CONFIG_TCG_TIS=m
 CONFIG_TCG_TPM=m
