@@ -20,7 +20,7 @@
 #include <linux/io.h>
 #include <linux/elf.h>
 #include <linux/delay.h>
-#include <linux/regulator/consumer.h>
+#include <linux/module.h>
 
 #include <mach/msm_iomap.h>
 
@@ -226,18 +226,7 @@ static int shutdown_modem(void)
 static int reset_q6(void)
 {
 	int ret;
-	struct regulator *s3;
 	u32 reg;
-
-	/* Enable Q6 VDD */
-	s3 = regulator_get(NULL, "8901_s3");
-	if (IS_ERR(s3))
-		return PTR_ERR(s3);
-	ret = regulator_enable(s3);
-	if (ret)
-		return ret;
-	/* Wait for VDD to settle */
-	usleep_range(1000, 2000);
 
 	ret = local_src_enable(PLL_4);
 	if (ret)
@@ -281,15 +270,12 @@ static int reset_q6(void)
 	return 0;
 
 err:
-	regulator_disable(s3);
 	return ret;
 }
 
 static int shutdown_q6(void)
 {
-	struct regulator *s3;
 	u32 reg;
-	int ret;
 
 	reg = readl(LCC_Q6_FUNC);
 	/* Halt clocks and turn off memory */
@@ -297,16 +283,6 @@ static int shutdown_q6(void)
 		CORE_TCM_MEM_PERPH_EN);
 	reg |= CLAMP_IO | CORE_GFM4_CLK_EN;
 	writel(reg, LCC_Q6_FUNC);
-
-	/* Disable Q6 VDD */
-	s3 = regulator_get(NULL, "8901_s3");
-	if (IS_ERR(s3))
-		return PTR_ERR(s3);
-	ret = regulator_disable(s3);
-	if (ret)
-		return ret;
-	/* Wait for VDD to settle */
-	usleep_range(1000, 2000);
 
 	return 0;
 }
