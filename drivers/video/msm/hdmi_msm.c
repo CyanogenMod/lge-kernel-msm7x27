@@ -112,6 +112,9 @@ static const char *hdmi_msm_name(uint32 offset)
 	case 0x0024: return "ACR_PKT_CTRL";
 	case 0x0028: return "VBI_PKT_CTRL";
 	case 0x002C: return "INFOFRAME_CTRL0";
+#ifdef CONFIG_FB_MSM_HDMI_3D
+	case 0x0034: return "GEN_PKT_CTRL";
+#endif
 	case 0x003C: return "ACP";
 	case 0x0040: return "GC";
 	case 0x0044: return "AUDIO_PKT_CTRL2";
@@ -128,6 +131,11 @@ static const char *hdmi_msm_name(uint32 offset)
 	case 0x0070: return "AVI_INFO1";
 	case 0x0074: return "AVI_INFO2";
 	case 0x0078: return "AVI_INFO3";
+#ifdef CONFIG_FB_MSM_HDMI_3D
+	case 0x0084: return "GENERIC0_HDR";
+	case 0x0088: return "GENERIC0_0";
+	case 0x008C: return "GENERIC0_1";
+#endif
 	case 0x00C4: return "ACR_32_0";
 	case 0x00C8: return "ACR_32_1";
 	case 0x00CC: return "ACR_44_0";
@@ -2384,6 +2392,94 @@ static void hdmi_msm_avi_info_frame(void)
 	HDMI_OUTP(0x002C, HDMI_INP(0x002C) | 0x00000003L);
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_3D
+static void hdmi_msm_vendor_infoframe_packetsetup(void)
+{
+	uint32 packet_header      = 0;
+	uint32 check_sum          = 0;
+	uint32 packet_payload     = 0;
+
+	/* 0x0084 GENERIC0_HDR
+	 *   HB0             7:0  NUM
+	 *   HB1            15:8  NUM
+	 *   HB2           23:16  NUM */
+	/* Setup Packet header and payload */
+	/* 0x81 VS_INFO_FRAME_ID
+	   0x01 VS_INFO_FRAME_VERSION
+	   0x1B VS_INFO_FRAME_PAYLOAD_LENGTH */
+	packet_header  = 0x81;
+	packet_header |= 0x01 << 8;
+	packet_header |= 0x1B << 16;
+	HDMI_OUTP(0x0084, packet_header);
+
+	check_sum  = packet_header & 0xff;
+	check_sum += (packet_header >> 8) & 0xff;
+	check_sum += (packet_header >> 16) & 0xff;
+
+	/* 0x008C GENERIC0_1
+	 *   BYTE4           7:0  NUM
+	 *   BYTE5          15:8  NUM
+	 *   BYTE6         23:16  NUM
+	 *   BYTE7         31:24  NUM */
+	if (external_common_state->format_3d) {
+		/* 0x02 VS_INFO_FRAME_3D_PRESENT */
+		packet_payload  = 0x02 << 5;
+		/* 0x08 VIDEO_3D_FORMAT_SIDE_BY_SIDE_HALF */
+		packet_payload |= (0x08 << 8) << 4;
+	} else
+		packet_payload = ((external_common_state->video_resolution+1)
+			<< 8) << 4;
+	HDMI_OUTP(0x008C, packet_payload);
+
+	check_sum += packet_payload & 0xff;
+	check_sum += (packet_payload >> 8) & 0xff;
+
+	#define IEEE_REGISTRATION_ID	0xC03
+	/* Next 3 bytes are IEEE Registration Identifcation */
+	/* 0x0088 GENERIC0_0
+	 *   BYTE0           7:0  NUM (checksum)
+	 *   BYTE1          15:8  NUM
+	 *   BYTE2         23:16  NUM
+	 *   BYTE3         31:24  NUM */
+	check_sum += IEEE_REGISTRATION_ID & 0xff;
+	check_sum += (IEEE_REGISTRATION_ID >> 8) & 0xff;
+	check_sum += (IEEE_REGISTRATION_ID >> 16) & 0xff;
+
+	HDMI_OUTP(0x0088, (0x100 - (0xff & check_sum))
+		| ((IEEE_REGISTRATION_ID & 0xff) << 8)
+		| (((IEEE_REGISTRATION_ID >> 8) & 0xff) << 16)
+		| (((IEEE_REGISTRATION_ID >> 16) & 0xff) << 24));
+
+	/* 0x0034 GEN_PKT_CTRL
+	 *   GENERIC0_SEND   0      0 = Disable Generic0 Packet Transmission
+	 *                          1 = Enable Generic0 Packet Transmission
+	 *   GENERIC0_CONT   1      0 = Send Generic0 Packet on next frame only
+	 *                          1 = Send Generic0 Packet on every frame
+	 *   GENERIC0_UPDATE 2      NUM
+	 *   GENERIC1_SEND   4      0 = Disable Generic1 Packet Transmission
+	 *                          1 = Enable Generic1 Packet Transmission
+	 *   GENERIC1_CONT   5      0 = Send Generic1 Packet on next frame only
+	 *                          1 = Send Generic1 Packet on every frame
+	 *   GENERIC0_LINE   21:16  NUM
+	 *   GENERIC1_LINE   29:24  NUM
+	 */
+	/* GENERIC0_LINE | GENERIC0_UPDATE | GENERIC0_CONT | GENERIC0_SEND
+	 * Setup HDMI TX generic packet control
+	 * Enable this packet to transmit every frame
+	 * Enable this packet to transmit every frame
+	 * Enable HDMI TX engine to transmit Generic packet 0 */
+	HDMI_OUTP(0x0034, (1 << 21) | (1 << 2) | BIT(1) | BIT(0));
+}
+
+static int hdmi_msm_switch_3d(boolean on)
+{
+	mutex_lock(&external_common_state_hpd_mutex);
+	if (external_common_state->hpd_state)
+		hdmi_msm_vendor_infoframe_packetsetup();
+	mutex_unlock(&external_common_state_hpd_mutex);
+}
+#endif
+
 static void hdmi_msm_turn_on(void)
 {
 	hdmi_msm_set_mode(FALSE);
@@ -2396,6 +2492,9 @@ static void hdmi_msm_turn_on(void)
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	hdmi_msm_avi_info_frame();
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
+#ifdef CONFIG_FB_MSM_HDMI_3D
+	hdmi_msm_vendor_infoframe_packetsetup();
+#endif
 
 	hdmi_msm_set_mode(TRUE);
 
@@ -2791,6 +2890,9 @@ static int __init hdmi_msm_init(void)
 
 	external_common_state = &hdmi_msm_state->common;
 	external_common_state->video_resolution = HDMI_VFRMT_1920x1080p60_16_9;
+#ifdef CONFIG_FB_MSM_HDMI_3D
+	external_common_state->switch_3d = hdmi_msm_switch_3d;
+#endif
 
 	rc = platform_driver_register(&this_driver);
 	if (rc) {

@@ -2514,6 +2514,10 @@ config FB_MSM_HDMI_COMMON
 	bool
 	default n
 
+config FB_MSM_HDMI_3D
+	bool
+	default n
+
 config FB_MSM_HDMI_ADV7520_PANEL
 	depends on FB_MSM_MDP40 && FB_MSM_OVERLAY
         bool "LCDC HDMI ADV7520 720p Panel"
@@ -2539,6 +2543,7 @@ config FB_MSM_HDMI_MSM_PANEL
 	select FB_MSM_DTV
         select FB_MSM_EXT_INTERFACE_COMMON
 	select FB_MSM_HDMI_COMMON
+	select FB_MSM_HDMI_3D
 	default n
 	---help---
 	  Support for 480p/720p/1080i/1080p output through MSM HDMI

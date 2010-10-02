@@ -278,6 +278,43 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	return ret;
 }
 #endif
+#ifdef CONFIG_FB_MSM_HDMI_3D
+static ssize_t hdmi_3d_rda_format_3d(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		external_common_state->format_3d);
+	DEV_DBG("%s: '%d'\n", __func__,
+		external_common_state->format_3d);
+	return ret;
+}
+
+static ssize_t hdmi_3d_wta_format_3d(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	int format_3d = atoi(buf);
+
+	if (format_3d == 0 && external_common_state->format_3d) {
+		external_common_state->format_3d = 0;
+		if (external_common_state->switch_3d)
+			external_common_state->switch_3d(0);
+		DEV_DBG("%s: '%d'\n", __func__,
+			external_common_state->format_3d);
+	} else if (format_3d == 1 && !external_common_state->format_3d) {
+		external_common_state->format_3d = 1;
+		if (external_common_state->switch_3d)
+			external_common_state->switch_3d(1);
+		DEV_DBG("%s: '%d'\n", __func__,
+			external_common_state->format_3d);
+	} else {
+		DEV_DBG("%s: '%d' (unchanged)\n", __func__,
+			external_common_state->format_3d);
+	}
+
+	return ret;
+}
+#endif
 
 static ssize_t external_common_rda_video_mode(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -350,6 +387,10 @@ static DEVICE_ATTR(hpd, S_IRUGO | S_IWUGO, hdmi_common_rda_hpd,
 	hdmi_common_wta_hpd);
 static DEVICE_ATTR(hdcp, S_IRUGO, hdmi_common_rda_hdcp, NULL);
 #endif
+#ifdef CONFIG_FB_MSM_HDMI_3D
+static DEVICE_ATTR(format_3d, S_IRUGO | S_IWUGO, hdmi_3d_rda_format_3d,
+	hdmi_3d_wta_format_3d);
+#endif
 
 static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_video_mode.attr,
@@ -359,6 +400,9 @@ static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_edid_modes.attr,
 	&dev_attr_hdcp.attr,
 	&dev_attr_hpd.attr,
+#endif
+#ifdef CONFIG_FB_MSM_HDMI_3D
+	&dev_attr_format_3d.attr,
 #endif
 	NULL,
 };
