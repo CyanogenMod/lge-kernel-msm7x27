@@ -1092,7 +1092,7 @@ ar6k_cfg80211_set_bitrate_mask(struct wiphy *wiphy, struct net_device *dev,
 
 /* The type nl80211_tx_power_setting replaces the following data type from 2.6.36 onwards */
 static int
-ar6k_cfg80211_set_txpower(struct wiphy *wiphy, enum nl80211_tx_power_setting type, int dbm)
+ar6k_cfg80211_set_txpower(struct wiphy *wiphy, enum tx_power_setting type, int dbm)
 {
     AR_SOFTC_T *ar = (AR_SOFTC_T *)wiphy_priv(wiphy);
     A_UINT8 ar_dbm;
@@ -1111,9 +1111,9 @@ ar6k_cfg80211_set_txpower(struct wiphy *wiphy, enum nl80211_tx_power_setting typ
 
     ar->arTxPwrSet = FALSE;
     switch(type) {
-    case NL80211_TX_POWER_AUTOMATIC:
+    case TX_POWER_AUTOMATIC:
         return 0;
-    case NL80211_TX_POWER_LIMITED:
+    case TX_POWER_LIMITED:
         ar->arTxPwr = ar_dbm = dbm;
         ar->arTxPwrSet = TRUE;
         break;
