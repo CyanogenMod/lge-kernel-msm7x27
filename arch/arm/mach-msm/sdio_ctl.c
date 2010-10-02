@@ -42,6 +42,7 @@
 #define NUM_SDIO_CTL_PORTS 8
 #define DEVICE_NAME "sdioctl"
 #define MAX_BUF_SIZE 2048
+#define DEBUG
 
 static int msm_sdio_ctl_debug_mask;
 module_param_named(debug_mask, msm_sdio_ctl_debug_mask,
@@ -120,22 +121,27 @@ static dev_t sdio_ctl_number;
 
 static uint32_t sdio_ctl_inited;
 
-#if defined(CONFIG_MSM_SDIO_CTL_DEBUG)
+enum {
+	MSM_SDIO_CTL_DEBUG = 1U << 0,
+	MSM_SDIO_CTL_DUMP_BUFFER = 1U << 1,
+};
+
+#if defined(DEBUG)
 #define D_DUMP_BUFFER(prestr, cnt, buf) \
 do { \
-	if (msm_sdio_ctl_debug_mask) { \
+	if (msm_sdio_ctl_debug_mask & MSM_SDIO_CTL_DUMP_BUFFER) { \
 		int i; \
-		printk(KERN_ERR "%s", prestr); \
+		pr_debug("%s", prestr); \
 		for (i = 0; i < cnt; i++) \
-			printk(KERN_ERR "%.2x", buf[i]); \
-		printk(KERN_ERR "\n"); \
+			pr_debug("%.2x", buf[i]); \
+		pr_debug("\n"); \
 	} \
 } while (0)
 
 #define D(x...) \
 do { \
-	if (msm_sdio_ctl_debug_mask) \
-		printk(x); \
+	if (msm_sdio_ctl_debug_mask & MSM_SDIO_CTL_DEBUG) \
+		pr_debug(x); \
 } while (0)
 
 #else
@@ -146,7 +152,7 @@ do { \
 static int sdio_cmux_ch_alloc(int id)
 {
 	if (id < 0 || id >= NUM_SDIO_CTL_PORTS) {
-		D(KERN_ERR "%s: Invalid lc_id - %d\n", __func__, id);
+		pr_err("%s: Invalid lc_id - %d\n", __func__, id);
 		return -EINVAL;
 	}
 
@@ -169,7 +175,7 @@ static int sdio_cmux_ch_clear_and_signal(int id)
 	struct sdio_ctl_list_elem *list_elem;
 
 	if (id < 0 || id >= NUM_SDIO_CTL_PORTS) {
-		D(KERN_ERR "%s: Invalid lc_id - %d\n", __func__, id);
+		pr_err("%s: Invalid lc_id - %d\n", __func__, id);
 		return -EINVAL;
 	}
 
@@ -203,25 +209,25 @@ static int sdio_cmux_write_cmd(const int id, enum cmd_type type)
 	struct sdio_ctl_list_elem *list_elem;
 
 	if (id < 0 || id >= NUM_SDIO_CTL_PORTS) {
-		D(KERN_ERR "%s: Invalid lc_id - %d\n", __func__, id);
+		pr_err("%s: Invalid lc_id - %d\n", __func__, id);
 		return -EINVAL;
 	}
 
 	if (type < OPEN || type > CLOSE) {
-		D(KERN_ERR "%s: Invalid cmd - %d\n", __func__, type);
+		pr_err("%s: Invalid cmd - %d\n", __func__, type);
 		return -EINVAL;
 	}
 
 	write_size = sizeof(struct sdio_cmux_hdr);
 	list_elem = kmalloc(sizeof(struct sdio_ctl_list_elem), GFP_KERNEL);
 	if (!list_elem) {
-		D(KERN_ERR "%s: list_elem alloc failed\n", __func__);
+		pr_err("%s: list_elem alloc failed\n", __func__);
 		return -ENOMEM;
 	}
 
 	write_data = kmalloc(write_size, GFP_KERNEL);
 	if (!write_data) {
-		D(KERN_ERR "%s: write_data alloc failed\n", __func__);
+		pr_err("%s: write_data alloc failed\n", __func__);
 		kfree(list_elem);
 		return -ENOMEM;
 	}
@@ -253,13 +259,13 @@ static int sdio_cmux_open(const int id, struct sdio_cmux_ch **ch,
 	unsigned long flags;
 
 	if (id < 0 || id >= NUM_SDIO_CTL_PORTS) {
-		printk(KERN_ERR "%s: Invalid id - %d\n", __func__, id);
+		pr_err("%s: Invalid id - %d\n", __func__, id);
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&logical_ch[id].lc_lock, flags);
 	if (!logical_ch[id].is_remote_open) {
-		D(KERN_ERR "%s: Remote ch%d not opened\n", __func__, id);
+		pr_err("%s: Remote ch%d not opened\n", __func__, id);
 		spin_unlock_irqrestore(&logical_ch[id].lc_lock, flags);
 		return -EINVAL;
 	}
@@ -281,7 +287,7 @@ static int sdio_cmux_close(struct sdio_cmux_ch *ch)
 	struct sdio_ctl_list_elem *list_elem;
 
 	if (!ch) {
-		printk(KERN_ERR "%s: Invalid channel close\n", __func__);
+		pr_err("%s: Invalid channel close\n", __func__);
 		return -EINVAL;
 	}
 
@@ -329,20 +335,18 @@ static int sdio_cmux_read(struct sdio_cmux_ch *ch, void *data, int len)
 	struct sdio_ctl_list_elem *list_elem = NULL;
 
 	if (!ch) {
-		D(KERN_ERR "%s: Invalid channel\n", __func__);
+		pr_err("%s: Invalid channel\n", __func__);
 		return -EINVAL;
 	}
 
 	if (len <= 0) {
-		D(KERN_ERR "%s: Invalid len %d bytes to read\n",
-				 __func__, len);
+		pr_err("%s: Invalid len %d bytes to read\n", __func__, len);
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&ch->rx_lock, flags);
 	if (list_empty(&ch->rx_list)) {
-		D(KERN_ERR "%s: Nothing in ch%d's rx_list\n",
-				 __func__, ch->lc_id);
+		D("%s: Nothing in ch%d's rx_list\n", __func__, ch->lc_id);
 		spin_unlock_irqrestore(&ch->rx_lock, flags);
 		return -EAGAIN;
 	}
@@ -350,12 +354,11 @@ static int sdio_cmux_read(struct sdio_cmux_ch *ch, void *data, int len)
 	list_elem = list_first_entry(&ch->rx_list,
 				     struct sdio_ctl_list_elem,	list);
 	bytes_to_read = (uint32_t)list_elem->ctl_pkt.hdr->pkt_len;
-	D(KERN_ERR "%s: Copying %d bytes to ch%d\n", __func__,
-		    bytes_to_read, ch->lc_id);
+	D("%s: Copying %d bytes to ch%d\n",
+	  __func__, bytes_to_read, ch->lc_id);
 	if (bytes_to_read > len) {
-		D(KERN_ERR "%s: ch%d Data size %d > "
-			   "buffer len %d\n", __func__,
-			    ch->lc_id, bytes_to_read, len);
+		pr_err("%s: ch%d Data size %d > buffer len %d\n", __func__,
+			ch->lc_id, bytes_to_read, len);
 		spin_unlock_irqrestore(&ch->rx_lock, flags);
 		return -EINVAL;
 	}
@@ -363,8 +366,8 @@ static int sdio_cmux_read(struct sdio_cmux_ch *ch, void *data, int len)
 	r = copy_to_user(data, list_elem->ctl_pkt.data,
 			 bytes_to_read);
 	if (r > 0) {
-		D(KERN_ERR "%s: copy_to_user failed for ch%d\n",
-				 __func__, ch->lc_id);
+		pr_err("%s: copy_to_user failed for ch%d\n",
+			__func__, ch->lc_id);
 		spin_unlock_irqrestore(&ch->rx_lock, flags);
 		return -EINVAL;
 	}
@@ -386,26 +389,26 @@ static int sdio_cmux_write(struct sdio_cmux_ch *ch, void *data, int len)
 	unsigned long flags;
 
 	if (!ch) {
-		printk(KERN_ERR "%s: Invalid channel\n", __func__);
+		pr_err("%s: Invalid channel\n", __func__);
 		return -EINVAL;
 	}
 
 	if (len <= 0) {
-		printk(KERN_ERR "%s: Invalid len %d bytes to write\n",
-				 __func__, len);
+		pr_err("%s: Invalid len %d bytes to write\n",
+			__func__, len);
 		return -EINVAL;
 	}
 
 	write_size = sizeof(struct sdio_cmux_hdr) + len;
 	list_elem = kmalloc(sizeof(struct sdio_ctl_list_elem), GFP_KERNEL);
 	if (!list_elem) {
-		D(KERN_ERR "%s: list_elem alloc failed\n", __func__);
+		pr_err("%s: list_elem alloc failed\n", __func__);
 		return -ENOMEM;
 	}
 
 	write_data = kmalloc(write_size, GFP_KERNEL);
 	if (!write_data) {
-		D(KERN_ERR "%s: write_data alloc failed\n", __func__);
+		pr_err("%s: write_data alloc failed\n", __func__);
 		kfree(list_elem);
 		return -ENOMEM;
 	}
@@ -416,7 +419,7 @@ static int sdio_cmux_write(struct sdio_cmux_ch *ch, void *data, int len)
 
 	r = copy_from_user(list_elem->ctl_pkt.data, data, len);
 	if (r > 0) {
-		D(KERN_ERR "%s: copy_from_user failed\n", __func__);
+		pr_err("%s: copy_from_user failed\n", __func__);
 		kfree(write_data);
 		kfree(list_elem);
 		return -EINVAL;
@@ -430,7 +433,7 @@ static int sdio_cmux_write(struct sdio_cmux_ch *ch, void *data, int len)
 
 	spin_lock_irqsave(&ch->lc_lock, flags);
 	if (!ch->is_remote_open) {
-		printk(KERN_ERR "%s: Remote ch%d is not open\n", __func__,
+		pr_err("%s: Remote ch%d is not open\n", __func__,
 				 ch->lc_id);
 		spin_unlock_irqrestore(&ch->lc_lock, flags);
 		kfree(write_data);
@@ -470,11 +473,10 @@ ssize_t sdio_ctl_read(struct file *file,
 		return -EINVAL;
 
 	if (!sdio_ctl_devp->ch) {
-		D(KERN_ERR "%s: ch%d not opened\n",
-				 __func__, sdio_ctl_devp->id);
+		pr_err("%s: ch%d not opened\n", __func__, sdio_ctl_devp->id);
 		return -ENODEV;
 	}
-	D(KERN_ERR "%s: read from ch%d\n", __func__, sdio_ctl_devp->id);
+	D("%s: read from ch%d\n", __func__, sdio_ctl_devp->id);
 
 	ch = sdio_ctl_devp->ch;
 	id = sdio_ctl_devp->id;
@@ -488,23 +490,17 @@ ssize_t sdio_ctl_read(struct file *file,
 
 		if (r < 0) {
 			/* qualify error message */
-			if (r != -ERESTARTSYS) {
-				/* we get this anytime a signal comes in */
-				D(KERN_ERR "ERROR:%s:%i:%s: "
-				       "wait_event_interruptible ret %i\n",
-				       __FILE__,
-				       __LINE__,
-				       __func__,
-				       r
-					);
-			}
+			/* we get this anytime a signal comes in */
+			if (r != -ERESTARTSYS)
+				pr_err("ERROR:%s: wait_event_interruptible "
+				       "ret %i\n", __func__, r);
 			return r;
 		}
 	}
 	/* Here we have a whole packet waiting for us */
 	bytes_read = sdio_cmux_read(ch, buf, count);
 
-	D(KERN_ERR "%s: Returning %d bytes to ch%d\n", __func__,
+	D("%s: Returning %d bytes to ch%d\n", __func__,
 			bytes_read, sdio_ctl_devp->id);
 	return bytes_read;
 }
@@ -526,7 +522,7 @@ ssize_t sdio_ctl_write(struct file *file,
 	if (!sdio_ctl_devp)
 		return -EINVAL;
 
-	D(KERN_INFO "%s: writing %i bytes on ch%d\n",
+	D("%s: writing %i bytes on ch%d\n",
 	  __func__, count, sdio_ctl_devp->id);
 	ch = sdio_ctl_devp->ch;
 	id = sdio_ctl_devp->id;
@@ -540,16 +536,10 @@ ssize_t sdio_ctl_write(struct file *file,
 
 		if (r < 0) {
 			/* qualify error message */
-			if (r != -ERESTARTSYS) {
-				/* we get this anytime a signal comes in */
-				D(KERN_ERR "ERROR:%s:%i:%s: "
-					   "wait_event_interruptible ret %i\n",
-					   __FILE__,
-					   __LINE__,
-					   __func__,
-					   r
-					);
-			}
+			/* we get this anytime a signal comes in */
+			if (r != -ERESTARTSYS)
+				pr_err("ERROR:%s: wait_event_interruptible "
+				       "ret %i\n", __func__, r);
 			return r;
 		}
 	}
@@ -572,8 +562,7 @@ int sdio_ctl_open(struct inode *inode, struct file *file)
 	if (!sdio_ctl_devp)
 		return -EINVAL;
 
-	D(KERN_INFO "%s called on sdioctl%d device\n",
-		     __func__, sdio_ctl_devp->id);
+	D("%s called on sdioctl%d device\n", __func__, sdio_ctl_devp->id);
 
 	r = wait_event_timeout(
 			sdio_ctl_devp->open_wait_queue,
@@ -581,23 +570,22 @@ int sdio_ctl_open(struct inode *inode, struct file *file)
 			(1 * HZ));
 
 	if (r < 0) {
-		D(KERN_ERR "ERROR %s: wait_event_timeout() failed for"
-			   " ch%d with rc %d\n", __func__,
-			   sdio_ctl_devp->id, r);
+		pr_err("ERROR %s: wait_event_timeout() failed for"
+		       " ch%d with rc %d\n", __func__, sdio_ctl_devp->id, r);
 		return r;
 	}
 
 	if (r == 0) {
-		D(KERN_ERR "ERROR %s: Wait Timed Out for ch%d\n",
-			    __func__, sdio_ctl_devp->id);
+		pr_err("ERROR %s: Wait Timed Out for ch%d\n",
+			__func__, sdio_ctl_devp->id);
 		return -ETIMEDOUT;
 	}
 
 	r = sdio_cmux_open(sdio_ctl_devp->id, &sdio_ctl_devp->ch,
 			   NULL);
 	if (r < 0) {
-		D(KERN_ERR "ERROR %s: sdio_cmux_open failed with rc %d\n",
-			    __func__, r);
+		pr_err("ERROR %s: sdio_cmux_open failed with rc %d\n",
+			__func__, r);
 		return r;
 	}
 	mutex_lock(&sdio_ctl_devp->dev_lock);
@@ -616,8 +604,7 @@ int sdio_ctl_release(struct inode *inode, struct file *file)
 	if (!sdio_ctl_devp)
 		return -EINVAL;
 
-	D(KERN_INFO "%s called on sdioctl%d device\n",
-		    __func__, sdio_ctl_devp->id);
+	D("%s called on sdioctl%d device\n", __func__, sdio_ctl_devp->id);
 
 	mutex_lock(&sdio_ctl_devp->dev_lock);
 	if (sdio_ctl_devp->ref_count > 0) {
@@ -646,8 +633,7 @@ static int process_ctl_pkt(void *pkt, int size, int copy)
 	switch (mux_hdr->cmd) {
 	case OPEN:
 		id = (uint32_t)mux_hdr->lc_id;
-		D(KERN_ERR "%s: Received OPEN command for ch%d\n",
-				__func__, id);
+		D("%s: Received OPEN command for ch%d\n", __func__, id);
 		spin_lock_irqsave(&logical_ch[id].lc_lock, flags);
 		logical_ch[id].is_remote_open = 1;
 		spin_unlock_irqrestore(&logical_ch[id].lc_lock, flags);
@@ -658,8 +644,7 @@ static int process_ctl_pkt(void *pkt, int size, int copy)
 
 	case CLOSE:
 		id = (uint32_t)mux_hdr->lc_id;
-		D(KERN_ERR "%s: Received CLOSE command for ch%d\n",
-				__func__, id);
+		D("%s: Received CLOSE command for ch%d\n", __func__, id);
 		sdio_cmux_ch_clear_and_signal(id);
 		if (!copy)
 			kfree(pkt);
@@ -667,7 +652,7 @@ static int process_ctl_pkt(void *pkt, int size, int copy)
 
 	case DATA:
 		id = (uint32_t)mux_hdr->lc_id;
-		D(KERN_ERR "%s: Received DATA for ch%d\n", __func__, id);
+		D("%s: Received DATA for ch%d\n", __func__, id);
 		/*Channel is not locally open & if single packet received
 		  then drop it*/
 		spin_lock_irqsave(&logical_ch[id].lc_lock, flags);
@@ -682,8 +667,7 @@ static int process_ctl_pkt(void *pkt, int size, int copy)
 		list_elem = kmalloc(sizeof(struct sdio_ctl_list_elem),
 				    GFP_KERNEL);
 		if (!list_elem) {
-			D(KERN_ERR "%s: list_elem kmalloc failed\n",
-				    __func__);
+			pr_err("%s: list_elem kmalloc failed\n", __func__);
 			spin_unlock_irqrestore(&logical_ch[id].lc_lock,
 						flags);
 			if (!copy)
@@ -697,8 +681,8 @@ static int process_ctl_pkt(void *pkt, int size, int copy)
 		if (copy) {
 			temp_pkt = kmalloc(size, GFP_KERNEL);
 			if (!temp_pkt) {
-				D(KERN_ERR "%s: temp_pkt kmalloc failed\n",
-					   __func__);
+				pr_err("%s: temp_pkt kmalloc failed\n",
+					__func__);
 				spin_unlock_irqrestore(&logical_ch[id].lc_lock,
 							flags);
 				kfree(list_elem);
@@ -729,20 +713,19 @@ static void parse_ctl_data(void *data, int size)
 	int data_parsed = 0, multi_pkts = 0, pkt_size;
 	char *temp_ptr;
 
-	D(KERN_INFO "Entered %s\n", __func__);
+	D("Entered %s\n", __func__);
 	temp_ptr = (char *)data;
 	if (size > (sizeof(struct sdio_cmux_hdr) +
 		    (int)((struct sdio_cmux_hdr *)temp_ptr)->pkt_len)) {
 		multi_pkts = 1;
-		D(KERN_INFO "Multi packets in a single notification\n");
+		D("Multi packets in a single notification\n");
 	}
 
 	while (data_parsed < size) {
 		pkt_size = sizeof(struct sdio_cmux_hdr) +
 			   (int)((struct sdio_cmux_hdr *)temp_ptr)->pkt_len;
-		D(KERN_INFO "Parsed %d bytes, Current Pkt Size %d bytes,"
-			    " Total size %d bytes\n", data_parsed,
-			     pkt_size, size);
+		D("Parsed %d bytes, Current Pkt Size %d bytes,"
+		  " Total size %d bytes\n", data_parsed, pkt_size, size);
 		process_ctl_pkt((void *)temp_ptr, pkt_size, multi_pkts);
 		data_parsed += pkt_size;
 		temp_ptr += pkt_size;
@@ -760,28 +743,28 @@ static void sdio_demux_fn(struct work_struct *work)
 	while (1) {
 		read_avail = sdio_read_avail(sdio_ctl_chl);
 		if (read_avail < 0) {
-			D(KERN_ERR "%s: sdio_read_avail failed with rc %d\n",
-			  __func__, read_avail);
+			pr_err("%s: sdio_read_avail failed with rc %d\n",
+				__func__, read_avail);
 			return;
 		}
 
 		if (read_avail == 0) {
-			D(KERN_INFO "%s: Nothing to read\n", __func__);
+			D("%s: Nothing to read\n", __func__);
 			return;
 		}
 
-		D(KERN_INFO "%s: kmalloc %d bytes\n", __func__, read_avail);
+		D("%s: kmalloc %d bytes\n", __func__, read_avail);
 		ctl_data = kmalloc(read_avail, GFP_KERNEL);
 		if (!ctl_data) {
-			D(KERN_ERR "%s: kmalloc Failed\n", __func__);
+			pr_err("%s: kmalloc Failed\n", __func__);
 			return;
 		}
 
-		D(KERN_INFO "%s: sdio_read %d bytes\n", __func__, read_avail);
+		D("%s: sdio_read %d bytes\n", __func__, read_avail);
 		r = sdio_read(sdio_ctl_chl, ctl_data, read_avail);
 		if (r < 0) {
-			D(KERN_ERR "%s: sdio_read failed with rc %d\n",
-			  __func__, r);
+			pr_err("%s: sdio_read failed with rc %d\n",
+				__func__, r);
 			kfree(ctl_data);
 			return;
 		}
@@ -813,19 +796,20 @@ static void sdio_mux_fn(struct work_struct *work)
 
 		while ((write_avail = sdio_write_avail(sdio_ctl_chl))
 					< write_size) {
-			D(KERN_ERR "%s: sdio_write_avail %d bytes, "
-					"write size %d bytes. Waiting...\n",
-					__func__, write_avail, write_size);
+			pr_err("%s: sdio_write_avail %d bytes, "
+			       "write size %d bytes. Waiting...\n",
+				__func__, write_avail, write_size);
 			msleep(250);
 		}
 		while (((r = sdio_write(sdio_ctl_chl, write_data, write_size))
 			< 0) && (write_retry++ < MAX_WRITE_RETRY)) {
-			D(KERN_ERR "%s: sdio_write failed with rc %d."
-					"Retrying...", __func__, r);
+			pr_err("%s: sdio_write failed with rc %d."
+			       "Retrying...", __func__, r);
 			msleep(250);
 		}
-		D(KERN_INFO "%s: sdio_write_completed %dbytes\n",
-			     __func__, write_size);
+		if (!r)
+			D("%s: sdio_write_completed %dbytes\n",
+			  __func__, write_size);
 		kfree(list_elem->ctl_pkt.hdr);
 		kfree(list_elem);
 		spin_lock_irqsave(&tx_lock, flags);
@@ -839,8 +823,7 @@ static void sdio_mux_fn(struct work_struct *work)
 static void sdio_ctl_chl_notify(void *priv, unsigned event)
 {
 	if (event == SDIO_EVENT_DATA_READ_AVAIL) {
-		D(KERN_INFO "%s: Received SDIO_EVENT_DATA_READ_AVAIL\n",
-			    __func__);
+		D("%s: Received SDIO_EVENT_DATA_READ_AVAIL\n", __func__);
 		queue_work(sdio_demux_wq, &sdio_demux_work);
 	}
 }
@@ -858,27 +841,26 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 	int i;
 	int r;
 
-	printk(KERN_INFO "%s Begins\n", __func__);
+	pr_debug("%s Begins\n", __func__);
 	sdio_mux_wq = create_singlethread_workqueue("sdio_mux");
 	if (IS_ERR(sdio_mux_wq)) {
-		printk(KERN_ERR "%s:%i:%s: create_singlethread_workqueue()"
-				" ENOMEM\n", __FILE__, __LINE__, __func__);
+		pr_err("%s: create_singlethread_workqueue() ENOMEM\n",
+			__func__);
 		r = -ENOMEM;
 		goto error0;
 	}
 
 	sdio_demux_wq = create_singlethread_workqueue("sdio_demux");
 	if (IS_ERR(sdio_demux_wq)) {
-		printk(KERN_ERR "%s:%i:%s: create_singlethread_workqueue()"
-				" ENOMEM\n", __FILE__, __LINE__, __func__);
+		pr_err("%s: create_singlethread_workqueue() ENOMEM\n",
+			__func__);
 		r = -ENOMEM;
 		goto error1;
 	}
 
 	r = sdio_open("SDIO_QMI", &sdio_ctl_chl, NULL, sdio_ctl_chl_notify);
 	if (r < 0) {
-		D(KERN_ERR "%s:%i:%s: sdio_open() failed\n",
-			   __FILE__, __LINE__, __func__);
+		pr_err("%s: sdio_open() failed\n", __func__);
 		goto error2;
 	}
 
@@ -887,22 +869,14 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 				NUM_SDIO_CTL_PORTS,
 				DEVICE_NAME);
 	if (IS_ERR_VALUE(r)) {
-		printk(KERN_ERR "ERROR:%s:%i:%s: "
-		       "alloc_chrdev_region() ret %i.\n",
-		       __FILE__,
-		       __LINE__,
-		       __func__,
-		       r);
+		pr_err("ERROR:%s: alloc_chrdev_region() ret %i.\n",
+		       __func__, r);
 		goto error3;
 	}
 
 	sdio_ctl_classp = class_create(THIS_MODULE, DEVICE_NAME);
 	if (IS_ERR(sdio_ctl_classp)) {
-		printk(KERN_ERR "ERROR:%s:%i:%s: "
-		       "class_create() ENOMEM\n",
-		       __FILE__,
-		       __LINE__,
-		       __func__);
+		pr_err("ERROR:%s: class_create() ENOMEM\n", __func__);
 		r = -ENOMEM;
 		goto error4;
 	}
@@ -911,10 +885,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 		sdio_ctl_devp[i] = kzalloc(sizeof(struct sdio_ctl_dev),
 					 GFP_KERNEL);
 		if (IS_ERR(sdio_ctl_devp[i])) {
-			printk(KERN_ERR "ERROR:%s:%i:%s kmalloc() ENOMEM\n",
-			       __FILE__,
-			       __LINE__,
-			       __func__);
+			pr_err("ERROR:%s kmalloc() ENOMEM\n", __func__);
 			r = -ENOMEM;
 			goto error5;
 		}
@@ -936,11 +907,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 			     1);
 
 		if (IS_ERR_VALUE(r)) {
-			printk(KERN_ERR "%s:%i:%s: cdev_add() ret %i\n",
-			       __FILE__,
-			       __LINE__,
-			       __func__,
-			       r);
+			pr_err("%s: cdev_add() ret %i\n", __func__, r);
 			kfree(sdio_ctl_devp[i]);
 			goto error5;
 		}
@@ -954,11 +921,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 				      i);
 
 		if (IS_ERR(sdio_ctl_devp[i]->devicep)) {
-			printk(KERN_ERR "%s:%i:%s: "
-			       "device_create() ENOMEM\n",
-			       __FILE__,
-			       __LINE__,
-			       __func__);
+			pr_err("%s: device_create() ENOMEM\n", __func__);
 			r = -ENOMEM;
 			cdev_del(&sdio_ctl_devp[i]->cdev);
 			kfree(sdio_ctl_devp[i]);
@@ -972,7 +935,7 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 	init_waitqueue_head(&write_wait_queue);
 
 	sdio_ctl_inited = 1;
-	D(KERN_INFO "SDIO Control Port Driver Initialized.\n");
+	D("SDIO Control Port Driver Initialized.\n");
 	return 0;
 
  error5:
@@ -1032,7 +995,7 @@ static struct platform_driver sdio_ctl_driver = {
 
 static int __init sdio_ctl_init(void)
 {
-	msm_sdio_ctl_debug_mask = 1;
+	msm_sdio_ctl_debug_mask = 0;
 	return platform_driver_register(&sdio_ctl_driver);
 }
 
