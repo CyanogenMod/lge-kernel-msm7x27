@@ -28,6 +28,7 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #include <mach/sdio_al.h>
 
