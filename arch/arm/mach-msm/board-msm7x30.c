@@ -4814,8 +4814,10 @@ out:
 	return rc;
 }
 
-#if (CONFIG_CSDIO_VENDOR_ID == 0x70 && CONFIG_CSDIO_DEVICE_ID == 0x1117) && \
-	defined(CONFIG_MMC_MSM_SDC1_SUPPORT)
+#if defined(CONFIG_MMC_MSM_SDC1_SUPPORT) && \
+	defined(CONFIG_CSDIO_VENDOR_ID) && \
+	defined(CONFIG_CSDIO_DEVICE_ID) && \
+	(CONFIG_CSDIO_VENDOR_ID == 0x70 && CONFIG_CSDIO_DEVICE_ID == 0x1117)
 
 #define MBP_ON  1
 #define MBP_OFF 0
