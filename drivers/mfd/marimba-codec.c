@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -412,7 +412,8 @@ static int adie_codec_set_dig_vol(enum adie_vol_type vol_type, u32 chan_index,
 	return 0;
 }
 
-int adie_codec_set_device_digital_volume(struct adie_codec_path *path_ptr,
+static int marimba_adie_codec_set_device_digital_volume(
+		struct adie_codec_path *path_ptr,
 		u32 num_channels, u32 vol_percentage /* in percentage */)
 {
 	enum adie_vol_type vol_type;
@@ -479,18 +480,9 @@ int adie_codec_set_device_digital_volume(struct adie_codec_path *path_ptr,
 	}
 	return 0;
 }
-EXPORT_SYMBOL(adie_codec_set_device_digital_volume);
 
-int adie_codec_set_device_analog_volume(struct adie_codec_path *path_ptr,
-		u32 num_channels, u32 volume /* in percentage */)
-{
-	pr_err("%s: analog device volume not supported\n", __func__);
-
-	return -EPERM;
-}
-EXPORT_SYMBOL(adie_codec_set_device_analog_volume);
-
-int adie_codec_setpath(struct adie_codec_path *path_ptr, u32 freq_plan, u32 osr)
+static int marimba_adie_codec_setpath(struct adie_codec_path *path_ptr,
+					u32 freq_plan, u32 osr)
 {
 	int rc = 0;
 	u32 i, freq_idx = 0, freq = 0;
@@ -529,10 +521,10 @@ int adie_codec_setpath(struct adie_codec_path *path_ptr, u32 freq_plan, u32 osr)
 error:
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_setpath);
 
-u32 adie_codec_freq_supported(struct adie_codec_dev_profile *profile,
-	u32 requested_freq)
+static u32 marimba_adie_codec_freq_supported(
+				struct adie_codec_dev_profile *profile,
+				u32 requested_freq)
 {
 	u32 i, rc = -EINVAL;
 
@@ -544,10 +536,10 @@ u32 adie_codec_freq_supported(struct adie_codec_dev_profile *profile,
 	}
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_freq_supported);
 
-int adie_codec_enable_sidetone(struct adie_codec_path *rx_path_ptr,
-	u32 enable)
+static int marimba_adie_codec_enable_sidetone(
+				struct adie_codec_path *rx_path_ptr,
+				u32 enable)
 {
 	int rc = 0;
 
@@ -578,10 +570,9 @@ error:
 	mutex_unlock(&adie_codec.lock);
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_enable_sidetone);
 
 static void adie_codec_reach_stage_action(struct adie_codec_path *path_ptr,
-	u32 stage)
+						u32 stage)
 {
 	u32 iter;
 	struct adie_codec_register *reg_info;
@@ -596,7 +587,8 @@ static void adie_codec_reach_stage_action(struct adie_codec_path *path_ptr,
 	}
 }
 
-int adie_codec_proceed_stage(struct adie_codec_path *path_ptr, u32 state)
+static int marimba_adie_codec_proceed_stage(struct adie_codec_path *path_ptr,
+						u32 state)
 {
 	int rc = 0, loop_exit = 0;
 	struct adie_codec_action_unit *curr_action;
@@ -640,7 +632,6 @@ int adie_codec_proceed_stage(struct adie_codec_path *path_ptr, u32 state)
 	mutex_unlock(&adie_codec.lock);
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_proceed_stage);
 
 static void marimba_codec_bring_up(void)
 {
@@ -683,7 +674,7 @@ static void marimba_codec_bring_down(void)
 	adie_codec_write(0x03, 0xFF, 0x00);
 }
 
-int adie_codec_open(struct adie_codec_dev_profile *profile,
+static int marimba_adie_codec_open(struct adie_codec_dev_profile *profile,
 	struct adie_codec_path **path_pptr)
 {
 	int rc = 0;
@@ -728,9 +719,8 @@ error:
 	mutex_unlock(&adie_codec.lock);
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_open);
 
-int adie_codec_close(struct adie_codec_path *path_ptr)
+static int marimba_adie_codec_close(struct adie_codec_path *path_ptr)
 {
 	int rc = 0;
 
@@ -768,22 +758,17 @@ error:
 	mutex_unlock(&adie_codec.lock);
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_close);
 
-static int marimba_codec_probe(struct platform_device *pdev)
-{
-	adie_codec.pdrv_ptr = platform_get_drvdata(pdev);
-	adie_codec.codec_pdata = pdev->dev.platform_data;
-
-	return 0;
-}
-
-static struct platform_driver marimba_codec_driver = {
-	.probe = marimba_codec_probe,
-	.driver = {
-		.name = "marimba_codec",
-		.owner = THIS_MODULE,
-	},
+static const struct adie_codec_operations marimba_adie_ops = {
+	.codec_id = MARIMBA_ID,
+	.codec_open = marimba_adie_codec_open,
+	.codec_close = marimba_adie_codec_close,
+	.codec_setpath = marimba_adie_codec_setpath,
+	.codec_proceed_stage = marimba_adie_codec_proceed_stage,
+	.codec_freq_supported = marimba_adie_codec_freq_supported,
+	.codec_enable_sidetone = marimba_adie_codec_enable_sidetone,
+	.codec_set_device_digital_volume =
+			marimba_adie_codec_set_device_digital_volume,
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -900,6 +885,43 @@ static const struct file_operations codec_debug_ops = {
 };
 #endif
 
+static int marimba_codec_probe(struct platform_device *pdev)
+{
+	int rc;
+
+	adie_codec.pdrv_ptr = platform_get_drvdata(pdev);
+	adie_codec.codec_pdata = pdev->dev.platform_data;
+
+	/* Register the marimba ADIE operations */
+	rc = adie_codec_register_codec_operations(&marimba_adie_ops);
+
+#ifdef CONFIG_DEBUG_FS
+	debugfs_marimba_dent = debugfs_create_dir("msm_adie_codec", 0);
+	if (!IS_ERR(debugfs_marimba_dent)) {
+		debugfs_peek = debugfs_create_file("peek",
+		S_IFREG | S_IRUGO, debugfs_marimba_dent,
+		(void *) "peek", &codec_debug_ops);
+
+		debugfs_poke = debugfs_create_file("poke",
+		S_IFREG | S_IRUGO, debugfs_marimba_dent,
+		(void *) "poke", &codec_debug_ops);
+
+		debugfs_power = debugfs_create_file("power",
+		S_IFREG | S_IRUGO, debugfs_marimba_dent,
+		(void *) "power", &codec_debug_ops);
+	}
+#endif
+	return rc;
+}
+
+static struct platform_driver marimba_codec_driver = {
+	.probe = marimba_codec_probe,
+	.driver = {
+		.name = "marimba_codec",
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init marimba_codec_init(void)
 {
 	s32 rc;
@@ -918,23 +940,6 @@ static int __init marimba_codec_init(void)
 	adie_codec.path[ADIE_CODEC_LB].img.img_sz =
 	ARRAY_SIZE(adie_codec_lb_regs);
 	mutex_init(&adie_codec.lock);
-
-#ifdef CONFIG_DEBUG_FS
-	debugfs_marimba_dent = debugfs_create_dir("msm_adie_codec", 0);
-	if (!IS_ERR(debugfs_marimba_dent)) {
-		debugfs_peek = debugfs_create_file("peek",
-		S_IFREG | S_IRUGO, debugfs_marimba_dent,
-		(void *) "peek", &codec_debug_ops);
-
-		debugfs_poke = debugfs_create_file("poke",
-		S_IFREG | S_IRUGO, debugfs_marimba_dent,
-		(void *) "poke", &codec_debug_ops);
-
-		debugfs_power = debugfs_create_file("power",
-		S_IFREG | S_IRUGO, debugfs_marimba_dent,
-		(void *) "power", &codec_debug_ops);
-	}
-#endif
 
 error:
 	return rc;

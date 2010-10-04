@@ -1459,24 +1459,8 @@ static int adie_codec_read(u8 reg, u8 *val)
 	return marimba_read(adie_codec.pdrv_ptr, reg, val, 1);
 }
 
-int adie_codec_set_device_digital_volume(struct adie_codec_path *path_ptr,
-		u32 num_channels, u32 vol_percentage /* in percentage */)
-{
-
-	return -EPERM;
-}
-EXPORT_SYMBOL(adie_codec_set_device_digital_volume);
-
-int adie_codec_set_device_analog_volume(struct adie_codec_path *path_ptr,
-		u32 num_channels, u32 volume /* in percentage */)
-{
-	pr_err("%s: analog device volume not supported\n", __func__);
-
-	return -EPERM;
-}
-EXPORT_SYMBOL(adie_codec_set_device_analog_volume);
-
-int adie_codec_setpath(struct adie_codec_path *path_ptr, u32 freq_plan, u32 osr)
+static int timpani_adie_codec_setpath(struct adie_codec_path *path_ptr,
+					u32 freq_plan, u32 osr)
 {
 	int rc = 0;
 	u32 i, freq_idx = 0, freq = 0;
@@ -1514,10 +1498,10 @@ int adie_codec_setpath(struct adie_codec_path *path_ptr, u32 freq_plan, u32 osr)
 error:
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_setpath);
 
-u32 adie_codec_freq_supported(struct adie_codec_dev_profile *profile,
-	u32 requested_freq)
+static u32 timpani_adie_codec_freq_supported(
+				struct adie_codec_dev_profile *profile,
+				u32 requested_freq)
 {
 	u32 i, rc = -EINVAL;
 
@@ -1529,17 +1513,6 @@ u32 adie_codec_freq_supported(struct adie_codec_dev_profile *profile,
 	}
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_freq_supported);
-
-int adie_codec_enable_sidetone(struct adie_codec_path *rx_path_ptr,
-	u32 enable)
-{
-
-	pr_debug("%s()\n", __func__);
-
-	return -EPERM;
-}
-EXPORT_SYMBOL(adie_codec_enable_sidetone);
 
 static void adie_codec_restore_regdefault(u32 blk)
 {
@@ -1577,7 +1550,8 @@ static void adie_codec_reach_stage_action(struct adie_codec_path *path_ptr,
 	}
 }
 
-int adie_codec_proceed_stage(struct adie_codec_path *path_ptr, u32 state)
+static int timpani_adie_codec_proceed_stage(struct adie_codec_path *path_ptr,
+						u32 state)
 {
 	int rc = 0, loop_exit = 0;
 	struct adie_codec_action_unit *curr_action;
@@ -1622,7 +1596,6 @@ int adie_codec_proceed_stage(struct adie_codec_path *path_ptr, u32 state)
 
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_proceed_stage);
 
 static void timpani_codec_bring_up(void)
 {
@@ -1641,8 +1614,7 @@ static void timpani_codec_bring_down(void)
 	adie_codec_write(TIMPANI_A_MREF, 0xFF, TIMPANI_MREF_POR);
 }
 
-
-int adie_codec_open(struct adie_codec_dev_profile *profile,
+static int timpani_adie_codec_open(struct adie_codec_dev_profile *profile,
 	struct adie_codec_path **path_pptr)
 {
 	int rc = 0;
@@ -1687,9 +1659,8 @@ error:
 	mutex_unlock(&adie_codec.lock);
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_open);
 
-int adie_codec_close(struct adie_codec_path *path_ptr)
+static int timpani_adie_codec_close(struct adie_codec_path *path_ptr)
 {
 	int rc = 0;
 
@@ -1727,22 +1698,14 @@ error:
 	mutex_unlock(&adie_codec.lock);
 	return rc;
 }
-EXPORT_SYMBOL(adie_codec_close);
 
-static int timpani_codec_probe(struct platform_device *pdev)
-{
-	adie_codec.pdrv_ptr = platform_get_drvdata(pdev);
-	adie_codec.codec_pdata = pdev->dev.platform_data;
-
-	return 0;
-}
-
-static struct platform_driver timpani_codec_driver = {
-	.probe = timpani_codec_probe,
-	.driver = {
-		.name = "timpani_codec",
-		.owner = THIS_MODULE,
-	},
+static const struct adie_codec_operations timpani_adie_ops = {
+	.codec_id = TIMPANI_ID,
+	.codec_open = timpani_adie_codec_open,
+	.codec_close = timpani_adie_codec_close,
+	.codec_setpath = timpani_adie_codec_setpath,
+	.codec_proceed_stage = timpani_adie_codec_proceed_stage,
+	.codec_freq_supported = timpani_adie_codec_freq_supported,
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1859,18 +1822,15 @@ static const struct file_operations codec_debug_ops = {
 };
 #endif
 
-static int __init timpani_codec_init(void)
+static int timpani_codec_probe(struct platform_device *pdev)
 {
-	s32 rc;
+	int rc;
 
-	rc = platform_driver_register(&timpani_codec_driver);
-	if (IS_ERR_VALUE(rc))
-		goto error;
+	adie_codec.pdrv_ptr = platform_get_drvdata(pdev);
+	adie_codec.codec_pdata = pdev->dev.platform_data;
 
-	adie_codec.path[ADIE_CODEC_TX].reg_owner = RA_OWNER_PATH_TX1;
-	adie_codec.path[ADIE_CODEC_RX].reg_owner = RA_OWNER_PATH_RX1;
-	adie_codec.path[ADIE_CODEC_LB].reg_owner = RA_OWNER_PATH_LB;
-	mutex_init(&adie_codec.lock);
+	/* Register the timpani ADIE operations */
+	rc = adie_codec_register_codec_operations(&timpani_adie_ops);
 
 #ifdef CONFIG_DEBUG_FS
 	debugfs_timpani_dent = debugfs_create_dir("msm_adie_codec", 0);
@@ -1889,6 +1849,29 @@ static int __init timpani_codec_init(void)
 	}
 #endif
 
+	return rc;
+}
+
+static struct platform_driver timpani_codec_driver = {
+	.probe = timpani_codec_probe,
+	.driver = {
+		.name = "timpani_codec",
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init timpani_codec_init(void)
+{
+	s32 rc;
+
+	rc = platform_driver_register(&timpani_codec_driver);
+	if (IS_ERR_VALUE(rc))
+		goto error;
+
+	adie_codec.path[ADIE_CODEC_TX].reg_owner = RA_OWNER_PATH_TX1;
+	adie_codec.path[ADIE_CODEC_RX].reg_owner = RA_OWNER_PATH_RX1;
+	adie_codec.path[ADIE_CODEC_LB].reg_owner = RA_OWNER_PATH_LB;
+	mutex_init(&adie_codec.lock);
 error:
 	return rc;
 }
