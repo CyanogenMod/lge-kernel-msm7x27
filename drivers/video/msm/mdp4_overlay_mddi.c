@@ -352,6 +352,17 @@ void mdp4_overlay0_done_mddi()
 
 void mdp4_mddi_overlay_restore(void)
 {
+	if (mddi_mfd == NULL)
+		return;
+
+#ifdef MDP4_NONBLOCKING
+	if (mddi_mfd->panel_power_on == 0)
+		return;
+#else
+	if (mddi_mfd->dma->busy || mddi_mfd->panel_power_on == 0)
+		return;
+#endif
+
 #ifdef MDP4_MDDI_DMA_SWITCH
 	mdp4_mddi_overlay_dmas_restore();
 #else
