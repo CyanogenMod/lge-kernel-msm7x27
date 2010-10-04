@@ -124,7 +124,7 @@
 #define	IMX074_VER_FULL_BLK_LINES			96
 /* Quarter Size	*/
 #define	IMX074_HRZ_QTR_BLK_PIXELS			2368
-#define	IMX074_VER_QTR_BLK_LINES			48
+#define	IMX074_VER_QTR_BLK_LINES			75
 #define	Q8						0x100
 #define	Q10						0x400
 #define	IMX074_AF_I2C_SLAVE_ID				0x72
