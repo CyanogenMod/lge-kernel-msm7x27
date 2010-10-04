@@ -739,8 +739,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 
 	kgsl_driver.is_suspended = KGSL_FALSE;
 
-	device->chip_id = kgsl_yamato_getchipid(device);
-
 	if (kgsl_mmu_start(device))
 		goto error_clk_off;
 
@@ -797,6 +795,11 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	/* make sure SQ interrupts are disabled */
 	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
+	device->chip_id = kgsl_yamato_getchipid(device);
+	if (device->chip_id == KGSL_CHIPID_LEIA_REV470)
+		yamato_device->gmemspace.sizebytes = SZ_512K;
+	else
+		yamato_device->gmemspace.sizebytes = SZ_256K;
 	kgsl_yamato_gmeminit(yamato_device);
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
@@ -1261,7 +1264,6 @@ int __init kgsl_yamato_config(struct kgsl_devconfig *devconfig,
 	devconfig->regspace.sizebytes = resource_size(res);
 
 	devconfig->gmemspace.gpu_base = 0;
-	devconfig->gmemspace.sizebytes = SZ_256K;
 
 	/*note: for all of these behavior masks:
 	 *	0 = do not translate
