@@ -767,8 +767,6 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 {
 	int64_t time;
-	int64_t timer_expiration;
-	bool timer_halted;
 #ifdef CONFIG_MSM_IDLE_STATS
 	int exit_stat;
 #endif
@@ -778,8 +776,6 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 			smp_processor_id(), __func__, sleep_mode);
 
 	time = ktime_to_ns(ktime_get());
-	timer_expiration = msm_timer_enter_idle();
-	timer_halted = false;
 
 	switch (sleep_mode) {
 	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
@@ -797,6 +793,8 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		break;
 
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE: {
+		int64_t timer_expiration = msm_timer_enter_idle();
+		bool timer_halted = false;
 		uint32_t sleep_delay;
 
 		sleep_delay = (uint32_t) msm_pm_convert_and_cap_time(
@@ -808,6 +806,7 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 			msm_pm_power_collapse(true);
 			timer_halted = true;
 		}
+		msm_timer_exit_idle((int) timer_halted);
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_POWER_COLLAPSE;
 #endif
@@ -816,10 +815,9 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 
 	default:
 		__WARN();
-		goto cpuidle_enter_bail_timer;
+		goto cpuidle_enter_bail;
 	}
 
-	msm_timer_exit_idle((int) timer_halted);
 	time = ktime_to_ns(ktime_get()) - time;
 #ifdef CONFIG_MSM_IDLE_STATS
 	msm_pm_add_stat(exit_stat, time);
@@ -828,8 +826,7 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 	do_div(time, 1000);
 	return (int) time;
 
-cpuidle_enter_bail_timer:
-	msm_timer_exit_idle((int) timer_halted);
+cpuidle_enter_bail:
 	return 0;
 }
 
