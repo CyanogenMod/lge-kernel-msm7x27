@@ -834,12 +834,13 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 };
 
 #ifdef CONFIG_MSM_CAMERA
+static uint32_t camera_off_vcm_gpio_table[] = {
+GPIO_CFG(1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* VCM */
+};
+
 static uint32_t camera_off_gpio_table[] = {
 	/* parallel CAMERA interfaces */
 	GPIO_CFG(0,  0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* RST */
-#ifndef CONFIG_TIMPANI_CODEC
-	GPIO_CFG(1,  0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* VCM */
-#endif
 	GPIO_CFG(2,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT2 */
 	GPIO_CFG(3,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT3 */
 	GPIO_CFG(4,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT4 */
@@ -856,12 +857,13 @@ static uint32_t camera_off_gpio_table[] = {
 	GPIO_CFG(15, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), /* MCLK */
 };
 
+static uint32_t camera_on_vcm_gpio_table[] = {
+GPIO_CFG(1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), /* VCM */
+};
+
 static uint32_t camera_on_gpio_table[] = {
 	/* parallel CAMERA interfaces */
 	GPIO_CFG(0,  0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* RST */
-#ifndef CONFIG_TIMPANI_CODEC
-	GPIO_CFG(1,  0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), /* VCM */
-#endif
 	GPIO_CFG(2,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT2 */
 	GPIO_CFG(3,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT3 */
 	GPIO_CFG(4,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT4 */
@@ -908,6 +910,13 @@ static void config_camera_on_gpios(void)
 {
 	config_gpio_table(camera_on_gpio_table,
 		ARRAY_SIZE(camera_on_gpio_table));
+
+	if (adie_get_detected_codec_type() != TIMPANI_ID)
+		/* GPIO1 is shared also used in Timpani RF card so
+		only configure it for non-Timpani RF card */
+		config_gpio_table(camera_on_vcm_gpio_table,
+			ARRAY_SIZE(camera_on_vcm_gpio_table));
+
 	if (machine_is_msm7x30_fluid()) {
 		config_gpio_table(camera_on_gpio_fluid_table,
 			ARRAY_SIZE(camera_on_gpio_fluid_table));
@@ -921,6 +930,13 @@ static void config_camera_off_gpios(void)
 {
 	config_gpio_table(camera_off_gpio_table,
 		ARRAY_SIZE(camera_off_gpio_table));
+
+	if (adie_get_detected_codec_type() != TIMPANI_ID)
+		/* GPIO1 is shared also used in Timpani RF card so
+		only configure it for non-Timpani RF card */
+		config_gpio_table(camera_off_vcm_gpio_table,
+			ARRAY_SIZE(camera_off_vcm_gpio_table));
+
 	if (machine_is_msm7x30_fluid()) {
 		config_gpio_table(camera_off_gpio_fluid_table,
 			ARRAY_SIZE(camera_off_gpio_fluid_table));
@@ -1472,28 +1488,94 @@ static int __init buses_init(void)
 	return 0;
 }
 
-#ifdef CONFIG_TIMPANI_CODEC
-static uint32_t timpani_reset_on_gpio[] = {
-	GPIO_CFG(1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)};
-
-static uint32_t timpani_reset_off_gpio[] = {
-	GPIO_CFG(1, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)};
-
-static void config_timpani_reset_on(void)
-{
-	config_gpio_table(timpani_reset_on_gpio,
-		ARRAY_SIZE(timpani_reset_on_gpio));
-}
-
-static void config_timpani_reset_off(void)
-{
-	config_gpio_table(timpani_reset_off_gpio,
-		ARRAY_SIZE(timpani_reset_off_gpio));
-}
-#endif
+#define TIMPANI_RESET_GPIO	1
 
 static struct vreg *vreg_marimba_1;
 static struct vreg *vreg_marimba_2;
+
+static struct msm_gpio timpani_reset_gpio_cfg[] = {
+{ GPIO_CFG(TIMPANI_RESET_GPIO, 0, GPIO_CFG_OUTPUT,
+	GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "timpani_reset"} };
+
+static int config_timpani_reset(void)
+{
+	int rc;
+
+	rc = msm_gpios_request_enable(timpani_reset_gpio_cfg,
+				ARRAY_SIZE(timpani_reset_gpio_cfg));
+	if (rc < 0) {
+		printk(KERN_ERR
+			"%s: msm_gpios_request_enable failed (%d)\n",
+				__func__, rc);
+	}
+	return rc;
+}
+
+static unsigned int msm_timpani_setup_power(void)
+{
+	int rc;
+
+	rc = config_timpani_reset();
+	if (rc < 0)
+		goto out;
+
+	rc = vreg_enable(vreg_marimba_1);
+	if (rc) {
+		printk(KERN_ERR "%s: vreg_enable() = %d\n",
+					__func__, rc);
+		goto out;
+	}
+	rc = vreg_enable(vreg_marimba_2);
+	if (rc) {
+		printk(KERN_ERR "%s: vreg_enable() = %d\n",
+					__func__, rc);
+		goto fail_disable_vreg_marimba_1;
+	}
+
+	rc = gpio_direction_output(TIMPANI_RESET_GPIO, 1);
+	if (rc < 0) {
+		printk(KERN_ERR
+			"%s: gpio_direction_output failed (%d)\n",
+				__func__, rc);
+		msm_gpios_free(timpani_reset_gpio_cfg,
+				ARRAY_SIZE(timpani_reset_gpio_cfg));
+		vreg_disable(vreg_marimba_2);
+	} else
+		goto out;
+
+
+fail_disable_vreg_marimba_1:
+	vreg_disable(vreg_marimba_1);
+
+out:
+	return rc;
+};
+
+static void msm_timpani_shutdown_power(void)
+{
+	int rc;
+
+	rc = vreg_disable(vreg_marimba_1);
+	if (rc) {
+		printk(KERN_ERR "%s: return val: %d\n",
+					__func__, rc);
+	}
+	rc = vreg_disable(vreg_marimba_2);
+	if (rc) {
+		printk(KERN_ERR "%s: return val: %d\n",
+					__func__, rc);
+	}
+
+	rc = gpio_direction_output(TIMPANI_RESET_GPIO, 0);
+	if (rc < 0) {
+		printk(KERN_ERR
+			"%s: gpio_direction_output failed (%d)\n",
+				__func__, rc);
+	}
+
+	msm_gpios_free(timpani_reset_gpio_cfg,
+				   ARRAY_SIZE(timpani_reset_gpio_cfg));
+};
 
 static unsigned int msm_marimba_setup_power(void)
 {
@@ -1512,10 +1594,6 @@ static unsigned int msm_marimba_setup_power(void)
 		goto out;
 	}
 
-#ifdef CONFIG_TIMPANI_CODEC
-	config_timpani_reset_off();
-#endif
-
 out:
 	return rc;
 };
@@ -1524,13 +1602,9 @@ static void msm_marimba_shutdown_power(void)
 {
 	int rc;
 
-#ifdef CONFIG_TIMPANI_CODEC
-	config_timpani_reset_on();
-#endif
-
 	rc = vreg_disable(vreg_marimba_1);
 	if (rc) {
-		printk(KERN_ERR "%s: return val: %d \n",
+		printk(KERN_ERR "%s: return val: %d\n",
 					__func__, rc);
 	}
 	rc = vreg_disable(vreg_marimba_2);
@@ -1841,7 +1915,6 @@ static void __init msm7x30_init_marimba(void)
 	}
 }
 
-#ifdef CONFIG_TIMPANI_CODEC
 static struct marimba_codec_platform_data timpani_codec_pdata = {
 	.marimba_codec_power =  msm_marimba_codec_power,
 };
@@ -1849,8 +1922,8 @@ static struct marimba_codec_platform_data timpani_codec_pdata = {
 static struct marimba_platform_data timpani_pdata = {
 	.slave_id[MARIMBA_SLAVE_ID_CDC]	= MARIMBA_SLAVE_ID_CDC_ADDR,
 	.slave_id[MARIMBA_SLAVE_ID_QMEMBIST] = MARIMBA_SLAVE_ID_QMEMBIST_ADDR,
-	.marimba_setup = msm_marimba_setup_power,
-	.marimba_shutdown = msm_marimba_shutdown_power,
+	.marimba_setup = msm_timpani_setup_power,
+	.marimba_shutdown = msm_timpani_shutdown_power,
 	.codec = &timpani_codec_pdata,
 	.tsadc = &marimba_tsadc_pdata,
 };
@@ -1863,7 +1936,6 @@ static struct i2c_board_info msm_i2c_gsbi7_timpani_info[] = {
 		.platform_data = &timpani_pdata,
 	},
 };
-#endif
 
 #ifdef CONFIG_MSM7KV2_AUDIO
 static struct resource msm_aictl_resources[] = {
@@ -5993,13 +6065,11 @@ static void __init msm7x30_init(void)
 		i2c_register_board_info(0, cy8info,
 					ARRAY_SIZE(cy8info));
 
-#ifdef CONFIG_TIMPANI_CODEC
-	i2c_register_board_info(2, msm_i2c_gsbi7_timpani_info,
-			ARRAY_SIZE(msm_i2c_gsbi7_timpani_info));
-#endif
-
 	i2c_register_board_info(2, msm_marimba_board_info,
 			ARRAY_SIZE(msm_marimba_board_info));
+
+	i2c_register_board_info(2, msm_i2c_gsbi7_timpani_info,
+			ARRAY_SIZE(msm_i2c_gsbi7_timpani_info));
 
 	i2c_register_board_info(4 /* QUP ID */, msm_camera_boardinfo,
 				ARRAY_SIZE(msm_camera_boardinfo));
