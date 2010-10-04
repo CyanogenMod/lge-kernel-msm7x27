@@ -312,6 +312,19 @@ static struct resource kgsl_resources[] = {
 		.end = GFX2D0_IRQ,
 		.flags = IORESOURCE_IRQ,
 	},
+	{
+		.name = "kgsl_2d1_reg_memory",
+		.start = 0x04200000, /* Z180 device 1 base address */
+		.end =   0x04200FFF,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name  = "kgsl_2d1_irq",
+		.start = GFX2D1_IRQ,
+		.end = GFX2D1_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+
 };
 
 static struct kgsl_platform_data kgsl_pdata = {
@@ -333,6 +346,7 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.imem_clk_name = NULL,
 	.grp3d_clk_name = "gfx3d_clk",
 	.grp2d0_clk_name = "gfx2d0_clk",
+	.grp2d1_clk_name = "gfx2d1_clk",
 };
 
 struct platform_device msm_device_kgsl = {
