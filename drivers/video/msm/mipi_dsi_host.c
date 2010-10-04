@@ -329,7 +329,7 @@ static int mipi_dsi_dcs_swrite1(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 	*hp |= DSI_HDR_DTYPE(DTYPE_DCS_WRITE1);
 	*hp |= DSI_HDR_DATA1(cm->payload[0]);	/* dcs comamnd byte */
-	*hp |= DSI_HDR_DATA1(cm->payload[1]);	/* parameter */
+	*hp |= DSI_HDR_DATA2(cm->payload[1]);	/* parameter */
 
 	mipi_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
 
