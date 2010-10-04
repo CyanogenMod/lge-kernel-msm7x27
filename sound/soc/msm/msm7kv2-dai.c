@@ -37,7 +37,6 @@ struct snd_soc_dai msm_dais[] = {
 	.name = "CODEC_DAI",
 	.playback = {
 		.stream_name = "Playback",
-		.channels_min = USE_CHANNELS_MIN,
 		.channels_max = USE_CHANNELS_MAX,
 		.rates = USE_RATE,
 		.rate_min = USE_RATE_MIN,
@@ -46,7 +45,6 @@ struct snd_soc_dai msm_dais[] = {
 	},
 	.capture = {
 		.stream_name = "Capture",
-		.channels_min = USE_CHANNELS_MIN,
 		.channels_max = USE_CHANNELS_MAX,
 		.rate_min = USE_RATE_MIN,
 		.rates = USE_RATE,
