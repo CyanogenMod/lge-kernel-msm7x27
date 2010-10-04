@@ -1159,14 +1159,14 @@ void __init msm_clk_soc_init(void)
 		writel(val, ri_list[i].reg);
 	}
 
-	/* This is just to update the driver data structures. The actual
-	 * register set up is taken care of in the register init loop
-	 * or is the default value out of reset. */
 	set_1rate(I2C);
 	set_1rate(I2C_2);
 	set_1rate(QUP_I2C);
 	set_1rate(UART1);
 	set_1rate(UART2);
+	set_1rate(MI2S_M);
+	set_1rate(MIDI);
+	set_1rate(MDP_VSYNC);
 	set_1rate(LPA_CODEC);
 	set_1rate(GLBL_ROOT);
 
