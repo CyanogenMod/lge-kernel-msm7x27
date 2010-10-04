@@ -638,7 +638,7 @@ static int read_mailbox(int from_isr)
 	    !any_read_avail) {
 		pr_debug(MODULE_NAME ":Nothing to Notify\n");
 	} else {
-		pr_info(MODULE_NAME ":Notify bitmask rx=0x%x, tx=0x%x.\n",
+		pr_debug(MODULE_NAME ":Notify bitmask rx=0x%x, tx=0x%x.\n",
 			rx_notify_bitmask, tx_notify_bitmask);
 		/* Restart inactivity timer if any activity on the channel */
 		restart_inactive_time();
@@ -1383,12 +1383,12 @@ static int sdio_al_wake_up(u32 enable_wake_up_func, int is_host_claimed)
 	if (!is_host_claimed)
 		sdio_claim_host(wk_func);
 
-	pr_err(MODULE_NAME ":Turn clock on\n");
+	pr_debug(MODULE_NAME ":Turn clock on\n");
 	msmsdcc_set_pwrsave(sdio_al->card->host, 0);
 	/* Poll the GPIO */
 	time_to_wait = jiffies + msecs_to_jiffies(100);
 	while (time_before(jiffies, time_to_wait)) {
-			pr_err(MODULE_NAME ":GPIO (%d)=%d\n",
+			pr_debug(MODULE_NAME ":GPIO (%d)=%d\n",
 			       GPIO_PIN(sdio_al->mdm2ap_status->gpio_cfg),
 			       gpio_get_value(GPIO_PIN(
 					sdio_al->mdm2ap_status->gpio_cfg)));
@@ -1434,7 +1434,7 @@ static int sdio_al_wake_up(u32 enable_wake_up_func, int is_host_claimed)
 	pr_info(MODULE_NAME "Finished Wake up sequence");
 
 	msmsdcc_set_pwrsave(sdio_al->card->host, 1);
-	pr_err(MODULE_NAME ":Turn clock off\n");
+	pr_debug(MODULE_NAME ":Turn clock off\n");
 
 	return ret;
 }
@@ -1836,7 +1836,7 @@ int sdio_read(struct sdio_channel *ch, void *data, int len)
 		return -EINVAL;
 	}
 
-	pr_info(MODULE_NAME ":start ch %s read %d avail %d.\n",
+	pr_debug(MODULE_NAME ":start ch %s read %d avail %d.\n",
 		ch->name, len, ch->read_avail);
 
 	restart_inactive_time();
@@ -1866,7 +1866,7 @@ int sdio_read(struct sdio_channel *ch, void *data, int len)
 		ch->read_avail -= len;
 
 	ch->total_rx_bytes += len;
-	pr_info(MODULE_NAME ":end ch %s read %d avail %d total %d.\n",
+	pr_debug(MODULE_NAME ":end ch %s read %d avail %d total %d.\n",
 		ch->name, len, ch->read_avail, ch->total_rx_bytes);
 
 	sdio_release_host(sdio_al->card->sdio_func[0]);
@@ -1909,7 +1909,7 @@ int sdio_write(struct sdio_channel *ch, const void *data, int len)
 		restart_inactive_time();
 	}
 
-	pr_info(MODULE_NAME ":start ch %s write %d avail %d.\n",
+	pr_debug(MODULE_NAME ":start ch %s write %d avail %d.\n",
 		ch->name, len, ch->write_avail);
 
 	if (len > ch->write_avail) {
@@ -1922,7 +1922,7 @@ int sdio_write(struct sdio_channel *ch, const void *data, int len)
 	ret = sdio_ch_write(ch, data, len);
 
 	ch->total_tx_bytes += len;
-	pr_info(MODULE_NAME ":end ch %s write %d avail %d total %d.\n",
+	pr_debug(MODULE_NAME ":end ch %s write %d avail %d total %d.\n",
 		ch->name, len, ch->write_avail, ch->total_tx_bytes);
 
 	if (ret) {
