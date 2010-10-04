@@ -92,6 +92,10 @@ static int tpm_st_i2c_transfer_buf(struct tpm_chip *chip, u8 *buf, size_t count,
 
 	do {
 		if (!gpio_get_value(gpio)) {
+			/* reset the completion in case the irq fired
+			 * during the probe
+			 */
+			init_completion(com);
 			enable_irq(irq);
 			tmp = wait_for_completion_interruptible_timeout(
 				com, HZ/2);
@@ -220,6 +224,7 @@ static int tpm_st_i2c_probe(struct i2c_client *client,
 	int rc = 0;
 	struct tpm_st_i2c_platform_data *pd;
 	struct  tpm_chip *chip;
+	int high;
 
 	dev_dbg(&client->dev, "%s()\n", __func__);
 
@@ -262,20 +267,24 @@ static int tpm_st_i2c_probe(struct i2c_client *client,
 	/* This logic allows us to setup irq but not have it enabled, in
 	 * case the lines are already active
 	 */
+	high = gpio_get_value(pd->data_avail_gpio);
 	rc = request_irq(pd->data_avail_irq, tpm_st_i2c_isr, IRQF_TRIGGER_HIGH,
 			 DEVICE_NAME "-data", NULL);
 	if (rc) {
 		dev_err(&client->dev, "request for data irq failed\n");
 		goto data_irq_fail;
 	}
-	disable_irq(pd->data_avail_irq);
+	if (!high)
+		disable_irq(pd->data_avail_irq);
+	high = gpio_get_value(pd->accept_cmd_gpio);
 	rc = request_irq(pd->accept_cmd_irq, tpm_st_i2c_isr, IRQF_TRIGGER_HIGH,
 			 DEVICE_NAME "-cmd", NULL);
 	if (rc) {
 		dev_err(&client->dev, "request for cmd irq failed\n");
 		goto cmd_irq_fail;
 	}
-	/* accept command should already be high and the isr will disable it */
+	if (!high)
+		disable_irq(pd->accept_cmd_irq);
 
 	tpm_st_i2c_vendor.irq = pd->data_avail_irq;
 
