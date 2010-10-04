@@ -1758,21 +1758,6 @@ static struct mmc_platform_data msm7x2x_sdc4_data = {
 };
 #endif
 
-#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
-static void sdio_wakeup_gpiocfg_slot2(void)
-{
-	gpio_request(66, "sdio_wakeup");
-	gpio_direction_output(66, 1);
-	/*
-	 * MSM GPIO 66 will be used as both SDIO wakeup irq and
-	 * DATA_1 for slot 2. Hence, leave it to SDCC driver to
-	 * request this gpio again when it wants to use it as a
-	 * data line.
-	 */
-	gpio_free(66);
-}
-#endif
-
 static void __init msm7x2x_init_mmc(void)
 {
 	if (!machine_is_msm7x25_ffa() && !machine_is_msm7x27_ffa()) {
@@ -1791,7 +1776,7 @@ static void __init msm7x2x_init_mmc(void)
 	if (machine_is_msm7x25_surf() || machine_is_msm7x27_surf() ||
 		machine_is_msm7x27_ffa()) {
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
-		sdio_wakeup_gpiocfg_slot2();
+		msm_sdcc_setup_gpio(2, 1);
 		msm_add_sdcc(2, &msm7x2x_sdc2_data);
 #endif
 	}

@@ -5349,21 +5349,6 @@ static void msm_sdc1_lvlshft_enable(void)
 }
 #endif
 
-#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
-static void sdio_wakeup_gpiocfg_slot3(void)
-{
-	gpio_request(118, "sdio_wakeup");
-	gpio_direction_output(118, 1);
-	/*
-	 * MSM GPIO 118 will be used as both SDIO wakeup irq and
-	 * DATA_1 for slot 2. Hence, leave it to SDCC driver to
-	 * request this gpio again when it wants to use it as a
-	 * data line.
-	 */
-	gpio_free(118);
-}
-#endif
-
 static void __init msm7x30_init_mmc(void)
 {
 	vreg_s3 = vreg_get(NULL, "s3");
@@ -5399,7 +5384,7 @@ static void __init msm7x30_init_mmc(void)
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	sdcc_vreg_data[2].vreg_data = vreg_s3;
 	sdcc_vreg_data[2].level = 1800;
-	sdio_wakeup_gpiocfg_slot3();
+	msm_sdcc_setup_gpio(3, 1);
 	msm_add_sdcc(3, &msm7x30_sdc3_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
