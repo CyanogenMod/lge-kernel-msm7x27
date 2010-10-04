@@ -24,7 +24,7 @@ static const struct vcd_clnt_state_table *vcd_clnt_state_table[];
 void vcd_clnt_handle_device_err_fatal(struct vcd_clnt_ctxt *cctxt,
 								  u32 event)
 {
-	if (cctxt->clnt_state.state != VCD_CLIENT_STATE_NULL) {
+	if (cctxt->clnt_state.state == VCD_CLIENT_STATE_NULL) {
 		cctxt->callback(VCD_EVT_RESP_OPEN, VCD_ERR_HW_FATAL, NULL, 0,
 			cctxt, cctxt->client_data);
 		vcd_destroy_client_context(cctxt);
