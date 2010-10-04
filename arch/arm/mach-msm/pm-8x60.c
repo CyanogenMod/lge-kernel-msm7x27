@@ -23,10 +23,13 @@
 #include <linux/cpuidle.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/ktime.h>
 #include <linux/pm.h>
+#include <linux/pm_qos_params.h>
 #include <linux/proc_fs.h>
 #include <linux/smp.h>
 #include <linux/suspend.h>
+#include <linux/tick.h>
 #include <linux/uaccess.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
@@ -42,7 +45,7 @@
 #include "cpuidle.h"
 #include "idle.h"
 #include "pm.h"
-#include "rpm.h"
+#include "rpm_resources.h"
 #include "spm.h"
 #include "timer.h"
 
@@ -51,11 +54,13 @@
  *****************************************************************************/
 
 enum {
-	MSM_PM_DEBUG_SUSPEND = 1U << 0,
-	MSM_PM_DEBUG_POWER_COLLAPSE = 1U << 1,
-	MSM_PM_DEBUG_CLOCK = 1U << 3,
-	MSM_PM_DEBUG_RESET_VECTOR = 1U << 4,
-	MSM_PM_DEBUG_IDLE = 1U << 6,
+	MSM_PM_DEBUG_SUSPEND = BIT(0),
+	MSM_PM_DEBUG_POWER_COLLAPSE = BIT(1),
+	MSM_PM_DEBUG_SUSPEND_LIMITS = BIT(2),
+	MSM_PM_DEBUG_CLOCK = BIT(3),
+	MSM_PM_DEBUG_RESET_VECTOR = BIT(4),
+	MSM_PM_DEBUG_IDLE = BIT(6),
+	MSM_PM_DEBUG_IDLE_LIMITS = BIT(7),
 };
 
 static int msm_pm_debug_mask = 1;
@@ -101,8 +106,6 @@ static char *msm_pm_sleep_mode_labels[MSM_PM_SLEEP_MODE_NR] = {
 	[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT] = "wfi",
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] =
 		"standalone_power_collapse",
-	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SHALLOW_VDD_MIN] =
-		"power_collapse_shallow_vdd_min",
 };
 
 /*
@@ -536,20 +539,15 @@ static void msm_pm_config_hw_before_swfi(void)
 /*
  * Configure RPM resources.
  */
-static int msm_pm_config_rpm_resources(uint32_t sclk_count)
+static int msm_pm_config_rpm_resources(
+	uint32_t sclk_count, struct msm_rpmrs_limits *rs_limits)
 {
-	struct msm_rpm_iv_pair rs[] = {
-		{MSM_RPM_ID_TRIGGER_TIMED_TO, 0},
-		{MSM_RPM_ID_TRIGGER_TIMED_SCLK_COUNT, sclk_count},
-	};
 	int ret;
 
-	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
-		pr_info("%s: sclk_count %u\n", __func__, sclk_count);
-
-	ret = msm_rpm_set_noirq(MSM_RPM_CTX_SET_SLEEP, rs, ARRAY_SIZE(rs));
+	ret = msm_rpmrs_flush_buffer(sclk_count, rs_limits);
 	if (ret)
-		pr_err("%s: msm_rpm_set_noirq failed: %d\n", __func__, ret);
+		pr_err("%s: msm_rpmrs_flush_buffer failed: %d\n",
+			__func__, ret);
 
 	return ret;
 }
@@ -616,6 +614,7 @@ struct msm_pm_device {
 };
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_pm_device, msm_pm_devices);
+static struct msm_rpmrs_limits *msm_pm_idle_rs_limits;
 
 static void msm_pm_swfi(void)
 {
@@ -730,24 +729,62 @@ void arch_idle(void)
 
 int msm_pm_idle_prepare(struct cpuidle_device *dev)
 {
-	unsigned int nr_online = num_online_cpus();
+	uint32_t latency_us;
+	uint32_t sleep_us;
 	int i;
+
+	latency_us = (uint32_t) pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+	sleep_us = (uint32_t) ktime_to_ns(tick_nohz_get_sleep_length());
+	sleep_us = DIV_ROUND_UP(sleep_us, 1000);
 
 	for (i = 0; i < dev->state_count; i++) {
 		struct cpuidle_state *state = &dev->states[i];
 		enum msm_pm_sleep_mode mode;
 		bool allow;
+		struct msm_rpmrs_limits *rs_limits;
 
 		mode = (enum msm_pm_sleep_mode) state->driver_data;
 		allow = msm_pm_modes[MSM_PM_MODE(dev->cpu, mode)].idle_enabled;
 
 		switch (mode) {
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SHALLOW_VDD_MIN:
-			if (nr_online > 1)
+			if (num_online_cpus() > 1)
+				allow = false;
+			/* fall through */
+
+		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
+			/* fall through */
+
+		case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
+			if (!allow)
+				break;
+
+			rs_limits = msm_rpmrs_lowest_limits(
+						mode, latency_us, sleep_us);
+
+			if (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask)
+				pr_info("CPU%u: %s: %s, latency %uus, "
+					"sleep %uus, limit %p\n",
+					dev->cpu, __func__, state->desc,
+					latency_us, sleep_us, rs_limits);
+
+			if ((MSM_PM_DEBUG_IDLE_LIMITS & msm_pm_debug_mask) &&
+					rs_limits)
+				pr_info("CPU%u: %s: limit %p: "
+					"pxo %d, l2_cache %d, "
+					"vdd_mem %d, vdd_dig %d\n",
+					dev->cpu, __func__, rs_limits,
+					rs_limits->pxo,
+					rs_limits->l2_cache,
+					rs_limits->vdd_mem,
+					rs_limits->vdd_dig);
+
+			if (!rs_limits)
 				allow = false;
 			break;
+
 		default:
+			allow = false;
 			break;
 		}
 
@@ -755,10 +792,17 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 			pr_info("CPU%u: %s: allow %s: %d\n",
 				dev->cpu, __func__, state->desc, (int)allow);
 
-		if (allow)
+		if (allow) {
 			state->flags &= ~CPUIDLE_FLAG_IGNORE;
-		else
+			state->target_residency = 0;
+			state->exit_latency = rs_limits->latency_us[dev->cpu];
+			state->power_usage = rs_limits->power[dev->cpu];
+
+			if (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode)
+				msm_pm_idle_rs_limits = rs_limits;
+		} else {
 			state->flags |= CPUIDLE_FLAG_IGNORE;
+		}
 	}
 
 	return 0;
@@ -796,13 +840,16 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		int64_t timer_expiration = msm_timer_enter_idle();
 		bool timer_halted = false;
 		uint32_t sleep_delay;
+		int ret;
 
 		sleep_delay = (uint32_t) msm_pm_convert_and_cap_time(
 			timer_expiration, MSM_PM_SLEEP_TICK_LIMIT);
 		if (sleep_delay == 0) /* 0 would mean infinite time */
 			sleep_delay = 1;
 
-		if (!msm_pm_config_rpm_resources(sleep_delay)) {
+		ret = msm_pm_config_rpm_resources(sleep_delay,
+				msm_pm_idle_rs_limits);
+		if (!ret) {
 			msm_pm_power_collapse(true);
 			timer_halted = true;
 		}
@@ -857,8 +904,10 @@ static int msm_pm_enter(suspend_state_t state)
 		allow[i] = mode->supported && mode->suspend_enabled;
 	}
 
-	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SHALLOW_VDD_MIN] ||
-		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE]) {
+	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE]) {
+		struct msm_rpmrs_limits *rs_limits;
+		int ret;
+
 		if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)
 			pr_info("%s: power collapse\n", __func__);
 
@@ -871,8 +920,26 @@ static int msm_pm_enter(suspend_state_t state)
 		}
 #endif /* CONFIG_MSM_SLEEP_TIME_OVERRIDE */
 
-		if (!msm_pm_config_rpm_resources(msm_pm_max_sleep_time))
-			msm_pm_power_collapse(false);
+		rs_limits = msm_rpmrs_lowest_limits(
+				MSM_PM_SLEEP_MODE_POWER_COLLAPSE, -1, -1);
+
+		if ((MSM_PM_DEBUG_SUSPEND_LIMITS & msm_pm_debug_mask) &&
+				rs_limits)
+			pr_info("%s: limit %p: pxo %d, l2_cache %d, "
+				"vdd_mem %d, vdd_dig %d\n",
+				__func__, rs_limits,
+				rs_limits->pxo, rs_limits->l2_cache,
+				rs_limits->vdd_mem, rs_limits->vdd_dig);
+
+		if (rs_limits) {
+			ret = msm_pm_config_rpm_resources(
+					msm_pm_max_sleep_time, rs_limits);
+			if (!ret)
+				msm_pm_power_collapse(false);
+		} else {
+			pr_err("%s: cannot find the lowest power limit\n",
+				__func__);
+		}
 
 #ifdef CONFIG_MSM_IDLE_STATS
 		if (time != 0) {
@@ -937,7 +1004,7 @@ void platform_cpu_die(unsigned int cpu)
 	for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
 		struct msm_pm_platform_data *mode;
 
-		mode = &msm_pm_modes[MSM_PM_MODE(0, i)];
+		mode = &msm_pm_modes[MSM_PM_MODE(cpu, i)];
 		allow[i] = mode->supported && mode->suspend_enabled;
 	}
 
