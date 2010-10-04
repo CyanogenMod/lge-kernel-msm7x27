@@ -41,13 +41,12 @@
 #include "modem_notifier.h"
 #include "smd_private.h"
 
-#define NUM_SMD_PKT_PORTS 5
+#define NUM_SMD_PKT_PORTS 6
 #define DEVICE_NAME "smdpkt"
 #define MAX_BUF_SIZE 2048
 
 struct smd_pkt_dev {
 	struct cdev cdev;
-	char name[9];
 	struct device *devicep;
 	void *pil;
 	struct platform_driver driver;
@@ -400,6 +399,7 @@ static char *smd_pkt_dev_name[] = {
 	"smdcntl1",
 	"smdcntl2",
 	"smd22",
+	"smd_sns_dsps",
 	"smd_pkt_loopback",
 };
 
@@ -408,7 +408,17 @@ static char *smd_ch_name[] = {
 	"DATA6_CNTL",
 	"DATA7_CNTL",
 	"DATA22",
+	"SENSOR",
 	"LOOPBACK",
+};
+
+static uint32_t smd_ch_edge[] = {
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_DSPS,
+	SMD_APPS_MODEM,
 };
 
 static int smd_pkt_dummy_probe(struct platform_device *pdev)
@@ -435,6 +445,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 {
 	int r = 0;
 	struct smd_pkt_dev *smd_pkt_devp;
+	char *peripheral = NULL;
 
 	smd_pkt_devp = container_of(inode->i_cdev, struct smd_pkt_dev, cdev);
 
@@ -446,71 +457,72 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 	mutex_lock(&smd_pkt_devp->ch_lock);
 	if (smd_pkt_devp->ch == 0) {
 
-		smd_pkt_devp->pil = pil_get("modem");
-		if (IS_ERR(smd_pkt_devp->pil)) {
-			r = PTR_ERR(smd_pkt_devp->pil);
-			goto out;
-		}
+		if (smd_ch_edge[smd_pkt_devp->i] == SMD_APPS_MODEM)
+			peripheral = "modem";
 
-		/* Wait for the modem SMSM to be inited for the SMD
-		** Loopback channel to be allocated at the modem. Since
-		** the wait need to be done atmost once, using msleep
-		** doesn't degrade the performance. */
-		if (!strcmp(smd_ch_name[smd_pkt_devp->i], "LOOPBACK")) {
-			if (!is_modem_smsm_inited())
-				msleep(5000);
-			smsm_change_state(SMSM_APPS_STATE,
-				0, SMSM_SMD_LOOPBACK);
-			msleep(100);
-		}
+		if (peripheral) {
+			smd_pkt_devp->pil = pil_get("modem");
+			if (IS_ERR(smd_pkt_devp->pil)) {
+				r = PTR_ERR(smd_pkt_devp->pil);
+				goto out;
+			}
 
-		/*
-		 * Wait for a packet channel to be allocated so we know
-		 * the modem is ready enough.
-		 */
-		r = wait_for_completion_interruptible_timeout(
+			/* Wait for the modem SMSM to be inited for the SMD
+			** Loopback channel to be allocated at the modem. Since
+			** the wait need to be done atmost once, using msleep
+			** doesn't degrade the performance. */
+			if (!strcmp(smd_ch_name[smd_pkt_devp->i], "LOOPBACK")) {
+				if (!is_modem_smsm_inited())
+					msleep(5000);
+				smsm_change_state(SMSM_APPS_STATE,
+						  0, SMSM_SMD_LOOPBACK);
+				msleep(100);
+			}
+
+			/*
+			 * Wait for a packet channel to be allocated so we know
+			 * the modem is ready enough.
+			 */
+			r = wait_for_completion_interruptible_timeout(
 				&smd_pkt_devp->ch_allocated,
 				msecs_to_jiffies(120000));
-		if (r == 0) {
-			pr_err("Timed out waiting for SMD channel\n");
-			r = -ETIMEDOUT;
-			goto release_pil;
-		} else if (r < 0) {
-			pr_err("Error waiting for SMD channel: %d\n", r);
-			goto release_pil;
+			if (r == 0)
+				r = -ETIMEDOUT;
+			if (r < 0) {
+				pr_err("%s: wait failed for smd port: %d\n",
+				       __func__, r);
+				goto release_pil;
+			}
 		}
 
-		r = smd_open(smd_ch_name[smd_pkt_devp->i],
-			     &smd_pkt_devp->ch,
-			     smd_pkt_devp,
-			     ch_notify);
+		r = smd_named_open_on_edge(smd_ch_name[smd_pkt_devp->i],
+					   smd_ch_edge[smd_pkt_devp->i],
+					   &smd_pkt_devp->ch,
+					   smd_pkt_devp,
+					   ch_notify);
 		if (r < 0) {
-			printk(KERN_ERR "%s failed for %s with rc %d\n",
-					__func__, smd_ch_name[smd_pkt_devp->i],
-					r);
+			pr_err("%s: %s open failed %d\n", __func__,
+			       smd_ch_name[smd_pkt_devp->i], r);
 			goto release_pil;
 		}
 
 		r = wait_event_interruptible_timeout(
 				smd_pkt_devp->ch_opened_wait_queue,
 				smd_pkt_devp->is_open, (2 * HZ));
-		if (r < 0)
-			printk(KERN_ERR "%s: ERROR in"
-					" wait_event_interruptible - rc %d\n",
-					__func__, r);
-		else if (r == 0) {
-			printk(KERN_ERR "%s: Timed out waiting for %s to open",
-					__func__,
-					smd_ch_name[smd_pkt_devp->i]);
+		if (r == 0)
 			r = -ETIMEDOUT;
+
+		if (r < 0) {
+			pr_err("%s: wait failed for smd open: %d\n",
+			       __func__, r);
 		} else if (!smd_pkt_devp->is_open) {
-			printk("%s: Invalid open notification\n", __func__);
+			pr_err("%s: Invalid open notification\n", __func__);
 			r = -ENODEV;
 		} else
 			r = 0;
 	}
 release_pil:
-	if (r < 0)
+	if (peripheral && (r < 0))
 		pil_put(smd_pkt_devp->pil);
 out:
 	mutex_unlock(&smd_pkt_devp->ch_lock);
@@ -532,7 +544,8 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 	if (smd_pkt_devp->ch != 0) {
 		r = smd_close(smd_pkt_devp->ch);
 		smd_pkt_devp->ch = 0;
-		pil_put(smd_pkt_devp->pil);
+		if (smd_pkt_devp->pil)
+			pil_put(smd_pkt_devp->pil);
 	}
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
