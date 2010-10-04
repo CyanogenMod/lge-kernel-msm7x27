@@ -33,6 +33,7 @@
 #include <linux/workqueue.h>
 #include <linux/file.h>
 #include <linux/major.h>
+#include <linux/regulator/consumer.h>
 
 #define DRIVER_NAME "msm_rotator"
 
@@ -98,6 +99,7 @@ struct msm_rotator_dev {
 	struct clk *pclk;
 	struct clk *axi_clk;
 	int rot_clk_state;
+	struct regulator *regulator;
 	struct delayed_work rot_clk_work;
 	struct clk *imem_clk;
 	int imem_clk_state;
@@ -199,11 +201,15 @@ static void enable_rot_clks(void)
 {
 	clk_enable(msm_rotator_dev->pclk);
 	clk_enable(msm_rotator_dev->axi_clk);
+	if (msm_rotator_dev->regulator)
+		regulator_enable(msm_rotator_dev->regulator);
 }
 
 /* disable clocks needed by rotator block */
 static void disable_rot_clks(void)
 {
+	if (msm_rotator_dev->regulator)
+		regulator_disable(msm_rotator_dev->regulator);
 	clk_disable(msm_rotator_dev->pclk);
 	clk_disable(msm_rotator_dev->axi_clk);
 }
@@ -1106,6 +1112,10 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 		}
 	}
 
+	msm_rotator_dev->regulator = regulator_get(NULL, pdata->regulator_name);
+	if (IS_ERR(msm_rotator_dev->regulator))
+		msm_rotator_dev->regulator = NULL;
+
 	msm_rotator_dev->rot_clk_state = CLK_DIS;
 	INIT_DELAYED_WORK(&msm_rotator_dev->rot_clk_work,
 			  msm_rotator_rot_clk_work_f);
@@ -1207,6 +1217,8 @@ error_get_irq:
 	iounmap(msm_rotator_dev->io_base);
 error_get_resource:
 	mutex_destroy(&msm_rotator_dev->rotator_lock);
+	if (msm_rotator_dev->regulator)
+		regulator_put(msm_rotator_dev->regulator);
 	clk_put(msm_rotator_dev->axi_clk);
 error_axi_clk:
 	clk_put(msm_rotator_dev->pclk);
@@ -1240,6 +1252,8 @@ static int __devexit msm_rotator_remove(struct platform_device *plat_dev)
 		disable_rot_clks();
 	clk_put(msm_rotator_dev->pclk);
 	clk_put(msm_rotator_dev->axi_clk);
+	if (msm_rotator_dev->regulator)
+		regulator_put(msm_rotator_dev->regulator);
 	msm_rotator_dev->pclk = NULL;
 	msm_rotator_dev->axi_clk = NULL;
 	mutex_destroy(&msm_rotator_dev->imem_lock);
