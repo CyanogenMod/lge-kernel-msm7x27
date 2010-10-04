@@ -40,11 +40,17 @@ struct mdp4_statistic mdp4_stat;
 
 void mdp4_sw_reset(ulong bits)
 {
+	/* MDP cmd block enable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+
 	bits &= 0x1f;	/* 5 bits */
 	outpdw(MDP_BASE + 0x001c, bits);	/* MDP_SW_RESET */
 
 	while (inpdw(MDP_BASE + 0x001c) & bits) /* self clear when complete */
 		;
+	/* MDP cmd block disable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
 	MSM_FB_INFO("mdp4_sw_reset: 0x%x\n", (int)bits);
 }
 
@@ -58,6 +64,9 @@ void mdp4_overlay_cfg(int overlayer, int blt_mode, int refresh, int direct_out)
 	bits |= (refresh << 1);
 	direct_out &= 0x01;
 	bits |= direct_out;
+	/* MDP cmd block enable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+
 
 	if (overlayer == MDP4_MIXER0)
 		outpdw(MDP_BASE + 0x10004, bits); /* MDP_OVERLAY0_CFG */
@@ -65,11 +74,15 @@ void mdp4_overlay_cfg(int overlayer, int blt_mode, int refresh, int direct_out)
 		outpdw(MDP_BASE + 0x18004, bits); /* MDP_OVERLAY1_CFG */
 
 	MSM_FB_INFO("mdp4_overlay_cfg: 0x%x\n", (int)inpdw(MDP_BASE + 0x10004));
+	/* MDP cmd block disable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
 void mdp4_display_intf_sel(int output, ulong intf)
 {
 	ulong bits, mask, data;
+	/* MDP cmd block enable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	bits = inpdw(MDP_BASE + 0x0038);	/* MDP_DISP_INTF_SEL */
 
@@ -114,19 +127,32 @@ void mdp4_display_intf_sel(int output, ulong intf)
 	bits |= intf;
 
 	outpdw(MDP_BASE + 0x0038, bits);	/* MDP_DISP_INTF_SEL */
+	/* MDP cmd block disable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
   MSM_FB_INFO("mdp4_display_intf_sel: 0x%x\n", (int)inpdw(MDP_BASE + 0x0038));
 }
 
 unsigned long mdp4_display_status(void)
 {
-	return inpdw(MDP_BASE + 0x0018) & 0x3ff;	/* MDP_DISPLAY_STATUS */
+	ulong status;
+	/* MDP cmd block enable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+
+	status = inpdw(MDP_BASE + 0x0018) & 0x3ff;	/* MDP_DISPLAY_STATUS */
+
+	/* MDP cmd block disable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	return status;
 }
 
 void mdp4_ebi2_lcd_setup(int lcd, ulong base, int ystride)
 {
 	/* always use memory map */
 	ystride &= 0x01fff;	/* 13 bits */
+	/* MDP cmd block enable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+
 	if (lcd == EBI2_LCD0) {
 		outpdw(MDP_BASE + 0x0060, base);/* MDP_EBI2_LCD0 */
 		outpdw(MDP_BASE + 0x0068, ystride);/* MDP_EBI2_LCD0_YSTRIDE */
@@ -134,6 +160,8 @@ void mdp4_ebi2_lcd_setup(int lcd, ulong base, int ystride)
 		outpdw(MDP_BASE + 0x0064, base);/* MDP_EBI2_LCD1 */
 		outpdw(MDP_BASE + 0x006c, ystride);/* MDP_EBI2_LCD1_YSTRIDE */
 	}
+	/* MDP cmd block disable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
 void mdp4_mddi_setup(int mddi, unsigned long id)
@@ -150,8 +178,12 @@ void mdp4_mddi_setup(int mddi, unsigned long id)
 	id <<= 16;
 
 	bits |= id;
+	/* MDP cmd block enable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	outpdw(MDP_BASE + 0x0090, bits); /* MDP_MDDI_PARAM_WR_SEL */
+	/* MDP cmd block disable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
 int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req)
@@ -167,6 +199,8 @@ void mdp4_fetch_cfg(uint32 core_clk)
 	uint32 dmap_data, vg_data;
 	char *base;
 	int i;
+	/* MDP cmd block enable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	if (core_clk >= 90000000) { /* 90 Mhz */
 		dmap_data = 0x47; /* 16 bytes-burst x 8 req */
@@ -192,6 +226,8 @@ void mdp4_fetch_cfg(uint32 core_clk)
 		outpdw(base + 0x1004, vg_data);
 		base += MDP4_VIDEO_OFF;
 	}
+	/* MDP cmd block disable */
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
 void mdp4_hw_init(void)
