@@ -29,6 +29,12 @@
 #include <linux/slab.h>
 #include <linux/input/tdisc_shinetsu.h>
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+/* Early-suspend level */
+#define TDISC_SUSPEND_LEVEL 1
+#endif
+
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.1");
 MODULE_DESCRIPTION("Shinetsu Touchdisc driver");
@@ -60,6 +66,9 @@ struct tdisc_data {
 	struct i2c_client *clientp;
 	struct tdisc_platform_data *pdata;
 	struct delayed_work tdisc_work;
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	struct early_suspend	tdisc_early_suspend;
+#endif
 };
 
 static void process_tdisc_data(struct tdisc_data *dd, u8 *data)
@@ -156,7 +165,7 @@ static void tdisc_work_f(struct work_struct *work)
 		rc = i2c_smbus_read_i2c_block_data(dd->clientp,
 				TDSIC_BLK_READ_CMD, 8, data);
 		if (rc < 0) {
-			pr_err("%s:I2C read failed,trying again\n", __func__);
+			pr_debug("%s:I2C read failed,trying again\n", __func__);
 			rc = i2c_smbus_read_i2c_block_data(dd->clientp,
 						TDSIC_BLK_READ_CMD, 8, data);
 			if (rc < 0) {
@@ -265,6 +274,9 @@ static int __devexit tdisc_remove(struct i2c_client *client)
 
 	pm_runtime_disable(&client->dev);
 	dd = i2c_get_clientdata(client);
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&dd->tdisc_early_suspend);
+#endif
 	input_unregister_device(dd->tdisc_device);
 	if (dd->pdata->tdisc_release != NULL)
 		dd->pdata->tdisc_release();
@@ -298,9 +310,29 @@ static int tdisc_resume(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void tdisc_early_suspend(struct early_suspend *h)
+{
+	struct tdisc_data *dd = container_of(h, struct tdisc_data,
+						tdisc_early_suspend);
+
+	tdisc_suspend(&dd->clientp->dev);
+}
+
+static void tdisc_late_resume(struct early_suspend *h)
+{
+	struct tdisc_data *dd = container_of(h, struct tdisc_data,
+						tdisc_early_suspend);
+
+	tdisc_resume(&dd->clientp->dev);
+}
+#endif
+
 static struct dev_pm_ops tdisc_pm_ops = {
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend = tdisc_suspend,
 	.resume  = tdisc_resume,
+#endif
 };
 #endif
 
@@ -421,6 +453,14 @@ static int __devinit tdisc_probe(struct i2c_client *client,
 	}
 
 	pm_runtime_set_suspended(&client->dev);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	dd->tdisc_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +
+						TDISC_SUSPEND_LEVEL;
+	dd->tdisc_early_suspend.suspend = tdisc_early_suspend;
+	dd->tdisc_early_suspend.resume = tdisc_late_resume;
+	register_early_suspend(&dd->tdisc_early_suspend);
+#endif
 	return 0;
 
 probe_register_fail:
