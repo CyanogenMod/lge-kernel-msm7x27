@@ -294,7 +294,6 @@ static u32 res_trk_enable_pwr_rail(void)
 		}
 		msleep(20);
 	}
-	res_trk_sel_clk_rate(mfc_clk_freq_table[0]);
 	resource_context.rail_enabled = 1;
 	mutex_unlock(&resource_context.lock);
 	return true;
