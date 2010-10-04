@@ -1473,6 +1473,9 @@ int mdp4_overlay_blt_offset(struct fb_info *info, int *off)
 #endif
 	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
 		return mdp4_lcdc_overlay_blt_offset(off);
+
+	*off = -1;
+	return -EINVAL;
 }
 
 int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
