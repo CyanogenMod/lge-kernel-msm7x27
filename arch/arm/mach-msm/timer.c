@@ -938,7 +938,7 @@ unsigned long long sched_clock(void)
 	clock = &msm_clocks[MSM_GLOBAL_TIMER];
 	cs = &clock->clocksource;
 
-	ticks  = cs->read(clock);
+	ticks  = cs->read(cs);
 
 	spin_lock_irqsave(&msm_timer_sched_clock_lock, irq_flags);
 	delta = (ticks - last_ticks) & cs->mask;
