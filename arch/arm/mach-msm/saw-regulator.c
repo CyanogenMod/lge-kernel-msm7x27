@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/mfd/pmic8901.h>
@@ -57,13 +58,30 @@
  * called.
  */
 #define BOOT_LOADER_CORE_VOLTAGE	1200000
+#define MIN_CORE_VOLTAGE		950000
+
+/* Specifies the PMIC internal slew rate in uV/us. */
+#define REGULATOR_SLEW_RATE		1250
 
 static int pmic8901_rev;
 
 static int saw_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 {
-	int rc;
+	/* Initialize min_uV to minimum possible set point value */
+	static int prev_min_uV[NR_CPUS] = {
+		[0 ... NR_CPUS - 1] = MIN_CORE_VOLTAGE
+	};
+	int rc, delay = 0, id;
 	u8 vlevel, band;
+
+	/* Calculate a time value to delay for so that voltage can stabalize. */
+	id = rdev_get_id(dev);
+	if (id >= 0 && id < num_possible_cpus()) {
+		if (min_uV > prev_min_uV[id])
+			delay = (min_uV - prev_min_uV[id]) /
+				REGULATOR_SLEW_RATE;
+		prev_min_uV[id] = min_uV;
+	}
 
 	/*
 	 * Scale down setpoint for PMIC 8901 v1 as it outputs a voltage
@@ -106,6 +124,9 @@ static int saw_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 	rc = msm_spm_set_vdd(rdev_get_id(dev), vlevel | band);
 	if (rc)
 		pr_err("%s: msm_spm_set_vdd failed %d\n", __func__, rc);
+	/* Wait for voltage to stabalize */
+	if (delay > 0)
+		udelay(delay);
 
 	return rc;
 }
