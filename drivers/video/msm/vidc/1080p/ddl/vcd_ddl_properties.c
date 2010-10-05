@@ -1391,7 +1391,8 @@ void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data *encoder)
 	u32 y_cb_cr_size, y_size;
 
 	y_cb_cr_size = ddl_get_yuv_buffer_size(&encoder->frame_size,
-				&encoder->buf_format, false, &y_size);
+				&encoder->buf_format, false,
+				encoder->hdr.decoding, &y_size);
 	encoder->input_buf_size.size_yuv = y_cb_cr_size;
 	encoder->input_buf_size.size_y   = y_size;
 	encoder->input_buf_size.size_c   = y_cb_cr_size - y_size;
@@ -1442,7 +1443,8 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 		input_buf_req = &decoder->client_input_buf_req;
 		y_cb_cr_size = ddl_get_yuv_buffer_size(frame_size,
 					&decoder->buf_format,
-					(!decoder->progressive_only), NULL);
+					(!decoder->progressive_only),
+					decoder->hdr.decoding, NULL);
 	} else {
 		if (min_dpb >= decoder->min_dpb_num) {
 			frame_size = &decoder->frame_size;
@@ -1494,7 +1496,7 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 
 u32 ddl_get_yuv_buffer_size(struct vcd_property_frame_size *frame_size,
 	struct vcd_property_buffer_format *buf_format,
-	u32 interlace, u32 *pn_c_offset)
+	u32 interlace, u32 decoding, u32 *pn_c_offset)
 {
 	struct vcd_property_frame_size frame_sz = *frame_size;
 	u32 total_memory_size = 0, c_offset = 0;
@@ -1522,7 +1524,11 @@ u32 ddl_get_yuv_buffer_size(struct vcd_property_frame_size *frame_size,
 					DDL_TILE_MULTIPLY_FACTOR);
 		total_memory_size += component_mem_size;
 	} else {
-		total_memory_size = frame_sz.scan_lines * frame_sz.stride;
+		if (decoding)
+			total_memory_size = frame_sz.scan_lines *
+						frame_sz.stride;
+		else
+			total_memory_size = frame_sz.height * frame_sz.width;
 		c_offset = DDL_ALIGN(total_memory_size,
 			DDL_LINEAR_MULTIPLY_FACTOR);
 		total_memory_size = c_offset + DDL_ALIGN(
