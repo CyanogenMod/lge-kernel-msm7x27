@@ -164,6 +164,9 @@ void mdp4_overlay_update_lcd(struct msm_fb_data_type *mfd)
 		pipe = mddi_pipe;
 	}
 
+	/* 0 for dma_p, client_id = 0 */
+	MDP_OUTP(MDP_BASE + 0x00090, 0);
+
 
 	src = (uint8 *) iBuf->buf;
 
@@ -493,7 +496,9 @@ void mdp4_dma_s_update_lcd(struct msm_fb_data_type *mfd,
 	}
 
 	MDP_OUTP(MDP_BASE + 0xa0010, (pipe->dst_y << 16) | pipe->dst_x);
-	MDP_OUTP(MDP_BASE + 0x00090, 1); /* do not change this */
+
+	/* 1 for dma_s, client_id = 0 */
+	MDP_OUTP(MDP_BASE + 0x00090, 1);
 
 	mddi_vdo_packet_reg = mfd->panel_info.mddi.vdopkt;
 
