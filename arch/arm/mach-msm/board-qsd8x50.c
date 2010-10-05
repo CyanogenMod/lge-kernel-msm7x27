@@ -1597,7 +1597,7 @@ static void msm_camera_vreg_config(int vreg_en)
 	}
 }
 
-static void config_camera_on_gpios(void)
+static int config_camera_on_gpios(void)
 {
 	int vreg_en = 1;
 
@@ -1610,6 +1610,7 @@ static void config_camera_on_gpios(void)
 	}
 	config_gpio_table(camera_on_gpio_table,
 		ARRAY_SIZE(camera_on_gpio_table));
+	return 0;
 }
 
 static void config_camera_off_gpios(void)
