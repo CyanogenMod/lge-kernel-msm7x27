@@ -518,6 +518,7 @@ static void voice_auddev_cb_function(u32 evt_id,
 			if ((v->dev_rx.enabled == VOICE_DEV_ENABLED) &&
 				(v->dev_tx.enabled == VOICE_DEV_ENABLED)) {
 				voice_start_modem_voice(v);
+				voice_send_mute_cmd_to_modem(v);
 				v->voc_state = VOC_RUN;
 			}
 		} else if ((v->voc_state == VOC_INIT) ||
