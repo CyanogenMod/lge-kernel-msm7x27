@@ -140,5 +140,6 @@ extern struct tvenc_platform_data *tvenc_pdata;
 #define MSM_TV_INTR_STATUS			0x204
 #define MSM_TV_INTR_CLEAR			0x208
 
+int tvenc_set_encoder_clock(boolean clock_on);
 int tvenc_set_clock(boolean clock_on);
 #endif /* TVENC_H */

@@ -60,6 +60,8 @@ static int pdev_list_cnt;
 
 static struct clk *tvenc_clk;
 static struct clk *tvdac_clk;
+static struct clk *tvenc_pclk;
+static struct clk *mdp_tv_clk;
 #ifdef CONFIG_FB_MSM_MDP40
 static struct clk *tv_src_clk;
 #endif
@@ -93,15 +95,16 @@ static struct platform_driver tvenc_driver = {
 		   },
 };
 
-int tvenc_set_clock(boolean clock_on)
+int tvenc_set_encoder_clock(boolean clock_on)
 {
 	int ret = 0;
 	if (clock_on) {
 #ifdef CONFIG_FB_MSM_MDP40
-		clk_set_rate(tv_src_clk, 27000000);
-		ret = clk_enable(tv_src_clk);
+		/* Consolidated clock used by both HDMI & TV encoder.
+		Clock exists only in MDP4 and not in older versions */
+		ret = clk_set_rate(tv_src_clk, 27000000);
 		if (ret) {
-			pr_err("%s: tvsrc_clk enable failed! %d\n",
+			pr_err("%s: tvsrc_clk set rate failed! %d\n",
 				__func__, ret);
 			goto tvsrc_err;
 		}
@@ -110,32 +113,71 @@ int tvenc_set_clock(boolean clock_on)
 		if (ret) {
 			pr_err("%s: tvenc_clk enable failed! %d\n",
 				__func__, ret);
-			goto tvenc_err;
+			goto tvsrc_err;
 		}
 
+		if (!IS_ERR(tvenc_pclk)) {
+			ret = clk_enable(tvenc_pclk);
+			if (ret) {
+				pr_err("%s: tvenc_pclk enable failed! %d\n",
+					__func__, ret);
+				goto tvencp_err;
+			}
+		}
+		return ret;
+	} else {
+		if (!IS_ERR(tvenc_pclk))
+			clk_disable(tvenc_pclk);
+		clk_disable(tvenc_clk);
+		return ret;
+	}
+tvencp_err:
+	clk_disable(tvenc_clk);
+tvsrc_err:
+	return ret;
+}
+
+int tvenc_set_clock(boolean clock_on)
+{
+	int ret = 0;
+	if (clock_on) {
+		if (tvenc_pdata->poll) {
+			ret = tvenc_set_encoder_clock(CLOCK_ON);
+			if (ret) {
+				pr_err("%s: TVenc clock(s) enable failed! %d\n",
+					__func__, ret);
+				goto tvenc_err;
+			}
+		}
 		ret = clk_enable(tvdac_clk);
 		if (ret) {
 			pr_err("%s: tvdac_clk enable failed! %d\n",
 				__func__, ret);
 			goto tvdac_err;
 		}
+		if (!IS_ERR(mdp_tv_clk)) {
+			ret = clk_enable(mdp_tv_clk);
+			if (ret) {
+				pr_err("%s: mdp_tv_clk enable failed! %d\n",
+					__func__, ret);
+				goto mdptv_err;
+			}
+		}
 		return ret;
 	} else {
+		if (!IS_ERR(mdp_tv_clk))
+			clk_disable(mdp_tv_clk);
 		clk_disable(tvdac_clk);
-		clk_disable(tvenc_clk);
-#ifdef CONFIG_FB_MSM_MDP40
-		clk_disable(tv_src_clk);
-#endif
+		if (tvenc_pdata->poll)
+			tvenc_set_encoder_clock(CLOCK_OFF);
 		return ret;
 	}
 
+mdptv_err:
+	clk_disable(tvdac_clk);
 tvdac_err:
-	clk_disable(tvenc_clk);
+	tvenc_set_encoder_clock(CLOCK_OFF);
 tvenc_err:
-#ifdef CONFIG_FB_MSM_MDP40
-	clk_disable(tv_src_clk);
-tvsrc_err:
-#endif
 	return ret;
 }
 
@@ -143,7 +185,7 @@ static int tvenc_off(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	struct msm_fb_data_type *mfd;	
+	struct msm_fb_data_type *mfd;
 
 	mfd = platform_get_drvdata(pdev);
 
@@ -197,6 +239,7 @@ static int tvenc_on(struct platform_device *pdev)
 		tvenc_set_clock(CLOCK_OFF);
 		tvenc_pdata->pm_vid_en(0);
 	}
+
 error:
 	return ret;
 
@@ -387,8 +430,11 @@ static int tvenc_register_driver(void)
 
 static int __init tvenc_driver_init(void)
 {
+	int ret;
 	tvenc_clk = clk_get(NULL, "tv_enc_clk");
 	tvdac_clk = clk_get(NULL, "tv_dac_clk");
+	tvenc_pclk = clk_get(NULL, "tv_enc_pclk");
+	mdp_tv_clk = clk_get(NULL, "mdp_tv_clk");
 
 #ifdef CONFIG_FB_MSM_MDP40
 	tv_src_clk = clk_get(NULL, "tv_src_clk");
@@ -397,13 +443,33 @@ static int __init tvenc_driver_init(void)
 #endif
 
 	if (IS_ERR(tvenc_clk)) {
-		pr_err("error: can't get tvenc_clk!\n");
-		return IS_ERR(tvenc_clk);
+		pr_err("%s: error: can't get tvenc_clk!\n", __func__);
+		return PTR_ERR(tvenc_clk);
 	}
 
 	if (IS_ERR(tvdac_clk)) {
-		pr_err("error: can't get tvdac_clk!\n");
-		return IS_ERR(tvdac_clk);
+		pr_err("%s: error: can't get tvdac_clk!\n", __func__);
+		return PTR_ERR(tvdac_clk);
+	}
+
+	if (IS_ERR(tvenc_pclk)) {
+		ret = PTR_ERR(tvenc_pclk);
+		if (-ENOENT == ret)
+			pr_info("%s: tvenc_pclk does not exist!\n", __func__);
+		else {
+			pr_err("%s: error: can't get tvenc_pclk!\n", __func__);
+			return ret;
+		}
+	}
+
+	if (IS_ERR(mdp_tv_clk)) {
+		ret = PTR_ERR(mdp_tv_clk);
+		if (-ENOENT == ret)
+			pr_info("%s: mdp_tv_clk does not exist!\n", __func__);
+		else {
+			pr_err("%s: error: can't get mdp_tv_clk!\n", __func__);
+			return ret;
+		}
 	}
 
 	return tvenc_register_driver();
