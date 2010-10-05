@@ -346,8 +346,13 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.set_grp3d_async = NULL,
 	.imem_clk_name = NULL,
 	.grp3d_clk_name = "gfx3d_clk",
+#ifdef CONFIG_MSM_KGSL_2D
 	.grp2d0_clk_name = "gfx2d0_clk",
 	.grp2d1_clk_name = "gfx2d1_clk",
+#else
+	.grp2d0_clk_name = NULL,
+	.grp2d1_clk_name = NULL,
+#endif
 };
 
 struct platform_device msm_device_kgsl = {

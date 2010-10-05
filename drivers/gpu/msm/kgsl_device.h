@@ -39,6 +39,7 @@
 
 #include "kgsl_mmu.h"
 #include "kgsl_ringbuffer.h"
+#include "kgsl_pwrctrl.h"
 
 #define KGSL_CONTEXT_MAX        8
 
@@ -51,24 +52,6 @@
 #define KGSL_DEV_FLAGS_INITIALIZED	0x00000002
 #define KGSL_DEV_FLAGS_STARTED		0x00000004
 #define KGSL_DEV_FLAGS_ACTIVE		0x00000008
-
-/*****************************************************************************
-** power flags
-*****************************************************************************/
-#define KGSL_PWRFLAGS_YAMATO_POWER_OFF		0x00000001
-#define KGSL_PWRFLAGS_YAMATO_POWER_ON		0x00000002
-#define KGSL_PWRFLAGS_YAMATO_CLK_ON		0x00000004
-#define KGSL_PWRFLAGS_YAMATO_CLK_OFF		0x00000008
-#define KGSL_PWRFLAGS_OVERRIDE_ON		0x00000010
-#define KGSL_PWRFLAGS_OVERRIDE_OFF		0x00000020
-#define KGSL_PWRFLAGS_YAMATO_IRQ_ON		0x00000040
-#define KGSL_PWRFLAGS_YAMATO_IRQ_OFF		0x00000080
-#define KGSL_PWRFLAGS_G12_CLK_ON		0x00000100
-#define KGSL_PWRFLAGS_G12_CLK_OFF		0x00000200
-#define KGSL_PWRFLAGS_G12_IRQ_ON		0x00000400
-#define KGSL_PWRFLAGS_G12_IRQ_OFF		0x00000800
-#define KGSL_PWRFLAGS_G12_POWER_OFF		0x00001000
-#define KGSL_PWRFLAGS_G12_POWER_ON		0x00002000
 
 #define KGSL_CHIPID_YAMATODX_REV21  0x20100
 #define KGSL_CHIPID_YAMATODX_REV211 0x20101
@@ -152,7 +135,7 @@ struct kgsl_device {
 	struct kgsl_functable ftbl;
 	struct work_struct idle_check_ws;
 	struct timer_list idle_timer;
-	unsigned int interval_timeout;
+	struct kgsl_pwrctrl pwrctrl;
 	atomic_t open_count;
 
 	struct atomic_notifier_head ts_notifier_list;

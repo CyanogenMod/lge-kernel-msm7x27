@@ -180,28 +180,6 @@ int kgsl_idle(struct kgsl_device *device, unsigned int timeout)
 	return status;
 }
 
-void kgsl_idle_check(struct work_struct *work)
-{
-	struct kgsl_device *device = container_of(work, struct kgsl_device,
-							idle_check_ws);
-
-	mutex_lock(&kgsl_driver.mutex);
-	if (device->hwaccess_blocked == KGSL_FALSE
-	    && device->flags & KGSL_FLAGS_STARTED) {
-		if (device->ftbl.device_sleep(device, KGSL_FALSE) ==
-								KGSL_FAILURE)
-			mod_timer(&device->idle_timer,
-					jiffies + device->interval_timeout);
-	}
-	mutex_unlock(&kgsl_driver.mutex);
-}
-
-void kgsl_timer(unsigned long data)
-{
-	struct kgsl_device *device = (struct kgsl_device *) data;
-	/* Have work run in a non-interrupt context. */
-	schedule_work(&device->idle_check_ws);
-}
 
 int kgsl_setup_pt(struct kgsl_pagetable *pt)
 {
@@ -238,175 +216,6 @@ int kgsl_cleanup_pt(struct kgsl_pagetable *pt)
 	return 0;
 }
 
-int kgsl_pwrctrl(unsigned int pwrflag)
-{
-	switch (pwrflag) {
-	case KGSL_PWRFLAGS_YAMATO_CLK_OFF:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_YAMATO_CLK_ON) {
-			if (kgsl_driver.yamato_grp_pclk)
-				clk_disable(kgsl_driver.yamato_grp_pclk);
-
-			clk_disable(kgsl_driver.yamato_grp_clk);
-			if (kgsl_driver.imem_clk != NULL)
-				clk_disable(kgsl_driver.imem_clk);
-			if (kgsl_driver.clk_freq[KGSL_3D_MIN_FREQ])
-				clk_set_min_rate(kgsl_driver.yamato_grp_src_clk,
-					kgsl_driver.clk_freq[KGSL_3D_MIN_FREQ]);
-			if (kgsl_driver.clk_freq[KGSL_AXI_HIGH_3D])
-				if (kgsl_driver.clk_freq[KGSL_AXI_HIGH_3D])
-					pm_qos_update_request(kgsl_driver.pm_qos_req,
-							      PM_QOS_DEFAULT_VALUE);
-			kgsl_driver.power_flags &=
-					~(KGSL_PWRFLAGS_YAMATO_CLK_ON);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_YAMATO_CLK_OFF;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_YAMATO_CLK_ON:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_YAMATO_CLK_OFF) {
-			if (kgsl_driver.clk_freq[KGSL_AXI_HIGH_3D])
-				pm_qos_update_request(
-						kgsl_driver.pm_qos_req,
-						kgsl_driver.clk_freq[KGSL_AXI_HIGH_3D]);
-			if (kgsl_driver.clk_freq[KGSL_3D_MAX_FREQ])
-				clk_set_min_rate(kgsl_driver.yamato_grp_src_clk,
-					kgsl_driver.clk_freq[KGSL_3D_MAX_FREQ]);
-			if (kgsl_driver.yamato_grp_pclk)
-				clk_enable(kgsl_driver.yamato_grp_pclk);
-			clk_enable(kgsl_driver.yamato_grp_clk);
-			if (kgsl_driver.imem_clk != NULL)
-				clk_enable(kgsl_driver.imem_clk);
-
-			kgsl_driver.power_flags &=
-				~(KGSL_PWRFLAGS_YAMATO_CLK_OFF);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_YAMATO_CLK_ON;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_G12_CLK_OFF:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_G12_CLK_ON) {
-			if (kgsl_driver.g12_grp_pclk)
-				clk_disable(kgsl_driver.g12_grp_pclk);
-			if (kgsl_driver.g12_grp_clk != NULL) {
-				clk_disable(kgsl_driver.g12_grp_clk);
-				if (kgsl_driver.clk_freq[KGSL_2D_MIN_FREQ])
-					clk_set_min_rate(
-					kgsl_driver.g12_grp_clk,
-					kgsl_driver.clk_freq[KGSL_2D_MIN_FREQ]);
-			}
-			if (kgsl_driver.clk_freq[KGSL_AXI_HIGH_2D])
-				if (kgsl_driver.clk_freq[KGSL_AXI_HIGH_2D])
-					pm_qos_update_request(kgsl_driver.g12_pm_qos_req,
-							      PM_QOS_DEFAULT_VALUE);
-			kgsl_driver.power_flags &= ~(KGSL_PWRFLAGS_G12_CLK_ON);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_G12_CLK_OFF;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_G12_CLK_ON:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_G12_CLK_OFF) {
-			if (kgsl_driver.clk_freq[KGSL_AXI_HIGH_2D])
-				pm_qos_update_request(
-						kgsl_driver.pm_qos_req,
-						kgsl_driver.clk_freq[KGSL_AXI_HIGH_2D]);
-			if (kgsl_driver.g12_grp_pclk)
-				clk_enable(kgsl_driver.g12_grp_pclk);
-			if (kgsl_driver.g12_grp_clk != NULL) {
-				if (kgsl_driver.clk_freq[KGSL_2D_MAX_FREQ])
-					clk_set_min_rate(
-					kgsl_driver.g12_grp_clk,
-					kgsl_driver.clk_freq[KGSL_2D_MAX_FREQ]);
-				clk_enable(kgsl_driver.g12_grp_clk);
-			}
-
-			kgsl_driver.power_flags &= ~(KGSL_PWRFLAGS_G12_CLK_OFF);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_G12_CLK_ON;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_YAMATO_POWER_OFF:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_YAMATO_POWER_ON) {
-			internal_pwr_rail_ctl(PWR_RAIL_GRP_CLK, KGSL_FALSE);
-			internal_pwr_rail_mode(PWR_RAIL_GRP_CLK,
-					PWR_RAIL_CTL_AUTO);
-			if (kgsl_driver.yamato_reg)
-				regulator_disable(kgsl_driver.yamato_reg);
-			kgsl_driver.power_flags &=
-					~(KGSL_PWRFLAGS_YAMATO_POWER_ON);
-			kgsl_driver.power_flags |=
-					KGSL_PWRFLAGS_YAMATO_POWER_OFF;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_YAMATO_POWER_ON:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_YAMATO_POWER_OFF) {
-			internal_pwr_rail_mode(PWR_RAIL_GRP_CLK,
-					PWR_RAIL_CTL_MANUAL);
-			internal_pwr_rail_ctl(PWR_RAIL_GRP_CLK, KGSL_TRUE);
-			if (kgsl_driver.yamato_reg)
-				regulator_enable(kgsl_driver.yamato_reg);
-			kgsl_driver.power_flags &=
-					~(KGSL_PWRFLAGS_YAMATO_POWER_OFF);
-			kgsl_driver.power_flags |=
-					KGSL_PWRFLAGS_YAMATO_POWER_ON;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_G12_POWER_OFF:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_G12_POWER_ON) {
-			internal_pwr_rail_ctl(PWR_RAIL_GRP_2D_CLK, KGSL_FALSE);
-			internal_pwr_rail_mode(PWR_RAIL_GRP_2D_CLK,
-					PWR_RAIL_CTL_AUTO);
-			if (kgsl_driver.g12_reg)
-				regulator_disable(kgsl_driver.g12_reg);
-			kgsl_driver.power_flags &=
-					~(KGSL_PWRFLAGS_G12_POWER_ON);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_G12_POWER_OFF;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_G12_POWER_ON:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_G12_POWER_OFF) {
-			internal_pwr_rail_mode(PWR_RAIL_GRP_2D_CLK,
-					PWR_RAIL_CTL_MANUAL);
-			internal_pwr_rail_ctl(PWR_RAIL_GRP_2D_CLK, KGSL_TRUE);
-			if (kgsl_driver.g12_reg)
-				regulator_enable(kgsl_driver.g12_reg);
-			kgsl_driver.power_flags &=
-					~(KGSL_PWRFLAGS_G12_POWER_OFF);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_G12_POWER_ON;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_YAMATO_IRQ_ON:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_YAMATO_IRQ_OFF) {
-			enable_irq(kgsl_driver.yamato_interrupt_num);
-			kgsl_driver.power_flags &=
-				~(KGSL_PWRFLAGS_YAMATO_IRQ_OFF);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_YAMATO_IRQ_ON;
-		}
-
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_YAMATO_IRQ_OFF:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_YAMATO_IRQ_ON) {
-			disable_irq(kgsl_driver.yamato_interrupt_num);
-			kgsl_driver.power_flags &=
-				~(KGSL_PWRFLAGS_YAMATO_IRQ_ON);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_YAMATO_IRQ_OFF;
-		}
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_G12_IRQ_ON:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_G12_IRQ_OFF) {
-			enable_irq(kgsl_driver.g12_interrupt_num);
-			kgsl_driver.power_flags &= ~(KGSL_PWRFLAGS_G12_IRQ_OFF);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_G12_IRQ_ON;
-		}
-
-		return KGSL_SUCCESS;
-	case KGSL_PWRFLAGS_G12_IRQ_OFF:
-		if (kgsl_driver.power_flags & KGSL_PWRFLAGS_G12_IRQ_ON) {
-			disable_irq(kgsl_driver.g12_interrupt_num);
-			kgsl_driver.power_flags &= ~(KGSL_PWRFLAGS_G12_IRQ_ON);
-			kgsl_driver.power_flags |= KGSL_PWRFLAGS_G12_IRQ_OFF;
-		}
-		return KGSL_SUCCESS;
-	default:
-		return KGSL_FAILURE;
-	}
-}
-
 /*Suspend function*/
 static int kgsl_suspend(struct platform_device *dev, pm_message_t state)
 {
@@ -414,15 +223,13 @@ static int kgsl_suspend(struct platform_device *dev, pm_message_t state)
 	struct kgsl_device *device;
 
 	mutex_lock(&kgsl_driver.mutex);
-	if (kgsl_driver.power_flags != 0) {
-		for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-			device = kgsl_driver.devp[i];
-			if (device && device->hwaccess_blocked == KGSL_FALSE)
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		device = kgsl_driver.devp[i];
+		if (device && device->pwrctrl.power_flags != 0)
+			if (device->hwaccess_blocked == KGSL_FALSE)
 				device->ftbl.device_suspend(device);
-		}
-
-		kgsl_driver.is_suspended = KGSL_TRUE;
 	}
+	kgsl_driver.is_suspended = KGSL_TRUE;
 	mutex_unlock(&kgsl_driver.mutex);
 	return KGSL_SUCCESS;
 }
@@ -434,15 +241,12 @@ static int kgsl_resume(struct platform_device *dev)
 	struct kgsl_device *device;
 
 	mutex_lock(&kgsl_driver.mutex);
-	if (kgsl_driver.power_flags != 0) {
-		for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-			device = kgsl_driver.devp[i];
-			if (device != NULL)
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		device = kgsl_driver.devp[i];
+		if (device && device->pwrctrl.power_flags != 0)
 				device->ftbl.device_wake(device);
-		}
-
-		kgsl_driver.is_suspended = KGSL_FALSE;
 	}
+	kgsl_driver.is_suspended = KGSL_FALSE;
 	mutex_unlock(&kgsl_driver.mutex);
 	return KGSL_SUCCESS;
 }
@@ -547,7 +351,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	BUG_ON(device == NULL);
 
 	mutex_lock(&kgsl_driver.mutex);
-	KGSL_PRE_HWACCESS();
+	kgsl_pre_hwaccess(device);
 
 	dev_priv = (struct kgsl_device_private *) filep->private_data;
 	BUG_ON(dev_priv == NULL);
@@ -572,7 +376,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 		result = device->ftbl.device_stop(device);
 	}
 
-	KGSL_POST_HWACCESS();
+	mutex_unlock(&kgsl_driver.mutex);
 	kfree(dev_priv);
 
 	BUG_ON(kgsl_driver.pdev == NULL);
@@ -1536,7 +1340,7 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		result = device->ftbl.device_ioctl(dev_priv, cmd, arg);
 		break;
 	}
-	KGSL_POST_HWACCESS();
+	mutex_unlock(&kgsl_driver.mutex);
 	KGSL_DRV_VDBG("result %d\n", result);
 	return result;
 }
@@ -1655,13 +1459,6 @@ static void kgsl_driver_cleanup(void)
 		kgsl_driver.global_pt = NULL;
 	}
 
-	pm_qos_remove_request(kgsl_driver.pm_qos_req);
-
-	if (kgsl_driver.yamato_grp_pclk) {
-		clk_put(kgsl_driver.yamato_grp_pclk);
-		kgsl_driver.yamato_grp_pclk = NULL;
-	}
-
 	kgsl_yamato_close(kgsl_get_yamato_generic_device());
 
 	kgsl_g12_close(kgsl_get_g12_generic_device());
@@ -1669,38 +1466,7 @@ static void kgsl_driver_cleanup(void)
 	/* shutdown memory apertures */
 	kgsl_sharedmem_close(&kgsl_driver.shmem);
 
-	if (kgsl_driver.yamato_grp_clk) {
-		clk_put(kgsl_driver.yamato_grp_clk);
-		kgsl_driver.yamato_grp_clk = NULL;
-	}
-
-	if (kgsl_driver.imem_clk != NULL) {
-		clk_put(kgsl_driver.imem_clk);
-		kgsl_driver.imem_clk = NULL;
-	}
-
-	if (kgsl_driver.g12_grp_pclk) {
-		clk_put(kgsl_driver.g12_grp_pclk);
-		kgsl_driver.g12_grp_pclk = NULL;
-	}
-
-	if (kgsl_driver.g12_grp_clk) {
-		clk_put(kgsl_driver.g12_grp_clk);
-		kgsl_driver.g12_grp_clk = NULL;
-		pm_qos_remove_request(kgsl_driver.g12_pm_qos_req);
-	}
-	if (kgsl_driver.yamato_reg) {
-		regulator_put(kgsl_driver.yamato_reg);
-		kgsl_driver.yamato_reg = NULL;
-	}
-	if (kgsl_driver.g12_reg) {
-		regulator_put(kgsl_driver.g12_reg);
-		kgsl_driver.g12_reg = NULL;
-	}
-
 	kgsl_driver.pdev = NULL;
-	kgsl_driver.power_flags = 0;
-
 }
 
 static int kgsl_add_device(int dev_idx)
@@ -1806,10 +1572,10 @@ error_class_create:
 static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 {
 	int i, result = 0;
-	struct clk *clk, *grp_clk;
 	struct resource *res = NULL;
 	struct kgsl_platform_data *pdata = NULL;
-	struct kgsl_device *device = NULL;
+	struct kgsl_device *device = kgsl_get_yamato_generic_device();
+	struct kgsl_device *device_g12 = kgsl_get_g12_generic_device();
 
 	kgsl_debug_init();
 
@@ -1819,137 +1585,23 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	}
 	kgsl_driver.num_devs = 0;
 	INIT_LIST_HEAD(&kgsl_driver.dev_priv_list);
-	/*acquire clocks */
-	BUG_ON(kgsl_driver.yamato_grp_clk != NULL);
-	BUG_ON(kgsl_driver.g12_grp_clk != NULL);
 
 	kgsl_driver.pdev = pdev;
 	pdata = pdev->dev.platform_data;
+	BUG_ON(pdata == NULL);
 
-	clk = clk_get(&pdev->dev, "grp_pclk");
-	if (IS_ERR(clk))
-		clk = NULL;
-	kgsl_driver.yamato_grp_pclk = clk;
-
-	clk = clk_get(&pdev->dev, pdata->grp3d_clk_name);
-	if (IS_ERR(clk)) {
-		result = PTR_ERR(clk);
-		KGSL_DRV_ERR("clk_get(%s) returned %d\n", pdata->grp3d_clk_name,
-			result);
-		goto done;
-	}
-	kgsl_driver.yamato_grp_clk = grp_clk = clk;
-
-	clk = clk_get(&pdev->dev, "grp_src_clk");
-	if (IS_ERR(clk)) {
-		clk = grp_clk; /* Fallback to slave */
-	}
-	kgsl_driver.yamato_grp_src_clk = clk;
-
-	kgsl_driver.yamato_reg = regulator_get(NULL, "fs_gfx3d");
-	if (IS_ERR(kgsl_driver.yamato_reg))
-		kgsl_driver.yamato_reg = NULL;
-
-	/* put the AXI bus into asynchronous mode with the graphics cores */
-	if (pdata != NULL) {
-		if ((pdata->set_grp3d_async != NULL) &&
-			(pdata->max_grp3d_freq) &&
-			(!pdata->set_grp3d_async()))
-			clk_set_min_rate(clk, pdata->max_grp3d_freq);
-	}
-
-	if (pdata->imem_clk_name != NULL) {
-		clk = clk_get(&pdev->dev, pdata->imem_clk_name);
-		if (IS_ERR(clk)) {
-			result = PTR_ERR(clk);
-			KGSL_DRV_ERR("clk_get(%s) returned %d\n",
-				pdata->imem_clk_name, result);
-			goto done;
-		}
-		kgsl_driver.imem_clk = clk;
-	}
-
-#ifdef CONFIG_MSM_KGSL_2D
-	clk = clk_get(&pdev->dev, "grp_2d_pclk");
-	if (IS_ERR(clk))
-		clk = NULL;
-	kgsl_driver.g12_grp_pclk = clk;
+	kgsl_yamato_init_pwrctrl(device);
 
 	if (pdata->grp2d0_clk_name != NULL) {
-		clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
-		if (IS_ERR(clk)) {
-			clk = NULL;
-			result = PTR_ERR(clk);
-			KGSL_DRV_ERR("clk_get(%s) returned %d\n",
-				pdata->grp2d0_clk_name, result);
-		}
-	} else {
-		clk = NULL;
-	}
-	kgsl_driver.g12_grp_clk = clk;
-
-	kgsl_driver.g12_reg = regulator_get(NULL, "fs_gfx2d0");
-	if (IS_ERR(kgsl_driver.g12_reg))
-		kgsl_driver.g12_reg = NULL;
-
-#else
-	kgsl_driver.g12_grp_clk = NULL;
-	kgsl_driver.g12_grp_pclk = NULL;
-#endif
-
-	if (pdata != NULL && clk != NULL) {
-		if ((pdata->set_grp2d_async != NULL) &&
-			(pdata->max_grp2d_freq) &&
-			(!pdata->set_grp2d_async()))
-			clk_set_min_rate(clk, pdata->max_grp2d_freq);
-	}
-
-	kgsl_driver.power_flags = 0;
-
-	if (pdata) {
-		kgsl_driver.clk_freq[KGSL_AXI_HIGH_3D] = pdata->high_axi_3d;
-		kgsl_driver.clk_freq[KGSL_AXI_HIGH_2D] = pdata->high_axi_2d;
-		kgsl_driver.clk_freq[KGSL_2D_MIN_FREQ] = pdata->min_grp2d_freq;
-		kgsl_driver.clk_freq[KGSL_2D_MAX_FREQ] = pdata->max_grp2d_freq;
-		kgsl_driver.clk_freq[KGSL_3D_MIN_FREQ] = pdata->min_grp3d_freq;
-		kgsl_driver.clk_freq[KGSL_3D_MAX_FREQ] = pdata->max_grp3d_freq;
-	}
-
-	kgsl_driver.pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-			PM_QOS_DEFAULT_VALUE);
-	if (!kgsl_driver.pm_qos_req) {
-		KGSL_DRV_ERR("pm_qos_add_request() returned NULL\n");
-		result = -EINVAL;
-		goto done;
-	}
-
-	/*acquire yamato interrupt */
-	kgsl_driver.yamato_interrupt_num =
-			platform_get_irq_byname(pdev, "kgsl_yamato_irq");
-
-	if (kgsl_driver.yamato_interrupt_num <= 0) {
-		KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
-			       kgsl_driver.yamato_interrupt_num);
-		result = -EINVAL;
-		goto done;
-	}
-
-	if (kgsl_driver.g12_grp_clk) {
-		/*acquire g12 interrupt */
-		kgsl_driver.g12_interrupt_num =
-			platform_get_irq_byname(pdev, "kgsl_2d0_irq");
-
-		if (kgsl_driver.g12_interrupt_num <= 0) {
-			KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
-						kgsl_driver.g12_interrupt_num);
-			result = -EINVAL;
+		/* g12 pwrctrl */
+		result = kgsl_g12_init_pwrctrl(device_g12);
+		if (result != 0) {
+			KGSL_DRV_ERR(
+				"kgsl_g12_init_pwrctrl returned error=%d\n",
+				result);
 			goto done;
 		}
-
 		/* g12 config */
-		kgsl_driver.g12_pm_qos_req = pm_qos_add_request(
-							PM_QOS_SYSTEM_BUS_FREQ,
-							PM_QOS_DEFAULT_VALUE);
 		result = kgsl_g12_config(&kgsl_driver.g12_config, pdev);
 		if (result != 0) {
 			KGSL_DRV_ERR("kgsl_g12_config returned error=%d\n",
@@ -1984,7 +1636,7 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	mutex_init(&kgsl_driver.pt_mutex);
 	pm_runtime_enable(&pdev->dev);
 
-	result = kgsl_yamato_init(kgsl_get_yamato_generic_device(),
+	result = kgsl_yamato_init(device,
 				  &kgsl_driver.yamato_config);
 	if (result) {
 		KGSL_DRV_ERR("yamato_init failed %d", result);
@@ -1997,8 +1649,8 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	}
 	kgsl_driver.num_devs++;
 
-	if (kgsl_driver.g12_grp_clk) {
-		result = kgsl_g12_init(kgsl_get_g12_generic_device(),
+	if (pdata->grp2d0_clk_name) {
+		result = kgsl_g12_init(device_g12,
 					&kgsl_driver.g12_config);
 		if (result) {
 			KGSL_DRV_ERR("g12_init failed %d", result);
