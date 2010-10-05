@@ -914,9 +914,24 @@ static struct dload_struct {
 			magic_struct;
 };
 
+static int update_pid_to_dload;
+static int __init board_update_pid_to_dload(char *update)
+{
+	if (!strcmp("yes", update))
+		update_pid_to_dload = 1;
+	else
+		update_pid_to_dload = 0;
+
+	return 1;
+}
+__setup("usbdiag.update_pid_to_dload=", board_update_pid_to_dload);
+
 static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
 {
 	struct dload_struct __iomem *dload = 0;
+
+	if (!update_pid_to_dload)
+		return 0;
 
 	dload = ioremap(DLOAD_USB_BASE_ADD, sizeof(*dload));
 	if (!dload) {
