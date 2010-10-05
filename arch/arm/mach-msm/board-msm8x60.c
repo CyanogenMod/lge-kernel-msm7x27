@@ -4637,9 +4637,10 @@ void msm_snddev_poweramp_off(void)
 {
 
 	pr_debug("%s: disable stereo spkr amp\n", __func__);
-	msm_snddev_rx_route_deconfig();
 	config_class_d0_gpio(0);
 	config_class_d1_gpio(0);
+	msleep(30);
+	msm_snddev_rx_route_deconfig();
 }
 
 static uint32_t auxpcm_gpio_table[] = {
