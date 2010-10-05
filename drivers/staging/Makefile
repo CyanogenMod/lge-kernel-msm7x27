@@ -56,3 +56,4 @@ obj-$(CONFIG_FB_XGI)		+= xgifb/
 obj-$(CONFIG_TOUCHSCREEN_MRSTOUCH)	+= mrst-touchscreen/
 obj-$(CONFIG_MSM_STAGING)	+= msm/
 obj-$(CONFIG_GOBI_USBNET)	+= gobi/QCUSBNet2k/
+obj-$(CONFIG_ATH6K_LEGACY)     += ath6kl/
