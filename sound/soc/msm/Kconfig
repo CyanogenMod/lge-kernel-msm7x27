@@ -50,7 +50,7 @@ config SND_QSD_SOC_QSD8K
 	 To add support for SoC audio on qsd8k.
 
 config SND_MSM_SOC_MSM7KV2
-	bool "SoC Audio support for MSM7KV2"
+	tristate "SoC Audio support for MSM7KV2"
 	depends on SND_MSM7KV2_SOC
 	default y
 	help
