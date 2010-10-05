@@ -1,10 +1,21 @@
 menu "Diag Support"
 
 config DIAG_CHAR
-	tristate "char driver interface and diag forwarding to/from ARM9"
+	tristate "char driver interface and diag forwarding to/from modem"
 	default m
 	depends on USB_ANDROID_DIAG || USB_FUNCTION_DIAG
 	depends on ARCH_MSM
 	help
 	 Char driver interface for diag user space and diag-forwarding to modem ARM and back.
+endmenu
+
+menu "Modem less Diag Support"
+
+config DIAG_NO_MODEM
+	bool "Enable DIAG even when no modem is present"
+	depends on USB_ANDROID_DIAG || USB_FUNCTION_DIAG
+	depends on ARCH_MSM
+	default n
+	help
+	 This enables DIAG support even when no modem is present.
 endmenu
