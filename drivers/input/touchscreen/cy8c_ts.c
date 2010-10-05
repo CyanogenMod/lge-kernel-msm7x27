@@ -325,22 +325,13 @@ static int cy8c_ts_open(struct input_dev *dev)
 	int rc;
 	struct cy8c_ts *ts = input_get_drvdata(dev);
 
-	/* power on the device */
-	if (ts->pdata->power_on) {
-		rc = ts->pdata->power_on(1);
-		if (rc) {
-			pr_err("%s: Unable to power on the device\n", __func__);
-			return -EINVAL;
-		}
-	}
-
 	if (!ts->pdata->use_polling) {
 		/* configure touchscreen interrupt gpio */
 		rc = gpio_request(ts->pdata->irq_gpio, "cy8c_irq_gpio");
 		if (rc) {
 			pr_err("%s: unable to request gpio %d\n",
 				__func__, ts->pdata->irq_gpio);
-			goto error_gpio_req;
+			return rc;
 		}
 
 		rc = gpio_direction_input(ts->pdata->irq_gpio);
@@ -385,9 +376,6 @@ static int cy8c_ts_open(struct input_dev *dev)
 error_req_irq_fail:
 error_gpio_dir:
 	gpio_free(ts->pdata->irq_gpio);
-error_gpio_req:
-	if (ts->pdata->power_on)
-		ts->pdata->power_on(0);
 
 	return rc;
 }
@@ -638,18 +626,6 @@ static int __devinit cy8c_ts_probe(struct i2c_client *client,
 		return -EIO;
 	}
 
-	/* read one byte to make sure i2c device exists */
-	if (id->driver_data == CY8CTMA300)
-		temp_reg = 0x01;
-	else
-		temp_reg = 0x05;
-
-	rc = cy8c_ts_read_reg_u8(client, temp_reg);
-	if (rc < 0) {
-		dev_err(&client->dev, "i2c sanity check failed\n");
-		return -EIO;
-	}
-
 	ts = kzalloc(sizeof(*ts), GFP_KERNEL);
 	if (!ts)
 		return -ENOMEM;
@@ -673,6 +649,27 @@ static int __devinit cy8c_ts_probe(struct i2c_client *client,
 		}
 	}
 
+	/* power on the device */
+	if (ts->pdata->power_on) {
+		rc = ts->pdata->power_on(1);
+		if (rc) {
+			pr_err("%s: Unable to power on the device\n", __func__);
+			goto error_dev_setup;
+		}
+	}
+
+	/* read one byte to make sure i2c device exists */
+	if (id->driver_data == CY8CTMA300)
+		temp_reg = 0x01;
+	else
+		temp_reg = 0x05;
+
+	rc = cy8c_ts_read_reg_u8(client, temp_reg);
+	if (rc < 0) {
+		dev_err(&client->dev, "i2c sanity check failed\n");
+		goto error_power_on;
+	}
+
 	ts->is_suspended = false;
 	ts->int_pending = false;
 	mutex_init(&ts->sus_lock);
@@ -680,7 +677,7 @@ static int __devinit cy8c_ts_probe(struct i2c_client *client,
 	rc = cy8c_ts_init_ts(client, ts);
 	if (rc < 0) {
 		dev_err(&client->dev, "CY8CTMG200-TMA300 init failed\n");
-		goto error_dev_setup;
+		goto error_mutex_destroy;
 	}
 
 	device_init_wakeup(&client->dev, ts->pdata->wakeup);
@@ -694,8 +691,12 @@ static int __devinit cy8c_ts_probe(struct i2c_client *client,
 #endif
 	return 0;
 
-error_dev_setup:
+error_mutex_destroy:
 	mutex_destroy(&ts->sus_lock);
+error_power_on:
+	if (ts->pdata->power_on)
+		ts->pdata->power_on(0);
+error_dev_setup:
 	if (ts->pdata->dev_setup)
 		ts->pdata->dev_setup(0);
 error_touch_data_alloc:
