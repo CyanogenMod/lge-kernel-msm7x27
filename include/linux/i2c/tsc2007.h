@@ -17,6 +17,7 @@ struct tsc2007_platform_data {
 						   interrupt source */
 	int	(*init_platform_hw)(void);
 	void	(*exit_platform_hw)(void);
+	int	(*power_shutdown)(bool);
 };
 
 #endif
