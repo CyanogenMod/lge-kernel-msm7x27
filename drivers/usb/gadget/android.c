@@ -70,7 +70,6 @@ struct android_dev {
 
 	int product_id;
 	int version;
-	int enable_rndis_msc;
 };
 
 static struct android_dev *_android_dev;
@@ -127,6 +126,8 @@ static const struct usb_descriptor_header *otg_desc[] = {
 
 static struct list_head _functions = LIST_HEAD_INIT(_functions);
 static int _registered_function_count = 0;
+
+static void android_set_default_product(int product_id);
 
 void android_usb_set_connected(int connected)
 {
@@ -342,8 +343,83 @@ void android_register_function(struct android_usb_function *f)
 	/* bind our functions if they have all registered
 	 * and the main driver has bound.
 	 */
-	if (dev->config && _registered_function_count == dev->num_functions)
+	if (dev->config && _registered_function_count == dev->num_functions) {
 		bind_functions(dev);
+		android_set_default_product(dev->product_id);
+	}
+}
+
+/**
+ * android_set_function_mask() - enables functions based on selected pid.
+ * @up: selected product id pointer
+ *
+ * This function enables functions related with selected product id.
+ */
+static void android_set_function_mask(struct android_usb_product *up)
+{
+	int index;
+	struct usb_function *func;
+
+	list_for_each_entry(func, &android_config_driver.functions, list) {
+		/* adb function enable/disable handled separetely */
+		if (!strcmp(func->name, "adb"))
+			continue;
+		func->disabled = 1;
+		for (index = 0; index < up->num_functions; index++) {
+			if (!strcmp(up->functions[index], func->name))
+				func->disabled = 0;
+		}
+	}
+}
+
+/**
+ * android_set_defaut_product() - selects default product id and enables
+ * required functions
+ * @product_id: default product id
+ *
+ * This function selects default product id using pdata information and
+ * enables functions for same.
+*/
+static void android_set_default_product(int pid)
+{
+	struct android_dev *dev = _android_dev;
+	struct android_usb_product *up = dev->products;
+	int index;
+
+	for (index = 0; index < dev->num_products; index++, up++) {
+		if (pid == up->product_id)
+			break;
+	}
+	android_set_function_mask(up);
+}
+
+/**
+ * android_config_functions() - selects product id based on function need
+ * to be enabled / disabled.
+ * @f: usb function
+ * @enable : function needs to be enable or disable
+ *
+ * This function selects product id having required function at first index.
+ * TODO : Search of function in product id can be extended for all index.
+ * RNDIS function enable/disable uses this.
+*/
+static void android_config_functions(struct usb_function *f, int enable)
+{
+	struct android_dev *dev = _android_dev;
+	struct android_usb_product *up = dev->products;
+	int index;
+	char **functions;
+
+	/* Searches for product id having function at first index */
+	if (enable) {
+		for (index = 0; index < dev->num_products; index++, up++) {
+			functions = up->functions;
+			if (!strcmp(*functions, f->name))
+				break;
+		}
+		android_set_function_mask(up);
+	} else
+		android_set_default_product(dev->product_id);
 }
 
 void android_enable_function(struct usb_function *f, int enable)
@@ -357,7 +433,6 @@ void android_enable_function(struct usb_function *f, int enable)
 
 #ifdef CONFIG_USB_ANDROID_RNDIS
 		if (!strcmp(f->name, "rndis")) {
-			struct usb_function		*func;
 
 			/* We need to specify the COMM class in the device descriptor
 			 * if we are using RNDIS.
@@ -376,18 +451,7 @@ void android_enable_function(struct usb_function *f, int enable)
 				dev->cdev->desc.bDeviceProtocol      = 0;
 			}
 
-			list_for_each_entry(func, &android_config_driver.functions, list) {
-				if (dev->enable_rndis_msc) {
-					if (strcmp(func->name, "rndis") &&
-					strcmp(func->name, "adb") &&
-					strcmp(func->name, "usb_mass_storage"))
-						func->disabled = enable;
-				} else {
-					if (strcmp(func->name, "rndis") &&
-					strcmp(func->name, "adb"))
-						func->disabled = enable;
-				}
-			}
+			android_config_functions(f, enable);
 		}
 #endif
 
@@ -499,8 +563,6 @@ static int __init android_probe(struct platform_device *pdev)
 					pdata->manufacturer_name;
 		if (pdata->serial_number)
 			strings_dev[STRING_SERIAL_IDX].s = pdata->serial_number;
-		if (pdata->enable_rndis_msc)
-			dev->enable_rndis_msc = pdata->enable_rndis_msc;
 	}
 #ifdef CONFIG_DEBUG_FS
 	result = android_debugfs_init(dev);
