@@ -277,11 +277,13 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	/* Configure ADIE */
 	trc = adie_codec_open(icodec->data->profile, &icodec->adie_path);
 	if (IS_ERR_VALUE(trc))
-		goto error_adie;
+		pr_err("%s: adie codec open failed\n", __func__);
+	else
+		adie_codec_setpath(icodec->adie_path,
+					icodec->sample_rate, 256);
 	/* OSR default to 256, can be changed for power optimization
 	 * If OSR is to be changed, need clock API for setting the divider
 	 */
-	adie_codec_setpath(icodec->adie_path, icodec->sample_rate, 256);
 
 	switch (icodec->data->channel_mode) {
 	case 2:
@@ -296,9 +298,12 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	trc = afe_open(PRIMARY_I2S_RX, icodec->sample_rate, afe_channel_mode);
 
 	/* Enable ADIE */
-	adie_codec_proceed_stage(icodec->adie_path, ADIE_CODEC_DIGITAL_READY);
-	adie_codec_proceed_stage(icodec->adie_path,
+	if (icodec->adie_path) {
+		adie_codec_proceed_stage(icodec->adie_path,
+					ADIE_CODEC_DIGITAL_READY);
+		adie_codec_proceed_stage(icodec->adie_path,
 					ADIE_CODEC_DIGITAL_ANALOG_READY);
+	}
 
 	/* Enable power amplifier */
 	if (icodec->data->pamp_on)
@@ -358,9 +363,10 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	/* Enable ADIE */
 	trc = adie_codec_open(icodec->data->profile, &icodec->adie_path);
 	if (IS_ERR_VALUE(trc))
-		goto error_adie;
-	/* Enable ADIE */
-	adie_codec_setpath(icodec->adie_path, icodec->sample_rate, 256);
+		pr_err("%s: adie codec open failed\n", __func__);
+	else
+		adie_codec_setpath(icodec->adie_path,
+					icodec->sample_rate, 256);
 
 	switch (icodec->data->channel_mode) {
 	case 2:
@@ -374,18 +380,18 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 
 	trc = afe_open(PRIMARY_I2S_TX, icodec->sample_rate, afe_channel_mode);
 
-	adie_codec_proceed_stage(icodec->adie_path, ADIE_CODEC_DIGITAL_READY);
-	adie_codec_proceed_stage(icodec->adie_path,
-		ADIE_CODEC_DIGITAL_ANALOG_READY);
+	if (icodec->adie_path) {
+		adie_codec_proceed_stage(icodec->adie_path,
+					ADIE_CODEC_DIGITAL_READY);
+		adie_codec_proceed_stage(icodec->adie_path,
+					ADIE_CODEC_DIGITAL_ANALOG_READY);
+	}
 
 	icodec->enabled = 1;
 
 	wake_unlock(&drv->tx_idlelock);
 	return 0;
 
-error_adie:
-	clk_disable(drv->tx_bitclk);
-	clk_disable(drv->tx_osrclk);
 error_invalid_freq:
 
 	if (icodec->data->pamp_off)
@@ -408,9 +414,12 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 		icodec->data->pamp_off();
 
 	/* Disable ADIE */
-	adie_codec_proceed_stage(icodec->adie_path, ADIE_CODEC_DIGITAL_OFF);
-	adie_codec_close(icodec->adie_path);
-	icodec->adie_path = NULL;
+	if (icodec->adie_path) {
+		adie_codec_proceed_stage(icodec->adie_path,
+			ADIE_CODEC_DIGITAL_OFF);
+		adie_codec_close(icodec->adie_path);
+		icodec->adie_path = NULL;
+	}
 
 	afe_close(PRIMARY_I2S_RX);
 
@@ -430,9 +439,12 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 	wake_lock(&drv->tx_idlelock);
 
 	/* Disable ADIE */
-	adie_codec_proceed_stage(icodec->adie_path, ADIE_CODEC_DIGITAL_OFF);
-	adie_codec_close(icodec->adie_path);
-	icodec->adie_path = NULL;
+	if (icodec->adie_path) {
+		adie_codec_proceed_stage(icodec->adie_path,
+					ADIE_CODEC_DIGITAL_OFF);
+		adie_codec_close(icodec->adie_path);
+		icodec->adie_path = NULL;
+	}
 
 	pm8058_micbias_enable(OTHC_MICBIAS_0,
 					OTHC_SIGNAL_OFF);
@@ -793,6 +805,7 @@ static int snddev_icodec_debug_open(struct inode *inode, struct file *file)
 static void debugfs_adie_loopback(u32 loop)
 {
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
+	int rc = 0;
 
 	if (loop) {
 
@@ -803,10 +816,14 @@ static void debugfs_adie_loopback(u32 loop)
 
 		pr_info("%s: configure ADIE RX path\n", __func__);
 		/* Configure ADIE */
-		adie_codec_open(&debug_rx_profile, &debugfs_rx_adie);
-		adie_codec_setpath(debugfs_rx_adie, 8000, 256);
-		adie_codec_proceed_stage(debugfs_rx_adie,
-		ADIE_CODEC_DIGITAL_ANALOG_READY);
+		rc = adie_codec_open(&debug_rx_profile, &debugfs_rx_adie);
+		if (IS_ERR_VALUE(rc))
+			pr_err("%s: adie codec open failed\n", __func__);
+		else {
+			adie_codec_setpath(debugfs_rx_adie, 8000, 256);
+			adie_codec_proceed_stage(debugfs_rx_adie,
+					ADIE_CODEC_DIGITAL_ANALOG_READY);
+		}
 
 		pr_info("%s: Enable Handset Mic bias\n", __func__);
 		clk_enable(drv->tx_osrclk);
@@ -816,18 +833,26 @@ static void debugfs_adie_loopback(u32 loop)
 						OTHC_SIGNAL_ALWAYS_ON);
 		pr_info("%s: configure ADIE TX path\n", __func__);
 		/* Configure ADIE */
-		adie_codec_open(&debug_tx_lb_profile, &debugfs_tx_adie);
-		adie_codec_setpath(debugfs_tx_adie, 8000, 256);
-		adie_codec_proceed_stage(debugfs_tx_adie,
-		ADIE_CODEC_DIGITAL_ANALOG_READY);
+		rc = adie_codec_open(&debug_tx_lb_profile, &debugfs_tx_adie);
+		if (IS_ERR_VALUE(rc))
+			pr_err("%s: adie codec open failed\n", __func__);
+		else {
+			adie_codec_setpath(debugfs_tx_adie, 8000, 256);
+			adie_codec_proceed_stage(debugfs_tx_adie,
+					ADIE_CODEC_DIGITAL_ANALOG_READY);
+		}
 	} else {
 		/* Disable ADIE */
-		adie_codec_proceed_stage(debugfs_rx_adie,
-		ADIE_CODEC_DIGITAL_OFF);
-		adie_codec_close(debugfs_rx_adie);
-		adie_codec_proceed_stage(debugfs_tx_adie,
-		ADIE_CODEC_DIGITAL_OFF);
-		adie_codec_close(debugfs_tx_adie);
+		if (debugfs_rx_adie) {
+			adie_codec_proceed_stage(debugfs_rx_adie,
+						ADIE_CODEC_DIGITAL_OFF);
+			adie_codec_close(debugfs_rx_adie);
+		}
+		if (debugfs_tx_adie) {
+			adie_codec_proceed_stage(debugfs_tx_adie,
+						ADIE_CODEC_DIGITAL_OFF);
+			adie_codec_close(debugfs_tx_adie);
+		}
 
 		pm8058_micbias_enable(OTHC_MICBIAS_0,
 						OTHC_SIGNAL_OFF);
@@ -854,13 +879,17 @@ static void debugfs_afe_loopback(u32 loop)
 		clk_enable(drv->rx_bitclk);
 		pr_info("%s: configure ADIE RX path\n", __func__);
 		/* Configure ADIE */
-		adie_codec_open(&debug_rx_profile, &debugfs_rx_adie);
-		adie_codec_setpath(debugfs_rx_adie, 8000, 256);
+		trc = adie_codec_open(&debug_rx_profile, &debugfs_rx_adie);
+		if (IS_ERR_VALUE(trc))
+			pr_err("%s: adie codec open failed\n", __func__);
+		else
+			adie_codec_setpath(debugfs_rx_adie, 8000, 256);
 		sample_rate = 8000;
 		channel_mode = 3;  /* stereo */
 		trc = afe_open(PRIMARY_I2S_RX, sample_rate, channel_mode);
-		adie_codec_proceed_stage(debugfs_rx_adie,
-		ADIE_CODEC_DIGITAL_ANALOG_READY);
+		if (!trc)
+			adie_codec_proceed_stage(debugfs_rx_adie,
+				ADIE_CODEC_DIGITAL_ANALOG_READY);
 
 		pr_info("%s: Enable Handset Mic bias\n", __func__);
 		/* enable MI2S TX master block */
@@ -871,21 +900,28 @@ static void debugfs_afe_loopback(u32 loop)
 						OTHC_SIGNAL_ALWAYS_ON);
 		pr_info("%s: configure ADIE TX path\n", __func__);
 		/* Configure ADIE */
-		adie_codec_open(&debug_tx_profile, &debugfs_tx_adie);
-		adie_codec_setpath(debugfs_tx_adie, 8000, 256);
+		trc = adie_codec_open(&debug_tx_profile, &debugfs_tx_adie);
+		if (IS_ERR_VALUE(trc))
+			pr_err("%s: adie codec open failed\n", __func__);
+		else
+			adie_codec_setpath(debugfs_tx_adie, 8000, 256);
 		sample_rate = 8000;
 		trc = afe_open(PRIMARY_I2S_TX, sample_rate, channel_mode);
-		adie_codec_proceed_stage(debugfs_tx_adie,
-		ADIE_CODEC_DIGITAL_ANALOG_READY);
+		if (!trc)
+			adie_codec_proceed_stage(debugfs_tx_adie,
+				ADIE_CODEC_DIGITAL_ANALOG_READY);
 	} else {
 		/* Disable ADIE */
-		adie_codec_proceed_stage(debugfs_rx_adie,
-		ADIE_CODEC_DIGITAL_OFF);
-		adie_codec_close(debugfs_rx_adie);
-		adie_codec_proceed_stage(debugfs_tx_adie,
-		ADIE_CODEC_DIGITAL_OFF);
-		adie_codec_close(debugfs_tx_adie);
-
+		if (debugfs_rx_adie) {
+			adie_codec_proceed_stage(debugfs_rx_adie,
+					ADIE_CODEC_DIGITAL_OFF);
+			adie_codec_close(debugfs_rx_adie);
+		}
+		if (debugfs_tx_adie) {
+			adie_codec_proceed_stage(debugfs_tx_adie,
+					ADIE_CODEC_DIGITAL_OFF);
+			adie_codec_close(debugfs_tx_adie);
+		}
 
 		pm8058_micbias_enable(OTHC_MICBIAS_0,
 						OTHC_SIGNAL_OFF);
