@@ -85,12 +85,7 @@
 #define MSM_FB_SIZE		0x177000
 #define MSM_GPU_PHYS_SIZE	SZ_2M
 #define PMEM_KERNEL_EBI1_SIZE	0x1C000
-/* Using lower 1MB of OEMSBL memory for GPU_PHYS */
-#define MSM_GPU_PHYS_START_ADDR	 0xD600000ul
 #endif
-
-/* Using upper 1/2MB of Apps Bootloader memory*/
-#define MSM_PMEM_AUDIO_START_ADDR      0x1C000ul
 
 static struct resource smc91x_resources[] = {
 	[0] = {
@@ -2105,17 +2100,12 @@ static void __init msm_msm7x2x_allocate_memory_regions(void)
 	}
 
 	size = pmem_audio_size;
-	if (size > 0xE1000) {
+	if (size) {
 		addr = alloc_bootmem(size);
 		android_pmem_audio_pdata.start = __pa(addr);
 		android_pmem_audio_pdata.size = size;
-		pr_info("allocating %lu bytes at %p (%lx physical) for audio "
-			"pmem arena\n", size, addr, __pa(addr));
-	} else if (size) {
-		android_pmem_audio_pdata.start = MSM_PMEM_AUDIO_START_ADDR;
-		android_pmem_audio_pdata.size = size;
 		pr_info("allocating %lu bytes (at %lx physical) for audio "
-			"pmem arena\n", size , MSM_PMEM_AUDIO_START_ADDR);
+			"pmem arena\n", size , __pa(addr));
 	}
 
 	size = fb_size ? : MSM_FB_SIZE;
@@ -2135,10 +2125,11 @@ static void __init msm_msm7x2x_allocate_memory_regions(void)
 	}
 #ifdef CONFIG_ARCH_MSM7X27
 	size = MSM_GPU_PHYS_SIZE;
-	kgsl_resources[1].start = MSM_GPU_PHYS_START_ADDR ;
+	addr = alloc_bootmem(size);
+	kgsl_resources[1].start = __pa(addr);
 	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
 	pr_info("allocating %lu bytes (at %lx physical) for KGSL\n",
-		size , MSM_GPU_PHYS_START_ADDR);
+		size , __pa(addr));
 
 #endif
 
