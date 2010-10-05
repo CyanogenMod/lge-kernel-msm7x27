@@ -383,6 +383,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		prtd->eos_ack = 0;
 		prtd->session_id = HOSTPCM_STREAM_ID;
 		prtd->device_events = AUDDEV_EVT_DEV_RDY |
+				AUDDEV_EVT_STREAM_VOL_CHG |
 				AUDDEV_EVT_DEV_RLS;
 		prtd->source = msm_snddev_route_dec(prtd->session_id);
 		MM_ERR("Register device event listener\n");
