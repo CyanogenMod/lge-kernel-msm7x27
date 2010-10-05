@@ -2317,6 +2317,19 @@ static char *usb_functions_default_adb[] = {
 	"usb_mass_storage",
 };
 
+static char *fusion_usb_functions_default[] = {
+	"diag",
+	"nmea",
+	"usb_mass_storage",
+};
+
+static char *fusion_usb_functions_default_adb[] = {
+	"diag",
+	"adb",
+	"nmea",
+	"usb_mass_storage",
+};
+
 static char *usb_functions_rndis[] = {
 	"rndis",
 };
@@ -2349,30 +2362,50 @@ static char *usb_functions_all[] = {
 
 static struct android_usb_product usb_products[] = {
 	{
-		/* DIAG + MODEM + NMEA + MSC */
 		.product_id     = 0x9026,
 		.num_functions	= ARRAY_SIZE(usb_functions_default),
 		.functions      = usb_functions_default,
 	},
 	{
-		/* MSC + CDC-ECM */
 		.product_id	= 0x9025,
 		.num_functions	= ARRAY_SIZE(usb_functions_default_adb),
 		.functions	= usb_functions_default_adb,
 	},
 	{
-		/* DIAG + RMNET */
 		.product_id	= 0xf00e,
 		.num_functions	= ARRAY_SIZE(usb_functions_rndis),
 		.functions	= usb_functions_rndis,
 	},
 	{
-		/* RNDIS */
 		.product_id	= 0x9024,
 		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
 		.functions	= usb_functions_rndis_adb,
 	},
 };
+
+static struct android_usb_product fusion_usb_products[] = {
+	{
+		.product_id     = 0x9028,
+		.num_functions  = ARRAY_SIZE(fusion_usb_functions_default),
+		.functions      = fusion_usb_functions_default,
+	},
+	{
+		.product_id     = 0x9029,
+		.num_functions  = ARRAY_SIZE(fusion_usb_functions_default_adb),
+		.functions      = fusion_usb_functions_default_adb,
+	},
+	{
+		.product_id     = 0xf00e,
+		.num_functions  = ARRAY_SIZE(usb_functions_rndis),
+		.functions      = usb_functions_rndis,
+	},
+	{
+		.product_id     = 0x9024,
+		.num_functions  = ARRAY_SIZE(usb_functions_rndis_adb),
+		.functions      = usb_functions_rndis_adb,
+	},
+};
+
 static struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns		= 1,
 	.vendor		= "Qualcomm Incorporated",
@@ -6079,6 +6112,15 @@ static void __init msm7x30_init(void)
 		msm_adc_pdata.dev_names = msm_adc_surf_device_names;
 		msm_adc_pdata.num_adc = ARRAY_SIZE(msm_adc_surf_device_names);
 	}
+
+	if (machine_is_msm8x55_surf() ||
+		machine_is_msm8x55_ffa()) {
+		android_usb_pdata.product_id = 0x9028;
+		android_usb_pdata.num_products =
+			ARRAY_SIZE(fusion_usb_products);
+		android_usb_pdata.products = fusion_usb_products;
+	}
+
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 #ifdef CONFIG_USB_EHCI_MSM
 	msm_add_host(0, &msm_usb_host_pdata);
