@@ -1,6 +1,6 @@
 /* linux/include/mach/rpc_hsusb.h
  *
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -30,9 +30,6 @@ int msm_hsusb_rpc_connect(void);
 int msm_hsusb_phy_reset(void);
 int msm_hsusb_vbus_powerup(void);
 int msm_hsusb_vbus_shutdown(void);
-int msm_hsusb_send_productID(uint32_t product_id);
-int msm_hsusb_send_serial_number(const char *serial_number);
-int msm_hsusb_is_serial_num_null(uint32_t val);
 int msm_hsusb_reset_rework_installed(void);
 int msm_hsusb_enable_pmic_ulpidata0(void);
 int msm_hsusb_disable_pmic_ulpidata0(void);
@@ -61,15 +58,14 @@ int msm_fsusb_rpc_close(void);
 int msm_fsusb_remote_dev_disconnected(void);
 int msm_fsusb_set_remote_wakeup(void);
 void msm_fsusb_rpc_deinit(void);
+
+/* wrapper to send pid and serial# info to bootloader */
+int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum);
 #else
 static inline int msm_hsusb_rpc_connect(void) { return 0; }
 static inline int msm_hsusb_phy_reset(void) { return 0; }
 static inline int msm_hsusb_vbus_powerup(void) { return 0; }
 static inline int msm_hsusb_vbus_shutdown(void) { return 0; }
-static inline int msm_hsusb_send_productID(uint32_t product_id) { return 0; }
-static inline int msm_hsusb_send_serial_number(const char *serial_number)
-{ return 0; }
-static inline int msm_hsusb_is_serial_num_null(uint32_t val) { return 0; }
 static inline int msm_hsusb_reset_rework_installed(void) { return 0; }
 static inline int msm_hsusb_enable_pmic_ulpidata0(void) { return 0; }
 static inline int msm_hsusb_disable_pmic_ulpidata0(void) { return 0; }
@@ -97,5 +93,7 @@ static inline int msm_fsusb_rpc_close(void) { return 0; }
 static inline int msm_fsusb_remote_dev_disconnected(void) { return 0; }
 static inline int msm_fsusb_set_remote_wakeup(void) { return 0; }
 static inline void msm_fsusb_rpc_deinit(void) { }
+static inline int
+usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum) { return 0; }
 #endif
 #endif

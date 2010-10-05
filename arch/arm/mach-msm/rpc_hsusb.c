@@ -1,6 +1,6 @@
 /* linux/arch/arm/mach-msm/rpc_hsusb.c
  *
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -578,6 +578,33 @@ int msm_hsusb_disable_pmic_ulpidata0(void)
 	return msm_hsusb_pmic_ulpidata0_config(0);
 }
 EXPORT_SYMBOL(msm_hsusb_disable_pmic_ulpidata0);
+
+
+/* wrapper for sending pid and serial# info to bootloader */
+int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
+{
+	int ret;
+
+	ret = msm_hsusb_send_productID(pid);
+	if (ret)
+		return ret;
+
+	if (!snum) {
+		ret = msm_hsusb_is_serial_num_null(1);
+		if (ret)
+			return ret;
+	}
+
+	ret = msm_hsusb_is_serial_num_null(0);
+	if (ret)
+		return ret;
+	ret = msm_hsusb_send_serial_number(snum);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 
 #ifdef CONFIG_USB_GADGET_MSM_72K
 /* charger api wrappers */

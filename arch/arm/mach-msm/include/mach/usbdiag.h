@@ -1,6 +1,6 @@
 /* include/asm-arm/arch-msm/usbdiag.h
  *
- * Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -44,4 +44,10 @@ int diag_write(struct diag_request *);
 int diag_usb_register(struct diag_operations *);
 int diag_usb_unregister(void);
 int diag_read_from_cb(unsigned char * , int);
+
+/* platform data for usb diag */
+struct usb_diag_platform_data {
+	int (*update_pid_and_serial_num)(uint32_t, const char *);
+};
+
 #endif

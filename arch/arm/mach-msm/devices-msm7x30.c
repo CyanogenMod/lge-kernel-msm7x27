@@ -33,6 +33,8 @@
 #ifdef CONFIG_PMIC8058
 #include <linux/mfd/pmic8058.h>
 #endif
+#include <mach/usbdiag.h>
+#include <mach/rpc_hsusb.h>
 
 static struct resource resources_uart1[] = {
 	{
@@ -416,6 +418,20 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 	pdev->dev.platform_data = plat;
 	return platform_device_register(pdev);
 }
+
+#ifdef CONFIG_USB_ANDROID_DIAG
+struct usb_diag_platform_data usb_diag_pdata = {
+	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
+};
+
+struct platform_device usb_diag_device = {
+	.name	= "usb_diag",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &usb_diag_pdata,
+	},
+};
+#endif
 
 #define MSM_NAND_PHYS		0xA0200000
 #define MSM_NANDC01_PHYS	0xA0240000
