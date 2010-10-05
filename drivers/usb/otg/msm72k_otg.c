@@ -914,7 +914,7 @@ static int usbdev_notify(struct notifier_block *self,
 		if (action == USB_DEVICE_ADD) {
 			pr_debug("B_CONN set\n");
 			set_bit(B_CONN, &dev->inputs);
-			if (!udev->actconfig) {
+			if (udev->actconfig) {
 				set_aca_bmaxpower(dev,
 					udev->actconfig->desc.bMaxPower * 2);
 				goto out;
