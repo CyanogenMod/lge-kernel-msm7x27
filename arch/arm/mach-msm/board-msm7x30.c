@@ -6061,6 +6061,7 @@ static void __init msm7x30_init(void)
 	msm7x30_init_marimba();
 #ifdef CONFIG_MSM7KV2_AUDIO
 	snddev_poweramp_gpio_init();
+	msm_snddev_init();
 	aux_pcm_gpio_init();
 #endif
 
