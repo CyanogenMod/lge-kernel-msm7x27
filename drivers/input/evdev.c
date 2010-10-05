@@ -294,6 +294,7 @@ static int evdev_open(struct inode *inode, struct file *file)
 	return 0;
 
  err_free_client:
+	wake_lock_destroy(&client->wake_lock);
 	evdev_detach_client(evdev, client);
 	kfree(client);
  err_put_evdev:
