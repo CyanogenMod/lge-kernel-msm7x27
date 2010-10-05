@@ -5683,12 +5683,48 @@ static void tsc2007_exit(void)
 		ARRAY_SIZE(tsc2007_config_data));
 }
 
+static int tsc2007_power_shutdown(bool enable)
+{
+	int rc;
+
+	if (enable == false) {
+		rc = vreg_enable(vreg_tsc_s2);
+		if (rc) {
+			pr_err("%s: vreg_enable failed\n", __func__);
+			return rc;
+		}
+		rc = vreg_enable(vreg_tsc_s3);
+		if (rc) {
+			pr_err("%s: vreg_enable failed\n", __func__);
+			vreg_disable(vreg_tsc_s2);
+			return rc;
+		}
+		/* Voltage settling delay */
+		msleep(20);
+	} else {
+		rc = vreg_disable(vreg_tsc_s2);
+		if (rc) {
+			pr_err("%s: vreg_disable failed\n", __func__);
+			return rc;
+		}
+		rc = vreg_disable(vreg_tsc_s3);
+		if (rc) {
+			pr_err("%s: vreg_disable failed\n", __func__);
+			vreg_enable(vreg_tsc_s2);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 static struct tsc2007_platform_data tsc2007_ts_data = {
 	.model = 2007,
 	.x_plate_ohms = 300,
 	.irq_flags    = IRQF_TRIGGER_LOW,
 	.init_platform_hw = tsc2007_init,
 	.exit_platform_hw = tsc2007_exit,
+	.power_shutdown	  = tsc2007_power_shutdown,
 	.invert_x	  = true,
 	.invert_y	  = true,
 	/* REVISIT: Temporary fix for reversed pressure */
