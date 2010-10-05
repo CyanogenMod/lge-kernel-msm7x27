@@ -3261,7 +3261,7 @@ static void __init msm8x60_init(void)
 
 MACHINE_START(MSM8X60_QRDC, "QCT MSM8X60 QRDC")
 #ifdef CONFIG_MSM_DEBUG_UART
-	.phys_io = MSM_DEBUG_UART_PHYS
+	.phys_io = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
 #endif
 	.map_io = msm8x60_map_io,
