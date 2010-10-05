@@ -291,7 +291,6 @@ config MACH_MSM8X60_RUMI3
 	depends on ARCH_MSM8X60
 	default n
 	bool "MSM8x60 RUMI3"
-	select SMP_PARALLEL_START
 	help
 	  Support for the Qualcomm MSM8x60 RUMI3 emulator.
 
@@ -299,7 +298,6 @@ config MACH_MSM8X60_SIM
 	depends on ARCH_MSM8X60
 	default n
 	bool "MSM8x60 Simulator"
-	select SMP_PARALLEL_START
 	help
 	  Support for the Qualcomm MSM8x60 simulator.
 
@@ -307,7 +305,6 @@ config MACH_MSM8X60_SURF
 	depends on ARCH_MSM8X60
 	default n
 	bool "MSM8x60 SURF"
-	select SMP_PARALLEL_START
 	help
 	  Support for the Qualcomm MSM8x60 SURF eval board.
 
@@ -315,7 +312,6 @@ config MACH_MSM8X60_FFA
 	depends on ARCH_MSM8X60
 	default n
 	bool "MSM8x60 FFA"
-	select SMP_PARALLEL_START
 	help
 	  Support for the Qualcomm MSM8x60 FFA eval board.
 
@@ -323,7 +319,6 @@ config MACH_MSM8X60_QRDC
 	depends on ARCH_MSM8X60
 	default n
 	bool "MSM8x60 QRDC"
-	select SMP_PARALLEL_START
 	help
 	  Support for the Qualcomm MSM8x60 QRDC board.
 
