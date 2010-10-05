@@ -19,7 +19,10 @@
 #define __EXTERNAL_COMMON_H__
 
 #ifdef DEBUG
-#define DEV_DBG(args...)	pr_info("EXT_INTERFACE: " args)
+#ifndef DEV_DBG_PREFIX
+#define DEV_DBG_PREFIX "EXT_INTERFACE: "
+#endif
+#define DEV_DBG(args...)	pr_info(DEV_DBG_PREFIX args)
 #else
 #define DEV_DBG(args...)	(void)0
 #endif /* DEBUG */
