@@ -374,6 +374,11 @@ static unsigned ch_read_buffer(struct smd_channel *ch, void **ptr)
 		return ch->fifo_size - tail;
 }
 
+static int read_intr_blocked(struct smd_channel *ch)
+{
+	return ch->recv->fBLOCKREADINTR;
+}
+
 /* advance the fifo read pointer after data from ch_read_buffer is consumed */
 static void ch_read_done(struct smd_channel *ch, unsigned count)
 {
@@ -735,7 +740,8 @@ static int smd_stream_read(smd_channel_t *ch, void *data, int len)
 
 	r = ch_read(ch, data, len);
 	if (r > 0)
-		ch->notify_other_cpu();
+		if (!read_intr_blocked(ch))
+			ch->notify_other_cpu();
 
 	return r;
 }
@@ -753,7 +759,8 @@ static int smd_packet_read(smd_channel_t *ch, void *data, int len)
 
 	r = ch_read(ch, data, len);
 	if (r > 0)
-		ch->notify_other_cpu();
+		if (!read_intr_blocked(ch))
+			ch->notify_other_cpu();
 
 	spin_lock_irqsave(&smd_lock, flags);
 	ch->current_packet -= r;
@@ -775,7 +782,8 @@ static int smd_packet_read_from_cb(smd_channel_t *ch, void *data, int len)
 
 	r = ch_read(ch, data, len);
 	if (r > 0)
-		ch->notify_other_cpu();
+		if (!read_intr_blocked(ch))
+			ch->notify_other_cpu();
 
 	ch->current_packet -= r;
 	update_packet_state(ch);
@@ -1094,6 +1102,20 @@ int smd_write_avail(smd_channel_t *ch)
 	return ch->write_avail(ch);
 }
 EXPORT_SYMBOL(smd_write_avail);
+
+void smd_enable_read_intr(smd_channel_t *ch)
+{
+	if (ch)
+		ch->send->fBLOCKREADINTR = 0;
+}
+EXPORT_SYMBOL(smd_enable_read_intr);
+
+void smd_disable_read_intr(smd_channel_t *ch)
+{
+	if (ch)
+		ch->send->fBLOCKREADINTR = 1;
+}
+EXPORT_SYMBOL(smd_disable_read_intr);
 
 int smd_wait_until_readable(smd_channel_t *ch, int bytes)
 {
