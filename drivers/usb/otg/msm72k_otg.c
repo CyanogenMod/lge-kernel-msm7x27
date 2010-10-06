@@ -1382,14 +1382,19 @@ static void msm_otg_sm_work(struct work_struct *w)
 #ifdef CONFIG_USB_MSM_ACA
 		set_aca_id_inputs(dev);
 #endif
-		if  (!dev->otg.host || !is_host() ||
-				(dev->pdata->otg_mode == OTG_USER_CONTROL))
-			set_bit(ID, &dev->inputs);
+		if (dev->pdata->otg_mode == OTG_USER_CONTROL) {
+			if ((dev->pdata->usb_mode == USB_PERIPHERAL_MODE) ||
+					!dev->otg.host) {
+				set_bit(ID, &dev->inputs);
+				set_bit(B_SESS_VLD, &dev->inputs);
+			}
+		} else {
+			if (!dev->otg.host || !is_host())
+				set_bit(ID, &dev->inputs);
 
-		if ((dev->otg.gadget && is_b_sess_vld()) ||
-				(dev->pdata->otg_mode == OTG_USER_CONTROL))
-			set_bit(B_SESS_VLD, &dev->inputs);
-
+			if (dev->otg.gadget && is_b_sess_vld())
+				set_bit(B_SESS_VLD, &dev->inputs);
+		}
 		spin_lock_irq(&dev->lock);
 		if ((test_bit(ID, &dev->inputs)) &&
 				!test_bit(ID_A, &dev->inputs)) {

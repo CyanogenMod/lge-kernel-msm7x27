@@ -586,6 +586,8 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
 	.pmic_notif_deinit         = msm_hsusb_pmic_notif_deinit,
 #endif
+	.otg_mode		= OTG_USER_CONTROL,
+	.usb_mode		= USB_HOST_MODE,
 	.ldo_init		 = msm_hsusb_ldo_init,
 	.ldo_enable		 = msm_hsusb_ldo_enable,
 };

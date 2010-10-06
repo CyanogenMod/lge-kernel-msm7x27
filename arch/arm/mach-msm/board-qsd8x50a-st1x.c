@@ -1733,6 +1733,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_reset	= msm_hsusb_native_phy_reset,
 	.setup_gpio 	= msm_otg_setup_gpio,
 	.otg_mode	= OTG_USER_CONTROL,
+	.usb_mode	= USB_PERIPHERAL_MODE,
 	.vbus_power 	= msm_hsusb_vbus_power,
 	.chg_vbus_draw  = hsusb_chg_vbus_draw,
 	.chg_connected  = hsusb_chg_connected,
