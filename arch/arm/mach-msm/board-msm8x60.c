@@ -77,6 +77,7 @@
 #include "rpm_log.h"
 #include "timer.h"
 #include "saw-regulator.h"
+#include "socinfo.h"
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
@@ -5028,6 +5029,11 @@ static void __init msm8x60_init(void)
 #ifdef CONFIG_MSM_RPM
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
 #endif
+
+	if (socinfo_init() < 0)
+		printk(KERN_ERR "%s: socinfo_init() failed!\n",
+		       __func__);
+
 	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
 	/* initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
