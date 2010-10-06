@@ -17,7 +17,8 @@
  */
 
 #define DEBUG
-#define PORT_DEBUG
+#define DEV_DBG_PREFIX "HDMI: "
+/* #define PORT_DEBUG */
 
 #include <linux/types.h>
 #include <linux/bitops.h>

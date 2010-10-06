@@ -21,6 +21,7 @@
 #include <linux/mutex.h>
 
 #define DEBUG
+#define DEV_DBG_PREFIX "EXT_COMMON: "
 
 #include "msm_fb.h"
 #include "external_common.h"
