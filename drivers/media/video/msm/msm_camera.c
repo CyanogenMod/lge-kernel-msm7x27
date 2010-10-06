@@ -2822,8 +2822,10 @@ static int msm_sync_init(struct msm_sync *sync,
 	wake_lock_init(&sync->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
 
 	rc = msm_camio_probe_on(pdev);
-	if (rc < 0)
+	if (rc < 0) {
+		wake_lock_destroy(&sync->wake_lock);
 		return rc;
+	}
 	rc = sensor_probe(sync->sdata, &sctrl);
 	if (rc >= 0) {
 		sync->pdev = pdev;
