@@ -450,6 +450,8 @@ void mdp4_lcdc_overlay_kickoff(struct msm_fb_data_type *mfd,
 void mdp_dmap_vsync_set(int enable);
 int mdp_dmap_vsync_get(void);
 #endif
+void mdp_hw_cursor_done(void);
+void mdp_hw_cursor_init(void);
 
 int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req);
 

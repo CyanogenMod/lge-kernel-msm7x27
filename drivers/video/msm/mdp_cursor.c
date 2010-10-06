@@ -39,6 +39,43 @@
 
 static int cursor_enabled;
 
+#include "mdp4.h"
+static struct completion cursor_update_comp;
+
+#ifdef CONFIG_FB_MSM_OVERLAY
+void mdp_hw_cursor_init(void)
+{
+	init_completion(&cursor_update_comp);
+}
+
+void mdp_hw_cursor_done(void)
+{
+	/* done */
+	complete(&cursor_update_comp);
+}
+
+static void mdp_hw_cursor_wait_for_completion(void)
+{
+	unsigned long flag;
+
+	/* enable irq */
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	mdp_enable_irq(MDP_OVERLAY0_TERM);
+	INIT_COMPLETION(cursor_update_comp);
+	/* enable vsync intr */
+	outp32(MDP_INTR_CLEAR, INTR_OVERLAY0_DONE);
+	mdp_intr_mask |= INTR_OVERLAY0_DONE;
+	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	/* wait for next vsync */
+	wait_for_completion_killable(&cursor_update_comp);
+
+	/* disable irq */
+	mdp_disable_irq(MDP_OVERLAY0_TERM);
+}
+#endif
+
 int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -51,6 +88,10 @@ int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor)
 	    (img->height > MDP_CURSOR_HEIGHT) ||
 	    (img->depth != 32))
 		return -EINVAL;
+
+#ifdef CONFIG_FB_MSM_OVERLAY
+	mdp_hw_cursor_wait_for_completion();
+#endif
 
 	if (cursor->set & FB_CUR_SETPOS)
 		MDP_OUTP(MDP_BASE + 0x9004c, (img->dy << 16) | img->dx);
