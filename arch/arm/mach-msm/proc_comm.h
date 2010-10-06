@@ -168,7 +168,13 @@ enum {
 	PCOM_CMD_FAIL_PROC_COMM_NOT_INIT,
 };
 
+#ifdef CONFIG_MSM_PROC_COMM
 void msm_proc_comm_reset_modem_now(void);
 int msm_proc_comm(unsigned cmd, unsigned *data1, unsigned *data2);
+#else
+static inline void msm_proc_comm_reset_modem_now(void) { }
+static inline int msm_proc_comm(unsigned cmd, unsigned *data1, unsigned *data2)
+{ return 0; }
+#endif
 
 #endif
