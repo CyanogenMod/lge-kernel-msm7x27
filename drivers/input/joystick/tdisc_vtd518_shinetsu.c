@@ -287,25 +287,50 @@ static int __devexit tdisc_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM
-/* TODO: Power optimization in suspend and resume */
 static int tdisc_suspend(struct device *dev)
 {
+	int rc;
 	struct tdisc_data *dd;
 
 	dd = dev_get_drvdata(dev);
 	if (device_may_wakeup(&dd->clientp->dev))
 		enable_irq_wake(dd->clientp->irq);
+	else {
+		disable_irq(dd->clientp->irq);
+
+		if (cancel_delayed_work_sync(&dd->tdisc_work))
+			enable_irq(dd->clientp->irq);
+
+		if (dd->pdata->tdisc_disable) {
+			rc = dd->pdata->tdisc_disable();
+			if (rc) {
+				pr_err("%s: Suspend failed\n", __func__);
+				return rc;
+			}
+		}
+	}
 
 	return 0;
 }
 
 static int tdisc_resume(struct device *dev)
 {
+	int rc;
 	struct tdisc_data *dd;
 
 	dd = dev_get_drvdata(dev);
 	if (device_may_wakeup(&dd->clientp->dev))
 		disable_irq_wake(dd->clientp->irq);
+	else {
+		if (dd->pdata->tdisc_enable) {
+			rc = dd->pdata->tdisc_enable();
+			if (rc) {
+				pr_err("%s: Resume failed\n", __func__);
+				return rc;
+			}
+		}
+		enable_irq(dd->clientp->irq);
+	}
 
 	return 0;
 }

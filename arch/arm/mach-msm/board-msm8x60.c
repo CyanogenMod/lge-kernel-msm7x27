@@ -2814,6 +2814,8 @@ static int tdisc_shinetsu_enable(void)
 
 	/* Enable the OE (output enable) gpio */
 	gpio_set_value_cansleep(GPIO_JOYSTICK_EN, 1);
+	/* voltage and gpio stabilization delay */
+	msleep(50);
 
 	return 0;
 vreg_fail:
@@ -2822,19 +2824,28 @@ vreg_fail:
 	return rc;
 }
 
-static void tdisc_shinetsu_disable(void)
+static int tdisc_shinetsu_disable(void)
 {
 	int i, rc;
 
 	for (i = 0; i < ARRAY_SIZE(vregs_tdisc_name); i++) {
 		rc = regulator_disable(vregs_tdisc[i]);
-		if (rc < 0)
+		if (rc < 0) {
 			printk(KERN_ERR "%s: vreg %s disable failed (%d)\n",
 				__func__, vregs_tdisc_name[i], rc);
+			goto tdisc_reg_fail;
+		}
 	}
 
 	/* Disable the OE (output enable) gpio */
 	gpio_set_value_cansleep(GPIO_JOYSTICK_EN, 0);
+
+	return 0;
+
+tdisc_reg_fail:
+	while (i)
+		regulator_enable(vregs_tdisc[--i]);
+	return rc;
 }
 
 static struct tdisc_abs_values tdisc_abs = {
@@ -2851,7 +2862,7 @@ static struct tdisc_platform_data tdisc_data = {
 	.tdisc_release = tdisc_shinetsu_release,
 	.tdisc_enable = tdisc_shinetsu_enable,
 	.tdisc_disable = tdisc_shinetsu_disable,
-	.tdisc_wakeup  = 1,
+	.tdisc_wakeup  = 0,
 	.tdisc_gpio = PMIC_GPIO_TDISC,
 	.tdisc_report_keys = true,
 	.tdisc_report_relative = true,
