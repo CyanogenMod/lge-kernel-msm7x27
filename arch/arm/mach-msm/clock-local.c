@@ -331,8 +331,9 @@ void local_clk_enable_reg(unsigned id)
 					&& count > 0; count--)
 			udelay(1);
 		if (count == 0)
-			pr_warning("%s: clock %d status bit stuck off\n",
-				   __func__, id);
+			pr_warning("%s: clock %d status stuck at 'off' (bit %d "
+				   "of 0x%p).\n", __func__, id, clk->halt_bit,
+				   clk->halt_reg);
 	}
 }
 
@@ -366,8 +367,9 @@ void local_clk_disable_reg(unsigned id)
 					&& count > 0; count--)
 			udelay(1);
 		if (count == 0)
-			pr_warning("%s: clock %d status bit stuck on\n",
-				   __func__, id);
+			pr_warning("%s: clock %d status stuck at 'on' (bit %d "
+				   "of 0x%p).\n", __func__, id, clk->halt_bit,
+				   clk->halt_reg);
 	}
 
 	/* Disable root. */
