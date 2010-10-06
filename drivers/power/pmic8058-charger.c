@@ -27,6 +27,7 @@
 #include <linux/msm-charger.h>
 #include <linux/debugfs.h>
 #include <linux/slab.h>
+#include <linux/m_adc.h>
 
 #include <mach/msm_xo.h>
 #include <mach/msm_hsusb.h>
@@ -1342,25 +1343,127 @@ static struct msm_hardware_charger usb_hw_chg = {
 	.charging_switched = pm8058_charging_switched,
 };
 
-int pm8058_get_battery_mvolts(void)
+static int batt_read_adc(int channel, int *mv_reading)
 {
-	return 3500;
+	int ret;
+	void *h;
+	struct adc_chan_result adc_chan_result;
+	struct completion  conv_complete_evt;
+
+	pr_debug("%s: called for %d\n", __func__, channel);
+	ret = adc_channel_open(channel, &h);
+	if (ret) {
+		pr_err("%s: couldnt open channel %d ret=%d\n",
+					__func__, channel, ret);
+		goto out;
+	}
+	init_completion(&conv_complete_evt);
+	ret = adc_channel_request_conv(h, &conv_complete_evt);
+	if (ret) {
+		pr_err("%s: couldnt request conv channel %d ret=%d\n",
+						__func__, channel, ret);
+		goto out;
+	}
+	ret = wait_for_completion_interruptible(&conv_complete_evt);
+	if (ret) {
+		pr_err("%s: wait interrupted channel %d ret=%d\n",
+						__func__, channel, ret);
+		goto out;
+	}
+	ret = adc_channel_read_result(h, &adc_chan_result);
+	if (ret) {
+		pr_err("%s: couldnt read result channel %d ret=%d\n",
+						__func__, channel, ret);
+		goto out;
+	}
+	ret = adc_channel_close(h);
+	if (ret) {
+		pr_err("%s: couldnt close channel %d ret=%d\n",
+						__func__, channel, ret);
+	}
+	if (mv_reading)
+		*mv_reading = adc_chan_result.measurement;
+
+	pr_debug("%s: done for %d\n", __func__, channel);
+	return adc_chan_result.physical;
+out:
+	pr_debug("%s: done for %d\n", __func__, channel);
+	return -EINVAL;
+
 }
-int pm8058_get_battery_temperature(void)
+
+#define BATT_THERM_OPEN_MV  2000
+static int pm8058_is_battery_present(void)
 {
-	return 3500;
+	int mv_reading;
+
+	mv_reading = 0;
+	batt_read_adc(CHANNEL_ADC_BATT_THERM, &mv_reading);
+	pr_debug("%s: therm_raw is %d\n", __func__, mv_reading);
+	if (mv_reading > 0 && mv_reading < BATT_THERM_OPEN_MV)
+		return 1;
+
+	return 0;
 }
-int pm8058_is_battery_present(void)
+
+static int pm8058_get_battery_temperature(void)
 {
+	return batt_read_adc(CHANNEL_ADC_BATT_THERM, NULL);
+}
+
+#define BATT_THERM_OPERATIONAL_MAX_CELCIUS 40
+#define BATT_THERM_OPERATIONAL_MIN_CELCIUS 0
+static int pm8058_is_battery_temp_within_range(void)
+{
+	int therm_celcius;
+
+	therm_celcius = pm8058_get_battery_temperature();
+	pr_debug("%s: therm_celcius is %d\n", __func__, therm_celcius);
+	if (therm_celcius > 0
+		&& therm_celcius > BATT_THERM_OPERATIONAL_MIN_CELCIUS
+		&& therm_celcius < BATT_THERM_OPERATIONAL_MAX_CELCIUS)
+		return 1;
+
+	return 0;
+}
+
+#define BATT_ID_MAX_MV  800
+#define BATT_ID_MIN_MV  600
+static int pm8058_is_battery_id_valid(void)
+{
+	int batt_id_mv;
+
+	batt_id_mv = batt_read_adc(CHANNEL_ADC_BATT_ID, NULL);
+	pr_debug("%s: batt_id_mv is %d\n", __func__, batt_id_mv);
+
+	/*
+	 * The readings are not in range
+	 * assume battery is present for now
+	 */
 	return 1;
+
+	if (batt_id_mv > 0
+		&& batt_id_mv > BATT_ID_MIN_MV
+		&& batt_id_mv < BATT_ID_MAX_MV)
+		return 1;
+
+	return 0;
 }
-int pm8058_is_battery_temp_within_range(void)
+
+/* returns voltage in mV */
+static int pm8058_get_battery_mvolts(void)
 {
-	return 1;
-}
-int pm8058_is_battery_id_valid(void)
-{
-	return 1;
+	int vbatt_mv;
+
+	vbatt_mv = batt_read_adc(CHANNEL_ADC_VBATT, NULL);
+	pr_debug("%s: vbatt_mv is %d\n", __func__, vbatt_mv);
+	if (vbatt_mv > 0)
+		return vbatt_mv;
+	/*
+	 * return 0 to tell the upper layers
+	 * we couldnt read the battery voltage
+	 */
+	return 0;
 }
 
 static struct msm_battery_gauge pm8058_batt_gauge = {
