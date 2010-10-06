@@ -77,10 +77,14 @@ enum {
 #define LOCAL_TIMER 0
 #define GLOBAL_TIMER 1
 
-#ifdef CONFIG_ARCH_MSM8X60
-#define MSM_TMR_BASE_CPU0      0x40000
+/*
+ * MSM_TMR_GLOBAL is added to the regbase of a timer to force the memory access
+ * to come from the CPU0 region.
+ */
+#ifdef MSM_TMR0_BASE
+#define MSM_TMR_GLOBAL		(MSM_TMR0_BASE - MSM_TMR_BASE)
 #else
-#define MSM_TMR_BASE_CPU0      0
+#define MSM_TMR_GLOBAL		0
 #endif
 
 #if defined(CONFIG_MSM_DIRECT_SCLK_ACCESS)
@@ -255,12 +259,19 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 	uint32_t t1, t2;
 	int loop_count = 0;
 
-	t1 = readl(clock->regbase + TIMER_COUNT_VAL + global*MSM_TMR_BASE_CPU0);
+	if (global)
+		t1 = readl(clock->regbase + TIMER_COUNT_VAL + MSM_TMR_GLOBAL);
+	else
+		t1 = readl(clock->regbase + TIMER_COUNT_VAL);
+
 	if (!(clock->flags & MSM_CLOCK_FLAGS_UNSTABLE_COUNT))
 		return t1;
 	while (1) {
-		t2 = readl(clock->regbase + TIMER_COUNT_VAL +
-		    global*MSM_TMR_BASE_CPU0);
+		if (global)
+			t2 = readl(clock->regbase + TIMER_COUNT_VAL +
+					MSM_TMR_GLOBAL);
+		else
+			t2 = readl(clock->regbase + TIMER_COUNT_VAL);
 		if (t1 == t2)
 			return t1;
 		if (loop_count++ > 10) {

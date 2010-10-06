@@ -128,6 +128,7 @@ static struct map_desc msm8x60_io_desc[] __initdata = {
 	MSM_DEVICE(QGIC_DIST),
 	MSM_DEVICE(QGIC_CPU),
 	MSM_DEVICE(TMR),
+	MSM_DEVICE(TMR0),
 	MSM_DEVICE(RPM_MPM),
 	MSM_DEVICE(ACC),
 	MSM_DEVICE(ACC0),
