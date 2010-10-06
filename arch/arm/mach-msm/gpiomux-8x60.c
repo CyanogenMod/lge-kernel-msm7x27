@@ -16,6 +16,7 @@
  */
 #include <linux/module.h>
 #include <mach/irqs.h>
+#include <asm/mach-types.h>
 #include "gpiomux.h"
 
 #define CONSOLE_UART	(GPIOMUX_FUNC_2 | GPIOMUX_DRV_8MA | GPIOMUX_VALID)
@@ -43,6 +44,19 @@
 #endif
 
 #define PS_HOLD	(GPIOMUX_FUNC_1 | GPIOMUX_DRV_12MA | GPIOMUX_VALID)
+
+#define USB_SWITCH_EN_ACTV_CFG		(GPIOMUX_FUNC_GPIO | GPIOMUX_DRV_2MA |\
+					 GPIOMUX_PULL_NONE | GPIOMUX_VALID)
+#define USB_SWITCH_CNTL_ACTV_CFG	(GPIOMUX_FUNC_GPIO | GPIOMUX_DRV_2MA |\
+					 GPIOMUX_PULL_NONE | GPIOMUX_VALID)
+#define USB_HUB_RESET_ACTV_CFG		(GPIOMUX_FUNC_GPIO | GPIOMUX_DRV_2MA |\
+					 GPIOMUX_PULL_NONE | GPIOMUX_VALID)
+#define USB_SWITCH_EN_SUSP_CFG		(GPIOMUX_FUNC_GPIO | GPIOMUX_VALID |\
+					 GPIOMUX_PULL_DOWN)
+#define USB_SWITCH_CNTL_SUSP_CFG	(GPIOMUX_FUNC_GPIO | GPIOMUX_VALID |\
+					 GPIOMUX_PULL_DOWN)
+#define USB_HUB_RESET_SUSP_CFG		(GPIOMUX_FUNC_GPIO | GPIOMUX_VALID |\
+					 GPIOMUX_PULL_DOWN)
 
 #define EBI2_A_D	(GPIOMUX_FUNC_1 | GPIOMUX_PULL_UP | GPIOMUX_DRV_8MA |\
 			 GPIOMUX_VALID)
@@ -330,6 +344,15 @@ static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 
 static int __init gpiomux_init(void)
 {
+	if (machine_is_msm8x60_qrdc()) {
+		msm_gpiomux_configs[34].active = USB_HUB_RESET_ACTV_CFG;
+		msm_gpiomux_configs[34].suspended = USB_HUB_RESET_SUSP_CFG;
+		msm_gpiomux_configs[131].active = USB_SWITCH_CNTL_ACTV_CFG;
+		msm_gpiomux_configs[131].suspended = USB_SWITCH_CNTL_SUSP_CFG;
+		msm_gpiomux_configs[132].active = USB_SWITCH_EN_ACTV_CFG;
+		msm_gpiomux_configs[132].suspended = USB_SWITCH_EN_SUSP_CFG;
+	}
+
 	return msm_gpiomux_init(msm_gpiomux_configs, NR_GPIO_IRQS);
 }
 postcore_initcall(gpiomux_init);

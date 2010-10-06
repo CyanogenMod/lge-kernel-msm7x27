@@ -2291,6 +2291,14 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 					PM_QOS_DEFAULT_VALUE);
 	otg_pm_qos_update_axi(dev, 1);
 
+	if (dev->pdata->init_gpio) {
+		ret = dev->pdata->init_gpio(1);
+		if (ret) {
+			pr_err("%s: gpio init failed with err:%d\n",
+					__func__, ret);
+			goto free_wq;
+		}
+	}
 	/* To reduce phy power consumption and to avoid external LDO
 	 * on the board, PMIC comparators can be used to detect VBUS
 	 * session change.
@@ -2302,7 +2310,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		} else if (ret != -ENOTSUPP) {
 			pr_err("%s: pmic_notif_init() failed, err:%d\n",
 					__func__, ret);
-			goto free_wq;
+			goto free_gpio;
 		}
 	}
 	if (dev->pdata->pmic_vbus_irq)
@@ -2410,6 +2418,9 @@ free_ldo_init:
 free_pmic_notif:
 	if (dev->pmic_notif_supp && dev->pdata->pmic_notif_init)
 		dev->pdata->pmic_notif_init(&msm_otg_set_vbus_state, 0);
+free_gpio:
+	if (dev->pdata->init_gpio)
+		dev->pdata->init_gpio(0);
 free_wq:
 	destroy_workqueue(dev->wq);
 free_wlock:
