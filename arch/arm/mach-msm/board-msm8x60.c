@@ -4999,6 +4999,7 @@ static void __init msm8x60_init(void)
 	if (socinfo_init() < 0)
 		printk(KERN_ERR "%s: socinfo_init() failed!\n",
 		       __func__);
+	msm8x60_check_2d_hardware();
 
 	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
 	/* initialize SPM before acpuclock as the latter calls into SPM

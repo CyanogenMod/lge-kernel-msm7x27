@@ -28,6 +28,7 @@
 #include "clock-8x60.h"
 #include "clock-rpm.h"
 #include "devices-msm8x60.h"
+#include "socinfo.h"
 #include <linux/dma-mapping.h>
 #include <linux/irq.h>
 #include <asm/hardware/gic.h>
@@ -355,13 +356,29 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.imem_clk_name = NULL,
 	.grp3d_clk_name = "gfx3d_clk",
 #ifdef CONFIG_MSM_KGSL_2D
-	.grp2d0_clk_name = "gfx2d0_clk",
+	.grp2d0_clk_name = "gfx2d0_clk", /* note: 2d clocks disabled on v1 */
 	.grp2d1_clk_name = "gfx2d1_clk",
 #else
 	.grp2d0_clk_name = NULL,
 	.grp2d1_clk_name = NULL,
 #endif
 };
+
+/*
+ * this a software workaround for not having two distinct board
+ * files for 8660v1 and 8660v2. 8660v1 has a faulty 2d clock, and
+ * this workaround detects the cpu version to tell if the kernel is on a
+ * 8660v1, and should disable the 2d core. it is called from the board file
+ */
+void __init msm8x60_check_2d_hardware(void)
+{
+	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) &&
+	    (SOCINFO_VERSION_MINOR(socinfo_get_version()) == 0)) {
+		printk(KERN_WARNING "kgsl: 2D cores disabled on 8660v1\n");
+		kgsl_pdata.grp2d0_clk_name = NULL;
+		kgsl_pdata.grp2d1_clk_name = NULL;
+	}
+}
 
 struct platform_device msm_device_kgsl = {
 	.name = "kgsl",

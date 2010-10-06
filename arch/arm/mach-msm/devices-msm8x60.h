@@ -58,5 +58,6 @@ extern struct platform_device msm_device_vidc;
 extern struct platform_device msm_camera_sensor_webcam;
 #endif
 void __init msm8x60_init_irq(void);
+void __init msm8x60_check_2d_hardware(void);
 
 #endif
