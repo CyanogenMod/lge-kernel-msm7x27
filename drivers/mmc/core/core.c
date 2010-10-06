@@ -1106,9 +1106,18 @@ void mmc_rescan(struct work_struct *work)
 	int extend_wakelock = 0;
 	int ret;
 
-	ret = host->ops->get_status(host);
-	if (host->ops->get_status && ret == 1){
-		mmc_schedule_delayed_work(&host->detect, HZ / 5);
+    /*
+	 * Add checking gpio pin status before initialization of bus.
+	 * If the GPIO pin status is changed, check gpio pin status again.
+	 * Should check until it's stable.
+	 * fred.cho@lge.com, 2010-09-27
+	 */
+	if (host->ops->get_status){
+		ret = host->ops->get_status(host);
+		if (ret == 1) {
+			mmc_schedule_delayed_work(&host->detect, HZ / 3);
+			return;
+		}
 	}
 	mmc_bus_get(host);
 

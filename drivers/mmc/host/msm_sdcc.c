@@ -1236,7 +1236,7 @@ static int msmsdcc_get_status(struct mmc_host *mmc)
 		if (status ^ host->oldstat) {
 			pr_info("%s: Slot status change detected (%d -> %d)\n",
 					mmc_hostname(mmc), host->oldstat, status);
-
+			host->oldstat = status;
 			spin_unlock_irq(&host->lock);
 
 			return 1;
@@ -1380,7 +1380,6 @@ msmsdcc_check_status(unsigned long data)
 			else
 				mmc_detect_change(host->mmc, 0);
 	}
-	host->oldstat = !host->eject;
 }
 
 static irqreturn_t
