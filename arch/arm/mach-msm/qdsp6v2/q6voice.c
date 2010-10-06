@@ -30,6 +30,8 @@
 #include "q6voice.h"
 
 #define TIMEOUT_MS 3000
+#define SNDDEV_CAP_TTY 0x20
+
 
 struct voice_data {
 	int voc_state;/*INIT, CHANGE, RELEASE, RUN */
@@ -203,6 +205,69 @@ fail:
 	return -EINVAL;
 }
 
+static int voice_send_tty_mode_to_modem(struct voice_data *v)
+{
+	struct msm_snddev_info *dev_tx_info;
+	struct msm_snddev_info *dev_rx_info;
+	int tty_mode = 0;
+	int ret = 0;
+	struct mvm_set_tty_mode_cmd mvm_tty_mode_cmd;
+
+	dev_rx_info = audio_dev_ctrl_find_dev(v->dev_rx.dev_id);
+	if (IS_ERR(dev_rx_info)) {
+		pr_err("bad dev_id %d\n", v->dev_rx.dev_id);
+		goto done;
+	}
+
+	dev_tx_info = audio_dev_ctrl_find_dev(v->dev_tx.dev_id);
+	if (IS_ERR(dev_tx_info)) {
+		pr_err("bad dev_id %d\n", v->dev_tx.dev_id);
+		goto done;
+	}
+
+	if ((dev_rx_info->capability & SNDDEV_CAP_TTY) &&
+		(dev_tx_info->capability & SNDDEV_CAP_TTY))
+		tty_mode = 3; /* FULL */
+	else if (!(dev_tx_info->capability & SNDDEV_CAP_TTY) &&
+		(dev_rx_info->capability & SNDDEV_CAP_TTY))
+		tty_mode = 2; /* VCO */
+	else if ((dev_tx_info->capability & SNDDEV_CAP_TTY) &&
+		!(dev_rx_info->capability & SNDDEV_CAP_TTY))
+		tty_mode = 1; /* HCO */
+
+	if (tty_mode) {
+		/* send tty mode cmd to mvm */
+		mvm_tty_mode_cmd.hdr.hdr_field = APR_HDR_FIELD(
+			APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE),
+								APR_PKT_VER);
+		mvm_tty_mode_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+			sizeof(mvm_tty_mode_cmd) - APR_HDR_SIZE);
+		pr_debug("pkt size = %d\n", mvm_tty_mode_cmd.hdr.pkt_size);
+		mvm_tty_mode_cmd.hdr.src_port = 0;
+		mvm_tty_mode_cmd.hdr.dest_port = v->mvm_handle;
+		mvm_tty_mode_cmd.hdr.token = 0;
+		mvm_tty_mode_cmd.hdr.opcode = VSS_ISTREAM_CMD_SET_TTY_MODE;
+		mvm_tty_mode_cmd.tty_mode.mode = tty_mode;
+		pr_info("tty mode =%d\n", mvm_tty_mode_cmd.tty_mode.mode);
+
+		v->mvm_state = 1;
+		ret = apr_send_pkt(v->apr_mvm, (uint32_t *) &mvm_tty_mode_cmd);
+		if (ret < 0) {
+			pr_err("Fail: sending VSS_ISTREAM_CMD_SET_TTY_MODE\n");
+			goto done;
+		}
+		ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
+						msecs_to_jiffies(TIMEOUT_MS));
+		if (ret < 0) {
+			pr_err("%s: wait_event timeout\n", __func__);
+			goto done;
+		}
+	}
+	return 0;
+done:
+	return -EINVAL;
+}
+
 static int voice_start_modem_voice(struct voice_data *v)
 {
 	struct cvp_create_full_ctl_session_cmd cvp_session_cmd;
@@ -301,6 +366,9 @@ static int voice_start_modem_voice(struct voice_data *v)
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
+
+	/* send tty mode if tty device is used */
+	voice_send_tty_mode_to_modem(v);
 
 	/* start voice and wait for response */
 	mvm_start_voice_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
