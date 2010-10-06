@@ -43,7 +43,7 @@ struct tdisc_platform_data {
 	int	(*tdisc_setup) (void);
 	void	(*tdisc_release) (void);
 	int	(*tdisc_enable) (void);
-	void	(*tdisc_disable)(void);
+	int	(*tdisc_disable)(void);
 	int	tdisc_wakeup;
 	int	tdisc_gpio;
 	bool	tdisc_report_keys;
