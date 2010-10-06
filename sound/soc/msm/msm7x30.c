@@ -720,7 +720,13 @@ static int __init msm_audio_init(void)
 	return ret;
 }
 
-late_initcall(msm_audio_init);
+static void __exit msm_audio_exit(void)
+{
+	platform_device_unregister(msm_audio_snd_device);
+}
+
+module_init(msm_audio_init);
+module_exit(msm_audio_exit);
 
 MODULE_DESCRIPTION("PCM module");
 MODULE_LICENSE("GPL v2");
