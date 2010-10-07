@@ -225,6 +225,11 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	MDP_OUTP(MDP_BASE + LCDC_BASE + 0x20, active_v_start);
 	MDP_OUTP(MDP_BASE + LCDC_BASE + 0x24, active_v_end);
 
+#ifdef CONFIG_ARCH_MSM8X60
+	mdp4_vg_qseed_init(0);
+	mdp4_vg_qseed_init(1);
+#endif
+
 	ret = panel_next_on(pdev);
 	if (ret == 0) {
 		/* enable LCDC block */
