@@ -114,6 +114,7 @@ struct cy8c_ts {
 	bool is_suspended;
 	bool int_pending;
 	struct mutex sus_lock;
+	u32 pen_irq;
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend		early_suspend;
 #endif
@@ -293,7 +294,7 @@ schedule:
 	if (ts->pdata->use_polling)
 		queue_delayed_work(ts->wq, &ts->work, TOUCHSCREEN_TIMEOUT);
 	else
-		enable_irq(ts->client->irq);
+		enable_irq(ts->pen_irq);
 
 	/* write to STATUS_REG to update coordinates*/
 	rc = cy8c_ts_write_reg_u8(ts->client, ts->dd->status_reg,
@@ -334,8 +335,23 @@ static int cy8c_ts_open(struct input_dev *dev)
 	}
 
 	if (!ts->pdata->use_polling) {
+		/* configure touchscreen interrupt gpio */
+		rc = gpio_request(ts->pdata->irq_gpio, "cy8c_irq_gpio");
+		if (rc) {
+			pr_err("%s: unable to request gpio %d\n",
+				__func__, ts->pdata->irq_gpio);
+			goto error_gpio_req;
+		}
 
-		rc = request_irq(ts->client->irq, cy8c_ts_irq,
+		rc = gpio_direction_input(ts->pdata->irq_gpio);
+		if (rc) {
+			pr_err("%s: unable to set direction for gpio %d\n",
+				__func__, ts->pdata->irq_gpio);
+			goto error_gpio_dir;
+		}
+
+		ts->pen_irq = gpio_to_irq(ts->pdata->irq_gpio);
+		rc = request_irq(ts->pen_irq, cy8c_ts_irq,
 					IRQF_TRIGGER_FALLING,
 					ts->client->dev.driver->name, ts);
 		if (rc) {
@@ -367,6 +383,9 @@ static int cy8c_ts_open(struct input_dev *dev)
 	return 0;
 
 error_req_irq_fail:
+error_gpio_dir:
+	gpio_free(ts->pdata->irq_gpio);
+error_gpio_req:
 	if (ts->pdata->power_on)
 		ts->pdata->power_on(0);
 
@@ -381,10 +400,10 @@ static void cy8c_ts_close(struct input_dev *dev)
 	rc = cancel_delayed_work_sync(&ts->work);
 
 	if (rc && !ts->pdata->use_polling)
-		enable_irq(ts->client->irq);
+		enable_irq(ts->pen_irq);
 
 	if (!ts->pdata->use_polling)
-		free_irq(ts->client->irq, ts);
+		free_irq(ts->pen_irq, ts);
 
 	/* power off the device */
 	if (ts->pdata->power_on)
@@ -493,15 +512,18 @@ static int cy8c_ts_suspend(struct device *dev)
 		mutex_unlock(&ts->sus_lock);
 
 		if (!ts->pdata->use_polling)
-			enable_irq_wake(ts->client->irq);
+			enable_irq_wake(ts->pen_irq);
 	} else {
 		if (!ts->pdata->use_polling)
-			disable_irq_nosync(ts->client->irq);
+			disable_irq_nosync(ts->pen_irq);
 
 		rc = cancel_delayed_work_sync(&ts->work);
 
 		if (rc && !ts->pdata->use_polling)
-			enable_irq(ts->client->irq);
+			enable_irq(ts->pen_irq);
+
+		if (!ts->pdata->use_polling)
+			gpio_free(ts->pdata->irq_gpio);
 
 		if (ts->pdata->power_on) {
 			rc = ts->pdata->power_on(0);
@@ -521,7 +543,7 @@ static int cy8c_ts_resume(struct device *dev)
 
 	if (device_may_wakeup(dev)) {
 		if (!ts->pdata->use_polling)
-			disable_irq_wake(ts->client->irq);
+			disable_irq_wake(ts->pen_irq);
 
 		mutex_lock(&ts->sus_lock);
 		ts->is_suspended = false;
@@ -546,11 +568,32 @@ static int cy8c_ts_resume(struct device *dev)
 		if (ts->pdata->use_polling)
 			queue_delayed_work(ts->wq, &ts->work,
 					TOUCHSCREEN_TIMEOUT);
-		else
-			enable_irq(ts->client->irq);
-	}
+		else {
+			/* configure touchscreen interrupt gpio */
+			rc = gpio_request(ts->pdata->irq_gpio, "cy8c_irq_gpio");
+			if (rc) {
+				pr_err("%s: unable to request gpio %d\n",
+					__func__, ts->pdata->irq_gpio);
+				goto err_power_off;
+			}
 
+			rc = gpio_direction_input(ts->pdata->irq_gpio);
+			if (rc) {
+				pr_err("%s: unable to set direction for gpio %d\n",
+					__func__, ts->pdata->irq_gpio);
+				goto err_gpio_free;
+			}
+
+			enable_irq(ts->pen_irq);
+		}
+	}
 	return 0;
+err_gpio_free:
+	gpio_free(ts->pdata->irq_gpio);
+err_power_off:
+	if (ts->pdata->power_on)
+		rc = ts->pdata->power_on(0);
+	return rc;
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -674,10 +717,12 @@ static int __devexit cy8c_ts_remove(struct i2c_client *client)
 	rc = cancel_delayed_work_sync(&ts->work);
 
 	if (rc && !ts->pdata->use_polling)
-		enable_irq(ts->client->irq);
+		enable_irq(ts->pen_irq);
 
-	if (!ts->pdata->use_polling)
-		free_irq(client->irq, ts);
+	if (!ts->pdata->use_polling) {
+		free_irq(ts->pen_irq, ts);
+		gpio_free(ts->pdata->irq_gpio);
+	}
 
 	destroy_workqueue(ts->wq);
 

@@ -1481,18 +1481,9 @@ static int tmg200_dev_setup(bool enable)
 				__func__, rc);
 			goto reg_put;
 		}
-
-		rc = gpio_request(TS_PEN_IRQ_GPIO, "cy8ctmg200_irq_gpio");
-		if (rc) {
-			pr_err("%s: unable to request gpio %d\n",
-				__func__, TS_PEN_IRQ_GPIO);
-			goto reg_put;
-		}
 	} else {
 		/* put voltage sources */
 		regulator_put(vreg_tmg200);
-		/* free gpio */
-		gpio_free(TS_PEN_IRQ_GPIO);
 	}
 	return 0;
 reg_put:
@@ -1516,13 +1507,13 @@ static struct cy8c_ts_platform_data cy8ctmg200_pdata = {
 	.power_on = tmg200_power,
 	.dev_setup = tmg200_dev_setup,
 	.nfingers = 2,
+	.irq_gpio = TS_PEN_IRQ_GPIO,
 };
 
 static struct i2c_board_info cy8ctmg200_board_info[] = {
 	{
 		I2C_BOARD_INFO("cy8ctmg200", 0x2),
 		.platform_data = &cy8ctmg200_pdata,
-		.irq = MSM_GPIO_TO_INT(TS_PEN_IRQ_GPIO),
 	}
 };
 

@@ -6015,13 +6015,6 @@ static int tma300_dev_setup(bool enable)
 			goto vreg_get_fail;
 		}
 
-		rc = gpio_request(TS_GPIO_IRQ, "ts_irq");
-		if (rc) {
-			pr_err("%s: unable to request gpio %d (%d)\n",
-					__func__, TS_GPIO_IRQ, rc);
-			goto vreg_get_fail;
-		}
-
 		/* virtual keys */
 		tma300_vkeys_attr.attr.name = "virtualkeys.msm_tma300_ts";
 		properties_kobj = kobject_create_and_add("board_properties",
@@ -6035,8 +6028,6 @@ static int tma300_dev_setup(bool enable)
 		/* put voltage sources */
 		for (i = 0; i < ARRAY_SIZE(vregs_tma300_name); i++)
 			vreg_put(vregs_tma300[i]);
-		/* free gpio */
-		gpio_free(TS_GPIO_IRQ);
 		/* destroy virtual keys */
 		if (properties_kobj)
 			sysfs_remove_group(properties_kobj,
@@ -6069,6 +6060,7 @@ static struct cy8c_ts_platform_data cy8ctma300_pdata = {
 	.use_polling = 1,
 	.invert_y = 1,
 	.nfingers = 4,
+	.irq_gpio = TS_GPIO_IRQ,
 };
 
 static struct i2c_board_info cy8ctma300_board_info[] = {
@@ -6212,8 +6204,6 @@ static void __init msm7x30_init(void)
 			cy8ctma300_pdata.res_y = 920;
 			cy8ctma300_pdata.invert_y = 0;
 			cy8ctma300_pdata.use_polling = 0;
-			cy8ctma300_board_info[0].irq =
-				MSM_GPIO_TO_INT(TS_GPIO_IRQ);
 		}
 		i2c_register_board_info(0, cy8ctma300_board_info,
 			ARRAY_SIZE(cy8ctma300_board_info));
