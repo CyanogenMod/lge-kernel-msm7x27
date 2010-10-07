@@ -40,6 +40,26 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 
+#ifdef CONFIG_DIAG_NO_MODEM
+struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+
+#define ENCODE_RSP_AND_SEND(buf_length)				\
+do {									\
+	send.state = DIAG_STATE_START;					\
+	send.pkt = driver->apps_rsp_buf;				\
+	send.last = (void *)(driver->apps_rsp_buf + buf_length);	\
+	send.terminate = 1;						\
+	if (!driver->in_busy_1) {					\
+		enc.dest = driver->buf_in_1;				\
+		enc.dest_last = (void *)(driver->buf_in_1 + 499);	\
+		diag_hdlc_encode(&send, &enc);				\
+		driver->write_ptr_1->buf = driver->buf_in_1;		\
+		driver->write_ptr_1->length = buf_length + 4;		\
+		diag_write(driver->write_ptr_1);			\
+	}								\
+} while (0)
+#endif
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 ((bufStart <= start) && (end - start >= length)) ? 1 : 0
 
@@ -398,7 +418,38 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	if ((*buf == 0x7d) && (*(++buf) == 0x5)) {
 		TO DO
 	} */
+#ifdef CONFIG_DIAG_NO_MODEM
+	/* Respond to polling for Apps only DIAG */
+	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) && (*(buf+2) == 0x03)) {
+		for (i = 0; i < 3; i++)
+			driver->apps_rsp_buf[i] = *(buf+i);
+		for (i = 0; i < 13; i++)
+			driver->apps_rsp_buf[i+3] = 0;
 
+		ENCODE_RSP_AND_SEND(15);
+		return 0;
+	}
+	/* respond to 0x0 command */
+	else if (*buf == 0x00) {
+		for (i = 0; i < 55; i++)
+			driver->apps_rsp_buf[i] = 0;
+
+		ENCODE_RSP_AND_SEND(54);
+		return 0;
+	}
+	/* respond to 0x7c command */
+	else if (*buf == 0x7c) {
+		driver->apps_rsp_buf[0] = 0x7c;
+		for (i = 1; i < 8; i++)
+			driver->apps_rsp_buf[i] = 0;
+
+		*(int *)(driver->apps_rsp_buf + 8) = 4062; /* ID for APQ 8060 */
+		*(unsigned char *)(driver->apps_rsp_buf + 12) = '\0';
+		*(unsigned char *)(driver->apps_rsp_buf + 13) = '\0';
+		ENCODE_RSP_AND_SEND(13);
+		return 0;
+	}
+#endif
 	/* Check for registered clients and forward packet to user-space */
 	else{
 		cmd_code = (int)(*(char *)buf);
@@ -488,8 +539,16 @@ void diag_process_hdlc(void *data, unsigned len)
 					   DUMP_PREFIX_ADDRESS, data, len, 1);
 		driver->debug_flag = 0;
 	}
+#ifdef CONFIG_DIAG_NO_MODEM
+	if (type == 1) { /* implies this packet is NOT meant for apps */
+		if (driver->chqdsp)
+			smd_write(driver->chqdsp, driver->hdlc_buf,
+							 hdlc.dest_idx - 3);
+		type = 0;
+	}
+#endif
 #ifdef DIAG_DEBUG
-	printk(KERN_INFO "\n hdlc.dest_idx = %d \n", hdlc.dest_idx);
+	printk(KERN_INFO "\n hdlc.dest_idx = %d", hdlc.dest_idx);
 	for (i = 0; i < hdlc.dest_idx; i++)
 		printk(KERN_DEBUG "\t%x", *(((unsigned char *)
 							driver->hdlc_buf)+i));
@@ -619,55 +678,17 @@ static int diag_smd_probe(struct platform_device *pdev)
 {
 	int r = 0;
 
-	if (pdev->id == 0) {
-		if (driver->buf_in_1 == NULL ||
-					 driver->buf_in_2 == NULL) {
-			if (driver->buf_in_1 == NULL)
-				driver->buf_in_1 = kzalloc(IN_BUF_SIZE,
-								GFP_KERNEL);
-			if (driver->buf_in_2 == NULL)
-				driver->buf_in_2 = kzalloc(IN_BUF_SIZE,
-								GFP_KERNEL);
-			if (driver->buf_in_1 == NULL ||
-				 driver->buf_in_2 == NULL)
-				goto err;
-			else
-				r = smd_open("DIAG", &driver->ch, driver,
-						 diag_smd_notify);
-		}
-		else
-			r = smd_open("DIAG", &driver->ch, driver,
-						 diag_smd_notify);
-	}
+	if (pdev->id == 0)
+		r = smd_open("DIAG", &driver->ch, driver, diag_smd_notify);
 #if defined(CONFIG_MSM_N_WAY_SMD)
-	if (pdev->id == 1) {
-		if (driver->buf_in_qdsp_1 == NULL ||
-					 driver->buf_in_qdsp_2 == NULL) {
-			if (driver->buf_in_qdsp_1 == NULL)
-				driver->buf_in_qdsp_1 = kzalloc(
-						IN_BUF_SIZE, GFP_KERNEL);
-			if (driver->buf_in_qdsp_2 == NULL)
-				driver->buf_in_qdsp_2 = kzalloc(
-						IN_BUF_SIZE, GFP_KERNEL);
-			if (driver->buf_in_qdsp_1 == NULL ||
-				 driver->buf_in_qdsp_2 == NULL)
-				goto err;
-			else
-				r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP
-						, &driver->chqdsp, driver,
-							 diag_smd_qdsp_notify);
-		}
-		else
-			r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP,
-			 &driver->chqdsp, driver, diag_smd_qdsp_notify);
-	}
+	if (pdev->id == 1)
+		r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP
+			, &driver->chqdsp, driver, diag_smd_qdsp_notify);
 #endif
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-
 	printk(KERN_INFO "diag opened SMD port ; r = %d\n", r);
 
-err:
 	return 0;
 }
 
@@ -714,6 +735,22 @@ void diag_read_work_fn(struct work_struct *work)
 void diagfwd_init(void)
 {
 	diag_debug_buf_idx = 0;
+	if (driver->buf_in_1 == NULL)
+		driver->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_1 == NULL)
+			goto err;
+	if (driver->buf_in_2 == NULL)
+		driver->buf_in_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_2 == NULL)
+			goto err;
+	if (driver->buf_in_qdsp_1 == NULL)
+		driver->buf_in_qdsp_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_qdsp_1 == NULL)
+			goto err;
+	if (driver->buf_in_qdsp_2 == NULL)
+		driver->buf_in_qdsp_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_qdsp_2 == NULL)
+			goto err;
 	if (driver->usb_buf_out  == NULL &&
 	     (driver->usb_buf_out = kzalloc(USB_MAX_OUT_BUF,
 					 GFP_KERNEL)) == NULL)
@@ -780,7 +817,12 @@ void diagfwd_init(void)
 	     (driver->pkt_buf = kzalloc(PKT_SIZE,
 			 GFP_KERNEL)) == NULL)
 		goto err;
-
+#ifdef CONFIG_DIAG_NO_MODEM
+	if (driver->apps_rsp_buf == NULL)
+			driver->apps_rsp_buf = kzalloc(150, GFP_KERNEL);
+		if (driver->apps_rsp_buf == NULL)
+			goto err;
+#endif
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 	INIT_WORK(&(driver->diag_read_work), diag_read_work_fn);
 
@@ -791,6 +833,10 @@ void diagfwd_init(void)
 	return;
 err:
 		printk(KERN_INFO "\n Could not initialize diag buffers\n");
+		kfree(driver->buf_in_1);
+		kfree(driver->buf_in_2);
+		kfree(driver->buf_in_qdsp_1);
+		kfree(driver->buf_in_qdsp_2);
 		kfree(driver->usb_buf_out);
 		kfree(driver->hdlc_buf);
 		kfree(driver->msg_masks);
@@ -806,6 +852,9 @@ err:
 		kfree(driver->write_ptr_qdsp_1);
 		kfree(driver->write_ptr_qdsp_2);
 		kfree(driver->usb_read_ptr);
+#ifdef CONFIG_DIAG_NO_MODEM
+		kfree(driver->apps_rsp_buf);
+#endif
 }
 
 void diagfwd_exit(void)
@@ -841,4 +890,7 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_qdsp_1);
 	kfree(driver->write_ptr_qdsp_2);
 	kfree(driver->usb_read_ptr);
+#ifdef CONFIG_DIAG_NO_MODEM
+		kfree(driver->apps_rsp_buf);
+#endif
 }
