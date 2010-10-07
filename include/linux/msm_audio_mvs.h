@@ -36,6 +36,7 @@
 	(AUDIO_MAX_COMMON_IOCTL_NUM + 1), unsigned)
 
 /* MVS modes */
+#define MVS_MODE_IS127 2
 #define MVS_MODE_AMR 5
 #define MVS_MODE_LINEAR_PCM 9
 #define MVS_MODE_PCM 12
@@ -62,16 +63,24 @@ enum msm_audio_amr_mode {
 	MVS_AMR_MODE_UNDEF
 };
 
+enum msm_audio_voc_rate {
+		MVS_VOC_0_RATE, /* Blank frame */
+		MVS_VOC_8_RATE, /* 1/8 rate    */
+		MVS_VOC_4_RATE, /* 1/4 rate    */
+		MVS_VOC_2_RATE, /* 1/2 rate    */
+		MVS_VOC_1_RATE	/* Full rate   */
+};
+
 enum msm_audio_amr_frame_type {
 	MVS_AMR_SPEECH_GOOD,	      /* Good speech frame              */
 	MVS_AMR_SPEECH_DEGRADED,      /* Speech degraded                */
-	MVS_AMR_ONSET,		      /* onset                          */
+	MVS_AMR_ONSET,		      /* Onset                          */
 	MVS_AMR_SPEECH_BAD,	      /* Corrupt speech frame (bad CRC) */
 	MVS_AMR_SID_FIRST,	      /* First silence descriptor       */
 	MVS_AMR_SID_UPDATE,	      /* Comfort noise frame            */
 	MVS_AMR_SID_BAD,	      /* Corrupt SID frame (bad CRC)    */
 	MVS_AMR_NO_DATA,	      /* Nothing to transmit            */
-	MVS_AMR_SPEECH_LOST,	      /* downlink speech lost           */
+	MVS_AMR_SPEECH_LOST	      /* Downlink speech lost           */
 };
 
 struct msm_audio_mvs_config {
