@@ -879,6 +879,7 @@ static struct clk_freq_tbl clk_tbl_mdp[] = {
 	F_MDP( 96000000, MM_GPERF, 0, 1,  4, NOMINAL),
 	F_MDP(128000000, MM_GPERF, 0, 1,  3, NOMINAL),
 	F_MDP(160000000, MM_PLL1,  0, 1,  5, NOMINAL),
+	F_MDP(177780000, MM_PLL1,  0, 2,  9, NOMINAL),
 	F_MDP(200000000, MM_PLL1,  0, 1,  4, NOMINAL),
 	F_END,
 };
@@ -911,6 +912,7 @@ static struct clk_freq_tbl clk_tbl_mdp_vsync[] = {
 			CC(6, n), MND_EN(B(5), n), v, NULL)
 static struct clk_freq_tbl clk_tbl_pixel_mdp[] = {
 	F_PIXEL_MDP(25600000, MM_GPERF, 3,   1,   5, LOW),
+	F_PIXEL_MDP(42667000, MM_GPERF, 1,   1,   9, LOW),
 	F_PIXEL_MDP(43192000, MM_GPERF, 1,  64, 569, LOW),
 	F_PIXEL_MDP(48000000, MM_GPERF, 4,   1,   2, LOW),
 	F_PIXEL_MDP(53990000, MM_GPERF, 2, 169, 601, LOW),
