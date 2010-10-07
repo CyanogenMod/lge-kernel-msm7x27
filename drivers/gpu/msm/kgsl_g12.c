@@ -220,7 +220,7 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 		goto done;
 	}
 	device->pwrctrl.grp_clk = clk;
-	device->pwrctrl.grp_src_clk = NULL;
+	device->pwrctrl.grp_src_clk = clk;
 
 	if (clk != NULL) {
 		if ((pdata->set_grp2d_async != NULL) &&
