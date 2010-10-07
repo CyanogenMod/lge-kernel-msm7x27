@@ -72,7 +72,7 @@
 #endif
 #include "smd_private.h"
 
-#define MSM_PMEM_MDP_SIZE	0x4000000
+#define MSM_PMEM_MDP_SIZE	0x204000
 
 #define SMEM_SPINLOCK_I2C	"D:I2C02000021"
 
