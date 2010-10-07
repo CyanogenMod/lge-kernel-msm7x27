@@ -5368,8 +5368,10 @@ static int msm_sdcc_get_wpswitch(struct device *dv)
 }
 #endif
 
-#ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
-#if (CONFIG_CSDIO_VENDOR_ID == 0x70 && CONFIG_CSDIO_DEVICE_ID == 0x1117)
+#if defined(CONFIG_MMC_MSM_SDC1_SUPPORT)
+#if defined(CONFIG_CSDIO_VENDOR_ID) && \
+	defined(CONFIG_CSDIO_DEVICE_ID) && \
+	(CONFIG_CSDIO_VENDOR_ID == 0x70 && CONFIG_CSDIO_DEVICE_ID == 0x1117)
 static struct mmc_platform_data msm7x30_sdc1_data = {
 	.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_27_28 | MMC_VDD_28_29,
 	.translate_vdd	= msm_sdcc_setup_power_mbp,

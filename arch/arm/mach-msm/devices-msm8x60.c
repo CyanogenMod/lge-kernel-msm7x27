@@ -903,12 +903,12 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 #define SERIAL_NUMBER_LENGTH	127
 #define DLOAD_USB_BASE_ADD	0x2A05F0C8
 
-static struct magic_num_struct {
+struct magic_num_struct {
 	uint32_t pid;
 	uint32_t serial_num;
 };
 
-static struct dload_struct {
+struct dload_struct {
 	uint32_t	reserved1;
 	uint32_t	reserved2;
 	uint32_t	reserved3;

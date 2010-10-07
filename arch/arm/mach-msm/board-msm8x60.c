@@ -1163,7 +1163,7 @@ early_param("pmem_adsp_size", pmem_adsp_size_setup);
 
 static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
 
-static int __init pmem_audio_size_setup(char **p)
+static int __init pmem_audio_size_setup(char *p)
 {
 	pmem_audio_size = memparse(p, NULL);
 	return 0;
