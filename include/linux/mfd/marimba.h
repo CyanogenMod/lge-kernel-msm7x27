@@ -83,6 +83,7 @@ struct marimba_fm_platform_data{
 
 struct marimba_codec_platform_data{
 	int (*marimba_codec_power)(int vreg_on);
+	void (*snddev_profile_init) (void);
 };
 
 struct marimba_tsadc_setup_params {

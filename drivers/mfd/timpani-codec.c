@@ -1843,6 +1843,9 @@ static int timpani_codec_probe(struct platform_device *pdev)
 	adie_codec.pdrv_ptr = platform_get_drvdata(pdev);
 	adie_codec.codec_pdata = pdev->dev.platform_data;
 
+	if (adie_codec.codec_pdata->snddev_profile_init)
+		adie_codec.codec_pdata->snddev_profile_init();
+
 	/* Register the timpani ADIE operations */
 	rc = adie_codec_register_codec_operations(&timpani_adie_ops);
 
