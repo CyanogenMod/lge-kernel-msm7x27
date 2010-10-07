@@ -28,6 +28,11 @@
 #include <linux/i2c/tsc2007.h>
 #include <linux/pm.h>
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+#define TSC2007_SUSPEND_LEVEL 1
+#endif
+
 #define TS_POLL_DELAY			1 /* ms delay between samples */
 #define TS_POLL_PERIOD			1 /* ms delay between samples */
 
@@ -88,6 +93,9 @@ struct tsc2007 {
 	int			(*get_pendown_state)(void);
 	void			(*clear_penirq)(void);
 	int			(*power_shutdown)(bool);
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	struct early_suspend	early_suspend;
+#endif
 };
 
 static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
@@ -330,9 +338,27 @@ static int tsc2007_resume(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void tsc2007_early_suspend(struct early_suspend *h)
+{
+	struct tsc2007 *ts = container_of(h, struct tsc2007, early_suspend);
+
+	tsc2007_suspend(&ts->client->dev);
+}
+
+static void tsc2007_late_resume(struct early_suspend *h)
+{
+	struct tsc2007 *ts = container_of(h, struct tsc2007, early_suspend);
+
+	tsc2007_resume(&ts->client->dev);
+}
+#endif
+
 static const struct dev_pm_ops tsc2007_pm_ops = {
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend	= tsc2007_suspend,
 	.resume		= tsc2007_resume,
+#endif
 };
 #endif
 
@@ -408,6 +434,14 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 	if (err)
 		goto err_free_irq;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +
+						TSC2007_SUSPEND_LEVEL;
+	ts->early_suspend.suspend = tsc2007_early_suspend;
+	ts->early_suspend.resume = tsc2007_late_resume;
+	register_early_suspend(&ts->early_suspend);
+#endif
+
 	i2c_set_clientdata(client, ts);
 
 	return 0;
@@ -432,6 +466,9 @@ static int __devexit tsc2007_remove(struct i2c_client *client)
 	if (pdata->exit_platform_hw)
 		pdata->exit_platform_hw();
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&ts->early_suspend);
+#endif
 	input_unregister_device(ts->input);
 	kfree(ts);
 
