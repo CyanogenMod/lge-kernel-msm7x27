@@ -184,6 +184,11 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
+		pr_info("%s: buffer_size:%d channel_count:%d sample_rate:%d \
+			buffer_count:%d\n", __func__, config.buffer_size,
+			config.channel_count, config.sample_rate,
+			config.buffer_count);
+
 		if (!config.channel_count || config.channel_count > 2) {
 			rc = -EINVAL;
 			break;
@@ -194,9 +199,9 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
-		if (config.buffer_size < 480 || config.buffer_size % 480) {
-			pr_err("%s: Buffer Size should be multiple of 480\n",
-								__func__);
+		if (config.buffer_size % (config.channel_count * 480)) {
+			pr_err("%s: Buffer Size should be multiple of \
+					[480 * no. of channels]\n", __func__);
 			rc = -EINVAL;
 			break;
 		}
