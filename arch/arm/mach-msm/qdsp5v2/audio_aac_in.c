@@ -208,7 +208,8 @@ static void aac_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 		audio->source |= (0x1 << evt_payload->routing_id);
 		spin_unlock_irqrestore(&audio->dev_lock, flags);
 
-		if ((audio->running == 1) && (audio->enabled == 1))
+		if ((audio->running == 1) && (audio->enabled == 1) &&
+			(audio->mode == MSM_AUD_ENC_MODE_TUNNEL))
 			audaac_in_record_config(audio, 1);
 
 		break;
@@ -223,13 +224,14 @@ static void aac_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 		if ((!audio->running) || (!audio->enabled))
 			break;
 
-		/* Turn of as per source */
-		if (audio->source)
-			audaac_in_record_config(audio, 1);
-		else
+		if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL) {
+			/* Turn of as per source */
+			if (audio->source)
+				audaac_in_record_config(audio, 1);
+			else
 			/* Turn off all */
-			audaac_in_record_config(audio, 0);
-
+				audaac_in_record_config(audio, 0);
+		}
 		break;
 	}
 	case AUDDEV_EVT_FREQ_CHG: {
@@ -242,7 +244,8 @@ static void aac_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 			   with device sample rate */
 			if (evt_payload->freq_info.sample_rate !=
 				audio->samp_rate) {
-				audaac_in_record_config(audio, 0);
+				if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL)
+					audaac_in_record_config(audio, 0);
 				audio->abort = 1;
 				wake_up(&audio->wait);
 			}
@@ -303,7 +306,10 @@ static void audpreproc_dsp_event(void *data, unsigned id,  void *msg)
 			}
 		} else { /* Encoder disable success */
 			audio->running = 0;
-			audaac_in_record_config(audio, 0);
+			if (audio->mode == MSM_AUD_ENC_MODE_TUNNEL)
+				audaac_in_record_config(audio, 0);
+			else
+				wake_up(&audio->wait_enable);
 		}
 		break;
 	}
@@ -327,6 +333,7 @@ static void audpreproc_dsp_event(void *data, unsigned id,  void *msg)
 	}
 	case AUDPREPROC_AFE_CMD_AUDIO_RECORD_CFG_DONE_MSG: {
 		MM_DBG("AFE_CMD_AUDIO_RECORD_CFG_DONE_MSG\n");
+		wake_up(&audio->wait_enable);
 		break;
 	}
 	default:
@@ -349,8 +356,8 @@ static void audrec_dsp_event(void *data, unsigned id, size_t len,
 				audaac_in_record_config(audio, 1);
 		} else {
 			audpreproc_pcm_send_data(audio, 1);
+			wake_up(&audio->wait_enable);
 		}
-		wake_up(&audio->wait_enable);
 		break;
 	}
 	case AUDREC_FATAL_ERR_MSG: {
