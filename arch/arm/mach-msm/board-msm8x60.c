@@ -4462,6 +4462,24 @@ void msm_snddev_disable_amic_power(void)
 	msm_snddev_tx_route_deconfig();
 }
 
+void msm_snddev_enable_dmic_sec_power(void)
+{
+	msm_snddev_enable_dmic_power();
+
+#ifdef CONFIG_PMIC8058_OTHC
+	pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_ALWAYS_ON);
+#endif
+}
+
+void msm_snddev_disable_dmic_sec_power(void)
+{
+	msm_snddev_disable_dmic_power();
+
+#ifdef CONFIG_PMIC8058_OTHC
+	pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
+#endif
+}
+
 static struct regulator *s3;
 static struct regulator *mvs;
 

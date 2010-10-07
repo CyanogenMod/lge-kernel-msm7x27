@@ -331,6 +331,8 @@ void msm_snddev_enable_amic_power(void);
 void msm_snddev_disable_amic_power(void);
 void msm_snddev_enable_dmic_power(void);
 void msm_snddev_disable_dmic_power(void);
+void msm_snddev_enable_dmic_sec_power(void);
+void msm_snddev_disable_dmic_sec_power(void);
 
 extern unsigned int msm_shared_ram_phys; /* defined in arch/arm/mach-msm/io.c */
 
