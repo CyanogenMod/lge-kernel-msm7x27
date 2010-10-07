@@ -374,7 +374,7 @@ static int pm8058_pwm_configure(struct pwm_device *pwm,
 			 struct pw8058_pwm_config *pwm_conf)
 {
 	int	i, rc, len;
-	u8	reg;
+	u8	reg, ramp_enabled = 0;
 
 	reg = (pwm_conf->pwm_size > 6) ? PM8058_PWM_SIZE_9_BIT : 0;
 	pwm->pwm_ctl[5] = reg;
@@ -387,7 +387,7 @@ static int pm8058_pwm_configure(struct pwm_device *pwm,
 	pwm->pwm_ctl[4] = reg;
 
 	if (pwm_conf->bypass_lut) {
-		pwm->pwm_ctl[0] = 0;
+		pwm->pwm_ctl[0] &= PM8058_PWM_PWM_START; /* keep enabled */
 		pwm->pwm_ctl[1] = PM8058_PWM_BYPASS_LUT;
 		pwm->pwm_ctl[2] = 0;
 
@@ -410,7 +410,10 @@ static int pm8058_pwm_configure(struct pwm_device *pwm,
 			if (duty_msec[i] >= pwm_conf->lut_duty_ms)
 				break;
 		}
-		pwm->pwm_ctl[0] = (i << PM8058_PWM_1KHZ_COUNT_SHIFT) &
+
+		ramp_enabled = pwm->pwm_ctl[0] & PM8058_PWM_RAMP_GEN_START;
+		pwm->pwm_ctl[0] &= PM8058_PWM_PWM_START; /* keep enabled */
+		pwm->pwm_ctl[0] |= (i << PM8058_PWM_1KHZ_COUNT_SHIFT) &
 					PM8058_PWM_1KHZ_COUNT_MASK;
 		pwm->pwm_ctl[1] = pwm_conf->lut_hi_index &
 					PM8058_PWM_HIGH_INDEX_MASK;
@@ -469,6 +472,12 @@ static int pm8058_pwm_configure(struct pwm_device *pwm,
 			       __func__, rc, i);
 			break;
 		}
+	}
+
+	if (ramp_enabled) {
+		pwm->pwm_ctl[0] |= ramp_enabled;
+		pm8058_write(pwm->chip->pm_chip, SSBI_REG_ADDR_LPG_CTL(0),
+			     &pwm->pwm_ctl[0], 1);
 	}
 
 	return rc;
