@@ -130,7 +130,9 @@ struct clkctl_acpu_speed {
 
 static struct clkctl_acpu_speed *l2_vote[NR_CPUS];
 
-#define AFAB_IDX 1
+/* Frequency table row to use when reconfiguring SC/L2 PLLs. */
+#define CAL_IDX 2
+
 /* L_VAL's below assume 27 MHz sources for all SCPLLs.
  * SCPLL and L2 frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
@@ -507,22 +509,22 @@ static void __init precompute_stepping(void)
 	}
 }
 
-/* Force ACPU core and L2 cache clocks to their AFAB sources. */
-static void __init force_all_to_afab(void)
+/* Force ACPU core and L2 cache clocks to rates that don't require SCPLLs. */
+static void __init unselect_scplls(void)
 {
 	int cpu;
 
 	for_each_possible_cpu(cpu) {
-		select_clk_source_div(cpu, &acpu_freq_tbl[AFAB_IDX]);
+		select_clk_source_div(cpu, &acpu_freq_tbl[CAL_IDX]);
 		select_core_source(cpu, 0);
-		drv_state.current_speed[cpu] = &acpu_freq_tbl[AFAB_IDX];
-		l2_vote[cpu] = &acpu_freq_tbl[AFAB_IDX];
+		drv_state.current_speed[cpu] = &acpu_freq_tbl[CAL_IDX];
+		l2_vote[cpu] = &acpu_freq_tbl[CAL_IDX];
 	}
 
 	select_core_source(L2, 0);
-	drv_state.current_l2_speed = &acpu_freq_tbl[AFAB_IDX];
+	drv_state.current_l2_speed = &acpu_freq_tbl[CAL_IDX];
 
-	/* Both cores are assumed to have the same lpj values when on AFAB. */
+	/* Both cores assumed to have the same lpj when on the same source. */
 	calibrate_delay();
 }
 
@@ -629,7 +631,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 
 	/* Configure hardware. */
 	regulator_init();
-	force_all_to_afab();
+	unselect_scplls();
 	scpll_set_refs();
 	for_each_possible_cpu(cpu)
 		scpll_init(cpu);
