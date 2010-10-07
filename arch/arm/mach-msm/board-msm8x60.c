@@ -4640,20 +4640,6 @@ void msm_snddev_poweramp_off(void)
 	msm_snddev_rx_route_deconfig();
 }
 
-static uint32_t auxpcm_gpio_table[] = {
-	GPIO_CFG(111, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(112, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(113, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(114, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-};
-
-static void msm_auxpcm_init(void)
-{
-	gpio_tlmm_config(auxpcm_gpio_table[0], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(auxpcm_gpio_table[1], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(auxpcm_gpio_table[2], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(auxpcm_gpio_table[3], GPIO_CFG_ENABLE);
-}
 #endif /* CONFIG_MSM8X60_AUDIO */
 
 static struct msm_panel_common_pdata mdp_pdata = {
@@ -5006,7 +4992,6 @@ static void __init msm8x60_init(void)
 				msm_pm_data);
 
 #ifdef CONFIG_MSM8X60_AUDIO
-	msm_auxpcm_init();
 	msm_snddev_init();
 #endif
 }
