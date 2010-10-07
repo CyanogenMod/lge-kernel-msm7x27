@@ -149,6 +149,14 @@ config BATTERY_MSM
 	help
 	  Say Y to enable support for the battery in Qualcomm MSM.
 
+config BATTERY_MSM8X60
+	tristate "MSM8X60 battery"
+	depends on (MACH_MSM8X60_SURF|| MACH_MSM8X60_FFA)
+	help
+	  MSM8660 SURF has dual charging paths to charge the battery.
+	  Say Y to enable support for the battery charging in
+	  Qualcomm MSM8X60 surf.
+
 config BATTERY_MSM_FAKE
 	tristate "Fake MSM battery"
 	depends on ARCH_MSM && BATTERY_MSM
