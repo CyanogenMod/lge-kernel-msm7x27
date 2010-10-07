@@ -67,7 +67,7 @@
 #define VCD_ERR_BITSTREAM_ERR       (VCD_S_ERR_BASE + 0x0e)
 #define VCD_ERR_QEMPTY              (VCD_S_ERR_BASE + 0x0f)
 #define VCD_ERR_SEQHDR_PARSE_FAIL   (VCD_S_ERR_BASE + 0x10)
-#define VCD_ERR_INPUT_NOTPROCESSED  (VCD_S_ERR_BASE + 0x11)
+#define VCD_ERR_INPUT_NOT_PROCESSED (VCD_S_ERR_BASE + 0x11)
 #define VCD_ERR_INDEX_NOMORE        (VCD_S_ERR_BASE + 0x12)
 
 #define VCD_FAILED(rc)   ((rc > VCD_S_ERR_BASE) ? true : false)

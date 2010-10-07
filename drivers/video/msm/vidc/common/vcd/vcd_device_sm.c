@@ -342,7 +342,7 @@ void vcd_handle_device_err_fatal(struct vcd_dev_ctxt *dev_ctxt,
 		cctxt = cctxt->next;
 		if (tmp_clnt != trig_clnt)
 			vcd_clnt_handle_device_err_fatal(tmp_clnt,
-				VCD_EVT_IND_HWERRFATAL);
+				tmp_clnt->status.last_evt);
 	}
 	dev_ctxt->pending_cmd = VCD_CMD_DEVICE_RESET;
 	if (!dev_ctxt->cctxt_list_head)
@@ -751,6 +751,7 @@ static u32 vcd_open_cmn
 	cctxt->decoding = decoding;
 	cctxt->callback = callback;
 	cctxt->client_data = client_data;
+	cctxt->status.last_evt = VCD_EVT_RESP_OPEN;
 	INIT_LIST_HEAD(&cctxt->in_buf_pool.queue);
 	INIT_LIST_HEAD(&cctxt->out_buf_pool.queue);
 	client = dev_ctxt->cctxt_list_head;
@@ -929,10 +930,7 @@ static u32 vcd_set_dev_pwr_in_ready
 		{
 			if (dev_ctxt->pwr_state == VCD_PWR_STATE_SLEEP)
 				vcd_resume_all_sessions(dev_ctxt);
-
-
 			dev_ctxt->pwr_state = VCD_PWR_STATE_ON;
-
 			break;
 		}
 
