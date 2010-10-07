@@ -482,6 +482,90 @@ static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
 	return 0;
 }
 #endif
+#define USB_SWITCH_EN_GPIO	132		/* !CS of analog switch */
+#define USB_SWITCH_CNTL_GPIO	131		/* 0: Host, 1: Peripheral */
+#define USB_HUB_RESET_GPIO	34		/* 0: HUB is RESET */
+
+static int msm_otg_init_analog_switch_gpio(int on)
+{
+	int rc = 0;
+
+	if (on) {
+		/* USB SWITCH ENABLE*/
+		rc = gpio_request(USB_SWITCH_EN_GPIO, "USB_SWITCH_ENABLE");
+		if (rc) {
+			pr_err("%s: SW_EN gpio %d request failed\n", __func__,
+					USB_SWITCH_EN_GPIO);
+			return rc;
+		}
+
+		/* USB SWITCH CONTROL */
+		rc = gpio_request(USB_SWITCH_CNTL_GPIO, "USB_SWITCH_CONTROL");
+		if (rc) {
+			pr_err("%s: SW_CNTL gpio %d request failed\n", __func__,
+					USB_SWITCH_CNTL_GPIO);
+			goto fail_gpio_usb_switch_en;
+		}
+
+		/* USB HUB RESET */
+		rc = gpio_request(USB_HUB_RESET_GPIO, "USB_HUB_RESET");
+		if (rc) {
+			pr_err("%s: HUB_RESET gpio %d request failed\n",
+					__func__, USB_HUB_RESET_GPIO);
+			goto fail_gpio_usb_switch_cntl;
+		}
+		/* Set direction of USB SWITCH ENABLE gpio */
+		rc = gpio_direction_output(USB_SWITCH_EN_GPIO, 0);
+		if (rc) {
+			pr_err("%s: gpio_direction_output failed for %d\n",
+						USB_SWITCH_EN_GPIO, __func__);
+			goto fail_gpio_usb_hub_reset;
+		}
+		/* Set direction of USB SWITCH CONTROL gpio */
+		rc = gpio_direction_output(USB_SWITCH_CNTL_GPIO, 0);
+		if (rc) {
+			pr_err("%s: gpio_direction_output failed for %d\n",
+					USB_SWITCH_CNTL_GPIO, __func__);
+			goto fail_gpio_usb_hub_reset;
+		}
+		/* Set direction of USB HUB RESET gpio */
+		rc = gpio_direction_output(USB_HUB_RESET_GPIO, 0);
+		if (rc) {
+			pr_err("%s: gpio_direction_output failed for %d\n",
+						USB_HUB_RESET_GPIO, __func__);
+			goto fail_gpio_usb_hub_reset;
+		}
+		return rc;
+	}
+
+fail_gpio_usb_hub_reset:
+	gpio_free(USB_HUB_RESET_GPIO);
+fail_gpio_usb_switch_cntl:
+	gpio_free(USB_SWITCH_CNTL_GPIO);
+fail_gpio_usb_switch_en:
+	gpio_free(USB_SWITCH_EN_GPIO);
+
+	return rc;
+}
+
+static void msm_otg_setup_analog_switch_gpio(enum usb_switch_control mode)
+{
+	switch (mode) {
+	case USB_SWITCH_HOST:
+		/* Configure analog switch as USB host. */
+		gpio_set_value(USB_SWITCH_EN_GPIO, 0);
+		gpio_set_value(USB_SWITCH_CNTL_GPIO, 0);
+		/* Bring HUB out of RESET */
+		gpio_set_value(USB_HUB_RESET_GPIO, 1);
+		break;
+
+	case USB_SWITCH_DISABLE:
+	default:
+		/* Disable Switch */
+		gpio_set_value(USB_SWITCH_EN_GPIO, 1);
+		gpio_set_value(USB_HUB_RESET_GPIO, 0);
+	}
+}
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_MSM)
 static struct msm_otg_platform_data msm_otg_pdata = {
 	/* if usb link is in sps there is no need for
@@ -492,6 +576,8 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pemp_level		 = PRE_EMPHASIS_WITH_20_PERCENT,
 	.cdr_autoreset		 = CDR_AUTO_RESET_DISABLE,
 	.se1_gating		 = SE1_GATING_DISABLE,
+	.init_gpio		 = msm_otg_init_analog_switch_gpio,
+	.setup_gpio		 = msm_otg_setup_analog_switch_gpio,
 #ifdef CONFIG_USB_EHCI_MSM
 	.vbus_power = msm_hsusb_vbus_power,
 #endif

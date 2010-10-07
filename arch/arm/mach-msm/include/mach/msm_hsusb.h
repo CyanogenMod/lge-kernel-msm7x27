@@ -178,6 +178,7 @@ struct msm_otg_platform_data {
 	int (*pmic_register_vbus_sn) (void (*callback)(int online));
 	void (*pmic_unregister_vbus_sn) (void (*callback)(int online));
 	int (*pmic_enable_ldo) (int);
+	int (*init_gpio)(int on);
 	void (*setup_gpio)(enum usb_switch_control mode);
 	u8      otg_mode;
 	void (*vbus_power) (unsigned phy_info, int on);
