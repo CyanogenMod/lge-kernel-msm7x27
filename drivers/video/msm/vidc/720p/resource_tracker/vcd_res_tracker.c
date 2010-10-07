@@ -340,7 +340,6 @@ u32 res_trk_power_up(void)
 	VCDRES_MSG_LOW("clk_regime_sel_rail_control");
 #ifdef AXI_CLK_SCALING
 {
-	int rc;
 	VCDRES_MSG_MED("\n res_trk_power_up():: "
 		"Calling AXI add requirement\n");
 	qos_req_list = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
@@ -387,7 +386,6 @@ u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
 {
 	struct vcd_clnt_ctxt *cctxt_itr = NULL;
 	u32 axi_freq = 0, mfc_freq = 0, calc_mfc_freq = 0;
-	int rc = -1;
 	u8 enc_clnt_present = false;
 
 	if (!pn_set_perf_lvl || !dev_ctxt) {
