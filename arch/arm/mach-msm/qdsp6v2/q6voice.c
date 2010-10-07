@@ -15,6 +15,7 @@
  * 02110-1301, USA.
  *
  */
+#include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
@@ -28,10 +29,13 @@
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/dal.h>
 #include "q6voice.h"
+#include "audio_acdb.h"
 
 #define TIMEOUT_MS 3000
 #define SNDDEV_CAP_TTY 0x20
 
+
+#define BUFFER_PAYLOAD_SIZE 4000
 
 struct voice_data {
 	int voc_state;/*INIT, CHANGE, RELEASE, RUN */
@@ -201,7 +205,6 @@ fail:
 	apr_deregister(v->apr_cvp);
 	v->cvp_handle = 0;
 	v->cvs_handle = 0;
-
 	return -EINVAL;
 }
 
@@ -268,6 +271,225 @@ done:
 	return -EINVAL;
 }
 
+static int voice_send_cvs_cal_to_modem(struct voice_data *v)
+{
+	struct apr_hdr cvs_cal_cmd_hdr;
+	uint32_t *cmd_buf;
+	struct acdb_cal_table cal_tbl;
+	struct acdb_cal_block *cal_blk;
+	int32_t cal_size_per_network;
+	uint32_t *cal_data_per_network;
+	int index = 0;
+	int ret = 0;
+
+	/* fill the header */
+	cvs_cal_cmd_hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cvs_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(cvs_cal_cmd_hdr) - APR_HDR_SIZE);
+	cvs_cal_cmd_hdr.src_port = 0;
+	cvs_cal_cmd_hdr.dest_port = v->cvs_handle;
+	cvs_cal_cmd_hdr.token = 0;
+	cvs_cal_cmd_hdr.opcode =
+		VSS_ISTREAM_CMD_CACHE_CALIBRATION_DATA;
+
+	pr_debug("voice_send_cvs_cal_to_modem\n");
+	/* get the cvs cal data */
+	get_vocproc_stream_cal(&cal_tbl);
+	if (cal_tbl.idx_table_size == 0) {
+		pr_err("%s: No calibration data to send!\n", __func__);
+		goto done;
+	}
+
+	/* send cvs cal to modem */
+	cmd_buf = kzalloc((sizeof(struct apr_hdr) + BUFFER_PAYLOAD_SIZE),
+								GFP_KERNEL);
+	if (!cmd_buf) {
+		pr_err("No memory is allocated.\n");
+		return -ENOMEM;
+	}
+	pr_debug("----- idx_table_size=%d\n", (s32)cal_tbl.idx_table_size);
+	cal_blk = cal_tbl.idx_table;
+	pr_debug("cal_blk =%x\n", (uint32_t)cal_tbl.idx_table);
+
+	for (; index < cal_tbl.idx_table_size; index++) {
+		cal_size_per_network = cal_blk[index].cal_size;
+		pr_debug(" cal size =%d\n", cal_size_per_network);
+		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
+			pr_err("Cal size is too big\n");
+		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		pr_debug(" cal data=%x\n", (uint32_t)cal_data_per_network);
+		cvs_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+			cal_size_per_network);
+		pr_debug("header size =%d,  pkt_size =%d\n",
+			APR_HDR_SIZE, cvs_cal_cmd_hdr.pkt_size);
+		memcpy(cmd_buf, &cvs_cal_cmd_hdr,  APR_HDR_SIZE);
+		memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)),
+			cal_data_per_network, cal_size_per_network);
+		pr_debug("send cvs cal: index =%d\n", index);
+		v->cvs_state = 1;
+		ret = apr_send_pkt(v->apr_cvs, cmd_buf);
+		if (ret < 0) {
+			pr_err("Fail: sending cvs cal, idx=%d\n", index);
+			continue;
+		}
+		ret = wait_event_timeout(v->cvs_wait, (v->cvs_state == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+		if (ret < 0) {
+			pr_err("%s: wait_event timeout\n", __func__);
+			return -EINVAL;
+		}
+	}
+	kfree(cmd_buf);
+done:
+	return 0;
+}
+
+static int voice_send_cvp_cal_to_modem(struct voice_data *v)
+{
+	struct apr_hdr cvp_cal_cmd_hdr;
+	uint32_t *cmd_buf;
+	struct acdb_cal_table cal_tbl;
+	struct acdb_cal_block *cal_blk;
+	int32_t cal_size_per_network;
+	uint32_t *cal_data_per_network;
+	int index = 0;
+	int ret = 0;
+
+
+	/* fill the header */
+	cvp_cal_cmd_hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cvp_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(cvp_cal_cmd_hdr) - APR_HDR_SIZE);
+	cvp_cal_cmd_hdr.src_port = 0;
+	cvp_cal_cmd_hdr.dest_port = v->cvp_handle;
+	cvp_cal_cmd_hdr.token = 0;
+	cvp_cal_cmd_hdr.opcode =
+	VSS_IVOCPROC_CMD_CACHE_CALIBRATION_DATA;
+
+	/* get cal data */
+	get_vocproc_cal(&cal_tbl);
+	if (cal_tbl.idx_table_size == 0) {
+		pr_err("%s: No calibration data to send!\n", __func__);
+		goto done;
+	}
+
+	/* send cal to modem */
+	cmd_buf = kzalloc((sizeof(struct apr_hdr) + BUFFER_PAYLOAD_SIZE),
+								GFP_KERNEL);
+	if (!cmd_buf) {
+		pr_err("No memory is allocated.\n");
+		return -ENOMEM;
+	}
+	pr_debug("----- idx_table_size=%d\n", (s32)cal_tbl.idx_table_size);
+	cal_blk = cal_tbl.idx_table;
+	pr_debug(" cal_blk =%x\n", (uint32_t)cal_tbl.idx_table);
+
+	for (; index < cal_tbl.idx_table_size; index++) {
+		cal_size_per_network = cal_blk[index].cal_size;
+		if (cal_size_per_network >= BUFFER_PAYLOAD_SIZE)
+			pr_err("Cal size is too big\n");
+		pr_debug(" cal size =%d\n", cal_size_per_network);
+		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		pr_debug(" cal data=%x\n", (uint32_t)cal_data_per_network);
+
+		cvp_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+			cal_size_per_network);
+		memcpy(cmd_buf, &cvp_cal_cmd_hdr,  APR_HDR_SIZE);
+		memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(*cmd_buf)),
+			cal_data_per_network, cal_size_per_network);
+		pr_debug("Send cvp cal\n");
+		v->cvp_state = 1;
+		ret = apr_send_pkt(v->apr_cvp, cmd_buf);
+		if (ret < 0) {
+			pr_err("Fail: sending cvp cal, idx=%d\n", index);
+			continue;
+		}
+		ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+		if (ret < 0) {
+			pr_err("%s: wait_event timeout\n", __func__);
+			return -EINVAL;
+		}
+	}
+	kfree(cmd_buf);
+done:
+	return 0;
+}
+
+static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
+{
+	struct apr_hdr cvp_vol_cal_cmd_hdr;
+	uint32_t *cmd_buf;
+	struct acdb_cal_table cal_tbl;
+	struct acdb_cal_block *cal_blk;
+	int32_t cal_size_per_network;
+	uint32_t *cal_data_per_network;
+	int index = 0;
+	int ret = 0;
+
+
+	/* fill the header */
+	cvp_vol_cal_cmd_hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cvp_vol_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(cvp_vol_cal_cmd_hdr) - APR_HDR_SIZE);
+	cvp_vol_cal_cmd_hdr.src_port = 0;
+	cvp_vol_cal_cmd_hdr.dest_port = v->cvp_handle;
+	cvp_vol_cal_cmd_hdr.token = 0;
+	cvp_vol_cal_cmd_hdr.opcode =
+			VSS_IVOCPROC_CMD_CACHE_VOLUME_CALIBRATION_TABLE;
+
+	/* get cal data */
+	get_vocproc_vol_cal(&cal_tbl);
+	if (cal_tbl.idx_table_size == 0) {
+		pr_err("%s: No calibration data to send!\n", __func__);
+		goto done;
+	}
+
+	/* send cal to modem */
+	cmd_buf = kzalloc((sizeof(struct apr_hdr) + BUFFER_PAYLOAD_SIZE),
+								GFP_KERNEL);
+	if (!cmd_buf) {
+		pr_err("No memory is allocated.\n");
+		return -ENOMEM;
+	}
+	pr_debug("----- idx_table_size=%d\n", (s32)cal_tbl.idx_table_size);
+	cal_blk = cal_tbl.idx_table;
+	pr_debug("Cal_blk =%x\n", (uint32_t)cal_tbl.idx_table);
+
+	for (; index < cal_tbl.idx_table_size; index++) {
+		cal_size_per_network = cal_blk[index].cal_size;
+		cal_data_per_network = (u32 *)cal_blk[index].cal_kvaddr;
+		pr_debug("Cal size =%d, index=%d\n", cal_size_per_network,
+			index);
+		pr_debug("Cal data=%x\n", (uint32_t)cal_data_per_network);
+		cvp_vol_cal_cmd_hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+			cal_size_per_network);
+		memcpy(cmd_buf, &cvp_vol_cal_cmd_hdr,  APR_HDR_SIZE);
+		memcpy(cmd_buf + (APR_HDR_SIZE / sizeof(uint32_t)),
+			cal_data_per_network, cal_size_per_network);
+		pr_debug("Send vol table\n");
+
+		v->cvp_state = 1;
+		ret = apr_send_pkt(v->apr_cvp, cmd_buf);
+		if (ret < 0) {
+			pr_err("Fail: sending cvp vol cal, idx=%d\n", index);
+			continue;
+		}
+		ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+		if (ret < 0) {
+			pr_err("%s: wait_event timeout\n", __func__);
+			return -EINVAL;
+		}
+	}
+	kfree(cmd_buf);
+done:
+	return 0;
+}
+
 static int voice_start_modem_voice(struct voice_data *v)
 {
 	struct cvp_create_full_ctl_session_cmd cvp_session_cmd;
@@ -315,6 +537,15 @@ static int voice_start_modem_voice(struct voice_data *v)
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
+
+	/* send cvs cal */
+	voice_send_cvs_cal_to_modem(v);
+
+	/* send cvp cal */
+	voice_send_cvp_cal_to_modem(v);
+
+	/* send cvp vol table cal */
+	voice_send_cvp_vol_tbl_to_modem(v);
 
 	/* enable vocproc and wait for respose */
 	cvp_enable_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -522,7 +753,38 @@ static int voice_send_mute_cmd_to_modem(struct voice_data *v)
 
 fail:
 	return 0;
+}
 
+static int voice_send_vol_index_to_modem(struct voice_data *v)
+{
+	struct cvp_set_rx_volume_index_cmd cvp_vol_cmd;
+	int ret = 0;
+
+	/* send volume index to cvp */
+	cvp_vol_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cvp_vol_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(cvp_vol_cmd) - APR_HDR_SIZE);
+	cvp_vol_cmd.hdr.src_port = 0;
+	cvp_vol_cmd.hdr.dest_port = v->cvp_handle;
+	cvp_vol_cmd.hdr.token = 0;
+	cvp_vol_cmd.hdr.opcode =
+		VSS_IVOCPROC_CMD_SET_RX_VOLUME_INDEX;
+	cvp_vol_cmd.cvp_set_vol_idx.vol_index = v->dev_rx.volume;
+	pr_debug(" vol index= %d\n", cvp_vol_cmd.cvp_set_vol_idx.vol_index);
+	v->cvp_state = 1;
+	ret = apr_send_pkt(v->apr_cvp, (uint32_t *) &cvp_vol_cmd);
+	if (ret < 0) {
+		pr_err("Fail in sending RX VOL INDEX\n");
+		return -EINVAL;
+	}
+	ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		return -EINVAL;
+	}
+	return 0;
 }
 
 static void voice_auddev_cb_function(u32 evt_id,
@@ -587,6 +849,7 @@ static void voice_auddev_cb_function(u32 evt_id,
 				(v->dev_tx.enabled == VOICE_DEV_ENABLED)) {
 				voice_start_modem_voice(v);
 				voice_send_mute_cmd_to_modem(v);
+				voice_send_vol_index_to_modem(v);
 				v->voc_state = VOC_RUN;
 			}
 		} else if ((v->voc_state == VOC_INIT) ||
@@ -628,6 +891,11 @@ static void voice_auddev_cb_function(u32 evt_id,
 				evt_payload->voc_vm_info.dev_vm_val.mute;
 			if (v->voc_state == VOC_RUN)
 				voice_send_mute_cmd_to_modem(v);
+		} else {
+			v->dev_rx.volume = evt_payload->
+				voc_vm_info.dev_vm_val.vol;
+			if (v->voc_state == VOC_RUN)
+				voice_send_vol_index_to_modem(v);
 		}
 		break;
 	case AUDDEV_EVT_REL_PENDING:
@@ -793,6 +1061,13 @@ static int32_t modem_cvp_callback(struct apr_client_data *data, void *priv)
 				v->cvp_state = 0;
 				wake_up(&v->cvp_wait);
 			} else if (ptr[0] == APRV2_IBASIC_CMD_DESTROY_SESSION) {
+				v->cvp_state = 0;
+				wake_up(&v->cvp_wait);
+			} else if (ptr[0] ==
+				VSS_IVOCPROC_CMD_CACHE_VOLUME_CALIBRATION_TABLE
+				) {
+
+				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->cvp_state = 0;
 				wake_up(&v->cvp_wait);
 			} else
