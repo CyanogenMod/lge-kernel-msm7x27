@@ -193,6 +193,11 @@ static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	[60] = {
 		.suspended = GSBI7,
 	},
+	[61] = {
+		.active = GPIOMUX_PULL_NONE | GPIOMUX_DRV_2MA |
+				GPIOMUX_VALID | GPIOMUX_FUNC_GPIO,
+		.suspended = GPIOMUX_PULL_NONE | GPIOMUX_VALID,
+	},
 	[64] = {
 		.suspended = GSBI8,
 	},
