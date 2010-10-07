@@ -270,7 +270,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	trc =  clk_set_rate(drv->rx_bitclk, 8);
 	if (IS_ERR_VALUE(trc)) {
 		pr_err("ERROR setting m clock1\n");
-		goto error_invalid_freq;
+		goto error_adie;
 	}
 	clk_enable(drv->rx_bitclk);
 
@@ -317,7 +317,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	wake_unlock(&drv->rx_idlelock);
 	return 0;
 
-	clk_disable(drv->rx_bitclk);
+error_adie:
 	clk_disable(drv->rx_osrclk);
 error_invalid_freq:
 
@@ -722,7 +722,7 @@ int snddev_icodec_set_device_volume(struct msm_snddev_info *dev_info,
 
 static int snddev_icodec_probe(struct platform_device *pdev)
 {
-	int rc = 0, i;
+	int rc = 0;
 	struct snddev_icodec_data *pdata;
 	struct msm_snddev_info *dev_info;
 	struct snddev_icodec_state *icodec;
@@ -752,7 +752,6 @@ static int snddev_icodec_probe(struct platform_device *pdev)
 
 	dev_info->name = pdata->name;
 	dev_info->copp_id = pdata->copp_id;
-	dev_info->acdb_id = pdata->acdb_id;
 	dev_info->private_data = (void *) icodec;
 	dev_info->dev_ops.open = snddev_icodec_open;
 	dev_info->dev_ops.close = snddev_icodec_close;
@@ -765,18 +764,11 @@ static int snddev_icodec_probe(struct platform_device *pdev)
 	icodec->sample_rate = pdata->default_sample_rate;
 	dev_info->sample_rate = pdata->default_sample_rate;
 	dev_info->channel_mode = pdata->channel_mode;
-	if (pdata->capability & SNDDEV_CAP_RX) {
-		for (i = 0; i < VOC_RX_VOL_ARRAY_NUM; i++) {
-			dev_info->max_voc_rx_vol[i] =
-				pdata->max_voice_rx_vol[i];
-			dev_info->min_voc_rx_vol[i] =
-				pdata->min_voice_rx_vol[i];
-		}
+	if (pdata->capability & SNDDEV_CAP_RX)
 		dev_info->dev_ops.enable_sidetone =
-		snddev_icodec_enable_sidetone;
-	} else {
+			snddev_icodec_enable_sidetone;
+	else
 		dev_info->dev_ops.enable_sidetone = NULL;
-	}
 
 error:
 	return rc;
