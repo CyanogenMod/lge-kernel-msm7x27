@@ -32,6 +32,8 @@
 
 #include <linux/pm_qos_params.h>
 
+struct pm_qos_object;
+
 int msm_pm_qos_add(struct pm_qos_object *class, char *request_name,
 	s32 value, void **request_data);
 int msm_pm_qos_update(struct pm_qos_object *class, char *request_name,
