@@ -72,8 +72,14 @@ static void tvout_msm_turn_on(boolean power_on)
 
 static void tvout_check_status()
 {
-	if ((tvout_msm_state->hpd_int_status & 0x05) ==
-		(tvout_msm_state->prev_hpd_int_status & 0x05)) {
+	tvout_msm_state->hpd_int_status &= 0x05;
+	/* hpd_int_status could either be 0x05 or 0x04 for a cable
+		plug-out event when cable detect is driven by polling. */
+	if ((((tvout_msm_state->hpd_int_status == 0x05) ||
+		(tvout_msm_state->hpd_int_status == 0x04)) &&
+		(tvout_msm_state->prev_hpd_int_status == BIT(2))) ||
+		((tvout_msm_state->hpd_int_status == 0x01) &&
+		(tvout_msm_state->prev_hpd_int_status == BIT(0)))) {
 		DEV_DBG("%s: cable event sent already!", __func__);
 		return;
 	}
@@ -85,6 +91,7 @@ static void tvout_check_status()
 		mutex_unlock(&external_common_state_hpd_mutex);
 		kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_OFFLINE);
+		tvout_msm_state->prev_hpd_int_status = BIT(2);
 	} else if (tvout_msm_state->hpd_int_status & BIT(0)) {
 		DEV_DBG("%s: cable plug-in\n", __func__);
 		mutex_lock(&external_common_state_hpd_mutex);
@@ -92,8 +99,8 @@ static void tvout_check_status()
 		mutex_unlock(&external_common_state_hpd_mutex);
 		kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_ONLINE);
+		tvout_msm_state->prev_hpd_int_status = BIT(0);
 	}
-	tvout_msm_state->prev_hpd_int_status = tvout_msm_state->hpd_int_status;
 }
 
 /* ISR for TV out cable detect */
