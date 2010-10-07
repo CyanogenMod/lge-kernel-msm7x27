@@ -1774,7 +1774,6 @@ static int32_t vx6953_set_fps(struct fps_cfg	*fps)
 
 static int32_t vx6953_write_exp_gain(uint16_t gain, uint32_t line)
 {
-	static uint16_t stored_line_length_ratio = 1*Q8;
 	uint16_t line_length_pck, frame_length_lines;
 	uint8_t gain_hi, gain_lo;
 	uint8_t intg_time_hi, intg_time_lo;
@@ -1810,22 +1809,19 @@ static int32_t vx6953_write_exp_gain(uint16_t gain, uint32_t line)
 	}
 	vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
 		GROUPED_PARAMETER_HOLD);
-	if (line_length_ratio != stored_line_length_ratio) {
-		line_length_pck = (line_length_pck >
-			MAX_LINE_LENGTH_PCK) ?
-			MAX_LINE_LENGTH_PCK : line_length_pck;
-		line_length_pck = (uint16_t) (line_length_pck *
-			line_length_ratio/Q8);
-		line_length_pck_hi = (uint8_t) ((line_length_pck &
-			0xFF00) >> 8);
-		line_length_pck_lo = (uint8_t) (line_length_pck &
-			0x00FF);
-		vx6953_i2c_write_b_sensor(REG_LINE_LENGTH_PCK_HI,
-			line_length_pck_hi);
-		vx6953_i2c_write_b_sensor(REG_LINE_LENGTH_PCK_LO,
-			line_length_pck_lo);
-		stored_line_length_ratio = line_length_ratio;
-	}
+	line_length_pck = (line_length_pck >
+		MAX_LINE_LENGTH_PCK) ?
+		MAX_LINE_LENGTH_PCK : line_length_pck;
+	line_length_pck = (uint16_t) (line_length_pck *
+		line_length_ratio/Q8);
+	line_length_pck_hi = (uint8_t) ((line_length_pck &
+		0xFF00) >> 8);
+	line_length_pck_lo = (uint8_t) (line_length_pck &
+		0x00FF);
+	vx6953_i2c_write_b_sensor(REG_LINE_LENGTH_PCK_HI,
+		line_length_pck_hi);
+	vx6953_i2c_write_b_sensor(REG_LINE_LENGTH_PCK_LO,
+		line_length_pck_lo);
 	/* update analogue gain registers */
 	gain_hi = (uint8_t) ((gain & 0xFF00) >> 8);
 	gain_lo = (uint8_t) (gain & 0x00FF);
