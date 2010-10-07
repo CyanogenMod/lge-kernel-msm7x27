@@ -112,7 +112,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_imic_ffa_device,
 };
 
-void __init msm_snddev_init(void)
+void __init msm_snddev_init_timpani(void)
 {
 	platform_add_devices(snd_devices_ffa,
 			ARRAY_SIZE(snd_devices_ffa));
