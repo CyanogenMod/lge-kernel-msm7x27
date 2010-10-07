@@ -555,8 +555,7 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				  }
 			case VCD_MSLICE_BY_BYTE_COUNT:
 				{
-					if (multislice->m_slice_size >=
-						DDL_MINIMUM_BYTE_PER_SLICE)
+					if (multislice->m_slice_size > 0)
 						vcd_status = VCD_S_SUCCESS;
 					break;
 				}
@@ -1439,22 +1438,21 @@ void ddl_set_default_dec_property(struct ddl_client_context *ddl)
 	struct ddl_decoder_data *decoder = &(ddl->codec_data.decoder);
 
 	if (decoder->codec.codec == VCD_CODEC_MPEG4 ||
-	    decoder->codec.codec == VCD_CODEC_MPEG2) {
+	    decoder->codec.codec == VCD_CODEC_MPEG2)
 		decoder->post_filter.post_filter = true;
-	} else {
+	else
 		decoder->post_filter.post_filter = false;
-	}
 	decoder->buf_format.buffer_format = VCD_BUFFER_FORMAT_NV12;
 	decoder->client_frame_size.height = 144;
 	decoder->client_frame_size.width = 176;
 	decoder->client_frame_size.stride = 176;
 	decoder->client_frame_size.scan_lines = 144;
 	decoder->progressive_only = 1;
+	decoder->profile.profile = VCD_PROFILE_UNKNOWN;
+	decoder->level.level = VCD_LEVEL_UNKNOWN;
 	decoder->output_order = VCD_DEC_ORDER_DISPLAY;
 	ddl_set_default_metadata_flag(ddl);
-
 	ddl_set_default_decoder_buffer_req(decoder, true);
-
 }
 
 static void ddl_set_default_enc_property(struct ddl_client_context *ddl)

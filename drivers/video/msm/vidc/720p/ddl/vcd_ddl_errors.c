@@ -191,6 +191,7 @@ static u32 ddl_handle_hw_fatal_errors(struct ddl_context
 
 	case VSP_NOT_READY:
 	case BUFFER_FULL_STATE:
+	case NULL_DB_POINTER:
 		ERR("HW FATAL ERROR");
 		ddl_hw_fatal_cb(ddl_context);
 		status = true;
@@ -252,7 +253,6 @@ static u32 ddl_handle_client_fatal_errors(struct ddl_context
 	case NULL_COMAMND_CONTROL_COMM_POINTER:
 	case NULL_METADATA_INPUT_POINTER:
 	case NULL_DPB_POINTER:
-	case NULL_DB_POINTER:
 	case NULL_COMV_POINTER:
 		{
 			status = true;
