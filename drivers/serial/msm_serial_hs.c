@@ -327,6 +327,8 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 
 	struct msm_hs_port *msm_uport;
 	struct device *dev;
+	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
+
 
 	if (pdev->id < 0 || pdev->id >= UARTDM_NR) {
 		printk(KERN_ERR "Invalid plaform device ID = %d\n", pdev->id);
@@ -335,6 +337,10 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 
 	msm_uport = &q_uart_port[pdev->id];
 	dev = msm_uport->uport.dev;
+
+	if (pdata && pdata->gpio_config)
+		if (pdata->gpio_config(0))
+			dev_err(dev, "GPIO config error\n");
 
 	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 
@@ -1637,6 +1643,11 @@ static int __init msm_hs_probe(struct platform_device *pdev)
 
 		if (unlikely(msm_uport->wakeup.irq < 0))
 			return -ENXIO;
+
+		if (pdata->gpio_config)
+			if (unlikely(pdata->gpio_config(1)))
+				dev_err(uport->dev, "Cannot configure"
+					"gpios\n");
 	}
 
 	resource = platform_get_resource_byname(pdev, IORESOURCE_DMA,

@@ -128,12 +128,20 @@
 
 #define SDCC5_SUSPEND_CONFIG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
 
-
 #define AUX_PCM_ACTIVE_CONFIG (GPIOMUX_VALID | GPIOMUX_PULL_NONE\
 					| GPIOMUX_FUNC_1 | GPIOMUX_DRV_2MA)
 
 #define AUX_PCM_SUSPEND_CONFIG    (GPIOMUX_VALID | GPIOMUX_PULL_NONE)
 
+#ifdef CONFIG_SERIAL_MSM_HS
+#define UART1DM_ACTIVE     (GPIOMUX_VALID | GPIOMUX_FUNC_1 |		\
+			    GPIOMUX_DRV_8MA | GPIOMUX_PULL_NONE)
+#define UART1DM_SUSPENDED  (GPIOMUX_VALID | GPIOMUX_FUNC_GPIO |		\
+			    GPIOMUX_DRV_2MA | GPIOMUX_PULL_DOWN)
+#else
+#define UART1DM_ACTIVE     0
+#define UART1DM_SUSPENDED  0
+#endif
 
 static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	[33] = {
@@ -162,6 +170,22 @@ static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
 	},
 	[48] = {
 		.suspended = GSBI4,
+	},
+	[53] = { /* UARTDM_TX */
+		.active    = UART1DM_ACTIVE,
+		.suspended = UART1DM_SUSPENDED,
+	},
+	[54] = { /* UARTDM_RX */
+		.active    = UART1DM_ACTIVE,
+		.suspended = UART1DM_SUSPENDED,
+	},
+	[55] = { /* UARTDM_CTS */
+		.active    = UART1DM_ACTIVE,
+		.suspended = UART1DM_SUSPENDED,
+	},
+	[56] = { /* UARTDM_RFR */
+		.active    = UART1DM_ACTIVE,
+		.suspended = UART1DM_SUSPENDED,
 	},
 	[59] = {
 		.suspended = GSBI7,
