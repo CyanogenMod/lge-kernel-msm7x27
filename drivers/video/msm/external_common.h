@@ -209,7 +209,7 @@ struct external_common_state_type {
 	struct device *dev;
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	boolean format_3d;
-	int (*switch_3d)(boolean on);
+	void (*switch_3d)(boolean on);
 #endif
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
 	boolean hdcp_active;

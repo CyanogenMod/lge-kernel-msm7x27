@@ -2478,7 +2478,7 @@ static void hdmi_msm_vendor_infoframe_packetsetup(void)
 	HDMI_OUTP(0x0034, (1 << 21) | (1 << 2) | BIT(1) | BIT(0));
 }
 
-static int hdmi_msm_switch_3d(boolean on)
+static void hdmi_msm_switch_3d(boolean on)
 {
 	mutex_lock(&external_common_state_hpd_mutex);
 	if (external_common_state->hpd_state)
