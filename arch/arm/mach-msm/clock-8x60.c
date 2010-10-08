@@ -1375,7 +1375,9 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 	CLK_NORATE(VFE_AXI,   MAXI_EN_REG, B(18), SW_RESET_AXI_REG, B(9),
 		DBG_BUS_VEC_E_REG, HALT, 0, TEST_MM_HS(0x18)),
 	CLK_RESET(IJPEG_AXI,  SW_RESET_AXI_REG, B(14)),
+	CLK_RESET(MDP_AXI,    SW_RESET_AXI_REG, B(13)),
 	CLK_RESET(ROT_AXI,    SW_RESET_AXI_REG, B(6)),
+	CLK_RESET(VCODEC_AXI, SW_RESET_AXI_REG, (B(4)|B(5))),
 	CLK_RESET(VPE_AXI,    SW_RESET_AXI_REG, B(15)),
 
 	/* AHB Interfaces */
@@ -1406,6 +1408,7 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 	CLK_RESET(GFX2D0_P, SW_RESET_AHB_REG, B(12)),
 	CLK_RESET(GFX2D1_P, SW_RESET_AHB_REG, B(11)),
 	CLK_RESET(GFX3D_P,  SW_RESET_AHB_REG, B(10)),
+	CLK_RESET(VCODEC_P, SW_RESET_AHB_REG, B(1)),
 
 	/*
 	 * Low Power Audio Clocks
