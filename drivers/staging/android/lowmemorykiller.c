@@ -67,13 +67,21 @@ static struct notifier_block task_nb = {
 	.notifier_call	= task_notify_func,
 };
 
+
+static void task_free_fn(struct work_struct *work)
+{
+	task_free_unregister(&task_nb);
+}
+static DECLARE_WORK(task_free_work, task_free_fn);
+
 static int
 task_notify_func(struct notifier_block *self, unsigned long val, void *data)
 {
 	struct task_struct *task = data;
+
 	if (task == lowmem_deathpending) {
 		lowmem_deathpending = NULL;
-		task_free_unregister(&task_nb);
+		schedule_work(&task_free_work);
 	}
 	return NOTIFY_OK;
 }
