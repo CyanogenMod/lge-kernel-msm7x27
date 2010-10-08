@@ -80,7 +80,7 @@ extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
 #define NUM_FAB 5
 #define MAX_FAB_KEY 7168  /* OR(All fabric ids) */
 
-#define GET_MPORT(src) ((src) & (FABRIC_ID_KEY - 1))
+#define GET_MPORT(src) (((src) - 1) & (FABRIC_ID_KEY - 1))
 #define GET_SLPORT(src) ((src) & (SLAVE_ID_KEY - 1))
 #define GET_FABID(id) ((id) & MAX_FAB_KEY)
 

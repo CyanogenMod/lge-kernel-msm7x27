@@ -405,21 +405,18 @@ static int msm_bus_commit_fn(struct device *dev, void *data)
 uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 {
 	struct msm_bus_client *client = NULL;
-	int ret = 0;
 	int i;
 
 	if (atomic_read(&num_fab) < NUM_FAB) {
 		MSM_BUS_ERR("Can't register client!\n"
 				"Num of fabrics up: %d\n",
 				atomic_read(&num_fab));
-		ret = -EAGAIN;
 		goto err;
 	}
 
 	client = kzalloc(sizeof(struct msm_bus_client), GFP_KERNEL);
 	if (!client) {
 		MSM_BUS_ERR("Error allocating client\n");
-		ret = -ENOMEM;
 		goto err;
 	}
 	mutex_lock(&msm_bus_lock);
@@ -446,7 +443,6 @@ uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 			MSM_BUS_ERR("Cannot register client now!\n"
 				"Fabrics not yet up. Try again!\n");
 			kfree(client);
-			ret = -ENXIO;
 			mutex_unlock(&msm_bus_lock);
 			goto err;
 		}
@@ -456,8 +452,7 @@ uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 		pdata->usecase->num_paths);
 	return (uint32_t)(client);
 err:
-	MSM_BUS_ERR("Error: %d\n", ret);
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(msm_bus_scale_register_client);
 
