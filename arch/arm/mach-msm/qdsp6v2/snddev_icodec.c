@@ -314,7 +314,6 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	wake_unlock(&drv->rx_idlelock);
 	return 0;
 
-error_adie:
 	clk_disable(drv->rx_bitclk);
 	clk_disable(drv->rx_osrclk);
 error_invalid_freq:
