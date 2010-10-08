@@ -335,8 +335,9 @@ static int msm_hsusb_ldo_init(int init)
 			return PTR_ERR(vdd_cx);
 		}
 
+		regulator_set_voltage(vdd_cx,   1100000, 1100000);
 		regulator_set_voltage(ldo7_1p8, 1800000, 1800000);
-		regulator_set_voltage(ldo6_3p3, 3075000, 3075000);
+		regulator_set_voltage(ldo6_3p3, 3050000, 3050000);
 	} else {
 		regulator_put(ldo6_3p3);
 		regulator_put(ldo7_1p8);
