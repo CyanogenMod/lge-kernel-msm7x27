@@ -69,6 +69,12 @@
 #define MSM_UART2DM_PHYS    0x19C40000
 #define TCSR_BASE_PHYS      0x16b00000
 
+#ifdef CONFIG_WEBCAM_OV7692
+#define WEBCAM_DEV (&msm_camera_sensor_webcam.dev)
+#else
+#define WEBCAM_DEV NULL
+#endif
+
 void __iomem *gic_cpu_base_addr;
 
 void __init msm8x60_init_irq(void)
@@ -1106,12 +1112,7 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("cam_clk",		CAM_CLK,		NULL, 0),
 	CLK_8X60("csi_src_clk",		CSI_SRC_CLK,		NULL, 0),
 	CLK_8X60("csi_clk",		CSI0_CLK,		NULL, 0),
-#ifdef CONFIG_WEBCAM_OV7692
-	CLK_8X60("csi_clk",		CSI1_CLK,
-					&msm_camera_sensor_webcam.dev, 0),
-#else
-	CLK_8X60("csi_clk",		CSI1_CLK, NULL, 0),
-#endif
+	CLK_8X60("csi_clk",		CSI1_CLK,		WEBCAM_DEV, 0),
 	CLK_8X60("dsi_byte_div_clk",	DSI_BYTE_CLK,		NULL, 0),
 	CLK_8X60("dsi_esc_clk",		DSI_ESC_CLK,		NULL, 0),
 	CLK_8X60("gfx2d0_clk",		GFX2D0_CLK,		NULL, 0),
@@ -1135,12 +1136,7 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("vpe_clk",		VPE_CLK,		NULL, 0),
 	CLK_8X60("vfe_clk",		VFE_CLK,		NULL, 0),
 	CLK_8X60("csi_vfe_clk",		CSI0_VFE_CLK,		NULL, 0),
-#ifdef CONFIG_WEBCAM_OV7692
-	CLK_8X60("csi_vfe_clk",		CSI1_VFE_CLK,
-					&msm_camera_sensor_webcam.dev, 0),
-#else
-	CLK_8X60("csi_vfe_clk",		CSI1_VFE_CLK, NULL, 0),
-#endif
+	CLK_8X60("csi_vfe_clk",		CSI1_VFE_CLK,		WEBCAM_DEV, 0),
 	CLK_8X60("smmu_jpegd_clk", 	JPEGD_AXI_CLK,		NULL, 0),
 	CLK_8X60("smmu_vfe_clk", 	VFE_AXI_CLK,		NULL, 0),
 	CLK_8X60("vfe_axi_clk", 	VFE_AXI_CLK,		NULL, 0),
@@ -1149,12 +1145,7 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("vpe_axi_clk", 	VPE_AXI_CLK,		NULL, 0),
 	CLK_8X60("amp_pclk",		AMP_P_CLK,		NULL, 0),
 	CLK_8X60("csi_pclk",		CSI0_P_CLK,		NULL, 0),
-#ifdef CONFIG_WEBCAM_OV7692
-	CLK_8X60("csi_pclk",		CSI1_P_CLK,
-					&msm_camera_sensor_webcam.dev, 0),
-#else
-	CLK_8X60("csi_pclk",		CSI1_P_CLK, NULL, 0),
-#endif
+	CLK_8X60("csi_pclk",		CSI1_P_CLK,		WEBCAM_DEV, 0),
 	CLK_8X60("dsi_m_pclk",		DSI_M_P_CLK,		NULL, 0),
 	CLK_8X60("fab_pclk",		FAB_P_CLK,		NULL, 0),
 	CLK_8X60("ijpeg_pclk",		IJPEG_P_CLK,		NULL, 0),
