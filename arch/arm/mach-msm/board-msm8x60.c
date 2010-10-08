@@ -4733,6 +4733,8 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[2].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[2].vdd_data->level = 2850000;
 	sdcc_vreg_data[2].vccq_data = NULL;
+	if (machine_is_msm8x60_fluid())
+		msm8x60_sdc3_data.wpswitch = NULL;
 	msm_add_sdcc(3, &msm8x60_sdc3_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
