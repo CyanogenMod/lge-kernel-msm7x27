@@ -416,14 +416,12 @@ struct asm_pp_params_command {
 #define MBADRC_ENABLE_PARAM_ID 0x00010c07
 #define MBADRC_CONFIG_PARAM_ID 0x00010c08
 
-struct asm_pp_params {
-	struct asm_pp_param_data_hdr hdr;
-} __attribute__ ((packed));
 
 #define ADM_CMD_SET_PARAMS                               0x00010306
 struct adm_set_params_command {
-	struct apr_hdr hdr;
-	struct asm_pp_params param;
+	struct apr_hdr		hdr;
+	u32			payload;
+	u32			payload_size;
 } __attribute__ ((packed));
 
 
