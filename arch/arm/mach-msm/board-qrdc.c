@@ -1931,7 +1931,7 @@ vreg_fail:
 	return rc;
 }
 
-static void tdisc_shinetsu_disable(void)
+static int tdisc_shinetsu_disable(void)
 {
 	int i, rc;
 
@@ -1944,6 +1944,8 @@ static void tdisc_shinetsu_disable(void)
 
 	/* Disable the OE (output enable) gpio */
 	gpio_set_value(TDISC_OE, 0);
+
+	return 0;
 }
 
 static struct tdisc_abs_values tdisc_abs = {
