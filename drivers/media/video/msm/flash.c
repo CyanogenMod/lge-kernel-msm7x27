@@ -268,13 +268,13 @@ static int msm_strobe_flash_xenon_init(
 			IRQF_TRIGGER_FALLING, "charge_ready", sfdata);
 		if (rc < 0) {
 			pr_err("%s: request_irq failed %d\n", __func__, rc);
-			return rc;
+			goto go_out;
 		}
 		rc = gpio_request(sfdata->flash_charge, "charge");
 		if (rc < 0) {
 			pr_err("%s: gpio_request failed\n", __func__);
 			free_irq(sfdata->irq, sfdata);
-			return rc;
+			goto go_out;
 		}
 		spin_lock_init(&sfdata->timer_lock);
 		/* setup timer */
@@ -283,7 +283,7 @@ static int msm_strobe_flash_xenon_init(
 		timer_flash.data = (unsigned long)sfdata;
 	}
 	sfdata->state++;
-
+go_out:
 	spin_unlock_irqrestore(&sfdata->spin_lock, flags);
 
 	return rc;
