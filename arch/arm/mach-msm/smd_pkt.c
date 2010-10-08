@@ -34,6 +34,7 @@
 #include <linux/platform_device.h>
 #include <linux/completion.h>
 #include <linux/msm_smd_pkt.h>
+#include <linux/poll.h>
 #include <asm/ioctls.h>
 
 #include <mach/msm_smd.h>
@@ -378,6 +379,22 @@ ssize_t smd_pkt_write(struct file *file,
 	return count;
 }
 
+static unsigned int smd_pkt_poll(struct file *file, poll_table *wait)
+{
+	struct smd_pkt_dev *smd_pkt_devp;
+	unsigned int mask = 0;
+
+	smd_pkt_devp = file->private_data;
+	if (!smd_pkt_devp)
+		return POLLERR;
+
+	poll_wait(file, &smd_pkt_devp->ch_read_wait_queue, wait);
+	if (smd_read_avail(smd_pkt_devp->ch))
+		mask |= POLLIN | POLLRDNORM;
+
+	return mask;
+}
+
 static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp)
 {
 	int sz;
@@ -634,6 +651,7 @@ static const struct file_operations smd_pkt_fops = {
 	.release = smd_pkt_release,
 	.read = smd_pkt_read,
 	.write = smd_pkt_write,
+	.poll = smd_pkt_poll,
 	.ioctl = smd_pkt_ioctl,
 };
 
