@@ -488,7 +488,7 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 						SNDDEV_CAP_TX,
 						AUDDEV_CLNT_ENC);
 				MM_DBG("sample rate configured %d"
-					"sample rate requested %d \n",
+					"sample rate requested %d\n",
 					enc_freq, requested_freq);
 				if ((rc <= 0) || (enc_freq != requested_freq)) {
 					MM_DBG("msm_snddev_withdraw_freq\n");
@@ -553,7 +553,7 @@ static int msm_device_volume_put(struct snd_kcontrol *kcontrol,
 
 	if (IS_ERR(dev_info)) {
 		rc = PTR_ERR(dev_info);
-		MM_ERR("audio_dev_ctrl_find_dev failed. %ld \n",
+		MM_ERR("audio_dev_ctrl_find_dev failed. %ld\n",
 				PTR_ERR(dev_info));
 		return rc;
 	}
@@ -678,7 +678,7 @@ static struct snd_soc_dai_link msm_dai = {
 };
 
 struct snd_soc_card snd_soc_card_msm = {
-	.name 		= "msm-audio",
+	.name		= "msm-audio",
 	.dai_link	= &msm_dai,
 	.num_links = 1,
 	.platform = &msm_soc_platform,
@@ -695,7 +695,7 @@ static int __init msm_audio_init(void)
 {
 	int ret;
 
-	msm_audio_snd_device = platform_device_alloc("soc-audio", -1);
+	msm_audio_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!msm_audio_snd_device)
 		return -ENOMEM;
 
