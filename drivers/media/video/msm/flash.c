@@ -225,7 +225,8 @@ static int msm_strobe_flash_xenon_charge(int32_t flash_charge,
 		timer_flash.expires = jiffies +
 			msecs_to_jiffies(flash_recharge_duration);
 		/* add timer for the recharge */
-		add_timer(&timer_flash);
+		if (!timer_pending(&timer_flash))
+			add_timer(&timer_flash);
 	} else
 		del_timer_sync(&timer_flash);
 	return 0;
