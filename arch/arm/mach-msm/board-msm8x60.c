@@ -1482,15 +1482,6 @@ static int tmg200_dev_setup(bool enable)
 			goto reg_put;
 		}
 
-		/* configure touchscreen interrupt gpio */
-		rc = gpio_tlmm_config(GPIO_CFG(TS_PEN_IRQ_GPIO, 0, GPIO_CFG_INPUT,
-					GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 0);
-		if (rc) {
-			pr_err("%s: unable to configure gpio %d\n",
-				__func__, TS_PEN_IRQ_GPIO);
-			goto reg_put;
-		}
-
 		rc = gpio_request(TS_PEN_IRQ_GPIO, "cy8ctmg200_irq_gpio");
 		if (rc) {
 			pr_err("%s: unable to request gpio %d\n",
