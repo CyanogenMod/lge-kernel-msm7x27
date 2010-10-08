@@ -1713,9 +1713,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 			spin_lock_irq(&dev->lock);
 			dev->otg.state = OTG_STATE_A_HOST;
 			spin_unlock_irq(&dev->lock);
-			if (test_bit(ID_A, &dev->inputs))
+			if (test_bit(ID_A, &dev->inputs)) {
+				atomic_set(&dev->chg_type, USB_CHG_TYPE__SDP);
 				msm_otg_set_power(&dev->otg,
 					USB_IDCHG_MIN - get_aca_bmaxpower(dev));
+			}
 		} else if (!test_bit(A_VBUS_VLD, &dev->inputs)) {
 			pr_debug("!a_vbus_vld\n");
 			msm_otg_del_timer(dev);
@@ -1788,8 +1790,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_otg_set_power(&dev->otg,
 					USB_IDCHG_MIN - get_aca_bmaxpower(dev));
 		} else if (!test_bit(ID, &dev->inputs)) {
-			dev->pdata->vbus_power(USB_PHY_INTEGRATED, 1);
+			atomic_set(&dev->chg_type, USB_CHG_TYPE__INVALID);
 			msm_otg_set_power(&dev->otg, 0);
+			dev->pdata->vbus_power(USB_PHY_INTEGRATED, 1);
 		}
 		break;
 	case OTG_STATE_A_SUSPEND:
