@@ -741,7 +741,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 		struct cpuidle_state *state = &dev->states[i];
 		enum msm_pm_sleep_mode mode;
 		bool allow;
-		struct msm_rpmrs_limits *rs_limits;
+		struct msm_rpmrs_limits *rs_limits = NULL;
 
 		mode = (enum msm_pm_sleep_mode) state->driver_data;
 		allow = msm_pm_modes[MSM_PM_MODE(dev->cpu, mode)].idle_enabled;
