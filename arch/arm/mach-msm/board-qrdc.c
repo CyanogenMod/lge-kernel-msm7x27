@@ -520,21 +520,21 @@ static int msm_otg_init_analog_switch_gpio(int on)
 		rc = gpio_direction_output(USB_SWITCH_EN_GPIO, 0);
 		if (rc) {
 			pr_err("%s: gpio_direction_output failed for %d\n",
-						USB_SWITCH_EN_GPIO, __func__);
+					__func__, USB_SWITCH_EN_GPIO);
 			goto fail_gpio_usb_hub_reset;
 		}
 		/* Set direction of USB SWITCH CONTROL gpio */
 		rc = gpio_direction_output(USB_SWITCH_CNTL_GPIO, 0);
 		if (rc) {
 			pr_err("%s: gpio_direction_output failed for %d\n",
-					USB_SWITCH_CNTL_GPIO, __func__);
+					__func__, USB_SWITCH_CNTL_GPIO);
 			goto fail_gpio_usb_hub_reset;
 		}
 		/* Set direction of USB HUB RESET gpio */
 		rc = gpio_direction_output(USB_HUB_RESET_GPIO, 0);
 		if (rc) {
 			pr_err("%s: gpio_direction_output failed for %d\n",
-						USB_HUB_RESET_GPIO, __func__);
+					__func__, USB_HUB_RESET_GPIO);
 			goto fail_gpio_usb_hub_reset;
 		}
 		return rc;
