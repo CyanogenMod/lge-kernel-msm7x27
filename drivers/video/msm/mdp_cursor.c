@@ -40,9 +40,10 @@
 static int cursor_enabled;
 
 #include "mdp4.h"
-static struct completion cursor_update_comp;
 
 #ifdef CONFIG_FB_MSM_OVERLAY
+static struct completion cursor_update_comp;
+
 void mdp_hw_cursor_init(void)
 {
 	init_completion(&cursor_update_comp);
