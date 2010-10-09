@@ -280,7 +280,7 @@ int pm8058_reset_pwr_off(int reset)
 	}
 
 get_out:
-	mutex_lock(&pmic_chip->pm_lock);
+	mutex_unlock(&pmic_chip->pm_lock);
 
 	return rc;
 }
