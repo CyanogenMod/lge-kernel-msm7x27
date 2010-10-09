@@ -76,11 +76,7 @@
 #define	MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT		0x9
 #define	MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT	0x8
 
-#define	CAMIO_VFE_CLK_SNAP			228570000
-#define	CAMIO_VFE_CLK_PREV			153600000
-
 static struct clk *camio_cam_clk;
-static struct clk *camio_vfe_clk;
 static struct clk *camio_csi0_vfe_clk;
 static struct clk *camio_csi1_vfe_clk;
 static struct clk *camio_csi0_clk;
@@ -258,7 +254,6 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		break;
 
 	case CAMIO_VFE_CLK:
-		camio_vfe_clk =
 		clk = clk_get(NULL, "vfe_clk");
 		msm_camio_clk_rate_set_2(clk, camio_clk.vfe_clk_rate);
 		break;
@@ -346,10 +341,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		clk = camio_cam_clk;
 		break;
 
-	case CAMIO_VFE_CLK:
-		clk = camio_vfe_clk;
-		break;
-
 	case CAMIO_CSI0_VFE_CLK:
 		clk = camio_csi0_vfe_clk;
 		break;
@@ -421,23 +412,6 @@ void msm_camio_clk_rate_set_2(struct clk *clk, int rate)
 void msm_camio_clk_set_min_rate(struct clk *clk, int rate)
 {
 	clk_set_min_rate(clk, rate);
-}
-
-void msm_camio_vfe_clk_set(enum msm_s_setting s_setting)
-{
-	switch (s_setting) {
-	case S_RES_PREVIEW:
-		camio_clk.vfe_clk_rate = CAMIO_VFE_CLK_PREV;
-		CDBG("Set VFE clk for Preview\n");
-		break;
-	case S_RES_CAPTURE:
-		camio_clk.vfe_clk_rate = CAMIO_VFE_CLK_SNAP;
-		CDBG("Set VFE clk for Snapshot\n");
-		break;
-	default:
-		return;
-	}
-	msm_camio_clk_rate_set_2(camio_vfe_clk, camio_clk.vfe_clk_rate);
 }
 
 static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
@@ -580,7 +554,6 @@ csi_busy:
 	release_mem_region(camio_ext.csiphy, camio_ext.csisz);
 common_fail:
 	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
-	msm_camio_clk_disable(CAMIO_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_CLK);
 	msm_camio_clk_disable(CAMIO_CSI1_VFE_CLK);
@@ -619,7 +592,6 @@ void msm_camio_disable(struct platform_device *pdev)
 	release_mem_region(camio_ext.csiphy, camio_ext.csisz);
 	CDBG("disable clocks\n");
 
-	msm_camio_clk_disable(CAMIO_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
 	msm_camio_clk_disable(CAMIO_CSI0_CLK);
 	msm_camio_clk_disable(CAMIO_CSI1_VFE_CLK);
