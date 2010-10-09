@@ -859,6 +859,7 @@ msmsdcc_irq(int irq, void *dev_id)
 					msm_dmov_stop_cmd(host->dma.channel,
 							  &host->dma.hdr, 0);
 				else if (host->curr.data) { /* Non DMA */
+					msmsdcc_reset_and_restore(host);
 					msmsdcc_stop_data(host);
 					timer |= msmsdcc_request_end(host,
 							cmd->mrq);
