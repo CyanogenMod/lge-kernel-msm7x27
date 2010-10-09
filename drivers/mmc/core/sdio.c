@@ -206,7 +206,6 @@ static int sdio_disable_wide(struct mmc_card *card)
 {
 	int ret;
 	u8 ctrl;
-	unsigned int width = MMC_BUS_WIDTH_4;
 
 	if (!(card->host->caps & (MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA)))
 		return 0;

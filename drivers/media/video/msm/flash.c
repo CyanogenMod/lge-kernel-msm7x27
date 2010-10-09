@@ -33,14 +33,14 @@ int msm_camera_flash_current_driver(
 	unsigned led_state)
 {
 	int rc = 0;
+#if defined CONFIG_LEDS_PMIC8058
 	int idx;
-	struct pmic8058_leds_platform_data *driver_channel =
+	const struct pmic8058_leds_platform_data *driver_channel =
 		current_driver->driver_channel;
 	int num_leds = driver_channel->num_leds;
 
 	CDBG("%s: led_state = %d\n", __func__, led_state);
 
-#if defined CONFIG_LEDS_PMIC8058
 	/* Evenly distribute current across all channels */
 	switch (led_state) {
 	case MSM_CAMERA_LED_OFF:
