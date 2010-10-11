@@ -3989,12 +3989,15 @@ static int msm_sdc3_get_wpswitch(struct device *dev)
 		pr_err("%s:Failed to request GPIO %d\n",
 					__func__, GPIO_SDC_WP);
 	} else {
-		status = gpio_get_value_cansleep(GPIO_SDC_WP);
-		pr_info("%s: WP Status for Slot %d = %d\n", __func__,
-							pdev->id, status);
+		status = gpio_direction_input(GPIO_SDC_WP);
+		if (!status) {
+			status = gpio_get_value_cansleep(GPIO_SDC_WP);
+			pr_info("%s: WP Status for Slot %d = %d\n",
+				 __func__, pdev->id, status);
+		}
 		gpio_free(GPIO_SDC_WP);
 	}
-	return (unsigned int) status;
+	return status;
 }
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
