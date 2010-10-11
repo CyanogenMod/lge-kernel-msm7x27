@@ -1211,6 +1211,9 @@ u32 vid_enc_set_get_ratectrlcfg(struct video_client_ctx *client_ctx,
 		case VEN_RC_VBR_VFR:
 			control.rate_control = VCD_RATE_CONTROL_VBR_VFR;
 			break;
+		case VEN_RC_CBR_CFR:
+			control.rate_control = VCD_RATE_CONTROL_CBR_CFR;
+			break;
 		default:
 			status = false;
 			break;
@@ -1246,6 +1249,9 @@ u32 vid_enc_set_get_ratectrlcfg(struct video_client_ctx *client_ctx,
 				break;
 			case VCD_RATE_CONTROL_VBR_VFR:
 				ratectrlcfg->rcmode = VEN_RC_VBR_VFR;
+				break;
+			case VCD_RATE_CONTROL_CBR_CFR:
+				ratectrlcfg->rcmode = VEN_RC_CBR_CFR;
 				break;
 			default:
 				status = false;
