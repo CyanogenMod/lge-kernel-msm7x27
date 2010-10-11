@@ -521,15 +521,10 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	 */
 	mfd->panel_info = pdata->panel_info;
 
-
-#ifdef MSMFB_FRAMEBUF_32
 	if (mfd->index == 0)
-		mfd->fb_imgType = MDP_RGBA_8888; /* primary */
+		mfd->fb_imgType = MSMFB_DEFAULT_TYPE;
 	else
-		mfd->fb_imgType = MDP_RGB_565;	/* secondary */
-#else
-	mfd->fb_imgType = MDP_RGB_565;
-#endif
+		mfd->fb_imgType = MDP_RGB_565;
 
 	fbi = mfd->fbi;
 	fbi->var.pixclock = mfd->panel_info.clk_rate;
