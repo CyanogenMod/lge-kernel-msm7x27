@@ -217,6 +217,7 @@ static void update_batt_status(void)
 }
 
 static enum power_supply_property msm_power_props[] = {
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
@@ -232,8 +233,12 @@ static int msm_power_get_property(struct power_supply *psy,
 
 	priv = container_of(psy, struct msm_hardware_charger_priv, psy);
 	switch (psp) {
-	case POWER_SUPPLY_PROP_ONLINE:
+	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = !(priv->hw_chg_state == CHG_ABSENT_STATE);
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = (priv->hw_chg_state == CHG_READY_STATE)
+			|| (priv->hw_chg_state == CHG_CHARGING_STATE);
 		break;
 	default:
 		return -EINVAL;
