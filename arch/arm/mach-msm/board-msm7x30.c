@@ -6119,7 +6119,7 @@ static void __init msm7x30_init(void)
 		msm_adc_pdata.dev_names = msm_adc_surf_device_names;
 		msm_adc_pdata.num_adc = ARRAY_SIZE(msm_adc_surf_device_names);
 	}
-
+#ifdef CONFIG_USB_ANDROID
 	if (machine_is_msm8x55_surf() ||
 		machine_is_msm8x55_ffa()) {
 		android_usb_pdata.product_id = 0x9028;
@@ -6127,6 +6127,7 @@ static void __init msm7x30_init(void)
 			ARRAY_SIZE(fusion_usb_products);
 		android_usb_pdata.products = fusion_usb_products;
 	}
+#endif
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 #ifdef CONFIG_USB_EHCI_MSM
