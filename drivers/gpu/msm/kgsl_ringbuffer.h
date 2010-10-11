@@ -204,4 +204,12 @@ int kgsl_ringbuffer_gettimestampshadow(struct kgsl_device *device,
 
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 
+static inline int kgsl_ringbuffer_count(struct kgsl_ringbuffer *rb,
+	unsigned int rptr)
+{
+	if (rb->wptr >= rptr)
+		return rb->wptr - rptr;
+	return rb->wptr + rb->sizedwords - rptr;
+}
+
 #endif  /* __GSL_RINGBUFFER_H */

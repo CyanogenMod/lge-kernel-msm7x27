@@ -4,9 +4,46 @@ config MSM_KGSL
 	depends on FB && ARM && ARCH_MSM && !MSM_HW3D && ANDROID_PMEM
 	select GENERIC_ALLOCATOR
 	select FW_LOADER
+	select RELAY
 	---help---
 	  3D graphics driver. Required to use hardware accelerated
 	  OpenGL ES 2.0 and 1.1.
+
+config MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
+	bool "Disable human readable CP_STAT fields in post-mortem dump"
+	default n
+	depends on MSM_KGSL
+	---help---
+	  For a more compact kernel log the human readable output of
+	  CP_STAT can be turned off with this option.
+
+config MSM_KGSL_PSTMRTMDMP_NO_IB_DUMP
+	bool "Disable dumping current IB1 and IB2 in post-mortem dump"
+	default n
+	depends on MSM_KGSL
+	---help---
+	  For a more compact kernel log the IB1 and IB2 embedded dump
+	  can be turned off with this option.  Some IB dumps take up
+	  so much space that vital other information gets cut from the
+	  post-mortem dump.
+
+config MSM_KGSL_PSTMRTMDMP_RB_HEX
+	bool "Use hex version for ring-buffer in post-mortem dump"
+	default n
+	depends on MSM_KGSL
+	---help---
+	  Use hex version for the ring-buffer in the post-mortem dump, instead
+	  of the human readable version.
+
+config MSM_KGSL_PSTMRTMDMP_NO_REG_DUMP
+	bool "Disable dumping of most registers in post-mortem dump"
+	default n
+	depends on MSM_KGSL
+	---help---
+	  For a more compact kernel log the extensive register hex dump
+	  can be turned off with this option.  The register dump takes up
+	  so much space that vital other information gets cut from the
+	  post-mortem dump.
 
 config MSM_KGSL_2D
 	bool "Enable the 2D core. Required for OpenVG"
