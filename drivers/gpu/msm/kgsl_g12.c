@@ -222,11 +222,15 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	device->pwrctrl.grp_clk = clk;
 	device->pwrctrl.grp_src_clk = clk;
 
-	if (clk != NULL) {
-		if ((pdata->set_grp2d_async != NULL) &&
-			(pdata->max_grp2d_freq) &&
-			(!pdata->set_grp2d_async()))
-			clk_set_min_rate(clk, pdata->max_grp2d_freq);
+	if (pdata->set_grp2d_async != NULL)
+		pdata->set_grp2d_async();
+
+	if (pdata->max_grp2d_freq) {
+		device->pwrctrl.clk_freq[KGSL_MIN_FREQ] =
+			clk_round_rate(clk, pdata->min_grp2d_freq);
+		device->pwrctrl.clk_freq[KGSL_MAX_FREQ] =
+			clk_round_rate(clk, pdata->max_grp2d_freq);
+		clk_set_rate(clk, device->pwrctrl.clk_freq[KGSL_MIN_FREQ]);
 	}
 
 	device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx2d0");
@@ -235,8 +239,6 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 
 	device->pwrctrl.power_flags = 0;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
-	device->pwrctrl.clk_freq[KGSL_MIN_FREQ] = pdata->min_grp2d_freq;
-	device->pwrctrl.clk_freq[KGSL_MAX_FREQ] = pdata->max_grp2d_freq;
 
 	/*acquire g12 interrupt */
 	device->pwrctrl.interrupt_num =

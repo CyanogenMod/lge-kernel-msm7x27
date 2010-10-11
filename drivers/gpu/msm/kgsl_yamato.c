@@ -510,10 +510,15 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 	device->pwrctrl.grp_src_clk = clk;
 
 	/* put the AXI bus into asynchronous mode with the graphics cores */
-	if ((pdata->set_grp3d_async != NULL) &&
-		(pdata->max_grp3d_freq) &&
-		(!pdata->set_grp3d_async()))
-		clk_set_min_rate(clk, pdata->max_grp3d_freq);
+	if (pdata->set_grp3d_async != NULL)
+		pdata->set_grp3d_async();
+	if (pdata->max_grp3d_freq) {
+		device->pwrctrl.clk_freq[KGSL_MIN_FREQ] =
+			clk_round_rate(clk, pdata->min_grp3d_freq);
+		device->pwrctrl.clk_freq[KGSL_MAX_FREQ] =
+			clk_round_rate(clk, pdata->max_grp3d_freq);
+		clk_set_rate(clk, device->pwrctrl.clk_freq[KGSL_MIN_FREQ]);
+	}
 
 	if (pdata->imem_clk_name != NULL) {
 		clk = clk_get(&pdev->dev, pdata->imem_clk_name);
@@ -532,8 +537,6 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 
 	device->pwrctrl.power_flags = 0;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_3d;
-	device->pwrctrl.clk_freq[KGSL_MIN_FREQ] = pdata->min_grp3d_freq;
-	device->pwrctrl.clk_freq[KGSL_MAX_FREQ] = pdata->max_grp3d_freq;
 	device->pwrctrl.pm_qos_req = pm_qos_add_request(
 					PM_QOS_SYSTEM_BUS_FREQ,
 					PM_QOS_DEFAULT_VALUE);
