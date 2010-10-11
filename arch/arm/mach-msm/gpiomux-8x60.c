@@ -150,273 +150,411 @@
 
 #define MI2S_SUSPEND_CFG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
 
-static struct msm_gpiomux_config msm_gpiomux_configs[NR_GPIO_IRQS] = {
-	[33] = {
+static struct msm_gpiomux_config msm8x60_gsbi_configs[] __initdata = {
+	{
+		.gpio      = 33,
 		.suspended = GSBI1,
 	},
-	[34] = {
+	{
+		.gpio      = 34,
 		.suspended = GSBI1,
 	},
-	[35] = {
+	{
+		.gpio      = 35,
 		.suspended = GSBI1,
 	},
-	[36] = {
+	{
+		.gpio      = 36,
 		.suspended = GSBI1,
 	},
-	[40] = {
+	{
+		.gpio      = 43,
+		.suspended = GSBI3,
+	},
+	{
+		.gpio      = 44,
+		.suspended = GSBI3,
+	},
+	{
+		.gpio      = 47,
+		.suspended = GSBI4,
+	},
+	{
+		.gpio      = 48,
+		.suspended = GSBI4,
+	},
+	{
+		.gpio      = 59,
+		.suspended = GSBI7,
+	},
+	{
+		.gpio      = 60,
+		.suspended = GSBI7,
+	},
+	{
+		.gpio      = 64,
+		.suspended = GSBI8,
+	},
+	{
+		.gpio      = 65,
+		.suspended = GSBI8,
+	},
+};
+
+static struct msm_gpiomux_config msm8x60_ebi2_configs[] __initdata = {
+	{
+		.gpio      = 40,
 		.suspended = EBI2_CS2,
 	},
-	[43] = {
-		.suspended = GSBI3,
+	{
+		.gpio      = 92,
+		.suspended = PS_HOLD,
 	},
-	[44] = {
-		.suspended = GSBI3,
+	{
+		.gpio      = 123,
+		.suspended = EBI2_A_D,
 	},
-	[47] = {
-		.suspended = GSBI4,
+	{
+		.gpio      = 124,
+		.suspended = EBI2_A_D,
 	},
-	[48] = {
-		.suspended = GSBI4,
+	{
+		.gpio      = 125,
+		.suspended = EBI2_A_D,
 	},
-	[53] = { /* UARTDM_TX */
+	{
+		.gpio      = 126,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 127,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 128,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 129,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 130,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 133,
+		.suspended = EBI2_CS3,
+	},
+	{
+		.gpio      = 135,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 136,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 137,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 138,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 139,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 140,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 141,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 142,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 143,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 144,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 145,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 146,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 147,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 148,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 149,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 150,
+		.suspended = EBI2_A_D,
+	},
+	{
+		.gpio      = 151,
+		.suspended = EBI2_OE,
+	},
+	{
+		.gpio      = 153,
+		.suspended = EBI2_ADV,
+	},
+	{
+		.gpio      = 157,
+		.suspended = EBI2_WE,
+	},
+};
+
+static struct msm_gpiomux_config msm8x60_uart_configs[] __initdata = {
+	{ /* UARTDM_TX */
+		.gpio      = 53,
 		.active    = UART1DM_ACTIVE,
 		.suspended = UART1DM_SUSPENDED,
 	},
-	[54] = { /* UARTDM_RX */
+	{ /* UARTDM_RX */
+		.gpio      = 54,
 		.active    = UART1DM_ACTIVE,
 		.suspended = UART1DM_SUSPENDED,
 	},
-	[55] = { /* UARTDM_CTS */
+	{ /* UARTDM_CTS */
+		.gpio      = 55,
 		.active    = UART1DM_ACTIVE,
 		.suspended = UART1DM_SUSPENDED,
 	},
-	[56] = { /* UARTDM_RFR */
+	{ /* UARTDM_RFR */
+		.gpio      = 56,
 		.active    = UART1DM_ACTIVE,
 		.suspended = UART1DM_SUSPENDED,
 	},
-	[59] = {
-		.suspended = GSBI7,
+	{
+		.gpio      = 115,
+		.suspended = CONSOLE_UART,
 	},
-	[60] = {
-		.suspended = GSBI7,
+	{
+		.gpio      = 116,
+		.suspended = CONSOLE_UART,
 	},
-	[61] = {
+	{
+		.gpio      = 117,
+		.suspended = CONSOLE_UART,
+	},
+	{
+		.gpio      = 118,
+		.suspended = CONSOLE_UART,
+	},
+};
+
+static struct msm_gpiomux_config msm8x60_tmg200_configs[] __initdata = {
+	{
+		.gpio = 61,
 		.active = GPIOMUX_PULL_NONE | GPIOMUX_DRV_2MA |
 				GPIOMUX_VALID | GPIOMUX_FUNC_GPIO,
 		.suspended = GPIOMUX_PULL_NONE | GPIOMUX_VALID,
 	},
-	[64] = {
-		.suspended = GSBI8,
-	},
-	[65] = {
-		.suspended = GSBI8,
-	},
-	[92] = {
-		.suspended = PS_HOLD,
-	},
-	/* MI2S WS */
-	[101] = {
-		.active = MI2S_ACTIVE_CFG,
-		.suspended = MI2S_SUSPEND_CFG
-	},
-	/* MI2S SCLK */
-	[102] = {
-		.active = MI2S_ACTIVE_CFG,
-		.suspended = MI2S_SUSPEND_CFG
-	},
-	/* MI2S MCLK */
-	[103] = {
-		.active = MI2S_ACTIVE_CFG,
-		.suspended = MI2S_SUSPEND_CFG
-	},
-	/* MI2S SD3 */
-	[107] = {
-		.active = MI2S_ACTIVE_CFG,
-		.suspended = MI2S_SUSPEND_CFG
-	},
-	[108] = {
-		.active = MSM_SNDDEV_ACTIVE_CONFIG,
-		.suspended = MSM_SNDDEV_SUSPEND_CONFIG,
-	},
-	[109] = {
-		.active = MSM_SNDDEV_ACTIVE_CONFIG,
-		.suspended = MSM_SNDDEV_SUSPEND_CONFIG,
-	},
-	[111] = {
+};
+
+static struct msm_gpiomux_config msm8x60_aux_pcm_configs[] __initdata = {
+	{
+		.gpio = 111,
 		.active = AUX_PCM_ACTIVE_CONFIG,
 		.suspended = AUX_PCM_SUSPEND_CONFIG
 	},
-	[112] = {
+	{
+		.gpio = 112,
 		.active = AUX_PCM_ACTIVE_CONFIG,
 		.suspended = AUX_PCM_SUSPEND_CONFIG
 	},
-	[113] = {
+	{
+		.gpio = 113,
 		.active = AUX_PCM_ACTIVE_CONFIG,
 		.suspended = AUX_PCM_SUSPEND_CONFIG
 	},
-	[114] = {
+	{
+		.gpio = 114,
 		.active = AUX_PCM_ACTIVE_CONFIG,
 		.suspended = AUX_PCM_SUSPEND_CONFIG
 	},
-	[115] = {
-		.suspended = CONSOLE_UART,
-	},
-	[116] = {
-		.suspended = CONSOLE_UART,
-	},
-	[117] = {
-		.suspended = CONSOLE_UART,
-	},
-	[118] = {
-		.suspended = CONSOLE_UART,
-	},
-	[123] = {
-		.suspended = EBI2_A_D,
-	},
-	[124] = {
-		.suspended = EBI2_A_D,
-	},
-	[125] = {
-		.suspended = EBI2_A_D,
-	},
-	[126] = {
-		.suspended = EBI2_A_D,
-	},
-	[127] = {
-		.suspended = EBI2_A_D,
-	},
-	[128] = {
-		.suspended = EBI2_A_D,
-	},
-	[129] = {
-		.suspended = EBI2_A_D,
-	},
-	[130] = {
-		.suspended = EBI2_A_D,
-	},
-	[133] = {
-		.suspended = EBI2_CS3,
-	},
-	[135] = {
-		.suspended = EBI2_A_D,
-	},
-	[136] = {
-		.suspended = EBI2_A_D,
-	},
-	[137] = {
-		.suspended = EBI2_A_D,
-	},
-	[138] = {
-		.suspended = EBI2_A_D,
-	},
-	[139] = {
-		.suspended = EBI2_A_D,
-	},
-	[140] = {
-		.suspended = EBI2_A_D,
-	},
-	[141] = {
-		.suspended = EBI2_A_D,
-	},
-	[142] = {
-		.suspended = EBI2_A_D,
-	},
-	[143] = {
-		.suspended = EBI2_A_D,
-	},
-	[144] = {
-		.suspended = EBI2_A_D,
-	},
-	[145] = {
-		.suspended = EBI2_A_D,
-	},
-	[146] = {
-		.suspended = EBI2_A_D,
-	},
-	[147] = {
-		.suspended = EBI2_A_D,
-	},
-	[148] = {
-		.suspended = EBI2_A_D,
-	},
-	[149] = {
-		.suspended = EBI2_A_D,
-	},
-	[150] = {
-		.suspended = EBI2_A_D,
-	},
-	[151] = {
-		.suspended = EBI2_OE,
-	},
-	[153] = {
-		.suspended = EBI2_ADV,
-	},
-	[157] = {
-		.suspended = EBI2_WE,
-	},
+};
+
+static struct msm_gpiomux_config msm8x60_sdc_configs[] __initdata = {
 	/* SDCC1 data[0] */
-	[159] = {
+	{
+		.gpio = 159,
 		.active = SDCC1_DAT_0_3_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 data[1] */
-	[160] = {
+	{
+		.gpio = 160,
 		.active = SDCC1_DAT_0_3_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 data[2] */
-	[161] = {
+	{
+		.gpio = 161,
 		.active = SDCC1_DAT_0_3_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 data[3] */
-	[162] = {
+	{
+		.gpio = 162,
 		.active = SDCC1_DAT_0_3_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 data[4] */
-	[163] = {
+	{
+		.gpio = 163,
 		.active = SDCC1_DAT_4_7_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 data[5] */
-	[164] = {
+	{
+		.gpio = 164,
 		.active = SDCC1_DAT_4_7_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 data[6] */
-	[165] = {
+	{
+		.gpio = 165,
 		.active = SDCC1_DAT_4_7_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 data[7] */
-	[166] = {
+	{
+		.gpio = 166,
 		.active = SDCC1_DAT_4_7_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 CLK */
-	[167] = {
+	{
+		.gpio = 167,
 		.active = SDCC1_CLK_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 	/* SDCC1 CMD */
-	[168] = {
+	{
+		.gpio = 168,
 		.active = SDCC1_DAT_0_3_CMD_ACTV_CFG,
 		.suspended = SDCC1_SUSPEND_CONFIG
 	},
 };
 
+static struct msm_gpiomux_config msm_qrdc_usb_configs[] __initdata = {
+	{
+		.gpio      = 34,
+		.active    = USB_HUB_RESET_ACTV_CFG,
+		.suspended = USB_HUB_RESET_SUSP_CFG,
+	},
+	{
+		.gpio      = 131,
+		.active    = USB_SWITCH_CNTL_ACTV_CFG,
+		.suspended = USB_SWITCH_CNTL_SUSP_CFG,
+	},
+	{
+		.gpio      = 132,
+		.active    = USB_SWITCH_EN_ACTV_CFG,
+		.suspended = USB_SWITCH_EN_SUSP_CFG,
+	},
+};
+
+static struct msm_gpiomux_config msm8x60_snd_configs[] __initdata = {
+	{
+		.gpio = 108,
+		.active = MSM_SNDDEV_ACTIVE_CONFIG,
+		.suspended = MSM_SNDDEV_SUSPEND_CONFIG,
+	},
+	{
+		.gpio = 109,
+		.active = MSM_SNDDEV_ACTIVE_CONFIG,
+		.suspended = MSM_SNDDEV_SUSPEND_CONFIG,
+	},
+};
+
+static struct msm_gpiomux_config msm8x60_mi2s_configs[] __initdata = {
+	/* MI2S WS */
+	{
+		.gpio = 101,
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
+	},
+	/* MI2S SCLK */
+	{
+		.gpio = 102,
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
+	},
+	/* MI2S MCLK */
+	{
+		.gpio = 103,
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
+	},
+	/* MI2S SD3 */
+	{
+		.gpio = 107,
+		.active = MI2S_ACTIVE_CFG,
+		.suspended = MI2S_SUSPEND_CFG
+	},
+};
+
+struct msm_gpiomux_cfg_block {
+	struct msm_gpiomux_config *cfg;
+	size_t                     ncfg;
+};
+
+static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
+	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
+	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
+	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
+	{msm8x60_tmg200_configs, ARRAY_SIZE(msm8x60_tmg200_configs)},
+	{msm8x60_aux_pcm_configs, ARRAY_SIZE(msm8x60_aux_pcm_configs)},
+	{msm8x60_sdc_configs, ARRAY_SIZE(msm8x60_sdc_configs)},
+	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
+	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
+};
+
+static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
+	{msm_qrdc_usb_configs, ARRAY_SIZE(msm_qrdc_usb_configs)},
+};
+
 static int __init gpiomux_init(void)
 {
+	int rc = 0;
+	unsigned n;
+
+	rc = msm_gpiomux_init(NR_GPIO_IRQS);
+	if (rc)
+		return rc;
+
+	for (n = 0; n < ARRAY_SIZE(msm8x60_cfgs); ++n)
+		msm_gpiomux_install(msm8x60_cfgs[n].cfg, msm8x60_cfgs[n].ncfg);
+
 	if (machine_is_msm8x60_qrdc()) {
-		msm_gpiomux_configs[34].active = USB_HUB_RESET_ACTV_CFG;
-		msm_gpiomux_configs[34].suspended = USB_HUB_RESET_SUSP_CFG;
-		msm_gpiomux_configs[131].active = USB_SWITCH_CNTL_ACTV_CFG;
-		msm_gpiomux_configs[131].suspended = USB_SWITCH_CNTL_SUSP_CFG;
-		msm_gpiomux_configs[132].active = USB_SWITCH_EN_ACTV_CFG;
-		msm_gpiomux_configs[132].suspended = USB_SWITCH_EN_SUSP_CFG;
+		for (n = 0; n < ARRAY_SIZE(qrdc_cfgs); ++n) {
+			msm_gpiomux_install(qrdc_cfgs[n].cfg,
+					    qrdc_cfgs[n].ncfg);
+		}
 	}
 
-	return msm_gpiomux_init(msm_gpiomux_configs, NR_GPIO_IRQS);
+	return rc;
 }
 postcore_initcall(gpiomux_init);
