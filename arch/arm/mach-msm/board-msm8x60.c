@@ -4543,39 +4543,31 @@ void msm_snddev_disable_dmic_power(void)
 	}
 }
 
-static uint32_t msm_snddev_rx_gpio[] = {
-	GPIO_CFG(109, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-};
-
-static uint32_t msm_snddev_tx_gpio[] = {
-	GPIO_CFG(108, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(110, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-};
+#define MSM_SNDDEV_TX_GPIO 108
+#define MSM_SNDDEV_RX_GPIO 109
 
 void msm_snddev_tx_route_config(void)
 {
 	pr_debug("%s\n", __func__);
-	gpio_tlmm_config(msm_snddev_tx_gpio[0], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(msm_snddev_tx_gpio[1], GPIO_CFG_ENABLE);
+	gpio_request(MSM_SNDDEV_TX_GPIO, "MSM_SNDDEV_TX");
 }
 
 void msm_snddev_tx_route_deconfig(void)
 {
 	pr_debug("%s\n", __func__);
-	gpio_tlmm_config(msm_snddev_tx_gpio[0], GPIO_CFG_DISABLE);
-	gpio_tlmm_config(msm_snddev_tx_gpio[1], GPIO_CFG_DISABLE);
+	gpio_free(MSM_SNDDEV_TX_GPIO);
 }
 
 void msm_snddev_rx_route_config(void)
 {
 	pr_debug("%s\n", __func__);
-	gpio_tlmm_config(msm_snddev_rx_gpio[0], GPIO_CFG_ENABLE);
+	gpio_request(MSM_SNDDEV_RX_GPIO, "MSM_SNDDEV_RX");
 }
 
 void msm_snddev_rx_route_deconfig(void)
 {
 	pr_debug("%s\n", __func__);
-	gpio_tlmm_config(msm_snddev_rx_gpio[0], GPIO_CFG_DISABLE);
+	gpio_free(MSM_SNDDEV_RX_GPIO);
 }
 
 #define PM8901_MPP_3 (2) /* PM8901 MPP starts from 0 */
