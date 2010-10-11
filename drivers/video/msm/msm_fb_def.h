@@ -214,4 +214,6 @@ extern unsigned char *msm_emdh_base;
 extern unsigned char *mipi_dsi_base;
 #endif
 
+#undef ENABLE_MDDI_MULTI_READ_WRITE
+
 #endif /* MSM_FB_DEF_H */
