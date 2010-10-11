@@ -468,12 +468,6 @@ static int ami304_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 	int retval=0;
 	int mode=0;
 
-    //check the authority is root or not
-    if(!capable(CAP_SYS_ADMIN)) {
-        retval = -EPERM;
-        goto err_out;
-	}
-
 	switch (cmd) {
 		case AMI304_IOCTL_INIT:
 			read_lock(&ami304_data.lock);
@@ -607,12 +601,6 @@ static int ami304daemon_ioctl(struct inode *inode, struct file *file, unsigned i
 #if !defined(CONFIG_HAS_EARLYSUSPEND)
 	int en_dis_Report=1;
 #endif
-
-    //check the authority is root or not
-    if(!capable(CAP_SYS_ADMIN)) {
-        retval = -EPERM;
-        goto err_out;
-    }
 
 	switch (cmd) {
 
