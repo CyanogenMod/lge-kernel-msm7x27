@@ -1542,6 +1542,7 @@ static struct cy8c_ts_platform_data cy8ctmg200_pdata = {
 	.dev_setup = tmg200_dev_setup,
 	.nfingers = 2,
 	.irq_gpio = TS_PEN_IRQ_GPIO,
+	.resout_gpio = GPIO_CAP_TS_RESOUT_N,
 };
 
 static struct i2c_board_info cy8ctmg200_board_info[] = {
