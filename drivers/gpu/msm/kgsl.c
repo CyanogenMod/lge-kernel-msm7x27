@@ -1610,11 +1610,6 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* yamato config */
-	result = kgsl_yamato_config(&kgsl_driver.yamato_config, pdev);
-	if (result != 0)
-		goto done;
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "kgsl_phys_memory");
 	if (res == NULL) {
@@ -1636,8 +1631,8 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	mutex_init(&kgsl_driver.pt_mutex);
 	pm_runtime_enable(&pdev->dev);
 
-	result = kgsl_yamato_init(device,
-				  &kgsl_driver.yamato_config);
+	result = kgsl_yamato_init(device);
+
 	if (result) {
 		KGSL_DRV_ERR("yamato_init failed %d", result);
 		goto done;

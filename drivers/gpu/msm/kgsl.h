@@ -70,7 +70,6 @@ struct kgsl_driver {
 	unsigned int is_suspended;
 
 	struct kgsl_devconfig g12_config;
-	struct kgsl_devconfig yamato_config;
 
 	uint32_t flags_debug;
 
