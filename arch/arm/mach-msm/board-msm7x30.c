@@ -4619,7 +4619,8 @@ static void __init msm_device_i2c_init(void)
 
 static struct msm_i2c_platform_data msm_i2c_2_pdata = {
 	.clk_freq = 100000,
-	.rmutex  = 0,
+	.rmutex  = 1,
+	.rsl_id = "D:I2C02000022",
 	.msm_i2c_config_gpio = msm_i2c_gpio_config,
 };
 
