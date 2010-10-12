@@ -64,7 +64,7 @@ static int __init mvs_audio_init(void)
 {
 	int ret;
 
-	msm_audio_snd_device =	platform_device_alloc("soc-audio", 0);
+	msm_audio_snd_device =	platform_device_alloc("soc-audio", 1);
 
 	if (!msm_audio_snd_device)
 		return -ENOMEM;
