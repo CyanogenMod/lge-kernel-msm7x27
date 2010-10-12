@@ -391,7 +391,7 @@ u32  ddl_decoder_ready_to_start(struct ddl_client_context *,
 	struct vcd_sequence_hdr *);
 u32  ddl_get_yuv_buffer_size(struct vcd_property_frame_size *frame_size,
 	struct vcd_property_buffer_format *buf_format, u32 interlace,
-	u32 *pn_c_offset);
+	u32 decoding, u32 *pn_c_offset);
 void ddl_calculate_stride(struct vcd_property_frame_size *frame_size,
 	u32 interlace);
 u32  ddl_codec_type_transact(struct ddl_client_context *ddl,
