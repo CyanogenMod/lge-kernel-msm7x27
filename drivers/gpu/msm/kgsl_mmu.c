@@ -82,61 +82,21 @@ static const struct kgsl_mmu_reg mmu_reg[KGSL_DEVICE_MAX] = {
 	}
 };
 
-uint32_t kgsl_pt_entry_get(struct kgsl_pagetable *pt, uint32_t va)
+static inline uint32_t
+kgsl_pt_entry_get(struct kgsl_pagetable *pt, uint32_t va)
 {
 	return (va - pt->va_base) >> KGSL_PAGESIZE_SHIFT;
 }
 
-uint32_t kgsl_pt_map_get(struct kgsl_pagetable *pt, uint32_t pte)
-{
-	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	return baseptr[pte];
-}
-
-void kgsl_pt_map_set(struct kgsl_pagetable *pt, uint32_t pte, uint32_t val)
+static inline void
+kgsl_pt_map_set(struct kgsl_pagetable *pt, uint32_t pte, uint32_t val)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
 	baseptr[pte] = val;
 }
-#define GSL_PT_MAP_DEBUG(pte)	((struct kgsl_pte_debug *) \
-		&gsl_pt_map_get(pagetable, pte))
 
-void kgsl_pt_map_setbits(struct kgsl_pagetable *pt, uint32_t pte, uint32_t bits)
-{
-	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	baseptr[pte] |= bits;
-}
-
-void kgsl_pt_map_setaddr(struct kgsl_pagetable *pt, uint32_t pte,
-					uint32_t pageaddr)
-{
-	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	uint32_t val = baseptr[pte];
-	val &= ~GSL_PT_PAGE_ADDR_MASK;
-	val |= (pageaddr & GSL_PT_PAGE_ADDR_MASK);
-	baseptr[pte] = val;
-}
-
-void kgsl_pt_map_resetall(struct kgsl_pagetable *pt, uint32_t pte)
-{
-	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	baseptr[pte] &= GSL_PT_PAGE_DIRTY;
-}
-
-void kgsl_pt_map_resetbits(struct kgsl_pagetable *pt, uint32_t pte,
-				uint32_t bits)
-{
-	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	baseptr[pte] &= ~(bits & GSL_PT_PAGE_BITS_MASK);
-}
-
-int kgsl_pt_map_isdirty(struct kgsl_pagetable *pt, uint32_t pte)
-{
-	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	return baseptr[pte] & GSL_PT_PAGE_DIRTY;
-}
-
-uint32_t kgsl_pt_map_getaddr(struct kgsl_pagetable *pt, uint32_t pte)
+static inline uint32_t
+kgsl_pt_map_getaddr(struct kgsl_pagetable *pt, uint32_t pte)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
 	return baseptr[pte] & GSL_PT_PAGE_ADDR_MASK;
