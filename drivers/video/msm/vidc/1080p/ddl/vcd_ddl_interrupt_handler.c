@@ -1225,34 +1225,46 @@ static void ddl_get_vc1_dec_level(enum vcd_codec_level *level,
 	if (vc1_profile == VCD_PROFILE_VC1_ADVANCE) {
 		switch (level_codec) {
 		case VIDC_SM_LEVEL_VC1_ADV_0:
-			*level = VCD_LEVEL_VC1_0;
+			*level = VCD_LEVEL_VC1_A_0;
 		break;
 		case VIDC_SM_LEVEL_VC1_ADV_1:
-			*level = VCD_LEVEL_VC1_1;
+			*level = VCD_LEVEL_VC1_A_1;
 		break;
 		case VIDC_SM_LEVEL_VC1_ADV_2:
-			*level = VCD_LEVEL_VC1_2;
+			*level = VCD_LEVEL_VC1_A_2;
 		break;
 		case VIDC_SM_LEVEL_VC1_ADV_3:
-			*level = VCD_LEVEL_VC1_3;
+			*level = VCD_LEVEL_VC1_A_3;
 		break;
 		case VIDC_SM_LEVEL_VC1_ADV_4:
-			*level = VCD_LEVEL_VC1_4;
+			*level = VCD_LEVEL_VC1_A_4;
 		break;
 		default:
 			*level = VCD_LEVEL_UNKNOWN;
 		break;
 		}
-	} else {
+	} else if (vc1_profile == VCD_PROFILE_VC1_MAIN) {
 		switch (level_codec) {
 		case VIDC_SM_LEVEL_VC1_LOW:
-			*level = VCD_LEVEL_VC1_LOW;
+			*level = VCD_LEVEL_VC1_M_LOW;
 		break;
 		case VIDC_SM_LEVEL_VC1_MEDIUM:
-			*level = VCD_LEVEL_VC1_MEDIUM;
+			*level = VCD_LEVEL_VC1_M_MEDIUM;
 		break;
 		case VIDC_SM_LEVEL_VC1_HIGH:
-			*level = VCD_LEVEL_VC1_HIGH;
+			*level = VCD_LEVEL_VC1_M_HIGH;
+		break;
+		default:
+			*level = VCD_LEVEL_UNKNOWN;
+		break;
+		}
+	} else if (vc1_profile == VCD_PROFILE_VC1_SIMPLE) {
+		switch (level_codec) {
+		case VIDC_SM_LEVEL_VC1_LOW:
+			*level = VCD_LEVEL_VC1_S_LOW;
+		break;
+		case VIDC_SM_LEVEL_VC1_MEDIUM:
+			*level = VCD_LEVEL_VC1_S_MEDIUM;
 		break;
 		default:
 			*level = VCD_LEVEL_UNKNOWN;

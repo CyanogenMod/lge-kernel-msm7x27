@@ -192,7 +192,10 @@ enum vcd_codec_level {
    VCD_LEVEL_H264_3p1      = 0x19,
    VCD_LEVEL_H264_3p2      = 0x1A,
    VCD_LEVEL_H264_4        = 0x1B,
-   VCD_LEVEL_H264_X        = 0x1C,
+   VCD_LEVEL_H264_4p1      = 0x1C,
+   VCD_LEVEL_H264_4p2      = 0x1D,
+   VCD_LEVEL_H264_5        = 0x1E,
+   VCD_LEVEL_H264_5p1      = 0x1F,
    VCD_LEVEL_H263_10       = 0x20,
    VCD_LEVEL_H263_20       = 0x21,
    VCD_LEVEL_H263_30       = 0x22,
@@ -207,15 +210,17 @@ enum vcd_codec_level {
    VCD_LEVEL_MPEG2_HIGH_14 = 0x32,
    VCD_LEVEL_MPEG2_HIGH    = 0x33,
    VCD_LEVEL_MPEG2_X       = 0x34,
-   VCD_LEVEL_VC1_LOW       = 0x40,
-   VCD_LEVEL_VC1_MEDIUM    = 0x41,
-   VCD_LEVEL_VC1_HIGH      = 0x42,
-   VCD_LEVEL_VC1_0         = 0x43,
-   VCD_LEVEL_VC1_1         = 0x44,
-   VCD_LEVEL_VC1_2         = 0x45,
-   VCD_LEVEL_VC1_3         = 0x46,
-   VCD_LEVEL_VC1_4         = 0x47,
-   VCD_LEVEL_VC1_X         = 0x48
+   VCD_LEVEL_VC1_S_LOW     = 0x40,
+   VCD_LEVEL_VC1_S_MEDIUM  = 0x41,
+   VCD_LEVEL_VC1_M_LOW     = 0x42,
+   VCD_LEVEL_VC1_M_MEDIUM  = 0x43,
+   VCD_LEVEL_VC1_M_HIGH    = 0x44,
+   VCD_LEVEL_VC1_A_0       = 0x45,
+   VCD_LEVEL_VC1_A_1       = 0x46,
+   VCD_LEVEL_VC1_A_2       = 0x47,
+   VCD_LEVEL_VC1_A_3       = 0x48,
+   VCD_LEVEL_VC1_A_4       = 0x49,
+   VCD_LEVEL_VC1_X         = 0x4A
 };
 
 struct vcd_property_level {
