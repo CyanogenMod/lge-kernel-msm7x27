@@ -17,6 +17,7 @@
  */
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 #include <linux/mfd/msm-adie-codec.h>
 #include <linux/clk.h>
 #include <linux/err.h>
@@ -297,6 +298,98 @@ static void vreg_mode_vote(struct regulator *vreg, int enable, int mode)
 	}
 }
 
+struct msm_cdcclk_ctl_state {
+	unsigned int rx_mclk;
+	unsigned int rx_mclk_requested;
+	unsigned int tx_mclk;
+	unsigned int tx_mclk_requested;
+};
+
+static struct msm_cdcclk_ctl_state the_msm_cdcclk_ctl_state;
+
+static int msm_snddev_rx_mclk_request(void)
+{
+	int rc = 0;
+
+	rc = gpio_request(the_msm_cdcclk_ctl_state.rx_mclk,
+		"MSM_SNDDEV_RX_MCLK");
+	if (rc < 0) {
+		pr_err("%s: GPIO request for MSM SNDDEV RX failed\n", __func__);
+		return rc;
+	}
+	the_msm_cdcclk_ctl_state.rx_mclk_requested = 1;
+	return rc;
+}
+static int msm_snddev_tx_mclk_request(void)
+{
+	int rc = 0;
+
+	rc = gpio_request(the_msm_cdcclk_ctl_state.tx_mclk,
+		"MSM_SNDDEV_TX_MCLK");
+	if (rc < 0) {
+		pr_err("%s: GPIO request for MSM SNDDEV TX failed\n", __func__);
+		return rc;
+	}
+	the_msm_cdcclk_ctl_state.tx_mclk_requested = 1;
+	return rc;
+}
+static void msm_snddev_rx_mclk_free(void)
+{
+	if (the_msm_cdcclk_ctl_state.rx_mclk_requested) {
+		gpio_free(the_msm_cdcclk_ctl_state.rx_mclk);
+		the_msm_cdcclk_ctl_state.rx_mclk_requested = 0;
+	}
+}
+static void msm_snddev_tx_mclk_free(void)
+{
+	if (the_msm_cdcclk_ctl_state.tx_mclk_requested) {
+		gpio_free(the_msm_cdcclk_ctl_state.tx_mclk);
+		the_msm_cdcclk_ctl_state.tx_mclk_requested = 0;
+	}
+}
+static int get_msm_cdcclk_ctl_gpios(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct resource *res;
+
+	/* Claim all of the GPIOs. */
+	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
+			"msm_snddev_rx_mclk");
+	if (!res) {
+		pr_err("%s: failed to get gpio MSM SNDDEV RX\n", __func__);
+		return -ENODEV;
+	}
+	the_msm_cdcclk_ctl_state.rx_mclk = res->start;
+	the_msm_cdcclk_ctl_state.rx_mclk_requested = 0;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
+			"msm_snddev_tx_mclk");
+	if (!res) {
+		pr_err("%s: failed to get gpio MSM SNDDEV TX\n", __func__);
+		return -ENODEV;
+	}
+	the_msm_cdcclk_ctl_state.tx_mclk = res->start;
+	the_msm_cdcclk_ctl_state.tx_mclk_requested = 0;
+
+	return rc;
+}
+static int msm_cdcclk_ctl_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	pr_info("%s:\n", __func__);
+
+	rc = get_msm_cdcclk_ctl_gpios(pdev);
+	if (rc < 0) {
+		pr_err("%s: GPIO configuration failed\n", __func__);
+		return -ENODEV;
+	}
+	return rc;
+}
+static struct platform_driver msm_cdcclk_ctl_driver = {
+	.probe = msm_cdcclk_ctl_probe,
+	.driver = { .name = "msm_cdcclk_ctl"}
+};
 static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 {
 	int trc;
@@ -314,6 +407,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 			vreg_mode_vote(drv->snddev_vreg, 1,
 					SNDDEV_HIGH_POWER_MODE);
 	}
+	msm_snddev_rx_mclk_request();
 
 	drv->rx_osrclk = clk_get(0, "i2s_spkr_osr_clk");
 	if (IS_ERR(drv->rx_osrclk))
@@ -414,6 +508,8 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	if (icodec->data->pamp_on)
 		icodec->data->pamp_on();
 
+	msm_snddev_tx_mclk_request();
+
 	drv->tx_osrclk = clk_get(0, "i2s_mic_osr_clk");
 	if (IS_ERR(drv->tx_osrclk))
 		pr_err("%s master clock Error\n", __func__);
@@ -512,6 +608,8 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 	clk_disable(drv->rx_bitclk);
 	clk_disable(drv->rx_osrclk);
 
+	msm_snddev_rx_mclk_free();
+
 	icodec->enabled = 0;
 
 	wake_unlock(&drv->rx_idlelock);
@@ -539,6 +637,8 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 
 	clk_disable(drv->tx_bitclk);
 	clk_disable(drv->tx_osrclk);
+
+	msm_snddev_tx_mclk_free();
 
 	/* Reuse pamp_off for TX platform-specific setup  */
 	if (icodec->data->pamp_off)
@@ -1074,6 +1174,18 @@ static int __init snddev_icodec_init(void)
 	struct snddev_icodec_drv_state *icodec_drv = &snddev_icodec_drv;
 
 	rc = platform_driver_register(&snddev_icodec_driver);
+	if (IS_ERR_VALUE(rc)) {
+		pr_err("%s: platform_driver_register for snddev icodec failed\n",
+					__func__);
+		goto error_snddev_icodec_driver;
+	}
+
+	rc = platform_driver_register(&msm_cdcclk_ctl_driver);
+	if (IS_ERR_VALUE(rc)) {
+		pr_err("%s: platform_driver_register for msm snddev failed\n",
+					__func__);
+		goto error_msm_cdcclk_ctl_driver;
+	}
 
 #ifdef CONFIG_DEBUG_FS
 	debugfs_sdev_dent = debugfs_create_dir("snddev_icodec", 0);
@@ -1098,6 +1210,10 @@ static int __init snddev_icodec_init(void)
 			"snddev_rx_idle");
 	return 0;
 
+error_msm_cdcclk_ctl_driver:
+	platform_driver_unregister(&snddev_icodec_driver);
+error_snddev_icodec_driver:
+	return -ENODEV;
 }
 
 static void __exit snddev_icodec_exit(void)
@@ -1110,6 +1226,7 @@ static void __exit snddev_icodec_exit(void)
 	debugfs_remove(debugfs_sdev_dent);
 #endif
 	platform_driver_unregister(&snddev_icodec_driver);
+	platform_driver_unregister(&msm_cdcclk_ctl_driver);
 
 	clk_put(icodec_drv->rx_osrclk);
 	clk_put(icodec_drv->tx_osrclk);

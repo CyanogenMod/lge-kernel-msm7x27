@@ -2494,6 +2494,28 @@ static struct platform_device msm_bt_power_device = {
 };
 #endif
 
+static struct resource msm_cdcclk_ctl_resources[] = {
+	{
+		.name   = "msm_snddev_tx_mclk",
+		.start  = 108,
+		.end    = 108,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "msm_snddev_rx_mclk",
+		.start  = 109,
+		.end    = 109,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct platform_device msm_cdcclk_ctl_device = {
+	.name   = "msm_cdcclk_ctl",
+	.id     = 0,
+	.num_resources  = ARRAY_SIZE(msm_cdcclk_ctl_resources),
+	.resource       = msm_cdcclk_ctl_resources,
+};
+
 static struct resource msm_aux_pcm_resources[] = {
 
 	{
@@ -2620,6 +2642,7 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 #endif
 	&msm_device_vidc,
 	&msm_aux_pcm_device,
+	&msm_cdcclk_ctl_device,
 	&msm_mi2s_device,
 };
 
@@ -3005,10 +3028,10 @@ static struct platform_device *surf_devices[] __initdata = {
 	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS3],
 	&rpm_vreg_device[RPM_VREG_ID_PM8901_MVS0],
 #endif
-
 #ifdef CONFIG_MSM_SDIO_AL
 	&msm_device_sdio_al,
 #endif
+	&msm_cdcclk_ctl_device,
 };
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
@@ -6101,8 +6124,6 @@ void msm_snddev_enable_amic_power(void)
 			pr_err("%s: Enabling amic power failed\n", __func__);
 	}
 #endif
-
-	msm_snddev_tx_route_config();
 }
 
 void msm_snddev_disable_amic_power(void)
@@ -6118,8 +6139,6 @@ void msm_snddev_disable_amic_power(void)
 	if (ret)
 		pr_err("%s: Disabling amic power failed\n", __func__);
 #endif
-
-	msm_snddev_tx_route_deconfig();
 }
 
 void msm_snddev_enable_dmic_sec_power(void)
@@ -6146,8 +6165,6 @@ static struct regulator *mvs;
 void msm_snddev_enable_dmic_power(void)
 {
 	int ret;
-
-	msm_snddev_tx_route_config();
 
 	s3 = regulator_get(NULL, "8058_s3");
 	if (IS_ERR(s3))
@@ -6190,8 +6207,6 @@ void msm_snddev_disable_dmic_power(void)
 {
 	int ret;
 
-	msm_snddev_tx_route_deconfig();
-
 	if (mvs) {
 		ret = regulator_disable(mvs);
 		if (ret < 0)
@@ -6207,33 +6222,6 @@ void msm_snddev_disable_dmic_power(void)
 		regulator_put(s3);
 		s3 = NULL;
 	}
-}
-
-#define MSM_SNDDEV_TX_GPIO 108
-#define MSM_SNDDEV_RX_GPIO 109
-
-void msm_snddev_tx_route_config(void)
-{
-	pr_debug("%s\n", __func__);
-	gpio_request(MSM_SNDDEV_TX_GPIO, "MSM_SNDDEV_TX");
-}
-
-void msm_snddev_tx_route_deconfig(void)
-{
-	pr_debug("%s\n", __func__);
-	gpio_free(MSM_SNDDEV_TX_GPIO);
-}
-
-void msm_snddev_rx_route_config(void)
-{
-	pr_debug("%s\n", __func__);
-	gpio_request(MSM_SNDDEV_RX_GPIO, "MSM_SNDDEV_RX");
-}
-
-void msm_snddev_rx_route_deconfig(void)
-{
-	pr_debug("%s\n", __func__);
-	gpio_free(MSM_SNDDEV_RX_GPIO);
 }
 
 #define PM8901_MPP_3 (2) /* PM8901 MPP starts from 0 */
@@ -6308,7 +6296,6 @@ void msm_snddev_poweramp_on(void)
 {
 
 	pr_debug("%s: enable stereo spkr amp\n", __func__);
-	msm_snddev_rx_route_config();
 	config_class_d0_gpio(1);
 	config_class_d1_gpio(1);
 }
@@ -6320,7 +6307,6 @@ void msm_snddev_poweramp_off(void)
 	config_class_d0_gpio(0);
 	config_class_d1_gpio(0);
 	msleep(30);
-	msm_snddev_rx_route_deconfig();
 }
 
 static struct regulator *snddev_reg_ncp;
