@@ -370,15 +370,18 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	if (src_port != 0xFFFFFFFF) {
 		temp_port = ((src_port >> 8) * 8) + (src_port & 0xFF);
 		pr_info("port = %d t_port = %d\n", src_port, temp_port);
-		if (!svc->port_cnt)
+		if (!svc->port_cnt && !svc->svc_cnt)
 			client[dest_id][client_id].svc_cnt++;
 		svc->port_cnt++;
 		svc->port_fn[temp_port] = svc_fn;
 		svc->port_priv[temp_port] = priv;
 	} else {
 		if (!client[dest_id][client_id].svc[svc_idx].fn) {
-			client[dest_id][client_id].svc_cnt++;
+			if (!svc->port_cnt && !svc->svc_cnt)
+				client[dest_id][client_id].svc_cnt++;
 			client[dest_id][client_id].svc[svc_idx].fn = svc_fn;
+			if (svc->port_cnt)
+				svc->svc_cnt++;
 		}
 	}
 
@@ -403,14 +406,17 @@ int apr_deregister(void *handle)
 	client_id = svc->client_id;
 	clnt = &client[dest_id][client_id];
 
-	if (svc->port_cnt > 0) {
-		svc->port_cnt--;
-		if (!svc->port_cnt)
+	if (svc->port_cnt > 0 || svc->svc_cnt > 0) {
+		if (svc->port_cnt)
+			svc->port_cnt--;
+		else if (svc->svc_cnt)
+			svc->svc_cnt--;
+		if (!svc->port_cnt && !svc->svc_cnt)
 			client[dest_id][client_id].svc_cnt--;
 	} else if (client[dest_id][client_id].svc_cnt > 0)
 		client[dest_id][client_id].svc_cnt--;
 
-	if (!svc->port_cnt) {
+	if (!svc->port_cnt && !svc->svc_cnt) {
 		svc->priv = NULL;
 		svc->id = 0;
 		svc->fn = NULL;

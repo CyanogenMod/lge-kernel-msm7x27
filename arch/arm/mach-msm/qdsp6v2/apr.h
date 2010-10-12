@@ -126,6 +126,7 @@ struct apr_svc {
 	uint16_t client_id;
 	uint8_t rvd;
 	uint8_t port_cnt;
+	uint8_t svc_cnt;
 	apr_fn port_fn[APR_MAX_PORTS];
 	void *port_priv[APR_MAX_PORTS];
 	apr_fn fn;
