@@ -1186,9 +1186,10 @@ static int mcs6000_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	if (MCS6000_DM_TRACE_FUNC & mcs6000_debug_mask)
 		DMSG("\n");
 
-	disable_irq(client->irq);
-	ts->irq_sync--;
-
+	if(ts->irq_sync == 0){
+		disable_irq(client->irq);
+		ts->irq_sync--;
+	}
 	ret = cancel_work_sync(&ts->work);
 	if (ret) {
 		enable_irq(client->irq);
@@ -1230,8 +1231,10 @@ static int mcs6000_ts_resume(struct i2c_client *client)
 	if (ret < 0)
 		printk(KERN_ERR "mcs6000_ts_resume: i2c write failed\n");
 
-	enable_irq(client->irq);
-	ts->irq_sync++;
+	do{
+		enable_irq(client->irq);
+		ts->irq_sync++;
+	}while(ts->irq_sync < 0);
 
 	ts->status = MCS6000_DEV_NORMAL;
 
