@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/devices.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -84,22 +84,22 @@ extern struct platform_device msm_device_vidc_720p;
 extern struct platform_device *msm_footswitch_devices[];
 extern unsigned msm_num_footswitch_devices;
 
-extern struct clk msm_clocks_7x01a[];
+extern struct clk_lookup msm_clocks_7x01a[];
 extern unsigned msm_num_clocks_7x01a;
 
-extern struct clk msm_clocks_7x25[];
+extern struct clk_lookup msm_clocks_7x25[];
 extern unsigned msm_num_clocks_7x25;
 
-extern struct clk msm_clocks_7x27[];
+extern struct clk_lookup msm_clocks_7x27[];
 extern unsigned msm_num_clocks_7x27;
 
-extern struct clk msm_clocks_7x30[];
+extern struct clk_lookup msm_clocks_7x30[];
 extern unsigned msm_num_clocks_7x30;
 
-extern struct clk msm_clocks_8x50[];
+extern struct clk_lookup msm_clocks_8x50[];
 extern unsigned msm_num_clocks_8x50;
 
-extern struct clk msm_clocks_8x60[];
+extern struct clk_lookup msm_clocks_8x60[];
 extern unsigned msm_num_clocks_8x60;
 
 void __init msm_fb_register_device(char *name, void *data);
