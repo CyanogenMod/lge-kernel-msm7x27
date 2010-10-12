@@ -500,12 +500,16 @@ static int vpe_update_scaler_with_dis(struct video_crop_t *pcrop,
 	zoom_dis_y = dis_offset->dis_offset_y *
 		pcrop->in2_h / pcrop->out2_h;
 
-	src_ROI_width = pcrop->in2_w - 2*zoom_dis_x;
-	src_ROI_height = pcrop->in2_h - 2*zoom_dis_y;
+	src_x = zoom_dis_x + (pcrop->out2_w-pcrop->in2_w)/2;
+	src_y = zoom_dis_y + (pcrop->out2_h-pcrop->in2_h)/2;
+
 
 
 	out_ROI_width = vpe_ctrl->out_w;
 	out_ROI_height = vpe_ctrl->out_h;
+
+	src_ROI_width = out_ROI_width * pcrop->in2_w / pcrop->out2_w;
+	src_ROI_height = out_ROI_height * pcrop->in2_h / pcrop->out2_h;
 
 	/* clamp to output size.  This is because along
 	processing, we mostly do truncation, therefore
@@ -513,12 +517,6 @@ static int vpe_update_scaler_with_dis(struct video_crop_t *pcrop,
 	smaller values.  The intention was to make sure that the
 	offset does not exceed margin.   But in the case it could
 	result src_roi bigger, due to subtract a smaller value. */
-	if (src_ROI_width > out_ROI_width)
-		src_ROI_width  = out_ROI_width;
-
-	if (src_ROI_height > out_ROI_height)
-		src_ROI_height  = out_ROI_height;
-
 	CDBG("src w = 0x%x, h=0x%x, dst w = 0x%x, h =0x%x.\n",
 		src_ROI_width, src_ROI_height, out_ROI_width,
 		out_ROI_height);
@@ -526,14 +524,6 @@ static int vpe_update_scaler_with_dis(struct video_crop_t *pcrop,
 	src_roi = (src_ROI_height << 16) + src_ROI_width;
 
 	msm_io_w(src_roi, vpe_device->vpebase + VPE_SRC_SIZE_OFFSET);
-
-	src_x = (out_ROI_width - src_ROI_width + 1)/2 - 1;
-	src_y = (out_ROI_height - src_ROI_height + 1)/2 - 1;
-
-	if (src_x < 0)
-		src_x = 0;
-	if (src_y < 0)
-		src_y = 0;
 
 	CDBG("src_x = %d, src_y=%d.\n", src_x, src_y);
 
