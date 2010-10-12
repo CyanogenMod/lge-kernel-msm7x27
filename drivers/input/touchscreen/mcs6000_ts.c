@@ -426,11 +426,12 @@ static irqreturn_t mcs6000_ts_irq_handler(int irq, void *dev_id)
 {
 	struct mcs6000_ts_data *ts = dev_id;
 
-	disable_irq_nosync(ts->client->irq);
-	ts->irq_sync--;
-	queue_work(mcs6000_wq, &ts->work);
-
-	if (gpio_get_value(ts->intr_gpio) != 0) {
+	if (gpio_get_value(ts->intr_gpio) == 0) {
+		disable_irq_nosync(ts->client->irq);
+		ts->irq_sync--;
+		queue_work(mcs6000_wq, &ts->work);
+	}
+	else  {
 		printk(KERN_INFO "mcs6000_ts_irq_handler: check int gpio level\n");
 	}
 	return IRQ_HANDLED;
@@ -486,7 +487,7 @@ static void mcs6000_firmware_info(unsigned char* fw_ver, unsigned char* hw_ver)
 		}
 	}
 	if (ret < 0) {
-		printk(KERN_ERR "mcs6000_firmware_info: i2c read failed\n");
+		printk(KERN_ERR "mcs6000_H/W_info: i2c read failed\n");
 		return;
 	}
 
@@ -900,7 +901,7 @@ mcs6000_intr_show(struct device *dev, struct device_attribute *attr, char *buf)
 
 	ret = i2c_smbus_read_byte_data(ts->client, 0x1d);
 	if (ret < 0) {
-		printk(KERN_ERR "i2c_smbus_write_byte_data failed\n");
+		printk(KERN_ERR "i2c_smbus_read_byte_data failed\n");
 	}
 
 	return snprintf(buf, PAGE_SIZE, "MCS-6000 interrupt status is %d\n", ret);
