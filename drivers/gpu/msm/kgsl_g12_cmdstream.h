@@ -33,7 +33,6 @@
 #include <linux/msm_kgsl.h>
 #include "kgsl_device.h"
 #include "kgsl_g12.h"
-#include <linux/mutex.h>
 #include <linux/msm_kgsl.h>
 #include "kgsl_sharedmem.h"
 

@@ -94,6 +94,8 @@ static struct kgsl_yamato_device yamato_device = {
 			.va_range = SZ_128M,
 #endif
 		},
+		.mutex = __MUTEX_INITIALIZER(yamato_device.dev.mutex),
+		.is_suspended = KGSL_FALSE,
 	},
 	.gmemspace = {
 		.gpu_base = 0,
@@ -769,8 +771,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
 
-	kgsl_driver.is_suspended = KGSL_FALSE;
-
 	if (kgsl_mmu_start(device))
 		goto error_clk_off;
 
@@ -1009,7 +1009,7 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 	return status;
 }
 
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	int status = -EINVAL;
@@ -1077,7 +1077,7 @@ static unsigned int kgsl_yamato_isidle(struct kgsl_device *device)
 }
 
 /******************************************************************/
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 static int kgsl_yamato_sleep(struct kgsl_device *device, const int idle)
 {
 	int status = KGSL_SUCCESS;
@@ -1103,7 +1103,7 @@ static int kgsl_yamato_sleep(struct kgsl_device *device, const int idle)
 }
 
 /******************************************************************/
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 static int kgsl_yamato_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
@@ -1124,7 +1124,7 @@ static int kgsl_yamato_wake(struct kgsl_device *device)
 
 
 /******************************************************************/
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 static int kgsl_yamato_suspend(struct kgsl_device *device)
 {
 	int status;
@@ -1187,7 +1187,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 
 	status = kgsl_check_timestamp(device, timestamp);
 	if (!status) {
-		mutex_lock(&kgsl_driver.mutex);
+		mutex_lock(&device->mutex);
 		kgsl_sharedmem_readl(&device->memstore, &enableflag,
 			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable));
 		rmb();
@@ -1219,7 +1219,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			cmds[1] = 0;
 			kgsl_ringbuffer_issuecmds(device, 0, &cmds[0], 2);
 		}
-		mutex_unlock(&kgsl_driver.mutex);
+		mutex_unlock(&device->mutex);
 	}
 
 	return status;
@@ -1238,7 +1238,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 	__ret;								\
 })
 
-/* MUST be called with the kgsl_driver.mutex held */
+/* MUST be called with the device mutex held */
 static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
 				unsigned int timestamp,
 				unsigned int msecs)
@@ -1248,14 +1248,14 @@ static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
 								device;
 
 	if (!kgsl_check_timestamp(device, timestamp)) {
-		mutex_unlock(&kgsl_driver.mutex);
+		mutex_unlock(&device->mutex);
 		/* We need to make sure that the process is placed in wait-q
 		 * before its condition is called */
 		status = kgsl_wait_event_interruptible_timeout(
 				yamato_device->ib1_wq,
 				kgsl_check_interrupt_timestamp(device,
 					timestamp), msecs_to_jiffies(msecs));
-		mutex_lock(&kgsl_driver.mutex);
+		mutex_lock(&device->mutex);
 
 		if (status > 0)
 			status = 0;
