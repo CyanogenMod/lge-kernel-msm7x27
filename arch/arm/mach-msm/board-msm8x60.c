@@ -36,6 +36,7 @@
 #include <linux/pmic8058-pwm.h>
 #include <linux/leds-pmic8058.h>
 #include <linux/mfd/marimba.h>
+#include <linux/msm-charger.h>
 
 #include <linux/i2c.h>
 #include <linux/i2c/sx150x.h>
@@ -570,13 +571,10 @@ static struct msm_usb_host_platform_data msm_usb_host_pdata = {
 #if defined(CONFIG_BATTERY_MSM8X60) && !defined(CONFIG_USB_EHCI_MSM)
 static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
 {
-	if (init) {
-		/* TBD: right API will get filled here as a part of
-		 * PMIC chanrger patch and removes thsi comments.*/
-	} else {
-		/* TBD: right API will get filled here as a part of
-		 * PMIC chanrger patch and removes thsi comments.*/
-	}
+	if (init)
+		msm_charger_register_vbus_sn(callback);
+	else
+		msm_charger_unregister_vbus_sn(callback);
 	return 0;
 }
 #endif
@@ -595,10 +593,12 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #endif
 #if defined(CONFIG_BATTERY_MSM8X60) && !defined(CONFIG_USB_EHCI_MSM)
 	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
-	.pmic_notif_deinit         = msm_hsusb_pmic_notif_deinit,
 #endif
 	.ldo_init		 = msm_hsusb_ldo_init,
 	.ldo_enable		 = msm_hsusb_ldo_enable,
+#ifdef CONFIG_BATTERY_MSM8X60
+	.chg_vbus_draw = msm_charger_vbus_draw,
+#endif
 };
 #endif
 
@@ -1649,6 +1649,25 @@ static struct msm_rpm_log_platform_data msm_rpm_log_pdata = {
 	.log_len = 4096,		  /* log's buffer length in bytes */
 	.log_len_mask = (4096 >> 2) - 1,  /* length mask in units of u32 */
 };
+
+#ifdef CONFIG_BATTERY_MSM8X60
+static struct msm_charger_platform_data msm_charger_data = {
+	.safety_time = 180,
+	.update_time = 1,
+	.max_voltage = 4200,
+	.min_voltage = 3200,
+	.resume_voltage = 4100,
+};
+
+static struct platform_device msm_charger_device = {
+	.name = "msm-charger",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_charger_data,
+	}
+};
+#endif
+
 static struct platform_device msm_rpm_log_device = {
 	.name	= "msm_rpm_log",
 	.id	= -1,
@@ -1921,8 +1940,12 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_MSM_VPE
 	&msm_vpe_device,
 #endif
+
 #if defined(CONFIG_MSM_RPM_LOG) || defined(CONFIG_MSM_RPM_LOG_MODULE)
 	&msm_rpm_log_device,
+#endif
+#ifdef CONFIG_BATTERY_MSM8X60
+	&msm_charger_device,
 #endif
 	&msm_device_vidc,
 #if (defined(CONFIG_BAHAMA_CORE)) && \
