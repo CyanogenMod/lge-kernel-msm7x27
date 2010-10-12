@@ -71,6 +71,16 @@
   #define FMDBG(fmt, args...)
 #endif
 
+#undef FMDERR
+#define FMDERR(fmt, args...) printk(KERN_INFO "tavarua_radio: " fmt, ##args)
+
+#undef FMDBG_I2C
+#ifdef FM_DEBUG_I2C
+  #define FMDBG_I2C(fmt, args...) printk(KERN_INFO "fm_i2c: " fmt, ##args)
+#else
+  #define FMDBG_I2C(fmt, args...)
+#endif
+
 /* function declarations */
 /* FM Core audio paths. */
 #define TAVARUA_AUDIO_OUT_ANALOG_OFF	(0)
