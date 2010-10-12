@@ -792,6 +792,15 @@ msmsdcc_irq(int irq, void *dev_id)
 			msmsdcc_delay(host);
 		}
 
+		if (!host->clks_on) {
+			pr_info("%s: irq received when clocks are off\n",
+					__func__);
+			host->mmc->ios.clock = host->clk_rate;
+			host->mmc->ops->set_ios(host->mmc, &host->mmc->ios);
+			/* only ansyc interrupt can come when clocks are off */
+			writel(MCI_SDIOINTMASK, host->base + MMCICLEAR);
+		}
+
 		status = readl(host->base + MMCISTATUS);
 
 		if (((readl(host->base + MMCIMASK0) & status) &
@@ -1047,6 +1056,11 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				clk_enable(host->pclk);
 			clk_enable(host->clk);
 			host->clks_on = 1;
+			if (mmc->card && mmc->card->type == MMC_TYPE_SDIO &&
+					!host->plat->sdiowakeup_irq) {
+				writel(host->mci_irqenable,
+					host->base + MMCIMASK0);
+			}
 		}
 
 		if ((ios->clock < host->plat->msmsdcc_fmax) &&
@@ -1108,6 +1122,10 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	if (!(clk & MCI_CLK_ENABLE) && host->clks_on) {
+		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO &&
+				!host->plat->sdiowakeup_irq) {
+			writel(MCI_SDIOINTMASK, host->base + MMCIMASK0);
+		}
 		clk_disable(host->clk);
 		if (!IS_ERR(host->pclk))
 			clk_disable(host->pclk);
@@ -1755,6 +1773,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
+	unsigned long flags;
 	int rc = 0;
 
 	if (mmc) {
@@ -1783,14 +1802,17 @@ msmsdcc_runtime_suspend(struct device *dev)
 		}
 
 		if (!rc) {
-			writel(0, host->base + MMCIMASK0);
-
+			/*
+			 * If MMC core level suspend is not supported, turn
+			 * off clocks to allow deep sleep (TCXO shutdown).
+			 */
+			spin_lock_irqsave(&host->lock, flags);
 			if (host->clks_on) {
-				clk_disable(host->clk);
-				if (!IS_ERR(host->pclk))
-					clk_disable(host->pclk);
-				host->clks_on = 0;
+				writel(0, host->base + MMCIMASK0);
+				mmc->ios.clock = 0;
+				mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 			}
+			spin_unlock_irqrestore(&host->lock, flags);
 		}
 
 		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && mmc->card &&
@@ -1799,6 +1821,12 @@ msmsdcc_runtime_suspend(struct device *dev)
 			enable_irq_wake(host->plat->sdiowakeup_irq);
 			enable_irq(host->plat->sdiowakeup_irq);
 		}
+		/*
+		 * This will wake up Apps from system suspend only when
+		 * async SDCC IRQ MCI_INT_MASK0[22] is enabled.
+		 */
+		enable_irq_wake(host->irqres->start);
+
 		host->sdcc_suspending = 0;
 	}
 	return rc;
@@ -1813,12 +1841,12 @@ msmsdcc_runtime_resume(struct device *dev)
 	int release_lock = 0;
 
 	if (mmc) {
+		disable_irq_wake(host->irqres->start);
+
 		spin_lock_irqsave(&host->lock, flags);
 		if (!host->clks_on) {
-			if (!IS_ERR(host->pclk))
-				clk_enable(host->pclk);
-			clk_enable(host->clk);
-			host->clks_on = 1;
+			mmc->ios.clock = host->clk_rate;
+			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 		}
 
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
