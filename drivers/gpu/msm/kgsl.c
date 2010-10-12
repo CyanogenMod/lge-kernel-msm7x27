@@ -342,7 +342,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	BUG_ON(device == NULL);
 
 	mutex_lock(&kgsl_driver.mutex);
-	kgsl_pre_hwaccess(device);
 
 	dev_priv = (struct kgsl_device_private *) filep->private_data;
 	BUG_ON(dev_priv == NULL);
