@@ -710,6 +710,9 @@ static int __devexit cy8c_ts_remove(struct i2c_client *client)
 	struct cy8c_ts *ts = i2c_get_clientdata(client);
 	int rc;
 
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+	unregister_early_suspend(&ts->early_suspend);
+#endif
 	pm_runtime_set_suspended(&client->dev);
 	pm_runtime_disable(&client->dev);
 
