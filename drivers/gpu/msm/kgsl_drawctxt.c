@@ -730,7 +730,10 @@ static unsigned int *build_gmem2sys_cmds(struct kgsl_device *device,
 	/* SQ_PROGRAM_CNTL / SQ_CONTEXT_MISC */
 	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
 	*cmds++ = PM4_REG(REG_SQ_PROGRAM_CNTL);
-	*cmds++ = 0x10010001;
+	if (device->chip_id == KGSL_CHIPID_LEIA_REV470)
+		*cmds++ = 0x10018001;
+	else
+		*cmds++ = 0x10010001;
 	*cmds++ = 0x00000008;
 
 	/* resolve */
@@ -1832,8 +1835,7 @@ kgsl_drawctxt_switch(struct kgsl_yamato_device *yamato_device,
 	unsigned int cmds[2];
 
 	if (drawctxt) {
-		if ((flags & KGSL_CONTEXT_SAVE_GMEM) &&
-			(device->chip_id != KGSL_CHIPID_LEIA_REV470))
+		if (flags & KGSL_CONTEXT_SAVE_GMEM)
 			/* Set the flag in context so that the save is done
 			* when this context is switched out. */
 			drawctxt->flags |= CTXT_FLAGS_GMEM_SAVE;
