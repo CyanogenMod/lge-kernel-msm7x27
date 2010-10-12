@@ -27,6 +27,7 @@
 #include <linux/msm-charger.h>
 #include <linux/slab.h>
 #include <linux/i2c/isl9519.h>
+#include <linux/m_adc.h>
 
 #define CHG_CURRENT_REG		0x14
 #define MAX_SYS_VOLTAGE_REG	0x15
@@ -48,6 +49,7 @@ struct isl9519q_struct {
 	int batt_present;
 	bool charging;
 	int chgcurrent;
+	int term_current;
 	int max_system_voltage;
 	int min_system_voltage;
 
@@ -94,11 +96,61 @@ static int isl9519q_write_reg(struct i2c_client *client, int reg,
 	return 0;
 }
 
+static int isl_read_adc(int channel, int *mv_reading)
+{
+	int ret;
+	void *h;
+	struct adc_chan_result adc_chan_result;
+	struct completion  conv_complete_evt;
+
+	pr_debug("%s: called for %d\n", __func__, channel);
+	ret = adc_channel_open(channel, &h);
+	if (ret) {
+		pr_err("%s: couldnt open channel %d ret=%d\n",
+					__func__, channel, ret);
+		goto out;
+	}
+	init_completion(&conv_complete_evt);
+	ret = adc_channel_request_conv(h, &conv_complete_evt);
+	if (ret) {
+		pr_err("%s: couldnt request conv channel %d ret=%d\n",
+						__func__, channel, ret);
+		goto out;
+	}
+	ret = wait_for_completion_interruptible(&conv_complete_evt);
+	if (ret) {
+		pr_err("%s: wait interrupted channel %d ret=%d\n",
+						__func__, channel, ret);
+		goto out;
+	}
+	ret = adc_channel_read_result(h, &adc_chan_result);
+	if (ret) {
+		pr_err("%s: couldnt read result channel %d ret=%d\n",
+						__func__, channel, ret);
+		goto out;
+	}
+	ret = adc_channel_close(h);
+	if (ret)
+		pr_err("%s: couldnt close channel %d ret=%d\n",
+					__func__, channel, ret);
+	if (mv_reading)
+		*mv_reading = (int)adc_chan_result.measurement;
+
+	pr_debug("%s: done for %d\n", __func__, channel);
+	return adc_chan_result.physical;
+out:
+	pr_debug("%s: done with error for %d\n", __func__, channel);
+	return -EINVAL;
+
+}
+
 static void isl9519q_charge(struct work_struct *isl9519_work)
 {
 	u16 temp;
 	int ret;
 	struct isl9519q_struct *isl_chg;
+	int isl_charger_current;
+	int mv_reading;
 
 	isl_chg = container_of(isl9519_work, struct isl9519q_struct,
 			charge_work.work);
@@ -106,10 +158,18 @@ static void isl9519q_charge(struct work_struct *isl9519_work)
 	dev_dbg(&isl_chg->client->dev, "%s\n", __func__);
 
 	if (isl_chg->charging) {
-		/*
-		 * TODO  measure the charging current
-		 * if less notify CHG_DONE
-		 */
+		isl_charger_current = isl_read_adc(CHANNEL_ADC_BATT_AMON,
+								&mv_reading);
+		dev_dbg(&isl_chg->client->dev, "%s mv_reading=%d\n",
+				__func__, mv_reading);
+		dev_dbg(&isl_chg->client->dev, "%s isl_charger_current=%d\n",
+				__func__, isl_charger_current);
+		if (isl_charger_current >= 0
+			&& isl_charger_current <= isl_chg->term_current) {
+			msm_charger_notify_event(
+					&isl_chg->adapter_hw_chg,
+					CHG_DONE_EVENT);
+		}
 		isl9519q_write_reg(isl_chg->client, CHG_CURRENT_REG,
 				isl_chg->chgcurrent);
 		ret = isl9519q_read_reg(isl_chg->client, CONTROL_REG, &temp);
@@ -148,6 +208,8 @@ static int isl9519q_start_charging(struct msm_hardware_charger *hw_chg,
 		goto out;
 	}
 
+	dev_dbg(&isl_chg->client->dev, "%s starting timed work\n",
+							__func__);
 	schedule_delayed_work(&isl_chg->charge_work,
 						ISL9519_CHG_PERIOD);
 	isl_chg->charging = true;
@@ -161,6 +223,7 @@ static int isl9519q_stop_charging(struct msm_hardware_charger *hw_chg)
 	struct isl9519q_struct *isl_chg;
 	int ret = 0;
 
+	dev_dbg(&isl_chg->client->dev, "%s\n", __func__);
 	isl_chg = container_of(hw_chg, struct isl9519q_struct, adapter_hw_chg);
 	if (!(isl_chg->charging))
 		/* we arent charging */
@@ -259,6 +322,7 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&isl_chg->charge_work, isl9519q_charge);
 	isl_chg->client = client;
 	isl_chg->chgcurrent = pdata->chgcurrent;
+	isl_chg->term_current = pdata->term_current;
 	isl_chg->max_system_voltage = pdata->max_system_voltage;
 	isl_chg->min_system_voltage = pdata->min_system_voltage;
 	isl_chg->valid_n_gpio = pdata->valid_n_gpio;
