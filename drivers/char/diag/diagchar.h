@@ -85,6 +85,17 @@ struct diag_client_map {
 	int pid;
 };
 
+/* This structure is defined in USB header file */
+#ifndef CONFIG_DIAG_OVER_USB
+struct diag_request {
+	char *buf;
+	int length;
+	int actual;
+	int status;
+	void *context;
+};
+#endif
+
 struct diagchar_dev {
 
 	/* State for the char driver */
@@ -141,7 +152,9 @@ struct diagchar_dev {
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
+#ifdef CONFIG_DIAG_OVER_USB
 	int usb_connected;
+#endif
 	struct workqueue_struct *diag_wq;
 	struct work_struct diag_read_work;
 	struct work_struct diag_drain_work;

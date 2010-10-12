@@ -9,6 +9,16 @@ config DIAG_CHAR
 	 Char driver interface for diag user space and diag-forwarding to modem ARM and back.
 endmenu
 
+menu "DIAG traffic over USB"
+
+config DIAG_OVER_USB
+	bool "Enable DIAG traffic to go over USB"
+        depends on ARCH_MSM
+	default y
+	help
+	 This feature helps segregate code required for DIAG traffic to go over USB.
+endmenu
+
 menu "Modem less Diag Support"
 
 config DIAG_NO_MODEM

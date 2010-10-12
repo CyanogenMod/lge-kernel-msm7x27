@@ -25,12 +25,14 @@
 #include <linux/uaccess.h>
 #include <linux/diagchar.h>
 #include <linux/sched.h>
+#ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
+#endif
 #include <asm/current.h>
 #include "diagchar_hdlc.h"
-#include "diagfwd.h"
 #include "diagmem.h"
 #include "diagchar.h"
+#include "diagfwd.h"
 #include <linux/timer.h>
 
 MODULE_DESCRIPTION("Diag Char Driver");
@@ -181,12 +183,13 @@ static int diagchar_open(struct inode *inode, struct file *file)
 static int diagchar_close(struct inode *inode, struct file *file)
 {
 	int i = 0;
-
+#ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
 		driver->logging_mode = USB_MODE;
 		diagfwd_connect();
 	}
+#endif /* DIAG over USB */
 	/* Delete the pkt response table entry for the exiting process */
 	for (i = 0; i < diag_max_registration; i++)
 			if (driver->table[i].process_id == current->tgid)
@@ -297,12 +300,7 @@ static int diagchar_ioctl(struct inode *inode, struct file *filp,
 		driver->logging_mode = (int)ioarg;
 		driver->logging_process_id = current->tgid;
 		mutex_unlock(&driver->diagchar_mutex);
-		if (temp == USB_MODE && driver->logging_mode == NO_LOGGING_MODE)
-			diagfwd_disconnect();
-		else if (temp == NO_LOGGING_MODE && driver->logging_mode
-								== USB_MODE)
-			diagfwd_connect();
-		else if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
+		if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 							== NO_LOGGING_MODE) {
 			driver->in_busy_1 = 1;
 			driver->in_busy_2 = 1;
@@ -321,7 +319,15 @@ static int diagchar_ioctl(struct inode *inode, struct file *filp,
 			if (driver->chqdsp)
 				queue_work(driver->diag_wq,
 					&(driver->diag_read_smd_qdsp_work));
-		} else if (temp == USB_MODE && driver->logging_mode
+		}
+#ifdef CONFIG_DIAG_OVER_USB
+		else if (temp == USB_MODE && driver->logging_mode
+							 == NO_LOGGING_MODE)
+			diagfwd_disconnect();
+		else if (temp == NO_LOGGING_MODE && driver->logging_mode
+								== USB_MODE)
+			diagfwd_connect();
+		else if (temp == USB_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
 			diagfwd_disconnect();
 			driver->in_busy_1 = 0;
@@ -338,6 +344,7 @@ static int diagchar_ioctl(struct inode *inode, struct file *filp,
 		} else if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 								== USB_MODE)
 			diagfwd_connect();
+#endif /* DIAG over USB */
 		success = 1;
 	}
 
@@ -539,13 +546,13 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 	void *buf_copy = NULL;
 	int payload_size;
-
+#ifdef CONFIG_DIAG_OVER_USB
 	if (((driver->logging_mode == USB_MODE) && (!driver->usb_connected)) ||
 				(driver->logging_mode == NO_LOGGING_MODE)) {
 		/*Drop the diag payload */
 		return -EIO;
 	}
-
+#endif /* DIAG over USB */
 	/* Get the packet type F3/log/event/Pkt response */
 	err = copy_from_user((&pkt_type), buf, 4);
 	/*First 4 bytes indicate the type of payload - ignore these */
