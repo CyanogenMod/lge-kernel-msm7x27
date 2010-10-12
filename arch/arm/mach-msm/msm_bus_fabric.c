@@ -158,8 +158,9 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 		}
 	}
 	MSM_FAB_DBG("Fabric: %d nmasters: %d nslaves: %d\n"
-		" ntieredslaves: %d\n", fabric->fabdev.id, fabric->nmasters,
-		fabric->nslaves, fabric->ntieredslaves);
+		" ntieredslaves: %d, rpm_enabled: %d\n",
+		fabric->fabdev.id, fabric->nmasters, fabric->nslaves,
+		fabric->ntieredslaves, fabric->pdata->rpm_enabled);
 	MSM_FAB_DBG("msm_bus_register_fabric_info i: %d\n", i);
 	fabric->num_nodes = fabric->pdata->len;
 error:
@@ -241,7 +242,8 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 	}
 
 	MSM_FAB_DBG("calling msm_rpm_set:  %d\n", status);
-	status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, count);
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, count);
 	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	fabric->dirty = false;
 	kfree(rpm_data);
@@ -300,13 +302,16 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 	} else
 		pclk = &slave->link_info.clk;
 
-	if (!slave->node_info->buswidth)
-		MSM_FAB_DBG("Invalid width!, using default width 8\n");
-	else
+	if (!slave->node_info->buswidth) {
 		slave->node_info->buswidth = 8;
+		MSM_FAB_DBG("Invalid width!, using default width 8\n");
+	}
 
 	*pclk = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth, max(max_pclk,
 		max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk)));
+
+	if (!fabric->pdata->rpm_enabled)
+		goto skip_set_clks;
 
 	if (clk_sel) {
 		MSM_FAB_DBG("AXI_clks: id: %d set-clk: %lu bwsum:%lu\n",
@@ -326,6 +331,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 			status = clk_set_min_rate(slave->memclk,
 			slave->link_info.clk);
 	}
+skip_set_clks:
 	return status;
 }
 
@@ -401,7 +407,8 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int portid)
 			MSM_RPM_CTX_SET_0,
 			rpm_data[1].id, rpm_data[1].value);
 
-	status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
 	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	return status;
 }
@@ -435,7 +442,8 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int portid)
 			MSM_RPM_CTX_SET_SLEEP,
 			rpm_data[1].id, rpm_data[1].value);
 
-	status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
 	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	return status;
 }
