@@ -31,8 +31,6 @@
 
 #include "kgsl_drawctxt.h"
 
-#define INTERVAL_YAMATO_TIMEOUT (HZ / 5)
-
 struct kgsl_yamato_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	struct kgsl_memregion gmemspace;

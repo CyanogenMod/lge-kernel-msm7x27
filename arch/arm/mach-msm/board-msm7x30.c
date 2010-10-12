@@ -3458,6 +3458,8 @@ static struct kgsl_platform_data kgsl_pdata = {
 #else
 	.grp2d0_clk_name = NULL,
 #endif
+	.idle_timeout_3d = HZ/20,
+	.idle_timeout_2d = HZ/10,
 };
 
 static struct resource kgsl_resources[] = {

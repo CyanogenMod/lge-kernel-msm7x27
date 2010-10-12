@@ -29,8 +29,6 @@
 #ifndef _KGSL_G12_H
 #define _KGSL_G12_H
 
-#define INTERVAL_G12_TIMEOUT (HZ / 10)
-
 struct kgsl_g12_ringbuffer {
 	unsigned int prevctx;
 	unsigned int numcontext;
