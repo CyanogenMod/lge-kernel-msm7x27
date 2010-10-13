@@ -1531,7 +1531,6 @@ static struct cy8c_ts_platform_data cy8ctmg200_pdata = {
 	.dis_max_x = 1023,
 	.dis_min_y = 0,
 	.dis_max_y = 599,
-	.use_polling = 0,
 	.min_tid = 1,
 	.max_tid = 255,
 	.min_touch = 0,
