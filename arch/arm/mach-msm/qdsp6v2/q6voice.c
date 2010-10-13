@@ -497,6 +497,7 @@ static int voice_start_modem_voice(struct voice_data *v)
 	struct mvm_attach_vocproc_cmd mvm_a_vocproc_cmd;
 	struct apr_hdr mvm_start_voice_cmd;
 	int ret = 0;
+	struct msm_snddev_info *dev_tx_info;
 
 	/* create cvp session and wait for response */
 	cvp_session_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -510,7 +511,18 @@ static int voice_start_modem_voice(struct voice_data *v)
 	cvp_session_cmd.hdr.token = 0;
 	cvp_session_cmd.hdr.opcode =
 		VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION;
-	cvp_session_cmd.cvp_session.tx_topology_id =
+
+	dev_tx_info = audio_dev_ctrl_find_dev(v->dev_tx.dev_id);
+	if (IS_ERR(dev_tx_info)) {
+		pr_err("bad dev_id %d\n", v->dev_tx.dev_id);
+		goto fail;
+	}
+
+	if (dev_tx_info->channel_mode > 1)
+		cvp_session_cmd.cvp_session.tx_topology_id =
+			VSS_IVOCPROC_TOPOLOGY_ID_TX_DM_FLUENCE;
+	else
+		cvp_session_cmd.cvp_session.tx_topology_id =
 			VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
 	cvp_session_cmd.cvp_session.rx_topology_id =
 			VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
@@ -518,7 +530,8 @@ static int voice_start_modem_voice(struct voice_data *v)
 	cvp_session_cmd.cvp_session.network_id = VSS_NETWORK_ID_DEFAULT;
 	cvp_session_cmd.cvp_session.tx_port_id = v->dev_tx.dev_port_id;
 	cvp_session_cmd.cvp_session.rx_port_id = v->dev_rx.dev_port_id;
-	pr_info("net_id=%d, dir=%d tx_port_id=%d, rx_port_id=%d\n",
+	pr_info("topology=%d net_id=%d, dir=%d tx_port_id=%d, rx_port_id=%d\n",
+			cvp_session_cmd.cvp_session.tx_topology_id,
 			cvp_session_cmd.cvp_session.network_id,
 			cvp_session_cmd.cvp_session.direction,
 			cvp_session_cmd.cvp_session.tx_port_id,
