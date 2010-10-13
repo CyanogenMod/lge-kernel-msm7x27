@@ -76,8 +76,8 @@ struct msm_bus_node_info {
 struct msm_bus_vectors {
 	int src; /* Master */
 	int dst; /* Slave */
-	int ab; /* Arbitrated bandwidth */
-	int ib; /* Instantaneous bandwidth */
+	unsigned int ab; /* Arbitrated bandwidth */
+	unsigned int ib; /* Instantaneous bandwidth */
 };
 
 struct msm_bus_paths {

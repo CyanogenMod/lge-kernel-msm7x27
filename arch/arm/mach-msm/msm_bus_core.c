@@ -304,7 +304,7 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 	struct msm_bus_fabric_device *fabdev = msm_bus_get_fabric_device
 		(GET_FABID(curr));
 
-	MSM_BUS_DBG("Args: %d %d %d %d %d %d %d\n",
+	MSM_BUS_DBG("args: %d %d %d %u %u %u %u\n",
 		curr, GET_NODE(pnode), GET_INDEX(pnode), req_clk, req_bw,
 		curr_clk, curr_bw);
 	index = GET_INDEX(pnode);
@@ -468,8 +468,8 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 {
 	int i, ret = 0;
 	struct msm_bus_scale_pdata *pdata;
-	int req_clk, req_bw;
-	int pnode, src, curr_clk, curr_bw, curr;
+	unsigned int req_clk, req_bw, curr_clk, curr_bw;
+	int pnode, src, curr;
 	struct msm_bus_client *client = (struct msm_bus_client *)cl;
 	if (IS_ERR(client)) {
 		MSM_BUS_ERR("msm_bus_scale_client update req error %d\n",
@@ -582,7 +582,7 @@ static int __init msm_bus_init(void)
 			retval);
 	return retval;
 }
-arch_initcall(msm_bus_init);
+postcore_initcall(msm_bus_init);
 module_exit(msm_bus_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");

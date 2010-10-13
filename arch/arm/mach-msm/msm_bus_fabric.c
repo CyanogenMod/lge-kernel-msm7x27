@@ -243,9 +243,8 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 			continue;
 		max_pclk = max(max_pclk, slave->pnode[i].clk);
 	}
-	slave->link_info.clk = max(max_pclk, max(
-		(unsigned long)BW_TO_CLK_FREQ_KHZ(slave->node_info->buswidth,
-		bwsum), req_clk));
+	slave->link_info.clk = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth,
+		max(max_pclk, max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk)));
 	/* Is this gateway or slave? */
 	if (clk_sel && (!fabric->ahb)) {
 		struct msm_bus_fabnodeinfo *fabgw = NULL;
@@ -275,8 +274,8 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 	else
 		slave->node_info->buswidth = 8;
 
-	*pclk = max(max_pclk, max((unsigned long)BW_TO_CLK_FREQ_KHZ(slave->
-		node_info->buswidth, bwsum), req_clk));
+	*pclk = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth, max(max_pclk,
+		max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk)));
 
 	if (clk_sel) {
 		MSM_FAB_DBG("AXI_clks: id: %d set-clk: %lu bwsum:%lu\n",
@@ -351,7 +350,7 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int portid)
 {
 	struct msm_bus_halt_vector hvector = {0, 0};
 	struct msm_rpm_iv_pair rpm_data[2];
-	uint8_t mport = (uint8_t)GET_MPORT(portid);
+	uint8_t mport = (uint8_t)GET_MPORT(portid - 1);
 	uint32_t id = 0;
 	int status = 0;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
@@ -385,7 +384,7 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int portid)
 {
 	struct msm_bus_halt_vector hvector = {0, 0};
 	struct msm_rpm_iv_pair rpm_data[2];
-	uint8_t mport = (uint8_t)GET_MPORT(portid);
+	uint8_t mport = (uint8_t)GET_MPORT(portid - 1);
 	uint32_t id = 0;
 	int status = 0;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
@@ -635,4 +634,4 @@ static int __init msm_bus_fabric_init_driver(void)
 	MSM_BUS_ERR("msm_bus_fabric_init_driver\n");
 	return platform_driver_register(&msm_bus_fabric_driver);
 }
-arch_initcall(msm_bus_fabric_init_driver);
+postcore_initcall(msm_bus_fabric_init_driver);
