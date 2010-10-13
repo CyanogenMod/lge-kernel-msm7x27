@@ -2948,8 +2948,9 @@ static void msm_hsusb_vbus_power(unsigned phy_info, int on)
                         pr_err("%s PMIC GPIO 36 write failed\n", __func__);
                         return;
                 }
-        } else
-                gpio_set_value(PM8058_GPIO_PM_TO_SYS(36), 0);
+	} else {
+		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(36), 0);
+	}
 
         vbus_is_on = on;
 }
