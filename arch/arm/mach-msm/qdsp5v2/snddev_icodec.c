@@ -473,7 +473,7 @@ static int snddev_icodec_set_device_volume_impl(
 			return rc;
 		}
 
-	} else if (icodec->data->dev_vol_type & SNDDEV_DEV_VOL_ANALOG)
+	} else if (icodec->data->dev_vol_type & SNDDEV_DEV_VOL_ANALOG) {
 		rc = adie_codec_set_device_analog_volume(icodec->adie_path,
 				icodec->data->channel_mode, volume);
 		if (rc < 0) {
@@ -482,63 +482,11 @@ static int snddev_icodec_set_device_volume_impl(
 				dev_info->name, volume);
 			return rc;
 		}
+	}
 	else {
 		MM_ERR("Invalid device volume control\n");
 		return -EPERM;
 	}
-}
-
-static int snddev_icodec_open(struct msm_snddev_info *dev_info)
-{
-	int rc = 0;
-	struct snddev_icodec_state *icodec;
-	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
-
-	if (!dev_info) {
-		rc = -EINVAL;
-		goto error;
-	}
-
-	icodec = dev_info->private_data;
-
-	if (icodec->data->capability & SNDDEV_CAP_RX) {
-		mutex_lock(&drv->rx_lock);
-		if (drv->rx_active) {
-			mutex_unlock(&drv->rx_lock);
-			rc = -EBUSY;
-			goto error;
-		}
-		rc = snddev_icodec_open_rx(icodec);
-
-		if (!IS_ERR_VALUE(rc)) {
-			drv->rx_active = 1;
-			if ((icodec->data->dev_vol_type & (
-				SNDDEV_DEV_VOL_DIGITAL |
-				SNDDEV_DEV_VOL_ANALOG)))
-				rc = snddev_icodec_set_device_volume_impl(
-						dev_info, dev_info->dev_volume);
-		}
-		mutex_unlock(&drv->rx_lock);
-	} else {
-		mutex_lock(&drv->tx_lock);
-		if (drv->tx_active) {
-			mutex_unlock(&drv->tx_lock);
-			rc = -EBUSY;
-			goto error;
-		}
-		rc = snddev_icodec_open_tx(icodec);
-
-		if (!IS_ERR_VALUE(rc)) {
-			drv->tx_active = 1;
-			if ((icodec->data->dev_vol_type & (
-				SNDDEV_DEV_VOL_DIGITAL |
-				SNDDEV_DEV_VOL_ANALOG)))
-				rc = snddev_icodec_set_device_volume_impl(
-						dev_info, dev_info->dev_volume);
-		}
-		mutex_unlock(&drv->tx_lock);
-	}
-error:
 	return rc;
 }
 
@@ -578,6 +526,74 @@ static int snddev_icodec_close(struct msm_snddev_info *dev_info)
 		mutex_unlock(&drv->tx_lock);
 	}
 
+error:
+	return rc;
+}
+
+static int snddev_icodec_open(struct msm_snddev_info *dev_info)
+{
+	int rc = 0;
+	struct snddev_icodec_state *icodec;
+	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
+
+	if (!dev_info) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	icodec = dev_info->private_data;
+
+	if (icodec->data->capability & SNDDEV_CAP_RX) {
+		mutex_lock(&drv->rx_lock);
+		if (drv->rx_active) {
+			mutex_unlock(&drv->rx_lock);
+			rc = -EBUSY;
+			goto error;
+		}
+		rc = snddev_icodec_open_rx(icodec);
+
+		if (!IS_ERR_VALUE(rc)) {
+			drv->rx_active = 1;
+			if ((icodec->data->dev_vol_type & (
+				SNDDEV_DEV_VOL_DIGITAL |
+				SNDDEV_DEV_VOL_ANALOG)))
+				rc = snddev_icodec_set_device_volume_impl(
+						dev_info, dev_info->dev_volume);
+				if (IS_ERR_VALUE(rc)) {
+					MM_ERR("Failed to set device volume"
+						" impl for rx device\n");
+					snddev_icodec_close(dev_info);
+					mutex_unlock(&drv->rx_lock);
+					goto error;
+				}
+		}
+		mutex_unlock(&drv->rx_lock);
+	} else {
+		mutex_lock(&drv->tx_lock);
+		if (drv->tx_active) {
+			mutex_unlock(&drv->tx_lock);
+			rc = -EBUSY;
+			goto error;
+		}
+		rc = snddev_icodec_open_tx(icodec);
+
+		if (!IS_ERR_VALUE(rc)) {
+			drv->tx_active = 1;
+			if ((icodec->data->dev_vol_type & (
+				SNDDEV_DEV_VOL_DIGITAL |
+				SNDDEV_DEV_VOL_ANALOG)))
+				rc = snddev_icodec_set_device_volume_impl(
+						dev_info, dev_info->dev_volume);
+				if (IS_ERR_VALUE(rc)) {
+					MM_ERR("Failed to set device volume"
+						" impl for tx device\n");
+					snddev_icodec_close(dev_info);
+					mutex_unlock(&drv->tx_lock);
+					goto error;
+				}
+		}
+		mutex_unlock(&drv->tx_lock);
+	}
 error:
 	return rc;
 }
