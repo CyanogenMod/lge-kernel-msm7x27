@@ -6075,7 +6075,6 @@ static struct cy8c_ts_platform_data cy8ctma300_pdata = {
 	.max_touch = 255,
 	.min_width = 0,
 	.max_width = 255,
-	.use_polling = 1,
 	.invert_y = 1,
 	.nfingers = 4,
 	.irq_gpio = TS_GPIO_IRQ,
@@ -6222,7 +6221,6 @@ static void __init msm7x30_init(void)
 				socinfo_get_platform_version()) == 2) {
 			cy8ctma300_pdata.res_y = 920;
 			cy8ctma300_pdata.invert_y = 0;
-			cy8ctma300_pdata.use_polling = 0;
 		}
 		i2c_register_board_info(0, cy8ctma300_board_info,
 			ARRAY_SIZE(cy8ctma300_board_info));
