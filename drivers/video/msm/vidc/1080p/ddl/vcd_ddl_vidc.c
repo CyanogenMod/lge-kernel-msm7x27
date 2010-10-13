@@ -864,11 +864,8 @@ void ddl_vidc_decode_eos_run(struct ddl_client_context *ddl)
 	if (decoder->flush_pending) {
 		dec_param.dpb_flush = true;
 		decoder->flush_pending = false;
-		decoder->flush_eos_case = true;
-	} else {
+	} else
 		dec_param.dpb_flush = false;
-		decoder->flush_eos_case = false;
-	}
 	vidc_sm_set_frame_tag(&ddl->shared_mem[ddl->command_channel],
 	bit_stream->ip_frm_tag);
 	ddl_context->vidc_decode_frame_start[ddl->command_channel] (
