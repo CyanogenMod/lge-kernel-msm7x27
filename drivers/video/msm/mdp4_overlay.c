@@ -92,6 +92,11 @@ void mdp4_overlay_panel_mode(int mixer_num, uint32 mode)
 	ctrl->panel_mode |= mode;
 }
 
+uint32 mdp4_overlay_panel_list(void)
+{
+	return ctrl->panel_mode;
+}
+
 void mdp4_overlay_dmae_cfg(struct msm_fb_data_type *mfd, int atv)
 {
 	uint32	dmae_cfg_reg;

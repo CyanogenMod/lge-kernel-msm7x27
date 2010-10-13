@@ -443,6 +443,7 @@ void mdp4_mddi_overlay_blt(ulong addr);
 int mdp4_lcdc_overlay_blt_offset(int *off);
 void mdp4_lcdc_overlay_blt(ulong addr);
 void mdp4_overlay_panel_mode(int mixer_num, uint32 mode);
+uint32 mdp4_overlay_panel_list(void);
 void mdp4_lcdc_overlay_kickoff(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 
