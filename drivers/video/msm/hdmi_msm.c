@@ -506,7 +506,8 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	if ((hdcp_int_val & (1 << 6)) && (hdcp_int_val & (1 << 4))) {
 		/* AUTH_FAIL_INT */
 		schedule_work(&hdmi_msm_state->hdcp_reauth_work);
-		DEV_INFO("HDCP: AUTH_FAIL_INT received\n");
+		DEV_INFO("HDCP: AUTH_FAIL_INT received, LINK0_STATUS=0x%08x\n",
+			HDMI_INP_ND(0x011C));
 		/* Clear and Disable */
 		HDMI_OUTP(0x0118, (hdcp_int_val | (1 << 5))
 			& ~((1 << 6) | (1 << 4)));
