@@ -171,7 +171,7 @@ static int msm_volume_put(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 	int session_id = ucontrol->value.integer.value[0];
 	int volume = ucontrol->value.integer.value[1];
-	u32 session_mask = 0;
+	u64 session_mask = 0;
 
 	if ((volume < 0) || (volume > 100))
 		return -EINVAL;
@@ -182,7 +182,8 @@ static int msm_volume_put(struct snd_kcontrol *kcontrol,
 		volume = MSM_MAX_VOLUME;
 
 	/* Only Decoder volume control supported */
-	session_mask = (0x1 << (session_id) << (8 * ((int)AUDDEV_CLNT_DEC-1)));
+	session_mask = (((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+				((int)AUDDEV_CLNT_DEC-1));
 	msm_vol_ctl.volume = volume;
 	MM_DBG("session_id %d, volume %d", session_id, volume);
 	broadcast_event(AUDDEV_EVT_STREAM_VOL_CHG, DEVICE_IGNORE,
@@ -211,7 +212,7 @@ static int msm_voice_put(struct snd_kcontrol *kcontrol,
 	struct msm_snddev_info *rx_dev_info;
 	struct msm_snddev_info *tx_dev_info;
 	int set = ucontrol->value.integer.value[2];
-	u32 session_mask;
+	u64 session_mask;
 
 	if (!set)
 		return -EPERM;
@@ -236,7 +237,8 @@ static int msm_voice_put(struct snd_kcontrol *kcontrol,
 	msm_set_voc_route(rx_dev_info, AUDIO_ROUTE_STREAM_VOICE_RX,
 				rx_dev_id);
 
-	session_mask =	0x1 << (8 * ((int)AUDDEV_CLNT_VOC-1));
+	session_mask =	((u64)0x1) << (MAX_BIT_PER_CLIENT * \
+				((int)AUDDEV_CLNT_VOC-1));
 
 	broadcast_event(AUDDEV_EVT_DEV_CHG_VOICE, rx_dev_id, session_mask);
 
@@ -416,7 +418,7 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 	struct msm_snddev_info *dev_info;
 	int session_id = ucontrol->value.integer.value[0];
 	int set = ucontrol->value.integer.value[2];
-	u32 session_mask = 0;
+	u64 session_mask = 0;
 	route_cfg.dev_id = ucontrol->value.integer.value[1];
 
 	if (ucontrol->id.numid == 2)
@@ -437,7 +439,8 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 		rc = msm_snddev_set_dec(session_id, dev_info->copp_id, set,
 				dev_info->sample_rate, dev_info->channel_mode);
 		session_mask =
-			(0x1 << (session_id) << (8 * ((int)AUDDEV_CLNT_DEC-1)));
+			(((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+				((int)AUDDEV_CLNT_DEC-1));
 		if (!set) {
 			if (dev_info->opened)
 				broadcast_event(AUDDEV_EVT_DEV_RLS,
@@ -456,7 +459,8 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 		rc = msm_snddev_set_enc(session_id, dev_info->copp_id, set,
 				dev_info->sample_rate, dev_info->channel_mode);
 		session_mask =
-			(0x1 << (session_id)) << (8 * ((int)AUDDEV_CLNT_ENC-1));
+			(((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+			((int)AUDDEV_CLNT_ENC-1));
 		if (!set) {
 			if (dev_info->opened)
 				broadcast_event(AUDDEV_EVT_DEV_RLS,
