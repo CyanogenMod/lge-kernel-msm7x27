@@ -255,7 +255,7 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 					PM_QOS_SYSTEM_BUS_FREQ,
 					PM_QOS_DEFAULT_VALUE);
 	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
-	device->pwrctrl.interval_timeout = INTERVAL_G12_TIMEOUT;
+	device->pwrctrl.interval_timeout = pdata->idle_timeout_2d;
 
 done:
 	return result;
@@ -325,8 +325,6 @@ kgsl_g12_init(struct kgsl_device *device,
 	device->id = KGSL_DEVICE_G12;
 	init_completion(&device->hwaccess_gate);
 	kgsl_g12_getfunctable(&device->ftbl);
-	device->pwrctrl.interval_timeout = INTERVAL_G12_TIMEOUT;
-
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);

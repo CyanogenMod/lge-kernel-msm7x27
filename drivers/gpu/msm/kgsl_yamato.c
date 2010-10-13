@@ -586,7 +586,7 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		goto done;
 	}
 	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_CLK;
-	device->pwrctrl.interval_timeout = INTERVAL_YAMATO_TIMEOUT;
+	device->pwrctrl.interval_timeout = pdata->idle_timeout_3d;
 
 	/*acquire yamato interrupt */
 	device->pwrctrl.interrupt_num =
@@ -672,7 +672,6 @@ kgsl_yamato_init(struct kgsl_device *device)
 			regspace->sizebytes, regspace->mmio_virt_base);
 
 	init_completion(&device->hwaccess_gate);
-	device->pwrctrl.interval_timeout = INTERVAL_YAMATO_TIMEOUT;
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 

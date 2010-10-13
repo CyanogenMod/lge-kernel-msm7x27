@@ -362,6 +362,8 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.grp2d0_clk_name = NULL,
 	.grp2d1_clk_name = NULL,
 #endif
+	.idle_timeout_3d = HZ/5,
+	.idle_timeout_2d = HZ/10,
 };
 
 /*
