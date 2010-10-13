@@ -26,6 +26,11 @@ static int __init mipi_video_toshiba_wvga_pt_init(void)
 {
 	int ret;
 
+#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
+	if (msm_fb_detect_client("mipi_video_toshiba_wvga"))
+		return 0;
+#endif
+
 	pinfo.xres = 480;
 	pinfo.yres = 856;
 	pinfo.type = MIPI_VIDEO_PANEL;
