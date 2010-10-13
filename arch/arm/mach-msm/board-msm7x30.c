@@ -6123,8 +6123,8 @@ static void __init msm7x30_init(void)
 		msm_adc_pdata.num_adc = ARRAY_SIZE(msm_adc_surf_device_names);
 	}
 #ifdef CONFIG_USB_ANDROID
-	if (machine_is_msm8x55_surf() ||
-		machine_is_msm8x55_ffa()) {
+	if (machine_is_msm8x55_svlte_surf() ||
+		machine_is_msm8x55_svlte_ffa()) {
 		android_usb_pdata.product_id = 0x9028;
 		android_usb_pdata.num_products =
 			ARRAY_SIZE(fusion_usb_products);
