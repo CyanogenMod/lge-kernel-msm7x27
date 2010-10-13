@@ -54,6 +54,9 @@
 #include <linux/android_pmem.h>
 #endif
 
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
+#include <linux/i2c/smb137b.h>
+#endif
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/setup.h>
@@ -1074,6 +1077,18 @@ static int msm_hsusb_ldo_enable(int on)
  }
 #endif
 #ifdef CONFIG_USB_EHCI_MSM
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
+static void msm_hsusb_smb137b_vbus_power(unsigned phy_info, int on)
+{
+	static int vbus_is_on;
+
+	/* If VBUS is already on (or off), do nothing. */
+	if (on == vbus_is_on)
+		return;
+	smb137b_otg_power(on);
+	vbus_is_on = on;
+}
+#endif
 static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 {
 	static struct regulator *votg_5v_switch;
@@ -1133,6 +1148,15 @@ static int msm_hsusb_pmic_vbus_notif_init(void (*callback)(int online),
 {
 	int ret = -ENOTSUPP;
 
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
+	if (machine_is_msm8x60_fluid()) {
+		if (init)
+			smb137b_register_vbus_sn(callback);
+		else
+			smb137b_unregister_vbus_sn(callback);
+		return  0;
+	}
+#endif
 	/* ID and VBUS lines are connected to pmic on 8660.V2.SURF,
 	 * hence, irrespective of either peripheral only mode or
 	 * OTG (host and peripheral) modes, can depend on pmic for
@@ -3127,9 +3151,6 @@ static struct platform_device *surf_devices[] __initdata = {
 #if defined(CONFIG_MSM_RPM_LOG) || defined(CONFIG_MSM_RPM_LOG_MODULE)
 	&msm_rpm_log_device,
 #endif
-#ifdef CONFIG_BATTERY_MSM8X60
-	&msm_charger_device,
-#endif
 	&msm_device_vidc,
 #if (defined(CONFIG_BAHAMA_CORE)) && \
 	(defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
@@ -3432,17 +3453,18 @@ static struct i2c_board_info fluid_core_expander_i2c_info[] __initdata = {
 #endif
 #endif
 
+#define EXT_CHG_VALID_MPP 10
+#define EXT_CHG_VALID_MPP_2 11
+
 #ifdef CONFIG_ISL9519_CHARGER
-#define ISL_VALID_MPP 10
-#define ISL_VALID_MPP_2 11
 static int isl_detection_setup(void)
 {
 	int ret = 0;
 
-	ret = pm8058_mpp_config_digital_in(ISL_VALID_MPP,
+	ret = pm8058_mpp_config_digital_in(EXT_CHG_VALID_MPP,
 					   PM8058_MPP_DIG_LEVEL_S3,
 					   PM_MPP_DIN_TO_INT);
-	ret |=  pm8058_mpp_config_bi_dir(ISL_VALID_MPP_2,
+	ret |=  pm8058_mpp_config_bi_dir(EXT_CHG_VALID_MPP_2,
 					   PM8058_MPP_DIG_LEVEL_S3,
 					   PM_MPP_BI_PULLUP_10KOHM
 					   );
@@ -3463,6 +3485,48 @@ static struct i2c_board_info isl_charger_i2c_info[] __initdata = {
 		I2C_BOARD_INFO("isl9519q", 0x9),
 		.irq = PM8058_CBLPWR_IRQ(PM8058_IRQ_BASE),
 		.platform_data = &isl_data,
+	},
+};
+#endif
+
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
+static int smb137b_detection_setup(void)
+{
+	int ret = 0;
+
+	ret = gpio_request(GPIO_BATT_GAUGE_EN, "disable for charger");
+	if (ret) {
+		pr_err("%s gpio_request %d failed ret=%d\n",
+			__func__, GPIO_BATT_GAUGE_EN, ret);
+		goto out;
+	}
+	ret = gpio_direction_output(GPIO_BATT_GAUGE_EN, 0);
+	if (ret) {
+		pr_err("%s gpio_direction_output %d failed ret=%d\n",
+			__func__, GPIO_BATT_GAUGE_EN, ret);
+		goto out;
+	}
+	ret |= pm8058_mpp_config_digital_in(EXT_CHG_VALID_MPP,
+					PM8058_MPP_DIG_LEVEL_S3,
+					PM_MPP_DIN_TO_INT);
+	ret |=  pm8058_mpp_config_bi_dir(EXT_CHG_VALID_MPP_2,
+					PM8058_MPP_DIG_LEVEL_S3,
+					PM_MPP_BI_PULLUP_10KOHM);
+out:
+	return ret;
+}
+
+static struct smb137b_platform_data smb137b_data __initdata = {
+	.chg_detection_config = smb137b_detection_setup,
+	.valid_n_gpio = PM8058_MPP_PM_TO_SYS(10),
+	.batt_mah_rating = 950,
+};
+
+static struct i2c_board_info smb137b_charger_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("smb137b", 0x08),
+		.irq = PM8058_CBLPWR_IRQ(PM8058_IRQ_BASE),
+		.platform_data = &smb137b_data,
 	},
 };
 #endif
@@ -4299,12 +4363,6 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.resources      = resources_rtc,
 	},
 	{
-		.name = "pm8058-charger",
-		.id = -1,
-		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
-		.resources = resources_pm8058_charger,
-	},
-	{
 		.name = "pm8058-tm",
 		.id = -1,
 		.num_resources  = ARRAY_SIZE(resources_temp_alarm),
@@ -4312,6 +4370,12 @@ static struct mfd_cell pm8058_subdevs[] = {
 	},
 	{	.name = "pm8058-upl",
 		.id		= -1,
+	},
+	{
+		.name = "pm8058-charger",
+		.id = -1,
+		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
+		.resources = resources_pm8058_charger,
 	},
 };
 
@@ -4977,6 +5041,14 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		ARRAY_SIZE(msm_isa1200_board_info),
 	},
 #endif
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
+	{
+		I2C_FLUID,
+		MSM_GSBI8_QUP_I2C_BUS_ID,
+		smb137b_charger_i2c_info,
+		ARRAY_SIZE(smb137b_charger_i2c_info),
+	},
+#endif
 };
 #endif /* CONFIG_I2C */
 
@@ -5076,6 +5148,14 @@ static void __init msm8x60_init_buses(void)
 	msm_device_ssbi2.dev.platform_data = &msm_ssbi2_pdata;
 	msm_device_ssbi3.dev.platform_data = &msm_ssbi3_pdata;
 #endif
+
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
+	if (machine_is_msm8x60_fluid()) {
+		msm_otg_pdata.vbus_power = msm_hsusb_smb137b_vbus_power;
+		msm_otg_pdata.chg_vbus_draw = smb137b_vbus_draw;
+	}
+#endif
+
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_HCD)
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 #endif
@@ -7026,6 +7106,17 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 #ifdef CONFIG_USB_PEHCI_HCD
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa())
 		msm8x60_cfg_isp1763();
+#endif
+#ifdef CONFIG_BATTERY_MSM8X60
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa())
+		platform_device_register(&msm_charger_device);
+#endif
+
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
+	if (machine_is_msm8x60_fluid()) {
+		/* we dont want to register the pmic charger driver*/
+		pm8058_platform_data.num_subdevs--;
+	}
 #endif
 	if (!machine_is_msm8x60_sim())
 		msm_fb_add_devices();
