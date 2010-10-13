@@ -105,6 +105,7 @@ enum {
 	GPIO_CLASS_D1_EN        = GPIO_CORE_EXPANDER_BASE,
 	GPIO_WLAN_DEEP_SLEEP_N,
 	GPIO_LVDS_SHUTDOWN_N,
+	GPIO_DISP_RESX_N        = GPIO_LVDS_SHUTDOWN_N,
 	GPIO_MS_SYS_RESET_N,
 	GPIO_CAP_TS_RESOUT_N,
 	GPIO_CAP_GAUGE_BI_TOUT,
@@ -174,7 +175,28 @@ enum {
 	GPIO_COMPASS_RST_N,
 	GPIO_WEB_CAMIF_RESET_N,
 	GPIO_RIGHT_LED_5,
-	GPIO_ALTIMETER_RESET_N,
+	GPIO_R_ALTIMETER_RESET_N,
+	/* FLUID S IO expander */
+	GPIO_SOUTH_EXPANDER_BASE,
+	GPIO_MIC2_ANCR_SEL = GPIO_SOUTH_EXPANDER_BASE,
+	GPIO_MIC1_ANCL_SEL,
+	GPIO_HS_MIC4_SEL,
+	GPIO_FML_MIC3_SEL,
+	GPIO_FMR_MIC5_SEL,
+	GPIO_TS_SLEEP,
+	GPIO_HAP_SHIFT_LVL_OE,
+	GPIO_HS_SW_DIR,
+	/* FLUID N IO expander */
+	GPIO_NORTH_EXPANDER_BASE,
+	GPIO_EPM_3_3V_EN = GPIO_NORTH_EXPANDER_BASE,
+	GPIO_EPM_5V_BOOST_EN,
+	GPIO_AUX_CAM_2P7_EN,
+	GPIO_LED_FLASH_EN,
+	GPIO_LED1_GREEN_N,
+	GPIO_LED2_RED_N,
+	GPIO_FRONT_CAM_RESET_N,
+	GPIO_EPM_LVLSFT_EN,
+	GPIO_N_ALTIMETER_RESET_N,
 };
 
 /*
@@ -2001,6 +2023,23 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 				     GPIO_RIGHT_KB_EXPANDER_BASE -
 				     GPIO_EXPANDER_GPIO_BASE,
 	},
+	/* FLUID south I/O */
+	[5] = {
+		.gpio_base    = GPIO_SOUTH_EXPANDER_BASE,
+		.irq_base     = GPIO_EXPANDER_IRQ_BASE +
+				GPIO_SOUTH_EXPANDER_BASE -
+				GPIO_EXPANDER_GPIO_BASE,
+		.irq_summary  = PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT3_N),
+	},
+	/* FLUID north I/O */
+	[6] = {
+		.gpio_base    = GPIO_NORTH_EXPANDER_BASE,
+		.irq_base     = GPIO_EXPANDER_IRQ_BASE +
+				GPIO_NORTH_EXPANDER_BASE -
+				GPIO_EXPANDER_GPIO_BASE,
+		.irq_summary  = PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT3_N),
+		.oscio_is_gpo = true,
+	},
 };
 
 /* sx150x_low_power_cfg
@@ -2033,12 +2072,12 @@ common_sx150x_lp_cfgs[] __initdata = {
 
 static struct sx150x_low_power_cfg
 surf_ffa_sx150x_lp_cfgs[] __initdata = {
-	{GPIO_MIPI_DSI_RST_N,    0},
-	{GPIO_DONGLE_PWR_EN,     0},
-	{GPIO_CAP_TS_SLEEP,      1},
-	{GPIO_COMPASS_RST_N,     0},
-	{GPIO_WEB_CAMIF_RESET_N, 0},
-	{GPIO_ALTIMETER_RESET_N, 0},
+	{GPIO_MIPI_DSI_RST_N,      0},
+	{GPIO_DONGLE_PWR_EN,       0},
+	{GPIO_CAP_TS_SLEEP,        1},
+	{GPIO_COMPASS_RST_N,       0},
+	{GPIO_WEB_CAMIF_RESET_N,   0},
+	{GPIO_R_ALTIMETER_RESET_N, 0},
 };
 
 static void __init
@@ -2073,11 +2112,14 @@ static int __init cfg_sx150xs_low_power(void)
 module_init(cfg_sx150xs_low_power);
 
 #ifdef CONFIG_I2C
-static struct i2c_board_info core_expanders_i2c_info[] __initdata = {
+static struct i2c_board_info core_expander_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1509q", 0x3e),
 		.platform_data = &sx150x_data[0]
 	},
+};
+
+static struct i2c_board_info docking_expander_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1509q", 0x3f),
 		.platform_data = &sx150x_data[1]
@@ -2099,6 +2141,17 @@ static struct i2c_board_info fha_expanders_i2c_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("sx1508q", 0x22),
 		.platform_data = &sx150x_data[4]
+	}
+};
+
+static struct i2c_board_info fluid_expanders_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("sx1508q", 0x23),
+		.platform_data = &sx150x_data[5]
+	},
+	{
+		I2C_BOARD_INFO("sx1508q", 0x20),
+		.platform_data = &sx150x_data[6]
 	}
 };
 #endif
@@ -3444,8 +3497,14 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI8_QUP_I2C_BUS_ID,
-		core_expanders_i2c_info,
-		ARRAY_SIZE(core_expanders_i2c_info),
+		core_expander_i2c_info,
+		ARRAY_SIZE(core_expander_i2c_info),
+	},
+	{
+		I2C_SURF | I2C_FFA,
+		MSM_GSBI8_QUP_I2C_BUS_ID,
+		docking_expander_i2c_info,
+		ARRAY_SIZE(docking_expander_i2c_info),
 	},
 	{
 		I2C_SURF,
@@ -3458,6 +3517,12 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		MSM_GSBI3_QUP_I2C_BUS_ID,
 		fha_expanders_i2c_info,
 		ARRAY_SIZE(fha_expanders_i2c_info),
+	},
+	{
+		I2C_FLUID,
+		MSM_GSBI3_QUP_I2C_BUS_ID,
+		fluid_expanders_i2c_info,
+		ARRAY_SIZE(fluid_expanders_i2c_info),
 	},
 #endif
 #if defined(CONFIG_TOUCHDISC_VTD518_SHINETSU) || \
