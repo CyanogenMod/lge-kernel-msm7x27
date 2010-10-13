@@ -160,9 +160,12 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			driver->write_ptr_svc = (struct diag_request *)
 			(diagmem_alloc(driver, sizeof(struct diag_request),
 				 POOL_TYPE_WRITE_STRUCT));
-			driver->write_ptr_svc->length = driver->used;
-			driver->write_ptr_svc->buf = buf;
-			err = diag_write(driver->write_ptr_svc);
+			if (driver->write_ptr_svc) {
+				driver->write_ptr_svc->length = driver->used;
+				driver->write_ptr_svc->buf = buf;
+				err = diag_write(driver->write_ptr_svc);
+			} else
+				err = -1;
 		} else if (proc_num == MODEM_DATA) {
 			write_ptr->buf = buf;
 #ifdef DIAG_DEBUG
