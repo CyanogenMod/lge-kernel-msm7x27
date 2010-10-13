@@ -3414,7 +3414,7 @@ static struct regulator_consumer_supply pm8901_vreg_supply[PM8901_VREG_MAX] = {
 static struct regulator_init_data pm8901_vreg_init[PM8901_VREG_MAX] = {
 	PM8901_VREG_INIT_LDO(PM8901_VREG_ID_L0, 1200000, 1200000),
 	PM8901_VREG_INIT_LDO(PM8901_VREG_ID_L1, 3300000, 3300000),
-	PM8901_VREG_INIT_LDO(PM8901_VREG_ID_L2, 3300000, 3300000),
+	PM8901_VREG_INIT_LDO(PM8901_VREG_ID_L2, 2850000, 3300000),
 	PM8901_VREG_INIT_LDO(PM8901_VREG_ID_L3, 3300000, 3300000),
 	PM8901_VREG_INIT_LDO(PM8901_VREG_ID_L4, 2600000, 2600000),
 	PM8901_VREG_INIT_LDO(PM8901_VREG_ID_L5, 2850000, 2850000),
@@ -4571,20 +4571,41 @@ static void setup_display_power(void)
 	}
 }
 
+#define _GET_REGULATOR(var, name) do {					\
+	if (var == NULL) {						\
+		var = regulator_get(NULL, name);			\
+		if (IS_ERR(var)) {					\
+			pr_err("'%s' regulator not found, rc=%ld\n",	\
+				name, PTR_ERR(var));			\
+			var = NULL;					\
+		}							\
+	}								\
+} while (0)
 static void display_common_power(int on)
 {
-	static int rc = -EINVAL; /* remember if the gpio_requests succeeded */
+	int rc;
+	static struct regulator *display_reg;
 
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa()) {
 		if (on) {
 			/* LVDS */
+			_GET_REGULATOR(display_reg, "8901_l2");
+			if (!display_reg)
+				return;
+			rc = regulator_set_voltage(display_reg,
+				3300000, 3300000);
+			if (rc)
+				goto out;
+			rc = regulator_enable(display_reg);
+			if (rc)
+				goto out;
 			rc = gpio_request(GPIO_LVDS_SHUTDOWN_N,
 				"LVDS_STDN_OUT_N");
 			if (rc) {
 				printk(KERN_ERR "%s: LVDS gpio %d request"
 					"failed\n", __func__,
 					 GPIO_LVDS_SHUTDOWN_N);
-				return;
+				goto out2;
 			}
 
 			/* BACKLIGHT */
@@ -4593,8 +4614,7 @@ static void display_common_power(int on)
 				printk(KERN_ERR "%s: BACKLIGHT gpio %d request"
 					"failed\n", __func__,
 					 GPIO_BACKLIGHT_EN);
-				gpio_free(GPIO_LVDS_SHUTDOWN_N);
-				return;
+				goto out3;
 			}
 
 			if (machine_is_msm8x60_ffa()) {
@@ -4604,9 +4624,7 @@ static void display_common_power(int on)
 					printk(KERN_ERR "%s: DONGLE_PWR_EN gpio"
 					       " %d request failed\n", __func__,
 					       GPIO_DONGLE_PWR_EN);
-					gpio_free(GPIO_LVDS_SHUTDOWN_N);
-					gpio_free(GPIO_BACKLIGHT_EN);
-					return;
+					goto out4;
 				}
 			}
 
@@ -4618,19 +4636,29 @@ static void display_common_power(int on)
 			display_power_on = 1;
 			setup_display_power();
 		} else {
-			if (!rc) {
+			if (display_power_on) {
 				display_power_on = 0;
 				setup_display_power();
 				mdelay(20);
 				if (machine_is_msm8x60_ffa())
 					gpio_free(GPIO_DONGLE_PWR_EN);
-				gpio_free(GPIO_BACKLIGHT_EN);
-				gpio_free(GPIO_LVDS_SHUTDOWN_N);
+				goto out4;
 			}
 		}
-
 	}
+	return;
+
+out4:
+	gpio_free(GPIO_BACKLIGHT_EN);
+out3:
+	gpio_free(GPIO_LVDS_SHUTDOWN_N);
+out2:
+	regulator_disable(display_reg);
+out:
+	regulator_put(display_reg);
+	display_reg = NULL;
 }
+#undef _GET_REGULATOR
 #endif
 
 #define LCDC_NUM_GPIO 28
