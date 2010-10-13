@@ -337,20 +337,10 @@ void __init msm_snddev_init(void);
 void __init msm_snddev_init_timpani(void);
 void msm_snddev_poweramp_on(void);
 void msm_snddev_poweramp_off(void);
-void msm_snddev_voltage_on(void);
-void msm_snddev_voltage_off(void);
 void msm_snddev_hsed_voltage_on(void);
 void msm_snddev_hsed_voltage_off(void);
 void msm_snddev_tx_route_config(void);
 void msm_snddev_tx_route_deconfig(void);
-void msm_snddev_rx_route_config(void);
-void msm_snddev_rx_route_deconfig(void);
-void msm_snddev_enable_amic_power(void);
-void msm_snddev_disable_amic_power(void);
-void msm_snddev_enable_dmic_power(void);
-void msm_snddev_disable_dmic_power(void);
-void msm_snddev_enable_dmic_sec_power(void);
-void msm_snddev_disable_dmic_sec_power(void);
 
 extern unsigned int msm_shared_ram_phys; /* defined in arch/arm/mach-msm/io.c */
 
