@@ -141,8 +141,10 @@ static struct snddev_icodec_data snddev_ihs_stereo_rx_data = {
 	.pmctl_id = NULL,
 	.pmctl_id_sz = 0,
 	.default_sample_rate = 48000,
-	.pamp_on = msm_snddev_poweramp_on,
-	.pamp_off = msm_snddev_poweramp_off,
+	.pamp_on = msm_snddev_rx_route_config,
+	.pamp_off = msm_snddev_rx_route_deconfig,
+	.voltage_on = msm_snddev_voltage_on,
+	.voltage_off = msm_snddev_voltage_off,
 };
 
 static struct platform_device msm_headset_ab_cpls_device = {
@@ -616,6 +618,8 @@ static struct snddev_icodec_data snddev_itty_mono_rx_data = {
 	.default_sample_rate = 48000,
 	.pamp_on = msm_snddev_rx_route_config,
 	.pamp_off = msm_snddev_rx_route_deconfig,
+	.voltage_on = msm_snddev_voltage_on,
+	.voltage_off = msm_snddev_voltage_off,
 };
 
 static struct platform_device msm_itty_mono_rx_device = {

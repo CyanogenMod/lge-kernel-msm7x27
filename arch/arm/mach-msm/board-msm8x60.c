@@ -4657,6 +4657,46 @@ void msm_snddev_poweramp_off(void)
 	msm_snddev_rx_route_deconfig();
 }
 
+static struct regulator *snddev_reg_ncp;
+
+void msm_snddev_voltage_on(void)
+{
+	int rc;
+	pr_debug("%s\n", __func__);
+
+	snddev_reg_ncp = regulator_get(NULL, "8058_ncp");
+	if (IS_ERR(snddev_reg_ncp)) {
+		pr_err("%s: regulator_get(%s) failed (%ld)\n", __func__,
+			"ncp", PTR_ERR(snddev_reg_ncp));
+		return;
+	}
+
+	rc = regulator_set_voltage(snddev_reg_ncp, 1800000, 1800000);
+	if (rc < 0)
+		pr_err("%s: regulator_set_voltage(ncp) failed (%d)\n",
+				__func__, rc);
+
+	rc = regulator_enable(snddev_reg_ncp);
+	if (rc < 0)
+		pr_err("%s: regulator_enable(ncp) failed (%d)\n", __func__, rc);
+}
+
+void msm_snddev_voltage_off(void)
+{
+	int rc;
+	pr_debug("%s\n", __func__);
+
+	if (!snddev_reg_ncp)
+		return;
+
+	rc = regulator_disable(snddev_reg_ncp);
+	if (rc < 0)
+		pr_err("%s: regulator_disable(ncp) failed (%d)\n",
+				__func__, rc);
+	regulator_put(snddev_reg_ncp);
+
+	snddev_reg_ncp = NULL;
+}
 #endif /* CONFIG_MSM8X60_AUDIO */
 
 static struct msm_panel_common_pdata mdp_pdata = {
