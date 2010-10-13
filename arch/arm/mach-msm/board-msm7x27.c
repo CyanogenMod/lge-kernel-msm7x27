@@ -1948,8 +1948,6 @@ static void __init msm7x2x_init(void)
 	msm_acpu_clock_init(&msm7x2x_clock_data);
 
 #ifdef CONFIG_ARCH_MSM7X27
-	/* Initialize the zero page for barriers and cache ops */
-	map_zero_page_strongly_ordered();
 	/* This value has been set to 160000 for power savings. */
 	/* OEMs may modify the value at their discretion for performance */
 	/* The appropriate maximum replacement for 160000 is: */
