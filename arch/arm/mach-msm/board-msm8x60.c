@@ -1213,10 +1213,9 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 static int msm_fb_detect_panel(const char *name)
 {
-	if (!strcmp(name, "hdmi_msm"))
+	if (!strcmp(name, "lcdc_samsung_wsvga"))
 		return 0;
 	pr_warning("%s: not supported '%s'", __func__, name);
 	return -ENODEV;
@@ -1225,16 +1224,13 @@ static int msm_fb_detect_panel(const char *name)
 static struct msm_fb_platform_data msm_fb_pdata = {
 	.detect_client = msm_fb_detect_panel,
 };
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
 static struct platform_device msm_fb_device = {
 	.name   = "msm_fb",
 	.id     = 0,
 	.num_resources     = ARRAY_SIZE(msm_fb_resources),
 	.resource          = msm_fb_resources,
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	.dev.platform_data = &msm_fb_pdata,
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 };
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
