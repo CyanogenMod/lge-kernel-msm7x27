@@ -2552,6 +2552,15 @@ config FB_MSM_SECONDARY_PANEL_NONE
 	  No secondary panel
 endchoice
 
+config FB_MSM_LCDC_DSUB
+	depends on FB_MSM_LCDC_SAMSUNG_WSVGA && FB_MSM_MDP40 && FB_MSM_LCDC_HW
+	bool "External DSUB support"
+	default n
+	---help---
+	  Support for external DSUB (VGA) display up to 1440x900.  The DSUB
+	  display shares the same video bus as the primary LCDC attached display.
+	  Typically only one of the two displays can be used at one time.
+
 config FB_MSM_EXT_INTERFACE_COMMON
 	bool
 	default n
