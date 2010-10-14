@@ -225,6 +225,7 @@ static int __init lcdc_samsung_panel_init(void)
 	pinfo = &samsung_panel_data.panel_info;
 	pinfo->xres = 1024;
 	pinfo->yres = 600;
+	MSM_FB_SINGLE_MODE_PANEL(pinfo);
 	pinfo->type = LCDC_PANEL;
 	pinfo->pdest = DISPLAY_1;
 	pinfo->wait_cycle = 0;

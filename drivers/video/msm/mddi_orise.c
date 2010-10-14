@@ -105,6 +105,7 @@ static int __init mddi_orise_init(void)
 		pinfo = &mddi_orise_panel_data.panel_info;
 		pinfo->xres = 480;
 		pinfo->yres = 800;
+		MSM_FB_SINGLE_MODE_PANEL(pinfo);
 		pinfo->type = MDDI_PANEL;
 		pinfo->pdest = DISPLAY_1;
 		pinfo->mddi.vdopkt = MDDI_DEFAULT_PRIM_PIX_ATTR;

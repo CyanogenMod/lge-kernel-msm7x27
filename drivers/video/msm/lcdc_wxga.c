@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@ static int __init lcdc_wxga_init(void)
 
 	pinfo.xres = 1280;
 	pinfo.yres = 720;
+	MSM_FB_SINGLE_MODE_PANEL(&pinfo);
 	pinfo.type = LCDC_PANEL;
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;

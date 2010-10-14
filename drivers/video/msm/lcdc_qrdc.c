@@ -27,6 +27,7 @@ static int __init lcdc_qrdc_init(void)
 
 	pinfo.xres = 1366;
 	pinfo.yres = 768;
+	MSM_FB_SINGLE_MODE_PANEL(&pinfo);
 	pinfo.type = LCDC_PANEL;
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;

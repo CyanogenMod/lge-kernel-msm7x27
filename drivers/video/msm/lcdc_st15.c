@@ -384,6 +384,7 @@ static int __init lcdc_st15_init(void)
 	pinfo = &sii9022_panel_data.panel_info;
 	pinfo->xres = 1366;
 	pinfo->yres = 768;
+	MSM_FB_SINGLE_MODE_PANEL(pinfo);
 	pinfo->type = LCDC_PANEL;
 	pinfo->pdest = DISPLAY_1;
 	pinfo->wait_cycle = 0;

@@ -662,6 +662,7 @@ static int __init mddi_quickvx_lcd_init(void)
 		pinfo = &mddi_quickvx_panel_data0.panel_info;
 		pinfo->xres = 480;
 		pinfo->yres = 864;
+		MSM_FB_SINGLE_MODE_PANEL(pinfo);
 		pinfo->type = MDDI_PANEL;
 		pinfo->pdest = DISPLAY_1;
 		pinfo->mddi.vdopkt = MDDI_DEFAULT_PRIM_PIX_ATTR;

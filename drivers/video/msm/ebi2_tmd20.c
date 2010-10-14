@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1095,6 +1095,7 @@ static int __init tmd20qvga_init(void)
 		pinfo = &tmd20qvga_panel_data.panel_info;
 		pinfo->xres = 240;
 		pinfo->yres = 320;
+		MSM_FB_SINGLE_MODE_PANEL(pinfo);
 		pinfo->type = EBI2_PANEL;
 		pinfo->pdest = DISPLAY_1;
 		pinfo->wait_cycle = 0x808000;
