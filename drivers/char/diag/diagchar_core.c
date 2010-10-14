@@ -198,7 +198,10 @@ static int diagchar_close(struct inode *inode, struct file *file)
 			if (driver) {
 				mutex_lock(&driver->diagchar_mutex);
 				driver->ref_count--;
-				diagmem_exit(driver);
+				/* On Client exit, try to destroy all 3 pools */
+				diagmem_exit(driver, POOL_TYPE_COPY);
+				diagmem_exit(driver, POOL_TYPE_HDLC);
+				diagmem_exit(driver, POOL_TYPE_WRITE_STRUCT);
 				for (i = 0; i < driver->num_clients; i++)
 					if (driver->client_map[i].pid ==
 					     current->tgid) {
@@ -896,7 +899,9 @@ fail:
 static void __exit diagchar_exit(void)
 {
 	printk(KERN_INFO "diagchar exiting ..\n");
-	diagmem_exit(driver);
+	/* On Driver exit, send special pool type to
+	 ensure no memory leaks */
+	diagmem_exit(driver, POOL_TYPE_ALL);
 	diagfwd_exit();
 	diagchar_cleanup();
 	printk(KERN_INFO "done diagchar exit\n");
