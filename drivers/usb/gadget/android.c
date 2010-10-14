@@ -171,7 +171,7 @@ static void bind_functions(struct android_dev *dev)
 	usb_ep_autoconfig_reset(dev->cdev->gadget);
 }
 
-static int __init android_bind_config(struct usb_configuration *c)
+static int __ref android_bind_config(struct usb_configuration *c)
 {
 	struct android_dev *dev = _android_dev;
 
