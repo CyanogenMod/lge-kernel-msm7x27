@@ -583,7 +583,7 @@ static void mddi_quickvx_lcd_set_backlight(struct msm_fb_data_type *mfd)
 }
 
 /* Driver Probe function */
-static int __init mddi_quickvx_lcd_probe(struct platform_device *pdev)
+static int __devinit mddi_quickvx_lcd_probe(struct platform_device *pdev)
 {
 	MDDI_MSG_DEBUG("\n%s(): id is %d", __func__, pdev->id);
 	msm_fb_add_device(pdev);
