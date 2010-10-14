@@ -285,7 +285,7 @@ static void lcdc_sharp_panel_set_backlight(struct msm_fb_data_type *mfd)
 #endif
 }
 
-static int __init sharp_probe(struct platform_device *pdev)
+static int __devinit sharp_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		lcdc_sharp_pdata = pdev->dev.platform_data;
