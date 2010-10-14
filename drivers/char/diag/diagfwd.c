@@ -903,6 +903,7 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_qdsp_2);
 	kfree(driver->usb_read_ptr);
 #ifdef CONFIG_DIAG_NO_MODEM
-		kfree(driver->apps_rsp_buf);
+	kfree(driver->apps_rsp_buf);
 #endif
+	destroy_workqueue(driver->diag_wq);
 }
