@@ -316,6 +316,9 @@ struct axidata {
 	struct msm_pmem_region *region;
 };
 
+int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
+	struct flash_ctrl_data *flash_info);
+
 #ifdef CONFIG_MSM_CAMERA_FLASH
 	int msm_camera_flash_set_led_state(
 		struct msm_camera_sensor_flash_data *fdata,

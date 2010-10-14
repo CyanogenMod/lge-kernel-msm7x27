@@ -2092,6 +2092,17 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 		break;
 	}
 
+	case MSM_CAM_IOCTL_FLASH_CTRL: {
+		struct flash_ctrl_data flash_info;
+		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
+			ERR_COPY_FROM_USER();
+			rc = -EFAULT;
+		} else
+			rc = msm_flash_ctrl(pmsm->sync->sdata, &flash_info);
+
+		break;
+	}
+
 	case MSM_CAM_IOCTL_ERROR_CONFIG:
 		rc = msm_error_config(pmsm->sync, argp);
 		break;

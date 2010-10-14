@@ -341,3 +341,46 @@ int msm_strobe_flash_init(struct msm_sync *sync, uint32_t sftype)
 	}
 	return rc;
 }
+
+int msm_strobe_flash_ctrl(struct msm_camera_sensor_strobe_flash_data *sfdata,
+	struct strobe_flash_ctrl_data *strobe_ctrl)
+{
+	int rc = 0;
+	switch (strobe_ctrl->type) {
+	case STROBE_FLASH_CTRL_INIT:
+		rc = msm_strobe_flash_xenon_init(sfdata);
+		break;
+	case STROBE_FLASH_CTRL_CHARGE:
+		rc = msm_strobe_flash_xenon_charge(sfdata->flash_charge,
+			strobe_ctrl->charge_en,
+			sfdata->flash_recharge_duration);
+		break;
+	case STROBE_FLASH_CTRL_RELEASE:
+		rc = msm_strobe_flash_xenon_release(sfdata, 0);
+		break;
+	default:
+		pr_err("Invalid Strobe Flash State\n");
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
+int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
+	struct flash_ctrl_data *flash_info)
+{
+	int rc = 0;
+	switch (flash_info->flashtype) {
+	case LED_FLASH:
+		rc = msm_camera_flash_set_led_state(sdata->flash_data,
+			flash_info->ctrl_data.led_state);
+			break;
+	case STROBE_FLASH:
+		rc = msm_strobe_flash_ctrl(sdata->strobe_flash_data,
+			&(flash_info->ctrl_data.strobe_ctrl));
+		break;
+	default:
+		pr_err("Invalid Flash MODE\n");
+		rc = -EINVAL;
+	}
+	return rc;
+}
