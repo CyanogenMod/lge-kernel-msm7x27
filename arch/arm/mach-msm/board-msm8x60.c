@@ -1974,9 +1974,9 @@ static struct sx150x_platform_data sx150x_data[] __initdata = {
 	[SX150X_CORE] = {
 		.gpio_base         = GPIO_CORE_EXPANDER_BASE,
 		.oscio_is_gpo      = false,
-		.io_pullup_ena     = 0x0409,
+		.io_pullup_ena     = 0x0408,
 		.io_pulldn_ena     = 0x4060,
-		.io_open_drain_ena = 0x000d,
+		.io_open_drain_ena = 0x000c,
 		.io_polarity       = 0,
 		.irq_summary       = -1, /* see fixup_i2c_configs() */
 		.irq_base          = GPIO_EXPANDER_IRQ_BASE,
@@ -5047,6 +5047,19 @@ static void config_class_d0_gpio(int enable)
 	}
 }
 
+static void __init msm8x60_init_poweramp(void)
+{
+	int rc;
+	rc = gpio_request(GPIO_CLASS_D1_EN, "CLASSD1_EN");
+	if (rc) {
+		pr_err("%s: spkr pamp gpio %d request"
+		"failed\n", __func__, GPIO_CLASS_D1_EN);
+	} else {
+		gpio_direction_output(GPIO_CLASS_D1_EN, 0);
+		gpio_free(GPIO_CLASS_D1_EN);
+	}
+}
+
 void msm_snddev_poweramp_on(void)
 {
 
@@ -5517,6 +5530,7 @@ static void __init msm8x60_init(void)
 
 #ifdef CONFIG_MSM8X60_AUDIO
 	msm_snddev_init();
+	msm8x60_init_poweramp();
 #endif
 }
 
