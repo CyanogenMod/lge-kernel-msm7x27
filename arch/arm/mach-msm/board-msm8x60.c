@@ -1125,7 +1125,7 @@ static struct platform_device msm_batt_device = {
 #else /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 #define MSM_FB_SIZE 0x500000
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
-#define MSM_PMEM_SF_SIZE 0x1700000 /* 23 Mbytes */
+#define MSM_PMEM_SF_SIZE 0x4000000 /* 64 Mbytes */
 #define MSM_GPU_PHYS_SIZE 0x4cf000 /* 4.8 Mbytes */
 		/* 8* (512KB + 68384 + 32KB) + 36KB = 5040384 = 0x4ce900 */
 
