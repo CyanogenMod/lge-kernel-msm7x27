@@ -455,7 +455,9 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 					mdp4_overlay0_done_dsi_video();
 #endif
 #endif
-			} else {	/* MDDI */
+			}
+#ifdef CONFIG_FB_MSM_MDDI
+			else {	/* MDDI */
 				dma->busy = FALSE;
 				mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK,
 					MDP_BLOCK_POWER_OFF, TRUE);
@@ -463,6 +465,9 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				mdp4_overlay0_done_mddi();
 #endif
 			}
+#endif
+
+
 #ifdef CONFIG_FB_MSM_OVERLAY
 			mdp_hw_cursor_done();
 #endif
