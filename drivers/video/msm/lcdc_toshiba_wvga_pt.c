@@ -398,7 +398,7 @@ static void lcdc_toshiba_set_backlight(struct msm_fb_data_type *mfd)
 				__func__);
 }
 
-static int __init toshiba_probe(struct platform_device *pdev)
+static int __devinit toshiba_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		lcdc_toshiba_pdata = pdev->dev.platform_data;
