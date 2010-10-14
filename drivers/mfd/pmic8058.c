@@ -762,11 +762,11 @@ debug_error:
 	return -ENOMEM;
 }
 
-static int __devexit pmic8058_dbg_remove(struct pm8058_dbg_device * dbgdev)
+static int __devexit pmic8058_dbg_remove(void)
 {
-	if (dbgdev) {
-		debugfs_remove_recursive(dbgdev->dent);
-		kfree(dbgdev);
+	if (pmic_dbg_device) {
+		debugfs_remove_recursive(pmic_dbg_device->dent);
+		kfree(pmic_dbg_device);
 	}
 	return 0;
 }
@@ -778,7 +778,7 @@ static int __devinit pmic8058_dbg_probe(struct pm8058_chip *chip)
 	return 0;
 }
 
-static int __devexit pmic8058_dbg_remove(struct pm8058_dbg_device * dbgdev)
+static int __devexit pmic8058_dbg_remove(void)
 {
 	return 0;
 }
@@ -900,7 +900,7 @@ static int __devexit pm8058_remove(struct i2c_client *client)
 		kfree(chip);
 	}
 
-	pmic8058_dbg_remove(pmic_dbg_device);
+	pmic8058_dbg_remove();
 
 	return 0;
 }
