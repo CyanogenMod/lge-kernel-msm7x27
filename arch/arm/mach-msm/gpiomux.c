@@ -15,25 +15,31 @@
  * 02110-1301, USA.
  */
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/spinlock.h>
 #include "gpiomux.h"
 
+struct msm_gpiomux_rec {
+	gpiomux_config_t active;
+	gpiomux_config_t suspended;
+	int              ref;
+};
 static DEFINE_SPINLOCK(gpiomux_lock);
-static struct msm_gpiomux_config *msm_gpiomux_configs;
-static unsigned msm_gpiomux_nconfigs;
+static struct msm_gpiomux_rec *msm_gpiomux_recs;
+static unsigned msm_gpiomux_ngpio;
 
 int msm_gpiomux_write(unsigned gpio,
 		      gpiomux_config_t active,
 		      gpiomux_config_t suspended)
 {
-	struct msm_gpiomux_config *cfg = msm_gpiomux_configs + gpio;
+	struct msm_gpiomux_rec *cfg = msm_gpiomux_recs + gpio;
 	unsigned long irq_flags;
 	gpiomux_config_t setting;
 
-	if (!msm_gpiomux_configs)
+	if (!msm_gpiomux_recs)
 		return -EFAULT;
 
-	if (gpio >= msm_gpiomux_nconfigs)
+	if (gpio >= msm_gpiomux_ngpio)
 		return -EINVAL;
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
@@ -55,13 +61,13 @@ EXPORT_SYMBOL(msm_gpiomux_write);
 
 int msm_gpiomux_get(unsigned gpio)
 {
-	struct msm_gpiomux_config *cfg = msm_gpiomux_configs + gpio;
+	struct msm_gpiomux_rec *cfg = msm_gpiomux_recs + gpio;
 	unsigned long irq_flags;
 
-	if (!msm_gpiomux_configs)
+	if (!msm_gpiomux_recs)
 		return -EFAULT;
 
-	if (gpio >= msm_gpiomux_nconfigs)
+	if (gpio >= msm_gpiomux_ngpio)
 		return -EINVAL;
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
@@ -74,13 +80,13 @@ EXPORT_SYMBOL(msm_gpiomux_get);
 
 int msm_gpiomux_put(unsigned gpio)
 {
-	struct msm_gpiomux_config *cfg = msm_gpiomux_configs + gpio;
+	struct msm_gpiomux_rec *cfg = msm_gpiomux_recs + gpio;
 	unsigned long irq_flags;
 
-	if (!msm_gpiomux_configs)
+	if (!msm_gpiomux_recs)
 		return -EFAULT;
 
-	if (gpio >= msm_gpiomux_nconfigs)
+	if (gpio >= msm_gpiomux_ngpio)
 		return -EINVAL;
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
@@ -92,27 +98,39 @@ int msm_gpiomux_put(unsigned gpio)
 }
 EXPORT_SYMBOL(msm_gpiomux_put);
 
-int msm_gpiomux_init(struct msm_gpiomux_config *configs, unsigned nconfigs)
+int msm_gpiomux_init(size_t ngpio)
 {
-	unsigned n;
-	unsigned long irq_flags;
+	if (!ngpio)
+		return -EINVAL;
 
-	if (msm_gpiomux_configs)
+	if (msm_gpiomux_recs)
 		return -EPERM;
 
-	spin_lock_irqsave(&gpiomux_lock, irq_flags);
+	msm_gpiomux_recs = kzalloc(sizeof(struct msm_gpiomux_rec) * ngpio,
+				   GFP_KERNEL);
+	if (!msm_gpiomux_recs)
+		return -ENOMEM;
 
-	msm_gpiomux_configs  = configs;
-	msm_gpiomux_nconfigs = nconfigs;
+	msm_gpiomux_ngpio = ngpio;
 
-	for (n = 0; n < nconfigs; ++n) {
-		msm_gpiomux_configs[n].ref = 0;
-		if (!(msm_gpiomux_configs[n].suspended & GPIOMUX_VALID))
-			continue;
-		__msm_gpiomux_write(n, msm_gpiomux_configs[n].suspended);
-	}
-
-	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
 	return 0;
 }
 EXPORT_SYMBOL(msm_gpiomux_init);
+
+void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs)
+{
+	unsigned n;
+	int rc;
+
+	if (!msm_gpiomux_recs)
+		return;
+
+	for (n = 0; n < nconfigs; ++n) {
+		rc = msm_gpiomux_write(configs[n].gpio,
+				       configs[n].active,
+				       configs[n].suspended);
+		if (rc)
+			pr_err("%s: write failure: %d\n", __func__, rc);
+	}
+}
+EXPORT_SYMBOL(msm_gpiomux_install);
