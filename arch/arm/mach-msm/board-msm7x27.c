@@ -2066,7 +2066,7 @@ static int __init pmem_audio_size_setup(char *p)
 	pmem_audio_size = memparse(p, NULL);
 	return 0;
 }
-early_param("pmem_audio_size=", pmem_audio_size_setup);
+early_param("pmem_audio_size", pmem_audio_size_setup);
 
 static unsigned fb_size = MSM_FB_SIZE;
 static int __init fb_size_setup(char *p)
