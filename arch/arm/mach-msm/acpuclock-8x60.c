@@ -607,7 +607,7 @@ static void __init cpufreq_table_init(void) {}
 /* Voltage regulator initialization. */
 void __init regulator_init(void)
 {
-	int cpu;
+	int cpu, rc;
 	const char *regulator_sc_name[] = {"8901_s0", "8901_s1"};
 
 	for_each_possible_cpu(cpu) {
@@ -615,6 +615,19 @@ void __init regulator_init(void)
 		if (IS_ERR(regulator_sc[cpu])) {
 			pr_err("%s: unable to get SC%d voltage regulator\n",
 				__func__, cpu);
+			BUG();
+		}
+		rc = regulator_set_voltage(regulator_sc[cpu],
+			drv_state.current_speed[cpu]->vdd_sc, MAX_VDD_SC);
+		if (rc) {
+			pr_err("%s: failed to set SC%d VDD (%d)\n",
+				__func__, cpu, rc);
+			BUG();
+		}
+		rc = regulator_enable(regulator_sc[cpu]);
+		if (rc) {
+			pr_err("%s: failed to enable SC%d regulator (%d)\n",
+				__func__, cpu, rc);
 			BUG();
 		}
 	}
@@ -630,12 +643,12 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.max_speed_delta_khz = clkdata->max_speed_delta_khz;
 
 	/* Configure hardware. */
-	regulator_init();
 	unselect_scplls();
 	scpll_set_refs();
 	for_each_possible_cpu(cpu)
 		scpll_init(cpu);
 	scpll_init(L2);
+	regulator_init();
 
 	lpj_init();
 	precompute_stepping();
