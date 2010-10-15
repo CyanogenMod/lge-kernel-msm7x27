@@ -951,6 +951,15 @@ config DONT_RESERVE_FROM_MOVABLE_ZONE
 	def_bool y
 	depends on MEMORY_HOTPLUG
 
+config RESERVE_FIRST_PAGE
+	bool
+	default n
+	help
+	  Reserve the first page at PHYS_OFFSET. The first
+	  physical page is used by many platforms for warm
+	  boot operations. Reserve this page so that it is
+	  not allocated by the kernel.
+
 config IWMMXT
 	bool "Enable iWMMXt support"
 	depends on CPU_XSCALE || CPU_XSC3 || CPU_MOHAWK
