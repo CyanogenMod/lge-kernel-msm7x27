@@ -4067,17 +4067,6 @@ static uint32_t msm8x60_tlmm_cfgs[] = {
 	/* PMIC8901 */
 	GPIO_CFG(PM8901_GPIO_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 #endif
-
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-	/* gpio_cec_var */
-	GPIO_CFG(169, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
-	/* gpio_ddc_clk */
-	GPIO_CFG(170, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA),
-	/* gpio_ddc_data */
-	GPIO_CFG(171, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA),
-	/* gpio_hpd */
-	GPIO_CFG(172, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-#endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 };
 
 static void __init msm8x60_init_tlmm(void)
@@ -4945,8 +4934,29 @@ static int hdmi_core_power(int on)
 				"8058_l16", rc);
 			return rc;
 		}
+		rc = gpio_request(170, "HDMI_DDC_CLK");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_DDC_CLK", 170, rc);
+			goto error1;
+		}
+		rc = gpio_request(171, "HDMI_DDC_DATA");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_DDC_DATA", 171, rc);
+			goto error2;
+		}
+		rc = gpio_request(172, "HDMI_HPD");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_HPD", 172, rc);
+			goto error3;
+		}
 		pr_info("%s(on): success\n", __func__);
 	} else {
+		gpio_free(170);
+		gpio_free(171);
+		gpio_free(172);
 		rc = regulator_disable(reg_8058_l16);
 		if (rc)
 			pr_warning("'%s' regulator disable failed, rc=%d\n",
@@ -4955,6 +4965,14 @@ static int hdmi_core_power(int on)
 	}
 
 	return 0;
+
+error3:
+	gpio_free(171);
+error2:
+	gpio_free(170);
+error1:
+	regulator_disable(reg_8058_l16);
+	return rc;
 }
 
 static int hdmi_cec_power(int on)
@@ -4973,8 +4991,15 @@ static int hdmi_cec_power(int on)
 				"8901_l3", rc);
 			return rc;
 		}
+		rc = gpio_request(169, "HDMI_CEC_VAR");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_CEC_VAR", 169, rc);
+			goto error;
+		}
 		pr_info("%s(on): success\n", __func__);
 	} else {
+		gpio_free(169);
 		rc = regulator_disable(reg_8901_l3);
 		if (rc)
 			pr_warning("'%s' regulator disable failed, rc=%d\n",
@@ -4983,7 +5008,11 @@ static int hdmi_cec_power(int on)
 	}
 
 	return 0;
+error:
+	regulator_disable(reg_8901_l3);
+	return rc;
 }
+
 #undef _GET_REGULATOR
 
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */

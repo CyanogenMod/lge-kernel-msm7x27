@@ -154,6 +154,7 @@
 					| GPIOMUX_FUNC_1 | GPIOMUX_DRV_16MA)
 
 #define LCDC_SUSPEND_CFG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
+#define HDMI_SUSPEND_CFG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
 
 static struct msm_gpiomux_config msm8x60_gsbi_configs[] __initdata = {
 	{
@@ -696,6 +697,29 @@ static struct msm_gpiomux_config msm8x60_lcdc_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm8x60_hdmi_configs[] __initdata = {
+	{
+		.gpio = 169,
+		.active = GPIOMUX_FUNC_1 | GPIOMUX_PULL_UP | GPIOMUX_VALID,
+		.suspended = HDMI_SUSPEND_CFG,
+	},
+	{
+		.gpio = 170,
+		.active = GPIOMUX_FUNC_1 | GPIOMUX_DRV_16MA | GPIOMUX_VALID,
+		.suspended = HDMI_SUSPEND_CFG,
+	},
+	{
+		.gpio = 171,
+		.active = GPIOMUX_FUNC_1 | GPIOMUX_DRV_16MA | GPIOMUX_VALID,
+		.suspended = HDMI_SUSPEND_CFG,
+	},
+	{
+		.gpio = 172,
+		.active = GPIOMUX_FUNC_1 | GPIOMUX_PULL_DOWN | GPIOMUX_VALID,
+		.suspended = HDMI_SUSPEND_CFG,
+	},
+};
+
 struct msm_gpiomux_cfg_block {
 	struct msm_gpiomux_config *cfg;
 	size_t                     ncfg;
@@ -710,6 +734,7 @@ static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
 	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
 	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
+	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
 };
 
 static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
