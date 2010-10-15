@@ -29,6 +29,8 @@
 #ifndef __ARCH_ARM_MACH_MSM_DEVICES_MSM8X60_H
 #define __ARCH_ARM_MACH_MSM_DEVICES_MSM8X60_H
 
+#include <linux/msm_kgsl.h>
+
 #define MSM_GSBI3_QUP_I2C_BUS_ID 0
 #define MSM_GSBI4_QUP_I2C_BUS_ID 1
 #define MSM_GSBI9_QUP_I2C_BUS_ID 2
@@ -57,6 +59,7 @@ extern struct platform_device msm_device_vidc;
 #ifdef CONFIG_WEBCAM_OV7692
 extern struct platform_device msm_camera_sensor_webcam;
 #endif
+extern struct kgsl_platform_data kgsl_pdata;
 void __init msm8x60_init_irq(void);
 void __init msm8x60_check_2d_hardware(void);
 

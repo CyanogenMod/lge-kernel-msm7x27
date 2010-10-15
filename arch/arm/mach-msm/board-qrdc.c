@@ -36,7 +36,7 @@
 #include <linux/pmic8058-pwm.h>
 #include <linux/leds-pmic8058.h>
 #include <linux/mfd/marimba.h>
-
+#include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/i2c/sx150x.h>
 #include <linux/smsc911x.h>
@@ -3428,6 +3428,32 @@ static void msm_auxpcm_init(void)
 	gpio_tlmm_config(auxpcm_gpio_table[3], GPIO_CFG_ENABLE);
 }
 
+static void __init msm_gfx3d_clk_init(void)
+{
+	struct clk *clk;
+	int rc;
+
+	/* Disabling or changing the rate of the gfx3d_clk may causes
+	 * instability. Turn it on and leave it on until this is resolved. */
+	WARN((kgsl_pdata.max_grp3d_freq != kgsl_pdata.min_grp3d_freq),
+		"gfx3d_clk scaling is not allowed, re-setting "
+		"min_grp3d_freq to match max_grp3d_freq.\n");
+	kgsl_pdata.min_grp3d_freq = kgsl_pdata.max_grp3d_freq;
+
+	clk = clk_get(NULL, "gfx3d_clk");
+	if (IS_ERR(clk))
+		goto err;
+	rc = clk_set_rate(clk, kgsl_pdata.max_grp3d_freq);
+	if (rc)
+		goto err;
+	rc = clk_enable(clk);
+	if (rc)
+		goto err;
+
+	return;
+err:
+	pr_err("%s: Failed to set up gfx3d_clk.\n", __func__);
+}
 
 static void __init msm8x60_init(void)
 {
@@ -3447,6 +3473,7 @@ static void __init msm8x60_init(void)
 	/* initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
 	 */
+	msm_gfx3d_clk_init();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	platform_add_devices(early_devices, ARRAY_SIZE(early_devices));
 	msm_acpu_clock_init(&msm8x60_acpu_clock_data);

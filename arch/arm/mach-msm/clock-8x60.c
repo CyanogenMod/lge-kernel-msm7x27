@@ -1878,12 +1878,6 @@ void __init msm_clk_soc_init(void)
 	set_1rate(USB_HS_XCVR);
 	set_1rate(USB_FS1_SRC);
 	set_1rate(USB_FS2_SRC);
-
-	/* FIXME: Disabling or changing the rate of the GFX3D clock causes
-	 * crashes.  Until this is fixed, leave the clock on at a constant
-	 * rate. */
-	local_clk_set_rate(C(GFX3D), 266667000);
-	local_clk_enable(C(GFX3D));
 }
 
 /*

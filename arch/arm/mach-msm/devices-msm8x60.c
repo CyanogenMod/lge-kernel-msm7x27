@@ -337,7 +337,7 @@ static struct resource kgsl_resources[] = {
 
 };
 
-static struct kgsl_platform_data kgsl_pdata = {
+struct kgsl_platform_data kgsl_pdata = {
 #ifdef CONFIG_MSM_NPA_SYSTEM_BUS
 	/* NPA Flow IDs */
 	.high_axi_3d = MSM_AXI_FLOW_3D_GPU_HIGH,
