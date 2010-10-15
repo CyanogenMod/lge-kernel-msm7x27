@@ -602,13 +602,16 @@ msmsdcc_data_err(struct msmsdcc_host *host, struct mmc_data *data,
 		 unsigned int status)
 {
 	if (status & MCI_DATACRCFAIL) {
-		pr_err("%s: Data CRC error\n",
-		       mmc_hostname(host->mmc));
-		pr_err("%s: opcode 0x%.8x\n", __func__,
-		       data->mrq->cmd->opcode);
-		pr_err("%s: blksz %d, blocks %d\n", __func__,
-		       data->blksz, data->blocks);
-		data->error = -EILSEQ;
+		if (!(data->mrq->cmd->opcode == MMC_BUSTEST_W
+			|| data->mrq->cmd->opcode == MMC_BUSTEST_R)) {
+			pr_err("%s: Data CRC error\n",
+			       mmc_hostname(host->mmc));
+			pr_err("%s: opcode 0x%.8x\n", __func__,
+			       data->mrq->cmd->opcode);
+			pr_err("%s: blksz %d, blocks %d\n", __func__,
+			       data->blksz, data->blocks);
+			data->error = -EILSEQ;
+		}
 	} else if (status & MCI_DATATIMEOUT) {
 		/* CRC is optional for the bus test commands, not all
 		 * cards respond back with CRC. However controller
