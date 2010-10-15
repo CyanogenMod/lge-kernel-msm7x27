@@ -106,7 +106,6 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 {
 	unsigned int status = 0;
 	unsigned int reg;
-	struct kgsl_mmu_debug dbg;
 
 	KGSL_MEM_VDBG("enter (device=%p)\n", device);
 
@@ -114,14 +113,11 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 
 	if (status & MH_INTERRUPT_MASK__AXI_READ_ERROR) {
 		KGSL_MEM_FATAL("axi read error interrupt\n");
-		kgsl_mmu_debug(&device->mmu, &dbg);
 	} else if (status & MH_INTERRUPT_MASK__AXI_WRITE_ERROR) {
 		KGSL_MEM_FATAL("axi write error interrupt\n");
-		kgsl_mmu_debug(&device->mmu, &dbg);
 	} else if (status & MH_INTERRUPT_MASK__MMU_PAGE_FAULT) {
 		kgsl_regread(device, mmu_reg[device->id].page_fault, &reg);
 		KGSL_MEM_FATAL("mmu page fault interrupt: %08x\n", reg);
-		kgsl_mmu_debug(&device->mmu, &dbg);
 	} else {
 		KGSL_MEM_DBG("bad bits in REG_MH_INTERRUPT_STATUS %08x\n",
 			     status);
@@ -136,37 +132,6 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 
 	KGSL_MEM_VDBG("return\n");
 }
-
-#ifdef DEBUG
-void kgsl_mmu_debug(struct kgsl_mmu *mmu, struct kgsl_mmu_debug *regs)
-{
-	unint32_t id = mmu->device->id;
-
-	memset(regs, 0, sizeof(struct kgsl_mmu_debug));
-	kgsl_regread(mmu->device, mmu_reg[id].config, &regs->config);
-	kgsl_regread(mmu->device, mmu_reg[id].mpu_base, &regs->mpu_base);
-	kgsl_regread(mmu->device, mmu_reg[id].mpu_end, &regs->mpu_end);
-	kgsl_regread(mmu->device, mmu_reg[id].va_range, &regs->va_range);
-	kgsl_regread(mmu->device, mmu_reg[id].pt_base, &regs->pt_base);
-	kgsl_regread(mmu->device, mmu_reg[id].page_fault, &regs->page_fault);
-	kgsl_regread(mmu->device, mmu_reg[id].tran_error, &regs->trans_error);
-	kgsl_regread(mmu->device, mmu_reg[id].axi_error, &regs->axi_error);
-	kgsl_regread(mmu->device, mmu_reg[id].interrupt_mask,
-				 &regs->interrupt_mask);
-	kgsl_regread(mmu->device, mmu_reg[id].interrupt_status,
-				&regs->interrupt_status);
-
-
-	KGSL_MEM_DBG("mmu config %08x mpu_base %08x mpu_end %08x\n",
-		     regs->config, regs->mpu_base, regs->mpu_end);
-	KGSL_MEM_DBG("mmu va_range %08x pt_base %08x \n",
-		     regs->va_range, regs->pt_base);
-	KGSL_MEM_DBG("mmu page_fault %08x tran_err %08x\n",
-		     regs->page_fault, regs->trans_error);
-	KGSL_MEM_DBG("mmu int mask %08x int status %08x\n",
-			regs->interrupt_mask, regs->interrupt_status);
-}
-#endif
 
 static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 				struct kgsl_mmu *mmu,

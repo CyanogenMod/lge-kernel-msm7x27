@@ -1017,7 +1017,6 @@ int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	int status = -EINVAL;
 	struct kgsl_ringbuffer *rb = &device->ringbuffer;
-	struct kgsl_mmu_debug mmu_dbg;
 	unsigned int rbbm_status;
 	int idle_count = 0;
 #define IDLE_COUNT_MAX 1500000
@@ -1051,8 +1050,6 @@ int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 err:
 	KGSL_DRV_ERR("spun too long waiting for RB to idle\n");
 	kgsl_register_dump(device);
-	kgsl_ringbuffer_dump(rb);
-	kgsl_mmu_debug(&device->mmu, &mmu_dbg);
 	BUG();
 
 done:
