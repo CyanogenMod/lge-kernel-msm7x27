@@ -347,8 +347,8 @@ struct kgsl_platform_data kgsl_pdata = {
 	.high_axi_3d = 200000,
 	.high_axi_2d = 160000,
 #endif
-	.max_grp2d_freq = 0,
-	.min_grp2d_freq = 0,
+	.max_grp2d_freq = 228571000,
+	.min_grp2d_freq = 228571000,
 	.set_grp2d_async = NULL, /* HW workaround, run Z180 SYNC @ 192 MHZ */
 	.max_grp3d_freq = 266667000,
 	.min_grp3d_freq = 266667000,
