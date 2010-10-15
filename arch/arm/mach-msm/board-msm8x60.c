@@ -4241,34 +4241,10 @@ static void __init msm8x60_configure_smc91x(void)
 	}
 }
 
-struct msm8x60_tlmm_cfg_struct {
-	unsigned gpio;
-	u32      flags;
-};
-
-static uint32_t msm8x60_tlmm_cfgs[] = {
-#ifdef CONFIG_PMIC8058
-	/* PMIC8058 */
-	GPIO_CFG(PM8058_GPIO_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-#endif
-
-#ifdef CONFIG_PMIC8901
-	/* PMIC8901 */
-	GPIO_CFG(PM8901_GPIO_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-#endif
-};
-
 static void __init msm8x60_init_tlmm(void)
 {
-	unsigned n;
-
 	if (machine_is_msm8x60_rumi3())
 		msm_gpio_install_direct_irq(0, 0);
-	else if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
-		 machine_is_msm8x60_fluid()) {
-		for (n = 0; n < ARRAY_SIZE(msm8x60_tlmm_cfgs); ++n)
-			gpio_tlmm_config(msm8x60_tlmm_cfgs[n], 0);
-	}
 }
 
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT)\
