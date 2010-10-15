@@ -561,6 +561,12 @@ static struct hdmi_edid_video_mode_property_type
 	 63000, 240000, 108108, 240000, TRUE},
 
 	/* All 1920 H Active */
+	{HDMI_VFRMT_1920x1080p60_16_9, 1920, 1080, FALSE, 2200, 280, 1125,
+	 45, 67433, 59940, 148352, 59940, FALSE},
+	{HDMI_VFRMT_1920x1080p60_16_9, 1920, 1080, TRUE,  2200, 280, 1125,
+	 45, 67500, 60000, 148500, 60000, FALSE},
+	{HDMI_VFRMT_1920x1080p50_16_9, 1920, 1080, FALSE, 2640, 720, 1125,
+	 45, 56250, 50000, 148500, 50000, FALSE},
 	{HDMI_VFRMT_1920x1080p24_16_9, 1920, 1080, FALSE, 2750, 830, 1125,
 	 45, 26973, 23976, 74176, 24000, FALSE},
 	{HDMI_VFRMT_1920x1080p24_16_9, 1920, 1080, FALSE, 2750, 830, 1125,
@@ -571,18 +577,12 @@ static struct hdmi_edid_video_mode_property_type
 	 45, 33716, 29970, 74176, 30000, FALSE},
 	{HDMI_VFRMT_1920x1080p30_16_9, 1920, 1080, FALSE, 2200, 280, 1125,
 	 45, 33750, 30000, 74250, 30000, FALSE},
-	{HDMI_VFRMT_1920x1080p50_16_9, 1920, 1080, FALSE, 2640, 720, 1125,
-	 45, 56250, 50000, 148500, 50000, FALSE},
 	{HDMI_VFRMT_1920x1080i50_16_9, 1920, 1080, TRUE,  2304, 384, 1250,
 	 85, 31250, 50000, 72000, 50000, FALSE},
 	{HDMI_VFRMT_1920x1080i60_16_9, 1920, 1080, TRUE,  2200, 280, 1125,
 	 22, 33716, 59940, 74176, 59940, FALSE},
-	{HDMI_VFRMT_1920x1080p60_16_9, 1920, 1080, FALSE, 2200, 280, 1125,
-	 45, 67433, 59940, 148352, 59940, FALSE},
 	{HDMI_VFRMT_1920x1080i60_16_9, 1920, 1080, TRUE,  2200, 280, 1125,
 	 22, 33750, 60000, 74250, 60000, FALSE},
-	{HDMI_VFRMT_1920x1080p60_16_9, 1920, 1080, TRUE,  2200, 280, 1125,
-	 45, 67500, 60000, 148500, 60000, FALSE},
 	{HDMI_VFRMT_1920x1080i100_16_9, 1920, 1080, TRUE,  2640, 720, 1125,
 	 22, 56250, 100000, 148500, 100000, FALSE},
 	{HDMI_VFRMT_1920x1080i120_16_9, 1920, 1080, TRUE,  2200, 280, 1125,
@@ -921,7 +921,7 @@ static int hdmi_common_read_edid_block(int block, uint8 *edid_buf)
 {
 	uint32 ndx, check_sum;
 	int status = external_common_state->read_edid_block(block, edid_buf);
-	if (status)
+	if (status || block > 0)
 		goto error;
 
 	/* Calculate checksum */
@@ -942,7 +942,6 @@ static int hdmi_common_read_edid_block(int block, uint8 *edid_buf)
 				b[ndx+4], b[ndx+5], b[ndx+6], b[ndx+7],
 				b[ndx+8], b[ndx+9], b[ndx+10], b[ndx+11],
 				b[ndx+12], b[ndx+13], b[ndx+14], b[ndx+15]);
-
 		status = -EPROTO;
 		goto error;
 	}
@@ -995,19 +994,21 @@ int hdmi_common_read_edid(void)
 		break;
 	case 1: /* Read block 1 */
 		status = hdmi_common_read_edid_block(1, edid_buf+0x80);
-		if (status || edid_buf[0x80] != 2) {
-			if (!status)
-				status = -EPROTO;
+		if (status) {
 			DEV_ERR("%s: ddc read block(1) failed: %d\n", __func__,
 				status);
 			goto error;
 		}
-		ieee_reg_id =
-			hdmi_edid_extract_ieee_reg_id(edid_buf+0x80);
-
-		hdmi_edid_extract_latency_fields(edid_buf+0x80);
-		hdmi_edid_extract_speaker_allocation_data(edid_buf+0x80);
-		hdmi_edid_extract_audio_data_blocks(edid_buf+0x80);
+		if (edid_buf[0x80] != 2)
+			num_og_cea_blocks = 0;
+		if (num_og_cea_blocks) {
+			ieee_reg_id =
+				hdmi_edid_extract_ieee_reg_id(edid_buf+0x80);
+			hdmi_edid_extract_latency_fields(edid_buf+0x80);
+			hdmi_edid_extract_speaker_allocation_data(
+				edid_buf+0x80);
+			hdmi_edid_extract_audio_data_blocks(edid_buf+0x80);
+		}
 		break;
 	default:
 		DEV_ERR("%s: ddc read failed, not supported multi-blocks: %d\n",
@@ -1025,9 +1026,10 @@ int hdmi_common_read_edid(void)
 
 	/* EDID_VERSION[0x12] - EDID Version */
 	/* EDID_REVISION[0x13] - EDID Revision */
-	DEV_DBG("EDID (V=%d.%d, #CEABlocks=%d[V%d], ID=%s, IEEE=%x)\n",
-		edid_buf[0x12], edid_buf[0x13], num_og_cea_blocks,
-		cea_extension_ver, vendor_id, ieee_reg_id);
+	DEV_DBG("EDID (V=%d.%d, #CEABlocks=%d[V%d], ID=%s, IEEE=%04x, "
+		"EDID-Ext=0x%02x)\n", edid_buf[0x12], edid_buf[0x13],
+		num_og_cea_blocks, cea_extension_ver, vendor_id, ieee_reg_id,
+		edid_buf[0x80]);
 
 	hdmi_edid_get_display_mode(edid_buf,
 		&external_common_state->disp_mode_list, num_og_cea_blocks);

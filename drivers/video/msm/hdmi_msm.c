@@ -511,12 +511,12 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	 *		Authentication Failure Info field - write 1 to clear */
 	if ((hdcp_int_val & (1 << 6)) && (hdcp_int_val & (1 << 4))) {
 		/* AUTH_FAIL_INT */
-		schedule_work(&hdmi_msm_state->hdcp_reauth_work);
-		DEV_INFO("HDCP: AUTH_FAIL_INT received, LINK0_STATUS=0x%08x\n",
-			HDMI_INP_ND(0x011C));
 		/* Clear and Disable */
 		HDMI_OUTP(0x0118, (hdcp_int_val | (1 << 5))
 			& ~((1 << 6) | (1 << 4)));
+		DEV_INFO("HDCP: AUTH_FAIL_INT received, LINK0_STATUS=0x%08x\n",
+			HDMI_INP_ND(0x011C));
+		schedule_work(&hdmi_msm_state->hdcp_reauth_work);
 		return IRQ_HANDLED;
 	}
 	/*    [8] DDC_XFER_REQ_INT	[R]	HDCP DDC Transfer Request
@@ -862,6 +862,10 @@ again:
 
 	/* Check if any NACK occurred */
 	if (reg_val) {
+		if (retry > 1)
+			HDMI_OUTP_ND(0x020C, BIT(3)); /* SW_STATUS_RESET */
+		else
+			HDMI_OUTP_ND(0x020C, BIT(1)); /* SOFT_RESET */
 		if (retry-- > 0) {
 			DEV_INFO("%s[%s]: failed NACK=%08x, retry=%d\n",
 				__func__, what, reg_val, retry);
@@ -884,7 +888,7 @@ static int hdmi_msm_ddc_read(uint32 dev_addr, uint32 offset, uint8 *data_buf,
 	uint32 data_len, const char *what)
 {
 	uint32 reg_val, ndx;
-	int status = 0, retry = 3;
+	int status = 0, retry = 5;
 	uint32 time_out_count;
 
 	if (NULL == data_buf) {
@@ -1000,7 +1004,9 @@ again:
 	 *    START1 = 0x1 (insert START bit)
 	 *    STOP1 = 0x1 (insert STOP bit)
 	 *    CNT1 = data_len   (it's 128 (0x80) for a blk read) */
-	HDMI_OUTP_ND(0x022C, 1 | (1 << 12) | (1 << 13) | (data_len << 16));
+	/* some panels have issues with data_len mod 32 != 0 */
+	HDMI_OUTP_ND(0x022C, 1 | (1 << 12) | (1 << 13)
+		| ((32 * ((data_len + 31) / 32)) << 16));
 
 	/* Trigger the I2C transfer */
 	/* 0x020C HDMI_DDC_CTRL
@@ -1052,13 +1058,19 @@ again:
 
 	/* Check if any NACK occurred */
 	if (reg_val) {
+		msleep(500);
 		if (retry-- > 0) {
-			DEV_INFO("%s: failed NACK=0x%x, retry=%d\n", __func__,
-				reg_val, retry);
+			DEV_INFO("%s(%s): failed NACK=0x%08x, retry=%d, "
+				"dev-addr=0x%02x, offset=0x%02x, "
+				"length=%d\n", __func__, what,
+				reg_val, retry, dev_addr,
+				offset, data_len);
 			goto again;
 		}
 		status = -EIO;
-		DEV_ERR("%s: failed NACK: %x\n", __func__, reg_val);
+		DEV_ERR("%s(%s): failed NACK=0x%08x, dev-addr=0x%02x, "
+			"offset=0x%02x, length=%d\n", __func__, what, reg_val,
+			dev_addr, offset, data_len);
 		goto error;
 	}
 
@@ -1099,28 +1111,17 @@ error:
 
 static int hdmi_msm_read_edid_block(int block, uint8 *edid_buf)
 {
-	uint32 ndx, check_sum;
+	int i, rc;
+	const int block_size = 32;
 
-	/* EDID_BLOCK_ZERO_DEVICE_ADDR[0xA0]: Read block 0 */
-	/* 0x80 = 0x80  Each page size in the EDID ROM */
-	int ret = hdmi_msm_ddc_read(0xA0, block*0x80, edid_buf, 0x80, "EDID");
-	if (ret)
-		goto error;
-
-	/* Calculate checksum */
-	check_sum = 0;
-	for (ndx = 0; ndx < 0x80; ++ndx)
-		check_sum += edid_buf[ndx];
-
-	if (check_sum & 0xFF) {
-		DEV_ERR("%s: failed CHECKSUM (read:%x, expected:%x)\n",
-			__func__, edid_buf[0x7F], check_sum);
-		ret = -EPROTO;
-		goto error;
+	for (i = 0; i < 0x80; i += block_size) {
+		rc = hdmi_msm_ddc_read(0xA0, block*0x80 + i, edid_buf+i,
+			block_size, "EDID");
+		if (rc)
+			return rc;
 	}
 
-error:
-	return ret;
+	return 0;
 }
 
 static int hdmi_msm_read_edid(void)
