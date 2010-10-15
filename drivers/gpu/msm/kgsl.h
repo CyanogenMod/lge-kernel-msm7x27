@@ -116,7 +116,7 @@ enum kgsl_status {
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry, bool preserve);
+void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry);
 
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);
 int kgsl_setstate(struct kgsl_device *device, uint32_t flags);
