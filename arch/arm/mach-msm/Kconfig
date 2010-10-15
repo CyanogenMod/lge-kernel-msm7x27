@@ -972,7 +972,7 @@ config MSM_QDSP6
 	  Enable support for qdsp6. This provides audio and video functionality.
 
 config MSM8X60_AUDIO
-	tristate "MSM8X60 support"
+	tristate "MSM8X60 audio support"
 	depends on ARCH_MSM8X60 && ANDROID_PMEM
 	default y
 	help
