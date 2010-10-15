@@ -166,6 +166,22 @@ static void msm_enqueue_vpe(struct msm_device_queue *queue,
 	qcmd;							\
 })
 
+#define msm_delete_entry(queue, member, q_cmd) ({		\
+	unsigned long flags;					\
+	struct msm_device_queue *__q = (queue);			\
+	struct msm_queue_cmd *qcmd = 0;				\
+	spin_lock_irqsave(&__q->lock, flags);			\
+	if (!list_empty(&__q->list)) {				\
+		list_for_each_entry(qcmd, &__q->list, member)	\
+		if (qcmd == q_cmd) {				\
+			__q->len--;				\
+			list_del_init(&qcmd->member);		\
+			break;					\
+		}						\
+	}							\
+	spin_unlock_irqrestore(&__q->lock, flags);		\
+})
+
 #define msm_queue_drain(queue, member) do {			\
 	unsigned long flags;					\
 	struct msm_device_queue *__q = (queue);			\
@@ -690,6 +706,7 @@ static struct msm_queue_cmd *__msm_control(struct msm_sync *sync,
 			rc = -ETIMEDOUT;
 		if (rc < 0) {
 			pr_err("%s: wait_event error %d\n", __func__, rc);
+			msm_delete_entry(&sync->event_q, list_config, qcmd);
 			return ERR_PTR(rc);
 		}
 	}
