@@ -31,6 +31,7 @@
 #include "clock-local.h"
 #include "clock-8x60.h"
 #include "rpm.h"
+#include "rpm-regulator.h"
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_MM(off)	(MSM_MMSS_CLK_CTL_BASE + (off))
@@ -1562,8 +1563,13 @@ struct clk_source soc_clk_sources[NUM_SRC] = {
 /* Update the sys_vdd voltage given a level. */
 int soc_update_sys_vdd(enum sys_vdd_level level)
 {
-	/* TODO.  Assuming running at HIGH voltage for now. */
-	return 0;
+	static const int vdd_uv[] = {
+		[LOW]     = 1000000,
+		[NOMINAL] = 1100000,
+		[HIGH]    = 1200000,
+	};
+
+	return pm8058_s1_set_min_uv_noirq(PM8058_S1_VOTE_CLOCK, vdd_uv[level]);
 }
 
 /* Enable/disable a power rail associated with a clock. */
