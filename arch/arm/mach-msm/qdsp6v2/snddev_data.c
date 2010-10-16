@@ -29,6 +29,12 @@
 #include "snddev_mi2s.h"
 #include "apr_audio.h"
 
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *debugfs_hsed_config;
+static void snddev_hsed_config_modify_setting(int type);
+static void snddev_hsed_config_restore_setting(void);
+#endif
+
 /* define the value for BT_SCO */
 
 static struct adie_codec_action_unit iearpiece_48KHz_osr256_actions[] =
@@ -147,7 +153,7 @@ static struct snddev_icodec_data snddev_ihs_stereo_rx_data = {
 	.voltage_off = msm_snddev_voltage_off,
 };
 
-static struct platform_device msm_headset_ab_cpls_device = {
+static struct platform_device msm_headset_stereo_device = {
 	.name = "snddev_icodec",
 	.id = 34,
 	.dev = { .platform_data = &snddev_ihs_stereo_rx_data },
@@ -628,6 +634,125 @@ static struct platform_device msm_itty_mono_rx_device = {
 	.dev = { .platform_data = &snddev_itty_mono_rx_data },
 };
 
+#ifdef CONFIG_DEBUG_FS
+static struct adie_codec_action_unit
+	ihs_stereo_rx_class_d_legacy_48KHz_osr256_actions[] =
+	HPH_PRI_D_LEG_STEREO;
+
+static struct adie_codec_hwsetting_entry
+	ihs_stereo_rx_class_d_legacy_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions =
+		ihs_stereo_rx_class_d_legacy_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE
+		(ihs_stereo_rx_class_d_legacy_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_action_unit
+	ihs_stereo_rx_class_ab_legacy_48KHz_osr256_actions[] =
+	HPH_PRI_AB_LEG_STEREO;
+
+static struct adie_codec_hwsetting_entry
+	ihs_stereo_rx_class_ab_legacy_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions =
+		ihs_stereo_rx_class_ab_legacy_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE
+		(ihs_stereo_rx_class_ab_legacy_48KHz_osr256_actions),
+	}
+};
+
+static void snddev_hsed_config_modify_setting(int type)
+{
+	struct platform_device *device;
+	struct snddev_icodec_data *icodec_data;
+
+	device = &msm_headset_stereo_device;
+	icodec_data = (struct snddev_icodec_data *)device->dev.platform_data;
+
+	if (icodec_data) {
+		if (type == 1) {
+			icodec_data->voltage_on = NULL;
+			icodec_data->voltage_off = NULL;
+			icodec_data->profile->settings =
+				ihs_stereo_rx_class_d_legacy_settings;
+			icodec_data->profile->setting_sz =
+			ARRAY_SIZE(ihs_stereo_rx_class_d_legacy_settings);
+		} else if (type == 2) {
+			icodec_data->voltage_on = NULL;
+			icodec_data->voltage_off = NULL;
+			icodec_data->profile->settings =
+				ihs_stereo_rx_class_ab_legacy_settings;
+			icodec_data->profile->setting_sz =
+			ARRAY_SIZE(ihs_stereo_rx_class_ab_legacy_settings);
+		}
+	}
+}
+
+static void snddev_hsed_config_restore_setting(void)
+{
+	struct platform_device *device;
+	struct snddev_icodec_data *icodec_data;
+
+	device = &msm_headset_stereo_device;
+	icodec_data = (struct snddev_icodec_data *)device->dev.platform_data;
+
+	if (icodec_data) {
+		icodec_data->voltage_on = msm_snddev_voltage_on;
+		icodec_data->voltage_off = msm_snddev_voltage_off;
+		icodec_data->profile->settings = headset_ab_cpls_settings;
+		icodec_data->profile->setting_sz =
+			ARRAY_SIZE(headset_ab_cpls_settings);
+	}
+}
+
+static ssize_t snddev_hsed_config_debug_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	char *lb_str = filp->private_data;
+	char cmd;
+
+	if (get_user(cmd, ubuf))
+		return -EFAULT;
+
+	if (!strcmp(lb_str, "msm_hsed_config")) {
+		switch (cmd) {
+		case '0':
+			snddev_hsed_config_restore_setting();
+			break;
+
+		case '1':
+			snddev_hsed_config_modify_setting(1);
+			break;
+
+		case '2':
+			snddev_hsed_config_modify_setting(2);
+			break;
+
+		default:
+			break;
+		}
+	}
+	return cnt;
+}
+
+static int snddev_hsed_config_debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static const struct file_operations snddev_hsed_config_debug_fops = {
+	.open = snddev_hsed_config_debug_open,
+	.write = snddev_hsed_config_debug_write
+};
+#endif
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -637,7 +762,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_ispkr_mic_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
-	&msm_headset_ab_cpls_device,
+	&msm_headset_stereo_device,
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
 	&msm_mi2s_fm_tx_device,
@@ -657,7 +782,7 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_ispkr_mic_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
-	&msm_headset_ab_cpls_device,
+	&msm_headset_stereo_device,
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
 	&msm_mi2s_fm_tx_device,
@@ -674,4 +799,9 @@ void __init msm_snddev_init(void)
 		platform_add_devices(snd_devices_ffa,
 		ARRAY_SIZE(snd_devices_ffa));
 	}
+#ifdef CONFIG_DEBUG_FS
+	debugfs_hsed_config = debugfs_create_file("msm_hsed_config",
+				S_IFREG | S_IRUGO, NULL,
+		(void *) "msm_hsed_config", &snddev_hsed_config_debug_fops);
+#endif
 }
