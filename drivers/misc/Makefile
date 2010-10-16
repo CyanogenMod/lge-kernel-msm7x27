@@ -47,3 +47,4 @@ obj-$(CONFIG_PMIC8058_NFC) += pmic8058-nfc.o
 obj-$(CONFIG_PMIC8058_UPL) += pmic8058-upl.o
 obj-$(CONFIG_MSM_MEMORY_LOW_POWER_MODE_SUSPEND_DEEP_POWER_DOWN) \
 	+= msm_migrate_pages.o
+obj-$(CONFIG_PMIC8058_XOADC) += pmic8058-xoadc.o
