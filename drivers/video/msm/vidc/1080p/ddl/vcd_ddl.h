@@ -298,7 +298,6 @@ struct ddl_decoder_data {
 	u32  dynamic_prop_change;
 	u32  dynmic_prop_change_req;
 	u32  flush_pending;
-	u32  flush_eos_case;
 	u32  meta_data_exists;
 };
 union ddl_codec_data{
