@@ -41,4 +41,5 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_PMIC8058_PWRKEY)           += pmic8058-pwrkey.o
 obj-$(CONFIG_PMIC8058_OTHC)             += pmic8058-othc.o
+obj-$(CONFIG_INPUT_PMIC8058_VIBRA_MEMLESS) += pmic8058-vib-memless.o
 
