@@ -4273,12 +4273,13 @@ static uint32_t lcd_panel_gpios[] = {
 static void lcdc_samsung_panel_power(int on)
 {
 	int n;
+	unsigned gpio_on;
 
 	display_common_power(on);
 
-	/*TODO if on = 0 free the gpio's */
+	gpio_on = (on ? GPIO_CFG_ENABLE : GPIO_CFG_DISABLE);
 	for (n = 0; n < ARRAY_SIZE(lcd_panel_gpios); ++n)
-		gpio_tlmm_config(lcd_panel_gpios[n], 0);
+		gpio_tlmm_config(lcd_panel_gpios[n], gpio_on);
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
