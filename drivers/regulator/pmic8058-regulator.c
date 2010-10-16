@@ -834,7 +834,7 @@ static void __exit pm8058_vreg_exit(void)
 subsys_initcall(pm8058_vreg_init);
 module_exit(pm8058_vreg_exit);
 
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("PMIC8058 regulator driver");
 MODULE_VERSION("1.0");
 MODULE_ALIAS("platform:pm8058-regulator");
