@@ -80,7 +80,7 @@ extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
 #define NUM_FAB 5
 #define MAX_FAB_KEY 7168  /* OR(All fabric ids) */
 
-#define GET_MPORT(src) (((src) - 1) & (FABRIC_ID_KEY - 1))
+#define GET_MPORT(src) ((src) & (FABRIC_ID_KEY - 1))
 #define GET_SLPORT(src) ((src) & (SLAVE_ID_KEY - 1))
 #define GET_FABID(id) ((id) & MAX_FAB_KEY)
 
@@ -125,8 +125,7 @@ extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
 
 #define FAB_MAX_BW_BYTES(width, clk) ((uint32_t)(width) * (uint32)(clk))
 #define FAB_BW_128K(bw) ((uint16_t)((bw) >> 17))
-#define BW_TO_CLK_FREQ_KHZ(width, bw) ((((uint32_t)(bw)) << 17) /\
-	(width) / 1000)
+#define BW_TO_CLK_FREQ_HZ(width, bw) ((unsigned long)((bw) / (width)))
 /* 8 bytes per clock @ 133 MHz */
 #define SYSFAB_MAX_BW_BYTES FAB_MAX_BW_BYTES(8, 133000000)
 /* 16 bytes per clock @ 166 MHz */
