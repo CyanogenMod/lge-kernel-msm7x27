@@ -228,6 +228,9 @@ u32 vidc_720p_engine_reset(u32 ch_id,
 	/*Sets the DMA endianness */
 	VIDC_IO_OUT(REG_736316, dma_endian);
 
+	/*Restore ARM endianness */
+	VIDC_IO_OUT(REG_215724, 0);
+
 	/* retun engine reset success */
 	return true ;
 }
