@@ -729,6 +729,8 @@ static int mddi_sharp_lcd_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
+	mddi_host_client_cnt_reset();
+
 	if (mfd->panel.id == SHARP_QVGA_PRIM)
 		mddi_sharp_prim_lcd_init();
 	else
