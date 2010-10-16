@@ -282,25 +282,23 @@ static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
 			decoder->client_output_buf_req.actual_count
 			&& decoder->progressive_only)
 			need_reconfig = false;
-		if ((input_vcd_frm->flags & VCD_FRAME_FLAG_CODECCONFIG) ||
-			input_vcd_frm->data_len == seq_hdr_info.dec_frm_size) {
-			input_vcd_frm->offset +=
-				seq_hdr_info.dec_frm_size;
-			input_vcd_frm->data_len -=
-				seq_hdr_info.dec_frm_size;
-			if (!need_reconfig ||
-				!(input_vcd_frm->flags & VCD_FRAME_FLAG_EOS)) {
-				input_vcd_frm->flags |=
-					VCD_FRAME_FLAG_CODECCONFIG;
-				seq_hdr_only_frame = true;
-				ddl->input_frame.frm_trans_end = !need_reconfig;
-				ddl_context->ddl_callback(
-					VCD_EVT_RESP_INPUT_DONE,
-					VCD_S_SUCCESS, &ddl->input_frame,
-					sizeof(struct ddl_frame_data_tag),
-					(u32 *) ddl,
-					ddl->ddl_context->client_data);
-			}
+		if ((input_vcd_frm->data_len == seq_hdr_info.dec_frm_size ||
+			 (input_vcd_frm->flags & VCD_FRAME_FLAG_CODECCONFIG)) &&
+			(!need_reconfig ||
+			 !(input_vcd_frm->flags & VCD_FRAME_FLAG_EOS))) {
+			input_vcd_frm->flags |=
+				VCD_FRAME_FLAG_CODECCONFIG;
+			seq_hdr_only_frame = true;
+			ddl->input_frame.frm_trans_end = !need_reconfig;
+			ddl_context->ddl_callback(
+				VCD_EVT_RESP_INPUT_DONE,
+				VCD_S_SUCCESS, &ddl->input_frame,
+				sizeof(struct ddl_frame_data_tag),
+				(u32 *) ddl,
+				ddl->ddl_context->client_data);
+		} else if (decoder->codec.codec != VCD_CODEC_H263) {
+			input_vcd_frm->offset += seq_hdr_info.dec_frm_size;
+			input_vcd_frm->data_len -= seq_hdr_info.dec_frm_size;
 		}
 		if (need_reconfig) {
 			decoder->client_frame_size = decoder->frame_size;
