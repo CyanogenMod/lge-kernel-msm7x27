@@ -116,27 +116,22 @@ void kgsl_cp_intrcallback(struct kgsl_device *device)
 	if (status & CP_INT_CNTL__T0_PACKET_IN_IB_MASK) {
 		KGSL_CMD_FATAL("ringbuffer TO packet in IB interrupt\n");
 		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
-		kgsl_ringbuffer_dump(rb);
 	}
 	if (status & CP_INT_CNTL__OPCODE_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer opcode error interrupt\n");
 		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
-		kgsl_ringbuffer_dump(rb);
 	}
 	if (status & CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer protected mode error interrupt\n");
 		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
-		kgsl_ringbuffer_dump(rb);
 	}
 	if (status & CP_INT_CNTL__RESERVED_BIT_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer reserved bit error interrupt\n");
 		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
-		kgsl_ringbuffer_dump(rb);
 	}
 	if (status & CP_INT_CNTL__IB_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer IB error interrupt\n");
 		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
-		kgsl_ringbuffer_dump(rb);
 	}
 	if (status & CP_INT_CNTL__SW_INT_MASK)
 		KGSL_CMD_DBG("ringbuffer software interrupt\n");
@@ -159,47 +154,6 @@ void kgsl_cp_intrcallback(struct kgsl_device *device)
 					   NULL);
 	}
 
-	KGSL_CMD_VDBG("return\n");
-}
-
-
-void kgsl_ringbuffer_watchdog(struct kgsl_device *device)
-{
-	struct kgsl_ringbuffer *rb = NULL;
-
-	BUG_ON(device == NULL);
-
-	rb = &device->ringbuffer;
-
-	KGSL_CMD_VDBG("enter\n");
-
-	if ((rb->flags & KGSL_FLAGS_STARTED) == 0) {
-		KGSL_CMD_VDBG("not started\n");
-		return;
-	}
-
-	GSL_RB_GET_READPTR(rb, &rb->rptr);
-
-	if (rb->rptr == rb->wptr) {
-		/* clear rptr sample for interval n */
-		rb->watchdog.flags &= ~KGSL_FLAGS_ACTIVE;
-		goto done;
-	}
-	/* ringbuffer is currently not empty */
-	/* and a rptr sample was taken during interval n-1 */
-	if (rb->watchdog.flags & KGSL_FLAGS_ACTIVE) {
-		/* and the rptr did not advance between
-		* interval n-1 and n */
-		if (rb->rptr == rb->watchdog.rptr_sample) {
-			/* then the core has hung */
-			KGSL_CMD_FATAL("Watchdog detected core hung.\n");
-			goto done;
-		}
-		/* save rptr sample for interval n */
-		rb->watchdog.flags |= KGSL_FLAGS_ACTIVE;
-		rb->watchdog.rptr_sample = rb->rptr;
-	}
-done:
 	KGSL_CMD_VDBG("return\n");
 }
 
@@ -551,7 +505,6 @@ int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 		kgsl_cmdstream_memqueue_drain(rb->device);
 
 		rb->flags &= ~KGSL_FLAGS_STARTED;
-		kgsl_ringbuffer_dump(rb);
 	}
 
 	KGSL_CMD_VDBG("return %d\n", 0);
@@ -782,111 +735,3 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
-#ifdef DEBUG
-void kgsl_ringbuffer_debug(struct kgsl_ringbuffer *rb,
-				struct kgsl_rb_debug *rb_debug)
-{
-	memset(rb_debug, 0, sizeof(struct kgsl_rb_debug));
-
-	rb_debug->mem_rptr = rb->memptrs->rptr;
-	rb_debug->mem_wptr_poll = rb->memptrs->wptr_poll;
-	kgsl_yamato_regread(rb->device, REG_CP_RB_BASE,
-			    (unsigned int *)&rb_debug->cp_rb_base);
-	kgsl_yamato_regread(rb->device, REG_CP_RB_CNTL,
-			    (unsigned int *)&rb_debug->cp_rb_cntl);
-	kgsl_yamato_regread(rb->device, REG_CP_RB_RPTR_ADDR,
-			    (unsigned int *)&rb_debug->cp_rb_rptr_addr);
-	kgsl_yamato_regread(rb->device, REG_CP_RB_RPTR,
-			    (unsigned int *)&rb_debug->cp_rb_rptr);
-	kgsl_yamato_regread(rb->device, REG_CP_RB_RPTR_WR,
-			    (unsigned int *)&rb_debug->cp_rb_rptr_wr);
-	kgsl_yamato_regread(rb->device, REG_CP_RB_WPTR,
-			    (unsigned int *)&rb_debug->cp_rb_wptr);
-	kgsl_yamato_regread(rb->device, REG_CP_RB_WPTR_DELAY,
-			    (unsigned int *)&rb_debug->cp_rb_wptr_delay);
-	kgsl_yamato_regread(rb->device, REG_CP_RB_WPTR_BASE,
-			    (unsigned int *)&rb_debug->cp_rb_wptr_base);
-	kgsl_yamato_regread(rb->device, REG_CP_IB1_BASE,
-			    (unsigned int *)&rb_debug->cp_ib1_base);
-	kgsl_yamato_regread(rb->device, REG_CP_IB1_BUFSZ,
-			    (unsigned int *)&rb_debug->cp_ib1_bufsz);
-	kgsl_yamato_regread(rb->device, REG_CP_IB2_BASE,
-			    (unsigned int *)&rb_debug->cp_ib2_base);
-	kgsl_yamato_regread(rb->device, REG_CP_IB2_BUFSZ,
-			    (unsigned int *)&rb_debug->cp_ib2_bufsz);
-	kgsl_yamato_regread(rb->device, REG_CP_ST_BASE,
-			    (unsigned int *)&rb_debug->cp_st_base);
-	kgsl_yamato_regread(rb->device, REG_CP_ST_BUFSZ,
-			    (unsigned int *)&rb_debug->cp_st_bufsz);
-	kgsl_yamato_regread(rb->device, REG_CP_CSQ_RB_STAT,
-			    (unsigned int *)&rb_debug->cp_csq_rb_stat);
-	kgsl_yamato_regread(rb->device, REG_CP_CSQ_IB1_STAT,
-			    (unsigned int *)&rb_debug->cp_csq_ib1_stat);
-	kgsl_yamato_regread(rb->device, REG_CP_CSQ_IB2_STAT,
-			    (unsigned int *)&rb_debug->cp_csq_ib2_stat);
-	kgsl_yamato_regread(rb->device, REG_SCRATCH_UMSK,
-			    (unsigned int *)&rb_debug->scratch_umsk);
-	kgsl_yamato_regread(rb->device, REG_SCRATCH_ADDR,
-			    (unsigned int *)&rb_debug->scratch_addr);
-	kgsl_yamato_regread(rb->device, REG_CP_ME_CNTL,
-			    (unsigned int *)&rb_debug->cp_me_cntl);
-	kgsl_yamato_regread(rb->device, REG_CP_ME_STATUS,
-			    (unsigned int *)&rb_debug->cp_me_status);
-	kgsl_yamato_regread(rb->device, REG_CP_DEBUG,
-			    (unsigned int *)&rb_debug->cp_debug);
-	kgsl_yamato_regread(rb->device, REG_CP_STAT,
-			    (unsigned int *)&rb_debug->cp_stat);
-	kgsl_yamato_regread(rb->device, REG_CP_INT_STATUS,
-			    (unsigned int *)&rb_debug->cp_int_status);
-	kgsl_yamato_regread(rb->device, REG_CP_INT_CNTL,
-			    (unsigned int *)&rb_debug->cp_int_cntl);
-	kgsl_yamato_regread(rb->device, REG_RBBM_STATUS,
-			    (unsigned int *)&rb_debug->rbbm_status);
-	kgsl_yamato_regread(rb->device, REG_RBBM_INT_STATUS,
-			    (unsigned int *)&rb_debug->rbbm_int_status);
-	GSL_RB_GET_SOP_TIMESTAMP(rb, (unsigned int *)&rb_debug->sop_timestamp);
-	GSL_RB_GET_EOP_TIMESTAMP(rb, (unsigned int *)&rb_debug->eop_timestamp);
-
-}
-#endif /*DEBUG*/
-
-#ifdef DEBUG
-void kgsl_ringbuffer_dump(struct kgsl_ringbuffer *rb)
-{
-	struct kgsl_rb_debug rb_debug;
-	kgsl_ringbuffer_debug(rb, &rb_debug);
-
-	KGSL_CMD_DBG("rbbm_status %08x rbbm_int_status %08x"
-			" mem_rptr %08x mem_wptr_poll %08x\n",
-			rb_debug.rbbm_status,
-			rb_debug.rbbm_int_status,
-			rb_debug.mem_rptr, rb_debug.mem_wptr_poll);
-
-	KGSL_CMD_DBG("rb_base %08x rb_cntl %08x rb_rptr_addr %08x rb_rptr %08x"
-			" rb_rptr_wr %08x\n",
-			rb_debug.cp_rb_base, rb_debug.cp_rb_cntl,
-			rb_debug.cp_rb_rptr_addr, rb_debug.cp_rb_rptr,
-			rb_debug.cp_rb_rptr_wr);
-
-	KGSL_CMD_DBG("rb_wptr %08x rb_wptr_delay %08x rb_wptr_base %08x"
-			" ib1_base %08x ib1_bufsz %08x\n",
-			rb_debug.cp_rb_wptr, rb_debug.cp_rb_wptr_delay,
-			rb_debug.cp_rb_wptr_base, rb_debug.cp_ib1_base,
-			rb_debug.cp_ib1_bufsz);
-
-	KGSL_CMD_DBG("ib2_base  %08x ib2_bufsz %08x st_base %08x st_bufsz %08x"
-			" cp_me_cntl %08x cp_me_status %08x\n",
-			rb_debug.cp_ib2_base, rb_debug.cp_ib2_bufsz,
-			rb_debug.cp_st_base, rb_debug.cp_st_bufsz,
-			rb_debug.cp_me_cntl, rb_debug.cp_me_status);
-
-	KGSL_CMD_DBG("cp_debug %08x cp_stat %08x cp_int_status %08x"
-			" cp_int_cntl %08x\n",
-			rb_debug.cp_debug, rb_debug.cp_stat,
-			rb_debug.cp_int_status, rb_debug.cp_int_cntl);
-
-	KGSL_CMD_DBG("sop_timestamp: %d eop_timestamp: %d\n",
-			rb_debug.sop_timestamp, rb_debug.eop_timestamp);
-
-}
-#endif /* DEBUG */
