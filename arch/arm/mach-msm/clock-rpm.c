@@ -68,10 +68,6 @@ int rpm_clk_set_min_rate(unsigned id, unsigned rate)
 {
 	struct msm_rpm_iv_pair iv = { resource[id].rpm_clk_id, (rate/1000) };
 
-	/* FIXME: Temporary until ebi1_clk is supported by the RPM. */
-	if (id == R_EBI1_CLK)
-		return 0;
-
 	return msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
 }
 
