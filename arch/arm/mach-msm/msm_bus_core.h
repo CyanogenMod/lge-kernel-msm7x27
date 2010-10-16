@@ -92,7 +92,7 @@ struct msm_bus_inode_info {
 
 struct commit_data {
 	uint16_t *bwsum;
-	uint16_t **arb;
+	uint16_t *arb;
 };
 
 struct msm_bus_fabric_device {
