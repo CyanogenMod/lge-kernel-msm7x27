@@ -935,9 +935,11 @@ static void process_events(struct work_struct *work)
 /* USB calls these to tell us how much charging current we should draw*/
 void msm_charger_vbus_draw(unsigned int mA)
 {
-	if (usb_hw_chg_priv)
+	if (usb_hw_chg_priv) {
+		usb_hw_chg_priv->max_source_current = mA;
 		msm_charger_notify_event(usb_hw_chg_priv->hw_chg,
 						CHG_ENUMERATED_EVENT);
+	}
 	else
 		pr_err("%s called early;charger isnt initialized\n", __func__);
 }
