@@ -85,6 +85,7 @@
 #include "saw-regulator.h"
 #include "socinfo.h"
 #include "gpiomux.h"
+#include "rpm-regulator.h"
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
@@ -1708,9 +1709,83 @@ static struct platform_device msm_charger_device = {
 };
 #endif
 
+static struct regulator_consumer_supply rpm_vreg_supply[RPM_VREG_ID_MAX] = {
+	[RPM_VREG_ID_PM8058_S0] = REGULATOR_SUPPLY("8058_s0", NULL),
+	[RPM_VREG_ID_PM8058_S1] = REGULATOR_SUPPLY("8058_s1", NULL),
+};
+
+#define RPM_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
+		      _default_uV, _peak_uA, _avg_uA, _pull_down, _pin_ctrl, \
+		      _freq, _pin_fn, _rpm_mode, _state, _always_on) \
+	[_id] = { \
+		.init_data = { \
+			.constraints = { \
+				.valid_modes_mask = _modes, \
+				.valid_ops_mask = _ops, \
+				.min_uV = _min_uV, \
+				.max_uV = _max_uV, \
+				.apply_uV = _apply_uV, \
+				.always_on = _always_on, \
+			}, \
+			.num_consumer_supplies = 1, \
+			.consumer_supplies = &rpm_vreg_supply[_id], \
+		}, \
+		.default_uV = _default_uV, \
+		.peak_uA = _peak_uA, \
+		.avg_uA = _avg_uA, \
+		.pull_down_enable = _pull_down, \
+		.pin_ctrl = _pin_ctrl, \
+		.freq = _freq, \
+		.pin_fn = _pin_fn, \
+		.mode = _rpm_mode, \
+		.state = _state, \
+	}
+
+/*
+ * Passing this voltage to the RPM will vote for HPM.  Use it as a default in
+ * case consumers do not specify their current requirements via
+ * regulator_set_optimum_mode.
+ */
+#define RPM_HPM_UV	(51000)
+
+#define RPM_VREG_INIT_SMPS(_id, _always_on, _pd, _min_uV, _max_uV, _pin_ctrl, \
+			   _freq) \
+	RPM_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL | \
+		      REGULATOR_MODE_IDLE | REGULATOR_MODE_STANDBY, \
+		      REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS | \
+		      REGULATOR_CHANGE_MODE, 0, _min_uV, RPM_HPM_UV, \
+		      RPM_HPM_UV, _pd, _pin_ctrl, _freq, \
+		      RPM_VREG_PIN_FN_ENABLE, RPM_VREG_MODE_NONE, \
+		      RPM_VREG_STATE_OFF, _always_on)
+
+static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
+	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S0, 1, 1,  1000000, 1200000, 0,
+		RPM_VREG_FREQ_1p75),
+	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S1, 1, 1,  1000000, 1200000, 0,
+		RPM_VREG_FREQ_1p75),
+};
+
+#define RPM_VREG(_id) \
+	[_id] = { \
+		.name = "rpm-regulator", \
+		.id = _id, \
+		.dev = { \
+			.platform_data = &rpm_vreg_init_pdata[_id], \
+		}, \
+	}
+
+static struct platform_device rpm_vreg_device[RPM_VREG_ID_MAX] = {
+	RPM_VREG(RPM_VREG_ID_PM8058_S0),
+	RPM_VREG(RPM_VREG_ID_PM8058_S1),
+};
+
 static struct platform_device *early_devices[] __initdata = {
 	&msm_device_saw_s0,
 	&msm_device_saw_s1,
+#ifdef CONFIG_PMIC8058
+	&rpm_vreg_device[RPM_VREG_ID_PM8058_S0],
+	&rpm_vreg_device[RPM_VREG_ID_PM8058_S1],
+#endif
 #ifdef CONFIG_MSM_BUS_SCALING
 	&msm_bus_apps_fabric,
 	&msm_bus_sys_fabric,
@@ -2970,8 +3045,6 @@ static struct regulator_consumer_supply pm8058_vreg_supply[PM8058_VREG_MAX] = {
 	[PM8058_VREG_ID_L24] = REGULATOR_SUPPLY("8058_l24", NULL),
 	[PM8058_VREG_ID_L25] = REGULATOR_SUPPLY("8058_l25", NULL),
 
-	[PM8058_VREG_ID_S0] = REGULATOR_SUPPLY("8058_s0", NULL),
-	[PM8058_VREG_ID_S1] = REGULATOR_SUPPLY("8058_s1", NULL),
 	[PM8058_VREG_ID_S2] = REGULATOR_SUPPLY("8058_s2", NULL),
 	[PM8058_VREG_ID_S3] = REGULATOR_SUPPLY("8058_s3", NULL),
 	[PM8058_VREG_ID_S4] = REGULATOR_SUPPLY("8058_s4", NULL),
@@ -3043,8 +3116,6 @@ static struct regulator_init_data pm8058_vreg_init[PM8058_VREG_MAX] = {
 	PM8058_VREG_INIT_LDO(PM8058_VREG_ID_L24, 1200000, 1200000),
 	PM8058_VREG_INIT_LDO(PM8058_VREG_ID_L25, 1200000, 1200000),
 
-	PM8058_VREG_INIT_SMPS(PM8058_VREG_ID_S0, 1100000, 1100000),
-	PM8058_VREG_INIT_SMPS(PM8058_VREG_ID_S1, 1100000, 1100000),
 	PM8058_VREG_INIT_SMPS(PM8058_VREG_ID_S2, 1350000, 1350000),
 	PM8058_VREG_INIT_SMPS(PM8058_VREG_ID_S3, 1800000, 1800000),
 	PM8058_VREG_INIT_SMPS(PM8058_VREG_ID_S4, 2200000, 2200000),
@@ -3209,8 +3280,6 @@ static struct mfd_cell pm8058_subdevs[] = {
 	PM8058_VREG(PM8058_VREG_ID_L23),
 	PM8058_VREG(PM8058_VREG_ID_L24),
 	PM8058_VREG(PM8058_VREG_ID_L25),
-	PM8058_VREG(PM8058_VREG_ID_S0),
-	PM8058_VREG(PM8058_VREG_ID_S1),
 	PM8058_VREG(PM8058_VREG_ID_S2),
 	PM8058_VREG(PM8058_VREG_ID_S3),
 	PM8058_VREG(PM8058_VREG_ID_S4),
