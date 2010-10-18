@@ -769,6 +769,14 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	uint32_t ecc_errors;
 	uint32_t total_ecc_errors = 0;
 	unsigned cwperpage;
+#if VERBOSE
+	pr_info("================================================="
+			"================\n");
+	pr_info("%s:\nfrom 0x%llx mode %d\ndatbuf 0x%p datlen 0x%x"
+			"\noobbuf 0x%p ooblen 0x%x\n",
+			__func__, from, ops->mode, ops->datbuf, ops->len,
+			ops->oobbuf, ops->ooblen);
+#endif
 
 	if (mtd->writesize == 2048)
 		page = from >> 11;
@@ -827,10 +835,6 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	}
 #endif
 
-#if VERBOSE
-	pr_info("msm_nand_read_oob %llx %p %x %p %x\n",
-		from, ops->datbuf, ops->len, ops->oobbuf, ops->ooblen);
-#endif
 	if (ops->datbuf) {
 		/* memset(ops->datbuf, 0x55, ops->len); */
 		data_dma_addr_curr = data_dma_addr =
@@ -1086,24 +1090,11 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			       (loff_t)page * mtd->writesize, ops->len,
 			       ops->ooblen);
 		} else {
-			pr_info("status: %x %x %x %x %x %x %x %x %x \
-					%x %x %x %x %x %x %x \n",
-				dma_buffer->data.result[0].flash_status,
-				dma_buffer->data.result[0].buffer_status,
-				dma_buffer->data.result[1].flash_status,
-				dma_buffer->data.result[1].buffer_status,
-				dma_buffer->data.result[2].flash_status,
-				dma_buffer->data.result[2].buffer_status,
-				dma_buffer->data.result[3].flash_status,
-				dma_buffer->data.result[3].buffer_status,
-				dma_buffer->data.result[4].flash_status,
-				dma_buffer->data.result[4].buffer_status,
-				dma_buffer->data.result[5].flash_status,
-				dma_buffer->data.result[5].buffer_status,
-				dma_buffer->data.result[6].flash_status,
-				dma_buffer->data.result[6].buffer_status,
-				dma_buffer->data.result[7].flash_status,
-				dma_buffer->data.result[7].buffer_status);
+			for (n = start_sector; n < cwperpage; n++)
+				pr_info("flash_status[%d] = %x,\
+				buffr_status[%d] = %x\n",
+				n, dma_buffer->data.result[n].flash_status,
+				n, dma_buffer->data.result[n].buffer_status);
 		}
 #endif
 		if (err && err != -EUCLEAN && err != -EBADMSG)
@@ -1133,6 +1124,13 @@ err_dma_map_oobbuf_failed:
 		pr_err("msm_nand_read_oob %llx %x %x failed %d, corrected %d\n",
 		       from, ops->datbuf ? ops->len : 0, ops->ooblen, err,
 		       total_ecc_errors);
+#if VERBOSE
+	pr_info("\n%s: ret %d, retlen %d oobretlen %d\n",
+			__func__, err, ops->retlen, ops->oobretlen);
+
+	pr_info("==================================================="
+			"==============\n");
+#endif
 	return err;
 }
 
@@ -1190,6 +1188,14 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 	uint32_t ecc_errors;
 	uint32_t total_ecc_errors = 0;
 	unsigned cwperpage;
+#if VERBOSE
+		pr_info("================================================="
+				"============\n");
+		pr_info("%s:\nfrom 0x%llx mode %d\ndatbuf 0x%p datlen 0x%x"
+				"\noobbuf 0x%p ooblen 0x%x\n\n",
+				__func__, from, ops->mode, ops->datbuf,
+				ops->len, ops->oobbuf, ops->ooblen);
+#endif
 
 	if (mtd->writesize == 2048)
 		page = from >> 11;
@@ -1241,11 +1247,6 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 		page_count = ops->len / mtd->writesize;
 	else
 		page_count = ops->len / (mtd->writesize + mtd->oobsize);
-
-#if VERBOSE
-	pr_info("msm_nand_read_oob_dualnandc %llx %p %x %p %x\n",
-		from, ops->datbuf, ops->len, ops->oobbuf, ops->ooblen);
-#endif
 
 	if (ops->datbuf) {
 		data_dma_addr_curr = data_dma_addr =
@@ -1871,63 +1872,24 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 				"%llx %x %x empty page\n",
 			       (loff_t)page * mtd->writesize, ops->len,
 			       ops->ooblen);
-		} else if (!interleave_enable) {
-			pr_info("status: %x %x %x %x %x %x %x %x %x \
-					%x %x %x %x %x %x %x \n",
-				dma_buffer->data.result[0].flash_status,
-				dma_buffer->data.result[0].buffer_status,
-				dma_buffer->data.result[1].flash_status,
-				dma_buffer->data.result[1].buffer_status,
-				dma_buffer->data.result[2].flash_status,
-				dma_buffer->data.result[2].buffer_status,
-				dma_buffer->data.result[3].flash_status,
-				dma_buffer->data.result[3].buffer_status,
-				dma_buffer->data.result[4].flash_status,
-				dma_buffer->data.result[4].buffer_status,
-				dma_buffer->data.result[5].flash_status,
-				dma_buffer->data.result[5].buffer_status,
-				dma_buffer->data.result[6].flash_status,
-				dma_buffer->data.result[6].buffer_status,
-				dma_buffer->data.result[7].flash_status,
-				dma_buffer->data.result[7].buffer_status);
 		} else {
-			pr_info("status: %x %x %x %x %x %x %x %x %x \
-					%x %x %x %x %x %x %x \
-					%x %x %x %x %x %x %x %x %x \
-					%x %x %x %x %x %x %x \n",
-				dma_buffer->data.result[0].flash_status,
-				dma_buffer->data.result[0].buffer_status,
-				dma_buffer->data.result[1].flash_status,
-				dma_buffer->data.result[1].buffer_status,
-				dma_buffer->data.result[2].flash_status,
-				dma_buffer->data.result[2].buffer_status,
-				dma_buffer->data.result[3].flash_status,
-				dma_buffer->data.result[3].buffer_status,
-				dma_buffer->data.result[4].flash_status,
-				dma_buffer->data.result[4].buffer_status,
-				dma_buffer->data.result[5].flash_status,
-				dma_buffer->data.result[5].buffer_status,
-				dma_buffer->data.result[6].flash_status,
-				dma_buffer->data.result[6].buffer_status,
-				dma_buffer->data.result[7].flash_status,
-				dma_buffer->data.result[7].buffer_status,
-				dma_buffer->data.result[8].flash_status,
-				dma_buffer->data.result[8].buffer_status,
-				dma_buffer->data.result[9].flash_status,
-				dma_buffer->data.result[9].buffer_status,
-				dma_buffer->data.result[10].flash_status,
-				dma_buffer->data.result[10].buffer_status,
-				dma_buffer->data.result[11].flash_status,
-				dma_buffer->data.result[11].buffer_status,
-				dma_buffer->data.result[12].flash_status,
-				dma_buffer->data.result[12].buffer_status,
-				dma_buffer->data.result[13].flash_status,
-				dma_buffer->data.result[13].buffer_status,
-				dma_buffer->data.result[14].flash_status,
-				dma_buffer->data.result[14].buffer_status,
-				dma_buffer->data.result[15].flash_status,
-				dma_buffer->data.result[15].buffer_status);
-
+			for (n = start_sector; n < cwperpage; n++) {
+				if (n%2) {
+					pr_info("NC10: flash_status[%d] = %x, "
+					 "buffr_status[%d] = %x\n",
+					n, dma_buffer->
+						data.result[n].flash_status,
+					n, dma_buffer->
+						data.result[n].buffer_status);
+				} else {
+					pr_info("NC01: flash_status[%d] = %x, "
+					 "buffr_status[%d] = %x\n",
+					n, dma_buffer->
+						data.result[n].flash_status,
+					n, dma_buffer->
+						data.result[n].buffer_status);
+				}
+			}
 		}
 #endif
 		if (err && err != -EUCLEAN && err != -EBADMSG)
@@ -1959,6 +1921,13 @@ err_dma_map_oobbuf_failed:
 			"%llx %x %x failed %d, corrected %d\n",
 			from, ops->datbuf ? ops->len : 0, ops->ooblen, err,
 			total_ecc_errors);
+#if VERBOSE
+	pr_info("\n%s: ret %d, retlen %d oobretlen %d\n",
+			__func__, err, ops->retlen, ops->oobretlen);
+
+	pr_info("==================================================="
+			"==========\n");
+#endif
 	return err;
 }
 
@@ -2019,6 +1988,14 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 	unsigned page_count;
 	unsigned pages_written = 0;
 	unsigned cwperpage;
+#if VERBOSE
+	pr_info("================================================="
+			"================\n");
+	pr_info("%s:\nto 0x%llx mode %d\ndatbuf 0x%p datlen 0x%x"
+			"\noobbuf 0x%p ooblen 0x%x\n",
+			__func__, to, ops->mode, ops->datbuf, ops->len,
+			ops->oobbuf, ops->ooblen);
+#endif
 
 	if (mtd->writesize == 2048)
 		page = to >> 11;
@@ -2266,15 +2243,10 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 		}
 
 #if VERBOSE
-		pr_info("write pg %d: status: %x %x %x %x %x %x %x %x\n", page,
-			dma_buffer->data.flash_status[0],
-			dma_buffer->data.flash_status[1],
-			dma_buffer->data.flash_status[2],
-			dma_buffer->data.flash_status[3],
-			dma_buffer->data.flash_status[4],
-			dma_buffer->data.flash_status[5],
-			dma_buffer->data.flash_status[6],
-			dma_buffer->data.flash_status[7]);
+		for (n = 0; n < cwperpage; n++)
+			pr_info("write pg %d: flash_status[%d] = %x\n", page,
+				n, dma_buffer->data.flash_status[n]);
+
 #endif
 		if (err)
 			break;
@@ -2300,6 +2272,14 @@ err_dma_map_oobbuf_failed:
 	if (err)
 		pr_err("msm_nand_write_oob %llx %x %x failed %d\n",
 		       to, ops->len, ops->ooblen, err);
+
+#if VERBOSE
+		pr_info("\n%s: ret %d, retlen %d oobretlen %d\n",
+				__func__, err, ops->retlen, ops->oobretlen);
+
+		pr_info("==================================================="
+				"==============\n");
+#endif
 	return err;
 }
 
@@ -2351,6 +2331,14 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 	unsigned page_count;
 	unsigned pages_written = 0;
 	unsigned cwperpage;
+#if VERBOSE
+		pr_info("================================================="
+				"============\n");
+		pr_info("%s:\nto 0x%llx mode %d\ndatbuf 0x%p datlen 0x%x"
+				"\noobbuf 0x%p ooblen 0x%x\n\n",
+				__func__, to, ops->mode, ops->datbuf, ops->len,
+				ops->oobbuf, ops->ooblen);
+#endif
 
 	if (mtd->writesize == 2048)
 		page = to >> 11;
@@ -2399,11 +2387,6 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 		       __func__, ops->ooboffs);
 		return -EINVAL;
 	}
-
-#if VERBOSE
-	pr_info("msm_nand_write_oob_dualnandc %llx %p %x %p %x\n",
-		to, ops->datbuf, ops->len, ops->oobbuf, ops->ooblen);
-#endif
 
 	if (ops->datbuf) {
 		data_dma_addr_curr = data_dma_addr =
@@ -2826,35 +2809,14 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 			}
 		}
 #if VERBOSE
-	if (!interleave_enable) {
-		pr_info("write pg %d: status: %x %x %x %x %x %x %x %x\n", page,
-			dma_buffer->data.flash_status[0],
-			dma_buffer->data.flash_status[1],
-			dma_buffer->data.flash_status[2],
-			dma_buffer->data.flash_status[3],
-			dma_buffer->data.flash_status[4],
-			dma_buffer->data.flash_status[5],
-			dma_buffer->data.flash_status[6],
-			dma_buffer->data.flash_status[7]);
-	} else {
-		pr_info("write pg %d: status: %x %x %x %x %x %x %x %x \
-			%x %x %x %x %x %x %x %x \n", page,
-			dma_buffer->data.flash_status[0],
-			dma_buffer->data.flash_status[1],
-			dma_buffer->data.flash_status[2],
-			dma_buffer->data.flash_status[3],
-			dma_buffer->data.flash_status[4],
-			dma_buffer->data.flash_status[5],
-			dma_buffer->data.flash_status[6],
-			dma_buffer->data.flash_status[7],
-			dma_buffer->data.flash_status[8],
-			dma_buffer->data.flash_status[9],
-			dma_buffer->data.flash_status[10],
-			dma_buffer->data.flash_status[11],
-			dma_buffer->data.flash_status[12],
-			dma_buffer->data.flash_status[13],
-			dma_buffer->data.flash_status[14],
-			dma_buffer->data.flash_status[15]);
+	for (n = 0; n < cwperpage; n++) {
+		if (n%2) {
+			pr_info("NC10: write pg %d: flash_status[%d] = %x\n",
+				page, n, dma_buffer->data.flash_status[n]);
+		} else {
+			pr_info("NC01: write pg %d: flash_status[%d] = %x\n",
+				page, n, dma_buffer->data.flash_status[n]);
+		}
 	}
 #endif
 		if (err)
@@ -2881,6 +2843,14 @@ err_dma_map_oobbuf_failed:
 	if (err)
 		pr_err("msm_nand_write_oob_dualnandc %llx %x %x failed %d\n",
 		       to, ops->len, ops->ooblen, err);
+
+#if VERBOSE
+	pr_info("\n%s: ret %d, retlen %d oobretlen %d\n",
+			__func__, err, ops->retlen, ops->oobretlen);
+
+	pr_info("==================================================="
+			"==========\n");
+#endif
 	return err;
 }
 
