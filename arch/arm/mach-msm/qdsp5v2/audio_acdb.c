@@ -24,6 +24,8 @@
 #include <linux/android_pmem.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/uaccess.h>
+#include <linux/msm_audio.h>
 #include <linux/slab.h>
 #include <mach/dal.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
@@ -98,6 +100,10 @@ struct acdb_data {
 	u16 *pbe_extbuff;
 	u16 *pbe_enable_flag;
 	struct acdb_pbe_block *pbe_blk;
+
+	spinlock_t dsp_lock;
+	int dec_id;
+	struct audpp_cmd_cfg_object_params_eqalizer eq;
 };
 
 static struct acdb_data		acdb_data;
@@ -118,11 +124,58 @@ struct acdb_cache_node acdb_cache_rx[MAX_COPP_NODE_SUPPORTED];
 the depth of the tx cache is define by number of AUDREC sessions supported*/
 struct acdb_cache_node acdb_cache_tx[MAX_AUDREC_SESSIONS];
 
+
+
+static int audio_acdb_open(struct inode *inode, struct file *file)
+{
+	MM_DBG("%s\n", __func__);
+	return 0;
+}
+static int audio_acdb_release(struct inode *inode, struct file *file)
+{
+	MM_DBG("%s\n", __func__);
+	return 0;
+}
+
+static long audio_acdb_ioctl(struct file *file, unsigned int cmd,
+					unsigned long arg)
+{
+	int rc = 0;
+	unsigned long flags = 0;
+
+	MM_DBG("%s\n", __func__);
+
+	switch (cmd) {
+	case AUDIO_SET_EQ:
+		MM_DBG("IOCTL SET_EQ_CONFIG\n");
+		if (copy_from_user(&acdb_data.eq.num_bands, (void *) arg,
+				sizeof(acdb_data.eq) -
+				(AUDPP_CMD_CFG_OBJECT_PARAMS_COMMON_LEN + 2))) {
+			rc = -EFAULT;
+			break;
+		}
+		spin_lock_irqsave(&acdb_data.dsp_lock, flags);
+		acdb_data.dec_id    = 0;
+		rc = audpp_dsp_set_eq(acdb_data.dec_id, 1,
+			&acdb_data.eq, COPP);
+		if (rc < 0)
+			MM_ERR("AUDPP returned err =%d\n", rc);
+		spin_unlock_irqrestore(&acdb_data.dsp_lock, flags);
+		break;
+	default:
+		MM_DBG("Unknown IOCTL%d\n", cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
 static const struct file_operations acdb_fops = {
 	.owner = THIS_MODULE,
+	.open = audio_acdb_open,
+	.release = audio_acdb_release,
 	.llseek = no_llseek,
+	.unlocked_ioctl = audio_acdb_ioctl
 };
-
 
 struct miscdevice acdb_misc = {
 	.minor	= MISC_DYNAMIC_MINOR,
@@ -1677,7 +1730,7 @@ static int __init acdb_init(void)
 	s32 result = 0;
 
 	memset(&acdb_data, 0, sizeof(acdb_data));
-
+	spin_lock_init(&acdb_data.dsp_lock);
 	acdb_data.cb_thread_task = kthread_run(acdb_calibrate_device,
 		NULL, "acdb_cb_thread");
 
