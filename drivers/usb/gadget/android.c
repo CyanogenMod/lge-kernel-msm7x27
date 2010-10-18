@@ -593,7 +593,6 @@ static struct dev_pm_ops andr_dev_pm_ops = {
 
 static struct platform_driver android_platform_driver = {
 	.driver = { .name = "android_usb", .pm = &andr_dev_pm_ops},
-	.probe = android_probe,
 };
 
 static int __init init(void)
@@ -610,7 +609,7 @@ static int __init init(void)
 	dev->product_id = PRODUCT_ID;
 	_android_dev = dev;
 
-	return platform_driver_register(&android_platform_driver);
+	return platform_driver_probe(&android_platform_driver, android_probe);
 }
 module_init(init);
 
