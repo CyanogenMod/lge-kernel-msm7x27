@@ -290,6 +290,7 @@ static u32 res_trk_enable_pwr_rail(void)
 		rc = clk_reset(resource_context.pclk, CLK_RESET_DEASSERT);
 		if (rc) {
 			VCDRES_MSG_ERROR("\n clk_reset failed %d\n", rc);
+			mutex_unlock(&resource_context.lock);
 			return false;
 		}
 		msleep(20);
