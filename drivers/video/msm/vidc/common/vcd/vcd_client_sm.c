@@ -958,6 +958,15 @@ static void vcd_clnt_cb_in_eos
 					VCD_CLIENT_STATE_RUN,
 					CLIENT_STATE_EVENT_NUMBER
 					(clnt_cb));
+				VCD_MSG_LOW
+					("RECONFIGinEOS:Suspending Client");
+				rc = vcd_sched_suspend_resume_clnt(cctxt,
+						false);
+				if (VCD_FAILED(rc)) {
+					VCD_MSG_ERROR
+					("Failed: suspend_resume_clnt. rc=0x%x",
+						rc);
+				}
 			}
 			break;
 		}
