@@ -507,6 +507,11 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 					memcpy(mdp_hist.b, MDP_BASE + 0x95300,
 						mdp_hist.bin_cnt*4);
 				complete(&mdp_hist_comp);
+				if (mdp_is_hist_start == TRUE) {
+					MDP_OUTP(MDP_BASE + 0x95004,
+							mdp_hist.frame_cnt);
+					MDP_OUTP(MDP_BASE + 0x95000, 1);
+				}
 			}
 		}
 	}

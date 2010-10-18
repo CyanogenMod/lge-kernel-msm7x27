@@ -218,10 +218,66 @@ static __u32 mdp_hist_b[MDP_HIST_MAX_BIN];
 #ifdef CONFIG_FB_MSM_MDP40
 struct mdp_histogram mdp_hist;
 struct completion mdp_hist_comp;
+boolean mdp_is_hist_start = FALSE;
 #else
 static struct mdp_histogram mdp_hist;
 static struct completion mdp_hist_comp;
+static boolean mdp_is_hist_start = FALSE;
 #endif
+static DEFINE_MUTEX(mdp_hist_mutex);
+
+int mdp_start_histogram(struct fb_info *info)
+{
+	unsigned long flag;
+
+	int ret = 0;
+	mutex_lock(&mdp_hist_mutex);
+	if (mdp_is_hist_start == TRUE) {
+		printk(KERN_ERR "%s histogram already started\n", __func__);
+		ret = -EPERM;
+		goto mdp_hist_start_err;
+	}
+
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	mdp_is_hist_start = TRUE;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	mdp_enable_irq(MDP_HISTOGRAM_TERM);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+#ifdef CONFIG_FB_MSM_MDP40
+	MDP_OUTP(MDP_BASE + 0x95004, 1);
+	MDP_OUTP(MDP_BASE + 0x95000, 1);
+#else
+	MDP_OUTP(MDP_BASE + 0x94004, 1);
+	MDP_OUTP(MDP_BASE + 0x94000, 1);
+#endif
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
+mdp_hist_start_err:
+	mutex_unlock(&mdp_hist_mutex);
+	return ret;
+
+}
+int mdp_stop_histogram(struct fb_info *info)
+{
+	unsigned long flag;
+	int ret = 0;
+	mutex_lock(&mdp_hist_mutex);
+	if (!mdp_is_hist_start) {
+		printk(KERN_ERR "%s histogram already stopped\n", __func__);
+		ret = -EPERM;
+		goto mdp_hist_stop_err;
+	}
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	mdp_is_hist_start = FALSE;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	/* disable the irq for histogram since we handled it
+	   when the control reaches here */
+	mdp_disable_irq(MDP_HISTOGRAM_TERM);
+
+mdp_hist_stop_err:
+	mutex_unlock(&mdp_hist_mutex);
+	return ret;
+}
 
 static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 {
@@ -230,31 +286,23 @@ static int mdp_do_histogram(struct fb_info *info, struct mdp_histogram *hist)
 	if (!hist->frame_cnt || (hist->bin_cnt == 0) ||
 				 (hist->bin_cnt > MDP_HIST_MAX_BIN))
 		return -EINVAL;
+	mutex_lock(&mdp_hist_mutex);
+	if (!mdp_is_hist_start) {
+		printk(KERN_ERR "%s histogram not started\n", __func__);
+		mutex_unlock(&mdp_hist_mutex);
+		return -EPERM;
+	}
+	mutex_unlock(&mdp_hist_mutex);
 
 	INIT_COMPLETION(mdp_hist_comp);
 
 	mdp_hist.bin_cnt = hist->bin_cnt;
+	mdp_hist.frame_cnt = hist->frame_cnt;
 	mdp_hist.r = (hist->r) ? mdp_hist_r : 0;
 	mdp_hist.g = (hist->g) ? mdp_hist_g : 0;
 	mdp_hist.b = (hist->b) ? mdp_hist_b : 0;
 
-	mdp_enable_irq(MDP_HISTOGRAM_TERM);
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-#ifdef CONFIG_FB_MSM_MDP40
-	MDP_OUTP(MDP_BASE + 0x95004, hist->frame_cnt);
-	MDP_OUTP(MDP_BASE + 0x95000, 1);
-#else
-	MDP_OUTP(MDP_BASE + 0x94004, hist->frame_cnt);
-	MDP_OUTP(MDP_BASE + 0x94000, 1);
-#endif
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-
 	wait_for_completion_killable(&mdp_hist_comp);
-
-	/* disable the irq for histogram since we handled it
-	   when the control reaches here */
-	mdp_disable_irq(MDP_HISTOGRAM_TERM);
 
 	if (hist->r) {
 		ret = copy_to_user(hist->r, mdp_hist.r, hist->bin_cnt*4);
@@ -613,6 +661,11 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 				memcpy(mdp_hist.b, MDP_BASE + 0x94300,
 						mdp_hist.bin_cnt*4);
 			complete(&mdp_hist_comp);
+			if (mdp_is_hist_start == TRUE) {
+				MDP_OUTP(MDP_BASE + 0x94004,
+						 mdp_hist.frame_cnt);
+				MDP_OUTP(MDP_BASE + 0x94000, 1);
+			}
 		}
 
 		/* LCDC UnderFlow */
