@@ -898,6 +898,30 @@ void mdp_hw_version(void)
 }
 #endif
 
+DEFINE_MUTEX(mdp_clk_lock);
+int mdp_set_core_clk(uint16 perf_level)
+{
+	int ret = -EINVAL;
+	if (mdp_clk && mdp_pdata
+		 && mdp_pdata->mdp_core_clk_table) {
+		if (perf_level > mdp_pdata->num_mdp_clk)
+			printk(KERN_ERR "%s invalid perf level\n", __func__);
+		else {
+			mutex_lock(&mdp_clk_lock);
+			ret = clk_set_rate(mdp_clk,
+				mdp_pdata->
+				mdp_core_clk_table[mdp_pdata->num_mdp_clk
+						 - perf_level]);
+			mutex_unlock(&mdp_clk_lock);
+			if (ret) {
+				printk(KERN_ERR "%s unable to set mdp_core_clk rate\n",
+					__func__);
+			}
+		}
+	}
+	return ret;
+}
+
 static int mdp_irq_clk_setup(void)
 {
 	int ret;
@@ -933,8 +957,11 @@ static int mdp_irq_clk_setup(void)
 	/*
 	 * mdp_clk should greater than mdp_pclk always
 	 */
-	if (mdp_pdata && mdp_pdata->mdp_core_clk_rate)
+	if (mdp_pdata && mdp_pdata->mdp_core_clk_rate) {
+		mutex_lock(&mdp_clk_lock);
 		clk_set_rate(mdp_clk, mdp_pdata->mdp_core_clk_rate);
+		mutex_unlock(&mdp_clk_lock);
+	}
 	printk(KERN_INFO "mdp_clk: mdp_clk=%d\n", (int)clk_get_rate(mdp_clk));
 #endif
 

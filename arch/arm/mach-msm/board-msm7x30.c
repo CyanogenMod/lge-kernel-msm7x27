@@ -3837,9 +3837,18 @@ static struct mddi_platform_data mddi_pdata = {
 	.mddi_sel_clk = msm_fb_mddi_sel_clk,
 };
 
+int mdp_core_clk_rate_table[] = {
+	122880000,
+	122880000,
+	122880000,
+	192000000,
+};
+
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = 30,
 	.mdp_core_clk_rate = 122880000,
+	.mdp_core_clk_table = mdp_core_clk_rate_table,
+	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 };
 
 static int lcd_panel_spi_gpio_num[] = {

@@ -5080,8 +5080,16 @@ void msm_snddev_voltage_off(void)
 }
 #endif /* CONFIG_MSM8X60_AUDIO */
 
+int mdp_core_clk_rate_table[] = {
+	59080000,
+	128000000,
+	160000000,
+	200000000,
+};
 static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_core_clk_rate = 200000000,
+	.mdp_core_clk_table = mdp_core_clk_rate_table,
+	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 };
 
 #ifdef CONFIG_FB_MSM_TVOUT

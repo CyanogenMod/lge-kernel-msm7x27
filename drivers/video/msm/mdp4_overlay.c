@@ -1495,11 +1495,31 @@ int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
 	return 0;
 }
 
+#define OVERLAY_VGA_SIZE	0x04B000
+#define OVERLAY_720P_SIZE	0x0E1000
+#define OVERLAY_PERF_LEVEL1	1
+#define OVERLAY_PERF_LEVEL2	2
+#define OVERLAY_PERF_LEVEL3	3
+#define OVERLAY_PERF_LEVEL4	4
+static uint32 mdp4_overlay_get_perf_level(uint32 width, uint32 height)
+{
+	if (width*height <= OVERLAY_VGA_SIZE)
+		return OVERLAY_PERF_LEVEL3;
+	else if (width*height < OVERLAY_720P_SIZE)
+		return OVERLAY_PERF_LEVEL2;
+	else
+		return OVERLAY_PERF_LEVEL1;
+}
+
 int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret, mixer;
 	struct mdp4_overlay_pipe *pipe;
+	uint32 perf_level;
+#ifdef CONFIG_ARCH_MSM7X30
+	char *addr = NULL;
+#endif
 
 	if (mfd == NULL) {
 		pr_err("%s: mfd == NULL, -ENODEV\n", __func__);
@@ -1528,9 +1548,23 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	pipe->req_data = *req;		/* keep original req */
 
 	mdp4_stat.overlay_set[pipe->mixer_num]++;
-
 	mutex_unlock(&mfd->dma->ov_mutex);
+	perf_level = mdp4_overlay_get_perf_level(req->src.width,
+							req->src.height);
+#ifdef CONFIG_ARCH_MSM7X30
+	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
+		addr = MDP_BASE + 0xC0000;
+	else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
+		addr = MDP_BASE + 0xD0000;
 
+	if (addr) {
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		outpdw(addr, 0);
+		mdp_set_core_clk(perf_level);
+		outpdw(addr, 1);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	}
+#endif
 	return 0;
 }
 
@@ -1538,6 +1572,9 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp4_overlay_pipe *pipe;
+#ifdef CONFIG_ARCH_MSM7X30
+	char *addr = NULL;
+#endif
 
 	if (mfd == NULL)
 		return -ENODEV;
@@ -1566,6 +1603,21 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	mdp4_overlay_pipe_free(pipe);
 
 	mutex_unlock(&mfd->dma->ov_mutex);
+#ifdef CONFIG_ARCH_MSM7X30
+	msleep(30);
+	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
+		addr = MDP_BASE + 0xC0000;
+	else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
+		addr = MDP_BASE + 0xD0000;
+
+	if (addr) {
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		outpdw(addr, 0);
+		mdp_set_core_clk(OVERLAY_PERF_LEVEL4);
+		outpdw(addr, 1);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	}
+#endif
 
 	return 0;
 }
