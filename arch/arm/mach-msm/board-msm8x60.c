@@ -2318,6 +2318,51 @@ static struct pmic8058_keypad_data ffa_keypad_data = {
 	.keymap_data		= &ffa_keymap_data,
 };
 
+static const unsigned int fluid_keymap[] = {
+	KEY(0, 0, KEY_FN_F1),	 /* LS - PUSH1 */
+	KEY(0, 1, KEY_UP),	 /* NAV - UP */
+	KEY(0, 2, KEY_LEFT),	 /* NAV - LEFT */
+	KEY(0, 3, KEY_VOLUMEUP), /* Shuttle SW_UP */
+
+	KEY(1, 0, KEY_FN_F2),	 /* LS - PUSH2 */
+	KEY(1, 1, KEY_RIGHT),    /* NAV - RIGHT */
+	KEY(1, 2, KEY_DOWN),     /* NAV - DOWN */
+	KEY(1, 3, KEY_VOLUMEDOWN),
+
+	KEY(2, 3, KEY_ENTER),     /* SW_PUSH key */
+
+	KEY(4, 0, KEY_CAMERA_FOCUS), /* RS - PUSH1 */
+	KEY(4, 1, KEY_UP),	  /* USER_UP */
+	KEY(4, 2, KEY_LEFT),	  /* USER_LEFT */
+	KEY(4, 3, KEY_HOME),	  /* Right switch: MIC Bd */
+	KEY(4, 4, KEY_FN_F3),	  /* Reserved MIC */
+
+	KEY(5, 0, KEY_CAMERA_SNAPSHOT), /* RS - PUSH2 */
+	KEY(5, 1, KEY_RIGHT),	  /* USER_RIGHT */
+	KEY(5, 2, KEY_DOWN),	  /* USER_DOWN */
+	KEY(5, 3, KEY_BACK),	  /* Left switch: MIC */
+	KEY(5, 4, KEY_MENU),	  /* Center switch: MIC */
+};
+
+static struct matrix_keymap_data fluid_keymap_data = {
+	.keymap_size	= ARRAY_SIZE(fluid_keymap),
+	.keymap		= fluid_keymap,
+};
+
+static struct pmic8058_keypad_data fluid_keypad_data = {
+	.input_name		= "fluid-keypad",
+	.input_phys_device	= "fluid-keypad/input0",
+	.num_rows		= 6,
+	.num_cols		= 5,
+	.rows_gpio_start	= 8,
+	.cols_gpio_start	= 0,
+	.debounce_ms		= {8, 10},
+	.scan_delay_ms		= 32,
+	.row_hold_ns            = 91500,
+	.wakeup			= 1,
+	.keymap_data		= &fluid_keymap_data,
+};
+
 static struct resource resources_pwrkey[] = {
 	{
 		.start	= PM8058_PWRKEY_REL_IRQ(PM8058_IRQ_BASE),
@@ -2774,14 +2819,14 @@ static struct pmic8058_leds_platform_data pm8058_flash_leds_data = {
 	.leds	= pmic8058_flash_leds,
 };
 
+#define PM8058_SUBDEV_KPD 0
+
 static struct mfd_cell pm8058_subdevs[] = {
 	{
 		.name = "pm8058-keypad",
 		.id		= -1,
 		.num_resources	= ARRAY_SIZE(resources_keypad),
 		.resources	= resources_keypad,
-		.platform_data	= &ffa_keypad_data,
-		.data_size	= sizeof(ffa_keypad_data),
 	},
 	{	.name = "pm8058-gpio",
 		.id		= -1,
@@ -5340,6 +5385,19 @@ static void __init msm8x60_init(void)
 	msm8x60_init_tlmm();
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
+
+	if (machine_is_msm8x60_fluid()) {
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
+			platform_data = &fluid_keypad_data;
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].data_size
+			= sizeof(fluid_keypad_data);
+	} else {
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
+			platform_data = &ffa_keypad_data;
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].data_size
+			= sizeof(ffa_keypad_data);
+	}
+
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
 	    machine_is_msm8x60_fluid()) {
 		msm8x60_cfg_smsc911x();
