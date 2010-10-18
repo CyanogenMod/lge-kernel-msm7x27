@@ -682,7 +682,7 @@ static int msm_xusb_init_host(struct msmusb_hcd *mhcd)
 	return ret;
 }
 
-static int __init ehci_msm_probe(struct platform_device *pdev)
+static int __devinit ehci_msm_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
 	struct resource *res;
