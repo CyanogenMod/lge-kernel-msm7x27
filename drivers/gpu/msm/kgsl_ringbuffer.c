@@ -655,22 +655,18 @@ kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb,
 	return timestamp;
 }
 
-uint32_t
+void
 kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 						unsigned int flags,
 						unsigned int *cmds,
 						int sizedwords)
 {
-	unsigned int timestamp;
 	struct kgsl_ringbuffer *rb = &device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device->id=%d, flags=%d, cmds=%p, "
 		"sizedwords=%d)\n", device->id, flags, cmds, sizedwords);
 
-	timestamp = kgsl_ringbuffer_addcmds(rb, flags, cmds, sizedwords);
-
-	KGSL_CMD_VDBG("return %d\n)", timestamp);
-	return timestamp;
+	kgsl_ringbuffer_addcmds(rb, flags, cmds, sizedwords);
 }
 
 int
