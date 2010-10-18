@@ -370,6 +370,10 @@ static struct msm_gpiomux_config msm8x60_uart_configs[] __initdata = {
 
 static struct msm_gpiomux_config msm8x60_tmg200_configs[] __initdata = {
 	{
+		.gpio = 58,
+		.suspended = GPIOMUX_PULL_DOWN | GPIOMUX_VALID,
+	},
+	{
 		.gpio = 61,
 		.active = GPIOMUX_PULL_NONE | GPIOMUX_DRV_2MA |
 				GPIOMUX_VALID | GPIOMUX_FUNC_GPIO,
