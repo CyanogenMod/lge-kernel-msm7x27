@@ -47,8 +47,9 @@
 #define HDLC_MAX 4096
 #define HDLC_OUT_BUF_SIZE	8192
 #define POOL_TYPE_COPY		1
-#define POOL_TYPE_HDLC		0
-#define POOL_TYPE_WRITE_STRUCT	2
+#define POOL_TYPE_HDLC		2
+#define POOL_TYPE_WRITE_STRUCT	4
+#define POOL_TYPE_ALL		7
 #define MODEM_DATA 		1
 #define QDSP_DATA  		2
 #define APPS_DATA  		3
