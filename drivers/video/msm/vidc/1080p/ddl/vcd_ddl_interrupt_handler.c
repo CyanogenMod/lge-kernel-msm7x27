@@ -851,7 +851,7 @@ static void ddl_decoder_input_done_callback(
 	ddl_get_decoded_frame(input_vcd_frm,
 		dec_disp_info->input_frame);
 	vidc_1080p_get_decode_frame_result(dec_disp_info);
-	input_vcd_frm->interlaced = (dec_disp_info->display_coding !=
+	input_vcd_frm->interlaced = (dec_disp_info->decode_coding !=
 		VIDC_1080P_DISPLAY_CODING_PROGRESSIVE_SCAN);
 	input_vcd_frm->offset += dec_disp_info->input_bytes_consumed;
 	input_vcd_frm->data_len -= dec_disp_info->input_bytes_consumed;
