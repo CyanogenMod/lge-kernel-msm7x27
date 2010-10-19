@@ -70,7 +70,6 @@ obj-$(CONFIG_PRINTER)		+= lp.o
 
 obj-$(CONFIG_APM_EMULATION)	+= apm-emulation.o
 
-obj-$(CONFIG_DIAG_CHAR)         += diag/
 
 obj-$(CONFIG_DTLK)		+= dtlk.o
 obj-$(CONFIG_R3964)		+= n_r3964.o

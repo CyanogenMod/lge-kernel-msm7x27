@@ -348,6 +348,7 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 
 #ifdef CONFIG_USB_ANDROID
 struct usb_diag_platform_data usb_diag_pdata = {
+	.ch_name = DIAG_LEGACY,
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
 
