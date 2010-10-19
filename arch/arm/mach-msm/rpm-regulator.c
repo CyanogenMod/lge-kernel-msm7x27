@@ -874,7 +874,7 @@ static void __exit rpm_vreg_exit(void)
 	platform_driver_unregister(&rpm_vreg_driver);
 }
 
-subsys_initcall(rpm_vreg_init);
+postcore_initcall(rpm_vreg_init);
 module_exit(rpm_vreg_exit);
 
 MODULE_LICENSE("GPL v2");
