@@ -62,7 +62,7 @@ static int msm_bus_fabric_add_node(struct msm_bus_fabric *fabric,
 	int status = -ENOMEM;
 	MSM_FAB_DBG("msm_bus_fabric_add_node: ID %d Gw: %d\n",
 		info->node_info->id, info->node_info->gateway);
-	status = radix_tree_preload(GFP_KERNEL);
+	status = radix_tree_preload(GFP_ATOMIC);
 	if (status)
 		goto out;
 	status = radix_tree_insert(&fabric->fab_tree, info->node_info->id,
@@ -553,7 +553,7 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 	}
 
 	INIT_LIST_HEAD(&fabric->gateways);
-	INIT_RADIX_TREE(&fabric->fab_tree, GFP_KERNEL);
+	INIT_RADIX_TREE(&fabric->fab_tree, GFP_ATOMIC);
 	fabric->num_nodes = 0;
 	fabric->fabdev.id = pdev->id;
 	fabric->fabdev.visited = false;
