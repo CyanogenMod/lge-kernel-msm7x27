@@ -58,6 +58,9 @@
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
 
+#define KGSL_NUM_2D_DEVICES 2
+#define IDX_2D(X) ((X)-KGSL_DEVICE_2D0)
+
 struct kgsl_driver {
 	struct cdev cdev;
 	dev_t dev_num;
@@ -69,7 +72,8 @@ struct kgsl_driver {
 	struct mutex mutex;
 	unsigned int is_suspended;
 
-	struct kgsl_devconfig g12_config;
+	struct kgsl_devconfig config_2d[KGSL_NUM_2D_DEVICES];
+	struct kgsl_devconfig yamato_config;
 
 	uint32_t flags_debug;
 

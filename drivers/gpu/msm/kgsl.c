@@ -1447,7 +1447,8 @@ static void kgsl_driver_cleanup(void)
 
 	kgsl_yamato_close(kgsl_get_yamato_generic_device());
 
-	kgsl_g12_close(kgsl_get_g12_generic_device());
+	kgsl_g12_close(kgsl_get_2d_device(KGSL_DEVICE_2D0));
+	kgsl_g12_close(kgsl_get_2d_device(KGSL_DEVICE_2D1));
 
 	/* shutdown memory apertures */
 	kgsl_sharedmem_close(&kgsl_driver.shmem);
@@ -1460,18 +1461,26 @@ static int kgsl_add_device(int dev_idx)
 	struct kgsl_device *device;
 	int err = 0;
 
-	/* init fields which kgsl_open() will use */
-	if (dev_idx == KGSL_DEVICE_YAMATO) {
+	switch (dev_idx) {
+	case (KGSL_DEVICE_YAMATO):
 		device = kgsl_get_yamato_generic_device();
-		if (device == NULL)
-			goto done;
 		kgsl_driver.devp[KGSL_DEVICE_YAMATO] = device;
-	} else if (dev_idx == KGSL_DEVICE_G12) {
-		device = kgsl_get_g12_generic_device();
-		if (device == NULL)
-			goto done;
-		kgsl_driver.devp[KGSL_DEVICE_G12] = device;
-	} else {
+	break;
+	case (KGSL_DEVICE_2D0):
+		device = kgsl_get_2d_device(KGSL_DEVICE_2D0);
+		kgsl_driver.devp[KGSL_DEVICE_2D0] = device;
+	break;
+	case (KGSL_DEVICE_2D1):
+		device = kgsl_get_2d_device(KGSL_DEVICE_2D1);
+		kgsl_driver.devp[KGSL_DEVICE_2D1] = device;
+	break;
+	default:
+		err = -EINVAL;
+		goto done;
+	break;
+	}
+
+	if (device == NULL) {
 		err = -EINVAL;
 		goto done;
 	}
@@ -1509,8 +1518,11 @@ static int kgsl_register_dev(int num_devs)
 		if (i == KGSL_DEVICE_YAMATO)
 			snprintf(device_str, sizeof(device_str), "%s-3d0",
 				DRIVER_NAME);
-		else if (i == KGSL_DEVICE_G12)
+		else if (i == KGSL_DEVICE_2D0)
 			snprintf(device_str, sizeof(device_str), "%s-2d0",
+				DRIVER_NAME);
+		else if (i == KGSL_DEVICE_2D1)
+			snprintf(device_str, sizeof(device_str), "%s-2d1",
 				DRIVER_NAME);
 		dev = MKDEV(MAJOR(kgsl_driver.dev_num), i);
 		kgsl_driver.base_dev[i] = device_create(kgsl_driver.class,
@@ -1561,7 +1573,8 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	struct resource *res = NULL;
 	struct kgsl_platform_data *pdata = NULL;
 	struct kgsl_device *device = kgsl_get_yamato_generic_device();
-	struct kgsl_device *device_g12 = kgsl_get_g12_generic_device();
+	struct kgsl_device *device_2d0 = kgsl_get_2d_device(KGSL_DEVICE_2D0);
+	struct kgsl_device *device_2d1 = kgsl_get_2d_device(KGSL_DEVICE_2D1);
 
 	kgsl_debug_init();
 
@@ -1579,18 +1592,40 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	kgsl_yamato_init_pwrctrl(device);
 
 	if (pdata->grp2d0_clk_name != NULL) {
-		/* g12 pwrctrl */
-		result = kgsl_g12_init_pwrctrl(device_g12);
+		/* 2d0 pwrctrl */
+		result = kgsl_g12_init_pwrctrl(device_2d0, KGSL_DEVICE_2D0);
 		if (result != 0) {
 			KGSL_DRV_ERR(
-				"kgsl_g12_init_pwrctrl returned error=%d\n",
+				"kgsl_2d0_init_pwrctrl returned error=%d\n",
 				result);
 			goto done;
 		}
 		/* g12 config */
-		result = kgsl_g12_config(&kgsl_driver.g12_config, pdev);
+		result = kgsl_g12_config(
+				&kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D0)],
+				pdev, KGSL_DEVICE_2D0);
 		if (result != 0) {
-			KGSL_DRV_ERR("kgsl_g12_config returned error=%d\n",
+			KGSL_DRV_ERR("kgsl_2d0_config returned error=%d\n",
+				      result);
+			goto done;
+		}
+	}
+
+	if (pdata->grp2d1_clk_name != NULL) {
+		/* 2d1 pwrctrl */
+		result = kgsl_g12_init_pwrctrl(device_2d1, KGSL_DEVICE_2D1);
+		if (result != 0) {
+			KGSL_DRV_ERR(
+				"kgsl_2d1_init_pwrctrl returned error=%d\n",
+				result);
+			goto done;
+		}
+		/* g12 config */
+		result = kgsl_g12_config(
+				&kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D1)],
+				pdev, KGSL_DEVICE_2D1);
+		if (result != 0) {
+			KGSL_DRV_ERR("kgsl_2d1_config returned error=%d\n",
 				      result);
 			goto done;
 		}
@@ -1631,13 +1666,27 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	kgsl_driver.num_devs++;
 
 	if (pdata->grp2d0_clk_name) {
-		result = kgsl_g12_init(device_g12,
-					&kgsl_driver.g12_config);
+		result = kgsl_g12_init(device_2d0,
+			       &kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D0)]);
 		if (result) {
-			KGSL_DRV_ERR("g12_init failed %d", result);
+			KGSL_DRV_ERR("2d0_init failed %d", result);
 			goto done;
 		}
-		if (kgsl_add_device(KGSL_DEVICE_G12) == KGSL_FAILURE) {
+		if (kgsl_add_device(KGSL_DEVICE_2D0) == KGSL_FAILURE) {
+			result = -EINVAL;
+			goto done;
+		}
+		kgsl_driver.num_devs++;
+	}
+
+	if (pdata->grp2d1_clk_name) {
+		result = kgsl_g12_init(device_2d1,
+			       &kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D1)]);
+		if (result) {
+			KGSL_DRV_ERR("2d1_init failed %d", result);
+			goto done;
+		}
+		if (kgsl_add_device(KGSL_DEVICE_2D1) == KGSL_FAILURE) {
 			result = -EINVAL;
 			goto done;
 		}
