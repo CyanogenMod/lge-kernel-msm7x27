@@ -150,6 +150,11 @@
 
 #define MI2S_SUSPEND_CFG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
 
+#define LCDC_ACTIVE_CFG (GPIOMUX_VALID | GPIOMUX_PULL_NONE\
+					| GPIOMUX_FUNC_1 | GPIOMUX_DRV_16MA)
+
+#define LCDC_SUSPEND_CFG (GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
+
 static struct msm_gpiomux_config msm8x60_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 33,
@@ -516,11 +521,181 @@ static struct msm_gpiomux_config msm8x60_mi2s_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm8x60_lcdc_configs[] __initdata = {
+	/* lcdc_pclk */
+	{
+		.gpio = 0,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_hsync */
+	{
+		.gpio = 1,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_vsync */
+	{
+		.gpio = 2,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_den */
+	{
+		.gpio = 3,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red7 */
+	{
+		.gpio = 4,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red6 */
+	{
+		.gpio = 5,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red5 */
+	{
+		.gpio = 6,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red4 */
+	{
+		.gpio = 7,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red3 */
+	{
+		.gpio = 8,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red2 */
+	{
+		.gpio = 9,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red1 */
+	{
+		.gpio = 10,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_red0 */
+	{
+		.gpio = 11,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn7 */
+	{
+		.gpio = 12,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn6 */
+	{
+		.gpio = 13,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn5 */
+	{
+		.gpio = 14,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn4 */
+	{
+		.gpio = 15,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn3 */
+	{
+		.gpio = 16,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn2 */
+	{
+		.gpio = 17,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn1 */
+	{
+		.gpio = 18,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_grn0 */
+	{
+		.gpio = 19,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu7 */
+	{
+		.gpio = 20,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu6 */
+	{
+		.gpio = 21,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu5 */
+	{
+		.gpio = 22,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu4 */
+	{
+		.gpio = 23,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu3 */
+	{
+		.gpio = 24,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu2 */
+	{
+		.gpio = 25,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu1 */
+	{
+		.gpio = 26,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+	/* lcdc_blu0 */
+	{
+		.gpio = 27,
+		.active = LCDC_ACTIVE_CFG,
+		.suspended = LCDC_SUSPEND_CFG
+	},
+};
+
 struct msm_gpiomux_cfg_block {
 	struct msm_gpiomux_config *cfg;
 	size_t                     ncfg;
 };
-
 static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
 	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
@@ -530,6 +705,7 @@ static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 	{msm8x60_sdc_configs, ARRAY_SIZE(msm8x60_sdc_configs)},
 	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
 	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
+	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
 };
 
 static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
