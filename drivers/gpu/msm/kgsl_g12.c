@@ -25,6 +25,8 @@
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
 
+#include <mach/msm_bus.h>
+
 #include "kgsl.h"
 #include "kgsl_g12.h"
 #include "kgsl_log.h"
@@ -266,16 +268,20 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	struct platform_device *pdev = kgsl_driver.pdev;
 	struct kgsl_platform_data *pdata = pdev->dev.platform_data;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct msm_bus_scale_pdata *bus_table = NULL;
 
 	clk = clk_get(&pdev->dev, "grp_2d_pclk");
 	if (IS_ERR(clk))
 		clk = NULL;
 	device->pwrctrl.grp_pclk = clk;
 
-	if (device->id == KGSL_DEVICE_2D0)
+	if (device->id == KGSL_DEVICE_2D0) {
 		clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
-	else
+		bus_table = pdata->grp2d0_bus_scale_table;
+	} else {
 		clk = clk_get(&pdev->dev, pdata->grp2d1_clk_name);
+		bus_table = pdata->grp2d1_bus_scale_table;
+	}
 
 	/* error check resources */
 	if (IS_ERR(clk)) {
@@ -323,6 +329,17 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	device->pwrctrl.pm_qos_req = pm_qos_add_request(
 					PM_QOS_SYSTEM_BUS_FREQ,
 					PM_QOS_DEFAULT_VALUE);
+
+	if (bus_table) {
+		device->pwrctrl.pcl = msm_bus_scale_register_client(bus_table);
+		if (!device->pwrctrl.pcl) {
+			KGSL_DRV_ERR("msm_bus_scale_register_client failed "
+				     "id %d table %p", device->id,
+				     bus_table);
+			result = -EINVAL;
+			goto done;
+		}
+	}
 done:
 	return result;
 }

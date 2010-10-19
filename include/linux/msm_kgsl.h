@@ -122,6 +122,7 @@ struct kgsl_shadowprop {
 };
 
 #ifdef __KERNEL__
+#include <mach/msm_bus.h>
 
 struct kgsl_platform_data {
 	unsigned int high_axi_2d;
@@ -138,6 +139,9 @@ struct kgsl_platform_data {
 	const char *grp2d1_clk_name;
 	unsigned int idle_timeout_2d;
 	unsigned int idle_timeout_3d;
+	struct msm_bus_scale_pdata *grp3d_bus_scale_table;
+	struct msm_bus_scale_pdata *grp2d0_bus_scale_table;
+	struct msm_bus_scale_pdata *grp2d1_bus_scale_table;
 };
 
 #endif
