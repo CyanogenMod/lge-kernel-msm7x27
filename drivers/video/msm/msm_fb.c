@@ -174,6 +174,8 @@ static struct led_classdev backlight_led = {
 #endif
 
 static struct msm_fb_platform_data *msm_fb_pdata;
+static char panel_name[128];
+module_param_string(panel_name, panel_name, sizeof(panel_name) , 0);
 
 int msm_fb_detect_client(const char *name)
 {
@@ -181,6 +183,14 @@ int msm_fb_detect_client(const char *name)
 #ifdef CONFIG_FB_MSM_MDDI_AUTO_DETECT
 	u32 id;
 #endif
+
+	MSM_FB_DEBUG("\n name = %s, panel_name = %s", name, panel_name);
+	if (strlen(panel_name)) {
+		if (!strcmp((char *)panel_name, name))
+			return 0;
+		else
+			return -EPERM;
+	}
 
 	if (msm_fb_pdata && msm_fb_pdata->detect_client) {
 		ret = msm_fb_pdata->detect_client(name);

@@ -93,7 +93,11 @@ obj-$(CONFIG_FB_MSM_MDDI_ORISE) += mddi_orise.o
 obj-$(CONFIG_FB_MSM_MDDI_QUICKVX) += mddi_quickvx.o
 endif
 
+ifeq ($(CONFIG_FB_MSM_MIPI_PANEL_DETECT),y)
+obj-y += mipi_toshiba_video_wvga_pt.o
+else
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT) += mipi_toshiba_video_wvga_pt.o
+endif
 
 obj-$(CONFIG_FB_MSM_LCDC_PANEL) += lcdc_panel.o
 obj-$(CONFIG_FB_MSM_LCDC_PRISM_WVGA) += lcdc_prism.o
