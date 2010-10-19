@@ -58,6 +58,51 @@ static LIST_HEAD(msm_sensors);
 struct  msm_control_device *g_v4l2_control_device;
 int g_v4l2_opencnt;
 
+static const char *vfe_config_cmd[] = {
+	"CMD_GENERAL",  /* 0 */
+	"CMD_AXI_CFG_OUT1",
+	"CMD_AXI_CFG_SNAP_O1_AND_O2",
+	"CMD_AXI_CFG_OUT2",
+	"CMD_PICT_T_AXI_CFG",
+	"CMD_PICT_M_AXI_CFG",  /* 5 */
+	"CMD_RAW_PICT_AXI_CFG",
+	"CMD_FRAME_BUF_RELEASE",
+	"CMD_PREV_BUF_CFG",
+	"CMD_SNAP_BUF_RELEASE",
+	"CMD_SNAP_BUF_CFG",  /* 10 */
+	"CMD_STATS_DISABLE",
+	"CMD_STATS_AEC_AWB_ENABLE",
+	"CMD_STATS_AF_ENABLE",
+	"CMD_STATS_AEC_ENABLE",
+	"CMD_STATS_AWB_ENABLE",  /* 15 */
+	"CMD_STATS_ENABLE",
+	"CMD_STATS_AXI_CFG",
+	"CMD_STATS_AEC_AXI_CFG",
+	"CMD_STATS_AF_AXI_CFG",
+	"CMD_STATS_AWB_AXI_CFG",  /* 20 */
+	"CMD_STATS_RS_AXI_CFG",
+	"CMD_STATS_CS_AXI_CFG",
+	"CMD_STATS_IHIST_AXI_CFG",
+	"CMD_STATS_SKIN_AXI_CFG",
+	"CMD_STATS_BUF_RELEASE",  /* 25 */
+	"CMD_STATS_AEC_BUF_RELEASE",
+	"CMD_STATS_AF_BUF_RELEASE",
+	"CMD_STATS_AWB_BUF_RELEASE",
+	"CMD_STATS_RS_BUF_RELEASE",
+	"CMD_STATS_CS_BUF_RELEASE",  /* 30 */
+	"CMD_STATS_IHIST_BUF_RELEASE",
+	"CMD_STATS_SKIN_BUF_RELEASE",
+	"UPDATE_STATS_INVALID",
+	"CMD_AXI_CFG_SNAP_GEMINI",
+	"CMD_AXI_CFG_SNAP",  /* 35 */
+	"CMD_AXI_CFG_PREVIEW",
+	"CMD_AXI_CFG_VIDEO",
+	"CMD_STATS_IHIST_ENABLE",
+	"CMD_STATS_RS_ENABLE",
+	"CMD_STATS_CS_ENABLE",  /* 40 */
+	"CMD_VPE",
+	"CMD_AXI_CFG_VPE"
+};
 #define __CONTAINS(r, v, l, field) ({				\
 	typeof(r) __r = r;					\
 	typeof(v) __v = v;					\
@@ -1109,7 +1154,7 @@ static int msm_config_vpe(struct msm_sync *sync, void __user *arg)
 		ERR_COPY_FROM_USER();
 		return -EFAULT;
 	}
-	CDBG("%s: cmd_type %d\n", __func__, cfgcmd.cmd_type);
+	CDBG("%s: cmd_type %s\n", __func__, vfe_config_cmd[cfgcmd.cmd_type]);
 	switch (cfgcmd.cmd_type) {
 	case CMD_VPE:
 		return sync->vpefn.vpe_config(&cfgcmd, NULL);
@@ -1137,7 +1182,7 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 	}
 
 	memset(&axi_data, 0, sizeof(axi_data));
-	CDBG("%s: cmd_type %d\n", __func__, cfgcmd.cmd_type);
+	CDBG("%s: cmd_type %s\n", __func__, vfe_config_cmd[cfgcmd.cmd_type]);
 	switch (cfgcmd.cmd_type) {
 	case CMD_STATS_ENABLE:
 		axi_data.bufnum1 =
@@ -1275,8 +1320,8 @@ static int msm_vpe_frame_cfg(struct msm_sync *sync,
 	cfgcmd = (struct msm_vpe_cfg_cmd *)cfgcmdin;
 
 	memset(&axi_data, 0, sizeof(axi_data));
-	CDBG("In vpe_frame_cfg cfgcmd->cmd_type = %d \n",
-		cfgcmd->cmd_type);
+	CDBG("In vpe_frame_cfg cfgcmd->cmd_type = %s\n",
+		vfe_config_cmd[cfgcmd->cmd_type]);
 	switch (cfgcmd->cmd_type) {
 	case CMD_AXI_CFG_VPE:
 		pmem_type = MSM_PMEM_VIDEO_VPE;
@@ -1297,8 +1342,8 @@ static int msm_vpe_frame_cfg(struct msm_sync *sync,
 		break;
 	}
 	axi_data.region = &region[0];
-	CDBG("out vpe_frame_cfg cfgcmd->cmd_type = %d \n",
-		cfgcmd->cmd_type);
+	CDBG("out vpe_frame_cfg cfgcmd->cmd_type = %s\n",
+		vfe_config_cmd[cfgcmd->cmd_type]);
 	/* send the AXI configuration command to driver */
 	if (sync->vpefn.vpe_config)
 		rc = sync->vpefn.vpe_config(cfgcmd, data);

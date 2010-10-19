@@ -191,6 +191,116 @@ static struct vfe31_cmd_type vfe31_cmd[] = {
 		{V31_LIVESHOT},
 };
 
+static const char *vfe31_general_cmd[] = {
+	"DUMMY_0",  /* 0 */
+	"SET_CLK",
+	"RESET",
+	"START",
+	"TEST_GEN_START",
+	"OPERATION_CFG",  /* 5 */
+	"AXI_OUT_CFG",
+	"CAMIF_CFG",
+	"AXI_INPUT_CFG",
+	"BLACK_LEVEL_CFG",
+	"ROLL_OFF_CFG",  /* 10 */
+	"DEMUX_CFG",
+	"DEMOSAIC_0_CFG",  /* general */
+	"DEMOSAIC_1_CFG",  /* ABF     */
+	"DEMOSAIC_2_CFG",  /* BPC     */
+	"FOV_CFG",  /* 15  */
+	"MAIN_SCALER_CFG",
+	"WB_CFG",
+	"COLOR_COR_CFG",
+	"RGB_G_CFG",
+	"LA_CFG",  /* 20 */
+	"CHROMA_EN_CFG",
+	"CHROMA_SUP_CFG",
+	"MCE_CFG",
+	"SK_ENHAN_CFG",
+	"ASF_CFG",  /* 25 */
+	"S2Y_CFG",
+	"S2CbCr_CFG",
+	"CHROMA_SUBS_CFG",
+	"OUT_CLAMP_CFG",
+	"FRAME_SKIP_CFG",  /* 30 */
+	"DUMMY_1",
+	"DUMMY_2",
+	"DUMMY_3",
+	"UPDATE",
+	"BL_LVL_UPDATE",  /* 35 */
+	"DEMUX_UPDATE",
+	"DEMOSAIC_1_UPDATE",  /* BPC */
+	"DEMOSAIC_2_UPDATE",  /* ABF */
+	"FOV_UPDATE",
+	"MAIN_SCALER_UPDATE",  /* 40 */
+	"WB_UPDATE",
+	"COLOR_COR_UPDATE",
+	"RGB_G_UPDATE",
+	"LA_UPDATE",
+	"CHROMA_EN_UPDATE",  /* 45 */
+	"CHROMA_SUP_UPDATE",
+	"MCE_UPDATE",
+	"SK_ENHAN_UPDATE",
+	"S2CbCr_UPDATE",
+	"S2Y_UPDATE",  /* 50 */
+	"ASF_UPDATE",
+	"FRAME_SKIP_UPDATE",
+	"CAMIF_FRAME_UPDATE",
+	"STATS_AF_UPDATE",
+	"STATS_AE_UPDATE",  /* 55 */
+	"STATS_AWB_UPDATE",
+	"STATS_RS_UPDATE",
+	"STATS_CS_UPDATE",
+	"STATS_SKIN_UPDATE",
+	"STATS_IHIST_UPDATE",  /* 60 */
+	"DUMMY_4",
+	"EPOCH1_ACK",
+	"EPOCH2_ACK",
+	"START_RECORDING",
+	"STOP_RECORDING",  /* 65 */
+	"DUMMY_5",
+	"DUMMY_6",
+	"CAPTURE",
+	"DUMMY_7",
+	"STOP",  /* 70 */
+	"GET_HW_VERSION",
+	"GET_FRAME_SKIP_COUNTS",
+	"OUTPUT1_BUFFER_ENQ",
+	"OUTPUT2_BUFFER_ENQ",
+	"OUTPUT3_BUFFER_ENQ",  /* 75 */
+	"JPEG_OUT_BUF_ENQ",
+	"RAW_OUT_BUF_ENQ",
+	"RAW_IN_BUF_ENQ",
+	"STATS_AF_ENQ",
+	"STATS_AE_ENQ",  /* 80 */
+	"STATS_AWB_ENQ",
+	"STATS_RS_ENQ",
+	"STATS_CS_ENQ",
+	"STATS_SKIN_ENQ",
+	"STATS_IHIST_ENQ",  /* 85 */
+	"DUMMY_8",
+	"JPEG_ENC_CFG",
+	"DUMMY_9",
+	"STATS_AF_START",
+	"STATS_AF_STOP",  /* 90 */
+	"STATS_AE_START",
+	"STATS_AE_STOP",
+	"STATS_AWB_START",
+	"STATS_AWB_STOP",
+	"STATS_RS_START",  /* 95 */
+	"STATS_RS_STOP",
+	"STATS_CS_START",
+	"STATS_CS_STOP",
+	"STATS_SKIN_START",
+	"STATS_SKIN_STOP",  /* 100 */
+	"STATS_IHIST_START",
+	"STATS_IHIST_STOP",
+	"DUMMY_10",
+	"SYNC_TIMER_SETTING",
+	"ASYNC_TIMER_SETTING",  /* 105 */
+	"LIVESHOT"
+};
+
 static void vfe_addr_convert(struct msm_vfe_phy_info *pinfo,
 	enum vfe_resp_msg type, void *data, void **ext, int32_t *elen)
 {
@@ -1183,8 +1293,8 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 	uint32_t *cmdp_local = NULL;
 	uint32_t snapshot_cnt = 0;
 
-	CDBG("vfe31_proc_general: cmdID = %d, length = %d\n",
-		cmd->id, cmd->length);
+	CDBG("vfe31_proc_general: cmdID = %s, length = %d\n",
+		vfe31_general_cmd[cmd->id], cmd->length);
 	switch (cmd->id) {
 	case V31_RESET:
 		vfe31_reset();
