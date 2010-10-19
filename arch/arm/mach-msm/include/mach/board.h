@@ -22,6 +22,9 @@
 #include <linux/input.h>
 #include <linux/usb.h>
 #include <linux/leds-pmic8058.h>
+#ifdef CONFIG_MSM_BUS_SCALING
+#include <mach/msm_bus.h>
+#endif
 
 /* platform device data structures */
 struct msm_acpu_clock_platform_data {
@@ -226,6 +229,9 @@ struct msm_panel_common_pdata {
 	int mdp_core_clk_rate;
 	unsigned num_mdp_clk;
 	int *mdp_core_clk_table;
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *mdp_bus_scale_table;
+#endif
 };
 
 struct lcdc_platform_data {

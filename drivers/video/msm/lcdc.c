@@ -33,7 +33,9 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#ifndef CONFIG_MSM_BUS_SCALING
 #include <linux/pm_qos_params.h>
+#endif
 #include <linux/regulator/consumer.h>
 #include <mach/msm_reqs.h>
 
@@ -85,7 +87,11 @@ static int lcdc_off(struct platform_device *pdev)
 	if (lcdc_pdata && lcdc_pdata->lcdc_gpio_config)
 		ret = lcdc_pdata->lcdc_gpio_config(0);
 
+#ifndef CONFIG_MSM_BUS_SCALING
 	pm_qos_update_request(mfd->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+#else
+	mdp_bus_scale_update_request(0);
+#endif
 
 	return ret;
 }
@@ -94,11 +100,15 @@ static int lcdc_on(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct msm_fb_data_type *mfd;
-	unsigned long panel_pixclock_freq, pm_qos_rate;
-
+	unsigned long panel_pixclock_freq;
+#ifndef CONFIG_MSM_BUS_SCALING
+	unsigned long pm_qos_rate;
+#endif
 	mfd = platform_get_drvdata(pdev);
 	panel_pixclock_freq = mfd->fbi->var.pixclock;
-
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(2);
+#else
 #ifdef CONFIG_MSM_NPA_SYSTEM_BUS
 	pm_qos_rate = MSM_AXI_FLOW_MDP_LCDC_WVGA_2BPP;
 #else
@@ -110,6 +120,7 @@ static int lcdc_on(struct platform_device *pdev)
 #endif
 
 	pm_qos_update_request(mfd->pm_qos_req, pm_qos_rate);
+#endif
 	mfd = platform_get_drvdata(pdev);
 
 	mfd->fbi->var.pixclock = clk_round_rate(pixel_mdp_clk,
@@ -210,11 +221,16 @@ static int lcdc_probe(struct platform_device *pdev)
 	fbi->var.hsync_len = mfd->panel_info.lcdc.h_pulse_width;
 	fbi->var.vsync_len = mfd->panel_info.lcdc.v_pulse_width;
 
+#ifndef CONFIG_MSM_BUS_SCALING
+	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
+					       PM_QOS_DEFAULT_VALUE);
+	if (!mfd->pm_qos_req)
+		return -ENOMEM;
+#endif
 	/*
 	 * set driver data
 	 */
 	platform_set_drvdata(mdp_dev, mfd);
-
 	/*
 	 * register in mdp driver
 	 */
@@ -224,12 +240,7 @@ static int lcdc_probe(struct platform_device *pdev)
 
 	pdev_list[pdev_list_cnt++] = pdev;
 
-	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					       PM_QOS_DEFAULT_VALUE);
-	if (!mfd->pm_qos_req)
-		goto lcdc_probe_err;
-
-		return 0;
+	return 0;
 
 lcdc_probe_err:
 	platform_device_put(mdp_dev);
@@ -238,11 +249,13 @@ lcdc_probe_err:
 
 static int lcdc_remove(struct platform_device *pdev)
 {
+#ifndef CONFIG_MSM_BUS_SCALING
 	struct msm_fb_data_type *mfd;
 
 	mfd = platform_get_drvdata(pdev);
 
 	pm_qos_remove_request(mfd->pm_qos_req);
+#endif
 	return 0;
 }
 

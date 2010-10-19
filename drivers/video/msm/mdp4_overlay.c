@@ -1497,15 +1497,26 @@ int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
 
 #define OVERLAY_VGA_SIZE	0x04B000
 #define OVERLAY_720P_SIZE	0x0E1000
+#define OVERLAY_720P_TILE_SIZE  0x0E6000
 #define OVERLAY_PERF_LEVEL1	1
 #define OVERLAY_PERF_LEVEL2	2
 #define OVERLAY_PERF_LEVEL3	3
 #define OVERLAY_PERF_LEVEL4	4
-static uint32 mdp4_overlay_get_perf_level(uint32 width, uint32 height)
+
+#ifdef CONFIG_MSM_BUS_SCALING
+#define OVERLAY_BUS_SCALE_TABLE_BASE	6
+#endif
+
+static uint32 mdp4_overlay_get_perf_level(uint32 width, uint32 height,
+					  uint32 format)
 {
+	uint32 size_720p = OVERLAY_720P_SIZE;
+	if (format == MDP_Y_CRCB_H2V2_TILE ||
+		format == MDP_Y_CBCR_H2V2_TILE)
+		size_720p = OVERLAY_720P_TILE_SIZE;
 	if (width*height <= OVERLAY_VGA_SIZE)
 		return OVERLAY_PERF_LEVEL3;
-	else if (width*height < OVERLAY_720P_SIZE)
+	else if (width*height < size_720p)
 		return OVERLAY_PERF_LEVEL2;
 	else
 		return OVERLAY_PERF_LEVEL1;
@@ -1550,7 +1561,8 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	mdp4_stat.overlay_set[pipe->mixer_num]++;
 	mutex_unlock(&mfd->dma->ov_mutex);
 	perf_level = mdp4_overlay_get_perf_level(req->src.width,
-							req->src.height);
+						req->src.height,
+						req->src.format);
 #ifdef CONFIG_ARCH_MSM7X30
 	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
 		addr = MDP_BASE + 0xC0000;
@@ -1565,6 +1577,11 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	}
 #endif
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(OVERLAY_BUS_SCALE_TABLE_BASE
+						- perf_level);
+#endif
+
 	return 0;
 }
 
@@ -1619,6 +1636,9 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	}
 #endif
 
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(2);
+#endif
 	return 0;
 }
 
