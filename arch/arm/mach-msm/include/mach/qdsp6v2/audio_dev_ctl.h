@@ -35,13 +35,19 @@
 #define DIR_RX	1
 
 #define DEVICE_IGNORE	0xff
-#define SESSION_IGNORE 0x00000000
+#define SESSION_IGNORE 0x0UL
+
+/* 8 concurrent sessions with Q6 possible,  session:0
+   reserved in DSP */
+#define MAX_SESSIONS 0x09
+
+/* This represents Maximum bit needed for representing sessions
+   per clients, MAX_BIT_PER_CLIENT >= MAX_SESSIONS */
+#define MAX_BIT_PER_CLIENT 16
 
 #define VOICE_STATE_INVALID 0x0
 #define VOICE_STATE_INCALL 0x1
 #define VOICE_STATE_OFFCALL 0x2
-#define MAX_COPP_NODE_SUPPORTED 6
-#define MAX_AUDREC_SESSIONS 2
 
 struct msm_snddev_info {
 	const char *name;
@@ -62,7 +68,7 @@ struct msm_snddev_info {
 	u32 sample_rate;
 	u32 channel_mode;
 	u32 set_sample_rate;
-	u32 sessions;
+	u64 sessions;
 	int usage_count;
 	s32 max_voc_rx_vol[VOC_RX_VOL_ARRAY_NUM]; /* [0] is for NB,[1] for WB */
 	s32 min_voc_rx_vol[VOC_RX_VOL_ARRAY_NUM];
@@ -194,7 +200,7 @@ int auddev_register_evt_listner(u32 evt_id, u32 clnt_type, u32 clnt_id,
 		void *private_data);
 int auddev_unregister_evt_listner(u32 clnt_type, u32 clnt_id);
 void mixer_post_event(u32 evt_id, u32 dev_id);
-void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id);
+void broadcast_event(u32 evt_id, u32 dev_id, u64 session_id);
 int msm_snddev_request_freq(int *freq, u32 session_id,
 			u32 capability, u32 clnt_type);
 int msm_snddev_withdraw_freq(u32 session_id,
