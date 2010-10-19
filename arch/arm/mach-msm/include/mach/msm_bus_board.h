@@ -60,8 +60,6 @@ struct msm_bus_halt_vector {
 	uint32_t haltmask;
 };
 
-#if defined(CONFIG_ARCH_MSM8X60)
-
 extern struct msm_bus_fabric_registration msm_bus_apps_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_sys_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_mm_fabric_pdata;
@@ -329,5 +327,4 @@ enum msm_bus_fabric_ahb_slave_type {
 	MSM_BUS_CPSS_FPB_SLAVE_MSM_PRNG,
 };
 
-#endif /* CONFIG_ARCH_MSM8X60 */
 #endif /*__ASM_ARCH_MSM_BUS_BOARD_H */
