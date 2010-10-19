@@ -41,6 +41,9 @@ int get_core_count(void)
 void smp_prepare_cpus(unsigned int max_cpus)
 {
 	int i;
+	unsigned int cpu = smp_processor_id();
+
+	smp_store_cpu_info(cpu);
 
 	for (i = 0; i < max_cpus; i++)
 		cpu_set(i, cpu_present_map);
