@@ -16,6 +16,7 @@ CONFIG_ARCH_WANT_OPTIONAL_GPIOLIB=y
 # CONFIG_ARPD is not set
 # CONFIG_ATALK is not set
 # CONFIG_ATA_OVER_ETH is not set
+# CONFIG_ATH6K_LEGACY is not set
 # CONFIG_ATM is not set
 # CONFIG_ATOMIC64_SELFTEST is not set
 # CONFIG_AUTOFS4_FS is not set
