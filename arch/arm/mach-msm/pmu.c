@@ -21,19 +21,8 @@
 #include <mach/irqs.h>
 
 static struct resource pmu_resource = {
-#ifdef CONFIG_ARCH_QSD8X50
-	.start = INT_ARM11_PM,
-	.end = INT_ARM11_PM,
-#endif
-#ifdef CONFIG_ARCH_MSM7X30
-	.start = INT_ARM11_PM,
-	.end = INT_ARM11_PM,
-#endif
-#ifdef CONFIG_ARCH_MSM8X60
-	.start = CPU_SICCPUXPERFMONIRPTREQ,
-	.end = CPU_SICCPUXPERFMONIRPTREQ,
-#endif
-
+	.start = INT_ARMQC_PERFMON,
+	.end = INT_ARMQC_PERFMON,
 	.flags	= IORESOURCE_IRQ,
 };
 

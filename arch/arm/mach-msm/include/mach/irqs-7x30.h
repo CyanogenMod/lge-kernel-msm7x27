@@ -41,7 +41,7 @@
 #define INT_AVS_SVIC_SW_DONE	6
 #define INT_SC_DBG_RX_FULL	7
 #define INT_SC_DBG_TX_EMPTY	8
-#define INT_ARM11_PM		9
+#define INT_ARMQC_PERFMON	9
 #define INT_AVS_REQ_DOWN	10
 #define INT_AVS_REQ_UP		11
 #define INT_SC_ACG		12
