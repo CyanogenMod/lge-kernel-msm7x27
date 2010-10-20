@@ -216,7 +216,25 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device, enum kgsl_deviceid dev_id)
 		clk = NULL;
 	device->pwrctrl.grp_pclk = clk;
 
-	clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
+	/*acquire device-specific resources */
+	switch (device->id) {
+	case (KGSL_DEVICE_2D0):
+		device->pwrctrl.interrupt_num =
+			platform_get_irq_byname(pdev, "kgsl_2d0_irq");
+		device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx2d0");
+		clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
+		break;
+	case (KGSL_DEVICE_2D1):
+		device->pwrctrl.interrupt_num =
+			platform_get_irq_byname(pdev, "kgsl_2d1_irq");
+		device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx2d1");
+		clk = clk_get(&pdev->dev, pdata->grp2d1_clk_name);
+		break;
+	default:
+		break;
+	}
+
+	/* error check resources */
 	if (IS_ERR(clk)) {
 		clk = NULL;
 		result = PTR_ERR(clk);
@@ -224,9 +242,18 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device, enum kgsl_deviceid dev_id)
 						pdata->grp2d0_clk_name, result);
 		goto done;
 	}
-	device->pwrctrl.grp_clk = clk;
-	device->pwrctrl.grp_src_clk = clk;
 
+	if (IS_ERR(device->pwrctrl.gpu_reg))
+		device->pwrctrl.gpu_reg = NULL;
+
+	if (device->pwrctrl.interrupt_num <= 0) {
+		KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
+					 device->pwrctrl.interrupt_num);
+		result = -EINVAL;
+		goto done;
+	}
+
+	/* save resources to pwrctrl struct */
 	if (pdata->set_grp2d_async != NULL)
 		pdata->set_grp2d_async();
 
@@ -238,40 +265,15 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device, enum kgsl_deviceid dev_id)
 		clk_set_rate(clk, device->pwrctrl.clk_freq[KGSL_MIN_FREQ]);
 	}
 
-	device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx2d0");
-	if (IS_ERR(device->pwrctrl.gpu_reg))
-		device->pwrctrl.gpu_reg = NULL;
-
 	device->pwrctrl.power_flags = 0;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
-
-	/*acquire g12 interrupt */
-	switch (device->id) {
-	case (KGSL_DEVICE_2D0):
-		device->pwrctrl.interrupt_num =
-			platform_get_irq_byname(pdev, "kgsl_2d0_irq");
-		break;
-	case (KGSL_DEVICE_2D1):
-		device->pwrctrl.interrupt_num =
-			platform_get_irq_byname(pdev, "kgsl_2d1_irq");
-		break;
-	default:
-		break;
-	}
-
-	if (device->pwrctrl.interrupt_num <= 0) {
-		KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
-					 device->pwrctrl.interrupt_num);
-		result = -EINVAL;
-		goto done;
-	}
-
+	device->pwrctrl.grp_clk = clk;
+	device->pwrctrl.grp_src_clk = clk;
+	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
+	device->pwrctrl.interval_timeout = pdata->idle_timeout_2d;
 	device->pwrctrl.pm_qos_req = pm_qos_add_request(
 					PM_QOS_SYSTEM_BUS_FREQ,
 					PM_QOS_DEFAULT_VALUE);
-	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
-	device->pwrctrl.interval_timeout = pdata->idle_timeout_2d;
-
 done:
 	return result;
 }
