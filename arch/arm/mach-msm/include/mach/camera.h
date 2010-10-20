@@ -250,6 +250,8 @@ struct msm_sync {
 	void *cropinfo;
 	int  croplen;
 
+	struct fd_roi_info fdroiinfo;
+
 	atomic_t vpe_enable;
 	uint32_t pp_mask;
 	uint8_t pp_frame_avail;
