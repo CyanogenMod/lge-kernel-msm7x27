@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -161,5 +161,7 @@
 #define PMIC8058_IRQ_BASE	(NR_MSM_IRQS + NR_GPIO_IRQS)
 #define NR_PMIC8058_IRQS	256
 #define NR_BOARD_IRQS		NR_PMIC8058_IRQS
+
+#define INT_ADSP_A11_SMSM	INT_ADSP_A11
 
 #endif /* __ASM_ARCH_MSM_IRQS_7X30_H */

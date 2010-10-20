@@ -278,6 +278,7 @@
 #define INT_A9_M2A_0                    MARM_SCSS_GP_IRQ_0
 #define INT_A9_M2A_5                    MARM_SCSS_GP_IRQ_1
 #define INT_ADSP_A11                    LPASS_SCSS_GP_HIGH_IRQ
+#define INT_ADSP_A11_SMSM               LPASS_SCSS_GP_MEDIUM_IRQ
 #define INT_DSPS_A11                    SPS_MTI_31
 
 #endif
