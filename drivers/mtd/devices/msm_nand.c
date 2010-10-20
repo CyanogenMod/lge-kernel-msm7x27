@@ -827,16 +827,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	else
 		page_count = ops->len / (mtd->writesize + mtd->oobsize);
 
-#if 0 /* yaffs reads more oob data than it needs */
-	if (ops->ooblen >= sectoroobsize * 4) {
-		pr_err("%s: unsupported ops->ooblen, %d\n",
-		       __func__, ops->ooblen);
-		return -EINVAL;
-	}
-#endif
-
 	if (ops->datbuf) {
-		/* memset(ops->datbuf, 0x55, ops->len); */
 		data_dma_addr_curr = data_dma_addr =
 			msm_nand_dma_map(chip->dev, ops->datbuf, ops->len,
 				       DMA_FROM_DEVICE);
@@ -887,9 +878,8 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 		}
 
 		dma_buffer->data.addr0 = (page << 16) | oob_col;
-		/* qc example is (page >> 16) && 0xff !? */
 		dma_buffer->data.addr1 = (page >> 16) & 0xff;
-		/* flash0 + undoc bit */
+		/* chipsel_0 + enable DM interface */
 		dma_buffer->data.chipsel = 0 | 4;
 
 
@@ -1338,8 +1328,9 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 		dma_buffer->data.ebi2_chip_select_cfg0 = 0x00000805;
 		dma_buffer->data.default_ebi2_chip_select_cfg0 = 0x00000801;
 
-		/* flash0 + undoc bit */
+		/* chipsel_0 + enable DM interface */
 		dma_buffer->data.chipsel_cs0 = (1<<4) | 4;
+		/* chipsel_1 + enable DM interface */
 		dma_buffer->data.chipsel_cs1 = (1<<4) | 5;
 
 		/* GO bit for the EXEC register */
@@ -2035,13 +2026,6 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 		pr_err("%s: unsupported ops->datbuf == NULL\n", __func__);
 		return -EINVAL;
 	}
-#if 0 /* yaffs writes more oob data than it needs */
-	if (ops->ooblen >= sectoroobsize * 4) {
-		pr_err("%s: unsupported ops->ooblen, %d\n",
-		       __func__, ops->ooblen);
-		return -EINVAL;
-	}
-#endif
 	if (ops->mode != MTD_OOB_RAW && ops->ooblen != 0 && ops->ooboffs != 0) {
 		pr_err("%s: unsupported ops->ooboffs, %d\n",
 		       __func__, ops->ooboffs);
@@ -2080,7 +2064,6 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 	while (page_count-- > 0) {
 		cmd = dma_buffer->cmd;
 
-		/* CMD / ADDR0 / ADDR1 / CHIPSEL program values */
 		if (ops->mode != MTD_OOB_RAW) {
 			dma_buffer->data.cfg0 = chip->CFG0;
 			dma_buffer->data.cfg1 = chip->CFG1;
@@ -2091,13 +2074,15 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 						(chip->CFG1 & CFG1_WIDE_FLASH);
 		}
 
+		/* CMD / ADDR0 / ADDR1 / CHIPSEL program values */
 		dma_buffer->data.cmd = MSM_NAND_CMD_PRG_PAGE;
 		dma_buffer->data.addr0 = page << 16;
 		dma_buffer->data.addr1 = (page >> 16) & 0xff;
-		dma_buffer->data.chipsel = 0 | 4; /* flash0 + undoc bit */
+		/* chipsel_0 + enable DM interface */
+		dma_buffer->data.chipsel = 0 | 4;
 
 
-			/* GO bit for the EXEC register */
+		/* GO bit for the EXEC register */
 		dma_buffer->data.exec = 1;
 		dma_buffer->data.clrfstatus = 0x00000020;
 		dma_buffer->data.clrrstatus = 0x000000C0;
@@ -2137,7 +2122,7 @@ msm_nand_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 				cmd++;
 			}
 
-				/* write data block */
+			/* write data block */
 			if (ops->mode != MTD_OOB_RAW)
 				sectordatawritesize = (n < (cwperpage - 1)) ?
 					516 : (512 - ((cwperpage - 1) << 2));
