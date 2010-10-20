@@ -42,7 +42,6 @@
 
 #include "gadget_chips.h"
 
-#ifdef CONFIG_USB_ANDROID_RMNET
 static char *rmnet_ctl_ch = CONFIG_RMNET_SMD_CTL_CHANNEL;
 module_param(rmnet_ctl_ch, charp, S_IRUGO);
 MODULE_PARM_DESC(rmnet_ctl_ch, "RmNet control SMD channel");
@@ -50,7 +49,6 @@ MODULE_PARM_DESC(rmnet_ctl_ch, "RmNet control SMD channel");
 static char *rmnet_data_ch = CONFIG_RMNET_SMD_DATA_CHANNEL;
 module_param(rmnet_data_ch, charp, S_IRUGO);
 MODULE_PARM_DESC(rmnet_data_ch, "RmNet data SMD channel");
-#endif
 
 #define ACM_CTRL_DTR	(1 << 0)
 
