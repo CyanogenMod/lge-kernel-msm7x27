@@ -35,6 +35,9 @@
 #include <linux/pwm.h>
 #include <linux/pmic8058-pwm.h>
 #include <linux/leds-pmic8058.h>
+#include <linux/pmic8058-xoadc.h>
+#include <linux/m_adc.h>
+#include <linux/m_adcproc.h>
 #include <linux/mfd/marimba.h>
 #include <linux/msm-charger.h>
 #include <linux/clk.h>
@@ -1862,6 +1865,191 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 	&msm_mi2s_device,
 };
 
+#ifdef CONFIG_SENSORS_M_ADC
+static struct resource resources_adc[] = {
+	{
+		.start = PM8058_ADC_IRQ(PM8058_IRQ_BASE),
+		.end   = PM8058_ADC_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct adc_access_fn xoadc_fn = {
+	pm8058_xoadc_select_chan_and_start_conv,
+	pm8058_xoadc_read_adc_code,
+	pm8058_xoadc_get_properties,
+	pm8058_xoadc_slot_request,
+	pm8058_xoadc_restore_slot,
+	pm8058_xoadc_calibrate,
+};
+
+static struct msm_adc_channels msm_adc_channels_data[] = {
+	{"vbatt", CHANNEL_ADC_VBATT, 0, &xoadc_fn, CHAN_PATH_TYPE2,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE3, scale_default},
+	{"vcoin", CHANNEL_ADC_VCOIN, 0, &xoadc_fn, CHAN_PATH_TYPE1,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE2, scale_default},
+	{"vcharger_channel", CHANNEL_ADC_VCHG, 0, &xoadc_fn, CHAN_PATH_TYPE3,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE4, scale_default},
+	{"charger_current_monitor", CHANNEL_ADC_CHG_MONITOR, 0, &xoadc_fn,
+		CHAN_PATH_TYPE4,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE1, scale_default},
+	{"vph_pwr", CHANNEL_ADC_VPH_PWR, 0, &xoadc_fn, CHAN_PATH_TYPE5,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE3, scale_default},
+	{"usb_vbus", CHANNEL_ADC_USB_VBUS, 0, &xoadc_fn, CHAN_PATH_TYPE11,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE3, scale_default},
+	{"pmic_therm", CHANNEL_ADC_DIE_TEMP, 0, &xoadc_fn, CHAN_PATH_TYPE12,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE1, scale_pmic_therm},
+	{"pmic_therm_4K", CHANNEL_ADC_DIE_TEMP_4K, 0, &xoadc_fn,
+		CHAN_PATH_TYPE12,
+		ADC_CONFIG_TYPE1, ADC_CALIB_CONFIG_TYPE7, scale_pmic_therm},
+	{"xo_therm", CHANNEL_ADC_XOTHERM, 0, &xoadc_fn, CHAN_PATH_TYPE_NONE,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE5, tdkntcgtherm},
+	{"xo_therm_4K", CHANNEL_ADC_XOTHERM_4K, 0, &xoadc_fn,
+		CHAN_PATH_TYPE_NONE,
+		ADC_CONFIG_TYPE1, ADC_CALIB_CONFIG_TYPE6, tdkntcgtherm},
+	{"hdset_detect", CHANNEL_ADC_HDSET, 0, &xoadc_fn, CHAN_PATH_TYPE6,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE1, scale_default},
+	{"chg_batt_amon", CHANNEL_ADC_BATT_AMON, 0, &xoadc_fn, CHAN_PATH_TYPE7,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE1,
+		scale_xtern_chgr_cur},
+	{"batt_therm", CHANNEL_ADC_BATT_THERM, 0, &xoadc_fn, CHAN_PATH_TYPE8,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE2, scale_batt_therm},
+	{"batt_id", CHANNEL_ADC_BATT_ID, 0, &xoadc_fn, CHAN_PATH_TYPE9,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE2, scale_default},
+};
+
+static struct msm_adc_platform_data msm_adc_pdata = {
+	.channel = msm_adc_channels_data,
+	.num_chan_supported = ARRAY_SIZE(msm_adc_channels_data),
+};
+
+static struct platform_device msm_adc_device = {
+	.name   = "msm_adc",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_adc_pdata,
+	},
+};
+
+static struct regulator *xoadc_1;
+static struct regulator *xoadc_2;
+
+static unsigned int pmic8058_xoadc_setup_power(void)
+{
+	int rc;
+
+	xoadc_1 = regulator_get(NULL, "8058_s4");
+	if (IS_ERR(xoadc_1)) {
+		pr_err("%s: Unable to get 8058_s4\n", __func__);
+		rc = PTR_ERR(xoadc_1);
+		return rc;
+	}
+
+	rc = regulator_set_voltage(xoadc_1, 2200000, 2200000);
+	if (rc) {
+		pr_err("%s: vreg_set_level failed\n", __func__);
+		goto fail_vreg_xoadc;
+	}
+
+	rc = regulator_enable(xoadc_1);
+	if (rc) {
+		pr_err("%s: vreg_enable failed\n", __func__);
+		goto fail_vreg_xoadc;
+	}
+
+	xoadc_2 = regulator_get(NULL, "8058_l18");
+	if (IS_ERR(xoadc_2)) {
+		pr_err("%s: Unable to get 8058_l18\n", __func__);
+		rc = PTR_ERR(xoadc_2);
+		goto fail_vreg_xoadc;
+	}
+
+	rc = regulator_set_voltage(xoadc_2, 2200000, 2200000);
+	if (rc) {
+		pr_err("%s: vreg_set_level failed\n", __func__);
+		goto fail_vreg_xoadc2;
+	}
+
+	rc = regulator_enable(xoadc_2);
+	if (rc) {
+		pr_err("%s: vreg_enable failed\n", __func__);
+		goto fail_vreg_xoadc2;
+	}
+
+	return rc;
+
+fail_vreg_xoadc2:
+	regulator_put(xoadc_2);
+fail_vreg_xoadc:
+	regulator_put(xoadc_1);
+	return rc;
+}
+
+static void pmic8058_xoadc_shutdown_power(void)
+{
+	int rc;
+
+	rc = regulator_disable(xoadc_1);
+	if (rc)
+		pr_err("%s: Disable regulator 8058_s4 failed\n", __func__);
+
+	regulator_put(xoadc_1);
+
+	rc = regulator_disable(xoadc_2);
+	if (rc)
+		pr_err("%s: Disable regulator 8058_l18 failed\n", __func__);
+
+	regulator_put(xoadc_2);
+}
+
+static void pmic8058_xoadc_mpp_config(void)
+{
+	int rc;
+
+	rc = pm8901_mpp_config_digital_out(XOADC_MPP_4,
+			PM8901_MPP_DIG_LEVEL_S4, PM_MPP_DOUT_CTL_LOW);
+
+	if (!rc)
+		rc = pm8058_mpp_config_analog_input(XOADC_MPP_3,
+			PM_MPP_AIN_AMUX_CH5, PM_MPP_AOUT_CTL_ENABLE);
+
+	if (!rc)
+		rc = pm8058_mpp_config_analog_input(XOADC_MPP_5,
+			PM_MPP_AIN_AMUX_CH6, PM_MPP_AOUT_CTL_ENABLE);
+
+	if (!rc)
+		rc = pm8058_mpp_config_analog_input(XOADC_MPP_7,
+			PM_MPP_AIN_AMUX_CH7, PM_MPP_AOUT_CTL_ENABLE);
+
+	if (!rc)
+		rc = pm8058_mpp_config_analog_input(XOADC_MPP_8,
+			PM_MPP_AIN_AMUX_CH8, PM_MPP_AOUT_CTL_ENABLE);
+
+	if (rc)
+		pr_err("%s: pmic8058 xoadc mpp config failed\n", __func__);
+}
+
+/* usec. For this ADC,
+ * this time represents clk rate @ txco w/ 1024 decimation ratio.
+ * Each channel has different configuration, thus at the time of starting
+ * the conversion, xoadc will return actual conversion time
+ * */
+static struct adc_properties pm8058_xoadc_data = {
+	.adc_reference          = 2200, /* milli-voltage for this adc */
+	.bitresolution         = 15,
+	.bipolar                = 0,
+	.conversiontime         = 54,
+};
+
+static struct xoadc_platform_data xoadc_pdata = {
+	.xoadc_prop = &pm8058_xoadc_data,
+	.xoadc_setup = pmic8058_xoadc_setup_power,
+	.xoadc_shutdown = pmic8058_xoadc_shutdown_power,
+	.xoadc_mpp_config = pmic8058_xoadc_mpp_config,
+	.xoadc_num = XOADC_PMIC_0,
+};
+#endif
+
 static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_smd,
 	&smsc911x_device,
@@ -1956,6 +2144,9 @@ static struct platform_device *surf_devices[] __initdata = {
 #endif
 	&msm_aux_pcm_device,
 	&msm_mi2s_device,
+#ifdef CONFIG_SENSORS_M_ADC
+	&msm_adc_device,
+#endif
 };
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
@@ -2917,6 +3108,16 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.platform_data = &pm8058_pwm_data,
 		.data_size = sizeof(pm8058_pwm_data),
 	},
+#ifdef CONFIG_SENSORS_M_ADC
+	{
+		.name = "pm8058-xoadc",
+		.id = -1,
+		.num_resources = ARRAY_SIZE(resources_adc),
+		.resources = resources_adc,
+		.platform_data = &xoadc_pdata,
+		.data_size = sizeof(xoadc_pdata),
+	},
+#endif
 	{
 		.name = "pm8058-othc",
 		.id = 0,
