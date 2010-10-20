@@ -120,6 +120,8 @@ struct kgsl_shadowprop {
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
+#ifdef __KERNEL__
+
 struct kgsl_platform_data {
 	unsigned int high_axi_2d;
 	unsigned int high_axi_3d;
@@ -136,6 +138,8 @@ struct kgsl_platform_data {
 	unsigned int idle_timeout_2d;
 	unsigned int idle_timeout_3d;
 };
+
+#endif
 
 /* structure holds list of ibs */
 struct kgsl_ibdesc {
