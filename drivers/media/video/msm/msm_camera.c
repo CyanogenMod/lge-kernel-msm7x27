@@ -46,7 +46,6 @@ spinlock_t pp_snap_spinlock;
 spinlock_t pp_thumb_spinlock;
 
 #define MSM_MAX_CAMERA_SENSORS 5
-#define CAMERA_STOP_SNAPSHOT 42
 
 #define ERR_USER_COPY(to) pr_err("%s(%d): copy %s user\n", \
 				__func__, __LINE__, ((to) ? "to" : "from"))
@@ -771,8 +770,6 @@ static int msm_control(struct msm_control_device *ctrl_pmsm,
 
 	uptr = udata.value;
 	udata.value = data;
-	if (udata.type == CAMERA_STOP_SNAPSHOT)
-		sync->get_pic_abort = 1;
 	atomic_set(&(qcmd.on_heap), 0);
 	qcmd.type = MSM_CAM_Q_CTRL;
 	qcmd.command = &udata;
@@ -1682,10 +1679,15 @@ static int __msm_get_pic(struct msm_sync *sync, struct msm_ctrl_cmd *ctrl)
 {
 	int rc = 0;
 	int tm;
+	unsigned long flags = 0;
 
 	struct msm_queue_cmd *qcmd = NULL;
 
 	tm = (int)ctrl->timeout_ms;
+
+	spin_lock_irqsave(&sync->abort_pict_lock, flags);
+	sync->get_pic_abort = 0;
+	spin_unlock_irqrestore(&sync->abort_pict_lock, flags);
 
 	rc = wait_event_interruptible_timeout(
 			sync->pict_q.wait,
@@ -1693,10 +1695,14 @@ static int __msm_get_pic(struct msm_sync *sync, struct msm_ctrl_cmd *ctrl)
 				&sync->pict_q.list) || sync->get_pic_abort,
 			msecs_to_jiffies(tm));
 
-	if (sync->get_pic_abort == 1) {
+	spin_lock_irqsave(&sync->abort_pict_lock, flags);
+	if (sync->get_pic_abort) {
 		sync->get_pic_abort = 0;
+		spin_unlock_irqrestore(&sync->abort_pict_lock, flags);
 		return -ENODATA;
 	}
+	spin_unlock_irqrestore(&sync->abort_pict_lock, flags);
+
 	if (list_empty_careful(&sync->pict_q.list)) {
 		if (rc == 0)
 			return -ETIMEDOUT;
@@ -2044,6 +2050,16 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 	case MSM_CAM_IOCTL_ERROR_CONFIG:
 		rc = msm_error_config(pmsm->sync, argp);
 		break;
+
+	case MSM_CAM_IOCTL_ABORT_CAPTURE: {
+		unsigned long flags = 0;
+		spin_lock_irqsave(&pmsm->sync->abort_pict_lock, flags);
+		pmsm->sync->get_pic_abort = 1;
+		spin_unlock_irqrestore(&pmsm->sync->abort_pict_lock, flags);
+		wake_up(&(pmsm->sync->pict_q.wait));
+		rc = 0;
+		break;
+	}
 
 	default:
 		rc = msm_ioctl_common(pmsm, cmd, argp);
@@ -2614,6 +2630,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id)
 		}
 		msm_camvpe_fn_init(&sync->vpefn, sync);
 
+		spin_lock_init(&sync->abort_pict_lock);
 		if (rc >= 0) {
 			msm_region_init(sync);
 			if (sync->vpefn.vpe_reg)
