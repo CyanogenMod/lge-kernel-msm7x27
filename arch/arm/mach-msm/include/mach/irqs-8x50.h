@@ -74,7 +74,7 @@
 #define INT_TCSR_MPRPH_SC2   (32 + 6)
 #define INT_OP_PEN           (32 + 7)
 #define INT_AD_HSSD          (32 + 8)
-#define INT_ARM11_PM         (32 + 9)
+#define INT_ARMQC_PERFMON    (32 + 9)
 #define INT_SDMA_NON_SECURE  (32 + 10)
 #define INT_TSIF_IRQ         (32 + 11)
 #define INT_UART1DM_IRQ      (32 + 12)
