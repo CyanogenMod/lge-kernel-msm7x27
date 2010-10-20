@@ -130,7 +130,8 @@ static struct usb_interface_descriptor rndis_control_intf = {
 	/* .bInterfaceNumber = DYNAMIC */
 	/* status endpoint is optional; this could be patched later */
 	.bNumEndpoints =	1,
-#ifdef CONFIG_USB_ANDROID_RNDIS_WCEIS
+#if defined(CONFIG_USB_ANDROID_RNDIS_WCEIS) || \
+    defined(CONFIG_USB_MAEMO_RNDIS_WCEIS)
 	/* "Wireless" RNDIS; auto-detected by Windows */
 	.bInterfaceClass =	USB_CLASS_WIRELESS_CONTROLLER,
 	.bInterfaceSubClass = 1,
@@ -198,7 +199,8 @@ rndis_iad_descriptor = {
 
 	.bFirstInterface =	0, /* XXX, hardcoded */
 	.bInterfaceCount = 	2,	// control + data
-#ifdef CONFIG_USB_ANDROID_RNDIS_WCEIS
+#if defined(CONFIG_USB_ANDROID_RNDIS_WCEIS) || \
+    defined(CONFIG_USB_MAEMO_RNDIS_WCEIS)
 	.bFunctionClass    = 	USB_CLASS_WIRELESS_CONTROLLER,
 	.bFunctionSubClass = 	1,
 	.bFunctionProtocol = 	3,
