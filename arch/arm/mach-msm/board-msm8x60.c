@@ -64,6 +64,7 @@
 #include <mach/msm_hsusb.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus_board.h>
+#include <linux/i2c/isl9519.h>
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
 #endif
@@ -88,6 +89,9 @@
 #define PM8058_GPIO_BASE			NR_MSM_GPIOS
 #define PM8058_GPIO_PM_TO_SYS(pm_gpio)		(pm_gpio + PM8058_GPIO_BASE)
 #define PM8058_GPIO_SYS_TO_PM(sys_gpio)		(sys_gpio - PM8058_GPIO_BASE)
+#define PM8058_MPP_BASE			(PM8058_GPIO_BASE + PM8058_GPIOS)
+#define PM8058_MPP_PM_TO_SYS(pm_gpio)		(pm_gpio + PM8058_MPP_BASE)
+#define PM8058_MPP_SYS_TO_PM(sys_gpio)		(sys_gpio - PM8058_MPP_BASE)
 #define PM8058_IRQ_BASE				(NR_MSM_IRQS + NR_GPIO_IRQS)
 
 #define PM8901_GPIO_BASE			(PM8058_GPIO_BASE + \
@@ -2178,6 +2182,41 @@ static struct i2c_board_info fluid_core_expander_i2c_info[] __initdata = {
 #endif
 #endif
 
+#ifdef CONFIG_ISL9519_CHARGER
+#define ISL_VALID_MPP 10
+#define ISL_VALID_MPP_2 11
+static int isl_detection_setup(void)
+{
+	int ret = 0;
+
+	ret = pm8058_mpp_config_digital_in(ISL_VALID_MPP,
+					   PM8058_MPP_DIG_LEVEL_S3,
+					   PM_MPP_DIN_TO_INT);
+	ret |=  pm8058_mpp_config_bi_dir(ISL_VALID_MPP_2,
+					   PM8058_MPP_DIG_LEVEL_S3,
+					   PM_MPP_BI_PULLUP_10KOHM
+					   );
+	return ret;
+}
+
+static struct isl_platform_data isl_data __initdata = {
+	.chgcurrent = 700,
+	.valid_n_gpio = PM8058_MPP_PM_TO_SYS(10),
+	.chg_detection_config = isl_detection_setup,
+	.max_system_voltage = 4200,
+	.min_system_voltage = 3200,
+	.term_current = 120,
+};
+
+static struct i2c_board_info isl_charger_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("isl9519q", 0x9),
+		.irq = PM8058_CBLPWR_IRQ(PM8058_IRQ_BASE),
+		.platform_data = &isl_data,
+	},
+};
+#endif
+
 #ifdef CONFIG_PMIC8058
 #define PMIC_GPIO_SDC3_DET 22
 
@@ -3634,6 +3673,14 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		ARRAY_SIZE(msm_i2c_gsbi7_bahama_info),
 	},
 #endif /* CONFIG_BAHAMA_CORE */
+#ifdef CONFIG_ISL9519_CHARGER
+	{
+		I2C_SURF | I2C_FFA,
+		MSM_GSBI8_QUP_I2C_BUS_ID,
+		isl_charger_i2c_info,
+		ARRAY_SIZE(isl_charger_i2c_info),
+	},
+#endif
 };
 #endif /* CONFIG_I2C */
 
