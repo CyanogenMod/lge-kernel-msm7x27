@@ -3010,10 +3010,11 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 		pmem[id].kapi_free_index = pmem_kapi_free_index_system;
 		pmem[id].len = pmem_len_system;
 		pmem[id].start_addr = pmem_start_addr_system;
+		pmem[id].num_entries = 0;
+		pmem[id].quantum = PAGE_SIZE;
 
-		DLOG("system allocator id %d (%s), num_entries %u, raw size "
-			"%lu, quanta size %u\n",
-			id, pdata->name, pmem[id].size, pmem[id].quantum);
+		DLOG("system allocator id %d (%s), raw size %lu\n",
+			id, pdata->name, pmem[id].size);
 		break;
 
 	default:
