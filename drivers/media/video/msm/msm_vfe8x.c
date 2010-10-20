@@ -26,6 +26,67 @@
 #define ON  1
 #define OFF 0
 
+static const char *vfe_general_cmd[] = {
+	"START",  /* 0 */
+	"RESET",
+	"AXI_INPUT_CONFIG",
+	"CAMIF_CONFIG",
+	"AXI_OUTPUT_CONFIG",
+	"BLACK_LEVEL_CONFIG",  /* 5 */
+	"ROLL_OFF_CONFIG",
+	"DEMUX_CHANNEL_GAIN_CONFIG",
+	"DEMOSAIC_CONFIG",
+	"FOV_CROP_CONFIG",
+	"MAIN_SCALER_CONFIG",  /* 10 */
+	"WHITE_BALANCE_CONFIG",
+	"COLOR_CORRECTION_CONFIG",
+	"LA_CONFIG",
+	"RGB_GAMMA_CONFIG",
+	"CHROMA_ENHAN_CONFIG",  /* 15 */
+	"CHROMA_SUPPRESSION_CONFIG",
+	"ASF_CONFIG",
+	"SCALER2Y_CONFIG",
+	"SCALER2CbCr_CONFIG",
+	"CHROMA_SUBSAMPLE_CONFIG",  /* 20 */
+	"FRAME_SKIP_CONFIG",
+	"OUTPUT_CLAMP_CONFIG",
+	"TEST_GEN_START",
+	"UPDATE",
+	"OUTPUT1_ACK",  /* 25 */
+	"OUTPUT2_ACK",
+	"EPOCH1_ACK",
+	"EPOCH2_ACK",
+	"STATS_AUTOFOCUS_ACK",
+	"STATS_WB_EXP_ACK",  /* 30 */
+	"BLACK_LEVEL_UPDATE",
+	"DEMUX_CHANNEL_GAIN_UPDATE",
+	"DEMOSAIC_BPC_UPDATE",
+	"DEMOSAIC_ABF_UPDATE",
+	"FOV_CROP_UPDATE",  /* 35 */
+	"WHITE_BALANCE_UPDATE",
+	"COLOR_CORRECTION_UPDATE",
+	"LA_UPDATE",
+	"RGB_GAMMA_UPDATE",
+	"CHROMA_ENHAN_UPDATE",  /* 40 */
+	"CHROMA_SUPPRESSION_UPDATE",
+	"MAIN_SCALER_UPDATE",
+	"SCALER2CbCr_UPDATE",
+	"SCALER2Y_UPDATE",
+	"ASF_UPDATE",  /* 45 */
+	"FRAME_SKIP_UPDATE",
+	"CAMIF_FRAME_UPDATE",
+	"STATS_AUTOFOCUS_UPDATE",
+	"STATS_WB_EXP_UPDATE",
+	"STOP",  /* 50 */
+	"GET_HW_VERSION",
+	"STATS_SETTING",
+	"STATS_AUTOFOCUS_START",
+	"STATS_AUTOFOCUS_STOP",
+	"STATS_WB_EXP_START",  /* 55 */
+	"STATS_WB_EXP_STOP",
+	"ASYNC_TIMER_SETTING",
+};
+
 static void     *vfe_syncdata;
 
 static int vfe_enable(struct camera_enable_cmd *enable)
@@ -176,7 +237,7 @@ static int vfe_proc_general(struct msm_vfe_command_8k *cmd)
 {
 	int rc = 0;
 
-	CDBG("%s: cmdID = %d\n", __func__, cmd->id);
+	CDBG("%s: cmdID = %s\n", __func__, vfe_general_cmd[cmd->id]);
 
 	switch (cmd->id) {
 	case VFE_CMD_ID_RESET:

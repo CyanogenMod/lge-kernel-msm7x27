@@ -32,6 +32,21 @@ static int vpe_update_scaler(struct video_crop_t *pcrop);
 static struct vpe_device_type  vpe_device_data;
 static struct vpe_device_type  *vpe_device;
 struct vpe_ctrl_type    *vpe_ctrl;
+char *vpe_general_cmd[] = {
+	"VPE_DUMMY_0",  /* 0 */
+	"VPE_SET_CLK",
+	"VPE_RESET",
+	"VPE_START",
+	"VPE_ABORT",
+	"VPE_OPERATION_MODE_CFG",  /* 5 */
+	"VPE_INPUT_PLANE_CFG",
+	"VPE_OUTPUT_PLANE_CFG",
+	"VPE_INPUT_PLANE_UPDATE",
+	"VPE_SCALE_CFG_TYPE",
+	"VPE_ROTATION_CFG_TYPE",  /* 10 */
+	"VPE_AXI_OUT_CFG",
+	"VPE_CMD_DIS_OFFSET_CFG",
+};
 
 #define CHECKED_COPY_FROM_USER(in) {					\
 	if (copy_from_user((in), (void __user *)cmd->value,		\
@@ -714,8 +729,8 @@ static int vpe_proc_general(struct msm_vpe_cmd *cmd)
 	struct msm_queue_cmd *qcmd = NULL;
 	struct msm_vpe_buf_info *vpe_buf;
 	struct msm_sync *sync = (struct msm_sync *)vpe_ctrl->syncdata;
-	CDBG("vpe_proc_general: cmdID = %d, length = %d\n",
-		cmd->id, cmd->length);
+	CDBG("vpe_proc_general: cmdID = %s, length = %d\n",
+		vpe_general_cmd[cmd->id], cmd->length);
 	switch (cmd->id) {
 	case VPE_RESET:
 	case VPE_ABORT:
