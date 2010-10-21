@@ -6549,8 +6549,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 		if (!flashdev->pagesize) {
 			supported_flash.flash_id = flash_id;
 			supported_flash.density = flashdev->chipsize << 20;
-			supported_flash.widebus = devcfg & (1 << 6) ?
-							CFG1_WIDE_FLASH : 0;
+			supported_flash.widebus = devcfg & (1 << 6) ? 1 : 0;
 			supported_flash.pagesize = 1024 << (devcfg & 0x3);
 			supported_flash.blksize = (64 * 1024) <<
 							((devcfg >> 4) & 0x3);
@@ -6560,7 +6559,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 			supported_flash.flash_id = flash_id;
 			supported_flash.density = flashdev->chipsize << 20;
 			supported_flash.widebus = flashdev->options &
-					 NAND_BUSWIDTH_16 ? CFG1_WIDE_FLASH : 0;
+					 NAND_BUSWIDTH_16 ? 1 : 0;
 			supported_flash.pagesize = flashdev->pagesize;
 			supported_flash.blksize = flashdev->erasesize;
 			supported_flash.oobsize = flashdev->pagesize >> 5;
@@ -6608,7 +6607,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 				<<  6)  /* Bad block marker location */
 		|    (0 << 16)  /* Bad block in user data area */
 		|    (2 << 17)  /* 6 cycle tWB/tRB */
-		| (wide_bus & CFG1_WIDE_FLASH); /* Wide flash bit */
+		| ((wide_bus) ? CFG1_WIDE_FLASH : 0); /* Wide flash bit */
 
 	chip->ecc_buf_cfg = 0x203;
 
