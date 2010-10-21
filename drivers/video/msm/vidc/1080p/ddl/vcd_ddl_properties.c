@@ -340,7 +340,7 @@ static u32 ddl_check_valid_enc_level(struct vcd_property_codec *codec,
 			status = (profile->profile ==
 				VCD_PROFILE_MPEG4_SP) &&
 				(level->level >= VCD_LEVEL_MPEG4_0) &&
-				(level->level <= VCD_LEVEL_MPEG4_7) &&
+				(level->level <= VCD_LEVEL_MPEG4_6) &&
 				(VCD_LEVEL_MPEG4_3b != level->level);
 			status = status ||
 				((profile->profile ==
