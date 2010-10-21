@@ -77,8 +77,6 @@ int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, unsigned int pwrflag)
 	case KGSL_PWRFLAGS_POWER_OFF:
 		if (pwr->power_flags & KGSL_PWRFLAGS_POWER_ON) {
 			internal_pwr_rail_ctl(pwr->pwr_rail, KGSL_FALSE);
-			internal_pwr_rail_mode(pwr->pwr_rail,
-					PWR_RAIL_CTL_AUTO);
 			if (pwr->gpu_reg)
 				regulator_disable(pwr->gpu_reg);
 			pwr->power_flags &=
