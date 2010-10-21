@@ -28,6 +28,7 @@
 #include <linux/wait.h>
 #include <linux/uaccess.h>
 #include <linux/m_adc.h>
+#include <linux/pmic8058-xoadc.h>
 #include <linux/slab.h>
 
 #define MSM_ADC_DRIVER_NAME             "msm_adc"
@@ -390,6 +391,10 @@ static ssize_t msm_adc_show_curr(struct device *dev,
 	int rc;
 	struct adc_chan_result result;
 
+	rc = pm8058_xoadc_registered();
+	if (rc <= 0)
+		return -ENODEV;
+
 	rc = msm_adc_blocking_conversion(msm_adc, attr->index, &result);
 	if (rc)
 		return 0;
@@ -736,10 +741,15 @@ int32_t adc_channel_open(uint32_t channel, void **h)
 	struct msm_adc_drv *msm_adc = msm_adc_drv;
 	struct msm_adc_platform_data *pdata;
 	struct platform_device *pdev;
-	int i = 0;
+	int i = 0, rc;
 
 	if (!msm_adc_drv)
 		return -EFAULT;
+
+	rc = pm8058_xoadc_registered();
+
+	if (rc <= 0)
+		return -ENODEV;
 
 	pdata = msm_adc->pdev->dev.platform_data;
 	pdev = msm_adc->pdev;
