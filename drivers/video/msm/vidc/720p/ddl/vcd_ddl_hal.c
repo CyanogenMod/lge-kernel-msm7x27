@@ -345,7 +345,7 @@ static void ddl_encode_set_profile_level(struct ddl_client_context *ddl)
 		}
 	case VCD_PROFILE_H264_BASELINE:
 		{
-			profile = VIDC_720P_PROFILE_H264_BASELINE;
+			profile = VIDC_720P_PROFILE_H264_CPB;
 			break;
 		}
 	case VCD_PROFILE_H264_MAIN:
