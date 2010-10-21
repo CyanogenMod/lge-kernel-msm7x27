@@ -2220,8 +2220,9 @@ config FB_MSM_BACKLIGHT
 
 config FB_MSM_LOGO
 	bool "MSM Frame Buffer Logo"
+	default n
 	---help---
-	  Show /logo.rle during boot.
+	  Show /initlogo.rle during boot.
 
 config FB_MSM_LCDC_HW
 	bool
