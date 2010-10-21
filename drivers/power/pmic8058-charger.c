@@ -694,36 +694,6 @@ static irqreturn_t pm8058_chg_chginval_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t pm8058_chg_vbatdet_low_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_vcp_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(VCP_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_chgilim_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(CHGILIM_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_atc_done_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(ATC_DONE_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_atcfail_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(ATCFAIL_IRQ);
-	return IRQ_HANDLED;
-}
-
 static irqreturn_t pm8058_chg_auto_chgdone_handler(int irq, void *dev_id)
 {
 	pm8058_chg_disable_irq(AUTO_CHGDONE_IRQ);
@@ -796,38 +766,6 @@ static irqreturn_t pm8058_chg_fastchg_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t pm8058_chg_chg_end_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(CHG_END_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_chghot_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(CHGHOT_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_chgtlimit_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(CHGTLIMIT_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_chg_gone_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(CHG_GONE_IRQ);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_vcpmajor_handler(int irq, void *dev_id)
-{
-	dev_info(pm8058_chg.dev, "%s voltage collapse protection triggered\n",
-			__func__);
-	pm8058_chg_disable_irq(VCPMAJOR_IRQ);
-	return IRQ_HANDLED;
-}
-
 static irqreturn_t pm8058_chg_batttemp_handler(int irq, void *dev_id)
 {
 	int ret;
@@ -895,12 +833,6 @@ static irqreturn_t pm8058_chg_vbatdet_handler(int irq, void *dev_id)
 						AUTO_CHARGING_VEOC_TCHG);
 		}
 	}
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t pm8058_chg_batfet_handler(int irq, void *dev_id)
-{
-	pm8058_chg_disable_irq(BATFET_IRQ);
 	return IRQ_HANDLED;
 }
 
@@ -985,7 +917,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource CHGVAL\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_chgval_handler,
 				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				  res->name, NULL);
@@ -1005,7 +937,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource CHGINVAL\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_chginval_handler,
 				  IRQF_TRIGGER_RISING, res->name, NULL);
 		if (ret < 0) {
@@ -1018,84 +950,6 @@ static int __devinit request_irqs(struct platform_device *pdev)
 		}
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "CHGILIM");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource CHGILIM\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_chgilim_handler,
-				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				  res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[CHGILIM_IRQ] = res->start;
-			pm8058_chg_disable_irq(CHGILIM_IRQ);
-		}
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "VCP");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource VCP\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_vcp_handler,
-				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				  res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[VCP_IRQ] = res->start;
-			pm8058_chg_disable_irq(VCP_IRQ);
-		}
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "ATC_DONE");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource ATC_DONE\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_atc_done_handler,
-				  IRQF_TRIGGER_HIGH, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[ATC_DONE_IRQ] = res->start;
-			pm8058_chg_disable_irq(ATC_DONE_IRQ);
-		}
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "ATCFAIL");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource ATCFAIL\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_atcfail_handler,
-				  IRQF_TRIGGER_HIGH, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[ATCFAIL_IRQ] = res->start;
-			pm8058_chg_disable_irq(ATCFAIL_IRQ);
-		}
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
 					   "AUTO_CHGDONE");
 	if (res == NULL) {
@@ -1103,7 +957,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource AUTO_CHGDONE\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_auto_chgdone_handler,
 				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				  res->name, NULL);
@@ -1124,7 +978,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource AUTO_CHGFAIL\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_auto_chgfail_handler,
 				  IRQF_TRIGGER_HIGH, res->name, NULL);
 		if (ret < 0) {
@@ -1143,7 +997,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource CHGSTATE\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_chgstate_handler,
 				  IRQF_TRIGGER_RISING, res->name, NULL);
 		if (ret < 0) {
@@ -1162,7 +1016,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource FASTCHG\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_fastchg_handler,
 				  IRQF_TRIGGER_HIGH, res->name, NULL);
 		if (ret < 0) {
@@ -1175,32 +1029,13 @@ static int __devinit request_irqs(struct platform_device *pdev)
 		}
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "CHG_END");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource CHG_END\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_chg_end_handler,
-				  IRQF_TRIGGER_RISING, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[CHG_END_IRQ] = res->start;
-			pm8058_chg_disable_irq(CHG_END_IRQ);
-		}
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "BATTTEMP");
 	if (res == NULL) {
 		dev_err(pm8058_chg.dev,
 			"%s:couldnt find resource CHG_END\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_batttemp_handler,
 				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				  res->name, NULL);
@@ -1214,101 +1049,6 @@ static int __devinit request_irqs(struct platform_device *pdev)
 		}
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "CHGHOT");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource CHGHOT\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_chghot_handler,
-				  IRQF_TRIGGER_RISING, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[CHGHOT_IRQ] = res->start;
-			pm8058_chg_disable_irq(CHGHOT_IRQ);
-		}
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "CHGTLIMIT");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource CHGLIMIT\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_chgtlimit_handler,
-				  IRQF_TRIGGER_RISING, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[CHGTLIMIT_IRQ] = res->start;
-			pm8058_chg_disable_irq(CHGTLIMIT_IRQ);
-		}
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "CHG_GONE");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource CHG_GONE\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_chg_gone_handler,
-				  IRQF_TRIGGER_RISING, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[CHG_GONE_IRQ] = res->start;
-			pm8058_chg_disable_irq(CHG_GONE_IRQ);
-		}
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "VCPMAJOR");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource VCPMAJOR\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_vcpmajor_handler,
-				  IRQF_TRIGGER_RISING, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[VCPMAJOR_IRQ] = res->start;
-			pm8058_chg_disable_irq(VCPMAJOR_IRQ);
-		}
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "BATFET");
-	if (res == NULL) {
-		ret = dev_err(pm8058_chg.dev,
-			      "%s:couldnt find resource BATFET\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_batfet_handler,
-				  IRQF_TRIGGER_RISING, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[BATFET_IRQ] = res->start;
-			pm8058_chg_disable_irq(BATFET_IRQ);
-		}
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
 					   "BATT_REPLACE");
 	if (res == NULL) {
@@ -1316,7 +1056,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource BATT_REPLACE\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_batt_replace_handler,
 				  IRQF_TRIGGER_RISING, res->name, NULL);
 		if (ret < 0) {
@@ -1335,7 +1075,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource BATTCONNECT\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_battconnect_handler,
 				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				  res->name, NULL);
@@ -1355,7 +1095,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 			"%s:couldnt find resource VBATDET\n", __func__);
 		goto err_out;
 	} else {
-		ret = request_any_context_irq(res->start,
+		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_vbatdet_handler,
 				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				  res->name, NULL);
@@ -1369,24 +1109,6 @@ static int __devinit request_irqs(struct platform_device *pdev)
 		}
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "VBATDET_LOW");
-	if (res == NULL) {
-		dev_err(pm8058_chg.dev,
-			"%s:couldnt find resource VBATDET_LOW\n", __func__);
-		goto err_out;
-	} else {
-		ret = request_any_context_irq(res->start,
-				  pm8058_chg_vbatdet_low_handler,
-				  IRQF_TRIGGER_RISING, res->name, NULL);
-		if (ret < 0) {
-			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
-				__func__, res->start, ret);
-			goto err_out;
-		} else {
-			pm8058_chg.pmic_chg_irq[VBATDET_LOW_IRQ] = res->start;
-			pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
-		}
-	}
 	return 0;
 
 err_out:
