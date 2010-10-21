@@ -1547,40 +1547,22 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 
 	if (pdata->grp2d0_clk_name != NULL) {
 		/* 2d0 pwrctrl */
-		result = kgsl_g12_init_pwrctrl(device_2d0, KGSL_DEVICE_2D0);
+		result = kgsl_g12_init_pwrctrl(device_2d0);
 		if (result != 0) {
 			KGSL_DRV_ERR(
 				"kgsl_2d0_init_pwrctrl returned error=%d\n",
 				result);
 			goto done;
 		}
-		/* g12 config */
-		result = kgsl_g12_config(
-				&kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D0)],
-				pdev, KGSL_DEVICE_2D0);
-		if (result != 0) {
-			KGSL_DRV_ERR("kgsl_2d0_config returned error=%d\n",
-				      result);
-			goto done;
-		}
 	}
 
 	if (pdata->grp2d1_clk_name != NULL) {
 		/* 2d1 pwrctrl */
-		result = kgsl_g12_init_pwrctrl(device_2d1, KGSL_DEVICE_2D1);
+		result = kgsl_g12_init_pwrctrl(device_2d1);
 		if (result != 0) {
 			KGSL_DRV_ERR(
 				"kgsl_2d1_init_pwrctrl returned error=%d\n",
 				result);
-			goto done;
-		}
-		/* g12 config */
-		result = kgsl_g12_config(
-				&kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D1)],
-				pdev, KGSL_DEVICE_2D1);
-		if (result != 0) {
-			KGSL_DRV_ERR("kgsl_2d1_config returned error=%d\n",
-				      result);
 			goto done;
 		}
 	}
@@ -1620,8 +1602,7 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	kgsl_driver.num_devs++;
 
 	if (pdata->grp2d0_clk_name) {
-		result = kgsl_g12_init(device_2d0,
-			       &kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D0)]);
+		result = kgsl_g12_init(device_2d0);
 		if (result) {
 			KGSL_DRV_ERR("2d0_init failed %d", result);
 			goto done;
@@ -1634,8 +1615,7 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	}
 
 	if (pdata->grp2d1_clk_name) {
-		result = kgsl_g12_init(device_2d1,
-			       &kgsl_driver.config_2d[IDX_2D(KGSL_DEVICE_2D1)]);
+		result = kgsl_g12_init(device_2d1);
 		if (result) {
 			KGSL_DRV_ERR("2d1_init failed %d", result);
 			goto done;

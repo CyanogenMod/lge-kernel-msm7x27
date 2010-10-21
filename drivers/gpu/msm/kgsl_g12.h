@@ -40,6 +40,9 @@ struct kgsl_g12_ringbuffer {
 
 struct kgsl_g12_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
+	const char *iomemname;
+	const char *irqname;
+	const char *regulator;
 	int current_timestamp;
 	int timestamp;
 	wait_queue_head_t wait_timestamp_wq;
@@ -57,11 +60,8 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 int __init kgsl_g12_config(struct kgsl_devconfig *,
 		      struct platform_device *pdev, enum kgsl_deviceid dev_id);
 
-int __init kgsl_g12_init(struct kgsl_device *device,
-			 struct kgsl_devconfig *config);
-
-int __init kgsl_g12_init_pwrctrl(struct kgsl_device *device,
-				 enum kgsl_deviceid dev_id);
+int __init kgsl_g12_init(struct kgsl_device *device);
+int __init kgsl_g12_init_pwrctrl(struct kgsl_device *device);
 
 int kgsl_g12_close(struct kgsl_device *device);
 

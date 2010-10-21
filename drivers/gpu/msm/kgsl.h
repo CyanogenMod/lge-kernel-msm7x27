@@ -72,9 +72,6 @@ struct kgsl_driver {
 	struct mutex mutex;
 	unsigned int is_suspended;
 
-	struct kgsl_devconfig config_2d[KGSL_NUM_2D_DEVICES];
-	struct kgsl_devconfig yamato_config;
-
 	uint32_t flags_debug;
 
 	struct kgsl_sharedmem shmem;
