@@ -88,4 +88,5 @@ struct adc_properties *pm8058_xoadc_get_properties(uint32_t);
 
 int32_t pm8058_xoadc_calibrate(uint32_t, struct adc_conv_slot *, int *);
 
+int32_t pm8058_xoadc_registered(void);
 #endif
