@@ -60,6 +60,12 @@
 #define MSM_SNDDEV_ACTIVE_CONFIG	(GPIOMUX_FUNC_1 | GPIOMUX_PULL_NONE |\
 					 GPIOMUX_DRV_2MA | GPIOMUX_VALID)
 #define MSM_SNDDEV_SUSPEND_CONFIG	(GPIOMUX_VALID | GPIOMUX_PULL_DOWN)
+
+#define WLAN_PWDN_N_ACTV_CFG		(GPIOMUX_FUNC_GPIO | GPIOMUX_DRV_2MA |\
+					 GPIOMUX_PULL_UP | GPIOMUX_VALID)
+#define WLAN_PWDN_N_SUSP_CFG		(GPIOMUX_FUNC_GPIO | GPIOMUX_VALID |\
+					 GPIOMUX_PULL_DOWN)
+
 #define EBI2_A_D	(GPIOMUX_FUNC_1 | GPIOMUX_PULL_UP | GPIOMUX_DRV_8MA |\
 			 GPIOMUX_VALID)
 #define EBI2_OE		(GPIOMUX_FUNC_1 | GPIOMUX_PULL_UP | GPIOMUX_DRV_8MA |\
@@ -468,6 +474,14 @@ static struct msm_gpiomux_config msm8x60_sdc_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm_qrdc_sdc_configs[] __initdata = {
+	{
+		.gpio      = 118,
+		.active    = WLAN_PWDN_N_ACTV_CFG,
+		.suspended = WLAN_PWDN_N_SUSP_CFG,
+	},
+};
+
 static struct msm_gpiomux_config msm_qrdc_usb_configs[] __initdata = {
 	{
 		.gpio      = 34,
@@ -739,6 +753,7 @@ static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 
 static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
 	{msm_qrdc_usb_configs, ARRAY_SIZE(msm_qrdc_usb_configs)},
+	{msm_qrdc_sdc_configs, ARRAY_SIZE(msm_qrdc_sdc_configs)},
 };
 
 static int __init gpiomux_init(void)

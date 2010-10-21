@@ -3162,6 +3162,9 @@ static struct mmc_platform_data msm8x60_sdc4_data = {
 	.msmsdcc_fmid	= 24000000,
 	.msmsdcc_fmax	= 48000000,
 	.nonremovable	= 1,
+#ifdef CONFIG_MMC_MSM_SDC4_DUMMY52_REQUIRED
+	.dummy52_required = 1,
+#endif
 };
 #endif
 
@@ -3464,6 +3467,37 @@ err:
 	pr_err("%s: Failed to set up gfx3d_clk.\n", __func__);
 }
 
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+
+#define WLAN_PWDN_N_GPIO	118
+
+static void enable_wlan_bt(void)
+{
+	int rc = 0;
+
+	rc = gpio_request(WLAN_PWDN_N_GPIO, "WLAN_PWDN_N");
+	if (rc) {
+		pr_err("%s: WLAN_PWDN_N gpio %d request failed: %d\n",
+			__func__, WLAN_PWDN_N_GPIO, rc);
+		return;
+	}
+
+	rc = gpio_direction_output(WLAN_PWDN_N_GPIO, 0);
+	if (rc) {
+		pr_err("%s: gpio_direction_output %d failed: %d\n",
+			__func__, WLAN_PWDN_N_GPIO, rc);
+		gpio_free(WLAN_PWDN_N_GPIO);
+		return;
+	}
+
+	gpio_set_value(WLAN_PWDN_N_GPIO, 1);
+	usleep(5);
+	gpio_set_value(WLAN_PWDN_N_GPIO, 0);
+	usleep(5);
+	gpio_set_value(WLAN_PWDN_N_GPIO, 1);
+}
+#endif
+
 static void __init msm8x60_init(void)
 {
 	/*
@@ -3512,6 +3546,10 @@ static void __init msm8x60_init(void)
 				msm_pm_data);
 
 	msm_auxpcm_init();
+
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+	enable_wlan_bt();
+#endif
 }
 
 MACHINE_START(MSM8X60_QRDC, "QCT MSM8X60 QRDC")
