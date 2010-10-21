@@ -6079,6 +6079,7 @@ static struct cy8c_ts_platform_data cy8ctma300_pdata = {
 	.invert_y = 1,
 	.nfingers = 4,
 	.irq_gpio = TS_GPIO_IRQ,
+	.resout_gpio = -1,
 };
 
 static struct i2c_board_info cy8ctma300_board_info[] = {

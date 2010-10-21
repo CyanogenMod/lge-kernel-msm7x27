@@ -42,6 +42,7 @@
 #include <linux/gpio.h>
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
+#include <linux/delay.h>
 #include <linux/input/cy8c_ts.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
@@ -326,19 +327,39 @@ static int cy8c_ts_open(struct input_dev *dev)
 	struct cy8c_ts *ts = input_get_drvdata(dev);
 
 	if (!ts->pdata->use_polling) {
+		if (ts->pdata->resout_gpio < 0)
+			goto config_irq_gpio;
+
+		/* configure touchscreen reset out gpio */
+		rc = gpio_request(ts->pdata->resout_gpio, "cy8c_resout_gpio");
+		if (rc) {
+			pr_err("%s: unable to request gpio %d\n",
+				__func__, ts->pdata->resout_gpio);
+			return rc;
+		}
+
+		rc = gpio_direction_output(ts->pdata->resout_gpio, 0);
+		if (rc) {
+			pr_err("%s: unable to set direction for gpio %d\n",
+				__func__, ts->pdata->resout_gpio);
+			goto error_resout_gpio_dir;
+		}
+		/* reset gpio stabilization time */
+		msleep(20);
+config_irq_gpio:
 		/* configure touchscreen interrupt gpio */
 		rc = gpio_request(ts->pdata->irq_gpio, "cy8c_irq_gpio");
 		if (rc) {
 			pr_err("%s: unable to request gpio %d\n",
 				__func__, ts->pdata->irq_gpio);
-			return rc;
+			goto error_irq_gpio_req;
 		}
 
 		rc = gpio_direction_input(ts->pdata->irq_gpio);
 		if (rc) {
 			pr_err("%s: unable to set direction for gpio %d\n",
 				__func__, ts->pdata->irq_gpio);
-			goto error_gpio_dir;
+			goto error_irq_gpio_dir;
 		}
 
 		ts->pen_irq = gpio_to_irq(ts->pdata->irq_gpio);
@@ -374,9 +395,12 @@ static int cy8c_ts_open(struct input_dev *dev)
 	return 0;
 
 error_req_irq_fail:
-error_gpio_dir:
+error_irq_gpio_dir:
 	gpio_free(ts->pdata->irq_gpio);
-
+error_irq_gpio_req:
+error_resout_gpio_dir:
+	if (ts->pdata->resout_gpio >= 0)
+		gpio_free(ts->pdata->resout_gpio);
 	return rc;
 }
 
