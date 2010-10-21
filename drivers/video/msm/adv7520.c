@@ -45,12 +45,12 @@ static struct work_struct handle_work;
 
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
 static struct work_struct hdcp_handle_work;
+static int hdcp_activating;
+static DEFINE_MUTEX(hdcp_state_mutex);
 #endif
 
 static struct timer_list hpd_timer;
 static unsigned int monitor_sense;
-
-static int hdcp_started;
 
 /* Change HDMI state */
 static void change_hdmi_state(int online)
@@ -165,7 +165,10 @@ static void adv7520_close_hdcp_link(void)
 	/* UnMute Audio */
 	adv7520_write_reg(hclient, 0x0C, (u8)0x84);
 
-	hdcp_started = 0;
+	external_common_state->hdcp_active = FALSE;
+	mutex_lock(&hdcp_state_mutex);
+	hdcp_activating = FALSE;
+	mutex_unlock(&hdcp_state_mutex);
 }
 
 static void adv7520_hdcp_enable(struct work_struct *work)
@@ -198,6 +201,9 @@ static void adv7520_hdcp_enable(struct work_struct *work)
 	} else {
 		/* Don't implement HDCP if sink as a repeater */
 		adv7520_write_reg(hclient, 0x0C, (u8)0x84);
+		mutex_lock(&hdcp_state_mutex);
+		hdcp_activating = FALSE;
+		mutex_unlock(&hdcp_state_mutex);
 		DEV_INFO("%s Sink Repeater, (UnMute Audio)\n", __func__);
 		return;
 	}
@@ -210,12 +216,12 @@ static void adv7520_hdcp_enable(struct work_struct *work)
 		/* UnMute Audio */
 		adv7520_write_reg(hclient, 0x0C, (u8)0x84);
 		DEV_INFO("%s A/V content Encrypted (UnMute Audio)\n", __func__);
+		external_common_state->hdcp_active = TRUE;
 	}
-}
 
-static void adv7520_hdcp_work_queue(void)
-{
-	schedule_work(&hdcp_handle_work);
+	mutex_lock(&hdcp_state_mutex);
+	hdcp_activating = FALSE;
+	mutex_unlock(&hdcp_state_mutex);
 }
 #endif
 
@@ -472,22 +478,31 @@ static void adv7520_handle_cable_work(struct work_struct *work)
 			adv7520_read_edid();
 
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+			mutex_lock(&hdcp_state_mutex);
+			if (hdcp_activating) {
+				DEV_WARN("adv7520_timer: HDCP already"
+					" activating, skipping\n");
+				mutex_unlock(&hdcp_state_mutex);
+				return;
+			}
+			hdcp_activating = TRUE;
+			mutex_unlock(&hdcp_state_mutex);
+
 			msleep(500);
 			/* request for HDCP after EDID is read */
 			reg[0xaf] = adv7520_read_reg(hclient, 0xaf);
 			reg[0xaf] |= 0x90;
 			adv7520_write_reg(hclient, 0xaf, reg[0xaf]);
 			reg[0xaf] = adv7520_read_reg(hclient, 0xaf);
-			DEV_INFO("%s Start HDCP reg[0xaf] is %x\n",
-							__func__, reg[0xaf]);
+			DEV_INFO("adv7520_timer: Start HDCP reg[0xaf]=0x%02x\n",
+						reg[0xaf]);
 
 			reg[0xba] = adv7520_read_reg(hclient, 0xba);
 			reg[0xba] |= 0x10;
 			adv7520_write_reg(hclient, 0xba, reg[0xba]);
 			reg[0xba] = adv7520_read_reg(hclient, 0xba);
-			DEV_INFO("%s reg[0xba] is %x\n",
-						__func__, reg[0xba]);
-			hdcp_started = 1;
+			DEV_INFO("adv7520_timer: reg[0xba]=0x%02x\n",
+						reg[0xba]);
 			msleep(500);
 #endif
 		} else
@@ -497,7 +512,6 @@ static void adv7520_handle_cable_work(struct work_struct *work)
 		change_hdmi_state(0);
 		adv7520_chip_off();
 		DEV_DBG("adv7520_timer: Power OFF\n");
-
 	}
 }
 static void adv7520_handle_cable(unsigned long data)
@@ -540,23 +554,22 @@ static void adv7520_isr(struct work_struct *work)
 		}
 	}
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
-	if (hdcp_started) {
-		/* BKSV Ready interrupts */
-		if (reg0x97 & 0x40) {
-			DEV_INFO("%s BKSV keys ready\n", __func__);
-			DEV_INFO("Begin HDCP encryption\n");
-			adv7520_hdcp_work_queue();
-		}
+	if (hdcp_activating) {
 		/* HDCP controller error Interrupt */
 		if (reg0x97 & 0x80) {
 			DEV_ERR("adv7520_irq: HDCP_ERROR\n");
 			adv7520_close_hdcp_link();
+		/* BKSV Ready interrupts */
+		} else if (reg0x97 & 0x40) {
+			DEV_INFO("adv7520_irq: BKSV keys ready, Begin"
+				" HDCP encryption\n");
+			schedule_work(&hdcp_handle_work);
 		}
 		reg0xc8 = adv7520_read_reg(hclient, 0xc8);
-		DEV_INFO("DDC controller reg[0xC8] = %x\n", reg0xc8);
-	}
-	DEV_INFO("adv7520_irq final reg[0x96]=%x reg[0x97]=%x\n",
-							reg0x96, reg0x97);
+		DEV_INFO("DDC controller reg[0xC8]=0x%02x\n", reg0xc8);
+	} else
+		DEV_INFO("adv7520_irq: final reg[0x96]=%02x reg[0x97]=%02x\n",
+			reg0x96, reg0x97);
 #endif
 }
 
