@@ -291,6 +291,27 @@ static struct resource gsbi9_qup_i2c_resources[] = {
 	},
 };
 
+static struct resource gsbi12_qup_i2c_resources[] = {
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI12_QUP_PHYS,
+		.end	= MSM_GSBI12_QUP_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI12_PHYS,
+		.end	= MSM_GSBI12_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI12_QUP_IRQ,
+		.end	= GSBI12_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 static struct resource kgsl_resources[] = {
 	{
 		.name = "kgsl_reg_memory",
@@ -430,6 +451,14 @@ struct platform_device msm_gsbi7_qup_i2c_device = {
 	.id		= MSM_GSBI7_QUP_I2C_BUS_ID,
 	.num_resources	= ARRAY_SIZE(gsbi7_qup_i2c_resources),
 	.resource	= gsbi7_qup_i2c_resources,
+};
+
+/* Use GSBI12 QUP for /dev/i2c-5 (Sensors) */
+struct platform_device msm_gsbi12_qup_i2c_device = {
+	.name		= "qup_i2c",
+	.id		= MSM_GSBI12_QUP_I2C_BUS_ID,
+	.num_resources	= ARRAY_SIZE(gsbi12_qup_i2c_resources),
+	.resource	= gsbi12_qup_i2c_resources,
 };
 
 #ifdef CONFIG_I2C_SSBI
@@ -1096,7 +1125,8 @@ struct clk msm_clocks_8x60[] = {
 					&msm_gsbi9_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI10_QUP_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI11_QUP_CLK,		NULL, OFF),
-	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,
+					&msm_gsbi12_qup_i2c_device.dev, OFF),
 	CLK_8X60("pdm_clk",		PDM_CLK,		NULL, OFF),
 	CLK_8X60("prng_clk",		PRNG_CLK,		NULL, OFF),
 	CLK_8X60("sdc_clk",		SDC1_CLK,
@@ -1138,7 +1168,9 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
-		&msm_device_uart_dm12.dev, OFF),
+		&msm_device_uart_dm12.dev, 0),
+	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
+					&msm_gsbi12_qup_i2c_device.dev, 0),
 	CLK_8X60("tsif_pclk",		TSIF_P_CLK,		NULL, OFF),
 	CLK_8X60("usb_fs_pclk",		USB_FS1_P_CLK,		NULL, OFF),
 	CLK_8X60("usb_fs_pclk",		USB_FS2_P_CLK,		NULL, OFF),

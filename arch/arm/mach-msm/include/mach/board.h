@@ -275,6 +275,7 @@ struct msm_i2c_platform_data {
 	const char *clk;
 	const char *pclk;
 	int src_clk_rate;
+	int use_gsbi_shared_mode;
 	void (*msm_i2c_config_gpio)(int iface, int config_type);
 };
 
