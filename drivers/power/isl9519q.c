@@ -139,6 +139,7 @@ static int isl_read_adc(int channel, int *mv_reading)
 	pr_debug("%s: done for %d\n", __func__, channel);
 	return adc_chan_result.physical;
 out:
+	*mv_reading = 0;
 	pr_debug("%s: done with error for %d\n", __func__, channel);
 	return -EINVAL;
 
@@ -223,7 +224,6 @@ static int isl9519q_stop_charging(struct msm_hardware_charger *hw_chg)
 	struct isl9519q_struct *isl_chg;
 	int ret = 0;
 
-	dev_dbg(&isl_chg->client->dev, "%s\n", __func__);
 	isl_chg = container_of(hw_chg, struct isl9519q_struct, adapter_hw_chg);
 	if (!(isl_chg->charging))
 		/* we arent charging */
