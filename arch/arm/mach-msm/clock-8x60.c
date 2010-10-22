@@ -98,26 +98,33 @@
 #define DBG_BUS_VEC_H_REG			REG_MM(0x01E4)
 #define DBG_CFG_REG_HS_REG			REG_MM(0x01B4)
 #define DBG_CFG_REG_LS_REG			REG_MM(0x01B8)
+#define GFX2D0_CC_REG				REG_MM(0x0060)
 #define GFX2D0_MD0_REG				REG_MM(0x0064)
 #define GFX2D0_MD1_REG				REG_MM(0x0068)
 #define GFX2D0_NS_REG				REG_MM(0x0070)
+#define GFX2D1_CC_REG				REG_MM(0x0074)
 #define GFX2D1_MD0_REG				REG_MM(0x0078)
 #define GFX2D1_MD1_REG				REG_MM(0x006C)
 #define GFX2D1_NS_REG				REG_MM(0x007C)
+#define GFX3D_CC_REG				REG_MM(0x0080)
 #define GFX3D_MD0_REG				REG_MM(0x0084)
 #define GFX3D_MD1_REG				REG_MM(0x0088)
 #define GFX3D_NS_REG				REG_MM(0x008C)
+#define IJPEG_CC_REG				REG_MM(0x0098)
 #define IJPEG_NS_REG				REG_MM(0x00A0)
+#define JPEGD_CC_REG				REG_MM(0x00A4)
 #define JPEGD_NS_REG				REG_MM(0x00AC)
-#define MDP_MD0_REG				REG_MM(0x00C4)
 #define MAXI_EN_REG				REG_MM(0x0018)
 #define MAXI_EN2_REG				REG_MM(0x0020)
 #define MAXI_EN3_REG				REG_MM(0x002C)
+#define MDP_CC_REG				REG_MM(0x00C0)
+#define MDP_MD0_REG				REG_MM(0x00C4)
 #define MDP_MD1_REG				REG_MM(0x00C8)
 #define MDP_NS_REG				REG_MM(0x00D0)
 #define MISC_CC_REG				REG_MM(0x0058)
 #define MISC_CC2_REG				REG_MM(0x005C)
 #define PIXEL_CC_REG				REG_MM(0x00D4)
+#define PIXEL_CC2_REG				REG_MM(0x0120)
 #define PIXEL_NS_REG				REG_MM(0x00DC)
 #define MM_PLL0_CONFIG_REG			REG_MM(0x0310)
 #define MM_PLL0_L_VAL_REG			REG_MM(0x0304)
@@ -137,6 +144,7 @@
 #define MM_PLL2_MODE_REG			REG_MM(0x0338)
 #define MM_PLL2_N_VAL_REG			REG_MM(0x0344)
 #define MM_PLL2_STATUS_REG			REG_MM(0x0350)
+#define ROT_CC_REG				REG_MM(0x00E0)
 #define ROT_NS_REG				REG_MM(0x00E8)
 #define SAXI_EN_REG				REG_MM(0x0030)
 #define SW_RESET_AHB_REG			REG_MM(0x020C)
@@ -146,11 +154,13 @@
 #define TV_CC_REG				REG_MM(0x00EC)
 #define TV_CC2_REG				REG_MM(0x0124)
 #define TV_NS_REG				REG_MM(0x00F4)
+#define VCODEC_CC_REG				REG_MM(0x00F8)
 #define VCODEC_MD0_REG				REG_MM(0x00FC)
 #define VCODEC_MD1_REG				REG_MM(0x0128)
 #define VCODEC_NS_REG				REG_MM(0x0100)
 #define VFE_CC_REG				REG_MM(0x0104)
 #define VFE_NS_REG				REG_MM(0x010C)
+#define VPE_CC_REG				REG_MM(0x0110)
 #define VPE_NS_REG				REG_MM(0x0118)
 
 /* Low-power Audio clock registers. */
@@ -1786,18 +1796,41 @@ static void reg_init(int use_pxo)
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel(0, SW_RESET_ALL_REG);
 
-	/* Enable MM FPB clock and HW gating for AHB clocks that support it. */
+	/* Initialize MM AHB registers: Enable the FPB clock and HW gating for
+	 * clocks that support it. Also set VFE_AHB's FORCE_CORE_ON bit to
+	 * prevent its memory from being collapsed when the clock is halted. */
 	writel(0x24000002, AHB_EN_REG);
-	writel(0x3C705000, AHB_EN2_REG);
+	writel(0x3C705001, AHB_EN2_REG);
 
 	/* Deassert all MM AHB resets. */
 	writel(0, SW_RESET_AHB_REG);
 
-	/* Enable MM AXI root and SMI clocks, and HW dynamic gating for
-	 * AXI clocks that support it. */
-	rmwreg(0x1003A800, MAXI_EN_REG,  0x1803F800);
-	rmwreg(0x6A000000, MAXI_EN2_REG, 0x6A000000);
-	writel(0x3C38, SAXI_EN_REG);
+	/* Initialize MM AXI registers: Enable AXI root and SMI clocks, and HW
+	 * gating for all clock that support it. Also set FORCE_CORE_ON bits. */
+	writel(0x1003A801, MAXI_EN_REG);
+	writel(0x7A200400, MAXI_EN2_REG);
+	writel(0x00200400, MAXI_EN3_REG);
+	writel(0x00001C18, SAXI_EN_REG);
+
+	/* Reset MM CC registers to reset values with FORCE_CORE_ON bits set. */
+	writel(0x00000000, CSI_CC_REG);
+	writel(0x00000000, MISC_CC_REG);
+	writel(0x00000401, MISC_CC2_REG);
+	writel(0x80000000, GFX2D0_CC_REG);
+	writel(0x80000000, GFX2D1_CC_REG);
+	writel(0x80000000, GFX3D_CC_REG);
+	writel(0x80000000, IJPEG_CC_REG);
+	writel(0x80000000, JPEGD_CC_REG);
+	/* MDP and PIXEL clocks may be running at boot, don't turn them off. */
+	rmwreg(0x80000000, MDP_CC_REG,   BM(31, 29));
+	rmwreg(0x80000000, PIXEL_CC_REG, BM(31, 29));
+	writel(0x00000400, PIXEL_CC2_REG);
+	writel(0x80000000, ROT_CC_REG);
+	writel(0x80000000, TV_CC_REG);
+	writel(0x00000400, TV_CC2_REG);
+	writel(0x80000000, VCODEC_CC_REG);
+	writel(0x80000000, VFE_CC_REG);
+	writel(0x80000000, VPE_CC_REG);
 
 	/* De-assert MM AXI resets to all hardware blocks. */
 	writel(0, SW_RESET_AXI_REG);
@@ -1815,8 +1848,6 @@ static void reg_init(int use_pxo)
 		/* Set the dsi_byte_clk src to the DSI PHY PLL,
 		 * dsi_esc_clk to PXO/2, and the hdmi_app_clk src to PXO */
 		rmwreg(0x400001, MISC_CC2_REG, 0x424003);
-		/* Set the hdmi_app_clk divider to 1 (27MHz). */
-		rmwreg(0, MISC_CC_REG, BM(19, 18));
 	} else {
 		/* Enable TSSC and PDM MXO sources. */
 		writel(B(13), TSSC_CLK_CTL_REG);
@@ -1824,8 +1855,6 @@ static void reg_init(int use_pxo)
 		/* Set the dsi_byte_clk src to the DSI PHY PLL,
 		 * dsi_esc_clk to MXO/2, and the hdmi_app_clk src to MXO */
 		rmwreg(0x424001, MISC_CC2_REG, 0x424003);
-		/* Set the hdmi_app_clk divider to 1 (27MHz). */
-		rmwreg(0, MISC_CC_REG, BM(19, 18));
 	}
 }
 
