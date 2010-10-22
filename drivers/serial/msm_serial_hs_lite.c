@@ -773,11 +773,14 @@ static void msm_hsl_config_port(struct uart_port *port, int flags)
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 	if (flags & UART_CONFIG_TYPE) {
 		port->type = PORT_MSM;
-		msm_hsl_request_port(port);
+		if (msm_hsl_request_port(port))
+			return;
 	}
 	if (msm_serial_hsl_has_gsbi())
-		iowrite32(GSBI_PROTOCOL_UART, msm_hsl_port->mapped_gsbi +
-			  GSBI_CONTROL_ADDR);
+		if ((ioread32(msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR) &
+			GSBI_PROTOCOL_I2C_UART) != GSBI_PROTOCOL_I2C_UART)
+			iowrite32(GSBI_PROTOCOL_I2C_UART,
+				msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR);
 }
 
 static int msm_hsl_verify_port(struct uart_port *port,
