@@ -171,12 +171,22 @@ static int msm_volume_put(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 	int session_id = ucontrol->value.integer.value[0];
 	int volume = ucontrol->value.integer.value[1];
+	int factor = ucontrol->value.integer.value[2];
 	u64 session_mask = 0;
 
-	if ((volume < 0) || (volume > 100))
+	if (factor > 10000)
+		return -EINVAL;
+
+	if ((volume < 0) || (volume/factor > 100))
 		return -EINVAL;
 
 	volume = (MSM_VOLUME_STEP * volume);
+
+	/* Convert back to original decimal point by removing the 10-base factor
+	* and discard the fractional portion
+	*/
+
+	volume = volume/factor;
 
 	if (volume > MSM_MAX_VOLUME)
 		volume = MSM_MAX_VOLUME;

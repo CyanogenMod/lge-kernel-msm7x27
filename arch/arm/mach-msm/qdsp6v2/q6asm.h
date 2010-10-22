@@ -70,6 +70,9 @@
 /* bit 4 represents META enable of encoded data buffer */
 #define BUFFER_META_ENABLE	0x0010
 
+#define ASYNC_IO_MODE	0x0002
+#define SYNC_IO_MODE	0x0001
+
 typedef void (*app_cb)(uint32_t opcode, uint32_t token,
 			uint32_t *payload, void *priv);
 
@@ -79,6 +82,15 @@ struct audio_buffer {
 	uint32_t   used;
 	uint32_t   size;/* size of buffer */
 	uint32_t   actual_size; /* actual number of bytes read by DSP */
+};
+
+struct audio_aio_write_param {
+	unsigned long paddr;
+	uint32_t uid;
+	uint32_t len;
+	uint32_t msw_ts;
+	uint32_t lsw_ts;
+	uint32_t flags;
 };
 
 struct audio_port_data {
@@ -105,6 +117,7 @@ struct audio_client {
 
 	app_cb			cb;
 	void			*priv;
+	uint32_t         io_mode;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);
@@ -127,6 +140,9 @@ int q6asm_open_read_write(struct audio_client *ac,
 int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				uint32_t lsw_ts, uint32_t flags);
 
+int q6asm_async_write(struct audio_client *ac,
+					  struct audio_aio_write_param *param);
+
 int q6asm_read(struct audio_client *ac);
 
 int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add,
@@ -134,12 +150,6 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add,
 
 int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add,
 							int dir);
-
-int q6asm_memory_map_regions(struct audio_client *ac, int dir,
-				uint32_t bufsz, uint32_t bufcnt);
-
-int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
-				uint32_t bufsz, uint32_t bufcnt);
 
 int q6asm_run(struct audio_client *ac, uint32_t flags,
 		uint32_t msw_ts, uint32_t lsw_ts);
@@ -180,4 +190,15 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 /* PP specific */
 int q6asm_equalizer(struct audio_client *ac, void *eq);
 
+/* Send Volume Command */
+int q6asm_set_volume(struct audio_client *ac, int volume);
+
+/* Send left-right channel gain */
+int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain);
+
+/* Enable Mute/unmute flag */
+int q6asm_set_mute(struct audio_client *ac, int muteflag);
+
+/* Client can set the IO mode to either AIO/SIO mode */
+int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode);
 #endif /* __Q6_ASM_H__ */

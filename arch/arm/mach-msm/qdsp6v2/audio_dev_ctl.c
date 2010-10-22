@@ -820,7 +820,7 @@ volume_strm:
 					goto sent_dec;
 				else
 					evt_payload->session_vol =
-						0;
+						msm_vol_ctl.volume;
 			} else if (evt_id == AUDDEV_EVT_FREQ_CHG) {
 				if (routing_info.dec_freq[clnt_id].evt) {
 					routing_info.dec_freq[clnt_id].evt
