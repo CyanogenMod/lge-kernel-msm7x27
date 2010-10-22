@@ -1110,9 +1110,6 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		break;
 	}
 
-	if (ios->bus_mode == MMC_BUSMODE_OPENDRAIN)
-		pwr |= MCI_OD;
-
 	writel(clk, host->base + MMCICLOCK);
 
 	udelay(50);
