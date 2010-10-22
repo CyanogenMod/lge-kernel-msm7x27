@@ -30,9 +30,10 @@
 #define _MSM_KGSL_H
 
 /*context flags */
-#define KGSL_CONTEXT_SAVE_GMEM		1
+#define KGSL_CONTEXT_SAVE_GMEM	1
 #define KGSL_CONTEXT_NO_GMEM_ALLOC	2
 #define KGSL_CONTEXT_SUBMIT_IB_LIST	4
+#define KGSL_CONTEXT_CTX_SWITCH	8
 
 /* Memory allocayion flags */
 #define KGSL_MEMFLAGS_GPUREADONLY	0x01000000

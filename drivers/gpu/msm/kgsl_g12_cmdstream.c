@@ -180,7 +180,8 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	KGSL_CMD_INFO("ctxt %d ibaddr 0x%08x sizedwords %d",
 		      drawctxt_index, cmd, sizedwords);
 	/* context switch */
-	if (drawctxt_index != (int)g12_device->ringbuffer.prevctx) {
+	if ((drawctxt_index != (int)g12_device->ringbuffer.prevctx) ||
+	    (ctrl & KGSL_CONTEXT_CTX_SWITCH)) {
 		KGSL_CMD_INFO("context switch %d -> %d",
 				drawctxt_index, g12_device->ringbuffer.prevctx);
 		kgsl_mmu_setstate(device, pagetable);
