@@ -81,6 +81,12 @@ struct hdmi_msm_state_type {
 static struct hdmi_msm_state_type *hdmi_msm_state;
 static DEFINE_MUTEX(hdmi_msm_state_mutex);
 
+uint32 hdmi_msm_get_io_base(void)
+{
+	return hdmi_msm_state ? HDMI_BASE : (uint32)NULL;
+}
+EXPORT_SYMBOL(hdmi_msm_get_io_base);
+
 /* Table indicating the video format supported by the HDMI TX Core v1.0 */
 /* Valid Pixel-Clock rates: 25.2MHz, 27MHz, 27.03MHz, 74.25MHz, 148.5MHz */
 static void hdmi_msm_setup_video_mode_lut(void)
