@@ -46,3 +46,13 @@ obj-$(CONFIG_SND_MVS_SOC) += snd-soc-msm-mvs.o
 snd-soc-mvs7x30-objs := mvs7x30.o
 obj-$(CONFIG_SND_MSM_MVS7x30_SOC) += snd-soc-mvs7x30.o
 
+# 8660 ALSA Support
+snd-soc-msm8660-lpa-objs := msm8660-i2s.o msm8660-dma.o
+obj-$(CONFIG_SND_SOC_MSM8660_LPAIF) += snd-soc-msm8660-lpa.o
+
+snd-soc-msm8660-pcm-objs := msm8660-pcm.o
+obj-$(CONFIG_SND_SOC_MSM8660_PCM) += snd-soc-msm8660-pcm.o
+
+snd-soc-msm8660-objs := msm8660.o
+obj-$(CONFIG_SND_SOC_MSM8660) += snd-soc-msm8660.o
+
