@@ -427,6 +427,15 @@ enum msm_s_setting {
 	S_RES_CAPTURE
 };
 
+enum msm_bus_perf_setting {
+	S_INIT,
+	S_PREVIEW,
+	S_VIDEO,
+	S_CAPTURE,
+	S_DEFAULT,
+	S_EXIT
+};
+
 int msm_camio_enable(struct platform_device *dev);
 int msm_camio_jpeg_clk_enable(void);
 int msm_camio_jpeg_clk_disable(void);
@@ -463,5 +472,5 @@ u32 msm_io_r(void __iomem *addr);
 u32 msm_io_r_mb(void __iomem *addr);
 void msm_io_dump(void __iomem *addr, int size);
 void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len);
-
+void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
 #endif
