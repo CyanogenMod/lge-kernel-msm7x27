@@ -790,6 +790,8 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	*issuing a soft reset.  The overrides will then be turned off (set to 0)
 	*/
 	kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
+	device->chip_id = kgsl_yamato_getchipid(device);
+	KGSL_DRV_INFO("Device chip ID is: %x\n", device->chip_id);
 	if (device->chip_id == CHIP_REV_251)
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x000000ff);
 	else
@@ -844,7 +846,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	/* make sure SQ interrupts are disabled */
 	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
-	device->chip_id = kgsl_yamato_getchipid(device);
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470)
 		yamato_device->gmemspace.sizebytes = SZ_512K;
 	else
