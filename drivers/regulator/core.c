@@ -571,8 +571,6 @@ static int update_voltage(struct regulator *regulator, int min_uV, int max_uV)
 	struct regulator *sibling;
 	int ret = 0;
 
-	mutex_lock(&regulator_list_mutex);
-
 	list_for_each_entry(sibling, &rdev->consumer_list, list) {
 		if (regulator == sibling || !sibling->enabled)
 			continue;
@@ -600,7 +598,6 @@ static int update_voltage(struct regulator *regulator, int min_uV, int max_uV)
 	_notifier_call_chain(rdev, REGULATOR_EVENT_VOLTAGE_CHANGE, NULL);
 
 out:
-	mutex_unlock(&regulator_list_mutex);
 	return ret;
 }
 
@@ -608,8 +605,6 @@ static int update_voltage_prev(struct regulator_dev *rdev)
 {
 	int ret, min_uV = INT_MIN, max_uV = INT_MAX;
 	struct regulator *consumer;
-
-	mutex_lock(&regulator_list_mutex);
 
 	list_for_each_entry(consumer, &rdev->consumer_list, list) {
 		if (!consumer->enabled)
@@ -619,8 +614,6 @@ static int update_voltage_prev(struct regulator_dev *rdev)
 		if (consumer->min_uV > min_uV)
 			min_uV = consumer->min_uV;
 	}
-
-	mutex_unlock(&regulator_list_mutex);
 
 	if (min_uV == INT_MIN)
 		return 0;
