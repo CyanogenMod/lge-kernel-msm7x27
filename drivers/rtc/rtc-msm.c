@@ -661,7 +661,7 @@ msmrtc_suspend(struct platform_device *dev, pm_message_t state)
 	struct msm_rtc *rtc_pdata = platform_get_drvdata(dev);
 
 	if (rtc_pdata->rtcalarm_time) {
-		rc = msmrtc_timeremote_read_time(NULL, &tm);
+		rc = msmrtc_timeremote_read_time(&dev->dev, &tm);
 		if (rc) {
 			dev_err(&dev->dev,
 				"%s: Unable to read from RTC\n", __func__);
@@ -690,7 +690,7 @@ msmrtc_resume(struct platform_device *dev)
 	struct msm_rtc *rtc_pdata = platform_get_drvdata(dev);
 
 	if (rtc_pdata->rtcalarm_time) {
-		rc = msmrtc_timeremote_read_time(NULL, &tm);
+		rc = msmrtc_timeremote_read_time(&dev->dev, &tm);
 		if (rc) {
 			dev_err(&dev->dev,
 				"%s: Unable to read from RTC\n", __func__);
