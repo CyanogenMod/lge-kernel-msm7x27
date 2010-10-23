@@ -886,8 +886,6 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 {
 	del_timer(&device->idle_timer);
 	if (device->flags & KGSL_FLAGS_STARTED) {
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-
 		kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
 
 		kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
@@ -900,6 +898,7 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 
 		kgsl_mmu_stop(device);
 
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 		/* For some platforms, power needs to go off before clocks */
 		kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
