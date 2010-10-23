@@ -47,6 +47,7 @@
 #define KGSL_FLAGS_RESERVED0   0x00000020
 #define KGSL_FLAGS_RESERVED1   0x00000040
 #define KGSL_FLAGS_RESERVED2   0x00000080
+#define KGSL_FLAGS_SOFT_RESET  0x00000100
 
 /* device id */
 enum kgsl_deviceid {

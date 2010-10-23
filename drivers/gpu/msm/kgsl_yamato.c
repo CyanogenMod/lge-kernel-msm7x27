@@ -705,6 +705,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 	}
 
 	device->flags |= KGSL_FLAGS_INITIALIZED;
+	device->flags &= ~KGSL_FLAGS_SOFT_RESET;
 	return 0;
 
 error_close_rb:
@@ -794,7 +795,12 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	else
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
 
-	kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
+	/* Only reset CP block if all blocks have previously been reset */
+	if (!(device->flags & KGSL_FLAGS_SOFT_RESET)) {
+		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
+		device->flags |= KGSL_FLAGS_SOFT_RESET;
+	} else
+		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000001);
 
 	/* The core is in an indeterminate state until the reset completes
 	 * after 50ms.
