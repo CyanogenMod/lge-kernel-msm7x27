@@ -748,6 +748,7 @@ static int pmem_free_bitmap(int id, int bitnum)
 				curr_bit, curr_bit + curr_quanta);
 			pmem[id].allocator.bitmap.bitmap_free += curr_quanta;
 			pmem[id].allocator.bitmap.bitm_alloc[i].bit = -1;
+			pmem[id].allocator.bitmap.bitm_alloc[i].quanta = 0;
 			return 0;
 		}
 	}
@@ -801,12 +802,12 @@ static int pmem_free_space_bitmap(int id, struct pmem_freespace *fs)
 			const int curr_alloc = pmem[id].allocator.
 						bitmap.bitm_alloc[j].bit;
 			if (curr_alloc != -1) {
+				if (alloc_start == curr_alloc)
+					alloc_idx = j;
 				if (alloc_start >= curr_alloc)
 					continue;
-				if (curr_alloc < next_alloc) {
+				if (curr_alloc < next_alloc)
 					next_alloc = curr_alloc;
-					alloc_idx = j;
-				}
 			}
 		}
 		alloc_quanta = pmem[id].allocator.bitmap.
