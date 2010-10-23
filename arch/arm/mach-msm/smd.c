@@ -190,7 +190,7 @@ void smd_diag(void)
 
 static void handle_modem_crash(void)
 {
-	pr_err("ARM9 has CRASHED\n");
+	pr_err("MODEM/AMSS has CRASHED\n");
 	smd_diag();
 
 	/* hard reboot if possible FIXME
