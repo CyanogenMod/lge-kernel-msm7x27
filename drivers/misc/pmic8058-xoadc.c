@@ -61,6 +61,14 @@ struct pmic8058_adc {
 
 static struct pmic8058_adc *pmic_adc[XOADC_PMIC_0 + 1];
 
+static bool xoadc_initialized;
+
+int32_t pm8058_xoadc_registered(void)
+{
+	return xoadc_initialized;
+}
+EXPORT_SYMBOL(pm8058_xoadc_registered);
+
 void pm8058_xoadc_restore_slot(uint32_t adc_instance,
 					struct adc_conv_slot *slot)
 {
@@ -319,6 +327,9 @@ int32_t pm8058_xoadc_select_chan_and_start_conv(uint32_t adc_instance,
 	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
 	struct xoadc_conv_state *slot_state = adc_pmic->conv_queue_list;
 
+	if (!xoadc_initialized)
+		return -ENODEV;
+
 	mutex_lock(&slot_state->list_lock);
 	list_add_tail(&slot->list, &slot_state->slots);
 	if (adc_pmic->xoadc_queue_count == 0)
@@ -352,6 +363,9 @@ int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance, int32_t *data)
 	uint8_t rslt_lsb, rslt_msb;
 	struct adc_conv_slot *slot;
 	int32_t rc, max_ideal_adc_code = 1 << adc_pmic->adc_prop->bitresolution;
+
+	if (!xoadc_initialized)
+		return -ENODEV;
 
 	rc = pm8058_read(adc_pmic->pm_chip, ADC_ARB_USRP_DATA0, &rslt_lsb, 1);
 	if (rc < 0) {
@@ -421,6 +435,7 @@ static int __devexit pm8058_xoadc_teardown(struct platform_device *pdev)
 	platform_set_drvdata(pdev, adc_pmic->pm_chip);
 	device_init_wakeup(&pdev->dev, 0);
 	kfree(adc_pmic);
+	xoadc_initialized = false;
 
 	return 0;
 }
@@ -523,6 +538,8 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 
 	if (pdata->xoadc_setup != NULL)
 		pdata->xoadc_setup();
+
+	xoadc_initialized = true;
 
 	return 0;
 
