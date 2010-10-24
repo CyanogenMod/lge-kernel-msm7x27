@@ -5512,7 +5512,6 @@ static const struct {
 	{ "8058_s3", 1800000, 1800000 },
 	{ "8058_l2", 1800000, 1800000 },
 	{ "8058_l8", 2900000, 2900000 },
-	{ "8901_s4", 1300000, 1300000 },
 };
 
 static struct regulator *bt_regs[ARRAY_SIZE(bt_regs_info)];
