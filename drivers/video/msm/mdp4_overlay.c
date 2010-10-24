@@ -1655,6 +1655,8 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	req->id = pipe->pipe_ndx;	/* pipe_ndx start from 1 */
 	pipe->req_data = *req;		/* keep original req */
 
+	pipe->flags = req->flags;
+
 	mdp4_stat.overlay_set[pipe->mixer_num]++;
 	mutex_unlock(&mfd->dma->ov_mutex);
 	perf_level = mdp4_overlay_get_perf_level(req->src.width,
@@ -1844,7 +1846,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 		/* primary interface */
 		ctrl->mixer0_played++;
 		if (ctrl->panel_mode & MDP4_PANEL_LCDC)
-			mdp4_overlay_reg_flush(pipe, 1);
+			mdp4_overlay_vsync_push(mfd, pipe);
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
 			mdp4_overlay_reg_flush(pipe, 1);
