@@ -182,9 +182,9 @@ __enable_mmu:
 		      domain_val(DOMAIN_TABLE, DOMAIN_CLIENT) | \
 		      domain_val(DOMAIN_IO, DOMAIN_CLIENT))
 #else
-	mov	r5, #(domain_val(DOMAIN_USER, DOMAIN_MANAGER) | \
+	mov	r5, #(domain_val(DOMAIN_USER, DOMAIN_CLIENT) | \
 		      domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
-		      domain_val(DOMAIN_TABLE, DOMAIN_MANAGER) | \
+		      domain_val(DOMAIN_TABLE, DOMAIN_CLIENT) | \
 		      domain_val(DOMAIN_IO, DOMAIN_CLIENT))
 #endif
 	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register

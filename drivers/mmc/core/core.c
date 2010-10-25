@@ -1001,11 +1001,17 @@ static inline void mmc_bus_put(struct mmc_host *host)
 
 int mmc_resume_bus(struct mmc_host *host)
 {
+	unsigned long flags;
+
 	if (!mmc_bus_needs_resume(host))
 		return -EINVAL;
 
 	printk("%s: Starting deferred resume\n", mmc_hostname(host));
+	spin_lock_irqsave(&host->lock, flags);
 	host->bus_resume_flags &= ~MMC_BUSRESUME_NEEDS_RESUME;
+	host->rescan_disable = 0;
+	spin_unlock_irqrestore(&host->lock, flags);
+
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
 		mmc_power_up(host);
@@ -1103,18 +1109,7 @@ void mmc_rescan(struct work_struct *work)
 		container_of(work, struct mmc_host, detect.work);
 	u32 ocr;
 	int err;
-	unsigned long flags;
 	int extend_wakelock = 0;
-
-	spin_lock_irqsave(&host->lock, flags);
-
-	if (host->rescan_disable) {
-		spin_unlock_irqrestore(&host->lock, flags);
-		return;
-	}
-
-	spin_unlock_irqrestore(&host->lock, flags);
-
 
 	mmc_bus_get(host);
 
@@ -1339,6 +1334,19 @@ int mmc_suspend_host(struct mmc_host *host)
 	if (host->bus_ops && !host->bus_dead) {
 		if (host->bus_ops->suspend)
 			err = host->bus_ops->suspend(host);
+		if (err == -ENOSYS || !host->bus_ops->resume) {
+			/*
+			 * We simply "remove" the card in this case.
+			 * It will be redetected on resume.
+			 */
+			if (host->bus_ops->remove)
+				host->bus_ops->remove(host);
+			mmc_claim_host(host);
+			mmc_detach_bus(host);
+			mmc_release_host(host);
+			host->pm_flags = 0;
+			err = 0;
+		}
 	}
 	mmc_bus_put(host);
 
@@ -1359,7 +1367,7 @@ int mmc_resume_host(struct mmc_host *host)
 	int err = 0;
 
 	mmc_bus_get(host);
-	if (host->bus_resume_flags & MMC_BUSRESUME_MANUAL_RESUME) {
+	if (mmc_bus_manual_resume(host)) {
 		host->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
 		mmc_bus_put(host);
 		return 0;
@@ -1381,6 +1389,12 @@ int mmc_resume_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
+	/*
+	 * We add a slight delay here so that resume can progress
+	 * in parallel.
+	 */
+	mmc_detect_change(host, 1);
+
 	return err;
 }
 EXPORT_SYMBOL(mmc_resume_host);
@@ -1394,11 +1408,20 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 {
 	struct mmc_host *host = container_of(
 		notify_block, struct mmc_host, pm_notify);
-
+	unsigned long flags;
 
 	switch (mode) {
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
+
+		spin_lock_irqsave(&host->lock, flags);
+		if (mmc_bus_needs_resume(host)) {
+			spin_unlock_irqrestore(&host->lock, flags);
+			break;
+		}
+		host->rescan_disable = 1;
+		spin_unlock_irqrestore(&host->lock, flags);
+		cancel_delayed_work_sync(&host->detect);
 
 		if (!host->bus_ops || host->bus_ops->suspend)
 			break;
@@ -1410,6 +1433,17 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 		mmc_release_host(host);
 		break;
 
+	case PM_POST_SUSPEND:
+	case PM_POST_HIBERNATION:
+
+		spin_lock_irqsave(&host->lock, flags);
+		if (mmc_bus_manual_resume(host)) {
+			spin_unlock_irqrestore(&host->lock, flags);
+			break;
+		}
+		host->rescan_disable = 0;
+		spin_unlock_irqrestore(&host->lock, flags);
+		mmc_detect_change(host, 0);
 	}
 
 	return 0;

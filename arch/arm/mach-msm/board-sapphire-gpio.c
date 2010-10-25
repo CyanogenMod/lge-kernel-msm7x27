@@ -323,4 +323,4 @@ int sapphire_init_cpld(unsigned int sys_rev)
 	return 0;
 }
 
-arch_initcall(sapphire_init_gpio);
+postcore_initcall(sapphire_init_gpio);

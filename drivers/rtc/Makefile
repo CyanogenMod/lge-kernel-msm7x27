@@ -62,6 +62,7 @@ obj-$(CONFIG_RTC_DRV_MSM)	+= rtc-msm.o
 obj-$(CONFIG_RTC_DRV_MSM7X00A)	+= rtc-msm7x00a.o
 obj-$(CONFIG_RTC_DRV_MC13783)	+= rtc-mc13783.o
 obj-$(CONFIG_RTC_DRV_MSM6242)	+= rtc-msm6242.o
+obj-$(CONFIG_RTC_DRV_MSM7X00A)	+= rtc-msm7x00a.o
 obj-$(CONFIG_RTC_DRV_MPC5121)	+= rtc-mpc5121.o
 obj-$(CONFIG_RTC_DRV_MV)	+= rtc-mv.o
 obj-$(CONFIG_RTC_DRV_NUC900)	+= rtc-nuc900.o

@@ -71,6 +71,10 @@
 #define MSM_SCPLL_PHYS        0xA8800000
 #define MSM_SCPLL_SIZE        SZ_4K
 
+#define MSM_TCSR_BASE         IOMEM(0xF1008000)
+#define MSM_TCSR_PHYS         0xA8700000
+#define MSM_TCSR_SIZE         SZ_4K
+
 #define MSM_SHARED_RAM_BASE   IOMEM(0xF0100000)
 #define MSM_SHARED_RAM_SIZE   SZ_1M
 

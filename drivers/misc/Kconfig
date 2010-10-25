@@ -323,6 +323,24 @@ config SENSORS_AK8975
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8975.
 
+config SENSORS_AKM8973
+	tristate "AKM8973 Compass Driver"
+	depends on I2C
+	help
+	 AKM8973 Compass Driver implemented by HTC.
+
+config SENSORS_AKM8976
+	tristate "AKM8976 Compass Driver"
+	depends on I2C
+	help
+	  AKM8976 Compass Driver implemented by HTC.
+
+config VP_A1026
+	tristate "A1026 Voice Processor Driver"
+	depends on I2C
+	help
+	  A1026 Voice Processor Driver implemented by HTC.
+
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
@@ -479,5 +497,6 @@ source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
 source "drivers/misc/iwmc3200top/Kconfig"
+source "drivers/misc/video_core/720p/Kconfig"
 
 endif # MISC_DEVICES

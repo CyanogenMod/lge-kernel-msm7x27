@@ -132,6 +132,8 @@ struct kgsl_platform_data {
 	const char *grp3d_clk_name;
 	const char *grp2d0_clk_name;
 	const char *grp2d1_clk_name;
+	unsigned int idle_timeout_2d;
+	unsigned int idle_timeout_3d;
 };
 
 /* structure holds list of ibs */

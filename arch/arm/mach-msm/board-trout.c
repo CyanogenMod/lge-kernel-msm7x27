@@ -1,7 +1,6 @@
 /* arch/arm/mach-msm/board-trout.c
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,7 +23,7 @@
 #include <linux/keyreset.h>
 #include <linux/leds.h>
 #include <linux/switch.h>
-#include <linux/../../../drivers/staging/android/timed_gpio.h>
+#include <../../../drivers/staging/android/timed_gpio.h>
 #include <linux/synaptics_i2c_rmi.h>
 #include <linux/akm8976.h>
 #include <linux/sysdev.h>
@@ -57,10 +56,10 @@
 #include "board-trout.h"
 
 #include "gpio_chip.h"
-#include "pm.h"
 
 #include <mach/board.h>
 #include <mach/board_htc.h>
+#include <mach/msm_serial_debugger.h>
 #include <mach/msm_serial_hs.h>
 #include <mach/htc_pwrsink.h>
 #ifdef CONFIG_HTC_HEADSET
@@ -437,7 +436,6 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9t013_data = {
 	.sensor_pwd     = 85,
 	.vcm_pwd        = TROUT_GPIO_VCM_PWDN,
 	.pdata          = &msm_camera_device_data,
-	.flash_type     = MSM_CAMERA_FLASH_NONE
 };
 
 static struct platform_device msm_camera_sensor_mt9t013 = {
@@ -490,7 +488,7 @@ static struct pwr_sink trout_pwrsink_table[] = {
 	{
 		.id	= PWRSINK_BLUETOOTH,
 		.ua_max	= 15000,
-	},	
+	},
 	{
 		.id	= PWRSINK_CAMERA,
 		.ua_max	= 0,
@@ -498,7 +496,7 @@ static struct pwr_sink trout_pwrsink_table[] = {
 	{
 		.id	= PWRSINK_SDCARD,
 		.ua_max	= 0,
-	},	
+	},
 	{
 		.id	= PWRSINK_VIDEO,
 		.ua_max	= 0,
@@ -509,8 +507,8 @@ static struct pwr_sink trout_pwrsink_table[] = {
 	},
 	{
 		.id	= PWRSINK_SYSTEM_LOAD,
-		.ua_max	= 63000,
-		.percent_util = 100,
+		.ua_max	= 100000,
+		.percent_util = 38,
 	},
 };
 
@@ -625,7 +623,6 @@ static struct platform_device trout_snd = {
 
 static struct platform_device *devices[] __initdata = {
 	&msm_device_smd,
-	&msm_device_dmov,
 	&msm_device_nand,
 	&msm_device_i2c,
 	&msm_device_uart1,
@@ -679,53 +676,53 @@ static void trout_reset(void)
 static uint32_t gpio_table[] = {
 	/* BLUETOOTH */
 #ifdef CONFIG_SERIAL_MSM_HS
-	PCOM_GPIO_CFG(43, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* RTS */
-	PCOM_GPIO_CFG(44, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* CTS */
-	PCOM_GPIO_CFG(45, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* RX */
-	PCOM_GPIO_CFG(46, 3, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* TX */
+	PCOM_GPIO_CFG(43, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* RTS */
+	PCOM_GPIO_CFG(44, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* CTS */
+	PCOM_GPIO_CFG(45, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* RX */
+	PCOM_GPIO_CFG(46, 3, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* TX */
 #else
-	PCOM_GPIO_CFG(43, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* RTS */
-	PCOM_GPIO_CFG(44, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* CTS */
-	PCOM_GPIO_CFG(45, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* RX */
-	PCOM_GPIO_CFG(46, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* TX */
+	PCOM_GPIO_CFG(43, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* RTS */
+	PCOM_GPIO_CFG(44, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* CTS */
+	PCOM_GPIO_CFG(45, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* RX */
+	PCOM_GPIO_CFG(46, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* TX */
 #endif
 };
 
 
 static uint32_t camera_off_gpio_table[] = {
 	/* CAMERA */
-	PCOM_GPIO_CFG(2, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT2 */
-	PCOM_GPIO_CFG(3, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT3 */
-	PCOM_GPIO_CFG(4, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT4 */
-	PCOM_GPIO_CFG(5, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT5 */
-	PCOM_GPIO_CFG(6, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT6 */
-	PCOM_GPIO_CFG(7, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT7 */
-	PCOM_GPIO_CFG(8, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT8 */
-	PCOM_GPIO_CFG(9, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT9 */
-	PCOM_GPIO_CFG(10, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT10 */
-	PCOM_GPIO_CFG(11, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT11 */
-	PCOM_GPIO_CFG(12, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* PCLK */
-	PCOM_GPIO_CFG(13, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* HSYNC_IN */
-	PCOM_GPIO_CFG(14, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* VSYNC_IN */
-	PCOM_GPIO_CFG(15, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* MCLK */
+	PCOM_GPIO_CFG(2, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT2 */
+	PCOM_GPIO_CFG(3, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT3 */
+	PCOM_GPIO_CFG(4, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT4 */
+	PCOM_GPIO_CFG(5, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT5 */
+	PCOM_GPIO_CFG(6, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT6 */
+	PCOM_GPIO_CFG(7, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT7 */
+	PCOM_GPIO_CFG(8, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT8 */
+	PCOM_GPIO_CFG(9, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT9 */
+	PCOM_GPIO_CFG(10, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT10 */
+	PCOM_GPIO_CFG(11, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT11 */
+	PCOM_GPIO_CFG(12, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* PCLK */
+	PCOM_GPIO_CFG(13, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* HSYNC_IN */
+	PCOM_GPIO_CFG(14, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* VSYNC_IN */
+	PCOM_GPIO_CFG(15, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* MCLK */
 };
 
 static uint32_t camera_on_gpio_table[] = {
 	/* CAMERA */
-	PCOM_GPIO_CFG(2, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT2 */
-	PCOM_GPIO_CFG(3, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT3 */
-	PCOM_GPIO_CFG(4, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT4 */
-	PCOM_GPIO_CFG(5, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT5 */
-	PCOM_GPIO_CFG(6, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT6 */
-	PCOM_GPIO_CFG(7, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT7 */
-	PCOM_GPIO_CFG(8, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT8 */
-	PCOM_GPIO_CFG(9, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT9 */
-	PCOM_GPIO_CFG(10, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT10 */
-	PCOM_GPIO_CFG(11, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT11 */
-	PCOM_GPIO_CFG(12, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA), /* PCLK */
-	PCOM_GPIO_CFG(13, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* HSYNC_IN */
-	PCOM_GPIO_CFG(14, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* VSYNC_IN */
-	PCOM_GPIO_CFG(15, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA), /* MCLK */
+	PCOM_GPIO_CFG(2, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT2 */
+	PCOM_GPIO_CFG(3, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT3 */
+	PCOM_GPIO_CFG(4, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT4 */
+	PCOM_GPIO_CFG(5, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT5 */
+	PCOM_GPIO_CFG(6, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT6 */
+	PCOM_GPIO_CFG(7, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT7 */
+	PCOM_GPIO_CFG(8, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT8 */
+	PCOM_GPIO_CFG(9, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT9 */
+	PCOM_GPIO_CFG(10, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT10 */
+	PCOM_GPIO_CFG(11, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT11 */
+	PCOM_GPIO_CFG(12, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_16MA), /* PCLK */
+	PCOM_GPIO_CFG(13, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* HSYNC_IN */
+	PCOM_GPIO_CFG(14, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* VSYNC_IN */
+	PCOM_GPIO_CFG(15, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_16MA), /* MCLK */
 };
 
 static void config_gpio_table(uint32_t *table, int len)
@@ -756,28 +753,21 @@ static void __init config_gpios(void)
 	config_camera_off_gpios();
 }
 
-void msm_serial_debug_init(unsigned int base, int irq,
-			   struct device *clk_device, int signal_irq);
-
 static struct msm_acpu_clock_platform_data trout_clock_data = {
 	.acpu_switch_time_us = 20,
 	.max_speed_delta_khz = 256000,
 	.vdd_switch_time_us = 62,
+	.power_collapse_khz = 19200000,
+	.wait_for_irq_khz = 128000000,
 };
 
 #ifdef CONFIG_SERIAL_MSM_HS
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
-	.wakeup_irq = MSM_GPIO_TO_INT(45),
+	.rx_wakeup_irq = MSM_GPIO_TO_INT(45),
 	.inject_rx_on_wakeup = 1,
 	.rx_to_inject = 0x32,
 };
 #endif
-
-static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
-	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].latency = 16000,
-	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].latency = 12000,
-	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency = 2000,
-};
 
 static void __init trout_init(void)
 {
@@ -800,7 +790,8 @@ static void __init trout_init(void)
 #if defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	if (!opt_disable_uart3)
 		msm_serial_debug_init(MSM_UART3_PHYS, INT_UART3,
-				      &msm_device_uart3.dev, 1);
+				      &msm_device_uart3.dev, 1,
+				      MSM_GPIO_TO_INT(86));
 #endif
 
 	/* gpio_configure(108, IRQF_TRIGGER_LOW); */
@@ -833,7 +824,6 @@ static void __init trout_init(void)
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	i2c_register_board_info(0, i2c_devices, ARRAY_SIZE(i2c_devices));
-	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 
 	/* SD card door should wake the device */
 	set_irq_wake(TROUT_GPIO_TO_INT(TROUT_GPIO_SD_DOOR_N), 1);
@@ -859,8 +849,6 @@ static void __init trout_fixup(struct machine_desc *desc, struct tag *tags,
 
 static void __init trout_map_io(void)
 {
-	msm_shared_ram_phys = 0x01F00000;
-
 	msm_map_common_io();
 	iotable_init(trout_io_desc, ARRAY_SIZE(trout_io_desc));
 	msm_clock_init(msm_clocks_7x01a, msm_num_clocks_7x01a);
@@ -872,7 +860,7 @@ MACHINE_START(TROUT, "trout")
 	.phys_io        = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst    = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
 #endif
-	.boot_params    = PHYS_OFFSET + 0x100,
+	.boot_params    = 0x10000100,
 	.fixup          = trout_fixup,
 	.map_io         = trout_map_io,
 	.init_irq       = trout_init_irq,

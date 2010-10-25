@@ -331,10 +331,11 @@ static int __init trout_init_keypad(void)
 		trout_keypad_nav_info.keymap_size = ARRAY_SIZE(trout_keypad_nav_map_evt2);
 
 		/* userspace needs to know about these changes as well */
-		if (!strcmp(keycaps, "qwertz"))
+		if (!strcmp(keycaps, "qwertz")) {
 			trout_keypad_data.name = "trout-keypad-qwertz";
-		else
+		} else {
 			trout_keypad_data.name = "trout-keypad-v3";
+		}
 		break;
 	}
 	return platform_device_register(&trout_keypad_device);

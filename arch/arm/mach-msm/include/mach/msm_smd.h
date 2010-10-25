@@ -78,4 +78,11 @@ enum {
 int smd_named_open_on_edge(const char *name, uint32_t edge, smd_channel_t **_ch,
 			   void *priv, void (*notify)(void *, unsigned));
 
+struct smd_tty_channel_desc {
+	int id;
+	const char *name;
+};
+
+int smd_set_channel_list(const struct smd_tty_channel_desc *, int len);
+
 #endif
