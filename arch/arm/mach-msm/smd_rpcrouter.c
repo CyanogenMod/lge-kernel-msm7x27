@@ -545,20 +545,25 @@ int msm_rpcrouter_destroy_local_endpoint(struct msm_rpc_endpoint *ept)
 	unsigned long flags;
 	struct rpcrouter_xprt_info *xprt_info;
 
-	msg.cmd = RPCROUTER_CTRL_CMD_REMOVE_CLIENT;
-	msg.cli.pid = ept->pid;
-	msg.cli.cid = ept->cid;
+	/* Endpoint with dst_pid = 0xffffffff corresponds to that of
+	** router port. So don't send a REMOVE CLIENT message while
+	** destroying it.*/
+	if (ept->dst_pid != 0xffffffff) {
+		msg.cmd = RPCROUTER_CTRL_CMD_REMOVE_CLIENT;
+		msg.cli.pid = ept->pid;
+		msg.cli.cid = ept->cid;
 
-	RR("x REMOVE_CLIENT id=%d:%08x\n", ept->pid, ept->cid);
-	mutex_lock(&xprt_info_list_lock);
-	list_for_each_entry(xprt_info, &xprt_info_list, list) {
-		rc = rpcrouter_send_control_msg(xprt_info, &msg);
-		if (rc < 0) {
-			mutex_unlock(&xprt_info_list_lock);
-			return rc;
+		RR("x REMOVE_CLIENT id=%d:%08x\n", ept->pid, ept->cid);
+		mutex_lock(&xprt_info_list_lock);
+		list_for_each_entry(xprt_info, &xprt_info_list, list) {
+			rc = rpcrouter_send_control_msg(xprt_info, &msg);
+			if (rc < 0) {
+				mutex_unlock(&xprt_info_list_lock);
+				return rc;
+			}
 		}
+		mutex_unlock(&xprt_info_list_lock);
 	}
-	mutex_unlock(&xprt_info_list_lock);
 
 	/* Free replies */
 	spin_lock_irqsave(&ept->reply_q_lock, flags);
