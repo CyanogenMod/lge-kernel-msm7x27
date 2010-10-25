@@ -12,18 +12,12 @@ obj-$(CONFIG_SND_MSM_SOC) += snd-soc-msm.o
 snd-soc-msmv2-objs := msm7kv2-dsp.o msm7kv2-pcm.o
 obj-$(CONFIG_SND_MSM7KV2_SOC) += snd-soc-msmv2.o
 
-snd-soc-qsd-objs := qsd8k-pcm.o
-obj-$(CONFIG_SND_QSD_SOC) += snd-soc-qsd.o
-
 # MSM Machine Support
 snd-soc-msm7k-objs := msm7201.o
 obj-$(CONFIG_SND_MSM_SOC_MSM7K) += snd-soc-msm7k.o
 
 snd-soc-msm7kv2-objs := msm7x30.o
 obj-$(CONFIG_SND_MSM_SOC_MSM7KV2) += snd-soc-msm7kv2.o
-
-snd-soc-qsd8k-objs := qsd8k.o
-obj-$(CONFIG_SND_QSD_SOC_QSD8K) += snd-soc-qsd8k.o
 
 # 8660 ALSA Support
 snd-soc-msm8x60-dai-objs := msm8x60-dai.o
