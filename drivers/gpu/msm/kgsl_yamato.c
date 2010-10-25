@@ -786,7 +786,8 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
 
 	/* Only reset CP block if all blocks have previously been reset */
-	if (!(device->flags & KGSL_FLAGS_SOFT_RESET)) {
+	if (!(device->flags & KGSL_FLAGS_SOFT_RESET) ||
+		(device->chip_id != KGSL_CHIPID_LEIA_REV470)) {
 		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
 		device->flags |= KGSL_FLAGS_SOFT_RESET;
 	} else
