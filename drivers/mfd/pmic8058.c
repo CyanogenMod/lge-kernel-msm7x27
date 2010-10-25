@@ -74,6 +74,13 @@
 /* Regulator L22 control register */
 #define SSBI_REG_ADDR_L22_CTRL		0x121
 
+/* SLEEP CNTL register */
+#define SSBI_REG_ADDR_SLEEP_CNTL	0x02B
+
+#define PM8058_SLEEP_SMPL_EN_MASK	0x04
+#define PM8058_SLEEP_SMPL_EN_RESET	0x04
+#define PM8058_SLEEP_SMPL_EN_PWR_OFF	0x00
+
 #define	MAX_PM_IRQ		256
 #define	MAX_PM_BLOCKS		(MAX_PM_IRQ / 8 + 1)
 #define	MAX_PM_MASTERS		(MAX_PM_BLOCKS / 8 + 1)
@@ -260,22 +267,42 @@ int pm8058_reset_pwr_off(int reset)
 	int		rc;
 	u8		pon;
 	u8		ctrl;
+	u8		smpl;
 
 	if (pmic_chip == NULL)
 		return -ENODEV;
 
 	mutex_lock(&pmic_chip->pm_lock);
 
-	/* Set regulator L22 to 1.225V in high power mode. */
 	if (!reset) {
+		/* Set regulator L22 to 1.225V in high power mode. */
 		ctrl = 0xD3;
 		rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_L22_CTRL, &ctrl,
 				1);
 		if (rc)
 			pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d\n",
 			       __func__, SSBI_REG_ADDR_L22_CTRL, ctrl, rc);
+
+		/* Only modify the SLEEP_CNTL reg if shutdown is desired. */
+		rc = ssbi_read(pmic_chip->dev, SSBI_REG_ADDR_SLEEP_CNTL,
+			       &smpl, 1);
+		if (rc) {
+			pr_err("%s: FAIL ssbi_read(0x%x): rc=%d\n",
+			       __func__, SSBI_REG_ADDR_SLEEP_CNTL, rc);
+			goto get_out2;
+		}
+
+		smpl &= ~PM8058_SLEEP_SMPL_EN_MASK;
+		smpl |= PM8058_SLEEP_SMPL_EN_PWR_OFF;
+
+		rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_SLEEP_CNTL,
+				&smpl, 1);
+		if (rc)
+			pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d\n",
+			       __func__, SSBI_REG_ADDR_SLEEP_CNTL, smpl, rc);
 	}
 
+get_out2:
 	rc = ssbi_read(pmic_chip->dev, SSBI_REG_ADDR_PON_CNTL_1, &pon, 1);
 	if (rc) {
 		pr_err("%s: FAIL ssbi_read(0x%x): rc=%d\n",
