@@ -1107,65 +1107,6 @@ choice
 		bool "Reset the entire chip"
 endchoice
 
-config MSM_NPA
-	bool "Node Power Architecture(NPA) support"
-	default y if ARCH_MSM7X30
-	help
-	  Enable support for Node Power Architecture for aggressive
-	  resource power management. NPA provides an interface for resources
-	  to export their parameters and clients to request a value. The
-	  resources have additional facility to aggreate requests, calculate
-	  the resultant value, apply the value and notify the clients of
-	  change in state.
-
-config MSM_NPA_LOG
-	bool "Node Power Architecture(NPA) logging support"
-	depends on MSM_NPA
-	default y
-	help
-	  Enable logging support for NPA.
-
-config MSM_NPA_DEBUG
-	bool "Node Power Architecture(NPA) debug support"
-	depends on MSM_NPA
-	default n
-	help
-	  Exports functions that can debug or reset NPA internal
-	  data structures.
-
-config MSM_NPA_REMOTE
-	bool "Node Power Architecture(NPA) remoting"
-	depends on MSM_NPA
-	default n
-	help
-	  Enables Linux NPA clients to talk to NPA nodes across
-	  processor boundary.
-
-config MSM_NPA_REMOTE_ONCRPC
-	bool "Enables NPA remoting through ONCRPC protocol."
-	depends on MSM_NPA && MSM_ONCRPCROUTER
-	select MSM_NPA_REMOTE
-	default n
-	help
-	  Enables Linux NPA clients to talk to NPA nodes in the modem
-	  using ONCRPC communication protocol.
-
-config MSM_NPA_PROC_COMM
-	bool "Enables NPA remoting through PROC-COMM to issue requests"
-	depends on MSM_NPA_REMOTE_ONCRPC && MSM_PROC_COMM
-	default n
-	help
-	  Enables the use of PROC-COMM to make requests instead of ONCRPC.
-	  ONCRPC is however still required for NPA setup.
-
-config MSM_NPA_SYSTEM_BUS
-	bool "NPA-managed System Bus (AXI) rates through PM_QOS."
-	depends on MSM_NPA_REMOTE
-	default n
-	help
-	  PM_QOS System Bus rate requests are interpreted as 'Flow IDs' and
-	  are routed through the NPA framework.
-
 config MSM_PIL
 	bool "Peripheral image loading"
 	select FW_LOADER
