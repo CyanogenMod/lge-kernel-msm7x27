@@ -29,15 +29,14 @@ struct yaffs_LinuxContext {
 	__u8 *spareBuffer;      /* For mtdif2 use. Don't know the size of the buffer
 				 * at compile time so we have to allocate it.
 				 */
+	struct mtd_info *mtd;
 	struct ylist_head searchContexts;
 	void (*putSuperFunc)(struct super_block *sb);
 
 	struct task_struct *readdirProcess;
-	unsigned mount_id;
 };
 
-#define yaffs_DeviceToLC(dev) ((struct yaffs_LinuxContext *)((dev)->osContext))
-#define yaffs_DeviceToMtd(dev) ((struct mtd_info *)((dev)->driverContext))
+#define yaffs_DeviceToContext(dev) ((struct yaffs_LinuxContext *)((dev)->context))
 
 #endif
 
