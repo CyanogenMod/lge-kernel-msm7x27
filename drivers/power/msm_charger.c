@@ -155,8 +155,8 @@ static int is_battery_present(void)
 	if (msm_batt_gauge && msm_batt_gauge->is_battery_present)
 		return msm_batt_gauge->is_battery_present();
 	else {
-		pr_err("%s no batt gauge device\n", __func__);
-		return 1;
+		pr_err("msm-charger: no batt gauge batt=absent\n");
+		return 0;
 	}
 }
 
@@ -165,8 +165,8 @@ static int is_battery_temp_within_range(void)
 	if (msm_batt_gauge && msm_batt_gauge->is_battery_temp_within_range)
 		return msm_batt_gauge->is_battery_temp_within_range();
 	else {
-		pr_err("no batt gauge device to check temp assuming valid\n");
-		return 1;
+		pr_err("msm-charger no batt gauge batt=out_of_temperatur\n");
+		return 0;
 	}
 }
 
@@ -175,8 +175,8 @@ static int is_battery_id_valid(void)
 	if (msm_batt_gauge && msm_batt_gauge->is_battery_id_valid)
 		return msm_batt_gauge->is_battery_id_valid();
 	else {
-		pr_err("no batt gauge device to check id assuming valid\n");
-		return 1;
+		pr_err("msm-charger no batt gauge batt=id_invalid\n");
+		return 0;
 	}
 }
 
@@ -185,7 +185,7 @@ static int get_battery_mvolts(void)
 	if (msm_batt_gauge && msm_batt_gauge->get_battery_mvolts)
 		return msm_batt_gauge->get_battery_mvolts();
 	else {
-		pr_err("no batt guage device to measure volts assuming 3.5V\n");
+		pr_err("msm-charger no batt gauge assuming 3.5V\n");
 		return MSM_CHARGER_GAUGE_MISSING_VOLTS;
 	}
 }
@@ -195,11 +195,12 @@ static int get_battery_temperature(void)
 	if (msm_batt_gauge && msm_batt_gauge->get_battery_temperature)
 		return msm_batt_gauge->get_battery_temperature();
 	else {
-		pr_err("no batt guage device to measure temp assume 35 degC\n");
+		pr_err("msm-charger no batt gauge assuming 35 deg G\n");
 		return MSM_CHARGER_GAUGE_MISSING_TEMP;
 	}
 }
 
+ /* This function should only be called within handle_event or resume*/
 static void update_batt_status(void)
 {
 	if (is_battery_present()) {
@@ -213,7 +214,7 @@ static void update_batt_status(void)
 		} else
 			msm_chg.batt_status = BATT_STATUS_ID_INVALID;
 	 } else
-			msm_chg.batt_status = BATT_STATUS_ABSENT;
+		msm_chg.batt_status = BATT_STATUS_ABSENT;
 }
 
 static enum power_supply_property msm_power_props[] = {
@@ -619,6 +620,8 @@ static void update_heartbeat(struct work_struct *work)
 			handle_battery_removed();
 		}
 	}
+	pr_debug("msm-charger %s batt_status= %d\n",
+				__func__, msm_chg.batt_status);
 
 	if (msm_chg.current_chg_priv
 		&& msm_chg.current_chg_priv->hw_chg_state
@@ -880,7 +883,8 @@ static void handle_event(struct msm_hardware_charger *hw_chg, int event)
 		event, msm_chg.batt_status);
 
 	/* update userspace */
-	power_supply_changed(&msm_psy_batt);
+	if (msm_batt_gauge)
+		power_supply_changed(&msm_psy_batt);
 	power_supply_changed(&priv->psy);
 
 	mutex_unlock(&msm_chg.status_lock);
@@ -949,8 +953,10 @@ void msm_charger_vbus_draw(unsigned int mA)
 		pr_err("%s called early;charger isnt initialized\n", __func__);
 }
 
-static void determine_initial_batt_status(void)
+static int __init determine_initial_batt_status(void)
 {
+	int rc;
+
 	if (is_battery_present())
 		if (is_battery_id_valid())
 			if (is_battery_temp_within_range())
@@ -962,15 +968,34 @@ static void determine_initial_batt_status(void)
 			msm_chg.batt_status = BATT_STATUS_ID_INVALID;
 	else
 		msm_chg.batt_status = BATT_STATUS_ABSENT;
+
+	if (is_batt_status_capable_of_charging())
+		handle_battery_inserted();
+
+	rc = power_supply_register(msm_chg.dev, &msm_psy_batt);
+	if (rc < 0) {
+		dev_err(msm_chg.dev, "%s: power_supply_register failed"
+			" rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	/* start updaing the battery powersupply every msm_chg.update_time
+	 * milliseconds */
+	queue_delayed_work(msm_chg.event_wq_thread,
+				&msm_chg.update_heartbeat_work,
+			      round_jiffies_relative(msecs_to_jiffies
+						     (msm_chg.update_time)));
+
+	pr_debug("%s:OK batt_status=%d\n", __func__, msm_chg.batt_status);
+	return 0;
 }
 
 static int __devinit msm_charger_probe(struct platform_device *pdev)
 {
-	int rc;
-
 	msm_chg.dev = &pdev->dev;
 	if (pdev->dev.platform_data) {
 		unsigned int milli_secs;
+
 		struct msm_charger_platform_data *pdata
 		    =
 		    (struct msm_charger_platform_data *)pdev->dev.platform_data;
@@ -1011,30 +1036,10 @@ static int __devinit msm_charger_probe(struct platform_device *pdev)
 		msm_chg.get_batt_capacity_percent =
 		    msm_chg_get_batt_capacity_percent;
 
-	rc = power_supply_register(&pdev->dev, &msm_psy_batt);
-	if (rc < 0) {
-		dev_err(&pdev->dev, "%s: power_supply_register failed"
-			" rc=%d\n", __func__, rc);
-		return rc;
-	}
-
 	mutex_init(&msm_chg.status_lock);
 	INIT_DELAYED_WORK(&msm_chg.teoc_work, teoc);
 	INIT_DELAYED_WORK(&msm_chg.resume_work, resume_charging);
 	INIT_DELAYED_WORK(&msm_chg.update_heartbeat_work, update_heartbeat);
-
-	determine_initial_batt_status();
-	if (is_batt_status_capable_of_charging())
-		handle_battery_inserted();
-
-	/* start updaing the battery powersupply every msm_chg.update_time
-	 * milliseconds */
-	queue_delayed_work(msm_chg.event_wq_thread,
-				&msm_chg.update_heartbeat_work,
-			      round_jiffies_relative(msecs_to_jiffies
-						     (msm_chg.update_time)));
-
-	pr_notice("%s:OK batt_status=%d\n", __func__, msm_chg.batt_status);
 
 	return 0;
 }
@@ -1109,7 +1114,14 @@ EXPORT_SYMBOL(msm_charger_register);
 
 void msm_battery_gauge_register(struct msm_battery_gauge *batt_gauge)
 {
-	msm_batt_gauge = batt_gauge;
+	if (msm_batt_gauge) {
+		msm_batt_gauge = batt_gauge;
+		pr_err("msm-charger %s multiple battery gauge called\n",
+								__func__);
+	} else {
+		msm_batt_gauge = batt_gauge;
+		determine_initial_batt_status();
+	}
 }
 EXPORT_SYMBOL(msm_battery_gauge_register);
 
