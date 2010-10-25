@@ -1869,6 +1869,15 @@ static void reg_init(int use_pxo)
 	/* Deassert all MM core resets. */
 	writel(0, SW_RESET_CORE_REG);
 
+	/* Reset 3D core once more, with its clock enabled. This can
+	 * eventually be done as part of the GDFS footswitch driver. */
+	local_clk_set_rate(C(GFX3D), 27000000);
+	local_clk_enable(C(GFX3D));
+	writel(B(12), SW_RESET_CORE_REG);
+	udelay(5);
+	writel(0, SW_RESET_CORE_REG);
+	local_clk_disable(C(GFX3D));
+
 	/* Set hdmi_ref_clk to MM_PLL2/2. */
 	rmwreg(B(28)|BVAL(21, 18, 0x1), MISC_CC2_REG, B(28)|BM(21, 18));
 
