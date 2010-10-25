@@ -107,11 +107,6 @@ struct vcd_property_frame_size {
 #define VCD_METADATA_PASSTHROUGH    0x080
 #define VCD_METADATA_ENC_SLICE      0x100
 
-#define VCD_OMX_DATANONE      0x00000000
-#define VCD_OMX_CONCEALMB     0x7F000006
-#define VCD_OMX_SEI           0x7F000007
-#define VCD_OMX_VUI           0x7F000008
-
 struct vcd_property_meta_data_enable {
 	u32 meta_data_enable_flag;
 };
