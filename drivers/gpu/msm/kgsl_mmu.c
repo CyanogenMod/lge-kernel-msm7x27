@@ -339,11 +339,6 @@ int kgsl_mmu_init(struct kgsl_device *device)
 
 	KGSL_MEM_VDBG("enter (device=%p)\n", device);
 
-	if (mmu->flags & KGSL_FLAGS_INITIALIZED0) {
-		KGSL_MEM_INFO("MMU already initialized.\n");
-		return 0;
-	}
-
 	mmu->device = device;
 
 #ifndef CONFIG_MSM_KGSL_MMU
@@ -383,7 +378,6 @@ int kgsl_mmu_init(struct kgsl_device *device)
 				   mmu->dummyspace.size);
 
 	}
-	mmu->flags |= KGSL_FLAGS_INITIALIZED;
 
 	KGSL_MEM_VDBG("return %d\n", 0);
 
@@ -633,13 +627,8 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	if (flushtlb) {
 		for (i = 0; i < kgsl_driver.num_devs; i++) {
 			device = kgsl_driver.devp[i];
-			if (device != NULL) {
-				if ((device->flags & KGSL_FLAGS_INITIALIZED) &&
-				    (pagetable == device->mmu.hwpagetable)) {
-					device->mmu.tlb_flags |=
-							KGSL_MMUFLAGS_TLBFLUSH;
-				}
-			}
+			if (device && pagetable == device->mmu.hwpagetable)
+				device->mmu.tlb_flags |= KGSL_MMUFLAGS_TLBFLUSH;
 		}
 		GSL_TLBFLUSH_FILTER_RESET();
 	}
@@ -767,13 +756,8 @@ int kgsl_mmu_close(struct kgsl_device *device)
 
 	KGSL_MEM_VDBG("enter (device=%p)\n", device);
 
-	if (mmu->flags & KGSL_FLAGS_INITIALIZED0) {
-		if (mmu->dummyspace.gpuaddr)
-			kgsl_sharedmem_free(&mmu->dummyspace);
-
-		mmu->flags &= ~KGSL_FLAGS_INITIALIZED;
-		mmu->flags &= ~KGSL_FLAGS_INITIALIZED0;
-	}
+	if (mmu->dummyspace.gpuaddr)
+		kgsl_sharedmem_free(&mmu->dummyspace);
 
 	KGSL_MEM_VDBG("return %d\n", 0);
 
