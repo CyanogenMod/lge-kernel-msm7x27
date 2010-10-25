@@ -1681,6 +1681,15 @@ static struct msm_rpm_log_platform_data msm_rpm_log_pdata = {
 	.log_len_mask = (4096 >> 2) - 1,  /* length mask in units of u32 */
 };
 
+static struct platform_device msm_rpm_log_device = {
+	.name	= "msm_rpm_log",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &msm_rpm_log_pdata,
+	},
+};
+#endif
+
 #ifdef CONFIG_BATTERY_MSM8X60
 static struct msm_charger_platform_data msm_charger_data = {
 	.safety_time = 180,
@@ -1696,15 +1705,6 @@ static struct platform_device msm_charger_device = {
 	.dev = {
 		.platform_data = &msm_charger_data,
 	}
-};
-#endif
-
-static struct platform_device msm_rpm_log_device = {
-	.name	= "msm_rpm_log",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &msm_rpm_log_pdata,
-	},
 };
 #endif
 
