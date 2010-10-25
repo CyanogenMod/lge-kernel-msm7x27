@@ -30,14 +30,15 @@
 
 #define MODEM_HWIO_MSS_RESET_ADDR       0x00902C48
 
+static void q6_fatal_fn(struct work_struct *);
 static void modem_fatal_fn(struct work_struct *);
-static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id);
 static void check_modem_ahb_status(struct work_struct *work);
 static int modem_notif_handler(struct notifier_block *this,
 				unsigned long code,
 				void *_cmd);
 
 static DECLARE_WORK(modem_fatal_work, modem_fatal_fn);
+static DECLARE_WORK(q6_fatal_work, q6_fatal_fn);
 static DECLARE_DELAYED_WORK(check_modem_ahb_work, check_modem_ahb_status);
 
 static atomic_t modem_ahb_lockup = ATOMIC_INIT(0);
@@ -115,20 +116,44 @@ static void modem_fatal_fn(struct work_struct *work)
 	}
 }
 
-static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
+static void q6_fatal_fn(struct work_struct *work)
+{
+	/* Send modem an SMSM_RESET message to allow flushing of caches etc. */
+	smsm_reset_modem(SMSM_RESET);
+
+	panic("Watchdog bite received from Q6! Rebooting.\n");
+}
+
+static irqreturn_t subsys_wdog_bite_irq(int irq, void *dev_id)
 {
 	int ret;
 
-	/*
-	* Do not process modem watchdog bites after an attempt
-	* has been made to bring the modem out of ahb lockup. Wait
-	* until the modem comes back up and enters its error handler.
-	*/
-	if (atomic_read(&modem_ahb_lockup))
-		return IRQ_HANDLED;
+	switch (irq) {
 
-	ret = schedule_work(&modem_fatal_work);
-	disable_irq_nosync(MARM_WDOG_EXPIRED);
+	case MARM_WDOG_EXPIRED:
+
+		/*
+		* Do not process modem watchdog bites after an attempt
+		* has been made to bring the modem out of ahb lockup. Wait
+		* until the modem comes back up and enters its error handler.
+		*/
+
+		if (atomic_read(&modem_ahb_lockup))
+			return IRQ_HANDLED;
+
+		ret = schedule_work(&modem_fatal_work);
+		disable_irq_nosync(MARM_WDOG_EXPIRED);
+	break;
+
+	case LPASS_Q6SS_WDOG_EXPIRED:
+		ret = schedule_work(&q6_fatal_work);
+		disable_irq_nosync(LPASS_Q6SS_WDOG_EXPIRED);
+	break;
+
+	default:
+		printk(KERN_CRIT "subsys-fatal: %s: Unknown IRQ!\n", __func__);
+
+	}
 
 	return IRQ_HANDLED;
 }
@@ -136,14 +161,18 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 static void __exit subsystem_fatal_exit(void)
 {
 	free_irq(MARM_WDOG_EXPIRED, NULL);
+	free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 }
 
 static int __init subsystem_fatal_init(void)
 {
 	int ret;
 
-	ret = request_irq(MARM_WDOG_EXPIRED, modem_wdog_bite_irq,
+	ret = request_irq(MARM_WDOG_EXPIRED, subsys_wdog_bite_irq,
 			IRQF_TRIGGER_RISING, "modem_wdog", NULL);
+
+	ret = request_irq(LPASS_Q6SS_WDOG_EXPIRED, subsys_wdog_bite_irq,
+			IRQF_TRIGGER_RISING, "q6_wdog", NULL);
 
 	return ret;
 }
