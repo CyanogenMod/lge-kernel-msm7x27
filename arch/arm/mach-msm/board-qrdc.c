@@ -937,6 +937,11 @@ static int msm_fb_detect_panel(const char *name)
 	return -ENODEV;
 }
 
+static struct platform_device lcdc_qrdc_panel_device = {
+	.name = "lcdc_qrdc",
+	.id = 0,
+};
+
 static struct msm_fb_platform_data msm_fb_pdata = {
 	.detect_client = msm_fb_detect_panel,
 };
@@ -1533,6 +1538,7 @@ static struct platform_device *qrdc_devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&msm_fb_device,
+	&lcdc_qrdc_panel_device,
 	&msm_device_kgsl,
 	&lcdc_samsung_panel_device,
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
@@ -2484,6 +2490,10 @@ static struct i2c_board_info msm_i2c_gsbi3_qci_input_info[] = {
 	{
 		I2C_BOARD_INFO("qci-i2cpad", 0x19),
 		.irq = 52,
+	},
+	{
+		I2C_BOARD_INFO("qci-i2cec", 0x1A),
+		.irq = 117,
 	},
 };
 
@@ -3530,6 +3540,13 @@ static int hdmi_cec_power(int on)
 
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
+static int msm_fb_lcdc_gpio_config(int on)
+{
+	/* backlight */
+	gpio_set_value_cansleep(30, !!on);
+	return 0;
+}
+
 static int lcdc_panel_power(int on)
 {
 	int flag_on = !!on;
@@ -3547,6 +3564,7 @@ static int lcdc_panel_power(int on)
 
 static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_power_save   = lcdc_panel_power,
+	.lcdc_gpio_config  = msm_fb_lcdc_gpio_config,
 };
 
 static struct msm_panel_common_pdata mdp_pdata = {
@@ -3555,6 +3573,8 @@ static struct msm_panel_common_pdata mdp_pdata = {
 
 static void __init msm_fb_add_devices(void)
 {
+	gpio_request(30, "BACKLIGHT_EN");
+	gpio_direction_output(30, 0);
 	msm_fb_register_device("mdp", &mdp_pdata);
 	msm_fb_register_device("lcdc", &lcdc_pdata);
 	msm_fb_register_device("mipi_dsi", 0);
@@ -3678,12 +3698,6 @@ static void __init msm8x60_init(void)
 #endif
 	msm_fb_add_devices();
 	register_i2c_devices();
-	/* BACKLIGHT */
-	gpio_request(30, "BACKLIGHT_EN");
-	gpio_direction_output(30, 0);
-	msleep(20);
-	gpio_set_value_cansleep(30, 1);
-
 
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
