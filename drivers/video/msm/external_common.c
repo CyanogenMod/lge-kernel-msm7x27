@@ -296,21 +296,19 @@ static ssize_t hdmi_3d_wta_format_3d(struct device *dev,
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	int format_3d = atoi(buf);
 
-	if (format_3d == 0 && external_common_state->format_3d) {
-		external_common_state->format_3d = 0;
-		if (external_common_state->switch_3d)
-			external_common_state->switch_3d(0);
-		DEV_DBG("%s: '%d'\n", __func__,
-			external_common_state->format_3d);
-	} else if (format_3d == 1 && !external_common_state->format_3d) {
-		external_common_state->format_3d = 1;
-		if (external_common_state->switch_3d)
-			external_common_state->switch_3d(1);
-		DEV_DBG("%s: '%d'\n", __func__,
-			external_common_state->format_3d);
+	if (format_3d >= 0 && format_3d <= 2) {
+		if (format_3d != external_common_state->format_3d) {
+			external_common_state->format_3d = format_3d;
+			if (external_common_state->switch_3d)
+				external_common_state->switch_3d(format_3d);
+			DEV_DBG("%s: '%d'\n", __func__,
+				external_common_state->format_3d);
+		} else {
+			DEV_DBG("%s: '%d' (unchanged)\n", __func__,
+				external_common_state->format_3d);
+		}
 	} else {
-		DEV_DBG("%s: '%d' (unchanged)\n", __func__,
-			external_common_state->format_3d);
+		DEV_DBG("%s: '%d' (unknown)\n", __func__, format_3d);
 	}
 
 	return ret;

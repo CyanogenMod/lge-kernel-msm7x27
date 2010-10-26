@@ -2432,6 +2432,11 @@ static void hdmi_msm_vendor_infoframe_packetsetup(void)
 	uint32 check_sum          = 0;
 	uint32 packet_payload     = 0;
 
+	if (!external_common_state->format_3d) {
+		HDMI_OUTP(0x0034, 0);
+		return;
+	}
+
 	/* 0x0084 GENERIC0_HDR
 	 *   HB0             7:0  NUM
 	 *   HB1            15:8  NUM
@@ -2440,9 +2445,7 @@ static void hdmi_msm_vendor_infoframe_packetsetup(void)
 	/* 0x81 VS_INFO_FRAME_ID
 	   0x01 VS_INFO_FRAME_VERSION
 	   0x1B VS_INFO_FRAME_PAYLOAD_LENGTH */
-	packet_header  = 0x81;
-	packet_header |= 0x01 << 8;
-	packet_header |= 0x1B << 16;
+	packet_header  = 0x81 | (0x01 << 8) | (0x1B << 16);
 	HDMI_OUTP(0x0084, packet_header);
 
 	check_sum  = packet_header & 0xff;
@@ -2454,14 +2457,18 @@ static void hdmi_msm_vendor_infoframe_packetsetup(void)
 	 *   BYTE5          15:8  NUM
 	 *   BYTE6         23:16  NUM
 	 *   BYTE7         31:24  NUM */
-	if (external_common_state->format_3d) {
-		/* 0x02 VS_INFO_FRAME_3D_PRESENT */
-		packet_payload  = 0x02 << 5;
-		/* 0x08 VIDEO_3D_FORMAT_SIDE_BY_SIDE_HALF */
+	/* 0x02 VS_INFO_FRAME_3D_PRESENT */
+	packet_payload  = 0x02 << 5;
+	switch (external_common_state->format_3d) {
+	case 1:
+		/* 0b1000 VIDEO_3D_FORMAT_SIDE_BY_SIDE_HALF */
 		packet_payload |= (0x08 << 8) << 4;
-	} else
-		packet_payload = ((external_common_state->video_resolution+1)
-			<< 8) << 4;
+		break;
+	case 2:
+		/* 0b0110 VIDEO_3D_FORMAT_TOP_AND_BOTTOM_HALF */
+		packet_payload |= (0x06 << 8) << 4;
+		break;
+	}
 	HDMI_OUTP(0x008C, packet_payload);
 
 	check_sum += packet_payload & 0xff;
@@ -2501,7 +2508,7 @@ static void hdmi_msm_vendor_infoframe_packetsetup(void)
 	 * Enable this packet to transmit every frame
 	 * Enable this packet to transmit every frame
 	 * Enable HDMI TX engine to transmit Generic packet 0 */
-	HDMI_OUTP(0x0034, (1 << 21) | (1 << 2) | BIT(1) | BIT(0));
+	HDMI_OUTP(0x0034, (1 << 16) | (1 << 2) | BIT(1) | BIT(0));
 }
 
 static void hdmi_msm_switch_3d(boolean on)
