@@ -52,18 +52,17 @@ unsigned int msm_dmov_build_crci_mask(int n, ...);
 #if defined(CONFIG_ARCH_MSM7X30)
 #define DMOV_SD_SIZE 0x400
 #define DMOV_SD_AARM 2
-#define DMOV_SD_AARM_ADDR DMOV_SD2
-#elif defined(CONFIG_ARCH_MSM8X60)
+#elif defined(CONFIG_MSM_ADM3)
 #define DMOV_SD_SIZE 0x800
 #define DMOV_SD_MASTER 0
 #define DMOV_SD_AARM 0
 #define DMOV_SD_MASTER_ADDR(off, ch) DMOV_ADDR(off, ch, DMOV_SD_MASTER)
-#define DMOV_SD_AARM_ADDR(off, ch) DMOV_ADDR(off, ch, DMOV_SD_AARM)
 #else
 #define DMOV_SD_SIZE 0x400
 #define DMOV_SD_AARM 3
-#define DMOV_SD_AARM_ADDR DMOV_SD3
 #endif
+
+#define DMOV_SD_AARM_ADDR(off, ch) DMOV_ADDR(off, ch, DMOV_SD_AARM)
 
 #define DMOV_CMD_PTR(ch)      DMOV_SD_AARM_ADDR(0x000, ch)
 #define DMOV_CMD_LIST         (0 << 29) /* does not work */
