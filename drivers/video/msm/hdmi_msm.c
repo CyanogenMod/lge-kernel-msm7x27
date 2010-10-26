@@ -302,8 +302,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 					disp_mode_list.num_of_elements)
 				hdmi_msm_read_edid();
 			hdmi_msm_turn_on();
-		} else if (hdmi_msm_state->panel_power_on)
-			hdmi_msm_audio_off();
+		}
 	} else {
 		hdmi_msm_state->hpd_cable_chg_detected = FALSE;
 		mutex_unlock(&hdmi_msm_state_mutex);
@@ -316,9 +315,6 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 
 			hdmi_msm_turn_on();
 		} else {
-			if (hdmi_msm_state->panel_power_on)
-				hdmi_msm_audio_off();
-
 			DEV_DBG("%s: sense DISCONNECTED: send OFFLINE\n",
 				__func__);
 			kobject_uevent(external_common_state->uevent_kobj,
