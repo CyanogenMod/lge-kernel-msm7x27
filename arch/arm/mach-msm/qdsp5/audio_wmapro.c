@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -52,7 +52,7 @@
 #include <mach/debug_mm.h>
 
 /* Size must be power of 2 */
-#define BUFSZ_MAX 	4110	/* Includes meta in size */
+#define BUFSZ_MAX	8206	/* Includes meta in size */
 #define BUFSZ_MIN 	2062	/* Includes meta in size */
 #define DMASZ_MAX 	(BUFSZ_MAX * 2)
 #define DMASZ_MIN 	(BUFSZ_MIN * 2)
