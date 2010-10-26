@@ -70,19 +70,6 @@ config ARCH_MSM8X60
 	select MSM_GPIOMUX
 	select MSM_BUS_SCALING
 
-config ARCH_QSD8X72
-	bool "QSD8X72"
-	select ARCH_MSM_SCORPIONMP
-	select SMP_PARALLEL_START if SMP
-	select ARM_GIC
-	select CPU_V7
-	select MSM_REMOTE_SPINLOCK_LDREX
-	select ARCH_REQUIRE_GPIOLIB
-	select MSM_ADM3
-	select MSM_V2_TLMM
-	select ARCH_HAS_CPU_IDLE_WAIT
-	select MSM_DIRECT_SCLK_ACCESS
-
 endchoice
 
 choice
@@ -363,7 +350,6 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_QSD8X50 && MSM_SOC_REV_A
 	default "0x20000000" if ARCH_QSD8X50
 	default "0x40200000" if ARCH_MSM8X60
-	default "0x80200000" if ARCH_QSD8X72
 	default "0x10000000"
 
 config KERNEL_PMEM_EBI_REGION
