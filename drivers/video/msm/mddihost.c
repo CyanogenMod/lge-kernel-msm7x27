@@ -190,6 +190,14 @@ int mddi_host_register_read(uint32 reg_addr,
 				__func__);
 		else if (!wait_ret)
 			printk(KERN_ERR "%s: Timed out waiting!\n", __func__);
+
+		if (!ret && (mddi_reg_read_value_ptr == reg_value_ptr) &&
+			(*reg_value_ptr == -EBUSY)) {
+			printk(KERN_ERR "%s - failed to get data from client",
+				   __func__);
+			mddi_reg_read_value_ptr = NULL;
+			ret = -EBUSY;
+		}
 	}
 
 	MDDI_MSG_DEBUG("Reg Read value=0x%x\n", *reg_value_ptr);
@@ -605,6 +613,14 @@ int mddi_host_register_multiread(uint32 reg_addr,
 				__func__);
 		else if (!wait_ret)
 			printk(KERN_ERR "%s: Timed out waiting!\n", __func__);
+
+		if (!ret && (mddi_reg_read_value_ptr == value_list_ptr) &&
+			(*value_list_ptr == -EBUSY)) {
+			printk(KERN_ERR "%s - failed to get data from client",
+				   __func__);
+			mddi_reg_read_value_ptr = NULL;
+			ret = -EBUSY;
+		}
 	}
 
 	MDDI_MSG_DEBUG("Reg Read value=0x%x\n", *value_list_ptr);
