@@ -562,7 +562,7 @@ static irqreturn_t pm8058_isr_thread(int irq_requested, void *data)
 				} else {
 					/* Clear and mask wrong one */
 					config = PM8058_IRQF_W_C_M |
-						(k < PM8058_IRQF_BITS_SHIFT);
+						(k << PM8058_IRQF_BITS_SHIFT);
 
 					pm8058_config_irq(chip,
 							  &block, &config);
