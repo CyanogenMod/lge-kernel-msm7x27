@@ -200,6 +200,16 @@ void mddi_queue_static_window_adjust
     (const mddi_reg_write_type *reg_write,
      uint16 num_writes, mddi_llist_done_cb_type done_cb);
 
+#ifdef ENABLE_MDDI_MULTI_READ_WRITE
+int mddi_host_register_multiwrite(uint32 reg_addr,
+	uint32 *value_list_ptr, uint32 value_count,
+    boolean wait, mddi_llist_done_cb_type done_cb,
+	mddi_host_type host);
+int mddi_host_register_multiread(uint32 reg_addr,
+	uint32 *value_list_ptr, uint32 value_count,
+	boolean wait, mddi_host_type host);
+#endif
+
 #define mddi_queue_register_read(reg, val_ptr, wait, sig) \
 	mddi_host_register_read(reg, val_ptr, wait, MDDI_HOST_PRIM)
 #define mddi_queue_register_write(reg, val, wait, sig) \

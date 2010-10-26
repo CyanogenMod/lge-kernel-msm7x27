@@ -964,15 +964,21 @@ static void mddi_process_rev_packets(void)
 			{
 				mddi_register_access_packet_type
 				    * regacc_pkt_ptr;
+				uint32 data_count;
 
 				regacc_pkt_ptr =
 				    (mddi_register_access_packet_type *)
 				    rev_packet_data;
 
-				MDDI_MSG_DEBUG
-				    ("Reg Acc parse reg=0x%x, value=0x%x\n",
-				     regacc_pkt_ptr->register_address,
-				     regacc_pkt_ptr->register_data_list);
+				/* Bits[0:13] - read data count */
+				data_count = regacc_pkt_ptr->read_write_info
+					& 0x3FFF;
+				MDDI_MSG_DEBUG("\n MDDI rev read: 0x%x",
+					regacc_pkt_ptr->read_write_info);
+				MDDI_MSG_DEBUG("Reg Acc parse reg=0x%x,"
+					"value=0x%x\n", regacc_pkt_ptr->
+					register_address, regacc_pkt_ptr->
+					register_data_list[0]);
 
 				/* Copy register value to location passed in */
 				if (mddi_reg_read_value_ptr) {
@@ -980,13 +986,20 @@ static void mddi_process_rev_packets(void)
 					/* only least significant 16 bits are valid with 6280 */
 					*mddi_reg_read_value_ptr =
 					    regacc_pkt_ptr->
-					    register_data_list & 0x0000ffff;
-#else
-					*mddi_reg_read_value_ptr =
-					    regacc_pkt_ptr->register_data_list;
-#endif
+					    register_data_list[0] & 0x0000ffff;
 					mddi_reg_read_successful = TRUE;
 					mddi_reg_read_value_ptr = NULL;
+#else
+				if (data_count && data_count <=
+					MDDI_HOST_MAX_CLIENT_REG_IN_SAME_ADDR) {
+					memcpy(mddi_reg_read_value_ptr,
+						(void *)&regacc_pkt_ptr->
+						register_data_list[0],
+						data_count);
+					mddi_reg_read_successful = TRUE;
+					mddi_reg_read_value_ptr = NULL;
+				}
+#endif
 				}
 
 #ifdef DEBUG_MDDIHOSTI
@@ -998,7 +1011,7 @@ static void mddi_process_rev_packets(void)
 					 * here...
 					 */
 					 mddi_client_lcd_gpio_poll(
-					 regacc_pkt_ptr->register_data_list);
+					 regacc_pkt_ptr->register_data_list[0]);
 				}
 #endif
 				pmhctl->log_parms.reg_read_cnt++;
