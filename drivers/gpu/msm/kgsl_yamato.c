@@ -615,11 +615,6 @@ kgsl_yamato_init(struct kgsl_device *device)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	if (device->flags & KGSL_FLAGS_INITIALIZED) {
-		KGSL_DRV_VDBG("return %d\n", 0);
-		return 0;
-	}
-
 	init_waitqueue_head(&yamato_device->ib1_wq);
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long)device);
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
@@ -704,7 +699,6 @@ kgsl_yamato_init(struct kgsl_device *device)
 		goto error_close_rb;
 	}
 
-	device->flags |= KGSL_FLAGS_INITIALIZED;
 	device->flags &= ~KGSL_FLAGS_SOFT_RESET;
 	return 0;
 
@@ -750,7 +744,6 @@ int kgsl_yamato_close(struct kgsl_device *device)
 	kgsl_pwrctrl_close(device);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
-	device->flags &= ~KGSL_FLAGS_INITIALIZED;
 	return 0;
 }
 
@@ -762,11 +755,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	int init_reftimestamp = 0x7fffffff;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
-
-	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
-		KGSL_DRV_ERR("Trying to start uninitialized device.\n");
-		return -EINVAL;
-	}
 
 	if (device->flags & KGSL_FLAGS_STARTED) {
 		KGSL_DRV_VDBG("already started");
@@ -969,6 +957,8 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 				 */
 				shadowprop.gpuaddr = device->memstore.physaddr;
 				shadowprop.size = device->memstore.size;
+				/* GSL needs this to be set, even if it
+				   appears to be meaningless */
 				shadowprop.flags = KGSL_FLAGS_INITIALIZED;
 			}
 			if (copy_to_user(value, &shadowprop,

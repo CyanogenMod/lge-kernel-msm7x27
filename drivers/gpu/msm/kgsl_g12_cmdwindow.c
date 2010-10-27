@@ -46,11 +46,6 @@ int kgsl_g12_cmdwindow_write(struct kgsl_device *device,
 		return -EINVAL;
 	}
 
-	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
-		KGSL_DRV_ERR("Trying to write uninitialized device.\n");
-		return -EINVAL;
-	}
-
 	if (target == KGSL_CMDWINDOW_MMU)
 		cmdstream = ADDR_VGC_MMUCOMMANDSTREAM;
 	else

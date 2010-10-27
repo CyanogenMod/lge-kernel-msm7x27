@@ -557,8 +557,6 @@ int kgsl_ringbuffer_init(struct kgsl_device *device)
 	/* overlay structure on memptrs memory */
 	rb->memptrs = (struct kgsl_rbmemptrs *) rb->memptrs_desc.hostptr;
 
-	rb->flags |= KGSL_FLAGS_INITIALIZED;
-
 	KGSL_CMD_VDBG("return %d\n", 0);
 	return 0;
 }
@@ -572,8 +570,6 @@ int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
 
 	if (rb->memptrs_desc.hostptr)
 		kgsl_sharedmem_free(&rb->memptrs_desc);
-
-	rb->flags &= ~KGSL_FLAGS_INITIALIZED;
 
 	memset(rb, 0, sizeof(struct kgsl_ringbuffer));
 

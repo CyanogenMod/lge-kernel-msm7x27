@@ -335,17 +335,6 @@ kgsl_g12_init(struct kgsl_device *device)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	if (device->flags & KGSL_FLAGS_INITIALIZED) {
-		KGSL_DRV_VDBG("return %d\n", 0);
-		return 0;
-	}
-
-	if ((device->id != KGSL_DEVICE_2D0) &&
-	    (device->id != KGSL_DEVICE_2D1)) {
-		KGSL_DRV_VDBG("2D init must have the correct device id!");
-		return 0;
-	}
-
 	/* initilization of timestamp wait */
 	init_waitqueue_head(&(g12_device->wait_timestamp_wq));
 
@@ -421,7 +410,6 @@ kgsl_g12_init(struct kgsl_device *device)
 		goto error_close_mmu;
 
 	kgsl_sharedmem_set(&device->memstore, 0, 0, device->memstore.size);
-	device->flags |= KGSL_FLAGS_INITIALIZED;
 
 	return 0;
 
@@ -464,7 +452,6 @@ int kgsl_g12_close(struct kgsl_device *device)
 	kgsl_pwrctrl_close(device);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
-	device->flags &= ~KGSL_FLAGS_INITIALIZED;
 	return 0;
 }
 
@@ -472,11 +459,6 @@ static int kgsl_g12_start(struct kgsl_device *device)
 {
 	int status = 0;
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
-
-	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
-		KGSL_DRV_ERR("Trying to start uninitialized device.\n");
-		return -EINVAL;
-	}
 
 	if (device->flags & KGSL_FLAGS_STARTED) {
 		KGSL_DRV_VDBG("already started");
