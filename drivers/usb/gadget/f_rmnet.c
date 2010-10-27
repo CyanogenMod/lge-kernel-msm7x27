@@ -777,7 +777,7 @@ static void rmnet_disconnect_work(struct work_struct *w)
 	tasklet_kill(&dev->smd_ctl.rx_tlet);
 	tasklet_kill(&dev->smd_ctl.tx_tlet);
 	tasklet_kill(&dev->smd_data.rx_tlet);
-	tasklet_kill(&dev->smd_data.rx_tlet);
+	tasklet_kill(&dev->smd_data.tx_tlet);
 
 	list_for_each_safe(act, tmp, &dev->rx_queue) {
 		req = list_entry(act, struct usb_request, list);
@@ -1011,7 +1011,7 @@ static int rmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	for (i = 0; i < TX_REQ_MAX; i++) {
-		req = rmnet_alloc_req(dev->epout, TX_REQ_SIZE, GFP_KERNEL);
+		req = rmnet_alloc_req(dev->epin, TX_REQ_SIZE, GFP_KERNEL);
 		if (IS_ERR(req)) {
 			ret = PTR_ERR(req);
 			goto free_buf;
@@ -1037,7 +1037,7 @@ rmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	tasklet_kill(&dev->smd_ctl.rx_tlet);
 	tasklet_kill(&dev->smd_ctl.tx_tlet);
 	tasklet_kill(&dev->smd_data.rx_tlet);
-	tasklet_kill(&dev->smd_data.rx_tlet);
+	tasklet_kill(&dev->smd_data.tx_tlet);
 
 	flush_workqueue(dev->wq);
 	rmnet_free_buf(dev);
