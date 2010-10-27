@@ -1342,7 +1342,8 @@ reset_link:
 	writel(0x00, USB_AHB_MODE);
 	clk_disable(dev->hs_clk);
 
-	if (test_bit(ID, &dev->inputs))
+	if ((xceiv->gadget && xceiv->gadget->is_a_peripheral) ||
+			test_bit(ID, &dev->inputs))
 		mode = USBMODE_SDIS | USBMODE_DEVICE;
 	else
 		mode = USBMODE_SDIS | USBMODE_HOST;
