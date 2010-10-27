@@ -1197,8 +1197,14 @@ static void usb_reset(struct usb_info *ui)
 
 	atomic_set(&ui->running, 0);
 
-	/* Reset link and phy */
-	otg->reset(ui->xceiv, 1);
+	/*
+	 * PHY reset takes minimum 100 msec. Hence reset only link
+	 * during HNP. Reset PHY and link in B-peripheral mode.
+	 */
+	if (ui->gadget.is_a_peripheral)
+		otg->reset(ui->xceiv, 0);
+	else
+		otg->reset(ui->xceiv, 1);
 
 	/* set usb controller interrupt threshold to zero*/
 	writel((readl(USB_USBCMD) & ~USBCMD_ITC_MASK) | USBCMD_ITC(0),
