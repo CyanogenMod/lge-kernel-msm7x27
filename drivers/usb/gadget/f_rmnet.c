@@ -336,10 +336,12 @@ static void rmnet_smd_notify(void *priv, unsigned event)
 {
 	struct rmnet_smd_info *smd_info = priv;
 	int len = atomic_read(&smd_info->rx_pkt);
+	struct rmnet_dev *dev = (struct rmnet_dev *) smd_info->tx_tlet.data;
 
 	switch (event) {
 	case SMD_EVENT_DATA: {
-
+		if (!atomic_read(&dev->online))
+			break;
 		if (len && (smd_write_avail(smd_info->ch) >= len))
 			tasklet_schedule(&smd_info->rx_tlet);
 
@@ -772,12 +774,18 @@ static void rmnet_disconnect_work(struct work_struct *w)
 	struct rmnet_dev *dev = container_of(w, struct rmnet_dev,
 					disconnect_work);
 
-	atomic_set(&dev->notify_count, 0);
-
 	tasklet_kill(&dev->smd_ctl.rx_tlet);
 	tasklet_kill(&dev->smd_ctl.tx_tlet);
 	tasklet_kill(&dev->smd_data.rx_tlet);
 	tasklet_kill(&dev->smd_data.tx_tlet);
+
+	smd_close(dev->smd_ctl.ch);
+	dev->smd_ctl.flags = 0;
+
+	smd_close(dev->smd_data.ch);
+	dev->smd_data.flags = 0;
+
+	atomic_set(&dev->notify_count, 0);
 
 	list_for_each_safe(act, tmp, &dev->rx_queue) {
 		req = list_entry(act, struct usb_request, list);
@@ -797,11 +805,6 @@ static void rmnet_disconnect_work(struct work_struct *w)
 		list_add_tail(&qmi->list, &dev->qmi_resp_pool);
 	}
 
-	smd_close(dev->smd_ctl.ch);
-	dev->smd_ctl.flags = 0;
-
-	smd_close(dev->smd_data.ch);
-	dev->smd_data.flags = 0;
 }
 
 /* SMD close may sleep
