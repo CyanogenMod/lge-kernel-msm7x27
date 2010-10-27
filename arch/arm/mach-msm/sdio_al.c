@@ -1012,7 +1012,7 @@ static int read_sdioc_software_header(struct peer_sdioc_sw_header *header)
 		goto exit_err;
 	}
 	/* Upper byte has to be equal - no backward compatibtiyy for unequal */
-	if ((header->version << 16) != (PEER_SDIOC_VERSION << 16)) {
+	if ((header->version >> 16) != (PEER_SDIOC_VERSION >> 16)) {
 		pr_err(MODULE_NAME ":SDIOC SW older version. 0x%x\n",
 			header->version);
 		goto exit_err;
