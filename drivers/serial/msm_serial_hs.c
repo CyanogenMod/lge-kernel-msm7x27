@@ -48,7 +48,7 @@
 #include <linux/stat.h>
 #include <linux/device.h>
 #include <linux/wakelock.h>
-
+#include <linux/debugfs.h>
 #include <asm/atomic.h>
 #include <asm/irq.h>
 #include <asm/system.h>
@@ -155,6 +155,7 @@ struct msm_hs_port {
 	ktime_t clk_off_delay;
 	enum msm_hs_clk_states_e clk_state;
 	enum msm_hs_clk_req_off_state_e clk_req_off_state;
+	struct dentry *debug_base;
 
 	struct msm_hs_wakeup wakeup;
 	struct wake_lock dma_wake_lock;  /* held while any DMA active */
@@ -322,6 +323,89 @@ static int msm_hs_request_port(struct uart_port *port)
 	return 0;
 }
 
+static int msm_serial_loopback_enable_set(void *data, u64 val)
+{
+	struct msm_hs_port *msm_uport = data;
+	struct uart_port *uport = &(msm_uport->uport);
+	unsigned long flags;
+	int ret = 0;
+
+	clk_enable(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_enable(msm_uport->pclk);
+
+	if (val) {
+		spin_lock_irqsave(&uport->lock, flags);
+		ret = msm_hs_read(uport, UARTDM_MR2_ADDR);
+		ret |= UARTDM_MR2_LOOP_MODE_BMSK;
+		msm_hs_write(uport, UARTDM_MR2_ADDR, ret);
+		spin_unlock_irqrestore(&uport->lock, flags);
+	} else {
+		spin_lock_irqsave(&uport->lock, flags);
+		ret = msm_hs_read(uport, UARTDM_MR2_ADDR);
+		ret &= ~UARTDM_MR2_LOOP_MODE_BMSK;
+		msm_hs_write(uport, UARTDM_MR2_ADDR, ret);
+		spin_unlock_irqrestore(&uport->lock, flags);
+	}
+
+	clk_disable(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_disable(msm_uport->pclk);
+
+	return 0;
+}
+
+static int msm_serial_loopback_enable_get(void *data, u64 *val)
+{
+	struct msm_hs_port *msm_uport = data;
+	struct uart_port *uport = &(msm_uport->uport);
+	unsigned long flags;
+	int ret = 0;
+
+	clk_enable(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_enable(msm_uport->pclk);
+
+	spin_lock_irqsave(&uport->lock, flags);
+	ret = msm_hs_read(&msm_uport->uport, UARTDM_MR2_ADDR);
+	spin_unlock_irqrestore(&uport->lock, flags);
+
+	clk_disable(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_disable(msm_uport->pclk);
+
+	*val = (ret & UARTDM_MR2_LOOP_MODE_BMSK) ? 1 : 0;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(loopback_enable_fops, msm_serial_loopback_enable_get,
+			msm_serial_loopback_enable_set, "%llu\n");
+
+static void msm_serial_debugfs_cleanup(struct msm_hs_port *msm_uport)
+{
+	debugfs_remove_recursive(msm_uport->debug_base);
+}
+
+/*
+ * msm_serial_hs debugfs node: <debugfs_root>/msm_serial_hs/loopback
+ * writing 1 turns on internal loopback mode in HW. Useful for automation
+ * test scripts.
+ * writing 0 disables the internal loopback mode. Default is disabled.
+ */
+static void __init msm_serial_debugfs_init(struct msm_hs_port *msm_uport)
+{
+	msm_uport->debug_base = debugfs_create_dir("msm_serial_hs", NULL);
+	if (IS_ERR_OR_NULL(msm_uport->debug_base))
+		dev_info(msm_uport->uport.dev,
+			 "Cannot create debugfs dir\n");
+	if (IS_ERR_OR_NULL(debugfs_create_file("loopback",
+					       S_IRUGO | S_IWUSR,
+					       msm_uport->debug_base,
+					       msm_uport,
+					       &loopback_enable_fops))) {
+		msm_serial_debugfs_cleanup(msm_uport);
+	}
+}
+
 static int __devexit msm_hs_remove(struct platform_device *pdev)
 {
 
@@ -343,6 +427,7 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 			dev_err(dev, "GPIO config error\n");
 
 	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_clock.attr);
+	msm_serial_debugfs_cleanup(msm_uport);
 
 	dma_unmap_single(dev, msm_uport->rx.mapped_cmd_ptr, sizeof(dmov_box),
 			 DMA_TO_DEVICE);
@@ -1705,6 +1790,8 @@ static int __init msm_hs_probe(struct platform_device *pdev)
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 	if (unlikely(ret))
 		return ret;
+
+	msm_serial_debugfs_init(msm_uport);
 
 	uport->line = pdev->id;
 	return uart_add_one_port(&msm_hs_driver, uport);
