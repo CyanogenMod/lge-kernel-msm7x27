@@ -4317,7 +4317,7 @@ static struct msm_sdcc_pin_cfg sdcc_pin_cfg_data[5] = {
 #endif
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
 	[1] = {
-		.is_gpio = 1
+		.is_gpio = 1,
 		.gpio_data_size = ARRAY_SIZE(sdc2_gpio_cfg),
 		.gpio_data = sdc2_gpio_cfg
 	},
