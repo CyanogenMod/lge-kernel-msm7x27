@@ -1855,6 +1855,7 @@ static void __init qsd8x50_init_host(void)
 struct sdcc_gpio {
 	struct msm_gpio *cfg_data;
 	uint32_t size;
+	struct msm_gpio *sleep_cfg_data;
 };
 
 static struct msm_gpio sdc1_cfg_data[] = {
@@ -1864,6 +1865,21 @@ static struct msm_gpio sdc1_cfg_data[] = {
 	{GPIO_CFG(54, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), "sdc1_dat_0"},
 	{GPIO_CFG(55, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), "sdc1_cmd"},
 	{GPIO_CFG(56, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA), "sdc1_clk"},
+};
+
+static struct msm_gpio sdc1_sleep_cfg_data[] = {
+	{GPIO_CFG(51, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_3"},
+	{GPIO_CFG(52, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_2"},
+	{GPIO_CFG(53, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_1"},
+	{GPIO_CFG(54, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_0"},
+	{GPIO_CFG(55, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_cmd"},
+	{GPIO_CFG(56, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_clk"},
 };
 
 static struct msm_gpio sdc2_cfg_data[] = {
@@ -1904,6 +1920,7 @@ static struct sdcc_gpio sdcc_cfg_data[] = {
 	{
 		.cfg_data = sdc1_cfg_data,
 		.size = ARRAY_SIZE(sdc1_cfg_data),
+		.sleep_cfg_data = sdc1_sleep_cfg_data,
 	},
 	{
 		.cfg_data = sdc2_cfg_data,
@@ -1940,6 +1957,11 @@ static void msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 				__func__,  dev_id);
 	} else {
 		clear_bit(dev_id, &gpio_sts);
+		if (curr->sleep_cfg_data) {
+			msm_gpios_enable(curr->sleep_cfg_data, curr->size);
+			msm_gpios_free(curr->sleep_cfg_data, curr->size);
+			return;
+		}
 		msm_gpios_disable_free(curr->cfg_data, curr->size);
 	}
 }
