@@ -40,7 +40,9 @@
 #define SCSS_CLK_SEL_ADDR	(MSM_ACC_BASE + 0x08)
 
 #define PLL2_L_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x33C)
+#define PLL2_806_MHZ		42
 #define PLL2_1024_MHZ		53
+#define PLL2_1200_MHZ		125
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -395,23 +397,41 @@ static void __init lpj_init(void)
 /* Update frequency tables for PLL2. */
 void __init pll2_fixup(void)
 {
-	uint32_t pll2_l = readl(PLL2_L_VAL_ADDR) & 0x3f;
+	struct clkctl_acpu_speed *speed;
+	struct cpufreq_frequency_table *cpu_freq;
+	uint32_t pll2_l;
 
-	BUG_ON(pll2_l == 0);
+	pll2_l = readl(PLL2_L_VAL_ADDR) & 0x3f;
+	speed = &acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2];
+	cpu_freq = &freq_table[ARRAY_SIZE(freq_table)-2];
 
-	if (pll2_l != PLL2_1024_MHZ)
-		return;
-
-	if (acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz != 806400
-		  || freq_table[ARRAY_SIZE(freq_table)-2].frequency != 806400) {
+	if (speed->acpu_clk_khz != 806400 || cpu_freq->frequency != 806400) {
 		pr_err("Frequency table fixups for PLL2 rate failed.\n");
 		BUG();
 	}
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz = 1024000;
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].vdd_mv = 1200;
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].vdd_raw = VDD_RAW(1200);
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].msmc1 = HIGH;
-	freq_table[ARRAY_SIZE(freq_table)-2].frequency = 1024000;
+
+	switch (pll2_l) {
+	case PLL2_1024_MHZ:
+		speed->acpu_clk_khz = 1024000;
+		speed->vdd_mv = 1200;
+		speed->vdd_raw = VDD_RAW(1200);
+		speed->msmc1 = HIGH;
+		cpu_freq->frequency = 1024000;
+		break;
+	case PLL2_1200_MHZ:
+		speed->acpu_clk_khz = 1200000;
+		speed->vdd_mv = 1200;
+		speed->vdd_raw = VDD_RAW(1200);
+		speed->msmc1 = HIGH;
+		cpu_freq->frequency = 1200000;
+		break;
+	case PLL2_806_MHZ:
+		/* No fixup necessary */
+		break;
+	default:
+		pr_err("Unknown PLL2 lval %d\n", pll2_l);
+		BUG();
+	}
 }
 
 #define RPM_BYPASS_MASK	(1 << 3)
