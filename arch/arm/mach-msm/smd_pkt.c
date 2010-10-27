@@ -45,7 +45,6 @@
 
 #define NUM_SMD_PKT_PORTS 11
 #define DEVICE_NAME "smdpkt"
-#define MAX_BUF_SIZE 2048
 
 struct smd_pkt_dev {
 	struct cdev cdev;
@@ -63,11 +62,10 @@ struct smd_pkt_dev {
 
 	int i;
 
-	unsigned char tx_buf[MAX_BUF_SIZE];
-	unsigned char rx_buf[MAX_BUF_SIZE];
 	int blocking_write;
 	int needed_space;
 	int is_open;
+	unsigned ch_size;
 
 	struct notifier_block nb;
 	int has_reset;
@@ -243,8 +241,7 @@ wait_for_packet:
 		return -EINVAL;
 	}
 
-	/* smd_read and copy_to_user need to be merged to only do 1 copy */
-	if (smd_read(smd_pkt_devp->ch, smd_pkt_devp->rx_buf, bytes_read)
+	if (smd_read_user_buffer(smd_pkt_devp->ch, buf, bytes_read)
 	    != bytes_read) {
 		mutex_unlock(&smd_pkt_devp->rx_lock);
 		if (smd_pkt_devp->has_reset)
@@ -253,18 +250,8 @@ wait_for_packet:
 		printk(KERN_ERR "user read: not enough data?!\n");
 		return -EINVAL;
 	}
-	D_DUMP_BUFFER("read: ", bytes_read, smd_pkt_devp->rx_buf);
-	r = copy_to_user(buf, smd_pkt_devp->rx_buf, bytes_read);
+	D_DUMP_BUFFER("read: ", bytes_read, buf);
 	mutex_unlock(&smd_pkt_devp->rx_lock);
-	if (r > 0) {
-		printk(KERN_ERR "ERROR:%s:%i:%s: "
-		       "copy_to_user could not copy %i bytes.\n",
-		       __FILE__,
-		       __LINE__,
-		       __func__,
-		       r);
-		return r;
-	}
 
 	D(KERN_ERR "%s: just read %i bytes\n",
 	  __func__, bytes_read);
@@ -284,15 +271,15 @@ ssize_t smd_pkt_write(struct file *file,
 	struct smd_pkt_dev *smd_pkt_devp;
 	DEFINE_WAIT(write_wait);
 
-	if (count > MAX_BUF_SIZE)
-		return -EINVAL;
-
 	D(KERN_ERR "%s: writting %i bytes\n",
 	  __func__, count);
 
 	smd_pkt_devp = file->private_data;
 
 	if (!smd_pkt_devp || !smd_pkt_devp->ch)
+		return -EINVAL;
+
+	if (count > smd_pkt_devp->ch_size)
 		return -EINVAL;
 
 	if (smd_pkt_devp->blocking_write) {
@@ -349,22 +336,8 @@ ssize_t smd_pkt_write(struct file *file,
 	D_DUMP_BUFFER("write: ", count, buf);
 
 	smd_pkt_devp->needed_space = 0;
-	r = copy_from_user(smd_pkt_devp->tx_buf, buf, count);
-	if (r > 0) {
-		printk(KERN_ERR "ERROR:%s:%i:%s: "
-		       "copy_from_user could not copy %i bytes.\n",
-		       __FILE__,
-		       __LINE__,
-		       __func__,
-		       r);
-		mutex_unlock(&smd_pkt_devp->tx_lock);
-		return r;
-	}
 
-	D(KERN_ERR "%s: after copy_from_user. count = %i\n",
-	  __func__, count);
-
-	r = smd_write(smd_pkt_devp->ch, smd_pkt_devp->tx_buf, count);
+	r = smd_write_user_buffer(smd_pkt_devp->ch, buf, count);
 	if (r != count) {
 		mutex_unlock(&smd_pkt_devp->tx_lock);
 		if (smd_pkt_devp->has_reset)
@@ -617,6 +590,8 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			r = -ENODEV;
 		} else {
 			smd_disable_read_intr(smd_pkt_devp->ch);
+			smd_pkt_devp->ch_size =
+				smd_write_avail(smd_pkt_devp->ch);
 			r = 0;
 		}
 	}
