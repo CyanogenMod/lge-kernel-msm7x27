@@ -376,8 +376,10 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		return ret;
 	}
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (prtd->opened)
+		if (prtd->opened) {
+			kfree(prtd);
 			return -EBUSY;
+		}
 		runtime->hw = msm_pcm_playback_hardware;
 		prtd->dir = SNDRV_PCM_STREAM_PLAYBACK;
 		prtd->eos_ack = 0;
