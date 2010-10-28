@@ -467,6 +467,9 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 	adc_pmic->pm_chip = pm_chip;
 	adc_pmic->adc_prop = pdata->xoadc_prop;
 	adc_pmic->xoadc_num = pdata->xoadc_num;
+
+	platform_set_drvdata(pdev, adc_pmic);
+
 	if (adc_pmic->xoadc_num > XOADC_PMIC_0) {
 		dev_err(&pdev->dev, "ADC device not supported\n");
 		rc = -EINVAL;
@@ -531,8 +534,6 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, pdata->xoadc_wakeup);
 
 	pmic_adc[adc_pmic->xoadc_num] = adc_pmic;
-
-	platform_set_drvdata(pdev, adc_pmic);
 
 	pr_debug("pm8058 xoadc successfully registered\n");
 
