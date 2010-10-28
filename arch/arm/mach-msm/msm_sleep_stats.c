@@ -205,8 +205,9 @@ static int policy_change_notifier(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
 	struct sleep_data *sleep_info = container_of(nb, struct sleep_data, nb);
+	struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
 
-	if (event == CPUFREQ_ADJUST) {
+	if (event == CPUFREQ_ADJUST && sleep_info->cpu == policy->cpu) {
 		atomic_set(&sleep_info->policy_changed, 1);
 		sysfs_notify(sleep_info->kobj, NULL, "policy_changed");
 	}
