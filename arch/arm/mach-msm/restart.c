@@ -37,6 +37,7 @@
 #define PSHOLD_CTL_SU (MSM_TLMM_BASE + 0x820)
 
 #define DLOAD_MODE_ADDR 0x2A03E008
+#define RESTART_REASON_ADDR 0x401FFFFC
 
 static void *tcsr_base;
 
@@ -52,6 +53,8 @@ static void msm_power_off(void)
 
 static void msm_restart(char str, const char *cmd)
 {
+	void *restart_reason;
+
 	printk(KERN_NOTICE "Going down for restart now\n");
 
 #ifdef CONFIG_MSM_WATCHDOG_DEBUG
@@ -61,6 +64,21 @@ static void msm_restart(char str, const char *cmd)
 	writel(0, dload_mode_addr + sizeof(unsigned int));
 	iounmap(dload_mode_addr);
 #endif
+
+	restart_reason = ioremap_nocache(RESTART_REASON_ADDR, SZ_4K);
+	if (!strcmp(cmd, "bootloader")) {
+		writel(0x77665500, restart_reason);
+	} else if (!strcmp(cmd, "recovery")) {
+		writel(0x77665502, restart_reason);
+	} else if (!strncmp(cmd, "oem-", 4)) {
+		unsigned long code;
+		strict_strtoul(cmd + 4, 16, &code);
+		code = code & 0xff;
+		writel(0x6f656d00 | code, restart_reason);
+	} else {
+		writel(0x77665501, restart_reason);
+	}
+	iounmap(restart_reason);
 
 	writel(1, WDT0_RST);
 	writel(0, WDT0_EN);
