@@ -1659,6 +1659,10 @@ static void timpani_codec_bring_up(void)
 static void timpani_codec_bring_down(void)
 {
 	adie_codec_write(TIMPANI_A_MREF, 0xFF, TIMPANI_MREF_POR);
+	adie_codec_write(0xFF, 0xFF, 0x07);
+	adie_codec_write(0xFF, 0xFF, 0x06);
+	adie_codec_write(0xFF, 0xFF, 0x0E);
+	adie_codec_write(0xFF, 0xFF, 0x08);
 }
 
 static int timpani_adie_codec_open(struct adie_codec_dev_profile *profile,
