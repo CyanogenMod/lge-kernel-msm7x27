@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/mfd/pmic8058.h>
+#include <linux/mfd/pmic8901.h>
 
 #include <mach/msm_iomap.h>
 
@@ -45,6 +46,7 @@ static void msm_power_off(void)
 {
 	printk(KERN_NOTICE "Powering off the SoC\n");
 	pm8058_reset_pwr_off(0);
+	pm8901_reset_pwr_off(0);
 	writel(0, PSHOLD_CTL_SU);
 	mdelay(10000);
 	printk(KERN_ERR "Powering off has failed\n");
