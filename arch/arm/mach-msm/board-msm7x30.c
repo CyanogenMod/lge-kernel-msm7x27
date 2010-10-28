@@ -4585,6 +4585,8 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&msm_batt_device,
 	&msm_adc_device,
+	&msm_ebi0_thermal,
+	&msm_ebi1_thermal
 };
 
 static struct msm_gpio msm_i2c_gpios_hw[] = {

@@ -19,6 +19,9 @@
 
 #include "clock.h"
 
+extern struct platform_device msm_ebi0_thermal;
+extern struct platform_device msm_ebi1_thermal;
+
 extern struct platform_device msm_device_uart1;
 extern struct platform_device msm_device_uart2;
 extern struct platform_device msm_device_uart3;
