@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd.h,v 1.32.4.7.2.4.14.44 2010/06/03 21:27:48 Exp $
+ * $Id: dhd.h,v 1.32.4.7.2.4.14.49 2010/08/20 17:32:48 Exp $
  */
 
 /****************
@@ -150,8 +150,13 @@ typedef struct dhd_pub {
 	/* Last error from dongle */
 	int dongle_error;
 
-	/* Suspend disable flag */
-	int suspend_disable_flag;
+	/* Suspend disable flag and "in suspend" flag */
+	int suspend_disable_flag; /* "1" to disable all extra powersaving during suspend */
+	int in_suspend;			/* flag set to 1 when early suspend called */
+#ifdef PNO_SUPPORT
+	int pno_enable;                 /* pno status : "1" is pno enable */
+#endif /* PNO_SUPPORT */
+	int dtim_skip;         /* dtim skip , default 0 means wake each dtim */
 
 	/* Pkt filter defination */
 	char * pktfilter[100];
@@ -162,16 +167,17 @@ typedef struct dhd_pub {
 
 } dhd_pub_t;
 
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 
 	#define DHD_PM_RESUME_WAIT_INIT(a) DECLARE_WAIT_QUEUE_HEAD(a);
-	#define _DHD_PM_RESUME_WAIT(a, b) do {\
+	#define _DHD_PM_RESUME_WAIT(a, b) do { \
 			int retry = 0; \
+			smp_mb(); \
 			while (dhd_mmc_suspend && retry++ != b) { \
 				wait_event_interruptible_timeout(a, FALSE, HZ/100); \
 			} \
 		} 	while (0)
-	#define DHD_PM_RESUME_WAIT(a) 			_DHD_PM_RESUME_WAIT(a, 30)
+	#define DHD_PM_RESUME_WAIT(a) 		_DHD_PM_RESUME_WAIT(a, 30)
 	#define DHD_PM_RESUME_WAIT_FOREVER(a) 	_DHD_PM_RESUME_WAIT(a, ~0)
 	#define DHD_PM_RESUME_RETURN_ERROR(a)	do { if (dhd_mmc_suspend) return a; } while (0)
 	#define DHD_PM_RESUME_RETURN		do { if (dhd_mmc_suspend) return; } while (0)
@@ -185,7 +191,7 @@ typedef struct dhd_pub {
 		} \
 	} while (0)
 
-	#else
+#else
 
 	#define DHD_PM_RESUME_WAIT_INIT(a)
 	#define DHD_PM_RESUME_WAIT(a)
@@ -202,7 +208,8 @@ typedef struct dhd_pub {
 		} \
 	} while (0)
 
-	#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
+
 #define DHD_IF_VIF	0x01	/* Virtual IF (Hidden from user) */
 
 /* Wakelock Functions */
@@ -409,9 +416,6 @@ extern char nv_path[MOD_PARAM_PATHLEN];
 #define DHD_DEL_IF	-0xe
 #define DHD_BAD_IF	-0xf
 
-#ifdef APSTA_PINGTEST
-#define MAX_GUEST 8
-#endif
 
 extern void dhd_wait_for_event(dhd_pub_t *dhd, bool *lockvar);
 extern void dhd_wait_event_wakeup(dhd_pub_t*dhd);

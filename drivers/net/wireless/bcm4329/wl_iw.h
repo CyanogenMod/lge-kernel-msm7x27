@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_iw.h,v 1.5.34.1.6.18 2010/06/03 02:27:14 Exp $
+ * $Id: wl_iw.h,v 1.5.34.1.6.36.4.1 2010/09/10 19:24:30 Exp $
  */
 
 
@@ -41,6 +41,25 @@
 #define GET_ACTIVE_ASSOC_DWELL  	"ACTIVE="
 #define GET_PASSIVE_ASSOC_DWELL  	"PASSIVE="
 #define GET_HOME_DWELL  		"HOME="
+#define GET_SCAN_TYPE			"TYPE="
+
+#define BAND_GET_CMD				"GETBAND"
+#define BAND_SET_CMD				"SETBAND"
+#define DTIM_SKIP_GET_CMD			"DTIMSKIPGET"
+#define DTIM_SKIP_SET_CMD			"DTIMSKIPSET"
+#define SETSUSPEND_CMD				"SETSUSPENDOPT"
+#define PNOSSIDCLR_SET_CMD			"PNOSSIDCLR"
+#define PNOSETUP_SET_CMD			"PNOSETUP "
+#define PNOENABLE_SET_CMD			"PNOFORCE"
+#define PNODEBUG_SET_CMD			"PNODEBUG"
+
+#define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+
+
+typedef struct wl_iw_extra_params {
+	int 	target_channel;
+} wl_iw_extra_params_t;
 
 #define	WL_IW_RSSI_MINVAL	-200
 #define	WL_IW_RSSI_NO_SIGNAL	-91
@@ -102,7 +121,7 @@ typedef struct wl_iw {
 #define WLC_IW_BSS_INFO_MAXLEN 				\
 	(WLC_IW_SS_CACHE_MAXLEN - WLC_IW_SS_CACHE_CTRL_FIELD_MAXLEN)
 
-typedef struct wl_iw_ss_cache{
+typedef struct wl_iw_ss_cache {
 	uint32 buflen;
 	uint32 version;
 	uint32 count;
@@ -174,6 +193,10 @@ extern int net_os_wake_unlock(struct net_device *dev);
 extern int net_os_wake_lock_timeout(struct net_device *dev);
 extern int net_os_wake_lock_timeout_enable(struct net_device *dev);
 extern int net_os_set_suspend_disable(struct net_device *dev, int val);
+extern int net_os_set_suspend(struct net_device *dev, int val);
+extern int net_os_set_dtim_skip(struct net_device *dev, int val);
+extern int net_os_set_packet_filter(struct net_device *dev, int val);
+extern int net_os_send_hang_message(struct net_device *dev);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
 #define IWE_STREAM_ADD_EVENT(info, stream, ends, iwe, extra) \
@@ -191,4 +214,65 @@ extern int net_os_set_suspend_disable(struct net_device *dev, int val);
 	iwe_stream_add_point(stream, ends, iwe, extra)
 #endif
 
-#endif
+extern int dhd_pno_enable(dhd_pub_t *dhd, int pfn_enabled);
+extern int dhd_pno_clean(dhd_pub_t *dhd);
+extern int dhd_pno_set(dhd_pub_t *dhd, wlc_ssid_t* ssids_local, int nssid, ushort  scan_fr);
+extern int dhd_pno_get_status(dhd_pub_t *dhd);
+extern int dhd_dev_pno_reset(struct net_device *dev);
+extern int dhd_dev_pno_set(struct net_device *dev, wlc_ssid_t* ssids_local, \
+				 int nssid, ushort  scan_fr);
+extern int dhd_dev_pno_enable(struct net_device *dev,  int pfn_enabled);
+extern int dhd_dev_get_pno_status(struct net_device *dev);
+
+#define PNO_TLV_PREFIX			'S'
+#define PNO_TLV_VERSION			1
+#define PNO_TLV_SUBVERSION 		1
+#define PNO_TLV_RESERVED		0
+#define PNO_TLV_TYPE_SSID_IE		'S'
+#define PNO_TLV_TYPE_TIME		'T'
+#define  PNO_EVENT_UP			"PNO_EVENT"
+
+typedef struct cmd_tlv {
+	char prefix;
+	char version;
+	char subver;
+	char reserved;
+} cmd_tlv_t;
+
+#if defined(CSCAN)
+
+typedef struct cscan_tlv {
+	char prefix;
+	char version;
+	char subver;
+	char reserved;
+} cscan_tlv_t;
+
+#define CSCAN_COMMAND				"CSCAN "
+#define CSCAN_TLV_PREFIX 			'S'
+#define CSCAN_TLV_VERSION			1
+#define CSCAN_TLV_SUBVERSION			0
+#define CSCAN_TLV_TYPE_SSID_IE			'S'
+#define CSCAN_TLV_TYPE_CHANNEL_IE		'C'
+#define CSCAN_TLV_TYPE_NPROBE_IE		'N'
+#define CSCAN_TLV_TYPE_ACTIVE_IE		'A'
+#define CSCAN_TLV_TYPE_PASSIVE_IE		'P'
+#define CSCAN_TLV_TYPE_HOME_IE			'H'
+#define CSCAN_TLV_TYPE_STYPE_IE			'T'
+
+extern int wl_iw_parse_channel_list_tlv(char** list_str, uint16* channel_list, \
+					int channel_num, int *bytes_left);
+
+extern int wl_iw_parse_data_tlv(char** list_str, void  *dst, int dst_size, \
+					const char token, int input_size, int *bytes_left);
+
+extern int wl_iw_parse_ssid_list_tlv(char** list_str, wlc_ssid_t* ssid, \
+					int max, int *bytes_left);
+
+extern int wl_iw_parse_ssid_list(char** list_str, wlc_ssid_t* ssid, int idx, int max);
+
+extern int wl_iw_parse_channel_list(char** list_str, uint16* channel_list, int channel_num);
+
+#endif 
+
+#endif 

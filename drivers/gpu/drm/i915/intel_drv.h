@@ -143,8 +143,6 @@ struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
 	enum plane plane;
-	struct drm_gem_object *cursor_bo;
-	uint32_t cursor_addr;
 	u8 lut_r[256], lut_g[256], lut_b[256];
 	int dpms_mode;
 	bool busy; /* is scanout buffer being updated frequently? */
@@ -153,6 +151,12 @@ struct intel_crtc {
 	struct intel_overlay *overlay;
 	struct intel_unpin_work *unpin_work;
 	int fdi_lanes;
+
+	struct drm_gem_object *cursor_bo;
+	uint32_t cursor_addr;
+	int16_t cursor_x, cursor_y;
+	int16_t cursor_width, cursor_height;
+	bool cursor_visble;
 };
 
 #define to_intel_crtc(x) container_of(x, struct intel_crtc, base)
@@ -214,6 +218,9 @@ extern void intel_crtc_fb_gamma_get(struct drm_crtc *crtc, u16 *red, u16 *green,
 extern void intel_init_clock_gating(struct drm_device *dev);
 extern void ironlake_enable_drps(struct drm_device *dev);
 extern void ironlake_disable_drps(struct drm_device *dev);
+
+extern int intel_pin_and_fence_fb_obj(struct drm_device *dev,
+				      struct drm_gem_object *obj);
 
 extern int intel_framebuffer_init(struct drm_device *dev,
 				  struct intel_framebuffer *ifb,

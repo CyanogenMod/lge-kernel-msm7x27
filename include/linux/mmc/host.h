@@ -184,6 +184,7 @@ struct mmc_host {
 
 	/* Only used with MMC_CAP_DISABLE */
 	int			enabled;	/* host is enabled */
+	int			rescan_disable;	/* disable card detection */
 	int			nesting_cnt;	/* "enable" nesting count */
 	int			en_dis_recurs;	/* detect recursion */
 	unsigned int		disable_delay;	/* disable delay in msecs */

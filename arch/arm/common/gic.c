@@ -418,7 +418,7 @@ void gic_clear_spi_pending(unsigned int irq)
 			GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
 	/* warn if the interrupt is enabled */
 	WARN_ON(val & mask);
-	val = writel(mask, gic_dist_base(irq) +
+	writel(mask, gic_dist_base(irq) +
 			GIC_DIST_PENDING_CLEAR + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
 }

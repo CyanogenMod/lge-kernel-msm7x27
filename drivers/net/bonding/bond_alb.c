@@ -369,6 +369,9 @@ static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct
 		goto out;
 	}
 
+	if (!pskb_may_pull(skb, arp_hdr_len(bond_dev)))
+		goto out;
+
 	if (skb->len < sizeof(struct arp_pkt)) {
 		pr_debug("Packet is too small to be an ARP\n");
 		goto out;
@@ -822,7 +825,7 @@ static int rlb_initialize(struct bonding *bond)
 
 	/*initialize packet type*/
 	pk_type->type = cpu_to_be16(ETH_P_ARP);
-	pk_type->dev = NULL;
+	pk_type->dev = bond->dev;
 	pk_type->func = rlb_arp_recv;
 
 	/* register to receive ARPs */

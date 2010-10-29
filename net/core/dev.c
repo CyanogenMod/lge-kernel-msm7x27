@@ -1488,6 +1488,7 @@ static inline void net_timestamp_check(struct sk_buff *skb)
 int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
 {
 	skb_orphan(skb);
+	nf_reset(skb);
 
 	if (!(dev->flags & IFF_UP) ||
 	    (skb->len > (dev->mtu + dev->hard_header_len))) {
@@ -2503,6 +2504,7 @@ int netif_rx(struct sk_buff *skb)
 		struct rps_dev_flow voidflow, *rflow = &voidflow;
 		int cpu;
 
+		preempt_disable();
 		rcu_read_lock();
 
 		cpu = get_rps_cpu(skb->dev, skb, &rflow);
@@ -2512,6 +2514,7 @@ int netif_rx(struct sk_buff *skb)
 		ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
 
 		rcu_read_unlock();
+		preempt_enable();
 	}
 #else
 	{
@@ -3063,7 +3066,7 @@ enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
 	int mac_len;
 	enum gro_result ret;
 
-	if (!(skb->dev->features & NETIF_F_GRO))
+	if (!(skb->dev->features & NETIF_F_GRO) || netpoll_rx_on(skb))
 		goto normal;
 
 	if (skb_is_gso(skb) || skb_has_frags(skb))
@@ -3132,7 +3135,7 @@ pull:
 			put_page(skb_shinfo(skb)->frags[0].page);
 			memmove(skb_shinfo(skb)->frags,
 				skb_shinfo(skb)->frags + 1,
-				--skb_shinfo(skb)->nr_frags);
+				--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
 		}
 	}
 
@@ -3149,9 +3152,6 @@ static gro_result_t
 __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
 {
 	struct sk_buff *p;
-
-	if (netpoll_rx_on(skb))
-		return GRO_NORMAL;
 
 	for (p = napi->gro_list; p; p = p->next) {
 		NAPI_GRO_CB(p)->same_flow =

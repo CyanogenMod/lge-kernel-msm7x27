@@ -224,6 +224,11 @@ static void radeon_pm_set_clocks(struct radeon_device *rdev)
 {
 	int i;
 
+	/* no need to take locks, etc. if nothing's going to change */
+	if ((rdev->pm.requested_clock_mode_index == rdev->pm.current_clock_mode_index) &&
+	    (rdev->pm.requested_power_state_index == rdev->pm.current_power_state_index))
+		return;
+
 	mutex_lock(&rdev->ddev->struct_mutex);
 	mutex_lock(&rdev->vram_mutex);
 	mutex_lock(&rdev->cp.mutex);
@@ -333,6 +338,7 @@ static ssize_t radeon_get_pm_profile(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 			(cp == PM_PROFILE_AUTO) ? "auto" :
 			(cp == PM_PROFILE_LOW) ? "low" :
+			(cp == PM_PROFILE_MID) ? "mid" :
 			(cp == PM_PROFILE_HIGH) ? "high" : "default");
 }
 

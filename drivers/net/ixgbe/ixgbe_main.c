@@ -748,6 +748,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
 	while ((eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)) &&
 	       (count < tx_ring->work_limit)) {
 		bool cleaned = false;
+		rmb(); /* read buffer_info after eop_desc */
 		for ( ; !cleaned; count++) {
 			struct sk_buff *skb;
 			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
@@ -6491,6 +6492,15 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
 	u16 device_caps;
 #endif
 	u32 part_num, eec;
+
+	/* Catch broken hardware that put the wrong VF device ID in
+	 * the PCIe SR-IOV capability.
+	 */
+	if (pdev->is_virtfn) {
+		WARN(1, KERN_ERR "%s (%hx:%hx) should not be a VF!\n",
+		     pci_name(pdev), pdev->vendor, pdev->device);
+		return -EINVAL;
+	}
 
 	err = pci_enable_device_mem(pdev);
 	if (err)

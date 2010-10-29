@@ -63,6 +63,7 @@ void device_pm_init(struct device *dev)
 {
 	dev->power.status = DPM_ON;
 	init_completion(&dev->power.completion);
+	complete_all(&dev->power.completion);
 	pm_runtime_init(dev);
 }
 
@@ -526,7 +527,8 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 	TRACE_DEVICE(dev);
 	TRACE_RESUME(0);
 
-	dpm_wait(dev->parent, async);
+	if (dev->parent && dev->parent->power.status >= DPM_OFF)
+		dpm_wait(dev->parent, async);
 	device_lock(dev);
 
 	dev->power.status = DPM_RESUMING;
