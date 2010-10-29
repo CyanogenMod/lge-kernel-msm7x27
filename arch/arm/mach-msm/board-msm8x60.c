@@ -4064,6 +4064,16 @@ static void __init msm8x60_init_buses(void)
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
 #ifdef CONFIG_MSM_BUS_SCALING
+
+	/* RPM calls are only enabled on V2 (minor number > 0) */
+	if (SOCINFO_VERSION_MINOR(socinfo_get_version())) {
+		msm_bus_apps_fabric_pdata.rpm_enabled = 1;
+		msm_bus_sys_fabric_pdata.rpm_enabled = 1;
+		msm_bus_mm_fabric_pdata.rpm_enabled = 1;
+		msm_bus_sys_fpb_pdata.rpm_enabled = 1;
+		msm_bus_cpss_fpb_pdata.rpm_enabled = 1;
+	}
+
 	msm_bus_apps_fabric.dev.platform_data = &msm_bus_apps_fabric_pdata;
 	msm_bus_sys_fabric.dev.platform_data = &msm_bus_sys_fabric_pdata;
 	msm_bus_mm_fabric.dev.platform_data = &msm_bus_mm_fabric_pdata;

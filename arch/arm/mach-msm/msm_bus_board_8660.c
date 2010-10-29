@@ -107,8 +107,8 @@ static struct msm_bus_node_info system_fabric_info[]  = {
 		.tier = MSM_BUS_BW_TIER2,
 	},
 	{
-		.id = MSM_BUS_SYSTEM_MASTER_MSS_MDP_PORT0,
-		.masterp = GET_MPORT(MSM_BUS_SYSTEM_MASTER_MSS_MDP_PORT0),
+		.id = MSM_BUS_SYSTEM_MASTER_MSS_MDM_PORT0,
+		.masterp = GET_MPORT(MSM_BUS_SYSTEM_MASTER_MSS_MDM_PORT0),
 		.tier = MSM_BUS_BW_TIER2,
 	},
 	{
@@ -132,8 +132,8 @@ static struct msm_bus_node_info system_fabric_info[]  = {
 		.tier = MSM_BUS_BW_TIER2,
 	},
 	{
-		.id = MSM_BUS_SYSTEM_MASTER_MSS_MDP_PORT1,
-		.masterp = GET_MPORT(MSM_BUS_SYSTEM_MASTER_MSS_MDP_PORT1),
+		.id = MSM_BUS_SYSTEM_MASTER_MSS_MDM_PORT1,
+		.masterp = GET_MPORT(MSM_BUS_SYSTEM_MASTER_MSS_MDM_PORT1),
 		.tier = MSM_BUS_BW_TIER2,
 	},
 	{
@@ -242,6 +242,12 @@ static struct msm_bus_node_info mmss_fabric_info[]  = {
 		.masterp = GET_MPORT(MSM_BUS_MMSS_MASTER_JPEG_ENC),
 		.tier = MSM_BUS_BW_TIER2,
 	},
+	/* This port has been added for V2. It is absent in V1 */
+	{
+		.id = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
+		.masterp = GET_MPORT(MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1),
+		.tier = MSM_BUS_BW_TIER2,
+	},
 	{
 		.id = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		.masterp = GET_MPORT(MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0),
@@ -260,6 +266,11 @@ static struct msm_bus_node_info mmss_fabric_info[]  = {
 		.slaveclk = "smi_clk",
 	},
 	{
+		.id = MSM_BUS_MMSS_SLAVE_FAB_APPS_1,
+		.slavep = GET_SLPORT(MSM_BUS_MMSS_SLAVE_FAB_APPS_1),
+		.buswidth = 8,
+	},
+	{
 		.id = MSM_BUS_FAB_APPSS,
 		.gateway = 1,
 		.slavep = GET_SLPORT(MSM_BUS_MMSS_SLAVE_FAB_APPS),
@@ -270,6 +281,7 @@ static struct msm_bus_node_info mmss_fabric_info[]  = {
 	{
 		.id = MSM_BUS_MMSS_SLAVE_MM_IMEM,
 		.slavep = GET_SLPORT(MSM_BUS_MMSS_SLAVE_MM_IMEM),
+		.tier = MSM_BUS_MMSS_TIERED_SLAVE_MM_IMEM,
 		.buswidth = 8,
 	},
 };
