@@ -231,7 +231,6 @@ static ssize_t cyttsp_update_fw_store(struct device *dev,
 		else {
 			data = cyttsp_fw->data;
 			data_len = cyttsp_fw->size;
-
 			for (i = 0; i < data_len; i++)
 				pr_debug("%x ", data[i]);
 		}
@@ -570,12 +569,19 @@ void cyttsp_xy_worker(struct work_struct *work)
 			FLIP_XY(g_xy_data.x4, g_xy_data.y4);
 
 		if (rev_x) {
-			g_xy_data.x4 =
-				INVERT_X(g_xy_data.x4, ts->platform_data->maxx);
+			g_xy_data.x4 = INVERT_X(g_xy_data.x4,
+						ts->platform_data->panel_maxx);
+			if (g_xy_data.x4 < 0)
+				pr_debug("X value is negative. Please configure"
+					" maxx in platform data structure\n");
 		}
 		if (rev_y) {
-			g_xy_data.y4 =
-				INVERT_X(g_xy_data.y4, ts->platform_data->maxy);
+			g_xy_data.y4 = INVERT_X(g_xy_data.y4,
+						ts->platform_data->panel_maxy);
+			if (g_xy_data.y4 < 0)
+				pr_debug("Y value is negative. Please configure"
+					" maxy in platform data structure\n");
+
 		}
 		id = GET_TOUCH4_ID(g_xy_data.touch34_id);
 		if (ts->platform_data->use_trk_id) {
@@ -617,12 +623,20 @@ void cyttsp_xy_worker(struct work_struct *work)
 			FLIP_XY(g_xy_data.x3, g_xy_data.y3);
 
 		if (rev_x) {
-			g_xy_data.x3 =
-				INVERT_X(g_xy_data.x3, ts->platform_data->maxx);
+			g_xy_data.x3 = INVERT_X(g_xy_data.x3,
+						ts->platform_data->panel_maxx);
+			if (g_xy_data.x3 < 0)
+				pr_debug("X value is negative. Please configure"
+					" maxx in platform data structure\n");
+
 		}
 		if (rev_y) {
-			g_xy_data.y3 =
-				INVERT_X(g_xy_data.y3, ts->platform_data->maxy);
+			g_xy_data.y3 = INVERT_X(g_xy_data.y3,
+						ts->platform_data->panel_maxy);
+			if (g_xy_data.y3 < 0)
+				pr_debug("Y value is negative. Please configure"
+					" maxy in platform data structure\n");
+
 		}
 		id = GET_TOUCH3_ID(g_xy_data.touch34_id);
 		if (ts->platform_data->use_trk_id) {
@@ -664,12 +678,18 @@ void cyttsp_xy_worker(struct work_struct *work)
 			FLIP_XY(g_xy_data.x2, g_xy_data.y2);
 
 		if (rev_x) {
-			g_xy_data.x2 =
-				INVERT_X(g_xy_data.x2, ts->platform_data->maxx);
+			g_xy_data.x2 = INVERT_X(g_xy_data.x2,
+						ts->platform_data->panel_maxx);
+			if (g_xy_data.x2 < 0)
+				pr_debug("X value is negative. Please configure"
+					" maxx in platform data structure\n");
 		}
 		if (rev_y) {
-			g_xy_data.y2 =
-				INVERT_X(g_xy_data.y2, ts->platform_data->maxy);
+			g_xy_data.y2 = INVERT_X(g_xy_data.y2,
+						ts->platform_data->panel_maxy);
+			if (g_xy_data.y2 < 0)
+				pr_debug("Y value is negative. Please configure"
+					" maxy in platform data structure\n");
 		}
 		id = GET_TOUCH2_ID(g_xy_data.touch12_id);
 		if (ts->platform_data->use_trk_id) {
@@ -711,12 +731,18 @@ void cyttsp_xy_worker(struct work_struct *work)
 			FLIP_XY(g_xy_data.x1, g_xy_data.y1);
 
 		if (rev_x) {
-			g_xy_data.x1 =
-				INVERT_X(g_xy_data.x1, ts->platform_data->maxx);
+			g_xy_data.x1 = INVERT_X(g_xy_data.x1,
+						ts->platform_data->panel_maxx);
+			if (g_xy_data.x1 < 0)
+				pr_debug("X value is negative. Please configure"
+					" maxx in platform data structure\n");
 		}
 		if (rev_y) {
-			g_xy_data.y1 =
-				INVERT_X(g_xy_data.y1, ts->platform_data->maxy);
+			g_xy_data.y1 = INVERT_X(g_xy_data.y1,
+						ts->platform_data->panel_maxy);
+			if (g_xy_data.y1 < 0)
+				pr_debug("Y value is negative. Please configure"
+					" maxy in platform data structure");
 		}
 		id = GET_TOUCH1_ID(g_xy_data.touch12_id);
 		if (ts->platform_data->use_trk_id) {
@@ -1716,18 +1742,18 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 	if (ts->platform_data->use_gestures)
 		set_bit(BTN_3, input_device->keybit);
 
-	input_set_abs_params(input_device,
-		ABS_X, 0, ts->platform_data->maxx, 0, 0);
-	input_set_abs_params(input_device,
-		ABS_Y, 0, ts->platform_data->maxy, 0, 0);
+	input_set_abs_params(input_device, ABS_X, ts->platform_data->disp_minx,
+		ts->platform_data->disp_maxx, 0, 0);
+	input_set_abs_params(input_device, ABS_Y, ts->platform_data->disp_miny,
+		ts->platform_data->disp_maxy, 0, 0);
 	input_set_abs_params(input_device,
 		ABS_TOOL_WIDTH, 0, CY_LARGE_TOOL_WIDTH, 0 , 0);
 	input_set_abs_params(input_device,
 		ABS_PRESSURE, 0, CY_MAXZ, 0, 0);
 	input_set_abs_params(input_device,
-		ABS_HAT0X, 0, ts->platform_data->maxx, 0, 0);
+		ABS_HAT0X, 0, ts->platform_data->panel_maxx, 0, 0);
 	input_set_abs_params(input_device,
-		ABS_HAT0Y, 0, ts->platform_data->maxy, 0, 0);
+		ABS_HAT0Y, 0, ts->platform_data->panel_maxy, 0, 0);
 	if (ts->platform_data->use_gestures) {
 		input_set_abs_params(input_device,
 			ABS_HAT1X, 0, CY_MAXZ, 0, 0);
@@ -1735,10 +1761,12 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 			ABS_HAT1Y, 0, CY_MAXZ, 0, 0);
 	}
 	if (ts->platform_data->use_mt) {
-		input_set_abs_params(input_device,
-			ABS_MT_POSITION_X, 0, ts->platform_data->maxx, 0, 0);
-		input_set_abs_params(input_device,
-			ABS_MT_POSITION_Y, 0, ts->platform_data->maxy, 0, 0);
+		input_set_abs_params(input_device, ABS_MT_POSITION_X,
+			ts->platform_data->disp_minx,
+			ts->platform_data->disp_maxx, 0, 0);
+		input_set_abs_params(input_device, ABS_MT_POSITION_Y,
+			ts->platform_data->disp_miny,
+			ts->platform_data->disp_maxy, 0, 0);
 		input_set_abs_params(input_device,
 			ABS_MT_TOUCH_MAJOR, 0, CY_MAXZ, 0, 0);
 		input_set_abs_params(input_device,
