@@ -16,6 +16,7 @@
  */
 
 #include <linux/linkage.h>
+#include <linux/threads.h>
 #include <asm/assembler.h>
 
 #ifdef CONFIG_MSM_CPU_AVS
@@ -175,6 +176,24 @@ msm_pm_pa_to_va:
 	nop
 1:	b       1b
 
+ENTRY(msm_pm_boot_entry)
+	mrc     p15, 0, r0, c0, c0, 5    /* MPIDR                          */
+	and     r0, r0, #15              /* what CPU am I                  */
+
+	ldr     r1, =msm_pm_boot_vector
+	ldr     r2, =msm_pm_boot_entry
+	adr     r3, msm_pm_boot_entry
+	add     r1, r1, r3               /* translate virt to phys addr    */
+	sub     r1, r1, r2
+
+	add     r1, r1, r0, LSL #2       /* locate boot vector for our cpu */
+	ldr     pc, [r1]                 /* jump                           */
+
+ENTRY(msm_pm_write_boot_vector)
+	ldr     r2, =msm_pm_boot_vector
+	add     r2, r2, r0, LSL #2       /* locate boot vector for our cpu */
+	str     r1, [r2]
+	bx      lr
 
 	.data
 
@@ -189,3 +208,6 @@ saved_state:
 	.space	CPU_SAVED_STATE_SIZE
 #endif
 saved_state_end:
+
+msm_pm_boot_vector:
+	.space  4 * NR_CPUS

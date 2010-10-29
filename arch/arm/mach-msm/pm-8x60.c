@@ -47,9 +47,9 @@
 #include "idle.h"
 #include "pm.h"
 #include "rpm_resources.h"
+#include "scm-boot.h"
 #include "spm.h"
 #include "timer.h"
-#include "scm-boot.h"
 
 /******************************************************************************
  * Debug Definitions
@@ -640,10 +640,7 @@ static void msm_pm_spm_power_collapse(
 
 	entry = (!dev->cpu || from_idle) ?
 		msm_pm_collapse_exit : msm_secondary_startup;
-
-	ret = scm_set_boot_addr((void *) virt_to_phys(entry),
-				dev->cpu ? SCM_FLAG_WARMBOOT_CPU1 :
-					   SCM_FLAG_WARMBOOT_CPU0);
+	msm_pm_write_boot_vector(dev->cpu, virt_to_phys(entry));
 
 	if (MSM_PM_DEBUG_RESET_VECTOR & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: program vector to %p\n",
@@ -1113,6 +1110,14 @@ static int __init msm_pm_init(void)
 #ifdef CONFIG_HOTPLUG_CPU
 		init_completion(&dev->cpu_killed);
 #endif
+	}
+
+	ret = scm_set_boot_addr((void *)virt_to_phys(msm_pm_boot_entry),
+			SCM_FLAG_WARMBOOT_CPU0 | SCM_FLAG_WARMBOOT_CPU1);
+	if (ret) {
+		pr_err("%s: failed to set up scm boot addr: %d\n",
+			__func__, ret);
+		return ret;
 	}
 
 #ifdef CONFIG_MSM_IDLE_STATS
