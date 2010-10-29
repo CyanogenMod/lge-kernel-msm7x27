@@ -249,11 +249,17 @@ out:
 }
 EXPORT_SYMBOL(scm_call);
 
-static u32 smc_get_version(void)
+u32 scm_get_version(void)
 {
 	int context_id;
+	static u32 version = -1;
 	register u32 r0 asm("r0") = 0x1 << 8;
 	register u32 r1 asm("r1") = (u32)&context_id;
+
+	if (version != -1)
+		return version;
+
+	mutex_lock(&scm_lock);
 	asm(
 		__asmeq("%0", "r1")
 		__asmeq("%1", "r0")
@@ -262,19 +268,17 @@ static u32 smc_get_version(void)
 		: "=r" (r1)
 		: "r" (r0), "r" (r1)
 		: "r2", "r3");
-	return r1;
+	version = r1;
+	mutex_unlock(&scm_lock);
+
+	return version;
 }
+EXPORT_SYMBOL(scm_get_version);
 
 static int __init scm_init(void)
 {
-	u32 scm_version;
-
-	mutex_lock(&scm_lock);
-	scm_version = smc_get_version();
-	mutex_unlock(&scm_lock);
-
-	pr_info("SCM Remote Version %d.%d\n", scm_version >> 16,
-			scm_version & 0xFF);
+	u32 version = scm_get_version();
+	pr_info("SCM Remote Version %d.%d\n", version >> 16, version & 0xFF);
 	return 0;
 }
 arch_initcall(scm_init);
