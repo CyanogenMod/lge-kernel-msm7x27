@@ -96,6 +96,7 @@ static struct msm_rpmrs_resource msm_rpmrs_pxo = {
 	.rs[0].id = MSM_RPM_ID_PXO_CLK,
 	.size = 1,
 	.name = "pxo",
+	.enable_low_power = 1,
 	.append_req = msm_rpmrs_append_pxo,
 };
 
