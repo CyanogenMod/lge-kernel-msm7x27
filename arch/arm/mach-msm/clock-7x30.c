@@ -579,6 +579,8 @@ static struct clk_local soc_clk_local_tbl_7x30[] = {
 	/* Peripheral bus clocks. */
 	CLK_GLBL(ADM,		GLBL_CLK_ENA_SC_REG,	B(5),
 				GLBL_CLK_STATE_REG,	DELAY, 0, 0x4000),
+	CLK_GLBL(CE,		GLBL_CLK_ENA_SC_REG,	B(6),
+				GLBL_CLK_STATE_REG,	HALT_VOTED, 6, 0x4D43),
 	CLK_GLBL(CAMIF_PAD_P,	GLBL_CLK_ENA_SC_REG,	B(9),
 				GLBL_CLK_STATE_REG,	HALT, 9, 0x1A),
 	CLK_GLBL(CSI0_P,	GLBL_CLK_ENA_SC_REG,	B(30),
@@ -1060,6 +1062,7 @@ static const struct clk_local_ownership {
 	[C(VPE)]			= { O(SH2_OWN_APPS3), B(4) },
 
 	[C(ADM)]			= { O(SH2_OWN_GLBL), B(8) },
+	[C(CE)]				= { O(SH2_OWN_GLBL), B(8) },
 	[C(AXI_ROTATOR)]		= { O(SH2_OWN_GLBL), B(13) },
 	[C(ROTATOR_IMEM)]		= { O(SH2_OWN_GLBL), B(13) },
 	[C(ROTATOR_P)]			= { O(SH2_OWN_GLBL), B(13) },

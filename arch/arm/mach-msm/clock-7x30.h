@@ -32,6 +32,7 @@
 
 enum {
 	L_ADM_CLK,
+	L_CE_CLK,
 	L_I2C_CLK,
 	L_I2C_2_CLK,
 	L_QUP_I2C_CLK,
