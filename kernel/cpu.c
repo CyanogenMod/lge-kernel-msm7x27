@@ -69,6 +69,19 @@ void get_online_cpus(void)
 }
 EXPORT_SYMBOL_GPL(get_online_cpus);
 
+int try_get_online_cpus(void)
+{
+	if (cpu_hotplug.active_writer == current)
+		return 0;
+	if (mutex_trylock(&cpu_hotplug.lock)) {
+		cpu_hotplug.refcount++;
+		mutex_unlock(&cpu_hotplug.lock);
+		return 0;
+	}
+	return -EBUSY;
+}
+EXPORT_SYMBOL_GPL(try_get_online_cpus);
+
 void put_online_cpus(void)
 {
 	if (cpu_hotplug.active_writer == current)

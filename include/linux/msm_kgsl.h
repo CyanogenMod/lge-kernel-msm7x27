@@ -47,12 +47,14 @@
 #define KGSL_FLAGS_RESERVED0   0x00000020
 #define KGSL_FLAGS_RESERVED1   0x00000040
 #define KGSL_FLAGS_RESERVED2   0x00000080
+#define KGSL_FLAGS_SOFT_RESET  0x00000100
 
 /* device id */
 enum kgsl_deviceid {
 	KGSL_DEVICE_YAMATO	= 0x00000000,
-	KGSL_DEVICE_G12		= 0x00000001,
-	KGSL_DEVICE_MAX		= 0x00000002
+	KGSL_DEVICE_2D0		= 0x00000001,
+	KGSL_DEVICE_2D1		= 0x00000002,
+	KGSL_DEVICE_MAX		= 0x00000003
 };
 
 enum kgsl_user_mem_type {
@@ -119,6 +121,8 @@ struct kgsl_shadowprop {
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
+#ifdef __KERNEL__
+
 struct kgsl_platform_data {
 	unsigned int high_axi_2d;
 	unsigned int high_axi_3d;
@@ -135,6 +139,8 @@ struct kgsl_platform_data {
 	unsigned int idle_timeout_2d;
 	unsigned int idle_timeout_3d;
 };
+
+#endif
 
 /* structure holds list of ibs */
 struct kgsl_ibdesc {

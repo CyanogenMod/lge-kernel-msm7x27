@@ -29,7 +29,7 @@
 #ifndef _KGSL_G12_H
 #define _KGSL_G12_H
 
-#define INTERVAL_G12_TIMEOUT (HZ / 10)
+#define IDX_2D(X) ((X)-KGSL_DEVICE_2D0)
 
 struct kgsl_g12_ringbuffer {
 	unsigned int prevctx;
@@ -40,6 +40,9 @@ struct kgsl_g12_ringbuffer {
 
 struct kgsl_g12_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
+	const char *iomemname;
+	const char *irqname;
+	const char *regulator;
 	int current_timestamp;
 	int timestamp;
 	wait_queue_head_t wait_timestamp_wq;
@@ -48,18 +51,16 @@ struct kgsl_g12_device {
 
 irqreturn_t kgsl_g12_isr(int irq, void *data);
 int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags);
-struct kgsl_device *kgsl_get_g12_generic_device(void);
+struct kgsl_device *kgsl_get_2d_device(enum kgsl_deviceid);
 int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value);
 int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 			unsigned int value);
 
 int __init kgsl_g12_config(struct kgsl_devconfig *,
-				struct platform_device *pdev);
+		      struct platform_device *pdev, enum kgsl_deviceid dev_id);
 
-int __init kgsl_g12_init(struct kgsl_device *device,
-			 struct kgsl_devconfig *config);
-
+int __init kgsl_g12_init(struct kgsl_device *device);
 int __init kgsl_g12_init_pwrctrl(struct kgsl_device *device);
 
 int kgsl_g12_close(struct kgsl_device *device);

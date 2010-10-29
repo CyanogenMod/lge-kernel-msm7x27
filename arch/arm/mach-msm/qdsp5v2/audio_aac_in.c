@@ -113,6 +113,7 @@ struct audio_in {
 	uint32_t in_count; /* number of buffers available to read() */
 	uint32_t mode;
 	uint32_t eos_ack;
+	uint32_t flush_ack;
 
 	const char *module_name;
 	unsigned queue_ids;
@@ -418,6 +419,7 @@ static void audrec_dsp_event(void *data, unsigned id, size_t len,
 	case AUDREC_CMD_FLUSH_DONE_MSG: {
 		audio->wflush = 0;
 		audio->rflush = 0;
+		audio->flush_ack = 1;
 		wake_up(&audio->write_wait);
 		MM_DBG("flush ack recieved\n");
 		break;
@@ -796,6 +798,7 @@ static long audaac_in_ioctl(struct file *file,
 			else
 				rc = 0;
 		}
+		audio->stopped = 0;
 		break;
 	}
 	case AUDIO_STOP: {
@@ -1226,7 +1229,12 @@ static ssize_t audaac_in_write(struct file *file,
 exit:
 	frame->used = count;
 	audio->out_head ^= 1;
-	audpreproc_pcm_send_data(audio, 0);
+	if (!audio->flush_ack)
+		audpreproc_pcm_send_data(audio, 0);
+	else {
+		audpreproc_pcm_send_data(audio, 1);
+		audio->flush_ack = 0;
+	}
 	if (eos_condition == AUDPREPROC_AAC_EOS_SET)
 		rc = audpreproc_aac_process_eos(audio, start, mfield_size);
 	mutex_unlock(&audio->write_lock);
@@ -1323,6 +1331,7 @@ static int audaac_in_open(struct inode *inode, struct file *file)
 	audio->abort = 0;
 	audio->wflush = 0;
 	audio->rflush = 0;
+	audio->flush_ack = 0;
 
 	audaac_in_flush(audio);
 	audaac_out_flush(audio);

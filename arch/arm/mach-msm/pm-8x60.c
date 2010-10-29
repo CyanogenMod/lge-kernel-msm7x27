@@ -42,12 +42,14 @@
 #endif
 
 #include "acpuclock.h"
+#include "avs.h"
 #include "cpuidle.h"
 #include "idle.h"
 #include "pm.h"
 #include "rpm_resources.h"
 #include "spm.h"
 #include "timer.h"
+#include "scm-boot.h"
 
 /******************************************************************************
  * Debug Definitions
@@ -606,7 +608,6 @@ EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
 
 struct msm_pm_device {
 	unsigned int cpu;
-	void __iomem *boot_vector;
 #ifdef CONFIG_HOTPLUG_CPU
 	struct completion cpu_killed;
 	unsigned int warm_boot;
@@ -639,11 +640,14 @@ static void msm_pm_spm_power_collapse(
 
 	entry = (!dev->cpu || from_idle) ?
 		msm_pm_collapse_exit : msm_secondary_startup;
-	writel(virt_to_phys(entry), dev->boot_vector);
+
+	ret = scm_set_boot_addr((void *) virt_to_phys(entry),
+				dev->cpu ? SCM_FLAG_WARMBOOT_CPU1 :
+					   SCM_FLAG_WARMBOOT_CPU0);
 
 	if (MSM_PM_DEBUG_RESET_VECTOR & msm_pm_debug_mask)
-		pr_info("CPU%u: %s: program vector %p to %p\n",
-			dev->cpu, __func__, dev->boot_vector, entry);
+		pr_info("CPU%u: %s: program vector to %p\n",
+			dev->cpu, __func__, entry);
 
 #ifdef CONFIG_VFP
 	vfp_flush_context();
@@ -671,13 +675,19 @@ static void msm_pm_spm_power_collapse(
 static void msm_pm_power_collapse_standalone(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
+	unsigned int avsdscr_setting;
+
+	avsdscr_setting = avs_get_avsdscr();
+	avs_disable();
 	msm_pm_spm_power_collapse(dev, from_idle, false);
+	avs_reset_delays(avsdscr_setting);
 }
 
 static void msm_pm_power_collapse(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
 	unsigned long saved_acpuclk_rate;
+	unsigned int avsdscr_setting;
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: idle %d\n",
@@ -687,6 +697,8 @@ static void msm_pm_power_collapse(bool from_idle)
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: pre power down\n", dev->cpu, __func__);
 
+	avsdscr_setting = avs_get_avsdscr();
+	avs_disable();
 	saved_acpuclk_rate = acpuclk_power_collapse();
 	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
@@ -701,6 +713,7 @@ static void msm_pm_power_collapse(bool from_idle)
 		pr_err("CPU%u: %s: failed to restore clock rate(%lu)\n",
 			dev->cpu, __func__, saved_acpuclk_rate);
 
+	avs_reset_delays(avsdscr_setting);
 	msm_pm_config_hw_after_power_up();
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: post power up\n", dev->cpu, __func__);
@@ -1058,7 +1071,6 @@ static int __init msm_pm_init(void)
 	pgd_t *pc_pgd;
 	pmd_t *pmd;
 	unsigned int irq;
-	void __iomem *boot_page;
 	unsigned int cpu;
 #ifdef CONFIG_MSM_IDLE_STATS
 	struct proc_dir_entry *d_entry;
@@ -1094,17 +1106,10 @@ static int __init msm_pm_init(void)
 		return ret;
 	}
 
-	boot_page = ioremap(0x2a040000, PAGE_SIZE);
-	if (boot_page == NULL) {
-		pr_err("%s: failed to map boot page\n", __func__);
-		return -ENOMEM;
-	}
-
 	for_each_possible_cpu(cpu) {
 		struct msm_pm_device *dev = &per_cpu(msm_pm_devices, cpu);
 
 		dev->cpu = cpu;
-		dev->boot_vector = boot_page + 0x28 - 0x04 * cpu;
 #ifdef CONFIG_HOTPLUG_CPU
 		init_completion(&dev->cpu_killed);
 #endif

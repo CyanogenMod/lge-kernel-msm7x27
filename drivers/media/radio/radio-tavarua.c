@@ -128,7 +128,7 @@ struct tavarua_device {
 static int radio_nr = -1;
 module_param(radio_nr, int, 0);
 MODULE_PARM_DESC(radio_nr, "Radio Nr");
-
+static int wait_timeout = WAIT_TIMEOUT;
 /* RDS buffer blocks */
 static unsigned int rds_buf = 100;
 module_param(rds_buf, uint, 0);
@@ -195,10 +195,22 @@ FUNCTION:  tavarua_read_registers
 static int tavarua_read_registers(struct tavarua_device *radio,
 				unsigned char offset, int len)
 {
+	int retval = 0, i = 0;
 	radio->marimba->mod_id = MARIMBA_SLAVE_ID_FM;
-	return marimba_read(radio->marimba, offset,
+	FMDBG_I2C("I2C Slave: %x, Read Offset(%x): Data [",
+						radio->marimba->mod_id,
+						offset);
+
+	retval =  marimba_read(radio->marimba, offset,
 				&radio->registers[offset], len);
 
+	if (retval > 0) {
+		for (i = 0; i < len; i++)
+			FMDBG_I2C("%02x ", radio->registers[offset+i]);
+		FMDBG_I2C(" ]\n");
+
+	}
+	return retval;
 }
 
 /*=============================================================================
@@ -220,10 +232,16 @@ static int tavarua_write_register(struct tavarua_device *radio,
 {
 	int retval;
 	radio->marimba->mod_id = MARIMBA_SLAVE_ID_FM;
+	FMDBG_I2C("I2C Slave: %x, Write Offset(%x): Data[",
+						radio->marimba->mod_id,
+						offset);
 	retval = marimba_write(radio->marimba, offset, &value, 1);
 	if (retval > 0) {
-		if (offset < RADIO_REGISTERS)
+		if (offset < RADIO_REGISTERS) {
 			radio->registers[offset] = value;
+			FMDBG_I2C("%02x ", radio->registers[offset]);
+		}
+		FMDBG_I2C(" ]\n");
 	}
 	return retval;
 }
@@ -250,12 +268,18 @@ static int tavarua_write_registers(struct tavarua_device *radio,
 	int i;
 	int retval;
 	radio->marimba->mod_id = MARIMBA_SLAVE_ID_FM;
+	FMDBG_I2C("I2C Slave: %x, Write Offset(%x): Data[",
+						radio->marimba->mod_id,
+						offset);
 	retval = marimba_write(radio->marimba, offset, buf, len);
 	if (retval > 0) { /* if write successful, update internal state too */
 		for (i = 0; i < len; i++) {
-			if ((offset+i) < RADIO_REGISTERS)
+			if ((offset+i) < RADIO_REGISTERS) {
 				radio->registers[offset+i] = buf[i];
+				FMDBG_I2C("%x ",  radio->registers[offset+i]);
+			}
 		}
+		FMDBG_I2C(" ]\n");
 	}
 	return retval;
 }
@@ -442,7 +466,7 @@ static int xfr_intf_own(struct tavarua_device *radio)
 		radio->pending_xfrs[TAVARUA_XFR_SYNC] = 1;
 		mutex_unlock(&radio->lock);
 		if (!wait_for_completion_timeout(&radio->sync_xfr_start,
-			msecs_to_jiffies(WAIT_TIMEOUT)))
+			msecs_to_jiffies(wait_timeout)))
 			return -ETIME;
 	} else {
 		FMDBG("gained ownership of xfr\n");
@@ -474,13 +498,16 @@ static int sync_read_xfr(struct tavarua_device *radio,
 		return retval;
 	retval = tavarua_write_register(radio, XFRCTRL, xfr_type);
 
-  /* Wait for interrupt i.e. complete(&radio->sync_req_done); call */
-	if (!wait_for_completion_timeout(&radio->sync_req_done,
-		msecs_to_jiffies(WAIT_TIMEOUT)) || (retval < 0)) {
-		retval = -ETIME;
+	if (retval >= 0) {
+		/* Wait for interrupt i.e. complete
+		(&radio->sync_req_done); call */
+		if (!wait_for_completion_timeout(&radio->sync_req_done,
+			msecs_to_jiffies(wait_timeout)) || (retval < 0)) {
+			retval = -ETIME;
+		} else {
+			memcpy(buf, radio->sync_xfr_regs, XFR_REG_NUM);
+		}
 	}
-	if (retval > -1)
-		memcpy(buf, radio->sync_xfr_regs, XFR_REG_NUM);
 	radio->xfr_in_progress = 0;
 	start_pending_xfr(radio);
 	FMDBG("%s: %d\n", __func__, retval);
@@ -509,10 +536,13 @@ static int sync_write_xfr(struct tavarua_device *radio,
 		return retval;
 	retval = write_to_xfr(radio, xfr_type, buf, XFR_REG_NUM);
 
-  /* Wait for interrupt i.e. complete(&radio->sync_req_done); call */
-	if (!wait_for_completion_timeout(&radio->sync_req_done,
-		msecs_to_jiffies(WAIT_TIMEOUT)) || (retval < 0)) {
-		retval = -ETIME;
+	if (retval >= 0) {
+		/* Wait for interrupt i.e. complete
+		(&radio->sync_req_done); call */
+		if (!wait_for_completion_timeout(&radio->sync_req_done,
+			msecs_to_jiffies(wait_timeout)) || (retval < 0)) {
+			FMDBG("Write xfr timeout");
+		}
 	}
 	radio->xfr_in_progress = 0;
 	start_pending_xfr(radio);
@@ -560,7 +590,8 @@ static void start_pending_xfr(struct tavarua_device *radio)
 				request_read_xfr(radio, RDS_AF_0);
 				break;
 			default:
-				FMDBG("%s: Unsupported XFR\n", __func__);
+				FMDERR("%s: Unsupported XFR %d\n",
+					 __func__, xfr);
 			}
 			radio->pending_xfrs[i] = 0;
 			FMDBG("resurrect xfr %d\n", i);
@@ -705,6 +736,13 @@ static void tavarua_handle_interrupts(struct tavarua_device *radio)
 			else
 				tavarua_q_event(radio,
 						TAVARUA_EVT_RDS_NOT_AVAIL);
+		}
+
+	} else {
+		if (radio->tune_req) {
+			FMDERR("Tune INT is pending\n");
+			mutex_unlock(&radio->lock);
+			return;
 		}
 	}
 	/* Search completed (read FREQ) */
@@ -892,7 +930,7 @@ static void tavarua_handle_interrupts(struct tavarua_device *radio)
 			complete(&radio->sync_req_done);
 			break;
 		default:
-			FMDBG("UNKNOWN XFR\n");
+			FMDERR("UNKNOWN XFR = %d\n", xfr_status);
 		}
 		if (!radio->xfr_in_progress)
 			start_pending_xfr(radio);
@@ -901,7 +939,7 @@ static void tavarua_handle_interrupts(struct tavarua_device *radio)
 
 	/* Error occurred. Read ERRCODE to determine cause */
 	if (radio->registers[STATUS_REG3] & ERROR)
-		FMDBG("ERROR STATE\n");
+		FMDERR("ERROR STATE\n");
 
 	mutex_unlock(&radio->lock);
 	FMDBG("Work is done\n");
@@ -983,14 +1021,14 @@ static int tavarua_request_irq(struct tavarua_device *radio)
 	retval = request_irq(irq, tavarua_isr, IRQ_TYPE_EDGE_FALLING,
 				"fm interrupt", radio);
 	if (retval < 0) {
-		FMDBG("Couldn't acquire FM gpio %d\n", irq);
+		FMDERR("Couldn't acquire FM gpio %d\n", irq);
 		return retval;
 	} else {
 		FMDBG("FM GPIO %d registered\n", irq);
 	}
 	retval = enable_irq_wake(irq);
 	if (retval < 0) {
-		FMDBG("Could not enable FM interrupt\n ");
+		FMDERR("Could not enable FM interrupt\n ");
 		free_irq(irq , radio);
 	}
 	return retval;
@@ -1120,7 +1158,7 @@ static int tavarua_set_region(struct tavarua_device *radio,
 	default:
 		retval = sync_read_xfr(radio, RADIO_CONFIG, xfr_buf);
 		if (retval < 0) {
-			FMDBG("failed to get RADIO_CONFIG\n");
+			FMDERR("failed to get RADIO_CONFIG\n");
 			return retval;
 		}
 		band_low = (radio->region_params.band_low -
@@ -1134,7 +1172,7 @@ static int tavarua_set_region(struct tavarua_device *radio,
 		xfr_buf[3] = band_high & 0xFF;
 		retval = sync_write_xfr(radio, RADIO_CONFIG, xfr_buf);
 		if (retval < 0) {
-			FMDBG("Could not set regional settings\n");
+			FMDERR("Could not set regional settings\n");
 			return retval;
 		}
 		break;
@@ -1197,7 +1235,7 @@ static int tavarua_set_region(struct tavarua_device *radio,
 	retval = tavarua_write_register(radio, RDCTRL,
 					radio->registers[RDCTRL]);
 	if (retval < 0) {
-		FMDBG("Could not set region in rdctrl\n");
+		FMDERR("Could not set region in rdctrl\n");
 		return retval;
 	}
 
@@ -1401,7 +1439,7 @@ static ssize_t tavarua_fops_write(struct file *file, const char __user *data,
 		tx_data[4] = 0;
 		break;
 	default:
-		FMDBG("%s: Unknown TX mode\n", __func__);
+		FMDERR("%s: Unknown TX mode\n", __func__);
 		return -1;
 	}
 	retval = sync_write_xfr(radio, radio->tx_mode, tx_data);
@@ -1441,7 +1479,7 @@ static ssize_t tavarua_fops_write(struct file *file, const char __user *data,
 		tx_data[4] = TX_ON | 0x01;
 		break;
 	default:
-		FMDBG("%s: Unknown TX mode\n", __func__);
+		FMDERR("%s: Unknown TX mode\n", __func__);
 		return -1;
 	}
 	retval = sync_write_xfr(radio, radio->tx_mode, tx_data);
@@ -1518,9 +1556,9 @@ static int tavarua_fops_open(struct file *file)
 	for the proper behavior*/
 	init_completion(&radio->sync_req_done);
 	if (!wait_for_completion_timeout(&radio->sync_req_done,
-		msecs_to_jiffies(WAIT_TIMEOUT))) {
+		msecs_to_jiffies(wait_timeout))) {
 		retval = -1;
-		FMDBG("Timeout waiting for initilalization\n");
+		FMDERR("Timeout waiting for initialization\n");
 	}
 
 	/* get Chip ID */
@@ -2095,7 +2133,7 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 					TAVARUA_AUDIO_OUT_DIGITAL_ON,
 					TAVARUA_AUDIO_OUT_ANALOG_OFF);
 				if (retval < 0) {
-					FMDBG("Error in tavarua_set_audio_path"
+					FMDERR("Error in tavarua_set_audio_path"
 						" %d\n", retval);
 				}
 			}
@@ -2107,11 +2145,16 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 							ctrl->value);
 			/*Make it synchronous
 			Block it till READY interrupt
-			Wait for interrupt i.e. complete(&radio->sync_req_done)
+			Wait for interrupt i.e.
+			complete(&radio->sync_req_done)
 			*/
-			if (!wait_for_completion_timeout(&radio->sync_req_done,
-				msecs_to_jiffies(WAIT_TIMEOUT)))
-				retval = -ETIME;
+
+			if (retval >= 0) {
+				if (!wait_for_completion_timeout(
+					&radio->sync_req_done,
+					msecs_to_jiffies(wait_timeout)))
+					FMDBG("turning off timedout...\n");
+			}
 		} else if ((ctrl->value == FM_TRANS) &&
 			   ((radio->registers[RDCTRL] & 0x03) != FM_TRANS)) {
 			FMDBG("transmit mode\n");
@@ -2124,8 +2167,8 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_TAVARUA_SIGNAL_TH:
 		retval = sync_read_xfr(radio, RX_CONFIG, xfr_buf);
 		if (retval < 0)	{
-			FMDBG("[S IOCTL=V4L2_CID_PRIVATE_TAVARUA_SIGNAL_TH]\n");
-			FMDBG("sync_read_xfr error: [retval=%d]\n", retval);
+			FMDERR("V4L2_CID_PRIVATE_TAVARUA_SIGNAL_TH]\n");
+			FMDERR("sync_read_xfr [retval=%d]\n", retval);
 			break;
 		}
 		/* RMSSI Threshold is a signed 8 bit value */
@@ -2134,8 +2177,8 @@ static int tavarua_vidioc_s_ctrl(struct file *file, void *priv,
 		xfr_buf[4] = 0x01;
 		retval = sync_write_xfr(radio, RX_CONFIG, xfr_buf);
 		if (retval < 0) {
-			FMDBG("[S IOCTL=V4L2_CID_PRIVATE_TAVARUA_SIGNAL_TH]\n");
-			FMDBG("sync_write_xfr error: [retval=%d]\n", retval);
+			FMDERR("V4L2_CID_PRIVATE_TAVARUA_SIGNAL_TH]\n");
+			FMDERR("sync_write_xfr [retval=%d]\n", retval);
 			break;
 		}
 		break;
@@ -2385,21 +2428,42 @@ static int tavarua_vidioc_s_frequency(struct file *file, void *priv,
 					struct v4l2_frequency *freq)
 {
 	struct tavarua_device *radio = video_get_drvdata(video_devdata(file));
-	int retval;
+	int retval = -1;
+	struct v4l2_frequency getFreq;
+
 	FMDBG("%s\n", __func__);
 
 	if (freq->type != V4L2_TUNER_RADIO)
 		return -EINVAL;
 
+	FMDBG("Calling tavarua_set_freq\n");
+
+	INIT_COMPLETION(radio->sync_req_done);
 	retval = tavarua_set_freq(radio, freq->frequency);
-	if (retval < 0)
+	if (retval < 0) {
 		printk(KERN_WARNING DRIVER_NAME
 			": set frequency failed with %d\n", retval);
-
-  /* Wait for interrupt i.e. complete(&radio->sync_req_done); call */
-	if (!wait_for_completion_timeout(&radio->sync_req_done,
-		msecs_to_jiffies(WAIT_TIMEOUT)))
-		return -ETIME;
+	} else {
+		/* Wait for interrupt i.e. complete
+		(&radio->sync_req_done); call */
+		if (!wait_for_completion_timeout(&radio->sync_req_done,
+			msecs_to_jiffies(wait_timeout))) {
+			FMDERR("Timeout: No Tune response");
+			retval = tavarua_get_freq(radio, &getFreq);
+			radio->tune_req = 0;
+			if (retval > 0) {
+				if (getFreq.frequency == freq->frequency) {
+					/** This is success, queut the event*/
+					tavarua_q_event(radio,
+						TAVARUA_EVT_TUNE_SUCC);
+					return 0;
+				} else {
+					return -EIO;
+				}
+			}
+		}
+	}
+	radio->tune_req = 0;
 	return retval;
 }
 
@@ -2459,7 +2523,7 @@ static int tavarua_vidioc_dqbuf(struct file *file, void *priv,
 			}
 		}
 	} else {
-		FMDBG("invalid buffer type\n");
+		FMDERR("invalid buffer type\n");
 		return -EINVAL;
 	}
 	buffer->bytesused = kfifo_out_locked(data_fifo, buf, len, 
@@ -2599,7 +2663,12 @@ static int tavarua_setup_interrupts(struct tavarua_device *radio,
 	}
 
 	radio->lp_mode = 0;
-	tavarua_handle_interrupts(radio);
+	/* tavarua_handle_interrupts force reads all the interrupt status
+	*  registers and it is not valid for MBA 2.1
+	*/
+	if (radio->chipID != MARIMBA_2_1)
+		tavarua_handle_interrupts(radio);
+
 	return retval;
 
 }
@@ -2622,10 +2691,13 @@ static int tavarua_disable_interrupts(struct tavarua_device *radio)
 	if (radio->lp_mode)
 		return 0;
 	FMDBG("%s\n", __func__);
-	lpm_buf[STATUS_REG1] = 0x00;
+	/* In Low power mode, disable all the interrupts that are not being
+		 waited by the Application */
+	lpm_buf[STATUS_REG1] = TUNE | SEARCH | SCANNEXT;
 	lpm_buf[STATUS_REG2] = 0x00;
-	lpm_buf[STATUS_REG3] = 0x00;
+	lpm_buf[STATUS_REG3] = TRANSFER;
 	/* use xfr for interrupt setup */
+	wait_timeout = 100;
 	if (radio->chipID == MARIMBA_2_1)
 		retval = sync_write_xfr(radio, INT_CTRL, lpm_buf);
 	/* use register write to setup interrupts */
@@ -2641,6 +2713,7 @@ static int tavarua_disable_interrupts(struct tavarua_device *radio)
 		/*Consider timeout as a valid case here*/
 		retval = 0;
 	}
+	wait_timeout = WAIT_TIMEOUT;
 	return retval;
 
 }
@@ -2695,11 +2768,20 @@ static int tavarua_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct tavarua_device *radio = platform_get_drvdata(pdev);
 	int retval;
-	FMDBG("%s: radio suspend\n", __func__);
-	retval = tavarua_disable_interrupts(radio);
-	if (retval < 0) {
-		FMDBG("Error in tavarua_suspend %d\n", retval);
-		return -1;
+	int users = 0;
+	printk(KERN_INFO DRIVER_NAME "%s: radio suspend\n\n", __func__);
+	if (radio) {
+		mutex_lock(&radio->lock);
+		users = radio->users;
+		mutex_unlock(&radio->lock);
+		if (users) {
+			retval = tavarua_disable_interrupts(radio);
+			if (retval < 0) {
+				printk(KERN_INFO DRIVER_NAME
+					"tavarua_suspend error %d\n", retval);
+				return -EIO;
+			}
+		}
 	}
 	return 0;
 }
@@ -2719,12 +2801,22 @@ static int tavarua_resume(struct platform_device *pdev)
 
 	struct tavarua_device *radio = platform_get_drvdata(pdev);
 	int retval;
-	FMDBG("%s: radio resume\n", __func__);
-	retval = tavarua_setup_interrupts(radio,
+	int users = 0;
+	printk(KERN_INFO DRIVER_NAME "%s: radio resume\n\n", __func__);
+	if (radio) {
+		mutex_lock(&radio->lock);
+		users = radio->users;
+		mutex_unlock(&radio->lock);
+
+		if (users) {
+			retval = tavarua_setup_interrupts(radio,
 			(radio->registers[RDCTRL] & 0x03));
-	if (retval < 0) {
-		FMDBG("Error in tavarua_resume %d\n", retval);
-		return -1;
+			if (retval < 0) {
+				printk(KERN_INFO DRIVER_NAME "Error in \
+					tavarua_resume %d\n", retval);
+				return -EIO;
+			}
+		}
 	}
 	return 0;
 }

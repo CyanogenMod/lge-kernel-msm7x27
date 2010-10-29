@@ -39,6 +39,8 @@
 #include <linux/workqueue.h>
 #include <linux/byteorder/generic.h>
 #include <linux/bitops.h>
+#include <linux/pm_runtime.h>
+#include <linux/firmware.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -65,6 +67,8 @@ struct cyttsp {
 	u16 prv_mt_tch[CY_NUM_MT_TCH_ID];
 	u16 prv_mt_pos[CY_NUM_TRK_ID][2];
 	atomic_t irq_enabled;
+	char cyttsp_fw_ver[10];
+	bool cyttsp_update_fw;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -97,8 +101,8 @@ static int cyttsp_putbl(struct cyttsp *ts, int show,
 static int __devinit cyttsp_probe(struct i2c_client *client,
 			const struct i2c_device_id *id);
 static int __devexit cyttsp_remove(struct i2c_client *client);
-static int cyttsp_resume(struct i2c_client *client);
-static int cyttsp_suspend(struct i2c_client *client, pm_message_t message);
+static int cyttsp_resume(struct device *dev);
+static int cyttsp_suspend(struct device *dev);
 
 /* Static variables */
 static struct cyttsp_gen3_xydata_t g_xy_data;
@@ -115,15 +119,19 @@ static u8 bl_cmd[] = {
 
 MODULE_DEVICE_TABLE(i2c, cyttsp_id);
 
+static const struct dev_pm_ops cyttsp_pm_ops = {
+	.suspend = cyttsp_suspend,
+	.resume = cyttsp_resume,
+};
+
 static struct i2c_driver cyttsp_driver = {
 	.driver = {
 		.name = CY_I2C_NAME,
 		.owner = THIS_MODULE,
+		.pm = &cyttsp_pm_ops,
 	},
 	.probe = cyttsp_probe,
 	.remove = __devexit_p(cyttsp_remove),
-	.suspend = cyttsp_suspend,
-	.resume = cyttsp_resume,
 	.id_table = cyttsp_id,
 };
 
@@ -181,6 +189,59 @@ static ssize_t cyttsp_irq_enable(struct device *dev,
 }
 
 static DEVICE_ATTR(irq_enable, 0777, cyttsp_irq_status, cyttsp_irq_enable);
+
+static ssize_t cyttsp_fw_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cyttsp *ts = dev_get_drvdata(dev);
+	return sprintf(buf, "%s\n", ts->cyttsp_fw_ver);
+}
+
+static DEVICE_ATTR(cyttsp_fw_ver, 0777, cyttsp_fw_show, NULL);
+
+static ssize_t cyttsp_update_fw_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cyttsp *ts = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n", ts->cyttsp_update_fw);
+}
+
+static ssize_t cyttsp_update_fw_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct cyttsp *ts = dev_get_drvdata(dev);
+	const struct firmware *cyttsp_fw = NULL;
+	unsigned long val;
+	int i, data_len, rc;
+	const u8 *data = NULL;
+
+	if (size > 2)
+		return -EINVAL;
+
+	rc = strict_strtoul(buf, 10, &val);
+	if (rc != 0)
+		return rc;
+
+	if ((ts->cyttsp_update_fw ^ val) && val) {
+		ts->cyttsp_update_fw = 1;
+		/* read fw file */
+		if (request_firmware(&cyttsp_fw, "ttsp.fw", dev))
+			pr_err("%s: ttsp.fw request failed\n", __func__);
+		else {
+			data = cyttsp_fw->data;
+			data_len = cyttsp_fw->size;
+
+			for (i = 0; i < data_len; i++)
+				pr_debug("%x ", data[i]);
+		}
+		ts->cyttsp_update_fw = 0;
+	}
+	return size;
+}
+
+static DEVICE_ATTR(cyttsp_update_fw, 0777, cyttsp_update_fw_show,
+					cyttsp_update_fw_store);
 
 /* The cyttsp_xy_worker function reads the XY coordinates and sends them to
  * the input layer.  It is scheduled from the interrupt (or timer).
@@ -1744,9 +1805,29 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		goto error_free_irq;
 	}
 
+	pr_err("%s: add sysfs entires\n", __func__);
+	retval = device_create_file(&client->dev, &dev_attr_cyttsp_fw_ver);
+	if (retval) {
+		cyttsp_alert("sysfs entry for firmware version failed\n");
+		goto error_rm_dev_file_irq_en;
+	}
+
+	sprintf(ts->cyttsp_fw_ver, "%d.%d", g_bl_data.ttspver_hi,
+						g_bl_data.ttspver_lo);
+
+	retval = device_create_file(&client->dev, &dev_attr_cyttsp_update_fw);
+	if (retval) {
+		cyttsp_alert("sysfs entry for firmware update failed\n");
+		goto error_rm_dev_file_fw_ver;
+	}
+
 	cyttsp_info("%s: Successful registration\n", CY_I2C_NAME);
 	goto success;
 
+error_rm_dev_file_fw_ver:
+	device_remove_file(&client->dev, &dev_attr_cyttsp_fw_ver);
+error_rm_dev_file_irq_en:
+	device_remove_file(&client->dev, &dev_attr_irq_enable);
 error_free_irq:
 	cyttsp_alert("Error: Failed to register IRQ handler\n");
 	free_irq(client->irq, ts);
@@ -1775,6 +1856,12 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 		cyttsp_xdebug1("err kzalloc for cyttsp\n");
 		retval = -ENOMEM;
 	}
+
+	/* Enable runtime PM ops, start in ACTIVE mode */
+	error = pm_runtime_set_active(&client->dev);
+	if (error < 0)
+		dev_dbg(&client->dev, "unable to set runtime pm state\n");
+	pm_runtime_enable(&client->dev);
 
 	if (!(retval < CY_OK)) {
 		/* register driver_data */
@@ -1813,13 +1900,12 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 }
 
 /* Function to manage power-on resume */
-static int cyttsp_resume(struct i2c_client *client)
+static int cyttsp_resume(struct device *dev)
 {
-	struct cyttsp *ts;
+	struct cyttsp *ts = dev_get_drvdata(dev);
 	int retval = CY_OK;
 
 	cyttsp_debug("Wake Up\n");
-	ts = (struct cyttsp *) i2c_get_clientdata(client);
 
 	/* re-enable the interrupt prior to wake device */
 	if (ts->client->irq)
@@ -1828,7 +1914,7 @@ static int cyttsp_resume(struct i2c_client *client)
 	if (ts->platform_data->use_sleep &&
 		(ts->platform_data->power_state != CY_ACTIVE_STATE)) {
 		if (ts->platform_data->resume)
-			retval = ts->platform_data->resume(client);
+			retval = ts->platform_data->resume(ts->client);
 		if (!(retval < CY_OK)) {
 			/* take TTSP device out of bootloader mode;
 			 * switch back to TrueTouch operational mode */
@@ -1868,14 +1954,13 @@ static int cyttsp_resume(struct i2c_client *client)
 
 
 /* Function to manage low power suspend */
-static int cyttsp_suspend(struct i2c_client *client, pm_message_t message)
+static int cyttsp_suspend(struct device *dev)
 {
-	struct cyttsp *ts;
+	struct cyttsp *ts = dev_get_drvdata(dev);
 	u8 sleep_mode = CY_OK;
 	int retval = CY_OK;
 
 	cyttsp_debug("Enter Sleep\n");
-	ts = (struct cyttsp *) i2c_get_clientdata(client);
 
 	/* disable worker */
 	if (ts->client->irq == 0)
@@ -1925,9 +2010,14 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 
 	cyttsp_alert("Unregister\n");
 
+	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_disable(&client->dev);
+
 	/* clientdata registered on probe */
 	ts = i2c_get_clientdata(client);
 	device_remove_file(&ts->client->dev, &dev_attr_irq_enable);
+	device_remove_file(&client->dev, &dev_attr_cyttsp_fw_ver);
+	device_remove_file(&client->dev, &dev_attr_cyttsp_update_fw);
 
 	/* Start cleaning up by removing any delayed work and the timer */
 	if (cancel_delayed_work((struct delayed_work *)&ts->work) < CY_OK)
@@ -1960,7 +2050,7 @@ static void cyttsp_early_suspend(struct early_suspend *handler)
 	struct cyttsp *ts;
 
 	ts = container_of(handler, struct cyttsp, early_suspend);
-	cyttsp_suspend(ts->client, PMSG_SUSPEND);
+	cyttsp_suspend(&ts->client->dev);
 }
 
 static void cyttsp_late_resume(struct early_suspend *handler)
@@ -1968,7 +2058,7 @@ static void cyttsp_late_resume(struct early_suspend *handler)
 	struct cyttsp *ts;
 
 	ts = container_of(handler, struct cyttsp, early_suspend);
-	cyttsp_resume(ts->client);
+	cyttsp_resume(&ts->client->dev);
 }
 #endif  /* CONFIG_HAS_EARLYSUSPEND */
 
@@ -2000,4 +2090,5 @@ static void cyttsp_exit(void)
 
 module_init(cyttsp_init);
 module_exit(cyttsp_exit);
+MODULE_FIRMWARE("ttsp.fw");
 

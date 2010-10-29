@@ -32,6 +32,7 @@
 
 #include "acpuclock.h"
 #include "clock-8x60.h"
+#include "avs.h"
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -123,7 +124,7 @@ struct clkctl_acpu_speed {
 	unsigned int     l2_src_sel;
 	unsigned int     l2_l_val;
 	unsigned int     vdd_sc;
-	unsigned long    lpj; /* loops_per_jiffy */
+	unsigned int     avsdscr_setting;
 	struct clkctl_acpu_speed *up;
 	struct clkctl_acpu_speed *down;
 };
@@ -136,24 +137,42 @@ static struct clkctl_acpu_speed *l2_vote[NR_CPUS];
 /* L_VAL's below assume 27 MHz sources for all SCPLLs.
  * SCPLL and L2 frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    0, 0,     950000 },
-	{ {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    0, 0,     950000 },
-	{ {0, 0},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    0, 0,     950000 },
-	{ {1, 1},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, 1, 0x08,  950000 },
-	{ {0, 0},  486000,  ACPU_SCPLL, 0, 0, 1, 0x09, 1, 0x09, 1100000 },
-	{ {0, 0},  540000,  ACPU_SCPLL, 0, 0, 1, 0x0A, 1, 0x0A, 1100000 },
-	{ {0, 0},  594000,  ACPU_SCPLL, 0, 0, 1, 0x0B, 1, 0x0B, 1100000 },
-	{ {1, 1},  648000,  ACPU_SCPLL, 0, 0, 1, 0x0C, 1, 0x0C, 1100000 },
-	{ {0, 0},  702000,  ACPU_SCPLL, 0, 0, 1, 0x0D, 1, 0x0D, 1100000 },
-	{ {0, 0},  756000,  ACPU_SCPLL, 0, 0, 1, 0x0E, 1, 0x0E, 1100000 },
-	{ {1, 1},  810000,  ACPU_SCPLL, 0, 0, 1, 0x0F, 1, 0x0F, 1100000 },
-	{ {0, 0},  864000,  ACPU_SCPLL, 0, 0, 1, 0x10, 1, 0x10, 1200000 },
-	{ {0, 0},  918000,  ACPU_SCPLL, 0, 0, 1, 0x11, 1, 0x10, 1200000 },
-	{ {0, 0},  972000,  ACPU_SCPLL, 0, 0, 1, 0x12, 1, 0x10, 1200000 },
-	{ {1, 1}, 1026000,  ACPU_SCPLL, 0, 0, 1, 0x13, 1, 0x10, 1200000 },
-	{ {0, 0}, 1080000,  ACPU_SCPLL, 0, 0, 1, 0x14, 1, 0x10, 1200000 },
-	{ {0, 0}, 1134000,  ACPU_SCPLL, 0, 0, 1, 0x15, 1, 0x10, 1200000 },
-	{ {1, 1}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, 1, 0x10, 1200000 },
+	{ {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    0, 0,     950000,
+		0x03006000 },
+	{ {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    0, 0,     950000,
+		0x03006000 },
+	{ {0, 0},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    0, 0,     950000,
+		0x03006000 },
+	{ {1, 1},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, 1, 0x08,  950000,
+		0x03006000 },
+	{ {0, 0},  486000,  ACPU_SCPLL, 0, 0, 1, 0x09, 1, 0x09, 1100000,
+		0x03006000 },
+	{ {0, 0},  540000,  ACPU_SCPLL, 0, 0, 1, 0x0A, 1, 0x0A, 1100000,
+		0x03006000 },
+	{ {0, 0},  594000,  ACPU_SCPLL, 0, 0, 1, 0x0B, 1, 0x0B, 1100000,
+		0x03006000 },
+	{ {1, 1},  648000,  ACPU_SCPLL, 0, 0, 1, 0x0C, 1, 0x0C, 1100000,
+		0x03006000 },
+	{ {0, 0},  702000,  ACPU_SCPLL, 0, 0, 1, 0x0D, 1, 0x0D, 1100000,
+		0x03006000 },
+	{ {0, 0},  756000,  ACPU_SCPLL, 0, 0, 1, 0x0E, 1, 0x0E, 1100000,
+		0x03006000 },
+	{ {1, 1},  810000,  ACPU_SCPLL, 0, 0, 1, 0x0F, 1, 0x0F, 1100000,
+		0x03006000 },
+	{ {0, 0},  864000,  ACPU_SCPLL, 0, 0, 1, 0x10, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0},  918000,  ACPU_SCPLL, 0, 0, 1, 0x11, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0},  972000,  ACPU_SCPLL, 0, 0, 1, 0x12, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {1, 1}, 1026000,  ACPU_SCPLL, 0, 0, 1, 0x13, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0}, 1080000,  ACPU_SCPLL, 0, 0, 1, 0x14, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {0, 0}, 1134000,  ACPU_SCPLL, 0, 0, 1, 0x15, 1, 0x10, 1200000,
+		0x03006000 },
+	{ {1, 1}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, 1, 0x10, 1200000,
+		0x03006000 },
 	{ {0, 0}, 0 },
 };
 
@@ -326,18 +345,6 @@ static void switch_sc_speed(int cpu, struct clkctl_acpu_speed *tgt_s)
 
 	/* Update the driver state with the new clock freq */
 	drv_state.current_speed[cpu] = tgt_s;
-
-	/* Adjust lpj for the new clock speed. */
-	/* XXX Temporary hack until udelay() is fixed to not care about lpj:
-	 * Update the global loops_per_jiffy variable used by udelay() to be
-	 * the max of the two CPUs' values. */
-#ifdef CONFIG_SMP
-	per_cpu(cpu_data, cpu).loops_per_jiffy = tgt_s->lpj;
-#endif
-	loops_per_jiffy = tgt_s->lpj;
-	for_each_online_cpu(cpu)
-		if (drv_state.current_speed[cpu]->lpj > loops_per_jiffy)
-			loops_per_jiffy = drv_state.current_speed[cpu]->lpj;
 }
 
 int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
@@ -371,8 +378,14 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 		goto out;
 	}
 
+	/* AVS needs SAW_VCTL to be intitialized correctly, before enable,
+	 * and is not initialized at acpuclk_init().
+	 */
+	if (reason == SETRATE_CPUFREQ)
+		AVS_DISABLE(cpu);
+
 	/* Increase VDD levels if needed. */
-	if (reason == SETRATE_CPUFREQ) {
+	if (reason == SETRATE_CPUFREQ || reason == SETRATE_INIT) {
 		if (tgt_s->vdd_sc > strt_s->vdd_sc) {
 			rc = regulator_set_voltage(regulator_sc[cpu],
 				tgt_s->vdd_sc, MAX_VDD_SC);
@@ -422,6 +435,11 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	}
 
 	dprintk("ACPU%d speed change complete\n", cpu);
+
+	/* Re-enable AVS */
+	if (reason == SETRATE_CPUFREQ)
+		AVS_ENABLE(cpu, tgt_s->avsdscr_setting);
+
 out:
 	if (reason == SETRATE_CPUFREQ)
 		mutex_unlock(&drv_state.lock);
@@ -523,9 +541,6 @@ static void __init unselect_scplls(void)
 
 	select_core_source(L2, 0);
 	drv_state.current_l2_speed = &acpu_freq_tbl[CAL_IDX];
-
-	/* Both cores assumed to have the same lpj when on the same source. */
-	calibrate_delay();
 }
 
 /* Ensure SCPLLs use the 27MHz XO. */
@@ -550,22 +565,6 @@ static void __init scpll_set_refs(void)
 	else
 		regval |= BIT(4);
 	writel(regval, sc_pll_base[L2] + SCPLL_CFG_OFFSET);
-}
-
-/* Initalize the lpj field in the acpu_freq_tbl. */
-static void __init lpj_init(void)
-{
-	int i;
-	const struct clkctl_acpu_speed *base_freq;
-
-	base_freq = drv_state.current_speed[smp_processor_id()];
-	for (i = 0; acpu_freq_tbl[i].acpuclk_khz; i++) {
-		acpu_freq_tbl[i].lpj =
-			cpufreq_scale(
-				loops_per_jiffy,
-				base_freq->acpuclk_khz,
-				acpu_freq_tbl[i].acpuclk_khz);
-	}
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
@@ -607,7 +606,7 @@ static void __init cpufreq_table_init(void) {}
 /* Voltage regulator initialization. */
 void __init regulator_init(void)
 {
-	int cpu;
+	int cpu, rc;
 	const char *regulator_sc_name[] = {"8901_s0", "8901_s1"};
 
 	for_each_possible_cpu(cpu) {
@@ -615,6 +614,19 @@ void __init regulator_init(void)
 		if (IS_ERR(regulator_sc[cpu])) {
 			pr_err("%s: unable to get SC%d voltage regulator\n",
 				__func__, cpu);
+			BUG();
+		}
+		rc = regulator_set_voltage(regulator_sc[cpu],
+			drv_state.current_speed[cpu]->vdd_sc, MAX_VDD_SC);
+		if (rc) {
+			pr_err("%s: failed to set SC%d VDD (%d)\n",
+				__func__, cpu, rc);
+			BUG();
+		}
+		rc = regulator_enable(regulator_sc[cpu]);
+		if (rc) {
+			pr_err("%s: failed to enable SC%d regulator (%d)\n",
+				__func__, cpu, rc);
 			BUG();
 		}
 	}
@@ -630,19 +642,18 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.max_speed_delta_khz = clkdata->max_speed_delta_khz;
 
 	/* Configure hardware. */
-	regulator_init();
 	unselect_scplls();
 	scpll_set_refs();
 	for_each_possible_cpu(cpu)
 		scpll_init(cpu);
 	scpll_init(L2);
+	regulator_init();
 
-	lpj_init();
 	precompute_stepping();
 
 	/* Improve boot time by ramping up CPUs immediately. */
 	for_each_online_cpu(cpu)
-		acpuclk_set_rate(cpu, 810000, SETRATE_CPUFREQ);
+		acpuclk_set_rate(cpu, 810000, SETRATE_INIT);
 
 	cpufreq_table_init();
 }

@@ -76,8 +76,8 @@ struct msm_bus_node_info {
 struct msm_bus_vectors {
 	int src; /* Master */
 	int dst; /* Slave */
-	int ab; /* Arbitrated bandwidth */
-	int ib; /* Instantaneous bandwidth */
+	unsigned int ab; /* Arbitrated bandwidth */
+	unsigned int ib; /* Instantaneous bandwidth */
 };
 
 struct msm_bus_paths {
@@ -97,9 +97,29 @@ struct msm_bus_scale_pdata {
  * call msm_bus_scale_client_update_request.
  * The function returns 0 if bus driver is unable to register a client
  */
+
+#ifdef CONFIG_MSM_BUS_SCALING
 uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata);
 int msm_bus_scale_client_update_request(uint32_t cl, unsigned int index);
 void msm_bus_scale_unregister_client(uint32_t cl);
+#else
+static inline uint32_t
+msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
+{
+	return 0;
+}
+
+static inline int
+msm_bus_scale_client_update_request(uint32_t cl, unsigned int index)
+{
+	return 0;
+}
+
+static inline void
+msm_bus_scale_unregister_client(uint32_t cl)
+{
+}
+#endif
 
 /* AXI Port configuration APIs */
 int msm_bus_axi_porthalt(int master_port);

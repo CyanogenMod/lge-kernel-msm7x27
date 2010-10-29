@@ -58,7 +58,7 @@ struct msm_dmov_conf {
 	unsigned int irq;
 };
 
-#ifdef CONFIG_ARCH_MSM8X60
+#ifdef CONFIG_MSM_ADM3
 
 #define DMOV_CHANNEL_DEFAULT_CONF { .sd = 0, .block = 0, .priority = 0 }
 #define DMOV_CHANNEL_MODEM_CONF { .sd = 3, .block = 0, .priority = 0 }

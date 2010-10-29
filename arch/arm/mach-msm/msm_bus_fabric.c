@@ -31,6 +31,8 @@
 #define BWMASK 0x7FFF
 #define TIERMASK 0x8000
 #define GET_TIER(n) (((n) & TIERMASK) >> 15)
+#define RPM_SHIFT_VAL 16
+#define RPM_SHIFT(n) ((n) << RPM_SHIFT_VAL)
 
 struct msm_bus_fabric {
 	struct msm_bus_fabric_device fabdev;
@@ -60,7 +62,7 @@ static int msm_bus_fabric_add_node(struct msm_bus_fabric *fabric,
 	int status = -ENOMEM;
 	MSM_FAB_DBG("msm_bus_fabric_add_node: ID %d Gw: %d\n",
 		info->node_info->id, info->node_info->gateway);
-	status = radix_tree_preload(GFP_KERNEL);
+	status = radix_tree_preload(GFP_ATOMIC);
 	if (status)
 		goto out;
 	status = radix_tree_insert(&fabric->fab_tree, info->node_info->id,
@@ -156,8 +158,9 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 		}
 	}
 	MSM_FAB_DBG("Fabric: %d nmasters: %d nslaves: %d\n"
-		" ntieredslaves: %d\n", fabric->fabdev.id, fabric->nmasters,
-		fabric->nslaves, fabric->ntieredslaves);
+		" ntieredslaves: %d, rpm_enabled: %d\n",
+		fabric->fabdev.id, fabric->nmasters, fabric->nslaves,
+		fabric->ntieredslaves, fabric->pdata->rpm_enabled);
 	MSM_FAB_DBG("msm_bus_register_fabric_info i: %d\n", i);
 	fabric->num_nodes = fabric->pdata->len;
 error:
@@ -171,31 +174,60 @@ error:
  * */
 static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 {
-	int i, j, offset = 0, status = 0, count;
+	int i, j, offset = 0, status = 0, count, index = 0;
 	struct msm_rpm_iv_pair *rpm_data;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	/*
 	 * count is the number of 2-byte words required to commit the
 	 * data to rpm. This is calculated by the following formula.
 	 * Commit data is split into two arrays:
-	 * 1. bwsum[nmasters][ntieredslaves]
-	 * 2. arb[nslaves]
+	 * 1. arb[nmasters * ntieredslaves]
+	 * 2. bwsum[nslaves]
 	 */
 	if (!fabric->dirty) {
 		MSM_FAB_DBG("Not committing as fabric not dirty\n");
 		return status;
 	}
 	count = ((fabric->nmasters * fabric->ntieredslaves)
-		+ (fabric->nslaves))/2;
+		+ (fabric->nslaves) + 1)/2;
 
 	rpm_data = kmalloc((sizeof(struct msm_rpm_iv_pair) * count),
 			GFP_KERNEL);
 
 	offset = fabric->pdata->offset;
-	for (i = 0; i < count; i++) {
-		rpm_data[i].id = offset + i;
-		rpm_data[i].value = *((uint32_t *)fabric->cdata + i);
+	/*
+	 * Copy bwsum to rpm data
+	 * Since bwsum is uint16, the values need to be adjusted to
+	 * be copied to value field of rpm-data, which is 32 bits.
+	 */
+	for (i = 0; i < fabric->nslaves; i += 2) {
+		rpm_data[index].id = offset + index;
+		rpm_data[index].value = RPM_SHIFT(*(fabric->cdata->bwsum
+			+ i + 1)) | *(fabric->cdata->bwsum + i);
+		index++;
 	}
+	/* Account for odd number of slaves */
+	if (fabric->nslaves & 1) {
+		rpm_data[index].id = offset + index;
+		rpm_data[index].value = *(fabric->cdata->arb);
+		rpm_data[index].value = RPM_SHIFT(rpm_data[index].value) |
+			*(fabric->cdata->bwsum + i);
+		index++;
+		i = 1;
+	} else
+		i = 0;
+
+	/* Copy arb values to rpm data */
+	for (; i <= (fabric->ntieredslaves * fabric->nmasters); i += 2) {
+		rpm_data[index].id = offset + index;
+		rpm_data[index].value = RPM_SHIFT(*(fabric->cdata->arb
+			+ i + 1)) | *(fabric->cdata->arb + i);
+		index++;
+	}
+
+	MSM_FAB_DBG("rpm data for fab: %d\n", fabric->fabdev.id);
+	for (i = 0; i < count; i++)
+		MSM_FAB_DBG("%d %x\n", rpm_data[i].id, rpm_data[i].value);
 
 	MSM_FAB_DBG("Commit Data: Fab: %d BWSum:\n", fabric->fabdev.id);
 	for (i = 0; i < fabric->nslaves; i++)
@@ -206,11 +238,12 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 		MSM_FAB_DBG("tiered-slave: %d\n", i);
 		for (j = 0; j < fabric->nmasters; j++)
 			MSM_FAB_DBG(" 0x%x\n",
-			fabric->cdata->arb[i][j]);
+			fabric->cdata->arb[(i * fabric->nmasters) + j]);
 	}
 
 	MSM_FAB_DBG("calling msm_rpm_set:  %d\n", status);
-	status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, count);
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, count);
 	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	fabric->dirty = false;
 	kfree(rpm_data);
@@ -243,9 +276,8 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 			continue;
 		max_pclk = max(max_pclk, slave->pnode[i].clk);
 	}
-	slave->link_info.clk = max(max_pclk, max(
-		(unsigned long)BW_TO_CLK_FREQ_KHZ(slave->node_info->buswidth,
-		bwsum), req_clk));
+	slave->link_info.clk = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth,
+		max(max_pclk, max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk)));
 	/* Is this gateway or slave? */
 	if (clk_sel && (!fabric->ahb)) {
 		struct msm_bus_fabnodeinfo *fabgw = NULL;
@@ -270,13 +302,16 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 	} else
 		pclk = &slave->link_info.clk;
 
-	if (!slave->node_info->buswidth)
-		MSM_FAB_DBG("Invalid width!, using default width 8\n");
-	else
+	if (!slave->node_info->buswidth) {
 		slave->node_info->buswidth = 8;
+		MSM_FAB_DBG("Invalid width!, using default width 8\n");
+	}
 
-	*pclk = max(max_pclk, max((unsigned long)BW_TO_CLK_FREQ_KHZ(slave->
-		node_info->buswidth, bwsum), req_clk));
+	*pclk = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth, max(max_pclk,
+		max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk)));
+
+	if (!fabric->pdata->rpm_enabled)
+		goto skip_set_clks;
 
 	if (clk_sel) {
 		MSM_FAB_DBG("AXI_clks: id: %d set-clk: %lu bwsum:%lu\n",
@@ -296,6 +331,7 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 			status = clk_set_min_rate(slave->memclk,
 			slave->link_info.clk);
 	}
+skip_set_clks:
 	return status;
 }
 
@@ -304,6 +340,7 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	int add_bw, int master_tier)
 {
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
+	int index;
 	/* If it's an ahb fabric, don't calculate arb values */
 	if (fabric->ahb) {
 		MSM_FAB_DBG("AHB fabric, skipping bw calculation\n");
@@ -312,13 +349,13 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	/* If no tier, set it to default value */
 	if (hop->link_info.tier == 0)
 		hop->link_info.tier = MSM_BUS_BW_TIER2;
+	index = (((hop->node_info->tier - 1) * fabric->nmasters) +
+		(info->node_info->masterp - 1));
 	/* If there is tier, calculate arb for commit */
 	if (hop->node_info->tier) {
 		uint16_t tier;
-		uint16_t tieredbw = (fabric->cdata->arb[hop->node_info->tier
-			- 1][info->node_info->masterp - 1] & BWMASK);
-		if (GET_TIER(fabric->cdata->arb[hop->node_info->tier - 1]
-			[info->node_info->masterp - 1]))
+		uint16_t tieredbw = (fabric->cdata->arb[index] & BWMASK);
+		if (GET_TIER(fabric->cdata->arb[index]))
 			tier = MSM_BUS_BW_TIER1;
 		else
 			tier = master_tier;
@@ -327,9 +364,8 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 		if (!tieredbw)
 			tier = MSM_BUS_BW_TIER2;
 		/* Update Arb for fab,get HW Mport from enum */
-		fabric->cdata->arb[hop->node_info->tier - 1]
-			[info->node_info->masterp - 1] = (uint16_t)
-			CREATE_BW_TIER_PAIR(tier, tieredbw);
+		fabric->cdata->arb[index] = (uint16_t)CREATE_BW_TIER_PAIR
+			(tier, tieredbw);
 		MSM_BUS_DBG("tier:%d mport: %d add_bw:%d bwsum: %d\n",
 			hop->node_info->tier - 1, info->node_info->masterp - 1,
 			add_bw, hop->link_info.bw);
@@ -351,7 +387,7 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int portid)
 {
 	struct msm_bus_halt_vector hvector = {0, 0};
 	struct msm_rpm_iv_pair rpm_data[2];
-	uint8_t mport = (uint8_t)GET_MPORT(portid);
+	uint8_t mport = (uint8_t)GET_MPORT(portid - 1);
 	uint32_t id = 0;
 	int status = 0;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
@@ -371,7 +407,8 @@ int msm_bus_fabric_port_halt(struct msm_bus_fabric_device *fabdev, int portid)
 			MSM_RPM_CTX_SET_0,
 			rpm_data[1].id, rpm_data[1].value);
 
-	status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
 	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	return status;
 }
@@ -385,7 +422,7 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int portid)
 {
 	struct msm_bus_halt_vector hvector = {0, 0};
 	struct msm_rpm_iv_pair rpm_data[2];
-	uint8_t mport = (uint8_t)GET_MPORT(portid);
+	uint8_t mport = (uint8_t)GET_MPORT(portid - 1);
 	uint32_t id = 0;
 	int status = 0;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
@@ -405,7 +442,8 @@ int msm_bus_fabric_port_unhalt(struct msm_bus_fabric_device *fabdev, int portid)
 			MSM_RPM_CTX_SET_SLEEP,
 			rpm_data[1].id, rpm_data[1].value);
 
-	status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
+	if (fabric->pdata->rpm_enabled)
+		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, 2);
 	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	return status;
 }
@@ -483,7 +521,6 @@ static struct msm_bus_fab_algorithm msm_bus_algo = {
  */
 static int allocate_commit_data(struct msm_bus_fabric *fabric)
 {
-	int i;
 	struct commit_data *cdata;
 
 	cdata = kzalloc(sizeof(struct commit_data), GFP_KERNEL);
@@ -498,19 +535,15 @@ static int allocate_commit_data(struct msm_bus_fabric *fabric)
 		kfree(cdata);
 		return -ENOMEM;
 	}
-	cdata->arb = kzalloc((sizeof(uint16_t *)) *
-			fabric->ntieredslaves, GFP_KERNEL);
-	for (i = 0; i < fabric->ntieredslaves; i++) {
-		cdata->arb[i] = kzalloc((sizeof(uint16_t)) * fabric->nmasters,
-				GFP_KERNEL);
-		if (!cdata->arb[i]) {
+	cdata->arb = kzalloc(((sizeof(uint16_t *)) *
+			fabric->ntieredslaves * fabric->nmasters), GFP_KERNEL);
+		if (!cdata->arb) {
 			MSM_FAB_DBG("Couldn't alloc memory for"
 					" slaves\n");
-		kfree(cdata->bwsum);
-		kfree(cdata);
-		return -ENOMEM;
+			kfree(cdata->bwsum);
+			kfree(cdata);
+			return -ENOMEM;
 		}
-	}
 	fabric->cdata = cdata;
 	return 0;
 }
@@ -528,7 +561,7 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 	}
 
 	INIT_LIST_HEAD(&fabric->gateways);
-	INIT_RADIX_TREE(&fabric->fab_tree, GFP_KERNEL);
+	INIT_RADIX_TREE(&fabric->fab_tree, GFP_ATOMIC);
 	fabric->num_nodes = 0;
 	fabric->fabdev.id = pdev->id;
 	fabric->fabdev.visited = false;
@@ -611,8 +644,6 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 		radix_tree_delete(&fabric->fab_tree, i);
 	if (!fabric->ahb) {
 		kfree(fabric->cdata->bwsum);
-		for (i = 0; i < fabric->nmasters; i++)
-			kfree(fabric->cdata->arb[i]);
 		kfree(fabric->cdata->arb);
 		kfree(fabric->cdata);
 	}
@@ -635,4 +666,4 @@ static int __init msm_bus_fabric_init_driver(void)
 	MSM_BUS_ERR("msm_bus_fabric_init_driver\n");
 	return platform_driver_register(&msm_bus_fabric_driver);
 }
-arch_initcall(msm_bus_fabric_init_driver);
+postcore_initcall(msm_bus_fabric_init_driver);

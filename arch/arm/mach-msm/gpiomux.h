@@ -37,17 +37,16 @@
  * Available settings differ by target; see the gpiomux header
  * specific to your target arch for available configurations.
  *
+ * @gpio: The index number of the gpio being described.
  * @active: The configuration to be installed when the line is
  * active, or its reference count is > 0.
  * @suspended: The configuration to be installed when the line
  * is suspended, or its reference count is 0.
- * @ref: The reference count of the line.  For internal use of
- * the gpiomux framework only.
  */
 struct msm_gpiomux_config {
+	unsigned         gpio;
 	gpiomux_config_t active;
 	gpiomux_config_t suspended;
-	unsigned         ref;
 };
 
 /**
@@ -63,12 +62,16 @@ enum {
 
 #ifdef CONFIG_MSM_GPIOMUX
 
-/* When the board-specific init code has selected the correct configuration
- * table for the running board, it must call msm_gpiomux_init to install
- * the table and initialize the controlled gpio lines.  This must be done
- * before any of the referenced gpios are used.
+/* Before using gpiomux, initialize the subsystem by telling it how many
+ * gpios are going to be managed.  Calling any other gpiomux functions before
+ * msm_gpiomux_init is unsupported.
  */
-int msm_gpiomux_init(struct msm_gpiomux_config *configs, unsigned nconfigs);
+int msm_gpiomux_init(size_t ngpio);
+
+/* Install a block of gpiomux configurations in gpiomux.  This is functionally
+ * identical to calling msm_gpiomux_write many times.
+ */
+void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs);
 
 /* Increment a gpio's reference count, possibly activating the line. */
 int __must_check msm_gpiomux_get(unsigned gpio);
@@ -93,11 +96,13 @@ int msm_gpiomux_write(unsigned gpio,
  */
 void __msm_gpiomux_write(unsigned gpio, gpiomux_config_t val);
 #else
-static inline int msm_gpiomux_init(struct msm_gpiomux_config *configs,
-				   unsigned nconfigs)
+static inline int msm_gpiomux_init(size_t ngpio)
 {
 	return -ENOSYS;
 }
+
+static inline void
+msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs) {}
 
 static inline int __must_check msm_gpiomux_get(unsigned gpio)
 {

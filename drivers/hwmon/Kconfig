@@ -670,6 +670,15 @@ config SENSORS_MAX6650
 	  This driver can also be built as a module.  If so, the module
 	  will be called max6650.
 
+config SENSORS_M_ADC
+	tristate "MSM ADC Driver Interface"
+	depends on ARCH_MSM8X60
+	default n
+	help
+	  Provides interface for measuring the ADC's on AMUX channels of XOADC,
+	  MPP's and the XOTHERM on pmic8058 and provides post processing of the
+	  channel for the ADC Raw Data.
+
 config SENSORS_PC87360
 	tristate "National Semiconductor PC87360 family"
 	select HWMON_VID

@@ -36,6 +36,7 @@ extern struct mdp_dma_data dma_s_data;
 extern struct mdp_dma_data dma_e_data;
 extern struct mdp_histogram mdp_hist;
 extern struct completion mdp_hist_comp;
+extern boolean mdp_is_hist_start;
 extern boolean mdp_is_in_isr;
 extern uint32 mdp_intr_mask;
 extern spinlock_t mdp_spin_lock;
@@ -443,6 +444,7 @@ void mdp4_mddi_overlay_blt(ulong addr);
 int mdp4_lcdc_overlay_blt_offset(int *off);
 void mdp4_lcdc_overlay_blt(ulong addr);
 void mdp4_overlay_panel_mode(int mixer_num, uint32 mode);
+uint32 mdp4_overlay_panel_list(void);
 void mdp4_lcdc_overlay_kickoff(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 

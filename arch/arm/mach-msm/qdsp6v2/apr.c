@@ -35,6 +35,7 @@
 #include <mach/msm_smd.h>
 
 #include "apr.h"
+#include "dsp_debug.h"
 
 struct apr_q6 q6;
 struct apr_client client[APR_DEST_MAX][APR_CLIENT_MAX];
@@ -486,6 +487,12 @@ q6_unlock:
 	mutex_unlock(&q6.lock);
 }
 
+int adsp_state(int state)
+{
+	pr_info("dsp state = %d\n", state);
+	return 0;
+}
+
 static int __init apr_init(void)
 {
 	int i, j, k;
@@ -496,6 +503,7 @@ static int __init apr_init(void)
 			for (k = 0; k < APR_SVC_MAX; k++)
 				mutex_init(&client[i][j].svc[k].m_lock);
 	mutex_init(&q6.lock);
+	dsp_debug_register(adsp_state);
 	return 0;
 }
 device_initcall(apr_init);

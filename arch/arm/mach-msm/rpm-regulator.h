@@ -143,4 +143,12 @@ struct rpm_vreg_pdata {
 	enum rpm_vreg_state		state;
 };
 
+enum pm8058_s1_vote_client {
+	PM8058_S1_VOTE_REG_FRAMEWORK = 0, /* for internal use only */
+	PM8058_S1_VOTE_CLOCK,		  /* for use by the clock driver */
+	PM8058_S1_VOTE_NUM_VOTERS,
+};
+
+int pm8058_s1_set_min_uv_noirq(enum pm8058_s1_vote_client voter, int min_uV);
+
 #endif

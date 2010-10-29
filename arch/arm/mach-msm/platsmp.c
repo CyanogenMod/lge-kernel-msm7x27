@@ -23,6 +23,7 @@
 #include <mach/msm_iomap.h>
 
 #include "pm.h"
+#include "scm-boot.h"
 
 #define SECONDARY_CPU_WAIT_MS 10
 
@@ -41,6 +42,9 @@ int get_core_count(void)
 void smp_prepare_cpus(unsigned int max_cpus)
 {
 	int i;
+	unsigned int cpu = smp_processor_id();
+
+	smp_store_cpu_info(cpu);
 
 	for (i = 0; i < max_cpus; i++)
 		cpu_set(i, cpu_present_map);
@@ -60,13 +64,30 @@ void smp_init_cpus(void)
 */
 int boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
-	int cnt = 0;
+	static int cold_boot_done;
+	int ret;
 	printk(KERN_DEBUG "Starting secondary CPU %d\n", cpu);
 
-	/* Tell other CPUs to come out or reset.  Note that secondary CPUs
-	 * are probably running with caches off, so we'll need to clean to
-	 * memory. Normal cache ops will only clean to L2.
-	 */
+	if (cold_boot_done == false) {
+
+		ret = scm_set_boot_addr((void *)
+					virt_to_phys(msm_secondary_startup),
+					SCM_FLAG_COLDBOOT_CPU1);
+		if (ret == 0) {
+			void *sc1_base_ptr;
+			sc1_base_ptr = ioremap_nocache(0x00902000, SZ_4K*2);
+			if (sc1_base_ptr) {
+				writel(0x0, sc1_base_ptr+0x15A0);
+				writel(0x0, sc1_base_ptr+0xD80);
+				writel(0x3, sc1_base_ptr+0xE64);
+				iounmap(sc1_base_ptr);
+			}
+		} else
+			printk(KERN_DEBUG "Failed to set secondary core boot "
+					  "address\n");
+		cold_boot_done = true;
+	}
+
 	pen_release = cpu;
 	dmac_flush_range((void *)&pen_release,
 			 (void *)(&pen_release + sizeof(pen_release)));
@@ -77,27 +98,6 @@ int boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * the other core.
 	 */
 	smp_cross_call(cpumask_of(cpu));
-
-	/* Wait for done signal. The cpu receiving the signal does not
-	 * have the MMU or caching turned on, so all of its reads and
-	 * writes are to/from memory.  Need to ensure that when
-	 * reading the value we invalidate the cache line so we see the
-	 * fresh data from memory as the normal routines may only
-	 * invalidate to POU or L1.
-	 */
-	while (pen_release != 0xFFFFFFFF) {
-		__cpuc_flush_dcache_area(&pen_release, sizeof(pen_release));
-		outer_clean_range(__pa(&pen_release), __pa(&pen_release + 1));
-		msleep_interruptible(1);
-		if (cnt++ >= SECONDARY_CPU_WAIT_MS)
-			break;
-	}
-
-	if (pen_release == 0xFFFFFFFF)
-		printk(KERN_DEBUG "Secondary CPU start acked %d\n", cpu);
-	else
-		printk(KERN_ERR "Secondary CPU failed to start..." \
-		       "continuing\n");
 
 	return 0;
 }

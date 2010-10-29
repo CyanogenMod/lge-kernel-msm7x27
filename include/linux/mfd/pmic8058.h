@@ -47,7 +47,34 @@
 
 #define PM8058_KEYPAD_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(9, 2))
 #define PM8058_KEYSTUCK_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(9, 3))
+
+#define PM8058_VCP_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(1, 0))
+#define PM8058_CHGILIM_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(1, 3))
+#define PM8058_VBATDET_LOW_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(1, 4))
+#define PM8058_BATT_REPLACE_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(1, 5))
+#define PM8058_CHGINVAL_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(1, 6))
 #define PM8058_CHGVAL_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(1, 7))
+#define PM8058_CHG_END_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(2, 0))
+#define PM8058_FASTCHG_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(2, 1))
+#define PM8058_CHGSTATE_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(2, 3))
+#define PM8058_AUTO_CHGFAIL_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(2, 4))
+#define PM8058_AUTO_CHGDONE_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(2, 5))
+#define PM8058_ATCFAIL_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(2, 6))
+#define PM8058_ATC_DONE_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(2, 7))
+#define PM8058_OVP_OK_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(3, 0))
+#define PM8058_COARSE_DET_OVP_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(3, 1))
+#define PM8058_VCPMAJOR_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(3, 2))
+#define PM8058_CHG_GONE_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(3, 3))
+#define PM8058_CHGTLIMIT_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(3, 4))
+#define PM8058_CHGHOT_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(3, 5))
+#define PM8058_BATTTEMP_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(3, 6))
+#define PM8058_BATTCONNECT_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(3, 7))
+#define PM8058_BATFET_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(5, 4))
+#define PM8058_VBATDET_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(5, 5))
+#define PM8058_VBAT_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(5, 6))
+
+#define PM8058_CBLPWR_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(4, 3))
+
 #define PM8058_PWRKEY_REL_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(6, 2))
 #define PM8058_PWRKEY_PRESS_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(6, 3))
 #define PM8058_SW_0_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(7, 1))
@@ -58,6 +85,8 @@
 #define PM8058_IR_2_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(7, 4))
 #define PM8058_RTC_IRQ(base) 		((base) + PM8058_IRQ_BLOCK_BIT(6, 5))
 #define PM8058_RTC_ALARM_IRQ(base) 	((base) + PM8058_IRQ_BLOCK_BIT(4, 7))
+#define PM8058_ADC_IRQ(base)		((base) + PM8058_IRQ_BLOCK_BIT(9, 4))
+#define PM8058_TEMP_ALARM_IRQ(base)	((base) + PM8058_IRQ_BLOCK_BIT(6, 7))
 
 struct pm8058_chip;
 

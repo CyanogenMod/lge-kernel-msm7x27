@@ -2220,8 +2220,9 @@ config FB_MSM_BACKLIGHT
 
 config FB_MSM_LOGO
 	bool "MSM Frame Buffer Logo"
+	default n
 	---help---
-	  Show /logo.rle during boot.
+	  Show /initlogo.rle during boot.
 
 config FB_MSM_LCDC_HW
 	bool
@@ -2380,6 +2381,11 @@ config FB_MSM_LCDC_WXGA
 	select FB_MSM_LCDC_PANEL
 	default n
 
+config FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+
 choice
 	prompt "LCD Panel"
 	default FB_MSM_MDDI_AUTO_DETECT
@@ -2433,6 +2439,12 @@ config FB_MSM_TRY_MDDI_CATCH_LCDC_PRISM
 	  Support for MDDI panel auto detect.
 	  If it can't find any MDDI panel, it will load an LCDC panel.
 
+config FB_MSM_MIPI_PANEL_DETECT
+	depends on FB_MSM_LCDC_HW
+	bool "MIPI Panel Detect + LCDC Samsung WSVGA"
+	select FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
+	select FB_MSM_LCDC_SAMSUNG_WSVGA
+
 config FB_MSM_MDDI_PANEL_AUTO_DETECT
 	bool "MDDI Panel Auto Detect"
 	select FB_MSM_MDDI_AUTO_DETECT
@@ -2469,9 +2481,9 @@ config FB_MSM_MDDI_SHARP_QVGA_128x128
 	---help---
 	  Support for MDDI Sharp QVGA (240x320) and 128x128 dual panel
 
-config FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
+config FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT_PANEL
 	bool "MIPI Toshiba WVGA PT Panel"
-	select FB_MSM_MIPI_DSI
+	select FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
 
 config FB_MSM_EBI2_TMD_QVGA_EPSON_QCIF
 	bool "EBI2 TMD QVGA Epson QCIF Dual Panel"

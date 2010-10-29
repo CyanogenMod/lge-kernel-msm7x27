@@ -842,6 +842,30 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 	int r;
 
 	pr_debug("%s Begins\n", __func__);
+	for (i = 0; i < NUM_SDIO_CTL_PORTS; ++i) {
+		sdio_ctl_devp[i] = kzalloc(sizeof(struct sdio_ctl_dev),
+					GFP_KERNEL);
+		if (IS_ERR(sdio_ctl_devp[i])) {
+			pr_err("ERROR:%s kmalloc() ENOMEM\n", __func__);
+			r = -ENOMEM;
+			goto error0;
+		}
+
+		sdio_ctl_devp[i]->id = i;
+		sdio_ctl_devp[i]->ch = NULL;
+		sdio_ctl_devp[i]->ref_count = 0;
+
+		mutex_init(&sdio_ctl_devp[i]->dev_lock);
+		init_waitqueue_head(&sdio_ctl_devp[i]->read_wait_queue);
+		init_waitqueue_head(&sdio_ctl_devp[i]->open_wait_queue);
+		sdio_cmux_ch_alloc(i);
+	}
+
+	bytes_to_write = 0;
+	INIT_LIST_HEAD(&tx_list);
+	spin_lock_init(&tx_lock);
+	init_waitqueue_head(&write_wait_queue);
+
 	sdio_mux_wq = create_singlethread_workqueue("sdio_mux");
 	if (IS_ERR(sdio_mux_wq)) {
 		pr_err("%s: create_singlethread_workqueue() ENOMEM\n",
@@ -882,23 +906,6 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < NUM_SDIO_CTL_PORTS; ++i) {
-		sdio_ctl_devp[i] = kzalloc(sizeof(struct sdio_ctl_dev),
-					 GFP_KERNEL);
-		if (IS_ERR(sdio_ctl_devp[i])) {
-			pr_err("ERROR:%s kmalloc() ENOMEM\n", __func__);
-			r = -ENOMEM;
-			goto error5;
-		}
-
-		sdio_ctl_devp[i]->id = i;
-		sdio_ctl_devp[i]->ch = NULL;
-		sdio_ctl_devp[i]->ref_count = 0;
-
-		mutex_init(&sdio_ctl_devp[i]->dev_lock);
-		init_waitqueue_head(&sdio_ctl_devp[i]->read_wait_queue);
-		init_waitqueue_head(&sdio_ctl_devp[i]->open_wait_queue);
-		sdio_cmux_ch_alloc(i);
-
 		cdev_init(&sdio_ctl_devp[i]->cdev, &sdio_ctl_fops);
 		sdio_ctl_devp[i]->cdev.owner = THIS_MODULE;
 
@@ -929,26 +936,19 @@ static int sdio_ctl_probe(struct platform_device *pdev)
 		}
 	}
 
-	bytes_to_write = 0;
-	INIT_LIST_HEAD(&tx_list);
-	spin_lock_init(&tx_lock);
-	init_waitqueue_head(&write_wait_queue);
-
 	sdio_ctl_inited = 1;
 	D("SDIO Control Port Driver Initialized.\n");
 	return 0;
 
  error5:
-	if (i > 0) {
-		while (--i >= 0) {
-			cdev_del(&sdio_ctl_devp[i]->cdev);
-			kfree(sdio_ctl_devp[i]);
-			device_destroy(sdio_ctl_classp,
-				       MKDEV(MAJOR(sdio_ctl_number), i));
-		}
+	while (--i >= 0) {
+		cdev_del(&sdio_ctl_devp[i]->cdev);
+		device_destroy(sdio_ctl_classp,
+			       MKDEV(MAJOR(sdio_ctl_number), i));
 	}
 
 	class_destroy(sdio_ctl_classp);
+	i = NUM_SDIO_CTL_PORTS;
  error4:
 	unregister_chrdev_region(MAJOR(sdio_ctl_number), NUM_SDIO_CTL_PORTS);
  error3:
@@ -959,6 +959,8 @@ static int sdio_ctl_probe(struct platform_device *pdev)
  error1:
 	destroy_workqueue(sdio_mux_wq);
  error0:
+	while (--i >= 0)
+		kfree(sdio_ctl_devp[i]);
 	return r;
 }
 

@@ -39,6 +39,8 @@ module_param_named(
 #define MSM_SPM_PMIC_STATE_IDLE  0
 
 static uint32_t msm_spm_reg_offsets[MSM_SPM_REG_NR] = {
+	[MSM_SPM_REG_SAW_AVS_CTL] = 0x04,
+
 	[MSM_SPM_REG_SAW_VCTL] = 0x08,
 	[MSM_SPM_REG_SAW_STS] = 0x0C,
 	[MSM_SPM_REG_SAW_CFG] = 0x10,
@@ -197,9 +199,10 @@ int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 	local_irq_save(flags);
 
 	if (!atomic_read(&msm_spm_set_vdd_x_cpu_allowed) &&
-		unlikely(smp_processor_id() != cpu)) {
-		WARN(1, "%s: attempting to set vdd of cpu %u from cpu %u\n",
-			__func__, cpu, smp_processor_id());
+				unlikely(smp_processor_id() != cpu)) {
+		if (msm_spm_debug_mask & MSM_SPM_DEBUG_VCTL)
+			pr_info("%s: attempting to set vdd of cpu %u from "
+				"cpu %u\n", __func__, cpu, smp_processor_id());
 		goto set_vdd_x_cpu_bail;
 	}
 

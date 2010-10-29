@@ -40,6 +40,7 @@ config ARCH_MSM7X30
 	select ARCH_MEMORY_REMOVE
 	select DONT_RESERVE_FROM_MOVABLE_ZONE
 	select MSM_GPIOMUX
+	select RESERVE_FIRST_PAGE
 
 config ARCH_QSD8X50
 	bool "QSD8X50"
@@ -62,6 +63,7 @@ config ARCH_MSM8X60
 	select REGULATOR
 	select MSM_V2_TLMM
 	select MSM_PIL
+	select MSM_SCM
 	select ARCH_HAS_CPU_IDLE_WAIT
 	select MSM_DIRECT_SCLK_ACCESS
 	select MSM_RPM
@@ -879,14 +881,24 @@ config MSM_CPU_FREQ_MIN
 endif # CPU_FREQ_MSM
 
 config MSM_CPU_AVS
-	bool "Enable Adaptive Voltage Scaling (AVS)"
+	bool "Enable software controlled Adaptive Voltage Scaling (AVS)"
 	depends on (ARCH_MSM_SCORPION && QSD_SVS)
 	depends on ARCH_QSD8X50
 	default n
+	select MSM_AVS_HW
 	help
-	  This enables the Adaptive Voltage Scaling feature of
-	  Qualcomm ARMv7 CPUs. It adjusts the voltage for each frequency
+	  This enables the s/w control of Adaptive Voltage Scaling feature
+	  in Qualcomm ARMv7 CPUs. It adjusts the voltage for each frequency
 	  based on feedback from three ring oscillators in the CPU.
+
+config MSM_AVS_HW
+	bool "Enable Adaptive Voltage Scaling (AVS)"
+	default n
+	help
+	  Enable AVS hardware to fine tune voltage at each frequency. The
+	  AVS hardware blocks associated with each Qualcomm ARMv7 cores can
+	  fine tune the voltages based on the feedback from the ring
+	  oscillators.
 
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
@@ -947,7 +959,7 @@ config MSM_QDSP6
 	  Enable support for qdsp6. This provides audio and video functionality.
 
 config MSM8X60_AUDIO
-	tristate "MSM8X60 support"
+	tristate "MSM8X60 audio support"
 	depends on ARCH_MSM8X60 && ANDROID_PMEM
 	default y
 	help
@@ -1082,65 +1094,6 @@ choice
 		bool "Reset the entire chip"
 endchoice
 
-config MSM_NPA
-	bool "Node Power Architecture(NPA) support"
-	default y if ARCH_MSM7X30
-	help
-	  Enable support for Node Power Architecture for aggressive
-	  resource power management. NPA provides an interface for resources
-	  to export their parameters and clients to request a value. The
-	  resources have additional facility to aggreate requests, calculate
-	  the resultant value, apply the value and notify the clients of
-	  change in state.
-
-config MSM_NPA_LOG
-	bool "Node Power Architecture(NPA) logging support"
-	depends on MSM_NPA
-	default y
-	help
-	  Enable logging support for NPA.
-
-config MSM_NPA_DEBUG
-	bool "Node Power Architecture(NPA) debug support"
-	depends on MSM_NPA
-	default n
-	help
-	  Exports functions that can debug or reset NPA internal
-	  data structures.
-
-config MSM_NPA_REMOTE
-	bool "Node Power Architecture(NPA) remoting"
-	depends on MSM_NPA
-	default n
-	help
-	  Enables Linux NPA clients to talk to NPA nodes across
-	  processor boundary.
-
-config MSM_NPA_REMOTE_ONCRPC
-	bool "Enables NPA remoting through ONCRPC protocol."
-	depends on MSM_NPA && MSM_ONCRPCROUTER
-	select MSM_NPA_REMOTE
-	default n
-	help
-	  Enables Linux NPA clients to talk to NPA nodes in the modem
-	  using ONCRPC communication protocol.
-
-config MSM_NPA_PROC_COMM
-	bool "Enables NPA remoting through PROC-COMM to issue requests"
-	depends on MSM_NPA_REMOTE_ONCRPC && MSM_PROC_COMM
-	default n
-	help
-	  Enables the use of PROC-COMM to make requests instead of ONCRPC.
-	  ONCRPC is however still required for NPA setup.
-
-config MSM_NPA_SYSTEM_BUS
-	bool "NPA-managed System Bus (AXI) rates through PM_QOS."
-	depends on MSM_NPA_REMOTE
-	default n
-	help
-	  PM_QOS System Bus rate requests are interpreted as 'Flow IDs' and
-	  are routed through the NPA framework.
-
 config MSM_PIL
 	bool "Peripheral image loading"
 	select FW_LOADER
@@ -1151,6 +1104,10 @@ config MSM_PIL
 	  brought out of reset.
 
 	  Say yes to support these devices.
+
+config MSM_SCM
+	bool "Secure Channel Manager (SCM) support"
+	default n
 
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"

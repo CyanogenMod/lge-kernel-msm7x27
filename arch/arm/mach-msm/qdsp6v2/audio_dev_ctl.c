@@ -46,8 +46,6 @@ struct audio_dev_ctrl_state {
 
 static struct audio_dev_ctrl_state audio_dev_ctrl;
 struct event_listner event;
-#define MAX_DEC_SESSIONS	6
-#define MAX_ENC_SESSIONS	2
 
 #define PLAYBACK 0x1
 #define LIVE_RECORDING 0x2
@@ -59,10 +57,10 @@ struct session_freq {
 };
 
 struct audio_routing_info {
-	unsigned short mixer_mask[MAX_DEC_SESSIONS];
-	unsigned short audrec_mixer_mask[MAX_ENC_SESSIONS];
-	struct session_freq dec_freq[MAX_DEC_SESSIONS];
-	struct session_freq enc_freq[MAX_ENC_SESSIONS];
+	unsigned short mixer_mask[MAX_SESSIONS];
+	unsigned short audrec_mixer_mask[MAX_SESSIONS];
+	struct session_freq dec_freq[MAX_SESSIONS];
+	struct session_freq enc_freq[MAX_SESSIONS];
 	int voice_tx_dev_id;
 	int voice_rx_dev_id;
 	int voice_tx_sample_rate;
@@ -151,7 +149,7 @@ EXPORT_SYMBOL(msm_snddev_is_set);
 
 unsigned short msm_snddev_route_enc(int enc_id)
 {
-	if (enc_id >= MAX_ENC_SESSIONS)
+	if (enc_id >= MAX_SESSIONS)
 		return -EINVAL;
 	return routing_info.audrec_mixer_mask[enc_id];
 }
@@ -159,7 +157,7 @@ EXPORT_SYMBOL(msm_snddev_route_enc);
 
 unsigned short msm_snddev_route_dec(int popp_id)
 {
-	if (popp_id >= MAX_DEC_SESSIONS)
+	if (popp_id >= MAX_SESSIONS)
 		return -EINVAL;
 	return routing_info.mixer_mask[popp_id];
 }
@@ -202,13 +200,13 @@ int msm_set_voc_route(struct msm_snddev_info *dev_info,
 			int stream_type, int dev_id)
 {
 	int rc = 0;
-	u32 session_mask = 0;
+	u64 session_mask = 0;
 
 	mutex_lock(&session_lock);
 	switch (stream_type) {
 	case AUDIO_ROUTE_STREAM_VOICE_RX:
 		if (audio_dev_ctrl.voice_rx_dev)
-			audio_dev_ctrl.voice_rx_dev->sessions &= ~0xFF;
+			audio_dev_ctrl.voice_rx_dev->sessions &= ~0xFFFF;
 
 		if (!(dev_info->capability & SNDDEV_CAP_RX) |
 		    !(dev_info->capability & SNDDEV_CAP_VOICE)) {
@@ -218,7 +216,8 @@ int msm_set_voc_route(struct msm_snddev_info *dev_info,
 		audio_dev_ctrl.voice_rx_dev = dev_info;
 		if (audio_dev_ctrl.voice_rx_dev) {
 			session_mask =
-				0x1 << (8 * ((int)AUDDEV_CLNT_VOC-1));
+				((u64)0x1) << (MAX_BIT_PER_CLIENT * \
+				((int)AUDDEV_CLNT_VOC-1));
 			audio_dev_ctrl.voice_rx_dev->sessions |=
 				session_mask;
 		}
@@ -226,7 +225,7 @@ int msm_set_voc_route(struct msm_snddev_info *dev_info,
 		break;
 	case AUDIO_ROUTE_STREAM_VOICE_TX:
 		if (audio_dev_ctrl.voice_tx_dev)
-			audio_dev_ctrl.voice_tx_dev->sessions &= ~0xFF;
+			audio_dev_ctrl.voice_tx_dev->sessions &= ~0xFFFF;
 
 		if (!(dev_info->capability & SNDDEV_CAP_TX) |
 		    !(dev_info->capability & SNDDEV_CAP_VOICE)) {
@@ -237,7 +236,8 @@ int msm_set_voc_route(struct msm_snddev_info *dev_info,
 		audio_dev_ctrl.voice_tx_dev = dev_info;
 		if (audio_dev_ctrl.voice_rx_dev) {
 			session_mask =
-				0x1 << (8 * ((int)AUDDEV_CLNT_VOC-1));
+				((u64)0x1) << (MAX_BIT_PER_CLIENT * \
+					((int)AUDDEV_CLNT_VOC-1));
 			audio_dev_ctrl.voice_tx_dev->sessions |=
 				session_mask;
 		}
@@ -415,7 +415,7 @@ int auddev_unregister_evt_listner(u32 clnt_type, u32 clnt_id)
 {
 	struct msm_snd_evt_listner *callback = event.cb;
 	struct msm_snddev_info *info;
-	u32 session_mask = 0;
+	u64 session_mask = 0;
 	int i = 0;
 
 	mutex_lock(&session_lock);
@@ -443,7 +443,8 @@ int auddev_unregister_evt_listner(u32 clnt_type, u32 clnt_id)
 	}
 	kfree(callback);
 
-	session_mask = (0x1 << (clnt_id)) << (8 * ((int)clnt_type-1));
+	session_mask = (((u64)0x1) << clnt_id) << (MAX_BIT_PER_CLIENT * \
+				((int)clnt_type-1));
 	for (i = 0; i < audio_dev_ctrl.num_dev; i++) {
 		info = audio_dev_ctrl.devs[i];
 		info->sessions &= ~session_mask;
@@ -457,18 +458,19 @@ int msm_snddev_withdraw_freq(u32 session_id, u32 capability, u32 clnt_type)
 {
 	int i = 0;
 	struct msm_snddev_info *info;
-	u32 session_mask = 0;
+	u64 session_mask = 0;
 
 	if ((clnt_type == AUDDEV_CLNT_VOC) && (session_id != 0))
 		return -EINVAL;
 	if ((clnt_type == AUDDEV_CLNT_DEC)
-			&& (session_id >= MAX_DEC_SESSIONS))
+			&& (session_id >= MAX_SESSIONS))
 		return -EINVAL;
 	if ((clnt_type == AUDDEV_CLNT_ENC)
-			&& (session_id >= MAX_ENC_SESSIONS))
+			&& (session_id >= MAX_SESSIONS))
 		return -EINVAL;
 
-	session_mask = (0x1 << (session_id)) << (8 * ((int)clnt_type-1));
+	session_mask = (((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+				((int)clnt_type-1));
 
 	for (i = 0; i < audio_dev_ctrl.num_dev; i++) {
 		info = audio_dev_ctrl.devs[i];
@@ -498,21 +500,22 @@ int msm_snddev_request_freq(int *freq, u32 session_id,
 	int rc = 0;
 	struct msm_snddev_info *info;
 	u32 set_freq;
-	u32 session_mask = 0;
-	u32 clnt_type_mask = 0;
+	u64 session_mask = 0;
+	u64 clnt_type_mask = 0;
 
 	pr_debug(": clnt_type 0x%08x\n", clnt_type);
 
 	if ((clnt_type == AUDDEV_CLNT_VOC) && (session_id != 0))
 		return -EINVAL;
 	if ((clnt_type == AUDDEV_CLNT_DEC)
-			&& (session_id >= MAX_DEC_SESSIONS))
+			&& (session_id >= MAX_SESSIONS))
 		return -EINVAL;
 	if ((clnt_type == AUDDEV_CLNT_ENC)
-			&& (session_id >= MAX_ENC_SESSIONS))
+			&& (session_id >= MAX_SESSIONS))
 		return -EINVAL;
-	session_mask = ((0x1 << session_id)) << (8 * (clnt_type-1));
-	clnt_type_mask = (0xFF << (8 * (clnt_type-1)));
+	session_mask = (((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+				((int)clnt_type-1));
+	clnt_type_mask = (0xFFFF << (MAX_BIT_PER_CLIENT * (clnt_type-1)));
 	if (!(*freq == 8000) && !(*freq == 11025) &&
 		!(*freq == 12000) && !(*freq == 16000) &&
 		!(*freq == 22050) && !(*freq == 24000) &&
@@ -728,19 +731,19 @@ struct miscdevice audio_dev_ctrl_misc = {
 	.fops	= &audio_dev_ctrl_fops,
 };
 
-/* session id is 32 bit routing mask per device
- * 0-7 for voice clients
- * 8-15 for Decoder clients
- * 16-23 for Encoder clients
- * 24-31 Do not care
+/* session id is 64 bit routing mask per device
+ * 0-15 for voice clients
+ * 16-31 for Decoder clients
+ * 32-47 for Encoder clients
+ * 48-63 Do not care
  */
-void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
+void broadcast_event(u32 evt_id, u32 dev_id, u64 session_id)
 {
 	int clnt_id = 0, i;
 	union auddev_evt_data *evt_payload;
 	struct msm_snd_evt_listner *callback;
 	struct msm_snddev_info *dev_info = NULL;
-	u32 session_mask = 0;
+	u64 session_mask = 0;
 	static int pending_sent;
 
 	pr_debug(": evt_id = %d\n", evt_id);
@@ -781,8 +784,9 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 		if (callback->clnt_type == AUDDEV_CLNT_AUDIOCAL)
 			goto aud_cal;
 
-		session_mask = (0x1 << (clnt_id))
-				<< (8 * ((int)callback->clnt_type-1));
+		session_mask = (((u64)0x1) << clnt_id)
+				<< (MAX_BIT_PER_CLIENT * \
+				((int)callback->clnt_type-1));
 
 		if ((evt_id == AUDDEV_EVT_STREAM_VOL_CHG) || \
 			(evt_id == AUDDEV_EVT_VOICE_STATE_CHG)) {
@@ -791,7 +795,7 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 			goto volume_strm;
 		}
 
-		pr_debug("dev_info->sessions = %08x\n", dev_info->sessions);
+		pr_debug("dev_info->sessions = %llu\n", dev_info->sessions);
 
 		if ((!session_id && !(dev_info->sessions & session_mask)) ||
 			(session_id && ((dev_info->sessions & session_mask) !=
@@ -810,7 +814,7 @@ volume_strm:
 		if (callback->clnt_type == AUDDEV_CLNT_DEC) {
 			pr_debug("AUDDEV_CLNT_DEC\n");
 			if (evt_id == AUDDEV_EVT_STREAM_VOL_CHG) {
-				pr_debug("clnt_id = %d, session_id = 0x%8x\n",
+				pr_debug("clnt_id = %d, session_id = %llu\n",
 					clnt_id, session_id);
 				if (session_mask != session_id)
 					goto sent_dec;
@@ -1002,7 +1006,7 @@ voc_events:
 				evt_payload,
 				callback->private_data);
 			if (evt_id == AUDDEV_EVT_DEV_RLS)
-				dev_info->sessions &= ~(0xFF);
+				dev_info->sessions &= ~(0xFFFF);
 sent_voc:
 			if (callback->cb_next == NULL)
 				break;

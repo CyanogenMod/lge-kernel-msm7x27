@@ -42,7 +42,6 @@
 
 #include "gadget_chips.h"
 
-#ifdef CONFIG_USB_ANDROID_RMNET
 static char *rmnet_ctl_ch = CONFIG_RMNET_SMD_CTL_CHANNEL;
 module_param(rmnet_ctl_ch, charp, S_IRUGO);
 MODULE_PARM_DESC(rmnet_ctl_ch, "RmNet control SMD channel");
@@ -50,7 +49,6 @@ MODULE_PARM_DESC(rmnet_ctl_ch, "RmNet control SMD channel");
 static char *rmnet_data_ch = CONFIG_RMNET_SMD_DATA_CHANNEL;
 module_param(rmnet_data_ch, charp, S_IRUGO);
 MODULE_PARM_DESC(rmnet_data_ch, "RmNet data SMD channel");
-#endif
 
 #define ACM_CTRL_DTR	(1 << 0)
 
@@ -338,10 +336,12 @@ static void rmnet_smd_notify(void *priv, unsigned event)
 {
 	struct rmnet_smd_info *smd_info = priv;
 	int len = atomic_read(&smd_info->rx_pkt);
+	struct rmnet_dev *dev = (struct rmnet_dev *) smd_info->tx_tlet.data;
 
 	switch (event) {
 	case SMD_EVENT_DATA: {
-
+		if (!atomic_read(&dev->online))
+			break;
 		if (len && (smd_write_avail(smd_info->ch) >= len))
 			tasklet_schedule(&smd_info->rx_tlet);
 
@@ -774,12 +774,18 @@ static void rmnet_disconnect_work(struct work_struct *w)
 	struct rmnet_dev *dev = container_of(w, struct rmnet_dev,
 					disconnect_work);
 
-	atomic_set(&dev->notify_count, 0);
-
 	tasklet_kill(&dev->smd_ctl.rx_tlet);
 	tasklet_kill(&dev->smd_ctl.tx_tlet);
 	tasklet_kill(&dev->smd_data.rx_tlet);
-	tasklet_kill(&dev->smd_data.rx_tlet);
+	tasklet_kill(&dev->smd_data.tx_tlet);
+
+	smd_close(dev->smd_ctl.ch);
+	dev->smd_ctl.flags = 0;
+
+	smd_close(dev->smd_data.ch);
+	dev->smd_data.flags = 0;
+
+	atomic_set(&dev->notify_count, 0);
 
 	list_for_each_safe(act, tmp, &dev->rx_queue) {
 		req = list_entry(act, struct usb_request, list);
@@ -799,11 +805,6 @@ static void rmnet_disconnect_work(struct work_struct *w)
 		list_add_tail(&qmi->list, &dev->qmi_resp_pool);
 	}
 
-	smd_close(dev->smd_ctl.ch);
-	dev->smd_ctl.flags = 0;
-
-	smd_close(dev->smd_data.ch);
-	dev->smd_data.flags = 0;
 }
 
 /* SMD close may sleep
@@ -1013,7 +1014,7 @@ static int rmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	for (i = 0; i < TX_REQ_MAX; i++) {
-		req = rmnet_alloc_req(dev->epout, TX_REQ_SIZE, GFP_KERNEL);
+		req = rmnet_alloc_req(dev->epin, TX_REQ_SIZE, GFP_KERNEL);
 		if (IS_ERR(req)) {
 			ret = PTR_ERR(req);
 			goto free_buf;
@@ -1039,7 +1040,7 @@ rmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	tasklet_kill(&dev->smd_ctl.rx_tlet);
 	tasklet_kill(&dev->smd_ctl.tx_tlet);
 	tasklet_kill(&dev->smd_data.rx_tlet);
-	tasklet_kill(&dev->smd_data.rx_tlet);
+	tasklet_kill(&dev->smd_data.tx_tlet);
 
 	flush_workqueue(dev->wq);
 	rmnet_free_buf(dev);

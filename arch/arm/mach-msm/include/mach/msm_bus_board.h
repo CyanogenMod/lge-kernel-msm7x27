@@ -46,6 +46,7 @@ struct msm_bus_fabric_registration {
 	const char *fabclk;
 	unsigned int offset;
 	unsigned int haltid;
+	unsigned int rpm_enabled;
 };
 
 enum msm_bus_bw_tier_type {
@@ -59,8 +60,6 @@ struct msm_bus_halt_vector {
 	uint32_t haltval;
 	uint32_t haltmask;
 };
-
-#if defined(CONFIG_ARCH_MSM8X60)
 
 extern struct msm_bus_fabric_registration msm_bus_apps_fabric_pdata;
 extern struct msm_bus_fabric_registration msm_bus_sys_fabric_pdata;
@@ -80,7 +79,7 @@ extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
 #define NUM_FAB 5
 #define MAX_FAB_KEY 7168  /* OR(All fabric ids) */
 
-#define GET_MPORT(src) (((src) - 1) & (FABRIC_ID_KEY - 1))
+#define GET_MPORT(src) ((src) & (FABRIC_ID_KEY - 1))
 #define GET_SLPORT(src) ((src) & (SLAVE_ID_KEY - 1))
 #define GET_FABID(id) ((id) & MAX_FAB_KEY)
 
@@ -125,8 +124,7 @@ extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
 
 #define FAB_MAX_BW_BYTES(width, clk) ((uint32_t)(width) * (uint32)(clk))
 #define FAB_BW_128K(bw) ((uint16_t)((bw) >> 17))
-#define BW_TO_CLK_FREQ_KHZ(width, bw) ((((uint32_t)(bw)) << 17) /\
-	(width) / 1000)
+#define BW_TO_CLK_FREQ_HZ(width, bw) ((unsigned long)((bw) / (width)))
 /* 8 bytes per clock @ 133 MHz */
 #define SYSFAB_MAX_BW_BYTES FAB_MAX_BW_BYTES(8, 133000000)
 /* 16 bytes per clock @ 166 MHz */
@@ -201,14 +199,14 @@ enum msm_bus_fabric_master_type {
 	MSM_BUS_SYSTEM_MASTER_LPASS_PROC,
 	MSM_BUS_SYSTEM_MASTER_MSS_PROCI,
 	MSM_BUS_SYSTEM_MASTER_MSS_PROCD,
-	MSM_BUS_SYSTEM_MASTER_MSS_MDP_PORT0,
+	MSM_BUS_SYSTEM_MASTER_MSS_MDM_PORT0,
 	MSM_BUS_SYSTEM_MASTER_LPASS,
 	MSM_BUS_SYSTEM_MASTER_CPSS_FPB,
 	MSM_BUS_SYSTEM_MASTER_SYSTEM_FPB,
 	MSM_BUS_SYSTEM_MASTER_MMSS_FPB,
 	MSM_BUS_SYSTEM_MASTER_ADM1_CI,
 	MSM_BUS_SYSTEM_MASTER_ADM0_CI,
-	MSM_BUS_SYSTEM_MASTER_MSS_MDP_PORT1,
+	MSM_BUS_SYSTEM_MASTER_MSS_MDM_PORT1,
 
 	MSM_BUS_MMSS_MASTER_MDP_PORT0 = MSM_BUS_FAB_MMSS + 1,
 	MSM_BUS_MMSS_MASTER_MDP_PORT1,
@@ -220,8 +218,9 @@ enum msm_bus_fabric_master_type {
 	MSM_BUS_MMSS_MASTER_VFE,
 	MSM_BUS_MMSS_MASTER_VPE,
 	MSM_BUS_MMSS_MASTER_JPEG_ENC,
-	MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
+	MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
 	MSM_BUS_MMSS_MASTER_APPS_FAB,
+	MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 	MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 };
 
@@ -244,8 +243,15 @@ enum msm_bus_fabric_slave_type {
 
 	MSM_BUS_MMSS_SLAVE_SMI = MSM_BUS_FAB_MMSS + SLAVE_ID_KEY,
 	MSM_BUS_MMSS_SLAVE_FAB_APPS,
+	/*
+	 * APPS_1: This port is added for V2, and is absent on V1.
+	 * This port is not connected on V2, but is needed in
+	 * the topology.
+	 * */
+	MSM_BUS_MMSS_SLAVE_FAB_APPS_1,
 	MSM_BUS_MMSS_SLAVE_MM_IMEM,
 };
+
 enum msm_bus_fabric_tiered_slave_type {
 	MSM_BUS_SYSTEM_TIERED_SLAVE_FAB_APPSS = 1,
 	MSM_BUS_SYSTEM_TIERED_SLAVE_SYSTEM_IMEM,
@@ -253,6 +259,7 @@ enum msm_bus_fabric_tiered_slave_type {
 
 	MSM_BUS_MMSS_TIERED_SLAVE_SMI = 1,
 	MSM_BUS_MMSS_TIERED_SLAVE_FAB_APPS,
+	MSM_BUS_MMSS_TIERED_SLAVE_MM_IMEM,
 	MSM_BUS_MMSS_TIERED_SLAVE_COUNT,
 
 	MSM_BUS_APPSS_TIERED_SLAVE_EBI_CH0 = 1,
@@ -330,5 +337,4 @@ enum msm_bus_fabric_ahb_slave_type {
 	MSM_BUS_CPSS_FPB_SLAVE_MSM_PRNG,
 };
 
-#endif /* CONFIG_ARCH_MSM8X60 */
 #endif /*__ASM_ARCH_MSM_BUS_BOARD_H */

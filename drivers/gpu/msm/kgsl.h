@@ -58,6 +58,9 @@
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
 
+#define KGSL_NUM_2D_DEVICES 2
+#define IDX_2D(X) ((X)-KGSL_DEVICE_2D0)
+
 struct kgsl_driver {
 	struct cdev cdev;
 	dev_t dev_num;
@@ -69,14 +72,12 @@ struct kgsl_driver {
 	struct mutex mutex;
 	unsigned int is_suspended;
 
-	struct kgsl_devconfig g12_config;
-
 	uint32_t flags_debug;
 
 	struct kgsl_sharedmem shmem;
 
-	/* Global list of device_private struct one per open file descriptor */
-	struct list_head dev_priv_list;
+	/* Global lilst of open processes */
+	struct list_head process_list;
 	/* Global list of pagetables */
 	struct list_head pagetable_list;
 	/* Mutex for accessing the pagetable list */
@@ -95,7 +96,7 @@ struct kgsl_mem_entry {
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
-	struct kgsl_file_private *priv;
+	struct kgsl_process_private *priv;
 };
 
 enum kgsl_status {
@@ -112,7 +113,7 @@ enum kgsl_status {
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry, bool preserve);
+void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry);
 
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);
 int kgsl_setstate(struct kgsl_device *device, uint32_t flags);

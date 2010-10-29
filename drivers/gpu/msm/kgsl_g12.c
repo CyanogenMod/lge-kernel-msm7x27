@@ -70,6 +70,62 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 				unsigned int timestamp,
 				unsigned int msecs);
 
+#define KGSL_2D_MMU_CONFIG					     \
+	(0x01							     \
+	| (MMU_CONFIG << MH_MMU_CONFIG__RB_W_CLNT_BEHAVIOR__SHIFT)   \
+	| (MMU_CONFIG << MH_MMU_CONFIG__CP_W_CLNT_BEHAVIOR__SHIFT)   \
+	| (MMU_CONFIG << MH_MMU_CONFIG__CP_R0_CLNT_BEHAVIOR__SHIFT)  \
+	| (MMU_CONFIG << MH_MMU_CONFIG__CP_R1_CLNT_BEHAVIOR__SHIFT)  \
+	| (MMU_CONFIG << MH_MMU_CONFIG__CP_R2_CLNT_BEHAVIOR__SHIFT)  \
+	| (MMU_CONFIG << MH_MMU_CONFIG__CP_R3_CLNT_BEHAVIOR__SHIFT)  \
+	| (MMU_CONFIG << MH_MMU_CONFIG__CP_R4_CLNT_BEHAVIOR__SHIFT)  \
+	| (MMU_CONFIG << MH_MMU_CONFIG__VGT_R0_CLNT_BEHAVIOR__SHIFT) \
+	| (MMU_CONFIG << MH_MMU_CONFIG__VGT_R1_CLNT_BEHAVIOR__SHIFT) \
+	| (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)   \
+	| (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT))
+
+static struct kgsl_g12_device device_2d0 = {
+	.dev = {
+		.id = KGSL_DEVICE_2D0,
+		.mmu = {
+			.config = KGSL_2D_MMU_CONFIG,
+			/* turn off memory protection unit by setting
+			   acceptable physical address range to include
+			   all pages. */
+			.mpu_base = 0x00000000,
+			.mpu_range =  0xFFFFF000,
+			/* These might be better set from the platform
+			   device */
+			.va_base = 0x66000000,
+			.va_range = SZ_32M,
+		},
+	},
+	.iomemname = "kgsl_2d0_reg_memory",
+	.irqname = "kgsl_2d0_irq",
+	.regulator = "fs_gfx2d0",
+};
+
+static struct kgsl_g12_device device_2d1 = {
+	.dev = {
+		.id = KGSL_DEVICE_2D1,
+		.mmu = {
+			.config = KGSL_2D_MMU_CONFIG,
+			/* turn off memory protection unit by setting
+			   acceptable physical address range to include
+			   all pages. */
+			.mpu_base = 0x00000000,
+			.mpu_range =  0xFFFFF000,
+			/* These might be better set from the platform
+			   device */
+			.va_base = 0x66000000,
+			.va_range = SZ_32M,
+		},
+	},
+	.iomemname = "kgsl_2d1_reg_memory",
+	.irqname = "kgsl_2d1_irq",
+	.regulator = "fs_gfx2d1",
+};
+
 irqreturn_t kgsl_g12_isr(int irq, void *data)
 {
 	irqreturn_t result = IRQ_NONE;
@@ -108,7 +164,7 @@ irqreturn_t kgsl_g12_isr(int irq, void *data)
 
 			atomic_notifier_call_chain(
 				&(device->ts_notifier_list),
-				KGSL_DEVICE_G12, NULL);
+				device->id, NULL);
 		}
 	}
 
@@ -205,13 +261,19 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	struct clk *clk;
 	struct platform_device *pdev = kgsl_driver.pdev;
 	struct kgsl_platform_data *pdata = pdev->dev.platform_data;
+	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 
 	clk = clk_get(&pdev->dev, "grp_2d_pclk");
 	if (IS_ERR(clk))
 		clk = NULL;
 	device->pwrctrl.grp_pclk = clk;
 
-	clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
+	if (device->id == KGSL_DEVICE_2D0)
+		clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
+	else
+		clk = clk_get(&pdev->dev, pdata->grp2d1_clk_name);
+
+	/* error check resources */
 	if (IS_ERR(clk)) {
 		clk = NULL;
 		result = PTR_ERR(clk);
@@ -219,9 +281,23 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 						pdata->grp2d0_clk_name, result);
 		goto done;
 	}
-	device->pwrctrl.grp_clk = clk;
-	device->pwrctrl.grp_src_clk = clk;
 
+	device->pwrctrl.gpu_reg = regulator_get(NULL, g12_device->regulator);
+
+	if (IS_ERR(device->pwrctrl.gpu_reg))
+		device->pwrctrl.gpu_reg = NULL;
+
+	device->pwrctrl.interrupt_num =
+		platform_get_irq_byname(pdev, g12_device->irqname);
+
+	if (device->pwrctrl.interrupt_num <= 0) {
+		KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
+					 device->pwrctrl.interrupt_num);
+		result = -EINVAL;
+		goto done;
+	}
+
+	/* save resources to pwrctrl struct */
 	if (pdata->set_grp2d_async != NULL)
 		pdata->set_grp2d_async();
 
@@ -233,58 +309,47 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 		clk_set_rate(clk, device->pwrctrl.clk_freq[KGSL_MIN_FREQ]);
 	}
 
-	device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx2d0");
-	if (IS_ERR(device->pwrctrl.gpu_reg))
-		device->pwrctrl.gpu_reg = NULL;
-
 	device->pwrctrl.power_flags = 0;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
-
-	/*acquire g12 interrupt */
-	device->pwrctrl.interrupt_num =
-	platform_get_irq_byname(pdev, "kgsl_2d0_irq");
-
-	if (device->pwrctrl.interrupt_num <= 0) {
-		KGSL_DRV_ERR("platform_get_irq_byname() returned %d\n",
-					 device->pwrctrl.interrupt_num);
-		result = -EINVAL;
-		goto done;
-	}
+	device->pwrctrl.grp_clk = clk;
+	device->pwrctrl.grp_src_clk = clk;
+	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
+	device->pwrctrl.interval_timeout = pdata->idle_timeout_2d;
 
 	device->pwrctrl.pm_qos_req = pm_qos_add_request(
 					PM_QOS_SYSTEM_BUS_FREQ,
 					PM_QOS_DEFAULT_VALUE);
-	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
-	device->pwrctrl.interval_timeout = INTERVAL_G12_TIMEOUT;
-
 done:
 	return result;
 }
 
 int __init
-kgsl_g12_init(struct kgsl_device *device,
-		struct kgsl_devconfig *config)
+kgsl_g12_init(struct kgsl_device *device)
 {
 	int status = -EINVAL;
 	struct kgsl_memregion *regspace = &device->regspace;
 	unsigned int memflags = KGSL_MEMFLAGS_ALIGNPAGE |
 				KGSL_MEMFLAGS_CONPHYS;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct resource *res;
 
-
-	KGSL_DRV_VDBG("enter (device=%p, config=%p)\n", device, config);
-
-	if (device->flags & KGSL_FLAGS_INITIALIZED) {
-		KGSL_DRV_VDBG("return %d\n", 0);
-		return 0;
-	}
-
-	device->flags |= KGSL_FLAGS_INITIALIZED;
+	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
 	/* initilization of timestamp wait */
 	init_waitqueue_head(&(g12_device->wait_timestamp_wq));
 
-	memcpy(regspace, &config->regspace, sizeof(device->regspace));
+	res = platform_get_resource_byname(kgsl_driver.pdev, IORESOURCE_MEM,
+					   g12_device->iomemname);
+
+	if (res == NULL) {
+		KGSL_DRV_ERR("platform_get_resource_byname failed\n");
+		status = -EINVAL;
+		goto error;
+	}
+
+	regspace->mmio_phys_base = res->start;
+	regspace->sizebytes = resource_size(res);
+
 	if (regspace->mmio_phys_base == 0 || regspace->sizebytes == 0) {
 		KGSL_DRV_ERR("dev %d invalid regspace\n", device->id);
 		status = -ENODEV;
@@ -321,26 +386,14 @@ kgsl_g12_init(struct kgsl_device *device,
 			device->id, regspace->mmio_phys_base,
 			regspace->sizebytes, regspace->mmio_virt_base);
 
-
-	device->id = KGSL_DEVICE_G12;
 	init_completion(&device->hwaccess_gate);
 	kgsl_g12_getfunctable(&device->ftbl);
-	device->pwrctrl.interval_timeout = INTERVAL_G12_TIMEOUT;
-
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
 	INIT_LIST_HEAD(&device->ringbuffer.memqueue);
-
-	if (config->mmu_config) {
-		device->mmu.config    = config->mmu_config;
-		device->mmu.mpu_base  = config->mpu_base;
-		device->mmu.mpu_range = config->mpu_range;
-		device->mmu.va_base   = config->va_base;
-		device->mmu.va_range  = config->va_range;
-	}
 
 	status = kgsl_g12_cmdstream_init(device);
 	if (status != 0)
@@ -399,7 +452,6 @@ int kgsl_g12_close(struct kgsl_device *device)
 	kgsl_pwrctrl_close(device);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
-	device->flags &= ~KGSL_FLAGS_INITIALIZED;
 	return 0;
 }
 
@@ -407,11 +459,6 @@ static int kgsl_g12_start(struct kgsl_device *device)
 {
 	int status = 0;
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
-
-	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
-		KGSL_DRV_ERR("Trying to start uninitialized device.\n");
-		return -EINVAL;
-	}
 
 	if (device->flags & KGSL_FLAGS_STARTED) {
 		KGSL_DRV_VDBG("already started");
@@ -459,12 +506,11 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 {
 	kgsl_g12_idle(device, KGSL_TIMEOUT_DEFAULT);
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-
 	del_timer(&device->idle_timer);
 
 	kgsl_mmu_stop(device);
 
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 	device->hwaccess_blocked = KGSL_TRUE;
@@ -473,18 +519,17 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 	return 0;
 }
 
-static struct kgsl_g12_device *kgsl_get_g12_device(void)
+struct kgsl_device *kgsl_get_2d_device(enum kgsl_deviceid dev_id)
 {
-	static struct kgsl_g12_device g12_device;
-
-	return &g12_device;
-}
-
-struct kgsl_device *kgsl_get_g12_generic_device(void)
-{
-	struct kgsl_g12_device *g12_device = kgsl_get_g12_device();
-
-	return &g12_device->dev;
+	switch (dev_id) {
+	case KGSL_DEVICE_2D0:
+		return &device_2d0.dev;
+	case KGSL_DEVICE_2D1:
+		return &device_2d1.dev;
+	default:
+		KGSL_DRV_WARN("no valid device specified!");
+		return NULL;
+	}
 }
 
 static int kgsl_g12_getproperty(struct kgsl_device *device,
@@ -739,59 +784,6 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 
 	KGSL_DRV_INFO("return %d\n", status);
 	return status;
-}
-
-int __init kgsl_g12_config(struct kgsl_devconfig *devconfig,
-				struct platform_device *pdev)
-{
-	int result = 0;
-	struct resource *res = NULL;
-
-	memset(devconfig, 0, sizeof(*devconfig));
-
-	/*find memory regions */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"kgsl_2d0_reg_memory");
-	if (res == NULL) {
-		KGSL_DRV_ERR("platform_get_resource_byname failed\n");
-		result = -EINVAL;
-		goto done;
-	}
-	KGSL_DRV_DBG("registers at %08x to %08x\n", res->start, res->end);
-	devconfig->regspace.mmio_phys_base = res->start;
-	devconfig->regspace.sizebytes = resource_size(res);
-
-	/*note: for all of these behavior masks:
-	 *	0 = do not translate
-	 *	1 = translate within va_range, otherwise use phyisical
-	 *	2 = translate within va_range, otherwise fault
-	 */
-	devconfig->mmu_config = 1 /* mmu enable */
-		    | (MMU_CONFIG << MH_MMU_CONFIG__RB_W_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__CP_W_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R0_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R1_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R2_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R3_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R4_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R0_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R1_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)
-		    | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT);
-
-	devconfig->va_base = 0x66000000;
-	devconfig->va_range = SZ_32M;
-
-	/* turn off memory protection unit by setting acceptable physical
-	 * address range to include all pages. Apparrently MPU causing
-	 * problems.
-	 */
-	devconfig->mpu_base = 0x00000000;
-	devconfig->mpu_range = 0xFFFFF000;
-
-	result = 0;
-done:
-	return result;
 }
 
 static long kgsl_g12_ioctl_cmdwindow_write(struct kgsl_device_private *dev_priv,

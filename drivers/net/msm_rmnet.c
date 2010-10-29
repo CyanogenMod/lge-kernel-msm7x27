@@ -412,8 +412,10 @@ static void smd_net_notify(void *_dev, unsigned event)
 		return;
 
 	spin_lock(&p->lock);
-	if (p->skb && (smd_write_avail(p->ch) >= p->skb->len))
+	if (p->skb && (smd_write_avail(p->ch) >= p->skb->len)) {
+		smd_disable_read_intr(p->ch);
 		tasklet_hi_schedule(&p->tsklt);
+	}
 
 	spin_unlock(&p->lock);
 
@@ -448,6 +450,7 @@ static int __rmnet_open(struct net_device *dev)
 			return -ENODEV;
 	}
 
+	smd_disable_read_intr(p->ch);
 	return 0;
 }
 
@@ -474,8 +477,8 @@ static int rmnet_open(struct net_device *dev)
 	pr_info("rmnet_open()\n");
 
 	rc = __rmnet_open(dev);
-
-	netif_start_queue(dev);
+	if (rc == 0)
+		netif_start_queue(dev);
 
 	return rc;
 }
@@ -523,12 +526,14 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	spin_lock_irqsave(&p->lock, flags);
+	smd_enable_read_intr(ch);
 	if (smd_write_avail(ch) < skb->len) {
 		netif_stop_queue(dev);
 		p->skb = skb;
 		spin_unlock_irqrestore(&p->lock, flags);
 		return 0;
 	}
+	smd_disable_read_intr(ch);
 	spin_unlock_irqrestore(&p->lock, flags);
 
 	_rmnet_xmit(skb, dev);

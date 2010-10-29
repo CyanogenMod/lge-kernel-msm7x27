@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/spinlock.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 
@@ -193,11 +194,103 @@ static struct vreg vregs[RPM_VREG_ID_MAX] = {
 	VREG_1(PM8901_MVS0, MVS),
 };
 
+#define REG_IS_PM8058_S1(rpm_id) ((rpm_id) == MSM_RPM_ID_SMPS1_0 || \
+				  (rpm_id) == MSM_RPM_ID_SMPS1_1)
+
+static int vreg_set_pm8058_s1(enum pm8058_s1_vote_client voter, unsigned mask0,
+		       unsigned val0, unsigned mask1, unsigned val1,
+		       unsigned cnt)
+{
+	struct vreg *vreg = &vregs[RPM_VREG_ID_PM8058_S1];
+	static DEFINE_SPINLOCK(pm8058_s1_lock);
+	static int min_mV_votes[PM8058_S1_VOTE_NUM_VOTERS];
+	unsigned prev0 = 0, prev1 = 0;
+	int rc, i, max_mV_vote;
+	unsigned long flags;
+
+	if (voter < 0 || voter >= PM8058_S1_VOTE_NUM_VOTERS)
+		return -EINVAL;
+
+	spin_lock_irqsave(&pm8058_s1_lock, flags);
+
+	if (mask0) {
+		prev0 = vreg->req[0].value;
+		vreg->req[0].value &= ~mask0;
+		vreg->req[0].value |= val0 & mask0;
+	}
+
+	if (mask1) {
+		prev1 = vreg->req[1].value;
+		vreg->req[1].value &= ~mask1;
+		vreg->req[1].value |= val1 & mask1;
+	}
+
+	min_mV_votes[voter] = (vreg->req[0].value & SMPS_VOLTAGE) >>
+			      SMPS_VOLTAGE_SHIFT;
+
+	/* Find the highest voltage voted for and use it. */
+	max_mV_vote = 0;
+	for (i = 0; i < PM8058_S1_VOTE_NUM_VOTERS; i++)
+		max_mV_vote = max(max_mV_vote, min_mV_votes[i]);
+	vreg->req[0].value &= ~SMPS_VOLTAGE;
+	vreg->req[0].value |= (max_mV_vote << SMPS_VOLTAGE_SHIFT) &
+			      SMPS_VOLTAGE;
+
+	rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, vreg->req, cnt);
+	if (rc) {
+		if (mask0)
+			vreg->req[0].value = prev0;
+		if (mask1)
+			vreg->req[1].value = prev1;
+
+		pr_err("%s: msm_rpm_set_noirq fail id=%d, rc=%d\n",
+				__func__, vreg->req[0].id, rc);
+	}
+
+	spin_unlock_irqrestore(&pm8058_s1_lock, flags);
+
+	return rc;
+}
+
+/**
+ * pm8058_s1_set_min_uv_noirq - vote for a min_uV value of regualtor pm8058_s1
+ * @voter: ID for the voter
+ * @min_uV: minimum acceptable voltage (in uV) that is voted for
+ *
+ * Returns 0 on success or less than 0 on error.
+ *
+ * This function is used to vote for the voltage of regulator pm8058_s1 without
+ * using the regulator framework.  It is needed by consumers which hold spin
+ * locks or have interrupts disabled because the regulator framework can sleep.
+ */
+int pm8058_s1_set_min_uv_noirq(enum pm8058_s1_vote_client voter, int min_uV)
+{
+	int rc;
+
+	rc = vreg_set_pm8058_s1(voter, SMPS_VOLTAGE,
+			MICRO_TO_MILLI(min_uV) << SMPS_VOLTAGE_SHIFT,
+			0, 0, 2);
+	if (!rc)
+		return rc;
+
+	/* only save if nonzero (or not disabling) */
+	if (min_uV)
+		vregs[RPM_VREG_ID_PM8058_S1].save_uV = min_uV;
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(pm8058_s1_set_min_uv_noirq);
+
 static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 		unsigned mask1, unsigned val1, unsigned cnt)
 {
 	unsigned prev0 = 0, prev1 = 0;
 	int rc;
+
+	/* bypass normal route for PM8058_S1 */
+	if (REG_IS_PM8058_S1(vreg->req[0].id))
+		return vreg_set_pm8058_s1(PM8058_S1_VOTE_REG_FRAMEWORK, mask0,
+					  val0, mask1, val1, cnt);
 
 	if (mask0) {
 		prev0 = vreg->req[0].value;
@@ -874,7 +967,7 @@ static void __exit rpm_vreg_exit(void)
 	platform_driver_unregister(&rpm_vreg_driver);
 }
 
-subsys_initcall(rpm_vreg_init);
+postcore_initcall(rpm_vreg_init);
 module_exit(rpm_vreg_exit);
 
 MODULE_LICENSE("GPL v2");

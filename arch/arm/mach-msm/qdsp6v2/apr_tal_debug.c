@@ -157,6 +157,8 @@ static ssize_t apr_debug_write(struct file *file, const char __user *buf,
 		apr_deregister(apr_handle_q);
 	} else if (!strncmp(l_buf + 20, "loaded", 64)) {
 		change_q6_state(APR_Q6_LOADED);
+	} else if (!strncmp(l_buf + 20, "boom", 64)) {
+		q6audio_dsp_not_responding();
 	} else
 		pr_info("Unknown Command\n");
 

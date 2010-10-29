@@ -30,6 +30,11 @@
 
 #define MAX_MDELAY_US 20000
 
+#define TIMPANI_RX1_ST_MASK (TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_L_M |\
+		TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_R_M)
+#define TIMPANI_RX1_ST_ENABLE ((1 << TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_L_S) |\
+		(1 << TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_R_S))
+
 struct adie_codec_path {
 	struct adie_codec_dev_profile *profile;
 	struct adie_codec_register_image img;
@@ -1516,6 +1521,38 @@ static u32 timpani_adie_codec_freq_supported(
 	}
 	return rc;
 }
+int timpani_adie_codec_enable_sidetone(struct adie_codec_path *rx_path_ptr,
+	u32 enable)
+{
+	int rc = 0;
+
+	pr_debug("%s()\n", __func__);
+
+	mutex_lock(&adie_codec.lock);
+
+	if (!rx_path_ptr || &adie_codec.path[ADIE_CODEC_RX] != rx_path_ptr) {
+		pr_err("%s: invalid path pointer\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	} else if (rx_path_ptr->curr_stage !=
+		ADIE_CODEC_DIGITAL_ANALOG_READY) {
+		pr_err("%s: bad state\n", __func__);
+		rc = -EPERM;
+		goto error;
+	}
+
+	if (enable) {
+		rc = adie_codec_write(TIMPANI_A_CDC_RX1_CTL,
+		TIMPANI_RX1_ST_MASK, TIMPANI_RX1_ST_ENABLE);
+	 } else {
+		rc = adie_codec_write(TIMPANI_A_CDC_RX1_CTL,
+		TIMPANI_RX1_ST_MASK, 0);
+	 }
+
+error:
+	mutex_unlock(&adie_codec.lock);
+	return rc;
+}
 
 static void adie_codec_restore_regdefault(u32 blk)
 {
@@ -1622,6 +1659,10 @@ static void timpani_codec_bring_up(void)
 static void timpani_codec_bring_down(void)
 {
 	adie_codec_write(TIMPANI_A_MREF, 0xFF, TIMPANI_MREF_POR);
+	adie_codec_write(0xFF, 0xFF, 0x07);
+	adie_codec_write(0xFF, 0xFF, 0x06);
+	adie_codec_write(0xFF, 0xFF, 0x0E);
+	adie_codec_write(0xFF, 0xFF, 0x08);
 }
 
 static int timpani_adie_codec_open(struct adie_codec_dev_profile *profile,
@@ -1720,6 +1761,7 @@ static const struct adie_codec_operations timpani_adie_ops = {
 	.codec_setpath = timpani_adie_codec_setpath,
 	.codec_proceed_stage = timpani_adie_codec_proceed_stage,
 	.codec_freq_supported = timpani_adie_codec_freq_supported,
+	.codec_enable_sidetone = timpani_adie_codec_enable_sidetone,
 };
 
 #ifdef CONFIG_DEBUG_FS

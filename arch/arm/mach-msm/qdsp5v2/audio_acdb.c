@@ -24,6 +24,8 @@
 #include <linux/android_pmem.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/uaccess.h>
+#include <linux/msm_audio.h>
 #include <linux/slab.h>
 #include <mach/dal.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
@@ -98,6 +100,17 @@ struct acdb_data {
 	u16 *pbe_extbuff;
 	u16 *pbe_enable_flag;
 	struct acdb_pbe_block *pbe_blk;
+
+	spinlock_t dsp_lock;
+	int dec_id;
+	struct audpp_cmd_cfg_object_params_eqalizer eq;
+
+	/*pmem info*/
+	int pmem_fd;
+	unsigned long paddr;
+	unsigned long kvaddr;
+	unsigned long pmem_len;
+	struct file *file;
 };
 
 static struct acdb_data		acdb_data;
@@ -118,11 +131,152 @@ struct acdb_cache_node acdb_cache_rx[MAX_COPP_NODE_SUPPORTED];
 the depth of the tx cache is define by number of AUDREC sessions supported*/
 struct acdb_cache_node acdb_cache_tx[MAX_AUDREC_SESSIONS];
 
+
+
+static s32 acdb_set_calibration_blk(unsigned long arg)
+{
+	struct acdb_cmd_device acdb_cmd;
+	s32 result = 0;
+
+	MM_DBG("acdb_set_calibration_blk\n");
+	memcpy(&acdb_cmd, (struct acdb_cmd_device *)arg, sizeof(acdb_cmd));
+	acdb_cmd.phys_buf = (u32 *)acdb_data.paddr;
+
+	MM_DBG("acdb_cmd.phys_buf %x\n", (u32)acdb_cmd.phys_buf);
+
+	result = dalrpc_fcn_8(ACDB_DalACDB_ioctl, acdb_data.handle,
+			(const void *)&acdb_cmd, sizeof(acdb_cmd),
+			&acdb_data.acdb_result,
+			sizeof(acdb_data.acdb_result));
+
+	if (result < 0) {
+		MM_ERR("ACDB=> Device Set RPC failure"
+			" result = %d\n", result);
+		return -EINVAL;
+	} else {
+		MM_ERR("ACDB=> Device Set RPC success\n");
+		if (acdb_data.acdb_result.result == ACDB_RES_SUCCESS)
+			MM_DBG("ACDB_SET_DEVICE Success\n");
+		else if (acdb_data.acdb_result.result == ACDB_RES_FAILURE)
+			MM_ERR("ACDB_SET_DEVICE Failure\n");
+		else if (acdb_data.acdb_result.result == ACDB_RES_BADPARM)
+			MM_ERR("ACDB_SET_DEVICE BadParams\n");
+		else
+			MM_ERR("Unknown error\n");
+	}
+	return result;
+}
+
+static s32 acdb_get_calibration_blk(unsigned long arg)
+{
+	s32 result = 0;
+	struct acdb_cmd_device acdb_cmd;
+
+	MM_DBG("acdb_get_calibration_blk\n");
+
+	memcpy(&acdb_cmd, (struct acdb_cmd_device *)arg, sizeof(acdb_cmd));
+	acdb_cmd.phys_buf = (u32 *)acdb_data.paddr;
+	MM_ERR("acdb_cmd.phys_buf %x\n", (u32)acdb_cmd.phys_buf);
+
+	result = dalrpc_fcn_8(ACDB_DalACDB_ioctl, acdb_data.handle,
+			(const void *)&acdb_cmd, sizeof(acdb_cmd),
+			&acdb_data.acdb_result,
+			sizeof(acdb_data.acdb_result));
+
+	if (result < 0) {
+		MM_ERR("ACDB=> Device Get RPC failure"
+			" result = %d\n", result);
+		return -EINVAL;
+	} else {
+		MM_ERR("ACDB=> Device Get RPC Success\n");
+		if (acdb_data.acdb_result.result == ACDB_RES_SUCCESS)
+			MM_DBG("ACDB_GET_DEVICE Success\n");
+		else if (acdb_data.acdb_result.result == ACDB_RES_FAILURE)
+			MM_ERR("ACDB_GET_DEVICE Failure\n");
+		else if (acdb_data.acdb_result.result == ACDB_RES_BADPARM)
+			MM_ERR("ACDB_GET_DEVICE BadParams\n");
+		else
+			MM_ERR("Unknown error\n");
+	}
+	return result;
+}
+
+static int audio_acdb_open(struct inode *inode, struct file *file)
+{
+	MM_DBG("%s\n", __func__);
+	return 0;
+}
+static int audio_acdb_release(struct inode *inode, struct file *file)
+{
+	MM_DBG("%s\n", __func__);
+	return 0;
+}
+
+static long audio_acdb_ioctl(struct file *file, unsigned int cmd,
+					unsigned long arg)
+{
+	int rc = 0;
+	unsigned long flags = 0;
+	struct msm_audio_pmem_info info;
+
+	MM_DBG("%s\n", __func__);
+
+	switch (cmd) {
+	case AUDIO_SET_EQ:
+		MM_DBG("IOCTL SET_EQ_CONFIG\n");
+		if (copy_from_user(&acdb_data.eq.num_bands, (void *) arg,
+				sizeof(acdb_data.eq) -
+				(AUDPP_CMD_CFG_OBJECT_PARAMS_COMMON_LEN + 2))) {
+			rc = -EFAULT;
+			break;
+		}
+		spin_lock_irqsave(&acdb_data.dsp_lock, flags);
+		acdb_data.dec_id    = 0;
+		rc = audpp_dsp_set_eq(acdb_data.dec_id, 1,
+			&acdb_data.eq, COPP);
+		if (rc < 0)
+			MM_ERR("AUDPP returned err =%d\n", rc);
+		spin_unlock_irqrestore(&acdb_data.dsp_lock, flags);
+		break;
+	case AUDIO_REGISTER_PMEM:
+		MM_DBG("AUDIO_REGISTER_PMEM\n");
+		if (copy_from_user(&info, (void *) arg, sizeof(info))) {
+			MM_ERR("Cannot copy from user\n");
+			return -EFAULT;
+		}
+		rc = get_pmem_file(info.fd, &acdb_data.paddr,
+					&acdb_data.kvaddr,
+					&acdb_data.pmem_len,
+					&acdb_data.file);
+		if (rc == 0)
+			acdb_data.pmem_fd = info.fd;
+		break;
+	case AUDIO_DEREGISTER_PMEM:
+		if (acdb_data.pmem_fd)
+			put_pmem_file(acdb_data.file);
+		break;
+	case AUDIO_SET_ACDB_BLK:
+		MM_DBG("IOCTL AUDIO_SET_ACDB_BLK\n");
+		rc = acdb_set_calibration_blk(arg);
+		break;
+	case AUDIO_GET_ACDB_BLK:
+		MM_DBG("IOiCTL AUDIO_GET_ACDB_BLK\n");
+		rc = acdb_get_calibration_blk(arg);
+		break;
+	default:
+		MM_DBG("Unknown IOCTL%d\n", cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
 static const struct file_operations acdb_fops = {
 	.owner = THIS_MODULE,
+	.open = audio_acdb_open,
+	.release = audio_acdb_release,
 	.llseek = no_llseek,
+	.unlocked_ioctl = audio_acdb_ioctl
 };
-
 
 struct miscdevice acdb_misc = {
 	.minor	= MISC_DYNAMIC_MINOR,
@@ -1677,7 +1831,7 @@ static int __init acdb_init(void)
 	s32 result = 0;
 
 	memset(&acdb_data, 0, sizeof(acdb_data));
-
+	spin_lock_init(&acdb_data.dsp_lock);
 	acdb_data.cb_thread_task = kthread_run(acdb_calibrate_device,
 		NULL, "acdb_cb_thread");
 

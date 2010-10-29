@@ -960,7 +960,7 @@ config USB_F_SERIAL
 config MODEM_SUPPORT
 	boolean "modem support in generic serial function driver"
 	depends on USB_F_SERIAL
-	default n
+	default y
 	help
           This feature enables the modem functionality in the
 	  generic serial.
@@ -1059,6 +1059,41 @@ config USB_G_WEBCAM
 
 	  Say "y" to link the driver statically, or "m" to build a
 	  dynamically linked module called "g_webcam".
+
+config USB_QCOM_MAEMO
+        tristate "Qcom gadget compositon for Maemo"
+        default n
+	select MODEM_SUPPORT
+	select USB_CSW_HACK
+	help
+          Enable USB Composition for Maemo.
+          It supports RNDIS + DIAG + MODEM + NMEA + RMNET + MSC composition.
+
+config USB_MAEMO_RNDIS_WCEIS
+        boolean "Use Windows Internet Sharing Class/SubClass/Protocol"
+	depends on USB_QCOM_MAEMO
+	default y
+        help
+         Causes the driver to look like a Windows-compatible Internet
+         Sharing device, so Windows auto-detects it.
+
+         If you enable this option, the device is no longer CDC ethernet
+         compatible.
+
+config RMNET_SMD_CTL_CHANNEL
+        string "control SMD channel name"
+        depends on USB_QCOM_MAEMO
+        default ""
+        help
+          Control SMD channel for transferring QMI messages
+
+config RMNET_SMD_DATA_CHANNEL
+        string "Data SMD channel name"
+        depends on USB_QCOM_MAEMO
+        default ""
+        help
+          Data SMD channel for transferring network data
+
 
 endchoice
 

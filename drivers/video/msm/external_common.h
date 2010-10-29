@@ -215,6 +215,10 @@ struct external_common_state_type {
 	boolean hdcp_active;
 	boolean hpd_feature_on;
 	struct hdmi_disp_mode_list_type disp_mode_list;
+	uint8 speaker_allocation_block;
+	uint16 video_latency, audio_latency;
+	uint8 audio_data_block_cnt;
+	uint32 audio_data_blocks[16];
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
 #endif

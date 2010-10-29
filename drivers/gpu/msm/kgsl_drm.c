@@ -1625,7 +1625,7 @@ kgsl_gem_unlock_on_ts_ioctl(struct drm_device *dev, void *data,
 	if (args->type == DRM_KGSL_GEM_TS_3D)
 		ts_device = KGSL_DEVICE_YAMATO;
 	else if (args->type == DRM_KGSL_GEM_TS_2D)
-		ts_device = KGSL_DEVICE_G12;
+		ts_device = KGSL_DEVICE_2D0;
 	else {
 		result = -EINVAL;
 		goto error;

@@ -75,62 +75,6 @@ struct kgsl_device_private;
 struct kgsl_drawctxt;
 struct kgsl_ringbuffer;
 
-struct kgsl_rb_debug {
-	unsigned int pm4_ucode_rel;
-	unsigned int pfp_ucode_rel;
-	unsigned int mem_wptr_poll;
-	unsigned int mem_rptr;
-	unsigned int cp_rb_base;
-	unsigned int cp_rb_cntl;
-	unsigned int cp_rb_rptr_addr;
-	unsigned int cp_rb_rptr;
-	unsigned int cp_rb_rptr_wr;
-	unsigned int cp_rb_wptr;
-	unsigned int cp_rb_wptr_delay;
-	unsigned int cp_rb_wptr_base;
-	unsigned int cp_ib1_base;
-	unsigned int cp_ib1_bufsz;
-	unsigned int cp_ib2_base;
-	unsigned int cp_ib2_bufsz;
-	unsigned int cp_st_base;
-	unsigned int cp_st_bufsz;
-	unsigned int cp_csq_rb_stat;
-	unsigned int cp_csq_ib1_stat;
-	unsigned int cp_csq_ib2_stat;
-	unsigned int scratch_umsk;
-	unsigned int scratch_addr;
-	unsigned int cp_me_cntl;
-	unsigned int cp_me_status;
-	unsigned int cp_debug;
-	unsigned int cp_stat;
-	unsigned int cp_int_status;
-	unsigned int cp_int_cntl;
-	unsigned int rbbm_status;
-	unsigned int rbbm_int_status;
-	unsigned int sop_timestamp;
-	unsigned int eop_timestamp;
-};
-#ifdef DEBUG
-void kgsl_ringbuffer_debug(struct kgsl_ringbuffer *rb,
-				struct kgsl_rb_debug *rb_debug);
-
-void kgsl_ringbuffer_dump(struct kgsl_ringbuffer *rb);
-#else
-static inline void kgsl_ringbuffer_debug(struct kgsl_ringbuffer *rb,
-					struct kgsl_rb_debug *rb_debug)
-{
-}
-
-static inline void kgsl_ringbuffer_dump(struct kgsl_ringbuffer *rb)
-{
-}
-#endif
-
-struct kgsl_rbwatchdog {
-	uint32_t   flags;
-	unsigned int  rptr_sample;
-};
-
 #define GSL_RB_MEMPTRS_SCRATCH_COUNT	 8
 struct kgsl_rbmemptrs {
 	volatile int  rptr;
@@ -168,8 +112,6 @@ struct kgsl_ringbuffer {
 
 	/* queue of memfrees pending timestamp elapse */
 	struct list_head memqueue;
-
-	struct kgsl_rbwatchdog watchdog;
 
 #ifdef GSL_STATS_RINGBUFFER
 	struct kgsl_rbstats stats;
@@ -252,7 +194,7 @@ int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb);
 
 int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb);
 
-uint32_t kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
+void kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 					unsigned int flags,
 					unsigned int *cmdaddr,
 					int sizedwords);
@@ -260,8 +202,6 @@ uint32_t kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 int kgsl_ringbuffer_gettimestampshadow(struct kgsl_device *device,
 					unsigned int *sopaddr,
 					unsigned int *eopaddr);
-
-void kgsl_ringbuffer_watchdog(struct kgsl_device *device);
 
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 

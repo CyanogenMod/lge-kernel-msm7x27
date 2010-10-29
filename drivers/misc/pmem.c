@@ -748,6 +748,7 @@ static int pmem_free_bitmap(int id, int bitnum)
 				curr_bit, curr_bit + curr_quanta);
 			pmem[id].allocator.bitmap.bitmap_free += curr_quanta;
 			pmem[id].allocator.bitmap.bitm_alloc[i].bit = -1;
+			pmem[id].allocator.bitmap.bitm_alloc[i].quanta = 0;
 			return 0;
 		}
 	}
@@ -801,12 +802,12 @@ static int pmem_free_space_bitmap(int id, struct pmem_freespace *fs)
 			const int curr_alloc = pmem[id].allocator.
 						bitmap.bitm_alloc[j].bit;
 			if (curr_alloc != -1) {
+				if (alloc_start == curr_alloc)
+					alloc_idx = j;
 				if (alloc_start >= curr_alloc)
 					continue;
-				if (curr_alloc < next_alloc) {
+				if (curr_alloc < next_alloc)
 					next_alloc = curr_alloc;
-					alloc_idx = j;
-				}
 			}
 		}
 		alloc_quanta = pmem[id].allocator.bitmap.
@@ -3010,10 +3011,11 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 		pmem[id].kapi_free_index = pmem_kapi_free_index_system;
 		pmem[id].len = pmem_len_system;
 		pmem[id].start_addr = pmem_start_addr_system;
+		pmem[id].num_entries = 0;
+		pmem[id].quantum = PAGE_SIZE;
 
-		DLOG("system allocator id %d (%s), num_entries %u, raw size "
-			"%lu, quanta size %u\n",
-			id, pdata->name, pmem[id].size, pmem[id].quantum);
+		DLOG("system allocator id %d (%s), raw size %lu\n",
+			id, pdata->name, pmem[id].size);
 		break;
 
 	default:

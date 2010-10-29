@@ -64,6 +64,12 @@
 #define MDDI_PAD_IO_CTL         0x00a0
 #define MDDI_PAD_CAL            0x00a4
 
+#ifdef ENABLE_MDDI_MULTI_READ_WRITE
+#define MDDI_HOST_MAX_CLIENT_REG_IN_SAME_ADDR 128
+#else
+#define MDDI_HOST_MAX_CLIENT_REG_IN_SAME_ADDR 1
+#endif
+
 extern int32 mddi_client_type;
 extern u32 mddi_msg_level;
 
@@ -380,17 +386,24 @@ typedef struct GCC_PACKED {
 	uint16 parameter_CRC;
 	/* 16-bit CRC of all bytes from the Packet Length to the Register Address. */
 
-	uint32 register_data_list;
+	uint32 register_data_list[MDDI_HOST_MAX_CLIENT_REG_IN_SAME_ADDR];
 	/* list of 4-byte register data values for/from client registers */
+	/* For multi-read/write, 512(128 * 4) bytes of data available */
 
 } mddi_register_access_packet_type;
 
 typedef union GCC_PACKED {
 	mddi_video_stream_packet_type video_pkt;
 	mddi_register_access_packet_type register_pkt;
+#ifdef ENABLE_MDDI_MULTI_READ_WRITE
+	/* add 1008 byte pad to ensure 1024 byte llist struct, that can be
+	 * manipulated easily with cache */
+	uint32 alignment_pad[252];	/* 1008 bytes */
+#else
 	/* add 48 byte pad to ensure 64 byte llist struct, that can be
 	 * manipulated easily with cache */
 	uint32 alignment_pad[12];	/* 48 bytes */
+#endif
 } mddi_packet_header_type;
 
 typedef struct GCC_PACKED mddi_host_llist_struct {
@@ -411,7 +424,11 @@ typedef struct {
 	boolean in_use;
 } mddi_linked_list_notify_type;
 
+#ifdef ENABLE_MDDI_MULTI_READ_WRITE
+#define MDDI_LLIST_POOL_SIZE 0x10000
+#else
 #define MDDI_LLIST_POOL_SIZE 0x1000
+#endif
 #define MDDI_MAX_NUM_LLIST_ITEMS (MDDI_LLIST_POOL_SIZE / \
 		 sizeof(mddi_linked_list_type))
 #define UNASSIGNED_INDEX MDDI_MAX_NUM_LLIST_ITEMS
@@ -547,4 +564,5 @@ typedef struct {
 uint32 mddi_get_client_id(void);
 void mddi_mhctl_remove(mddi_host_type host_idx);
 void mddi_host_timer_service(unsigned long data);
+void mddi_host_client_cnt_reset(void);
 #endif /* MDDIHOSTI_H */

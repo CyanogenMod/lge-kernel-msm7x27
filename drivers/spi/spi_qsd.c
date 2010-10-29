@@ -2089,7 +2089,6 @@ static int __devexit msm_spi_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver msm_spi_driver = {
-	.probe          = msm_spi_probe,
 	.driver		= {
 		.name	= SPI_DRV_NAME,
 		.owner	= THIS_MODULE,
@@ -2101,7 +2100,7 @@ static struct platform_driver msm_spi_driver = {
 
 static int __init msm_spi_init(void)
 {
-	return platform_driver_register(&msm_spi_driver);
+	return platform_driver_probe(&msm_spi_driver, msm_spi_probe);
 }
 module_init(msm_spi_init);
 

@@ -602,13 +602,16 @@ msmsdcc_data_err(struct msmsdcc_host *host, struct mmc_data *data,
 		 unsigned int status)
 {
 	if (status & MCI_DATACRCFAIL) {
-		pr_err("%s: Data CRC error\n",
-		       mmc_hostname(host->mmc));
-		pr_err("%s: opcode 0x%.8x\n", __func__,
-		       data->mrq->cmd->opcode);
-		pr_err("%s: blksz %d, blocks %d\n", __func__,
-		       data->blksz, data->blocks);
-		data->error = -EILSEQ;
+		if (!(data->mrq->cmd->opcode == MMC_BUSTEST_W
+			|| data->mrq->cmd->opcode == MMC_BUSTEST_R)) {
+			pr_err("%s: Data CRC error\n",
+			       mmc_hostname(host->mmc));
+			pr_err("%s: opcode 0x%.8x\n", __func__,
+			       data->mrq->cmd->opcode);
+			pr_err("%s: blksz %d, blocks %d\n", __func__,
+			       data->blksz, data->blocks);
+			data->error = -EILSEQ;
+		}
 	} else if (status & MCI_DATATIMEOUT) {
 		/* CRC is optional for the bus test commands, not all
 		 * cards respond back with CRC. However controller
@@ -1060,6 +1063,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 					!host->plat->sdiowakeup_irq) {
 				writel(host->mci_irqenable,
 					host->base + MMCIMASK0);
+				disable_irq_wake(host->irqres->start);
 			}
 		}
 
@@ -1109,9 +1113,6 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		break;
 	}
 
-	if (ios->bus_mode == MMC_BUSMODE_OPENDRAIN)
-		pwr |= MCI_OD;
-
 	writel(clk, host->base + MMCICLOCK);
 
 	udelay(50);
@@ -1125,6 +1126,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO &&
 				!host->plat->sdiowakeup_irq) {
 			writel(MCI_SDIOINTMASK, host->base + MMCIMASK0);
+			enable_irq_wake(host->irqres->start);
 		}
 		clk_disable(host->clk);
 		if (!IS_ERR(host->pclk))
@@ -1821,12 +1823,6 @@ msmsdcc_runtime_suspend(struct device *dev)
 			enable_irq_wake(host->plat->sdiowakeup_irq);
 			enable_irq(host->plat->sdiowakeup_irq);
 		}
-		/*
-		 * This will wake up Apps from system suspend only when
-		 * async SDCC IRQ MCI_INT_MASK0[22] is enabled.
-		 */
-		enable_irq_wake(host->irqres->start);
-
 		host->sdcc_suspending = 0;
 	}
 	return rc;
@@ -1841,8 +1837,6 @@ msmsdcc_runtime_resume(struct device *dev)
 	int release_lock = 0;
 
 	if (mmc) {
-		disable_irq_wake(host->irqres->start);
-
 		spin_lock_irqsave(&host->lock, flags);
 		if (!host->clks_on) {
 			mmc->ios.clock = host->clk_rate;

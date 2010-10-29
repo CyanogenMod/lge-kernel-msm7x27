@@ -586,7 +586,7 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		goto done;
 	}
 	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_CLK;
-	device->pwrctrl.interval_timeout = INTERVAL_YAMATO_TIMEOUT;
+	device->pwrctrl.interval_timeout = pdata->idle_timeout_3d;
 
 	/*acquire yamato interrupt */
 	device->pwrctrl.interrupt_num =
@@ -614,11 +614,6 @@ kgsl_yamato_init(struct kgsl_device *device)
 	struct resource *res = NULL;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
-
-	if (device->flags & KGSL_FLAGS_INITIALIZED) {
-		KGSL_DRV_VDBG("return %d\n", 0);
-		return 0;
-	}
 
 	init_waitqueue_head(&yamato_device->ib1_wq);
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long)device);
@@ -672,7 +667,6 @@ kgsl_yamato_init(struct kgsl_device *device)
 			regspace->sizebytes, regspace->mmio_virt_base);
 
 	init_completion(&device->hwaccess_gate);
-	device->pwrctrl.interval_timeout = INTERVAL_YAMATO_TIMEOUT;
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 
@@ -705,7 +699,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 		goto error_close_rb;
 	}
 
-	device->flags |= KGSL_FLAGS_INITIALIZED;
+	device->flags &= ~KGSL_FLAGS_SOFT_RESET;
 	return 0;
 
 error_close_rb:
@@ -750,7 +744,6 @@ int kgsl_yamato_close(struct kgsl_device *device)
 	kgsl_pwrctrl_close(device);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
-	device->flags &= ~KGSL_FLAGS_INITIALIZED;
 	return 0;
 }
 
@@ -762,11 +755,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	int init_reftimestamp = 0x7fffffff;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
-
-	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
-		KGSL_DRV_ERR("Trying to start uninitialized device.\n");
-		return -EINVAL;
-	}
 
 	if (device->flags & KGSL_FLAGS_STARTED) {
 		KGSL_DRV_VDBG("already started");
@@ -790,12 +778,20 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	*issuing a soft reset.  The overrides will then be turned off (set to 0)
 	*/
 	kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
+	device->chip_id = kgsl_yamato_getchipid(device);
+	KGSL_DRV_INFO("Device chip ID is: %x\n", device->chip_id);
 	if (device->chip_id == CHIP_REV_251)
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x000000ff);
 	else
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
 
-	kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
+	/* Only reset CP block if all blocks have previously been reset */
+	if (!(device->flags & KGSL_FLAGS_SOFT_RESET) ||
+		(device->chip_id != KGSL_CHIPID_LEIA_REV470)) {
+		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
+		device->flags |= KGSL_FLAGS_SOFT_RESET;
+	} else
+		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000001);
 
 	/* The core is in an indeterminate state until the reset completes
 	 * after 50ms.
@@ -839,7 +835,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	/* make sure SQ interrupts are disabled */
 	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
-	device->chip_id = kgsl_yamato_getchipid(device);
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470)
 		yamato_device->gmemspace.sizebytes = SZ_512K;
 	else
@@ -881,8 +876,6 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 {
 	del_timer(&device->idle_timer);
 	if (device->flags & KGSL_FLAGS_STARTED) {
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-
 		kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
 
 		kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
@@ -895,6 +888,7 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 
 		kgsl_mmu_stop(device);
 
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 		/* For some platforms, power needs to go off before clocks */
 		kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
@@ -964,6 +958,8 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 				 */
 				shadowprop.gpuaddr = device->memstore.physaddr;
 				shadowprop.size = device->memstore.size;
+				/* GSL needs this to be set, even if it
+				   appears to be meaningless */
 				shadowprop.flags = KGSL_FLAGS_INITIALIZED;
 			}
 			if (copy_to_user(value, &shadowprop,
@@ -1018,7 +1014,6 @@ int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	int status = -EINVAL;
 	struct kgsl_ringbuffer *rb = &device->ringbuffer;
-	struct kgsl_mmu_debug mmu_dbg;
 	unsigned int rbbm_status;
 	int idle_count = 0;
 #define IDLE_COUNT_MAX 1500000
@@ -1052,8 +1047,6 @@ int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 err:
 	KGSL_DRV_ERR("spun too long waiting for RB to idle\n");
 	kgsl_register_dump(device);
-	kgsl_ringbuffer_dump(rb);
-	kgsl_mmu_debug(&device->mmu, &mmu_dbg);
 	BUG();
 
 done:

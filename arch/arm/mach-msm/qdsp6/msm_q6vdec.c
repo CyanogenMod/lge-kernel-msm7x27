@@ -60,6 +60,11 @@
 #define TRACE(fmt,x...)		do { } while (0)
 #endif
 
+#define YAMATO_COLOR_FORMAT  0x7FA30C01
+#define MAX_Q6_LOAD        ((720*1280)/256)  /* 720p */
+#define MAX_Q6_LOAD_YAMATO ((736*1280)/256)
+#define MAX_Q6_LOAD_VP6    ((800*480)/256)
+
 #define VDEC_MAX_PORTS 4
 
 char *Q6Portnames[] = {
@@ -550,7 +555,8 @@ static void vdec_freeup_portanddevid(int deviceid)
   * This method validates whether a new instance can be houred or not.
   *
   */
-static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance)
+static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance,
+				unsigned int color_format)
 {
 
 	unsigned int maxQ6load = 0;/* in the units of macro blocks per second */
@@ -587,11 +593,16 @@ static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance)
 		 (streamDetails->fourcc  == FOURCC_H263)
 		){
 
-		maxQ6load = ((720*1280)/256); /* 720p */
+		/* is yamato color format,
+		  Rounds the H & W --> mutiple of 32 */
+		if (color_format == YAMATO_COLOR_FORMAT)
+			maxQ6load = MAX_Q6_LOAD_YAMATO;
+		else
+			maxQ6load = MAX_Q6_LOAD; /* 720p */
 
 	} else if (streamDetails->fourcc  == FOURCC_VP6) {
 
-		maxQ6load = ((800*480)/256); /* FWVGA */
+		maxQ6load = MAX_Q6_LOAD_VP6;    /* FWVGA */
 
 	} else {
 
@@ -675,7 +686,7 @@ static int vdec_initialize(struct vdec_data *vd, void *argp)
 		vd->streamDetails.isThisTnail = FALSE;
 
 	mutex_lock(&vdec_rm_lock);
-	ret = vdec_rm_checkWithRm(vd);
+	ret = vdec_rm_checkWithRm(vd, vi_cfg.cfg.color_format);
 	mutex_unlock(&vdec_rm_lock);
 	if (ret)
 		return ret;

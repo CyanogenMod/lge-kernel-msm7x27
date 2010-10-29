@@ -927,6 +927,12 @@ void __init reserve_node_zero(pg_data_t *pgdat)
 	 */
 	res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
 #endif
+
+#ifdef CONFIG_RESERVE_FIRST_PAGE
+	if (res_size < PAGE_SIZE)
+		res_size = PAGE_SIZE;
+#endif
+
 	if (res_size)
 		reserve_bootmem_node(pgdat, PHYS_OFFSET, res_size,
 				BOOTMEM_DEFAULT);
@@ -1087,6 +1093,18 @@ void __init paging_init(struct machine_desc *mdesc)
 	zero_page = alloc_bootmem_low_pages(PAGE_SIZE);
 	empty_zero_page = virt_to_page(zero_page);
 	__flush_dcache_page(NULL, empty_zero_page);
+
+#if defined(CONFIG_ARCH_MSM7X27)
+	/*
+	 * ensure that the strongly ordered page is mapped before the
+	 * first call to write_to_strongly_ordered_memory. This page
+	 * is necessary for the msm 7x27 due to hardware quirks. The
+	 * map call is made here to ensure the bootmem call is made
+	 * in the right window (after initialization, before full
+	 * allocators are initialized)
+	 */
+	map_page_strongly_ordered();
+#endif
 }
 
 /*

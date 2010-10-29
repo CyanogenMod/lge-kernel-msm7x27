@@ -266,6 +266,7 @@ struct msm_sync {
 
 	spinlock_t pmem_frame_spinlock;
 	spinlock_t pmem_stats_spinlock;
+	spinlock_t abort_pict_lock;
 };
 
 #define MSM_APPS_ID_V4L2 "msm_v4l2"
@@ -314,6 +315,9 @@ struct axidata {
 	uint32_t bufnum3;
 	struct msm_pmem_region *region;
 };
+
+int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
+	struct flash_ctrl_data *flash_info);
 
 #ifdef CONFIG_MSM_CAMERA_FLASH
 	int msm_camera_flash_set_led_state(

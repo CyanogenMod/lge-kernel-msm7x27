@@ -524,6 +524,7 @@ static long audqcelp_in_ioctl(struct file *file,
 			else
 				rc = 0;
 		}
+		audio->stopped = 0;
 		break;
 	}
 	case AUDIO_STOP: {

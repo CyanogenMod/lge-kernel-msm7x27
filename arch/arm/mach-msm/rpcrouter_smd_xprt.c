@@ -123,6 +123,8 @@ static int rpcrouter_smd_loopback_probe(struct platform_device *pdev)
 	if (rc < 0)
 		return rc;
 
+	smd_disable_read_intr(smd_remote_xprt.channel);
+
 	msm_rpcrouter_xprt_notify(&smd_loopback_xprt.xprt,
 				  RPCROUTER_XPRT_EVENT_OPEN);
 	return 0;
@@ -155,6 +157,8 @@ static int rpcrouter_smd_remote_probe(struct platform_device *pdev)
 		      rpcrouter_smd_remote_notify);
 	if (rc < 0)
 		return rc;
+
+	smd_disable_read_intr(smd_remote_xprt.channel);
 
 	msm_rpcrouter_xprt_notify(&smd_remote_xprt.xprt,
 				  RPCROUTER_XPRT_EVENT_OPEN);

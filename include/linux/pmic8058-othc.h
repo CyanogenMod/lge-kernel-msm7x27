@@ -62,6 +62,20 @@ enum othc_micbias_capability {
 	OTHC_MICBIAS_HSED,
 };
 
+struct othc_switch_info {
+	u32 min_adc_threshold;
+	u32 max_adc_threshold;
+	u32 key_code;
+};
+
+struct othc_n_switch_config {
+	u32 voltage_settling_time_ms;
+	u8 num_adc_samples;
+	uint32_t adc_channel;
+	struct othc_switch_info *switch_info;
+	u8 num_keys;
+};
+
 /* Configuration data for HSED */
 struct othc_hsed_config {
 	enum othc_headset_type othc_headset;
@@ -74,6 +88,8 @@ struct othc_hsed_config {
 	int othc_nc_gpio;
 	int othc_wakeup;
 	unsigned long switch_debounce_ms;
+	bool othc_support_n_switch; /* Set if supporting > 1 switch */
+	struct othc_n_switch_config *switch_config;
 	int (*othc_nc_gpio_setup)(void);
 };
 

@@ -455,13 +455,9 @@ struct adm_copp_open_respond {
 #define ASM_END_POINT_DEVICE_MATRIX	0
 #define ASM_END_POINT_STREAM		1
 
-#define AAC_ENC_MODE_AAC_LC             0
-#define AAC_ENC_MODE_AAC_P              1
-#define AAC_ENC_MODE_EAAC_P             2
-
-#define AAC_ENC_MODE_AAC_LC             0
-#define AAC_ENC_MODE_AAC_P              1
-#define AAC_ENC_MODE_EAAC_P             2
+#define AAC_ENC_MODE_AAC_LC            0x02
+#define AAC_ENC_MODE_AAC_P             0x05
+#define AAC_ENC_MODE_EAAC_P            0x1D
 
 #define ASM_STREAM_CMD_CLOSE                             0x00010BCD
 #define ASM_STREAM_CMD_FLUSH                             0x00010BCE

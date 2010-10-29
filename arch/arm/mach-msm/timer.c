@@ -966,6 +966,15 @@ unsigned long long sched_clock(void)
 	return clocksource_cyc2ns(ticks, cs->mult, cs->shift);
 }
 
+#ifdef CONFIG_ARCH_MSM_SCORPIONMP
+int read_current_timer(unsigned long *timer_val)
+{
+	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
+	*timer_val = msm_read_timer_count(dgt, GLOBAL_TIMER);
+	return 0;
+}
+#endif
+
 static void __init msm_timer_init(void)
 {
 	int i;
@@ -1020,6 +1029,7 @@ static void __init msm_timer_init(void)
 	}
 #ifdef CONFIG_ARCH_MSM_SCORPIONMP
 	writel(1, msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
+	set_delay_fn(read_current_timer_delay_loop);
 #endif
 }
 

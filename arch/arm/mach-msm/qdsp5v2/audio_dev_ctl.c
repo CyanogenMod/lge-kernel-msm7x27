@@ -83,6 +83,9 @@ EXPORT_SYMBOL(msm_get_voice_state);
 int msm_set_voice_mute(int dir, int mute)
 {
 	MM_DBG("dir %x mute %x\n", dir, mute);
+	if (!audio_dev_ctrl.voice_rx_dev
+		|| !audio_dev_ctrl.voice_tx_dev)
+		return -EPERM;
 	if (dir == DIR_TX) {
 		routing_info.tx_mute = mute;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
@@ -95,6 +98,9 @@ EXPORT_SYMBOL(msm_set_voice_mute);
 
 int msm_set_voice_vol(int dir, s32 volume)
 {
+	if (!audio_dev_ctrl.voice_rx_dev
+		|| !audio_dev_ctrl.voice_tx_dev)
+		return -EPERM;
 	if (dir == DIR_TX) {
 		routing_info.voice_tx_vol = volume;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
@@ -743,8 +749,13 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 	if ((evt_id != AUDDEV_EVT_START_VOICE)
 		&& (evt_id != AUDDEV_EVT_END_VOICE)
 		&& (evt_id != AUDDEV_EVT_STREAM_VOL_CHG)
-		&& (evt_id != AUDDEV_EVT_VOICE_STATE_CHG))
+		&& (evt_id != AUDDEV_EVT_VOICE_STATE_CHG)) {
 		dev_info = audio_dev_ctrl_find_dev(dev_id);
+		if (IS_ERR(dev_info)) {
+			MM_ERR("pass invalid dev_id\n");
+			return;
+		}
+	}
 
 	if (event.cb != NULL)
 		callback = event.cb;

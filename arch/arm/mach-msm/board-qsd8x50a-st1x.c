@@ -72,7 +72,7 @@
 #endif
 #include "smd_private.h"
 
-#define MSM_PMEM_MDP_SIZE	0x4000000
+#define MSM_PMEM_MDP_SIZE	0x204000
 
 #define SMEM_SPINLOCK_I2C	"D:I2C02000021"
 
@@ -1445,8 +1445,9 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.max_grp2d_freq = 0,
 	.min_grp2d_freq = 0,
 	.set_grp2d_async = NULL,
-	.max_grp3d_freq = 0,
-	.min_grp3d_freq = 0,
+	.max_grp3d_freq = 235*1000*1000,
+	.min_grp3d_freq = 192*1000*1000,
+	/*note: on 8650a async mode is the default */
 	.set_grp3d_async = NULL,
 	.imem_clk_name = "imem_clk",
 	.grp3d_clk_name = "grp_clk",
@@ -1455,6 +1456,8 @@ static struct kgsl_platform_data kgsl_pdata = {
 #else
 	.grp2d0_clk_name = NULL,
 #endif
+	.idle_timeout_3d = HZ/5,
+	.idle_timeout_2d = HZ/10,
 };
 
 static struct platform_device msm_device_kgsl = {
@@ -1852,6 +1855,7 @@ static void __init qsd8x50_init_host(void)
 struct sdcc_gpio {
 	struct msm_gpio *cfg_data;
 	uint32_t size;
+	struct msm_gpio *sleep_cfg_data;
 };
 
 static struct msm_gpio sdc1_cfg_data[] = {
@@ -1861,6 +1865,21 @@ static struct msm_gpio sdc1_cfg_data[] = {
 	{GPIO_CFG(54, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), "sdc1_dat_0"},
 	{GPIO_CFG(55, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), "sdc1_cmd"},
 	{GPIO_CFG(56, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA), "sdc1_clk"},
+};
+
+static struct msm_gpio sdc1_sleep_cfg_data[] = {
+	{GPIO_CFG(51, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_3"},
+	{GPIO_CFG(52, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_2"},
+	{GPIO_CFG(53, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_1"},
+	{GPIO_CFG(54, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_0"},
+	{GPIO_CFG(55, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_cmd"},
+	{GPIO_CFG(56, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_clk"},
 };
 
 static struct msm_gpio sdc2_cfg_data[] = {
@@ -1901,6 +1920,7 @@ static struct sdcc_gpio sdcc_cfg_data[] = {
 	{
 		.cfg_data = sdc1_cfg_data,
 		.size = ARRAY_SIZE(sdc1_cfg_data),
+		.sleep_cfg_data = sdc1_sleep_cfg_data,
 	},
 	{
 		.cfg_data = sdc2_cfg_data,
@@ -1937,6 +1957,11 @@ static void msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 				__func__,  dev_id);
 	} else {
 		clear_bit(dev_id, &gpio_sts);
+		if (curr->sleep_cfg_data) {
+			msm_gpios_enable(curr->sleep_cfg_data, curr->size);
+			msm_gpios_free(curr->sleep_cfg_data, curr->size);
+			return;
+		}
 		msm_gpios_disable_free(curr->cfg_data, curr->size);
 	}
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,36 +60,34 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 	return buf;
 }
 
-void diagmem_exit(struct diagchar_dev *driver)
+void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 {
 	if (driver->diagpool) {
 		if (driver->count == 0 && driver->ref_count == 0) {
 			mempool_destroy(driver->diagpool);
 			driver->diagpool = NULL;
+		} else if (driver->ref_count == 0 && pool_type == POOL_TYPE_ALL)
+			printk(KERN_ALERT "Unable to destroy COPY mempool");
 		}
-	} else
-		printk(KERN_ALERT "\n Attempt to free up "
-					"non existing COPY pool");
 
 	if (driver->diag_hdlc_pool) {
 		if (driver->count_hdlc_pool == 0 && driver->ref_count == 0) {
 			mempool_destroy(driver->diag_hdlc_pool);
 			driver->diag_hdlc_pool = NULL;
+		} else if (driver->ref_count == 0 && pool_type == POOL_TYPE_ALL)
+			printk(KERN_ALERT "Unable to destroy HDLC mempool");
 		}
-	} else
-		printk(KERN_ALERT "\n Attempt to free up "
-					 "non existing HDLC pool");
 
 	if (driver->diag_write_struct_pool) {
+		/* Free up struct pool ONLY if there are no outstanding
+		transactions(aggregation buffer) with USB */
 		if (driver->count_write_struct_pool == 0 &&
-						 driver->ref_count == 0) {
+		 driver->count_hdlc_pool == 0 && driver->ref_count == 0) {
 			mempool_destroy(driver->diag_write_struct_pool);
 			driver->diag_write_struct_pool = NULL;
+		} else if (driver->ref_count == 0 && pool_type == POOL_TYPE_ALL)
+			printk(KERN_ALERT "Unable to destroy STRUCT mempool");
 		}
-	} else
-		printk(KERN_ALERT "\n Attempt to free up "
-					 "non existing USB structure pool");
-
 }
 
 void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
@@ -121,7 +119,7 @@ void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 				    driver->count_write_struct_pool);
 	}
 
-	diagmem_exit(driver);
+	diagmem_exit(driver, pool_type);
 }
 
 void diagmem_init(struct diagchar_dev *driver)

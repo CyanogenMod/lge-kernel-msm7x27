@@ -963,7 +963,7 @@ unknown:
 				tmp--;
 			}
 
-			if (!tmp)
+			if (tmp)
 				f = NULL;
 			break;
 
@@ -1083,12 +1083,16 @@ composite_unbind(struct usb_gadget *gadget)
 			f = list_first_entry(&c->functions,
 					struct usb_function, list);
 			list_del(&f->list);
+			device_remove_file(f->dev, &dev_attr_enable);
+			device_destroy(cdev->driver->class,
+						f->dev->devt);
 			if (f->unbind) {
 				DBG(cdev, "unbind function '%s'/%p\n",
 						f->name, f);
-				f->unbind(c, f);
 				/* may free memory for "f" */
+				f->unbind(c, f);
 			}
+			atomic_dec(&cdev->driver->function_count);
 		}
 		list_del(&c->list);
 		if (c->unbind) {
@@ -1360,4 +1364,6 @@ void usb_composite_unregister(struct usb_composite_driver *driver)
 	if (composite != driver)
 		return;
 	usb_gadget_unregister_driver(&composite_driver);
+	class_destroy(driver->class);
+	driver->class = NULL;
 }

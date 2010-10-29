@@ -274,6 +274,9 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	}
 	clk_enable(drv->rx_bitclk);
 
+	if (icodec->data->voltage_on)
+		icodec->data->voltage_on();
+
 	/* Configure ADIE */
 	trc = adie_codec_open(icodec->data->profile, &icodec->adie_path);
 	if (IS_ERR_VALUE(trc))
@@ -421,6 +424,9 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 	}
 
 	afe_close(PRIMARY_I2S_RX);
+
+	if (icodec->data->voltage_off)
+		icodec->data->voltage_off();
 
 	clk_disable(drv->rx_bitclk);
 	clk_disable(drv->rx_osrclk);

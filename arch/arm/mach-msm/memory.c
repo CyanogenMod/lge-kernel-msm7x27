@@ -40,36 +40,50 @@ int arch_io_remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 	return remap_pfn_range(vma, addr, pfn, size, prot);
 }
 
-void *zero_page_strongly_ordered;
+void *strongly_ordered_page;
 
-void map_zero_page_strongly_ordered(void)
+/*
+ * The trick of making the zero page strongly ordered no longer
+ * works. We no longer want to make a second alias to the zero
+ * page that is strongly ordered. Manually changing the bits
+ * in the page table for the zero page would have side effects
+ * elsewhere that aren't necessary. The result is that we need
+ * to get a page from else where. Given when the first call
+ * to write_to_strongly_ordered_memory occurs, using bootmem
+ * to get a page makes the most sense.
+ */
+void map_page_strongly_ordered(void)
 {
 #if defined(CONFIG_ARCH_MSM7X27)
-	if (zero_page_strongly_ordered)
+	long unsigned int phys;
+
+	if (strongly_ordered_page)
 		return;
 
-	zero_page_strongly_ordered =
-		ioremap_strongly_ordered(page_to_pfn(empty_zero_page)
-		<< PAGE_SHIFT, PAGE_SIZE);
-	printk(KERN_ALERT "Initialized Zero page successfully\n");
+	strongly_ordered_page = alloc_bootmem(PAGE_SIZE);
+	phys = __pa(strongly_ordered_page);
+	ioremap_page((long unsigned int) strongly_ordered_page,
+		phys,
+		get_mem_type(MT_DEVICE_STRONGLY_ORDERED));
+	printk(KERN_ALERT "Initialized strongly ordered page successfully\n");
 #endif
 }
-EXPORT_SYMBOL(map_zero_page_strongly_ordered);
+EXPORT_SYMBOL(map_page_strongly_ordered);
 
 void write_to_strongly_ordered_memory(void)
 {
 #if defined(CONFIG_ARCH_MSM7X27)
-	if (!zero_page_strongly_ordered) {
+	if (!strongly_ordered_page) {
 		if (!in_interrupt())
-			map_zero_page_strongly_ordered();
+			map_page_strongly_ordered();
 		else {
-			printk(KERN_ALERT "Cannot map zero page in "
+			printk(KERN_ALERT "Cannot map strongly ordered page in "
 				"Interrupt Context\n");
 			/* capture it here before the allocation fails later */
 			BUG();
 		}
 	}
-	*(int *)zero_page_strongly_ordered = 0;
+	*(int *)strongly_ordered_page = 0;
 #endif
 }
 EXPORT_SYMBOL(write_to_strongly_ordered_memory);
