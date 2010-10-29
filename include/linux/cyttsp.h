@@ -468,6 +468,7 @@ struct cyttsp_platform_data {
 	u8 tch_tmout;
 	u8 lp_intrvl;
 	u8 power_state;
+	bool wakeup;
 #ifdef CY_USE_I2C_DRIVER
 	s32 (*init)(struct i2c_client *client);
 	s32 (*resume)(struct i2c_client *client);

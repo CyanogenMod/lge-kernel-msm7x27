@@ -1805,7 +1805,6 @@ static int cyttsp_initialize(struct i2c_client *client, struct cyttsp *ts)
 		goto error_free_irq;
 	}
 
-	pr_err("%s: add sysfs entires\n", __func__);
 	retval = device_create_file(&client->dev, &dev_attr_cyttsp_fw_ver);
 	if (retval) {
 		cyttsp_alert("sysfs entry for firmware version failed\n");
@@ -1892,6 +1891,7 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 		register_early_suspend(&ts->early_suspend);
 	}
 #endif /* CONFIG_HAS_EARLYSUSPEND */
+	device_init_wakeup(&client->dev, ts->platform_data->wakeup);
 
 	cyttsp_info("Start Probe %s\n", \
 		(retval < CY_OK) ? "FAIL" : "PASS");
@@ -1906,6 +1906,12 @@ static int cyttsp_resume(struct device *dev)
 	int retval = CY_OK;
 
 	cyttsp_debug("Wake Up\n");
+
+	if (device_may_wakeup(dev)) {
+		if (ts->client->irq)
+			disable_irq_wake(ts->client->irq);
+		return 0;
+	}
 
 	/* re-enable the interrupt prior to wake device */
 	if (ts->client->irq)
@@ -1962,6 +1968,12 @@ static int cyttsp_suspend(struct device *dev)
 
 	cyttsp_debug("Enter Sleep\n");
 
+	if (device_may_wakeup(dev)) {
+		if (ts->client->irq)
+			enable_irq_wake(ts->client->irq);
+		return 0;
+	}
+
 	/* disable worker */
 	if (ts->client->irq == 0)
 		del_timer(&ts->timer);
@@ -2013,6 +2025,7 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 	pm_runtime_set_suspended(&client->dev);
 	pm_runtime_disable(&client->dev);
 
+	device_init_wakeup(&client->dev, 0);
 	/* clientdata registered on probe */
 	ts = i2c_get_clientdata(client);
 	device_remove_file(&ts->client->dev, &dev_attr_irq_enable);
