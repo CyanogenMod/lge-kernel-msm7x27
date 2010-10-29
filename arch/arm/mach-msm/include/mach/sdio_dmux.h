@@ -29,15 +29,15 @@
 #include <linux/types.h>
 #include <linux/skbuff.h>
 
-#ifndef _MSM_RMNET_SDIO_H
-#define _MSM_RMNET_SDIO_H
+#ifndef _SDIO_DMUX_H
+#define _SDIO_DMUX_H
 
-int msm_rmnet_sdio_open(uint32_t id, void *priv,
-			void (*receive_cb)(void *, struct sk_buff *),
-			void (*write_done)(void *, struct sk_buff *));
+int msm_sdio_dmux_open(uint32_t id, void *priv,
+		       void (*receive_cb)(void *, struct sk_buff *),
+		       void (*write_done)(void *, struct sk_buff *));
 
-int msm_rmnet_sdio_close(uint32_t id);
+int msm_sdio_dmux_close(uint32_t id);
 
-int msm_rmnet_sdio_write(uint32_t id, struct sk_buff *skb);
+int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb);
 
-#endif /* _MSM_RMNET_SDIO_H */
+#endif /* _SDIO_DMUX_H */
