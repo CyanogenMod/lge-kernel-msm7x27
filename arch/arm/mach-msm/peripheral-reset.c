@@ -24,7 +24,7 @@
 
 #include <mach/msm_iomap.h>
 
-#include "peripheral-reset.h"
+#include "peripheral-loader.h"
 #include "clock-8x60.h"
 
 #define MSM_MMS_REGS_BASE		0x10200000
@@ -56,6 +56,10 @@
 #define QDSP6SS_STRAP_AHB		(msm_lpass_qdsp6ss_base + 0x0020)
 
 #define PPSS_RESET			(MSM_CLK_CTL_BASE + 0x2594)
+
+#define PIL_MODEM	0
+#define PIL_Q6		1
+#define PIL_DSPS	2
 
 static int modem_start, q6_start, dsps_start;
 static void __iomem *msm_mms_regs_base;
@@ -337,8 +341,38 @@ int peripheral_shutdown(int id)
 	return ret;
 }
 
+static struct pil_device peripherals[] = {
+	{
+		.name = "modem",
+		.depends_on = "q6",
+		.id = PIL_MODEM,
+		.pdev = {
+			.name = "pil_modem",
+			.id = -1,
+		},
+	},
+	{
+		.name = "q6",
+		.id = PIL_Q6,
+		.pdev = {
+			.name = "pil_q6",
+			.id = -1,
+		},
+	},
+	{
+		.name = "dsps",
+		.id = PIL_DSPS,
+		.pdev = {
+			.name = "pil_dsps",
+			.id = -1,
+		},
+	},
+};
+
 static int __init msm_peripheral_reset_init(void)
 {
+	unsigned i;
+
 	msm_mms_regs_base = ioremap(MSM_MMS_REGS_BASE, SZ_256);
 	if (!msm_mms_regs_base)
 		goto err;
@@ -346,6 +380,9 @@ static int __init msm_peripheral_reset_init(void)
 	msm_lpass_qdsp6ss_base = ioremap(MSM_LPASS_QDSP6SS_BASE, SZ_256);
 	if (!msm_lpass_qdsp6ss_base)
 		goto err_lpass;
+
+	for (i = 0; i < ARRAY_SIZE(peripherals); i++)
+		msm_pil_add_device(&peripherals[i]);
 
 	return 0;
 
