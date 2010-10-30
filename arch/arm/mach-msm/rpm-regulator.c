@@ -21,6 +21,7 @@
 #include <linux/spinlock.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
+#include <linux/mfd/pmic8901.h>
 
 #include "rpm-regulator.h"
 #include "rpm.h"
@@ -281,6 +282,12 @@ int pm8058_s1_set_min_uv_noirq(enum pm8058_s1_vote_client voter, int min_uV)
 }
 EXPORT_SYMBOL_GPL(pm8058_s1_set_min_uv_noirq);
 
+#define IS_PMIC_8901_V1(rev)		((rev) == PM_8901_REV_1p0 || \
+					 (rev) == PM_8901_REV_1p1)
+
+#define PMIC_8901_V1_SCALE(uV)		((((uV) - 62100) * 23) / 25)
+
+
 static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 		unsigned mask1, unsigned val1, unsigned cnt)
 {
@@ -326,6 +333,44 @@ static int smps_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 	rc = vreg_set(vreg, SMPS_VOLTAGE,
 			MICRO_TO_MILLI(min_uV) << SMPS_VOLTAGE_SHIFT,
 			0, 0, 2);
+	if (!rc)
+		return rc;
+
+	/* only save if nonzero (or not disabling) */
+	if (min_uV)
+		vreg->save_uV = min_uV;
+
+	return rc;
+}
+
+/*
+ * This secondary set_voltage callback is needed to handle v1 PMIC 8901 SMPS
+ * voltage compensation on the Linux side.  The RPM does not correct for the
+ * output voltage error present in v1 PMIC 8901 chips.
+ */
+static int smps_8901_set_voltage(struct regulator_dev *dev, int min_uV,
+				 int max_uV)
+{
+	struct vreg *vreg = rdev_get_drvdata(dev);
+	int scaled_min_uV = min_uV;
+	int rc;
+	static int pmic8901_rev;
+
+	/* Scale input request voltage down if using v1 PMIC 8901. */
+	if (min_uV) {
+		if (pmic8901_rev <= 0)
+			pmic8901_rev = pm8901_rev(NULL);
+
+		if (pmic8901_rev < 0)
+			pr_err("%s: setting %s to %d uV; PMIC 8901 revision "
+				"unavailable, no scaling can be performed.\n",
+				__func__, dev->desc->name, min_uV);
+		else if (IS_PMIC_8901_V1(pmic8901_rev))
+			scaled_min_uV = PMIC_8901_V1_SCALE(min_uV);
+	}
+
+	rc = vreg_set(vreg, SMPS_VOLTAGE, MICRO_TO_MILLI(scaled_min_uV) <<
+			SMPS_VOLTAGE_SHIFT, 0, 0, 2);
 	if (!rc)
 		return rc;
 
@@ -747,6 +792,17 @@ static struct regulator_ops smps_ops = {
 	.get_mode = smps_get_mode,
 };
 
+static struct regulator_ops smps_8901_ops = {
+	.enable = smps_enable,
+	.disable = smps_disable,
+	.is_enabled = smps_is_enabled,
+	.set_voltage = smps_8901_set_voltage,
+	.get_voltage = smps_get_voltage,
+	.set_mode = smps_set_mode,
+	.get_optimum_mode = smps_get_optimum_mode,
+	.get_mode = smps_get_mode,
+};
+
 static struct regulator_ops switch_ops = {
 	.enable = switch_enable,
 	.disable = switch_disable,
@@ -819,11 +875,11 @@ static struct regulator_desc vreg_descrip[RPM_VREG_ID_MAX] = {
 	DESC(RPM_VREG_ID_PM8901_L5, "8901_l5", &ldo_ops),
 	DESC(RPM_VREG_ID_PM8901_L6, "8901_l6", &ldo_ops),
 
-	DESC(RPM_VREG_ID_PM8901_S0, "8901_s0", &smps_ops),
-	DESC(RPM_VREG_ID_PM8901_S1, "8901_s1", &smps_ops),
-	DESC(RPM_VREG_ID_PM8901_S2, "8901_s2", &smps_ops),
-	DESC(RPM_VREG_ID_PM8901_S3, "8901_s3", &smps_ops),
-	DESC(RPM_VREG_ID_PM8901_S4, "8901_s4", &smps_ops),
+	DESC(RPM_VREG_ID_PM8901_S0, "8901_s0", &smps_8901_ops),
+	DESC(RPM_VREG_ID_PM8901_S1, "8901_s1", &smps_8901_ops),
+	DESC(RPM_VREG_ID_PM8901_S2, "8901_s2", &smps_8901_ops),
+	DESC(RPM_VREG_ID_PM8901_S3, "8901_s3", &smps_8901_ops),
+	DESC(RPM_VREG_ID_PM8901_S4, "8901_s4", &smps_8901_ops),
 
 	DESC(RPM_VREG_ID_PM8901_LVS0, "8901_lvs0", &switch_ops),
 	DESC(RPM_VREG_ID_PM8901_LVS1, "8901_lvs1", &switch_ops),
