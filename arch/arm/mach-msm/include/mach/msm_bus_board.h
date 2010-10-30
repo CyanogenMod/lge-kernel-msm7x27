@@ -122,7 +122,7 @@ extern struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata;
 	(bw) = MSM_BUS_GET_BW_BYTES(val); \
 	} while (0)
 
-#define FAB_MAX_BW_BYTES(width, clk) ((uint32_t)(width) * (uint32)(clk))
+#define FAB_MAX_BW_BYTES(width, clk) ((uint32_t)(width) * (uint32_t)(clk))
 #define FAB_BW_128K(bw) ((uint16_t)((bw) >> 17))
 #define BW_TO_CLK_FREQ_HZ(width, bw) ((unsigned long)((bw) / (width)))
 /* 8 bytes per clock @ 133 MHz */
