@@ -155,8 +155,8 @@ struct imx074_ctrl_t {
 	enum imx074_test_mode_t set_test;
 	unsigned short imgaddr;
 };
-static uint8_t imx074_delay_msecs_stdby = 20;
-static uint16_t imx074_delay_msecs_stream = 60;
+static uint8_t imx074_delay_msecs_stdby = 5;
+static uint16_t imx074_delay_msecs_stream = 5;
 static int32_t config_csi;
 
 static struct imx074_ctrl_t *imx074_ctrl;
@@ -830,14 +830,8 @@ static int32_t imx074_video_config(int mode)
 	/* change sensor resolution	if needed */
 	if (imx074_ctrl->prev_res == QTR_SIZE) {
 		rt = RES_PREVIEW;
-		imx074_delay_msecs_stdby =
-			((((2 * 1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 	} else {
 		rt = RES_CAPTURE;
-		imx074_delay_msecs_stdby =
-			((((1000 * imx074_ctrl->fps_divider)/
-			imx074_ctrl->fps) * Q8) / Q10) + 1;
 	}
 	if (imx074_sensor_setting(UPDATE_PERIODIC, rt) < 0)
 		return rc;
@@ -854,14 +848,8 @@ static int32_t imx074_snapshot_config(int mode)
 	if (imx074_ctrl->curr_res != imx074_ctrl->pict_res) {
 		if (imx074_ctrl->pict_res == QTR_SIZE) {
 			rt = RES_PREVIEW;
-			imx074_delay_msecs_stdby =
-				((((2*1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 		} else {
 			rt = RES_CAPTURE;
-			imx074_delay_msecs_stdby =
-				((((1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 		}
 	}
 	if (imx074_sensor_setting(UPDATE_PERIODIC, rt) < 0)
@@ -878,14 +866,8 @@ static int32_t imx074_raw_snapshot_config(int mode)
 	if (imx074_ctrl->curr_res != imx074_ctrl->pict_res) {
 		if (imx074_ctrl->pict_res == QTR_SIZE) {
 			rt = RES_PREVIEW;
-			imx074_delay_msecs_stdby =
-				((((2*1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 		} else {
 			rt = RES_CAPTURE;
-				imx074_delay_msecs_stdby =
-					((((1000 * imx074_ctrl->fps_divider)/
-					imx074_ctrl->fps) * Q8) / Q10) + 1;
 		}
 	}
 	if (imx074_sensor_setting(UPDATE_PERIODIC, rt) < 0)
