@@ -3262,14 +3262,86 @@ static uint32_t lcd_panel_gpios[] = {
 	GPIO_CFG(27, 1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_16MA), /* lcdc_blu0 */
 };
 
+static struct regulator *reg_8901_l1;
+static struct regulator *reg_8901_l2;
 
 static void lcd_panel_power(int on)
 {
 	int n;
+	int rc;
+
+	if (!reg_8901_l1) {
+		reg_8901_l1 = regulator_get(NULL, "8901_l1");
+		if (IS_ERR(reg_8901_l1)) {
+			pr_err("%s: Unable to get 8901_l1\n", __func__);
+			return;
+		}
+	}
+
+	if (!reg_8901_l2) {
+		reg_8901_l2 = regulator_get(NULL, "8901_l2");
+		if (IS_ERR(reg_8901_l2)) {
+			pr_err("%s: Unable to get 8901_l2\n", __func__);
+			regulator_put(reg_8901_l1);
+			reg_8901_l1 = NULL;
+			return;
+		}
+	}
+
+	if (on) {
+		rc = regulator_set_voltage(reg_8901_l1, 3300000, 3300000);
+		if (rc) {
+			pr_err("%s: error set 8901_l1 to 3.3V\n", __func__);
+			goto fail;
+		}
+
+		rc = regulator_set_voltage(reg_8901_l2, 3300000, 3300000);
+		if (rc) {
+			pr_err("%s: error set 8901_l2 to 3.3V\n", __func__);
+			goto fail;
+		}
+
+		rc = regulator_enable(reg_8901_l1);
+		if (rc) {
+			pr_err("%s: 8901_l1 enable failed, rc=%d\n",
+				__func__, rc);
+			goto fail;
+		}
+
+		rc = regulator_enable(reg_8901_l2);
+		if (rc) {
+			pr_err("%s: 8901_l2 enable failed, rc=%d\n",
+				__func__, rc);
+			rc = regulator_disable(reg_8901_l1);
+			goto fail;
+		}
+	} else {
+		if (regulator_is_enabled(reg_8901_l1)) {
+			rc = regulator_disable(reg_8901_l1);
+			if (rc)
+				pr_warning("%s: 8901_l1 disable failed, "
+					"rc=%d\n", __func__, rc);
+		}
+
+		if (regulator_is_enabled(reg_8901_l2)) {
+			rc = regulator_disable(reg_8901_l2);
+			if (rc)
+				pr_warning("%s: 8901_l2 disable failed, "
+					"rc=%d\n", __func__, rc);
+		}
+	}
 
 	/*TODO if on = 0 free the gpio's */
 	for (n = 0; n < ARRAY_SIZE(lcd_panel_gpios); ++n)
 		gpio_tlmm_config(lcd_panel_gpios[n], 0);
+
+	return;
+
+fail:
+	regulator_put(reg_8901_l1);
+	regulator_put(reg_8901_l2);
+	reg_8901_l1 = NULL;
+	reg_8901_l2 = NULL;
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
