@@ -281,7 +281,6 @@ static int snddev_mi2s_probe(struct platform_device *pdev)
 
 	dev_info->name = pdata->name;
 	dev_info->copp_id = pdata->copp_id;
-	dev_info->acdb_id = pdata->acdb_id;
 	dev_info->dev_ops.open = snddev_mi2s_open;
 	dev_info->dev_ops.close = snddev_mi2s_close;
 	dev_info->private_data = (void *)pdata;
