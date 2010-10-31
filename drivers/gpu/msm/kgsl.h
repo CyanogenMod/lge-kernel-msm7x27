@@ -69,8 +69,6 @@ struct kgsl_driver {
 	struct device *base_dev[KGSL_DEVICE_MAX];
 	int num_devs;
 	struct platform_device *pdev;
-	struct mutex mutex;
-	unsigned int is_suspended;
 
 	uint32_t flags_debug;
 
@@ -82,6 +80,8 @@ struct kgsl_driver {
 	struct list_head pagetable_list;
 	/* Mutex for accessing the pagetable list */
 	struct mutex pt_mutex;
+	/* Mutex for accessing the process list */
+	struct mutex process_mutex;
 
 	struct kgsl_pagetable *global_pt;
 };

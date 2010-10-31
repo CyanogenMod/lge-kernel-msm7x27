@@ -171,7 +171,7 @@ void kgsl_idle_check(struct work_struct *work)
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 							idle_check_ws);
 
-	mutex_lock(&kgsl_driver.mutex);
+	mutex_lock(&device->mutex);
 	if (device->hwaccess_blocked == KGSL_FALSE
 	    && device->flags & KGSL_FLAGS_STARTED) {
 		if (device->ftbl.device_sleep(device, KGSL_FALSE) ==
@@ -180,7 +180,7 @@ void kgsl_idle_check(struct work_struct *work)
 					jiffies +
 					device->pwrctrl.interval_timeout);
 	}
-	mutex_unlock(&kgsl_driver.mutex);
+	mutex_unlock(&device->mutex);
 }
 
 void kgsl_timer(unsigned long data)
@@ -197,13 +197,13 @@ void kgsl_pre_hwaccess(struct kgsl_device *device)
 			break;
 		if (device->hwaccess_blocked == KGSL_FALSE)
 			break;
-		if (kgsl_driver.is_suspended != KGSL_TRUE) {
+		if (device->is_suspended != KGSL_TRUE) {
 			device->ftbl.device_wake(device);
 			break;
 		}
-		mutex_unlock(&kgsl_driver.mutex);
+		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->hwaccess_gate);
-		mutex_lock(&kgsl_driver.mutex);
+		mutex_lock(&device->mutex);
 	}
 }
 
