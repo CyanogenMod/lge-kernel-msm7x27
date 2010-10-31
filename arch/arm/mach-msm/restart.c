@@ -68,9 +68,9 @@ static void msm_restart(char str, const char *cmd)
 #endif
 
 	restart_reason = ioremap_nocache(RESTART_REASON_ADDR, SZ_4K);
-	if (!strcmp(cmd, "bootloader")) {
+	if (!strncmp(cmd, "bootloader", 10)) {
 		writel(0x77665500, restart_reason);
-	} else if (!strcmp(cmd, "recovery")) {
+	} else if (!strncmp(cmd, "recovery", 8)) {
 		writel(0x77665502, restart_reason);
 	} else if (!strncmp(cmd, "oem-", 4)) {
 		unsigned long code;
