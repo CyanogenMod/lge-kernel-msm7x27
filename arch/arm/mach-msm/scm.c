@@ -108,7 +108,7 @@ static struct scm_command *alloc_scm_command(size_t cmd_size, size_t resp_size)
  *
  * Free an SCM command.
  */
-static void kfree_scm_command(struct scm_command *cmd)
+static void kfree_scm_command(const struct scm_command *cmd)
 {
 	kfree(cmd);
 }
@@ -120,7 +120,7 @@ static void kfree_scm_command(struct scm_command *cmd)
  * Returns a pointer to a response for a command.
  */
 static inline struct scm_response *scm_command_to_response(
-		struct scm_command *cmd)
+		const struct scm_command *cmd)
 {
 	return (void *)cmd + cmd->resp_hdr_offset;
 }
@@ -131,7 +131,7 @@ static inline struct scm_response *scm_command_to_response(
  *
  * Returns a pointer to the command buffer of a command.
  */
-static inline void *scm_get_command_buffer(struct scm_command *cmd)
+static inline void *scm_get_command_buffer(const struct scm_command *cmd)
 {
 	return (void *)cmd + cmd->buf_offset;
 }
@@ -142,7 +142,7 @@ static inline void *scm_get_command_buffer(struct scm_command *cmd)
  *
  * Returns a pointer to a response buffer of a response.
  */
-static inline void *scm_get_response_buffer(struct scm_response *rsp)
+static inline void *scm_get_response_buffer(const struct scm_response *rsp)
 {
 	return (void *)rsp + rsp->buf_offset;
 }
@@ -181,7 +181,7 @@ static u32 smc(u32 cmd_addr)
 	return r0;
 }
 
-static int __scm_call(struct scm_command *cmd)
+static int __scm_call(const struct scm_command *cmd)
 {
 	int ret;
 	u32 cmd_addr = virt_to_phys(cmd);
@@ -214,7 +214,7 @@ static int __scm_call(struct scm_command *cmd)
  *
  * Sends a command to the SCM and waits for the command to finish processing.
  */
-int scm_call(u32 svc_id, u32 cmd_id, void *cmd_buf, size_t cmd_len,
+int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		void *resp_buf, size_t resp_len)
 {
 	int ret;
