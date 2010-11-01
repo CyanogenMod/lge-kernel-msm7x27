@@ -20,8 +20,7 @@
 
 void __msm_gpiomux_write(unsigned gpio, gpiomux_config_t val)
 {
-	unsigned tlmm_config  = (val & ~GPIOMUX_CTL_MASK) |
-				((gpio & 0x3ff) << 4);
+	unsigned tlmm_config  = val | ((gpio & 0x3ff) << 4);
 	unsigned tlmm_disable = 0;
 	int rc;
 
