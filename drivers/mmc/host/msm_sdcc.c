@@ -1108,9 +1108,17 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
 		htc_pwrsink_set(PWRSINK_SDCARD, 0);
+		if (!host->sdcc_irq_disabled) {
+			disable_irq(host->irqres->start);
+			host->sdcc_irq_disabled = 1;
+		}
 		break;
 	case MMC_POWER_UP:
 		pwr |= MCI_PWR_UP;
+		if (host->sdcc_irq_disabled) {
+			enable_irq(host->irqres->start);
+			host->sdcc_irq_disabled = 0;
+		}
 		break;
 	case MMC_POWER_ON:
 		htc_pwrsink_set(PWRSINK_SDCARD, 100);
@@ -1132,6 +1140,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO &&
 				!host->plat->sdiowakeup_irq) {
 			writel(MCI_SDIOINTMASK, host->base + MMCIMASK0);
+			WARN_ON(host->sdcc_irq_disabled);
 			enable_irq_wake(host->irqres->start);
 		}
 		clk_disable(host->clk);
@@ -1555,6 +1564,17 @@ msmsdcc_probe(struct platform_device *pdev)
 			  DRIVER_NAME " (pio)", host);
 	if (ret)
 		goto irq_free;
+
+	/*
+	 * Enable SDCC IRQ only when host is powered on. Otherwise, this
+	 * IRQ is un-necessarily being monitored by MPM (Modem power
+	 * management block) during idle-power collapse.  The MPM will be
+	 * configured to monitor the DATA1 GPIO line with level-low trigger
+	 * and thus depending on the GPIO status, it prevents TCXO shutdown
+	 * during idle-power collapse.
+	 */
+	disable_irq(irqres->start);
+	host->sdcc_irq_disabled = 1;
 
 	if (plat->sdiowakeup_irq) {
 		ret = request_irq(plat->sdiowakeup_irq,
