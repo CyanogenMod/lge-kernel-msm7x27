@@ -1464,10 +1464,12 @@ static struct msm_xo_voter *xo_pxo;
 /* Enable/disable for voteable XOs. */
 static int xo_enable(unsigned src, unsigned enable)
 {
+	int xo_mode = enable ? MSM_XO_MODE_ON : MSM_XO_MODE_OFF;
+
 	if (!xo_pxo)
 		return -ENODEV;
 
-	return msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_ON);
+	return msm_xo_mode_vote(xo_pxo, xo_mode);
 }
 
 /* Enable/disable for hardware-voteable PLLs. */
