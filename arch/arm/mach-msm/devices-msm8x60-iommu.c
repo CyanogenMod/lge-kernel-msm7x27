@@ -311,11 +311,13 @@ static struct msm_iommu_dev vfe_smmu = {
 };
 
 static struct msm_iommu_dev vcodec_a_smmu = {
-	.name = "vcodec_a"
+	.name = "vcodec_a",
+	.clk_rate = -1
 };
 
 static struct msm_iommu_dev vcodec_b_smmu = {
-	.name = "vcodec_b"
+	.name = "vcodec_b",
+	.clk_rate = -1
 };
 
 static struct msm_iommu_dev gfx3d_smmu = {
@@ -404,7 +406,7 @@ struct platform_device msm_device_iommu_vfe = {
 	.resource = msm_iommu_vfe_resources,
 };
 
-static struct platform_device msm_device_iommu_vcodec_a = {
+struct platform_device msm_device_iommu_vcodec_a = {
 	.name = "msm_iommu",
 	.id = 7,
 	.dev = {
@@ -414,7 +416,7 @@ static struct platform_device msm_device_iommu_vcodec_a = {
 	.resource = msm_iommu_vcodec_a_resources,
 };
 
-static struct platform_device msm_device_iommu_vcodec_b = {
+struct platform_device msm_device_iommu_vcodec_b = {
 	.name = "msm_iommu",
 	.id = 8,
 	.dev = {

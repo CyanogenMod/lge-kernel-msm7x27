@@ -27,6 +27,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 
+#include <mach/clk.h>
 #include <mach/iommu_hw-8xxx.h>
 #include <mach/iommu.h>
 
@@ -130,16 +131,33 @@ static int msm_iommu_probe(struct platform_device *pdev)
 {
 	struct resource *res_mem = NULL;
 	struct resource *ioregs;
-	struct clk *iommu_clk;
 	struct msm_iommu_drvdata *drvdata = NULL;
 	struct msm_iommu_dev *iommu_dev = pdev->dev.platform_data;
 	void __iomem *regs_base = NULL;
 	resource_size_t	len;
-	int ret = 0, ncb, nm2v, irq;
+	int ret, ncb, nm2v, irq;
 
 	if (pdev->id == -1) {
 		msm_iommu_root_dev = pdev;
 		return 0;
+	}
+
+	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
+
+	if (!drvdata)
+		return -ENOMEM;
+
+	drvdata->pclk = clk_get(NULL, "smmu_pclk");
+	if (IS_ERR(drvdata->pclk)) {
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	ret = clk_enable(drvdata->pclk);
+	if (ret) {
+		clk_put(drvdata->pclk);
+		drvdata->pclk = NULL;
+		goto fail;
 	}
 
 	if (!iommu_dev) {
@@ -147,37 +165,19 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
-
-	if (!drvdata) {
-		ret = -ENOMEM;
-		goto fail;
-	}
-
 	if (iommu_dev->clk_rate != 0) {
-		iommu_clk = clk_get(&pdev->dev, "iommu_clk");
+		drvdata->clk = clk_get(&pdev->dev, "iommu_clk");
 
-		if (IS_ERR(iommu_clk)) {
+		if (IS_ERR(drvdata->clk)) {
 			ret = -ENODEV;
 			goto fail;
 		}
+		if (clk_get_rate(drvdata->clk) == 0)
+			clk_set_min_rate(drvdata->clk, 1);
 
-		if (iommu_dev->clk_rate > 0 &&
-		    clk_get_rate(iommu_clk) == 0) {
-			ret = clk_set_rate(iommu_clk, iommu_dev->clk_rate);
-
-			if (ret) {
-				clk_put(iommu_clk);
-				goto fail;
-			}
-		}
-
-		ret = clk_enable(iommu_clk);
-		if (ret) {
-			clk_put(iommu_clk);
+		ret = clk_enable(drvdata->clk);
+		if (ret)
 			goto fail;
-		}
-		clk_put(iommu_clk);
 	}
 
 	ioregs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "physbase");
@@ -234,6 +234,10 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	nm2v = GET_NM2VCBMT((unsigned long) regs_base);
 	ncb = GET_NCB((unsigned long) regs_base);
 
+	if (drvdata->clk)
+		clk_disable(drvdata->clk);
+	clk_disable(drvdata->pclk);
+
 	pr_info("device %s mapped at %p, irq %d with %d ctx banks\n",
 			iommu_dev->name, regs_base, irq, ncb+1);
 
@@ -242,6 +246,16 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	return 0;
 
 fail:
+	if (!IS_ERR(drvdata->pclk)) {
+		clk_disable(drvdata->pclk);
+		clk_put(drvdata->pclk);
+	}
+
+	if (drvdata->clk) {
+		clk_disable(drvdata->clk);
+		clk_put(drvdata->clk);
+	}
+
 	if (res_mem)
 		release_mem_region(res_mem->start, len);
 
@@ -258,6 +272,9 @@ static int msm_iommu_remove(struct platform_device *pdev)
 
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
+		if (drv->clk)
+			clk_put(drv->clk);
+		clk_put(drv->pclk);
 		memset(drv, 0, sizeof(*drv));
 		kfree(drv);
 		platform_set_drvdata(pdev, NULL);
@@ -270,7 +287,7 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 	struct msm_iommu_ctx_dev *c = pdev->dev.platform_data;
 	struct msm_iommu_drvdata *drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata = NULL;
-	int i, ret = 0;
+	int i, ret;
 	if (!c || !pdev->dev.parent) {
 		ret = -EINVAL;
 		goto fail;
@@ -294,6 +311,18 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&ctx_drvdata->attached_elm);
 	platform_set_drvdata(pdev, ctx_drvdata);
 
+	ret = clk_enable(drvdata->pclk);
+	if (ret)
+		goto fail;
+
+	if (drvdata->clk) {
+		ret = clk_enable(drvdata->clk);
+		if (ret) {
+			clk_disable(drvdata->pclk);
+			goto fail;
+		}
+	}
+
 	/* Program the M2V tables for this context */
 	for (i = 0; i < MAX_NUM_MIDS; i++) {
 		int mid = c->mids[i];
@@ -315,6 +344,10 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 		/* Set security bit override to be Non-secure */
 		SET_NSCFG(drvdata->base, mid, 3);
 	}
+
+	if (drvdata->clk)
+		clk_disable(drvdata->clk);
+	clk_disable(drvdata->pclk);
 
 	dev_info(&pdev->dev, "context %s using bank %d\n", c->name, c->num);
 	return 0;

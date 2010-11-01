@@ -1249,7 +1249,6 @@ void __init msm_clock_temp_force_on(void)
 	clk_enable(clk_get(NULL, "hdmi_s_pclk"));
 	clk_enable(clk_get(NULL, "imem_pclk"));
 	clk_enable(clk_get(NULL, "smi_pclk"));
-	clk_enable(clk_get(NULL, "smmu_pclk"));
 	clk_enable(clk_get(NULL, "vcodec_pclk"));
 }
 
@@ -1438,6 +1437,10 @@ struct clk msm_clocks_8x60[] = {
 					&msm_device_iommu_jpegd.dev, 0),
 	CLK_8X60("iommu_clk",           VFE_AXI_CLK,
 					&msm_device_iommu_vfe.dev, 0),
+	CLK_8X60("iommu_clk",           VCODEC_AXI_CLK,
+					&msm_device_iommu_vcodec_a.dev, 0),
+	CLK_8X60("iommu_clk",           VCODEC_AXI_CLK,
+					&msm_device_iommu_vcodec_b.dev, 0),
 	CLK_8X60("iommu_clk",           GFX3D_CLK,
 					&msm_device_iommu_gfx3d.dev, 0),
 	CLK_8X60("iommu_clk",           GFX2D0_CLK,
