@@ -1207,9 +1207,6 @@ static int mdp_probe(struct platform_device *pdev)
 		break;
 
 	case MIPI_CMD_PANEL:
-		pdata->on = mdp4_dsi_cmd_on;
-		pdata->off = mdp4_dsi_cmd_off;
-		mfd->hw_refresh = TRUE;
 		mfd->dma_fnc = mdp4_dsi_cmd_overlay;
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;

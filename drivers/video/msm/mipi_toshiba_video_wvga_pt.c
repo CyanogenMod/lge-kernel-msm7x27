@@ -32,7 +32,7 @@ static int __init mipi_video_toshiba_wvga_pt_init(void)
 #endif
 
 	pinfo.xres = 480;
-	pinfo.yres = 856;
+	pinfo.yres = 864; /* 856 for V1 surf */
 	pinfo.type = MIPI_VIDEO_PANEL;
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
@@ -49,6 +49,22 @@ static int __init mipi_video_toshiba_wvga_pt_init(void)
 	pinfo.bl_max = 15;
 	pinfo.bl_min = 1;
 	pinfo.fb_num = 2;
+
+	pinfo.mipi.mode = DSI_VIDEO_MODE;
+	pinfo.mipi.pulse_mode_hsa_he = TRUE;
+	pinfo.mipi.hfp_power_stop = TRUE;
+	pinfo.mipi.hbp_power_stop = TRUE;
+	pinfo.mipi.hsa_power_stop = TRUE;
+	pinfo.mipi.eof_bllp_power_stop = TRUE;
+	pinfo.mipi.bllp_power_stop = TRUE;
+	pinfo.mipi.traffic_mode = DSI_NON_BURST_SYNCH_PULSE;
+	pinfo.mipi.dst_format = DSI_VIDEO_DST_FORMAT_RGB888;
+	pinfo.mipi.vc_channel = 0;
+	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_BGR;
+	pinfo.mipi.data_lane0 = TRUE;
+	pinfo.mipi.data_lane1 = TRUE;
+	pinfo.mipi.t_clk_post = 0x0e;
+	pinfo.mipi.t_clk_pre = 0x0f;
 
 	ret = mipi_toshiba_device_register(&pinfo, MIPI_DSI_PRIM,
 						MIPI_DSI_PANEL_WVGA_PT);

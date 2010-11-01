@@ -97,6 +97,38 @@ struct mddi_panel_info {
 	__u32 vdopkt;
 };
 
+struct mipi_panel_info {
+	char mode;		/* video/cmd */
+	char interleave_mode;
+	char crc_check;
+	char ecc_check;
+	char dst_format;	/* shared by video and command */
+	char data_lane0;
+	char data_lane1;
+	char data_lane2;
+	char data_lane3;
+	char dlane_swap;	/* data lane swap */
+	char rgb_swap;
+	char b_sel;
+	char g_sel;
+	char r_sel;
+	char rx_eot_ignore;
+	char tx_eot_append;
+	char t_clk_post; /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
+	char t_clk_pre;  /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
+	/* video mode */
+	char pulse_mode_hsa_he;
+	char hfp_power_stop;
+	char hbp_power_stop;
+	char hsa_power_stop;
+	char eof_bllp_power_stop;
+	char bllp_power_stop;
+	char traffic_mode;
+	char vc_channel;
+	/* command mode */
+	char interleave_max;
+};
+
 struct msm_panel_info {
 	__u32 xres;
 	__u32 yres;
@@ -115,6 +147,7 @@ struct msm_panel_info {
 	__u32 clk_max;
 	__u32 frame_count;
 
+
 	union {
 		struct mddi_panel_info mddi;
 	};
@@ -123,6 +156,8 @@ struct msm_panel_info {
 		struct lcd_panel_info lcd;
 		struct lcdc_panel_info lcdc;
 	};
+
+	struct mipi_panel_info mipi;
 };
 
 #define MSM_FB_SINGLE_MODE_PANEL(pinfo)		\

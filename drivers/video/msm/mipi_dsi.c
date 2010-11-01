@@ -88,9 +88,16 @@ struct device dsi_dev;
  */
 static int mipi_dsi_mxo_selected(void)
 {
-	uint32_t data = MIPI_INP(mmss_cc_base + 0x005c);
+	uint32_t *cc;
+	uint32 data;
 
-	return (data & BIT(14)) != 0;
+	cc = (uint32 *)(mmss_cc_base + 0x004c);
+	data = MIPI_INP(cc);
+
+	if (data & BIT(14))
+		return 1;
+	else
+		return 0;
 }
 
 
@@ -122,8 +129,6 @@ static void mipi_dsi_clk(int on, struct dsi_clk_desc *clk)
 }
 #else
 
-static uint32_t dsi_cc_data = 0x25;
-
 static void mipi_dsi_clk(int on)
 {
 	char	*cc, *ns, *md;
@@ -132,11 +137,17 @@ static void mipi_dsi_clk(int on)
 	md = mmss_cc_base + 0x0050;
 	ns = mmss_cc_base + 0x0054;
 
-	MIPI_OUTP(cc, dsi_cc_data);
-	wmb();
-	MIPI_OUTP(md, 0x1fd);
-	wmb();
-	MIPI_OUTP(ns, 0xff000003);
+	if (on) {
+		if (mipi_dsi_mxo_selected())
+			MIPI_OUTP(cc, 0x125);	/* mxo */
+		else
+			MIPI_OUTP(cc, 0x25);	/* pxo */
+
+		MIPI_OUTP(md, 0x1fd);
+		MIPI_OUTP(ns, 0xff000003);
+	} else
+		MIPI_OUTP(cc, 0);
+
 	wmb();
 }
 
@@ -164,11 +175,13 @@ static void mipi_dsi_pclk(int on)
 	md = mmss_cc_base + 0x0134;
 	ns = mmss_cc_base + 0x0138;
 
-	MIPI_OUTP(cc, 0x2a5);
-	wmb();
-	MIPI_OUTP(md, 0x1fb);
-	wmb();
-	MIPI_OUTP(ns, 0xfd0003);
+	if (on) {
+		MIPI_OUTP(cc, 0x2a5);
+		MIPI_OUTP(md, 0x1fb);
+		MIPI_OUTP(ns, 0xfd0003);
+	} else
+		MIPI_OUTP(cc, 0);
+
 	wmb();
 }
 
@@ -228,7 +241,6 @@ static struct dsi_phy_ctrl dsi_phy_db[DSI_PANEL_MAX] = {
 		0x33, 0x1f, 0x0f,
 		0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
 #endif
-		0x0e0f		/* clock out timing */
 	},
 	{ /* 480*854, RGB888, 2 Lane 60 fps cmd mode */
 		{0x03, 0x01, 0x01, 0x00},          /* regulator */
@@ -241,7 +253,6 @@ static struct dsi_phy_ctrl dsi_phy_db[DSI_PANEL_MAX] = {
 		{0x41, 0x57, 0xba, 0xda, 0x00, 0x50, 0x48, 0x63,
 		0x31, 0x1f, 0x1f,
 		0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
-		0x0f0e		/* clock out timing   */
 	}
 };
 
@@ -277,10 +288,6 @@ void mipi_dsi_phy_init(int panel_ndx)
 		off += 4;
 	}
 
-	/* clock out ctrl */
-	MIPI_OUTP(MIPI_DSI_BASE + 0xc0, pd->clkout);
-	wmb();
-
 	off = 0x0290;	/* ctrl 0 */
 	for (i = 0; i < 4; i++) {
 		MIPI_OUTP(MIPI_DSI_BASE + off, pd->ctrl[i]);
@@ -313,6 +320,8 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 
 	mfd = platform_get_drvdata(pdev);
+
+
 	ret = panel_next_off(pdev);
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
@@ -325,6 +334,24 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	disable_irq(DSI_IRQ);
 
+	/* disbale dsi pll */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0);
+
+	/* disbale dsi clk */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0118, 0);
+
+	mipi_dsi_pclk(0);
+	mipi_dsi_clk(0);
+	clk_disable(dsi_esc_clk);
+	clk_disable(dsi_byte_div_clk);
+	clk_disable(dsi_m_pclk);
+	clk_disable(amp_pclk); /* clock for AHB-master to AXI */
+
+	/* disbale dsi engine */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
+
+	pr_debug("%s:\n", __func__);
+
 	return ret;
 }
 
@@ -335,6 +362,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct fb_info *fbi;
 	struct fb_var_screeninfo *var;
+	struct mipi_panel_info *mipi;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 
 	mfd = platform_get_drvdata(pdev);
@@ -351,7 +379,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		printk(KERN_ERR "%s: clk_set_rate failed\n",
 			__func__);
 
-	clk_enable(amp_pclk);
+	clk_enable(amp_pclk); /* clock for AHB-master to AXI */
 	clk_enable(dsi_m_pclk);
 	clk_enable(dsi_byte_div_clk);
 	clk_enable(dsi_esc_clk);
@@ -391,35 +419,22 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x30, 0);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x34, (vspw - 1) << 16);
 
-		/* there has hardware problem
-		 * the color channel between dsi and mdp are swapped
-		 */
-		MIPI_OUTP(MIPI_DSI_BASE + 0x1c, 0x2000); /* rGB --> BGR */
-
-		/* embedded  mode, lpm */
-		MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
-
-		/* non burst sync pulse, 888RGB */
-		MIPI_OUTP(MIPI_DSI_BASE + 0x0c, 0x11119030);
 	}
 
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0080, 0x04);/* sw trigger */
-	/* command mode */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0, 0x135);
-
-	wmb();
+	mipi  = &mfd->panel_info.mipi;
+	mipi_dsi_host_init(mipi);
 
 	ret = panel_next_on(pdev);
 
-	/* video mode */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0, 0x133);
-	wmb();
+	mipi_dsi_op_mode_config(mipi->mode);
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #else
 	pm_qos_update_request(mfd->pm_qos_req, 122000);
 #endif
+
+	pr_debug("%s:\n", __func__);
 
 	return ret;
 }
@@ -471,11 +486,6 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		disable_irq(DSI_IRQ);
 
 		mipi_dsi_calibration();
-
-		if (mipi_dsi_mxo_selected())
-			dsi_cc_data |= BIT(8);	/* use MXO for DSI PLL clkref */
-		else
-			dsi_cc_data &= ~BIT(8);	/* use PXO */
 
 		mipi_dsi_resource_initialized = 1;
 
@@ -643,6 +653,8 @@ static int __init mipi_dsi_driver_init(void)
 		printk(KERN_ERR "mipi_dsi_register_driver() failed!\n");
 		return ret;
 	}
+
+	mipi_dsi_init_comp();
 
 	return ret;
 }

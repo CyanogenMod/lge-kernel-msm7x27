@@ -45,66 +45,74 @@ char if_sel_video[2] = {0x53, 0x01};
 char if_sel_cmd[2] = {0x53, 0x00};
 char exit_sleep[2] = {0x11, 0x00};
 char display_on[2] = {0x29, 0x00};
+char display_off[2] = {0x28, 0x00};
 char enter_sleep[2] = {0x10, 0x00};
 char max_pktsize[2] = {0x00, 0x04};	/* LSB tx first */
 
-static struct dsi_cmd_desc toshiba_mcmd_set[] = {
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(mcap_off), mcap_off},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(ena_test_reg), ena_test_reg},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(two_lane), two_lane},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(non_burst_sync_pulse),
-					non_burst_sync_pulse},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(dmode_wvga), dmode_wvga},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(intern_wr_clk1_wvga),
-					intern_wr_clk1_wvga},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(intern_wr_clk2_wvga),
-					intern_wr_clk2_wvga},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, sizeof(hor_addr_2A_wvga),
-					hor_addr_2A_wvga},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, sizeof(hor_addr_2B_wvga),
-					hor_addr_2B_wvga},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, sizeof(if_sel_video), if_sel_video},
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, sizeof(max_pktsize), max_pktsize},
-	{DTYPE_DCS_WRITE, 1, 0, 0, sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_WRITE, 1, 0, 0, sizeof(display_on), display_on}
+static struct dsi_cmd_desc toshiba_display_off_cmds[] = {
+	{DTYPE_DCS_WRITE, 1, 0, 0, 10, sizeof(display_off), display_off},
+#ifdef TOSHIBA_ENTER_SLEEP
+	{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(enter_sleep), enter_sleep}
+#endif
 };
 
-#define TOSHIBA_MCMD_MAX (sizeof(toshiba_mcmd_set)/sizeof(struct dsi_cmd_desc))
-
-void mipi_toshiba_manufacture_cmds(void)
-{
-	struct dsi_buf *dp;
-	struct dsi_cmd_desc *cm;
-	int i;
-
-	dp = &toshiba_tx_buf;
-	mipi_dsi_buf_init(dp);
-	for (i = 0; i < TOSHIBA_MCMD_MAX; i++) {
-		cm = &toshiba_mcmd_set[i];
-		mipi_dsi_buf_init(dp);
-		mipi_dsi_dma_cmd_add(dp, cm);
-		mipi_dsi_dma_cmd_tx(dp);
-	}
-}
+static struct dsi_cmd_desc toshiba_display_on_cmds[] = {
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(mcap_off), mcap_off},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(ena_test_reg), ena_test_reg},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(two_lane), two_lane},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(non_burst_sync_pulse),
+					non_burst_sync_pulse},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dmode_wvga), dmode_wvga},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(intern_wr_clk1_wvga),
+					intern_wr_clk1_wvga},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(intern_wr_clk2_wvga),
+					intern_wr_clk2_wvga},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(hor_addr_2A_wvga),
+					hor_addr_2A_wvga},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(hor_addr_2B_wvga),
+					hor_addr_2B_wvga},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(if_sel_video), if_sel_video},
+	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(max_pktsize), max_pktsize},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on}
+};
 
 static int mipi_toshiba_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
+
 	mfd = platform_get_drvdata(pdev);
+
 	if (!mfd)
 		return -ENODEV;
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmd_mode_ctrl(1);	/* enable cmd mode */
-	mipi_toshiba_manufacture_cmds();
-	mipi_dsi_cmd_mode_ctrl(0);	/* disable cmd mode */
+	mipi_dsi_cmds_tx(&toshiba_tx_buf, toshiba_display_on_cmds,
+			ARRAY_SIZE(toshiba_display_on_cmds));
 
 	return 0;
 }
 
 static int mipi_toshiba_lcd_off(struct platform_device *pdev)
 {
+	struct msm_fb_data_type *mfd;
+
+	mfd = platform_get_drvdata(pdev);
+
+	if (!mfd)
+		return -ENODEV;
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	/* change to DSI_CMD_MODE since it needed to
+	 * tx DCS dsiplay off comamnd to toshiba panel
+	 */
+	mipi_dsi_op_mode_config(DSI_CMD_MODE);
+
+	mipi_dsi_cmds_tx(&toshiba_tx_buf, toshiba_display_off_cmds,
+			ARRAY_SIZE(toshiba_display_off_cmds));
+
 	return 0;
 }
 
