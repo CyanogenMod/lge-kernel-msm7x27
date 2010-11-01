@@ -1800,39 +1800,43 @@ static void reg_init(int use_pxo)
 
 	/* Initialize MM AHB registers: Enable the FPB clock and HW gating for
 	 * clocks that support it. Also set VFE_AHB's FORCE_CORE_ON bit to
-	 * prevent its memory from being collapsed when the clock is halted. */
+	 * prevent its memory from being collapsed when the clock is halted.
+	 * The sleep and wake-up delays are set to safe values. */
 	writel(0x24000002, AHB_EN_REG);
-	writel(0x3C705001, AHB_EN2_REG);
+	writel(0x3C7057F9, AHB_EN2_REG);
 
 	/* Deassert all MM AHB resets. */
 	writel(0, SW_RESET_AHB_REG);
 
 	/* Initialize MM AXI registers: Enable AXI root and SMI clocks, and HW
-	 * gating for all clock that support it. Also set FORCE_CORE_ON bits. */
-	writel(0x1003A801, MAXI_EN_REG);
-	writel(0x7A200400, MAXI_EN2_REG);
-	writel(0x00200400, MAXI_EN3_REG);
+	 * gating for all clock that support it. Also set FORCE_CORE_ON bits,
+	 * and any sleep and wake-up delays to safe values. */
+	writel(0x1003AFF9, MAXI_EN_REG);
+	writel(0x7A27FCFF, MAXI_EN2_REG);
+	writel(0x3FE7FCFF, MAXI_EN3_REG);
 	writel(0x00001C18, SAXI_EN_REG);
 
-	/* Reset MM CC registers to reset values with FORCE_CORE_ON bits set. */
+	/* Initialize MM CC registers: Set MM FORCE_CORE_ON bits so that core
+	 * memories retain state even when not clocked. Also, set sleep and
+	 * wake-up delays to safe values. */
 	writel(0x00000000, CSI_CC_REG);
 	writel(0x00000000, MISC_CC_REG);
-	writel(0x00000401, MISC_CC2_REG);
-	writel(0x80000000, GFX2D0_CC_REG);
-	writel(0x80000000, GFX2D1_CC_REG);
-	writel(0x80000000, GFX3D_CC_REG);
-	writel(0x80000000, IJPEG_CC_REG);
-	writel(0x80000000, JPEGD_CC_REG);
+	writel(0x000007FD, MISC_CC2_REG);
+	writel(0x80FF0000, GFX2D0_CC_REG);
+	writel(0x80FF0000, GFX2D1_CC_REG);
+	writel(0x80FF0000, GFX3D_CC_REG);
+	writel(0x80FF0000, IJPEG_CC_REG);
+	writel(0x80FF0000, JPEGD_CC_REG);
 	/* MDP and PIXEL clocks may be running at boot, don't turn them off. */
-	rmwreg(0x80000000, MDP_CC_REG,   BM(31, 29));
-	rmwreg(0x80000000, PIXEL_CC_REG, BM(31, 29));
-	writel(0x00000400, PIXEL_CC2_REG);
-	writel(0x80000000, ROT_CC_REG);
-	writel(0x80000000, TV_CC_REG);
-	writel(0x00000400, TV_CC2_REG);
-	writel(0x80000000, VCODEC_CC_REG);
-	writel(0x80000000, VFE_CC_REG);
-	writel(0x80000000, VPE_CC_REG);
+	rmwreg(0x80FF0000, MDP_CC_REG,   BM(31, 29) | BM(23, 16));
+	rmwreg(0x80FF0000, PIXEL_CC_REG, BM(31, 29) | BM(23, 16));
+	writel(0x000004FF, PIXEL_CC2_REG);
+	writel(0x80FF0000, ROT_CC_REG);
+	writel(0x80FF0000, TV_CC_REG);
+	writel(0x000004FF, TV_CC2_REG);
+	writel(0x80FF0000, VCODEC_CC_REG);
+	writel(0x80FF0000, VFE_CC_REG);
+	writel(0x80FF0000, VPE_CC_REG);
 
 	/* De-assert MM AXI resets to all hardware blocks. */
 	writel(0, SW_RESET_AXI_REG);
