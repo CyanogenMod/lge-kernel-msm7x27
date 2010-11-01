@@ -215,7 +215,7 @@ enum {
 #define UI_INT2_N 34
 #define UI_INT3_N 14
 
-static struct msm_spm_platform_data msm_spm_data[] __initdata = {
+static struct msm_spm_platform_data msm_spm_data_v1[] __initdata = {
 	[0] = {
 		.reg_base_addr = MSM_SAW0_BASE,
 
@@ -235,7 +235,7 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
 
-		.awake_vlevel = 0x9C,
+		.awake_vlevel = 0x94,
 		.retention_vlevel = 0x81,
 		.collapse_vlevel = 0x20,
 		.retention_mid_vlevel = 0x94,
@@ -263,11 +263,69 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
 
-		.awake_vlevel = 0x9C,
+		.awake_vlevel = 0x94,
 		.retention_vlevel = 0x81,
 		.collapse_vlevel = 0x20,
 		.retention_mid_vlevel = 0x94,
 		.collapse_mid_vlevel = 0x8C,
+
+		.vctl_timeout_us = 50,
+	},
+};
+
+static struct msm_spm_platform_data msm_spm_data[] __initdata = {
+	[0] = {
+		.reg_base_addr = MSM_SAW0_BASE,
+
+#ifdef CONFIG_MSM_AVS_HW
+		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0xFFFFFFFF,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLK_EN] = 0x11,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_PRECLMP_EN] = 0x07,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_POSTCLMP_EN] = 0x00,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLMP_EN] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
+
+		.awake_vlevel = 0xA0,
+		.retention_vlevel = 0x8D,
+		.collapse_vlevel = 0x20,
+		.retention_mid_vlevel = 0xA0,
+		.collapse_mid_vlevel = 0x98,
+
+		.vctl_timeout_us = 50,
+	},
+
+	[1] = {
+		.reg_base_addr = MSM_SAW1_BASE,
+
+#ifdef CONFIG_MSM_AVS_HW
+		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0xFFFFFFFF,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLK_EN] = 0x13,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_PRECLMP_EN] = 0x07,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_POSTCLMP_EN] = 0x00,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLMP_EN] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
+
+		.awake_vlevel = 0xA0,
+		.retention_vlevel = 0x8D,
+		.collapse_vlevel = 0x20,
+		.retention_mid_vlevel = 0xA0,
+		.collapse_mid_vlevel = 0x98,
 
 		.vctl_timeout_us = 50,
 	},
@@ -5836,10 +5894,15 @@ static void __init msm8x60_init(void)
 	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
 	msm_gfx3d_clk_init();
 
-	/* initialize SPM before acpuclock as the latter calls into SPM
+	/*
+	 * Initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
 	 */
-	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	if (SOCINFO_VERSION_MINOR(socinfo_get_version()))
+		msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	else
+		msm_spm_init(msm_spm_data_v1, ARRAY_SIZE(msm_spm_data_v1));
+
 	/*
 	 * Disable regulator info printing so that regulator registration
 	 * messages do not enter the kmsg log.
