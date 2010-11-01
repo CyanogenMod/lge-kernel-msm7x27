@@ -18,7 +18,10 @@
 #include <mach/msm_iomap.h>
 #include "gpiomux.h"
 
-void __msm_gpiomux_write(unsigned gpio, gpiomux_config_t val)
+void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val)
 {
-	writel(val, MSM_TLMM_BASE + 0x1000 + (0x10 * gpio));
+	uint32_t bits;
+
+	bits = (val.drv << 6) | (val.func << 2) | val.pull;
+	writel(bits, MSM_TLMM_BASE + 0x1000 + (0x10 * gpio));
 }
