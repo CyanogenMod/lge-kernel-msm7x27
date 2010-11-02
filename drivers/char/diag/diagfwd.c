@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/workqueue.h>
@@ -58,7 +59,7 @@ do {									\
 		diag_hdlc_encode(&send, &enc);				\
 		driver->write_ptr_1->buf = driver->buf_in_1;		\
 		driver->write_ptr_1->length = buf_length + 4;		\
-		diag_write(driver->write_ptr_1);			\
+		usb_diag_write(driver->legacy_ch, driver->write_ptr_1);	\
 	}								\
 } while (0)
 #endif
@@ -163,7 +164,8 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			if (driver->write_ptr_svc) {
 				driver->write_ptr_svc->length = driver->used;
 				driver->write_ptr_svc->buf = buf;
-				err = diag_write(driver->write_ptr_svc);
+				err = usb_diag_write(driver->legacy_ch,
+						driver->write_ptr_svc);
 			} else
 				err = -1;
 		} else if (proc_num == MODEM_DATA) {
@@ -175,10 +177,10 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 					   " USB: ", 16, 1, DUMP_PREFIX_ADDRESS,
 					    buf, write_ptr->length, 1);
 #endif /* DIAG DEBUG */
-			err = diag_write(write_ptr);
+			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		} else if (proc_num == QDSP_DATA) {
 			write_ptr->buf = buf;
-			err = diag_write(write_ptr);
+			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		}
 		APPEND_DEBUG('k');
 	}
@@ -577,14 +579,17 @@ void diag_process_hdlc(void *data, unsigned len)
 }
 
 #ifdef CONFIG_DIAG_OVER_USB
+#define N_LEGACY_WRITE	(driver->poolsize + 5) /* 2+1 for modem ; 2 for q6 */
+#define N_LEGACY_READ	1
 int diagfwd_connect(void)
 {
 	int err;
 
 	printk(KERN_DEBUG "diag: USB connected\n");
-	err = diag_open(driver->poolsize + 3); /* 2 for A9 ; 1 for q6*/
+	err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
+			N_LEGACY_READ);
 	if (err)
-		printk(KERN_ERR "diag: USB port open failed");
+		printk(KERN_ERR "diag: unable to allocate USB requests");
 	driver->usb_connected = 1;
 	driver->in_busy_1 = 0;
 	driver->in_busy_2 = 0;
@@ -598,7 +603,7 @@ int diagfwd_connect(void)
 	driver->usb_read_ptr->buf = driver->usb_buf_out;
 	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
 	APPEND_DEBUG('a');
-	diag_read(driver->usb_read_ptr);
+	usb_diag_read(driver->legacy_ch, driver->usb_read_ptr);
 	APPEND_DEBUG('b');
 	return 0;
 }
@@ -612,7 +617,7 @@ int diagfwd_disconnect(void)
 	driver->in_busy_qdsp_1 = 1;
 	driver->in_busy_qdsp_2 = 1;
 	driver->debug_flag = 1;
-	diag_close();
+	usb_diag_free_req(driver->legacy_ch);
 	/* TBD - notify and flow control SMD */
 	return 0;
 }
@@ -665,12 +670,27 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 	return 0;
 }
 
-static struct diag_operations diagfwdops = {
-	.diag_connect = diagfwd_connect,
-	.diag_disconnect = diagfwd_disconnect,
-	.diag_char_write_complete = diagfwd_write_complete,
-	.diag_char_read_complete = diagfwd_read_complete
-};
+static void diag_usb_legacy_notifier(void *priv, unsigned event,
+			struct diag_request *d_req)
+{
+	switch (event) {
+	case USB_DIAG_CONNECT:
+		diagfwd_connect();
+		break;
+	case USB_DIAG_DISCONNECT:
+		diagfwd_disconnect();
+		break;
+	case USB_DIAG_READ_DONE:
+		diagfwd_read_complete(d_req);
+		break;
+	case USB_DIAG_WRITE_DONE:
+		diagfwd_write_complete(d_req);
+		break;
+	default:
+		printk(KERN_ERR "Unknown event from USB diag\n");
+		break;
+	}
+}
 
 void diag_read_work_fn(struct work_struct *work)
 {
@@ -679,7 +699,7 @@ void diag_read_work_fn(struct work_struct *work)
 	driver->usb_read_ptr->buf = driver->usb_buf_out;
 	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
 	APPEND_DEBUG('e');
-	diag_read(driver->usb_read_ptr);
+	usb_diag_read(driver->legacy_ch, driver->usb_read_ptr);
 	APPEND_DEBUG('f');
 }
 #endif /* DIAG OVER USB */
@@ -836,7 +856,12 @@ void diagfwd_init(void)
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 #ifdef CONFIG_DIAG_OVER_USB
 	INIT_WORK(&(driver->diag_read_work), diag_read_work_fn);
-	diag_usb_register(&diagfwdops);
+	driver->legacy_ch = usb_diag_open(DIAG_LEGACY, driver,
+			diag_usb_legacy_notifier);
+	if (IS_ERR(driver->legacy_ch)) {
+		printk(KERN_ERR "Unable to open USB diag legacy channel\n");
+		goto err;
+	}
 #endif
 
 	platform_driver_register(&msm_smd_ch1_driver);
@@ -866,6 +891,8 @@ err:
 #ifdef CONFIG_DIAG_NO_MODEM
 		kfree(driver->apps_rsp_buf);
 #endif
+		if (driver->diag_wq)
+			destroy_workqueue(driver->diag_wq);
 }
 
 void diagfwd_exit(void)
@@ -876,11 +903,11 @@ void diagfwd_exit(void)
 	driver->chqdsp = 0;
 #ifdef CONFIG_DIAG_OVER_USB
 	if (driver->usb_connected)
-		diag_close();
+		usb_diag_free_req(driver->legacy_ch);
 #endif
 	platform_driver_unregister(&msm_smd_ch1_driver);
 #ifdef CONFIG_DIAG_OVER_USB
-	diag_usb_unregister();
+	usb_diag_close(driver->legacy_ch);
 #endif
 
 	kfree(driver->buf_in_1);

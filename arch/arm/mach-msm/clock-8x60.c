@@ -98,26 +98,33 @@
 #define DBG_BUS_VEC_H_REG			REG_MM(0x01E4)
 #define DBG_CFG_REG_HS_REG			REG_MM(0x01B4)
 #define DBG_CFG_REG_LS_REG			REG_MM(0x01B8)
+#define GFX2D0_CC_REG				REG_MM(0x0060)
 #define GFX2D0_MD0_REG				REG_MM(0x0064)
 #define GFX2D0_MD1_REG				REG_MM(0x0068)
 #define GFX2D0_NS_REG				REG_MM(0x0070)
+#define GFX2D1_CC_REG				REG_MM(0x0074)
 #define GFX2D1_MD0_REG				REG_MM(0x0078)
 #define GFX2D1_MD1_REG				REG_MM(0x006C)
 #define GFX2D1_NS_REG				REG_MM(0x007C)
+#define GFX3D_CC_REG				REG_MM(0x0080)
 #define GFX3D_MD0_REG				REG_MM(0x0084)
 #define GFX3D_MD1_REG				REG_MM(0x0088)
 #define GFX3D_NS_REG				REG_MM(0x008C)
+#define IJPEG_CC_REG				REG_MM(0x0098)
 #define IJPEG_NS_REG				REG_MM(0x00A0)
+#define JPEGD_CC_REG				REG_MM(0x00A4)
 #define JPEGD_NS_REG				REG_MM(0x00AC)
-#define MDP_MD0_REG				REG_MM(0x00C4)
 #define MAXI_EN_REG				REG_MM(0x0018)
 #define MAXI_EN2_REG				REG_MM(0x0020)
 #define MAXI_EN3_REG				REG_MM(0x002C)
+#define MDP_CC_REG				REG_MM(0x00C0)
+#define MDP_MD0_REG				REG_MM(0x00C4)
 #define MDP_MD1_REG				REG_MM(0x00C8)
 #define MDP_NS_REG				REG_MM(0x00D0)
 #define MISC_CC_REG				REG_MM(0x0058)
 #define MISC_CC2_REG				REG_MM(0x005C)
 #define PIXEL_CC_REG				REG_MM(0x00D4)
+#define PIXEL_CC2_REG				REG_MM(0x0120)
 #define PIXEL_NS_REG				REG_MM(0x00DC)
 #define MM_PLL0_CONFIG_REG			REG_MM(0x0310)
 #define MM_PLL0_L_VAL_REG			REG_MM(0x0304)
@@ -137,6 +144,7 @@
 #define MM_PLL2_MODE_REG			REG_MM(0x0338)
 #define MM_PLL2_N_VAL_REG			REG_MM(0x0344)
 #define MM_PLL2_STATUS_REG			REG_MM(0x0350)
+#define ROT_CC_REG				REG_MM(0x00E0)
 #define ROT_NS_REG				REG_MM(0x00E8)
 #define SAXI_EN_REG				REG_MM(0x0030)
 #define SW_RESET_AHB_REG			REG_MM(0x020C)
@@ -146,11 +154,13 @@
 #define TV_CC_REG				REG_MM(0x00EC)
 #define TV_CC2_REG				REG_MM(0x0124)
 #define TV_NS_REG				REG_MM(0x00F4)
+#define VCODEC_CC_REG				REG_MM(0x00F8)
 #define VCODEC_MD0_REG				REG_MM(0x00FC)
 #define VCODEC_MD1_REG				REG_MM(0x0128)
 #define VCODEC_NS_REG				REG_MM(0x0100)
 #define VFE_CC_REG				REG_MM(0x0104)
 #define VFE_NS_REG				REG_MM(0x010C)
+#define VPE_CC_REG				REG_MM(0x0110)
 #define VPE_NS_REG				REG_MM(0x0118)
 
 /* Low-power Audio clock registers. */
@@ -978,10 +988,10 @@ static struct clk_freq_tbl clk_tbl_tv[] = {
 
 /* VCODEC */
 #define NS_MASK_VCODEC (BM(18, 11) | BM(2, 0))
-#define CLK_VCODEC(id, ns, h_r, h_c, h_b, tv) \
+#define CLK_VCODEC(id, ns, h_r, h_c, h_b, par, tv) \
 		CLK(id, MND, ns, (ns-8), (ns-4), NULL, 0, h_r, h_c, h_b, \
 				B(0), B(2), NS_MASK_VCODEC, 0, set_rate_mnd, \
-				clk_tbl_vcodec, NULL, NONE, NULL, tv)
+				clk_tbl_vcodec, NULL, par, NULL, tv)
 #define F_VCODEC(f, s, d, m, n, v) \
 		F_RAW(f, SRC_##s, MD8(8, m, 0, n), \
 			NS_MM(18, 11, n, m, 0, 0, 1, 2, 0, s), \
@@ -1216,7 +1226,7 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 	CLK_TSSC(TSSC, TSSC_CLK_CTL_REG,
 		CLK_HALT_CFPB_STATEC_REG, HALT, 4, TEST_PER_LS(0x94)),
 
-	CLK_USB_HS(USB_HS_XCVR,  USB_HS1_XCVR_FS_CLK_NS,
+	CLK_USB_HS(USB_HS1_XCVR,  USB_HS1_XCVR_FS_CLK_NS,
 		CLK_HALT_DFAB_STATE_REG, HALT, 0, TEST_PER_LS(0x85)),
 	CLK_RESET(USB_PHY0, USB_PHY0_RESET_REG, B(0)),
 
@@ -1269,6 +1279,20 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 		CLK_HALT_CFPB_STATEA_REG, HALT, 17, TEST_PER_LS(0x89)),
 	CLK_NORATE(USB_FS2_P, USB_FS2_HCLK_CTL_REG, B(4), NULL, 0,
 		CLK_HALT_CFPB_STATEA_REG, HALT, 14, TEST_PER_LS(0x8C)),
+
+	CLK_NORATE(USB_HS1_P, USB_HS1_HCLK_CTL_REG, B(4), NULL, 0,
+		CLK_HALT_DFAB_STATE_REG, HALT, 1, TEST_PER_LS(0x84)),
+
+	CLK_NORATE(SDC1_P, SDCn_HCLK_CTL_REG(1), B(4), NULL, 0,
+		CLK_HALT_DFAB_STATE_REG, HALT, 11, TEST_PER_LS(0x12)),
+	CLK_NORATE(SDC2_P, SDCn_HCLK_CTL_REG(2), B(4), NULL, 0,
+		CLK_HALT_DFAB_STATE_REG, HALT, 10, TEST_PER_LS(0x14)),
+	CLK_NORATE(SDC3_P, SDCn_HCLK_CTL_REG(3), B(4), NULL, 0,
+		CLK_HALT_DFAB_STATE_REG, HALT,  9, TEST_PER_LS(0x16)),
+	CLK_NORATE(SDC4_P, SDCn_HCLK_CTL_REG(4), B(4), NULL, 0,
+		CLK_HALT_DFAB_STATE_REG, HALT,  8, TEST_PER_LS(0x18)),
+	CLK_NORATE(SDC5_P, SDCn_HCLK_CTL_REG(5), B(4), NULL, 0,
+		CLK_HALT_DFAB_STATE_REG, HALT,  7, TEST_PER_LS(0x1A)),
 
 	/* HW-Voteable Clocks */
 	CLK_NORATE(ADM0, SC0_U_CLK_BRANCH_ENA_VOTE_REG, B(2), NULL, 0,
@@ -1358,7 +1382,7 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 		DBG_BUS_VEC_B_REG, HALT, 25, TEST_MM_LS(0x1F)),
 
 	CLK_VCODEC(VCODEC, VCODEC_NS_REG, DBG_BUS_VEC_C_REG,
-		HALT, 29, TEST_MM_HS(0x0B)),
+		HALT, 29, VCODEC_AXI, TEST_MM_HS(0x0B)),
 
 	CLK_VPE(VPE, VPE_NS_REG, DBG_BUS_VEC_A_REG, HALT, 28, TEST_MM_HS(0x1C)),
 
@@ -1374,43 +1398,62 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 		DBG_BUS_VEC_E_REG, HALT, 6, TEST_MM_HS(0x11)),
 	CLK_NORATE(JPEGD_AXI, MAXI_EN_REG, B(25), NULL, 0,
 		DBG_BUS_VEC_E_REG, HALT, 5, TEST_MM_HS(0x14)),
+	CLK_NORATE(VCODEC_AXI,   MAXI_EN_REG, B(19), SW_RESET_AXI_REG,
+		B(4)|B(5), DBG_BUS_VEC_E_REG, HALT, 3, TEST_MM_HS(0x17)),
 	CLK_NORATE(VFE_AXI,   MAXI_EN_REG, B(18), SW_RESET_AXI_REG, B(9),
 		DBG_BUS_VEC_E_REG, HALT, 0, TEST_MM_HS(0x18)),
 	CLK_RESET(IJPEG_AXI,  SW_RESET_AXI_REG, B(14)),
 	CLK_RESET(MDP_AXI,    SW_RESET_AXI_REG, B(13)),
 	CLK_RESET(ROT_AXI,    SW_RESET_AXI_REG, B(6)),
-	CLK_RESET(VCODEC_AXI, SW_RESET_AXI_REG, (B(4)|B(5))),
 	CLK_RESET(VPE_AXI,    SW_RESET_AXI_REG, B(15)),
 
 	/* AHB Interfaces */
-	CLK_NORATE(AMP_P,   AHB_EN_REG, B(24), NULL, 0,
+	CLK_NORATE(AMP_P,    AHB_EN_REG, B(24), NULL, 0,
 		DBG_BUS_VEC_F_REG, HALT, 18, TEST_MM_LS(0x06)),
+	CLK_NORATE(APU_P,    AHB_EN_REG, B(28), SW_RESET_AHB_REG, B(18),
+		DBG_BUS_VEC_F_REG, HALT,  8, TEST_MM_LS(0x24)),
 	CLK_NORATE(CSI0_P,   AHB_EN_REG, B(7),  SW_RESET_AHB_REG, B(17),
-		DBG_BUS_VEC_H_REG, HALT, 14, TEST_MM_LS(0x07)),
+		DBG_BUS_VEC_F_REG, HALT, 16, TEST_MM_LS(0x07)),
 	CLK_NORATE(CSI1_P,   AHB_EN_REG, B(20), SW_RESET_AHB_REG, B(16),
-		DBG_BUS_VEC_H_REG, HALT, 13, TEST_MM_LS(0x08)),
+		DBG_BUS_VEC_F_REG, HALT, 17, TEST_MM_LS(0x08)),
 	CLK_NORATE(DSI_M_P,  AHB_EN_REG, B(9),  SW_RESET_AHB_REG, B(6),
 		DBG_BUS_VEC_F_REG, HALT, 19, TEST_MM_LS(0x09)),
+	CLK_NORATE(DSI_S_P,  AHB_EN_REG, B(18), SW_RESET_AHB_REG, B(5),
+		DBG_BUS_VEC_F_REG, HALT, 20, TEST_MM_LS(0x0A)),
 	CLK_NORATE(FAB_P,    AHB_EN_REG, B(31), SW_RESET_AHB_REG, B(13),
 		DBG_BUS_VEC_F_REG, HALT,  1, TEST_MM_LS(0x0B)),
+	CLK_NORATE(GFX2D0_P, AHB_EN_REG, B(19), SW_RESET_AHB_REG, B(12),
+		DBG_BUS_VEC_F_REG, HALT,  2, TEST_MM_LS(0x0C)),
+	CLK_NORATE(GFX2D1_P, AHB_EN_REG, B(2),  SW_RESET_AHB_REG, B(11),
+		DBG_BUS_VEC_F_REG, HALT,  3, TEST_MM_LS(0x0D)),
+	CLK_NORATE(GFX3D_P,  AHB_EN_REG, B(3),  SW_RESET_AHB_REG, B(10),
+		DBG_BUS_VEC_F_REG, HALT,  4, TEST_MM_LS(0x0E)),
+	CLK_NORATE(HDMI_M_P, AHB_EN_REG, B(14), SW_RESET_AHB_REG, B(9),
+		DBG_BUS_VEC_F_REG, HALT,  5, TEST_MM_LS(0x0F)),
+	CLK_NORATE(HDMI_S_P, AHB_EN_REG, B(4),  SW_RESET_AHB_REG, B(9),
+		DBG_BUS_VEC_F_REG, HALT,  6, TEST_MM_LS(0x10)),
 	CLK_NORATE(IJPEG_P,  AHB_EN_REG, B(5),  SW_RESET_AHB_REG, B(7),
-		DBG_BUS_VEC_F_REG, HALT,  9,  TEST_MM_LS(0x11)),
+		DBG_BUS_VEC_F_REG, HALT,  9, TEST_MM_LS(0x11)),
+	CLK_NORATE(IMEM_P,   AHB_EN_REG, B(6),  SW_RESET_AHB_REG, B(8),
+		DBG_BUS_VEC_F_REG, HALT,  10, TEST_MM_LS(0x12)),
 	CLK_NORATE(JPEGD_P,  AHB_EN_REG, B(21), SW_RESET_AHB_REG, B(4),
-		DBG_BUS_VEC_F_REG, HALT,  7,  TEST_MM_LS(0x13)),
+		DBG_BUS_VEC_F_REG, HALT,  7, TEST_MM_LS(0x13)),
 	CLK_NORATE(MDP_P,    AHB_EN_REG, B(10), SW_RESET_AHB_REG, B(3),
-		DBG_BUS_VEC_F_REG, HALT, 11,  TEST_MM_LS(0x14)),
+		DBG_BUS_VEC_F_REG, HALT, 11, TEST_MM_LS(0x14)),
 	CLK_NORATE(ROT_P,    AHB_EN_REG, B(12), SW_RESET_AHB_REG, B(2),
 		DBG_BUS_VEC_F_REG, HALT, 13, TEST_MM_LS(0x16)),
+	CLK_NORATE(SMI0_P,   AHB_EN_REG, B(23), SW_RESET_AHB_REG, B(19),
+		DBG_BUS_VEC_F_REG, HALT, 21, TEST_MM_LS(0x17)),
+	CLK_NORATE(SMMU_P,   AHB_EN_REG, B(15), NULL, 0,
+		DBG_BUS_VEC_F_REG, HALT, 22, TEST_MM_LS(0x18)),
 	CLK_NORATE(TV_ENC_P, AHB_EN_REG, B(25), SW_RESET_AHB_REG, B(15),
 		DBG_BUS_VEC_F_REG, HALT, 23, TEST_MM_LS(0x19)),
+	CLK_NORATE(VCODEC_P, AHB_EN_REG, B(11), SW_RESET_AHB_REG, B(1),
+		DBG_BUS_VEC_F_REG, HALT, 12, TEST_MM_LS(0x1A)),
 	CLK_NORATE(VFE_P,    AHB_EN_REG, B(13), SW_RESET_AHB_REG, B(0),
 		DBG_BUS_VEC_F_REG, HALT, 14, TEST_MM_LS(0x1B)),
 	CLK_NORATE(VPE_P,    AHB_EN_REG, B(16), SW_RESET_AHB_REG, B(14),
 		DBG_BUS_VEC_F_REG, HALT, 15, TEST_MM_LS(0x1C)),
-	CLK_RESET(GFX2D0_P, SW_RESET_AHB_REG, B(12)),
-	CLK_RESET(GFX2D1_P, SW_RESET_AHB_REG, B(11)),
-	CLK_RESET(GFX3D_P,  SW_RESET_AHB_REG, B(10)),
-	CLK_RESET(VCODEC_P, SW_RESET_AHB_REG, B(1)),
 
 	/*
 	 * Low Power Audio Clocks
@@ -1454,10 +1497,12 @@ static struct msm_xo_voter *xo_pxo;
 /* Enable/disable for voteable XOs. */
 static int xo_enable(unsigned src, unsigned enable)
 {
+	int xo_mode = enable ? MSM_XO_MODE_ON : MSM_XO_MODE_OFF;
+
 	if (!xo_pxo)
 		return -ENODEV;
 
-	return msm_xo_mode_vote(xo_pxo, MSM_XO_MODE_ON);
+	return msm_xo_mode_vote(xo_pxo, xo_mode);
 }
 
 /* Enable/disable for hardware-voteable PLLs. */
@@ -1775,35 +1820,63 @@ static void reg_init(int use_pxo)
 		writel(B(4), MM_PLL2_MODE_REG); /* MXO */
 	writel(0x00C02080, MM_PLL2_CONFIG_REG); /* Enable MN, main out, misc. */
 
-	/* Enable dynamic clock gating for peripheral HCLKs that support it. */
-	writel(B(6), SDCn_HCLK_CTL_REG(1));
-	writel(B(6), SDCn_HCLK_CTL_REG(2));
-	writel(B(6), SDCn_HCLK_CTL_REG(3));
-	writel(B(6), SDCn_HCLK_CTL_REG(4));
-	writel(B(6), SDCn_HCLK_CTL_REG(5));
-	writel(B(6), USB_HS1_HCLK_CTL_REG);
-
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel(0, SW_RESET_ALL_REG);
 
-	/* Enable MM FPB clock and HW gating for AHB clocks that support it. */
-	writel(0x24000002, AHB_EN_REG);
-	writel(0x3C705000, AHB_EN2_REG);
+	/* Initialize MM AHB registers: Enable the FPB clock and disable HW
+	 * gating for all clocks. Also set VFE_AHB's FORCE_CORE_ON bit to
+	 * prevent its memory from being collapsed when the clock is halted.
+	 * The sleep and wake-up delays are set to safe values. */
+	writel(0x00000003, AHB_EN_REG);
+	writel(0x000007F9, AHB_EN2_REG);
 
 	/* Deassert all MM AHB resets. */
 	writel(0, SW_RESET_AHB_REG);
 
-	/* Enable MM AXI root and SMI clocks, and HW dynamic gating for
-	 * AXI clocks that support it. */
-	rmwreg(0x1003A800, MAXI_EN_REG,  0x1803F800);
-	rmwreg(0x6A000000, MAXI_EN2_REG, 0x6A000000);
-	writel(0x3C38, SAXI_EN_REG);
+	/* Initialize MM AXI registers: Enable AXI root and SMI clocks, and HW
+	 * gating for all clock that support it. Also set FORCE_CORE_ON bits,
+	 * and any sleep and wake-up delays to safe values. */
+	writel(0x10038FF9, MAXI_EN_REG);
+	writel(0x7A27FCFF, MAXI_EN2_REG);
+	writel(0x3FE7FCFF, MAXI_EN3_REG);
+	writel(0x000001D8, SAXI_EN_REG);
+
+	/* Initialize MM CC registers: Set MM FORCE_CORE_ON bits so that core
+	 * memories retain state even when not clocked. Also, set sleep and
+	 * wake-up delays to safe values. */
+	writel(0x00000000, CSI_CC_REG);
+	writel(0x00000000, MISC_CC_REG);
+	writel(0x000007FD, MISC_CC2_REG);
+	writel(0x80FF0000, GFX2D0_CC_REG);
+	writel(0x80FF0000, GFX2D1_CC_REG);
+	writel(0x80FF0000, GFX3D_CC_REG);
+	writel(0x80FF0000, IJPEG_CC_REG);
+	writel(0x80FF0000, JPEGD_CC_REG);
+	/* MDP and PIXEL clocks may be running at boot, don't turn them off. */
+	rmwreg(0x80FF0000, MDP_CC_REG,   BM(31, 29) | BM(23, 16));
+	rmwreg(0x80FF0000, PIXEL_CC_REG, BM(31, 29) | BM(23, 16));
+	writel(0x000004FF, PIXEL_CC2_REG);
+	writel(0x80FF0000, ROT_CC_REG);
+	writel(0x80FF0000, TV_CC_REG);
+	writel(0x000004FF, TV_CC2_REG);
+	writel(0x80FF0000, VCODEC_CC_REG);
+	writel(0x80FF0000, VFE_CC_REG);
+	writel(0x80FF0000, VPE_CC_REG);
 
 	/* De-assert MM AXI resets to all hardware blocks. */
 	writel(0, SW_RESET_AXI_REG);
 
 	/* Deassert all MM core resets. */
 	writel(0, SW_RESET_CORE_REG);
+
+	/* Reset 3D core once more, with its clock enabled. This can
+	 * eventually be done as part of the GDFS footswitch driver. */
+	local_clk_set_rate(C(GFX3D), 27000000);
+	local_clk_enable(C(GFX3D));
+	writel(B(12), SW_RESET_CORE_REG);
+	udelay(5);
+	writel(0, SW_RESET_CORE_REG);
+	local_clk_disable(C(GFX3D));
 
 	/* Set hdmi_ref_clk to MM_PLL2/2. */
 	rmwreg(B(28)|BVAL(21, 18, 0x1), MISC_CC2_REG, B(28)|BM(21, 18));
@@ -1815,8 +1888,6 @@ static void reg_init(int use_pxo)
 		/* Set the dsi_byte_clk src to the DSI PHY PLL,
 		 * dsi_esc_clk to PXO/2, and the hdmi_app_clk src to PXO */
 		rmwreg(0x400001, MISC_CC2_REG, 0x424003);
-		/* Set the hdmi_app_clk divider to 1 (27MHz). */
-		rmwreg(0, MISC_CC_REG, BM(19, 18));
 	} else {
 		/* Enable TSSC and PDM MXO sources. */
 		writel(B(13), TSSC_CLK_CTL_REG);
@@ -1824,8 +1895,6 @@ static void reg_init(int use_pxo)
 		/* Set the dsi_byte_clk src to the DSI PHY PLL,
 		 * dsi_esc_clk to MXO/2, and the hdmi_app_clk src to MXO */
 		rmwreg(0x424001, MISC_CC2_REG, 0x424003);
-		/* Set the hdmi_app_clk divider to 1 (27MHz). */
-		rmwreg(0, MISC_CC_REG, BM(19, 18));
 	}
 }
 
@@ -1857,7 +1926,7 @@ void __init msm_clk_soc_init(void)
 	set_1rate(MDP_VSYNC);
 	set_1rate(TSIF_REF);
 	set_1rate(TSSC);
-	set_1rate(USB_HS_XCVR);
+	set_1rate(USB_HS1_XCVR);
 	set_1rate(USB_FS1_SRC);
 	set_1rate(USB_FS2_SRC);
 }

@@ -31,6 +31,7 @@
 #include "socinfo.h"
 #include <linux/dma-mapping.h>
 #include <linux/irq.h>
+#include <linux/clk.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
 #include <mach/usbdiag.h>
@@ -291,6 +292,27 @@ static struct resource gsbi9_qup_i2c_resources[] = {
 	},
 };
 
+static struct resource gsbi12_qup_i2c_resources[] = {
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI12_QUP_PHYS,
+		.end	= MSM_GSBI12_QUP_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI12_PHYS,
+		.end	= MSM_GSBI12_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI12_QUP_IRQ,
+		.end	= GSBI12_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 static struct resource kgsl_resources[] = {
 	{
 		.name = "kgsl_reg_memory",
@@ -337,7 +359,7 @@ static struct resource kgsl_resources[] = {
 
 };
 
-struct kgsl_platform_data kgsl_pdata = {
+static struct kgsl_platform_data kgsl_pdata = {
 #ifdef CONFIG_MSM_NPA_SYSTEM_BUS
 	/* NPA Flow IDs */
 	.high_axi_3d = MSM_AXI_FLOW_3D_GPU_HIGH,
@@ -430,6 +452,14 @@ struct platform_device msm_gsbi7_qup_i2c_device = {
 	.id		= MSM_GSBI7_QUP_I2C_BUS_ID,
 	.num_resources	= ARRAY_SIZE(gsbi7_qup_i2c_resources),
 	.resource	= gsbi7_qup_i2c_resources,
+};
+
+/* Use GSBI12 QUP for /dev/i2c-5 (Sensors) */
+struct platform_device msm_gsbi12_qup_i2c_device = {
+	.name		= "qup_i2c",
+	.id		= MSM_GSBI12_QUP_I2C_BUS_ID,
+	.num_resources	= ARRAY_SIZE(gsbi12_qup_i2c_resources),
+	.resource	= gsbi12_qup_i2c_resources,
 };
 
 #ifdef CONFIG_I2C_SSBI
@@ -988,6 +1018,7 @@ static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
 }
 
 struct usb_diag_platform_data usb_diag_pdata = {
+	.ch_name = DIAG_LEGACY,
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
 
@@ -1054,6 +1085,33 @@ struct platform_device msm_bus_cpss_fpb = {
 };
 #endif
 
+/* XXX: TEMPORARY FUNCTION: Should not be present in final code. */
+void __init msm_clock_temp_force_on(void)
+{
+	/* The following clocks must be controlled in software, but
+	 * no drivers have taken ownership of them yet.  For now,
+	 * they are turned on here and left on. Once their device
+	 * drivers implement support for them, they must be removed
+	 * from this list. */
+	clk_enable(clk_get(&msm_device_sdc1.dev, "sdc_pclk"));
+	clk_enable(clk_get(&msm_device_sdc2.dev, "sdc_pclk"));
+	clk_enable(clk_get(&msm_device_sdc2.dev, "sdc_pclk"));
+	clk_enable(clk_get(&msm_device_sdc3.dev, "sdc_pclk"));
+	clk_enable(clk_get(&msm_device_sdc4.dev, "sdc_pclk"));
+	clk_enable(clk_get(NULL, "usb_hs_pclk"));
+	clk_enable(clk_get(NULL, "apu_pclk"));
+	clk_enable(clk_get(NULL, "dsi_s_pclk"));
+	clk_enable(clk_get(NULL, "gfx2d0_pclk"));
+	clk_enable(clk_get(NULL, "gfx2d1_pclk"));
+	clk_enable(clk_get(NULL, "gfx3d_pclk"));
+	clk_enable(clk_get(NULL, "hdmi_m_pclk"));
+	clk_enable(clk_get(NULL, "hdmi_s_pclk"));
+	clk_enable(clk_get(NULL, "imem_pclk"));
+	clk_enable(clk_get(NULL, "smi_pclk"));
+	clk_enable(clk_get(NULL, "smmu_pclk"));
+	clk_enable(clk_get(NULL, "vcodec_pclk"));
+}
+
 struct clk msm_clocks_8x60[] = {
 	CLK_RPM("afab_clk",		AFAB_CLK,		NULL, CLK_MIN),
 	CLK_RPM("cfpb_clk",		CFPB_CLK,		NULL, CLK_MIN),
@@ -1096,7 +1154,8 @@ struct clk msm_clocks_8x60[] = {
 					&msm_gsbi9_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI10_QUP_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI11_QUP_CLK,		NULL, OFF),
-	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,
+					&msm_gsbi12_qup_i2c_device.dev, OFF),
 	CLK_8X60("pdm_clk",		PDM_CLK,		NULL, OFF),
 	CLK_8X60("prng_clk",		PRNG_CLK,		NULL, OFF),
 	CLK_8X60("sdc_clk",		SDC1_CLK,
@@ -1111,7 +1170,7 @@ struct clk msm_clocks_8x60[] = {
 					&msm_device_sdc5.dev, OFF),
 	CLK_8X60("tsif_ref_clk",	TSIF_REF_CLK,		NULL, OFF),
 	CLK_8X60("tssc_clk",		TSSC_CLK,		NULL, OFF),
-	CLK_8X60("usb_hs_clk",		USB_HS_XCVR_CLK,	NULL, OFF),
+	CLK_8X60("usb_hs_clk",		USB_HS1_XCVR_CLK,	NULL, OFF),
 	CLK_8X60("usb_phy_clk",		USB_PHY0_CLK,		NULL, OFF),
 	CLK_8X60("usb_fs_src_clk",	USB_FS1_SRC_CLK,	NULL, OFF),
 	CLK_8X60("usb_fs_clk",		USB_FS1_XCVR_CLK,	NULL, OFF),
@@ -1138,10 +1197,23 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
-		&msm_device_uart_dm12.dev, OFF),
+		&msm_device_uart_dm12.dev, 0),
+	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
+					&msm_gsbi12_qup_i2c_device.dev, 0),
 	CLK_8X60("tsif_pclk",		TSIF_P_CLK,		NULL, OFF),
 	CLK_8X60("usb_fs_pclk",		USB_FS1_P_CLK,		NULL, OFF),
 	CLK_8X60("usb_fs_pclk",		USB_FS2_P_CLK,		NULL, OFF),
+	CLK_8X60("usb_hs_pclk",		USB_HS1_P_CLK,		NULL, OFF),
+	CLK_8X60("sdc_pclk",		SDC1_P_CLK,
+					&msm_device_sdc1.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC2_P_CLK,
+					&msm_device_sdc2.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC3_P_CLK,
+					&msm_device_sdc3.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC4_P_CLK,
+					&msm_device_sdc4.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC5_P_CLK,
+					&msm_device_sdc5.dev, OFF),
 	CLK_8X60("adm_clk",		ADM0_CLK,		NULL, OFF),
 	CLK_8X60("adm_pclk",		ADM0_P_CLK,		NULL, OFF),
 	CLK_8X60("adm_clk",		ADM1_CLK,		NULL, OFF),
@@ -1189,21 +1261,28 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("vcodec_axi_clk",	VCODEC_AXI_CLK,		NULL, OFF),
 	CLK_8X60("vpe_axi_clk",		VPE_AXI_CLK,		NULL, OFF),
 	CLK_8X60("amp_pclk",		AMP_P_CLK,		NULL, OFF),
+	CLK_8X60("apu_pclk",		APU_P_CLK,		NULL, OFF),
 	CLK_8X60("csi_pclk",		CSI0_P_CLK,		NULL, OFF),
 	CLK_8X60("csi_pclk",		CSI1_P_CLK,	  WEBCAM_DEV, OFF),
 	CLK_8X60("dsi_m_pclk",		DSI_M_P_CLK,		NULL, OFF),
+	CLK_8X60("dsi_s_pclk",		DSI_S_P_CLK,		NULL, OFF),
 	CLK_8X60("fab_pclk",		FAB_P_CLK,		NULL, OFF),
-	CLK_8X60("ijpeg_pclk",		IJPEG_P_CLK,		NULL, OFF),
-	CLK_8X60("jpegd_pclk",		JPEGD_P_CLK,		NULL, OFF),
-	CLK_8X60("mdp_pclk",		MDP_P_CLK,		NULL, OFF),
-	CLK_8X60("rotator_pclk",	ROT_P_CLK,		NULL, OFF),
-	CLK_8X60("tv_enc_pclk",		TV_ENC_P_CLK,		NULL, OFF),
-	CLK_8X60("vfe_pclk",		VFE_P_CLK,		NULL, OFF),
-	CLK_8X60("vpe_pclk",		VPE_P_CLK,		NULL, OFF),
 	CLK_8X60("gfx2d0_pclk",		GFX2D0_P_CLK,		NULL, OFF),
 	CLK_8X60("gfx2d1_pclk",		GFX2D1_P_CLK,		NULL, OFF),
 	CLK_8X60("gfx3d_pclk",		GFX3D_P_CLK,		NULL, OFF),
+	CLK_8X60("hdmi_m_pclk",		HDMI_M_P_CLK,		NULL, OFF),
+	CLK_8X60("hdmi_s_pclk",		HDMI_S_P_CLK,		NULL, OFF),
+	CLK_8X60("ijpeg_pclk",		IJPEG_P_CLK,		NULL, OFF),
+	CLK_8X60("jpegd_pclk",		JPEGD_P_CLK,		NULL, OFF),
+	CLK_8X60("imem_pclk",		IMEM_P_CLK,		NULL, OFF),
+	CLK_8X60("mdp_pclk",		MDP_P_CLK,		NULL, OFF),
+	CLK_8X60("smi_pclk",		SMI0_P_CLK,		NULL, OFF),
+	CLK_8X60("smmu_pclk",		SMMU_P_CLK,		NULL, OFF),
+	CLK_8X60("rotator_pclk",	ROT_P_CLK,		NULL, OFF),
+	CLK_8X60("tv_enc_pclk",		TV_ENC_P_CLK,		NULL, OFF),
 	CLK_8X60("vcodec_pclk",		VCODEC_P_CLK,		NULL, OFF),
+	CLK_8X60("vfe_pclk",		VFE_P_CLK,		NULL, OFF),
+	CLK_8X60("vpe_pclk",		VPE_P_CLK,		NULL, OFF),
 	CLK_8X60("mi2s_osr_clk",	MI2S_OSR_CLK,		NULL, OFF),
 	CLK_8X60("mi2s_bit_clk",	MI2S_BIT_CLK,		NULL, OFF),
 	CLK_8X60("i2s_mic_osr_clk",	CODEC_I2S_MIC_OSR_CLK,	NULL, OFF),

@@ -657,6 +657,7 @@ static int msm_get_frame(struct msm_sync *sync, void __user *arg)
 	/* read the frame after the status has been read */
 	rmb();
 
+	mutex_lock(&sync->lock);
 	if (sync->croplen) {
 		if (frame.croplen != sync->croplen) {
 			pr_err("%s: invalid frame croplen %d,"
@@ -664,6 +665,7 @@ static int msm_get_frame(struct msm_sync *sync, void __user *arg)
 				__func__,
 				frame.croplen,
 				sync->croplen);
+			mutex_unlock(&sync->lock);
 			return -EINVAL;
 		}
 
@@ -671,6 +673,17 @@ static int msm_get_frame(struct msm_sync *sync, void __user *arg)
 				sync->cropinfo,
 				sync->croplen)) {
 			ERR_COPY_TO_USER();
+			mutex_unlock(&sync->lock);
+			return -EFAULT;
+		}
+	}
+
+	if (sync->fdroiinfo.info) {
+		if (copy_to_user((void *)frame.roi_info.info,
+			sync->fdroiinfo.info,
+			sync->fdroiinfo.info_len)) {
+			ERR_COPY_TO_USER();
+			mutex_unlock(&sync->lock);
 			return -EFAULT;
 		}
 	}
@@ -681,6 +694,7 @@ static int msm_get_frame(struct msm_sync *sync, void __user *arg)
 		rc = -EFAULT;
 	}
 
+	mutex_unlock(&sync->lock);
 	CDBG("%s: got frame\n", __func__);
 
 	return rc;
@@ -1822,30 +1836,38 @@ static int msm_set_crop(struct msm_sync *sync, void __user *arg)
 {
 	struct crop_info crop;
 
+	mutex_lock(&sync->lock);
 	if (copy_from_user(&crop,
 				arg,
 				sizeof(struct crop_info))) {
 		ERR_COPY_FROM_USER();
+		mutex_unlock(&sync->lock);
 		return -EFAULT;
 	}
 
 	if (!sync->croplen) {
 		sync->cropinfo = kmalloc(crop.len, GFP_KERNEL);
-		if (!sync->cropinfo)
+		if (!sync->cropinfo) {
+			mutex_unlock(&sync->lock);
 			return -ENOMEM;
-	} else if (sync->croplen < crop.len)
+		}
+	} else if (sync->croplen < crop.len) {
+		mutex_unlock(&sync->lock);
 		return -EINVAL;
+	}
 
 	if (copy_from_user(sync->cropinfo,
 				crop.info,
 				crop.len)) {
 		ERR_COPY_FROM_USER();
 		kfree(sync->cropinfo);
+		mutex_unlock(&sync->lock);
 		return -EFAULT;
 	}
 
 	sync->croplen = crop.len;
 
+	mutex_unlock(&sync->lock);
 	return 0;
 }
 
@@ -1866,7 +1888,48 @@ static int msm_error_config(struct msm_sync *sync, void __user *arg)
 	CDBG("%s: Enqueue Fake Frame with error code = %d\n", __func__,
 		qcmd->error_code);
 	msm_enqueue(&sync->frame_q, &qcmd->list_frame);
+	return 0;
+}
 
+static int msm_set_fd_roi(struct msm_sync *sync, void __user *arg)
+{
+	struct fd_roi_info fd_roi;
+
+	mutex_lock(&sync->lock);
+	if (copy_from_user(&fd_roi,
+			arg,
+			sizeof(struct fd_roi_info))) {
+		ERR_COPY_FROM_USER();
+		mutex_unlock(&sync->lock);
+		return -EFAULT;
+	}
+	if (fd_roi.info_len <= 0) {
+		mutex_unlock(&sync->lock);
+		return -EFAULT;
+	}
+
+	if (!sync->fdroiinfo.info) {
+		sync->fdroiinfo.info = kmalloc(fd_roi.info_len, GFP_KERNEL);
+		if (!sync->fdroiinfo.info) {
+			mutex_unlock(&sync->lock);
+			return -ENOMEM;
+		}
+		sync->fdroiinfo.info_len = fd_roi.info_len;
+	} else if (sync->fdroiinfo.info_len < fd_roi.info_len) {
+		mutex_unlock(&sync->lock);
+		return -EINVAL;
+    }
+
+	if (copy_from_user(sync->fdroiinfo.info,
+			fd_roi.info,
+			fd_roi.info_len)) {
+		ERR_COPY_FROM_USER();
+		kfree(sync->fdroiinfo.info);
+		sync->fdroiinfo.info = NULL;
+		mutex_unlock(&sync->lock);
+		return -EFAULT;
+	}
+	mutex_unlock(&sync->lock);
 	return 0;
 }
 
@@ -2028,6 +2091,10 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 
 	case MSM_CAM_IOCTL_SET_CROP:
 		rc = msm_set_crop(pmsm->sync, argp);
+		break;
+
+	case MSM_CAM_IOCTL_SET_FD_ROI:
+		rc = msm_set_fd_roi(pmsm->sync, argp);
 		break;
 
 	case MSM_CAM_IOCTL_PICT_PP:

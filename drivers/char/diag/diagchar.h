@@ -155,6 +155,7 @@ struct diagchar_dev {
 	unsigned hdlc_escape;
 #ifdef CONFIG_DIAG_OVER_USB
 	int usb_connected;
+	struct usb_diag_ch *legacy_ch;
 #endif
 	struct workqueue_struct *diag_wq;
 	struct work_struct diag_read_work;

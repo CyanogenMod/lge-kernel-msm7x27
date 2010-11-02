@@ -269,6 +269,8 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 	int i, status = 0;
 	unsigned long max_pclk = 0;
 	unsigned long *pclk = NULL;
+	unsigned long pclk_freq;
+	unsigned long max_pclk_freq;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	/* Maximum for this gateway */
 	for (i = 0; i <= slave->num_pnodes; i++) {
@@ -276,8 +278,8 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 			continue;
 		max_pclk = max(max_pclk, slave->pnode[i].clk);
 	}
-	slave->link_info.clk = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth,
-		max(max_pclk, max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk)));
+	slave->link_info.clk =
+		max(max_pclk, max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk));
 	/* Is this gateway or slave? */
 	if (clk_sel && (!fabric->ahb)) {
 		struct msm_bus_fabnodeinfo *fabgw = NULL;
@@ -289,14 +291,32 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		}
 		MSM_FAB_DBG("max_pclk from gateways: %lu\n", max_pclk);
 
-		/* Maximum of all slave clocks. */
+		/*
+		 * Maximum of all slave clocks.
+		 *
+		 * The clock values are maintained as bandwidth but the bus
+		 * width needs to be taken into consideration.  Therefore
+		 * convert to frequency values to find the max and then
+		 * convert back to bandwidth
+		 */
+		max_pclk_freq =
+			BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth, max_pclk);
+
 		for (i = 0; i < fabric->nslaves; i++) {
 			info = radix_tree_lookup(&fabric->fab_tree,
 				(fabric->fabdev.id + SLAVE_ID_KEY + i));
 			if (!info)
 				continue;
-			max_pclk = max(max_pclk, info->link_info.clk);
+
+			max_pclk_freq = max(max_pclk_freq,
+				BW_TO_CLK_FREQ_HZ(info->node_info->buswidth,
+							info->link_info.clk));
 		}
+
+		/* Convert back to bandwidth */
+		max_pclk = FAB_MAX_BW_BYTES(slave->node_info->buswidth,
+						max_pclk_freq);
+
 		MSM_FAB_DBG("max_pclk from slaves & gws: %lu\n", max_pclk);
 		pclk = &fabric->info.link_info.clk;
 	} else
@@ -307,24 +327,25 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		MSM_FAB_DBG("Invalid width!, using default width 8\n");
 	}
 
-	*pclk = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth, max(max_pclk,
-		max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk)));
+	*pclk = max(max_pclk, max(MSM_BUS_GET_BW_BYTES(bwsum), req_clk));
+	pclk_freq = BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth, *pclk);
 
 	if (!fabric->pdata->rpm_enabled)
 		goto skip_set_clks;
 
 	if (clk_sel) {
 		MSM_FAB_DBG("AXI_clks: id: %d set-clk: %lu bwsum:%lu\n",
-			fabric->fabdev.id, *pclk, bwsum);
+			fabric->fabdev.id, pclk_freq, bwsum);
 		if (fabric->info.nodeclk)
-			status = clk_set_min_rate(fabric->info.nodeclk, *pclk);
+			status = clk_set_min_rate(fabric->info.nodeclk,
+							pclk_freq);
 	} else {
 		MSM_FAB_DBG("AXI_clks: id: %d set-clk: %lu  bwsum:%lu\n" ,
-			slave->node_info->id, *pclk, bwsum);
+			slave->node_info->id, pclk_freq, bwsum);
 		if (slave->nodeclk) {
-			status = clk_set_min_rate(slave->nodeclk, *pclk);
+			status = clk_set_min_rate(slave->nodeclk, pclk_freq);
 			MSM_BUS_DBG("Trying to set clk, node id: %d val: %lu "
-				"status %d\n", slave->node_info->id, *pclk,
+				"status %d\n", slave->node_info->id, pclk_freq,
 				status);
 		}
 		if (!status && slave->memclk)

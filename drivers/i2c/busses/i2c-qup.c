@@ -532,7 +532,9 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 		int fs_div;
 		int hs_div;
 		uint32_t fifo_reg;
-		writel(0x2 << 4, dev->gsbi);
+
+		if (dev->gsbi)
+			writel(0x2 << 4, dev->gsbi);
 
 		fs_div = ((dev->pdata->src_clk_rate
 				/ dev->pdata->clk_freq) / 2) - 3;
@@ -782,6 +784,7 @@ qup_i2c_probe(struct platform_device *pdev)
 	struct msm_i2c_platform_data *pdata;
 	const char *qup_apps_clk_name = "qup_clk";
 
+	gsbi_mem = NULL;
 	dev_dbg(&pdev->dev, "qup_i2c_probe\n");
 
 	pdata = pdev->dev.platform_data;
@@ -793,12 +796,6 @@ qup_i2c_probe(struct platform_device *pdev)
 						"qup_phys_addr");
 	if (!qup_mem) {
 		dev_err(&pdev->dev, "no qup mem resource?\n");
-		return -ENODEV;
-	}
-	gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"gsbi_qup_i2c_addr");
-	if (!gsbi_mem) {
-		dev_err(&pdev->dev, "no gsbi mem resource?\n");
 		return -ENODEV;
 	}
 
@@ -825,11 +822,20 @@ qup_i2c_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "QUP region already claimed\n");
 		return -EBUSY;
 	}
-	gsbi_io = request_mem_region(gsbi_mem->start, resource_size(gsbi_mem),
-					pdev->name);
-	if (!gsbi_io) {
-		dev_err(&pdev->dev, "GSBI region already claimed\n");
-		return -EBUSY;
+	if (!pdata->use_gsbi_shared_mode) {
+		gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"gsbi_qup_i2c_addr");
+		if (!gsbi_mem) {
+			dev_err(&pdev->dev, "no gsbi mem resource?\n");
+			return -ENODEV;
+		}
+		gsbi_io = request_mem_region(gsbi_mem->start,
+						resource_size(gsbi_mem),
+						pdev->name);
+		if (!gsbi_io) {
+			dev_err(&pdev->dev, "GSBI region already claimed\n");
+			return -EBUSY;
+		}
 	}
 
 	if (pdata->clk != NULL)
@@ -892,10 +898,12 @@ qup_i2c_probe(struct platform_device *pdev)
 	}
 
 	/* Configure GSBI block to use I2C functionality */
-	dev->gsbi = ioremap(gsbi_mem->start, resource_size(gsbi_mem));
-	if (!dev->gsbi) {
-		ret = -ENOMEM;
-		goto err_gsbi_failed;
+	if (gsbi_mem) {
+		dev->gsbi = ioremap(gsbi_mem->start, resource_size(gsbi_mem));
+		if (!dev->gsbi) {
+			ret = -ENOMEM;
+			goto err_gsbi_failed;
+		}
 	}
 
 	platform_set_drvdata(pdev, dev);
@@ -979,7 +987,8 @@ qup_i2c_probe(struct platform_device *pdev)
 
 
 err_request_irq_failed:
-	iounmap(dev->gsbi);
+	if (dev->gsbi)
+		iounmap(dev->gsbi);
 err_gsbi_failed:
 	iounmap(dev->base);
 err_ioremap_failed:
@@ -990,7 +999,8 @@ err_config_failed:
 	if (pclk)
 		clk_put(pclk);
 err_clk_get_failed:
-	release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
+	if (gsbi_mem)
+		release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
 	release_mem_region(qup_mem->start, resource_size(qup_mem));
 	return ret;
 }
@@ -1019,15 +1029,18 @@ qup_i2c_remove(struct platform_device *pdev)
 	clk_put(dev->clk);
 	if (dev->pclk)
 		clk_put(dev->pclk);
-	iounmap(dev->gsbi);
+	if (dev->gsbi)
+		iounmap(dev->gsbi);
 	iounmap(dev->base);
 
 	pm_runtime_disable(&pdev->dev);
 
 	kfree(dev);
-	gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"gsbi_qup_i2c_addr");
-	release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
+	if (!(dev->pdata->use_gsbi_shared_mode)) {
+		gsbi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"gsbi_qup_i2c_addr");
+		release_mem_region(gsbi_mem->start, resource_size(gsbi_mem));
+	}
 	qup_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qup_phys_addr");
 	release_mem_region(qup_mem->start, resource_size(qup_mem));
@@ -1035,8 +1048,9 @@ qup_i2c_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int qup_i2c_suspend(struct platform_device *pdev, pm_message_t state)
+static int qup_i2c_suspend(struct device *device)
 {
+	struct platform_device *pdev = to_platform_device(device);
 	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
 
 	/* Grab mutex to ensure ongoing transaction is over */
@@ -1049,16 +1063,21 @@ static int qup_i2c_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int qup_i2c_resume(struct platform_device *pdev)
+static int qup_i2c_resume(struct device *device)
 {
+	struct platform_device *pdev = to_platform_device(device);
 	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
 	dev->suspended = 0;
 	return 0;
 }
-#else
-#define qup_i2c_suspend NULL
-#define qup_i2c_resume NULL
 #endif /* CONFIG_PM */
+
+#ifdef CONFIG_PM_RUNTIME
+static int i2c_qup_runtime_idle(struct device *dev)
+{
+	dev_dbg(dev, "pm_runtime: idle...\n");
+	return 0;
+}
 
 static int i2c_qup_runtime_suspend(struct device *dev)
 {
@@ -1071,18 +1090,23 @@ static int i2c_qup_runtime_resume(struct device *dev)
 	dev_dbg(dev, "pm_runtime: resuming...\n");
 	return 0;
 }
+#endif
 
 static const struct dev_pm_ops i2c_qup_dev_pm_ops = {
-	.runtime_suspend = i2c_qup_runtime_suspend,
-	.runtime_resume = i2c_qup_runtime_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(
+		qup_i2c_suspend,
+		qup_i2c_resume
+	)
+	SET_RUNTIME_PM_OPS(
+		i2c_qup_runtime_suspend,
+		i2c_qup_runtime_resume,
+		i2c_qup_runtime_idle
+	)
 };
-
 
 static struct platform_driver qup_i2c_driver = {
 	.probe		= qup_i2c_probe,
 	.remove		= __devexit_p(qup_i2c_remove),
-	.suspend	= qup_i2c_suspend,
-	.resume		= qup_i2c_resume,
 	.driver		= {
 		.name	= "qup_i2c",
 		.owner	= THIS_MODULE,

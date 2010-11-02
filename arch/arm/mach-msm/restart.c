@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/mfd/pmic8058.h>
+#include <linux/mfd/pmic8901.h>
 
 #include <mach/msm_iomap.h>
 
@@ -45,6 +46,7 @@ static void msm_power_off(void)
 {
 	printk(KERN_NOTICE "Powering off the SoC\n");
 	pm8058_reset_pwr_off(0);
+	pm8901_reset_pwr_off(0);
 	writel(0, PSHOLD_CTL_SU);
 	mdelay(10000);
 	printk(KERN_ERR "Powering off has failed\n");
@@ -66,9 +68,9 @@ static void msm_restart(char str, const char *cmd)
 #endif
 
 	restart_reason = ioremap_nocache(RESTART_REASON_ADDR, SZ_4K);
-	if (!strcmp(cmd, "bootloader")) {
+	if (!strncmp(cmd, "bootloader", 10)) {
 		writel(0x77665500, restart_reason);
-	} else if (!strcmp(cmd, "recovery")) {
+	} else if (!strncmp(cmd, "recovery", 8)) {
 		writel(0x77665502, restart_reason);
 	} else if (!strncmp(cmd, "oem-", 4)) {
 		unsigned long code;

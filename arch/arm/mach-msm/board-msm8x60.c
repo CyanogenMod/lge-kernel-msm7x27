@@ -40,7 +40,6 @@
 #include <linux/m_adcproc.h>
 #include <linux/mfd/marimba.h>
 #include <linux/msm-charger.h>
-#include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/i2c/sx150x.h>
 #include <linux/smsc911x.h>
@@ -215,7 +214,7 @@ enum {
 #define UI_INT2_N 34
 #define UI_INT3_N 14
 
-static struct msm_spm_platform_data msm_spm_data[] __initdata = {
+static struct msm_spm_platform_data msm_spm_data_v1[] __initdata = {
 	[0] = {
 		.reg_base_addr = MSM_SAW0_BASE,
 
@@ -235,7 +234,7 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
 
-		.awake_vlevel = 0x9C,
+		.awake_vlevel = 0x94,
 		.retention_vlevel = 0x81,
 		.collapse_vlevel = 0x20,
 		.retention_mid_vlevel = 0x94,
@@ -263,11 +262,69 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
 
-		.awake_vlevel = 0x9C,
+		.awake_vlevel = 0x94,
 		.retention_vlevel = 0x81,
 		.collapse_vlevel = 0x20,
 		.retention_mid_vlevel = 0x94,
 		.collapse_mid_vlevel = 0x8C,
+
+		.vctl_timeout_us = 50,
+	},
+};
+
+static struct msm_spm_platform_data msm_spm_data[] __initdata = {
+	[0] = {
+		.reg_base_addr = MSM_SAW0_BASE,
+
+#ifdef CONFIG_MSM_AVS_HW
+		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0xFFFFFFFF,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLK_EN] = 0x11,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_PRECLMP_EN] = 0x07,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_POSTCLMP_EN] = 0x00,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLMP_EN] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
+
+		.awake_vlevel = 0xA0,
+		.retention_vlevel = 0x8D,
+		.collapse_vlevel = 0x20,
+		.retention_mid_vlevel = 0xA0,
+		.collapse_mid_vlevel = 0x98,
+
+		.vctl_timeout_us = 50,
+	},
+
+	[1] = {
+		.reg_base_addr = MSM_SAW1_BASE,
+
+#ifdef CONFIG_MSM_AVS_HW
+		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
+#endif
+		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0xFFFFFFFF,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLK_EN] = 0x13,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_PRECLMP_EN] = 0x07,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_POSTCLMP_EN] = 0x00,
+
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLMP_EN] = 0x01,
+		.reg_init_values[MSM_SPM_REG_SAW_SLP_RST_EN] = 0x00,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
+
+		.awake_vlevel = 0xA0,
+		.retention_vlevel = 0x8D,
+		.collapse_vlevel = 0x20,
+		.retention_mid_vlevel = 0xA0,
+		.collapse_mid_vlevel = 0x98,
 
 		.vctl_timeout_us = 50,
 	},
@@ -468,7 +525,7 @@ static int msm_hsusb_ldo_init(int init)
 			return PTR_ERR(vdd_cx);
 		}
 
-		regulator_set_voltage(vdd_cx,   1100000, 1100000);
+		regulator_set_voltage(vdd_cx,   1000000, 1200000);
 		regulator_set_voltage(ldo7_1p8, 1800000, 1800000);
 		regulator_set_voltage(ldo6_3p3, 3050000, 3050000);
 	} else {
@@ -1078,6 +1135,15 @@ static struct msm_i2c_platform_data msm_gsbi9_qup_i2c_pdata = {
 	.src_clk_rate = 24000000,
 	.clk = "gsbi_qup_clk",
 	.pclk = "gsbi_pclk",
+	.msm_i2c_config_gpio = gsbi_qup_i2c_gpio_config,
+};
+
+static struct msm_i2c_platform_data msm_gsbi12_qup_i2c_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+	.clk = "gsbi_qup_clk",
+	.pclk = "gsbi_pclk",
+	.use_gsbi_shared_mode = 1,
 	.msm_i2c_config_gpio = gsbi_qup_i2c_gpio_config,
 };
 #endif
@@ -1887,6 +1953,7 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 	&msm_gsbi7_qup_i2c_device,
 	&msm_gsbi8_qup_i2c_device,
 	&msm_gsbi9_qup_i2c_device,
+	&msm_gsbi12_qup_i2c_device,
 #endif
 #if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
 	&msm_gsbi1_qup_spi_device,
@@ -2131,6 +2198,7 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_gsbi7_qup_i2c_device,
 	&msm_gsbi8_qup_i2c_device,
 	&msm_gsbi9_qup_i2c_device,
+	&msm_gsbi12_qup_i2c_device,
 #endif
 #if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
 	&msm_gsbi1_qup_spi_device,
@@ -3164,6 +3232,14 @@ static struct pmic8058_leds_platform_data pm8058_flash_leds_data = {
 	.leds	= pmic8058_flash_leds,
 };
 
+static struct resource resources_temp_alarm[] = {
+       {
+		.start  = PM8058_TEMP_ALARM_IRQ(PM8058_IRQ_BASE),
+		.end    = PM8058_TEMP_ALARM_IRQ(PM8058_IRQ_BASE),
+		.flags  = IORESOURCE_IRQ,
+       },
+};
+
 #define PM8058_SUBDEV_KPD 0
 
 static struct mfd_cell pm8058_subdevs[] = {
@@ -3253,6 +3329,12 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.id = -1,
 		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
 		.resources = resources_pm8058_charger,
+	},
+	{
+		.name = "pm8058-tm",
+		.id = -1,
+		.num_resources  = ARRAY_SIZE(resources_temp_alarm),
+		.resources      = resources_temp_alarm,
 	},
 	PM8058_VREG(PM8058_VREG_ID_L0),
 	PM8058_VREG(PM8058_VREG_ID_L1),
@@ -4042,11 +4124,16 @@ static void __init msm8x60_init_uart12dm(void)
 static void __init msm8x60_init_buses(void)
 {
 #ifdef CONFIG_I2C_QUP
+	void *gsbi_mem = ioremap_nocache(0x19C00000, 4);
+	/* Setting protocol code to 0x60 for dual UART/I2C in GSBI12 */
+	writel(0x6 << 4, gsbi_mem);
+	iounmap(gsbi_mem);
 	msm_gsbi3_qup_i2c_device.dev.platform_data = &msm_gsbi3_qup_i2c_pdata;
 	msm_gsbi4_qup_i2c_device.dev.platform_data = &msm_gsbi4_qup_i2c_pdata;
 	msm_gsbi7_qup_i2c_device.dev.platform_data = &msm_gsbi7_qup_i2c_pdata;
 	msm_gsbi8_qup_i2c_device.dev.platform_data = &msm_gsbi8_qup_i2c_pdata;
 	msm_gsbi9_qup_i2c_device.dev.platform_data = &msm_gsbi9_qup_i2c_pdata;
+	msm_gsbi12_qup_i2c_device.dev.platform_data = &msm_gsbi12_qup_i2c_pdata;
 #endif
 #if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
 	msm_gsbi1_qup_spi_device.dev.platform_data = &msm_gsbi1_qup_spi_pdata;
@@ -5759,33 +5846,6 @@ static struct msm_rpm_platform_data msm_rpm_data = {
 };
 #endif
 
-static void __init msm_gfx3d_clk_init(void)
-{
-	struct clk *clk;
-	int rc;
-
-	/* Disabling or changing the rate of the gfx3d_clk may causes
-	 * instability. Turn it on and leave it on until this is resolved. */
-	WARN((kgsl_pdata.max_grp3d_freq != kgsl_pdata.min_grp3d_freq),
-		"gfx3d_clk scaling is not allowed, re-setting "
-		"min_grp3d_freq to match max_grp3d_freq.\n");
-	kgsl_pdata.min_grp3d_freq = kgsl_pdata.max_grp3d_freq;
-
-	clk = clk_get(NULL, "gfx3d_clk");
-	if (IS_ERR(clk))
-		goto err;
-	rc = clk_set_rate(clk, kgsl_pdata.max_grp3d_freq);
-	if (rc)
-		goto err;
-	rc = clk_enable(clk);
-	if (rc)
-		goto err;
-
-	return;
-err:
-	pr_err("%s: Failed to set up gfx3d_clk.\n", __func__);
-}
-
 static void __init msm8x60_init(void)
 {
 	/*
@@ -5804,12 +5864,17 @@ static void __init msm8x60_init(void)
 	msm8x60_check_2d_hardware();
 
 	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
-	msm_gfx3d_clk_init();
+	msm_clock_temp_force_on();
 
-	/* initialize SPM before acpuclock as the latter calls into SPM
+	/*
+	 * Initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
 	 */
-	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	if (SOCINFO_VERSION_MINOR(socinfo_get_version()))
+		msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
+	else
+		msm_spm_init(msm_spm_data_v1, ARRAY_SIZE(msm_spm_data_v1));
+
 	/*
 	 * Disable regulator info printing so that regulator registration
 	 * messages do not enter the kmsg log.

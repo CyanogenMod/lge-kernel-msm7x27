@@ -747,12 +747,19 @@ config MSM_SMD_PKT
 
 	  If in doubt, say yes.
 
+config MSM_SDIO_CMUX
+	bool "SDIO CMUX Driver"
+	depends on MSM_SDIO_AL
+	default n
+	help
+	  Provides a Muxed port interface over SDIO QMI
+
 config MSM_SDIO_CTL
 	bool "SDIO CTL Driver"
-	depends on MSM_SDIO_AL
+	depends on MSM_SDIO_CMUX
 	default y
 	help
-	  Provides a binay SDIO muxed control port interface.
+	  Provides a binay SDIO control port interface.
 
 config MSM_ONCRPCROUTER
 	depends on MSM_SMD

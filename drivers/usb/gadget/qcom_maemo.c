@@ -113,6 +113,10 @@ static struct usb_device_descriptor device_desc = {
 };
 
 static u8 hostaddr[ETH_ALEN];
+static struct usb_diag_ch *diag_ch;
+static struct usb_diag_platform_data usb_diag_pdata = {
+	.ch_name = DIAG_LEGACY,
+};
 
 /****************************** Configurations ******************************/
 static struct fsg_module_parameters mod_data = {
@@ -185,10 +189,15 @@ static int maemo_bind(struct usb_composite_dev *cdev)
 	struct usb_gadget *gadget = cdev->gadget;
 	int status, gcnum;
 
+	/* set up diag channel */
+	diag_ch = diag_setup(&usb_diag_pdata);
+	if (IS_ERR(diag_ch))
+		return PTR_ERR(diag_ch);
+
 	/* set up network link layer */
 	status = gether_setup(cdev->gadget, hostaddr);
 	if (status < 0)
-		return status;
+		goto diag_clean;
 
 	/* set up serial link layer */
 	status = gserial_setup(cdev->gadget, 2);
@@ -256,6 +265,8 @@ fail1:
 	gserial_cleanup();
 fail0:
 	gether_cleanup();
+diag_clean:
+	diag_cleanup(diag_ch);
 
 	return status;
 }
@@ -264,6 +275,7 @@ static int __exit maemo_unbind(struct usb_composite_dev *cdev)
 {
 	gserial_cleanup();
 	gether_cleanup();
+	diag_cleanup(diag_ch);
 	return 0;
 }
 

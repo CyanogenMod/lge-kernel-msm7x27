@@ -77,4 +77,6 @@ int pm8901_rev(struct pm8901_chip *pm_chip);
 
 int pm8901_irq_get_rt_status(struct pm8901_chip *pm_chip, int irq);
 
+int pm8901_reset_pwr_off(int reset);
+
 #endif /* __PMIC8901_H__ */

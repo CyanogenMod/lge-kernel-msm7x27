@@ -99,6 +99,8 @@ static struct kgsl_g12_device device_2d0 = {
 			.va_base = 0x66000000,
 			.va_range = SZ_32M,
 		},
+		.mutex = __MUTEX_INITIALIZER(device_2d0.dev.mutex),
+		.is_suspended = KGSL_FALSE,
 	},
 	.iomemname = "kgsl_2d0_reg_memory",
 	.irqname = "kgsl_2d0_irq",
@@ -120,6 +122,8 @@ static struct kgsl_g12_device device_2d1 = {
 			.va_base = 0x66000000,
 			.va_range = SZ_32M,
 		},
+		.mutex = __MUTEX_INITIALIZER(device_2d1.dev.mutex),
+		.is_suspended = KGSL_FALSE,
 	},
 	.iomemname = "kgsl_2d1_reg_memory",
 	.irqname = "kgsl_2d1_irq",
@@ -622,7 +626,7 @@ static unsigned int kgsl_g12_isidle(struct kgsl_g12_device *g12_device)
 }
 
 /******************************************************************/
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 static int kgsl_g12_sleep(struct kgsl_device *device, const int idle)
 {
 	int status = KGSL_SUCCESS;
@@ -651,7 +655,7 @@ static int kgsl_g12_sleep(struct kgsl_device *device, const int idle)
 }
 
 /******************************************************************/
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 static int kgsl_g12_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
@@ -671,7 +675,7 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 }
 
 /******************************************************************/
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 static int kgsl_g12_suspend(struct kgsl_device *device)
 {
 	int status;

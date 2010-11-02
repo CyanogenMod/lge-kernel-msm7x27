@@ -36,6 +36,8 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 
+#include <asm/mach-types.h>
+
 #define CYPRESS_TTSP_NAME	"cyttsp"
 #define CY_I2C_NAME		"cyttsp-i2c"
 #define CY_SPI_NAME		"cyttsp-spi"
@@ -86,8 +88,8 @@
  * use this define if update to the TTSP Device is desired
  */
 /*
-*/
 #define CY_INCLUDE_LOAD_FILE
+*/
 
 /* define if force new load file for bootloader load */
 /*
@@ -96,8 +98,8 @@
 
 /* undef for production use */
 /*
- */
 #define CY_USE_DEBUG
+*/
 
 /* undef for irq use; use this define in the board configuration file */
 /*
@@ -106,13 +108,13 @@
 
 /* undef to allow use of extra debug capability */
 /*
-*/
 #define CY_ALLOW_EXTRA_DEBUG
+*/
 
 /* undef to remove additional debug prints */
 /*
-*/
 #define CY_USE_EXTRA_DEBUG
+*/
 
 /* undef to remove additional debug prints */
 /*
@@ -318,7 +320,7 @@
 						(y) = tmp; \
 					}
 #define INVERT_X(x, xmax)		((xmax) - (x))
-#define INVERT_Y(y, ymax)		((ymax) - (y))
+#define INVERT_Y(y, maxy)		((maxy) - (y))
 #define SET_HSTMODE(reg, mode)		((reg) & (mode))
 #define GET_HSTMODE(reg)		((reg & 0x70) >> 4)
 #define GET_BOOTLOADERMODE(reg)		((reg & 0x10) >> 4)
@@ -453,8 +455,14 @@
 
 
 struct cyttsp_platform_data {
-	u32 maxx;
-	u32 maxy;
+	u32 panel_maxx;
+	u32 panel_maxy;
+	u32 disp_resx;
+	u32 disp_resy;
+	u32 disp_minx;
+	u32 disp_miny;
+	u32 disp_maxx;
+	u32 disp_maxy;
 	u32 flags;
 	u8 gen;
 	u8 use_st;
@@ -468,6 +476,7 @@ struct cyttsp_platform_data {
 	u8 tch_tmout;
 	u8 lp_intrvl;
 	u8 power_state;
+	bool wakeup;
 #ifdef CY_USE_I2C_DRIVER
 	s32 (*init)(struct i2c_client *client);
 	s32 (*resume)(struct i2c_client *client);

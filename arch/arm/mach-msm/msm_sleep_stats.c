@@ -29,6 +29,7 @@
 #include <linux/cpufreq.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 
 #include "cpuidle.h"
 
@@ -43,6 +44,8 @@ struct sleep_data {
 	struct attribute_group *attr_group;
 	struct kobject *kobj;
 	struct notifier_block nb;
+	struct wait_to_notify *wait;
+	struct work_struct work;
 };
 
 DEFINE_PER_CPU(struct sleep_data, core_sleep_info);
@@ -68,11 +71,21 @@ static void idle_exit(int cpu, unsigned int microsec)
 
 	/* cumulative atomic counter, reset after reading */
 	atomic_add(microsec, &sleep_info->idle_microsec);
-	if (atomic_read(&sleep_info->timer_val_ms) != INT_MAX)
+	if (atomic_read(&sleep_info->timer_val_ms) != INT_MAX &&
+		atomic_read(&sleep_info->timer_val_ms))
 		hrtimer_start(&sleep_info->timer,
 			ktime_set(0,
 			atomic_read(&sleep_info->timer_val_ms) * NSEC_PER_MSEC),
 			HRTIMER_MODE_REL);
+}
+
+static void notify_uspace_work_fn(struct work_struct *work)
+{
+	struct sleep_data *sleep_info = container_of(work, struct sleep_data,
+			work);
+
+	/* Notify polling threads on change of value */
+	sysfs_notify(sleep_info->kobj, NULL, "timer_expired");
 }
 
 static enum hrtimer_restart timer_func(struct hrtimer *handle)
@@ -80,10 +93,14 @@ static enum hrtimer_restart timer_func(struct hrtimer *handle)
 	struct sleep_data *sleep_info = container_of(handle, struct sleep_data,
 			timer);
 
+	if (atomic_read(&sleep_info->timer_expired))
+		pr_info("msm_sleep_stats: Missed timer interrupt on cpu %d\n",
+				sleep_info->cpu);
+
 	atomic_set(&sleep_info->timer_val_ms, 0);
 	atomic_set(&sleep_info->timer_expired, 1);
-	/* Notify polling threads on change of value */
-	sysfs_notify(sleep_info->kobj, NULL, "timer_expired");
+
+	schedule_work_on(sleep_info->cpu, &sleep_info->work);
 
 	return HRTIMER_NORESTART;
 }
@@ -145,7 +162,8 @@ static ssize_t store_timer_val_ms(struct kobject *kobj,
 	hrtimer_cancel(&sleep_info->timer);
 	sscanf(buf, "%du", &val);
 	atomic_set(&sleep_info->timer_val_ms, val);
-	if (atomic_read(&sleep_info->timer_val_ms) != INT_MAX)
+	if (atomic_read(&sleep_info->timer_val_ms) != INT_MAX &&
+		atomic_read(&sleep_info->timer_val_ms))
 		hrtimer_start(&sleep_info->timer,
 			ktime_set(0,
 			atomic_read(&sleep_info->timer_val_ms) * NSEC_PER_MSEC),
@@ -187,8 +205,9 @@ static int policy_change_notifier(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
 	struct sleep_data *sleep_info = container_of(nb, struct sleep_data, nb);
+	struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
 
-	if (event == CPUFREQ_ADJUST) {
+	if (event == CPUFREQ_ADJUST && sleep_info->cpu == policy->cpu) {
 		atomic_set(&sleep_info->policy_changed, 1);
 		sysfs_notify(sleep_info->kobj, NULL, "policy_changed");
 	}
@@ -321,6 +340,7 @@ static int __init msm_sleep_info_init(void)
 				"for CPU[%d]\n", cpu);
 		sleep_info = &per_cpu(core_sleep_info, cpu);
 		sleep_info->cpu = cpu;
+		INIT_WORK(&sleep_info->work, notify_uspace_work_fn);
 
 		/* Initialize high resolution timer */
 		hrtimer_init(&sleep_info->timer, CLOCK_MONOTONIC,

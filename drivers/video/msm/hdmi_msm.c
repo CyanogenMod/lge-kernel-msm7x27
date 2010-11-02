@@ -898,10 +898,10 @@ error:
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
 static int hdmi_msm_ddc_read(uint32 dev_addr, uint32 offset, uint8 *data_buf,
-	uint32 data_len, const char *what)
+	uint32 data_len, int retry, const char *what)
 {
 	uint32 reg_val, ndx;
-	int status = 0, retry = 5;
+	int status = 0;
 	uint32 time_out_count;
 
 	if (NULL == data_buf) {
@@ -1071,7 +1071,9 @@ again:
 
 	/* Check if any NACK occurred */
 	if (reg_val) {
-		msleep(500);
+		HDMI_OUTP_ND(0x020C, BIT(3)); /* SW_STATUS_RESET */
+		if (retry == 1)
+			HDMI_OUTP_ND(0x020C, BIT(1)); /* SOFT_RESET */
 		if (retry-- > 0) {
 			DEV_INFO("%s(%s): failed NACK=0x%08x, retry=%d, "
 				"dev-addr=0x%02x, offset=0x%02x, "
@@ -1124,17 +1126,23 @@ error:
 
 static int hdmi_msm_read_edid_block(int block, uint8 *edid_buf)
 {
-	int i, rc;
-	const int block_size = 32;
+	int i, rc = 0;
+	int block_size = 0x80;
 
-	for (i = 0; i < 0x80; i += block_size) {
-		rc = hdmi_msm_ddc_read(0xA0, block*0x80 + i, edid_buf+i,
-			block_size, "EDID");
-		if (rc)
-			return rc;
-	}
+	do {
+		DEV_DBG("EDID: reading block(%d) with block-size=%d\n",
+			block, block_size);
+		for (i = 0; i < 0x80; i += block_size) {
+			rc = hdmi_msm_ddc_read(0xA0, block*0x80 + i, edid_buf+i,
+				block_size, 1, "EDID");
+			if (rc)
+				break;
+		}
 
-	return 0;
+		block_size /= 2;
+	} while (rc && (block_size >= 16));
+
+	return rc;
 }
 
 static int hdmi_msm_read_edid(void)
@@ -1309,7 +1317,7 @@ static int hdcp_authentication_part1(void)
 	msm_hdmi_init_ddc();
 
 	/* Read Bksv 5 bytes at 0x00 in HDCP port */
-	ret = hdmi_msm_ddc_read(0x74, 0x00, bksv, 5, "Bksv");
+	ret = hdmi_msm_ddc_read(0x74, 0x00, bksv, 5, 5, "Bksv");
 	if (ret) {
 		DEV_ERR("%s(%d): Read BKSV failed", __func__, __LINE__);
 		goto error;
@@ -1331,7 +1339,7 @@ static int hdcp_authentication_part1(void)
 	DEV_DBG("HDCP: BKSV=%02x%08x\n", link0_bksv_1, link0_bksv_0);
 
 	/* read Bcaps at 0x40 in HDCP Port */
-	ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, "Bcaps");
+	ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, 5, "Bcaps");
 	if (ret) {
 		DEV_ERR("%s(%d): Read Bcaps failed", __func__, __LINE__);
 		goto error;
@@ -1463,7 +1471,7 @@ static int hdcp_authentication_part1(void)
 	DEV_DBG("HDCP: Link0-BKSV=%02x%08x\n", link0_bksv_1, link0_bksv_0);
 
 	/* Reading R0' 2 bytes at offset 0x08 */
-	ret = hdmi_msm_ddc_read(0x74, 0x00, buf, 16, "RO'");
+	ret = hdmi_msm_ddc_read(0x74, 0x00, buf, 16, 5, "RO'");
 	if (ret) {
 		DEV_ERR("%s(%d): Read RO's failed", __func__, __LINE__);
 		goto error;
@@ -1511,7 +1519,7 @@ static int hdmi_msm_transfer_v_h(int h)
 	uint8 buf[4];
 
 	snprintf(what, sizeof(what), "V' H%d", h);
-	ret = hdmi_msm_ddc_read(0x74, 0x20 + 4*h, buf, 4, what);
+	ret = hdmi_msm_ddc_read(0x74, 0x20 + 4*h, buf, 4, 5, what);
 	if (ret) {
 		DEV_ERR("%s: Read %s failed", __func__, what);
 		return ret;
@@ -1545,7 +1553,7 @@ static int hdcp_authentication_part2(void)
 	do {
 		timeout_count--;
 		/* read bcaps 1 Byte at offset 0x40 */
-		ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, "Bcaps");
+		ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, 5, "Bcaps");
 		if (ret) {
 			DEV_ERR("%s(%d): Read Bcaps failed", __func__,
 				__LINE__);
@@ -1560,7 +1568,7 @@ static int hdcp_authentication_part2(void)
 	}
 
 	/* read bstatus 2 bytes at offset 0x41 */
-	ret = hdmi_msm_ddc_read(0x74, 0x41, buf, 2, "Bstatus");
+	ret = hdmi_msm_ddc_read(0x74, 0x41, buf, 2, 5, "Bstatus");
 	if (ret) {
 		DEV_ERR("%s(%d): Read Bstatus failed", __func__, __LINE__);
 		goto error;
@@ -1592,7 +1600,7 @@ static int hdcp_authentication_part2(void)
 	 *   HDCP Repeaters (REPEATER == 0). */
 	ksv_bytes = 5 * down_stream_devices;
 	/* Reading KSV FIFO / KSV FIFO */
-	ret = hdmi_msm_ddc_read(0x74, 0x43, kvs_fifo, ksv_bytes, "KSV FIFO");
+	ret = hdmi_msm_ddc_read(0x74, 0x43, kvs_fifo, ksv_bytes, 5, "KSV FIFO");
 	if (ret) {
 		DEV_ERR("%s(%d): Read KSV FIFO failed", __func__, __LINE__);
 		goto error;
@@ -1702,7 +1710,7 @@ static void hdmi_msm_hdcp_enable(void)
 
 	/* PART II Authentication*/
 	/* read Bcaps at 0x40 in HDCP Port */
-	ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, "Bcaps");
+	ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, 5, "Bcaps");
 	if (ret) {
 		DEV_ERR("%s(%d): Read Bcaps failed\n", __func__, __LINE__);
 		goto error;

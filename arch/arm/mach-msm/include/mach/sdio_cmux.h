@@ -26,40 +26,55 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef __ARCH_ARM_MACH_MSM_DEVICES_MSM8X60_H
-#define __ARCH_ARM_MACH_MSM_DEVICES_MSM8X60_H
 
-#define MSM_GSBI3_QUP_I2C_BUS_ID 0
-#define MSM_GSBI4_QUP_I2C_BUS_ID 1
-#define MSM_GSBI9_QUP_I2C_BUS_ID 2
-#define MSM_GSBI8_QUP_I2C_BUS_ID 3
-#define MSM_GSBI7_QUP_I2C_BUS_ID 4
-#define MSM_GSBI12_QUP_I2C_BUS_ID 5
-#define MSM_SSBI1_I2C_BUS_ID     6
-#define MSM_SSBI2_I2C_BUS_ID     7
-#define MSM_SSBI3_I2C_BUS_ID     8
+/*
+ * SDIO CMUX API
+ */
 
-#ifdef CONFIG_SPI_QUP
-extern struct platform_device msm_gsbi1_qup_spi_device;
-#endif
+#ifndef __SDIO_CMUX__
+#define __SDIO_CMUX__
 
-#ifdef CONFIG_MSM_BUS_SCALING
-extern struct platform_device msm_bus_apps_fabric;
-extern struct platform_device msm_bus_sys_fabric;
-extern struct platform_device msm_bus_mm_fabric;
-extern struct platform_device msm_bus_sys_fpb;
-extern struct platform_device msm_bus_cpss_fpb;
-#endif
+/*
+ * sdio_cmux_open - Open the mux channel
+ *
+ * @id: Mux Channel id to be opened
+ * @receive_cb: Notification when data arrives
+ * @write_done: Notification when data is written
+ * @priv: caller's private context pointer
+ */
+int sdio_cmux_open(const int id,
+		   void (*receive_cb)(int , void *, int),
+		   void (*write_done)(int , void *, int),
+		   void *priv);
 
-extern struct platform_device msm_device_smd;
-extern struct platform_device msm_device_kgsl;
-extern struct platform_device msm_device_gpio;
-extern struct platform_device msm_device_vidc;
-#ifdef CONFIG_WEBCAM_OV7692
-extern struct platform_device msm_camera_sensor_webcam;
-#endif
-void __init msm8x60_init_irq(void);
-void __init msm_clock_temp_force_on(void);
-void __init msm8x60_check_2d_hardware(void);
+/*
+ * sdio_cmux_close - Close the mux channel
+ *
+ * @id: Channel id to be closed
+ */
+int sdio_cmux_close(int id);
 
-#endif
+/*
+ * sdio_cmux_write_avail - Write space avaialable for this channel
+ *
+ * @id: Channel id to look for the available write space
+ */
+int sdio_cmux_write_avail(int id);
+
+/*
+ * sdio_cmux_write - Write the data onto the CMUX channel
+ *
+ * @id: Channel id onto which the data has to be written
+ * @data: Starting address of the data buffer to be written
+ * @len: Length of the data to be written
+ */
+int sdio_cmux_write(int id, void *data, int len);
+
+/*
+ * is_remote_open - Check whether the remote channel is open
+ *
+ * @id: Channel id to be checked
+ */
+int is_remote_open(int id);
+
+#endif /* __SDIO_CMUX__ */

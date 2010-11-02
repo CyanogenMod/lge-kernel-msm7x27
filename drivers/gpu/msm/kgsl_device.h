@@ -33,6 +33,7 @@
 #include <linux/irqreturn.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#include <linux/mutex.h>
 #include <linux/msm_kgsl.h>
 
 #include <asm/atomic.h>
@@ -138,6 +139,8 @@ struct kgsl_device {
 	atomic_t open_count;
 
 	struct atomic_notifier_head ts_notifier_list;
+	struct mutex mutex;
+	int is_suspended;
 };
 
 struct kgsl_process_private {
