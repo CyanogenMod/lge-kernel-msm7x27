@@ -1410,8 +1410,6 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 	/* AHB Interfaces */
 	CLK_NORATE(AMP_P,    AHB_EN_REG, B(24), NULL, 0,
 		DBG_BUS_VEC_F_REG, HALT, 18, TEST_MM_LS(0x06)),
-	CLK_NORATE(APU_P,    AHB_EN_REG, B(28), SW_RESET_AHB_REG, B(18),
-		DBG_BUS_VEC_F_REG, HALT,  8, TEST_MM_LS(0x24)),
 	CLK_NORATE(CSI0_P,   AHB_EN_REG, B(7),  SW_RESET_AHB_REG, B(17),
 		DBG_BUS_VEC_F_REG, HALT, 16, TEST_MM_LS(0x07)),
 	CLK_NORATE(CSI1_P,   AHB_EN_REG, B(20), SW_RESET_AHB_REG, B(16),
@@ -1440,8 +1438,6 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 		DBG_BUS_VEC_F_REG, HALT, 11, TEST_MM_LS(0x14)),
 	CLK_NORATE(ROT_P,    AHB_EN_REG, B(12), SW_RESET_AHB_REG, B(2),
 		DBG_BUS_VEC_F_REG, HALT, 13, TEST_MM_LS(0x16)),
-	CLK_NORATE(SMI0_P,   AHB_EN_REG, B(23), SW_RESET_AHB_REG, B(19),
-		DBG_BUS_VEC_F_REG, HALT, 21, TEST_MM_LS(0x17)),
 	CLK_NORATE(SMMU_P,   AHB_EN_REG, B(15), NULL, 0,
 		DBG_BUS_VEC_F_REG, HALT, 22, TEST_MM_LS(0x18)),
 	CLK_NORATE(TV_ENC_P, AHB_EN_REG, B(25), SW_RESET_AHB_REG, B(15),
@@ -1825,17 +1821,17 @@ static void reg_init(int use_pxo)
 	 * gating for all clocks. Also set VFE_AHB's FORCE_CORE_ON bit to
 	 * prevent its memory from being collapsed when the clock is halted.
 	 * The sleep and wake-up delays are set to safe values. */
-	rmwreg(0x00000003, AHB_EN_REG, 0x7FFFFFFF);
-	writel(0x000007F9, AHB_EN2_REG);
+	rmwreg(0x00000003, AHB_EN_REG,  0x0F7FFFFF);
+	rmwreg(0x000007F9, AHB_EN2_REG, 0x7FFFBFFF);
 
-	/* Deassert all MM AHB resets. */
-	writel(0, SW_RESET_AHB_REG);
+	/* Deassert all locally-owned MM AHB resets. */
+	rmwreg(0, SW_RESET_AHB_REG, 0xFFF7DFFF);
 
-	/* Initialize MM AXI registers: Enable AXI root and SMI clocks, and HW
-	 * gating for all clock that support it. Also set FORCE_CORE_ON bits,
-	 * and any sleep and wake-up delays to safe values. */
-	writel(0x10038FF9, MAXI_EN_REG);
-	writel(0x7A27FCFF, MAXI_EN2_REG);
+	/* Initialize MM AXI registers: Enable HW gating for all clocks that
+	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
+	 * delays to safe values. */
+	rmwreg(0x00038FF9, MAXI_EN_REG,  0x0FFFFFFF);
+	rmwreg(0x1A27FCFF, MAXI_EN2_REG, 0x1FFFFFFF);
 	writel(0x3FE7FCFF, MAXI_EN3_REG);
 	writel(0x000001D8, SAXI_EN_REG);
 
@@ -1843,8 +1839,8 @@ static void reg_init(int use_pxo)
 	 * memories retain state even when not clocked. Also, set sleep and
 	 * wake-up delays to safe values. */
 	writel(0x00000000, CSI_CC_REG);
-	writel(0x00000000, MISC_CC_REG);
-	writel(0x000007FD, MISC_CC2_REG);
+	rmwreg(0x00000000, MISC_CC_REG,  0xFEFFF3FF);
+	rmwreg(0x000007FD, MISC_CC2_REG, 0xFFFF7FFF);
 	writel(0x80FF0000, GFX2D0_CC_REG);
 	writel(0x80FF0000, GFX2D1_CC_REG);
 	writel(0x80FF0000, GFX3D_CC_REG);

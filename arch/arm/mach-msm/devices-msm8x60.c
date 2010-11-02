@@ -1244,11 +1244,9 @@ void __init msm_clock_temp_force_on(void)
 	 * drivers implement support for them, they must be removed
 	 * from this list. */
 	clk_enable(clk_get(NULL, "usb_hs_pclk"));
-	clk_enable(clk_get(NULL, "apu_pclk"));
 	clk_enable(clk_get(NULL, "dsi_s_pclk"));
 	clk_enable(clk_get(NULL, "hdmi_m_pclk"));
 	clk_enable(clk_get(NULL, "hdmi_s_pclk"));
-	clk_enable(clk_get(NULL, "smi_pclk"));
 	clk_enable(clk_get(NULL, "vcodec_pclk"));
 }
 
@@ -1400,7 +1398,6 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("vcodec_axi_clk",	VCODEC_AXI_CLK,		NULL, OFF),
 	CLK_8X60("vpe_axi_clk",		VPE_AXI_CLK,		NULL, OFF),
 	CLK_8X60("amp_pclk",		AMP_P_CLK,		NULL, OFF),
-	CLK_8X60("apu_pclk",		APU_P_CLK,		NULL, OFF),
 	CLK_8X60("csi_pclk",		CSI0_P_CLK,		NULL, OFF),
 	CLK_8X60("csi_pclk",		CSI1_P_CLK,	  WEBCAM_DEV, OFF),
 	CLK_8X60("dsi_m_pclk",		DSI_M_P_CLK,		NULL, OFF),
@@ -1414,7 +1411,6 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("jpegd_pclk",		JPEGD_P_CLK,		NULL, OFF),
 	CLK_8X60("imem_pclk",		IMEM_P_CLK,		NULL, OFF),
 	CLK_8X60("mdp_pclk",		MDP_P_CLK,		NULL, OFF),
-	CLK_8X60("smi_pclk",		SMI0_P_CLK,		NULL, OFF),
 	CLK_8X60("smmu_pclk",		SMMU_P_CLK,		NULL, OFF),
 	CLK_8X60("rotator_pclk",	ROT_P_CLK,		NULL, OFF),
 	CLK_8X60("tv_enc_pclk",		TV_ENC_P_CLK,		NULL, OFF),
