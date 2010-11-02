@@ -39,6 +39,7 @@
 struct qci_kbd_platform_data {
 	bool repeat;
 	bool standard_scancodes;
+	bool kb_leds;
 };
 
 #endif /*__QCI_KBD_H__*/
