@@ -77,6 +77,8 @@
 #define	MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT	0x8
 
 static struct clk *camio_cam_clk;
+static struct clk *camio_vfe_clk;
+static struct clk *camio_csi_src_clk;
 static struct clk *camio_csi0_vfe_clk;
 static struct clk *camio_csi1_vfe_clk;
 static struct clk *camio_csi0_clk;
@@ -254,6 +256,7 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		break;
 
 	case CAMIO_VFE_CLK:
+		camio_vfe_clk =
 		clk = clk_get(NULL, "vfe_clk");
 		msm_camio_clk_rate_set_2(clk, camio_clk.vfe_clk_rate);
 		break;
@@ -269,6 +272,7 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 		break;
 
 	case CAMIO_CSI_SRC_CLK:
+		camio_csi_src_clk =
 		clk = clk_get(NULL, "csi_src_clk");
 		msm_camio_clk_rate_set_2(clk, 384000000);
 		break;
@@ -341,6 +345,14 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		clk = camio_cam_clk;
 		break;
 
+	case CAMIO_VFE_CLK:
+		clk = camio_vfe_clk;
+		break;
+
+	case CAMIO_CSI_SRC_CLK:
+		clk = camio_csi_src_clk;
+		break;
+
 	case CAMIO_CSI0_VFE_CLK:
 		clk = camio_csi0_vfe_clk;
 		break;
@@ -394,7 +406,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		clk_put(clk);
 	} else
 		rc = -1;
-
 	return rc;
 }
 
@@ -599,6 +610,8 @@ void msm_camio_disable(struct platform_device *pdev)
 	msm_camio_clk_disable(CAMIO_VFE_PCLK);
 	msm_camio_clk_disable(CAMIO_CSI0_PCLK);
 	msm_camio_clk_disable(CAMIO_CSI1_PCLK);
+	msm_camio_clk_disable(CAMIO_CSI_SRC_CLK);
+	msm_camio_clk_disable(CAMIO_VFE_CLK);
 }
 
 int msm_camio_sensor_clk_on(struct platform_device *pdev)
@@ -620,7 +633,7 @@ int msm_camio_sensor_clk_off(struct platform_device *pdev)
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	msm_camera_vreg_disable();
 	camdev->camera_gpio_off();
-	return 0;
+	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
 
 }
 
@@ -647,7 +660,7 @@ int msm_camio_probe_off(struct platform_device *pdev)
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	msm_camera_vreg_disable();
 	camdev->camera_gpio_off();
-	return 0;
+	return msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
 }
 
 int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
