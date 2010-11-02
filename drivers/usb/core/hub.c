@@ -1589,8 +1589,10 @@ void usb_disconnect(struct usb_device **pdev)
 	dev_info (&udev->dev, "USB disconnect, address %d\n", udev->devnum);
 
 #ifdef CONFIG_USB_OTG
-	if (udev->bus->hnp_support && udev->portnum == udev->bus->otg_port)
+	if (udev->bus->hnp_support && udev->portnum == udev->bus->otg_port) {
 		cancel_delayed_work(&udev->bus->hnp_polling);
+		udev->bus->hnp_support = 0;
+	}
 #endif
 
 	usb_lock_device(udev);
