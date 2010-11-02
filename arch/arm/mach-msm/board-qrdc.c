@@ -3587,6 +3587,7 @@ static void __init msm8x60_init(void)
 		       __func__);
 
 	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
+	msm_clock_temp_force_on();
 	/* initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
 	 */
