@@ -67,20 +67,22 @@ static void msm_restart(char str, const char *cmd)
 	iounmap(dload_mode_addr);
 #endif
 
-	restart_reason = ioremap_nocache(RESTART_REASON_ADDR, SZ_4K);
-	if (!strncmp(cmd, "bootloader", 10)) {
-		writel(0x77665500, restart_reason);
-	} else if (!strncmp(cmd, "recovery", 8)) {
-		writel(0x77665502, restart_reason);
-	} else if (!strncmp(cmd, "oem-", 4)) {
-		unsigned long code;
-		strict_strtoul(cmd + 4, 16, &code);
-		code = code & 0xff;
-		writel(0x6f656d00 | code, restart_reason);
-	} else {
-		writel(0x77665501, restart_reason);
+	if (cmd != NULL) {
+		restart_reason = ioremap_nocache(RESTART_REASON_ADDR, SZ_4K);
+		if (!strncmp(cmd, "bootloader", 10)) {
+			writel(0x77665500, restart_reason);
+		} else if (!strncmp(cmd, "recovery", 8)) {
+			writel(0x77665502, restart_reason);
+		} else if (!strncmp(cmd, "oem-", 4)) {
+			unsigned long code;
+			strict_strtoul(cmd + 4, 16, &code);
+			code = code & 0xff;
+			writel(0x6f656d00 | code, restart_reason);
+		} else {
+			writel(0x77665501, restart_reason);
+		}
+		iounmap(restart_reason);
 	}
-	iounmap(restart_reason);
 
 	writel(1, WDT0_RST);
 	writel(0, WDT0_EN);
