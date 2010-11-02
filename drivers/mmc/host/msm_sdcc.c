@@ -796,10 +796,12 @@ msmsdcc_irq(int irq, void *dev_id)
 		}
 
 		if (!host->clks_on) {
-			pr_info("%s: irq received when clocks are off\n",
-					__func__);
+			pr_info("%s: %s: SDIO async irq received\n",
+					mmc_hostname(host->mmc), __func__);
 			host->mmc->ios.clock = host->clk_rate;
+			spin_unlock(&host->lock);
 			host->mmc->ops->set_ios(host->mmc, &host->mmc->ios);
+			spin_lock(&host->lock);
 			/* only ansyc interrupt can come when clocks are off */
 			writel(MCI_SDIOINTMASK, host->base + MMCICLEAR);
 		}
@@ -1049,11 +1051,13 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	u32 clk = 0, pwr = 0;
 	int rc;
+	unsigned long flags;
 
 	DBG(host, "ios->clock = %u\n", ios->clock);
 
 	if (ios->clock) {
 
+		spin_lock_irqsave(&host->lock, flags);
 		if (!host->clks_on) {
 			if (!IS_ERR(host->pclk))
 				clk_enable(host->pclk);
@@ -1066,6 +1070,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				disable_irq_wake(host->irqres->start);
 			}
 		}
+		spin_unlock_irqrestore(&host->lock, flags);
 
 		if ((ios->clock < host->plat->msmsdcc_fmax) &&
 				(ios->clock > host->plat->msmsdcc_fmid))
@@ -1122,6 +1127,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		writel(pwr, host->base + MMCIPOWER);
 	}
 
+	spin_lock_irqsave(&host->lock, flags);
 	if (!(clk & MCI_CLK_ENABLE) && host->clks_on) {
 		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO &&
 				!host->plat->sdiowakeup_irq) {
@@ -1133,6 +1139,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			clk_disable(host->pclk);
 		host->clks_on = 0;
 	}
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
@@ -1775,7 +1782,6 @@ msmsdcc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
-	unsigned long flags;
 	int rc = 0;
 
 	if (mmc) {
@@ -1804,13 +1810,8 @@ msmsdcc_runtime_suspend(struct device *dev)
 			 * If MMC core level suspend is not supported, turn
 			 * off clocks to allow deep sleep (TCXO shutdown).
 			 */
-			spin_lock_irqsave(&host->lock, flags);
-			if (host->clks_on) {
-				writel(0, host->base + MMCIMASK0);
-				mmc->ios.clock = 0;
-				mmc->ops->set_ios(host->mmc, &host->mmc->ios);
-			}
-			spin_unlock_irqrestore(&host->lock, flags);
+			mmc->ios.clock = 0;
+			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 		}
 
 		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && mmc->card &&
@@ -1833,12 +1834,10 @@ msmsdcc_runtime_resume(struct device *dev)
 	int release_lock = 0;
 
 	if (mmc) {
-		spin_lock_irqsave(&host->lock, flags);
-		if (!host->clks_on) {
-			mmc->ios.clock = host->clk_rate;
-			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
-		}
+		mmc->ios.clock = host->clk_rate;
+		mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 
+		spin_lock_irqsave(&host->lock, flags);
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
 
 		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
