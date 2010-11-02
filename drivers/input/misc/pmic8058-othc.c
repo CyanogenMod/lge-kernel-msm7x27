@@ -323,46 +323,7 @@ static irqreturn_t pm8058_no_sw(int irq, void *dev_id)
 }
 
 /*
- * For the NC type headset, a single interrupt is triggered
- * for all the events (insert, remove, press, release).
- * A external GPIO is used to distinguish between diff. states.
- * The GPIO is pulled low when the headset is inserted. Using
- * the current state of the switch, headset and the gpio value we
- * determine which event has occured.
- */
-static void othc_process_nc(struct pm8058_othc *dd)
-{
-	if (!gpio_get_value(dd->othc_nc_gpio)) {
-		/* headset plugged in and/or button press/release */
-		if (dd->othc_ir_state == false) {
-			/* disable irq, this gets enabled in the workqueue */
-			disable_irq_nosync(dd->othc_irq_ir);
-			/* headset plugged in */
-			dd->othc_ir_state = true;
-			pm8058_headset_switch(dd->othc_ipd,
-					SW_HEADPHONE_INSERT, 1);
-		} else if (dd->othc_sw_state == false) {
-			/*  Switch has been pressed */
-			dd->othc_sw_state = true;
-			input_report_key(dd->othc_ipd, KEY_MEDIA, 1);
-		} else {
-			/* Switch has been released */
-			dd->othc_sw_state = false;
-			input_report_key(dd->othc_ipd, KEY_MEDIA, 0);
-		}
-	} else {
-		/* disable irq, this gets enabled in the workqueue */
-		disable_irq_nosync(dd->othc_irq_ir);
-		/* headset has been plugged out */
-		dd->othc_ir_state = false;
-		pm8058_headset_switch(dd->othc_ipd,
-				SW_HEADPHONE_INSERT, 0);
-	}
-}
-
-/*
- * The pm8058_nc_ir detects insert / remove of the headset (for NO and NC),
- * as well as button press / release (for NC type).
+ * The pm8058_nc_ir detects insert / remove of the headset (for NO),
  * The current state of the headset is maintained in othc_ir_state variable.
  * Due to a hardware bug, false switch interrupts are seen during headset
  * insert. This is handled in the software by rejecting the switch interrupts
@@ -372,7 +333,6 @@ static irqreturn_t pm8058_nc_ir(int irq, void *dev_id)
 {
 	unsigned long flags;
 	struct pm8058_othc *dd = dev_id;
-	struct othc_hsed_config *hsed_config = dd->othc_pdata->hsed_config;
 
 	spin_lock_irqsave(&dd->lock, flags);
 	/* Enable the switch reject flag */
@@ -387,23 +347,19 @@ static irqreturn_t pm8058_nc_ir(int irq, void *dev_id)
 		ktime_set((dd->switch_debounce_ms / 1000),
 		(dd->switch_debounce_ms % 1000) * 1000000), HRTIMER_MODE_REL);
 
-	if (hsed_config->othc_headset == OTHC_HEADSET_NC)
-		othc_process_nc(dd);
-	else {
-		/* disable irq, this gets enabled in the workqueue */
-		disable_irq_nosync(dd->othc_irq_ir);
-		/* Processing for NO type headset */
-		if (dd->othc_ir_state == false) {
-			/*  headset jack inserted */
-			dd->othc_ir_state = true;
-			pm8058_headset_switch(dd->othc_ipd,
-					SW_HEADPHONE_INSERT, 1);
-		} else {
-			/* headset jack removed */
-			dd->othc_ir_state = false;
-			pm8058_headset_switch(dd->othc_ipd,
-					SW_HEADPHONE_INSERT, 0);
-		}
+	/* disable irq, this gets enabled in the workqueue */
+	disable_irq_nosync(dd->othc_irq_ir);
+	/* Processing for NO type headset */
+	if (dd->othc_ir_state == false) {
+		/*  headset jack inserted */
+		dd->othc_ir_state = true;
+		pm8058_headset_switch(dd->othc_ipd,
+				SW_HEADPHONE_INSERT, 1);
+	} else {
+		/* headset jack removed */
+		dd->othc_ir_state = false;
+		pm8058_headset_switch(dd->othc_ipd,
+				SW_HEADPHONE_INSERT, 0);
 	}
 	input_sync(dd->othc_ipd);
 
@@ -426,16 +382,9 @@ static int pm8058_configure_othc(struct pm8058_othc *dd)
 		return rc;
 	}
 
-	if (hsed_config->othc_headset == OTHC_HEADSET_NO) {
-		/* set iDAC high current threshold */
-		value = (hsed_config->othc_highcurr_thresh_uA / 100) - 2;
-		reg =  (reg & PM8058_OTHC_HIGH_CURR_MASK) | value;
-	} else {
-		/* set iDAC low current threshold */
-		value = (hsed_config->othc_lowcurr_thresh_uA / 10) - 1;
-		reg &= PM8058_OTHC_LOW_CURR_MASK;
-		reg |= (value << PM8058_OTHC_LOW_CURR_SHIFT);
-	}
+	/* set iDAC high current threshold */
+	value = (hsed_config->othc_highcurr_thresh_uA / 100) - 2;
+	reg =  (reg & PM8058_OTHC_HIGH_CURR_MASK) | value;
 
 	rc = pm8058_write(dd->pm_chip, base_addr, &reg, 1);
 	if (rc < 0) {
@@ -576,12 +525,10 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 		rc = -ENXIO;
 		goto fail_othc_config;
 	}
-	if (hsed_config->othc_headset == OTHC_HEADSET_NO) {
-		if (dd->othc_irq_sw < 0) {
-			pr_err("%s: othc resource:IRQ_SW absent\n", __func__);
-			rc = -ENXIO;
-			goto fail_othc_config;
-		}
+	if (dd->othc_irq_sw < 0) {
+		pr_err("%s: othc resource:IRQ_SW absent\n", __func__);
+		rc = -ENXIO;
+		goto fail_othc_config;
 	}
 
 	ipd->name = "pmic8058_othc";
@@ -613,16 +560,6 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 	input_set_capability(ipd, EV_SW, SW_HEADPHONE_INSERT);
 	input_set_drvdata(ipd, dd);
 	spin_lock_init(&dd->lock);
-
-	if (hsed_config->othc_headset == OTHC_HEADSET_NC) {
-		/* Check if NC specific pdata is present */
-		if (!hsed_config->othc_nc_gpio_setup ||
-					!hsed_config->othc_nc_gpio) {
-			pr_err("%s: NC headset pdata missing \n", __func__);
-			rc = -EINVAL;
-			goto fail_othc_config;
-		}
-	}
 
 	rc = pm8058_configure_othc(dd);
 	if (rc < 0)
@@ -660,24 +597,14 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 		goto fail_ir_irq;
 	}
 
-	if (hsed_config->othc_headset == OTHC_HEADSET_NO) {
-		/* This irq is used only for NO type headset */
-		rc = request_threaded_irq(dd->othc_irq_sw, NULL, pm8058_no_sw,
-		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED,
-				"pm8058_othc_sw", dd);
-		if (rc < 0) {
-			pr_err("%s: Unable to request pm8058_othc_sw IRQ\n",
-								__func__);
-			goto fail_sw_irq;
-		}
-	} else {
-		/* NC type of headset use GPIO for IR */
-		rc = hsed_config->othc_nc_gpio_setup();
-		if (rc < 0) {
-			pr_err("%s: Unable to setup gpio for NC type \n",
-								__func__);
-			goto fail_sw_irq;
-		}
+	/* This irq is used only for NO type headset */
+	rc = request_threaded_irq(dd->othc_irq_sw, NULL, pm8058_no_sw,
+	IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED,
+			"pm8058_othc_sw", dd);
+	if (rc < 0) {
+		pr_err("%s: Unable to request pm8058_othc_sw IRQ\n",
+							__func__);
+		goto fail_sw_irq;
 	}
 
 	device_init_wakeup(&pd->dev, hsed_config->othc_wakeup);
