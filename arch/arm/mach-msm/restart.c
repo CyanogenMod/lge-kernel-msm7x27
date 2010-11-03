@@ -82,7 +82,7 @@ static void msm_power_off(void)
 	return;
 }
 
-static void msm_restart(char str, const char *cmd)
+void arch_reset(char mode, const char *cmd)
 {
 	void *restart_reason;
 
@@ -119,8 +119,6 @@ static void msm_restart(char str, const char *cmd)
 		writel(3, tcsr_base + TCSR_WDT_CFG);
 
 	mdelay(10000);
-	printk(KERN_ERR "Restarting has failed\n");
-	return;
 }
 
 static int __init msm_restart_init(void)
@@ -130,7 +128,6 @@ static int __init msm_restart_init(void)
 #endif
 
 	pm_power_off = msm_power_off;
-	arm_pm_restart = msm_restart;
 
 	tcsr_base = ioremap_nocache(TCSR_BASE, SZ_4K);
 	if (tcsr_base == NULL)
