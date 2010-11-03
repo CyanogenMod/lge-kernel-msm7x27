@@ -25,6 +25,7 @@
 
 #include "rpm-regulator.h"
 #include "rpm.h"
+#include "rpm_resources.h"
 
 #define MICRO_TO_MILLI(uV)			((uV) / 1000)
 #define MILLI_TO_MICRO(mV)			((mV) * 1000)
@@ -119,13 +120,16 @@
 
 struct vreg {
 	struct msm_rpm_iv_pair	req[2];
-	struct msm_rpm_iv_pair	prev_req[2];
+	struct msm_rpm_iv_pair	prev_active_req[2];
+	struct msm_rpm_iv_pair	prev_sleep_req[2];
 	struct rpm_vreg_pdata	*pdata;
 	int			save_uV;
 	const int		lpm_max_load;
 	unsigned		pc_vote;
 	unsigned		optimum;
 	unsigned		mode_initialized;
+	int			active_min_mV_vote[RPM_VREG_VOTER_COUNT];
+	int			sleep_min_mV_vote[RPM_VREG_VOTER_COUNT];
 	enum rpm_vreg_id	id;
 };
 
@@ -210,21 +214,66 @@ static struct vreg vregs[RPM_VREG_ID_MAX] = {
 #define REG_IS_PM8058_S1(rpm_id) ((rpm_id) == MSM_RPM_ID_SMPS1_0 || \
 				  (rpm_id) == MSM_RPM_ID_SMPS1_1)
 
-static int vreg_set_pm8058_s1(enum pm8058_s1_vote_client voter, unsigned mask0,
-		       unsigned val0, unsigned mask1, unsigned val1,
-		       unsigned cnt)
+
+static int voltage_from_req(struct vreg *vreg)
 {
-	struct vreg *vreg = &vregs[RPM_VREG_ID_PM8058_S1];
-	static DEFINE_SPINLOCK(pm8058_s1_lock);
-	static int min_mV_votes[PM8058_S1_VOTE_NUM_VOTERS];
-	unsigned prev0 = 0, prev1 = 0;
-	int rc = 0, i, max_mV_vote;
-	unsigned long flags;
+	int shift = 0;
+	uint32_t value = 0, mask = 0;
 
-	if (voter < 0 || voter >= PM8058_S1_VOTE_NUM_VOTERS)
-		return -EINVAL;
+	value = vreg->req[0].value;
 
-	spin_lock_irqsave(&pm8058_s1_lock, flags);
+	if (IS_SMPS(vreg->id)) {
+		mask = SMPS_VOLTAGE;
+		shift = SMPS_VOLTAGE_SHIFT;
+	} else if (IS_LDO(vreg->id)) {
+		mask = LDO_VOLTAGE;
+		shift = LDO_VOLTAGE_SHIFT;
+	} else if (IS_NCP(vreg->id)) {
+		mask = NCP_VOLTAGE;
+		shift = NCP_VOLTAGE_SHIFT;
+	}
+
+	return (value & mask) >> shift;
+}
+
+static void voltage_to_req(int voltage, struct vreg *vreg)
+{
+	int shift = 0;
+	uint32_t *value = NULL, mask = 0;
+
+	value = &(vreg->req[0].value);
+
+	if (IS_SMPS(vreg->id)) {
+		mask = SMPS_VOLTAGE;
+		shift = SMPS_VOLTAGE_SHIFT;
+	} else if (IS_LDO(vreg->id)) {
+		mask = LDO_VOLTAGE;
+		shift = LDO_VOLTAGE_SHIFT;
+	} else if (IS_NCP(vreg->id)) {
+		mask = NCP_VOLTAGE;
+		shift = NCP_VOLTAGE_SHIFT;
+	}
+
+	*value &= ~mask;
+	*value |= (voltage << shift) & mask;
+}
+
+static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
+			  int set, unsigned mask0, unsigned val0,
+			  unsigned mask1, unsigned val1, unsigned cnt)
+{
+	struct msm_rpm_iv_pair *prev_req;
+	int rc = 0, max_mV_vote = 0, i;
+	unsigned prev0, prev1;
+	int *min_mV_vote;
+
+	if (set == MSM_RPM_CTX_SET_0) {
+		min_mV_vote = vreg->active_min_mV_vote;
+		prev_req = vreg->prev_active_req;
+	} else {
+		min_mV_vote = vreg->sleep_min_mV_vote;
+		prev_req = vreg->prev_sleep_req;
+	}
 
 	prev0 = vreg->req[0].value;
 	vreg->req[0].value &= ~mask0;
@@ -234,36 +283,84 @@ static int vreg_set_pm8058_s1(enum pm8058_s1_vote_client voter, unsigned mask0,
 	vreg->req[1].value &= ~mask1;
 	vreg->req[1].value |= val1 & mask1;
 
-	min_mV_votes[voter] = (vreg->req[0].value & SMPS_VOLTAGE) >>
-			      SMPS_VOLTAGE_SHIFT;
+	min_mV_vote[voter] = voltage_from_req(vreg);
 
 	/* Find the highest voltage voted for and use it. */
-	max_mV_vote = 0;
-	for (i = 0; i < PM8058_S1_VOTE_NUM_VOTERS; i++)
-		max_mV_vote = max(max_mV_vote, min_mV_votes[i]);
-	vreg->req[0].value &= ~SMPS_VOLTAGE;
-	vreg->req[0].value |= (max_mV_vote << SMPS_VOLTAGE_SHIFT) &
-			      SMPS_VOLTAGE;
+	for (i = 0; i < RPM_VREG_VOTER_COUNT; i++)
+		max_mV_vote = max(max_mV_vote, min_mV_vote[i]);
+	voltage_to_req(max_mV_vote, vreg);
 
 	/* Ignore duplicate requests */
-	if (vreg->req[0].value == vreg->prev_req[0].value &&
-	    vreg->req[1].value == vreg->prev_req[1].value)
-		goto done;
+	if (vreg->req[0].value != prev_req[0].value ||
+	    vreg->req[1].value != prev_req[1].value) {
 
-	rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, vreg->req, cnt);
-	if (rc) {
-		vreg->req[0].value = prev0;
-		vreg->req[1].value = prev1;
+		rc = msm_rpmrs_set_noirq(set, vreg->req, cnt);
+		if (rc) {
+			vreg->req[0].value = prev0;
+			vreg->req[1].value = prev1;
 
-		pr_err("%s: msm_rpm_set_noirq fail id=%d, rc=%d\n",
-				__func__, vreg->req[0].id, rc);
-	} else {
-		vreg->prev_req[0].value = vreg->req[0].value;
-		vreg->prev_req[1].value = vreg->req[1].value;
+			pr_err("%s: msm_rpmrs_set_noirq failed - "
+				"set=%s, id=%d, rc=%d\n", __func__,
+				(set == MSM_RPM_CTX_SET_0 ? "active" : "sleep"),
+				vreg->req[0].id, rc);
+		} else {
+			prev_req[0].value = vreg->req[0].value;
+			prev_req[1].value = vreg->req[1].value;
+		}
 	}
 
-done:
-	spin_unlock_irqrestore(&pm8058_s1_lock, flags);
+	return rc;
+}
+
+static int vreg_set_noirq(struct vreg *vreg, enum rpm_vreg_voter voter,
+			  int sleep, unsigned mask0, unsigned val0,
+			  unsigned mask1, unsigned val1, unsigned cnt)
+{
+	static DEFINE_SPINLOCK(pm8058_noirq_lock);
+	unsigned long flags;
+	int rc;
+	unsigned val0_sleep, mask0_sleep;
+
+	if (voter < 0 || voter >= RPM_VREG_VOTER_COUNT)
+		return -EINVAL;
+
+	spin_lock_irqsave(&pm8058_noirq_lock, flags);
+
+	/*
+	 * Send sleep set request first so that subsequent set_mode, etc calls
+	 * use the voltage from the active set.
+	 */
+	if (sleep)
+		rc = vreg_send_request(vreg, voter, MSM_RPM_CTX_SET_SLEEP,
+					mask0, val0, mask1, val1, cnt);
+	else {
+		/*
+		 * Vote for 0 V in the sleep set when active set-only is
+		 * specified.  This ensures that a disable vote will be issued
+		 * at some point for the sleep set of the regulator.
+		 */
+		val0_sleep = val0;
+		mask0_sleep = mask0;
+		if (IS_SMPS(vreg->id)) {
+			val0_sleep &= ~SMPS_VOLTAGE;
+			mask0_sleep |= SMPS_VOLTAGE;
+		} else if (IS_LDO(vreg->id)) {
+			val0_sleep &= ~LDO_VOLTAGE;
+			mask0_sleep |= LDO_VOLTAGE;
+		} else if (IS_NCP(vreg->id)) {
+			val0_sleep &= ~NCP_VOLTAGE;
+			mask0_sleep |= NCP_VOLTAGE;
+		}
+
+		rc = vreg_send_request(vreg, voter, MSM_RPM_CTX_SET_SLEEP,
+					mask0_sleep, val0_sleep,
+					mask1, val1, cnt);
+	}
+
+	rc = vreg_send_request(vreg, voter, MSM_RPM_CTX_SET_0, mask0, val0,
+					mask1, val1, cnt);
+
+	spin_unlock_irqrestore(&pm8058_noirq_lock, flags);
 
 	return rc;
 }
@@ -283,10 +380,18 @@ int pm8058_s1_set_min_uv_noirq(enum pm8058_s1_vote_client voter, int min_uV)
 {
 	int rc;
 
-	rc = vreg_set_pm8058_s1(voter, SMPS_VOLTAGE,
+	if (min_uV <
+	     vregs[RPM_VREG_ID_PM8058_S1].pdata->init_data.constraints.min_uV ||
+	    min_uV >
+	     vregs[RPM_VREG_ID_PM8058_S1].pdata->init_data.constraints.max_uV)
+			return -EINVAL;
+
+	rc = vreg_set_noirq(&vregs[RPM_VREG_ID_PM8058_S1], voter, 1,
+			SMPS_VOLTAGE,
 			MICRO_TO_MILLI(min_uV) << SMPS_VOLTAGE_SHIFT,
 			0, 0, 2);
-	if (!rc)
+
+	if (rc)
 		return rc;
 
 	/* only save if nonzero (or not disabling) */
@@ -296,6 +401,70 @@ int pm8058_s1_set_min_uv_noirq(enum pm8058_s1_vote_client voter, int min_uV)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8058_s1_set_min_uv_noirq);
+
+/**
+ * rpm_vreg_set_voltage - vote for a min_uV value of specified regualtor
+ * @vreg: ID for regulator
+ * @voter: ID for the voter
+ * @min_uV: minimum acceptable voltage (in uV) that is voted for
+ * @sleep_also: 0 for active set only, non-0 for active set and sleep set
+ *
+ * Returns 0 on success or errno.
+ *
+ * This function is used to vote for the voltage of a regulator without
+ * using the regulator framework.  It is needed by consumers which hold spin
+ * locks or have interrupts disabled because the regulator framework can sleep.
+ * It is also needed by consumers which wish to only vote for active set
+ * regulator voltage.
+ *
+ * If sleep_also == 0, then a sleep-set value of 0V will be voted for.
+ *
+ * This function may only be called for regulators which have the sleep flag
+ * specified in their private data.
+ */
+int rpm_vreg_set_voltage(enum rpm_vreg_id vreg_id, enum rpm_vreg_voter voter,
+			 int min_uV, int sleep_also)
+{
+	int rc;
+	unsigned val0 = 0, val1 = 0, mask0 = 0, mask1 = 0, cnt = 2;
+
+	if (vreg_id < 0 || vreg_id >= RPM_VREG_ID_MAX)
+		return -EINVAL;
+
+	if (!vregs[vreg_id].pdata->sleep_selectable)
+		return -EINVAL;
+
+	if (min_uV < vregs[vreg_id].pdata->init_data.constraints.min_uV ||
+	    min_uV > vregs[vreg_id].pdata->init_data.constraints.max_uV)
+		return -EINVAL;
+
+	if (IS_SMPS(vreg_id)) {
+		mask0 = SMPS_VOLTAGE;
+		val0 = MICRO_TO_MILLI(min_uV) << SMPS_VOLTAGE_SHIFT;
+	} else if (IS_LDO(vreg_id)) {
+		mask0 = LDO_VOLTAGE;
+		val0 = MICRO_TO_MILLI(min_uV) << LDO_VOLTAGE_SHIFT;
+	} else if (IS_NCP(vreg_id)) {
+		mask0 = NCP_VOLTAGE;
+		val0 = MICRO_TO_MILLI(min_uV) << NCP_VOLTAGE_SHIFT;
+		cnt = 1;
+	} else {
+		cnt = 1;
+	}
+
+	rc = vreg_set_noirq(&vregs[vreg_id], voter, sleep_also, mask0, val0,
+			    mask1, val1, cnt);
+
+	if (rc)
+		return rc;
+
+	/* only save if nonzero (or not disabling) */
+	if (min_uV)
+		vregs[vreg_id].save_uV = min_uV;
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(rpm_vreg_set_voltage);
 
 #define IS_PMIC_8901_V1(rev)		((rev) == PM_8901_REV_1p0 || \
 					 (rev) == PM_8901_REV_1p1)
@@ -323,10 +492,18 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 	unsigned prev0 = 0, prev1 = 0;
 	int rc;
 
+	/*
+	 * Bypass the normal route for regulators that can be called to change
+	 * just the active set values.
+	 */
+	if (vreg->pdata->sleep_selectable)
+		return vreg_set_noirq(vreg, RPM_VREG_VOTER_REG_FRAMEWORK, 1,
+					mask0, val0, mask1, val1, cnt);
+
 	/* bypass normal route for PM8058_S1 */
 	if (REG_IS_PM8058_S1(vreg->req[0].id))
-		return vreg_set_pm8058_s1(PM8058_S1_VOTE_REG_FRAMEWORK, mask0,
-					  val0, mask1, val1, cnt);
+		return vreg_set_noirq(vreg, RPM_VREG_VOTER_REG_FRAMEWORK, 1,
+					mask0, val0, mask1, val1, cnt);
 
 	prev0 = vreg->req[0].value;
 	vreg->req[0].value &= ~mask0;
@@ -337,8 +514,8 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 	vreg->req[1].value |= val1 & mask1;
 
 	/* Ignore duplicate requests */
-	if (vreg->req[0].value == vreg->prev_req[0].value &&
-	    vreg->req[1].value == vreg->prev_req[1].value)
+	if (vreg->req[0].value == vreg->prev_active_req[0].value &&
+	    vreg->req[1].value == vreg->prev_active_req[1].value)
 		return 0;
 
 	rc = msm_rpm_set(MSM_RPM_CTX_SET_0, vreg->req, cnt);
@@ -349,8 +526,8 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 		pr_err("%s: msm_rpm_set fail id=%d, rc=%d\n",
 				__func__, vreg->req[0].id, rc);
 	} else {
-		vreg->prev_req[0].value = vreg->req[0].value;
-		vreg->prev_req[1].value = vreg->req[1].value;
+		vreg->prev_active_req[0].value = vreg->req[0].value;
+		vreg->prev_active_req[1].value = vreg->req[1].value;
 	}
 
 	return rc;
@@ -364,7 +541,7 @@ static int smps_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 	rc = vreg_set(vreg, SMPS_VOLTAGE,
 			MICRO_TO_MILLI(min_uV) << SMPS_VOLTAGE_SHIFT,
 			0, 0, 2);
-	if (!rc)
+	if (rc)
 		return rc;
 
 	/* only save if nonzero (or not disabling) */
@@ -402,7 +579,7 @@ static int smps_8901_set_voltage(struct regulator_dev *dev, int min_uV,
 
 	rc = vreg_set(vreg, SMPS_VOLTAGE, MICRO_TO_MILLI(scaled_min_uV) <<
 			SMPS_VOLTAGE_SHIFT, 0, 0, 2);
-	if (!rc)
+	if (rc)
 		return rc;
 
 	/* only save if nonzero (or not disabling) */
@@ -615,7 +792,7 @@ static int ldo_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 	rc = vreg_set(vreg, LDO_VOLTAGE,
 			MICRO_TO_MILLI(min_uV) << LDO_VOLTAGE_SHIFT,
 			0, 0, 2);
-	if (!rc)
+	if (rc)
 		return rc;
 
 	/* only save if nonzero (or not disabling) */
@@ -1141,6 +1318,7 @@ static int __devinit rpm_vreg_probe(struct platform_device *pdev)
 
 	vreg = &vregs[pdev->id];
 	vreg->pdata = pdev->dev.platform_data;
+	vreg->id = pdev->id;
 	rdesc = &vreg_descrip[pdev->id];
 
 	rc = vreg_init(pdev->id, vreg);
