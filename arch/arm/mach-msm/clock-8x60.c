@@ -1420,8 +1420,6 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 		DBG_BUS_VEC_F_REG, HALT, 19, TEST_MM_LS(0x09)),
 	CLK_NORATE(DSI_S_P,  AHB_EN_REG, B(18), SW_RESET_AHB_REG, B(5),
 		DBG_BUS_VEC_F_REG, HALT, 20, TEST_MM_LS(0x0A)),
-	CLK_NORATE(FAB_P,    AHB_EN_REG, B(31), SW_RESET_AHB_REG, B(13),
-		DBG_BUS_VEC_F_REG, HALT,  1, TEST_MM_LS(0x0B)),
 	CLK_NORATE(GFX2D0_P, AHB_EN_REG, B(19), SW_RESET_AHB_REG, B(12),
 		DBG_BUS_VEC_F_REG, HALT,  2, TEST_MM_LS(0x0C)),
 	CLK_NORATE(GFX2D1_P, AHB_EN_REG, B(2),  SW_RESET_AHB_REG, B(11),
@@ -1827,7 +1825,7 @@ static void reg_init(int use_pxo)
 	 * gating for all clocks. Also set VFE_AHB's FORCE_CORE_ON bit to
 	 * prevent its memory from being collapsed when the clock is halted.
 	 * The sleep and wake-up delays are set to safe values. */
-	writel(0x00000003, AHB_EN_REG);
+	rmwreg(0x00000003, AHB_EN_REG, 0x7FFFFFFF);
 	writel(0x000007F9, AHB_EN2_REG);
 
 	/* Deassert all MM AHB resets. */
@@ -1919,8 +1917,6 @@ void __init msm_clk_soc_init(void)
 
 	/* Initialize clock registers. */
 	reg_init(use_pxo);
-
-	local_clk_enable(C(FAB_P));
 
 	/* Initialize rates for clocks that only support one. */
 	set_1rate(MDP_VSYNC);
