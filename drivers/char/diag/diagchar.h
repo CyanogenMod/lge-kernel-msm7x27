@@ -156,9 +156,10 @@ struct diagchar_dev {
 #ifdef CONFIG_DIAG_OVER_USB
 	int usb_connected;
 	struct usb_diag_ch *legacy_ch;
+	struct work_struct diag_proc_hdlc_work;
+	struct work_struct diag_read_work;
 #endif
 	struct workqueue_struct *diag_wq;
-	struct work_struct diag_read_work;
 	struct work_struct diag_drain_work;
 	struct work_struct diag_read_smd_work;
 	struct work_struct diag_read_smd_qdsp_work;

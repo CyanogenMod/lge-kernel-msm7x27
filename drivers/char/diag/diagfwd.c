@@ -655,6 +655,7 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 {
 	int len = diag_read_ptr->actual;
+	int status = diag_read_ptr->status;
 
 	APPEND_DEBUG('c');
 #ifdef DIAG_DEBUG
@@ -665,9 +666,31 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 		       diag_read_ptr->actual, 1);
 #endif /* DIAG DEBUG */
 	driver->read_len = len;
-	if (driver->logging_mode == USB_MODE)
-		queue_work(driver->diag_wq , &(driver->diag_read_work));
+	if (driver->logging_mode == USB_MODE) {
+		if (status != -ECONNRESET && status != -ESHUTDOWN)
+			queue_work(driver->diag_wq,
+					&(driver->diag_proc_hdlc_work));
+		else
+			queue_work(driver->diag_wq, &(driver->diag_read_work));
+	}
 	return 0;
+}
+
+void diag_read_work_fn(struct work_struct *work)
+{
+	APPEND_DEBUG('d');
+	driver->usb_read_ptr->buf = driver->usb_buf_out;
+	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
+	usb_diag_read(driver->legacy_ch, driver->usb_read_ptr);
+	APPEND_DEBUG('e');
+}
+
+void diag_process_hdlc_fn(struct work_struct *work)
+{
+	APPEND_DEBUG('D');
+	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
+	diag_read_work_fn(work);
+	APPEND_DEBUG('E');
 }
 
 static void diag_usb_legacy_notifier(void *priv, unsigned event,
@@ -692,16 +715,6 @@ static void diag_usb_legacy_notifier(void *priv, unsigned event,
 	}
 }
 
-void diag_read_work_fn(struct work_struct *work)
-{
-	APPEND_DEBUG('d');
-	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
-	driver->usb_read_ptr->buf = driver->usb_buf_out;
-	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
-	APPEND_DEBUG('e');
-	usb_diag_read(driver->legacy_ch, driver->usb_read_ptr);
-	APPEND_DEBUG('f');
-}
 #endif /* DIAG OVER USB */
 
 static void diag_smd_notify(void *ctxt, unsigned event)
@@ -855,6 +868,7 @@ void diagfwd_init(void)
 #endif
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 #ifdef CONFIG_DIAG_OVER_USB
+	INIT_WORK(&(driver->diag_proc_hdlc_work), diag_process_hdlc_fn);
 	INIT_WORK(&(driver->diag_read_work), diag_read_work_fn);
 	driver->legacy_ch = usb_diag_open(DIAG_LEGACY, driver,
 			diag_usb_legacy_notifier);
