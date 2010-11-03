@@ -664,9 +664,6 @@ static long kgsl_ioctl_cmdstream_readtimestamp(struct kgsl_device_private
 							(dev_priv->device,
 							param.type);
 
-	if (result != 0)
-		goto done;
-
 	if (copy_to_user(arg, &param, sizeof(param))) {
 		result = -EFAULT;
 		goto done;
