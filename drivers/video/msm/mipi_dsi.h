@@ -91,6 +91,11 @@ enum {		/* mipi dsi panel */
 #define DSI_INTR_CMD_DMA_DONE_MASK	BIT(1)
 #define DSI_INTR_CMD_DMA_DONE		BIT(0)
 
+#define DSI_CMD_TRIGGER_TE		0x02
+#define DSI_CMD_TRIGGER_SW		0x04
+#define DSI_CMD_TRIGGER_SW_SEOF		0x05	/* cmd dma only */
+#define DSI_CMD_TRIGGER_SW_TE		0x06
+
 extern struct device dsi_dev;
 
 struct dsi_clk_desc {
@@ -98,14 +103,6 @@ struct dsi_clk_desc {
 	uint32 m;
 	uint32 n;
 	uint32 d;
-};
-
-struct dsi_phy_ctrl {
-	uint32 regulator[4];
-	uint32 timing[12];
-	uint32 ctrl[4];
-	uint32 strength[4];
-	uint32 pll[21];
 };
 
 #define DSI_HOST_HDR_SIZE	4

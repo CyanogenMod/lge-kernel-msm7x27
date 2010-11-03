@@ -374,6 +374,7 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd);
 int mdp4_dsi_video_on(struct platform_device *pdev);
 int mdp4_dsi_video_off(struct platform_device *pdev);
 void mdp4_overlay0_done_dsi_video(void);
+void mdp4_overlay0_done_dsi_cmd(void);
 void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd);
 void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_reg_flush(struct mdp4_overlay_pipe *pipe, int all);

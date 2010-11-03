@@ -571,8 +571,6 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 	uint32 dsi_ctrl, intr_ctrl;
 	uint32 data;
 
-	dsi_ctrl = BIT(8);	/* clock enable */
-	intr_ctrl = 0;
 	if (pinfo->mode == DSI_VIDEO_MODE) {
 		data = 0;
 		if (pinfo->pulse_mode_hsa_he)
@@ -589,7 +587,7 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 			data |= BIT(12);
 		data |= ((pinfo->traffic_mode & 0x03) << 8);
 		data |= ((pinfo->dst_format & 0x03) << 4); /* 2 bits */
-		data |= (pinfo->vc_channel & 0x03);
+		data |= (pinfo->vc & 0x03);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x000c, data);
 
 		data = 0;
@@ -613,10 +611,19 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 			data |= BIT(4);
 		data |= (pinfo->dst_format & 0x0f);	/* 4 bits */
 		MIPI_OUTP(MIPI_DSI_BASE + 0x003c, data);
+
+		/* DSI_COMMAND_MODE_MDP_DCS_CMD_CTRL */
+		data = pinfo->wr_mem_continue & 0x0ff;
+		data <<= 8;
+		data |= (pinfo->wr_mem_start & 0x0ff);
+		if (pinfo->insert_dcs_cmd)
+			data |= BIT(16);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0040, data);
 	} else
 		pr_err("%s: Unknown DSI mode=%d\n", __func__, pinfo->mode);
 
-	dsi_ctrl |= BIT(2);	/* cmd mode */
+	dsi_ctrl = BIT(8) | BIT(2);	/* clock enable & cmd mode */
+	intr_ctrl = 0;
 	intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK;
 
 	if (pinfo->crc_check)
@@ -632,25 +639,32 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 	if (pinfo->data_lane0)
 		dsi_ctrl |= BIT(4);
 
+#ifdef RGB_SWAP
 	/* there has hardware problem
 	 * the color channel between dsi and mdp are swapped
 	 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x1c, 0x2000); /* rGB --> BGR */
+#endif
 
 	/* from frame buffer, low power mode */
 	/* DSI_COMMAND_MODE_DMA_CTRL */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
 
-	/* both mdp and dma are sw trigger */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0080, 0x0404); /* DSI_TRIG_CTRL */
+	data = 0;
+	if (pinfo->te_sel)
+		data |= BIT(31);
+	data |= pinfo->mdp_trigger << 4;/* cmd mdp trigger */
+	data |= pinfo->dma_trigger;	/* cmd dma trigger */
+	data |= (pinfo->stream & 0x01) << 8;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0080, data); /* DSI_TRIG_CTRL */
 
 	/* DSI_LAN_SWAP_CTRL */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, pinfo->dlane_swap);
 
 	/* clock out ctrl */
-	data = pinfo->t_clk_post;
+	data = pinfo->t_clk_post & 0x3f;	/* 6 bits */
 	data <<= 8;
-	data |= pinfo->t_clk_pre;
+	data |= pinfo->t_clk_pre & 0x3f;	/*  6 bits */
 	MIPI_OUTP(MIPI_DSI_BASE + 0xc0, data);	/* DSI_CLKOUT_TIMING_CTRL */
 
 	data = 0;
@@ -684,8 +698,7 @@ void mipi_dsi_op_mode_config(int mode)
 		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK;
 	} else {		/* command mode */
 		dsi_ctrl |= 0x05;
-		intr_ctrl = DSI_INTR_CMD_MDP_DONE_MASK |
-				DSI_INTR_CMD_DMA_DONE_MASK;
+		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK | DSI_INTR_ERROR_MASK;
 	}
 
 	pr_info("%s: dsi_ctrl=%x intr=%x\n", __func__, dsi_ctrl, intr_ctrl);
