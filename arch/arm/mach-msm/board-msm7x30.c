@@ -221,10 +221,10 @@ static ssize_t tma300_vkeys_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":60:879:120:80"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":180:879:120:80"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":300:879:120:80"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":420:879:120:80"
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":50:842:80:100"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":170:842:80:100"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":290:842:80:100"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":410:842:80:100"
 	"\n");
 }
 
@@ -343,8 +343,10 @@ static int cyttsp_platform_resume(struct i2c_client *client)
 static struct cyttsp_platform_data cyttsp_data = {
 	.panel_maxx = 479,
 	.panel_maxy = 799,
-	.disp_maxx = 479,
+	.disp_maxx = 469,
 	.disp_maxy = 799,
+	.disp_minx = 10,
+	.disp_miny = 0,
 	.flags = 0,
 	.gen = CY_GEN3,	/* or */
 	.use_st = CY_USE_ST,
