@@ -51,7 +51,6 @@ static const char driver_name[] = "msm72k_udc";
 /* #define VERBOSE */
 
 #define MSM_USB_BASE ((unsigned) ui->addr)
-#define EP_MAX_PRIME_WAIT_NS	100000000
 
 #define	DRIVER_DESC		"MSM 72K USB Peripheral Controller"
 #define	DRIVER_NAME		"MSM72K_UDC"
@@ -487,9 +486,8 @@ static void usb_ept_start(struct msm_endpoint *ept)
 {
 	struct usb_info *ui = ept->ui;
 	struct msm_request *req = ept->req;
+	int i, cnt;
 	unsigned n = 1 << ept->bit;
-	ktime_t start_time;
-	unsigned long time_delta;
 
 	BUG_ON(req->live);
 
@@ -518,32 +516,26 @@ static void usb_ept_start(struct msm_endpoint *ept)
 	/* flush buffers before priming ept */
 	dma_coherent_pre_ops();
 
-	/* endpoint priming operation may take some time
-	 * depends on USB bus traffic. wait for prime operation to
-	 * complete in definite loop for 100ms
+	/* during high throughput testing it is observed that
+	 * ept stat bit is not set even thoguh all the data
+	 * structures are updated properly and ept prime bit
+	 * is set. To workaround the issue, try to check if
+	 * ept stat bit otherwise try to re-prime the ept
 	 */
-
-	writel(n, USB_ENDPTPRIME);
-	start_time = ktime_get();
-	while (1) {
-		if (!(readl(USB_ENDPTPRIME) & n)) {
-			if ((readl(USB_ENDPTSTAT) & n))
+	for (i = 0; i < 5; i++) {
+		writel(n, USB_ENDPTPRIME);
+		for (cnt = 0; cnt < 3000; cnt++) {
+			if (!(readl(USB_ENDPTPRIME) & n) &&
+					(readl(USB_ENDPTSTAT) & n))
 				return;
-			dev_err(&ui->pdev->dev,
-			" %s: USB stat error  ept #%d %s\n",
-				__func__, ept->num,
-				ept->flags & EPT_FLAG_IN ? "in" : "out");
-			break;
-		}
-		time_delta = ktime_to_ns(ktime_sub(ktime_get(), start_time));
-		if (time_delta >= EP_MAX_PRIME_WAIT_NS) {
-			dev_err(&ui->pdev->dev,
-			"%s: USB prime error ept #%d %s\n",
-				__func__, ept->num,
-				ept->flags & EPT_FLAG_IN ? "in" : "out");
-			break;
+			udelay(1);
 		}
 	}
+
+	if (!(readl(USB_ENDPTSTAT) & n))
+		pr_err("Unable to prime the ept%d%s\n",
+				ept->num,
+				ept->flags & EPT_FLAG_IN ? "in" : "out");
 }
 
 int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
