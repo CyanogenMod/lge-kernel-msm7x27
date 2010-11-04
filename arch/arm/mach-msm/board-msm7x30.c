@@ -4321,6 +4321,8 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			return -EIO;
 
+		msleep(10);
+
 		rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
 					  PMAPP_CLOCK_VOTE_PIN_CTRL);
 		if (rc < 0)
