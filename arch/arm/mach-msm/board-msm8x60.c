@@ -1806,6 +1806,8 @@ static struct regulator_consumer_supply rpm_vreg_supply[RPM_VREG_ID_MAX] = {
 	[RPM_VREG_ID_PM8058_S0] = REGULATOR_SUPPLY("8058_s0", NULL),
 	[RPM_VREG_ID_PM8058_S1] = REGULATOR_SUPPLY("8058_s1", NULL),
 	[RPM_VREG_ID_PM8058_S2] = REGULATOR_SUPPLY("8058_s2", NULL),
+	[RPM_VREG_ID_PM8058_S3] = REGULATOR_SUPPLY("8058_s3", NULL),
+	[RPM_VREG_ID_PM8058_S4] = REGULATOR_SUPPLY("8058_s4", NULL),
 
 	[RPM_VREG_ID_PM8058_LVS0] = REGULATOR_SUPPLY("8058_lvs0", NULL),
 	[RPM_VREG_ID_PM8058_LVS1] = REGULATOR_SUPPLY("8058_lvs1", NULL),
@@ -1935,6 +1937,10 @@ static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
 		RPM_VREG_FREQ_1p75),
 	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S2, 1, 1, 1200000, 1400000,
 		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p75),
+	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S3, 1, 1, 1800000, 1800000, 0,
+		RPM_VREG_FREQ_1p75),
+	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S4, 1, 1, 2200000, 2200000, 0,
+		RPM_VREG_FREQ_1p75),
 
 	RPM_VREG_INIT_VS(RPM_VREG_ID_PM8058_LVS0, 0, 1,			  0),
 	RPM_VREG_INIT_VS(RPM_VREG_ID_PM8058_LVS1, 0, 1,			  0),
@@ -2002,6 +2008,8 @@ static struct platform_device rpm_vreg_device[RPM_VREG_ID_MAX] = {
 	RPM_VREG(RPM_VREG_ID_PM8058_S0),
 	RPM_VREG(RPM_VREG_ID_PM8058_S1),
 	RPM_VREG(RPM_VREG_ID_PM8058_S2),
+	RPM_VREG(RPM_VREG_ID_PM8058_S3),
+	RPM_VREG(RPM_VREG_ID_PM8058_S4),
 	RPM_VREG(RPM_VREG_ID_PM8058_LVS0),
 	RPM_VREG(RPM_VREG_ID_PM8058_LVS1),
 	RPM_VREG(RPM_VREG_ID_PM8058_NCP),
@@ -2491,6 +2499,8 @@ static struct platform_device *surf_devices[] __initdata = {
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_L24],
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_L25],
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_S2],
+	&rpm_vreg_device[RPM_VREG_ID_PM8058_S3],
+	&rpm_vreg_device[RPM_VREG_ID_PM8058_S4],
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_LVS0],
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_LVS1],
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_NCP],
@@ -3311,42 +3321,6 @@ static struct pm8058_gpio_platform_data pm8058_mpp_data = {
 	.irq_base	= PM8058_MPP_IRQ(PM8058_IRQ_BASE, 0),
 };
 
-static struct regulator_consumer_supply pm8058_vreg_supply[PM8058_VREG_MAX] = {
-	[PM8058_VREG_ID_S3] = REGULATOR_SUPPLY("8058_s3", NULL),
-	[PM8058_VREG_ID_S4] = REGULATOR_SUPPLY("8058_s4", NULL),
-};
-
-#define PM8058_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV) \
-	[_id] = { \
-		.constraints = { \
-			.valid_modes_mask = _modes, \
-			.valid_ops_mask = _ops, \
-			.min_uV = _min_uV, \
-			.max_uV = _max_uV, \
-			.apply_uV = _apply_uV, \
-		}, \
-		.num_consumer_supplies = 1, \
-		.consumer_supplies = &pm8058_vreg_supply[_id], \
-	}
-
-#define PM8058_VREG_INIT_SMPS(_id, _min_uV, _max_uV) \
-	PM8058_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_NORMAL | \
-			REGULATOR_MODE_IDLE | REGULATOR_MODE_STANDBY, \
-			REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS | \
-			REGULATOR_CHANGE_MODE, 0)
-
-static struct regulator_init_data pm8058_vreg_init[PM8058_VREG_MAX] = {
-	PM8058_VREG_INIT_SMPS(PM8058_VREG_ID_S3, 1800000, 1800000),
-	PM8058_VREG_INIT_SMPS(PM8058_VREG_ID_S4, 2200000, 2200000),
-};
-
-#define PM8058_VREG(_id) { \
-	.name = "pm8058-regulator", \
-	.id = _id, \
-	.platform_data = &pm8058_vreg_init[_id], \
-	.data_size = sizeof(pm8058_vreg_init[_id]), \
-}
-
 static struct resource resources_rtc[] = {
        {
 		.start  = PM8058_RTC_IRQ(PM8058_IRQ_BASE),
@@ -3482,8 +3456,6 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.num_resources  = ARRAY_SIZE(resources_temp_alarm),
 		.resources      = resources_temp_alarm,
 	},
-	PM8058_VREG(PM8058_VREG_ID_S3),
-	PM8058_VREG(PM8058_VREG_ID_S4),
 	{	.name = "pm8058-upl",
 		.id		= -1,
 	},
