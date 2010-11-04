@@ -1108,6 +1108,14 @@ choice
 		bool "Reset the entire chip"
 endchoice
 
+config MSM_IDLE_WAIT_ON_MODEM
+	int "Wait for Modem to become ready for idle power collapse"
+	default 0
+	help
+	  If Modem is not ready to handle Application Processor's request
+	  for idle power collapse, wait the number of microseconds in case
+	  Modem becomes ready soon.
+
 config MSM_PIL
 	bool "Peripheral image loading"
 	select FW_LOADER
