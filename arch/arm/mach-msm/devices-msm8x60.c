@@ -1266,7 +1266,6 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("csi_pclk",		CSI1_P_CLK,	  WEBCAM_DEV, OFF),
 	CLK_8X60("dsi_m_pclk",		DSI_M_P_CLK,		NULL, OFF),
 	CLK_8X60("dsi_s_pclk",		DSI_S_P_CLK,		NULL, OFF),
-	CLK_8X60("fab_pclk",		FAB_P_CLK,		NULL, OFF),
 	CLK_8X60("gfx2d0_pclk",		GFX2D0_P_CLK,		NULL, OFF),
 	CLK_8X60("gfx2d1_pclk",		GFX2D1_P_CLK,		NULL, OFF),
 	CLK_8X60("gfx3d_pclk",		GFX3D_P_CLK,		NULL, OFF),
