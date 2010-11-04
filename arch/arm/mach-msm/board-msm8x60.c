@@ -332,8 +332,6 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 };
 
 static struct msm_acpu_clock_platform_data msm8x60_acpu_clock_data = {
-	/* SoC has no frequency step size constraints. */
-	.max_speed_delta_khz = UINT_MAX,
 };
 
 static struct regulator_consumer_supply saw_s0_supply =
