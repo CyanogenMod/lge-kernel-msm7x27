@@ -124,7 +124,6 @@ struct kgsl_ringbuffer {
 
 #define GSL_RB_WRITE(ring, data) \
 	do { \
-		mb(); \
 		writel(data, ring); \
 		ring++; \
 	} while (0)

@@ -585,6 +585,7 @@ kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb,
 	unsigned int *ringcmds;
 	unsigned int timestamp;
 	unsigned int total_sizedwords = sizedwords + 6;
+	unsigned int i;
 
 	/* reserve space to temporarily turn off protected mode
 	*  error checking if needed
@@ -596,48 +597,51 @@ kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb,
 
 	if (flags & KGSL_CMD_FLAGS_PMODE) {
 		/* disable protected mode error checking */
-		*ringcmds++ = pm4_type3_packet(PM4_SET_PROTECTED_MODE, 1);
-		*ringcmds++ = 0;
+		GSL_RB_WRITE(ringcmds,
+			pm4_type3_packet(PM4_SET_PROTECTED_MODE, 1));
+		GSL_RB_WRITE(ringcmds, 0);
 	}
 
-	memcpy(ringcmds, cmds, (sizedwords << 2));
-
-	ringcmds += sizedwords;
+	for (i = 0; i < sizedwords; i++) {
+		GSL_RB_WRITE(ringcmds, *cmds);
+		cmds++;
+	}
 
 	if (flags & KGSL_CMD_FLAGS_PMODE) {
 		/* re-enable protected mode error checking */
-		*ringcmds++ = pm4_type3_packet(PM4_SET_PROTECTED_MODE, 1);
-		*ringcmds++ = 1;
+		GSL_RB_WRITE(ringcmds,
+			pm4_type3_packet(PM4_SET_PROTECTED_MODE, 1));
+		GSL_RB_WRITE(ringcmds, 1);
 	}
 
 	rb->timestamp++;
 	timestamp = rb->timestamp;
 
 	/* start-of-pipeline and end-of-pipeline timestamps */
-	*ringcmds++ = pm4_type0_packet(REG_CP_TIMESTAMP, 1);
-	*ringcmds++ = rb->timestamp;
-	*ringcmds++ = pm4_type3_packet(PM4_EVENT_WRITE, 3);
-	*ringcmds++ = CACHE_FLUSH_TS;
-	*ringcmds++ =
+	GSL_RB_WRITE(ringcmds, pm4_type0_packet(REG_CP_TIMESTAMP, 1));
+	GSL_RB_WRITE(ringcmds, rb->timestamp);
+	GSL_RB_WRITE(ringcmds, pm4_type3_packet(PM4_EVENT_WRITE, 3));
+	GSL_RB_WRITE(ringcmds, CACHE_FLUSH_TS);
+	GSL_RB_WRITE(ringcmds,
 		     (rb->device->memstore.gpuaddr +
-		      KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp));
-	*ringcmds++ = rb->timestamp;
+		      KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp)));
+	GSL_RB_WRITE(ringcmds, rb->timestamp);
 
 	if (!(flags & KGSL_CMD_FLAGS_NO_TS_CMP)) {
 		/*  Add idle packet so avoid RBBM errors */
-		*ringcmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
-		*ringcmds++ = 0x00000000;
+		GSL_RB_WRITE(ringcmds, pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1));
+		GSL_RB_WRITE(ringcmds, 0x00000000);
 		/* Conditional execution based on memory values */
-		*ringcmds++ = pm4_type3_packet(PM4_COND_EXEC, 4);
-		*ringcmds++ = (rb->device->memstore.gpuaddr +
-			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable)) >> 2;
-		*ringcmds++ = (rb->device->memstore.gpuaddr +
-			KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts)) >> 2;
-		*ringcmds++ = rb->timestamp;
+		GSL_RB_WRITE(ringcmds, pm4_type3_packet(PM4_COND_EXEC, 4));
+		GSL_RB_WRITE(ringcmds, (rb->device->memstore.gpuaddr +
+			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable)) >> 2);
+		GSL_RB_WRITE(ringcmds, (rb->device->memstore.gpuaddr +
+			KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts)) >> 2);
+		GSL_RB_WRITE(ringcmds, rb->timestamp);
 		/* # of conditional command DWORDs */
-		*ringcmds++ = 2;
-		*ringcmds++ = pm4_type3_packet(PM4_INTERRUPT, 1);
-		*ringcmds++ = CP_INT_CNTL__RB_INT_MASK;
+		GSL_RB_WRITE(ringcmds, 2);
+		GSL_RB_WRITE(ringcmds, pm4_type3_packet(PM4_INTERRUPT, 1));
+		GSL_RB_WRITE(ringcmds, CP_INT_CNTL__RB_INT_MASK);
 	}
 
 	kgsl_ringbuffer_submit(rb);
