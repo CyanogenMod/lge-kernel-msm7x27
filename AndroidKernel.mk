@@ -14,6 +14,11 @@ else
 TARGET_PREBUILT_KERNEL := $(TARGET_PREBUILT_INT_KERNEL)
 endif
 
+file := $(TARGET_OUT)/lib/modules/oprofile.ko
+ALL_PREBUILT += $(file)
+$(file) : $(TARGET_PREBUILT_KERNEL) | $(ACP)
+	$(transform-prebuild-to-target)
+
 $(KERNEL_OUT):
 	mkdir -p $(KERNEL_OUT)
 
