@@ -1012,12 +1012,6 @@ static ssize_t smem_log_write(struct file *fp, const char __user *buf,
 
 	inst = fp->private_data;
 
-	if (count < 0) {
-		printk(KERN_ERR "ERROR: %s passed neg count = %i\n",
-		       __func__, count);
-		return -EINVAL;
-	}
-
 	count = count > 255 ? 255 : count;
 
 	if (!smem_log_enable)
