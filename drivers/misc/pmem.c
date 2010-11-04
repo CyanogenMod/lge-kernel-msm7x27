@@ -1597,18 +1597,15 @@ static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 				vma->vm_end - vma->vm_start,
 				SZ_4K);
 		mutex_unlock(&pmem[id].arena_mutex);
-		data->index = index;
-		if (data->index == -1) {
+		/* either no space was available or an error occured */
+		if (index == -1) {
 			pr_err("pmem: mmap unable to allocate memory"
 				"on %s\n", get_name(file));
+			ret = -ENOMEM;
+			goto error;
 		}
-	}
-
-	/* either no space was available or an error occured */
-	if (!has_allocation(file)) {
-		ret = -ENOMEM;
-		pr_err("pmem: could not find allocation for map.\n");
-		goto error;
+		/* store the index of a successful allocation */
+		data->index = index;
 	}
 
 	if (pmem[id].len(id, data) < vma_size) {
