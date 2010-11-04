@@ -65,7 +65,6 @@ struct pm8058_othc {
 	bool switch_reject;
 	bool othc_support_n_switch;
 	void *adc_handle;
-	int othc_nc_gpio;
 	u32 sw_key_code;
 	unsigned long switch_debounce_ms;
 	spinlock_t lock;
@@ -158,7 +157,6 @@ static int __devexit pm8058_othc_remove(struct platform_device *pd)
 
 	pm_runtime_set_suspended(&pd->dev);
 	pm_runtime_disable(&pd->dev);
-	platform_set_drvdata(pd, NULL);
 	device_init_wakeup(&pd->dev, 0);
 
 	free_irq(dd->othc_irq_sw, dd);
@@ -668,6 +666,8 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	dd->pm_chip = chip;
 	dd->othc_base = res->start;
 
+	platform_set_drvdata(pd, dd);
+
 	if (pdata->micbias_capability == OTHC_MICBIAS_HSED) {
 		/* HSED to be supported on this MICBIAS line */
 		if (pdata->hsed_config != NULL) {
@@ -684,8 +684,6 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	/* Store the local driver data structure */
 	if (dd->othc_pdata->micbias_select < OTHC_MICBIAS_MAX)
 		config[dd->othc_pdata->micbias_select] = dd;
-
-	platform_set_drvdata(pd, dd);
 
 	pr_debug("Device %s:%d successfully registered\n",
 					pd->name, pd->id);
