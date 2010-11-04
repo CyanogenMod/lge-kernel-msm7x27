@@ -79,6 +79,7 @@ u32 vid_dec_get_status(u32 status)
 	u32 vdec_status;
 
 	switch (status) {
+	case VCD_ERR_SEQHDR_PARSE_FAIL:
 	case VCD_ERR_BITSTREAM_ERR:
 	case VCD_S_SUCCESS:
 		vdec_status = VDEC_S_SUCCESS;
