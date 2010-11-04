@@ -195,6 +195,15 @@ kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb, unsigned int numcmds,
 
 		cmds = (unsigned int *)rb->buffer_desc.hostptr + rb->wptr;
 		GSL_RB_WRITE(cmds, pm4_nop_packet(nopcount));
+
+		/* Make sure that rptr is not 0 before submitting
+		 * commands at the end of ringbuffer. We do not
+		 * want the rptr and wptr to become equal when
+		 * the ringbuffer is not empty */
+		do {
+			GSL_RB_GET_READPTR(rb, &rb->rptr);
+		} while (!rb->rptr);
+
 		rb->wptr++;
 
 		kgsl_ringbuffer_submit(rb);
@@ -208,7 +217,7 @@ kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb, unsigned int numcmds,
 
 		freecmds = rb->rptr - rb->wptr;
 
-	} while ((freecmds != 0) && (freecmds < numcmds));
+	} while ((freecmds != 0) && (freecmds <= numcmds));
 
 	KGSL_CMD_VDBG("return %d\n", 0);
 
