@@ -936,9 +936,32 @@ static int msm_fb_detect_panel(const char *name)
 	return -ENODEV;
 }
 
+static void lcd_panel_power(int on);
+static int msm_fb_lcdc_gpio_config(int on);
+static int vga_enabled;
+static int vga_enable(int select_vga)
+{
+	int rc = 0;
+
+	vga_enabled = select_vga;
+	rc = msm_fb_lcdc_gpio_config(1);
+	if (rc)
+		return rc;
+	lcd_panel_power(1);
+
+	return 0;
+}
+
+static struct msm_panel_common_pdata lcdc_qrdc_panel_data = {
+	.vga_switch = vga_enable,
+};
+
 static struct platform_device lcdc_qrdc_panel_device = {
 	.name = "lcdc_qrdc",
 	.id = 0,
+	.dev = {
+		.platform_data = &lcdc_qrdc_panel_data,
+	}
 };
 
 static struct msm_fb_platform_data msm_fb_pdata = {
@@ -3392,11 +3415,63 @@ static uint32_t lcd_panel_gpios[] = {
 
 static struct regulator *reg_8901_l1;
 static struct regulator *reg_8901_l2;
+static struct regulator *vga_5v_reg;
+
+static int lcdc_onboard_panel_power(int on)
+{
+	int rc = 0;
+
+	if (on) {
+		rc = regulator_set_voltage(reg_8901_l2, 3300000, 3300000);
+		if (rc) {
+			pr_err("%s: error set 8901_l2 to 3.3V\n", __func__);
+			return rc;
+		}
+
+		rc = regulator_enable(reg_8901_l2);
+		if (rc) {
+			pr_err("%s: 8901_l2 enable failed, rc=%d\n",
+				__func__, rc);
+			return rc;
+		}
+	} else {
+		if (regulator_is_enabled(reg_8901_l2)) {
+			rc = regulator_disable(reg_8901_l2);
+			if (rc)
+				pr_warning("%s: 8901_l2 disable failed, "
+					"rc=%d\n", __func__, rc);
+		}
+	}
+
+	return rc;
+}
+
+static int lcdc_vga_panel_power(int on)
+{
+	int rc = 0;
+
+	if (on) {
+		rc = regulator_enable(vga_5v_reg);
+		if (rc) {
+			pr_err("%s: VGA 5v reg enable failed, rc=%d\n",
+				__func__, rc);
+			return rc;
+		}
+	} else
+		if (regulator_is_enabled(vga_5v_reg)) {
+			rc = regulator_disable(vga_5v_reg);
+			if (rc)
+				pr_warning("%s: VGA 5v reg disable failed, "
+					"rc=%d\n", __func__, rc);
+		}
+
+	return rc;
+}
 
 static void lcd_panel_power(int on)
 {
 	int n;
-	int rc;
+	int rc = 0;
 
 	if (!reg_8901_l1) {
 		reg_8901_l1 = regulator_get(NULL, "8901_l1");
@@ -3410,9 +3485,15 @@ static void lcd_panel_power(int on)
 		reg_8901_l2 = regulator_get(NULL, "8901_l2");
 		if (IS_ERR(reg_8901_l2)) {
 			pr_err("%s: Unable to get 8901_l2\n", __func__);
-			regulator_put(reg_8901_l1);
-			reg_8901_l1 = NULL;
-			return;
+			goto fail_get_l2;
+		}
+	}
+
+	if (!vga_5v_reg) {
+		vga_5v_reg = regulator_get(NULL, "8901_usb_otg");
+		if (IS_ERR(vga_5v_reg)) {
+			pr_err("%s: Unable to get 8901_usb_otg\n", __func__);
+			goto fail_get_vga_5v;
 		}
 	}
 
@@ -3420,28 +3501,28 @@ static void lcd_panel_power(int on)
 		rc = regulator_set_voltage(reg_8901_l1, 3300000, 3300000);
 		if (rc) {
 			pr_err("%s: error set 8901_l1 to 3.3V\n", __func__);
-			goto fail;
-		}
-
-		rc = regulator_set_voltage(reg_8901_l2, 3300000, 3300000);
-		if (rc) {
-			pr_err("%s: error set 8901_l2 to 3.3V\n", __func__);
-			goto fail;
+			goto fail_l1_enable;
 		}
 
 		rc = regulator_enable(reg_8901_l1);
 		if (rc) {
 			pr_err("%s: 8901_l1 enable failed, rc=%d\n",
 				__func__, rc);
-			goto fail;
+			goto fail_l1_enable;
 		}
 
-		rc = regulator_enable(reg_8901_l2);
-		if (rc) {
-			pr_err("%s: 8901_l2 enable failed, rc=%d\n",
-				__func__, rc);
-			rc = regulator_disable(reg_8901_l1);
-			goto fail;
+		if (vga_enabled) {
+			if (lcdc_vga_panel_power(1))
+				goto fail_vga_enable;
+			if (lcdc_onboard_panel_power(0))
+				pr_warning("%s: failed to turn off onboard "
+					   "display, rc=%d\n", __func__, rc);
+		} else {
+			if (lcdc_onboard_panel_power(1))
+				goto fail_vga_enable;
+			if (lcdc_vga_panel_power(0))
+				pr_warning("%s: failed to turn off VGA "
+					   "display, rc=%d\n", __func__, rc);
 		}
 	} else {
 		if (regulator_is_enabled(reg_8901_l1)) {
@@ -3451,12 +3532,8 @@ static void lcd_panel_power(int on)
 					"rc=%d\n", __func__, rc);
 		}
 
-		if (regulator_is_enabled(reg_8901_l2)) {
-			rc = regulator_disable(reg_8901_l2);
-			if (rc)
-				pr_warning("%s: 8901_l2 disable failed, "
-					"rc=%d\n", __func__, rc);
-		}
+		lcdc_vga_panel_power(0);
+		lcdc_onboard_panel_power(0);
 	}
 
 	/*TODO if on = 0 free the gpio's */
@@ -3465,11 +3542,27 @@ static void lcd_panel_power(int on)
 
 	return;
 
-fail:
+
+fail_get_vga_5v:
+	regulator_put(reg_8901_l2);
+	reg_8901_l2 = NULL;
+
+fail_get_l2:
+	regulator_put(reg_8901_l1);
+	reg_8901_l1 = NULL;
+
+	return;
+
+
+fail_vga_enable:
+	regulator_disable(reg_8901_l1);
+fail_l1_enable:
 	regulator_put(reg_8901_l1);
 	regulator_put(reg_8901_l2);
+	regulator_put(vga_5v_reg);
 	reg_8901_l1 = NULL;
 	reg_8901_l2 = NULL;
+	vga_5v_reg = NULL;
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
@@ -3572,10 +3665,21 @@ static int hdmi_cec_power(int on)
 
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
+#define GPIO_DAC_PWR_SAV 104
 static int msm_fb_lcdc_gpio_config(int on)
 {
-	/* backlight */
-	gpio_set_value_cansleep(30, !!on);
+	if (vga_enabled) {
+		/* VGA DAC power save */
+		gpio_set_value_cansleep(GPIO_DAC_PWR_SAV, !on);
+		/* backlight */
+		gpio_set_value_cansleep(30, 0);
+	} else {
+		/* VGA DAC power save */
+		gpio_set_value_cansleep(GPIO_DAC_PWR_SAV, 1);
+		/* backlight */
+		gpio_set_value_cansleep(30, !!on);
+	}
+
 	return 0;
 }
 
@@ -3605,6 +3709,8 @@ static struct msm_panel_common_pdata mdp_pdata = {
 
 static void __init msm_fb_add_devices(void)
 {
+	gpio_request(GPIO_DAC_PWR_SAV, "DAC_PWR_SAV");
+	gpio_direction_output(GPIO_DAC_PWR_SAV, 1);
 	gpio_request(30, "BACKLIGHT_EN");
 	gpio_direction_output(30, 0);
 	msm_fb_register_device("mdp", &mdp_pdata);
