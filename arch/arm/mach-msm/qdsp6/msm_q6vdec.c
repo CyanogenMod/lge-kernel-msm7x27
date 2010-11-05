@@ -60,7 +60,7 @@
 #define TRACE(fmt,x...)		do { } while (0)
 #endif
 
-#define YAMATO_COLOR_FORMAT  0x7FA30C01
+#define YAMATO_COLOR_FORMAT  0x02
 #define MAX_Q6_LOAD        ((720*1280)/256)  /* 720p */
 #define MAX_Q6_LOAD_YAMATO ((736*1280)/256)
 #define MAX_Q6_LOAD_VP6    ((800*480)/256)
@@ -616,8 +616,12 @@ static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance,
 	currentq6load = ((currentq6load * 100)/maxQ6load);
 	if ((currentq6load+totalPlaybackQ6load) > 100) {
 		/* reject this instance */
-		pr_err("%s: too much Q6load %d rejecting the instance\n",
-			__func__, (currentq6load+totalPlaybackQ6load));
+		pr_err("%s: too much Q6load [cur+tot] = [%d + %d] = %d",
+		__func__, currentq6load, totalPlaybackQ6load,
+		(currentq6load+totalPlaybackQ6load));
+		pr_err("rejecting the instance,[WxH] = [%d x %d],color_fmt=0x%x\n",
+		streamDetails->width, streamDetails->height, color_format);
+		pr_err("VDEC_fmt=%s\n", (char *)(&streamDetails->fourcc));
 		streamDetails->Q6usage = 0;
 		return -ENOSPC;
 	}

@@ -83,6 +83,11 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	struct cpufreq_frequency_table *table;
 #ifdef CONFIG_SMP
 	struct cpufreq_work_struct *cpu_work = NULL;
+
+	if (!cpu_active(policy->cpu)) {
+		pr_info("cpufreq: cpu %d is not active.\n", policy->cpu);
+		return -ENODEV;
+	}
 #endif
 	table = cpufreq_frequency_get_table(policy->cpu);
 	if (cpufreq_frequency_table_target(policy, table, target_freq, relation,
@@ -103,19 +108,15 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	cpu_work->frequency = table[index].frequency;
 	cpu_work->status = -ENODEV;
 
-	get_online_cpus();
-	if (cpu_online(policy->cpu)) {
-		if (policy->cpu == smp_processor_id()) {
-			cpu_work->status = set_cpu_freq(cpu_work->policy,
-						cpu_work->frequency);
-		} else {
-			cancel_work_sync(&cpu_work->work);
-			init_completion(&cpu_work->complete);
-			schedule_work_on(policy->cpu, &cpu_work->work);
-			wait_for_completion(&cpu_work->complete);
-		}
+	if (policy->cpu == smp_processor_id()) {
+		return set_cpu_freq(cpu_work->policy, cpu_work->frequency);
+	} else {
+		cancel_work_sync(&cpu_work->work);
+		init_completion(&cpu_work->complete);
+		schedule_work_on(policy->cpu, &cpu_work->work);
+		wait_for_completion(&cpu_work->complete);
 	}
-	put_online_cpus();
+
 	ret = cpu_work->status;
 #else
 	ret = set_cpu_freq(policy, table[index].frequency);

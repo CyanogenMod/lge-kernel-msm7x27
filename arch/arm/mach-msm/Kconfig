@@ -678,6 +678,13 @@ config MSM_SDIO_AL_TEST
 	help
 	  SDIO-AL functionality and performance test.
 
+config MSM_SDIO_DMUX
+	bool "SDIO Data Mux Driver"
+	depends on MSM_SDIO_AL
+	default n
+	help
+	  Support Muxed Data Channels over SDIO interface.
+
 config MSM_N_WAY_SMD
 	depends on (MSM_SMD && (ARCH_MSM_SCORPION || ARCH_MSM_SCORPIONMP || ARCH_MSM7X27 || ARCH_MSM7X25))
 	default y
@@ -1186,12 +1193,15 @@ config MSM_WATCHDOG
 		not run during the bootup process, so it will not catch any early
 		lockups.
 
-config MSM_WATCHDOG_DEBUG
-	bool "Enable download mode on Watchdog reset"
-	depends on MSM_WATCHDOG
+config MSM_DLOAD_MODE
+	bool "Enable download mode on crashes"
+	depends on ARCH_MSM8X60
+	default n
 	help
-		This makes the target enter download mode when it is reset by
-		the watchdog. Provides debugging support with watchdog enabled
+		This makes the SoC enter download mode when it resets
+		due to a kernel panic. Note that this doesn't by itself
+		make the kernel reboot on a kernel panic - that must be
+		enabled via another mechanism.
 
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"

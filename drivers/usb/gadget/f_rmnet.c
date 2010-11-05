@@ -835,7 +835,7 @@ static void rmnet_connect_work(struct work_struct *w)
 {
 	struct rmnet_dev *dev = container_of(w, struct rmnet_dev, connect_work);
 	struct usb_composite_dev *cdev = dev->cdev;
-	int ret;
+	int ret = 0;
 
 	/* Control channel for QMI messages */
 	ret = smd_open(rmnet_ctl_ch, &dev->smd_ctl.ch,
@@ -857,16 +857,35 @@ static void rmnet_connect_work(struct work_struct *w)
 	wait_event(dev->smd_data.wait, test_bit(CH_OPENED,
 				&dev->smd_data.flags));
 
-	usb_ep_enable(dev->epin, ep_choose(cdev->gadget,
+	ret = usb_ep_enable(dev->epin, ep_choose(cdev->gadget,
 				&rmnet_hs_in_desc,
 				&rmnet_fs_in_desc));
-	usb_ep_enable(dev->epout, ep_choose(cdev->gadget,
+	if (ret) {
+		ERROR(cdev, "can't enable %s, result %d\n",
+						dev->epin->name, ret);
+		return;
+	}
+
+	ret = usb_ep_enable(dev->epout, ep_choose(cdev->gadget,
 				&rmnet_hs_out_desc,
 				&rmnet_fs_out_desc));
-	usb_ep_enable(dev->epnotify, ep_choose(cdev->gadget,
+	if (ret) {
+		ERROR(cdev, "can't enable %s, result %d\n",
+						dev->epout->name, ret);
+		usb_ep_disable(dev->epin);
+		return;
+	}
+
+	ret = usb_ep_enable(dev->epnotify, ep_choose(cdev->gadget,
 				&rmnet_hs_notify_desc,
 				&rmnet_fs_notify_desc));
-
+	if (ret) {
+		ERROR(cdev, "can't enable %s, result %d\n",
+				dev->epnotify->name, ret);
+		usb_ep_disable(dev->epin);
+		usb_ep_disable(dev->epout);
+		return;
+	}
 	atomic_set(&dev->online, 1);
 	/* Queue Rx data requests */
 	rmnet_start_rx(dev);

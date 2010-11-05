@@ -2274,6 +2274,8 @@ static void hdmi_msm_audio_off(void)
 	hdmi_msm_audio_acr_setup(FALSE, 0, 0, 0);
 }
 
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 static uint8 hdmi_msm_avi_iframe_lut[][14] = {
 /*	480p60	480i60	576p50	576i50	720p60	720p50	1080p60	1080i60	1080p50
 	1080i50	1080p24	1080p30	1080p25	640x480p */
@@ -2432,6 +2434,7 @@ static void hdmi_msm_avi_info_frame(void)
 	/* 0x3 for AVI InfFrame enable (every frame) */
 	HDMI_OUTP(0x002C, HDMI_INP(0x002C) | 0x00000003L);
 }
+#endif
 
 #ifdef CONFIG_FB_MSM_HDMI_3D
 static void hdmi_msm_vendor_infoframe_packetsetup(void)
@@ -2557,10 +2560,12 @@ static void hdmi_msm_hpd_state_timer(unsigned long data)
 	schedule_work(&hdmi_msm_state->hpd_state_work);
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 static void hdmi_msm_hdcp_timer(unsigned long data)
 {
 	schedule_work(&hdmi_msm_state->hdcp_work);
 }
+#endif
 
 static void hdmi_msm_hpd_off(void)
 {

@@ -129,11 +129,36 @@ static int mddi_on(struct platform_device *pdev)
 	int ret = 0;
 	u32 clk_rate;
 	struct msm_fb_data_type *mfd;
+#ifdef ENABLE_FWD_LINK_SKEW_CALIBRATION
+	mddi_host_type host_idx = MDDI_HOST_PRIM;
+	u32 stat_reg;
+#endif
 
 	mfd = platform_get_drvdata(pdev);
 	pm_runtime_get(&pdev->dev);
 	if (mddi_pdata && mddi_pdata->mddi_power_save)
 		mddi_pdata->mddi_power_save(1);
+
+#ifdef ENABLE_FWD_LINK_SKEW_CALIBRATION
+	if (mddi_client_type < 2) {
+		/* For skew calibration, clock should be less than 50MHz */
+		if (!clk_set_rate(mddi_clk, 49150000)) {
+			stat_reg = mddi_host_reg_in(STAT);
+			printk(KERN_DEBUG "\n stat_reg = 0x%x", stat_reg);
+			mddi_host_reg_out(CMD, MDDI_CMD_HIBERNATE);
+			if (stat_reg & (0x1 << 4))
+				mddi_host_reg_out(CMD, MDDI_CMD_LINK_ACTIVE);
+
+			mddi_host_reg_out(CMD, MDDI_CMD_SEND_RTD);
+			mddi_send_fw_link_skew_cal(host_idx);
+			mddi_host_reg_out(CMD, MDDI_CMD_SEND_RTD);
+			mddi_host_reg_out(CMD, MDDI_CMD_HIBERNATE | 1);
+		} else {
+			printk(KERN_ERR "%s: clk_set_min_rate failed\n",
+				__func__);
+		}
+	}
+#endif
 
 	clk_rate = mfd->fbi->var.pixclock;
 	clk_rate = min(clk_rate, mfd->panel_info.clk_max);

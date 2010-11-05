@@ -498,6 +498,7 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_rndis		*rndis = func_to_rndis(f);
 	struct usb_composite_dev *cdev = f->config->cdev;
+	int ret = 0;
 
 	/* we know alt == 0 */
 
@@ -511,7 +512,13 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		rndis->notify_desc = ep_choose(cdev->gadget,
 				rndis->hs.notify,
 				rndis->fs.notify);
-		usb_ep_enable(rndis->notify, rndis->notify_desc);
+
+		ret = usb_ep_enable(rndis->notify, rndis->notify_desc);
+		if (ret) {
+			ERROR(cdev, "can't enable %s, result %d\n",
+						rndis->notify->name, ret);
+			return ret;
+		}
 		rndis->notify->driver_data = rndis;
 
 	} else if (intf == rndis->data_id) {
@@ -557,7 +564,7 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	} else
 		goto fail;
 
-	return 0;
+	return ret;
 fail:
 	return -EINVAL;
 }

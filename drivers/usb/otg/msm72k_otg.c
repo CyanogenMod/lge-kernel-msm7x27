@@ -605,21 +605,52 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	unsigned long timeout;
 	int vbus = 0;
 	unsigned ret;
+	enum chg_type chg_type = atomic_read(&dev->chg_type);
 
 	disable_irq(dev->irq);
 	if (atomic_read(&dev->in_lpm))
 		goto out;
 #ifdef CONFIG_USB_MSM_ACA
-	if ((test_bit(ID, &dev->inputs) &&
-			test_bit(B_SESS_VLD, &dev->inputs)) ||
+	/*
+	 * ACA interrupts are disabled before entering into LPM.
+	 * If LPM is allowed in host mode with accessory charger
+	 * connected or only accessory charger is connected,
+	 * there is a chance that charger is removed and we will
+	 * not know about it.
+	 *
+	 * REVISIT
+	 *
+	 * Allowing LPM in case of gadget bus suspend is tricky.
+	 * Bus suspend can happen in two states.
+	 * 1. ID_float:  Allowing LPM has pros and cons. If LPM is allowed
+	 * and accessory charger is connected, we miss ID_float --> ID_C
+	 * transition where we could draw large amount of current
+	 * compared to the suspend current.
+	 * 2. ID_C: We can not allow LPM. If accessory charger is removed
+	 * we should not draw more than what host could supply which will
+	 * be less compared to accessory charger.
+	 *
+	 * For simplicity, LPM is not allowed in bus suspend.
+	 */
+	if ((test_bit(ID, &dev->inputs) && test_bit(B_SESS_VLD, &dev->inputs) &&
+			chg_type != USB_CHG_TYPE__WALLCHARGER) ||
 			test_bit(ID_A, &dev->inputs))
 		goto out;
 	/* Disable ID_abc interrupts else it causes spurious interrupt */
 	disable_idabc(dev);
 #endif
 	ulpi_read(dev, 0x14);/* clear PHY interrupt latch register */
-	/* If there is no pmic notify support turn on phy comparators. */
-	if (!dev->pmic_notif_supp)
+	/*
+	 * Turn on PHY comparators if PMIC notifications are not available.
+	 *
+	 * PMIC notifications are designed to receive VBUS high only. We
+	 * should rely on PHY comparators for VBUS low interrupt. This does
+	 * not matter if we are connected to host. Because bus suspend is
+	 * not implemented. But if we don't enable PHY comparators and allow
+	 * LPM when wall charger is connected, we will not detect charger
+	 * disconnection.
+	 */
+	if (chg_type == USB_CHG_TYPE__WALLCHARGER || !dev->pmic_notif_supp)
 		ulpi_write(dev, 0x01, 0x30);
 	ulpi_write(dev, 0x08, 0x09);/* turn off PLL on integrated phy */
 
@@ -1521,6 +1552,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 			atomic_set(&dev->chg_type, USB_CHG_TYPE__SDP);
 			msm_otg_set_power(&dev->otg, USB_IDCHG_MAX);
 		} else if (chg_type == USB_CHG_TYPE__WALLCHARGER) {
+#ifdef CONFIG_USB_MSM_ACA
+			del_timer_sync(&dev->id_timer);
+#endif
 			/* Workaround: Reset PHY in SE1 state */
 			otg_reset(&dev->otg, 1);
 
@@ -1965,7 +1999,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 #ifdef CONFIG_USB_MSM_ACA
 	/* Start id_polling if (ID_FLOAT&BSV) || ID_A/B/C */
 	if ((test_bit(ID, &dev->inputs) &&
-			test_bit(B_SESS_VLD, &dev->inputs)) ||
+			test_bit(B_SESS_VLD, &dev->inputs) &&
+			chg_type != USB_CHG_TYPE__WALLCHARGER) ||
 			test_bit(ID_A, &dev->inputs)) {
 		mod_timer(&dev->id_timer, jiffies +
 				 msecs_to_jiffies(OTG_ID_POLL_MS));

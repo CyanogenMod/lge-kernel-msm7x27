@@ -860,9 +860,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			 * This is required for MTP.
 			 */
 			if (value < 0) {
-				struct usb_configuration        *cfg;
+				struct usb_configuration        *cfg = NULL;
 				list_for_each_entry(cfg, &cdev->configs, list) {
-					if (cfg && cfg->setup) {
+					if (cfg != NULL && cfg->setup) {
 						value = cfg->setup(cfg, ctrl);
 						if (value >= 0)
 							break;

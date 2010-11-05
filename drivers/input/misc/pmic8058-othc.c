@@ -15,6 +15,8 @@
  * 02110-1301, USA.
  */
 
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -63,7 +65,6 @@ struct pm8058_othc {
 	bool switch_reject;
 	bool othc_support_n_switch;
 	void *adc_handle;
-	int othc_nc_gpio;
 	u32 sw_key_code;
 	unsigned long switch_debounce_ms;
 	spinlock_t lock;
@@ -91,20 +92,18 @@ int pm8058_micbias_enable(enum othc_micbias micbias,
 	struct pm8058_othc *dd = config[micbias];
 
 	if (dd == NULL) {
-		pr_err("%s:MIC_BIAS not registered, cannot enable\n",
-						__func__);
+		pr_err("MIC_BIAS not registered, cannot enable\n");
 		return -ENODEV;
 	}
 
 	if (dd->othc_pdata->micbias_capability != OTHC_MICBIAS) {
-		pr_err("%s:MIC_BIAS enable capability not supported\n",
-							__func__);
+		pr_err("MIC_BIAS enable capability not supported\n");
 		return -EINVAL;
 	}
 
 	rc = pm8058_read(dd->pm_chip, dd->othc_base + 1, &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 read failed \n", __func__);
+		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
@@ -113,7 +112,7 @@ int pm8058_micbias_enable(enum othc_micbias micbias,
 
 	rc = pm8058_write(dd->pm_chip, dd->othc_base + 1, &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 write failed \n", __func__);
+		pr_err("PM8058 write failed\n");
 		return rc;
 	}
 
@@ -158,7 +157,6 @@ static int __devexit pm8058_othc_remove(struct platform_device *pd)
 
 	pm_runtime_set_suspended(&pd->dev);
 	pm_runtime_disable(&pd->dev);
-	platform_set_drvdata(pd, NULL);
 	device_init_wakeup(&pd->dev, 0);
 
 	free_irq(dd->othc_irq_sw, dd);
@@ -229,20 +227,17 @@ static void switch_work_f(struct work_struct *work)
 	for (i = 0; i < num_adc_samples; i++) {
 		rc = adc_channel_request_conv(dd->adc_handle, &adc_wait);
 		if (rc) {
-			pr_err("%s: adc_channel_request_conv failed\n",
-								__func__);
+			pr_err("adc_channel_request_conv failed\n");
 			goto bail_out;
 		}
 		rc = wait_for_completion_interruptible(&adc_wait);
 		if (rc) {
-			pr_err("%s: wait_for_completion_interruptible failed\n"
-								, __func__);
+			pr_err("wait_for_completion_interruptible failed\n");
 			goto bail_out;
 		}
 		rc = adc_channel_read_result(dd->adc_handle, &adc_result);
 		if (rc) {
-			pr_err("%s: adc_channel_read_result failed\n",
-								 __func__);
+			pr_err("adc_channel_read_result failed\n");
 			goto bail_out;
 		}
 		res += adc_result.physical;
@@ -252,7 +247,7 @@ bail_out:
 		res /= num_adc_samples;
 		othc_report_switch(dd, res);
 	} else
-		pr_err("%s: Insufficient ADC samples\n", __func__);
+		pr_err("Insufficient ADC samples\n");
 
 	enable_irq(dd->othc_irq_sw);
 }
@@ -287,7 +282,7 @@ static irqreturn_t pm8058_no_sw(int irq, void *dev_id)
 
 	level = pm8058_irq_get_rt_status(dd->pm_chip, dd->othc_irq_sw);
 	if (level < 0) {
-		pr_err("%s: Unable to read IRQ status register\n", __func__);
+		pr_err("Unable to read IRQ status register\n");
 		return IRQ_HANDLED;
 	}
 
@@ -378,7 +373,7 @@ static int pm8058_configure_othc(struct pm8058_othc *dd)
 	/* Control Register 1*/
 	rc = pm8058_read(dd->pm_chip, base_addr, &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 read failed \n", __func__);
+		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
@@ -388,14 +383,14 @@ static int pm8058_configure_othc(struct pm8058_othc *dd)
 
 	rc = pm8058_write(dd->pm_chip, base_addr, &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 read failed \n", __func__);
+		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
 	/* Control register 2*/
 	rc = pm8058_read(dd->pm_chip, base_addr + 1, &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 read failed \n", __func__);
+		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
@@ -410,8 +405,7 @@ static int pm8058_configure_othc(struct pm8058_othc *dd)
 		value++;
 	}
 	if (value > 7) {
-		pr_err("%s: Invalid input argument - othc_hyst_prediv_us \n",
-								__func__);
+		pr_err("Invalid input argument - othc_hyst_prediv_us\n");
 		return -EINVAL;
 	}
 	reg &= PM8058_OTHC_HYST_PREDIV_MASK;
@@ -424,30 +418,28 @@ static int pm8058_configure_othc(struct pm8058_othc *dd)
 		value++;
 	}
 	if (value > 8) {
-		pr_err("%s: Invalid input argument - othc_period_clkdiv_us \n",
-								__func__);
+		pr_err("Invalid input argument - othc_period_clkdiv_us\n");
 		return -EINVAL;
 	}
 	reg = (reg &  PM8058_OTHC_CLK_PREDIV_MASK) | (value - 1);
 
 	rc = pm8058_write(dd->pm_chip, base_addr + 1, &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 read failed \n", __func__);
+		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
 	/* Control register 3 */
 	rc = pm8058_read(dd->pm_chip, base_addr + 2 , &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 read failed \n", __func__);
+		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
 	value = hsed_config->othc_hyst_clk_us /
 					hsed_config->othc_hyst_prediv_us;
 	if (value > 15) {
-		pr_err("%s: Invalid input argument - othc_hyst_prediv_us \n",
-								__func__);
+		pr_err("Invalid input argument - othc_hyst_prediv_us\n");
 		return -EINVAL;
 	}
 	reg &= PM8058_OTHC_HYST_CLK_MASK;
@@ -456,15 +448,14 @@ static int pm8058_configure_othc(struct pm8058_othc *dd)
 	value = hsed_config->othc_period_clk_us /
 					hsed_config->othc_period_clkdiv_us;
 	if (value > 15) {
-		pr_err("%s: Invalid input argument - othc_hyst_prediv_us \n",
-								__func__);
+		pr_err("Invalid input argument - othc_hyst_prediv_us\n");
 		return -EINVAL;
 	}
 	reg = (reg & PM8058_OTHC_PERIOD_CLK_MASK) | value;
 
 	rc = pm8058_write(dd->pm_chip, base_addr + 2, &reg, 1);
 	if (rc < 0) {
-		pr_err("%s: PM8058 read failed \n", __func__);
+		pr_err("PM8058 read failed\n");
 		return rc;
 	}
 
@@ -473,10 +464,10 @@ static int pm8058_configure_othc(struct pm8058_othc *dd)
 		rc = adc_channel_open(dd->switch_config->adc_channel,
 							&dd->adc_handle);
 		if (rc) {
-			pr_err("%s: Unable to open ADC channel\n", __func__);
+			pr_err("Unable to open ADC channel\n");
 			return -ENODEV;
 		}
-		pr_debug("%s: ADC channel open SUCCESS\n", __func__);
+		pr_debug("ADC channel open SUCCESS\n");
 	}
 
 	return 0;
@@ -506,13 +497,13 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 
 	rc = switch_dev_register(&dd->othc_sdev);
 	if (rc) {
-		pr_err("%s: Unable to register switch device \n", __func__);
+		pr_err("Unable to register switch device\n");
 		return rc;
 	}
 
 	ipd = input_allocate_device();
 	if (ipd == NULL) {
-		pr_err("%s: Unable to allocate memory \n", __func__);
+		pr_err("Unable to allocate memory\n");
 		rc = -ENOMEM;
 		goto fail_input_alloc;
 	}
@@ -521,12 +512,12 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 	dd->othc_irq_sw = platform_get_irq(pd, 0);
 	dd->othc_irq_ir = platform_get_irq(pd, 1);
 	if (dd->othc_irq_ir < 0) {
-		pr_err("%s: othc resource:IRQ_IR absent \n", __func__);
+		pr_err("othc resource:IRQ_IR absent\n");
 		rc = -ENXIO;
 		goto fail_othc_config;
 	}
 	if (dd->othc_irq_sw < 0) {
-		pr_err("%s: othc resource:IRQ_SW absent\n", __func__);
+		pr_err("othc resource:IRQ_SW absent\n");
 		rc = -ENXIO;
 		goto fail_othc_config;
 	}
@@ -542,11 +533,11 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 	dd->othc_support_n_switch = hsed_config->othc_support_n_switch;
 
 	if (dd->othc_support_n_switch == true) {
-		pr_debug("%s: OTHC 'n' switch supported\n", __func__);
+		pr_debug("OTHC 'n' switch supported\n");
 		if (!hsed_config->switch_config ||
 				!hsed_config->switch_config->switch_info) {
 			rc = -EINVAL;
-			pr_err("%s: Switch pdata absent!\n", __func__);
+			pr_err("Switch pdata absent!\n");
 			goto fail_othc_config;
 		}
 		dd->switch_config = hsed_config->switch_config;
@@ -567,18 +558,18 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 
 	rc = input_register_device(ipd);
 	if (rc) {
-		pr_err("%s: Unable to register OTHC device \n", __func__);
+		pr_err("Unable to register OTHC device\n");
 		goto fail_othc_config;
 	}
 
 	/* Check if the headset is already inserted during boot up */
 	rc = pm8058_irq_get_rt_status(dd->pm_chip, dd->othc_irq_ir);
 	if (rc < 0) {
-		pr_err("%s: Unable to get headset status at boot\n", __func__);
+		pr_err("Unable to get headset status at boot\n");
 		goto fail_ir_irq;
 	}
 	if (rc) {
-		pr_debug("%s: Headset inserted during boot up\n", __func__);
+		pr_debug("Headset inserted during boot up\n");
 		/* Headset present */
 		dd->othc_ir_state = true;
 		switch_set_state(&dd->othc_sdev, 1);
@@ -593,7 +584,7 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 				"pm8058_othc_ir", dd);
 	if (rc < 0) {
-		pr_err("%s: Unable to request pm8058_othc_ir IRQ\n", __func__);
+		pr_err("Unable to request pm8058_othc_ir IRQ\n");
 		goto fail_ir_irq;
 	}
 
@@ -602,8 +593,7 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 	IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED,
 			"pm8058_othc_sw", dd);
 	if (rc < 0) {
-		pr_err("%s: Unable to request pm8058_othc_sw IRQ\n",
-							__func__);
+		pr_err("Unable to request pm8058_othc_sw IRQ\n");
 		goto fail_sw_irq;
 	}
 
@@ -638,24 +628,24 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 
 	chip = platform_get_drvdata(pd);
 	if (chip == NULL) {
-		pr_err("%s: Invalid driver information \n", __func__);
+		pr_err("Invalid driver information\n");
 		return  -EINVAL;
 	}
 
 	/* Check PMIC8058 version. A0 version is not supported */
 	if (pm8058_rev(chip) == PM_8058_REV_1p0) {
-		pr_err("%s: PMIC8058 version not supported \n", __func__);
+		pr_err("PMIC8058 version not supported\n");
 		return -ENODEV;
 	}
 
 	if (pdata == NULL) {
-		pr_err("%s: Platform data not present \n", __func__);
+		pr_err("Platform data not present\n");
 		return -EINVAL;
 	}
 
 	dd = kzalloc(sizeof(*dd), GFP_KERNEL);
 	if (dd == NULL) {
-		pr_err("%s: Unable to allocate memory \n", __func__);
+		pr_err("Unable to allocate memory\n");
 		return -ENOMEM;
 	}
 
@@ -667,7 +657,7 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 
 	res = platform_get_resource_byname(pd, IORESOURCE_IO, "othc_base");
 	if (res == NULL) {
-		pr_err("%s: othc resource:Base address absent \n", __func__);
+		pr_err("othc resource:Base address absent\n");
 		rc = -ENXIO;
 		goto fail_get_res;
 	}
@@ -676,6 +666,8 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	dd->pm_chip = chip;
 	dd->othc_base = res->start;
 
+	platform_set_drvdata(pd, dd);
+
 	if (pdata->micbias_capability == OTHC_MICBIAS_HSED) {
 		/* HSED to be supported on this MICBIAS line */
 		if (pdata->hsed_config != NULL) {
@@ -683,7 +675,7 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 			if (rc < 0)
 				goto fail_get_res;
 		} else {
-			pr_err("%s: HSED config data not present\n", __func__);
+			pr_err("HSED config data not present\n");
 			rc = -EINVAL;
 			goto fail_get_res;
 		}
@@ -693,10 +685,8 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	if (dd->othc_pdata->micbias_select < OTHC_MICBIAS_MAX)
 		config[dd->othc_pdata->micbias_select] = dd;
 
-	platform_set_drvdata(pd, dd);
-
-	pr_debug("%s: Device %s:%d successfully registered\n",
-				__func__, pd->name, pd->id);
+	pr_debug("Device %s:%d successfully registered\n",
+					pd->name, pd->id);
 	return 0;
 
 fail_get_res:

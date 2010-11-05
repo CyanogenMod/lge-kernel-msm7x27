@@ -108,7 +108,7 @@ void set_rate_nop(struct clk_local *clk, struct clk_freq_tbl *nf)
 /* Update system voltage level given the current votes. */
 static int local_update_sys_vdd(void)
 {
-	static int cur_level;
+	static int cur_level = NUM_SYS_VDD_LEVELS;
 	int level, rc = 0;
 
 	if (local_sys_vdd_votes[HIGH])

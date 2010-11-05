@@ -485,22 +485,34 @@ static int diag_function_set_alt(struct usb_function *f,
 	struct diag_context  *dev = func_to_dev(f);
 	struct usb_composite_dev *cdev = f->config->cdev;
 	unsigned long flags;
+	int rc = 0;
 
 	dev->in_desc = ep_choose(cdev->gadget,
 			&hs_bulk_in_desc, &fs_bulk_in_desc);
 	dev->out_desc = ep_choose(cdev->gadget,
 			&hs_bulk_out_desc, &fs_bulk_in_desc);
 	dev->in->driver_data = dev;
-	usb_ep_enable(dev->in, dev->in_desc);
+	rc = usb_ep_enable(dev->in, dev->in_desc);
+	if (rc) {
+		ERROR(dev->cdev, "can't enable %s, result %d\n",
+						dev->in->name, rc);
+		return rc;
+	}
 	dev->out->driver_data = dev;
-	usb_ep_enable(dev->out, dev->out_desc);
+	rc = usb_ep_enable(dev->out, dev->out_desc);
+	if (rc) {
+		ERROR(dev->cdev, "can't enable %s, result %d\n",
+						dev->out->name, rc);
+		usb_ep_disable(dev->in);
+		return rc;
+	}
 	schedule_work(&dev->config_work);
 
 	spin_lock_irqsave(&dev->lock, flags);
 	dev->configured = 1;
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	return 0;
+	return rc;
 }
 
 static void diag_function_unbind(struct usb_configuration *c,

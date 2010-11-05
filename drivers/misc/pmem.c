@@ -1559,6 +1559,10 @@ static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 	unsigned long vma_size =  vma->vm_end - vma->vm_start;
 	int ret = 0, id = get_id(file);
 
+	if (!data) {
+		pr_err("pmem: Invalid file descriptor, no private data\n");
+		return -EINVAL;
+	}
 #if PMEM_DEBUG_MSGS
 	char currtask_name[FIELD_SIZEOF(struct task_struct, comm) + 1];
 #endif
@@ -1587,7 +1591,7 @@ static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 		goto error;
 	}
 	/* if file->private_data == unalloced, alloc*/
-	if (data && data->index == -1) {
+	if (data->index == -1) {
 		mutex_lock(&pmem[id].arena_mutex);
 		index = pmem[id].allocate(id,
 				vma->vm_end - vma->vm_start,

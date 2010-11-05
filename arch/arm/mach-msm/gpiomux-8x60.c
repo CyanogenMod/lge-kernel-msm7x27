@@ -734,6 +734,23 @@ static struct msm_gpiomux_config msm8x60_hdmi_configs[] __initdata = {
 	},
 };
 
+/* Because PMIC drivers do not use gpio-management routines and PMIC
+ * gpios must never sleep, a "good enough" config is obtained by placing
+ * the active config in the 'suspended' slot and leaving the active
+ * config invalid: the suspended config will be installed at boot
+ * and never replaced.
+ */
+static struct msm_gpiomux_config msm8x60_pmic_configs[] __initdata = {
+	{
+		.gpio = 88,
+		.suspended = GPIOMUX_VALID,
+	},
+	{
+		.gpio = 91,
+		.suspended = GPIOMUX_VALID,
+	},
+};
+
 struct msm_gpiomux_cfg_block {
 	struct msm_gpiomux_config *cfg;
 	size_t                     ncfg;
@@ -749,6 +766,7 @@ static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
 	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
 	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
+	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
 };
 
 static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
