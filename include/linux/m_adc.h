@@ -156,6 +156,7 @@ enum {
 #define CHANNEL_ADC_XOTHERM     0xb
 #define CHANNEL_ADC_XOTHERM_4K  0xc
 #define CHANNEL_ADC_HDSET       0xd
+#define CHANNEL_ADC_MSM_THERM	0xe
 
 enum {
 	CALIB_STARTED,
