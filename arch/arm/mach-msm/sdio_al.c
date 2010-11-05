@@ -2073,7 +2073,7 @@ int sdio_set_poll_time(struct sdio_channel *ch, int poll_delay_msec)
 }
 EXPORT_SYMBOL(sdio_set_poll_time);
 
-static int __init msm_sdio_al_probe(struct platform_device *pdev)
+static int __devinit msm_sdio_al_probe(struct platform_device *pdev)
 {
 	if (sdio_al)
 		sdio_al->mdm2ap_status = pdev->dev.platform_data;
