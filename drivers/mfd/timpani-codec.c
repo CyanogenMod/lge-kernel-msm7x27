@@ -1769,6 +1769,7 @@ static struct dentry *debugfs_timpani_dent;
 static struct dentry *debugfs_peek;
 static struct dentry *debugfs_poke;
 static struct dentry *debugfs_power;
+static struct dentry *debugfs_dump;
 
 static unsigned char read_data;
 
@@ -1818,6 +1819,9 @@ static ssize_t codec_debug_write(struct file *filp,
 	char *access_str = filp->private_data;
 	char lbuf[32];
 	int rc;
+	int i;
+	int read_result;
+	u8 reg_val;
 	long int param[5];
 
 	if (cnt > sizeof(lbuf) - 1)
@@ -1861,6 +1865,17 @@ static ssize_t codec_debug_write(struct file *filp,
 			adie_codec_read(param[0], &read_data);
 		else
 			rc = -EINVAL;
+	} else if (!strcmp(access_str, "dump")) {
+		pr_info("************** timpani regs *************\n");
+		for (i = 0; i < 0xFF; i++) {
+			read_result = adie_codec_read(i, &reg_val);
+			if (read_result < 0) {
+				pr_info("failed to read codec register\n");
+				break;
+			} else
+				pr_info("reg 0x%02X val 0x%02X\n", i, reg_val);
+		}
+		pr_info("*****************************************\n");
 	}
 
 	if (rc == 0)
@@ -1905,6 +1920,11 @@ static int timpani_codec_probe(struct platform_device *pdev)
 		debugfs_power = debugfs_create_file("power",
 		S_IFREG | S_IRUGO, debugfs_timpani_dent,
 		(void *) "power", &codec_debug_ops);
+
+		debugfs_dump = debugfs_create_file("dump",
+		S_IFREG | S_IRUGO, debugfs_timpani_dent,
+		(void *) "dump", &codec_debug_ops);
+
 	}
 #endif
 
@@ -1941,6 +1961,7 @@ static void __exit timpani_codec_exit(void)
 	debugfs_remove(debugfs_peek);
 	debugfs_remove(debugfs_poke);
 	debugfs_remove(debugfs_power);
+	debugfs_remove(debugfs_dump);
 	debugfs_remove(debugfs_timpani_dent);
 #endif
 	platform_driver_unregister(&timpani_codec_driver);
