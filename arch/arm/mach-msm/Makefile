@@ -1,5 +1,5 @@
 obj-y += io.o dma.o memory.o
-obj-y += clock.o
+obj-y += clock.o clock-voter.o
 obj-y += modem_notifier.o
 obj-$(CONFIG_CPU_FREQ_MSM) += cpufreq.o
 obj-$(CONFIG_DEBUG_FS) += nohlt.o clock-debug.o
