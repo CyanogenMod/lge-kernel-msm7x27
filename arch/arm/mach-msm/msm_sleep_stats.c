@@ -30,6 +30,8 @@
 #include <linux/notifier.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/sched.h>
+#include <linux/spinlock.h>
 
 #include "cpuidle.h"
 
@@ -48,7 +50,17 @@ struct sleep_data {
 	struct work_struct work;
 };
 
+struct rq_data {
+	unsigned int rq_avg;
+	unsigned int rq_poll_ms;
+	int64_t last_time;
+	int64_t total_time;
+	struct delayed_work rq_work;
+};
+
 DEFINE_PER_CPU(struct sleep_data, core_sleep_info);
+static struct rq_data rq_info;
+static DEFINE_SPINLOCK(rq_lock);
 
 static void idle_enter(int cpu, unsigned int microsec)
 {
@@ -86,6 +98,43 @@ static void notify_uspace_work_fn(struct work_struct *work)
 
 	/* Notify polling threads on change of value */
 	sysfs_notify(sleep_info->kobj, NULL, "timer_expired");
+}
+
+static void rq_work_fn(struct work_struct *work)
+{
+	int64_t time_diff = 0;
+	int64_t rq_avg = 0;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&rq_lock, flags);
+
+	if (!rq_info.last_time)
+		rq_info.last_time = ktime_to_ns(ktime_get());
+	if (!rq_info.rq_avg)
+		rq_info.total_time = 0;
+
+	rq_avg = nr_running();
+	time_diff = ktime_to_ns(ktime_get()) - rq_info.last_time;
+	do_div(time_diff, (1000 * 1000));
+
+	if (time_diff && rq_info.total_time) {
+		do_div(rq_avg, time_diff);
+		rq_avg = (rq_avg * time_diff) +
+			(rq_info.rq_avg * rq_info.total_time);
+		do_div(rq_avg, rq_info.total_time + time_diff);
+	}
+
+	rq_info.rq_avg =  (unsigned int)rq_avg;
+
+	/* Set the next poll */
+	if (rq_info.rq_poll_ms)
+		schedule_delayed_work(&rq_info.rq_work,
+			msecs_to_jiffies(rq_info.rq_poll_ms));
+
+	rq_info.total_time += time_diff;
+	rq_info.last_time = ktime_to_ns(ktime_get());
+
+	spin_unlock_irqrestore(&rq_lock, flags);
 }
 
 static enum hrtimer_restart timer_func(struct hrtimer *handle)
@@ -171,6 +220,7 @@ static ssize_t store_timer_val_ms(struct kobject *kobj,
 
 	return count;
 }
+
 static ssize_t show_timer_expired(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -201,6 +251,58 @@ static ssize_t show_policy_changed(struct kobject *kobj,
 	return sprintf(buf, "%d\n", val);
 }
 
+static ssize_t show_run_queue_avg(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int val = 0;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&rq_lock, flags);
+	/* rq avg currently available only on one core */
+	val = rq_info.rq_avg;
+	rq_info.rq_avg = 0;
+	spin_unlock_irqrestore(&rq_lock, flags);
+
+	return sprintf(buf, "%d.%d\n", val, val % 10);
+}
+
+static ssize_t show_run_queue_poll_ms(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int ret = 0;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&rq_lock, flags);
+	ret = sprintf(buf, "%u\n", rq_info.rq_poll_ms);
+	spin_unlock_irqrestore(&rq_lock, flags);
+
+	return ret;
+}
+
+static ssize_t store_run_queue_poll_ms(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int val = 0;
+	unsigned long flags = 0;
+	static DEFINE_MUTEX(lock_poll_ms);
+
+	mutex_lock(&lock_poll_ms);
+
+	spin_lock_irqsave(&rq_lock, flags);
+	sscanf(buf, "%u", &val);
+	rq_info.rq_poll_ms = val;
+	spin_unlock_irqrestore(&rq_lock, flags);
+
+	if (val <= 0)
+		cancel_delayed_work(&rq_info.rq_work);
+	else
+		schedule_delayed_work(&rq_info.rq_work, msecs_to_jiffies(val));
+
+	mutex_unlock(&lock_poll_ms);
+
+	return count;
+}
+
 static int policy_change_notifier(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
@@ -215,76 +317,69 @@ static int policy_change_notifier(struct notifier_block *nb,
 	return 0;
 }
 
+#define MSM_SLEEP_RO_ATTRIB(att) ({ \
+		struct attribute *attrib = NULL; \
+		struct kobj_attribute *ptr = NULL; \
+		ptr = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL); \
+		if (ptr) { \
+			ptr->attr.name = #att; \
+			ptr->attr.mode = S_IRUGO; \
+			ptr->show = show_##att; \
+			ptr->store = NULL; \
+			attrib = &ptr->attr; \
+		} \
+		attrib; })
+
+#define MSM_SLEEP_RW_ATTRIB(att) ({ \
+		struct attribute *attrib = NULL; \
+		struct kobj_attribute *ptr = NULL; \
+		ptr = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL); \
+		if (ptr) { \
+			ptr->attr.name = #att; \
+			ptr->attr.mode = S_IWUSR; \
+			ptr->show = show_##att; \
+			ptr->store = store_##att; \
+			attrib = &ptr->attr; \
+		} \
+		attrib; })
+
+
 static int add_sysfs_objects(struct sleep_data *sleep_info)
 {
 	int err = 0;
+	int i = 0;
+	const int attr_count = 8;
 
-	struct kobj_attribute *idle_attrib = NULL;
-	struct kobj_attribute *busy_attrib = NULL;
-	struct kobj_attribute *timer_val_attrib = NULL;
-	struct kobj_attribute *timer_exp_attrib = NULL;
-	struct kobj_attribute *policy_chg_attrib = NULL;
-	struct attribute **attribs = NULL;
+	struct attribute **attribs =
+		kzalloc(sizeof(struct attribute *) * attr_count, GFP_KERNEL);
+
+	if (!attribs)
+		goto rel;
 
 	atomic_set(&sleep_info->idle_microsec, 0);
 	atomic_set(&sleep_info->busy_microsec, 0);
 	atomic_set(&sleep_info->timer_expired, 0);
 	atomic_set(&sleep_info->policy_changed, 0);
 	atomic_set(&sleep_info->timer_val_ms, INT_MAX);
+	rq_info.rq_avg = 0;
+	rq_info.rq_poll_ms = 0;
 
-	idle_attrib = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL);
-	if (!idle_attrib)
-		goto rel;
-	idle_attrib->attr.name = "idle_ms";
-	idle_attrib->attr.mode = 0444;
-	idle_attrib->show = show_idle_ms;
-	idle_attrib->store = NULL;
+	attribs[0] = MSM_SLEEP_RO_ATTRIB(idle_ms);
+	attribs[1] = MSM_SLEEP_RO_ATTRIB(busy_ms);
+	attribs[2] = MSM_SLEEP_RW_ATTRIB(timer_val_ms);
+	attribs[3] = MSM_SLEEP_RO_ATTRIB(timer_expired);
+	attribs[4] = MSM_SLEEP_RO_ATTRIB(policy_changed);
+	attribs[5] = MSM_SLEEP_RO_ATTRIB(run_queue_avg);
+	attribs[6] = MSM_SLEEP_RW_ATTRIB(run_queue_poll_ms);
+	attribs[7] = NULL;
 
-	busy_attrib = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL);
-	if (!busy_attrib)
-		goto rel;
-	busy_attrib->attr.name = "busy_ms";
-	busy_attrib->attr.mode = 0444;
-	busy_attrib->show = show_busy_ms;
-	busy_attrib->store = NULL;
-
-	timer_val_attrib = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL);
-	if (!timer_val_attrib)
-		goto rel;
-	timer_val_attrib->attr.name = "timer_val_ms";
-	timer_val_attrib->attr.mode = 0666;
-	timer_val_attrib->show = show_timer_val_ms;
-	timer_val_attrib->store = store_timer_val_ms;
-
-	/* pollable attributes */
-	timer_exp_attrib = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL);
-	if (!timer_exp_attrib)
-		goto rel;
-	timer_exp_attrib->attr.name = "timer_expired";
-	timer_exp_attrib->attr.mode = 0444;
-	timer_exp_attrib->show = show_timer_expired;
-	timer_exp_attrib->store = NULL;
-
-	policy_chg_attrib = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL);
-	if (!policy_chg_attrib)
-		goto rel;
-	policy_chg_attrib->attr.name = "policy_changed";
-	policy_chg_attrib->attr.mode = 0444;
-	policy_chg_attrib->show = show_policy_changed;
-	policy_chg_attrib->store = NULL;
-
-	attribs = kzalloc(sizeof(struct attribute *) * 6, GFP_KERNEL);
-	if (!attribs)
-		goto rel;
-	attribs[0] = &idle_attrib->attr;
-	attribs[1] = &busy_attrib->attr;
-	attribs[2] = &timer_val_attrib->attr;
-	attribs[3] = &timer_exp_attrib->attr;
-	attribs[4] = &policy_chg_attrib->attr;
-	attribs[5] = NULL;
+	for (i = 0; i < attr_count - 1 ; i++) {
+		if (!attribs[i])
+			goto rel;
+	}
 
 	sleep_info->attr_group = kzalloc(sizeof(struct attribute_group),
-			GFP_KERNEL);
+						GFP_KERNEL);
 	if (!sleep_info->attr_group)
 		goto rel;
 	sleep_info->attr_group->attrs = attribs;
@@ -305,11 +400,8 @@ static int add_sysfs_objects(struct sleep_data *sleep_info)
 		return err;
 
 rel:
-	kfree(idle_attrib);
-	kfree(busy_attrib);
-	kfree(timer_val_attrib);
-	kfree(timer_exp_attrib);
-	kfree(policy_chg_attrib);
+	for (i = 0; i < attr_count - 1 ; i++)
+		kfree(attribs[i]);
 	kfree(attribs);
 	kfree(sleep_info->attr_group);
 	kfree(sleep_info->kobj);
@@ -334,6 +426,7 @@ static int __init msm_sleep_info_init(void)
 
 	/* Register callback from idle for all cpus */
 	msm_idle_register_cb(idle_enter, idle_exit);
+	INIT_DELAYED_WORK_DEFERRABLE(&rq_info.rq_work, rq_work_fn);
 
 	for_each_possible_cpu(cpu) {
 		printk(KERN_INFO "msm_sleep_stats: Initializing sleep stats "
