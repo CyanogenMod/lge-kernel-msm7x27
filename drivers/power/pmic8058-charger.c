@@ -34,6 +34,7 @@
 
 /* Config Regs  and their bits*/
 #define PM8058_CHG_TEST			0x75
+#define IGNORE_LL			2
 #define PM8058_CHG_TEST_2		0xEA
 #define PM8058_CHG_TEST_3		0xEB
 #define PM8058_OVP_TEST_REG		0xF6
@@ -1474,6 +1475,21 @@ static struct msm_battery_gauge pm8058_batt_gauge = {
 	.is_battery_id_valid = pm8058_is_battery_id_valid,
 };
 
+static int pm8058_usb_voltage_lower_limit(void)
+{
+	u8 temp, old;
+	int ret = 0;
+
+	temp = 0x10;
+	ret |= pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_TEST, &temp, 1);
+	ret |= pm8058_read(pm8058_chg.pm_chip, PM8058_CHG_TEST, &old, 1);
+	old = old & ~BIT(IGNORE_LL);
+	temp = 0x90  | (0xF & old);
+	ret |= pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_TEST, &temp, 1);
+
+	return ret;
+}
+
 static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 {
 	struct pm8058_chip *pm_chip;
@@ -1490,6 +1506,13 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 
 	if (request_irqs(pdev)) {
 		pr_err("%s: couldnt register interrupts\n", __func__);
+		return -EINVAL;
+	}
+
+	if (pm8058_usb_voltage_lower_limit()) {
+		pr_err("%s: couldnt set ignore lower limit bit to 0\n",
+								__func__);
+		free_irqs();
 		return -EINVAL;
 	}
 
