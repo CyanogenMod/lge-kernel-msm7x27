@@ -4785,8 +4785,6 @@ static unsigned int msm8x60_sdcc_slot_status(struct device *dev)
 	} else {
 		status = !(gpio_get_value_cansleep(
 			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC3_DET - 1)));
-		pr_info("%s: WP Status for Slot %d = %d\n", __func__,
-							pdev->id, status);
 		gpio_free(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC3_DET - 1));
 	}
 	return (unsigned int) status;
