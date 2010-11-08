@@ -29,8 +29,6 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
 
 #include "acpuclock.h"
 #include "clock-8x60.h"
@@ -54,7 +52,7 @@
 #define MAX_VDD_SC		1200000 /* uV */
 #define MAX_VDD_MEM		1200000 /* uV */
 #define MAX_VDD_DIG		1200000 /* uV */
-#define MAX_AXI			 310500 /* KHz */
+#define MAX_AXI			262000 /* KHz */
 
 /* SCPLL Modes. */
 #define SCPLL_POWER_DOWN	0
@@ -125,7 +123,6 @@ struct clkctl_l2_speed {
 	unsigned int     l_val;
 	unsigned int     vdd_dig;
 	unsigned int     vdd_mem;
-	unsigned int     bw_level;
 };
 
 static struct clkctl_l2_speed *l2_vote[NR_CPUS];
@@ -145,48 +142,18 @@ struct clkctl_acpu_speed {
 	struct clkctl_acpu_speed *down;
 };
 
-/* Instantaneous bandwidth requests in MB/s. */
-#define BW_MBPS(_bw) \
-	{ \
-		.vectors = &(struct msm_bus_vectors){ \
-			.src = MSM_BUS_APPSS_MASTER_SMPSS_M0, \
-			.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0, \
-			.ib = (_bw) * 1000000UL, \
-			.ab = 0, \
-		}, \
-		.num_paths = 1, \
-	}
-static struct msm_bus_paths bw_level_tbl[] = {
-	[0] = BW_MBPS( 108), /*  13.5 MHz on bus. */
-	[1] = BW_MBPS( 216), /*  27.0 MHz on bus. */
-	[2] = BW_MBPS( 496), /*  62.0 MHz on bus. */
-	[3] = BW_MBPS( 709), /*  88.0 MHz on bus. */
-	[4] = BW_MBPS( 828), /* 103.5 MHz on bus. */
-	[5] = BW_MBPS(1048), /* 131.0 MHz on bus. */
-	[6] = BW_MBPS(1397), /* 174.6 MHz on bus. */
-	[7] = BW_MBPS(2096), /* 262.0 MHz on bus. */
-	[8] = BW_MBPS(2484), /* 310.5 MHz on bus. */
-};
-
-static struct msm_bus_scale_pdata bus_client_pdata = {
-	.usecase = bw_level_tbl,
-	.num_usecases = ARRAY_SIZE(bw_level_tbl),
-};
-
-static uint32_t bus_perf_client;
-
 /* L2 frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_l2_speed l2_freq_tbl[] = {
-	[0] = {MAX_AXI, 0, 0,    1000000, 1100000, 4},
-	[1] = {432000,  1, 0x08, 1000000, 1100000, 4},
-	[2] = {486000,  1, 0x09, 1100000, 1200000, 6},
-	[3] = {540000,  1, 0x0A, 1100000, 1200000, 6},
-	[4] = {594000,  1, 0x0B, 1100000, 1200000, 6},
-	[5] = {648000,  1, 0x0C, 1200000, 1200000, 8},
-	[6] = {702000,  1, 0x0D, 1200000, 1200000, 8},
-	[7] = {756000,  1, 0x0E, 1200000, 1200000, 8},
-	[8] = {810000,  1, 0x0F, 1200000, 1200000, 8},
-	[9] = {864000,  1, 0x10, 1200000, 1200000, 8},
+	[0] = {MAX_AXI, 0, 0,    1000000, 1100000},
+	[1] = {432000,  1, 0x08, 1000000, 1100000},
+	[2] = {486000,  1, 0x09, 1100000, 1200000},
+	[3] = {540000,  1, 0x0A, 1100000, 1200000},
+	[4] = {594000,  1, 0x0B, 1100000, 1200000},
+	[5] = {648000,  1, 0x0C, 1200000, 1200000},
+	[6] = {702000,  1, 0x0D, 1200000, 1200000},
+	[7] = {756000,  1, 0x0E, 1200000, 1200000},
+	[8] = {810000,  1, 0x0F, 1200000, 1200000},
+	[9] = {864000,  1, 0x10, 1200000, 1200000},
 };
 #define L2(x) (&l2_freq_tbl[(x)])
 
@@ -343,24 +310,6 @@ static void l2_set_speed(struct clkctl_l2_speed *tgt_s)
 	drv_state.current_l2_speed = tgt_s;
 }
 
-/* Update the bus bandwidth request. */
-static int request_bus_bw(unsigned int bw)
-{
-	int rc = 0;
-
-	/* Bounds check. */
-	if (bw >= ARRAY_SIZE(bw_level_tbl)) {
-		pr_err("%s: invalid bandwidth request (%d)\n", __func__, bw);
-		return -EINVAL;
-	}
-
-	rc = msm_bus_scale_client_update_request(bus_perf_client, bw);
-	if (rc)
-		pr_err("%s: bandwidth request failed (%d)\n", __func__, rc);
-
-	return rc;
-}
-
 /* Vote for L2 speed and set L2 to the max of all votes. */
 static void update_l2_speed(unsigned int voting_cpu,
 			    struct clkctl_l2_speed *tgt_s)
@@ -382,7 +331,6 @@ static void update_l2_speed(unsigned int voting_cpu,
 
 	/* Set L2 speed if max vote has changed. */
 	l2_set_speed(new_s);
-	request_bus_bw(new_s->bw_level);
 }
 
 /* Apply any per-cpu voltage increases. */
@@ -543,7 +491,7 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 		switch_sc_speed(cpu, cur_s);
 	}
 
-	/* Update L2 cache speed and bandwidth request. */
+	/* Update for L2 cache speed. */
 	update_l2_speed(cpu, tgt_s->l2_level);
 
 	/* Nothing else to do for SWFI. */
@@ -743,16 +691,6 @@ err:
 	BUG();
 }
 
-/* Register with bus driver. */
-static void __init bus_init(void)
-{
-	bus_perf_client = msm_bus_scale_register_client(&bus_client_pdata);
-	if (!bus_perf_client) {
-		pr_err("%s: unable register bus client\n", __func__);
-		BUG();
-	}
-}
-
 #ifdef CONFIG_CPU_FREQ_MSM
 static struct cpufreq_frequency_table freq_table[NR_CPUS][20];
 
@@ -805,7 +743,6 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 		scpll_init(cpu);
 	scpll_init(L2);
 	regulator_init();
-	bus_init();
 
 	precompute_stepping();
 
