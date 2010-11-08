@@ -38,6 +38,7 @@
 #define REG_LPA(off)	(MSM_LPASS_CLK_CTL_BASE + (off))
 
 /* Peripheral clock registers. */
+#define CE2_HCLK_CTL_REG			REG(0x2740)
 #define CLK_HALT_CFPB_STATEA_REG		REG(0x2FCC)
 #define CLK_HALT_CFPB_STATEB_REG		REG(0x2FD0)
 #define CLK_HALT_CFPB_STATEC_REG		REG(0x2FD4)
@@ -1160,6 +1161,9 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 	/*
 	 * Peripheral Clocks
 	 */
+	CLK_NORATE(CE2,  CE2_HCLK_CTL_REG,  B(4), NULL, 0,
+		CLK_HALT_CFPB_STATEC_REG, HALT, 0, TEST_PER_LS(0x93)),
+
 	CLK_GSBI_UART(GSBI1_UART,  GSBIn_UART_APPS_NS_REG(1),
 		CLK_HALT_CFPB_STATEA_REG, HALT, 10, TEST_PER_LS(0x3E)),
 	CLK_GSBI_UART(GSBI2_UART,  GSBIn_UART_APPS_NS_REG(2),

@@ -1263,6 +1263,7 @@ struct clk msm_clocks_8x60[] = {
 	CLK_RPM("smi_clk",		SMI_CLK,		NULL, CLK_MIN),
 	CLK_RPM("smi_a_clk",		SMI_A_CLK,		NULL, CLK_MIN),
 
+	CLK_8X60("ce_clk",		CE2_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI1_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI2_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI3_UART_CLK,

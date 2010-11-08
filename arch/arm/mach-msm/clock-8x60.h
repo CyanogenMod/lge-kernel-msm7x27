@@ -34,6 +34,7 @@
 
 enum {
 	/* Peripheral Clocks */
+	L_CE2_CLK,
 	L_GSBI1_UART_CLK,
 	L_GSBI2_UART_CLK,
 	L_GSBI3_UART_CLK,
