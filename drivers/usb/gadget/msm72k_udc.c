@@ -1022,17 +1022,6 @@ static void flush_endpoint(struct msm_endpoint *ept)
 	flush_endpoint_sw(ept);
 }
 
-static void flush_all_endpoints(struct usb_info *ui)
-{
-	unsigned n;
-
-	flush_endpoint_hw(ui, 0xffffffff);
-
-	for (n = 0; n < 32; n++)
-		flush_endpoint_sw(ui->ept + n);
-}
-
-
 static irqreturn_t usb_interrupt(int irq, void *data)
 {
 	struct usb_info *ui = data;
@@ -1114,8 +1103,6 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 			/* Defer sending offline uevent to userspace */
 			atomic_set(&ui->offline_pending, 1);
 
-			flush_all_endpoints(ui);
-
 			/* XXX: we can't seem to detect going offline,
 			 * XXX:  so deconfigure on reset for the time being
 			 */
@@ -1124,6 +1111,10 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 					"usb: notify offline\n");
 				ui->driver->disconnect(&ui->gadget);
 			}
+			/* cancel pending ep0 transactions */
+			flush_endpoint(&ui->ep0out);
+			flush_endpoint(&ui->ep0in);
+
 		}
 	}
 
@@ -1217,13 +1208,14 @@ static void usb_reset(struct usb_info *ui)
 	/* marking us offline will cause ept queue attempts to fail */
 	atomic_set(&ui->configured, 0);
 
-	/* terminate any pending transactions */
-	flush_all_endpoints(ui);
-
 	if (ui->driver) {
 		dev_dbg(&ui->pdev->dev, "usb: notify offline\n");
 		ui->driver->disconnect(&ui->gadget);
 	}
+
+	/* cancel pending ep0 transactions */
+	flush_endpoint(&ui->ep0out);
+	flush_endpoint(&ui->ep0in);
 
 	/* enable interrupts */
 	writel(STS_URI | STS_SLI | STS_UI | STS_PCI, USB_USBINTR);
@@ -1354,6 +1346,15 @@ static void usb_do_work(struct work_struct *w)
 				atomic_set(&ui->remote_wakeup, 0);
 				atomic_set(&ui->configured, 0);
 
+				if (ui->driver) {
+					dev_dbg(&ui->pdev->dev,
+						"usb: notify offline\n");
+					ui->driver->disconnect(&ui->gadget);
+				}
+				/* cancel pending ep0 transactions */
+				flush_endpoint(&ui->ep0out);
+				flush_endpoint(&ui->ep0in);
+
 				/* synchronize with irq context */
 				spin_lock_irqsave(&ui->lock, iflags);
 #ifdef CONFIG_USB_OTG
@@ -1376,14 +1377,6 @@ static void usb_do_work(struct work_struct *w)
 					ui->irq = 0;
 				}
 
-				/* terminate any transactions, etc */
-				flush_all_endpoints(ui);
-
-				if (ui->driver) {
-					dev_dbg(&ui->pdev->dev,
-						"usb: notify offline\n");
-					ui->driver->disconnect(&ui->gadget);
-				}
 
 				switch_set_state(&ui->sdev, 0);
 
