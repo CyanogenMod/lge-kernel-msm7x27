@@ -6302,19 +6302,30 @@ static int tma300_dev_setup(bool enable)
 		tma300_vkeys_attr.attr.name = "virtualkeys.msm_tma300_ts";
 		properties_kobj = kobject_create_and_add("board_properties",
 					NULL);
-		if (properties_kobj)
-			rc = sysfs_create_group(properties_kobj,
+		if (!properties_kobj) {
+			pr_err("%s: failed to create a kobject"
+					"for board_properites\n", __func__);
+			rc = -ENOMEM;
+			goto vreg_get_fail;
+		}
+		rc = sysfs_create_group(properties_kobj,
 				&tma300_properties_attr_group);
-		if (!properties_kobj || rc)
-			pr_err("%s: failed to create board_properties\n", __func__);
+		if (rc) {
+			pr_err("%s: failed to create a sysfs entry %s\n",
+					__func__, tma300_vkeys_attr.attr.name);
+			kobject_put(properties_kobj);
+			goto vreg_get_fail;
+		}
 	} else {
 		/* put voltage sources */
 		for (i = 0; i < ARRAY_SIZE(vregs_tma300_name); i++)
 			vreg_put(vregs_tma300[i]);
 		/* destroy virtual keys */
-		if (properties_kobj)
+		if (properties_kobj) {
 			sysfs_remove_group(properties_kobj,
 				&tma300_properties_attr_group);
+			kobject_put(properties_kobj);
+		}
 	}
 	return 0;
 
