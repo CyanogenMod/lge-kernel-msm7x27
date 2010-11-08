@@ -24,6 +24,7 @@
 #include <linux/wakelock.h>
 #include <linux/pmic8058-othc.h>
 #include <linux/slab.h>
+#include <linux/regulator/consumer.h>
 #include <asm/uaccess.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/vreg.h>
@@ -37,6 +38,14 @@
 #define SNDDEV_ICODEC_MUL_FACTOR 3 /* Multi by 8 Shift by 3  */
 #define SNDDEV_ICODEC_CLK_RATE(freq) \
 	(((freq) * (SNDDEV_ICODEC_PCM_SZ)) << (SNDDEV_ICODEC_MUL_FACTOR))
+#define SNDDEV_LOW_POWER_MODE 0
+#define SNDDEV_HIGH_POWER_MODE 1
+/* Voltage required for S4 in microVolts, 2.2V or 2200000microvolts */
+#define SNDDEV_VREG_8058_S4_VOLTAGE (2200000)
+/* Load Current required for S4 in microAmps,
+   36mA - 56mA */
+#define SNDDEV_VREG_LOW_POWER_LOAD (36000)
+#define SNDDEV_VREG_HIGH_POWER_LOAD (56000)
 
 #ifdef CONFIG_DEBUG_FS
 static struct adie_codec_action_unit debug_rx_actions[] = {
@@ -235,9 +244,58 @@ struct snddev_icodec_drv_state {
 
 	struct wake_lock rx_idlelock;
 	struct wake_lock tx_idlelock;
+
+	/* handle to pmic8058 regulator smps4 */
+	struct regulator *snddev_vreg;
 };
 
 static struct snddev_icodec_drv_state snddev_icodec_drv;
+
+struct regulator *vreg_init(void)
+{
+	int rc;
+	struct regulator *vreg_ptr;
+
+	vreg_ptr = regulator_get(NULL, "8058_s4");
+	if (IS_ERR(vreg_ptr)) {
+		pr_err("%s: regulator_get 8058_s4 failed\n", __func__);
+		return NULL;
+	}
+
+	rc = regulator_set_voltage(vreg_ptr, SNDDEV_VREG_8058_S4_VOLTAGE,
+				SNDDEV_VREG_8058_S4_VOLTAGE);
+	if (rc == 0)
+		return vreg_ptr;
+	else
+		return NULL;
+}
+
+static void vreg_deinit(struct regulator *vreg)
+{
+	regulator_put(vreg);
+}
+
+static void vreg_mode_vote(struct regulator *vreg, int enable, int mode)
+{
+	int rc;
+	if (enable) {
+		rc = regulator_enable(vreg);
+		if (rc != 0)
+			pr_err("%s:Enabling regulator failed\n", __func__);
+		else {
+			if (mode)
+				regulator_set_optimum_mode(vreg,
+						SNDDEV_VREG_HIGH_POWER_LOAD);
+			else
+				regulator_set_optimum_mode(vreg,
+						SNDDEV_VREG_LOW_POWER_LOAD);
+		}
+	} else {
+		rc = regulator_disable(vreg);
+		if (rc != 0)
+			pr_err("%s:Disabling regulator failed\n", __func__);
+	}
+}
 
 static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 {
@@ -246,6 +304,15 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 
 	wake_lock(&drv->rx_idlelock);
+
+	if (drv->snddev_vreg) {
+		if (!strcmp(icodec->data->name, "headset_stereo_rx"))
+			vreg_mode_vote(drv->snddev_vreg, 1,
+					SNDDEV_LOW_POWER_MODE);
+		else
+			vreg_mode_vote(drv->snddev_vreg, 1,
+					SNDDEV_HIGH_POWER_MODE);
+	}
 
 	drv->rx_osrclk = clk_get(0, "i2s_spkr_osr_clk");
 	if (IS_ERR(drv->rx_osrclk))
@@ -335,6 +402,9 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 
 	wake_lock(&drv->tx_idlelock);
 
+	if (drv->snddev_vreg)
+		vreg_mode_vote(drv->snddev_vreg, 1, SNDDEV_HIGH_POWER_MODE);
+
 	/* Reuse pamp_on for TX platform-specific setup  */
 	if (icodec->data->pamp_on)
 		icodec->data->pamp_on();
@@ -411,6 +481,9 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 
 	wake_lock(&drv->rx_idlelock);
 
+	if (drv->snddev_vreg)
+		vreg_mode_vote(drv->snddev_vreg, 0, SNDDEV_HIGH_POWER_MODE);
+
 	/* Disable power amplifier */
 	if (icodec->data->pamp_off)
 		icodec->data->pamp_off();
@@ -442,6 +515,9 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 
 	wake_lock(&drv->tx_idlelock);
+
+	if (drv->snddev_vreg)
+		vreg_mode_vote(drv->snddev_vreg, 0, SNDDEV_HIGH_POWER_MODE);
 
 	/* Disable ADIE */
 	if (icodec->adie_path) {
@@ -997,6 +1073,8 @@ static int __init snddev_icodec_init(void)
 	mutex_init(&icodec_drv->tx_lock);
 	icodec_drv->rx_active = 0;
 	icodec_drv->tx_active = 0;
+	icodec_drv->snddev_vreg = vreg_init();
+
 	wake_lock_init(&icodec_drv->tx_idlelock, WAKE_LOCK_IDLE,
 			"snddev_tx_idle");
 	wake_lock_init(&icodec_drv->rx_idlelock, WAKE_LOCK_IDLE,
@@ -1018,6 +1096,10 @@ static void __exit snddev_icodec_exit(void)
 
 	clk_put(icodec_drv->rx_osrclk);
 	clk_put(icodec_drv->tx_osrclk);
+	if (icodec_drv->snddev_vreg) {
+		vreg_deinit(icodec_drv->snddev_vreg);
+		icodec_drv->snddev_vreg = NULL;
+	}
 	return;
 }
 
