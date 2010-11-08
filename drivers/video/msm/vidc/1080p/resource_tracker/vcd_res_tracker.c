@@ -212,6 +212,17 @@ u32 res_trk_power_up(void)
 {
 	VCDRES_MSG_LOW("clk_regime_rail_enable");
 	VCDRES_MSG_LOW("clk_regime_sel_rail_control");
+#ifdef CONFIG_MSM_BUS_SCALING
+	resource_context.pcl = msm_bus_scale_register_client(
+		&vidc_bus_client_pdata);
+	VCDRES_MSG_LOW("%s(), resource_context.pcl = %x", __func__,
+		 resource_context.pcl);
+	if (resource_context.pcl == 0) {
+		dev_err(resource_context.device,
+			"register bus client returned NULL\n");
+		return false;
+	}
+#endif
 	VCDRES_MSG_MED("\n res_trk_power_up():: Calling "
 		"vidc_enable_pwr_rail()\n");
 	return res_trk_enable_pwr_rail();
@@ -220,6 +231,10 @@ u32 res_trk_power_up(void)
 u32 res_trk_power_down(void)
 {
 	VCDRES_MSG_LOW("clk_regime_rail_disable");
+#ifdef CONFIG_MSM_BUS_SCALING
+	msm_bus_scale_client_update_request(resource_context.pcl, 0);
+	msm_bus_scale_unregister_client(resource_context.pcl);
+#endif
 	VCDRES_MSG_MED("\n res_trk_power_down():: Calling "
 		"res_trk_disable_pwr_rail()\n");
 	return res_trk_disable_pwr_rail();
@@ -236,6 +251,39 @@ u32 res_trk_get_max_perf_level(u32 *pn_max_perf_lvl)
 	return true;
 }
 
+#ifdef CONFIG_MSM_BUS_SCALING
+int res_trk_update_bus_perf_level(struct vcd_dev_ctxt *dev_ctxt, u32 perf_level)
+{
+	struct vcd_clnt_ctxt *cctxt_itr = NULL;
+	u32 enc_perf_level = 0, dec_perf_level = 0;
+	u32 bus_clk_index, client_type = 0;
+	int rc = 0;
+
+	cctxt_itr = dev_ctxt->cctxt_list_head;
+	while (cctxt_itr) {
+		if (cctxt_itr->decoding)
+			dec_perf_level += cctxt_itr->reqd_perf_lvl;
+		else
+			enc_perf_level += cctxt_itr->reqd_perf_lvl;
+		cctxt_itr = cctxt_itr->next;
+	}
+	if (!enc_perf_level)
+		client_type = 1;
+	if (perf_level <= RESTRK_1080P_VGA_PERF_LEVEL)
+		bus_clk_index = 0;
+	else if (perf_level <= RESTRK_1080P_720P_PERF_LEVEL)
+		bus_clk_index = 1;
+	else
+		bus_clk_index = 2;
+	bus_clk_index = (bus_clk_index << 1) + (client_type + 1);
+	VCDRES_MSG_LOW("%s(), bus_clk_index = %d", __func__, bus_clk_index);
+	VCDRES_MSG_LOW("%s(),context.pcl = %x", __func__, resource_context.pcl);
+	VCDRES_MSG_LOW("%s(), bus_perf_level = %x", __func__, perf_level);
+	rc = msm_bus_scale_client_update_request(resource_context.pcl, 6);
+	return rc;
+}
+#endif
+
 u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
 	struct vcd_dev_ctxt *dev_ctxt)
 {
@@ -246,6 +294,13 @@ u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
 		return false;
 	}
 	VCDRES_MSG_LOW("%s(), req_perf_lvl = %d", __func__, req_perf_lvl);
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (!res_trk_update_bus_perf_level(dev_ctxt, req_perf_lvl) < 0) {
+		VCDRES_MSG_ERROR("%s(): update buf perf level failed\n",
+			__func__);
+	}
+
+#endif
 	if (req_perf_lvl <= RESTRK_1080P_VGA_PERF_LEVEL) {
 		vidc_freq = vidc_clk_table[0];
 		*pn_set_perf_lvl = RESTRK_1080P_VGA_PERF_LEVEL;
