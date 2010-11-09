@@ -951,6 +951,23 @@ void mdp_hw_version(void)
 }
 #endif
 
+#ifdef CONFIG_MSM_BUS_SCALING
+static uint32_t mdp_bus_scale_handle;
+int mdp_bus_scale_update_request(uint32_t index)
+{
+	if (!mdp_pdata && (!mdp_pdata->mdp_bus_scale_table
+	     || index > (mdp_pdata->mdp_bus_scale_table->num_usecases - 1))) {
+		printk(KERN_ERR "%s invalid table or index\n", __func__);
+		return -EINVAL;
+	}
+	if (mdp_bus_scale_handle < 1) {
+		printk(KERN_ERR "%s invalid bus handle\n", __func__);
+		return -EINVAL;
+	}
+	return msm_bus_scale_client_update_request(mdp_bus_scale_handle,
+							index);
+}
+#endif
 DEFINE_MUTEX(mdp_clk_lock);
 int mdp_set_core_clk(uint16 perf_level)
 {
@@ -1260,6 +1277,18 @@ static int mdp_probe(struct platform_device *pdev)
 		goto mdp_probe_err;
 	}
 
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (mdp_pdata && mdp_pdata->mdp_bus_scale_table) {
+		mdp_bus_scale_handle =
+			msm_bus_scale_register_client(
+					mdp_pdata->mdp_bus_scale_table);
+		if (!mdp_bus_scale_handle) {
+			printk(KERN_ERR "%s not able to get bus scale\n",
+				__func__);
+			return -ENOMEM;
+		}
+	}
+#endif
 	/* set driver data */
 	platform_set_drvdata(msm_fb_dev, mfd);
 
@@ -1271,12 +1300,16 @@ static int mdp_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
-
 	pdev_list[pdev_list_cnt++] = pdev;
 	return 0;
 
       mdp_probe_err:
 	platform_device_put(msm_fb_dev);
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (mdp_pdata && mdp_pdata->mdp_bus_scale_table &&
+		mdp_bus_scale_handle > 0)
+		msm_bus_scale_unregister_client(mdp_bus_scale_handle);
+#endif
 	return rc;
 }
 
@@ -1319,6 +1352,11 @@ static int mdp_remove(struct platform_device *pdev)
 		regulator_put(footswitch);
 	iounmap(msm_mdp_base);
 	pm_runtime_disable(&pdev->dev);
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (mdp_pdata && mdp_pdata->mdp_bus_scale_table &&
+		mdp_bus_scale_handle > 0)
+		msm_bus_scale_unregister_client(mdp_bus_scale_handle);
+#endif
 	return 0;
 }
 

@@ -34,8 +34,9 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#ifndef CONFIG_MSM_BUS_SCALING
 #include <linux/pm_qos_params.h>
-
+#endif
 #include "msm_fb.h"
 #include "mddihosti.h"
 #include "mddihost.h"
@@ -118,8 +119,11 @@ static int mddi_off(struct platform_device *pdev)
 	if (mddi_pdata && mddi_pdata->mddi_power_save)
 		mddi_pdata->mddi_power_save(0);
 
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(0);
+#else
 	pm_qos_update_request(mfd->pm_qos_req, PM_QOS_DEFAULT_VALUE);
-
+#endif
 	pm_runtime_put(&pdev->dev);
 	return ret;
 }
@@ -174,8 +178,11 @@ static int mddi_on(struct platform_device *pdev)
 		printk(KERN_ERR "%s: clk_set_min_rate failed\n",
 			__func__);
 
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(2);
+#else
 	pm_qos_update_request(mfd->pm_qos_req, 65000);
-
+#endif
 	ret = panel_next_on(pdev);
 
 	return ret;
@@ -292,6 +299,12 @@ static int mddi_probe(struct platform_device *pdev)
 
 	rc = 0;
 	pm_runtime_enable(&pdev->dev);
+#ifndef CONFIG_MSM_BUS_SCALING
+	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
+					       PM_QOS_DEFAULT_VALUE);
+	if (!mfd->pm_qos_req)
+		return -ENOMEM;
+#endif
 	/*
 	 * register in mdp driver
 	 */
@@ -307,11 +320,6 @@ static int mddi_probe(struct platform_device *pdev)
 	mfd->mddi_early_suspend.resume = mddi_early_resume;
 	register_early_suspend(&mfd->mddi_early_suspend);
 #endif
-
-	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					       PM_QOS_DEFAULT_VALUE);
-	if (!mfd->pm_qos_req)
-		goto mddi_probe_err;
 
 	return 0;
 

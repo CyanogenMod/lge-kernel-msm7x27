@@ -40,6 +40,12 @@
 #include <linux/msm_mdp.h>
 
 #include <mach/hardware.h>
+
+#ifdef CONFIG_MSM_BUS_SCALING
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
+#endif
+
 #include <linux/io.h>
 
 #include <asm/system.h>
@@ -670,6 +676,10 @@ void mdp_disable_irq_nosync(uint32 term);
 int mdp_get_bytes_per_pixel(uint32_t format,
 				 struct msm_fb_data_type *mfd);
 int mdp_set_core_clk(uint16 perf_level);
+
+#ifdef CONFIG_MSM_BUS_SCALING
+int mdp_bus_scale_update_request(uint32_t index);
+#endif
 
 #ifdef MDP_HW_VSYNC
 void mdp_hw_vsync_clk_enable(struct msm_fb_data_type *mfd);
