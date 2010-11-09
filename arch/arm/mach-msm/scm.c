@@ -18,7 +18,7 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/module.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/errno.h>
 #include <linux/err.h>
 
@@ -33,7 +33,7 @@
 #define SCM_ERROR		-1
 #define SCM_INTERRUPTED		1
 
-static DEFINE_SPINLOCK(scm_lock);
+static DEFINE_MUTEX(scm_lock);
 
 /**
  * struct scm_command - one SCM command buffer
@@ -93,7 +93,7 @@ static struct scm_command *alloc_scm_command(size_t cmd_size, size_t resp_size)
 	size_t len = sizeof(*cmd) + sizeof(struct scm_response) + cmd_size +
 		resp_size;
 
-	cmd = kzalloc(len, GFP_ATOMIC);
+	cmd = kzalloc(len, GFP_KERNEL);
 	if (cmd) {
 		cmd->len = len;
 		cmd->buf_offset = sizeof(*cmd);
@@ -220,7 +220,6 @@ int scm_call(u32 svc_id, u32 cmd_id, void *cmd_buf, size_t cmd_len,
 	int ret;
 	struct scm_command *cmd;
 	struct scm_response *rsp;
-	unsigned long flags;
 
 	cmd = alloc_scm_command(cmd_len, resp_len);
 	if (!cmd)
@@ -230,9 +229,9 @@ int scm_call(u32 svc_id, u32 cmd_id, void *cmd_buf, size_t cmd_len,
 	if (cmd_buf)
 		memcpy(scm_get_command_buffer(cmd), cmd_buf, cmd_len);
 
-	spin_lock_irqsave(&scm_lock, flags);
+	mutex_lock(&scm_lock);
 	ret = __scm_call(cmd);
-	spin_unlock_irqrestore(&scm_lock, flags);
+	mutex_unlock(&scm_lock);
 	if (ret)
 		goto out;
 
@@ -269,11 +268,10 @@ static u32 smc_get_version(void)
 static int __init scm_init(void)
 {
 	u32 scm_version;
-	unsigned long flags;
 
-	spin_lock_irqsave(&scm_lock, flags);
+	mutex_lock(&scm_lock);
 	scm_version = smc_get_version();
-	spin_unlock_irqrestore(&scm_lock, flags);
+	mutex_unlock(&scm_lock);
 
 	pr_info("SCM Remote Version %d.%d\n", scm_version >> 16,
 			scm_version & 0xFF);
