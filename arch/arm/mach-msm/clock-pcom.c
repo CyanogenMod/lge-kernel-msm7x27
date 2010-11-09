@@ -16,26 +16,71 @@
 #include <linux/err.h>
 #include <linux/ctype.h>
 #include <linux/stddef.h>
+#include <linux/spinlock.h>
+
 #include <mach/clk.h>
 
 #include "proc_comm.h"
 #include "clock.h"
+
+struct clk_pcom {
+	unsigned count;
+};
+
+static struct clk_pcom pcom_clocks[P_NR_CLKS];
+
+static DEFINE_SPINLOCK(pc_clk_lock);
 
 /*
  * glue for the proc_comm interface
  */
 int pc_clk_enable(unsigned id)
 {
-	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_ENABLE, &id, NULL);
-	if (rc < 0)
-		return rc;
-	else
-		return (int)id < 0 ? -EINVAL : 0;
+	int rc;
+	unsigned long flags;
+	struct clk_pcom *clk = &pcom_clocks[id];
+
+	spin_lock_irqsave(&pc_clk_lock, flags);
+	if (clk->count == 0) {
+		rc = msm_proc_comm(PCOM_CLKCTL_RPC_ENABLE, &id, NULL);
+		if (rc < 0)
+			goto unlock;
+		else if ((int)id < 0) {
+			rc = -EINVAL;
+			goto unlock;
+		} else
+			rc = 0;
+	}
+	clk->count++;
+unlock:
+	spin_unlock_irqrestore(&pc_clk_lock, flags);
+	return rc;
 }
 
 void pc_clk_disable(unsigned id)
 {
-	msm_proc_comm(PCOM_CLKCTL_RPC_DISABLE, &id, NULL);
+	unsigned long flags;
+	struct clk_pcom *clk = &pcom_clocks[id];
+
+	spin_lock_irqsave(&pc_clk_lock, flags);
+	if (WARN_ON(clk->count == 0))
+		goto out;
+	clk->count--;
+	if (clk->count == 0)
+		msm_proc_comm(PCOM_CLKCTL_RPC_DISABLE, &id, NULL);
+out:
+	spin_unlock_irqrestore(&pc_clk_lock, flags);
+}
+
+void pc_clk_auto_off(unsigned id)
+{
+	unsigned long flags;
+	struct clk_pcom *clk = &pcom_clocks[id];
+
+	spin_lock_irqsave(&pc_clk_lock, flags);
+	if (clk->count == 0)
+		msm_proc_comm(PCOM_CLKCTL_RPC_DISABLE, &id, NULL);
+	spin_unlock_irqrestore(&pc_clk_lock, flags);
 }
 
 int pc_clk_reset(unsigned id, enum clk_reset_action action)
@@ -125,7 +170,7 @@ long pc_clk_round_rate(unsigned id, unsigned rate)
 struct clk_ops clk_ops_remote = {
 	.enable = pc_clk_enable,
 	.disable = pc_clk_disable,
-	.auto_off = pc_clk_disable,
+	.auto_off = pc_clk_auto_off,
 	.reset = pc_clk_reset,
 	.set_rate = pc_clk_set_rate,
 	.set_min_rate = pc_clk_set_min_rate,

@@ -148,6 +148,11 @@ out:
 	return;
 }
 
+static void rpm_clk_auto_off(unsigned id)
+{
+	/* Not supported */
+}
+
 static int rpm_clk_reset(unsigned id, enum clk_reset_action action)
 {
 	/* Not supported. */
@@ -256,7 +261,7 @@ static long rpm_clk_round_rate(unsigned id, unsigned rate)
 struct clk_ops clk_ops_remote = {
 	.enable = rpm_clk_enable,
 	.disable = rpm_clk_disable,
-	.auto_off = rpm_clk_disable,
+	.auto_off = rpm_clk_auto_off,
 	.reset = rpm_clk_reset,
 	.set_rate = rpm_clk_set_rate,
 	.set_min_rate = rpm_clk_set_min_rate,
