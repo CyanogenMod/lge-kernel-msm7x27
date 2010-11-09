@@ -34,6 +34,7 @@
 #define WDT0_RST	(MSM_TMR0_BASE + 0x38)
 #define WDT0_EN		(MSM_TMR0_BASE + 0x40)
 #define WDT0_BARK_TIME	(MSM_TMR0_BASE + 0x4C)
+#define WDT0_BITE_TIME	(MSM_TMR0_BASE + 0x5C)
 
 /* Watchdog pet interval in ms */
 #define PET_DELAY 300
@@ -59,8 +60,9 @@ static void pet_watchdog(struct work_struct *work)
 
 static void start_watchdog_timer(void)
 {
-	/* 0x31F3 ticks at 32768 Hz (~500 ms) */
-	writel(0x31F3, WDT0_BARK_TIME);
+	/* 22000 ticks at 32768Hz = 671ms */
+	writel(22000, WDT0_BARK_TIME);
+	writel(22000, WDT0_BITE_TIME);
 	writel(3, WDT0_EN);
 
 	INIT_DELAYED_WORK(&dogwork_struct, pet_watchdog);
