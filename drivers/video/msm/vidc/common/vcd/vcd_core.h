@@ -61,6 +61,7 @@
 #define VCD_STOP_PENDING                     0x00000080
 #define VCD_CLOSE_PENDING                    0x00000100
 #define VCD_IN_RECONFIG                      0x00000200
+#define VCD_FIRST_IP_DONE                    0x00000400
 
 enum vcd_command {
 	VCD_CMD_NONE,
