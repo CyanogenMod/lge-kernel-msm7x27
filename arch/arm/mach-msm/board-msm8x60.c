@@ -5271,12 +5271,32 @@ static int atv_dac_power(int on)
 #ifdef CONFIG_MSM8X60_AUDIO
 void msm_snddev_enable_amic_power(void)
 {
+
 #ifdef CONFIG_PMIC8058_OTHC
 	int ret;
 
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_ALWAYS_ON);
-	if (ret)
-		pr_err("%s: Enabling amic power failed\n", __func__);
+	if (machine_is_msm8x60_fluid()) {
+
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_0,
+				OTHC_SIGNAL_ALWAYS_ON);
+		if (ret)
+			pr_err("%s: Enabling amic power failed\n", __func__);
+
+		ret = gpio_request(GPIO_MIC2_ANCR_SEL, "MIC2_ANCR_SEL");
+		if (ret) {
+			pr_err("%s: spkr pamp gpio %d request"
+			"failed\n", __func__, GPIO_MIC2_ANCR_SEL);
+			return;
+		}
+		gpio_direction_output(GPIO_MIC2_ANCR_SEL, 0);
+		gpio_set_value_cansleep(GPIO_MIC2_ANCR_SEL, 0);
+
+	} else {
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_2,
+				OTHC_SIGNAL_ALWAYS_ON);
+		if (ret)
+			pr_err("%s: Enabling amic power failed\n", __func__);
+	}
 #endif
 
 	msm_snddev_tx_route_config();
@@ -5286,8 +5306,12 @@ void msm_snddev_disable_amic_power(void)
 {
 #ifdef CONFIG_PMIC8058_OTHC
 	int ret;
-
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
+	if (machine_is_msm8x60_fluid()) {
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_0,
+				OTHC_SIGNAL_OFF);
+	} else {
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
+	}
 	if (ret)
 		pr_err("%s: Disabling amic power failed\n", __func__);
 #endif

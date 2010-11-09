@@ -451,8 +451,6 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 		icodec->adie_path = NULL;
 	}
 
-	pm8058_micbias_enable(OTHC_MICBIAS_0,
-					OTHC_SIGNAL_OFF);
 	afe_close(PRIMARY_I2S_TX);
 
 	clk_disable(drv->tx_bitclk);
