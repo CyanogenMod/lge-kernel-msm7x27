@@ -106,7 +106,7 @@ void msm_bus_scale_unregister_client(uint32_t cl);
 static inline uint32_t
 msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 {
-	return 0;
+	return 1;
 }
 
 static inline int
