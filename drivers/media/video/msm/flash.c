@@ -348,6 +348,8 @@ int msm_strobe_flash_ctrl(struct msm_camera_sensor_strobe_flash_data *sfdata,
 	int rc = 0;
 	switch (strobe_ctrl->type) {
 	case STROBE_FLASH_CTRL_INIT:
+		if (!sfdata)
+			return -ENODEV;
 		rc = msm_strobe_flash_xenon_init(sfdata);
 		break;
 	case STROBE_FLASH_CTRL_CHARGE:
@@ -356,7 +358,8 @@ int msm_strobe_flash_ctrl(struct msm_camera_sensor_strobe_flash_data *sfdata,
 			sfdata->flash_recharge_duration);
 		break;
 	case STROBE_FLASH_CTRL_RELEASE:
-		rc = msm_strobe_flash_xenon_release(sfdata, 0);
+		if (sfdata)
+			rc = msm_strobe_flash_xenon_release(sfdata, 0);
 		break;
 	default:
 		pr_err("Invalid Strobe Flash State\n");
