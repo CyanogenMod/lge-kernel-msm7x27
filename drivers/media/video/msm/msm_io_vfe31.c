@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/pm_qos_params.h>
 #include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/camera.h>
@@ -92,6 +93,21 @@
 #define	MIPI_PHY_D0_CONTROL_HS_REC_EQ_SHFT				0x1c
 #define	MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT		0x9
 #define	MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT	0x8
+
+#define	CAMIO_VFE_CLK_SNAP			122880000
+#define	CAMIO_VFE_CLK_PREV			122880000
+
+#ifdef CONFIG_MSM_NPA_SYSTEM_BUS
+/* NPA Flow IDs */
+#define MSM_AXI_QOS_PREVIEW     MSM_AXI_FLOW_CAMERA_PREVIEW_HIGH
+#define MSM_AXI_QOS_SNAPSHOT    MSM_AXI_FLOW_CAMERA_SNAPSHOT_12MP
+#define MSM_AXI_QOS_RECORDING   MSM_AXI_FLOW_CAMERA_RECORDING_720P
+#else
+/* AXI rates in KHz */
+#define MSM_AXI_QOS_PREVIEW     192000
+#define MSM_AXI_QOS_SNAPSHOT    192000
+#define MSM_AXI_QOS_RECORDING   192000
+#endif
 
 static struct clk *camio_vfe_mdc_clk;
 static struct clk *camio_mdc_clk;
@@ -770,4 +786,25 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 	msm_io_w(0xFFF7F3FF, csibase + MIPI_INTERRUPT_STATUS);
 
 	return rc;
+}
+void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
+{
+	switch (perf_setting) {
+	case S_INIT:
+	case S_EXIT:
+	case S_PREVIEW:
+		update_axi_qos(MSM_AXI_QOS_PREVIEW);
+		break;
+	case S_VIDEO:
+		update_axi_qos(MSM_AXI_QOS_RECORDING);
+		break;
+	case S_CAPTURE:
+		update_axi_qos(MSM_AXI_QOS_SNAPSHOT);
+		break;
+	case S_DEFAULT:
+		update_axi_qos(PM_QOS_DEFAULT_VALUE);
+		break;
+	default:
+		CDBG("%s: INVALID CASE\n", __func__);
+	}
 }

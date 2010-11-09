@@ -18,15 +18,16 @@
 
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/io.h>
 #include <mach/irqs.h>
+#include <mach/camera.h>
+#include <mach/msm_reqs.h>
+#include <asm/atomic.h>
+
 #include "msm_vfe31.h"
 #include "msm_vpe1.h"
-#include <mach/camera.h>
-#include <linux/io.h>
-#include <mach/msm_reqs.h>
-#include <linux/pm_qos_params.h>
-#include <asm/atomic.h>
-#include <linux/slab.h>
+
 atomic_t irq_cnt;
 
 #define CHECKED_COPY_FROM_USER(in) {					\
@@ -36,18 +37,6 @@ atomic_t irq_cnt;
 		break;							\
 	}								\
 }
-
-#ifdef CONFIG_MSM_NPA_SYSTEM_BUS
-/* NPA Flow IDs */
-#define MSM_AXI_QOS_PREVIEW	MSM_AXI_FLOW_CAMERA_PREVIEW_HIGH
-#define MSM_AXI_QOS_SNAPSHOT	MSM_AXI_FLOW_CAMERA_SNAPSHOT_12MP
-#define MSM_AXI_QOS_RECORDING	MSM_AXI_FLOW_CAMERA_RECORDING_720P
-#else
-/* AXI rates in KHz */
-#define MSM_AXI_QOS_PREVIEW	192000
-#define MSM_AXI_QOS_SNAPSHOT	192000
-#define MSM_AXI_QOS_RECORDING	192000
-#endif
 
 static struct vfe31_ctrl_type *vfe31_ctrl;
 static struct msm_camera_io_clk camio_clk;
@@ -588,6 +577,7 @@ static int vfe31_disable(struct camera_enable_cmd *enable,
 	struct platform_device *dev)
 {
 	vfe_stop();
+	msm_camio_set_perf_lvl(S_EXIT);
 	msm_camio_disable(dev);
 	return 0;
 }
@@ -608,7 +598,7 @@ static void vfe31_release(struct platform_device *pdev)
 	vfe31_ctrl = NULL;
 	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
 	msm_camio_disable(pdev);
-	update_axi_qos(PM_QOS_DEFAULT_VALUE);
+	msm_camio_set_perf_lvl(S_DEFAULT);
 
 	vfe_syncdata = NULL;
 }
@@ -1033,7 +1023,7 @@ static void vfe31_start_common(void){
 
 static int vfe31_start_recording(void){
 	vfe31_ctrl->req_start_video_rec = TRUE;
-	update_axi_qos(MSM_AXI_QOS_RECORDING);
+	msm_camio_set_perf_lvl(S_VIDEO);
 	/* Mask with 0x7 to extract the pixel pattern*/
 	switch (msm_io_r(vfe31_ctrl->vfebase + VFE_CFG_OFF) & 0x7) {
 	case VFE_YUV_YCbYCr:
@@ -1051,7 +1041,7 @@ static int vfe31_start_recording(void){
 
 static int vfe31_stop_recording(void){
 	vfe31_ctrl->req_stop_video_rec = TRUE;
-	update_axi_qos(MSM_AXI_QOS_PREVIEW);
+	msm_camio_set_perf_lvl(S_PREVIEW);
 	return 0;
 }
 
@@ -1119,7 +1109,7 @@ static int vfe31_capture(uint32_t num_frames_capture)
 	}
 	msm_io_w(irq_comp_mask, vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
-	update_axi_qos(MSM_AXI_QOS_SNAPSHOT);
+	msm_camio_set_perf_lvl(S_CAPTURE);
 	vfe31_start_common();
 	msm_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	/* for debug */
@@ -1161,7 +1151,7 @@ static int vfe31_start(void)
 		temp = msm_io_r(vfe31_ctrl->vfebase + V31_AXI_OUT_OFF + 20 +
 			24 * (vfe31_ctrl->outpath.out0.ch1));
 	}
-	update_axi_qos(MSM_AXI_QOS_PREVIEW);
+	msm_camio_set_perf_lvl(S_PREVIEW);
 	vfe31_start_common();
 	return 0;
 }
@@ -3069,6 +3059,7 @@ static int vfe31_init(struct msm_vfe_callback *presp,
 		return rc;
 	/* Bring up all the required GPIOs and Clocks */
 	rc = msm_camio_enable(pdev);
+	msm_camio_set_perf_lvl(S_INIT);
 	if (msm_vpe_open() < 0)
 		CDBG("%s: vpe_open failed\n", __func__);
 	return rc;
