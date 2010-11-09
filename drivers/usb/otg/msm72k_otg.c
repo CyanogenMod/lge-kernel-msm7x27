@@ -1019,8 +1019,10 @@ void msm_otg_set_vbus_state(int online)
 {
 	struct msm_otg *dev = the_msm_otg;
 
-	if (online)
-		msm_otg_set_suspend(&dev->otg, 0);
+	if (online) {
+		set_bit(B_SESS_VLD, &dev->inputs);
+		queue_work(dev->wq, &dev->sm_work);
+	}
 }
 
 
