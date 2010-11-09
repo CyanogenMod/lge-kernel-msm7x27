@@ -65,6 +65,7 @@ void smp_init_cpus(void)
 int boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	static int cold_boot_done;
+	int cnt = 0;
 	int ret;
 	printk(KERN_DEBUG "Starting secondary CPU %d\n", cpu);
 
@@ -98,6 +99,14 @@ int boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * the other core.
 	 */
 	smp_cross_call(cpumask_of(cpu));
+
+	while (pen_release != 0xFFFFFFFF) {
+		dmac_inv_range((void *)&pen_release,
+			       (void *)(&pen_release+sizeof(pen_release)));
+		msleep_interruptible(1);
+		if (cnt++ >= SECONDARY_CPU_WAIT_MS)
+			break;
+	}
 
 	return 0;
 }
