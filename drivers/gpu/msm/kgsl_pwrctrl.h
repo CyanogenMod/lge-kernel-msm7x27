@@ -46,6 +46,9 @@
 #define KGSL_PWRFLAGS_IRQ_ON		0x00000040
 #define KGSL_PWRFLAGS_IRQ_OFF		0x00000080
 
+#define BW_INIT 0
+#define BW_MAX  1
+
 enum kgsl_clk_freq {
 	KGSL_AXI_HIGH = 0,
 	KGSL_MIN_FREQ = 1,
@@ -67,6 +70,7 @@ struct kgsl_pwrctrl {
 	unsigned int clk_freq[KGSL_NUM_FREQ];
 	unsigned int interval_timeout;
 	struct regulator *gpu_reg;
+	uint32_t pcl;
 };
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag);

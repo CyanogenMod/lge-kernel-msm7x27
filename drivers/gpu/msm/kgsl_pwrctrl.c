@@ -19,12 +19,14 @@
 #include <linux/err.h>
 #include <mach/clk.h>
 #include <mach/dal_axi.h>
+#include <mach/msm_bus.h>
 
 #include "kgsl.h"
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
 	switch (pwrflag) {
 	case KGSL_PWRFLAGS_CLK_OFF:
 		if (pwr->power_flags & KGSL_PWRFLAGS_CLK_ON) {
@@ -39,6 +41,9 @@ int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 			if (pwr->clk_freq[KGSL_AXI_HIGH])
 				pm_qos_update_request(
 					pwr->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+			if (pwr->pcl)
+				msm_bus_scale_client_update_request(pwr->pcl,
+								    BW_INIT);
 			pwr->power_flags &=
 					~(KGSL_PWRFLAGS_CLK_ON);
 			pwr->power_flags |= KGSL_PWRFLAGS_CLK_OFF;
@@ -50,6 +55,9 @@ int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 				pm_qos_update_request(
 					pwr->pm_qos_req,
 					pwr->clk_freq[KGSL_AXI_HIGH]);
+			if (pwr->pcl)
+				msm_bus_scale_client_update_request(pwr->pcl,
+								    BW_MAX);
 			if (pwr->clk_freq[KGSL_MAX_FREQ])
 				clk_set_rate(pwr->grp_src_clk,
 					pwr->clk_freq[KGSL_MAX_FREQ]);
@@ -141,6 +149,11 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	}
 
 	pm_qos_remove_request(pwr->pm_qos_req);
+
+	if (pwr->pcl)
+		msm_bus_scale_unregister_client(pwr->pcl);
+
+	pwr->pcl = 0;
 
 	if (pwr->gpu_reg) {
 		regulator_put(pwr->gpu_reg);

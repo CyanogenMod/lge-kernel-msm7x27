@@ -26,6 +26,8 @@
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
 
+#include <mach/msm_bus.h>
+
 #include "kgsl_drawctxt.h"
 #include "kgsl.h"
 #include "kgsl_yamato.h"
@@ -587,6 +589,21 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		result = -EINVAL;
 		goto done;
 	}
+	if (pdata->grp3d_bus_scale_table != NULL) {
+		device->pwrctrl.pcl =
+		msm_bus_scale_register_client(pdata->grp3d_bus_scale_table);
+		if (!device->pwrctrl.pcl) {
+			KGSL_DRV_ERR("msm_bus_scale_register_client failed "
+				     "id %d table %p", device->id,
+				     pdata->grp3d_bus_scale_table);
+			result = -EINVAL;
+			goto done;
+		}
+	}
+
+	if (device->pwrctrl.pcl == 0)
+		printk(KERN_ERR "Unable to register the bus scale client!\n");
+
 	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_CLK;
 	device->pwrctrl.interval_timeout = pdata->idle_timeout_3d;
 
