@@ -5767,9 +5767,66 @@ static struct msm_panel_common_pdata mdp_pdata = {
 };
 
 #ifdef CONFIG_FB_MSM_TVOUT
+
+#ifdef CONFIG_MSM_BUS_SCALING
+static struct msm_bus_vectors atv_bus_init_vectors[] = {
+	/* For now, 0th array entry is reserved.
+	 * Please leave 0 as is and don't use it
+	 */
+	{
+		.src = MSM_BUS_MMSS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.ab = 0,
+		.ib = 0,
+	},
+	/* Master and slaves can be from different fabrics */
+	{
+		.src = MSM_BUS_MMSS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+static struct msm_bus_vectors atv_bus_def_vectors[] = {
+	/* For now, 0th array entry is reserved.
+	 * Please leave 0 as is and don't use it
+	 */
+	{
+		.src = MSM_BUS_MMSS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.ab = 236390400,
+		.ib = 265939200,
+	},
+	/* Master and slaves can be from different fabrics */
+	{
+		.src = MSM_BUS_MMSS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 236390400,
+		.ib = 265939200,
+	},
+};
+static struct msm_bus_paths atv_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(atv_bus_init_vectors),
+		atv_bus_init_vectors,
+	},
+	{
+		ARRAY_SIZE(atv_bus_def_vectors),
+		atv_bus_def_vectors,
+	},
+};
+static struct msm_bus_scale_pdata atv_bus_scale_pdata = {
+	atv_bus_scale_usecases,
+	ARRAY_SIZE(atv_bus_scale_usecases),
+};
+#endif
+
 static struct tvenc_platform_data atv_pdata = {
 	.poll		 = 0,
 	.pm_vid_en	 = atv_dac_power,
+#ifdef CONFIG_MSM_BUS_SCALING
+	.bus_scale_table = &atv_bus_scale_pdata,
+#endif
 };
 #endif
 

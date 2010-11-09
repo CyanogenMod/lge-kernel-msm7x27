@@ -245,6 +245,9 @@ struct lcdc_platform_data {
 struct tvenc_platform_data {
 	int poll;
 	int (*pm_vid_en)(int on);
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *bus_scale_table;
+#endif
 };
 
 struct mddi_platform_data {
