@@ -407,9 +407,9 @@ static void cy8c_ts_close(struct input_dev *dev)
 
 	free_irq(ts->pen_irq, ts);
 
-	/* power off the device */
-	if (ts->pdata->power_on)
-		ts->pdata->power_on(0);
+	gpio_free(ts->pdata->irq_gpio);
+	if (ts->pdata->resout_gpio >= 0)
+		gpio_free(ts->pdata->resout_gpio);
 }
 
 static int cy8c_ts_init_ts(struct i2c_client *client, struct cy8c_ts *ts)
@@ -714,7 +714,6 @@ error_touch_data_alloc:
 static int __devexit cy8c_ts_remove(struct i2c_client *client)
 {
 	struct cy8c_ts *ts = i2c_get_clientdata(client);
-	int rc;
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&ts->early_suspend);
@@ -723,13 +722,6 @@ static int __devexit cy8c_ts_remove(struct i2c_client *client)
 	pm_runtime_disable(&client->dev);
 
 	device_init_wakeup(&client->dev, 0);
-	rc = cancel_delayed_work_sync(&ts->work);
-
-	if (rc)
-		enable_irq(ts->pen_irq);
-
-	free_irq(ts->pen_irq, ts);
-	gpio_free(ts->pdata->irq_gpio);
 
 	destroy_workqueue(ts->wq);
 
