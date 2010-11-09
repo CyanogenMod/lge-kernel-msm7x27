@@ -195,6 +195,7 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 	int pmem_fd;
 	struct file *file;
 	s32 buffer_index = -1;
+	enum vdec_picture pic_type;
 
 	if (!client_ctx || !vcd_frame_data) {
 		ERR("vid_dec_input_frame_done() NULL pointer\n");
@@ -257,6 +258,25 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 			vcd_frame_data->dec_op_prop.disp_frm.right;
 		vdec_msg->vdec_msg_info.msgdata.output_frame.framesize.top =
 			vcd_frame_data->dec_op_prop.disp_frm.top;
+		/* Decoded picture type */
+		switch (vcd_frame_data->frame) {
+		case VCD_FRAME_I:
+			pic_type = PICTURE_TYPE_I;
+			break;
+		case VCD_FRAME_P:
+			pic_type = PICTURE_TYPE_P;
+			break;
+		case VCD_FRAME_B:
+			pic_type = PICTURE_TYPE_B;
+			break;
+		case VCD_FRAME_NOTCODED:
+			pic_type = PICTURE_TYPE_SKIP;
+			break;
+		default:
+			pic_type = PICTURE_TYPE_UNKNOWN;
+		}
+		vdec_msg->vdec_msg_info.msgdata.output_frame.pic_type =
+			pic_type;
 		vdec_msg->vdec_msg_info.msgdatasize =
 		    sizeof(struct vdec_output_frameinfo);
 	} else {
@@ -610,6 +630,25 @@ static u32 vid_dec_set_frame_rate(struct video_client_ctx *client_ctx,
 	vcd_status = vcd_set_property(client_ctx->vcd_handle,
 				      &vcd_property_hdr, &vcd_frame_rate);
 
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_set_extradata(struct video_client_ctx *client_ctx,
+					u32 *extradata_flag)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_meta_data_enable vcd_meta_data;
+	u32 vcd_status = VCD_ERR_FAIL;
+	if (!client_ctx || !extradata_flag)
+		return false;
+	vcd_property_hdr.prop_id = VCD_I_METADATA_ENABLE;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_meta_data_enable);
+	vcd_meta_data.meta_data_enable_flag = *extradata_flag;
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &vcd_meta_data);
 	if (vcd_status)
 		return false;
 	else
@@ -1368,6 +1407,20 @@ static int vid_dec_ioctl(struct inode *inode, struct file *file,
 						   sizeof(frame_rate)))
 			return -EFAULT;
 		result = vid_dec_set_frame_rate(client_ctx, &frame_rate);
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_SET_EXTRADATA:
+	{
+		u32 extradata_flag;
+		DBG("VDEC_IOCTL_SET_EXTRADATA\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&extradata_flag, vdec_msg.in,
+						   sizeof(u32)))
+			return -EFAULT;
+		result = vid_dec_set_extradata(client_ctx, &extradata_flag);
 		if (!result)
 			return -EIO;
 		break;
