@@ -67,6 +67,26 @@
 
 #define VDEC_MAX_PORTS 4
 
+/*
+ *why magic number 300?
+
+ *the Maximum size of the DAL payload is 512 bytes according to DAL protocol
+ *Initialize call to QDSP6 from scorpion need to send sequence header as part of
+ *the DAL payload. DAL payload to initialize contains the following
+
+ *1) configuration data- 52 bytes 2) length field of config data - 4 bytes
+ *3) sequence header data ( that is from the bit stream)
+ *4) length field for sequence header - 4 bytes
+ *5) length field for output structure - 4 bytes
+
+ *that left with 512 - 68 = 448 bytes. It is unusual that we get a sequence
+ *header with such a big length unless the bit stream has multiple sequence
+ *headers.We estimated 300 is good enough which gives enough room for rest
+ *of the payload and even reserves some space for future payload.
+ */
+
+#define VDEC_MAX_SEQ_HEADER_SIZE 300
+
 char *Q6Portnames[] = {
 "DAL_AQ_VID_0",
 "DAL_AQ_VID_1",
@@ -656,6 +676,12 @@ static int vdec_initialize(struct vdec_data *vd, void *argp)
 	vi_cfg.decode_done_evt = VDEC_ASYNCMSG_DECODE_DONE;
 	vi_cfg.reuse_frame_evt = VDEC_ASYNCMSG_REUSE_FRAME;
 	memcpy(&vi_cfg.cfg, &vdec_cfg_sps.cfg, sizeof(struct vdec_config));
+
+	/*
+	 * restricting the max value of the seq header
+	 */
+	if (vdec_cfg_sps.seq.len > VDEC_MAX_SEQ_HEADER_SIZE)
+		vdec_cfg_sps.seq.len = VDEC_MAX_SEQ_HEADER_SIZE;
 
 	header = kmalloc(vdec_cfg_sps.seq.len, GFP_KERNEL);
 	if (!header) {
