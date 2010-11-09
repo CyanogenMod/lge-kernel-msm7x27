@@ -166,6 +166,7 @@ static struct platform_driver mi2s_fm_driver = {
 static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 {
 	int rc = 0;
+	union afe_port_config afe_config;
 	struct snddev_mi2s_drv_state *drv = &snddev_mi2s_drv;
 	struct snddev_mi2s_data *snddev_mi2s_data = dev_info->private_data;
 
@@ -200,8 +201,12 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 	}
 	clk_enable(drv->tx_bitclk);
 
-	rc = afe_open(RSVD_1, dev_info->sample_rate,
-			 snddev_mi2s_data->channel_mode);
+	afe_config.mi2s.channel = snddev_mi2s_data->channel_mode;
+	afe_config.mi2s.bitwidth = 16;
+	afe_config.mi2s.line = 4;
+	afe_config.mi2s.ws = 1;
+	rc = afe_open(snddev_mi2s_data->copp_id, &afe_config,
+		dev_info->sample_rate);
 
 	if (rc < 0) {
 		pr_err("%s:  afe_open failed\n", __func__);
@@ -226,6 +231,7 @@ static int snddev_mi2s_close(struct msm_snddev_info *dev_info)
 {
 
 	struct snddev_mi2s_drv_state *mi2s_drv = &snddev_mi2s_drv;
+	struct snddev_mi2s_data *snddev_mi2s_data = dev_info->private_data;
 
 	if (!dev_info) {
 		pr_err("%s:  msm_snddev_info is null\n", __func__);
@@ -237,7 +243,7 @@ static int snddev_mi2s_close(struct msm_snddev_info *dev_info)
 		       " device\n", __func__);
 		return -EIO;
 	}
-	afe_close(RSVD_1);
+	afe_close(snddev_mi2s_data->copp_id);
 	clk_disable(mi2s_drv->tx_bitclk);
 	clk_disable(mi2s_drv->tx_osrclk);
 

@@ -34,8 +34,7 @@
 #define MSM_AFE_MONO_LEFT	2
 #define MSM_AFE_STEREO		3
 
-int afe_open_pcmif(struct afe_port_pcm_cfg cfg);
-int afe_open(int port_id, int rate, int channel_mode);
+int afe_open(u16 port_id, union afe_port_config *afe_config, int rate);
 int afe_close(int port_id);
 int afe_loopback(u16 enable, u16 rx_port, u16 tx_port);
 

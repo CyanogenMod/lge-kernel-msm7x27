@@ -38,7 +38,7 @@ enum {
 	SECONDARY_I2S_RX = 4,
 	SECONDARY_I2S_TX = 5,
 	MI2S_RX = 6,
-	RSVD_1 = 7,
+	MI2S_TX = 7,
 	HDMI_RX = 8,
 	RSVD_2 = 9,
 	RSVD_3 = 10,
@@ -152,7 +152,6 @@ struct afe_get_active_handles_command {
 #define AFE_PCM_CFG_CDATAOE_SHARE		0x1
 
 struct afe_port_pcm_cfg {
-	u16	port_id;
 	u16	mode;	/* PCM (short sync) = 0, AUXPCM (long sync) = 1 */
 	u16	sync;	/* external = 0 , internal = 1 */
 	u16	frame;	/* 8 bpf = 0 */
@@ -170,9 +169,9 @@ struct afe_port_pcm_cfg {
 } __attribute__ ((packed));
 
 struct afe_port_mi2s_cfg {
-	u16	port_id;
 	u16	bitwidth;	/* 16,24,32 */
-	u16	line;		/* i2s_sd0 = 1 */
+	u16	line;		/* Called ChannelMode in documentation */
+				/* i2s_sd0 = 1 */
 				/* i2s_sd1 = 2 */
 				/* i2s_sd2 = 3 */
 				/* i2s_sd3 = 4 */
@@ -180,7 +179,8 @@ struct afe_port_mi2s_cfg {
 				/* i2s_quad23 = 6 */
 				/* i2s_6chs = 7 */
 				/* i2s_8chs = 8 */
-	u16	channel;	/* i2s mono = 0 */
+	u16	channel;	/* Called MonoStereo in documentation */
+				/* i2s mono = 0 */
 				/* i2s mono right = 1 */
 				/* i2s mono left = 2 */
 				/* i2s stereo = 3 */
@@ -190,7 +190,6 @@ struct afe_port_mi2s_cfg {
 } __attribute__ ((packed));
 
 struct afe_port_hdmi_cfg {
-	u16	port_id;
 	u16	bitwidth;	/* 16,24,32 */
 	u16	channel_mode;	/* HDMI Stereo = 0 */
 				/* HDMI_3Point1 (4-ch) = 1 */
@@ -201,16 +200,18 @@ struct afe_port_hdmi_cfg {
 } __attribute__ ((packed));
 
 #define AFE_PORT_AUDIO_IF_CONFIG 0x000100d3
+
+union afe_port_config {
+	struct afe_port_pcm_cfg         pcm;
+	struct afe_port_mi2s_cfg        mi2s;
+	struct afe_port_hdmi_cfg        hdmi;
+} __attribute__((packed));
+
 struct afe_audioif_config_command {
 	struct apr_hdr hdr;
-	union {
-		struct afe_port_pcm_cfg		pcm;
-		struct afe_port_mi2s_cfg	mi2s;
-		struct afe_port_hdmi_cfg	hdmi;
-	} __attribute__((packed)) port;
+	u16 port_id;
+	union afe_port_config port;
 } __attribute__ ((packed));
-
-
 
 #define AFE_TEST_CODEC_LOOPBACK_CTL 0x000100d5
 struct afe_codec_loopback_command {

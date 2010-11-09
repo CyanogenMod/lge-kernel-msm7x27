@@ -301,6 +301,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 {
 	int trc;
 	int afe_channel_mode;
+	union afe_port_config afe_config;
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 
 	wake_lock(&drv->rx_idlelock);
@@ -364,8 +365,11 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 		afe_channel_mode = MSM_AFE_MONO;
 		break;
 	}
-
-	trc = afe_open(PRIMARY_I2S_RX, icodec->sample_rate, afe_channel_mode);
+	afe_config.mi2s.channel = afe_channel_mode;
+	afe_config.mi2s.bitwidth = 16;
+	afe_config.mi2s.line = 1;
+	afe_config.mi2s.ws = 1;
+	trc = afe_open(icodec->data->copp_id, &afe_config, icodec->sample_rate);
 
 	/* Enable ADIE */
 	if (icodec->adie_path) {
@@ -398,6 +402,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 {
 	int trc;
 	int afe_channel_mode;
+	union afe_port_config afe_config;
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;;
 
 	wake_lock(&drv->tx_idlelock);
@@ -449,8 +454,11 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 		afe_channel_mode = MSM_AFE_MONO;
 		break;
 	}
-
-	trc = afe_open(PRIMARY_I2S_TX, icodec->sample_rate, afe_channel_mode);
+	afe_config.mi2s.channel = afe_channel_mode;
+	afe_config.mi2s.bitwidth = 16;
+	afe_config.mi2s.line = 1;
+	afe_config.mi2s.ws = 1;
+	trc = afe_open(icodec->data->copp_id, &afe_config, icodec->sample_rate);
 
 	if (icodec->adie_path) {
 		adie_codec_proceed_stage(icodec->adie_path,
@@ -496,7 +504,7 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 		icodec->adie_path = NULL;
 	}
 
-	afe_close(PRIMARY_I2S_RX);
+	afe_close(icodec->data->copp_id);
 
 	if (icodec->data->voltage_off)
 		icodec->data->voltage_off();
@@ -527,7 +535,7 @@ static int snddev_icodec_close_tx(struct snddev_icodec_state *icodec)
 		icodec->adie_path = NULL;
 	}
 
-	afe_close(PRIMARY_I2S_TX);
+	afe_close(icodec->data->copp_id);
 
 	clk_disable(drv->tx_bitclk);
 	clk_disable(drv->tx_osrclk);
@@ -940,6 +948,7 @@ static void debugfs_afe_loopback(u32 loop)
 {
 	int trc;
 	int sample_rate, channel_mode;
+	union afe_port_config afe_config;
 	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
 
 	if (loop) {
@@ -957,7 +966,11 @@ static void debugfs_afe_loopback(u32 loop)
 			adie_codec_setpath(debugfs_rx_adie, 8000, 256);
 		sample_rate = 8000;
 		channel_mode = 3;  /* stereo */
-		trc = afe_open(PRIMARY_I2S_RX, sample_rate, channel_mode);
+		afe_config.mi2s.channel = channel_mode;
+		afe_config.mi2s.bitwidth = 16;
+		afe_config.mi2s.line = 1;
+		afe_config.mi2s.ws = 1;
+		trc = afe_open(PRIMARY_I2S_RX, &afe_config, sample_rate);
 		if (!trc)
 			adie_codec_proceed_stage(debugfs_rx_adie,
 				ADIE_CODEC_DIGITAL_ANALOG_READY);
@@ -977,7 +990,11 @@ static void debugfs_afe_loopback(u32 loop)
 		else
 			adie_codec_setpath(debugfs_tx_adie, 8000, 256);
 		sample_rate = 8000;
-		trc = afe_open(PRIMARY_I2S_TX, sample_rate, channel_mode);
+		afe_config.mi2s.channel = channel_mode;
+		afe_config.mi2s.bitwidth = 16;
+		afe_config.mi2s.line = 1;
+		afe_config.mi2s.ws = 1;
+		trc = afe_open(PRIMARY_I2S_TX, &afe_config, sample_rate);
 		if (!trc)
 			adie_codec_proceed_stage(debugfs_tx_adie,
 				ADIE_CODEC_DIGITAL_ANALOG_READY);

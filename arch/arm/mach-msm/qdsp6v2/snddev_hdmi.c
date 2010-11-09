@@ -35,6 +35,7 @@ static int snddev_hdmi_active;
 static int snddev_hdmi_open(struct msm_snddev_info *dev_info)
 {
 	int rc = 0;
+	union afe_port_config afe_config;
 	struct snddev_hdmi_data *snddev_hdmi_data;
 
 	if (!dev_info) {
@@ -51,9 +52,11 @@ static int snddev_hdmi_open(struct msm_snddev_info *dev_info)
 		mutex_unlock(&snddev_hdmi_lock);
 		return -EBUSY;
 	}
-
-	rc = afe_open(HDMI_RX, dev_info->sample_rate,
-		      snddev_hdmi_data->channel_mode);
+	afe_config.hdmi.channel_mode = snddev_hdmi_data->channel_mode;
+	afe_config.hdmi.bitwidth = 16;
+	afe_config.hdmi.data_type = 0;
+	rc = afe_open(snddev_hdmi_data->copp_id, &afe_config,
+		dev_info->sample_rate);
 
 	if (rc < 0) {
 		pr_err("afe_open failed\n");
