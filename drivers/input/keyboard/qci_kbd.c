@@ -523,6 +523,11 @@ static int __devinit qcikbd_probe(struct i2c_client *client,
 	set_bit(KEY_ZOOMIN, context->qcikbd_dev->keybit);
 	set_bit(KEY_ZOOMOUT, context->qcikbd_dev->keybit);
 
+#ifdef CONFIG_KEYBOARD_QCIKBD_LID
+	set_bit(EV_SW, context->qcikbd_dev->evbit);
+	set_bit(SW_LID, context->qcikbd_dev->swbit);
+#endif
+
 	input_set_drvdata(context->qcikbd_dev, context);
 	err = input_register_device(context->qcikbd_dev);
 	if (err) {
