@@ -26,6 +26,7 @@
 #include <linux/mfd/pmic8058.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
+#include <linux/ratelimit.h>
 
 #include <mach/mpp.h>
 
@@ -62,6 +63,14 @@ struct pmic8058_adc {
 static struct pmic8058_adc *pmic_adc[XOADC_PMIC_0 + 1];
 
 static bool xoadc_initialized;
+
+DEFINE_RATELIMIT_STATE(pm8058_xoadc_msg_ratelimit,
+		DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
+
+static inline int pm8058_xoadc_can_print(void)
+{
+	return __ratelimit(&pm8058_xoadc_msg_ratelimit);
+}
 
 int32_t pm8058_xoadc_registered(void)
 {
@@ -346,12 +355,22 @@ static int32_t pm8058_xoadc_dequeue_slot_request(uint32_t adc_instance,
 {
 	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
 	struct xoadc_conv_state *slot_state = adc_pmic->conv_queue_list;
+	int rc = 0;
 
 	mutex_lock(&slot_state->list_lock);
-	*slot = list_first_entry(&slot_state->slots,
+	if (adc_pmic->xoadc_queue_count) {
+		*slot = list_first_entry(&slot_state->slots,
 			struct adc_conv_slot, list);
-	list_del(&(*slot)->list);
+		list_del(&(*slot)->list);
+	} else
+		rc = -EINVAL;
 	mutex_unlock(&slot_state->list_lock);
+
+	if (rc < 0) {
+		if (pm8058_xoadc_can_print())
+			pr_err("Pmic 8058 xoadc spurious interrupt detected\n");
+		return rc;
+	}
 
 	return 0;
 }
@@ -403,9 +422,13 @@ EXPORT_SYMBOL(pm8058_xoadc_read_adc_code);
 static irqreturn_t pm8058_xoadc(int irq, void *dev_id)
 {
 	struct pmic8058_adc *xoadc_8058 = dev_id;
-	struct adc_conv_slot *slot;
+	struct adc_conv_slot *slot = NULL;
+	int rc;
 
-	pm8058_xoadc_dequeue_slot_request(xoadc_8058->xoadc_num, &slot);
+	rc = pm8058_xoadc_dequeue_slot_request(xoadc_8058->xoadc_num, &slot);
+
+	if (rc < 0)
+		return IRQ_NONE;
 
 	msm_adc_conv_cb(slot, 0, NULL, 0);
 
