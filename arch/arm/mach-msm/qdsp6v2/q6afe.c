@@ -15,6 +15,7 @@
  * 02110-1301, USA.
  */
 
+#include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/wait.h>
 #include <linux/jiffies.h>
@@ -297,6 +298,101 @@ done:
 	return ret;
 }
 
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *debugfs_afelb;
+
+static int afe_debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	pr_info("debug intf %s\n", (char *) file->private_data);
+	return 0;
+}
+
+static int afe_get_parameters(char *buf, long int *param1, int num_of_par)
+{
+	char *token;
+	int base, cnt;
+
+	token = strsep(&buf, " ");
+
+	for (cnt = 0; cnt < num_of_par; cnt++) {
+		if (token != NULL) {
+			if ((token[1] == 'x') || (token[1] == 'X'))
+				base = 16;
+			else
+				base = 10;
+
+			if (strict_strtoul(token, base, &param1[cnt]) != 0)
+				return -EINVAL;
+
+			token = strsep(&buf, " ");
+		} else
+			return -EINVAL;
+	}
+	return 0;
+}
+#define AFE_LOOPBACK_ON (1)
+#define AFE_LOOPBACK_OFF (0)
+static ssize_t afe_debug_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	char *lb_str = filp->private_data;
+	char lbuf[32];
+	int rc;
+	unsigned long param[5];
+
+	if (cnt > sizeof(lbuf) - 1)
+		return -EINVAL;
+
+	rc = copy_from_user(lbuf, ubuf, cnt);
+	if (rc)
+		return -EFAULT;
+
+	lbuf[cnt] = '\0';
+
+	if (!strcmp(lb_str, "afe_loopback")) {
+		rc = afe_get_parameters(lbuf, param, 3);
+		if (!rc) {
+			pr_info("%s %lu %lu %lu\n", lb_str, param[0], param[1],
+				param[2]);
+
+			if ((param[0] != AFE_LOOPBACK_ON) && (param[0] !=
+				AFE_LOOPBACK_OFF)) {
+				pr_err("%s: Error, parameter 0 incorrect\n",
+					__func__);
+				rc = -EINVAL;
+				goto afe_error;
+			}
+			if ((param[1] >= AFE_MAX_PORTS) || (param[2] >=
+				AFE_MAX_PORTS)) {
+				pr_err("%s: Error, invalid afe port\n",
+					__func__);
+			}
+			if (atomic_read(&this_afe.ref_cnt) == 0) {
+				pr_err("%s: Error, AFE not opened\n", __func__);
+				rc = -EINVAL;
+			} else {
+				rc = afe_loopback(param[0], param[1], param[2]);
+			}
+		} else {
+			pr_err("%s: Error, invalid parameters\n", __func__);
+			rc = -EINVAL;
+		}
+	}
+afe_error:
+	if (rc == 0)
+		rc = cnt;
+	else
+		pr_err("%s: rc = %d\n", __func__, rc);
+
+	return rc;
+}
+
+static const struct file_operations afe_debug_fops = {
+	.open = afe_debug_open,
+	.write = afe_debug_write
+};
+#endif
 
 int afe_close(int port_id)
 {
@@ -352,7 +448,21 @@ static int __init afe_init(void)
 	init_waitqueue_head(&this_afe.wait);
 	atomic_set(&this_afe.state, 0);
 	atomic_set(&this_afe.ref_cnt, 0);
+#ifdef CONFIG_DEBUG_FS
+	debugfs_afelb = debugfs_create_file("afe_loopback",
+	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback",
+	&afe_debug_fops);
+#endif
 	return 0;
 }
 
+static void __exit afe_exit(void)
+{
+#ifdef CONFIG_DEBUG_FS
+	if (debugfs_afelb)
+		debugfs_remove(debugfs_afelb);
+#endif
+}
+
 device_initcall(afe_init);
+__exitcall(afe_exit);
