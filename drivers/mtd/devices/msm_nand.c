@@ -1302,9 +1302,9 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 				dma_buffer->data.nc10_flash_dev_cmd1 =
 								0xF00F3000;
 			} else {
-				dma_buffer->data.nandc01_addr0 =
-							(page << 16) | oob_col;
-				dma_buffer->data.nandc10_addr0 = 0x108;
+				dma_buffer->data.nandc01_addr0 = page << 16;
+				dma_buffer->data.nandc10_addr0 = (page << 16) |
+									 0x108;
 				dma_buffer->data.nc10_flash_dev_cmd_vld = 0x1D;
 				dma_buffer->data.nc10_flash_dev_cmd1 =
 								0xF00FE005;
@@ -1492,17 +1492,6 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 					cmd->len = 8;
 					cmd++;
 				} else {
-					if (!interleave_enable) {
-						cmd->cmd = 0;
-						cmd->src =
-						msm_virt_to_dma(chip,
-						&dma_buffer->
-						data.nc10_flash_dev_cmd1);
-						cmd->dst =
-						NC10(MSM_NAND_DEV_CMD1);
-						cmd->len = 4;
-						cmd++;
-					}
 					/* NC01 --> ADDR0 */
 					cmd->cmd = 0;
 					cmd->src = msm_virt_to_dma(chip,
@@ -1557,6 +1546,28 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 					sectordatasize = 528;
 
 				if (n % 2 == 0) {
+					/* MASK DATA ACK/REQ --> NC10 (0xF28)*/
+					cmd->cmd = 0;
+					cmd->src = msm_virt_to_dma(chip,
+					&dma_buffer->
+					data.adm_mux_data_ack_req_nc10);
+					cmd->dst = EBI2_NAND_ADM_MUX;
+					cmd->len = 4;
+					cmd++;
+
+					/* block on data ready from NC01, then
+					 * read the status register
+					 */
+					cmd->cmd = SRC_CRCI_NAND_DATA;
+					cmd->src = NC01(MSM_NAND_FLASH_STATUS);
+					cmd->dst = msm_virt_to_dma(chip,
+						&dma_buffer->data.result[n]);
+					/* MSM_NAND_FLASH_STATUS +
+					 * MSM_NAND_BUFFER_STATUS
+					 */
+					cmd->len = 8;
+					cmd++;
+
 					/* MASK CMD ACK/REQ --> NC01 (0x53C)*/
 					cmd->cmd = 0;
 					cmd->src = msm_virt_to_dma(chip,
@@ -1582,28 +1593,6 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 					cmd->len = 4;
 					cmd++;
 
-					/* MASK DATA ACK/REQ --> NC10 (0xF28)*/
-					cmd->cmd = 0;
-					cmd->src = msm_virt_to_dma(chip,
-					&dma_buffer->
-					data.adm_mux_data_ack_req_nc10);
-					cmd->dst = EBI2_NAND_ADM_MUX;
-					cmd->len = 4;
-					cmd++;
-
-					/* block on data ready from NC01, then
-					 * read the status register
-					 */
-					cmd->cmd = SRC_CRCI_NAND_DATA;
-					cmd->src = NC01(MSM_NAND_FLASH_STATUS);
-					cmd->dst = msm_virt_to_dma(chip,
-						&dma_buffer->data.result[n]);
-					/* MSM_NAND_FLASH_STATUS +
-					 * MSM_NAND_BUFFER_STATUS
-					 */
-					cmd->len = 8;
-					cmd++;
-
 					cmd->cmd = 0;
 					cmd->src = NC01(MSM_NAND_FLASH_BUFFER);
 					cmd->dst = data_dma_addr_curr;
@@ -1611,6 +1600,30 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 					cmd->len = sectordatasize;
 					cmd++;
 				} else {
+					/* MASK DATA ACK/REQ -->
+					 * NC01 (0xA3C)
+					 */
+					cmd->cmd = 0;
+					cmd->src = msm_virt_to_dma(chip,
+					&dma_buffer->
+					data.adm_mux_data_ack_req_nc01);
+					cmd->dst = EBI2_NAND_ADM_MUX;
+					cmd->len = 4;
+					cmd++;
+
+					/* block on data ready from NC10
+					 * then read the status register
+					 */
+					cmd->cmd = SRC_CRCI_NAND_DATA;
+					cmd->src =
+					NC10(MSM_NAND_FLASH_STATUS);
+					cmd->dst = msm_virt_to_dma(chip,
+					   &dma_buffer->data.result[n]);
+					/* MSM_NAND_FLASH_STATUS +
+					 * MSM_NAND_BUFFER_STATUS
+					 */
+					cmd->len = 8;
+					cmd++;
 					if (n != cwperpage - 1) {
 						/* MASK CMD ACK/REQ -->
 						 * NC10 (0xF14)
@@ -1640,56 +1653,6 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 						cmd->dst =
 						NC01(MSM_NAND_EXEC_CMD);
 						cmd->len = 4;
-						cmd++;
-
-						/* MASK DATA ACK/REQ -->
-						 * NC01 (0xA3C)
-						 */
-						cmd->cmd = 0;
-						cmd->src = msm_virt_to_dma(chip,
-						&dma_buffer->
-						data.adm_mux_data_ack_req_nc01);
-						cmd->dst = EBI2_NAND_ADM_MUX;
-						cmd->len = 4;
-						cmd++;
-
-						/* block on data ready from NC10
-						 * then read the status register
-						 */
-						cmd->cmd = SRC_CRCI_NAND_DATA;
-						cmd->src =
-						NC10(MSM_NAND_FLASH_STATUS);
-						cmd->dst = msm_virt_to_dma(chip,
-						   &dma_buffer->data.result[n]);
-						/* MSM_NAND_FLASH_STATUS +
-						 * MSM_NAND_BUFFER_STATUS
-						 */
-						cmd->len = 8;
-						cmd++;
-					} else {
-						/* MASK DATA ACK/REQ ->
-						 * NC01 (0xA3C)
-						 */
-						cmd->cmd = 0;
-						cmd->src = msm_virt_to_dma(chip,
-						&dma_buffer->
-						data.adm_mux_data_ack_req_nc01);
-						cmd->dst = EBI2_NAND_ADM_MUX;
-						cmd->len = 4;
-						cmd++;
-
-						/* block on data ready from NC10
-						 * then read the status register
-						 */
-						cmd->cmd = SRC_CRCI_NAND_DATA;
-						cmd->src =
-						NC10(MSM_NAND_FLASH_STATUS);
-						cmd->dst = msm_virt_to_dma(chip,
-						   &dma_buffer->data.result[n]);
-						/* MSM_NAND_FLASH_STATUS +
-						 * MSM_NAND_BUFFER_STATUS
-						 */
-						cmd->len = 8;
 						cmd++;
 					}
 					cmd->cmd = 0;
@@ -2673,13 +2636,6 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 			}
 
 			if (n % 2 == 0) {
-				/* kick the NC01 execute register */
-				cmd->cmd = 0;
-				cmd->src = msm_virt_to_dma(chip,
-						&dma_buffer->data.exec);
-				cmd->dst = NC01(MSM_NAND_EXEC_CMD);
-				cmd->len = 4;
-				cmd++;
 				if (n != 0) {
 					/* MASK DATA ACK/REQ --> NC01 (0xA3C)*/
 					cmd->cmd = 0;
@@ -2700,15 +2656,14 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 					cmd->len = 4;
 					cmd++;
 				}
-			} else {
-				/* kick the execute register */
+				/* kick the NC01 execute register */
 				cmd->cmd = 0;
-				cmd->src =
-				msm_virt_to_dma(chip, &dma_buffer->data.exec);
-				cmd->dst = NC10(MSM_NAND_EXEC_CMD);
+				cmd->src = msm_virt_to_dma(chip,
+						&dma_buffer->data.exec);
+				cmd->dst = NC01(MSM_NAND_EXEC_CMD);
 				cmd->len = 4;
 				cmd++;
-
+			} else {
 				/* MASK DATA ACK/REQ --> NC10 (0xF28)*/
 				cmd->cmd = 0;
 				cmd->src = msm_virt_to_dma(chip,
@@ -2724,6 +2679,14 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 				cmd->src = NC01(MSM_NAND_FLASH_STATUS);
 				cmd->dst = msm_virt_to_dma(chip,
 				&dma_buffer->data.flash_status[n-1]);
+				cmd->len = 4;
+				cmd++;
+
+				/* kick the execute register */
+				cmd->cmd = 0;
+				cmd->src =
+				msm_virt_to_dma(chip, &dma_buffer->data.exec);
+				cmd->dst = NC10(MSM_NAND_EXEC_CMD);
 				cmd->len = 4;
 				cmd++;
 			}
