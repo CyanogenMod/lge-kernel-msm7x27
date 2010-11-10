@@ -1437,7 +1437,7 @@ static struct platform_device rpm_vreg_device[RPM_VREG_ID_MAX] = {
 	RPM_VREG(RPM_VREG_ID_PM8901_MVS0),
 };
 
-static struct platform_device *early_devices[] __initdata = {
+static struct platform_device *early_regulators[] __initdata = {
 	&msm_device_saw_s0,
 	&msm_device_saw_s1,
 #ifdef CONFIG_PMIC8058
@@ -3645,13 +3645,24 @@ static void __init msm8x60_init(void)
 		printk(KERN_ERR "%s: socinfo_init() failed!\n",
 		       __func__);
 
-	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
-	msm_clock_temp_force_on();
+
 	/* initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
 	 */
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
-	platform_add_devices(early_devices, ARRAY_SIZE(early_devices));
+
+	/*
+	 * Disable regulator info printing so that regulator registration
+	 * messages do not enter the kmsg log.
+	 */
+	regulator_suppress_info_printing();
+
+	/* Initialize regulators needed for clock_init. */
+	platform_add_devices(early_regulators, ARRAY_SIZE(early_regulators));
+
+	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
+	msm_clock_temp_force_on();
+
 	msm_acpu_clock_init(&msm8x60_acpu_clock_data);
 
 	msm8x60_init_ebi2();
