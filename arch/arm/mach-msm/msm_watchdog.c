@@ -31,11 +31,9 @@
 #define TCSR_BASE 0x16B00000
 #define TCSR_WDT_CFG 0x30
 
-#define MSM_TMR_BASE_CPU0 (MSM_TMR_BASE + 0x40000)
-
-#define WDT0_RST	(MSM_TMR_BASE_CPU0 + 0x38)
-#define WDT0_EN		(MSM_TMR_BASE_CPU0 + 0x40)
-#define WDT0_BARK_TIME	(MSM_TMR_BASE_CPU0 + 0x4C)
+#define WDT0_RST	(MSM_TMR0_BASE + 0x38)
+#define WDT0_EN		(MSM_TMR0_BASE + 0x40)
+#define WDT0_BARK_TIME	(MSM_TMR0_BASE + 0x4C)
 
 /* Watchdog pet interval in ms */
 #define PET_DELAY 300
