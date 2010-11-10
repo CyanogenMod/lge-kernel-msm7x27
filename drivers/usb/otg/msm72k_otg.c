@@ -664,6 +664,12 @@ static int msm_otg_suspend(struct msm_otg *dev)
 			goto out;
 		}
 		msleep(1);
+		/* check if there are any pending interrupts*/
+		if (((readl(USB_OTGSC) & OTGSC_INTR_MASK) >> 8) &
+				readl(USB_OTGSC)) {
+			enable_idabc(dev);
+			goto out;
+		}
 	}
 
 	writel(readl(USB_USBCMD) | ASYNC_INTR_CTRL | ULPI_STP_CTRL, USB_USBCMD);
@@ -701,10 +707,6 @@ static int msm_otg_suspend(struct msm_otg *dev)
 
 out:
 	enable_irq(dev->irq);
-
-	/* TBD: as there is no bus suspend implemented as of now
-	 * it should be dummy check
-	 */
 
 	return 0;
 }
