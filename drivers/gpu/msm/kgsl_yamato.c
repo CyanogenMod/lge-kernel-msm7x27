@@ -601,9 +601,6 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		}
 	}
 
-	if (device->pwrctrl.pcl == 0)
-		printk(KERN_ERR "Unable to register the bus scale client!\n");
-
 	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_CLK;
 	device->pwrctrl.interval_timeout = pdata->idle_timeout_3d;
 
