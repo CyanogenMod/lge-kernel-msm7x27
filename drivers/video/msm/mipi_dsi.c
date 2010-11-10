@@ -50,6 +50,7 @@ static int mipi_dsi_on(struct platform_device *pdev);
 static struct clk *dsi_byte_div_clk;
 static struct clk *dsi_esc_clk;
 static struct clk *dsi_m_pclk;
+static struct clk *dsi_s_pclk;
 static struct clk *amp_pclk;
 
 static char *mmss_cc_base;	/* mutimedia sub system clock control */
@@ -375,6 +376,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	clk_disable(dsi_esc_clk);
 	clk_disable(dsi_byte_div_clk);
 	clk_disable(dsi_m_pclk);
+	clk_disable(dsi_s_pclk);
 	clk_disable(amp_pclk); /* clock for AHB-master to AXI */
 
 	/* disbale dsi engine */
@@ -413,6 +415,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	clk_enable(amp_pclk); /* clock for AHB-master to AXI */
 	clk_enable(dsi_m_pclk);
+	clk_enable(dsi_s_pclk);
 	clk_enable(dsi_byte_div_clk);
 	clk_enable(dsi_esc_clk);
 
@@ -673,6 +676,12 @@ static int __init mipi_dsi_driver_init(void)
 		return PTR_ERR(dsi_m_pclk);
 	}
 
+	dsi_s_pclk = clk_get(NULL, "dsi_s_pclk");
+	if (IS_ERR(dsi_s_pclk)) {
+		printk(KERN_ERR "can't find dsi_s_pclk\n");
+		return PTR_ERR(dsi_s_pclk);
+	}
+
 	dsi_byte_div_clk = clk_get(NULL, "dsi_byte_div_clk");
 	if (IS_ERR(dsi_byte_div_clk)) {
 		printk(KERN_ERR "can't find dsi_byte_div_clk\n");
@@ -695,6 +704,8 @@ static int __init mipi_dsi_driver_init(void)
 		clk_put(amp_pclk);
 		clk_disable(dsi_m_pclk);
 		clk_put(dsi_m_pclk);
+		clk_disable(dsi_s_pclk);
+		clk_put(dsi_s_pclk);
 		clk_disable(dsi_byte_div_clk);
 		clk_put(dsi_byte_div_clk);
 		clk_disable(dsi_esc_clk);
