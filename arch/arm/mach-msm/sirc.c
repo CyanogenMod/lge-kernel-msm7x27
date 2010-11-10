@@ -1,6 +1,6 @@
 /* linux/arch/arm/mach-msm/irq.c
  *
- * Copyright (c) 2009-2010 QUALCOMM Incorporated.
+ * Copyright (c) 2009-2010 Code Aurora Forum. All rights reserved.
  * Copyright (C) 2009 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
