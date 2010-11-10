@@ -2019,13 +2019,16 @@ static struct platform_device rpm_vreg_device[RPM_VREG_ID_MAX] = {
 	RPM_VREG(RPM_VREG_ID_PM8901_MVS0),
 };
 
-static struct platform_device *early_devices[] __initdata = {
+static struct platform_device *early_regulators[] __initdata = {
 	&msm_device_saw_s0,
 	&msm_device_saw_s1,
 #ifdef CONFIG_PMIC8058
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_S0],
 	&rpm_vreg_device[RPM_VREG_ID_PM8058_S1],
 #endif
+};
+
+static struct platform_device *early_devices[] __initdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	&msm_bus_apps_fabric,
 	&msm_bus_sys_fabric,
@@ -6135,9 +6138,6 @@ static void __init msm8x60_init(void)
 		       __func__);
 	msm8x60_check_2d_hardware();
 
-	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
-	msm_clock_temp_force_on();
-
 	/*
 	 * Initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
@@ -6152,6 +6152,13 @@ static void __init msm8x60_init(void)
 	 * messages do not enter the kmsg log.
 	 */
 	regulator_suppress_info_printing();
+
+	/* Initialize regulators needed for clock_init. */
+	platform_add_devices(early_regulators, ARRAY_SIZE(early_regulators));
+
+	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
+	msm_clock_temp_force_on();
+
 	/* Buses need to be initialized before early-device registration
 	 * to get the platform data for fabrics.
 	 */
