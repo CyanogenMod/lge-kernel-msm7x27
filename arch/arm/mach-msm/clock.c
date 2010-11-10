@@ -194,7 +194,7 @@ static int axi_freq_notifier_handler(struct notifier_block *block,
 		/* On 7x30/8x55, ebi1_clk votes are dropped during power
 		 * collapse, but pbus_clk votes are not. Use pbus_clk to
 		 * implicitly request ebi1 and AXI rates. */
-		return clk_set_min_rate(pbus_clk, min_freq/2);
+		return clk_set_min_rate(pbus_clk, min_freq);
 	case MSM_CPU_8X60:
 		/* The bus driver handles ebi1_clk requests on 8x60. */
 		return 0;

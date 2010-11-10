@@ -1008,7 +1008,14 @@ struct clk msm_clocks_7x30[] = {
 	CLK_PCOM("uart_clk",	UART3_CLK,	&msm_device_uart3.dev, OFF),
 	CLK_PCOM("usb_phy_clk",	USB_PHY_CLK,	NULL, 0),
 	CLK_PCOM("vdc_clk",	VDC_CLK,	NULL, OFF | CLK_MIN),
-	CLK_PCOM("pbus_clk",	PBUS_CLK,	NULL, CLK_MIN),
+	{
+		.name = "pbus_clk",
+		.id = P_PBUS_CLK,
+		.remote_id = P_PBUS_CLK,
+		.ops = &clk_ops_pcom_div2,
+		.flags = CLK_MIN,
+		.dbg_name = "pbus_clk",
+	},
 
 	CLK_7X30("adm_clk",	ADM_CLK,	NULL, 0),
 	CLK_7X30L("adm_pclk",   ADM_P_CLK,       NULL, 0),
