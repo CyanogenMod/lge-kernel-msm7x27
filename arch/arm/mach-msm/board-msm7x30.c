@@ -1492,6 +1492,7 @@ static int __init buses_init(void)
 
 static struct vreg *vreg_marimba_1;
 static struct vreg *vreg_marimba_2;
+static struct vreg *vreg_marimba_3;
 
 static struct msm_gpio timpani_reset_gpio_cfg[] = {
 { GPIO_CFG(TIMPANI_RESET_GPIO, 0, GPIO_CFG_OUTPUT,
@@ -1575,6 +1576,34 @@ static void msm_timpani_shutdown_power(void)
 
 	msm_gpios_free(timpani_reset_gpio_cfg,
 				   ARRAY_SIZE(timpani_reset_gpio_cfg));
+};
+
+static unsigned int msm_bahama_setup_power(void)
+{
+	int rc;
+
+	rc = vreg_enable(vreg_marimba_3);
+	if (rc) {
+		printk(KERN_ERR "%s: vreg_enable() = %d\n",
+				__func__, rc);
+	}
+
+	return rc;
+};
+
+static unsigned int msm_bahama_shutdown_power(int value)
+{
+	int rc = 0;
+
+	if (value != BAHAMA_ID) {
+		rc = vreg_disable(vreg_marimba_3);
+		if (rc) {
+			printk(KERN_ERR "%s: return val: %d\n",
+					__func__, rc);
+		}
+	}
+
+	return rc;
 };
 
 static unsigned int msm_marimba_setup_power(void)
@@ -1711,6 +1740,9 @@ static struct marimba_fm_platform_data marimba_fm_pdata = {
 #define MARIMBA_SLAVE_ID_FM_ADDR	0x2A
 #define MARIMBA_SLAVE_ID_CDC_ADDR	0x77
 #define MARIMBA_SLAVE_ID_QMEMBIST_ADDR	0X66
+
+#define BAHAMA_SLAVE_ID_FM_ADDR         0x2A
+#define BAHAMA_SLAVE_ID_QMEMBIST_ADDR   0x7B
 
 static const char *tsadc_id = "MADC";
 static const char *vregs_tsadc_name[] = {
@@ -1895,20 +1927,27 @@ static struct marimba_platform_data marimba_pdata = {
 	.slave_id[MARIMBA_SLAVE_ID_FM]       = MARIMBA_SLAVE_ID_FM_ADDR,
 	.slave_id[MARIMBA_SLAVE_ID_CDC]	     = MARIMBA_SLAVE_ID_CDC_ADDR,
 	.slave_id[MARIMBA_SLAVE_ID_QMEMBIST] = MARIMBA_SLAVE_ID_QMEMBIST_ADDR,
+	.slave_id[SLAVE_ID_BAHAMA_FM]        = BAHAMA_SLAVE_ID_FM_ADDR,
+	.slave_id[SLAVE_ID_BAHAMA_QMEMBIST]  = BAHAMA_SLAVE_ID_QMEMBIST_ADDR,
 	.marimba_setup = msm_marimba_setup_power,
 	.marimba_shutdown = msm_marimba_shutdown_power,
+	.bahama_setup = msm_bahama_setup_power,
+	.bahama_shutdown = msm_bahama_shutdown_power,
 	.fm = &marimba_fm_pdata,
 	.codec = &mariba_codec_pdata,
 };
 
 static void __init msm7x30_init_marimba(void)
 {
+	int rc;
+
 	vreg_marimba_1 = vreg_get(NULL, "s3");
 	if (IS_ERR(vreg_marimba_1)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
 			__func__, PTR_ERR(vreg_marimba_1));
 		return;
 	}
+	rc = vreg_set_level(vreg_marimba_1, 1800);
 
 	vreg_marimba_2 = vreg_get(NULL, "gp16");
 	if (IS_ERR(vreg_marimba_1)) {
@@ -1916,6 +1955,15 @@ static void __init msm7x30_init_marimba(void)
 			__func__, PTR_ERR(vreg_marimba_1));
 		return;
 	}
+	rc = vreg_set_level(vreg_marimba_2, 1200);
+
+	vreg_marimba_3 = vreg_get(NULL, "usb2");
+	if (IS_ERR(vreg_marimba_3)) {
+		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
+			__func__, PTR_ERR(vreg_marimba_3));
+		return;
+	}
+	rc = vreg_set_level(vreg_marimba_3, 1800);
 }
 
 static struct marimba_codec_platform_data timpani_codec_pdata = {
