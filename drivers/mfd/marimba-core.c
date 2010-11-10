@@ -30,13 +30,14 @@
 
 #define MARIMBA_MODE				0x00
 
-static int marimba_shadow[MARIMBA_NUM_CHILD][0xff];
+#define ADIE_ARRY_SIZE  (CHIP_ID_MAX * MARIMBA_NUM_CHILD)
 
-static bool inuse;
+static int marimba_shadow[ADIE_ARRY_SIZE][0xff];
 
-struct marimba marimba_modules[MARIMBA_NUM_CHILD + 1];
+struct marimba marimba_modules[ADIE_ARRY_SIZE];
 
 #define MARIMBA_VERSION_REG		0x11
+#define MARIMBA_MODE_REG		0x00
 
 #ifdef CONFIG_I2C_SSBI
 #define NUM_ADD	MARIMBA_NUM_CHILD
@@ -258,7 +259,8 @@ int timpani_write(struct marimba *marimba, u8 reg,
 }
 EXPORT_SYMBOL(timpani_write);
 
-static int cur_codec_type = -1;
+static int cur_codec_type = -1, cur_adie_type = -1, cur_connv_type = -1;
+static int adie_arry_idx;
 
 int adie_get_detected_codec_type(void)
 {
@@ -266,12 +268,18 @@ int adie_get_detected_codec_type(void)
 }
 EXPORT_SYMBOL(adie_get_detected_codec_type);
 
+int adie_get_detected_connectivity_type(void)
+{
+	return cur_connv_type;
+}
+EXPORT_SYMBOL(adie_get_detected_connectivity_type);
+
 static struct device *
-add_numbered_child(unsigned chip, const char *name, int num,
+add_numbered_child(unsigned chip, const char *name, int num, u8 driver_data,
 					void *pdata, unsigned pdata_len)
 {
 	struct platform_device *pdev;
-	struct marimba  *marimba = &marimba_modules[chip];
+	struct marimba  *marimba = &marimba_modules[chip + adie_arry_idx];
 	int status = 0;
 
 	pdev = platform_device_alloc(name, num);
@@ -282,7 +290,7 @@ add_numbered_child(unsigned chip, const char *name, int num,
 
 	pdev->dev.parent = &marimba->client->dev;
 
-	marimba->mod_id = chip;
+	marimba->mod_id = chip + adie_arry_idx;
 
 	platform_set_drvdata(pdev, marimba);
 
@@ -300,16 +308,17 @@ err:
 	if (status < 0) {
 		platform_set_drvdata(pdev, NULL);
 		platform_device_put(pdev);
-		dev_err(&marimba->client->dev, "can't add %s dev \n", name);
+		dev_err(&marimba->client->dev, "can't add %s dev\n", name);
 		return ERR_PTR(status);
 	}
 	return &pdev->dev;
 }
 
 static inline struct device *add_child(unsigned chip, const char *name,
-						void *pdata, unsigned pdata_len)
+		u8 driver_data, void *pdata, unsigned pdata_len)
 {
-	return add_numbered_child(chip, name, -1, pdata, pdata_len);
+	return add_numbered_child(chip, name, -1, driver_data, pdata,
+								pdata_len);
 }
 
 static int marimba_add_child(struct marimba_platform_data *pdata,
@@ -317,31 +326,36 @@ static int marimba_add_child(struct marimba_platform_data *pdata,
 {
 	struct device	*child;
 
-	/* Add BT,FM and TS for Marimba only */
-	if (driver_data == MARIMBA_ID) {
+	if (cur_adie_type == MARIMBA_ID) {
 		child = add_child(MARIMBA_SLAVE_ID_FM, "marimba_fm",
-					  pdata->fm, sizeof(*pdata->fm));
+			driver_data, pdata->fm, sizeof(*pdata->fm));
+		if (IS_ERR(child))
+			return PTR_ERR(child);
+	} else if ((cur_adie_type == BAHAMA_ID) &&
+			(cur_connv_type == BAHAMA_ID)) {
+		child = add_child(BAHAMA_SLAVE_ID_FM_ID, "marimba_fm",
+			driver_data, pdata->fm, sizeof(*pdata->fm));
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 	}
 
 	/* Add Codec for Marimba and Timpani */
-	if (driver_data == MARIMBA_ID) {
+	if (cur_adie_type == MARIMBA_ID) {
 		child = add_child(MARIMBA_SLAVE_ID_CDC, "marimba_codec",
-					  pdata->codec, sizeof(*pdata->codec));
+			driver_data, pdata->codec, sizeof(*pdata->codec));
 		if (IS_ERR(child))
 			return PTR_ERR(child);
-	} else if (driver_data == TIMPANI_ID) {
+	} else if (cur_adie_type == TIMPANI_ID) {
 		child = add_child(MARIMBA_SLAVE_ID_CDC, "timpani_codec",
-					  pdata->codec, sizeof(*pdata->codec));
+			driver_data, pdata->codec, sizeof(*pdata->codec));
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 	}
 
 #if defined(CONFIG_I2C_SSBI)
-	if (pdata->tsadc != NULL) {
+	if ((pdata->tsadc != NULL) && (cur_adie_type != BAHAMA_ID)) {
 		child = add_child(MARIMBA_ID_TSADC, "marimba_tsadc",
-				pdata->tsadc, sizeof(*pdata->tsadc));
+			driver_data, pdata->tsadc, sizeof(*pdata->tsadc));
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 	}
@@ -349,45 +363,57 @@ static int marimba_add_child(struct marimba_platform_data *pdata,
 	return 0;
 }
 
-static int get_codec_type(void)
+static int get_adie_type(void)
 {
-
-	struct marimba *marimba = &marimba_modules[MARIMBA_SLAVE_ID_MARIMBA];
 	u8 rd_val;
 	int ret;
 
-	marimba->mod_id = MARIMBA_SLAVE_ID_MARIMBA;
+	struct marimba *marimba = &marimba_modules[ADIE_ARRY_SIZE - 1];
+
+	marimba->mod_id = ADIE_ARRY_SIZE - 1;
 	/* Enable the Mode for Marimba/Timpani */
-	ret = marimba_read(marimba, MARIMBA_VERSION_REG, &rd_val, 1);
+	ret = marimba_read(marimba, MARIMBA_MODE_REG, &rd_val, 1);
 
 	if (ret >= 0) {
-		if (rd_val & 0x20) {
-			return TIMPANI_ID;
+		if (rd_val & 0x80) {
+			cur_adie_type = BAHAMA_ID;
+			return cur_adie_type;
 		} else {
-			ret = marimba_read(marimba, 0x02, &rd_val, 1);
-			if (rd_val == 0x77)
-				return MARIMBA_ID;
+			ret = marimba_read(marimba,
+				MARIMBA_VERSION_REG, &rd_val, 1);
+			if ((ret >= 0) && (rd_val & 0x20)) {
+				cur_adie_type = TIMPANI_ID;
+				return cur_adie_type;
+			} else if (ret >= 0) {
+				cur_adie_type = MARIMBA_ID;
+				return cur_adie_type;
+			}
 		}
 	}
 
-	return -ENODEV;
+	return ret;
 }
 
 static void marimba_init_reg(struct i2c_client *client, u8 driver_data)
 {
 	struct marimba_platform_data *pdata = client->dev.platform_data;
-	struct marimba *marimba = &marimba_modules[MARIMBA_SLAVE_ID_MARIMBA];
-	int i;
+	struct marimba *marimba =
+		&marimba_modules[MARIMBA_SLAVE_ID_MARIMBA + adie_arry_idx];
+
 	u8 buf[1];
 
 	buf[0] = 0x10;
 
-	marimba->mod_id = MARIMBA_SLAVE_ID_MARIMBA;
-	/* Enable the Mode for Marimba/Timpani */
-	marimba_write(marimba, MARIMBA_MODE, buf, 1);
-
-	for (i = (driver_data+1); i < MARIMBA_NUM_CHILD; i++)
-		marimba_write(marimba, i , &pdata->slave_id[i], 1);
+	if (cur_adie_type != BAHAMA_ID) {
+		marimba->mod_id = MARIMBA_SLAVE_ID_MARIMBA + adie_arry_idx;
+		/* Enable the Mode for Marimba/Timpani */
+		marimba_write(marimba, MARIMBA_MODE, buf, 1);
+	} else if ((cur_adie_type == BAHAMA_ID) &&
+				(cur_connv_type == BAHAMA_ID)) {
+		marimba->mod_id = MARIMBA_SLAVE_ID_MARIMBA + adie_arry_idx;
+		marimba_write(marimba, BAHAMA_SLAVE_ID_FM_ID,
+				&pdata->slave_id[SLAVE_ID_BAHAMA_FM], 1);
+	}
 }
 
 static int marimba_probe(struct i2c_client *client,
@@ -396,7 +422,8 @@ static int marimba_probe(struct i2c_client *client,
 	struct marimba_platform_data *pdata = client->dev.platform_data;
 	struct i2c_adapter *ssbi_adap;
 	struct marimba *marimba;
-	int i, status;
+	int i, status, rc, client_loop, adie_slave_idx_offset;
+	int rc_bahama = 0, rc_marimba = 0;
 
 	if (!pdata) {
 		dev_dbg(&client->dev, "no platform data?\n");
@@ -408,41 +435,67 @@ static int marimba_probe(struct i2c_client *client,
 		return -EIO;
 	}
 
-	if (inuse) {
-		dev_dbg(&client->dev, "driver already in use\n");
-		return -EBUSY;
+	/* First, identify the codec type */
+	if (pdata->marimba_setup != NULL) {
+		rc_marimba = pdata->marimba_setup();
+		if (rc_marimba)
+			pdata->marimba_shutdown();
 	}
 
-	/* First, identify the codec type */
-	if (pdata->marimba_setup != NULL)
-		pdata->marimba_setup();
+	if (pdata->bahama_setup != NULL &&
+		cur_connv_type != BAHAMA_ID) {
+		rc_bahama = pdata->bahama_setup();
+		if (rc_bahama)
+			pdata->bahama_shutdown(cur_connv_type);
+	}
 
-	marimba = &marimba_modules[0];
-			marimba->client = client;
+	if (rc_marimba & rc_bahama)
+		return -EAGAIN;
+
+	marimba = &marimba_modules[ADIE_ARRY_SIZE - 1];
+	marimba->client = client;
 	mutex_init(&marimba->xfer_lock);
 
-	if (get_codec_type() != (int)id->driver_data) {
+	rc = get_adie_type();
+
+	mutex_destroy(&marimba->xfer_lock);
+
+	if (rc < 0) {
+		if (pdata->bahama_setup != NULL)
+			pdata->bahama_shutdown(cur_adie_type);
 		if (pdata->marimba_shutdown != NULL)
 			pdata->marimba_shutdown();
-		status = -ENODEV;
-		mutex_destroy(&marimba->xfer_lock);
-		goto fail;
-
-		} else {
-		cur_codec_type = (int)id->driver_data;
-		dev_dbg(&client->dev, "Device %d available\n",
-			(int)id->driver_data);
+		return 0;
 	}
 
-	for (i = 1; i <= NUM_ADD; i++) {
+	if (rc < 2) {
+		adie_arry_idx = 0;
+		adie_slave_idx_offset = 0;
+		client_loop = 0;
+		cur_codec_type = rc;
+		if (cur_connv_type < 0)
+			cur_connv_type = rc;
+		if (pdata->bahama_shutdown != NULL)
+			pdata->bahama_shutdown(cur_connv_type);
+	} else {
+		adie_arry_idx = 5;
+		adie_slave_idx_offset = 5;
+		client_loop = 1;
+		cur_connv_type = rc;
+	}
 
+	marimba = &marimba_modules[adie_arry_idx];
+	marimba->client = client;
+	mutex_init(&marimba->xfer_lock);
+
+	for (i = 1; i <= (NUM_ADD - client_loop); i++) {
 		/* Skip adding BT/FM for Timpani */
-		if (i == 1 && id->driver_data == TIMPANI_ID)
+		if (i == 1 && rc >= 1)
 			i++;
-		marimba = &marimba_modules[i];
+		marimba = &marimba_modules[i + adie_arry_idx];
 		if (i != MARIMBA_ID_TSADC)
 			marimba->client = i2c_new_dummy(client->adapter,
-						pdata->slave_id[i]);
+				pdata->slave_id[i + adie_slave_idx_offset]);
 		else {
 			ssbi_adap = i2c_get_adapter(MARIMBA_SSBI_ADAP);
 			marimba->client = i2c_new_dummy(ssbi_adap,
@@ -460,8 +513,6 @@ static int marimba_probe(struct i2c_client *client,
 		mutex_init(&marimba->xfer_lock);
 	}
 
-	inuse = true;
-
 	marimba_init_reg(client, id->driver_data);
 
 	status = marimba_add_child(pdata, id->driver_data);
@@ -478,7 +529,7 @@ static int __devexit marimba_remove(struct i2c_client *client)
 	struct marimba_platform_data *pdata;
 
 	pdata = client->dev.platform_data;
-	for (i = 0; i <= MARIMBA_NUM_CHILD; i++) {
+	for (i = 0; i <= ADIE_ARRY_SIZE; i++) {
 		struct marimba *marimba = &marimba_modules[i];
 
 		if (marimba->client && marimba->client != client)
@@ -503,7 +554,7 @@ MODULE_DEVICE_TABLE(i2c, marimba_id_table);
 static struct i2c_driver marimba_driver = {
 		.driver			= {
 			.owner		=	THIS_MODULE,
-			.name		= 	"marimba-core",
+			.name		=	"marimba-core",
 		},
 		.id_table		=	marimba_id_table,
 		.probe			=	marimba_probe,
