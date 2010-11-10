@@ -255,10 +255,6 @@ static void voice_auddev_cb_function(u32 evt_id,
 				v->dev_state = DEV_REL_DONE;
 				wake_up(&v->dev_wait);
 			} else {
-				/* send mute and default volume value to MCAD */
-				v->dev_tx.mute = v->default_mute_val;
-				v->dev_rx.volume = v->default_vol_val;
-				voice_cmd_device_info(v);
 				/* send device change to modem */
 				voice_cmd_change();
 				rc = wait_event_interruptible(
