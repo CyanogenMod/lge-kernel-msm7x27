@@ -981,7 +981,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 	} else {
 		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_auto_chgfail_handler,
-				  IRQF_TRIGGER_HIGH, res->name, NULL);
+				  IRQF_TRIGGER_RISING, res->name, NULL);
 		if (ret < 0) {
 			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
 				__func__, res->start, ret);
@@ -1019,7 +1019,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 	} else {
 		ret = request_threaded_irq(res->start, NULL,
 				  pm8058_chg_fastchg_handler,
-				  IRQF_TRIGGER_HIGH, res->name, NULL);
+				  IRQF_TRIGGER_RISING, res->name, NULL);
 		if (ret < 0) {
 			dev_err(pm8058_chg.dev, "%s:couldnt request %d %d\n",
 				__func__, res->start, ret);
