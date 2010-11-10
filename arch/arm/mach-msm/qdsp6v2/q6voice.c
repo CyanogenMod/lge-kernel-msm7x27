@@ -34,7 +34,6 @@
 #define TIMEOUT_MS 3000
 #define SNDDEV_CAP_TTY 0x20
 
-
 #define BUFFER_PAYLOAD_SIZE 4000
 
 struct voice_data {
@@ -490,14 +489,81 @@ done:
 	return 0;
 }
 
-static int voice_start_modem_voice(struct voice_data *v)
+static int voice_send_start_voice_cmd(struct voice_data *v)
+{
+	struct apr_hdr mvm_start_voice_cmd;
+	int ret = 0;
+
+	mvm_start_voice_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mvm_start_voice_cmd.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(mvm_start_voice_cmd) - APR_HDR_SIZE);
+	pr_info("send mvm_start_voice_cmd pkt size = %d\n",
+				mvm_start_voice_cmd.pkt_size);
+	mvm_start_voice_cmd.src_port = 0;
+	mvm_start_voice_cmd.dest_port = v->mvm_handle;
+	mvm_start_voice_cmd.token = 0;
+	mvm_start_voice_cmd.opcode = VSS_IMVM_CMD_START_VOICE;
+
+	v->mvm_state = 1;
+	ret = apr_send_pkt(v->apr_mvm, (uint32_t *) &mvm_start_voice_cmd);
+	if (ret < 0) {
+		pr_err("Fail in sending VSS_IMVM_CMD_START_VOICE\n");
+		goto fail;
+	}
+	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto fail;
+	}
+	return 0;
+fail:
+	return -EINVAL;
+}
+
+static int voice_send_stop_voice_cmd(struct voice_data *v)
+{
+	struct apr_hdr mvm_stop_voice_cmd;
+	int ret = 0;
+
+	mvm_stop_voice_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mvm_stop_voice_cmd.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(mvm_stop_voice_cmd) - APR_HDR_SIZE);
+	pr_info("send mvm_stop_voice_cmd pkt size = %d\n",
+				mvm_stop_voice_cmd.pkt_size);
+	mvm_stop_voice_cmd.src_port = 0;
+	mvm_stop_voice_cmd.dest_port = v->mvm_handle;
+	mvm_stop_voice_cmd.token = 0;
+	mvm_stop_voice_cmd.opcode = VSS_IMVM_CMD_STOP_VOICE;
+
+	v->mvm_state = 1;
+	ret = apr_send_pkt(v->apr_mvm, (uint32_t *) &mvm_stop_voice_cmd);
+	if (ret < 0) {
+		pr_err("Fail in sending VSS_IMVM_CMD_STOP_VOICE\n");
+		goto fail;
+	}
+	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
+					msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto fail;
+	}
+
+	return 0;
+fail:
+	return -EINVAL;
+}
+
+static int voice_setup_modem_voice(struct voice_data *v)
 {
 	struct cvp_create_full_ctl_session_cmd cvp_session_cmd;
 	struct apr_hdr cvp_enable_cmd;
 	struct mvm_attach_vocproc_cmd mvm_a_vocproc_cmd;
-	struct apr_hdr mvm_start_voice_cmd;
 	int ret = 0;
 	struct msm_snddev_info *dev_tx_info;
+
 
 	/* create cvp session and wait for response */
 	cvp_session_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -614,66 +680,16 @@ static int voice_start_modem_voice(struct voice_data *v)
 	/* send tty mode if tty device is used */
 	voice_send_tty_mode_to_modem(v);
 
-	/* start voice and wait for response */
-	mvm_start_voice_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-					APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	mvm_start_voice_cmd.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-				sizeof(mvm_start_voice_cmd) - APR_HDR_SIZE);
-	pr_info("send mvm_start_voice_cmd pkt size = %d\n",
-				mvm_start_voice_cmd.pkt_size);
-	mvm_start_voice_cmd.src_port = 0;
-	mvm_start_voice_cmd.dest_port = v->mvm_handle;
-	mvm_start_voice_cmd.token = 0;
-	mvm_start_voice_cmd.opcode = VSS_IMVM_CMD_START_VOICE;
-
-	v->mvm_state = 1;
-	ret = apr_send_pkt(v->apr_mvm, (uint32_t *) &mvm_start_voice_cmd);
-	if (ret < 0) {
-		pr_err("Fail in sending VSS_IMVM_CMD_START_VOICE\n");
-		goto fail;
-	}
-	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
-					msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
-		pr_err("%s: wait_event timeout\n", __func__);
-		goto fail;
-	}
 	return 0;
 fail:
 	return -EINVAL;
 }
 
-static int voice_stop_modem_voice(struct voice_data *v)
+static int voice_destroy_modem_voice(struct voice_data *v)
 {
-	struct apr_hdr mvm_stop_voice_cmd;
 	struct mvm_detach_vocproc_cmd mvm_d_vocproc_cmd;
 	struct apr_hdr cvp_destroy_session_cmd;
 	int ret = 0;
-
-	/* stop voice and wait for the response from mvm */
-	mvm_stop_voice_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	mvm_stop_voice_cmd.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-				sizeof(mvm_stop_voice_cmd) - APR_HDR_SIZE);
-	pr_info("send mvm_stop_voice_cmd pkt size = %d\n",
-				mvm_stop_voice_cmd.pkt_size);
-	mvm_stop_voice_cmd.src_port = 0;
-	mvm_stop_voice_cmd.dest_port = v->mvm_handle;
-	mvm_stop_voice_cmd.token = 0;
-	mvm_stop_voice_cmd.opcode = VSS_IMVM_CMD_STOP_VOICE;
-
-	v->mvm_state = 1;
-	ret = apr_send_pkt(v->apr_mvm, (uint32_t *) &mvm_stop_voice_cmd);
-	if (ret < 0) {
-		pr_err("Fail in sending VSS_IMVM_CMD_STOP_VOICE\n");
-		goto fail;
-	}
-	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
-						msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
-		pr_err("%s: wait_event timeout\n", __func__);
-		goto fail;
-	}
 
 	/* detach VOCPROC and wait for response from mvm */
 	mvm_d_vocproc_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -824,7 +840,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 				&& (v->dev_tx.enabled == VOICE_DEV_ENABLED)) {
 				voice_apr_register(v);
 				voice_create_mvm_cvs_session(v);
-				voice_start_modem_voice(v);
+				voice_setup_modem_voice(v);
+				voice_send_start_voice_cmd(v);
 				v->voc_state = VOC_RUN;
 			}
 		}
@@ -834,7 +851,7 @@ static void voice_auddev_cb_function(u32 evt_id,
 		v->dev_tx.enabled = VOICE_DEV_DISABLED;
 		if (v->voc_state == VOC_RUN) {
 			/* send cmd to modem to do voice device change */
-			voice_stop_modem_voice(v);
+			voice_destroy_modem_voice(v);
 			v->voc_state = VOC_CHANGE;
 		}
 		break;
@@ -860,7 +877,7 @@ static void voice_auddev_cb_function(u32 evt_id,
 			}
 			if ((v->dev_rx.enabled == VOICE_DEV_ENABLED) &&
 				(v->dev_tx.enabled == VOICE_DEV_ENABLED)) {
-				voice_start_modem_voice(v);
+				voice_setup_modem_voice(v);
 				voice_send_mute_cmd_to_modem(v);
 				voice_send_vol_index_to_modem(v);
 				v->voc_state = VOC_RUN;
@@ -892,7 +909,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 				(v->v_call_status == VOICE_CALL_START)) {
 				voice_apr_register(v);
 				voice_create_mvm_cvs_session(v);
-				voice_start_modem_voice(v);
+				voice_setup_modem_voice(v);
+				voice_send_start_voice_cmd(v);
 				v->voc_state = VOC_RUN;
 			}
 		}
@@ -915,7 +933,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 		/* recover the tx mute and rx volume to the default values */
 		if (v->voc_state == VOC_RUN) {
 			/* send stop voice to modem */
-			voice_stop_modem_voice(v);
+			voice_send_stop_voice_cmd(v);
+			voice_destroy_modem_voice(v);
 			v->voc_state = VOC_RELEASE;
 		}
 		if (evt_payload->voc_devinfo.dev_type == DIR_RX)
@@ -931,7 +950,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 
 		if (v->voc_state == VOC_RUN) {
 			/* call stop modem voice */
-			voice_stop_modem_voice(v);
+			voice_send_stop_voice_cmd(v);
+			voice_destroy_modem_voice(v);
 			v->voc_state = VOC_RELEASE;
 		}
 			v->v_call_status = VOICE_CALL_END;
