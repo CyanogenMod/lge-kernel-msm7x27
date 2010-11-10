@@ -399,6 +399,21 @@ static struct platform_device msm_mi2s_fm_tx_device = {
 	.dev = { .platform_data = &snddev_mi2s_fm_tx_data },
 };
 
+static struct snddev_mi2s_data snddev_mi2s_fm_rx_data = {
+	.capability = SNDDEV_CAP_RX ,
+	.name = "fmradio_stereo_rx",
+	.copp_id = MI2S_RX,
+	.channel_mode = 3, /* stereo */
+	.sd_lines = 4, /* sd3 */
+	.sample_rate = 48000,
+};
+
+static struct platform_device msm_mi2s_fm_rx_device = {
+	.name = "snddev_mi2s",
+	.id = 1,
+	.dev = { .platform_data = &snddev_mi2s_fm_rx_data },
+};
+
 static struct adie_codec_action_unit iheadset_mic_tx_osr256_actions[] =
 	HEADSET_AMIC2_TX_MONO_PRI_OSR_256;
 
@@ -702,6 +717,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
 	&msm_mi2s_fm_tx_device,
+	&msm_mi2s_fm_rx_device,
 	&msm_hs_dual_mic_endfire_device,
 	&msm_spkr_dual_mic_endfire_device,
 	&msm_hs_dual_mic_broadside_device,
@@ -722,6 +738,7 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
 	&msm_mi2s_fm_tx_device,
+	&msm_mi2s_fm_rx_device,
 	&msm_ihs_stereo_speaker_stereo_rx_device,
 };
 
@@ -733,6 +750,7 @@ static struct platform_device *snd_devices_fluid[] __initdata = {
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
 	&msm_mi2s_fm_tx_device,
+	&msm_mi2s_fm_rx_device,
 };
 
 void __init msm_snddev_init(void)
