@@ -73,6 +73,8 @@ struct hdmi_msm_state_type {
 	int irq;
 	struct msm_hdmi_platform_data *pd;
 	struct clk *hdmi_app_clk;
+	struct clk *hdmi_m_pclk;
+	struct clk *hdmi_s_pclk;
 	void __iomem *qfprom_io;
 	void __iomem *hdmi_io;
 
@@ -251,7 +253,9 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 {
 	boolean hpd_state;
 
-	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk || !HDMI_BASE) {
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk ||
+		!hdmi_msm_state->hdmi_m_pclk  || !hdmi_msm_state->hdmi_s_pclk
+		|| !HDMI_BASE) {
 		DEV_DBG("%s: ignored, probe failed\n", __func__);
 		return;
 	}
@@ -409,7 +413,9 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	static uint32 sample_drop_int_occurred;
 	const uint32 occurrence_limit = 10;
 
-	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk || !HDMI_BASE) {
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk ||
+		!hdmi_msm_state->hdmi_m_pclk || !hdmi_msm_state->hdmi_s_pclk
+		|| !HDMI_BASE) {
 		DEV_DBG("ISR ignored, probe failed\n");
 		return IRQ_HANDLED;
 	}
@@ -2587,6 +2593,8 @@ static void hdmi_msm_hpd_off(void)
 	hdmi_msm_state->pd->enable_5v(0);
 	hdmi_msm_state->pd->core_power(0);
 	clk_disable(hdmi_msm_state->hdmi_app_clk);
+	clk_disable(hdmi_msm_state->hdmi_m_pclk);
+	clk_disable(hdmi_msm_state->hdmi_s_pclk);
 	hdmi_msm_set_mode(FALSE);
 }
 
@@ -2597,6 +2605,18 @@ static int hdmi_msm_hpd_on(void)
 	rc = clk_enable(hdmi_msm_state->hdmi_app_clk);
 	if (rc) {
 		DEV_ERR("'hdmi_app_clk' clock enable failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = clk_enable(hdmi_msm_state->hdmi_m_pclk);
+	if (rc) {
+		DEV_ERR("'hdmi_m_pclk' clock enable failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = clk_enable(hdmi_msm_state->hdmi_s_pclk);
+	if (rc) {
+		DEV_ERR("'hdmi_s_pclk' clock enable failed, rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2642,7 +2662,9 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
-	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk || !HDMI_BASE)
+	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk ||
+		!hdmi_msm_state->hdmi_m_pclk || !hdmi_msm_state->hdmi_s_pclk
+		|| !HDMI_BASE)
 		return -ENODEV;
 #ifdef CONFIG_SUSPEND
 	mutex_lock(&hdmi_msm_state_mutex);
@@ -2697,7 +2719,8 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
  */
 static int hdmi_msm_power_off(struct platform_device *pdev)
 {
-	if (!hdmi_msm_state->hdmi_app_clk)
+	if (!hdmi_msm_state->hdmi_app_clk || !hdmi_msm_state->hdmi_m_pclk
+		|| !hdmi_msm_state->hdmi_s_pclk)
 		return -ENODEV;
 #ifdef CONFIG_SUSPEND
 	mutex_lock(&hdmi_msm_state_mutex);
@@ -2784,6 +2807,20 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	hdmi_msm_state->hdmi_m_pclk = clk_get(NULL, "hdmi_m_pclk");
+	if (IS_ERR(hdmi_msm_state->hdmi_m_pclk)) {
+		DEV_ERR("'hdmi_m_pclk' clk not found\n");
+		rc = IS_ERR(hdmi_msm_state->hdmi_m_pclk);
+		goto error;
+	}
+
+	hdmi_msm_state->hdmi_s_pclk = clk_get(NULL, "hdmi_s_pclk");
+	if (IS_ERR(hdmi_msm_state->hdmi_s_pclk)) {
+		DEV_ERR("'hdmi_s_pclk' clk not found\n");
+		rc = IS_ERR(hdmi_msm_state->hdmi_s_pclk);
+		goto error;
+	}
+
 	rc = check_hdmi_features();
 	if (rc) {
 		DEV_ERR("Init FAILED: check_hdmi_features rc=%d\n", rc);
@@ -2857,7 +2894,15 @@ error:
 
 	if (hdmi_msm_state->hdmi_app_clk)
 		clk_put(hdmi_msm_state->hdmi_app_clk);
+	if (hdmi_msm_state->hdmi_m_pclk)
+		clk_put(hdmi_msm_state->hdmi_m_pclk);
+	if (hdmi_msm_state->hdmi_s_pclk)
+		clk_put(hdmi_msm_state->hdmi_s_pclk);
+
 	hdmi_msm_state->hdmi_app_clk = NULL;
+	hdmi_msm_state->hdmi_m_pclk = NULL;
+	hdmi_msm_state->hdmi_s_pclk = NULL;
+
 	return rc;
 }
 
@@ -2879,7 +2924,14 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 
 	if (hdmi_msm_state->hdmi_app_clk)
 		clk_put(hdmi_msm_state->hdmi_app_clk);
+	if (hdmi_msm_state->hdmi_m_pclk)
+		clk_put(hdmi_msm_state->hdmi_m_pclk);
+	if (hdmi_msm_state->hdmi_s_pclk)
+		clk_put(hdmi_msm_state->hdmi_s_pclk);
+
 	hdmi_msm_state->hdmi_app_clk = NULL;
+	hdmi_msm_state->hdmi_m_pclk = NULL;
+	hdmi_msm_state->hdmi_s_pclk = NULL;
 
 	kfree(hdmi_msm_state);
 	hdmi_msm_state = NULL;
@@ -2905,6 +2957,8 @@ static int hdmi_msm_device_pm_suspend(struct device *dev)
 
 	disable_irq(hdmi_msm_state->irq);
 	clk_disable(hdmi_msm_state->hdmi_app_clk);
+	clk_disable(hdmi_msm_state->hdmi_m_pclk);
+	clk_disable(hdmi_msm_state->hdmi_s_pclk);
 
 	hdmi_msm_state->pm_suspended = TRUE;
 	mutex_unlock(&hdmi_msm_state_mutex);
@@ -2927,6 +2981,8 @@ static int hdmi_msm_device_pm_resume(struct device *dev)
 	hdmi_msm_state->pd->core_power(1);
 	hdmi_msm_state->pd->enable_5v(1);
 	clk_enable(hdmi_msm_state->hdmi_app_clk);
+	clk_enable(hdmi_msm_state->hdmi_m_pclk);
+	clk_enable(hdmi_msm_state->hdmi_s_pclk);
 
 	hdmi_msm_state->pm_suspended = FALSE;
 	mutex_unlock(&hdmi_msm_state_mutex);
