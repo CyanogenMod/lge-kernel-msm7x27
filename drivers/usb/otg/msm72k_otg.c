@@ -1559,7 +1559,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 #endif
 			/* Workaround: Reset PHY in SE1 state */
 			otg_reset(&dev->otg, 1);
-
+			if (!is_b_sess_vld()) {
+				clear_bit(B_SESS_VLD, &dev->inputs);
+				work = 1;
+				break;
+			}
 			pr_debug("entering into lpm with wall-charger\n");
 			msm_otg_put_suspend(dev);
 			/* Allow idle power collapse */
