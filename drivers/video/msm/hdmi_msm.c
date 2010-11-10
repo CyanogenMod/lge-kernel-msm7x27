@@ -897,8 +897,9 @@ error:
 }
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
-static int hdmi_msm_ddc_read(uint32 dev_addr, uint32 offset, uint8 *data_buf,
-	uint32 data_len, int retry, const char *what)
+static int hdmi_msm_ddc_read_retry(uint32 dev_addr, uint32 offset,
+	uint8 *data_buf, uint32 data_len, uint32 request_len, int retry,
+	const char *what)
 {
 	uint32 reg_val, ndx;
 	int status = 0;
@@ -1017,9 +1018,7 @@ again:
 	 *    START1 = 0x1 (insert START bit)
 	 *    STOP1 = 0x1 (insert STOP bit)
 	 *    CNT1 = data_len   (it's 128 (0x80) for a blk read) */
-	/* some panels have issues with data_len mod 32 != 0 */
-	HDMI_OUTP_ND(0x022C, 1 | (1 << 12) | (1 << 13)
-		| ((32 * ((data_len + 31) / 32)) << 16));
+	HDMI_OUTP_ND(0x022C, 1 | (1 << 12) | (1 << 13) | (request_len << 16));
 
 	/* Trigger the I2C transfer */
 	/* 0x020C HDMI_DDC_CTRL
@@ -1124,6 +1123,18 @@ error:
 	return status;
 }
 
+static int hdmi_msm_ddc_read(uint32 dev_addr, uint32 offset, uint8 *data_buf,
+	uint32 data_len, int retry, const char *what)
+{
+	int ret = hdmi_msm_ddc_read_retry(dev_addr, offset, data_buf, data_len,
+		data_len, retry, what);
+	if (!ret)
+		return 0;
+	return hdmi_msm_ddc_read_retry(dev_addr, offset, data_buf, data_len,
+		32 * ((data_len + 31) / 32), retry, what);
+}
+
+
 static int hdmi_msm_read_edid_block(int block, uint8 *edid_buf)
 {
 	int i, rc = 0;
@@ -1133,8 +1144,9 @@ static int hdmi_msm_read_edid_block(int block, uint8 *edid_buf)
 		DEV_DBG("EDID: reading block(%d) with block-size=%d\n",
 			block, block_size);
 		for (i = 0; i < 0x80; i += block_size) {
-			rc = hdmi_msm_ddc_read(0xA0, block*0x80 + i, edid_buf+i,
-				block_size, 1, "EDID");
+			rc = hdmi_msm_ddc_read_retry(0xA0, block*0x80 + i,
+				edid_buf+i, block_size, block_size, 1,
+				"EDID");
 			if (rc)
 				break;
 		}
