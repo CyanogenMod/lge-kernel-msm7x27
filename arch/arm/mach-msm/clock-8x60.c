@@ -1140,7 +1140,7 @@ static const uint32_t chld_csi_src[] = 		{C(CSI0), C(CSI1), C(NONE)};
 static const uint32_t chld_pixel_mdp[] = 	{C(PIXEL_LCDC), C(NONE)};
 static const uint32_t chld_tv_src[] =		{C(TV_ENC), C(TV_DAC),
 						 C(MDP_TV), C(HDMI_TV),
-						 C(DSUB_TV), C(NONE)};
+						 C(NONE)};
 static const uint32_t chld_vfe[] =		{C(CSI0_VFE), C(CSI1_VFE),
 						 C(NONE)};
 
@@ -1377,8 +1377,6 @@ struct clk_local soc_clk_local_tbl_mxo[] = {
 		DBG_BUS_VEC_D_REG, HALT, 11, TV_SRC, TEST_MM_HS(0x1F)),
 	CLK_SLAVE(HDMI_TV, TV_CC_REG,  B(12), NULL, 0,
 		DBG_BUS_VEC_D_REG, HALT, 10, TV_SRC, TEST_MM_HS(0x1E)),
-	CLK_SLAVE(DSUB_TV, TV_CC2_REG, B(11), NULL, 0,
-		DBG_BUS_VEC_E_REG, HALT, 31, TV_SRC, TEST_MM_HS(0x25)),
 
 	CLK_NORATE(HDMI_APP, MISC_CC2_REG, B(11), NULL, 0,
 		DBG_BUS_VEC_B_REG, HALT, 25, TEST_MM_LS(0x1F)),
