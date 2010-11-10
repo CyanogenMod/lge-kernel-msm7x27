@@ -87,9 +87,9 @@
 					struct msm_audio_buf_cfg)
 #define AUDIO_SET_BUF_CFG    _IOW(AUDIO_IOCTL_MAGIC, 94, \
 					struct msm_audio_buf_cfg)
-#define AUDIO_SET_ACDB_BLK _IOR(AUDIO_IOCTL_MAGIC, 95,  \
+#define AUDIO_SET_ACDB_BLK _IOW(AUDIO_IOCTL_MAGIC, 95,  \
 					struct msm_acdb_cmd_device)
-#define AUDIO_GET_ACDB_BLK _IOR(AUDIO_IOCTL_MAGIC, 96,  \
+#define AUDIO_GET_ACDB_BLK _IOW(AUDIO_IOCTL_MAGIC, 96,  \
 					struct msm_acdb_cmd_device)
 
 #define	AUDIO_MAX_COMMON_IOCTL_NUM	100
