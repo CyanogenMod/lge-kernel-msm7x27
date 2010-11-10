@@ -58,9 +58,13 @@ obj-$(CONFIG_FB_MSM_MDDI) += msm_mddi.o
 msm_mddi_ext-objs := mddihost_e.o mddi_ext.o
 obj-$(CONFIG_FB_MSM_EXTMDDI) += msm_mddi_ext.o
 
-# MIPI
-msm_mipi-objs := mipi_dsi.o mipi_dsi_host.o mipi_toshiba.o mipi_novatek.o
+# MIPI gereric
+msm_mipi-objs := mipi_dsi.o mipi_dsi_host.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI) += msm_mipi.o
+
+# MIPI manufacture
+obj-$(CONFIG_FB_MSM_MIPI_DSI_TOSHIBA) += mipi_toshiba.o
+obj-$(CONFIG_FB_MSM_MIPI_DSI_NOVATEK) += mipi_novatek.o
 
 # TVEnc
 obj-$(CONFIG_FB_MSM_TVOUT) += tvenc.o
