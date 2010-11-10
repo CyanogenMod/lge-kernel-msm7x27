@@ -1173,6 +1173,7 @@ config IOMMU_PGTABLES_L2
 	depends on SMMU=y
 	depends on MMU
 	depends on CPU_DCACHE_DISABLE=n
+	depends on SMP
 	default y
 	help
 	 Improves TLB miss latency at the expense of potential L2 pollution.
