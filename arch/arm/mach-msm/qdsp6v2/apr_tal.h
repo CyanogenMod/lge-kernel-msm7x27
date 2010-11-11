@@ -55,6 +55,7 @@ int apr_tal_close(struct apr_svc_ch_dev *apr_ch);
 struct apr_svc_ch_dev {
 	struct smd_channel *ch;
 	spinlock_t         lock;
+	spinlock_t         w_lock;
 	struct mutex       m_lock;
 	apr_svc_cb_fn      func;
 	char               data[APR_MAX_BUF];
