@@ -411,11 +411,17 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	/* luma component plane */
 	outpdw(vg_base + 0x0010, pipe->srcp0_addr);
 
-	/* chroma component plane */
+	/* chroma component plane or  planar color 1 */
 	outpdw(vg_base + 0x0014, pipe->srcp1_addr);
+
+	/* planar color 2 */
+	outpdw(vg_base + 0x0018, pipe->srcp2_addr);
 
 	outpdw(vg_base + 0x0040,
 			pipe->srcp1_ystride << 16 | pipe->srcp0_ystride);
+
+	outpdw(vg_base + 0x0044,
+			pipe->srcp3_ystride << 16 | pipe->srcp2_ystride);
 
 	outpdw(vg_base + 0x0050, format);	/* MDP_RGB_SRC_FORMAT */
 	outpdw(vg_base + 0x0054, pattern);	/* MDP_RGB_SRC_UNPACK_PATTERN */
@@ -452,6 +458,8 @@ int mdp4_overlay_format2type(uint32 format)
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CBCR_H2V2_TILE:
 	case MDP_Y_CRCB_H2V2_TILE:
+	case MDP_Y_CR_CB_H2V2:
+	case MDP_Y_CB_CR_H2V2:
 		return OVERLAY_TYPE_VIDEO;
 	default:
 		mdp4_stat.err_format++;
@@ -679,6 +687,31 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		}
 		pipe->bpp = 2;	/* 2 bpp */
 		break;
+	case MDP_Y_CR_CB_H2V2:
+	case MDP_Y_CB_CR_H2V2:
+		pipe->frame_format = MDP4_FRAME_FORMAT_LINEAR;
+		pipe->fetch_plane = OVERLAY_PLANE_PLANAR;
+		pipe->a_bit = 0;
+		pipe->r_bit = 3;	/* R, 8 bits */
+		pipe->b_bit = 3;	/* B, 8 bits */
+		pipe->g_bit = 3;	/* G, 8 bits */
+		pipe->alpha_enable = 0;
+		pipe->unpack_tight = 1;
+		pipe->unpack_align_msb = 0;
+		pipe->unpack_count = 1;		/* 2 */
+		pipe->element3 = C0_G_Y;	/* not used */
+		pipe->element2 = C0_G_Y;	/* not used */
+		if (pipe->src_format == MDP_Y_CR_CB_H2V2) {
+			pipe->element1 = C2_R_Cr;	/* R */
+			pipe->element0 = C1_B_Cb;	/* B */
+			pipe->chroma_sample = MDP4_CHROMA_420;
+		} else if (pipe->src_format == MDP_Y_CB_CR_H2V2) {
+			pipe->element1 = C1_B_Cb;	/* B */
+			pipe->element0 = C2_R_Cr;	/* R */
+			pipe->chroma_sample = MDP4_CHROMA_420;
+		}
+		pipe->bpp = 2;	/* 2 bpp */
+		break;
 	default:
 		/* not likely */
 		mdp4_stat.err_format++;
@@ -752,6 +785,7 @@ void transp_color_key(int format, uint32 transp,
 		g_num = 6;
 		b_num = 5;
 		break;
+	case MDP_Y_CB_CR_H2V2:
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CBCR_H2V1:
 		b_start = 8;
@@ -761,6 +795,7 @@ void transp_color_key(int format, uint32 transp,
 		g_num = 8;
 		b_num = 8;
 		break;
+	case MDP_Y_CR_CB_H2V2:
 	case MDP_Y_CRCB_H2V2:
 	case MDP_Y_CRCB_H2V1:
 		b_start = 0;
@@ -812,7 +847,8 @@ uint32 mdp4_overlay_format(struct mdp4_overlay_pipe *pipe)
 
 	format |= (pipe->frame_format << 29);
 
-	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
+	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR ||
+			pipe->fetch_plane == OVERLAY_PLANE_PLANAR) {
 		/* video/graphic */
 		format |= (pipe->fetch_plane << 19);
 		format |= (pipe->chroma_site << 28);
@@ -1770,6 +1806,14 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 
 		pipe->srcp0_ystride = pipe->src_width;
 		pipe->srcp1_ystride = pipe->src_width;
+	} else if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
+		addr += pipe->src_width * pipe->src_height;
+		pipe->srcp1_addr = addr;
+		addr += ((pipe->src_width / 2) * (pipe->src_height / 2));
+		pipe->srcp2_addr = addr;
+		pipe->srcp0_ystride = pipe->src_width;
+		pipe->srcp1_ystride = pipe->src_width / 2;
+		pipe->srcp2_ystride = pipe->src_width / 2;
 	}
 
 #ifdef CONFIG_FB_MSM_MDDI
