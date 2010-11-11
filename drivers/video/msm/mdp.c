@@ -676,6 +676,11 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 			 to normal.*/
 			MDP_OUTP(MDP_BASE + 0x94010, 1);
 			MDP_OUTP(MDP_BASE + 0x9401c, 2);
+			if (mdp_is_hist_start == TRUE) {
+				MDP_OUTP(MDP_BASE + 0x94004,
+						 mdp_hist.frame_cnt);
+				MDP_OUTP(MDP_BASE + 0x94000, 1);
+			}
 		}
 		/* LCDC Frame Start */
 		if (mdp_interrupt & LCDC_FRAME_START) {

@@ -370,6 +370,11 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			that histogram works.*/
 			MDP_OUTP(MDP_BASE + 0x95010, 1);
 			outpdw(MDP_BASE + 0x9501c, INTR_HIST_DONE);
+			if (mdp_is_hist_start == TRUE) {
+				MDP_OUTP(MDP_BASE + 0x95004,
+						mdp_hist.frame_cnt);
+				MDP_OUTP(MDP_BASE + 0x95000, 1);
+			}
 		}
 
 		if (isr & INTR_EXTERNAL_INTF_UDERRUN)
