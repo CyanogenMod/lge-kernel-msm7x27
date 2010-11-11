@@ -988,10 +988,12 @@ static struct clk_freq_tbl clk_tbl_tv[] = {
 
 /* VCODEC */
 #define NS_MASK_VCODEC (BM(18, 11) | BM(2, 0))
+#define CC_MASK_VCODEC (BM(7, 6))
 #define CLK_VCODEC(id, ns, h_r, h_c, h_b, par, tv) \
 		CLK(id, MND, ns, (ns-8), (ns-4), NULL, 0, h_r, h_c, h_b, \
-				B(0), B(2), NS_MASK_VCODEC, 0, set_rate_mnd, \
-				clk_tbl_vcodec, NULL, par, NULL, tv)
+				B(0), B(2), NS_MASK_VCODEC, CC_MASK_VCODEC, \
+				set_rate_mnd, clk_tbl_vcodec, NULL, par, \
+				NULL, tv)
 #define F_VCODEC(f, s, m, n, v) \
 		F_RAW(f, SRC_##s, MD8(8, m, 0, n), \
 			NS_MM(18, 11, n, m, 0, 0, 1, 2, 0, s), \
