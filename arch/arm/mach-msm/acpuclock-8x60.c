@@ -34,6 +34,7 @@
 
 #include "acpuclock.h"
 #include "clock-8x60.h"
+#include "rpm-regulator.h"
 #include "avs.h"
 
 #define dprintk(msg...) \
@@ -88,9 +89,8 @@ static const void * const clk_ctl_addr[] = {SPSS0_CLK_CTL_ADDR,
 static const void * const clk_sel_addr[] = {SPSS0_CLK_SEL_ADDR,
 			SPSS1_CLK_SEL_ADDR, SPSS_L2_CLK_SEL_ADDR};
 
+static const int rpm_vreg_voter[] = { RPM_VREG_VOTER1, RPM_VREG_VOTER2 };
 static struct regulator *regulator_sc[NR_CPUS];
-static struct regulator *regulator_mem[NR_CPUS];
-static struct regulator *regulator_dig[NR_CPUS];
 
 enum scplls {
 	CPU0 = 0,
@@ -390,17 +390,19 @@ static int increase_vdd(int cpu, unsigned int vdd_sc, unsigned int vdd_mem,
 {
 	int rc = 0;
 
-	/* Increase vdd_mem before vdd_dig and vdd_sc.
+	/* Increase vdd_mem active-set before vdd_dig and vdd_sc.
 	 * vdd_mem should be >= both vdd_sc and vdd_dig. */
-	rc = regulator_set_voltage(regulator_mem[cpu], vdd_mem, MAX_VDD_MEM);
+	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8058_S0,
+				  rpm_vreg_voter[cpu], vdd_mem, 0);
 	if (rc) {
 		pr_err("%s: vdd_mem (cpu%d) increase failed (%d)\n",
 			__func__, cpu, rc);
 		return rc;
 	}
 
-	/* Increase vdd_dig. */
-	rc = regulator_set_voltage(regulator_dig[cpu], vdd_dig, MAX_VDD_DIG);
+	/* Increase vdd_dig active-set vote. */
+	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8058_S1,
+				  rpm_vreg_voter[cpu], vdd_dig, 0);
 	if (rc) {
 		pr_err("%s: vdd_dig (cpu%d) increase failed (%d)\n",
 			__func__, cpu, rc);
@@ -432,17 +434,19 @@ static void decrease_vdd(int cpu, unsigned int vdd_sc, unsigned int vdd_mem,
 		return;
 	}
 
-	/* Decrease vdd_dig. */
-	ret = regulator_set_voltage(regulator_dig[cpu], vdd_dig, MAX_VDD_DIG);
+	/* Decrease vdd_dig active-set vote. */
+	ret = rpm_vreg_set_voltage(RPM_VREG_ID_PM8058_S1,
+				   rpm_vreg_voter[cpu], vdd_dig, 0);
 	if (ret) {
 		pr_err("%s: vdd_dig (cpu%d) decrease failed (%d)\n",
 			__func__, cpu, ret);
 		return;
 	}
 
-	/* Decrease vdd_mem after vdd_dig and vdd_sc.
+	/* Decrease vdd_mem active-set after vdd_dig and vdd_sc.
 	 * vdd_mem should be >= both vdd_sc and vdd_dig. */
-	ret = regulator_set_voltage(regulator_mem[cpu], vdd_mem, MAX_VDD_MEM);
+	ret = rpm_vreg_set_voltage(RPM_VREG_ID_PM8058_S0,
+				   rpm_vreg_voter[cpu], vdd_mem, 0);
 	if (ret) {
 		pr_err("%s: vdd_mem (cpu%d) decrease failed (%d)\n",
 			__func__, cpu, ret);
@@ -658,30 +662,6 @@ static void __init regulator_init(void)
 	int cpu, ret;
 
 	for_each_possible_cpu(cpu) {
-		/* VDD_MEM votes. */
-		regulator_mem[cpu] = regulator_get(NULL, "8058_s0");
-		if (IS_ERR(regulator_mem[cpu]))
-			goto err;
-		ret = regulator_set_voltage(regulator_mem[cpu],
-				freq[cpu]->vdd_sc, MAX_VDD_MEM);
-		if (ret)
-			goto err;
-		ret = regulator_enable(regulator_mem[cpu]);
-		if (ret)
-			goto err;
-
-		/* VDD_DIG votes. */
-		regulator_dig[cpu] = regulator_get(NULL, "8058_s1");
-		if (IS_ERR(regulator_dig[cpu]))
-			goto err;
-		ret = regulator_set_voltage(regulator_dig[cpu],
-				freq[cpu]->l2_level->vdd_dig, MAX_VDD_DIG);
-		if (ret)
-			goto err;
-		ret = regulator_enable(regulator_dig[cpu]);
-		if (ret)
-			goto err;
-
 		/* VDD_SC0, VDD_SC1 */
 		regulator_sc[cpu] = regulator_get(NULL, regulator_sc_name[cpu]);
 		if (IS_ERR(regulator_sc[cpu]))
