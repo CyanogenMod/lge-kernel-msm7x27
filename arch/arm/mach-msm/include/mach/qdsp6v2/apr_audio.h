@@ -72,16 +72,16 @@ struct afe_port_gain_command {
 #define AFE_PORT_CMD_SIDETONE_CTL 0x000100cd
 struct afe_port_sidetone_command {
 	struct apr_hdr hdr;
-	u16 tx_port_id;		/* Primary i2s rx = 0 */
-				/* PCM rx = 2 */
-				/* Secondary i2s rx = 4 */
-				/* Mi2S rx = 6 */
-				/* HDMI rx = 8 */
 	u16 rx_port_id;		/* Primary i2s tx = 1 */
 				/* PCM tx = 3 */
 				/* Secondary i2s tx = 5 */
 				/* Mi2s tx = 7 */
 				/* Digital mic tx = 11 */
+	u16 tx_port_id;		/* Primary i2s rx = 0 */
+				/* PCM rx = 2 */
+				/* Secondary i2s rx = 4 */
+				/* Mi2S rx = 6 */
+				/* HDMI rx = 8 */
 	u16 gain;		/* Q13 */
 	u16 enable;		/* 1 = enable, 0 = disable */
 } __attribute__ ((packed));
