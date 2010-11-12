@@ -38,3 +38,4 @@ obj-$(CONFIG_BATTERY_MSM)	+= msm_battery.o
 obj-$(CONFIG_BATTERY_MSM8X60)	+= msm_charger.o
 obj-$(CONFIG_PM8058_CHARGER)	+= pmic8058-charger.o
 obj-$(CONFIG_ISL9519_CHARGER)	+= isl9519q.o
+obj-$(CONFIG_PM8058_FIX_USB)	+= pm8058_usb_fix.o
