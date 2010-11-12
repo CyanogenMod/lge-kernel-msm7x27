@@ -139,7 +139,12 @@ static s32 acdb_set_calibration_blk(unsigned long arg)
 	s32 result = 0;
 
 	MM_DBG("acdb_set_calibration_blk\n");
-	memcpy(&acdb_cmd, (struct acdb_cmd_device *)arg, sizeof(acdb_cmd));
+	if (copy_from_user(&acdb_cmd, (struct acdb_cmd_device *)arg,
+			sizeof(acdb_cmd))) {
+		MM_ERR("Failed copy command struct from user in"
+			"acdb_set_calibration_blk\n");
+		return -EFAULT;
+	}
 	acdb_cmd.phys_buf = (u32 *)acdb_data.paddr;
 
 	MM_DBG("acdb_cmd.phys_buf %x\n", (u32)acdb_cmd.phys_buf);
@@ -174,7 +179,12 @@ static s32 acdb_get_calibration_blk(unsigned long arg)
 
 	MM_DBG("acdb_get_calibration_blk\n");
 
-	memcpy(&acdb_cmd, (struct acdb_cmd_device *)arg, sizeof(acdb_cmd));
+	if (copy_from_user(&acdb_cmd, (struct acdb_cmd_device *)arg,
+			sizeof(acdb_cmd))) {
+		MM_ERR("Failed copy command struct from user in"
+			"acdb_get_calibration_blk\n");
+		return -EFAULT;
+	}
 	acdb_cmd.phys_buf = (u32 *)acdb_data.paddr;
 	MM_ERR("acdb_cmd.phys_buf %x\n", (u32)acdb_cmd.phys_buf);
 
