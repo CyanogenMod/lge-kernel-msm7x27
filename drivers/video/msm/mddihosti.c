@@ -999,7 +999,7 @@ static void mddi_process_rev_packets(void)
 					memcpy(mddi_reg_read_value_ptr,
 						(void *)&regacc_pkt_ptr->
 						register_data_list[0],
-						data_count);
+						data_count * 4);
 					mddi_reg_read_successful = TRUE;
 					mddi_reg_read_value_ptr = NULL;
 				}
@@ -1329,7 +1329,6 @@ static void mddi_host_isr(void)
 
 	if (!MDDI_HOST_IS_HCLK_ON) {
 		MDDI_HOST_ENABLE_HCLK;
-		MDDI_MSG_DEBUG("HCLK disabled, but isr is firing\n");
 	}
 	int_reg = mddi_host_reg_in(INT);
 	int_en = mddi_host_reg_in(INTEN);
