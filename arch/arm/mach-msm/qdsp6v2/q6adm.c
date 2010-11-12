@@ -210,7 +210,7 @@ int adm_open(int port_id, int session_id , int path,
 		open.mode = path;
 		open.endpoint_id1 = port_id & 0x00FF;
 		open.endpoint_id2 = 0xFFFF;
-		open.topology_id = DEFAULT_TOPOLOGY;
+		open.topology_id = DEFAULT_COPP_TOPOLOGY;
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
 

@@ -576,7 +576,7 @@ int q6asm_open_read(struct audio_client *ac,
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READ;
 	/* Stream prio : High, provide meta info with encoded frames */
 	open.src_endpoint = ASM_END_POINT_DEVICE_MATRIX;
-	open.pre_proc_top = DEFAULT_TOPOLOGY;
+	open.pre_proc_top = DEFAULT_POPP_TOPOLOGY;
 
 	switch (format) {
 	case FORMAT_LINEAR_PCM:
@@ -638,7 +638,7 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	/* source endpoint : matrix */
 	open.sink_endpoint = ASM_END_POINT_DEVICE_MATRIX;
 	open.stream_handle = 0x00;
-	open.post_proc_top = DEFAULT_TOPOLOGY;
+	open.post_proc_top = DEFAULT_POPP_TOPOLOGY;
 
 	switch (format) {
 	case FORMAT_LINEAR_PCM:
@@ -688,7 +688,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 
 	open.uMode = BUFFER_META_ENABLE | STREAM_PRIORITY_NORMAL;
 	/* source endpoint : matrix */
-	open.post_proc_top = DEFAULT_TOPOLOGY;
+	open.post_proc_top = DEFAULT_POPP_TOPOLOGY;
 	switch (wr_format) {
 	case FORMAT_LINEAR_PCM:
 		open.write_format = LINEAR_PCM;

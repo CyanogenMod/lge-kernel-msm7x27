@@ -334,7 +334,8 @@ struct adm_cmd_memory_unmap_regions{
 	u16		reserved;
 } __attribute__((packed));
 
-#define DEFAULT_TOPOLOGY				0x00010be3
+#define DEFAULT_COPP_TOPOLOGY				0x00010be3
+#define DEFAULT_POPP_TOPOLOGY				0x00010be4
 
 #define ASM_MAX_EQ_BANDS 12
 
