@@ -23,13 +23,19 @@
 #include "clock.h"
 #include "clock-rpm.h"
 
-#define CLK_RESOURCE(id, name) \
-	[(id)] = { MSM_RPM_ID_##name##_CLK, MSM_RPM_STATUS_ID_##name##_CLK }
+static DEFINE_SPINLOCK(rpm_clock_lock);
 
-static struct rpm_resource {
+#define CLK_RESOURCE(id, name) \
+	[(id)] = { \
+		.rpm_clk_id = MSM_RPM_ID_##name##_CLK, \
+		.rpm_status_id = MSM_RPM_STATUS_ID_##name##_CLK, \
+	}
+static struct rpm_clk {
 	int rpm_clk_id;
 	int rpm_status_id;
-} resource[] = {
+	int requested_khz;
+	int count;
+} rpm_clk[] = {
 	CLK_RESOURCE(R_AFAB_CLK,  APPS_FABRIC),
 	CLK_RESOURCE(R_CFPB_CLK,  CFPB),
 	CLK_RESOURCE(R_DFAB_CLK,  DAYTONA_FABRIC),
@@ -41,51 +47,110 @@ static struct rpm_resource {
 	CLK_RESOURCE(R_SMI_CLK,   SMI),
 };
 
-int rpm_clk_enable(unsigned id)
+static int rpm_set(unsigned id, unsigned khz)
 {
-	/* Not yet supported. */
+	struct msm_rpm_iv_pair iv;
+	int rc;
+
+	iv.id = rpm_clk[id].rpm_clk_id;
+	iv.value = khz;
+	rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
+
+	return rc;
+}
+
+static int rpm_clk_enable(unsigned id)
+{
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&rpm_clock_lock, flags);
+
+	if (!rpm_clk[id].count) {
+		rpm_clk[id].requested_khz = max(rpm_clk[id].requested_khz, 1);
+		rc = rpm_set(id, rpm_clk[id].requested_khz);
+	}
+	if (!rc)
+		rpm_clk[id].count++;
+
+	spin_unlock_irqrestore(&rpm_clock_lock, flags);
+
+	return rc;
+}
+
+static void rpm_clk_disable(unsigned id)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rpm_clock_lock, flags);
+
+	if (rpm_clk[id].count > 0)
+		rpm_clk[id].count--;
+	else {
+		pr_warning("%s: Reference counts are incorrect for clock %d!\n",
+			   __func__, id);
+		goto out;
+	}
+
+	if (!rpm_clk[id].count && rpm_clk[id].requested_khz)
+		rpm_set(id, 0);
+
+out:
+	spin_unlock_irqrestore(&rpm_clock_lock, flags);
+
+	return;
+}
+
+static int rpm_clk_reset(unsigned id, enum clk_reset_action action)
+{
+	/* Not supported. */
 	return -EPERM;
 }
 
-void rpm_clk_disable(unsigned id)
+static int rpm_clk_set_rate(unsigned id, unsigned rate)
 {
-	/* Not yet supported. */
-}
-
-int rpm_clk_reset(unsigned id, enum clk_reset_action action)
-{
-	/* Not yet supported. */
+	/* Not supported. */
 	return -EPERM;
 }
 
-int rpm_clk_set_rate(unsigned id, unsigned rate)
+static int rpm_clk_set_min_rate(unsigned id, unsigned rate)
 {
-	/* Not yet supported. */
+	unsigned long flags;
+	unsigned rate_khz;
+	int rc = 0;
+
+	rate_khz = DIV_ROUND_UP(rate, 1000);
+
+	spin_lock_irqsave(&rpm_clock_lock, flags);
+
+	if (rpm_clk[id].requested_khz == rate_khz)
+		goto out;
+
+	rc = rpm_set(id, rate_khz);
+	if (!rc)
+		rpm_clk[id].requested_khz = rate_khz;
+
+out:
+	spin_unlock_irqrestore(&rpm_clock_lock, flags);
+
+	return rc;
+}
+
+static int rpm_clk_set_max_rate(unsigned id, unsigned rate)
+{
+	/* Not supported. */
 	return -EPERM;
 }
 
-int rpm_clk_set_min_rate(unsigned id, unsigned rate)
+static int rpm_clk_set_flags(unsigned id, unsigned flags)
 {
-	struct msm_rpm_iv_pair iv = { resource[id].rpm_clk_id, (rate/1000) };
-
-	return msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
-}
-
-int rpm_clk_set_max_rate(unsigned id, unsigned rate)
-{
-	/* Not yet supported. */
+	/* Not supported. */
 	return -EPERM;
 }
 
-int rpm_clk_set_flags(unsigned id, unsigned flags)
+static unsigned rpm_clk_get_rate(unsigned id)
 {
-	/* Not yet supported. */
-	return -EPERM;
-}
-
-unsigned rpm_clk_get_rate(unsigned id)
-{
-	struct msm_rpm_iv_pair iv = { resource[id].rpm_status_id };
+	struct msm_rpm_iv_pair iv = { rpm_clk[id].rpm_status_id };
 	int rc;
 
 	rc  = msm_rpm_get_status(&iv, 1);
@@ -94,21 +159,20 @@ unsigned rpm_clk_get_rate(unsigned id)
 	return iv.value * 1000;
 }
 
-signed rpm_clk_measure_rate(unsigned id)
+static int rpm_clk_measure_rate(unsigned id)
 {
 	/* Not supported. */
 	return -EPERM;
 }
 
-unsigned rpm_clk_is_enabled(unsigned id)
+static unsigned rpm_clk_is_enabled(unsigned id)
 {
-	/* Not yet supported. */
-	return 0;
+	return !!(rpm_clk_get_rate(id));
 }
 
-long rpm_clk_round_rate(unsigned id, unsigned rate)
+static long rpm_clk_round_rate(unsigned id, unsigned rate)
 {
-	/* Not yet supported. */
+	/* Not supported. */
 	return rate;
 }
 
