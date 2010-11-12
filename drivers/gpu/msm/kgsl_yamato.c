@@ -534,10 +534,16 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 
 	/*acquire clocks */
 	BUG_ON(device->pwrctrl.grp_clk != NULL);
-	clk = clk_get(&pdev->dev, "grp_pclk");
-	if (IS_ERR(clk))
-		clk = NULL;
-	device->pwrctrl.grp_pclk = clk;
+	if (pdata->grp3d_pclk_name) {
+		clk = clk_get(&pdev->dev, pdata->grp3d_pclk_name);
+		if (IS_ERR(clk)) {
+			result = PTR_ERR(clk);
+			KGSL_DRV_ERR("clk_get(%s) returned %d\n",
+				pdata->grp3d_pclk_name, result);
+			goto done;
+		}
+		device->pwrctrl.grp_pclk = clk;
+	}
 
 	clk = clk_get(&pdev->dev, pdata->grp3d_clk_name);
 	if (IS_ERR(clk)) {
@@ -573,6 +579,17 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 			goto done;
 		}
 		device->pwrctrl.imem_clk = clk;
+	}
+
+	if (pdata->imem_pclk_name != NULL) {
+		clk = clk_get(&pdev->dev, pdata->imem_pclk_name);
+		if (IS_ERR(clk)) {
+			result = PTR_ERR(clk);
+			KGSL_DRV_ERR("clk_get(%s) returned %d\n",
+						 pdata->imem_pclk_name, result);
+			goto done;
+		}
+		device->pwrctrl.imem_pclk = clk;
 	}
 
 	device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx3d");

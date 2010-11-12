@@ -135,9 +135,13 @@ struct kgsl_platform_data {
 	unsigned int min_grp3d_freq;
 	int (*set_grp3d_async)(void);
 	const char *imem_clk_name;
+	const char *imem_pclk_name;
 	const char *grp3d_clk_name;
+	const char *grp3d_pclk_name;
 	const char *grp2d0_clk_name;
+	const char *grp2d0_pclk_name;
 	const char *grp2d1_clk_name;
+	const char *grp2d1_pclk_name;
 	unsigned int idle_timeout_2d;
 	unsigned int idle_timeout_3d;
 	struct msm_bus_scale_pdata *grp3d_bus_scale_table;

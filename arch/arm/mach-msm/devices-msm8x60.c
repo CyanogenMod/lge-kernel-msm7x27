@@ -517,10 +517,14 @@ struct kgsl_platform_data kgsl_pdata = {
 	.min_grp3d_freq = 266667000,
 	.set_grp3d_async = NULL,
 	.imem_clk_name = NULL,
+	.imem_pclk_name = "imem_pclk",
 	.grp3d_clk_name = "gfx3d_clk",
+	.grp3d_pclk_name = "gfx3d_pclk",
 #ifdef CONFIG_MSM_KGSL_2D
 	.grp2d0_clk_name = "gfx2d0_clk", /* note: 2d clocks disabled on v1 */
+	.grp2d0_pclk_name = "gfx2d0_pclk",
 	.grp2d1_clk_name = "gfx2d1_clk",
+	.grp2d1_pclk_name = "gfx2d1_pclk",
 #else
 	.grp2d0_clk_name = NULL,
 	.grp2d1_clk_name = NULL,
@@ -1242,12 +1246,8 @@ void __init msm_clock_temp_force_on(void)
 	clk_enable(clk_get(NULL, "usb_hs_pclk"));
 	clk_enable(clk_get(NULL, "apu_pclk"));
 	clk_enable(clk_get(NULL, "dsi_s_pclk"));
-	clk_enable(clk_get(NULL, "gfx2d0_pclk"));
-	clk_enable(clk_get(NULL, "gfx2d1_pclk"));
-	clk_enable(clk_get(NULL, "gfx3d_pclk"));
 	clk_enable(clk_get(NULL, "hdmi_m_pclk"));
 	clk_enable(clk_get(NULL, "hdmi_s_pclk"));
-	clk_enable(clk_get(NULL, "imem_pclk"));
 	clk_enable(clk_get(NULL, "smi_pclk"));
 	clk_enable(clk_get(NULL, "vcodec_pclk"));
 }
