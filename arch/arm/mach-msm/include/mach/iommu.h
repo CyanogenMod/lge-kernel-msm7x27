@@ -19,6 +19,7 @@
 #define MSM_IOMMU_H
 
 #include <linux/interrupt.h>
+#include <linux/clk.h>
 
 /* Sharability attributes of MSM IOMMU mappings */
 #define MSM_IOMMU_ATTR_NON_SH		(0x00)
@@ -71,13 +72,17 @@ struct msm_iommu_ctx_dev {
  * struct msm_iommu_drvdata - A single IOMMU hardware instance
  * @base:	IOMMU config port base address (VA)
  * @irq:	Interrupt number
-  *
+ * @clk:	The clock associated with this particular iommu, if any
+ * @pclk:	The bus clock for the IOMMU hardware instance
+ *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
  */
 struct msm_iommu_drvdata {
 	void __iomem *base;
 	int irq;
+	struct clk *clk;
+	struct clk *pclk;
 };
 
 /**

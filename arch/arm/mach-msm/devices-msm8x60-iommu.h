@@ -31,12 +31,16 @@
 #ifdef CONFIG_SMMU_8X60
 extern struct platform_device msm_device_iommu_jpegd;
 extern struct platform_device msm_device_iommu_vfe;
+extern struct platform_device msm_device_iommu_vcodec_a;
+extern struct platform_device msm_device_iommu_vcodec_b;
 extern struct platform_device msm_device_iommu_gfx3d;
 extern struct platform_device msm_device_iommu_gfx2d0;
 extern struct platform_device msm_device_iommu_gfx2d1;
 #else
 struct platform_device msm_device_iommu_jpegd;
 struct platform_device msm_device_iommu_vfe;
+struct platform_device msm_device_iommu_vcodec_a;
+struct platform_device msm_device_iommu_vcodec_b;
 struct platform_device msm_device_iommu_gfx3d;
 struct platform_device msm_device_iommu_gfx2d0;
 struct platform_device msm_device_iommu_gfx2d1;
