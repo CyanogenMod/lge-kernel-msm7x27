@@ -125,8 +125,11 @@ static void mdp_vsync_handler(void *data)
 #ifdef MDP_HW_VSYNC
 		if (mfd->panel_power_on) {
 			MDP_OUTP(MDP_BASE + MDP_SYNC_STATUS_0, vsync_load_cnt);
-#ifdef MDP4_MDDI_DMA_SWITCH
-			MDP_OUTP(MDP_BASE + MDP_SYNC_STATUS_1, vsync_load_cnt);
+
+#ifdef CONFIG_FB_MSM_MDP40
+			if (mdp_hw_revision < MDP4_REVISION_V2_1)
+				MDP_OUTP(MDP_BASE + MDP_SYNC_STATUS_1,
+						vsync_load_cnt);
 #endif
 		}
 
@@ -165,7 +168,7 @@ static void mdp_set_sync_cfg_0(struct msm_fb_data_type *mfd, int vsync_cnt)
 	MDP_OUTP(MDP_BASE + MDP_SYNC_CFG_0, cfg);
 }
 
-#ifdef MDP4_MDDI_DMA_SWITCH
+#ifdef CONFIG_FB_MSM_MDP40
 static void mdp_set_sync_cfg_1(struct msm_fb_data_type *mfd, int vsync_cnt)
 {
 	unsigned long cfg;
@@ -238,8 +241,11 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 				mdp_hw_vsync_clk_enable(mfd);
 
 				mdp_set_sync_cfg_0(mfd, vsync_cnt_cfg);
-#ifdef MDP4_MDDI_DMA_SWITCH
-				mdp_set_sync_cfg_1(mfd, vsync_cnt_cfg);
+
+
+#ifdef CONFIG_FB_MSM_MDP40
+				if (mdp_hw_revision < MDP4_REVISION_V2_1)
+					mdp_set_sync_cfg_1(mfd, vsync_cnt_cfg);
 #endif
 
 				/*
@@ -251,9 +257,11 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 				/* line counter init value at the next pulse */
 				MDP_OUTP(MDP_BASE + MDP_PRIM_VSYNC_INIT_VAL,
 							vsync_load_cnt);
-#ifdef MDP4_MDDI_DMA_SWITCH
-				MDP_OUTP(MDP_BASE + MDP_SEC_VSYNC_INIT_VAL,
-							vsync_load_cnt);
+#ifdef CONFIG_FB_MSM_MDP40
+				if (mdp_hw_revision < MDP4_REVISION_V2_1) {
+					MDP_OUTP(MDP_BASE +
+					MDP_SEC_VSYNC_INIT_VAL, vsync_load_cnt);
+				}
 #endif
 
 				/*
@@ -262,12 +270,14 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 				 */
 				MDP_OUTP(MDP_BASE + MDP_PRIM_VSYNC_OUT_CTRL,
 							BIT(0));
-#ifdef MDP4_MDDI_DMA_SWITCH
-				MDP_OUTP(MDP_BASE + MDP_SEC_VSYNC_OUT_CTRL,
-							BIT(0));
-				MDP_OUTP(MDP_BASE + MDP_VSYNC_SEL, 0x20);
+#ifdef CONFIG_FB_MSM_MDP40
+				if (mdp_hw_revision < MDP4_REVISION_V2_1) {
+					MDP_OUTP(MDP_BASE +
+					MDP_SEC_VSYNC_OUT_CTRL, BIT(0));
+					MDP_OUTP(MDP_BASE +
+						MDP_VSYNC_SEL, 0x20);
+				}
 #endif
-
 
 				/* threshold */
 				MDP_OUTP(MDP_BASE + 0x200,

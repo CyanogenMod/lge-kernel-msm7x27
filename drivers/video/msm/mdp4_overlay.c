@@ -1140,9 +1140,7 @@ struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype, boolean usevg)
 	for (; i < MDP4_MAX_PIPE; i++) {
 		if (pipe->pipe_type == ptype && pipe->pipe_used == 0) {
 			init_completion(&pipe->comp);
-#ifdef MDP4_MDDI_DMA_SWITCH
 			init_completion(&pipe->dmas_comp);
-#endif
 	printk(KERN_INFO "mdp4_overlay_pipe_alloc: pipe=%x ndx=%d\n",
 					(int)pipe, pipe->pipe_ndx);
 			return pipe;
@@ -1258,8 +1256,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		return -ERANGE;
 	}
 
-#ifdef CONFIG_ARCH_MSM7X30
-	if (mdp_revision == MDP4_HALCYON_V1) {
+	if (mdp_hw_revision == MDP4_REVISION_V1) {
 		/*  non integer down saceling ratio  smaller than 1/4
 		 *  is not supportted
 		 */
@@ -1281,7 +1278,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 			}
 		}
 	}
-#endif
+
 	if (((req->src_rect.x + req->src_rect.w) > req->src.width) ||
 		((req->src_rect.y + req->src_rect.h) > req->src.height)) {
 		mdp4_stat.err_size++;
@@ -1538,9 +1535,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	int ret, mixer;
 	struct mdp4_overlay_pipe *pipe;
 	uint32 perf_level;
-#ifdef CONFIG_ARCH_MSM7X30
 	char *addr = NULL;
-#endif
 
 	if (mfd == NULL) {
 		pr_err("%s: mfd == NULL, -ENODEV\n", __func__);
@@ -1573,20 +1568,24 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	perf_level = mdp4_overlay_get_perf_level(req->src.width,
 						req->src.height,
 						req->src.format);
-#ifdef CONFIG_ARCH_MSM7X30
-	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
-		addr = MDP_BASE + 0xC0000;
-	else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
-		addr = MDP_BASE + 0xD0000;
 
-	if (addr) {
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		outpdw(addr, 0);
-		mdp_set_core_clk(perf_level);
-		outpdw(addr, 1);
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	if (mdp_hw_revision != MDP4_REVISION_NONE) {
+		if (ctrl->panel_mode & MDP4_PANEL_LCDC)
+			addr = MDP_BASE + 0xC0000;
+		else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
+			addr = MDP_BASE + 0xD0000;
+
+		if (addr) {
+			mdp_pipe_ctrl(MDP_CMD_BLOCK,
+					MDP_BLOCK_POWER_ON, FALSE);
+			outpdw(addr, 0);
+			mdp_set_core_clk(perf_level);
+			outpdw(addr, 1);
+			mdp_pipe_ctrl(MDP_CMD_BLOCK,
+				MDP_BLOCK_POWER_OFF, FALSE);
+		}
 	}
-#endif
+
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(OVERLAY_BUS_SCALE_TABLE_BASE
 						- perf_level);
@@ -1599,9 +1598,7 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp4_overlay_pipe *pipe;
-#ifdef CONFIG_ARCH_MSM7X30
 	char *addr = NULL;
-#endif
 
 	if (mfd == NULL)
 		return -ENODEV;
@@ -1635,21 +1632,24 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	mdp4_overlay_pipe_free(pipe);
 
 	mutex_unlock(&mfd->dma->ov_mutex);
-#ifdef CONFIG_ARCH_MSM7X30
-	msleep(30);
-	if (ctrl->panel_mode & MDP4_PANEL_LCDC)
-		addr = MDP_BASE + 0xC0000;
-	else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
-		addr = MDP_BASE + 0xD0000;
 
-	if (addr) {
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		outpdw(addr, 0);
-		mdp_set_core_clk(OVERLAY_PERF_LEVEL4);
-		outpdw(addr, 1);
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	if (mdp_hw_revision != MDP4_REVISION_NONE) {
+		msleep(30);
+		if (ctrl->panel_mode & MDP4_PANEL_LCDC)
+			addr = MDP_BASE + 0xC0000;
+		else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
+			addr = MDP_BASE + 0xD0000;
+
+		if (addr) {
+			mdp_pipe_ctrl(MDP_CMD_BLOCK,
+					MDP_BLOCK_POWER_ON, FALSE);
+			outpdw(addr, 0);
+			mdp_set_core_clk(OVERLAY_PERF_LEVEL4);
+			outpdw(addr, 1);
+			mdp_pipe_ctrl(MDP_CMD_BLOCK,
+					MDP_BLOCK_POWER_OFF, FALSE);
+		}
 	}
-#endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);

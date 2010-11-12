@@ -30,7 +30,6 @@
 #ifndef MDP4_H
 #define MDP4_H
 
-extern uint32 mdp_revision;
 extern struct mdp_dma_data dma2_data;
 extern struct mdp_dma_data dma_s_data;
 extern struct mdp_dma_data dma_e_data;
@@ -42,16 +41,7 @@ extern uint32 mdp_intr_mask;
 extern spinlock_t mdp_spin_lock;
 extern struct mdp4_statistic mdp4_stat;
 
-
-#define MDP4_HALCYON_V1		0
-#define MDP4_HALCYON_V2		1
-#define MDP4_HALCYON_V2_1	2
-
 #define MDP4_NONBLOCKING
-
-#if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
-#define MDP4_MDDI_DMA_SWITCH
-#endif
 
 #define MDP4_OVERLAYPROC0_BASE	0x10000
 #define MDP4_OVERLAYPROC1_BASE	0x18000
@@ -134,13 +124,8 @@ enum {
 
 
 #ifdef CONFIG_FB_MSM_OVERLAY
-#ifdef MDP4_MDDI_DMA_SWITCH
-#define MDP4_ANY_INTR_MASK	(INTR_OVERLAY0_DONE | INTR_DMA_S_DONE | \
-					INTR_DMA_P_DONE | INTR_DMA_P_HISTOGRAM)
-#else
-#define MDP4_ANY_INTR_MASK	(INTR_OVERLAY0_DONE| \
-				INTR_DMA_P_HISTOGRAM)
-#endif
+#define MDP4_ANY_INTR_MASK	(INTR_OVERLAY0_DONE|INTR_DMA_S_DONE | \
+					INTR_DMA_P_HISTOGRAM)
 #else
 #define MDP4_ANY_INTR_MASK	(INTR_DMA_P_DONE| \
 				INTR_DMA_P_HISTOGRAM)
@@ -305,9 +290,7 @@ struct mdp4_overlay_pipe {
 	ulong blt_addr; /* blt mode addr */
 	uint32 blt_cnt;
 	uint32 blt_end;
-#ifdef MDP4_MDDI_DMA_SWITCH
 	struct completion dmas_comp;
-#endif
 	struct mdp_overlay req_data;
 };
 
@@ -425,9 +408,7 @@ void mdp4_dma_p_done_mddi(void);
 void mdp4_overlay1_done_dtv(void);
 void mdp4_overlay1_done_atv(void);
 void mdp4_mddi_overlay_restore(void);
-#ifdef MDP4_MDDI_DMA_SWITCH
 void mdp4_mddi_overlay_dmas_restore(void);
-#endif
 void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
@@ -451,10 +432,8 @@ uint32 mdp4_overlay_panel_list(void);
 void mdp4_lcdc_overlay_kickoff(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 
-#ifdef MDP4_MDDI_DMA_SWITCH
 void mdp_dmap_vsync_set(int enable);
 int mdp_dmap_vsync_get(void);
-#endif
 void mdp_hw_cursor_done(void);
 void mdp_hw_cursor_init(void);
 

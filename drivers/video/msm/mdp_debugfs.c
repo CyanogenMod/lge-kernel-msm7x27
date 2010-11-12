@@ -576,7 +576,8 @@ static const struct file_operations pmdh_fops = {
 };
 
 
-#ifdef MDP4_MDDI_DMA_SWITCH
+
+#if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
 static int vsync_reg_open(struct inode *inode, struct file *file)
 {
 	/* non-seekable */
@@ -650,7 +651,6 @@ static const struct file_operations vsync_fops = {
 	.read = vsync_reg_read,
 	.write = vsync_reg_write,
 };
-
 #endif
 
 static ssize_t emdh_reg_write(
@@ -1198,7 +1198,7 @@ int mdp_debugfs_init(void)
 		return -1;
 	}
 
-#ifdef MDP4_MDDI_DMA_SWITCH
+#if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
 	if (debugfs_create_file("vsync", 0644, dent, 0, &vsync_fops)
 			== NULL) {
 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",

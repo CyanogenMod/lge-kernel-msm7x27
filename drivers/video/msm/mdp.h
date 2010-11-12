@@ -53,6 +53,13 @@
 
 #include "msm_fb_panel.h"
 
+extern uint32 mdp_hw_revision;
+
+#define MDP4_REVISION_V1		0
+#define MDP4_REVISION_V2		1
+#define MDP4_REVISION_V2_1	2
+#define MDP4_REVISION_NONE	0xffffffff
+
 #ifdef BIT
 #undef BIT
 #endif
