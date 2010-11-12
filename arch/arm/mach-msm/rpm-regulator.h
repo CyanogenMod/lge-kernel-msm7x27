@@ -144,12 +144,6 @@ struct rpm_vreg_pdata {
 	int				sleep_selectable;
 };
 
-enum pm8058_s1_vote_client {
-	PM8058_S1_VOTE_REG_FRAMEWORK = 0, /* for internal use only */
-	PM8058_S1_VOTE_CLOCK,		  /* for use by the clock driver */
-	PM8058_S1_VOTE_NUM_VOTERS,
-};
-
 enum rpm_vreg_voter {
 	RPM_VREG_VOTER_REG_FRAMEWORK = 0, /* for internal use only */
 	RPM_VREG_VOTER1,		  /* for use by the acpu-clock driver */
@@ -157,8 +151,6 @@ enum rpm_vreg_voter {
 	RPM_VREG_VOTER3,		  /* for use by other drivers */
 	RPM_VREG_VOTER_COUNT,
 };
-
-int pm8058_s1_set_min_uv_noirq(enum pm8058_s1_vote_client voter, int min_uV);
 
 int rpm_vreg_set_voltage(enum rpm_vreg_id vreg_id, enum rpm_vreg_voter voter,
 			 int min_uV, int sleep_also);
