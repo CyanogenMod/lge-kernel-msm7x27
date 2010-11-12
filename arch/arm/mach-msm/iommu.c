@@ -97,13 +97,16 @@ static int __flush_iotlb(struct iommu_domain *domain)
 	unsigned long *fl_table = priv->pgtable;
 	int i;
 
-	dmac_flush_range(fl_table, fl_table + SZ_16K);
+	if (!list_empty(&priv->list_attached)) {
+		dmac_flush_range(fl_table, fl_table + SZ_16K);
 
-	for (i = 0; i < NUM_FL_PTE; i++)
-		if ((fl_table[i] & 0x03) == FL_TYPE_TABLE) {
-			void *sl_table = __va(fl_table[i] & FL_BASE_MASK);
-			dmac_flush_range(sl_table, sl_table + SZ_4K);
-		}
+		for (i = 0; i < NUM_FL_PTE; i++)
+			if ((fl_table[i] & 0x03) == FL_TYPE_TABLE) {
+				void *sl_table = __va(fl_table[i] &
+								  FL_BASE_MASK);
+				dmac_flush_range(sl_table, sl_table + SZ_4K);
+			}
+	}
 #endif
 
 	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
