@@ -2043,10 +2043,13 @@ static int msm_rpcrouter_modem_notify(struct notifier_block *this,
 int msm_rpcrouter_close(void)
 {
 	struct rpcrouter_xprt_info *xprt_info, *tmp_xprt_info;
+	union rr_control_msg ctl;
 
+	ctl.cmd = RPCROUTER_CTRL_CMD_BYE;
 	mutex_lock(&xprt_info_list_lock);
 	list_for_each_entry_safe(xprt_info, tmp_xprt_info,
 				 &xprt_info_list, list) {
+		rpcrouter_send_control_msg(xprt_info, &ctl);
 		xprt_info->xprt->close();
 		list_del(&xprt_info->list);
 		kfree(xprt_info);
