@@ -44,6 +44,7 @@
 #define NUM_STAT_OUTPUT_BUFFERS      3
 #define NUM_AF_STAT_OUTPUT_BUFFERS      3
 #define max_control_command_size 150
+#define CROP_LEN 36
 
 enum msm_queue {
 	MSM_CAM_Q_CTRL,     /* control command or control command status */
