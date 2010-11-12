@@ -364,12 +364,6 @@ static struct resource kgsl_resources[] = {
 static struct msm_bus_vectors grp3d_init_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_3D,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_3D,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
 		.ab = 0,
 		.ib = 0,
@@ -377,12 +371,6 @@ static struct msm_bus_vectors grp3d_init_vectors[] = {
 };
 
 static struct msm_bus_vectors grp3d_max_vectors[] = {
-	{
-		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_3D,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab = 264000000,
-		.ib = 264000000,
-	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_3D,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
@@ -410,12 +398,6 @@ static struct msm_bus_scale_pdata grp3d_bus_scale_pdata = {
 static struct msm_bus_vectors grp2d0_init_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
 		.ab = 0,
 		.ib = 0,
@@ -423,12 +405,6 @@ static struct msm_bus_vectors grp2d0_init_vectors[] = {
 };
 
 static struct msm_bus_vectors grp2d0_max_vectors[] = {
-	{
-		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab = 264000000,
-		.ib = 264000000,
-	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
@@ -456,12 +432,6 @@ struct msm_bus_scale_pdata grp2d0_bus_scale_pdata = {
 static struct msm_bus_vectors grp2d1_init_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
 		.ab = 0,
 		.ib = 0,
@@ -469,12 +439,6 @@ static struct msm_bus_vectors grp2d1_init_vectors[] = {
 };
 
 static struct msm_bus_vectors grp2d1_max_vectors[] = {
-	{
-		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab = 264000000,
-		.ib = 264000000,
-	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
