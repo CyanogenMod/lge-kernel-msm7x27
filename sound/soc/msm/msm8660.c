@@ -183,7 +183,7 @@ static int msm8660_hw_params(struct snd_pcm_substream *substream,
 		tx_osr_clk = clk_get(NULL, "i2s_mic_osr_clk");
 		if (IS_ERR(tx_osr_clk)) {
 			pr_debug("Failed to get i2s_mic_osr_clk\n");
-			return PTR_ERR(rx_osr_clk);
+			return PTR_ERR(tx_osr_clk);
 		}
 		/* Master clock OSR 256 */
 		clk_set_rate(tx_osr_clk, params_rate(params) * 256);
