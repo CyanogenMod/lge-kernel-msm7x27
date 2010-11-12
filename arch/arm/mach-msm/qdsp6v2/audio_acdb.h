@@ -30,6 +30,7 @@
 #define _AUDIO_ACDB_H
 
 #include <linux/msm_audio_acdb.h>
+#include "q6adm.h"
 
 #define NUM_AUDPROC_BUFFERS	6
 

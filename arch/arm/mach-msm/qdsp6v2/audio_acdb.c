@@ -397,7 +397,7 @@ done:
 static int acdb_open(struct inode *inode, struct file *f)
 {
 	s32 result = 0;
-	pr_debug("%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	if (acdb_data.pmem_fd) {
 		pr_err("%s: ACDB opened but PMEM allocated, freeing PMEM!\n",
@@ -421,6 +421,8 @@ static int acdb_ioctl(struct inode *inode, struct file *f,
 	switch (cmd) {
 	case AUDIO_REGISTER_PMEM: {
 		struct msm_audio_pmem_info info;
+		struct audproc_buffer_data buffer;
+
 		pr_debug("AUDIO_REGISTER_PMEM\n");
 		if (copy_from_user(&info, (void *)arg, sizeof(info)))
 			return -EFAULT;
@@ -430,21 +432,40 @@ static int acdb_ioctl(struct inode *inode, struct file *f,
 					&acdb_data.file);
 		if (result == 0)
 			acdb_data.pmem_fd = info.fd;
-		else
+		else{
 			pr_err("%s: Could not register PMEM!!!\n", __func__);
+			goto done;
+		}
 
 		pr_debug("AUDIO_REGISTER_PMEM done! paddr = 0x%lx, "
 			"kvaddr = 0x%lx, len = x%lx\n", acdb_data.paddr,
 			acdb_data.kvaddr, acdb_data.pmem_len);
+		get_audproc_buffer_data(&buffer);
+		result = adm_memory_map_regions(buffer.phys_addr, 0,
+				buffer.buf_size,
+				NUM_AUDPROC_BUFFERS);
+		if (result < 0)
+			pr_err("Audcal mmap did not work!\n");
 		goto done;
 	}
-	case AUDIO_DEREGISTER_PMEM:
+	case AUDIO_DEREGISTER_PMEM: {
+
+		struct audproc_buffer_data buffer;
+
+		get_audproc_buffer_data(&buffer);
+
 		pr_debug("AUDIO_DEREGISTER_PMEM\n");
+
+		result = adm_memory_unmap_regions(buffer.phys_addr,
+				buffer.buf_size, NUM_AUDPROC_BUFFERS);
+		if (result < 0)
+			pr_err("Audcal unmap did not work!\n");
 		if (acdb_data.pmem_fd) {
 			put_pmem_file(acdb_data.file);
 			acdb_data.pmem_fd = 0;
 		}
 		goto done;
+	}
 	}
 
 	if (copy_from_user(&len, (void *) arg,
@@ -532,7 +553,20 @@ done:
 static int acdb_release(struct inode *inode, struct file *f)
 {
 	s32 result = 0;
-	pr_debug("%s\n", __func__);
+	struct audproc_buffer_data buffer;
+	pr_info("%s\n", __func__);
+
+
+	get_audproc_buffer_data(&buffer);
+
+	result = adm_memory_unmap_regions(buffer.phys_addr,
+			buffer.buf_size, NUM_AUDPROC_BUFFERS);
+	if (result < 0)
+		pr_err("Audcal unmap did not work!\n");
+	if (acdb_data.pmem_fd) {
+		put_pmem_file(acdb_data.file);
+		acdb_data.pmem_fd = 0;
+	}
 	return result;
 }
 
@@ -551,7 +585,7 @@ struct miscdevice acdb_misc = {
 
 static int __init acdb_init(void)
 {
-	pr_debug("%s\n", __func__);
+	pr_info("%s\n", __func__);
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	mutex_init(&acdb_data.acdb_mutex);
 	return misc_register(&acdb_misc);

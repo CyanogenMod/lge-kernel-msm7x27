@@ -333,9 +333,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	unsigned long dsp_flags;
 	uint32_t *payload = data->payload;
 
-	pr_debug("session[%d]ptr0[0x%x]ptr1[0x%x]opcode[0x%x] "
+	pr_debug("session[%d]opcode[0x%x] "
 		"token[0x%x]payload_s[%d] src[%d] dest[%d]\n",
-		ac->session, payload[0], payload[1], data->opcode,
+		ac->session, data->opcode,
 		data->token, data->payload_size, data->src_port,
 		data->dest_port);
 
