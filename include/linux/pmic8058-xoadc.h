@@ -63,6 +63,7 @@ struct xoadc_conv_state {
 #define XOADC_MPP_5             0x4
 #define XOADC_MPP_7             0x6
 #define XOADC_MPP_8             0x7
+#define XOADC_MPP_10		0X9
 
 #define XOADC_PMIC_0		0x0
 
