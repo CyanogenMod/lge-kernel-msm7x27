@@ -48,6 +48,7 @@ struct msm_bus_fabric {
 	struct msm_bus_inode_info info;
 	const struct msm_bus_fab_algorithm *algo;
 	struct msm_bus_fabric_registration *pdata;
+	struct msm_rpm_iv_pair *rpm_data;
 };
 #define to_msm_bus_fabric(d) container_of(d, \
 	struct msm_bus_fabric, d)
@@ -109,7 +110,7 @@ static int msm_bus_fabric_add_fab(struct msm_bus_fabric *fabric,
  */
 static int register_fabric_info(struct msm_bus_fabric *fabric)
 {
-	int i, ret = 0, err = 0;
+	int i, ret = 0, err = 0, count;
 
 	MSM_FAB_DBG("id:%d pdata-id: %d len: %d\n", fabric->fabdev.id,
 		fabric->pdata->id, fabric->pdata->len);
@@ -157,6 +158,13 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 			fabric->nslaves++;
 		}
 	}
+
+	count = ((fabric->nmasters * fabric->ntieredslaves)
+		+ (fabric->nslaves) + 1)/2;
+
+	fabric->rpm_data = kmalloc((sizeof(struct msm_rpm_iv_pair) * count),
+		GFP_KERNEL);
+
 	MSM_FAB_DBG("Fabric: %d nmasters: %d nslaves: %d\n"
 		" ntieredslaves: %d, rpm_enabled: %d\n",
 		fabric->fabdev.id, fabric->nmasters, fabric->nslaves,
@@ -175,8 +183,8 @@ error:
 static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 {
 	int i, j, offset = 0, status = 0, count, index = 0;
-	struct msm_rpm_iv_pair *rpm_data;
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
+	struct msm_rpm_iv_pair *rpm_data = fabric->rpm_data;
 	/*
 	 * count is the number of 2-byte words required to commit the
 	 * data to rpm. This is calculated by the following formula.
@@ -190,9 +198,6 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 	}
 	count = ((fabric->nmasters * fabric->ntieredslaves)
 		+ (fabric->nslaves) + 1)/2;
-
-	rpm_data = kmalloc((sizeof(struct msm_rpm_iv_pair) * count),
-			GFP_KERNEL);
 
 	offset = fabric->pdata->offset;
 	/*
@@ -231,8 +236,7 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 
 	MSM_FAB_DBG("Commit Data: Fab: %d BWSum:\n", fabric->fabdev.id);
 	for (i = 0; i < fabric->nslaves; i++)
-		MSM_FAB_DBG("fab_slaves:0x%x\n",
-			fabric->cdata->bwsum[i]);
+		MSM_FAB_DBG("fab_slaves:0x%x\n", fabric->cdata->bwsum[i]);
 	MSM_FAB_DBG("Commit Data: Fab: %d Arb:\n", fabric->fabdev.id);
 	for (i = 0; i < fabric->ntieredslaves; i++) {
 		MSM_FAB_DBG("tiered-slave: %d\n", i);
@@ -246,7 +250,6 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev)
 		status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data, count);
 	MSM_FAB_DBG("msm_rpm_set returned: %d\n", status);
 	fabric->dirty = false;
-	kfree(rpm_data);
 	return status;
 }
 
@@ -669,6 +672,7 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 		kfree(fabric->cdata);
 	}
 	kfree(fabric->info.node_info);
+	kfree(fabric->rpm_data);
 	kfree(fabric);
 	return ret;
 }
