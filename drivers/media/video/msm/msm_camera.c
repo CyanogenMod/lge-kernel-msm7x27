@@ -1845,13 +1845,18 @@ static int msm_set_crop(struct msm_sync *sync, void __user *arg)
 		return -EFAULT;
 	}
 
+	if (crop.len != CROP_LEN) {
+		mutex_unlock(&sync->lock);
+		return -EINVAL;
+	}
+
 	if (!sync->croplen) {
 		sync->cropinfo = kmalloc(crop.len, GFP_KERNEL);
 		if (!sync->cropinfo) {
 			mutex_unlock(&sync->lock);
 			return -ENOMEM;
 		}
-	} else if (sync->croplen < crop.len) {
+	} else if (sync->croplen != crop.len) {
 		mutex_unlock(&sync->lock);
 		return -EINVAL;
 	}
