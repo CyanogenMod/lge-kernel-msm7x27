@@ -2224,10 +2224,12 @@ static struct msm_adc_channels msm_adc_channels_data[] = {
 		ADC_CONFIG_TYPE1, ADC_CALIB_CONFIG_TYPE6, tdkntcgtherm},
 	{"hdset_detect", CHANNEL_ADC_HDSET, 0, &xoadc_fn, CHAN_PATH_TYPE6,
 		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE1, scale_default},
-	{"chg_batt_amon", CHANNEL_ADC_BATT_AMON, 0, &xoadc_fn, CHAN_PATH_TYPE7,
+	{"chg_batt_amon", CHANNEL_ADC_BATT_AMON, 0, &xoadc_fn, CHAN_PATH_TYPE10,
 		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE1,
 		scale_xtern_chgr_cur},
-	{"batt_therm", CHANNEL_ADC_BATT_THERM, 0, &xoadc_fn, CHAN_PATH_TYPE8,
+	{"msm_therm", CHANNEL_ADC_MSM_THERM, 0, &xoadc_fn, CHAN_PATH_TYPE8,
+		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE2, scale_msm_therm},
+	{"batt_therm", CHANNEL_ADC_BATT_THERM, 0, &xoadc_fn, CHAN_PATH_TYPE7,
 		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE2, scale_batt_therm},
 	{"batt_id", CHANNEL_ADC_BATT_ID, 0, &xoadc_fn, CHAN_PATH_TYPE9,
 		ADC_CONFIG_TYPE2, ADC_CALIB_CONFIG_TYPE2, scale_default},
@@ -2323,25 +2325,33 @@ static void pmic8058_xoadc_mpp_config(void)
 
 	rc = pm8901_mpp_config_digital_out(XOADC_MPP_4,
 			PM8901_MPP_DIG_LEVEL_S4, PM_MPP_DOUT_CTL_LOW);
-
-	if (!rc)
-		rc = pm8058_mpp_config_analog_input(XOADC_MPP_3,
-			PM_MPP_AIN_AMUX_CH5, PM_MPP_AOUT_CTL_ENABLE);
-
-	if (!rc)
-		rc = pm8058_mpp_config_analog_input(XOADC_MPP_5,
-			PM_MPP_AIN_AMUX_CH6, PM_MPP_AOUT_CTL_ENABLE);
-
-	if (!rc)
-		rc = pm8058_mpp_config_analog_input(XOADC_MPP_7,
-			PM_MPP_AIN_AMUX_CH7, PM_MPP_AOUT_CTL_ENABLE);
-
-	if (!rc)
-		rc = pm8058_mpp_config_analog_input(XOADC_MPP_8,
-			PM_MPP_AIN_AMUX_CH8, PM_MPP_AOUT_CTL_ENABLE);
-
 	if (rc)
-		pr_err("%s: pmic8058 xoadc mpp config failed\n", __func__);
+		pr_err("%s: Config mpp4 on pmic 8901 failed\n", __func__);
+
+	rc = pm8058_mpp_config_analog_input(XOADC_MPP_3,
+			PM_MPP_AIN_AMUX_CH5, PM_MPP_AOUT_CTL_DISABLE);
+	if (rc)
+		pr_err("%s: Config mpp3 on pmic 8058 failed\n", __func__);
+
+	rc = pm8058_mpp_config_analog_input(XOADC_MPP_5,
+			PM_MPP_AIN_AMUX_CH9, PM_MPP_AOUT_CTL_DISABLE);
+	if (rc)
+		pr_err("%s: Config mpp5 on pmic 8058 failed\n", __func__);
+
+	rc = pm8058_mpp_config_analog_input(XOADC_MPP_7,
+			PM_MPP_AIN_AMUX_CH6, PM_MPP_AOUT_CTL_DISABLE);
+	if (rc)
+		pr_err("%s: Config mpp7 on pmic 8058 failed\n", __func__);
+
+	rc = pm8058_mpp_config_analog_input(XOADC_MPP_8,
+			PM_MPP_AIN_AMUX_CH8, PM_MPP_AOUT_CTL_DISABLE);
+	if (rc)
+		pr_err("%s: Config mpp8 on pmic 8058 failed\n", __func__);
+
+	rc = pm8058_mpp_config_analog_input(XOADC_MPP_10,
+			PM_MPP_AIN_AMUX_CH7, PM_MPP_AOUT_CTL_DISABLE);
+	if (rc)
+		pr_err("%s: Config mpp10 on pmic 8058 failed\n", __func__);
 }
 
 /* usec. For this ADC,
