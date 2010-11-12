@@ -161,4 +161,21 @@ struct acdb_pbe_block {
 	u16 filter_coeffs[90];
 };
 
+struct acdb_rmc_block  {
+	s16 rmc_enable;
+	u16 rmc_ipw_length_ms;
+	u16 rmc_detect_start_threshdb;
+	u16 rmc_peak_length_ms;
+	s16 rmc_init_pulse_threshdb;
+	u16 rmc_init_pulse_length_ms;
+	u16 rmc_total_int_length_ms;
+	u16 rmc_rampupdn_length_ms;
+	u16 rmc_delay_length_ms;
+	u16 reserved00;
+	u16 reserved01;
+	s16 reserved02;
+	s16 reserved03;
+	s16 reserved04;
+};
+
 #endif
