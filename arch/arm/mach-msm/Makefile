@@ -155,10 +155,14 @@ obj-$(CONFIG_ARCH_MSM7X30) += spm.o
 obj-$(CONFIG_MSM_RPM) += rpm.o rpm_resources.o
 obj-$(CONFIG_MSM_RPM_LOG) += rpm_log.o
 obj-$(CONFIG_MSM_XO) += msm_xo.o
-
-obj-$(CONFIG_SMMU)		+= smmu_driver.o smmu_driver_enum.o
-obj-$(CONFIG_SMMU_8X60)		+= board-msm8x60-smmu.o
 obj-$(CONFIG_MSM_BUS_SCALING)	+= msm_bus_core.o msm_bus_fabric.o msm_bus_board_8660.o
+obj-$(CONFIG_SMMU)		+= iommu.o iommu_dev.o
+obj-$(CONFIG_SMMU_8X60)		+= devices-msm8x60-iommu.o
+
+ifdef CONFIG_VCM
+obj-$(CONFIG_ARCH_MSM8X60) += board-msm8x60-vcm.o
+endif
+
 obj-$(CONFIG_ARCH_MSM7X27) += gpiomux-7x27.o gpiomux-v1.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM7X30) += gpiomux-7x30.o gpiomux-v1.o gpiomux.o
 obj-$(CONFIG_ARCH_QSD8X50) += gpiomux-8x50.o gpiomux-v1.o gpiomux.o

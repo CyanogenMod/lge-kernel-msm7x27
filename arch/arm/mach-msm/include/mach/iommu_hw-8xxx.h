@@ -1,68 +1,85 @@
 /* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *     * Neither the name of Code Aurora Forum, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
- * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
  */
 
-#ifndef __ARCH_ARM_MACH_MSM_SMMU_HW_8XXX_H
-#define __ARCH_ARM_MACH_MSM_SMMU_HW_8XXX_H
+#ifndef __ARCH_ARM_MACH_MSM_IOMMU_HW_8XXX_H
+#define __ARCH_ARM_MACH_MSM_IOMMU_HW_8XXX_H
 
 #define CTX_SHIFT 12
 
-#define GET_GLOBAL_REG(reg, base) (readl((base)|(reg)))
-#define GET_CTX_REG(reg, base, ctx) 	(readl((base)|(reg)|((ctx)<<CTX_SHIFT)))
+#define GET_GLOBAL_REG(reg, base) (readl((base) + (reg)))
+#define GET_CTX_REG(reg, base, ctx) \
+				(readl((base) + (reg) + ((ctx) << CTX_SHIFT)))
 
-#define SET_GLOBAL_REG(reg, base, val) 	(writel((val), (base) | (reg)))
+#define SET_GLOBAL_REG(reg, base, val)	writel((val), ((base) + (reg)))
 
 #define SET_CTX_REG(reg, base, ctx, val) \
-			(writel((val), (base) | (reg) | ((ctx)<<CTX_SHIFT)))
+			writel((val), ((base) + (reg) + ((ctx) << CTX_SHIFT)))
 
 /* Wrappers for numbered registers */
-#define SET_GLOBAL_REG_N(b, n, r, v) SET_GLOBAL_REG(b, ((r)|(n<<2)), (v))
-#define GET_GLOBAL_REG_N(b, n, r)    GET_GLOBAL_REG(b, ((r)|(n<<2)))
+#define SET_GLOBAL_REG_N(b, n, r, v) SET_GLOBAL_REG(b, ((r) + (n << 2)), (v))
+#define GET_GLOBAL_REG_N(b, n, r)    GET_GLOBAL_REG(b, ((r) + (n << 2)))
 
 /* Field wrappers */
-#define GET_GLOBAL_FIELD(b, r, F)    GET_FIELD(((b)|(r)), F##_MASK, F##_SHIFT)
+#define GET_GLOBAL_FIELD(b, r, F)    GET_FIELD(((b) + (r)), F##_MASK, F##_SHIFT)
 #define GET_CONTEXT_FIELD(b, c, r, F)	\
-	GET_FIELD(((b)|(r)|((c)<<CTX_SHIFT)), F##_MASK, F##_SHIFT)
+	GET_FIELD(((b) + (r) + ((c) << CTX_SHIFT)), F##_MASK, F##_SHIFT)
 
 #define SET_GLOBAL_FIELD(b, r, F, v) \
-	SET_FIELD(((b)|(r)), F##_MASK, F##_SHIFT, (v))
+	SET_FIELD(((b) + (r)), F##_MASK, F##_SHIFT, (v))
 #define SET_CONTEXT_FIELD(b, c, r, F, v)	\
-	SET_FIELD(((b)|(r)|((c)<<CTX_SHIFT)), F##_MASK, F##_SHIFT, (v))
+	SET_FIELD(((b) + (r) + ((c) << CTX_SHIFT)), F##_MASK, F##_SHIFT, (v))
 
-#define GET_FIELD(addr, mask, shift)  ((readl(addr) >> (shift) & (mask)))
+#define GET_FIELD(addr, mask, shift)  ((readl(addr) >> (shift)) & (mask))
 
 #define SET_FIELD(addr, mask, shift, v) \
 do { \
-	int t = readl(addr); mb(); \
-	writel((t & ~((mask)<<(shift))) | (((v) & (mask)) << (shift)), addr);\
-	mb();\
+	int t = readl(addr); \
+	writel((t & ~((mask) << (shift))) + (((v) & (mask)) << (shift)), addr);\
 } while (0)
 
+
+#define NUM_FL_PTE	4096
+#define NUM_SL_PTE	256
+
+/* First-level page table bits */
+#define FL_BASE_MASK		0xFFFFFC00
+#define FL_TYPE_TABLE		(1 << 0)
+#define FL_TYPE_SECT		(2 << 0)
+#define FL_SUPERSECTION		(1 << 18)
+#define FL_AP_WRITE		(1 << 10)
+#define FL_AP_READ		(1 << 11)
+#define FL_SHARED		(1 << 16)
+#define FL_BUFFERABLE		(1 << 2)
+#define FL_CACHEABLE		(1 << 3)
+#define FL_TEX0			(1 << 12)
+#define FL_OFFSET(va)		(((va) & 0xFFF00000) >> 20)
+
+/* Second-level page table bits */
+#define SL_BASE_MASK_LARGE	0xFFFF0000
+#define SL_BASE_MASK_SMALL	0xFFFFF000
+#define SL_TYPE_LARGE		(1 << 0)
+#define SL_TYPE_SMALL		(2 << 0)
+#define SL_AP0			(1 << 4)
+#define SL_AP1			(2 << 4)
+#define SL_SHARED		(1 << 10)
+#define SL_BUFFERABLE		(1 << 2)
+#define SL_CACHEABLE		(1 << 3)
+#define SL_TEX0			(1 << 6)
+#define SL_OFFSET(va)		(((va) & 0xFF000) >> 12)
 
 /* Global register setters / getters */
 #define SET_M2VCBR_N(b, N, v)	 SET_GLOBAL_REG_N(M2VCBR_N, N, (b), (v))
@@ -75,8 +92,8 @@ do { \
 #define SET_GLOBAL_TLBIALL(b, v) SET_GLOBAL_REG(GLOBAL_TLBIALL, (b), (v))
 #define SET_TLBIVMID(b, v)	 SET_GLOBAL_REG(TLBIVMID, (b), (v))
 #define SET_CR(b, v)		 SET_GLOBAL_REG(CR, (b), (v))
-#define SET_EAR(b, v)	       	 SET_GLOBAL_REG(EAR, (b), (v))
-#define SET_ESR(b, v)	       	 SET_GLOBAL_REG(ESR, (b), (v))
+#define SET_EAR(b, v)		 SET_GLOBAL_REG(EAR, (b), (v))
+#define SET_ESR(b, v)		 SET_GLOBAL_REG(ESR, (b), (v))
 #define SET_ESRRESTORE(b, v)	 SET_GLOBAL_REG(ESRRESTORE, (b), (v))
 #define SET_ESYNR0(b, v)	 SET_GLOBAL_REG(ESYNR0, (b), (v))
 #define SET_ESYNR1(b, v)	 SET_GLOBAL_REG(ESYNR1, (b), (v))
@@ -84,9 +101,9 @@ do { \
 
 #define GET_M2VCBR_N(b, N)	 GET_GLOBAL_REG_N(M2VCBR_N, N, (b))
 #define GET_CBACR_N(b, N)	 GET_GLOBAL_REG_N(CBACR_N, N, (b))
-#define GET_TLBTR0(b)	    	 GET_GLOBAL_REG(TLBTR0, (b))
-#define GET_TLBTR1(b)	    	 GET_GLOBAL_REG(TLBTR1, (b))
-#define GET_TLBTR2(b)	    	 GET_GLOBAL_REG(TLBTR2, (b))
+#define GET_TLBTR0(b)		 GET_GLOBAL_REG(TLBTR0, (b))
+#define GET_TLBTR1(b)		 GET_GLOBAL_REG(TLBTR1, (b))
+#define GET_TLBTR2(b)		 GET_GLOBAL_REG(TLBTR2, (b))
 #define GET_TESTBUSCR(b)	 GET_GLOBAL_REG(TESTBUSCR, (b))
 #define GET_GLOBAL_TLBIALL(b)	 GET_GLOBAL_REG(GLOBAL_TLBIALL, (b))
 #define GET_TLBIVMID(b)		 GET_GLOBAL_REG(TLBIVMID, (b))
@@ -186,10 +203,10 @@ do { \
 
 
 /* CR */
-#define SET_RPUE(b, v)	  	 SET_GLOBAL_FIELD(b, CR, RPUE, v)
+#define SET_RPUE(b, v)		 SET_GLOBAL_FIELD(b, CR, RPUE, v)
 #define SET_RPUERE(b, v)	 SET_GLOBAL_FIELD(b, CR, RPUERE, v)
 #define SET_RPUEIE(b, v)	 SET_GLOBAL_FIELD(b, CR, RPUEIE, v)
-#define SET_DCDEE(b, v)	 	 SET_GLOBAL_FIELD(b, CR, DCDEE, v)
+#define SET_DCDEE(b, v)		 SET_GLOBAL_FIELD(b, CR, DCDEE, v)
 #define SET_CLIENTPD(b, v)       SET_GLOBAL_FIELD(b, CR, CLIENTPD, v)
 #define SET_STALLD(b, v)	 SET_GLOBAL_FIELD(b, CR, STALLD, v)
 #define SET_TLBLKCRWE(b, v)      SET_GLOBAL_FIELD(b, CR, TLBLKCRWE, v)
@@ -199,7 +216,7 @@ do { \
 
 
 /* ESR */
-#define SET_CFG(b, v)	   	 SET_GLOBAL_FIELD(b, ESR, CFG, v)
+#define SET_CFG(b, v)		 SET_GLOBAL_FIELD(b, ESR, CFG, v)
 #define SET_BYPASS(b, v)	 SET_GLOBAL_FIELD(b, ESR, BYPASS, v)
 #define SET_ESR_MULTI(b, v)      SET_GLOBAL_FIELD(b, ESR, ESR_MULTI, v)
 
@@ -233,9 +250,9 @@ do { \
 
 
 /* TESTBUSCR */
-#define SET_TBE(b, v)	    	 SET_GLOBAL_FIELD(b, TESTBUSCR, TBE, v)
+#define SET_TBE(b, v)		 SET_GLOBAL_FIELD(b, TESTBUSCR, TBE, v)
 #define SET_SPDMBE(b, v)	 SET_GLOBAL_FIELD(b, TESTBUSCR, SPDMBE, v)
-#define SET_WGSEL(b, v)	 	 SET_GLOBAL_FIELD(b, TESTBUSCR, WGSEL, v)
+#define SET_WGSEL(b, v)		 SET_GLOBAL_FIELD(b, TESTBUSCR, WGSEL, v)
 #define SET_TBLSEL(b, v)	 SET_GLOBAL_FIELD(b, TESTBUSCR, TBLSEL, v)
 #define SET_TBHSEL(b, v)	 SET_GLOBAL_FIELD(b, TESTBUSCR, TBHSEL, v)
 #define SET_SPDM0SEL(b, v)       SET_GLOBAL_FIELD(b, TESTBUSCR, SPDM0SEL, v)
@@ -254,15 +271,15 @@ do { \
 
 
 /* TLBTR0 */
-#define SET_PR(b, v)	     	 SET_GLOBAL_FIELD(b, TLBTR0, PR, v)
-#define SET_PW(b, v)	     	 SET_GLOBAL_FIELD(b, TLBTR0, PW, v)
-#define SET_UR(b, v)	    	 SET_GLOBAL_FIELD(b, TLBTR0, UR, v)
-#define SET_UW(b, v)	    	 SET_GLOBAL_FIELD(b, TLBTR0, UW, v)
-#define SET_XN(b, v)	    	 SET_GLOBAL_FIELD(b, TLBTR0, XN, v)
+#define SET_PR(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, PR, v)
+#define SET_PW(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, PW, v)
+#define SET_UR(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, UR, v)
+#define SET_UW(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, UW, v)
+#define SET_XN(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, XN, v)
 #define SET_NSDESC(b, v)	 SET_GLOBAL_FIELD(b, TLBTR0, NSDESC, v)
-#define SET_ISH(b, v)	   	 SET_GLOBAL_FIELD(b, TLBTR0, ISH, v)
-#define SET_SH(b, v)	      	 SET_GLOBAL_FIELD(b, TLBTR0, SH, v)
-#define SET_MT(b, v)	     	 SET_GLOBAL_FIELD(b, TLBTR0, MT, v)
+#define SET_ISH(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, ISH, v)
+#define SET_SH(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, SH, v)
+#define SET_MT(b, v)		 SET_GLOBAL_FIELD(b, TLBTR0, MT, v)
 #define SET_DPSIZR(b, v)	 SET_GLOBAL_FIELD(b, TLBTR0, DPSIZR, v)
 #define SET_DPSIZC(b, v)	 SET_GLOBAL_FIELD(b, TLBTR0, DPSIZC, v)
 
@@ -282,11 +299,11 @@ do { \
 
 /* Global Field Getters */
 /* CBACR_N */
-#define GET_RWVMID(b, n)    	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), RWVMID)
-#define GET_RWE(b, n)       	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), RWE)
-#define GET_RWGE(b, n)      	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), RWGE)
-#define GET_CBVMID(b, n)    	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), CBVMID)
-#define GET_IRPTNDX(b, n)  	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), IRPTNDX)
+#define GET_RWVMID(b, n)	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), RWVMID)
+#define GET_RWE(b, n)		 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), RWE)
+#define GET_RWGE(b, n)		 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), RWGE)
+#define GET_CBVMID(b, n)	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), CBVMID)
+#define GET_IRPTNDX(b, n)	 GET_GLOBAL_FIELD(b, (n<<2)|(CBACR_N), IRPTNDX)
 
 
 /* M2VCBR_N */
@@ -303,30 +320,30 @@ do { \
 
 
 /* CR */
-#define GET_RPUE(b)	  	 GET_GLOBAL_FIELD(b, CR, RPUE)
+#define GET_RPUE(b)		 GET_GLOBAL_FIELD(b, CR, RPUE)
 #define GET_RPUERE(b)		 GET_GLOBAL_FIELD(b, CR, RPUERE)
 #define GET_RPUEIE(b)		 GET_GLOBAL_FIELD(b, CR, RPUEIE)
 #define GET_DCDEE(b)		 GET_GLOBAL_FIELD(b, CR, DCDEE)
-#define GET_CLIENTPD(b)      	 GET_GLOBAL_FIELD(b, CR, CLIENTPD)
+#define GET_CLIENTPD(b)		 GET_GLOBAL_FIELD(b, CR, CLIENTPD)
 #define GET_STALLD(b)		 GET_GLOBAL_FIELD(b, CR, STALLD)
-#define GET_TLBLKCRWE(b)     	 GET_GLOBAL_FIELD(b, CR, TLBLKCRWE)
-#define GET_CR_TLBIALLCFG(b) 	 GET_GLOBAL_FIELD(b, CR, CR_TLBIALLCFG)
-#define GET_TLBIVMIDCFG(b)   	 GET_GLOBAL_FIELD(b, CR, TLBIVMIDCFG)
-#define GET_CR_HUME(b)       	 GET_GLOBAL_FIELD(b, CR, CR_HUME)
+#define GET_TLBLKCRWE(b)	 GET_GLOBAL_FIELD(b, CR, TLBLKCRWE)
+#define GET_CR_TLBIALLCFG(b)	 GET_GLOBAL_FIELD(b, CR, CR_TLBIALLCFG)
+#define GET_TLBIVMIDCFG(b)	 GET_GLOBAL_FIELD(b, CR, TLBIVMIDCFG)
+#define GET_CR_HUME(b)		 GET_GLOBAL_FIELD(b, CR, CR_HUME)
 
 
 /* ESR */
-#define GET_CFG(b)	   	 GET_GLOBAL_FIELD(b, ESR, CFG)
+#define GET_CFG(b)		 GET_GLOBAL_FIELD(b, ESR, CFG)
 #define GET_BYPASS(b)		 GET_GLOBAL_FIELD(b, ESR, BYPASS)
-#define GET_ESR_MULTI(b)     	 GET_GLOBAL_FIELD(b, ESR, ESR_MULTI)
+#define GET_ESR_MULTI(b)	 GET_GLOBAL_FIELD(b, ESR, ESR_MULTI)
 
 
 /* ESYNR0 */
-#define GET_ESYNR0_AMID(b)   	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_AMID)
-#define GET_ESYNR0_APID(b)   	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_APID)
-#define GET_ESYNR0_ABID(b)   	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_ABID)
-#define GET_ESYNR0_AVMID(b)  	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_AVMID)
-#define GET_ESYNR0_ATID(b)   	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_ATID)
+#define GET_ESYNR0_AMID(b)	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_AMID)
+#define GET_ESYNR0_APID(b)	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_APID)
+#define GET_ESYNR0_ABID(b)	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_ABID)
+#define GET_ESYNR0_AVMID(b)	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_AVMID)
+#define GET_ESYNR0_ATID(b)	 GET_GLOBAL_FIELD(b, ESYNR0, ESYNR0_ATID)
 
 
 /* ESYNR1 */
@@ -335,74 +352,74 @@ do { \
 #define GET_ESYNR1_AINNERSHARED(b) \
 			GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AINNERSHARED)
 #define GET_ESYNR1_APRIV(b)      GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_APRIV)
-#define GET_ESYNR1_APROTNS(b) 	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_APROTNS)
-#define GET_ESYNR1_AINST(b)   	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AINST)
-#define GET_ESYNR1_AWRITE(b)  	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AWRITE)
-#define GET_ESYNR1_ABURST(b)  	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ABURST)
-#define GET_ESYNR1_ALEN(b)    	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ALEN)
-#define GET_ESYNR1_ASIZE(b)   	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ASIZE)
-#define GET_ESYNR1_ALOCK(b)  	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ALOCK)
-#define GET_ESYNR1_AOOO(b)    	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AOOO)
-#define GET_ESYNR1_AFULL(b)   	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AFULL)
-#define GET_ESYNR1_AC(b)      	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AC)
-#define GET_ESYNR1_DCD(b)     	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_DCD)
+#define GET_ESYNR1_APROTNS(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_APROTNS)
+#define GET_ESYNR1_AINST(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AINST)
+#define GET_ESYNR1_AWRITE(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AWRITE)
+#define GET_ESYNR1_ABURST(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ABURST)
+#define GET_ESYNR1_ALEN(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ALEN)
+#define GET_ESYNR1_ASIZE(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ASIZE)
+#define GET_ESYNR1_ALOCK(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_ALOCK)
+#define GET_ESYNR1_AOOO(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AOOO)
+#define GET_ESYNR1_AFULL(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AFULL)
+#define GET_ESYNR1_AC(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_AC)
+#define GET_ESYNR1_DCD(b)	 GET_GLOBAL_FIELD(b, ESYNR1, ESYNR1_DCD)
 
 
 /* IDR */
-#define GET_NM2VCBMT(b)       	 GET_GLOBAL_FIELD(b, IDR, NM2VCBMT)
-#define GET_HTW(b)	    	 GET_GLOBAL_FIELD(b, IDR, HTW)
-#define GET_HUM(b)	    	 GET_GLOBAL_FIELD(b, IDR, HUM)
+#define GET_NM2VCBMT(b)		 GET_GLOBAL_FIELD(b, IDR, NM2VCBMT)
+#define GET_HTW(b)		 GET_GLOBAL_FIELD(b, IDR, HTW)
+#define GET_HUM(b)		 GET_GLOBAL_FIELD(b, IDR, HUM)
 #define GET_TLBSIZE(b)		 GET_GLOBAL_FIELD(b, IDR, TLBSIZE)
-#define GET_NCB(b)	    	 GET_GLOBAL_FIELD(b, IDR, NCB)
-#define GET_NIRPT(b)	  	 GET_GLOBAL_FIELD(b, IDR, NIRPT)
+#define GET_NCB(b)		 GET_GLOBAL_FIELD(b, IDR, NCB)
+#define GET_NIRPT(b)		 GET_GLOBAL_FIELD(b, IDR, NIRPT)
 
 
 /* REV */
-#define GET_MAJOR(b)	  	 GET_GLOBAL_FIELD(b, REV, MAJOR)
-#define GET_MINOR(b)	  	 GET_GLOBAL_FIELD(b, REV, MINOR)
+#define GET_MAJOR(b)		 GET_GLOBAL_FIELD(b, REV, MAJOR)
+#define GET_MINOR(b)		 GET_GLOBAL_FIELD(b, REV, MINOR)
 
 
 /* TESTBUSCR */
-#define GET_TBE(b)	    	 GET_GLOBAL_FIELD(b, TESTBUSCR, TBE)
-#define GET_SPDMBE(b)	 	 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDMBE)
-#define GET_WGSEL(b)	  	 GET_GLOBAL_FIELD(b, TESTBUSCR, WGSEL)
-#define GET_TBLSEL(b)	 	 GET_GLOBAL_FIELD(b, TESTBUSCR, TBLSEL)
-#define GET_TBHSEL(b)	 	 GET_GLOBAL_FIELD(b, TESTBUSCR, TBHSEL)
-#define GET_SPDM0SEL(b)       	 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM0SEL)
-#define GET_SPDM1SEL(b)       	 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM1SEL)
-#define GET_SPDM2SEL(b)       	 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM2SEL)
-#define GET_SPDM3SEL(b)       	 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM3SEL)
+#define GET_TBE(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, TBE)
+#define GET_SPDMBE(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDMBE)
+#define GET_WGSEL(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, WGSEL)
+#define GET_TBLSEL(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, TBLSEL)
+#define GET_TBHSEL(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, TBHSEL)
+#define GET_SPDM0SEL(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM0SEL)
+#define GET_SPDM1SEL(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM1SEL)
+#define GET_SPDM2SEL(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM2SEL)
+#define GET_SPDM3SEL(b)		 GET_GLOBAL_FIELD(b, TESTBUSCR, SPDM3SEL)
 
 
 /* TLBIVMID */
-#define GET_TLBIVMID_VMID(b) 	 GET_GLOBAL_FIELD(b, TLBIVMID, TLBIVMID_VMID)
+#define GET_TLBIVMID_VMID(b)	 GET_GLOBAL_FIELD(b, TLBIVMID, TLBIVMID_VMID)
 
 
 /* TLBTR0 */
-#define GET_PR(b)	     	 GET_GLOBAL_FIELD(b, TLBTR0, PR)
-#define GET_PW(b)	     	 GET_GLOBAL_FIELD(b, TLBTR0, PW)
-#define GET_UR(b)	     	 GET_GLOBAL_FIELD(b, TLBTR0, UR)
-#define GET_UW(b)	     	 GET_GLOBAL_FIELD(b, TLBTR0, UW)
-#define GET_XN(b)	     	 GET_GLOBAL_FIELD(b, TLBTR0, XN)
-#define GET_NSDESC(b)	 	 GET_GLOBAL_FIELD(b, TLBTR0, NSDESC)
-#define GET_ISH(b)	    	 GET_GLOBAL_FIELD(b, TLBTR0, ISH)
-#define GET_SH(b)	     	 GET_GLOBAL_FIELD(b, TLBTR0, SH)
-#define GET_MT(b)	     	 GET_GLOBAL_FIELD(b, TLBTR0, MT)
-#define GET_DPSIZR(b)	 	 GET_GLOBAL_FIELD(b, TLBTR0, DPSIZR)
-#define GET_DPSIZC(b)	 	 GET_GLOBAL_FIELD(b, TLBTR0, DPSIZC)
+#define GET_PR(b)		 GET_GLOBAL_FIELD(b, TLBTR0, PR)
+#define GET_PW(b)		 GET_GLOBAL_FIELD(b, TLBTR0, PW)
+#define GET_UR(b)		 GET_GLOBAL_FIELD(b, TLBTR0, UR)
+#define GET_UW(b)		 GET_GLOBAL_FIELD(b, TLBTR0, UW)
+#define GET_XN(b)		 GET_GLOBAL_FIELD(b, TLBTR0, XN)
+#define GET_NSDESC(b)		 GET_GLOBAL_FIELD(b, TLBTR0, NSDESC)
+#define GET_ISH(b)		 GET_GLOBAL_FIELD(b, TLBTR0, ISH)
+#define GET_SH(b)		 GET_GLOBAL_FIELD(b, TLBTR0, SH)
+#define GET_MT(b)		 GET_GLOBAL_FIELD(b, TLBTR0, MT)
+#define GET_DPSIZR(b)		 GET_GLOBAL_FIELD(b, TLBTR0, DPSIZR)
+#define GET_DPSIZC(b)		 GET_GLOBAL_FIELD(b, TLBTR0, DPSIZC)
 
 
 /* TLBTR1 */
-#define GET_TLBTR1_VMID(b)    	 GET_GLOBAL_FIELD(b, TLBTR1, TLBTR1_VMID)
-#define GET_TLBTR1_PA(b)     	 GET_GLOBAL_FIELD(b, TLBTR1, TLBTR1_PA)
+#define GET_TLBTR1_VMID(b)	 GET_GLOBAL_FIELD(b, TLBTR1, TLBTR1_VMID)
+#define GET_TLBTR1_PA(b)	 GET_GLOBAL_FIELD(b, TLBTR1, TLBTR1_PA)
 
 
 /* TLBTR2 */
-#define GET_TLBTR2_ASID(b)    	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_ASID)
-#define GET_TLBTR2_V(b)       	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_V)
-#define GET_TLBTR2_NSTID(b)   	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_NSTID)
-#define GET_TLBTR2_NV(b)      	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_NV)
-#define GET_TLBTR2_VA(b)      	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_VA)
+#define GET_TLBTR2_ASID(b)	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_ASID)
+#define GET_TLBTR2_V(b)		 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_V)
+#define GET_TLBTR2_NSTID(b)	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_NSTID)
+#define GET_TLBTR2_NV(b)	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_NV)
+#define GET_TLBTR2_VA(b)	 GET_GLOBAL_FIELD(b, TLBTR2, TLBTR2_VA)
 
 
 /* Context Register setters / getters */
@@ -432,7 +449,6 @@ do { \
 #define SET_SFVS(b, c, v)	 SET_CONTEXT_FIELD(b, c, BFBCR, SFVS, v)
 #define SET_FLVIC(b, c, v)	 SET_CONTEXT_FIELD(b, c, BFBCR, FLVIC, v)
 #define SET_SLVIC(b, c, v)	 SET_CONTEXT_FIELD(b, c, BFBCR, SLVIC, v)
-#define SET_STRIDE(b, c, v)	 SET_CONTEXT_FIELD(b, c, BFBCR, STRIDE, v)
 
 
 /* CONTEXTIDR */
@@ -443,15 +459,15 @@ do { \
 
 
 /* FSR */
-#define SET_TF(b, c, v)	   	 SET_CONTEXT_FIELD(b, c, FSR, TF, v)
+#define SET_TF(b, c, v)		 SET_CONTEXT_FIELD(b, c, FSR, TF, v)
 #define SET_AFF(b, c, v)	 SET_CONTEXT_FIELD(b, c, FSR, AFF, v)
 #define SET_APF(b, c, v)	 SET_CONTEXT_FIELD(b, c, FSR, APF, v)
 #define SET_TLBMF(b, c, v)	 SET_CONTEXT_FIELD(b, c, FSR, TLBMF, v)
 #define SET_HTWDEEF(b, c, v)	 SET_CONTEXT_FIELD(b, c, FSR, HTWDEEF, v)
 #define SET_HTWSEEF(b, c, v)	 SET_CONTEXT_FIELD(b, c, FSR, HTWSEEF, v)
 #define SET_MHF(b, c, v)	 SET_CONTEXT_FIELD(b, c, FSR, MHF, v)
-#define SET_SL(b, c, v)	   	 SET_CONTEXT_FIELD(b, c, FSR, SL, v)
-#define SET_SS(b, c, v)	   	 SET_CONTEXT_FIELD(b, c, FSR, SS, v)
+#define SET_SL(b, c, v)		 SET_CONTEXT_FIELD(b, c, FSR, SL, v)
+#define SET_SS(b, c, v)		 SET_CONTEXT_FIELD(b, c, FSR, SS, v)
 #define SET_MULTI(b, c, v)	 SET_CONTEXT_FIELD(b, c, FSR, MULTI, v)
 
 
@@ -480,6 +496,10 @@ do { \
 
 
 /* NMRR */
+#define NMRR_ICP(nmrr, n)	(((nmrr) & (3 << ((n) * 2))) >> ((n) * 2))
+#define NMRR_OCP(nmrr, n)	(((nmrr) & (3 << ((n) * 2 + 16))) >> \
+								((n) * 2 + 16))
+
 #define SET_ICPC0(b, c, v)	 SET_CONTEXT_FIELD(b, c, NMRR, ICPC0, v)
 #define SET_ICPC1(b, c, v)	 SET_CONTEXT_FIELD(b, c, NMRR, ICPC1, v)
 #define SET_ICPC2(b, c, v)	 SET_CONTEXT_FIELD(b, c, NMRR, ICPC2, v)
@@ -522,6 +542,8 @@ do { \
 
 
 /* PRRR */
+#define PRRR_NOS(prrr, n)	 ((prrr) & (1 << ((n) + 24)) ? 1 : 0)
+#define PRRR_MT(prrr, n)	 ((((prrr) & (3 << ((n) * 2))) >> ((n) * 2)))
 #define SET_MTC0(b, c, v)	 SET_CONTEXT_FIELD(b, c, PRRR, MTC0, v)
 #define SET_MTC1(b, c, v)	 SET_CONTEXT_FIELD(b, c, PRRR, MTC1, v)
 #define SET_MTC2(b, c, v)	 SET_CONTEXT_FIELD(b, c, PRRR, MTC2, v)
@@ -549,43 +571,12 @@ do { \
 
 
 /* SCTLR */
-#define SET_M(b, c, v)	   	 SET_CONTEXT_FIELD(b, c, SCTLR, M, v)
+#define SET_M(b, c, v)		 SET_CONTEXT_FIELD(b, c, SCTLR, M, v)
 #define SET_TRE(b, c, v)	 SET_CONTEXT_FIELD(b, c, SCTLR, TRE, v)
 #define SET_AFE(b, c, v)	 SET_CONTEXT_FIELD(b, c, SCTLR, AFE, v)
 #define SET_HAF(b, c, v)	 SET_CONTEXT_FIELD(b, c, SCTLR, HAF, v)
-#define SET_BE(b, c, v)	   	 SET_CONTEXT_FIELD(b, c, SCTLR, BE, v)
+#define SET_BE(b, c, v)		 SET_CONTEXT_FIELD(b, c, SCTLR, BE, v)
 #define SET_AFFD(b, c, v)	 SET_CONTEXT_FIELD(b, c, SCTLR, AFFD, v)
-
-
-/* TLBFLPTER */
-#define SET_TLBFLPTER_TYPE(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_TYPE, v)
-#define SET_TLBFLPTER_PAGE_NS(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_PAGE_NS, v)
-#define SET_TLBFLPTER_B(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_B, v)
-#define SET_TLBFLPTER_C(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_C, v)
-#define SET_TLBFLPTER_XN(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_XN, v)
-#define SET_TLBFLPTER_APL(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_APL, v)
-#define SET_TLBFLPTER_TEX(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_TEX, v)
-#define SET_TLBFLPTER_APH(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_APH, v)
-#define SET_TLBFLPTER_SH(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_SH, v)
-#define SET_TLBFLPTER_NG(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_NG, v)
-#define SET_TLBFLPTER_SS(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_SS, v)
-#define SET_TLBFLPTER_NS(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_NS, v)
-#define SET_TLBFLPTER_EXTRA(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_EXTRA, v)
-#define SET_TLBFLPTER_PA(b, c, v)	  \
-			SET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_PA, v)
 
 
 /* TLBLKCR */
@@ -597,51 +588,6 @@ do { \
 #define SET_TLBIVAACFG(b, c, v)	SET_CONTEXT_FIELD(b, c, TLBLKCR, TLBIVAACFG, v)
 #define SET_FLOOR(b, c, v)	SET_CONTEXT_FIELD(b, c, TLBLKCR, FLOOR, v)
 #define SET_VICTIM(b, c, v)	SET_CONTEXT_FIELD(b, c, TLBLKCR, VICTIM, v)
-
-
-/* TLBSLPTER */
-/* Large page */
-#define SET_TLBSLPTER_LP_TYPE(b, c, v)	\
-		SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_TYPE, v)
-#define SET_TLBSLPTER_LP_B(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_B, v)
-#define SET_TLBSLPTER_LP_C(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_C, v)
-#define SET_TLBSLPTER_LP_APL(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_APL, v)
-#define SET_TLBSLPTER_LP_APH(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_APH, v)
-#define SET_TLBSLPTER_LP_SH(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_SH, v)
-#define SET_TLBSLPTER_LP_NG(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_NG, v)
-#define SET_TLBSLPTER_LP_TEX(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_TEX, v)
-#define SET_TLBSLPTER_LP_XN(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_XN, v)
-#define SET_TLBSLPTER_LP_PA(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_PA, v)
-/* Small page */
-#define SET_TLBSLPTER_SP_XN(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_XN, v)
-#define SET_TLBSLPTER_SP_TYPE(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_TYPE, v)
-#define SET_TLBSLPTER_SP_B(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_B, v)
-#define SET_TLBSLPTER_SP_C(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_C, v)
-#define SET_TLBSLPTER_SP_APL(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_APL, v)
-#define SET_TLBSLPTER_SP_TEX(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_TEX, v)
-#define SET_TLBSLPTER_SP_APH(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_APH, v)
-#define SET_TLBSLPTER_SP_SH(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_SH, v)
-#define SET_TLBSLPTER_SP_NG(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_NG, v)
-#define SET_TLBSLPTER_SP_PA(b, c, v)	\
-		   SET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_PA, v)
 
 
 /* TTBCR */
@@ -712,7 +658,6 @@ do { \
 #define GET_SFVS(b, c)		GET_CONTEXT_FIELD(b, c, BFBCR, SFVS)
 #define GET_FLVIC(b, c)		GET_CONTEXT_FIELD(b, c, BFBCR, FLVIC)
 #define GET_SLVIC(b, c)		GET_CONTEXT_FIELD(b, c, BFBCR, SLVIC)
-#define GET_STRIDE(b, c)	GET_CONTEXT_FIELD(b, c, BFBCR, STRIDE)
 
 
 /* CONTEXTIDR */
@@ -722,61 +667,61 @@ do { \
 
 
 /* FSR */
-#define GET_TF(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, TF)
-#define GET_AFF(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, AFF)
-#define GET_APF(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, APF)
-#define GET_TLBMF(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, TLBMF)
-#define GET_HTWDEEF(b, c)  	GET_CONTEXT_FIELD(b, c, FSR, HTWDEEF)
-#define GET_HTWSEEF(b, c)  	GET_CONTEXT_FIELD(b, c, FSR, HTWSEEF)
-#define GET_MHF(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, MHF)
-#define GET_SL(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, SL)
-#define GET_SS(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, SS)
-#define GET_MULTI(b, c)	   	GET_CONTEXT_FIELD(b, c, FSR, MULTI)
+#define GET_TF(b, c)		GET_CONTEXT_FIELD(b, c, FSR, TF)
+#define GET_AFF(b, c)		GET_CONTEXT_FIELD(b, c, FSR, AFF)
+#define GET_APF(b, c)		GET_CONTEXT_FIELD(b, c, FSR, APF)
+#define GET_TLBMF(b, c)		GET_CONTEXT_FIELD(b, c, FSR, TLBMF)
+#define GET_HTWDEEF(b, c)	GET_CONTEXT_FIELD(b, c, FSR, HTWDEEF)
+#define GET_HTWSEEF(b, c)	GET_CONTEXT_FIELD(b, c, FSR, HTWSEEF)
+#define GET_MHF(b, c)		GET_CONTEXT_FIELD(b, c, FSR, MHF)
+#define GET_SL(b, c)		GET_CONTEXT_FIELD(b, c, FSR, SL)
+#define GET_SS(b, c)		GET_CONTEXT_FIELD(b, c, FSR, SS)
+#define GET_MULTI(b, c)		GET_CONTEXT_FIELD(b, c, FSR, MULTI)
 
 
 /* FSYNR0 */
-#define GET_AMID(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR0, AMID)
-#define GET_APID(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR0, APID)
-#define GET_ABID(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR0, ABID)
-#define GET_ATID(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR0, ATID)
+#define GET_AMID(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR0, AMID)
+#define GET_APID(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR0, APID)
+#define GET_ABID(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR0, ABID)
+#define GET_ATID(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR0, ATID)
 
 
 /* FSYNR1 */
 #define GET_AMEMTYPE(b, c)	GET_CONTEXT_FIELD(b, c, FSYNR1, AMEMTYPE)
 #define GET_ASHARED(b, c)	GET_CONTEXT_FIELD(b, c, FSYNR1, ASHARED)
 #define GET_AINNERSHARED(b, c)  GET_CONTEXT_FIELD(b, c, FSYNR1, AINNERSHARED)
-#define GET_APRIV(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR1, APRIV)
+#define GET_APRIV(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR1, APRIV)
 #define GET_APROTNS(b, c)	GET_CONTEXT_FIELD(b, c, FSYNR1, APROTNS)
-#define GET_AINST(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR1, AINST)
+#define GET_AINST(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR1, AINST)
 #define GET_AWRITE(b, c)	GET_CONTEXT_FIELD(b, c, FSYNR1, AWRITE)
 #define GET_ABURST(b, c)	GET_CONTEXT_FIELD(b, c, FSYNR1, ABURST)
-#define GET_ALEN(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR1, ALEN)
-#define GET_FSYNR1_ASIZE(b, c) 	GET_CONTEXT_FIELD(b, c, FSYNR1, FSYNR1_ASIZE)
-#define GET_ALOCK(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR1, ALOCK)
-#define GET_AFULL(b, c)	   	GET_CONTEXT_FIELD(b, c, FSYNR1, AFULL)
+#define GET_ALEN(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR1, ALEN)
+#define GET_FSYNR1_ASIZE(b, c)	GET_CONTEXT_FIELD(b, c, FSYNR1, FSYNR1_ASIZE)
+#define GET_ALOCK(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR1, ALOCK)
+#define GET_AFULL(b, c)		GET_CONTEXT_FIELD(b, c, FSYNR1, AFULL)
 
 
 /* NMRR */
-#define GET_ICPC0(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC0)
-#define GET_ICPC1(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC1)
-#define GET_ICPC2(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC2)
-#define GET_ICPC3(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC3)
-#define GET_ICPC4(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC4)
-#define GET_ICPC5(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC5)
-#define GET_ICPC6(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC6)
-#define GET_ICPC7(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, ICPC7)
-#define GET_OCPC0(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC0)
-#define GET_OCPC1(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC1)
-#define GET_OCPC2(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC2)
-#define GET_OCPC3(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC3)
-#define GET_OCPC4(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC4)
-#define GET_OCPC5(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC5)
-#define GET_OCPC6(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC6)
-#define GET_OCPC7(b, c)	   	GET_CONTEXT_FIELD(b, c, NMRR, OCPC7)
+#define GET_ICPC0(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC0)
+#define GET_ICPC1(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC1)
+#define GET_ICPC2(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC2)
+#define GET_ICPC3(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC3)
+#define GET_ICPC4(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC4)
+#define GET_ICPC5(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC5)
+#define GET_ICPC6(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC6)
+#define GET_ICPC7(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, ICPC7)
+#define GET_OCPC0(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC0)
+#define GET_OCPC1(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC1)
+#define GET_OCPC2(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC2)
+#define GET_OCPC3(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC3)
+#define GET_OCPC4(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC4)
+#define GET_OCPC5(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC5)
+#define GET_OCPC6(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC6)
+#define GET_OCPC7(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC7)
 
 
 /* PAR */
-#define GET_FAULT(b, c)	   	GET_CONTEXT_FIELD(b, c, PAR, FAULT)
+#define GET_FAULT(b, c)		GET_CONTEXT_FIELD(b, c, PAR, FAULT)
 
 #define GET_FAULT_TF(b, c)	GET_CONTEXT_FIELD(b, c, PAR, FAULT_TF)
 #define GET_FAULT_AFF(b, c)	GET_CONTEXT_FIELD(b, c, PAR, FAULT_AFF)
@@ -797,74 +742,43 @@ do { \
 
 
 /* PRRR */
-#define GET_MTC0(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC0)
-#define GET_MTC1(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC1)
-#define GET_MTC2(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC2)
-#define GET_MTC3(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC3)
-#define GET_MTC4(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC4)
-#define GET_MTC5(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC5)
-#define GET_MTC6(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC6)
-#define GET_MTC7(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, MTC7)
-#define GET_SHDSH0(b, c)  	GET_CONTEXT_FIELD(b, c, PRRR, SHDSH0)
-#define GET_SHDSH1(b, c)   	GET_CONTEXT_FIELD(b, c, PRRR, SHDSH1)
-#define GET_SHNMSH0(b, c)  	GET_CONTEXT_FIELD(b, c, PRRR, SHNMSH0)
-#define GET_SHNMSH1(b, c)  	GET_CONTEXT_FIELD(b, c, PRRR, SHNMSH1)
-#define GET_NOS0(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, NOS0)
-#define GET_NOS1(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, NOS1)
-#define GET_NOS2(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, NOS2)
-#define GET_NOS3(b, c)	  	GET_CONTEXT_FIELD(b, c, PRRR, NOS3)
-#define GET_NOS4(b, c)	  	GET_CONTEXT_FIELD(b, c, PRRR, NOS4)
-#define GET_NOS5(b, c)	  	GET_CONTEXT_FIELD(b, c, PRRR, NOS5)
-#define GET_NOS6(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, NOS6)
-#define GET_NOS7(b, c)	   	GET_CONTEXT_FIELD(b, c, PRRR, NOS7)
+#define GET_MTC0(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC0)
+#define GET_MTC1(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC1)
+#define GET_MTC2(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC2)
+#define GET_MTC3(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC3)
+#define GET_MTC4(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC4)
+#define GET_MTC5(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC5)
+#define GET_MTC6(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC6)
+#define GET_MTC7(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, MTC7)
+#define GET_SHDSH0(b, c)	GET_CONTEXT_FIELD(b, c, PRRR, SHDSH0)
+#define GET_SHDSH1(b, c)	GET_CONTEXT_FIELD(b, c, PRRR, SHDSH1)
+#define GET_SHNMSH0(b, c)	GET_CONTEXT_FIELD(b, c, PRRR, SHNMSH0)
+#define GET_SHNMSH1(b, c)	GET_CONTEXT_FIELD(b, c, PRRR, SHNMSH1)
+#define GET_NOS0(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS0)
+#define GET_NOS1(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS1)
+#define GET_NOS2(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS2)
+#define GET_NOS3(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS3)
+#define GET_NOS4(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS4)
+#define GET_NOS5(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS5)
+#define GET_NOS6(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS6)
+#define GET_NOS7(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS7)
 
 
 /* RESUME */
-#define GET_TNR(b, c)	   	GET_CONTEXT_FIELD(b, c, RESUME, TNR)
+#define GET_TNR(b, c)		GET_CONTEXT_FIELD(b, c, RESUME, TNR)
 
 
 /* SCTLR */
-#define GET_M(b, c)	   	GET_CONTEXT_FIELD(b, c, SCTLR, M)
-#define GET_TRE(b, c)	   	GET_CONTEXT_FIELD(b, c, SCTLR, TRE)
-#define GET_AFE(b, c)	   	GET_CONTEXT_FIELD(b, c, SCTLR, AFE)
-#define GET_HAF(b, c)	   	GET_CONTEXT_FIELD(b, c, SCTLR, HAF)
-#define GET_BE(b, c)	   	GET_CONTEXT_FIELD(b, c, SCTLR, BE)
-#define GET_AFFD(b, c)	   	GET_CONTEXT_FIELD(b, c, SCTLR, AFFD)
-
-
-/* TLBFLPTER */
-#define GET_TLBFLPTER_TYPE(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_TYPE)
-#define GET_TLBFLPTER_PAGE_NS(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_PAGE_NS)
-#define GET_TLBFLPTER_B(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_B)
-#define GET_TLBFLPTER_C(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_C)
-#define GET_TLBFLPTER_XN(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_XN)
-#define GET_TLBFLPTER_APL(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_APL)
-#define GET_TLBFLPTER_TEX(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_TEX)
-#define GET_TLBFLPTER_APH(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_APH)
-#define GET_TLBFLPTER_SH(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_SH)
-#define GET_TLBFLPTER_NG(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_NG)
-#define GET_TLBFLPTER_SS(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_SS)
-#define GET_TLBFLPTER_NS(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_NS)
-#define GET_TLBFLPTER_EXTRA(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_EXTRA)
-#define GET_TLBFLPTER_PA(b, c)	  \
-			GET_CONTEXT_FIELD(b, c, TLBFLPTER, TLBFLPTER_PA)
+#define GET_M(b, c)		GET_CONTEXT_FIELD(b, c, SCTLR, M)
+#define GET_TRE(b, c)		GET_CONTEXT_FIELD(b, c, SCTLR, TRE)
+#define GET_AFE(b, c)		GET_CONTEXT_FIELD(b, c, SCTLR, AFE)
+#define GET_HAF(b, c)		GET_CONTEXT_FIELD(b, c, SCTLR, HAF)
+#define GET_BE(b, c)		GET_CONTEXT_FIELD(b, c, SCTLR, BE)
+#define GET_AFFD(b, c)		GET_CONTEXT_FIELD(b, c, SCTLR, AFFD)
 
 
 /* TLBLKCR */
-#define GET_LKE(b, c)	   	GET_CONTEXT_FIELD(b, c, TLBLKCR, LKE)
+#define GET_LKE(b, c)		GET_CONTEXT_FIELD(b, c, TLBLKCR, LKE)
 #define GET_TLBLCKR_TLBIALLCFG(b, c) \
 			GET_CONTEXT_FIELD(b, c, TLBLKCR, TLBLCKR_TLBIALLCFG)
 #define GET_TLBIASIDCFG(b, c)   GET_CONTEXT_FIELD(b, c, TLBLKCR, TLBIASIDCFG)
@@ -873,92 +787,47 @@ do { \
 #define GET_VICTIM(b, c)	GET_CONTEXT_FIELD(b, c, TLBLKCR, VICTIM)
 
 
-/* TLBSLPTER */
-/* Large page */
-#define GET_TLBSLPTE_LP_TYPE(b, c)	\
-		GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_TYPE)
-#define GET_TLBSLPTE_LP_B(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_B)
-#define GET_TLBSLPTE_LP_C(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_C)
-#define GET_TLBSLPTE_LP_APL(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_APL)
-#define GET_TLBSLPTE_LP_APH(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_APH)
-#define GET_TLBSLPTE_LP_SH(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_SH)
-#define GET_TLBSLPTE_LP_NG(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_NG)
-#define GET_TLBSLPTE_LP_TEX(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_TEX)
-#define GET_TLBSLPTE_LP_XN(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_XN)
-#define GET_TLBSLPTE_LP_PA(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_LP_PA)
-/* Small page */
-#define GET_TLBSLPTE_SP_XN(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_XN)
-#define GET_TLBSLPTE_SP_TYPE(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_TYPE)
-#define GET_TLBSLPTE_SP_B(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_B)
-#define GET_TLBSLPTE_SP_C(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_C)
-#define GET_TLBSLPTE_SP_APL(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_APL)
-#define GET_TLBSLPTE_SP_TEX(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_TEX)
-#define GET_TLBSLPTE_SP_APH(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_APH)
-#define GET_TLBSLPTE_SP_SH(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_SH)
-#define GET_TLBSLPTE_SP_NG(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_NG)
-#define GET_TLBSLPTE_SP_PA(b, c)	\
-		   GET_CONTEXT_FIELD(b, c, TLBSLPTER, TLBSLPTE_SP_PA)
-
-
 /* TTBCR */
-#define GET_N(b, c)	 	GET_CONTEXT_FIELD(b, c, TTBCR, N)
-#define GET_PD0(b, c)	 	GET_CONTEXT_FIELD(b, c, TTBCR, PD0)
-#define GET_PD1(b, c)	 	GET_CONTEXT_FIELD(b, c, TTBCR, PD1)
+#define GET_N(b, c)		GET_CONTEXT_FIELD(b, c, TTBCR, N)
+#define GET_PD0(b, c)		GET_CONTEXT_FIELD(b, c, TTBCR, PD0)
+#define GET_PD1(b, c)		GET_CONTEXT_FIELD(b, c, TTBCR, PD1)
 
 
 /* TTBR0 */
-#define GET_TTBR0_IRGNH(b, c) 	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_IRGNH)
-#define GET_TTBR0_SH(b, c)    	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_SH)
-#define GET_TTBR0_ORGN(b, c)  	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_ORGN)
-#define GET_TTBR0_NOS(b, c)  	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_NOS)
-#define GET_TTBR0_IRGNL(b, c) 	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_IRGNL)
-#define GET_TTBR0_PA(b, c)    	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_PA)
+#define GET_TTBR0_IRGNH(b, c)	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_IRGNH)
+#define GET_TTBR0_SH(b, c)	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_SH)
+#define GET_TTBR0_ORGN(b, c)	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_ORGN)
+#define GET_TTBR0_NOS(b, c)	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_NOS)
+#define GET_TTBR0_IRGNL(b, c)	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_IRGNL)
+#define GET_TTBR0_PA(b, c)	GET_CONTEXT_FIELD(b, c, TTBR0, TTBR0_PA)
 
 
 /* TTBR1 */
-#define GET_TTBR1_IRGNH(b, c) 	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_IRGNH)
-#define GET_TTBR1_SH(b, c)    	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_SH)
-#define GET_TTBR1_ORGN(b, c)  	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_ORGN)
-#define GET_TTBR1_NOS(b, c)   	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_NOS)
-#define GET_TTBR1_IRGNL(b, c) 	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_IRGNL)
-#define GET_TTBR1_PA(b, c)    	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_PA)
+#define GET_TTBR1_IRGNH(b, c)	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_IRGNH)
+#define GET_TTBR1_SH(b, c)	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_SH)
+#define GET_TTBR1_ORGN(b, c)	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_ORGN)
+#define GET_TTBR1_NOS(b, c)	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_NOS)
+#define GET_TTBR1_IRGNL(b, c)	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_IRGNL)
+#define GET_TTBR1_PA(b, c)	GET_CONTEXT_FIELD(b, c, TTBR1, TTBR1_PA)
 
 
 /* V2PSR */
-#define GET_HIT(b, c)	 	GET_CONTEXT_FIELD(b, c, V2PSR, HIT)
-#define GET_INDEX(b, c)	 	GET_CONTEXT_FIELD(b, c, V2PSR, INDEX)
+#define GET_HIT(b, c)		GET_CONTEXT_FIELD(b, c, V2PSR, HIT)
+#define GET_INDEX(b, c)		GET_CONTEXT_FIELD(b, c, V2PSR, INDEX)
 
 
 /* V2Pxx UW UR PW PR */
 #define GET_V2PUW_INDEX(b, c)	GET_CONTEXT_FIELD(b, c, V2PUW, V2Pxx_INDEX)
-#define GET_V2PUW_VA(b, c)    	GET_CONTEXT_FIELD(b, c, V2PUW, V2Pxx_VA)
+#define GET_V2PUW_VA(b, c)	GET_CONTEXT_FIELD(b, c, V2PUW, V2Pxx_VA)
 
-#define GET_V2PUR_INDEX(b, c) 	GET_CONTEXT_FIELD(b, c, V2PUR, V2Pxx_INDEX)
-#define GET_V2PUR_VA(b, c)    	GET_CONTEXT_FIELD(b, c, V2PUR, V2Pxx_VA)
+#define GET_V2PUR_INDEX(b, c)	GET_CONTEXT_FIELD(b, c, V2PUR, V2Pxx_INDEX)
+#define GET_V2PUR_VA(b, c)	GET_CONTEXT_FIELD(b, c, V2PUR, V2Pxx_VA)
 
-#define GET_V2PPW_INDEX(b, c) 	GET_CONTEXT_FIELD(b, c, V2PPW, V2Pxx_INDEX)
-#define GET_V2PPW_VA(b, c)    	GET_CONTEXT_FIELD(b, c, V2PPW, V2Pxx_VA)
+#define GET_V2PPW_INDEX(b, c)	GET_CONTEXT_FIELD(b, c, V2PPW, V2Pxx_INDEX)
+#define GET_V2PPW_VA(b, c)	GET_CONTEXT_FIELD(b, c, V2PPW, V2Pxx_VA)
 
-#define GET_V2PPR_INDEX(b, c) 	GET_CONTEXT_FIELD(b, c, V2PPR, V2Pxx_INDEX)
-#define GET_V2PPR_VA(b, c)    	GET_CONTEXT_FIELD(b, c, V2PPR, V2Pxx_VA)
+#define GET_V2PPR_INDEX(b, c)	GET_CONTEXT_FIELD(b, c, V2PPR, V2Pxx_INDEX)
+#define GET_V2PPR_VA(b, c)	GET_CONTEXT_FIELD(b, c, V2PPR, V2Pxx_VA)
 
 
 /* Global Registers */
@@ -983,11 +852,11 @@ do { \
 
 
 /* Context Bank Registers */
-#define SCTLR 		(0x000)
-#define ACTLR 		(0x004)
-#define CONTEXTIDR 	(0x008)
-#define TTBR0 		(0x010)
-#define TTBR1 		(0x014)
+#define SCTLR		(0x000)
+#define ACTLR		(0x004)
+#define CONTEXTIDR	(0x008)
+#define TTBR0		(0x010)
+#define TTBR1		(0x014)
 #define TTBCR		(0x018)
 #define PAR		(0x01C)
 #define FSR		(0x020)
@@ -1091,8 +960,8 @@ do { \
 
 
 /* REV */
-#define IDR_MINOR         (MINOR_MASK        << MINOR_SHIFT)
-#define IDR_MAJOR         (MAJOR_MASK        << MAJOR_SHIFT)
+#define IDR_MINOR     (MINOR_MASK        << MINOR_SHIFT)
+#define IDR_MAJOR     (MAJOR_MASK        << MAJOR_SHIFT)
 
 
 /* TESTBUSCR */
@@ -1169,7 +1038,6 @@ do { \
 #define SFVS               (SFVS_MASK               << SFVS_SHIFT)
 #define FLVIC              (FLVIC_MASK              << FLVIC_SHIFT)
 #define SLVIC              (SLVIC_MASK              << SLVIC_SHIFT)
-#define STRIDE             (STRIDE_MASK             << STRIDE_SHIFT)
 
 
 /* CONTEXTIDR */
@@ -1231,7 +1099,7 @@ do { \
 #define OCPC7              (OCPC7_MASK              << OCPC7_SHIFT)
 
 
-/* PAR (See page 79 for details) */
+/* PAR */
 #define FAULT              (FAULT_MASK              << FAULT_SHIFT)
 /* If a fault is present, these are the
 same as the fault fields in the FAR */
@@ -1291,27 +1159,6 @@ same as the fault fields in the FAR */
 #define AFFD               (AFFD_MASK               << AFFD_SHIFT)
 
 
-/* TLBFLPTER */
-#define TLBFLPTER_TYPE     (TLBFLPTER_TYPE_MASK     << TLBFLPTER_TYPE_SHIFT)
-/* The following fields are applicable
- if TYPE is 'Page', 4KB or 64KB */
-#define TLBFLPTER_PAGE_NS  (TLBFLPTER_PAGE_NS_MASK  << TLBFLPTER_PAGE_NS_SHIFT)
-/* The following fields are applicable
- if TYPE is 'section/supersection' */
-#define TLBFLPTER_B        (TLBFLPTER_B_MASK        << TLBFLPTER_B_SHIFT)
-#define TLBFLPTER_C        (TLBFLPTER_C_MASK        << TLBFLPTER_C_SHIFT)
-#define TLBFLPTER_XN       (TLBFLPTER_XN_MASK       << TLBFLPTER_XN_SHIFT)
-#define TLBFLPTER_APL      (TLBFLPTER_APL_MASK      << TLBFLPTER_APL_SHIFT)
-#define TLBFLPTER_TEX      (TLBFLPTER_TEX_MASK      << TLBFLPTER_TEX_SHIFT)
-#define TLBFLPTER_APH      (TLBFLPTER_APH_MASK      << TLBFLPTER_APH_SHIFT)
-#define TLBFLPTER_SH       (TLBFLPTER_SH_MASK       << TLBFLPTER_SH_SHIFT)
-#define TLBFLPTER_NG       (TLBFLPTER_NG_MASK       << TLBFLPTER_NG_SHIFT)
-#define TLBFLPTER_SS       (TLBFLPTER_SS_MASK       << TLBFLPTER_SS_SHIFT)
-#define TLBFLPTER_NS       (TLBFLPTER_NS_MASK       << TLBFLPTER_NS_SHIFT)
-#define TLBFLPTER_EXTRA    (TLBFLPTER_EXTRA_MASK    << TLBFLPTER_EXTRA_SHIFT)
-#define TLBFLPTER_PA       (TLBFLPTER_PA_MASK       << TLBFLPTER_PA_SHIFT)
-
-
 /* TLBIASID */
 #define TLBIASID_ASID      (TLBIASID_ASID_MASK      << TLBIASID_ASID_SHIFT)
 
@@ -1332,33 +1179,6 @@ same as the fault fields in the FAR */
 #define TLBIVAACFG         (TLBIVAACFG_MASK         << TLBIVAACFG_SHIFT)
 #define FLOOR              (FLOOR_MASK              << FLOOR_SHIFT)
 #define VICTIM             (VICTIM_MASK             << VICTIM_SHIFT)
-
-
-/* TLBSLPTER */
-/* If PTE type is 'large page  (64kb),
-the following fields apply */
-#define TLBSLPTE_LP_TYPE   (TLBSLPTE_LP_TYPE_MASK   << TLBSLPTE_LP_TYPE_SHIFT)
-#define TLBSLPTE_LP_B      (TLBSLPTE_LP_B_MASK      << TLBSLPTE_LP_B_SHIFT)
-#define TLBSLPTE_LP_C      (TLBSLPTE_LP_C_MASK      << TLBSLPTE_LP_C_SHIFT)
-#define TLBSLPTE_LP_APL    (TLBSLPTE_LP_APL_MASK    << TLBSLPTE_LP_APL_SHIFT)
-#define TLBSLPTE_LP_APH    (TLBSLPTE_LP_APH_MASK    << TLBSLPTE_LP_APH_SHIFT)
-#define TLBSLPTE_LP_SH     (TLBSLPTE_LP_SH_MASK     << TLBSLPTE_LP_SH_SHIFT)
-#define TLBSLPTE_LP_NG     (TLBSLPTE_LP_NG_MASK     << TLBSLPTE_LP_NG_SHIFT)
-#define TLBSLPTE_LP_TEX    (TLBSLPTE_LP_TEX_MASK    << TLBSLPTE_LP_TEX_SHIFT)
-#define TLBSLPTE_LP_XN     (TLBSLPTE_LP_XN_MASK     << TLBSLPTE_LP_XN_SHIFT)
-#define TLBSLPTE_LP_PA     (TLBSLPTE_LP_PA_MASK     << TLBSLPTE_LP_PA_SHIFT)
-/* The following fields apply if PTE
- type is 'small page (4kb)' */
-#define TLBSLPTE_SP_XN     (TLBSLPTE_SP_XN_MASK     << TLBSLPTE_SP_XN_SHIFT)
-#define TLBSLPTE_SP_TYPE   (TLBSLPTE_SP_TYPE_MASK   << TLBSLPTE_SP_TYPE_SHIFT)
-#define TLBSLPTE_SP_B      (TLBSLPTE_SP_B_MASK      << TLBSLPTE_SP_B_SHIFT)
-#define TLBSLPTE_SP_C      (TLBSLPTE_SP_C_MASK      << TLBSLPTE_SP_C_SHIFT)
-#define TLBSLPTE_SP_APL    (TLBSLPTE_SP_APL_MASK    << TLBSLPTE_SP_APL_SHIFT)
-#define TLBSLPTE_SP_TEX    (TLBSLPTE_SP_TEX_MASK    << TLBSLPTE_SP_TEX_SHIFT)
-#define TLBSLPTE_SP_APH    (TLBSLPTE_SP_APH_MASK    << TLBSLPTE_SP_APH_SHIFT)
-#define TLBSLPTE_SP_SH     (TLBSLPTE_SP_SH_MASK     << TLBSLPTE_SP_SH_SHIFT)
-#define TLBSLPTE_SP_NG     (TLBSLPTE_SP_NG_MASK     << TLBSLPTE_SP_NG_SHIFT)
-#define TLBSLPTE_SP_PA     (TLBSLPTE_SP_PA_MASK     << TLBSLPTE_SP_PA_SHIFT)
 
 
 /* TTBCR */
@@ -1679,7 +1499,6 @@ the following fields apply */
 #define SFVS_MASK                        0x01
 #define FLVIC_MASK                       0x0F
 #define SLVIC_MASK                       0x0F
-#define STRIDE_MASK                      0x000FFFFF
 
 
 /* CONTEXTIDR */
@@ -1741,7 +1560,7 @@ the following fields apply */
 #define OCPC7_MASK                       0x03
 
 
-/* PAR_MASKSee page 79 for details) */
+/* PAR */
 #define FAULT_MASK                       0x01
 /* If a fault is present, these are the
 same as the fault fields in the FAR */
@@ -1757,7 +1576,7 @@ same as the fault fields in the FAR */
 
 /* If NO fault is present, the following
  fields are in effect */
-/*_MASK FAULT remains as before) */
+/* (FAULT remains as before) */
 #define PAR_NOFAULT_SS_MASK              0x01
 #define PAR_NOFAULT_MT_MASK              0x07
 #define PAR_NOFAULT_SH_MASK              0x01
@@ -1802,27 +1621,6 @@ same as the fault fields in the FAR */
 #define AFFD_MASK                        0x01
 
 
-/* TLBFLPTER */
-#define TLBFLPTER_TYPE_MASK              0x03
-/* The following fields are applicable
- if TYPE is 'Page', 4KB or 64KB */
-#define TLBFLPTER_PAGE_NS_MASK           0x01
-/* The following fields are applicable
- if TYPE is 'section/supersection' */
-#define TLBFLPTER_B_MASK                 0x01
-#define TLBFLPTER_C_MASK                 0x01
-#define TLBFLPTER_XN_MASK                0x01
-#define TLBFLPTER_APL_MASK               0x03
-#define TLBFLPTER_TEX_MASK               0x07
-#define TLBFLPTER_APH_MASK               0x01
-#define TLBFLPTER_SH_MASK                0x01
-#define TLBFLPTER_NG_MASK                0x01
-#define TLBFLPTER_SS_MASK                0x01
-#define TLBFLPTER_NS_MASK                0x01
-#define TLBFLPTER_EXTRA_MASK             0x0F
-#define TLBFLPTER_PA_MASK                0xFF
-
-
 /* TLBIASID */
 #define TLBIASID_ASID_MASK               0xFF
 
@@ -1843,33 +1641,6 @@ same as the fault fields in the FAR */
 #define TLBIVAACFG_MASK                  0x01
 #define FLOOR_MASK                       0xFF
 #define VICTIM_MASK                      0xFF
-
-
-/* TLBSLPTER */
-/* If PTE type is 'large page_MASK64kb),
-the following fields apply */
-#define TLBSLPTE_LP_TYPE_MASK            0x03
-#define TLBSLPTE_LP_B_MASK               0x01
-#define TLBSLPTE_LP_C_MASK               0x01
-#define TLBSLPTE_LP_APL_MASK             0x03
-#define TLBSLPTE_LP_APH_MASK             0x01
-#define TLBSLPTE_LP_SH_MASK              0x01
-#define TLBSLPTE_LP_NG_MASK              0x01
-#define TLBSLPTE_LP_TEX_MASK             0x07
-#define TLBSLPTE_LP_XN_MASK              0x01
-#define TLBSLPTE_LP_PA_MASK              0x0000FFFF
-/* The following fields apply if PTE
- type is 'small page_MASK4kb)' */
-#define TLBSLPTE_SP_XN_MASK              0x01
-#define TLBSLPTE_SP_TYPE_MASK            0x01
-#define TLBSLPTE_SP_B_MASK               0x01
-#define TLBSLPTE_SP_C_MASK               0x01
-#define TLBSLPTE_SP_APL_MASK             0x03
-#define TLBSLPTE_SP_TEX_MASK             0x07
-#define TLBSLPTE_SP_APH_MASK             0x01
-#define TLBSLPTE_SP_SH_MASK              0x01
-#define TLBSLPTE_SP_NG_MASK              0x01
-#define TLBSLPTE_SP_PA_MASK              0x000FFFFF
 
 
 /* TTBCR */
@@ -1932,7 +1703,6 @@ the following fields apply */
 #define SFVS_SHIFT                     2
 #define FLVIC_SHIFT                    4
 #define SLVIC_SHIFT                    8
-#define STRIDE_SHIFT                   12
 
 
 /* CONTEXTIDR */
@@ -1994,7 +1764,7 @@ the following fields apply */
 #define OCPC7_SHIFT                    30
 
 
-/* PAR_SHIFTSee page 79 for details) */
+/* PAR */
 #define FAULT_SHIFT                    0
 /* If a fault is present, these are the
 same as the fault fields in the FAR */
@@ -2010,7 +1780,7 @@ same as the fault fields in the FAR */
 
 /* If NO fault is present, the following
  fields are in effect */
-/*_SHIFT FAULT remains as before) */
+/* (FAULT remains as before) */
 #define PAR_NOFAULT_SS_SHIFT           1
 #define PAR_NOFAULT_MT_SHIFT           4
 #define PAR_NOFAULT_SH_SHIFT           7
@@ -2055,27 +1825,6 @@ same as the fault fields in the FAR */
 #define AFFD_SHIFT                     5
 
 
-/* TLBFLPTER */
-#define TLBFLPTER_TYPE_SHIFT           0
-/* The following fields are applicable
- if TYPE is 'Page', 4KB or 64KB */
-#define TLBFLPTER_PAGE_NS_SHIFT        3
-/* The following fields are applicable
- if TYPE is 'section/supersection' */
-#define TLBFLPTER_B_SHIFT              2
-#define TLBFLPTER_C_SHIFT              3
-#define TLBFLPTER_XN_SHIFT             4
-#define TLBFLPTER_APL_SHIFT            10
-#define TLBFLPTER_TEX_SHIFT            12
-#define TLBFLPTER_APH_SHIFT            15
-#define TLBFLPTER_SH_SHIFT             16
-#define TLBFLPTER_NG_SHIFT             17
-#define TLBFLPTER_SS_SHIFT             18
-#define TLBFLPTER_NS_SHIFT             19
-#define TLBFLPTER_EXTRA_SHIFT          20
-#define TLBFLPTER_PA_SHIFT             24
-
-
 /* TLBIASID */
 #define TLBIASID_ASID_SHIFT            0
 
@@ -2096,33 +1845,6 @@ same as the fault fields in the FAR */
 #define TLBIVAACFG_SHIFT               3
 #define FLOOR_SHIFT                    8
 #define VICTIM_SHIFT                   8
-
-
-/* TLBSLPTER */
-/* If PTE type is 'large page_SHIFT64kb),
-the following fields apply */
-#define TLBSLPTE_LP_TYPE_SHIFT         0
-#define TLBSLPTE_LP_B_SHIFT            2
-#define TLBSLPTE_LP_C_SHIFT            3
-#define TLBSLPTE_LP_APL_SHIFT          4
-#define TLBSLPTE_LP_APH_SHIFT          9
-#define TLBSLPTE_LP_SH_SHIFT           10
-#define TLBSLPTE_LP_NG_SHIFT           11
-#define TLBSLPTE_LP_TEX_SHIFT          12
-#define TLBSLPTE_LP_XN_SHIFT           15
-#define TLBSLPTE_LP_PA_SHIFT           16
-/* The following fields apply if PTE
- type is 'small page_SHIFT4kb)' */
-#define TLBSLPTE_SP_XN_SHIFT           0
-#define TLBSLPTE_SP_TYPE_SHIFT         1
-#define TLBSLPTE_SP_B_SHIFT            2
-#define TLBSLPTE_SP_C_SHIFT            3
-#define TLBSLPTE_SP_APL_SHIFT          4
-#define TLBSLPTE_SP_TEX_SHIFT          6
-#define TLBSLPTE_SP_APH_SHIFT          9
-#define TLBSLPTE_SP_SH_SHIFT           10
-#define TLBSLPTE_SP_NG_SHIFT           11
-#define TLBSLPTE_SP_PA_SHIFT           12
 
 
 /* TTBCR */

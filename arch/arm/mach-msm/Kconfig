@@ -1152,26 +1152,31 @@ config MSM_RPM_LOG
 config SMMU
 	bool "System MMU support"
 	depends on MMU
-	select VCM_MM
+	select IOMMU_API
 	select SMMU_8X60 if ARCH_MSM8X60
 	depends on ARCH_MSM8X60
 	default n
 	help
 	  This is the System MMU driver for 8x60.
 
-config SMMU_PGTABLES_L2
+config IOMMU_PGTABLES_L2
 	bool "Allow SMMU page tables in the L2 cache (Experimental)"
 	depends on SMMU=y
 	depends on MMU
 	depends on CPU_DCACHE_DISABLE=n
 	default y
 	help
-	 Improves page fault latency at the expense of potential L2 pollution.
+	 Improves TLB miss latency at the expense of potential L2 pollution.
+	 However, with large multimedia buffers, the TLB should mostly contain
+	 section mappings and TLB misses should be quite infrequent.
 	 Most people can probably say Y here.
 
 config MSM_DIRECT_SCLK_ACCESS
 	bool "Direct access to the SCLK timer"
 	default n
+
+config IOMMU_API
+       bool
 
 config MSM_GPIOMUX
 	bool

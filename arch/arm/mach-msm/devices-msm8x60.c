@@ -28,6 +28,7 @@
 #include "clock-8x60.h"
 #include "clock-rpm.h"
 #include "devices-msm8x60.h"
+#include "devices-msm8x60-iommu.h"
 #include "socinfo.h"
 #include <linux/dma-mapping.h>
 #include <linux/irq.h>
@@ -1433,6 +1434,16 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("i2s_spkr_osr_clk",	SPARE_I2S_SPKR_OSR_CLK,	NULL, OFF),
 	CLK_8X60("i2s_spkr_bit_clk",	SPARE_I2S_SPKR_BIT_CLK,	NULL, OFF),
 	CLK_8X60("pcm_clk",		PCM_CLK,		NULL, OFF),
+	CLK_8X60("iommu_clk",           JPEGD_AXI_CLK,
+					&msm_device_iommu_jpegd.dev, 0),
+	CLK_8X60("iommu_clk",           VFE_AXI_CLK,
+					&msm_device_iommu_vfe.dev, 0),
+	CLK_8X60("iommu_clk",           GFX3D_CLK,
+					&msm_device_iommu_gfx3d.dev, 0),
+	CLK_8X60("iommu_clk",           GFX2D0_CLK,
+					&msm_device_iommu_gfx2d0.dev, 0),
+	CLK_8X60("iommu_clk",           GFX2D1_CLK,
+					&msm_device_iommu_gfx2d1.dev, 0),
 };
 
 unsigned msm_num_clocks_8x60 = ARRAY_SIZE(msm_clocks_8x60);
