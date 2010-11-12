@@ -35,6 +35,8 @@ int32_t tdkntcgtherm(int32_t adc_code, const struct adc_properties *,
 		const struct chan_properties *, struct adc_chan_result *);
 int32_t scale_default(int32_t adc_code, const struct adc_properties *,
 		const struct chan_properties *, struct adc_chan_result *);
+int32_t scale_msm_therm(int32_t adc_code, const struct adc_properties *,
+		const struct chan_properties *, struct adc_chan_result *);
 int32_t scale_batt_therm(int32_t adc_code, const struct adc_properties *,
 		const struct chan_properties *, struct adc_chan_result *);
 int32_t scale_pmic_therm(int32_t adc_code, const struct adc_properties *,
