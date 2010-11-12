@@ -6173,6 +6173,11 @@ static void __init msm8x60_init(void)
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
 
+#if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
+	if (SOCINFO_VERSION_MINOR(socinfo_get_version()))
+		hsed_config_1.othc_support_n_switch = true;
+#endif
+
 	if (machine_is_msm8x60_fluid()) {
 		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].
 			platform_data = &fluid_keypad_data;
