@@ -66,6 +66,7 @@ struct kgsl_pwrctrl {
 	struct clk *grp_pclk;
 	struct clk *grp_src_clk;
 	struct clk *imem_clk;
+	struct clk *imem_pclk;
 	unsigned int power_flags;
 	unsigned int clk_freq[KGSL_NUM_FREQ];
 	unsigned int interval_timeout;

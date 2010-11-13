@@ -264,22 +264,22 @@ int __init
 kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 {
 	int result = 0;
-	struct clk *clk;
+	const char *pclk_name;
+	struct clk *clk, *pclk;
 	struct platform_device *pdev = kgsl_driver.pdev;
 	struct kgsl_platform_data *pdata = pdev->dev.platform_data;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 	struct msm_bus_scale_pdata *bus_table = NULL;
 
-	clk = clk_get(&pdev->dev, "grp_2d_pclk");
-	if (IS_ERR(clk))
-		clk = NULL;
-	device->pwrctrl.grp_pclk = clk;
-
 	if (device->id == KGSL_DEVICE_2D0) {
 		clk = clk_get(&pdev->dev, pdata->grp2d0_clk_name);
+		pclk = clk_get(&pdev->dev, pdata->grp2d0_pclk_name);
+		pclk_name = pdata->grp2d0_pclk_name;
 		bus_table = pdata->grp2d0_bus_scale_table;
 	} else {
 		clk = clk_get(&pdev->dev, pdata->grp2d1_clk_name);
+		pclk = clk_get(&pdev->dev, pdata->grp2d1_pclk_name);
+		pclk_name = pdata->grp2d1_pclk_name;
 		bus_table = pdata->grp2d1_bus_scale_table;
 	}
 
@@ -289,6 +289,14 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 		result = PTR_ERR(clk);
 		KGSL_DRV_ERR("clk_get(%s) returned %d\n",
 						pdata->grp2d0_clk_name, result);
+		goto done;
+	}
+
+	if (pclk_name && IS_ERR(pclk)) {
+		pclk = NULL;
+		result = PTR_ERR(pclk);
+		KGSL_DRV_ERR("clk_get(%s) returned %d\n",
+					 pclk_name, result);
 		goto done;
 	}
 
@@ -323,6 +331,7 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
 	device->pwrctrl.grp_clk = clk;
 	device->pwrctrl.grp_src_clk = clk;
+	device->pwrctrl.grp_pclk = pclk;
 	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
 	device->pwrctrl.interval_timeout = pdata->idle_timeout_2d;
 

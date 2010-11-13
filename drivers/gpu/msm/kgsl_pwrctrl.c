@@ -35,6 +35,8 @@ int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 			clk_disable(pwr->grp_clk);
 			if (pwr->imem_clk != NULL)
 				clk_disable(pwr->imem_clk);
+			if (pwr->imem_pclk != NULL)
+				clk_disable(pwr->imem_pclk);
 			if (pwr->clk_freq[KGSL_MIN_FREQ])
 				clk_set_rate(pwr->grp_src_clk,
 					pwr->clk_freq[KGSL_MIN_FREQ]);
@@ -66,6 +68,8 @@ int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 			clk_enable(pwr->grp_clk);
 			if (pwr->imem_clk != NULL)
 				clk_enable(pwr->imem_clk);
+			if (pwr->imem_pclk != NULL)
+				clk_enable(pwr->imem_pclk);
 
 			pwr->power_flags &=
 				~(KGSL_PWRFLAGS_CLK_OFF);
