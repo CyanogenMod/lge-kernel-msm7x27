@@ -1390,6 +1390,10 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 
 		} else if (modm & SMSM_RESET) {
 			apps |= SMSM_RESET;
+
+			pr_err("\nSMSM: Modem SMSM state changed to SMSM_RESET.");
+			modem_queue_start_reset_notify();
+
 		} else if (modm & SMSM_INIT) {
 			if (!(apps & SMSM_INIT)) {
 				apps |= SMSM_INIT;
@@ -1401,6 +1405,9 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 			if ((apps & (SMSM_INIT | SMSM_SMDINIT | SMSM_RPCINIT)) ==
 				(SMSM_INIT | SMSM_SMDINIT | SMSM_RPCINIT))
 				apps |= SMSM_RUN;
+		} else if (modm & SMSM_SYSTEM_DOWNLOAD) {
+			pr_err("\nSMSM: Modem SMSM state changed to SMSM_SYSTEM_DOWNLOAD.");
+			modem_queue_start_reset_notify();
 		}
 
 		if (old_apps != apps) {
