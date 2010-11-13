@@ -2055,6 +2055,7 @@ out:
 	return;
 }
 #endif
+#ifdef CONFIG_USB_OTG
 static ssize_t
 set_pwr_down(struct device *_dev, struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -2136,6 +2137,7 @@ static struct attribute *msm_otg_attrs[] = {
 static struct attribute_group msm_otg_attr_grp = {
 	.attrs = msm_otg_attrs,
 };
+#endif
 
 #ifdef CONFIG_DEBUG_FS
 static int otg_open(struct inode *inode, struct file *file)
@@ -2444,12 +2446,14 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto chg_deinit;
 	}
 
+#ifdef CONFIG_USB_OTG
 	ret = sysfs_create_group(&pdev->dev.kobj, &msm_otg_attr_grp);
 	if (ret < 0) {
 		pr_err("%s: Failed to create the sysfs entry\n", __func__);
 		otg_debugfs_cleanup();
 		goto chg_deinit;
 	}
+#endif
 
 
 	return 0;
@@ -2509,7 +2513,9 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 	struct msm_otg *dev = the_msm_otg;
 
 	otg_debugfs_cleanup();
+#ifdef CONFIG_USB_OTG
 	sysfs_remove_group(&pdev->dev.kobj, &msm_otg_attr_grp);
+#endif
 	destroy_workqueue(dev->wq);
 	wake_lock_destroy(&dev->wlock);
 
