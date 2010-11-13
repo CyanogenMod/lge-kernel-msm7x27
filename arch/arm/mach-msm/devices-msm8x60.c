@@ -1386,7 +1386,6 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("vcodec_clk",		VCODEC_CLK,		NULL, OFF),
 	CLK_8X60("mdp_tv_clk",		MDP_TV_CLK,		NULL, OFF),
 	CLK_8X60("hdmi_clk",		HDMI_TV_CLK,		NULL, OFF),
-	CLK_8X60("dsub_tv_clk",		DSUB_TV_CLK,		NULL, OFF),
 	CLK_8X60("hdmi_app_clk",	HDMI_APP_CLK,		NULL, OFF),
 	CLK_8X60("vpe_clk",		VPE_CLK,		NULL, OFF),
 	CLK_8X60("vfe_clk",		VFE_CLK,		NULL, OFF),
