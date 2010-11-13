@@ -461,8 +461,9 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	msm_rpm_request_poll_mode.sel_masks_ack = sel_masks_ack;
 	msm_rpm_request_poll_mode.done = NULL;
 
-	get_irq_chip(irq)->mask(irq);
 	spin_lock_irqsave(&msm_rpm_irq_lock, flags);
+	get_irq_chip(irq)->mask(irq);
+
 	if (msm_rpm_request) {
 		msm_rpm_busy_wait_for_request_completion();
 		BUG_ON(msm_rpm_request);
@@ -484,8 +485,8 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	msm_rpm_busy_wait_for_request_completion();
 
 	BUG_ON(msm_rpm_request);
-	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
 	get_irq_chip(irq)->unmask(irq);
+	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
 
 	BUG_ON((ctx_mask_ack & ~(msm_rpm_get_ctx_mask(MSM_RPM_CTX_REJECTED)))
 		!= ctx_mask);
