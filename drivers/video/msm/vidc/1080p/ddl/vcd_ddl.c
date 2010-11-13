@@ -577,7 +577,7 @@ u32 ddl_reset_hw(u32 mode)
 		vidc_1080p_do_sw_reset(VIDC_1080P_RESET_IN_SEQ_FIRST_STAGE);
 		msleep(DDL_SW_RESET_SLEEP);
 		vidc_1080p_do_sw_reset(VIDC_1080P_RESET_IN_SEQ_SECOND_STAGE);
-		vidc_1080p_release_sw_reset();
+		msleep(DDL_SW_RESET_SLEEP);
 		ddl_context->core_virtual_base_addr = NULL;
 	}
 	ddl_context->device_state = DDL_DEVICE_NOTINIT;
