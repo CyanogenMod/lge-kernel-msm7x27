@@ -375,14 +375,27 @@ static struct msm_gpiomux_config msm8x60_uart_configs[] __initdata = {
 	},
 };
 
-static struct msm_gpiomux_config msm8x60_tmg200_configs[] __initdata = {
+static struct msm_gpiomux_config msm8x60_ts_configs[] __initdata = {
 	{
+		/* TS_ATTN */
 		.gpio = 58,
 		.suspended = GPIOMUX_PULL_DOWN | GPIOMUX_VALID,
 	},
+};
+
+static struct msm_gpiomux_config msm8x60_tmg200_configs[] __initdata = {
 	{
 		.gpio = 61,
 		.active = GPIOMUX_PULL_NONE | GPIOMUX_DRV_2MA |
+				GPIOMUX_VALID | GPIOMUX_FUNC_GPIO,
+		.suspended = GPIOMUX_PULL_NONE | GPIOMUX_VALID,
+	},
+};
+
+static struct msm_gpiomux_config msm8x60_tma300_configs[] __initdata = {
+	{
+		.gpio = 61,
+		.active = GPIOMUX_PULL_UP | GPIOMUX_DRV_6MA |
 				GPIOMUX_VALID | GPIOMUX_FUNC_GPIO,
 		.suspended = GPIOMUX_PULL_NONE | GPIOMUX_VALID,
 	},
@@ -759,7 +772,7 @@ static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
 	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
 	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
-	{msm8x60_tmg200_configs, ARRAY_SIZE(msm8x60_tmg200_configs)},
+	{msm8x60_ts_configs, ARRAY_SIZE(msm8x60_ts_configs)},
 	{msm8x60_aux_pcm_configs, ARRAY_SIZE(msm8x60_aux_pcm_configs)},
 	{msm8x60_sdc_configs, ARRAY_SIZE(msm8x60_sdc_configs)},
 	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
@@ -774,6 +787,10 @@ static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
 	{msm_qrdc_sdc_configs, ARRAY_SIZE(msm_qrdc_sdc_configs)},
 };
 
+static struct msm_gpiomux_cfg_block msm8x60_fluid_cfgs[] __initdata = {
+	{msm8x60_tma300_configs, ARRAY_SIZE(msm8x60_tma300_configs)},
+};
+
 static int __init gpiomux_init(void)
 {
 	int rc = 0;
@@ -786,10 +803,22 @@ static int __init gpiomux_init(void)
 	for (n = 0; n < ARRAY_SIZE(msm8x60_cfgs); ++n)
 		msm_gpiomux_install(msm8x60_cfgs[n].cfg, msm8x60_cfgs[n].ncfg);
 
+	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_surf()) {
+		msm_gpiomux_install(msm8x60_tmg200_configs,
+				ARRAY_SIZE(msm8x60_tmg200_configs));
+	}
+
 	if (machine_is_msm8x60_qrdc()) {
 		for (n = 0; n < ARRAY_SIZE(qrdc_cfgs); ++n) {
 			msm_gpiomux_install(qrdc_cfgs[n].cfg,
 					    qrdc_cfgs[n].ncfg);
+		}
+	}
+
+	if (machine_is_msm8x60_fluid()) {
+		for (n = 0; n < ARRAY_SIZE(msm8x60_fluid_cfgs); ++n) {
+			msm_gpiomux_install(msm8x60_fluid_cfgs[n].cfg,
+					    msm8x60_fluid_cfgs[n].ncfg);
 		}
 	}
 
