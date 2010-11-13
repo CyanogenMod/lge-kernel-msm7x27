@@ -3646,6 +3646,9 @@ static struct i2c_board_info msm_i2c_gsbi3_tdisc_info[] = {
 };
 #endif
 
+#define PM_GPIO_CDC_RST_N 20
+#define GPIO_CDC_RST_N PM8058_GPIO_PM_TO_SYS(PM_GPIO_CDC_RST_N)
+
 static struct regulator *vreg_timpani_1;
 static struct regulator *vreg_timpani_2;
 
@@ -3689,6 +3692,22 @@ static unsigned int msm_timpani_setup_power(void)
 		pr_err("%s: Enable regulator 8058_s3 failed\n", __func__);
 		regulator_disable(vreg_timpani_1);
 		goto fail;
+	}
+
+	rc = gpio_request(GPIO_CDC_RST_N, "CDC_RST_N");
+	if (rc) {
+		pr_err("%s: GPIO Request %d failed\n", __func__,
+			GPIO_CDC_RST_N);
+		regulator_disable(vreg_timpani_1);
+		regulator_disable(vreg_timpani_2);
+		goto fail;
+	} else {
+		gpio_direction_output(GPIO_CDC_RST_N, 1);
+		usleep_range(1000, 1050);
+		gpio_direction_output(GPIO_CDC_RST_N, 0);
+		usleep_range(1000, 1050);
+		gpio_direction_output(GPIO_CDC_RST_N, 1);
+		gpio_free(GPIO_CDC_RST_N);
 	}
 	return rc;
 
