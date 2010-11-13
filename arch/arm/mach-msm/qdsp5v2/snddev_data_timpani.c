@@ -20,12 +20,21 @@
 #include <linux/mfd/msm-adie-codec.h>
 #include <linux/uaccess.h>
 #include <asm/mach-types.h>
+#include <mach/qdsp5v2/aux_pcm.h>
+#include <mach/qdsp5v2/snddev_ecodec.h>
 #include <mach/board.h>
 #include <mach/qdsp5v2/snddev_icodec.h>
 #include <mach/qdsp5v2/snddev_mi2s.h>
 #include <mach/qdsp5v2/mi2s.h>
 #include <mach/qdsp5v2/audio_acdb_def.h>
 #include "timpani_profile_7x30.h"
+
+/* define the value for BT_SCO */
+#define BT_SCO_PCM_CTL_VAL (PCM_CTL__RPCM_WIDTH__LINEAR_V |\
+		PCM_CTL__TPCM_WIDTH__LINEAR_V)
+#define BT_SCO_DATA_FORMAT_PADDING (DATA_FORMAT_PADDING_INFO__RPCM_FORMAT_V |\
+		DATA_FORMAT_PADDING_INFO__TPCM_FORMAT_V)
+#define BT_SCO_AUX_CODEC_INTF   AUX_CODEC_INTF_CTL__PCMINTF_DATA_EN_V
 
 static struct adie_codec_action_unit iearpiece_ffa_48KHz_osr256_actions[] =
 	EAR_PRI_MONO_8000_OSR_256; /* 8000 profile also works for 48k */
@@ -207,12 +216,52 @@ static struct platform_device  msm_snddev_mi2s_fm_tx_device = {
 	.dev = { .platform_data = &snddev_mi2s_fm_tx_data},
 };
 
+static struct snddev_ecodec_data snddev_bt_sco_earpiece_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE),
+	.name = "bt_sco_rx",
+	.copp_id = 1,
+	.acdb_id = ACDB_ID_BT_SCO_SPKR,
+	.channel_mode = 1,
+	.conf_pcm_ctl_val = BT_SCO_PCM_CTL_VAL,
+	.conf_aux_codec_intf = BT_SCO_AUX_CODEC_INTF,
+	.conf_data_format_padding_val = BT_SCO_DATA_FORMAT_PADDING,
+	.max_voice_rx_vol[VOC_NB_INDEX] = 400,
+	.min_voice_rx_vol[VOC_NB_INDEX] = -1100,
+	.max_voice_rx_vol[VOC_WB_INDEX] = 400,
+	.min_voice_rx_vol[VOC_WB_INDEX] = -1100,
+};
+
+static struct snddev_ecodec_data snddev_bt_sco_mic_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "bt_sco_tx",
+	.copp_id = 1,
+	.acdb_id = ACDB_ID_BT_SCO_MIC,
+	.channel_mode = 1,
+	.conf_pcm_ctl_val = BT_SCO_PCM_CTL_VAL,
+	.conf_aux_codec_intf = BT_SCO_AUX_CODEC_INTF,
+	.conf_data_format_padding_val = BT_SCO_DATA_FORMAT_PADDING,
+};
+
+static struct platform_device msm_bt_sco_earpiece_device = {
+	.name = "msm_snddev_ecodec",
+	.id = 0,
+	.dev = { .platform_data = &snddev_bt_sco_earpiece_data },
+};
+
+static struct platform_device msm_bt_sco_mic_device = {
+	.name = "msm_snddev_ecodec",
+	.id = 1,
+	.dev = { .platform_data = &snddev_bt_sco_mic_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
 	&msm_ispkr_stereo_device,
 	&msm_headset_mic_device,
 	&msm_snddev_mi2s_fm_tx_device,
+	&msm_bt_sco_earpiece_device,
+	&msm_bt_sco_mic_device,
 };
 
 void __init msm_snddev_init_timpani(void)
