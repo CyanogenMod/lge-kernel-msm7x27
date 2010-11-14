@@ -443,7 +443,7 @@ struct sdio_al {
 	int lpm_chan;
 	int is_ok_to_sleep;
 	unsigned long inactivity_time;
-	struct msm_gpio *mdm2ap_status;
+	struct sdio_al_platform_data *pdata;
 
 	struct timer_list timer;
 	u32 poll_delay_msec;
@@ -1495,14 +1495,11 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 	/* Poll the GPIO */
 	time_to_wait = jiffies + msecs_to_jiffies(100);
 	while (time_before(jiffies, time_to_wait)) {
-			pr_info(MODULE_NAME ":GPIO (%d)=%d\n",
-			       GPIO_PIN(sdio_al->mdm2ap_status->gpio_cfg),
-			       gpio_get_value(GPIO_PIN(
-					sdio_al->mdm2ap_status->gpio_cfg)));
-			if (gpio_get_value(GPIO_PIN(
-					sdio_al->mdm2ap_status->gpio_cfg)))
-				break;
-			udelay(TIME_TO_WAIT_US);
+		pr_info(MODULE_NAME ":GPIO mdm2ap_status(77)=%d\n",
+		       sdio_al->pdata->get_mdm2ap_status());
+		if (sdio_al->pdata->get_mdm2ap_status())
+			break;
+		udelay(TIME_TO_WAIT_US);
 	}
 
 	if (enable_wake_up_func) {
@@ -1609,7 +1606,7 @@ static int sdio_al_setup(void)
 
 	func1 = card->sdio_func[0];
 
-	ret = msm_gpios_request_enable(sdio_al->mdm2ap_status, 1);
+	ret = sdio_al->pdata->config_mdm2ap_status(1);
 	if (ret) {
 		pr_err(MODULE_NAME "Could not request GPIO\n");
 		return ret;
@@ -1687,7 +1684,7 @@ static void sdio_al_tear_down(void)
 		sdio_disable_func(func1);
 		sdio_release_host(func1);
 		wake_unlock(&sdio_al->wake_lock);
-		msm_gpios_disable_free(sdio_al->mdm2ap_status, 1);
+		sdio_al->pdata->config_mdm2ap_status(0);
 	}
 }
 
@@ -2140,8 +2137,12 @@ EXPORT_SYMBOL(sdio_set_poll_time);
 
 static int __devinit msm_sdio_al_probe(struct platform_device *pdev)
 {
-	if (sdio_al)
-		sdio_al->mdm2ap_status = pdev->dev.platform_data;
+	if (!sdio_al) {
+		pr_err(MODULE_NAME ": %s: NULL sdio_al\n", __func__);
+		return -ENODEV;
+	}
+
+	sdio_al->pdata = pdev->dev.platform_data;
 	return 0;
 }
 

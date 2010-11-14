@@ -72,6 +72,7 @@
 #endif
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/machine.h>
+#include <mach/sdio_al.h>
 
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -2375,6 +2376,47 @@ static struct xoadc_platform_data xoadc_pdata = {
 };
 #endif
 
+
+#ifdef CONFIG_MSM_SDIO_AL
+
+static unsigned mdm2ap_status = 77;
+
+static int configure_mdm2ap_status(int on)
+{
+	int ret = 0;
+	if (on)
+		ret = msm_gpiomux_get(mdm2ap_status);
+	else
+		ret = msm_gpiomux_put(mdm2ap_status);
+
+	if (ret)
+		pr_err("%s: mdm2ap_status config failed, on = %d\n", __func__,
+		       on);
+
+	return ret;
+}
+
+
+static int get_mdm2ap_status(void)
+{
+	return gpio_get_value(mdm2ap_status);
+}
+
+static struct sdio_al_platform_data sdio_al_pdata = {
+	.config_mdm2ap_status = configure_mdm2ap_status,
+	.get_mdm2ap_status = get_mdm2ap_status,
+};
+
+struct platform_device msm_device_sdio_al = {
+	.name = "msm_sdio_al",
+	.id = -1,
+	.dev		= {
+		.platform_data	= &sdio_al_pdata,
+	},
+};
+
+#endif /* CONFIG_MSM_SDIO_AL */
+
 static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_smd,
 	&smsc911x_device,
@@ -2523,6 +2565,10 @@ static struct platform_device *surf_devices[] __initdata = {
 	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS2],
 	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS3],
 	&rpm_vreg_device[RPM_VREG_ID_PM8901_MVS0],
+#endif
+
+#ifdef CONFIG_MSM_SDIO_AL
+	&msm_device_sdio_al,
 #endif
 };
 

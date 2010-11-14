@@ -43,6 +43,12 @@ struct sdio_channel; /* Forward Declaration */
 #define SDIO_EVENT_DATA_READ_AVAIL      0x01
 #define SDIO_EVENT_DATA_WRITE_AVAIL     0x02
 
+
+struct sdio_al_platform_data {
+	int (*config_mdm2ap_status)(int);
+	int (*get_mdm2ap_status)(void);
+};
+
 /**
  * sdio_open - open a channel for read/write data.
  *
