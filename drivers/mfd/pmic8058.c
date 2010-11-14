@@ -98,6 +98,7 @@ struct pm8058_chip {
 	int	pm_max_masters;
 
 	u8	config[MAX_PM_IRQ];
+	u8	bus_unlock_config[MAX_PM_IRQ];
 	u8	wake_enable[MAX_PM_IRQ];
 	u16	count_wakeable;
 
@@ -370,7 +371,7 @@ static void pm8058_irq_mask(unsigned int irq)
 
 	config = PM8058_IRQF_WRITE | chip->config[irq] |
 		PM8058_IRQF_MASK_FE | PM8058_IRQF_MASK_RE;
-	pm8058_config_irq(chip, &block, &config);
+	chip->bus_unlock_config[irq] = config;
 }
 
 static void pm8058_irq_unmask(unsigned int irq)
@@ -397,7 +398,7 @@ static void pm8058_irq_unmask(unsigned int irq)
 	}
 
 	config = PM8058_IRQF_WRITE | chip->config[irq];
-	pm8058_config_irq(chip, &block, &config);
+	chip->bus_unlock_config[irq] = config;
 }
 
 static void pm8058_irq_ack(unsigned int irq)
@@ -412,7 +413,7 @@ static void pm8058_irq_ack(unsigned int irq)
 	/* Keep the mask */
 	if (!(chip->irqs_allowed[block] & (1 << (irq % 8))))
 		config |= PM8058_IRQF_MASK_FE | PM8058_IRQF_MASK_RE;
-	pm8058_config_irq(chip, &block, &config);
+	chip->bus_unlock_config[irq] = config;
 }
 
 static int pm8058_irq_set_type(unsigned int irq, unsigned int flow_type)
@@ -450,7 +451,8 @@ static int pm8058_irq_set_type(unsigned int irq, unsigned int flow_type)
 	}
 
 	config = PM8058_IRQF_WRITE | chip->config[irq] | PM8058_IRQF_CLR;
-	return pm8058_config_irq(chip, &block, &config);
+	chip->bus_unlock_config[irq] = config;
+	return 0;
 }
 
 static int pm8058_irq_set_wake(unsigned int irq, unsigned int on)
@@ -471,6 +473,32 @@ static int pm8058_irq_set_wake(unsigned int irq, unsigned int on)
 	}
 
 	return 0;
+}
+
+static void pm8058_irq_bus_lock(unsigned int irq)
+{
+	u8	block;
+	struct	pm8058_chip *chip = get_irq_data(irq);
+
+	irq -= chip->pdata.irq_base;
+	block = irq / 8;
+	chip->bus_unlock_config[irq] = 0;
+
+	mutex_lock(&chip->pm_lock);
+}
+
+static void pm8058_irq_bus_sync_unlock(unsigned int irq)
+{
+	u8	block, config;
+	struct	pm8058_chip *chip = get_irq_data(irq);
+
+	irq -= chip->pdata.irq_base;
+	block = irq / 8;
+	config = chip->bus_unlock_config[irq];
+	/* dont waste cpu cycles if we dont have data to write */
+	if (config)
+		pm8058_config_irq(chip, &block, &config);
+	mutex_unlock(&chip->pm_lock);
 }
 
 static inline int
@@ -626,7 +654,15 @@ bail_out:
 	mutex_unlock(&chip->pm_lock);
 
 	for (i = 0; i < handled; i++)
-		generic_handle_irq(irqs_to_handle[i]);
+		handle_nested_irq(irqs_to_handle[i]);
+
+	for (i = 0; i < handled; i++) {
+		irqs_to_handle[i] -= chip->pdata.irq_base;
+		block  = irqs_to_handle[i] / 8 ;
+		config = PM8058_IRQF_WRITE | chip->config[irqs_to_handle[i]]
+				| PM8058_IRQF_CLR;
+		pm8058_config_irq(chip, &block, &config);
+	}
 
 	if (spurious) {
 		if (!pm8058_can_print())
@@ -833,6 +869,8 @@ static struct irq_chip pm8058_irq_chip = {
 	.unmask    = pm8058_irq_unmask,
 	.set_type  = pm8058_irq_set_type,
 	.set_wake  = pm8058_irq_set_wake,
+	.bus_lock  = pm8058_irq_bus_lock,
+	.bus_sync_unlock  = pm8058_irq_bus_sync_unlock,
 };
 
 static int pm8058_probe(struct i2c_client *client,
@@ -875,6 +913,7 @@ static int pm8058_probe(struct i2c_client *client,
 	(void) memcpy((void *)&chip->pdata, (const void *)pdata,
 		      sizeof(chip->pdata));
 
+	mutex_init(&chip->pm_lock);
 	set_irq_data(chip->dev->irq, (void *)chip);
 	set_irq_wake(chip->dev->irq, 1);
 
@@ -885,14 +924,14 @@ static int pm8058_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, chip);
 
 	pmic_chip = chip;
-	mutex_init(&chip->pm_lock);
 
 	/* Register for all reserved IRQs */
 	for (i = pdata->irq_base; i < (pdata->irq_base + MAX_PM_IRQ); i++) {
 		set_irq_chip(i, &pm8058_irq_chip);
+		set_irq_data(i, (void *)chip);
 		set_irq_handler(i, handle_edge_irq);
 		set_irq_flags(i, IRQF_VALID);
-		set_irq_data(i, (void *)chip);
+		set_irq_nested_thread(i, 1);
 	}
 
 	/* Add sub devices with the chip parameter as driver data */
