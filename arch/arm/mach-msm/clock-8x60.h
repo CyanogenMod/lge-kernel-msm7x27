@@ -151,7 +151,6 @@ enum {
 
 	/* Multimedia Fast Peripheral Bus Clocks */
 	L_AMP_P_CLK,
-	L_APU_P_CLK,
 	L_CSI0_P_CLK,
 	L_CSI1_P_CLK,
 	L_DSI_M_P_CLK,
@@ -166,7 +165,6 @@ enum {
 	L_JPEGD_P_CLK,
 	L_MDP_P_CLK,
 	L_ROT_P_CLK,
-	L_SMI0_P_CLK,
 	L_SMMU_P_CLK,
 	L_TV_ENC_P_CLK,
 	L_VCODEC_P_CLK,
