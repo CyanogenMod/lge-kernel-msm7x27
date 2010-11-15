@@ -86,6 +86,7 @@
 #include <mach/msm_reqs.h>
 #include <mach/qdsp5v2/mi2s.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
+#include <mach/sdio_al.h>
 #include "smd_private.h"
 
 #define MSM_PMEM_SF_SIZE	0x1700000
@@ -4459,11 +4460,32 @@ static struct msm_gpio mdm2ap_status = {
 	"mdm2ap_status"
 };
 
+
+static int configure_mdm2ap_status(int on)
+{
+	if (on)
+		return msm_gpios_request_enable(&mdm2ap_status, 1);
+	else {
+		msm_gpios_disable_free(&mdm2ap_status, 1);
+		return 0;
+	}
+}
+
+static int get_mdm2ap_status(void)
+{
+	return gpio_get_value(GPIO_PIN(mdm2ap_status.gpio_cfg));
+}
+
+static struct sdio_al_platform_data sdio_al_pdata = {
+	.config_mdm2ap_status = configure_mdm2ap_status,
+	.get_mdm2ap_status = get_mdm2ap_status,
+};
+
 struct platform_device msm_device_sdio_al = {
 	.name = "msm_sdio_al",
 	.id = -1,
 	.dev		= {
-		.platform_data	= &mdm2ap_status,
+		.platform_data	= &sdio_al_pdata,
 	},
 };
 
