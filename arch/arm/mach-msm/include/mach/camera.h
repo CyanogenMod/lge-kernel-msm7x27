@@ -85,6 +85,12 @@ enum vpe_resp_msg {
 	VPE_MSG_OUTPUT_V,   /* video   (continuous mode ) */
 };
 
+enum msm_camera_type {
+	BACK_CAMERA_2D,
+	FRONT_CAMERA_2D,
+	BACK_CAMERA_3D,
+};
+
 struct msm_vpe_phy_info {
 	uint32_t sbuf_phy;
 	uint32_t y_phy;
@@ -180,6 +186,7 @@ struct msm_sensor_ctrl {
 	int (*s_init)(const struct msm_camera_sensor_info *);
 	int (*s_release)(void);
 	int (*s_config)(void __user *);
+	enum msm_camera_type s_camera_type;
 };
 struct msm_strobe_flash_ctrl {
 	int (*strobe_flash_init)

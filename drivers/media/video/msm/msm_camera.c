@@ -45,8 +45,6 @@ spinlock_t pp_prev_spinlock;
 spinlock_t pp_snap_spinlock;
 spinlock_t pp_thumb_spinlock;
 
-#define MSM_MAX_CAMERA_SENSORS 5
-
 #define ERR_USER_COPY(to) pr_err("%s(%d): copy %s user\n", \
 				__func__, __LINE__, ((to) ? "to" : "from"))
 #define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
@@ -57,6 +55,8 @@ static dev_t msm_devno;
 static LIST_HEAD(msm_sensors);
 struct  msm_control_device *g_v4l2_control_device;
 int g_v4l2_opencnt;
+static int camera_node;
+static enum msm_camera_type camera_type[MSM_MAX_CAMERA_SENSORS];
 
 static const char *vfe_config_cmd[] = {
 	"CMD_GENERAL",  /* 0 */
@@ -1561,6 +1561,48 @@ static int msm_get_sensor_info(struct msm_sync *sync, void __user *arg)
 	return rc;
 }
 
+static int msm_get_camera_info(void __user *arg)
+{
+	int rc = 0;
+	int i = 0;
+	struct msm_camera_info info;
+
+	if (copy_from_user(&info,
+			arg,
+			sizeof(struct msm_camera_info))) {
+		ERR_COPY_FROM_USER();
+		return -EFAULT;
+	}
+
+	CDBG("%s: camera_node %d\n", __func__, camera_node);
+	info.num_cameras = camera_node;
+	for (i = 0; i < camera_node; i++) {
+		info.has_3d_support[i] = 0;
+		info.is_internal_cam[i] = 0;
+		switch (camera_type[i]) {
+		case FRONT_CAMERA_2D:
+			info.is_internal_cam[i] = 1;
+			break;
+		case BACK_CAMERA_3D:
+			info.has_3d_support[i] = 1;
+			break;
+		case BACK_CAMERA_2D:
+		default:
+			break;
+		}
+	}
+
+	/* copy back to user space */
+	if (copy_to_user((void *)arg,
+			&info,
+			sizeof(struct msm_camera_info))) {
+		ERR_COPY_TO_USER();
+		rc = -EFAULT;
+	}
+
+	return rc;
+}
+
 static int __msm_put_frame_buf(struct msm_sync *sync,
 		struct msm_frame *pb)
 {
@@ -2335,6 +2377,9 @@ static long msm_ioctl_control(struct file *filep, unsigned int cmd,
 		break;
 	case MSM_CAM_IOCTL_GET_SENSOR_INFO:
 		rc = msm_get_sensor_info(pmsm->sync, argp);
+		break;
+	case MSM_CAM_IOCTL_GET_CAMERA_INFO:
+		rc = msm_get_camera_info(argp);
 		break;
 	default:
 		rc = msm_ioctl_common(pmsm, cmd, argp);
@@ -3207,7 +3252,6 @@ int msm_camera_drv_start(struct platform_device *dev,
 	struct msm_cam_device *pmsm = NULL;
 	struct msm_sync *sync;
 	int rc = -ENODEV;
-	static int camera_node;
 
 	if (camera_node >= MSM_MAX_CAMERA_SENSORS) {
 		pr_err("%s: too many camera sensors\n", __func__);
@@ -3254,6 +3298,7 @@ int msm_camera_drv_start(struct platform_device *dev,
 		return rc;
 	}
 
+	camera_type[camera_node] = sync->sctrl.s_camera_type;
 	camera_node++;
 	if (camera_node == 1) {
 		rc = add_axi_qos();
