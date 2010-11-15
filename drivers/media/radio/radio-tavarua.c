@@ -3027,7 +3027,6 @@ static struct platform_driver tavarua_driver = {
 		.owner  = THIS_MODULE,
 		.name   = "marimba_fm",
 	},
-	.probe = tavarua_probe,
 	.remove = __devexit_p(tavarua_remove),
 	.suspend = tavarua_suspend,
 	.resume = tavarua_resume,
@@ -3050,7 +3049,7 @@ FUNCTION:  radio_module_init
 static int __init radio_module_init(void)
 {
 	printk(KERN_INFO DRIVER_DESC ", Version " DRIVER_VERSION "\n");
-	return platform_driver_register(&tavarua_driver);
+	return platform_driver_probe(&tavarua_driver, tavarua_probe);
 }
 
 /*==============================================================
