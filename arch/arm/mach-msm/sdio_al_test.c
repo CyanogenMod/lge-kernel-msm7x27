@@ -531,7 +531,7 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 		break;
 	case 3:
 		pr_debug(MODULE_NAME " --A2 Performance--.\n");
-		test_ctx->name = "SDIO_RMNET_DATA";
+		test_ctx->name = "SDIO_RMNT";
 		break;
 	default:
 		pr_info(MODULE_NAME "Bad Test number = %d.\n",

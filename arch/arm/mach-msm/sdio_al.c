@@ -48,7 +48,7 @@
 #include <mach/sdio_al.h>
 
 #define MODULE_NAME "sdio_al"
-#define DRV_VERSION "1.09"
+#define DRV_VERSION "1.10"
 
 /* #define DEBUG_SDIO_AL_UNIT_TEST 1 */
 
@@ -60,7 +60,7 @@
  *  number of pipes.
  *
  */
-#define SDIO_AL_MAX_CHANNELS 4
+#define SDIO_AL_MAX_CHANNELS 6
 
 /** Func 1..5 */
 #define SDIO_AL_MAX_FUNCS    (SDIO_AL_MAX_CHANNELS+1)
@@ -113,7 +113,11 @@
 
 #define THRESHOLD_DISABLE_VAL  		(0xFFFFFFFF)
 
+
+/** Mailbox polling time for packet channels */
 #define DEFAULT_POLL_DELAY_MSEC		10
+/** Mailbox polling time for streaming channels */
+#define DEFAULT_POLL_DELAY_NOPACKET_MSEC 30
 
 /** The SDIO-Client prepares N buffers of size X per Tx pipe.
  *  Even when the transfer fills a partial buffer,
@@ -138,13 +142,8 @@
 #define SD_IO_RW_EXTENDED_QCOM 54
 
 #define TIME_TO_WAIT_US 500
+#define SDIO_PREFIX "SDIO_"
 
-/** Channel priority */
-enum sdio_priority {
-	SDIO_PRIORITY_HIGH = 1,
-	SDIO_PRIORITY_MED  = 5,
-	SDIO_PRIORITY_LOW  = 9,
-};
 
 /**
  *  Mailbox structure.
@@ -236,12 +235,18 @@ struct peer_sdioc_channel_config {
 	u32 tx_buf_size;
 	u32 max_packet_size;
 	u32 is_host_ok_to_sleep;
-	u32 reserved[26];
+	u32 is_packet_mode;
+	u32 reserved[25];
 };
 
 #define PEER_SDIOC_SW_MAILBOX_SIGNATURE 0xFACECAFE
 
-#define PEER_SDIOC_VERSION		0x20001
+/* Identifies if there are new features released */
+#define PEER_SDIOC_VERSION_MINOR	0x0002
+/* Identifies if there is backward compatibility */
+#define PEER_SDIOC_VERSION_MAJOR	0x0002
+
+#define PEER_CHANNEL_NAME_SIZE		4
 
 
 /**
@@ -251,7 +256,8 @@ struct peer_sdioc_sw_header {
 	u32 signature;
 	u32 version;
 	u32 max_channels;
-	u32 reserved[29];
+	char channel_names[SDIO_AL_MAX_CHANNELS][PEER_CHANNEL_NAME_SIZE];
+	u32 reserved[23];
 };
 
 /**
@@ -267,8 +273,6 @@ struct peer_sdioc_sw_mailbox {
  *
  *  @name - channel name. Used by the caller to open the
  *  	  channel.
- *
- *  @priority - channel priority.
  *
  *  @read_threshold - Threshold on SDIO-Client mailbox for Rx
  *  				Data available bytes. When the limit exceed
@@ -301,6 +305,10 @@ struct peer_sdioc_sw_mailbox {
  *
  *  @priv - Client's private context, provided to callback.
  *
+ *  @is_valid - Channel is used (we have a list of
+ *		SDIO_AL_MAX_CHANNELS and not all of them are in
+ *		use).
+ *
  *  @is_open - Channel is open.
  *
  *  @func - SDIO Function handle.
@@ -326,10 +334,10 @@ struct peer_sdioc_sw_mailbox {
  *  @signature - Context Validity check.
  *
  */
+#define CHANNEL_NAME_SIZE (sizeof(SDIO_PREFIX) + PEER_CHANNEL_NAME_SIZE)
 struct sdio_channel {
 	/* Channel Configuration Parameters*/
-	const char *name;
-	int priority;
+	char name[CHANNEL_NAME_SIZE];
 	int read_threshold;
 	int write_threshold;
 	int def_read_threshold;
@@ -343,6 +351,7 @@ struct sdio_channel {
 	void (*notify)(void *priv, unsigned channel_event);
 	void *priv;
 
+	int is_valid;
 	int is_open;
 	int is_suspend;
 
@@ -380,9 +389,8 @@ struct sdio_channel {
  *  @channel - Channels context.
  *
  *  @workqueue - workqueue to read the mailbox and handle
- *  		   pending requests according to priority.
- *  		   Reading the mailbox should not happen in
- *  		   interrupt context.
+ *     pending requests. Reading the mailbox should not happen
+ *     in interrupt context.
  *
  *  @work - work to submit to workqueue.
  *
@@ -411,6 +419,9 @@ struct sdio_channel {
  *  @is_err - error detected.
  *
  *  @signature - Context Validity Check.
+ *
+ *  @use_default_conf - A flag to indicate if we need to use the default channels names,
+ *    or to use the list of channels given by the 9K
  *
  */
 struct sdio_al {
@@ -446,6 +457,8 @@ struct sdio_al {
 	unsigned int clock;
 
 	unsigned int is_suspended;
+
+	int use_default_conf;
 };
 
 /** The driver context */
@@ -582,14 +595,14 @@ static int read_mailbox(int from_isr)
 	pr_debug(MODULE_NAME ":eot=0x%x, thresh=0x%x\n",
 			 eot_pipe, thresh_pipe);
 
-	/* Scan for Rx Packets available and update read vailable bytes */
+	/* Scan for Rx Packets available and update read available bytes */
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 		struct sdio_channel *ch = &sdio_al->channel[i];
 		u32 old_read_avail;
 		u32 read_avail;
 		u32 new_packet_size = 0;
 
-		if (!ch->is_open)
+		if ((!ch->is_valid) || (!ch->is_open))
 			continue;
 
 		old_read_avail = ch->read_avail;
@@ -620,7 +633,7 @@ static int read_mailbox(int from_isr)
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 		struct sdio_channel *ch = &sdio_al->channel[i];
 
-		if (!ch->is_open)
+		if ((!ch->is_valid) || (!ch->is_open))
 			continue;
 
 		new_write_avail = mailbox->pipe_bytes_avail[ch->tx_pipe_index];
@@ -653,7 +666,7 @@ static int read_mailbox(int from_isr)
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 		struct sdio_channel *ch = &sdio_al->channel[i];
 
-		if ((!ch->is_open) || (ch->notify == NULL))
+		if ((!ch->is_valid) || (!ch->is_open) || (ch->notify == NULL))
 			continue;
 
 		if (rx_notify_bitmask & (1<<ch->num))
@@ -670,7 +683,7 @@ static int read_mailbox(int from_isr)
 		struct sdio_channel *ch = &sdio_al->channel[i];
 		u32 pipe_thresh_intr_disabled = 0;
 
-		if (!ch->is_open)
+		if ((!ch->is_valid) || (!ch->is_open))
 			continue;
 
 
@@ -688,6 +701,8 @@ static int read_mailbox(int from_isr)
 		/* Make sure we get interrupt for non-packet-mode right away */
 		for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 			struct sdio_channel *ch = &sdio_al->channel[i];
+			if ((!ch->is_valid) || (!ch->is_open))
+				continue;
 			if (ch->is_packet_mode == false) {
 				ch->read_threshold = 1;
 				set_pipe_threshold(ch->rx_pipe_index,
@@ -967,27 +982,30 @@ static void set_default_channels_config(void)
 			ch->poll_delay_msec = DEFAULT_POLL_DELAY_MSEC;
 		ch->is_packet_mode = true;
 		ch->peer_tx_buf_size = DEFAULT_PEER_TX_BUF_SIZE;
+		ch->is_valid = 0;
 	}
 
+	strncpy(sdio_al->channel[0].name, "SDIO_RPC",
+		sizeof(sdio_al->channel[0].name));
+	sdio_al->channel[0].is_valid = 1;
 
-	sdio_al->channel[0].name = "SDIO_RPC";
-	sdio_al->channel[0].priority = SDIO_PRIORITY_HIGH;
-
-	sdio_al->channel[1].name = "SDIO_RMNET_DATA";
-	sdio_al->channel[1].priority = SDIO_PRIORITY_MED;
-	sdio_al->channel[1].is_packet_mode = false;  /* No EOT for Rx Data */
-	sdio_al->channel[1].poll_delay_msec = 30;
-
+	strncpy(sdio_al->channel[1].name, "SDIO_RMNT",
+		sizeof(sdio_al->channel[1].name));
+	sdio_al->channel[1].is_packet_mode = false; /* No EOT for Rx Data */
+	sdio_al->channel[1].poll_delay_msec = DEFAULT_POLL_DELAY_NOPACKET_MSEC;
 	sdio_al->channel[1].read_threshold  = 14*1024;
 	sdio_al->channel[1].write_threshold = 2*1024;
 	sdio_al->channel[1].min_write_avail = 1600;
+	sdio_al->channel[1].is_valid = 1;
 	sdio_al->lpm_chan = 1;
 
-	sdio_al->channel[2].name = "SDIO_QMI";
-	sdio_al->channel[2].priority = SDIO_PRIORITY_LOW;
+	strncpy(sdio_al->channel[2].name, "SDIO_QMI",
+		sizeof(sdio_al->channel[2].name));
+	sdio_al->channel[2].is_valid = 1;
 
-	sdio_al->channel[3].name = "SDIO_DIAG";
-	sdio_al->channel[3].priority = SDIO_PRIORITY_LOW;
+	strncpy(sdio_al->channel[3].name, "SDIO_DIAG",
+		sizeof(sdio_al->channel[3].name));
+	sdio_al->channel[3].is_valid = 1;
 }
 
 
@@ -998,9 +1016,12 @@ static void set_default_channels_config(void)
 static int read_sdioc_software_header(struct peer_sdioc_sw_header *header)
 {
 	int ret;
+	int i;
 	struct sdio_func *func1 = sdio_al->card->sdio_func[0];
 
 	pr_debug(MODULE_NAME ":reading sdioc sw header.\n");
+
+	sdio_al->use_default_conf = 1;
 
 	ret = sdio_memcpy_fromio(func1, header,
 			SDIOC_SW_HEADER_ADDR, sizeof(*header));
@@ -1014,8 +1035,8 @@ static int read_sdioc_software_header(struct peer_sdioc_sw_header *header)
 			header->signature);
 		goto exit_err;
 	}
-	/* Upper byte has to be equal - no backward compatibtiyy for unequal */
-	if ((header->version >> 16) != (PEER_SDIOC_VERSION >> 16)) {
+	/* Upper byte has to be equal - no backward compatibility for unequal */
+	if ((header->version >> 16) != (PEER_SDIOC_VERSION_MAJOR)) {
 		pr_err(MODULE_NAME ":SDIOC SW older version. 0x%x\n",
 			header->version);
 		goto exit_err;
@@ -1023,13 +1044,57 @@ static int read_sdioc_software_header(struct peer_sdioc_sw_header *header)
 
 	pr_info(MODULE_NAME ":SDIOC SW version 0x%x\n", header->version);
 
+	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
+		struct sdio_channel *ch = &sdio_al->channel[i];
+		int j;
+
+		pr_info(MODULE_NAME ":SDIOC channel ");
+		for (j = 0; j < PEER_CHANNEL_NAME_SIZE; j++)
+			pr_info("%c", header->channel_names[i][j]);
+		pr_info("\n");
+
+
+		/* Set default values */
+		ch->read_threshold  = DEFAULT_READ_THRESHOLD;
+		ch->write_threshold = DEFAULT_WRITE_THRESHOLD;
+		ch->min_write_avail = DEFAULT_MIN_WRITE_THRESHOLD;
+		ch->is_packet_mode = true;
+		ch->peer_tx_buf_size = DEFAULT_PEER_TX_BUF_SIZE;
+		if (sdio_al->use_irq)
+			ch->poll_delay_msec = 0;
+		else
+			ch->poll_delay_msec = DEFAULT_POLL_DELAY_MSEC;
+
+		ch->num = i;
+
+		memset(ch->name, 0, sizeof(ch->name));
+
+		if (header->channel_names[i][0]) {
+			memcpy(ch->name, SDIO_PREFIX,
+			       strlen(SDIO_PREFIX));
+			memcpy(ch->name + strlen(SDIO_PREFIX),
+			       header->channel_names[i],
+			       PEER_CHANNEL_NAME_SIZE);
+
+			ch->is_valid = 1;
+			sdio_al->use_default_conf = 0;
+		}
+
+		pr_info("Channel=%s, is_valid=%d\n", ch->name, ch->is_valid);
+	}
+	/* Backwards compatiblity - use def values when no info from client */
+	if (sdio_al->use_default_conf) {
+		set_default_channels_config();
+		pr_err("Using default config\n");
+	}
+
 	return 0;
 
 exit_err:
 	sdio_al->is_err = true;
 	memset(header, 0, sizeof(*header));
 
-	return -1;
+	return -EIO;
 }
 
 /**
@@ -1065,28 +1130,46 @@ static int read_sdioc_channel_config(struct sdio_channel *ch)
 		goto exit_err;
 	}
 
-	pr_info(MODULE_NAME ":ch %s max_rx_threshold=%d.\n",
+	pr_info(MODULE_NAME ":ch_config %s max_rx_threshold=%d.\n",
 		ch->name, ch_config->max_rx_threshold);
-	pr_info(MODULE_NAME ":ch %s max_tx_threshold=%d.\n",
+	pr_info(MODULE_NAME ":ch_config %s max_tx_threshold=%d.\n",
 		ch->name, ch_config->max_tx_threshold);
-	pr_info(MODULE_NAME ":ch %s tx_buf_size=%d.\n",
+	pr_info(MODULE_NAME ":ch_config %s tx_buf_size=%d.\n",
 		ch->name, ch_config->tx_buf_size);
 
 	/* Aggregation up to 90% of the maximum size */
-	ch_config->max_rx_threshold = (ch_config->max_rx_threshold * 9) / 10;
+	ch->read_threshold = (ch_config->max_rx_threshold * 9) / 10;
 	/* Threshold on 50% of the maximum size , sdioc uses double-buffer */
-	ch_config->max_tx_threshold = (ch_config->max_tx_threshold * 5) / 10;
-
-	ch->read_threshold = min(ch->read_threshold,
-				 (int) ch_config->max_rx_threshold);
-
-	ch->write_threshold = min(ch->write_threshold,
-				 (int) ch_config->max_tx_threshold);
+	ch->write_threshold = (ch_config->max_tx_threshold * 5) / 10;
 
 	ch->def_read_threshold = ch->read_threshold;
 
 	if (ch->min_write_avail > ch->write_threshold)
 		ch->min_write_avail = ch->write_threshold;
+
+
+	pr_info(MODULE_NAME ":ch %s read_threshold=%d.\n",
+		ch->name, ch->read_threshold);
+	pr_info(MODULE_NAME ":ch %s write_threshold=%d.\n",
+		ch->name, ch->write_threshold);
+	pr_info(MODULE_NAME ":ch %s def_read_threshold=%d.\n",
+		ch->name, ch->def_read_threshold);
+	pr_info(MODULE_NAME ":ch %s min_write_avail=%d.\n",
+		ch->name, ch->min_write_avail);
+
+	if (!sdio_al->use_default_conf) {
+		ch->is_packet_mode = ch_config->is_packet_mode;
+
+		if (!ch->is_packet_mode) {
+			ch->poll_delay_msec = DEFAULT_POLL_DELAY_NOPACKET_MSEC;
+			/* TODO - change when there are multiple streaming
+			   channels! */
+			sdio_al->lpm_chan = ch->num;
+		}
+	}
+	pr_info(MODULE_NAME ":ch %s is_packet_mode=%d.\n",
+		ch->name, ch->is_packet_mode);
+
 
 	ch->peer_tx_buf_size = ch_config->tx_buf_size;
 
@@ -1279,14 +1362,14 @@ static int open_channel(struct sdio_channel *ch)
 	/* lpm mechanism lives under the assumption there is always a timer */
 	/* Check if need to start the timer */
 	if  ((ch->poll_delay_msec) && (sdio_al->poll_delay_msec == 0)) {
-			sdio_al->poll_delay_msec = ch->poll_delay_msec;
+		sdio_al->poll_delay_msec = ch->poll_delay_msec;
 
-			init_timer(&sdio_al->timer);
-			sdio_al->timer.data = (unsigned long) sdio_al;
-			sdio_al->timer.function = timer_handler;
-			sdio_al->timer.expires = jiffies +
-				msecs_to_jiffies(sdio_al->poll_delay_msec);
-			add_timer(&sdio_al->timer);
+		init_timer(&sdio_al->timer);
+		sdio_al->timer.data = (unsigned long) sdio_al;
+		sdio_al->timer.function = timer_handler;
+		sdio_al->timer.expires = jiffies +
+			msecs_to_jiffies(sdio_al->poll_delay_msec);
+		add_timer(&sdio_al->timer);
 	}
 
 	/* Set flag before interrupts are enabled to allow notify */
@@ -1439,6 +1522,8 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 	/* Restore default thresh for non packet channels */
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 		struct sdio_channel *ch = &sdio_al->channel[i];
+		if ((!ch->is_valid) || (!ch->is_open))
+			continue;
 		if (ch->is_packet_mode == false) {
 			ch->read_threshold = ch->def_read_threshold;
 			set_pipe_threshold(ch->rx_pipe_index,
@@ -1511,7 +1596,7 @@ static int sdio_al_setup(void)
 {
 	int ret = 0;
 	struct mmc_card *card = sdio_al->card;
-	struct sdio_func *func1;
+	struct sdio_func *func1 = NULL;
 	int i = 0;
 	int fn = 0;
 
@@ -1530,32 +1615,7 @@ static int sdio_al_setup(void)
 		return ret;
 	}
 
-	sdio_claim_host(sdio_al->card->sdio_func[0]);
-
-	sdio_al->mailbox = kzalloc(sizeof(struct sdio_mailbox), GFP_KERNEL);
-	if (sdio_al->mailbox == NULL)
-		return -ENOMEM;
-
-	sdio_al->sdioc_sw_header
-		= kzalloc(sizeof(*sdio_al->sdioc_sw_header), GFP_KERNEL);
-	if (sdio_al->sdioc_sw_header == NULL)
-		return -ENOMEM;
-
-	/* Init Func#1 */
-	ret = sdio_enable_func(func1);
-	if (ret) {
-		pr_info(MODULE_NAME ":Fail to enable Func#%d\n", func1->num);
-		goto exit_err;
-	}
-
-	/* Patch Func CIS tuple issue */
-	ret = sdio_set_block_size(func1, SDIO_AL_BLOCK_SIZE);
-	func1->max_blksize = SDIO_AL_BLOCK_SIZE;
-
-	ret = read_sdioc_software_header(sdio_al->sdioc_sw_header);
-	if (ret)
-		goto exit_err;
-	pr_info(MODULE_NAME ":SDIO-AL SW version %s.\n", DRV_VERSION);
+	sdio_claim_host(func1);
 
 	sdio_al->workqueue = create_singlethread_workqueue("sdio_al_wq");
 	INIT_WORK(&sdio_al->work, worker);
@@ -1585,7 +1645,7 @@ static int sdio_al_setup(void)
 		pr_debug(MODULE_NAME ":Not using IRQ\n");
 	}
 
-	sdio_release_host(sdio_al->card->sdio_func[0]);
+	sdio_release_host(func1);
 	sdio_al->is_ready = true;
 
 	/* Start worker before interrupt might happen */
@@ -1598,7 +1658,7 @@ static int sdio_al_setup(void)
 	return 0;
 
 exit_err:
-	sdio_release_host(sdio_al->card->sdio_func[0]);
+	sdio_release_host(func1);
 	pr_err(MODULE_NAME ":Setup Failure.\n");
 
 	return ret;
@@ -1640,11 +1700,14 @@ static struct sdio_channel *find_channel_by_name(const char *name)
 	struct sdio_channel *ch = NULL;
 	int i;
 
-	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++)
+	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
+		if (!sdio_al->channel[i].is_valid)
+			continue;
 		if (strcmp(sdio_al->channel[i].name, name) == 0) {
 			ch = &sdio_al->channel[i];
 			break;
 		}
+	}
 
 	WARN_ON(ch == NULL);
 
@@ -1661,7 +1724,8 @@ static int get_min_poll_time_msec(void)
 	int poll_delay_msec = 0x0FFFFFFF;
 
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++)
-		if ((sdio_al->channel[i].is_open) &&
+		if ((sdio_al->channel[i].is_valid) &&
+		    (sdio_al->channel[i].is_open) &&
 		    (sdio_al->channel[i].poll_delay_msec > 0) &&
 		    (sdio_al->channel[i].poll_delay_msec < poll_delay_msec))
 			poll_delay_msec = sdio_al->channel[i].poll_delay_msec;
@@ -1701,6 +1765,7 @@ int sdio_open(const char *name, struct sdio_channel **ret_ch, void *priv,
 		return -ENODEV;
 	}
 
+
 	if (!sdio_al->is_ready) {
 		ret = sdio_al_setup();
 		if (ret)
@@ -1725,7 +1790,6 @@ int sdio_open(const char *name, struct sdio_channel **ret_ch, void *priv,
 		return ret;
 	}
 
-	ch->name = name;
 	ch->notify = notify;
 	ch->priv = priv;
 
@@ -2042,6 +2106,7 @@ EXPORT_SYMBOL(sdio_set_read_threshold);
 
 /**
  *  Set the polling delay.
+ *  Only values between 1 ms and 1 sec are permitted.
  *
  */
 int sdio_set_poll_time(struct sdio_channel *ch, int poll_delay_msec)
@@ -2106,6 +2171,42 @@ static void default_sdio_al_release(struct device *dev)
 #endif
 
 /**
+ *  Initialize SDIO_AL channels.
+ *
+ */
+static int init_channels(struct sdio_al *sdio_al)
+{
+	struct sdio_func *func1 = sdio_al->card->sdio_func[0];
+	int ret = 0;
+
+	sdio_claim_host(func1);
+	/* Init Func#1 */
+	ret = sdio_enable_func(func1);
+	if (ret) {
+		pr_info(MODULE_NAME ":Fail to enable Func#%d\n", func1->num);
+		goto exit;
+	}
+
+	/* Patch Func CIS tuple issue */
+	ret = sdio_set_block_size(func1, SDIO_AL_BLOCK_SIZE);
+	if (ret) {
+		pr_info(MODULE_NAME ":Fail to set block size, Func#%d\n",
+			func1->num);
+		goto exit;
+	}
+	func1->max_blksize = SDIO_AL_BLOCK_SIZE;
+
+	ret = read_sdioc_software_header(sdio_al->sdioc_sw_header);
+	if (ret)
+		goto exit;
+	pr_info(MODULE_NAME ":SDIO-AL SW version %s.\n", DRV_VERSION);
+
+exit:
+	sdio_release_host(func1);
+	return ret;
+}
+
+/**
  *  Probe to claim the SDIO card.
  *
  */
@@ -2119,8 +2220,11 @@ static int mmc_probe(struct mmc_card *card)
 
 	dev_info(&card->dev, "Probing..\n");
 
-	if (!mmc_card_sdio(card))
+	if (!mmc_card_sdio(card)) {
+		dev_info(&card->dev,
+			 "Not an SDIO card\n");
 		return -ENODEV;
+	}
 
 	if ((card->cis.vendor != 0x70) ||
 	    ((card->cis.device != 0x2460) && (card->cis.device != 0x0460))) {
@@ -2140,21 +2244,36 @@ static int mmc_probe(struct mmc_card *card)
 	dev_info(&card->dev, "SDIO Card claimed.\n");
 
 	sdio_al->card = card;
+	sdio_al->mailbox = kzalloc(sizeof(struct sdio_mailbox), GFP_KERNEL);
+	if (sdio_al->mailbox == NULL)
+		return -ENOMEM;
+
+	sdio_al->sdioc_sw_header
+		= kzalloc(sizeof(*sdio_al->sdioc_sw_header), GFP_KERNEL);
+	if (sdio_al->sdioc_sw_header == NULL)
+		return -ENOMEM;
+
 	wake_lock_init(&sdio_al->wake_lock, WAKE_LOCK_SUSPEND, MODULE_NAME);
 
 	/* Don't allow sleep until all required clients register */
 	wake_lock(&sdio_al->wake_lock);
 
-	#ifdef DEBUG_SDIO_AL_UNIT_TEST
+	ret = init_channels(sdio_al);
+	if (ret)
+		return ret;
+
+#ifdef DEBUG_SDIO_AL_UNIT_TEST
 	pr_info(MODULE_NAME ":==== SDIO-AL UNIT-TEST ====\n");
-	#else
+#else
 	/* Allow clients to probe for this driver */
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
+		if (!sdio_al->channel[i].is_valid)
+			continue;
 		sdio_al->channel[i].pdev.name = sdio_al->channel[i].name;
 		sdio_al->channel[i].pdev.dev.release = default_sdio_al_release;
 		platform_device_register(&sdio_al->channel[i].pdev);
 	}
-	#endif
+#endif
 
 	return ret;
 }
@@ -2168,8 +2287,11 @@ static void mmc_remove(struct mmc_card *card)
 	#ifndef DEBUG_SDIO_AL_UNIT_TEST
 	int i;
 
-	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++)
+	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
+		if (!sdio_al->channel[i].is_valid)
+			continue;
 		platform_device_unregister(&sdio_al->channel[i].pdev);
+	}
 	#endif
 
 	pr_info(MODULE_NAME ":sdio card removed.\n");
@@ -2309,8 +2431,6 @@ static int __init sdio_al_init(void)
 	sdio_al->signature = SDIO_AL_SIGNATURE;
 
 	sdio_al->is_suspended = 0;
-
-	set_default_channels_config();
 
 	ret = platform_driver_register(&msm_sdio_al_driver);
 	if (ret) {

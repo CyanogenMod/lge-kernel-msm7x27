@@ -575,7 +575,7 @@ static int sdio_dmux_probe(struct platform_device *pdev)
 
 	wake_lock_init(&sdio_mux_ch_wakelock, WAKE_LOCK_SUSPEND,
 		       "sdio_dmux");
-	rc = sdio_open("SDIO_RMNET_DATA", &sdio_mux_ch, NULL, sdio_mux_notify);
+	rc = sdio_open("SDIO_RMNT", &sdio_mux_ch, NULL, sdio_mux_notify);
 	if (rc < 0) {
 		pr_err("%s: sido open failed %d\n", __func__, rc);
 		wake_lock_destroy(&sdio_mux_ch_wakelock);
@@ -590,7 +590,7 @@ static int sdio_dmux_probe(struct platform_device *pdev)
 static struct platform_driver sdio_dmux_driver = {
 	.probe		= sdio_dmux_probe,
 	.driver		= {
-		.name	= "SDIO_RMNET_DATA",
+		.name	= "SDIO_RMNT",
 		.owner	= THIS_MODULE,
 	},
 };
