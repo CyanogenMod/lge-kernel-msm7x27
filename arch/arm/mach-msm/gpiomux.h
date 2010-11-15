@@ -100,6 +100,20 @@ struct msm_gpiomux_config {
 	struct gpiomux_setting settings[GPIOMUX_NSETTINGS];
 };
 
+/**
+ * struct msm_gpiomux_configs: a collection of gpiomux configs.
+ *
+ * It is so common to manage blocks of gpiomux configs that the data structure
+ * for doing so has been standardized here as a convenience.
+ *
+ * @cfg:  A pointer to the first config in an array of configs.
+ * @ncfg: The number of configs in the array.
+ */
+struct msm_gpiomux_configs {
+	struct msm_gpiomux_config *cfg;
+	size_t                     ncfg;
+};
+
 #ifdef CONFIG_MSM_GPIOMUX
 
 /* Before using gpiomux, initialize the subsystem by telling it how many

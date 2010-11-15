@@ -18,6 +18,7 @@
 #include <mach/irqs.h>
 #include <asm/mach-types.h>
 #include "gpiomux.h"
+#include "gpiomux-8x60.h"
 
 #define GPIOMUX_CFG(f, d, p) {.func = f, .drv = d, .pull = p}
 
@@ -1022,11 +1023,8 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 	},
 };
 
-struct msm_gpiomux_cfg_block {
-	struct msm_gpiomux_config *cfg;
-	size_t                     ncfg;
-};
-static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
+struct msm_gpiomux_configs
+msm8x60_surf_ffa_gpiomux_cfgs[] __initdata = {
 	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
 	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
 	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
@@ -1040,48 +1038,61 @@ static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
 	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
 	{msm8x60_cam_configs, ARRAY_SIZE(msm8x60_cam_configs)},
+	{msm8x60_tmg200_configs, ARRAY_SIZE(msm8x60_tmg200_configs)},
+	{NULL, 0},
 };
 
-static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
+struct msm_gpiomux_configs
+msm8x60_fluid_gpiomux_cfgs[] __initdata = {
+	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
+	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
+	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
+	{msm8x60_ts_configs, ARRAY_SIZE(msm8x60_ts_configs)},
+	{msm8x60_aux_pcm_configs, ARRAY_SIZE(msm8x60_aux_pcm_configs)},
+	{msm8x60_sdc_configs, ARRAY_SIZE(msm8x60_sdc_configs)},
+	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
+	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
+	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
+	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
+	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
+	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
+	{msm8x60_cam_configs, ARRAY_SIZE(msm8x60_cam_configs)},
+	{msm8x60_tma300_configs, ARRAY_SIZE(msm8x60_tma300_configs)},
+	{NULL, 0},
+};
+
+struct msm_gpiomux_configs
+msm8x60_qrdc_gpiomux_cfgs[] __initdata = {
+	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
+	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
+	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
+	{msm8x60_ts_configs, ARRAY_SIZE(msm8x60_ts_configs)},
+	{msm8x60_aux_pcm_configs, ARRAY_SIZE(msm8x60_aux_pcm_configs)},
+	{msm8x60_sdc_configs, ARRAY_SIZE(msm8x60_sdc_configs)},
+	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
+	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
+	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
+	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
+	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
+	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
+	{msm8x60_cam_configs, ARRAY_SIZE(msm8x60_cam_configs)},
 	{msm_qrdc_usb_configs, ARRAY_SIZE(msm_qrdc_usb_configs)},
 	{msm_qrdc_sdc_configs, ARRAY_SIZE(msm_qrdc_sdc_configs)},
+	{NULL, 0},
 };
 
-static struct msm_gpiomux_cfg_block msm8x60_fluid_cfgs[] __initdata = {
-	{msm8x60_tma300_configs, ARRAY_SIZE(msm8x60_tma300_configs)},
-};
-
-static int __init gpiomux_init(void)
+void __init msm8x60_init_gpiomux(struct msm_gpiomux_configs *cfgs)
 {
-	int rc = 0;
-	unsigned n;
+	int rc;
 
 	rc = msm_gpiomux_init(NR_GPIO_IRQS);
-	if (rc)
-		return rc;
-
-	for (n = 0; n < ARRAY_SIZE(msm8x60_cfgs); ++n)
-		msm_gpiomux_install(msm8x60_cfgs[n].cfg, msm8x60_cfgs[n].ncfg);
-
-	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_surf()) {
-		msm_gpiomux_install(msm8x60_tmg200_configs,
-				ARRAY_SIZE(msm8x60_tmg200_configs));
+	if (rc) {
+		pr_err("%s failure: %d\n", __func__, rc);
+		return;
 	}
 
-	if (machine_is_msm8x60_qrdc()) {
-		for (n = 0; n < ARRAY_SIZE(qrdc_cfgs); ++n) {
-			msm_gpiomux_install(qrdc_cfgs[n].cfg,
-					    qrdc_cfgs[n].ncfg);
-		}
+	while (cfgs->cfg) {
+		msm_gpiomux_install(cfgs->cfg, cfgs->ncfg);
+		++cfgs;
 	}
-
-	if (machine_is_msm8x60_fluid()) {
-		for (n = 0; n < ARRAY_SIZE(msm8x60_fluid_cfgs); ++n) {
-			msm_gpiomux_install(msm8x60_fluid_cfgs[n].cfg,
-					    msm8x60_fluid_cfgs[n].ncfg);
-		}
-	}
-
-	return rc;
 }
-postcore_initcall(gpiomux_init);

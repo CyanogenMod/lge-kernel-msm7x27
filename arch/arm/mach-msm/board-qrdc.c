@@ -80,6 +80,8 @@
 #include "saw-regulator.h"
 #include "socinfo.h"
 #include "rpm-regulator.h"
+#include "gpiomux.h"
+#include "gpiomux-8x60.h"
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
@@ -3816,9 +3818,11 @@ static void enable_wlan_bt(void)
 #endif
 
 struct msm_board_data {
+	struct msm_gpiomux_configs *gpiomux_cfgs;
 };
 
 static struct msm_board_data msm8x60_qrdc_board_data __initdata = {
+	.gpiomux_cfgs = msm8x60_qrdc_gpiomux_cfgs,
 };
 
 static void __init msm8x60_init(struct msm_board_data *board_data)
@@ -3864,6 +3868,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 	msm8x60_init_ebi2();
 	msm8x60_init_tlmm();
+	msm8x60_init_gpiomux(board_data->gpiomux_cfgs);
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
 	msm8x60_cfg_smsc911x();
