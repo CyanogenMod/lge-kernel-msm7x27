@@ -28,6 +28,9 @@ static struct sdio_func *libra_sdio_func;
 static struct mmc_host *libra_mmc_host;
 static int libra_mmc_host_index;
 
+/* SDIO Card ID / Device ID */
+static unsigned short  libra_sdio_card_id;
+
 static suspend_handler_t *libra_suspend_hldr;
 static resume_handler_t *libra_resume_hldr;
 
@@ -253,6 +256,17 @@ void libra_sdio_set_clock(struct sdio_func *func, unsigned int clk_freq)
 EXPORT_SYMBOL(libra_sdio_set_clock);
 
 /*
+ * API to get SDIO Device Card ID
+ */
+void libra_sdio_get_card_id(struct sdio_func *func, unsigned short *card_id)
+{
+	if (card_id)
+		*card_id = libra_sdio_card_id;
+}
+EXPORT_SYMBOL(libra_sdio_get_card_id);
+
+
+/*
  * SDIO Probe
  */
 static int libra_sdio_probe(struct sdio_func *func,
@@ -261,9 +275,12 @@ static int libra_sdio_probe(struct sdio_func *func,
 	libra_mmc_host = func->card->host;
 	libra_mmc_host_index = libra_mmc_host->index;
 	libra_sdio_func = func;
+	libra_sdio_card_id = sdio_dev_id->device;
 
-	printk(KERN_INFO "%s: success with block size of %d\n",
-		__func__, func->cur_blksize);
+	printk(KERN_INFO "%s: success with block size of %d device_id=0x%x\n",
+		__func__,
+		func->cur_blksize,
+		sdio_dev_id->device);
 
 	/* Turn off SDIO polling from now on */
 	libra_mmc_host->caps &= ~MMC_CAP_NEEDS_POLL;
@@ -308,7 +325,8 @@ static int libra_sdio_resume(struct device *dev)
 
 
 static struct sdio_device_id libra_sdioid[] = {
-    {.class = 0, .vendor = LIBRA_MAN_ID, .device = 0},
+    {.class = 0, .vendor = LIBRA_MAN_ID,  .device = LIBRA_REV_1_0_CARD_ID},
+    {.class = 0, .vendor = VOLANS_MAN_ID, .device = VOLANS_REV_2_0_CARD_ID},
     {}
 };
 
