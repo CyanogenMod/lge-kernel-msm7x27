@@ -121,6 +121,20 @@ static int ulpi_write(struct msm_otg *dev, unsigned val, unsigned reg)
 	return 0;
 }
 
+static int usb_ulpi_write(struct otg_transceiver *xceiv, u32 val, u32 reg)
+{
+	struct msm_otg *dev = container_of(xceiv, struct msm_otg, otg);
+
+	return ulpi_write(dev, val, reg);
+}
+
+static int usb_ulpi_read(struct otg_transceiver *xceiv, u32 reg)
+{
+	struct msm_otg *dev = container_of(xceiv, struct msm_otg, otg);
+
+	return ulpi_read(dev, reg);
+}
+
 #ifdef CONFIG_USB_EHCI_MSM
 static void enable_idgnd(struct msm_otg *dev)
 {
@@ -2216,6 +2230,11 @@ static void otg_debugfs_cleanup(void)
 #endif
 }
 
+struct otg_io_access_ops msm_otg_io_ops = {
+	.read = usb_ulpi_read,
+	.write = usb_ulpi_write,
+};
+
 static int __init msm_otg_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2412,6 +2431,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	dev->otg.set_power = msm_otg_set_power;
 	dev->set_clk = msm_otg_set_clk;
 	dev->reset = otg_reset;
+	dev->otg.io_ops = &msm_otg_io_ops;
 	if (otg_set_transceiver(&dev->otg)) {
 		WARN_ON(1);
 		goto free_otg_irq;
