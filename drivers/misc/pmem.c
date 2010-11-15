@@ -607,7 +607,8 @@ static int is_master_owner(struct file *file)
 	master_file = fget_light(data->master_fd, &put_needed);
 	if (master_file && data->master_file == master_file)
 		ret = 1;
-	fput_light(master_file, put_needed);
+	if (master_file)
+		fput_light(master_file, put_needed);
 	return ret;
 }
 
