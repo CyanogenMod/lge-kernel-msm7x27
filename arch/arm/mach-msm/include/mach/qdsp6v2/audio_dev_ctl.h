@@ -201,6 +201,7 @@ int auddev_register_evt_listner(u32 evt_id, u32 clnt_type, u32 clnt_id,
 int auddev_unregister_evt_listner(u32 clnt_type, u32 clnt_id);
 void mixer_post_event(u32 evt_id, u32 dev_id);
 void broadcast_event(u32 evt_id, u32 dev_id, u64 session_id);
+int auddev_cfg_tx_copp_topology(int session_id, int cfg);
 int msm_snddev_request_freq(int *freq, u32 session_id,
 			u32 capability, u32 clnt_type);
 int msm_snddev_withdraw_freq(u32 session_id,
