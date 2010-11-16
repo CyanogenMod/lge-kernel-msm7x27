@@ -323,7 +323,27 @@ static void scpll_change_freq(int sc_pll, uint32_t l_val)
 		cpu_relax();
 }
 
-static void l2_set_speed(struct clkctl_l2_speed *tgt_s)
+/* Vote for the L2 speed and return the speed that should be applied. */
+static struct clkctl_l2_speed *compute_l2_speed(unsigned int voting_cpu,
+						struct clkctl_l2_speed *tgt_s)
+{
+	struct clkctl_l2_speed *new_s;
+	int cpu;
+
+	/* Bounds check. */
+	BUG_ON(tgt_s >= (l2_freq_tbl + ARRAY_SIZE(l2_freq_tbl)));
+
+	/* Find max L2 speed vote. */
+	l2_vote[voting_cpu] = tgt_s;
+	new_s = l2_freq_tbl;
+	for_each_online_cpu(cpu)
+		new_s = max(new_s, l2_vote[cpu]);
+
+	return new_s;
+}
+
+/* Set the L2's clock speed. */
+static void set_l2_speed(struct clkctl_l2_speed *tgt_s)
 {
 	if (tgt_s == drv_state.current_l2_speed)
 		return;
@@ -346,45 +366,22 @@ static void l2_set_speed(struct clkctl_l2_speed *tgt_s)
 }
 
 /* Update the bus bandwidth request. */
-static int request_bus_bw(unsigned int bw)
+static void set_bus_bw(unsigned int bw)
 {
-	int rc = 0;
+	int ret;
 
 	/* Bounds check. */
 	if (bw >= ARRAY_SIZE(bw_level_tbl)) {
 		pr_err("%s: invalid bandwidth request (%d)\n", __func__, bw);
-		return -EINVAL;
+		return;
 	}
 
-	rc = msm_bus_scale_client_update_request(bus_perf_client, bw);
-	if (rc)
-		pr_err("%s: bandwidth request failed (%d)\n", __func__, rc);
+	/* Update bandwidth if requst has changed. */
+	ret = msm_bus_scale_client_update_request(bus_perf_client, bw);
+	if (ret)
+		pr_err("%s: bandwidth request failed (%d)\n", __func__, ret);
 
-	return rc;
-}
-
-/* Vote for L2 speed and set L2 to the max of all votes. */
-static void update_l2_speed(unsigned int voting_cpu,
-			    struct clkctl_l2_speed *tgt_s)
-{
-	struct clkctl_l2_speed *new_s;
-	int cpu;
-
-	/* Bounds check. */
-	if (tgt_s > (l2_freq_tbl + ARRAY_SIZE(l2_freq_tbl)))
-		return;
-
-	/* Update voting CPU's L2 speed vote. */
-	l2_vote[voting_cpu] = tgt_s;
-
-	/* Find max vote L2 speed vote. */
-	new_s = l2_freq_tbl;
-	for_each_online_cpu(cpu)
-		new_s = max(new_s, l2_vote[cpu]);
-
-	/* Set L2 speed if max vote has changed. */
-	l2_set_speed(new_s);
-	request_bus_bw(new_s->bw_level);
+	return;
 }
 
 /* Apply any per-cpu voltage increases. */
@@ -480,6 +477,7 @@ static void switch_sc_speed(int cpu, struct clkctl_acpu_speed *tgt_s)
 int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 {
 	struct clkctl_acpu_speed *tgt_s, *strt_s;
+	struct clkctl_l2_speed *tgt_l2;
 	unsigned int vdd_mem, vdd_dig;
 	int freq_index = 0;
 	int rc = 0;
@@ -534,8 +532,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	/* Switch CPU speed. */
 	switch_sc_speed(cpu, tgt_s);
 
-	/* Update L2 cache speed and bandwidth request. */
-	update_l2_speed(cpu, tgt_s->l2_level);
+	/* Update the L2 vote and apply the rate change. */
+	tgt_l2 = compute_l2_speed(cpu, tgt_s->l2_level);
+	set_l2_speed(tgt_l2);
 
 	/* Nothing else to do for SWFI. */
 	if (reason == SETRATE_SWFI)
@@ -544,6 +543,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	/* Nothing else to do for power collapse. */
 	if (reason == SETRATE_PC)
 		goto out;
+
+	/* Update bus bandwith request. */
+	set_bus_bw(tgt_l2->bw_level);
 
 	/* Drop VDD levels if we can. */
 	if (tgt_s->acpuclk_khz < strt_s->acpuclk_khz)
