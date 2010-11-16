@@ -1322,7 +1322,7 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 			break;
 		}
 
-		if (dev_priv->ctxt_id_mask & (1 << binbase.drawctxt_id)) {
+		if (test_bit(binbase.drawctxt_id, dev_priv->ctxt_bitmap)) {
 			result = kgsl_drawctxt_set_bin_base_offset(
 					dev_priv->device,
 					binbase.drawctxt_id,
