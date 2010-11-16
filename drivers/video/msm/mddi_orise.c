@@ -39,7 +39,6 @@ static void mddi_orise_prim_lcd_init(void)
 }
 
 static struct platform_driver this_driver = {
-	.probe  = mddi_orise_probe,
 	.driver = {
 		.name   = "mddi_orise",
 	},
@@ -100,7 +99,7 @@ static int __init mddi_orise_init(void)
 			return 0;
 	}
 #endif
-	ret = platform_driver_register(&this_driver);
+	ret = platform_driver_probe(&this_driver, mddi_orise_probe);
 	if (!ret) {
 		pinfo = &mddi_orise_panel_data.panel_info;
 		pinfo->xres = 480;
