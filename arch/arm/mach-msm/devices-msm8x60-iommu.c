@@ -751,7 +751,7 @@ static struct platform_device msm_device_gfx2d1_2d1_ctx = {
 	},
 };
 
-static struct platform_device *msm_iommu_devs[] __initdata = {
+static struct platform_device *msm_iommu_devs[] = {
 	&msm_device_iommu_jpegd,
 	&msm_device_iommu_vpe,
 	&msm_device_iommu_mdp0,
@@ -781,7 +781,7 @@ static struct msm_iommu_dev *msm_iommu_data[] __initdata = {
 	&gfx2d1_smmu,
 };
 
-static struct platform_device *msm_iommu_ctx_devs[] __initdata = {
+static struct platform_device *msm_iommu_ctx_devs[] = {
 	&msm_device_jpegd_src_ctx,
 	&msm_device_jpegd_dst_ctx,
 	&msm_device_vpe_src_ctx,
