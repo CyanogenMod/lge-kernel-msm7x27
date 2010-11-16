@@ -63,19 +63,30 @@ enum gpiomux_pull {
 	GPIOMUX_PULL_UP,
 };
 
+/* Direction settings are only meaningful when GPIOMUX_FUNC_GPIO is selected.
+ * This element is ignored for all other FUNC selections, as the output-
+ * enable pin is not under software control in those cases.  See the SWI
+ * for your target for more details.
+ */
+enum gpiomux_dir {
+	GPIOMUX_IN = 0,
+	GPIOMUX_OUT_HIGH,
+	GPIOMUX_OUT_LOW,
+};
+
 struct gpiomux_setting {
 	enum gpiomux_func func;
 	enum gpiomux_drv  drv;
 	enum gpiomux_pull pull;
+	enum gpiomux_dir  dir;
 };
 
 /**
  * struct msm_gpiomux_config: gpiomux settings for one gpio line.
  *
- * A complete gpiomux setting is the combination of a drive-strength,
- * function, and pull.  For functions other than GPIO, the OE
- * is hard-wired according to the function.  For GPIO mode,
- * OE is controlled by gpiolib.
+ * A complete gpiomux config is the combination of a drive-strength,
+ * function, pull, and (sometimes) direction.  For functions other than GPIO,
+ * the input/output setting is hard-wired according to the function.
  *
  * @gpio: The index number of the gpio being described.
  * @settings: The settings to be installed, specifically:

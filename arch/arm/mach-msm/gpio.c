@@ -731,3 +731,20 @@ int msm_gpios_disable(const struct msm_gpio *table, int size)
 	return rc;
 }
 EXPORT_SYMBOL(msm_gpios_disable);
+
+/* Locate the GPIO_OUT register for the given GPIO and return its address
+ * and the bit position of the gpio's bit within the register.
+ *
+ * This function is used by gpiomux-v1 in order to support output transitions.
+ */
+void msm_gpio_find_out(const unsigned gpio, void __iomem **out,
+	unsigned *offset)
+{
+	struct msm_gpio_chip *msm_chip = msm_gpio_chips;
+
+	while (gpio >= msm_chip->chip.base + msm_chip->chip.ngpio)
+		++msm_chip;
+
+	*out = msm_chip->regs.out;
+	*offset = gpio - msm_chip->chip.base;
+}
