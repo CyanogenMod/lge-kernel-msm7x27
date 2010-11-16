@@ -371,7 +371,7 @@ static void lcdc_gordon_set_backlight(struct msm_fb_data_type *mfd)
 		}
 }
 
-static int __init gordon_probe(struct platform_device *pdev)
+static int __devinit gordon_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		lcdc_gordon_pdata = pdev->dev.platform_data;
