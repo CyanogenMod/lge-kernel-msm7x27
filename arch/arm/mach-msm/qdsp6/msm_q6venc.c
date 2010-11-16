@@ -1019,7 +1019,7 @@ static int q6venc_open(struct inode *inode, struct file *file)
 	int i;
 	int ret = 0;
 	struct venc_dev *dvenc;
-	struct venc_msg_list *plist;
+	struct venc_msg_list *plist, *tmp;
 	struct dal_info version_info;
 
 	dvenc = kzalloc(sizeof(struct venc_dev), GFP_KERNEL);
@@ -1074,7 +1074,7 @@ static int q6venc_open(struct inode *inode, struct file *file)
 err_venc_dal_open:
 	dal_detach(dvenc->q6_handle);
 err_venc_dal_attach:
-	list_for_each_entry(plist, &dvenc->venc_msg_list_free, list) {
+	list_for_each_entry_safe(plist, tmp, &dvenc->venc_msg_list_free, list) {
 		list_del(&plist->list);
 		kfree(plist);
 	}
