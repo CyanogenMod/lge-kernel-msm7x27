@@ -417,7 +417,6 @@ void ddl_free_enc_hw_buffers(struct ddl_client_context *ddl);
 void ddl_calc_dec_hw_buffers_size(enum vcd_codec codec, u32 width,
 	u32 height, u32 h264_dpb,
 	struct ddl_dec_buffer_size *buf_size);
-u32  ddl_allocate_h264_dec_mv_buffer(struct ddl_client_context *ddl);
 u32  ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl);
 u32  ddl_calc_enc_hw_buffers_size(enum vcd_codec codec, u32 width,
 	u32 height, enum vcd_yuv_buffer_format  input_format,

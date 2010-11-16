@@ -931,6 +931,55 @@ static int vid_enc_ioctl(struct inode *inode, struct file *file,
 		}
 		break;
 	}
+	case VEN_IOCTL_SET_RECON_BUFFER:
+	{
+		struct venc_recon_addr venc_recon;
+		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
+			return -EFAULT;
+		DBG("VEN_IOCTL_SET_RECON_BUFFER\n");
+		if (copy_from_user(&venc_recon, venc_msg.in,
+				sizeof(venc_recon)))
+				return -EFAULT;
+		result = vid_enc_set_recon_buffers(client_ctx,
+					&venc_recon);
+		if (!result) {
+			ERR("setting VEN_IOCTL_SET_RECON_BUFFER failed\n");
+			return -EIO;
+		}
+		break;
+	}
+	case VEN_IOCTL_FREE_RECON_BUFFER:
+	{
+		DBG("VEN_IOCTL_FREE_RECON_BUFFER\n");
+		result = vid_enc_free_recon_buffers(client_ctx);
+		if (!result) {
+			ERR("VEN_IOCTL_FREE_RECON_BUFFER failed\n");
+			return -EIO;
+		}
+		break;
+	}
+	case VEN_IOCTL_GET_RECON_BUFFER_SIZE:
+	{
+		struct venc_recon_buff_size venc_recon_size;
+		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
+			return -EFAULT;
+		DBG("VEN_IOCTL_GET_RECON_BUFFER_SIZE\n");
+		if (copy_from_user(&venc_recon_size, venc_msg.out,
+						   sizeof(venc_recon_size)))
+				return -EFAULT;
+		result = vid_enc_get_recon_buffer_size(client_ctx,
+					&venc_recon_size);
+		if (result) {
+				if (copy_to_user(venc_msg.out, &venc_recon_size,
+					sizeof(venc_recon_size)))
+					return -EFAULT;
+			} else {
+				ERR("setting VEN_IOCTL_GET_RECON_BUFFER_SIZE"
+					"failed\n");
+				return -EIO;
+			}
+		break;
+	}
 	case VEN_IOCTL_SET_QP_RANGE:
 	case VEN_IOCTL_GET_QP_RANGE:
 	{

@@ -763,7 +763,6 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 		decoder->client_output_buf_req.actual_count)
 		return VCD_ERR_BAD_STATE;
 	if (decoder->codec.codec == VCD_CODEC_H264) {
-		vcd_status = ddl_allocate_h264_dec_mv_buffer(ddl);
 		vidc_sm_set_allocated_h264_mv_size(
 			&ddl->shared_mem[ddl->command_channel],
 			decoder->hw_bufs.h264_mv[0].buffer_size);

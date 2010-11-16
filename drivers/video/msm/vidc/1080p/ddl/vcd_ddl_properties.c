@@ -314,6 +314,66 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 		}
 	}
 	break;
+	case VCD_I_H264_MV_BUFFER:
+	{
+		int index, buffer_size;
+		u8 *phys_addr;
+		u8 *virt_addr;
+		struct vcd_property_h264_mv_buffer *mv_buff =
+			(struct vcd_property_h264_mv_buffer *)
+		property_value;
+		DDL_MSG_LOW("Entered VCD_I_H264_MV_BUFFER Virt: %p, Phys %p,"
+					"fd: %d size: %d count: %d\n",
+					mv_buff->kernel_virtual_addr,
+					mv_buff->physical_addr,
+					mv_buff->pmem_fd,
+					mv_buff->size, mv_buff->count);
+		if ((property_hdr->sz == sizeof(struct
+			vcd_property_h264_mv_buffer)) &&
+			(DDLCLIENT_STATE_IS(ddl,
+			DDL_CLIENT_WAIT_FOR_INITCODEC) ||
+			DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_DPB) ||
+			DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_OPEN))) {
+			phys_addr = mv_buff->physical_addr;
+			virt_addr = mv_buff->kernel_virtual_addr;
+			buffer_size = mv_buff->size/mv_buff->count;
+
+			for (index = 0; index < mv_buff->count; index++) {
+				ddl->codec_data.decoder.hw_bufs.
+					h264_mv[index].align_physical_addr
+					= phys_addr;
+				ddl->codec_data.decoder.hw_bufs.
+					h264_mv[index].align_virtual_addr
+					= virt_addr;
+				ddl->codec_data.decoder.hw_bufs.
+					h264_mv[index].buffer_size
+					= buffer_size;
+				ddl->codec_data.decoder.hw_bufs.
+					h264_mv[index].physical_base_addr
+					= phys_addr;
+				ddl->codec_data.decoder.hw_bufs.
+					h264_mv[index].virtual_base_addr
+					= virt_addr;
+				DDL_MSG_LOW("Assigned %d buffer for "
+							"virt: %p, phys %p for "
+							"h264_mv_buffers "
+							"of size: %d\n",
+							index, virt_addr,
+							phys_addr, buffer_size);
+				phys_addr += buffer_size;
+				virt_addr += buffer_size;
+			}
+			vcd_status = VCD_S_SUCCESS;
+		}
+	}
+	break;
+	case VCD_I_FREE_H264_MV_BUFFER:
+		{
+			memset(&decoder->hw_bufs.h264_mv, 0, sizeof(struct
+					ddl_buf_addr) * DDL_MAX_BUFFER_COUNT);
+			vcd_status = VCD_S_SUCCESS;
+		}
+		break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
 		DDL_MSG_ERROR("Meta Data Interface is Requested");
@@ -744,6 +804,51 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 		}
 	}
 	break;
+	case VCD_I_RECON_BUFFERS:
+	{
+		int index;
+		struct vcd_property_enc_recon_buffer *recon_buffers =
+			(struct vcd_property_enc_recon_buffer *)property_value;
+		for (index = 0; index < 4; index++) {
+			if (!encoder->hw_bufs.dpb_y[index].align_physical_addr)
+				break;
+			else
+				continue;
+			}
+		if (property_hdr->sz == sizeof(struct
+			vcd_property_enc_recon_buffer)) {
+			encoder->hw_bufs.dpb_y[index].align_physical_addr =
+				recon_buffers->physical_addr;
+			encoder->hw_bufs.dpb_y[index].align_virtual_addr =
+				recon_buffers->kernel_virtual_addr;
+			encoder->hw_bufs.dpb_y[index].buffer_size =
+				recon_buffers->buffer_size;
+			encoder->hw_bufs.dpb_c[index].align_physical_addr =
+			recon_buffers->physical_addr + ddl_get_yuv_buf_size(
+				encoder->frame_size.width, encoder->frame_size.
+				height, DDL_YUV_BUF_TYPE_TILE);
+			encoder->hw_bufs.dpb_c[index].align_virtual_addr =
+				recon_buffers->kernel_virtual_addr +
+				recon_buffers->ysize;
+			DDL_MSG_LOW("Y::KVirt: %p,KPhys: %p"
+						"UV::KVirt: %p,KPhys: %p\n",
+			encoder->hw_bufs.dpb_y[index].align_virtual_addr,
+			encoder->hw_bufs.dpb_y[index].align_physical_addr,
+			encoder->hw_bufs.dpb_c[index].align_virtual_addr,
+			encoder->hw_bufs.dpb_c[index].align_physical_addr);
+			vcd_status = VCD_S_SUCCESS;
+			}
+	}
+	break;
+	case VCD_I_FREE_RECON_BUFFERS:
+	{
+		memset(&encoder->hw_bufs.dpb_y, 0,
+			sizeof(struct ddl_buf_addr) * 4);
+		memset(&encoder->hw_bufs.dpb_c, 0,
+			sizeof(struct ddl_buf_addr) * 4);
+		vcd_status = VCD_S_SUCCESS;
+		break;
+	}
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
 		DDL_MSG_ERROR("Meta Data Interface is Requested");
@@ -752,6 +857,7 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 		vcd_status = VCD_S_SUCCESS;
 	break;
 	default:
+		DDL_MSG_ERROR("INVALID ID %d\n", (int)property_hdr->prop_id);
 		vcd_status = VCD_ERR_ILLEGAL_OP;
 	break;
 	}
@@ -864,6 +970,21 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 				property_value, DDL_DPB_OP_RETRIEVE);
 		}
 	break;
+	case VCD_I_GET_H264_MV_SIZE:
+		if (property_hdr->sz == sizeof(struct
+			vcd_property_buffer_size)) {
+			struct vcd_property_buffer_size *mv_size =
+			(struct vcd_property_buffer_size *) property_value;
+			mv_size->size = ddl_get_yuv_buf_size(mv_size->width,
+				mv_size->height, DDL_YUV_BUF_TYPE_TILE);
+			mv_size->alignment = DDL_TILE_BUFFER_ALIGN_BYTES;
+			DDL_MSG_LOW("w: %d, h: %d, S: %d, "
+						"A: %d", mv_size->width,
+						mv_size->height, mv_size->size,
+						mv_size->alignment);
+			vcd_status = VCD_S_SUCCESS;
+		}
+		break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
 		DDL_MSG_ERROR("Meta Data Interface is Requested");
@@ -1124,6 +1245,29 @@ static u32 ddl_get_enc_property(struct ddl_client_context *ddl,
 				encoder->hdr_ext_control;
 			vcd_status = VCD_S_SUCCESS;
 		}
+	break;
+	case VCD_I_GET_RECON_BUFFER_SIZE:
+	{
+		u32 ysize, uvsize;
+		if (property_hdr->sz == sizeof(struct
+			vcd_property_buffer_size)) {
+			struct vcd_property_buffer_size *recon_buff_size =
+			(struct vcd_property_buffer_size *) property_value;
+
+			ysize = ddl_get_yuv_buf_size(recon_buff_size->width,
+				recon_buff_size->height, DDL_YUV_BUF_TYPE_TILE);
+			uvsize = ddl_get_yuv_buf_size(recon_buff_size->width,
+				recon_buff_size->height/2,
+				DDL_YUV_BUF_TYPE_TILE);
+			recon_buff_size->size = ysize + uvsize;
+			recon_buff_size->alignment =
+				DDL_TILE_BUFFER_ALIGN_BYTES;
+			DDL_MSG_LOW("w: %d, h: %d, S: %d, A: %d",
+			recon_buff_size->width, recon_buff_size->height,
+			recon_buff_size->size, recon_buff_size->alignment);
+			vcd_status = VCD_S_SUCCESS;
+		}
+	}
 	break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
@@ -1396,6 +1540,8 @@ static void ddl_set_default_enc_rc_params(
 void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data *encoder)
 {
 	u32 y_cb_cr_size, y_size;
+	memset(&encoder->hw_bufs.dpb_y, 0, sizeof(struct ddl_buf_addr) * 4);
+	memset(&encoder->hw_bufs.dpb_c, 0, sizeof(struct ddl_buf_addr) * 4);
 
 	y_cb_cr_size = ddl_get_yuv_buffer_size(&encoder->frame_size,
 				&encoder->buf_format, false,
@@ -1423,7 +1569,7 @@ void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data *encoder)
 	encoder->output_buf_req.min_count    =
 		encoder->i_period.b_frames + 2;
 	encoder->output_buf_req.actual_count =
-		encoder->output_buf_req.min_count;
+		encoder->output_buf_req.min_count + 3;
 	encoder->output_buf_req.max_count    = DDL_MAX_BUFFER_COUNT;
 	encoder->output_buf_req.align	= DDL_LINEAR_BUFFER_ALIGN_BYTES;
 	if (y_cb_cr_size >= VCD_DDL_720P_YUV_BUF_SIZE)
