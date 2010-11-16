@@ -20,21 +20,21 @@
 #include "gpiomux.h"
 
 struct msm_gpiomux_rec {
-	gpiomux_config_t *cfgs[GPIOMUX_CFG_MAX];
-	int              ref;
+	struct gpiomux_setting *sets[GPIOMUX_NSETTINGS];
+	int ref;
 };
 static DEFINE_SPINLOCK(gpiomux_lock);
 static struct msm_gpiomux_rec *msm_gpiomux_recs;
-static gpiomux_config_t *msm_gpiomux_cfgs;
+static struct gpiomux_setting *msm_gpiomux_sets;
 static unsigned msm_gpiomux_ngpio;
 
-int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_cfg_type which,
-	gpiomux_config_t *cfg)
+int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
+	struct gpiomux_setting *setting)
 {
 	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;
-	unsigned cfg_slot = gpio * GPIOMUX_CFG_MAX + which;
+	unsigned set_slot = gpio * GPIOMUX_NSETTINGS + which;
 	unsigned long irq_flags;
-	gpiomux_config_t *new_config;
+	struct gpiomux_setting *new_set;
 
 	if (!msm_gpiomux_recs)
 		return -EFAULT;
@@ -44,17 +44,17 @@ int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_cfg_type which,
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
 
-	if (cfg) {
-		msm_gpiomux_cfgs[cfg_slot] = *cfg;
-		rec->cfgs[which] = &msm_gpiomux_cfgs[cfg_slot];
+	if (setting) {
+		msm_gpiomux_sets[set_slot] = *setting;
+		rec->sets[which] = &msm_gpiomux_sets[set_slot];
 	} else {
-		rec->cfgs[which] = NULL;
+		rec->sets[which] = NULL;
 	}
 
-	new_config = rec->ref ? rec->cfgs[GPIOMUX_CFG_ACTIVE] :
-		rec->cfgs[GPIOMUX_CFG_SUSPENDED];
-	if (new_config)
-		__msm_gpiomux_write(gpio, *new_config);
+	new_set = rec->ref ? rec->sets[GPIOMUX_ACTIVE] :
+		rec->sets[GPIOMUX_SUSPENDED];
+	if (new_set)
+		__msm_gpiomux_write(gpio, *new_set);
 
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
 	return 0;
@@ -73,8 +73,8 @@ int msm_gpiomux_get(unsigned gpio)
 		return -EINVAL;
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
-	if (rec->ref++ == 0 && rec->cfgs[GPIOMUX_CFG_ACTIVE])
-		__msm_gpiomux_write(gpio, *rec->cfgs[GPIOMUX_CFG_ACTIVE]);
+	if (rec->ref++ == 0 && rec->sets[GPIOMUX_ACTIVE])
+		__msm_gpiomux_write(gpio, *rec->sets[GPIOMUX_ACTIVE]);
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
 	return 0;
 }
@@ -93,8 +93,8 @@ int msm_gpiomux_put(unsigned gpio)
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
 	BUG_ON(rec->ref == 0);
-	if (--rec->ref == 0 && rec->cfgs[GPIOMUX_CFG_SUSPENDED])
-		__msm_gpiomux_write(gpio, *rec->cfgs[GPIOMUX_CFG_SUSPENDED]);
+	if (--rec->ref == 0 && rec->sets[GPIOMUX_SUSPENDED])
+		__msm_gpiomux_write(gpio, *rec->sets[GPIOMUX_SUSPENDED]);
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
 	return 0;
 }
@@ -114,11 +114,11 @@ int msm_gpiomux_init(size_t ngpio)
 		return -ENOMEM;
 
 	/* There is no need to zero this memory, as clients will be blindly
-	 * installing configs on top of it.
+	 * installing settings on top of it.
 	 */
-	msm_gpiomux_cfgs = kmalloc(sizeof(gpiomux_config_t) * ngpio *
-		GPIOMUX_CFG_MAX, GFP_KERNEL);
-	if (!msm_gpiomux_cfgs) {
+	msm_gpiomux_sets = kmalloc(sizeof(struct gpiomux_setting) * ngpio *
+		GPIOMUX_NSETTINGS, GFP_KERNEL);
+	if (!msm_gpiomux_sets) {
 		kfree(msm_gpiomux_recs);
 		msm_gpiomux_recs = NULL;
 		return -ENOMEM;
@@ -132,13 +132,13 @@ EXPORT_SYMBOL(msm_gpiomux_init);
 
 void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs)
 {
-	unsigned n, cfg;
+	unsigned c, s;
 	int rc;
 
-	for (n = 0; n < nconfigs; ++n) {
-		for (cfg = 0; cfg < GPIOMUX_CFG_MAX; ++cfg) {
-			rc = msm_gpiomux_write(configs[n].gpio, cfg,
-				&configs[n].configs[cfg]);
+	for (c = 0; c < nconfigs; ++c) {
+		for (s = 0; s < GPIOMUX_NSETTINGS; ++s) {
+			rc = msm_gpiomux_write(configs[c].gpio, s,
+				&configs[c].settings[s]);
 			if (rc)
 				pr_err("%s: write failure: %d\n", __func__, rc);
 		}

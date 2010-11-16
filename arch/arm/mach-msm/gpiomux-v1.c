@@ -18,12 +18,16 @@
 #include "gpiomux.h"
 #include "proc_comm.h"
 
-void __msm_gpiomux_write(unsigned gpio, gpiomux_config_t val)
+void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val)
 {
-	unsigned tlmm_config  = val | ((gpio & 0x3ff) << 4);
+	unsigned tlmm_config;
 	unsigned tlmm_disable = 0;
 	int rc;
 
+	tlmm_config  = (val.drv << 17) |
+		(val.pull << 15) |
+		((gpio & 0x3ff) << 4) |
+		val.func;
 	rc = msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX,
 			   &tlmm_config, &tlmm_disable);
 	if (rc)
