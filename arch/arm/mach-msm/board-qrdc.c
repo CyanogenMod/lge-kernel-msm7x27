@@ -61,6 +61,7 @@
 #include <mach/msm_battery.h>
 #include <mach/msm_hsusb.h>
 #include <mach/msm_xo.h>
+#include <mach/msm_bus_board.h>
 #include <mach/tpm_st_i2c.h>
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
@@ -1451,6 +1452,16 @@ static struct platform_device *early_regulators[] __initdata = {
 #endif
 };
 
+static struct platform_device *early_devices[] __initdata = {
+#ifdef CONFIG_MSM_BUS_SCALING
+	&msm_bus_apps_fabric,
+	&msm_bus_sys_fabric,
+	&msm_bus_mm_fabric,
+	&msm_bus_sys_fpb,
+	&msm_bus_cpss_fpb,
+#endif
+};
+
 static struct resource msm_aux_pcm_resources[] = {
 
 	{
@@ -2599,6 +2610,23 @@ static void __init msm8x60_init_buses(void)
 	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(54); /* GSBI6(2) */
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
+#ifdef CONFIG_MSM_BUS_SCALING
+
+	/* RPM calls are only enabled on V2 (minor number > 0) */
+	if (SOCINFO_VERSION_MINOR(socinfo_get_version())) {
+		msm_bus_apps_fabric_pdata.rpm_enabled = 1;
+		msm_bus_sys_fabric_pdata.rpm_enabled = 1;
+		msm_bus_mm_fabric_pdata.rpm_enabled = 1;
+		msm_bus_sys_fpb_pdata.rpm_enabled = 1;
+		msm_bus_cpss_fpb_pdata.rpm_enabled = 1;
+	}
+
+	msm_bus_apps_fabric.dev.platform_data = &msm_bus_apps_fabric_pdata;
+	msm_bus_sys_fabric.dev.platform_data = &msm_bus_sys_fabric_pdata;
+	msm_bus_mm_fabric.dev.platform_data = &msm_bus_mm_fabric_pdata;
+	msm_bus_sys_fpb.dev.platform_data = &msm_bus_sys_fpb_pdata;
+	msm_bus_cpss_fpb.dev.platform_data = &msm_bus_cpss_fpb_pdata;
+#endif
 }
 
 static void __init msm8x60_map_io(void)
@@ -3683,13 +3711,17 @@ static void __init msm8x60_init(void)
 	msm_clock_init(msm_clocks_8x60, msm_num_clocks_8x60);
 	msm_clock_temp_force_on();
 
+	/* Buses need to be initialized before early-device registration
+	 * to get the platform data for fabrics.
+	 */
+	msm8x60_init_buses();
+	platform_add_devices(early_devices, ARRAY_SIZE(early_devices));
 	msm_acpu_clock_init(&msm8x60_acpu_clock_data);
 
 	msm8x60_init_ebi2();
 	msm8x60_init_tlmm();
 	msm8x60_init_uart12dm();
 	msm8x60_init_mmc();
-	msm8x60_init_buses();
 	msm8x60_cfg_smsc911x();
 	platform_add_devices(qrdc_devices,
 			     ARRAY_SIZE(qrdc_devices));
