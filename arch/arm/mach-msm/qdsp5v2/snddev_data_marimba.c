@@ -1516,7 +1516,7 @@ static const struct file_operations snddev_hsed_config_debug_fops = {
 };
 #endif
 
-void __init msm_snddev_init(void)
+void __ref msm_snddev_init(void)
 {
 	if (machine_is_msm7x30_ffa() || machine_is_msm8x55_ffa() ||
 		machine_is_msm8x55_svlte_ffa()) {
