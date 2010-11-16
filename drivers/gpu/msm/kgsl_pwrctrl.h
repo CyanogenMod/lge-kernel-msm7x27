@@ -41,8 +41,8 @@
 #define KGSL_PWRFLAGS_POWER_ON		0x00000002
 #define KGSL_PWRFLAGS_CLK_ON		0x00000004
 #define KGSL_PWRFLAGS_CLK_OFF		0x00000008
-#define KGSL_PWRFLAGS_OVERRIDE_ON	0x00000010
-#define KGSL_PWRFLAGS_OVERRIDE_OFF	0x00000020
+#define KGSL_PWRFLAGS_AXI_ON		0x00000010
+#define KGSL_PWRFLAGS_AXI_OFF		0x00000020
 #define KGSL_PWRFLAGS_IRQ_ON		0x00000040
 #define KGSL_PWRFLAGS_IRQ_OFF		0x00000080
 
@@ -75,6 +75,7 @@ struct kgsl_pwrctrl {
 };
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag);
+int kgsl_pwrctrl_axi(struct kgsl_device *device, unsigned int pwrflag);
 int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, unsigned int pwrflag);
 int kgsl_pwrctrl_irq(struct kgsl_device *device, unsigned int pwrflag);
 void kgsl_pwrctrl_close(struct kgsl_device *device);

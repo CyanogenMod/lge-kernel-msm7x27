@@ -495,10 +495,12 @@ static int kgsl_g12_start(struct kgsl_device *device)
 		return 0;
 	}
 	device->pwrctrl.power_flags |= KGSL_PWRFLAGS_CLK_OFF |
-		KGSL_PWRFLAGS_POWER_OFF | KGSL_PWRFLAGS_IRQ_OFF;
+		KGSL_PWRFLAGS_AXI_OFF | KGSL_PWRFLAGS_POWER_OFF |
+		KGSL_PWRFLAGS_IRQ_OFF;
 
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
 
 	/* Set up MH arbiter.  MH offsets are considered to be dword
 	 * based, therefore no down shift. */
@@ -525,6 +527,7 @@ static int kgsl_g12_start(struct kgsl_device *device)
 	return 0;
 error_clk_off:
 	kgsl_g12_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 error_mmu_stop:
@@ -541,6 +544,7 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 	kgsl_mmu_stop(device);
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 	device->hwaccess_blocked = KGSL_TRUE;
@@ -666,6 +670,7 @@ static int kgsl_g12_sleep(struct kgsl_device *device, const int idle)
 		/* the core clock until the next attempt to access the HW. */
 		if (idle || kgsl_g12_isidle(g12_device)) {
 			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+			kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 			/* Turn off the core clocks */
 			status = kgsl_pwrctrl_clk(device,
 				KGSL_PWRFLAGS_CLK_OFF);
@@ -688,6 +693,7 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 
 	/* Turn on the core clocks */
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 
 	/* Re-enable HW access */
