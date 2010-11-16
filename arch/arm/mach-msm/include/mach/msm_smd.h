@@ -33,6 +33,10 @@ int smd_close(smd_channel_t *ch);
 /* passing a null pointer for data reads and discards */
 int smd_read(smd_channel_t *ch, void *data, int len);
 int smd_read_from_cb(smd_channel_t *ch, void *data, int len);
+/* Same as smd_read() but takes a data buffer from userspace
+ * The function might sleep.  Only safe to call from user context
+ */
+int smd_read_user_buffer(smd_channel_t *ch, void *data, int len);
 
 /* Write to stream channels may do a partial write and return
 ** the length actually written.
@@ -40,6 +44,10 @@ int smd_read_from_cb(smd_channel_t *ch, void *data, int len);
 ** it will return the requested length written or an error.
 */
 int smd_write(smd_channel_t *ch, const void *data, int len);
+/* Same as smd_write() but takes a data buffer from userspace
+ * The function might sleep.  Only safe to call from user context
+ */
+int smd_write_user_buffer(smd_channel_t *ch, const void *data, int len);
 
 int smd_write_avail(smd_channel_t *ch);
 int smd_read_avail(smd_channel_t *ch);
