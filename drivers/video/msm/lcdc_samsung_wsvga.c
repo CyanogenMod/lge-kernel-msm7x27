@@ -125,7 +125,7 @@ static struct attribute_group attr_group = {
 	.attrs = attrs,
 };
 
-static int __init samsung_probe(struct platform_device *pdev)
+static int __devinit samsung_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_fb_data_type *mfd;
