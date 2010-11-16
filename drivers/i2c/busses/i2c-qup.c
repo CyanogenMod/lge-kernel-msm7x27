@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,13 +179,17 @@ qup_i2c_interrupt(int irq, void *devid)
 	uint32_t op_flgs = readl(dev->base + QUP_OPERATIONAL);
 	int err = 0;
 
-	if (!dev->msg)
+	if (!dev->msg || !dev->complete) {
+		/* Clear Error interrupt if it's a level triggered interrupt*/
+		if (dev->num_irqs == 1)
+			writel(QUP_RESET_STATE, dev->base+QUP_STATE);
 		return IRQ_HANDLED;
+	}
 
 	if (status & I2C_STATUS_ERROR_MASK) {
 		dev_err(dev->dev, "QUP: I2C status flags :0x%x, irq:%d\n",
 			status, irq);
-		err = -status;
+		err = status;
 		/* Clear Error interrupt if it's a level triggered interrupt*/
 		if (dev->num_irqs == 1)
 			writel(QUP_RESET_STATE, dev->base+QUP_STATE);
@@ -692,14 +696,18 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				goto out_err;
 			}
 			if (dev->err) {
-				if (dev->err & QUP_I2C_NACK_FLAG)
+				if (dev->err > 0 &&
+					dev->err & QUP_I2C_NACK_FLAG)
 					dev_err(dev->dev,
 					"I2C slave addr:0x%x not connected\n",
 					dev->msg->addr);
-				else
+				else if (dev->err < 0) {
 					dev_err(dev->dev,
 					"QUP data xfer error %d\n", dev->err);
-				ret = dev->err;
+					ret = dev->err;
+					goto out_err;
+				}
+				ret = -dev->err;
 				goto out_err;
 			}
 			if (dev->msg->flags & I2C_M_RD) {
