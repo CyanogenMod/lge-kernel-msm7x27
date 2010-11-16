@@ -26,6 +26,12 @@
 #include "gpiomux-v1.h"
 #endif
 
+enum msm_gpiomux_cfg_type {
+	GPIOMUX_CFG_ACTIVE = 0,
+	GPIOMUX_CFG_SUSPENDED,
+	GPIOMUX_CFG_MAX
+};
+
 /**
  * struct msm_gpiomux_config: gpiomux settings for one gpio line.
  *
@@ -38,26 +44,15 @@
  * specific to your target arch for available configurations.
  *
  * @gpio: The index number of the gpio being described.
- * @active: The configuration to be installed when the line is
- * active, or its reference count is > 0.
- * @suspended: The configuration to be installed when the line
- * is suspended, or its reference count is 0.
+ * @configs: The configurations to be installed, specifically:
+ *           GPIOMUX_CFG_ACTIVE: The configuration to be installed when the
+ *           line is active, or its reference count is > 0.
+ *           GPIOMUX_CFG_SUSPENDED: The configuration to be installed when
+ *           the line is suspended, or its reference count is 0.
  */
 struct msm_gpiomux_config {
 	unsigned         gpio;
-	gpiomux_config_t active;
-	gpiomux_config_t suspended;
-};
-
-/**
- * @GPIOMUX_VALID:	If set, the config field contains 'good data'.
- *                      The absence of this bit will prevent the gpiomux
- *			system from applying the configuration under all
- *			circumstances.
- */
-enum {
-	GPIOMUX_VALID	 = BIT(sizeof(gpiomux_config_t) * BITS_PER_BYTE - 1),
-	GPIOMUX_CTL_MASK = GPIOMUX_VALID,
+	gpiomux_config_t configs[GPIOMUX_CFG_MAX];
 };
 
 #ifdef CONFIG_MSM_GPIOMUX
@@ -79,12 +74,10 @@ int __must_check msm_gpiomux_get(unsigned gpio);
 /* Decrement a gpio's reference count, possibly suspending the line. */
 int msm_gpiomux_put(unsigned gpio);
 
-/* Install a new configuration to the gpio line.  To avoid overwriting
- * a configuration, leave the VALID bit out.
+/* Install a new configuration to the gpio line.  To erase a slot, use NULL.
  */
-int msm_gpiomux_write(unsigned gpio,
-		      gpiomux_config_t active,
-		      gpiomux_config_t suspended);
+int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_cfg_type which,
+	gpiomux_config_t *cfg);
 
 /* Architecture-internal function for use by the framework only.
  * This function can assume the following:
@@ -115,8 +108,7 @@ static inline int msm_gpiomux_put(unsigned gpio)
 }
 
 static inline int msm_gpiomux_write(unsigned gpio,
-				    gpiomux_config_t active,
-				    gpiomux_config_t suspended)
+	enum msm_gpiomux_cfg_type which, gpiomux_config_t *cfg)
 {
 	return -ENOSYS;
 }

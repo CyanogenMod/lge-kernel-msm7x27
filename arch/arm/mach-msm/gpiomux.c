@@ -20,21 +20,21 @@
 #include "gpiomux.h"
 
 struct msm_gpiomux_rec {
-	gpiomux_config_t active;
-	gpiomux_config_t suspended;
+	gpiomux_config_t *cfgs[GPIOMUX_CFG_MAX];
 	int              ref;
 };
 static DEFINE_SPINLOCK(gpiomux_lock);
 static struct msm_gpiomux_rec *msm_gpiomux_recs;
+static gpiomux_config_t *msm_gpiomux_cfgs;
 static unsigned msm_gpiomux_ngpio;
 
-int msm_gpiomux_write(unsigned gpio,
-		      gpiomux_config_t active,
-		      gpiomux_config_t suspended)
+int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_cfg_type which,
+	gpiomux_config_t *cfg)
 {
-	struct msm_gpiomux_rec *cfg = msm_gpiomux_recs + gpio;
+	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;
+	unsigned cfg_slot = gpio * GPIOMUX_CFG_MAX + which;
 	unsigned long irq_flags;
-	gpiomux_config_t setting;
+	gpiomux_config_t *new_config;
 
 	if (!msm_gpiomux_recs)
 		return -EFAULT;
@@ -44,15 +44,17 @@ int msm_gpiomux_write(unsigned gpio,
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
 
-	if (active & GPIOMUX_VALID)
-		cfg->active = active;
+	if (cfg) {
+		msm_gpiomux_cfgs[cfg_slot] = *cfg;
+		rec->cfgs[which] = &msm_gpiomux_cfgs[cfg_slot];
+	} else {
+		rec->cfgs[which] = NULL;
+	}
 
-	if (suspended & GPIOMUX_VALID)
-		cfg->suspended = suspended;
-
-	setting = cfg->ref ? active : suspended;
-	if (setting & GPIOMUX_VALID)
-		__msm_gpiomux_write(gpio, setting);
+	new_config = rec->ref ? rec->cfgs[GPIOMUX_CFG_ACTIVE] :
+		rec->cfgs[GPIOMUX_CFG_SUSPENDED];
+	if (new_config)
+		__msm_gpiomux_write(gpio, *new_config);
 
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
 	return 0;
@@ -61,7 +63,7 @@ EXPORT_SYMBOL(msm_gpiomux_write);
 
 int msm_gpiomux_get(unsigned gpio)
 {
-	struct msm_gpiomux_rec *cfg = msm_gpiomux_recs + gpio;
+	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;
 	unsigned long irq_flags;
 
 	if (!msm_gpiomux_recs)
@@ -71,8 +73,8 @@ int msm_gpiomux_get(unsigned gpio)
 		return -EINVAL;
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
-	if (cfg->ref++ == 0 && cfg->active & GPIOMUX_VALID)
-		__msm_gpiomux_write(gpio, cfg->active);
+	if (rec->ref++ == 0 && rec->cfgs[GPIOMUX_CFG_ACTIVE])
+		__msm_gpiomux_write(gpio, *rec->cfgs[GPIOMUX_CFG_ACTIVE]);
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
 	return 0;
 }
@@ -80,7 +82,7 @@ EXPORT_SYMBOL(msm_gpiomux_get);
 
 int msm_gpiomux_put(unsigned gpio)
 {
-	struct msm_gpiomux_rec *cfg = msm_gpiomux_recs + gpio;
+	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;
 	unsigned long irq_flags;
 
 	if (!msm_gpiomux_recs)
@@ -90,9 +92,9 @@ int msm_gpiomux_put(unsigned gpio)
 		return -EINVAL;
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
-	BUG_ON(cfg->ref == 0);
-	if (--cfg->ref == 0 && cfg->suspended & GPIOMUX_VALID)
-		__msm_gpiomux_write(gpio, cfg->suspended);
+	BUG_ON(rec->ref == 0);
+	if (--rec->ref == 0 && rec->cfgs[GPIOMUX_CFG_SUSPENDED])
+		__msm_gpiomux_write(gpio, *rec->cfgs[GPIOMUX_CFG_SUSPENDED]);
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
 	return 0;
 }
@@ -111,6 +113,17 @@ int msm_gpiomux_init(size_t ngpio)
 	if (!msm_gpiomux_recs)
 		return -ENOMEM;
 
+	/* There is no need to zero this memory, as clients will be blindly
+	 * installing configs on top of it.
+	 */
+	msm_gpiomux_cfgs = kmalloc(sizeof(gpiomux_config_t) * ngpio *
+		GPIOMUX_CFG_MAX, GFP_KERNEL);
+	if (!msm_gpiomux_cfgs) {
+		kfree(msm_gpiomux_recs);
+		msm_gpiomux_recs = NULL;
+		return -ENOMEM;
+	}
+
 	msm_gpiomux_ngpio = ngpio;
 
 	return 0;
@@ -119,18 +132,16 @@ EXPORT_SYMBOL(msm_gpiomux_init);
 
 void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs)
 {
-	unsigned n;
+	unsigned n, cfg;
 	int rc;
 
-	if (!msm_gpiomux_recs)
-		return;
-
 	for (n = 0; n < nconfigs; ++n) {
-		rc = msm_gpiomux_write(configs[n].gpio,
-				       configs[n].active,
-				       configs[n].suspended);
-		if (rc)
-			pr_err("%s: write failure: %d\n", __func__, rc);
+		for (cfg = 0; cfg < GPIOMUX_CFG_MAX; ++cfg) {
+			rc = msm_gpiomux_write(configs[n].gpio, cfg,
+				&configs[n].configs[cfg]);
+			if (rc)
+				pr_err("%s: write failure: %d\n", __func__, rc);
+		}
 	}
 }
 EXPORT_SYMBOL(msm_gpiomux_install);
