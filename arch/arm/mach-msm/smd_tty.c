@@ -143,9 +143,9 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 		return -ENODEV;
 
 	info = smd_tty + n;
-	tty->driver_data = info;
 
 	mutex_lock(&smd_tty_lock);
+	tty->driver_data = info;
 
 	if (info->open_count++ == 0) {
 		info->pil = pil_get("modem");
@@ -220,11 +220,13 @@ static void smd_tty_close(struct tty_struct *tty, struct file *f)
 
 	mutex_lock(&smd_tty_lock);
 	if (--info->open_count == 0) {
-		info->tty = 0;
+		if (info->tty) {
+			tasklet_kill(&info->tty_tsklt);
+			wake_lock_destroy(&info->wake_lock);
+			info->tty = 0;
+		}
 		tty->driver_data = 0;
 		del_timer(&info->buf_req_timer);
-		tasklet_kill(&info->tty_tsklt);
-		wake_lock_destroy(&info->wake_lock);
 		if (info->ch) {
 			smd_close(info->ch);
 			info->ch = 0;
