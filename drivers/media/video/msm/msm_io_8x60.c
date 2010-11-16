@@ -755,6 +755,10 @@ int msm_camio_sensor_clk_on(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	camio_dev = pdev;
+	camio_ext = camdev->ioext;
+	camio_clk = camdev->ioclk;
+
 	msm_camera_vreg_enable();
 	msleep(10);
 	rc = camdev->camera_gpio_on();
@@ -783,6 +787,10 @@ int msm_camio_probe_on(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	camio_dev = pdev;
+	camio_ext = camdev->ioext;
+	camio_clk = camdev->ioclk;
+
 	rc = camdev->camera_gpio_on();
 	if (rc < 0)
 		return rc;
