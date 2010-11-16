@@ -1288,7 +1288,8 @@ static int sdio_al_enable_func_retry(struct sdio_func *func, const char *name)
 	for (i = 0; i < 10; i++) {
 		ret = sdio_enable_func(func);
 		if (ret) {
-			pr_err(MODULE_NAME ":retry enable %s func#%d red=%d\n",
+			pr_debug(MODULE_NAME ":retry enable %s func#%d "
+					     "ret=%d\n",
 					 name, func->num, ret);
 			msleep(500);
 		} else
@@ -1333,7 +1334,7 @@ static int open_channel(struct sdio_channel *ch)
 	/* Init SDIO Function */
 	ret = sdio_al_enable_func_retry(ch->func, ch->name);
 	if (ret) {
-		pr_info(MODULE_NAME ":sdio_enable_func() err=%d\n", -ret);
+		pr_err(MODULE_NAME ":sdio_enable_func() err=%d\n", -ret);
 		goto exit_err;
 	}
 
