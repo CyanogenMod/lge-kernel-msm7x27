@@ -415,7 +415,7 @@ static void cy8c_ts_close(struct input_dev *dev)
 static int cy8c_ts_init_ts(struct i2c_client *client, struct cy8c_ts *ts)
 {
 	struct input_dev *input_device;
-	int rc;
+	int rc = 0;
 
 	ts->dd = &devices[ts->device_id];
 
