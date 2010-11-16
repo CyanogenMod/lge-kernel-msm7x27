@@ -847,57 +847,52 @@ static struct platform_device msm_vpe_device = {
 #endif
 
 #ifdef CONFIG_MSM_CAMERA
-
 #define VFE_CAMIF_TIMER1_GPIO 29
 #define VFE_CAMIF_TIMER2_GPIO 30
 #define VFE_CAMIF_TIMER3_GPIO_INT 31
 
-static uint32_t camera_off_gpio_table[] = {
-	GPIO_CFG(47, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
-	GPIO_CFG(48, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
-	GPIO_CFG(32, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(105, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(106, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(VFE_CAMIF_TIMER1_GPIO, 1,
-		GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(VFE_CAMIF_TIMER2_GPIO, 0,
-		GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(VFE_CAMIF_TIMER3_GPIO_INT, 0,
-		GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-
+int msm_cam_gpio_tbl[] = {
+	32,/*CAMIF_MCLK*/
+	47,/*CAMIF_I2C_DATA*/
+	48,/*CAMIF_I2C_CLK*/
+	105,/*STANDBY*/
 };
 
-static uint32_t camera_on_gpio_table[] = {
-	GPIO_CFG(47, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
-	GPIO_CFG(48, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
-	GPIO_CFG(32, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(105, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(106, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(VFE_CAMIF_TIMER1_GPIO, 1,
-		GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(VFE_CAMIF_TIMER2_GPIO, 0,
-		GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(VFE_CAMIF_TIMER3_GPIO_INT, 0,
-		GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+enum msm_cam_stat{
+	MSM_CAM_OFF,
+	MSM_CAM_ON,
 };
 
-static void config_gpio_table(uint32_t *table, int len)
+static int config_gpio_table(enum msm_cam_stat stat)
 {
-	int n, rc;
-	for (n = 0; n < len; n++) {
-		rc = gpio_tlmm_config(table[n], GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
-				__func__, table[n], rc);
-			break;
+	int rc = 0, i = 0;
+	if (stat == MSM_CAM_ON) {
+		for (i = 0; i < ARRAY_SIZE(msm_cam_gpio_tbl); i++) {
+			rc = gpio_request(msm_cam_gpio_tbl[i], "CAM_GPIO");
+			if (unlikely(rc < 0)) {
+				pr_err("%s not able to get gpio\n", __func__);
+				for (i--; i >= 0; i--)
+					gpio_free(msm_cam_gpio_tbl[i]);
+				break;
+			}
 		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(msm_cam_gpio_tbl); i++)
+			gpio_free(msm_cam_gpio_tbl[i]);
 	}
+	return rc;
 }
+
 static int config_camera_on_gpios(void)
 {
 	int rc = 0;
-	config_gpio_table(camera_on_gpio_table,
-		ARRAY_SIZE(camera_on_gpio_table));
+
+	rc = config_gpio_table(MSM_CAM_ON);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio table request"
+		"failed\n", __func__);
+		return rc;
+	}
 
 	rc = gpio_request(GPIO_EXT_CAMIF_PWR_EN, "CAM_EN");
 	if (rc < 0) {
@@ -913,8 +908,7 @@ static int config_camera_on_gpios(void)
 
 static void config_camera_off_gpios(void)
 {
-	config_gpio_table(camera_off_gpio_table,
-		ARRAY_SIZE(camera_off_gpio_table));
+	config_gpio_table(MSM_CAM_OFF);
 
 	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
 	gpio_free(GPIO_EXT_CAMIF_PWR_EN);
@@ -923,8 +917,12 @@ static void config_camera_off_gpios(void)
 static int config_camera_on_gpios_web_cam(void)
 {
 	int rc = 0;
-	config_gpio_table(camera_on_gpio_table,
-		ARRAY_SIZE(camera_on_gpio_table));
+	rc = config_gpio_table(MSM_CAM_ON);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio table request"
+		"failed\n", __func__);
+		return rc;
+	}
 
 	rc = gpio_request(GPIO_WEB_CAMIF_STANDBY, "CAM_EN");
 	if (rc < 0) {
@@ -938,8 +936,7 @@ static int config_camera_on_gpios_web_cam(void)
 
 static void config_camera_off_gpios_web_cam(void)
 {
-	config_gpio_table(camera_off_gpio_table,
-		ARRAY_SIZE(camera_off_gpio_table));
+	config_gpio_table(MSM_CAM_OFF);
 
 	gpio_set_value_cansleep(GPIO_WEB_CAMIF_STANDBY, 1);
 	gpio_free(GPIO_WEB_CAMIF_STANDBY);

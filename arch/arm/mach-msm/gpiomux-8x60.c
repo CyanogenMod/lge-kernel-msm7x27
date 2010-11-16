@@ -108,6 +108,8 @@
 #define MDM2AP_SUSPEND_CFG \
 	GPIOMUX_CFG(0, 0, GPIOMUX_PULL_NONE)
 
+#define CAM_SUSPEND_CFG GPIOMUX_CFG(0, 0, GPIOMUX_PULL_DOWN)
+
 static struct msm_gpiomux_config msm8x60_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 33,
@@ -953,6 +955,73 @@ static struct msm_gpiomux_config msm8x60_common_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
+	{
+		.gpio = 29,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
+				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+	{
+		.gpio = 30,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+	{
+		.gpio = 31,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+	{
+		.gpio = 32,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
+				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+	{
+		.gpio = 47,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
+				GPIOMUX_PULL_UP, GPIOMUX_DRV_8MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+	{
+		.gpio = 48,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
+				GPIOMUX_PULL_UP, GPIOMUX_DRV_8MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+	{
+		.gpio = 105,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_PULL_DOWN, GPIOMUX_DRV_2MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+	{
+		.gpio = 106,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
+		},
+	},
+};
+
 struct msm_gpiomux_cfg_block {
 	struct msm_gpiomux_config *cfg;
 	size_t                     ncfg;
@@ -970,6 +1039,7 @@ static struct msm_gpiomux_cfg_block msm8x60_cfgs[] __initdata = {
 	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
 	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
 	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
+	{msm8x60_cam_configs, ARRAY_SIZE(msm8x60_cam_configs)},
 };
 
 static struct msm_gpiomux_cfg_block qrdc_cfgs[] __initdata = {
