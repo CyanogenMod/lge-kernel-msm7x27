@@ -907,7 +907,7 @@ static int config_camera_on_gpios(void)
 	}
 	gpio_direction_output(GPIO_EXT_CAMIF_PWR_EN, 0);
 	mdelay(20);
-	gpio_set_value(GPIO_EXT_CAMIF_PWR_EN, 1);
+	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 1);
 	return rc;
 }
 
@@ -916,8 +916,7 @@ static void config_camera_off_gpios(void)
 	config_gpio_table(camera_off_gpio_table,
 		ARRAY_SIZE(camera_off_gpio_table));
 
-	gpio_set_value(GPIO_EXT_CAMIF_PWR_EN, 0);
-	mdelay(20);
+	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
 	gpio_free(GPIO_EXT_CAMIF_PWR_EN);
 }
 
@@ -934,9 +933,6 @@ static int config_camera_on_gpios_web_cam(void)
 		return rc;
 	}
 	gpio_direction_output(GPIO_WEB_CAMIF_STANDBY, 0);
-	msleep(20);
-	gpio_set_value(GPIO_WEB_CAMIF_STANDBY, 0);
-	msleep(50);
 	return rc;
 }
 
@@ -945,8 +941,7 @@ static void config_camera_off_gpios_web_cam(void)
 	config_gpio_table(camera_off_gpio_table,
 		ARRAY_SIZE(camera_off_gpio_table));
 
-	gpio_set_value(GPIO_WEB_CAMIF_STANDBY, 0);
-	msleep(20);
+	gpio_set_value_cansleep(GPIO_WEB_CAMIF_STANDBY, 1);
 	gpio_free(GPIO_WEB_CAMIF_STANDBY);
 }
 

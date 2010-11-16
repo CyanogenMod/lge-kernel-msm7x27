@@ -367,7 +367,6 @@ static int32_t ov7692_power_down(void)
 }
 static int ov7692_probe_init_done(const struct msm_camera_sensor_info *data)
 {
-	gpio_direction_output(data->sensor_reset, 0);
 	gpio_free(data->sensor_reset);
 	return 0;
 }
@@ -382,9 +381,9 @@ static int ov7692_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	if (!rc) {
 		CDBG("sensor_reset = %d\n", rc);
 		gpio_direction_output(data->sensor_reset, 0);
-		msleep(50);
-		gpio_direction_output(data->sensor_reset, 1);
-		msleep(50);
+		msleep(20);
+		gpio_set_value_cansleep(data->sensor_reset, 1);
+		msleep(20);
 	} else {
 		CDBG("gpio reset fail");
 		goto init_probe_done;
@@ -403,12 +402,10 @@ static int ov7692_probe_init_sensor(const struct msm_camera_sensor_info *data)
 		rc = -ENODEV;
 		goto init_probe_fail;
 	}
-	msleep(10);
-  goto init_probe_done;
+	goto init_probe_done;
 init_probe_fail:
 	printk(KERN_INFO " ov7692_probe_init_sensor fails_kalyani\n");
-	gpio_direction_output(data->sensor_reset, 0);
-	gpio_free(data->sensor_reset);
+	gpio_set_value_cansleep(data->sensor_reset, 0);
 init_probe_done:
 	printk(KERN_INFO " ov7692_probe_init_sensor finishes\n");
 	return rc;
@@ -449,9 +446,10 @@ int ov7692_sensor_open_init(const struct msm_camera_sensor_info *data)
 	}
 
 	rc = ov7692_sensor_setting(REG_INIT, RES_PREVIEW);
-	if (rc < 0)
+	if (rc < 0) {
+		gpio_set_value_cansleep(data->sensor_reset, 0);
 		goto init_fail;
-	else
+	} else
 		goto init_done;
 init_fail:
 	CDBG(" ov7692_sensor_open_init fail\n");
@@ -557,7 +555,7 @@ static int ov7692_sensor_release(void)
 	int rc = -EBADF;
 	mutex_lock(&ov7692_mut);
 	ov7692_power_down();
-	gpio_direction_output(ov7692_ctrl->sensordata->sensor_reset, 0);
+	gpio_set_value_cansleep(ov7692_ctrl->sensordata->sensor_reset, 0);
 	gpio_free(ov7692_ctrl->sensordata->sensor_reset);
 	kfree(ov7692_ctrl);
 	ov7692_ctrl = NULL;
