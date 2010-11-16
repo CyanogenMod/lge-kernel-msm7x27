@@ -43,6 +43,8 @@
 #define MAX_COPP_NODE_SUPPORTED 6
 #define MAX_AUDREC_SESSIONS 3
 
+#define REAL_STEREO_CHANNEL_MODE	9
+
 struct msm_snddev_info {
 	const char *name;
 	u32 capability;

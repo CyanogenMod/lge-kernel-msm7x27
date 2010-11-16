@@ -681,6 +681,29 @@ static struct platform_device msm_idual_mic_endfire_device = {
 	.dev = { .platform_data = &snddev_idual_mic_endfire_data },
 };
 
+
+static struct snddev_icodec_data\
+		snddev_idual_mic_endfire_real_stereo_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "handset_dual_mic_endfire_tx_real_stereo",
+	.copp_id = 0,
+	.acdb_id = PSEUDO_ACDB_ID,
+	.profile = &idual_mic_endfire_profile,
+	.channel_mode = REAL_STEREO_CHANNEL_MODE,
+	.default_sample_rate = 48000,
+	.pmctl_id = idual_mic_endfire_pmctl_id,
+	.pmctl_id_sz = ARRAY_SIZE(idual_mic_endfire_pmctl_id),
+	.pamp_on = NULL,
+	.pamp_off = NULL,
+};
+
+static struct platform_device msm_real_stereo_tx_device = {
+	.name = "snddev_icodec",
+	.id = 26,
+	.dev = { .platform_data =
+			&snddev_idual_mic_endfire_real_stereo_data },
+};
+
 static struct adie_codec_action_unit idual_mic_bs_8KHz_osr256_actions[] =
 	MIC1_LEFT_AUX_IN_RIGHT_8000_OSR_256;
 
@@ -1362,6 +1385,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_snddev_mi2s_stereo_rx_device,
 	&msm_snddev_mi2s_fm_tx_device,
 	&msm_uplink_rx_device,
+	&msm_real_stereo_tx_device,
 };
 
 static struct platform_device *snd_devices_surf[] __initdata = {
