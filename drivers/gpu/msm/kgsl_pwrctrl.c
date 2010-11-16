@@ -40,12 +40,6 @@ int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 			if (pwr->clk_freq[KGSL_MIN_FREQ])
 				clk_set_rate(pwr->grp_src_clk,
 					pwr->clk_freq[KGSL_MIN_FREQ]);
-			if (pwr->clk_freq[KGSL_AXI_HIGH])
-				pm_qos_update_request(
-					pwr->pm_qos_req, PM_QOS_DEFAULT_VALUE);
-			if (pwr->pcl)
-				msm_bus_scale_client_update_request(pwr->pcl,
-								    BW_INIT);
 			pwr->power_flags &=
 					~(KGSL_PWRFLAGS_CLK_ON);
 			pwr->power_flags |= KGSL_PWRFLAGS_CLK_OFF;
@@ -53,13 +47,6 @@ int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 		return KGSL_SUCCESS;
 	case KGSL_PWRFLAGS_CLK_ON:
 		if (pwr->power_flags & KGSL_PWRFLAGS_CLK_OFF) {
-			if (pwr->clk_freq[KGSL_AXI_HIGH])
-				pm_qos_update_request(
-					pwr->pm_qos_req,
-					pwr->clk_freq[KGSL_AXI_HIGH]);
-			if (pwr->pcl)
-				msm_bus_scale_client_update_request(pwr->pcl,
-								    BW_MAX);
 			if (pwr->clk_freq[KGSL_MAX_FREQ])
 				clk_set_rate(pwr->grp_src_clk,
 					pwr->clk_freq[KGSL_MAX_FREQ]);
@@ -74,6 +61,43 @@ int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 			pwr->power_flags &=
 				~(KGSL_PWRFLAGS_CLK_OFF);
 			pwr->power_flags |= KGSL_PWRFLAGS_CLK_ON;
+		}
+		return KGSL_SUCCESS;
+	default:
+		return KGSL_FAILURE;
+	}
+}
+
+int kgsl_pwrctrl_axi(struct kgsl_device *device, unsigned int pwrflag)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	switch (pwrflag) {
+	case KGSL_PWRFLAGS_AXI_OFF:
+		if (pwr->power_flags & KGSL_PWRFLAGS_AXI_ON) {
+			if (pwr->clk_freq[KGSL_AXI_HIGH])
+				pm_qos_update_request(
+					pwr->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+			if (pwr->pcl)
+				msm_bus_scale_client_update_request(pwr->pcl,
+								BW_INIT);
+			pwr->power_flags &=
+				~(KGSL_PWRFLAGS_AXI_ON);
+			pwr->power_flags |= KGSL_PWRFLAGS_AXI_OFF;
+		}
+		return KGSL_SUCCESS;
+	case KGSL_PWRFLAGS_AXI_ON:
+		if (pwr->power_flags & KGSL_PWRFLAGS_AXI_OFF) {
+			if (pwr->clk_freq[KGSL_AXI_HIGH])
+				pm_qos_update_request(
+					pwr->pm_qos_req,
+					pwr->clk_freq[KGSL_AXI_HIGH]);
+			if (pwr->pcl)
+				msm_bus_scale_client_update_request(pwr->pcl,
+								BW_MAX);
+			pwr->power_flags &=
+				~(KGSL_PWRFLAGS_AXI_OFF);
+			pwr->power_flags |= KGSL_PWRFLAGS_AXI_ON;
 		}
 		return KGSL_SUCCESS;
 	default:

@@ -795,11 +795,13 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	}
 
 	device->pwrctrl.power_flags |= KGSL_PWRFLAGS_CLK_OFF |
-		KGSL_PWRFLAGS_POWER_OFF | KGSL_PWRFLAGS_IRQ_OFF;
+		KGSL_PWRFLAGS_AXI_OFF | KGSL_PWRFLAGS_POWER_OFF |
+		KGSL_PWRFLAGS_IRQ_OFF;
 
 	/* Turn the clocks on before the power.  Required for some platforms,
 	   has no adverse effect on the others */
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
 
 	if (kgsl_mmu_start(device))
@@ -897,6 +899,7 @@ error_irq_off:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 error_clk_off:
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 
 	kgsl_mmu_stop(device);
@@ -922,6 +925,7 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 		/* For some platforms, power needs to go off before clocks */
 		kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
+		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 		device->hwaccess_blocked = KGSL_TRUE;
 
@@ -1119,6 +1123,7 @@ static int kgsl_yamato_sleep(struct kgsl_device *device, const int idle)
 		/* the core clock until the next attempt to access the HW. */
 		if (idle == KGSL_TRUE || kgsl_yamato_isidle(device)) {
 			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+			kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 			/* Turn off the core clocks */
 			status = kgsl_pwrctrl_clk(device,
 				KGSL_PWRFLAGS_CLK_OFF);
@@ -1141,6 +1146,7 @@ static int kgsl_yamato_wake(struct kgsl_device *device)
 
 	/* Turn on the core clocks */
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 
 	/* Re-enable HW access */
