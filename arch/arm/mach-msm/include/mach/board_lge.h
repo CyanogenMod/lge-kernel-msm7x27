@@ -35,6 +35,14 @@
 #endif
 
 /* define PMEM address size */
+#ifdef CONFIG_ARCH_MSM7X25
+#define MSM_PMEM_MDP_SIZE   0xb21000
+#define MSM_PMEM_ADSP_SIZE  0x97b000
+#define MSM_PMEM_AUDIO_SIZE 0x121000
+#define MSM_FB_SIZE     0x200000
+#define PMEM_KERNEL_EBI1_SIZE   0x64000
+#endif
+
 #ifdef CONFIG_ARCH_MSM7X27
 #define MSM_PMEM_MDP_SIZE	0x1B76000
 #define MSM_PMEM_ADSP_SIZE	0xB71000
@@ -349,5 +357,6 @@ void __init lge_add_gpio_i2c_device(gpio_i2c_init_func_t *init_func);
 void __init lge_add_gpio_i2c_devices(void);
 int __init lge_get_uart_mode(void);
 void __init lge_add_pm_devices(void);
+void __init lge_add_tsif_devices(void);
 
 #endif

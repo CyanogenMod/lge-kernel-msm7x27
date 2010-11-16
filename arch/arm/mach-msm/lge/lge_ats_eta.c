@@ -18,6 +18,7 @@
 #include <mach/msm_rpcrouter.h>
 #include <linux/syscalls.h>
 #include <linux/fcntl.h>
+#include <linux/slab.h>
 #include <mach/board_lge.h>
 #include <linux/lge_alohag_at.h>
 #include "lge_ats.h"

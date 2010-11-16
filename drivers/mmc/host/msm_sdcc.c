@@ -569,7 +569,6 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 	host->curr.xfer_remain = host->curr.xfer_size;
 	host->curr.data_xfered = 0;
 	host->curr.got_dataend = 0;
-	host->curr.got_datablkend = 0;
 
 	memset(&host->pio, 0, sizeof(host->pio));
 
@@ -1215,6 +1214,8 @@ int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
 	return 0;
 }
 
+/* FIXME: temporal deletion of code for enabling compile */
+#if 0
 /* LGE_CHANGE
  * Func : check gpio pin status
  * If the status is changed, go to rescan through delayed work queue.
@@ -1247,6 +1248,7 @@ static int msmsdcc_get_status(struct mmc_host *mmc)
 
 	return 0;
 }
+#endif
 
 static int msmsdcc_get_ro(struct mmc_host *mmc)
 {
@@ -1317,13 +1319,6 @@ static const struct mmc_host_ops msmsdcc_ops = {
 #ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
 	.enable_sdio_irq = msmsdcc_enable_sdio_irq,
 #endif
-<<<<<<< HEAD:drivers/mmc/host/msm_sdcc.c
-=======
-#ifdef CONFIG_MMC_AUTO_SUSPEND
-	.auto_suspend	= msmsdcc_auto_suspend,
-#endif
-	.get_status = msmsdcc_get_status,
->>>>>>> [P500] Modified Detectiong Sequence:drivers/mmc/host/msm_sdcc.c
 };
 
 /* LGE_CHANGE
@@ -1336,9 +1331,8 @@ static void
 msmsdcc_check_status(unsigned long data)
 {
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
-	if (msmsdcc_get_status(host->mmc)) {
+	unsigned int status;
 
-<<<<<<< HEAD:drivers/mmc/host/msm_sdcc.c
 	if (!host->plat->status) {
 		mmc_detect_change(host->mmc, 0);
 	} else {
@@ -1347,38 +1341,9 @@ msmsdcc_check_status(unsigned long data)
 		if (status ^ host->oldstat) {
 			pr_info("%s: Slot status change detected (%d -> %d)\n",
 			       mmc_hostname(host->mmc), host->oldstat, status);
-
-#ifdef CONFIG_LGE_BCM432X_PATCH
-			if (host->plat->status_irq == MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET)) {
-					printk(KERN_ERR "[host->plat->status_irq:%d:MSM_GPIO_TO_INIT:%d:status:%d:%s:%d]\n", 
-					host->plat->status_irq, 
-					MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET), 
-					status, __func__, __LINE__);
-					mmc_detect_change(host->mmc, 0);
-			}
-			else
-#endif
-				
-				if (host->eject)
-					mmc_detect_change(host->mmc, 0);
-				else
-					mmc_detect_change(host->mmc, (3 * HZ) / 2);
-=======
-#ifdef CONFIG_LGE_BCM432X_PATCH
-		if (host->plat->status_irq == MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET)) {
-			printk(KERN_ERR "[host->plat->status_irq:%d:MSM_GPIO_TO_INIT:%d:%s:%d]\n",
-				   host->plat->status_irq,
-				   MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET),
-				   __func__, __LINE__);
 			mmc_detect_change(host->mmc, 0);
->>>>>>> [P500] Modified Detectiong Sequence:drivers/mmc/host/msm_sdcc.c
 		}
-		else
-#endif
-			if (!host->eject)
-				mmc_detect_change(host->mmc, TIME_STEP);
-			else
-				mmc_detect_change(host->mmc, 0);
+		host->oldstat = status;
 	}
 }
 

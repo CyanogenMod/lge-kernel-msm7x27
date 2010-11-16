@@ -16,41 +16,61 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/gpio.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/input.h>
+#include <linux/io.h>
+#include <linux/delay.h>
+#include <linux/bootmem.h>
 #include <linux/power_supply.h>
-#ifdef CONFIG_USB_FUNCTION
-#include <linux/usb/mass_storage_function.h>
-#endif
-#include <linux/i2c.h>
+
+
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
+#include <asm/setup.h>
 #ifdef CONFIG_CACHE_L2X0
 #include <asm/hardware/cache-l2x0.h>
 #endif
 
-#include <mach/hardware.h>
-#include <mach/msm_hsusb.h>
-#ifdef CONFIG_USB_ANDROID
-#include <linux/usb/android.h>
-#endif
+#include <asm/mach/mmc.h>
+#include <mach/vreg.h>
+#include <mach/mpp.h>
 #include <mach/board.h>
+#include <mach/pmic.h>
 #include <mach/msm_iomap.h>
+#include <mach/msm_rpcrouter.h>
+#include <mach/msm_hsusb.h>
+#include <mach/rpc_hsusb.h>
+#include <mach/rpc_pmapp.h>
 #include <mach/msm_serial_hs.h>
 #include <mach/memory.h>
 #include <mach/msm_battery.h>
-#include <mach/mpp.h>
-#include <mach/gpio.h>
-#include <mach/board_lge.h>
+#include <mach/rpc_server_handset.h>
+#include <mach/msm_tsif.h>
+
+#include <linux/mtd/nand.h>
+#include <linux/mtd/partitions.h>
+#include <linux/i2c.h>
+#include <linux/android_pmem.h>
+#include <mach/camera.h>
 
 #include "devices.h"
 #include "socinfo.h"
 #include "clock.h"
 #include "msm-keypad-devices.h"
-#include "board-thunderg.h"
 #include "pm.h"
+#ifdef CONFIG_ARCH_MSM7X27
+#include <linux/msm_kgsl.h>
+#endif
+#ifdef CONFIG_USB_ANDROID
+#include <linux/usb/android_composite.h>
+#endif
+#include <mach/board_lge.h>
+#include "board-thunderg.h"
 
 /* board-specific pm tuning data definitions */
 
@@ -87,105 +107,118 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 #endif
 
 /* board-specific usb data definitions */
-
-/* For supporting LG Android gadget framework, move android gadget platform
- * datas to specific board file
- * hyunhui.park@lge.com 2010-07-10
- */
 #ifdef CONFIG_USB_ANDROID
-/* dynamic composition */
-/* This depends on each board. QCT original is at device_lge.c */
-/* function bit : (in include/linux/usb/android.h)
-   ADB				0x0001
-   MSC				0x0002
-   ACM_MODEM		0x0003
-   DIAG				0x0004
-   ACM_NMEA			0x0005
-   GENERIC_MODEM	0x0006
-   GENERIC_NMEA		0x0007
-   CDC_ECM			0x0008
-   RMNET			0x0009
-   RNDIS			0x000A
-   MTP				0x000B
-*/
-struct usb_composition usb_func_composition[] = {
-	{
-		/* Mass Storage only mode : UMS
-		 * PID is dedicated for Thunder Global
-		 */
-		.product_id         = 0x61C5,
-		.functions	    	= 0x2,
-		.adb_product_id     = 0x61C5,
-		.adb_functions	    = 0x2,
-	},
-	{
-		/* Full or Light mode : ADB, UMS, NMEA, DIAG, MODEM */
-		.product_id         = 0x618E,
-		.functions	    	= 0x2743,
-		.adb_product_id     = 0x618E,
-		.adb_functions	    = 0x12743,
-	},
-	{
-		/* Factory mode for WCDMA or GSM : DIAG, MODEM */
-		/* We are in factory mode, ignore adb function */
-		.product_id         = 0x6000,
-		.functions	    	= 0x43,
-		.adb_product_id     = 0x6000,
-		.adb_functions	    = 0x43,
-	},
-#ifdef CONFIG_USB_ANDROID_CDC_ECM
-	{
-		/* CDC ECM Driver for matching LG Android Net driver */
-		.product_id         = 0x61A2,
-		.functions          = 0x27384,
-		.adb_product_id     = 0x61A1,
-		.adb_functions      = 0x127384,
-	},
-#endif	
+char *usb_functions_default[] = {
+	"diag",
+	"modem",
+	"nmea",
+	"rmnet",
+	"usb_mass_storage",
+};
+
+char *usb_functions_default_adb[] = {
+	"diag",
+	"adb",
+	"modem",
+	"nmea",
+	"rmnet",
+	"usb_mass_storage",
+};
+
+char *usb_functions_rndis[] = {
+	"rndis",
+};
+
+char *usb_functions_rndis_adb[] = {
+	"rndis",
+	"adb",
+};
+
+char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
-	{
-		/* Microsoft's RNDIS driver */
-		.product_id         = 0xF00E,
-		.functions	    	= 0xA,
-		.adb_product_id     = 0xF00E,
-		.adb_functions	    = 0xA,
-	},
+	"rndis",
+#endif
+#ifdef CONFIG_USB_ANDROID_DIAG
+	"diag",
+#endif
+	"adb",
+#ifdef CONFIG_USB_F_SERIAL
+	"modem",
+	"nmea",
+#endif
+#ifdef CONFIG_USB_ANDROID_RMNET
+	"rmnet",
+#endif
+	"usb_mass_storage",
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
 #endif
 };
 
-#define VENDOR_QCT	0x05C6
-#define VENDOR_LGE	0x1004
-
-struct android_usb_platform_data android_usb_pdata = {
-	.vendor_id	= VENDOR_LGE,
-	.version	= 0x0100,
-	.compositions   = usb_func_composition,
-	.num_compositions = ARRAY_SIZE(usb_func_composition),
-	.product_name       = "LG Android USB Device",
-	.manufacturer_name	= "LG Electronics Inc.",
-	/* Default serial number(only for development) must
-	   be 20 characters at LG WCDMA class model(because of IMEI size).
-	   Currently we just have padding ;) */
-	.serial_number		= "LG_ANDROID_P500****",
-	.init_product_id	= 0x618E,
-	.nluns = 1,
-};
-
-struct usb_mass_storage_platform_data mass_storage_pdata = {
-	.nluns		= 1,
-	.vendor		= "GOOGLE",
-	.product	= "Mass Storage",
-	.release	= 0xFFFF,
-};
-
-struct platform_device mass_storage_device = {
-	.name           = "usb_mass_storage",
-	.id             = -1,
-	.dev            = {
-		.platform_data          = &mass_storage_pdata,
+struct android_usb_product usb_products[] = {
+	{
+		.product_id = 0x9026,
+		.num_functions  = ARRAY_SIZE(usb_functions_default),
+		.functions  = usb_functions_default,
+	},
+	{
+		.product_id = 0x9025,
+		.num_functions  = ARRAY_SIZE(usb_functions_default_adb),
+		.functions  = usb_functions_default_adb,
+	},
+	{
+		.product_id = 0xf00e,
+		.num_functions  = ARRAY_SIZE(usb_functions_rndis),
+		.functions  = usb_functions_rndis,
+	},
+	{
+		.product_id = 0x9024,
+		.num_functions  = ARRAY_SIZE(usb_functions_rndis_adb),
+		.functions  = usb_functions_rndis_adb,
 	},
 };
 
+struct usb_mass_storage_platform_data mass_storage_pdata = {
+	.nluns      = 1,
+	.vendor     = "Qualcomm Incorporated",
+	.product        = "Mass storage",
+	.release    = 0x0100,
+};
+
+struct platform_device usb_mass_storage_device = {
+	.name   = "usb_mass_storage",
+	.id = -1,
+	.dev    = {
+		.platform_data = &mass_storage_pdata,
+	},
+};
+
+struct usb_ether_platform_data rndis_pdata = {
+	/* ethaddr is filled by board_serialno_setup */
+	.vendorID   = 0x05C6,
+	.vendorDescr    = "Qualcomm Incorporated",
+};
+
+struct platform_device rndis_device = {
+	.name   = "rndis",
+	.id = -1,
+	.dev    = {
+		.platform_data = &rndis_pdata,
+	},
+};
+
+struct android_usb_platform_data android_usb_pdata = {
+	.vendor_id  = 0x05C6,
+	.product_id = 0x9026,
+	.version    = 0x0100,
+	.product_name       = "Qualcomm HSUSB Device",
+	.manufacturer_name  = "Qualcomm Incorporated",
+	.num_products = ARRAY_SIZE(usb_products),
+	.products = usb_products,
+	.num_functions = ARRAY_SIZE(usb_functions_all),
+	.functions = usb_functions_all,
+	.serial_number = "1234567890ABCDEF",
+};
 #endif /* CONFIG_USB_ANDROID */
 
 static struct platform_device *devices[] __initdata = {
@@ -243,8 +276,8 @@ static void __init msm7x2x_init(void)
 	msm_clock_init(msm_clocks_7x27, msm_num_clocks_7x27);
 
 #if defined(CONFIG_MSM_SERIAL_DEBUGGER)
-	msm_serial_debug_init(MSM_UART1_PHYS, INT_UART1,
-			&msm_device_uart1.dev, 1);
+	msm_serial_debug_init(MSM_UART3_PHYS, INT_UART3,
+			&msm_device_uart3.dev, 1);
 #endif
 
 	if (cpu_is_msm7x27())

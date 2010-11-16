@@ -465,7 +465,7 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 static void aat28xx_hw_reset(struct aat28xx_driver_data *drvdata)
 {
 	if (drvdata->client && gpio_is_valid(drvdata->gpio)) {
-		gpio_configure(drvdata->gpio, GPIOF_DRIVE_OUTPUT);
+		gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		/* EN set to LOW(shutdown) -> HIGH(enable) */
 		gpio_set_value(drvdata->gpio, 0);
 		udelay(5);
@@ -534,6 +534,7 @@ static void aat28xx_poweron(struct aat28xx_driver_data *drvdata)
 	}
 }
 
+#if 0
 static void aat28xx_poweroff(struct aat28xx_driver_data *drvdata)
 {
 	if (!drvdata || drvdata->state == POWEROFF_STATE)
@@ -548,11 +549,12 @@ static void aat28xx_poweroff(struct aat28xx_driver_data *drvdata)
 		return;
 	}
 
-	gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_direction_output(drvdata->gpio, 0);
 	mdelay(6);
 	drvdata->state = POWEROFF_STATE;
 }
+#endif
 
 /* This function provide sleep enter routine for power management. */
 static void aat28xx_sleep(struct aat28xx_driver_data *drvdata)
@@ -918,7 +920,7 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 		return -ENODEV;
 	}
 
-	bd = backlight_device_register("aat28xx-bl", &i2c_dev->dev, NULL, &aat28xx_ops);
+	bd = backlight_device_register("aat28xx-bl", &i2c_dev->dev, NULL, &aat28xx_ops, NULL);
 	if (bd == NULL) {
 		eprintk("entering aat28xx probe function error \n");
 		if (gpio_is_valid(drvdata->gpio))

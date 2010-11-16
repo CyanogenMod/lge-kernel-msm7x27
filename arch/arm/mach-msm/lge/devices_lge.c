@@ -15,33 +15,42 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/gpio.h>
+#include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/input.h>
+#include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/bootmem.h>
-#include <linux/android_pmem.h>
 #include <asm/setup.h>
+#include <asm/mach/mmc.h>
+#include <mach/vreg.h>
+#include <mach/mpp.h>
+#include <mach/board.h>
+#include <mach/pmic.h>
+#include <mach/msm_iomap.h>
+#include <mach/msm_rpcrouter.h>
+#include <mach/msm_hsusb.h>
+#include <mach/rpc_hsusb.h>
+#include <mach/rpc_pmapp.h>
+#include <linux/android_pmem.h>
 #ifdef CONFIG_ARCH_MSM7X27
 #include <linux/msm_kgsl.h>
 #endif
-#include <mach/msm_hsusb.h>
-#include <mach/rpc_hsusb.h>
 #ifdef CONFIG_USB_FUNCTION
 #include <linux/usb/mass_storage_function.h>
 #include <linux/usb/android_composite.h>
 #endif
 #ifdef CONFIG_USB_ANDROID
-#include <linux/usb/android.h>
+#include <linux/usb/android_composite.h>
 #endif
-#include <mach/msm_iomap.h>
-#include <mach/gpio.h>
-#include <mach/board.h>
-#include <mach/board_lge.h>
-#include <mach/rpc_pmapp.h>
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 #include <asm/setup.h>
 #endif
+#include <mach/board_lge.h>
 #include "../devices.h"
 #include "../pm.h"
+#include "../socinfo.h"
 
 /* setting board revision information */
 int lge_bd_rev;
@@ -152,7 +161,7 @@ static int msm_fb_detect_panel(const char *name)
 	int ret = -EPERM;
 
 	if (machine_is_msm7x25_ffa() || machine_is_msm7x27_ffa()) {
-		if (!strcmp(name, "lcdc_lgit_wvga"))
+		if (!strcmp(name, "lcdc_gordon_vga"))
 			ret = 0;
 		else
 			ret = -ENODEV;
@@ -218,10 +227,6 @@ static struct platform_device msm_device_kgsl = {
 
 void __init msm_add_kgsl_device(void) 
 {
-#ifdef CONFIG_ARCH_MSM7X27
-	/* Initialize the zero page for barriers and cache ops */
-	map_zero_page_strongly_ordered();
-
 	/* This value has been set to 160000 for power savings. */
 	/* OEMs may modify the value at their discretion for performance */
 	/* The appropriate maximum replacement for 160000 is: */
@@ -238,13 +243,13 @@ void __init msm_add_kgsl_device(void)
 	kgsl_pdata.set_grp3d_async = NULL;
 	kgsl_pdata.imem_clk_name = "imem_clk";
 	kgsl_pdata.grp3d_clk_name = "grp_clk";
-	kgsl_pdata.grp2d_clk_name = NULL;
-#endif
+	kgsl_pdata.grp2d0_clk_name = NULL;
+	kgsl_pdata.idle_timeout_3d = HZ/5;
+	kgsl_pdata.idle_timeout_2d = 0;
 
 	platform_device_register(&msm_device_kgsl);
 }
 #endif
-
 
 /* setting and allocating pmem address region */
 static struct android_pmem_platform_data android_pmem_kernel_ebi1_pdata = {
@@ -328,6 +333,14 @@ static void __init pmem_adsp_size_setup(char **p)
 }
 __early_param("pmem_adsp_size=", pmem_adsp_size_setup);
 
+static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
+static int __init pmem_audio_size_setup(char *p)
+{
+	pmem_audio_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_audio_size", pmem_audio_size_setup);
+
 __WEAK unsigned pmem_fb_size = MSM_FB_SIZE;
 static void __init fb_size_setup(char **p)
 {
@@ -358,12 +371,15 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 				"pmem arena\n", size, addr, __pa(addr));
 	}
 
-	size = MSM_PMEM_AUDIO_SIZE;
-	android_pmem_audio_pdata.start = MSM_PMEM_AUDIO_START_ADDR;
-	android_pmem_audio_pdata.size = size;
-	pr_info("allocating %lu bytes (at %lx physical) for audio "
-		"pmem arena\n", size , MSM_PMEM_AUDIO_START_ADDR);
-	
+	size = pmem_audio_size;
+	if (size) {
+		addr = alloc_bootmem(size);
+		android_pmem_audio_pdata.start = __pa(addr);
+		android_pmem_audio_pdata.size = size;
+		pr_info("allocating %lu bytes (at %lx physical) for audio "
+				"pmem arena\n", size , __pa(addr));
+	}
+
 	size = pmem_fb_size ? : MSM_FB_SIZE;
 	addr = alloc_bootmem(size);
 	msm_fb_resources[0].start = __pa(addr);
@@ -436,7 +452,6 @@ static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 
 static struct msm_usb_host_platform_data msm_usb_host_pdata = {
 	.phy_info       = (USB_PHY_INTEGRATED | USB_PHY_MODEL_65NM),
-	.vbus_power = msm_hsusb_vbus_power,
 };
 static void __init msm7x2x_init_host(void)
 {
@@ -451,7 +466,7 @@ static void __init msm7x2x_init_host(void)
 #ifdef CONFIG_USB_FUNCTION
 __WEAK struct usb_mass_storage_platform_data usb_mass_storage_pdata = {
 	.nluns          = 0x02,
-	/* .buf_size       = 16384, */  /* LGE_CHANGE, 6013 merge */
+	.buf_size       = 16384,
 	.vendor         = "GOOGLE",
 	.product        = "Mass storage",
 	.release        = 0xffff,
@@ -465,109 +480,118 @@ __WEAK struct platform_device mass_storage_device = {
 	},
 };
 #endif
+
 #ifdef CONFIG_USB_ANDROID
-/* dynamic composition */
-__WEAK struct usb_composition usb_func_composition[] = {
-	{
-		/* MSC */
-		.product_id         = 0xF000,
-		.functions	    = 0x02,
-		.adb_product_id     = 0x9015,
-		.adb_functions	    = 0x12
-	},
-#ifdef CONFIG_USB_F_SERIAL
-	{
-		/* MODEM */
-		.product_id         = 0xF00B,
-		.functions	    = 0x06,
-		.adb_product_id     = 0x901E,
-		.adb_functions	    = 0x16,
-	},
+__WEAK char *usb_functions_default[] = {
+	"diag",
+	"modem",
+	"nmea",
+	"rmnet",
+	"usb_mass_storage",
+};
+
+__WEAK char *usb_functions_default_adb[] = {
+	"diag",
+	"adb",
+	"modem",
+	"nmea",
+	"rmnet",
+	"usb_mass_storage",
+};
+
+__WEAK char *usb_functions_rndis[] = {
+	"rndis",
+};
+
+__WEAK char *usb_functions_rndis_adb[] = {
+	"rndis",
+	"adb",
+};
+
+__WEAK char *usb_functions_all[] = {
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	"rndis",
 #endif
 #ifdef CONFIG_USB_ANDROID_DIAG
-	{
-		/* DIAG */
-		.product_id         = 0x900E,
-		.functions	    = 0x04,
-		.adb_product_id     = 0x901D,
-		.adb_functions	    = 0x14,
-	},
+	"diag",
 #endif
-#if defined(CONFIG_USB_ANDROID_DIAG) && defined(CONFIG_USB_F_SERIAL)
-	{
-		/* DIAG + MODEM */
-		.product_id         = 0x9004,
-		.functions	    = 0x64,
-		.adb_product_id     = 0x901F,
-		.adb_functions	    = 0x0614,
-	},
-	{
-		/* DIAG + MODEM + NMEA*/
-		.product_id         = 0x9016,
-		.functions	    = 0x764,
-		.adb_product_id     = 0x9020,
-		.adb_functions	    = 0x7614,
-	},
-	{
-		/* DIAG + MODEM + NMEA + MSC */
-		.product_id         = 0x9017,
-		.functions	    = 0x2764,
-		.adb_product_id     = 0x9018,
-		.adb_functions	    = 0x27614,
-	},
-#endif
-#ifdef CONFIG_USB_ANDROID_CDC_ECM
-	{
-		/* MSC + CDC-ECM */
-		.product_id         = 0x9014,
-		.functions	    = 0x82,
-		.adb_product_id     = 0x9023,
-		.adb_functions	    = 0x812,
-	},
+	"adb",
+#ifdef CONFIG_USB_F_SERIAL
+	"modem",
+	"nmea",
 #endif
 #ifdef CONFIG_USB_ANDROID_RMNET
-	{
-		/* DIAG + RMNET */
-		.product_id         = 0x9021,
-		.functions	    = 0x94,
-		.adb_product_id     = 0x9022,
-		.adb_functions	    = 0x914,
-	},
+	"rmnet",
 #endif
-#ifdef CONFIG_USB_ANDROID_RNDIS
-	{
-		/* RNDIS */
-		.product_id         = 0xF00E,
-		.functions	    = 0xA,
-		.adb_product_id     = 0x9024,
-		.adb_functions	    = 0x1A,
-	},
+	"usb_mass_storage",
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
 #endif
+};
+
+__WEAK struct android_usb_product usb_products[] = {
+	{
+		.product_id	= 0x9026,
+		.num_functions	= ARRAY_SIZE(usb_functions_default),
+		.functions	= usb_functions_default,
+	},
+	{
+		.product_id	= 0x9025,
+		.num_functions	= ARRAY_SIZE(usb_functions_default_adb),
+		.functions	= usb_functions_default_adb,
+	},
+	{
+		.product_id	= 0xf00e,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis),
+		.functions	= usb_functions_rndis,
+	},
+	{
+		.product_id	= 0x9024,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
+		.functions	= usb_functions_rndis_adb,
+	},
 };
 
 __WEAK struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns		= 1,
-	.vendor		= "GOOGLE",
-	.product	= "Mass Storage",
-	.release	= 0xFFFF,
+	.vendor		= "Qualcomm Incorporated",
+	.product        = "Mass storage",
+	.release	= 0x0100,
 };
 
-__WEAK struct platform_device mass_storage_device = {
-	.name           = "usb_mass_storage",
-	.id             = -1,
-	.dev            = {
-		.platform_data          = &mass_storage_pdata,
+__WEAK struct platform_device usb_mass_storage_device = {
+	.name	= "usb_mass_storage",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &mass_storage_pdata,
+	},
+};
+
+__WEAK struct usb_ether_platform_data rndis_pdata = {
+	/* ethaddr is filled by board_serialno_setup */
+	.vendorID	= 0x05C6,
+	.vendorDescr	= "Qualcomm Incorporated",
+};
+
+__WEAK struct platform_device rndis_device = {
+	.name	= "rndis",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &rndis_pdata,
 	},
 };
 
 __WEAK struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x05C6,
+	.product_id	= 0x9026,
 	.version	= 0x0100,
-	.compositions   = usb_func_composition,
-	.num_compositions = ARRAY_SIZE(usb_func_composition),
-	.product_name	= "Qualcomm HSUSB Device",
-	.manufacturer_name = "Qualcomm Incorporated",
-	.nluns = 1,
+	.product_name		= "Qualcomm HSUSB Device",
+	.manufacturer_name	= "Qualcomm Incorporated",
+	.num_products = ARRAY_SIZE(usb_products),
+	.products = usb_products,
+	.num_functions = ARRAY_SIZE(usb_functions_all),
+	.functions = usb_functions_all,
+	.serial_number = "1234567890ABCDEF",
 };
 
 static struct platform_device android_usb_device = {
@@ -577,6 +601,25 @@ static struct platform_device android_usb_device = {
 		.platform_data = &android_usb_pdata,
 	},
 };
+
+static int __init board_serialno_setup(char *serialno)
+{
+	int i;
+	char *src = serialno;
+
+	/* create a fake MAC address from our serial number.
+	 * first byte is 0x02 to signify locally administered.
+	 */
+	rndis_pdata.ethaddr[0] = 0x02;
+	for (i = 0; *src; i++) {
+		/* XOR the USB serial across the remaining bytes */
+		rndis_pdata.ethaddr[i % (ETH_ALEN - 1) + 1] ^= *src++;
+	}
+
+	android_usb_pdata.serial_number = serialno;
+	return 1;
+}
+__setup("androidboot.serialno=", board_serialno_setup);
 #endif
 
 #ifdef CONFIG_USB_FUNCTION
@@ -669,24 +712,71 @@ static int hsusb_rpc_connect(int connect)
 	else
 		return msm_hsusb_rpc_close();
 }
-#endif
 
-#if defined(CONFIG_USB_MSM_OTG_72K) || defined(CONFIG_USB_EHCI_MSM)
-static int msm_hsusb_rpc_phy_reset(void __iomem *addr)
+struct vreg *vreg_3p3;
+static int msm_hsusb_ldo_init(int init)
 {
-		return msm_hsusb_phy_reset();
-}
-#endif
+	if (init) {
+		vreg_3p3 = vreg_get(NULL, "usb");
+		if (IS_ERR(vreg_3p3))
+			return PTR_ERR(vreg_3p3);
+		vreg_set_level(vreg_3p3, 3300);
+	} else
+		vreg_put(vreg_3p3);
 
-#ifdef CONFIG_USB_MSM_OTG_72K
+	return 0;
+}
+
+static int msm_hsusb_ldo_enable(int enable)
+{
+	static int ldo_status;
+
+	if (!vreg_3p3 || IS_ERR(vreg_3p3))
+		return -ENODEV;
+
+	if (ldo_status == enable)
+		return 0;
+
+	ldo_status = enable;
+
+	pr_info("%s: %d", __func__, enable);
+
+	if (enable)
+		return vreg_enable(vreg_3p3);
+
+	return vreg_disable(vreg_3p3);
+}
+
+static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
+{
+	int ret;
+
+	if (init) {
+		ret = msm_pm_app_rpc_init(callback);
+	} else {
+		msm_pm_app_rpc_deinit(callback);
+		ret = 0;
+	}
+	return ret;
+}
+
+static int msm_otg_rpc_phy_reset(void __iomem *regs)
+{
+	return msm_hsusb_phy_reset();
+}
+
 static struct msm_otg_platform_data msm_otg_pdata = {
-	.rpc_connect			 = hsusb_rpc_connect,
-	.phy_reset				 = msm_hsusb_rpc_phy_reset, 
-	.pmic_notif_init         = msm_pm_app_rpc_init,
-	.pmic_notif_deinit       = msm_pm_app_rpc_deinit,
-	.pmic_register_vbus_sn   = msm_pm_app_register_vbus_sn,
-	.pmic_unregister_vbus_sn = msm_pm_app_unregister_vbus_sn,
-	.pmic_enable_ldo         = msm_pm_app_enable_usb_ldo,
+	.rpc_connect    = hsusb_rpc_connect,
+	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+	.chg_vbus_draw       = hsusb_chg_vbus_draw,
+	.chg_connected       = hsusb_chg_connected,
+	.chg_init        = hsusb_chg_init,
+#ifdef CONFIG_USB_EHCI_MSM
+	.vbus_power = msm_hsusb_vbus_power,
+#endif
+	.ldo_init       = msm_hsusb_ldo_init,
+	.ldo_enable     = msm_hsusb_ldo_enable,
+	.pclk_required_during_lpm = 1
 };
 
 #ifdef CONFIG_USB_GADGET
@@ -707,13 +797,34 @@ static struct platform_device *usb_devices[] __initdata = {
 	&mass_storage_device,
 #endif
 #ifdef CONFIG_USB_ANDROID
-	&mass_storage_device,
+	&usb_mass_storage_device,
+	&rndis_device,
+#ifdef CONFIG_USB_ANDROID_DIAG
+	&usb_diag_device,
+#endif
 	&android_usb_device,
 #endif
 };
 
+static void usb_mpp_init(void)
+{
+	unsigned rc;
+	unsigned mpp_usb = 7;
+
+	if (machine_is_msm7x25_ffa() || machine_is_msm7x27_ffa()) {
+		rc = mpp_config_digital_out(mpp_usb,
+				MPP_CFG(MPP_DLOGIC_LVL_VDD,
+					MPP_DLOGIC_OUT_CTRL_HIGH));
+		if (rc)
+			pr_err("%s: configuring mpp pin"
+					"to enable 3.3V LDO failed\n", __func__);
+	}
+}
+
 void __init msm_add_usb_devices(void) 
 {
+	usb_mpp_init();
+
 #ifdef CONFIG_USB_FUNCTION
 	msm_hsusb_pdata.swfi_latency =
 		msm7x27_pm_data
@@ -724,12 +835,25 @@ void __init msm_add_usb_devices(void)
 
 #ifdef CONFIG_USB_MSM_OTG_72K
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
+	if (machine_is_msm7x25_surf() || machine_is_msm7x25_ffa()) {
+		msm_otg_pdata.pemp_level =
+			PRE_EMPHASIS_WITH_20_PERCENT;
+		msm_otg_pdata.drv_ampl = HS_DRV_AMPLITUDE_5_PERCENT;
+		msm_otg_pdata.cdr_autoreset = CDR_AUTO_RESET_ENABLE;
+		msm_otg_pdata.phy_reset = msm_otg_rpc_phy_reset;
+	}
+	if (machine_is_msm7x27_surf() || machine_is_msm7x27_ffa()) {
+		msm_otg_pdata.pemp_level =
+			PRE_EMPHASIS_WITH_10_PERCENT;
+		msm_otg_pdata.drv_ampl = HS_DRV_AMPLITUDE_5_PERCENT;
+		msm_otg_pdata.cdr_autoreset = CDR_AUTO_RESET_DISABLE;
+		msm_otg_pdata.phy_reset_sig_inverted = 1;
+	}
 
 #ifdef CONFIG_USB_GADGET
-	msm_gadget_pdata.swfi_latency =
+	msm_otg_pdata.swfi_latency =
 		msm7x27_pm_data
 		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
-
 	msm_device_gadget_peripheral.dev.platform_data = &msm_gadget_pdata;
 #endif
 #endif
@@ -755,15 +879,15 @@ msm_i2c_gpio_config(int iface, int config_type)
 		gpio_sda = 61;
 	}
 	if (config_type) {
-		gpio_tlmm_config(GPIO_CFG(gpio_scl, 1, GPIO_INPUT,
-					GPIO_NO_PULL, GPIO_16MA), GPIO_ENABLE);
-		gpio_tlmm_config(GPIO_CFG(gpio_sda, 1, GPIO_INPUT,
-					GPIO_NO_PULL, GPIO_16MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(gpio_scl, 1, GPIO_CFG_INPUT,
+					GPIO_CFG_NO_PULL, GPIO_CFG_16MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(gpio_sda, 1, GPIO_CFG_INPUT,
+					GPIO_CFG_NO_PULL, GPIO_CFG_16MA), GPIO_CFG_ENABLE);
 	} else {
-		gpio_tlmm_config(GPIO_CFG(gpio_scl, 0, GPIO_OUTPUT,
-					GPIO_NO_PULL, GPIO_16MA), GPIO_ENABLE);
-		gpio_tlmm_config(GPIO_CFG(gpio_sda, 0, GPIO_OUTPUT,
-					GPIO_NO_PULL, GPIO_16MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(gpio_scl, 0, GPIO_CFG_OUTPUT,
+					GPIO_CFG_NO_PULL, GPIO_CFG_16MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(gpio_sda, 0, GPIO_CFG_OUTPUT,
+					GPIO_CFG_NO_PULL, GPIO_CFG_16MA), GPIO_CFG_ENABLE);
 	}
 }
 
@@ -788,12 +912,47 @@ void __init msm_device_i2c_init(void)
 	if (gpio_request(96, "i2c_sec_dat"))
 		pr_err("failed to request gpio i2c_sec_dat\n");
 
-	msm_i2c_pdata.pm_lat =
+	if (cpu_is_msm7x27())
+		msm_i2c_pdata.pm_lat =
 		msm7x27_pm_data[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN]
+		.latency;
+	else
+		msm_i2c_pdata.pm_lat =
+		msm7x25_pm_data[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN]
 		.latency;
 
 	msm_device_i2c.dev.platform_data = &msm_i2c_pdata;
 }
+
+/* TSIF begin */
+#if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
+
+#define TSIF_B_SYNC      GPIO_CFG(87, 5, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_B_DATA      GPIO_CFG(86, 3, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_B_EN        GPIO_CFG(85, 3, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_B_CLK       GPIO_CFG(84, 4, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+
+static const struct msm_gpio tsif_gpios[] = {
+	{ .gpio_cfg = TSIF_B_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_B_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_B_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_B_SYNC, .label =  "tsif_sync", },
+};
+
+static struct msm_tsif_platform_data tsif_platform_data = {
+	.num_gpios = ARRAY_SIZE(tsif_gpios),
+	.gpios = tsif_gpios,
+	.tsif_clk = "tsif_clk",
+	.tsif_pclk = "tsif_pclk",
+	.tsif_ref_clk = "tsif_ref_clk",
+};
+
+void __init lge_add_tsif_devices(void)
+{
+	msm_device_tsif.dev.platform_data = &tsif_platform_data;
+	platform_device_register(&msm_device_tsif);
+}
+#endif /* defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE) */
 
 /* lge gpio i2c device */
 #define MAX_GPIO_I2C_DEV_NUM	10
@@ -826,22 +985,22 @@ int init_gpio_i2c_pin(struct i2c_gpio_platform_data *i2c_adap_pdata,
 	i2c_adap_pdata->sda_pin = gpio_i2c_pin.sda_pin;
 	i2c_adap_pdata->scl_pin = gpio_i2c_pin.scl_pin;
 
-	gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.sda_pin, 0, GPIO_OUTPUT,
-				GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
-	gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.scl_pin, 0, GPIO_OUTPUT,
-				GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.sda_pin, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.scl_pin, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_set_value(gpio_i2c_pin.sda_pin, 1);
 	gpio_set_value(gpio_i2c_pin.scl_pin, 1);
 
 	if (gpio_i2c_pin.reset_pin) {
-		gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.reset_pin, 0, GPIO_OUTPUT,
-					GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.reset_pin, 0, GPIO_CFG_OUTPUT,
+					GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		gpio_set_value(gpio_i2c_pin.reset_pin, 1);
 	}
 
 	if (gpio_i2c_pin.irq_pin) {
-		gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.irq_pin, 0, GPIO_INPUT,
-					GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.irq_pin, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		i2c_board_info_data->irq =
 			MSM_GPIO_TO_INT(gpio_i2c_pin.irq_pin);
 	}

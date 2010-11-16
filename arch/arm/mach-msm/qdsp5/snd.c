@@ -385,8 +385,6 @@ struct snd_set_hook_mode_msg {
     struct rpc_snd_set_hook_mode_args args;
 };
 
-static int loopback_at=false;
-static int last_device_at=-1;
 static int fm_radio_flag = 0;
 /* LGE_CHANGE_E, [junyoub.an] , 2010-02-19, for sound cal tool*/
 #endif

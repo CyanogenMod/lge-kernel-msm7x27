@@ -208,6 +208,7 @@ static const uint32_t hs_key_map[] = {
 	KEY(HS_HEADSET_SWITCH_K, KEY_MEDIA),
 	KEY(HS_HEADSET_SWITCH_2_K, KEY_VOLUMEUP),
 	KEY(HS_HEADSET_SWITCH_3_K, KEY_VOLUMEDOWN),
+#endif
 	0
 };
 
@@ -478,6 +479,7 @@ void rpc_server_hs_register_callback(void *callback_func)
 EXPORT_SYMBOL(rpc_server_hs_register_callback);
 
 static int hs_rpc_pwr_cmd_arg(struct msm_rpc_client *client,
+                    void *buffer, void *data)
 {
 	struct hs_cmd_data_type *hs_pwr_cmd = buffer;
 

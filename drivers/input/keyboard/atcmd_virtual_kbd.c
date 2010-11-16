@@ -28,8 +28,6 @@
 #define DRIVER_VERSION "v1.0"
 #define KEY_DRIVER_NAME "atcmd_virtual_kbd"
 
-static const char *kbd_name  = "atcmd_virtual"; 
-
 static struct input_dev *atcmd_virtual_kbd_dev;
 static struct atcmd_virtual_platform_data *atcmd_virtual_pdata;
 

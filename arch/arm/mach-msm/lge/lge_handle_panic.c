@@ -228,7 +228,7 @@ static int display_panic_reason(struct notifier_block *this, unsigned long event
 		memset(store_buffer, 0x00, display_size * 2);
 		lge_set_reboot_reason(bank->size);
 
-		if (ptr == CRASH_ARM9) /* arm9 has crashed */
+		if ((unsigned int)ptr == CRASH_ARM9) /* arm9 has crashed */
 			panic_dump_log->magic_key = CRASH_ARM9;
 
 		if (report_start < start) {

@@ -28,6 +28,7 @@
 #include <linux/input-polldev.h>
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
+#include <linux/slab.h>
 
 #include <mach/board_lge.h> // platform data
 #include <linux/akm8973.h>	// akm daemon ioctl set

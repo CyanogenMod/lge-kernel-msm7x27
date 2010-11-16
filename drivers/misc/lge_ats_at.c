@@ -7,7 +7,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/lge_alohag_at.h>
-
+#include <linux/slab.h>
 
 #define DEBUG_AT	1
 
@@ -46,7 +46,7 @@ static int atcmd_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	atcmd_data->sdev.name = pdata->name;
+	atcmd_data->sdev.name = (char *)pdata->name;
     ret = atcmd_dev_register(&atcmd_data->sdev);
 	if (ret < 0)
 		goto err_atcmd_dev_register;

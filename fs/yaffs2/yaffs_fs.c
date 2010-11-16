@@ -2183,7 +2183,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 
 	if (!readOnly && !(mtd->flags & MTD_WRITEABLE)) {
 		readOnly = 1;
-		printk(KERN_INFO, "yaffs: mtd is read only, setting superblock read only\n");
+		printk(KERN_INFO "yaffs: mtd is read only, setting superblock read only\n");
 		sb->s_flags |= MS_RDONLY;
 	}
 

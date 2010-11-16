@@ -106,7 +106,7 @@ static void early_suspend(struct work_struct *work)
 		 */
 		char sym[KSYM_SYMBOL_LEN];
 		
-		sprint_symbol(sym, pos->suspend);
+		sprint_symbol(sym, (unsigned long)pos->suspend);
 		printk(KERN_INFO"%s: %s\n", __func__, sym);
 #endif
 		if (pos->suspend != NULL)
@@ -153,7 +153,7 @@ static void late_resume(struct work_struct *work)
 		 */
 		char sym[KSYM_SYMBOL_LEN];
 		
-		sprint_symbol(sym, pos->resume);
+		sprint_symbol(sym, (unsigned long)pos->resume);
 		printk(KERN_INFO"%s: %s\n", __func__, sym);
 #endif
 		if (pos->resume != NULL)

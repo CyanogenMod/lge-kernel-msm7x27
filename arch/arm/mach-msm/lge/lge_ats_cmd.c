@@ -29,7 +29,7 @@ void wirte_flight_mode(int mode)
 	int fd = sys_open("/sys/devices/platform/autoall/flight", O_WRONLY, 0);
 	
 	if (fd == -1) {
-        	return -1;
+        	return;
     	}
 
 	sprintf(buf, "%d", mode);

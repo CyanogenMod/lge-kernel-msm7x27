@@ -35,6 +35,7 @@
 #include <linux/wakelock.h>
 #include <mach/msm_i2ckbd.h>
 #include <linux/spinlock.h>
+#include <linux/slab.h>
 
 #include <mach/board_lge.h>
 

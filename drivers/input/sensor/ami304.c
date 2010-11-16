@@ -88,11 +88,10 @@ static int ami304_resume(struct device *device);
 #define AMI_MAGNETIC_FIELD_SENSOR	1
 #define AMI_ACCELEROMETER_SENSOR		2
 
-/* Addresses to scan */
-static unsigned short normal_i2c[] = { AMI304_I2C_ADDRESS, I2C_CLIENT_END };
-
+#if 0
 /* Insmod parameters */
 I2C_CLIENT_INSMOD_1(ami304);
+#endif
 
 struct _ami302_data {
 	rwlock_t lock;

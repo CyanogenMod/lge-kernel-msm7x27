@@ -21,6 +21,7 @@
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
 #include <linux/list.h>
+#include <linux/slab.h>
 #include <mach/board_lge.h>
 
 static LIST_HEAD(switchs);
@@ -158,8 +159,8 @@ static int lge_gpio_switch_probe(struct platform_device *pdev)
 
 	for(index = 0; index < switch_data->num_gpios; index++) {
 		gpio_tlmm_config(GPIO_CFG(switch_data->gpios[index], 0, 
-					GPIO_INPUT, GPIO_NO_PULL,
-					GPIO_2MA), GPIO_ENABLE);
+					GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
+					GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
 		ret = gpio_request(switch_data->gpios[index], pdev->name);
 		if (ret < 0)

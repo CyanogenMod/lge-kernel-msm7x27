@@ -1,3 +1,4 @@
+#include <linux/slab.h>
 #include <linux/syscalls.h>
 #include <linux/fcntl.h>
 

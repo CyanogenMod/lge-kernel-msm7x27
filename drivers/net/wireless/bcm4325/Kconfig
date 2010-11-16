@@ -1,6 +1,5 @@
 config BCM4325
 	tristate "Broadcom BCM4325 wireless support"
-	depends on WLAN_80211
 	select WIRELESS_EXT
 	---help---
 	  This is a driver for the Broadcom 4325 wireless chip.

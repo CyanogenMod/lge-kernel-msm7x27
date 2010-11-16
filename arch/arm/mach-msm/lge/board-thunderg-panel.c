@@ -38,13 +38,13 @@ static char *msm_fb_vreg[] = {
 };
 
 static int mddi_power_save_on;
-static void msm_fb_mddi_power_save(int on)
+static int msm_fb_mddi_power_save(int on)
 {
 	struct vreg *vreg;
 	int flag_on = !!on;
 
 	if (mddi_power_save_on == flag_on)
-		return;
+		return 0;
 
 	mddi_power_save_on = flag_on;
 
@@ -55,6 +55,8 @@ static void msm_fb_mddi_power_save(int on)
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], disable, 0);
 	}
+
+	return 0;
 }
 
 static struct mddi_platform_data mddi_pdata = {
@@ -79,20 +81,21 @@ static int mddi_hitachi_pmic_backlight(int level)
 }
 
 #if 1//def CONFIG_MACH_MSM7X27_ALOHAG
-		/* LGE_CHANGE
-		  * Define new structure named 'msm_panel_hitachi_pdata' to use LCD initialization Flag (.initialized).
-		  * 2010-04-21, minjong.gong@lge.com
-		  */
-	static struct msm_panel_hitachi_pdata mddi_hitachi_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = mddi_hitachi_pmic_backlight,
-		.initialized = 1,
-#else
-	static struct msm_panel_common_pdata mddi_hitachi_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = mddi_hitachi_pmic_backlight,
-#endif
+/* LGE_CHANGE
+ * Define new structure named 'msm_panel_hitachi_pdata' to use LCD initialization Flag (.initialized).
+ * 2010-04-21, minjong.gong@lge.com
+ */
+static struct msm_panel_hitachi_pdata mddi_hitachi_panel_data = {
+	.gpio = 102,				/* lcd reset_n */
+	.pmic_backlight = mddi_hitachi_pmic_backlight,
+	.initialized = 1,
 };
+#else
+static struct msm_panel_common_pdata mddi_hitachi_panel_data = {
+	.gpio = 102,				/* lcd reset_n */
+	.pmic_backlight = mddi_hitachi_pmic_backlight,
+};
+#endif
 
 static struct platform_device mddi_hitachi_panel_device = {
 	.name   = "mddi_hitachi_hvga",
