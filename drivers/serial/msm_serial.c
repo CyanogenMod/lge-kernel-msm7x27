@@ -1136,7 +1136,6 @@ static struct dev_pm_ops msm_serial_dev_pm_ops = {
 };
 
 static struct platform_driver msm_platform_driver = {
-	.probe = msm_serial_probe,
 	.remove = msm_serial_remove,
 	.suspend = msm_serial_suspend,
 	.resume = msm_serial_resume,
