@@ -223,6 +223,7 @@ struct android_vibrator_platform_data {
 	int (*power_set)(int enable); 		/* LDO Power Set Function */
 	int (*pwm_set)(int enable, int gain); 		/* PWM Set Function */
 	int (*ic_enable_set)(int enable); 	/* Motor IC Set Function */
+	int (*gpio_request)(void);	/* gpio request */
 	int amp_value;				/* PWM tuning value */
 };
 

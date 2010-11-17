@@ -62,6 +62,12 @@ static int android_vibrator_intialize(void)
 		return -1;
 	}
 #endif
+	/* request gpio pin */
+	if (vibe_data->gpio_request)
+		if (vibe_data->gpio_request()) {
+			printk(KERN_ERR"%s: gpio request failed\n", __func__);
+			return -1;
+		}
 
 	/* Disable IC  */
 	if (vibe_data->ic_enable_set(0) < 0) {

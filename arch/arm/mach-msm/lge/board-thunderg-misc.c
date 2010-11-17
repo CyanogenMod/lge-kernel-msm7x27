@@ -247,11 +247,24 @@ int thunderg_vibrator_ic_enable_set(int enable)
 	return 0;
 }
 
+int thunderg_vibrator_gpio_request(void)
+{
+	int rc = 0;
+
+	rc = gpio_request(GPIO_LIN_MOTOR_PWM, "lin_motor_pwm");
+
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
 static struct android_vibrator_platform_data thunderg_vibrator_data = {
 	.enable_status = 0,	
 	.power_set = thunderg_vibrator_power_set,
 	.pwm_set = thunderg_vibrator_pwm_set,
 	.ic_enable_set = thunderg_vibrator_ic_enable_set,
+	.gpio_request = thunderg_vibrator_gpio_request,
 	.amp_value = 92,
 };
 
