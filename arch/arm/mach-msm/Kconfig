@@ -1277,4 +1277,12 @@ config MSM_SHOW_RESUME_IRQ
 		the resume loop unrolls. Say Y if you want to debug why the system
 		resumed.
 
+config BT_MSM_PINTEST
+	tristate "MSM Bluetooth Pin Connectivity Test"
+	depends on (ARCH_MSM8X60 && DEBUG_FS)
+        default n
+	help
+	  Bluetooth MSM Pin Connectivity test module.
+	  This driver provides support for verifying the MSM to BT pin
+	  connectivity.
 endif
