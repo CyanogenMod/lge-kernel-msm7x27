@@ -1095,6 +1095,12 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 		DMSG("MCS-6000 IRQ#=%d, IRQ_GPIO#=%d\n", ts->num_irq, ts->intr_gpio);
 
 	if (client->irq) {
+		ret = gpio_request(ts->intr_gpio, "ts_gpio_irq");
+		if (ret) {
+			printk(KERN_ERR "mcs6000_probe_ts: gpio_request failed\n");
+			goto err_gpio_direction_input_failed;
+		}
+
 		ret = gpio_direction_input(ts->intr_gpio);
 		if (ret < 0) {
 			printk(KERN_ERR "mcs6000_probe_ts: gpio_direction_input failed\n");
