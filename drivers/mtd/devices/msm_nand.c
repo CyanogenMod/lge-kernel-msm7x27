@@ -6638,7 +6638,16 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 				<<  6)  /* Bad block marker location */
 		|    (0 << 16)  /* Bad block in user data area */
 		|    (2 << 17)  /* 6 cycle tWB/tRB */
+#ifdef CONFIG_MACH_LGE
+		/* to fix qualcomm's bug
+		 * if wide_bus is '0', wide_bus bit should be set '0'
+		 * but in qualcomm's original code, wide_bus bit is set to '1' always
+		 * 2010-11-17, cleaneye.kim@lge.com
+		 */
+		| ((wide_bus) ? CFG1_WIDE_FLASH : (0 << 1)); /* Wide flash bit */
+#else
 		| (wide_bus & CFG1_WIDE_FLASH); /* Wide flash bit */
+#endif
 
 	chip->ecc_buf_cfg = 0x203;
 
