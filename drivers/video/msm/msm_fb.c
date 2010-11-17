@@ -1918,10 +1918,8 @@ int mdp_blit(struct fb_info *info, struct mdp_blit_req *req)
 		d_h_0 = d_h_1 = req->dst_rect.h;
 		d_x_0 = req->dst_rect.x;
 
-		if (remainder == 14)
-			d_w_1 = (req->dst_rect.w - 14) / 2 + 4;
-		else if (remainder == 6)
-			d_w_1 = req->dst_rect.w / 2 - 1;
+		if (remainder == 14 || remainder == 6)
+			d_w_1 = req->dst_rect.w / 2;
 		else
 			d_w_1 = (req->dst_rect.w - 1) / 2 - 1;
 
