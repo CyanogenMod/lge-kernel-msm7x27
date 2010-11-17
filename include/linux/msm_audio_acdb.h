@@ -50,12 +50,18 @@
 			(AUDIO_MAX_COMMON_IOCTL_NUM+7), unsigned)
 #define AUDIO_SET_AUDPROC_TX_VOL_CAL	_IOW(AUDIO_IOCTL_MAGIC, \
 			(AUDIO_MAX_COMMON_IOCTL_NUM+8), unsigned)
-
+#define AUDIO_SET_SIDETONE_CAL		_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+9), unsigned)
 
 /* ACDB structures */
 struct cal_block {
 	uint32_t	cal_size;	/* Size of Cal Data */
 	uint32_t	cal_offset;	/* offset pointer to Cal Data */
+};
+
+struct sidetone_cal {
+	uint16_t	enable;
+	uint16_t	gain;
 };
 
 #endif /* __MSM_AUDIO_ACDB_H */
