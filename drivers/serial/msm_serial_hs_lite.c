@@ -1183,7 +1183,6 @@ static struct dev_pm_ops msm_hsl_dev_pm_ops = {
 };
 
 static struct platform_driver msm_hsl_platform_driver = {
-	.probe = msm_serial_hsl_probe,
 	.remove = msm_serial_hsl_remove,
 	.driver = {
 		.name = "msm_serial_hsl",
