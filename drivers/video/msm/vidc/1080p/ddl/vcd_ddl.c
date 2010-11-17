@@ -17,6 +17,7 @@
  */
 
 #include "vcd_ddl.h"
+#include "vcd_ddl_metadata.h"
 
 u32 ddl_device_init(struct ddl_init_config *ddl_init_config,
 	void *client_data)
@@ -74,6 +75,15 @@ u32 ddl_device_init(struct ddl_init_config *ddl_init_config,
 			ddl_context->dram_base_a.align_physical_addr;
 		ddl_context->dram_base_b.align_virtual_addr  =
 			ddl_context->dram_base_a.align_virtual_addr;
+	}
+	if (!status) {
+		ptr = ddl_pmem_alloc(&ddl_context->metadata_shared_input,
+			DDL_METADATA_TOTAL_INPUTBUFSIZE,
+			DDL_LINEAR_BUFFER_ALIGN_BYTES);
+		if (!ptr) {
+			DDL_MSG_ERROR("ddl_device_init: metadata alloc fail");
+			status = VCD_ERR_ALLOC_FAIL;
+		}
 	}
 	if (!status && !ddl_fw_init(&ddl_context->dram_base_a)) {
 		DDL_MSG_ERROR("ddl_dev_init:fw_init_failed");
@@ -167,6 +177,7 @@ u32 ddl_open(u32 **ddl_handle, u32 decoding)
 		ddl->client_state = DDL_CLIENT_OPEN;
 		ddl->codec_data.hdr.decoding = decoding;
 		ddl->decoding = decoding;
+		ddl_set_default_meta_data_hdr(ddl);
 		ddl_set_initial_default_values(ddl);
 		*ddl_handle	= (u32 *) ddl;
 	} else {

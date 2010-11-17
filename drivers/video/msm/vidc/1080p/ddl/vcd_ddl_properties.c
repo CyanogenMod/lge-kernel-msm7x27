@@ -17,6 +17,7 @@
  */
 
 #include "vcd_ddl.h"
+#include "vcd_ddl_metadata.h"
 
 static u32 ddl_set_dec_property(struct ddl_client_context *pddl,
 	struct vcd_property_hdr *property_hdr, void *property_value);
@@ -315,7 +316,9 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 	break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
-		DDL_MSG_ERROR("Meta Data Interface is Not supported");
+		DDL_MSG_ERROR("Meta Data Interface is Requested");
+		vcd_status = ddl_set_metadata_params(ddl, property_hdr,
+			property_value);
 		vcd_status = VCD_S_SUCCESS;
 		break;
 	case VCD_I_FRAME_RATE:
@@ -744,7 +747,9 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 	break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
-		DDL_MSG_ERROR("Meta Data Interface is Not supported");
+		DDL_MSG_ERROR("Meta Data Interface is Requested");
+		vcd_status = ddl_set_metadata_params(ddl, property_hdr,
+			property_value);
 		vcd_status = VCD_S_SUCCESS;
 	break;
 	default:
@@ -862,7 +867,9 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 	break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
-		DDL_MSG_ERROR("Meta Data Interface is Not supported");
+		DDL_MSG_ERROR("Meta Data Interface is Requested");
+		vcd_status = ddl_get_metadata_params(ddl, property_hdr,
+			property_value);
 		vcd_status = VCD_S_SUCCESS;
 	break;
 	default:
@@ -1121,7 +1128,9 @@ static u32 ddl_get_enc_property(struct ddl_client_context *ddl,
 	break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
-		DDL_MSG_ERROR("Meta Data Interface is Not supported");
+		DDL_MSG_ERROR("Meta Data Interface is Requested");
+		vcd_status = ddl_get_metadata_params(ddl, property_hdr,
+			property_value);
 		vcd_status = VCD_S_SUCCESS;
 	break;
 	default:
@@ -1239,8 +1248,7 @@ void ddl_set_default_dec_property(struct ddl_client_context *ddl)
 	decoder->client_frame_size.stride = VCD_DDL_TEST_DEFAULT_WIDTH;
 	decoder->client_frame_size.scan_lines = VCD_DDL_TEST_DEFAULT_HEIGHT;
 	decoder->progressive_only = 1;
-
-	decoder->meta_data_enable_flag = 0;
+	ddl_set_default_metadata_flag(ddl);
 	ddl_set_default_decoder_buffer_req(decoder, true);
 }
 
@@ -1271,7 +1279,7 @@ static void ddl_set_default_enc_property(struct ddl_client_context *ddl)
 	encoder->hdr_ext_control = 0;
 	encoder->mb_info_enable  = false;
 	encoder->num_references_for_p_frame = DDL_MIN_NUM_REF_FOR_P_FRAME;
-	encoder->meta_data_enable_flag = 0;
+	ddl_set_default_metadata_flag(ddl);
 	ddl_set_default_encoder_buffer_req(encoder);
 }
 
@@ -1423,6 +1431,7 @@ void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data *encoder)
 		y_cb_cr_size = y_cb_cr_size>>1;
 	encoder->output_buf_req.sz =
 		DDL_ALIGN(y_cb_cr_size, DDL_KILO_BYTE(4));
+	ddl_set_default_encoder_metadata_buffer_size(encoder);
 	encoder->client_output_buf_req = encoder->output_buf_req;
 }
 
@@ -1482,6 +1491,9 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 		output_buf_req->align = DDL_TILE_BUFFER_ALIGN_BYTES;
 	else
 		output_buf_req->align = DDL_LINEAR_BUFFER_ALIGN_BYTES;
+	ddl_set_default_decoder_metadata_buffer_size(decoder, frame_size,
+		output_buf_req);
+
 	decoder->min_output_buf_req = *output_buf_req;
 	memset(input_buf_req, 0,
 		sizeof(struct vcd_buffer_requirement));

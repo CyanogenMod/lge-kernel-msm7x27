@@ -328,6 +328,7 @@ void ddl_release_context_buffers(struct ddl_context *ddl_context)
 {
 	ddl_pmem_free(&ddl_context->dram_base_a);
 	ddl_pmem_free(&ddl_context->dram_base_b);
+	ddl_pmem_free(&ddl_context->metadata_shared_input);
 	ddl_fw_release();
 }
 

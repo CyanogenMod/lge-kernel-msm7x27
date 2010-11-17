@@ -389,6 +389,7 @@ struct vidc_1080p_enc_frame_info{
 	u32 enc_luma_address;
 	u32 enc_chroma_address;
 	enum vidc_1080p_encode_frame enc_frame;
+	u32 meta_data_exists;
 };
 struct vidc_1080p_dec_disp_info{
 	u32 resl_change;
