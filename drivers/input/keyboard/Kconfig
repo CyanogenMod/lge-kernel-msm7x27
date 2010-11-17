@@ -439,6 +439,14 @@ config KEYBOARD_QCIKBD_REPEAT
 	  Say Y here if you want to enable Quanta keyboard driver's key repeat
 	  feature.
 
+config KEYBOARD_QCIKBD_LID
+	bool "Enable lid event for Quanta Computer Inc. keyboard"
+	depends on KEYBOARD_QCIKBD
+	default n
+	help
+	  Say Y here if you want to register lid event in Quanta keyboard
+	  driver.
+
 config KEYBOARD_W90P910
 	tristate "W90P910 Matrix Keypad support"
 	depends on ARCH_W90X900
