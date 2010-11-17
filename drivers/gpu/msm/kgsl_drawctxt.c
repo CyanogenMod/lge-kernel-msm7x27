@@ -1684,12 +1684,10 @@ int kgsl_drawctxt_bind_gmem_shadow(struct kgsl_yamato_device *yamato_device,
 		BUG_ON(shadow_x % 2);  /* Needs to be a multiple of 2 */
 		BUG_ON(shadow_y % 2);  /* Needs to be a multiple of 2 */
 
-		BUG_ON(shadow_buffer->format < COLORX_4_4_4_4);
 		BUG_ON(shadow_buffer->format > COLORX_32_32_32_32_FLOAT);
 		/* Needs to be a multiple of 32 */
 		BUG_ON(shadow_buffer->pitch % 32);
 
-		BUG_ON(buffer_id < 0);
 		BUG_ON(buffer_id > KGSL_MAX_GMEM_SHADOW_BUFFERS);
 
 		width = gmem_desc->width;
