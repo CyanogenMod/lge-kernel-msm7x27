@@ -22,6 +22,8 @@
 #include <asm/mach-types.h>
 #include <mach/board.h>
 #include <mach/qdsp5v2/snddev_icodec.h>
+#include <mach/qdsp5v2/snddev_mi2s.h>
+#include <mach/qdsp5v2/mi2s.h>
 #include <mach/qdsp5v2/audio_acdb_def.h>
 #include "timpani_profile_7x30.h"
 
@@ -187,11 +189,30 @@ static struct platform_device msm_headset_mic_device = {
 	.dev = { .platform_data = &snddev_headset_mic_data },
 };
 
+static struct snddev_mi2s_data snddev_mi2s_fm_tx_data = {
+	.capability = SNDDEV_CAP_TX ,
+	.name = "fmradio_stereo_tx",
+	.copp_id = 2,
+	.acdb_id = ACDB_ID_FM_TX,
+	.channel_mode = 2,
+	.sd_lines = MI2S_SD_3,
+	.route = NULL,
+	.deroute = NULL,
+	.default_sample_rate = 48000,
+};
+
+static struct platform_device  msm_snddev_mi2s_fm_tx_device = {
+	.name = "snddev_mi2s",
+	.id = 1,
+	.dev = { .platform_data = &snddev_mi2s_fm_tx_data},
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
 	&msm_ispkr_stereo_device,
 	&msm_headset_mic_device,
+	&msm_snddev_mi2s_fm_tx_device,
 };
 
 void __init msm_snddev_init_timpani(void)
