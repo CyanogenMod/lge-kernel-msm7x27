@@ -254,6 +254,70 @@ static struct platform_device msm_bt_sco_mic_device = {
 	.dev = { .platform_data = &snddev_bt_sco_mic_data },
 };
 
+static struct adie_codec_action_unit headset_ab_cpls_48KHz_osr256_actions[] =
+	HEADSET_AB_CPLS_48000_OSR_256;
+
+static struct adie_codec_hwsetting_entry headset_ab_cpls_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = headset_ab_cpls_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(headset_ab_cpls_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile headset_ab_cpls_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = headset_ab_cpls_settings,
+	.setting_sz = ARRAY_SIZE(headset_ab_cpls_settings),
+};
+
+static struct snddev_icodec_data snddev_ihs_stereo_rx_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE),
+	.name = "headset_stereo_rx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_HEADSET_SPKR_STEREO,
+	.profile = &headset_ab_cpls_profile,
+	.channel_mode = 2,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.default_sample_rate = 48000,
+	.pamp_on = NULL,
+	.pamp_off = NULL,
+	.max_voice_rx_vol[VOC_NB_INDEX] = -700,
+	.min_voice_rx_vol[VOC_NB_INDEX] = -2200,
+	.max_voice_rx_vol[VOC_WB_INDEX] = -1400,
+	.min_voice_rx_vol[VOC_WB_INDEX] = -2900,
+};
+
+static struct platform_device msm_headset_stereo_device = {
+	.name = "snddev_icodec",
+	.id = 2,
+	.dev = { .platform_data = &snddev_ihs_stereo_rx_data },
+};
+
+static enum hsed_controller ispk_pmctl_id[] = {PM_HSED_CONTROLLER_0};
+
+static struct snddev_icodec_data snddev_ispkr_mic_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "speaker_mono_tx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_SPKR_PHONE_MIC,
+	.profile = &imic_ffa_profile,
+	.channel_mode = 1,
+	.pmctl_id = ispk_pmctl_id,
+	.pmctl_id_sz = ARRAY_SIZE(ispk_pmctl_id),
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_tx_route_config,
+	.pamp_off = msm_snddev_tx_route_deconfig,
+};
+
+static struct platform_device msm_ispkr_mic_device = {
+	.name = "snddev_icodec",
+	.id = 18,
+	.dev = { .platform_data = &snddev_ispkr_mic_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -262,6 +326,8 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_snddev_mi2s_fm_tx_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
+	&msm_ispkr_mic_device,
+	&msm_headset_stereo_device,
 };
 
 void __init msm_snddev_init_timpani(void)
