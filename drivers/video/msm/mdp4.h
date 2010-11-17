@@ -428,6 +428,8 @@ void mdp4_mddi_overlay_restore(void);
 #ifdef MDP4_MDDI_DMA_SWITCH
 void mdp4_mddi_overlay_dmas_restore(void);
 #endif
+void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe);
 void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_rgb_igc_lut_setup(int num);
@@ -444,6 +446,7 @@ void mdp4_mddi_overlay_blt(ulong addr);
 int mdp4_lcdc_overlay_blt_offset(int *off);
 void mdp4_lcdc_overlay_blt(ulong addr);
 void mdp4_overlay_panel_mode(int mixer_num, uint32 mode);
+int mdp4_overlay_mixer_play(int mixer_num);
 uint32 mdp4_overlay_panel_list(void);
 void mdp4_lcdc_overlay_kickoff(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
