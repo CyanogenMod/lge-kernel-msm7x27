@@ -1215,7 +1215,7 @@ int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
 }
 
 /* FIXME: temporal deletion of code for enabling compile */
-#if 0
+
 /* LGE_CHANGE
  * Func : check gpio pin status
  * If the status is changed, go to rescan through delayed work queue.
@@ -1248,7 +1248,6 @@ static int msmsdcc_get_status(struct mmc_host *mmc)
 
 	return 0;
 }
-#endif
 
 static int msmsdcc_get_ro(struct mmc_host *mmc)
 {
@@ -1319,6 +1318,7 @@ static const struct mmc_host_ops msmsdcc_ops = {
 #ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
 	.enable_sdio_irq = msmsdcc_enable_sdio_irq,
 #endif
+	.get_status = msmsdcc_get_status,
 };
 
 /* LGE_CHANGE
@@ -1331,19 +1331,22 @@ static void
 msmsdcc_check_status(unsigned long data)
 {
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
-	unsigned int status;
+	if (msmsdcc_get_status(host->mmc)) {
 
-	if (!host->plat->status) {
-		mmc_detect_change(host->mmc, 0);
-	} else {
-		status = host->plat->status(mmc_dev(host->mmc));
-		host->eject = !status;
-		if (status ^ host->oldstat) {
-			pr_info("%s: Slot status change detected (%d -> %d)\n",
-			       mmc_hostname(host->mmc), host->oldstat, status);
+#ifdef CONFIG_LGE_BCM432X_PATCH
+		if (host->plat->status_irq == MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET)) {
+			printk(KERN_ERR "[host->plat->status_irq:%d:MSM_GPIO_TO_INIT:%d:%s:%d]\n",
+				   host->plat->status_irq,
+				   MSM_GPIO_TO_INT(CONFIG_BCM4325_GPIO_WL_RESET),
+				   __func__, __LINE__);
 			mmc_detect_change(host->mmc, 0);
 		}
-		host->oldstat = status;
+		else
+#endif
+			if (!host->eject)
+				mmc_detect_change(host->mmc, TIME_STEP);
+			else
+				mmc_detect_change(host->mmc, 0);
 	}
 }
 
