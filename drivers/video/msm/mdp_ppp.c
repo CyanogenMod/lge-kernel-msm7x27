@@ -1239,7 +1239,11 @@ int get_gem_img(struct mdp_img *img, unsigned long *start, unsigned long *len)
 	   kgsl_gem_obj_addr fails */
 
 	*len = 0;
+#ifdef CONFIG_MACH_LGE
+	return 0;
+#else
 	return kgsl_gem_obj_addr(img->memory_id, (int) img->priv, start, len);
+#endif
 }
 
 int get_img(struct mdp_img *img, struct fb_info *info, unsigned long *start,

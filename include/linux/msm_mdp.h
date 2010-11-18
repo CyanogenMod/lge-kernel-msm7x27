@@ -120,7 +120,15 @@ struct mdp_img {
 	uint32_t format;
 	uint32_t offset;
 	int memory_id;		/* the file descriptor */
+#ifndef CONFIG_MACH_LGE
+	/* FIXME: 
+	 * this field is not defined in 2.6.32 based SW 
+	 * for adapting to 6040 android platform
+	 * eliminated thid field and should recover later.
+	 * 2010-11-18, cleaneye.kim@lge.com
+	 */
 	uint32_t priv;
+#endif
 };
 
 /*
