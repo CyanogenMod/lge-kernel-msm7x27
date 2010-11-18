@@ -1459,6 +1459,7 @@ static void __init msm8x60_allocate_memory_regions(void)
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n",
 		size, addr, __pa(addr));
 
+#ifdef CONFIG_MSM_KGSL
 	size = gpu_phys_size;
 	if (size) {
 		addr = alloc_bootmem(size);
@@ -1468,6 +1469,7 @@ static void __init msm8x60_allocate_memory_regions(void)
 		pr_info("allocating %lu bytes at %p (%lx physical) for "
 		"KGSL\n", size, addr, __pa(addr));
 	}
+#endif
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 	size = pmem_kernel_ebi1_size;
