@@ -490,10 +490,6 @@ static int kgsl_g12_start(struct kgsl_device *device)
 	int status = 0;
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	if (device->flags & KGSL_FLAGS_STARTED) {
-		KGSL_DRV_VDBG("already started");
-		return 0;
-	}
 	device->pwrctrl.power_flags |= KGSL_PWRFLAGS_CLK_OFF |
 		KGSL_PWRFLAGS_AXI_OFF | KGSL_PWRFLAGS_POWER_OFF |
 		KGSL_PWRFLAGS_IRQ_OFF;
@@ -522,7 +518,6 @@ static int kgsl_g12_start(struct kgsl_device *device)
 
 	device->hwaccess_blocked = KGSL_FALSE;
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
-	device->flags |= KGSL_FLAGS_STARTED;
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 	return 0;
 error_clk_off:
@@ -549,7 +544,6 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 	device->hwaccess_blocked = KGSL_TRUE;
 
-	device->flags &= ~KGSL_FLAGS_STARTED;
 	return 0;
 }
 
@@ -630,11 +624,9 @@ static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 
 	KGSL_DRV_VDBG("enter (device=%p, timeout=%d)\n", device, timeout);
 
-	if (device->flags & KGSL_FLAGS_STARTED) {
-		if (g12_device->current_timestamp > g12_device->timestamp)
-			status = kgsl_g12_waittimestamp(device,
+	if (g12_device->current_timestamp > g12_device->timestamp)
+		status = kgsl_g12_waittimestamp(device,
 					g12_device->current_timestamp, timeout);
-	}
 
 	if (status)
 		KGSL_DRV_ERR("Error, kgsl_g12_waittimestamp() timed out\n");
