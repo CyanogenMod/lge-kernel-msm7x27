@@ -153,14 +153,13 @@ static int pm8058_gpios_init(void)
 		.output_value   = 0,
 	};
 
-#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL
 	struct pm8058_gpio hdmi_5V_en = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.pull           = PM_GPIO_PULL_NO,
 		.vin_sel        = PM_GPIO_VIN_VPH,
 		.function       = PM_GPIO_FUNC_NORMAL,
 	};
-#endif
+
 	struct pm8058_gpio flash_boost_enable = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
@@ -198,13 +197,12 @@ static int pm8058_gpios_init(void)
 	}
 #endif
 
-#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL
 	rc = pm8058_gpio_config(PMIC_GPIO_HDMI_5V_EN, &hdmi_5V_en);
 	if (rc) {
 		pr_err("%s PMIC_GPIO_HDMI_5V_EN config failed\n", __func__);
 		return rc;
 	}
-#endif
+
 	if (machine_is_msm7x30_fluid()) {
 		rc = pm8058_gpio_config(PMIC_GPIO_SDC4_EN, &sdc4_en);
 		if (rc) {
@@ -2645,9 +2643,7 @@ static struct ofn_atlab_platform_data optnav_data = {
 
 static int hdmi_comm_power(int on, int show);
 static int hdmi_init_irq(void);
-#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL
 static int hdmi_enable_5v(int on);
-#endif
 static int hdmi_core_power(int on);
 static int hdmi_cec_power(int on);
 
@@ -2655,9 +2651,7 @@ static struct msm_hdmi_platform_data adv7520_hdmi_data = {
 	.irq = MSM_GPIO_TO_INT(18),
 	.comm_power = hdmi_comm_power,
 	.init_irq = hdmi_init_irq,
-#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL
 	.enable_5v = hdmi_enable_5v,
-#endif
 	.core_power = hdmi_core_power,
 	.cec_power = hdmi_cec_power,
 };
@@ -3276,7 +3270,6 @@ static int hdmi_init_irq(void)
 	return 0;
 }
 
-#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL
 static int hdmi_enable_5v(int on)
 {
 	pr_info("%s: %d\n", __func__, on);
@@ -3298,7 +3291,6 @@ static int hdmi_enable_5v(int on)
 	}
 	return 0;
 }
-#endif
 
 static int hdmi_core_power(int on)
 {
@@ -3323,9 +3315,7 @@ static int dtv_panel_power(int on)
 
 	dtv_power_save_on = flag_on;
 	pr_info("%s: %d\n", __func__, on);
-#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL
 	hdmi_enable_5v(on);
-#endif
 
 #ifdef HDMI_RESET
 	if (on) {
