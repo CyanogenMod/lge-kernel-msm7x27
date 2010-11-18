@@ -190,11 +190,12 @@ static struct clkctl_l2_speed l2_freq_tbl[] = {
 };
 #define L2(x) (&l2_freq_tbl[(x)])
 
-#define CAL_IDX 2 /* acpu_freq_tbl row to use when reconfiguring SC/L2 PLLs. */
+#define CAL_IDX 1 /* acpu_freq_tbl row to use when reconfiguring SC/L2 PLLs. */
  /* SCPLL frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
   { {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    L2(1),  900000, 0x03006000},
-  { {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    L2(1),  925000, 0x03006000},
+  /* MAX_AXI row is used to source CPU cores and L2 from the AFAB clock. */
+  { {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    L2(0),  925000, 0x03006000},
   { {1, 1},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    L2(1),  925000, 0x03006000},
   { {0, 0},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, L2(4),  975000, 0x03006000},
   { {0, 0},  486000,  ACPU_SCPLL, 0, 0, 1, 0x09, L2(4),  975000, 0x03006000},
@@ -659,14 +660,18 @@ static void __init unselect_scplls(void)
 {
 	int cpu;
 
+	/* Ensure CAL_IDX frequency uses AFAB sources for CPU cores and L2. */
+	BUG_ON(acpu_freq_tbl[CAL_IDX].core_src_sel != 0);
+	BUG_ON(acpu_freq_tbl[CAL_IDX].l2_level->src_sel != 0);
+
 	for_each_possible_cpu(cpu) {
 		select_clk_source_div(cpu, &acpu_freq_tbl[CAL_IDX]);
-		select_core_source(cpu, 0);
+		select_core_source(cpu, acpu_freq_tbl[CAL_IDX].core_src_sel);
 		drv_state.current_speed[cpu] = &acpu_freq_tbl[CAL_IDX];
 		l2_vote[cpu] = acpu_freq_tbl[CAL_IDX].l2_level;
 	}
 
-	select_core_source(L2, 0);
+	select_core_source(L2, acpu_freq_tbl[CAL_IDX].l2_level->src_sel);
 	drv_state.current_l2_speed = acpu_freq_tbl[CAL_IDX].l2_level;
 }
 
