@@ -44,6 +44,7 @@ struct msm_bus_fabric_registration {
 	unsigned int len;
 	int ahb;
 	const char *fabclk;
+	const char *a_fabclk;
 	unsigned int offset;
 	unsigned int haltid;
 	unsigned int rpm_enabled;
