@@ -2610,8 +2610,8 @@ static void __init msm8x60_init_buses(void)
 #endif
 #ifdef CONFIG_MSM_BUS_SCALING
 
-	/* RPM calls are only enabled on V2 (minor number > 0) */
-	if (SOCINFO_VERSION_MINOR(socinfo_get_version())) {
+	/* RPM calls are only enabled on V2 */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
 		msm_bus_apps_fabric_pdata.rpm_enabled = 1;
 		msm_bus_sys_fabric_pdata.rpm_enabled = 1;
 		msm_bus_mm_fabric_pdata.rpm_enabled = 1;
