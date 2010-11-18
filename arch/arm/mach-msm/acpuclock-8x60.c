@@ -316,6 +316,9 @@ static void scpll_change_freq(int sc_pll, uint32_t l_val)
 	writel(regval, base_addr + SCPLL_FSM_CTL_EXT_OFFSET);
 	writel(SCPLL_NORMAL, base_addr + SCPLL_CTL_OFFSET);
 
+	/* Wait for frequency switch to start. */
+	while (((readl(base_addr + SCPLL_CTL_OFFSET) >> 3) & 0x3F) != l_val)
+		cpu_relax();
 	/* Wait for frequency switch to finish. */
 	while (readl(base_addr + SCPLL_STATUS_OFFSET) & 0x1)
 		cpu_relax();
