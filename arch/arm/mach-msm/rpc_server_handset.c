@@ -364,6 +364,8 @@ static int handle_hs_rpc_call(struct msm_rpc_server *server,
 		uint32_t key_parm;
 	};
 
+	printk(KERN_INFO"%s: \n",__func__);
+
 	switch (req->procedure) {
 	case RPC_KEYPAD_NULL_PROC:
 		return 0;
@@ -470,6 +472,7 @@ void report_headset_status(bool connected)
 }
 EXPORT_SYMBOL(report_headset_status);
 
+#ifdef CONFIG_MACH_LGE
 void rpc_server_hs_register_callback(void *callback_func)
 {
 	deskdock_detect_callback = (void (*)(int))callback_func;
@@ -477,6 +480,7 @@ void rpc_server_hs_register_callback(void *callback_func)
 	return;
 }
 EXPORT_SYMBOL(rpc_server_hs_register_callback);
+#endif
 
 static int hs_rpc_pwr_cmd_arg(struct msm_rpc_client *client,
                     void *buffer, void *data)
@@ -618,6 +622,27 @@ static int __devinit hs_rpc_init(void)
 	int rc;
 
 	rc = hs_rpc_cb_init();
+
+#ifdef CONFIG_MACH_LGE
+	/* FIXME: following code is from qualcomm's 2.6.32 kernel
+	 * in qualcomm's original code in 7020 version,
+	 * rpc server of handset can't be created in any case.
+	 * so, power key event is never passed from arm9.
+	 * this comes from fact that hs_rpc_cb_init() always returns '0'
+	 * and subsequently msm_rpc_create_server() is never called.
+	 * this is obvious qualcomm's bug.
+	 * I expect that qualcomm fix this bug later.
+	 * 2010-11-18, cleaneye.kim@lge.com
+	 */
+	if (rc) {
+		pr_err("%s: failed to initialize rpc client\n", __func__);
+		return rc;
+	}
+
+	rc = msm_rpc_create_server(&hs_rpc_server);
+	if (rc)
+		pr_err("%s: failed to create rpc server\n", __func__);
+#else
 	if (rc) {
 		pr_err("%s: failed to initialize rpc client, try server...\n",
 						__func__);
@@ -628,6 +653,7 @@ static int __devinit hs_rpc_init(void)
 			return rc;
 		}
 	}
+#endif
 
 	return rc;
 }
