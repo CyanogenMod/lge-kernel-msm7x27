@@ -515,8 +515,7 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				vcd_status = VCD_S_SUCCESS;
 		break;
 		case VCD_MSLICE_BY_BYTE_COUNT:
-			if (multi_slice->m_slice_size >=
-				DDL_MINIMUM_BYTE_PER_SLICE)
+			if (multi_slice->m_slice_size > 0)
 				vcd_status = VCD_S_SUCCESS;
 		break;
 		default:
