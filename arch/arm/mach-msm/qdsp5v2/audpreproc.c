@@ -458,3 +458,11 @@ int audpreproc_dsp_set_gain_tx(
 			QDSP_uPAudPreProcCmdQueue, calib_gain_tx, len);
 }
 EXPORT_SYMBOL(audpreproc_dsp_set_gain_tx);
+
+int audpreproc_dsp_set_rmc(
+		struct audpreproc_cmd_cfg_rmc *rmc_block, unsigned len)
+{
+	return msm_adsp_write(the_audpreproc_state.mod,
+			QDSP_uPAudPreProcCmdQueue, rmc_block, len);
+}
+EXPORT_SYMBOL(audpreproc_dsp_set_rmc);
