@@ -3681,7 +3681,13 @@ static void enable_wlan_bt(void)
 }
 #endif
 
-static void __init msm8x60_init(void)
+struct msm_board_data {
+};
+
+static struct msm_board_data msm8x60_qrdc_board_data __initdata = {
+};
+
+static void __init msm8x60_init(struct msm_board_data *board_data)
 {
 	/*
 	 * Initialize RPM first as other drivers and devices may need
@@ -3746,6 +3752,11 @@ static void __init msm8x60_init(void)
 #endif
 }
 
+static void __init msm8x60_qrdc_init(void)
+{
+	msm8x60_init(&msm8x60_qrdc_board_data);
+}
+
 MACHINE_START(MSM8X60_QRDC, "QCT MSM8X60 QRDC")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io = MSM_DEBUG_UART_PHYS,
@@ -3753,6 +3764,6 @@ MACHINE_START(MSM8X60_QRDC, "QCT MSM8X60 QRDC")
 #endif
 	.map_io = msm8x60_map_io,
 	.init_irq = msm8x60_init_irq,
-	.init_machine = msm8x60_init,
+	.init_machine = msm8x60_qrdc_init,
 	.timer = &msm_timer,
 MACHINE_END

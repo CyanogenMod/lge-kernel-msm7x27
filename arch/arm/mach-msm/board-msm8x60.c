@@ -6192,7 +6192,25 @@ static struct msm_rpm_platform_data msm_rpm_data = {
 };
 #endif
 
-static void __init msm8x60_init(void)
+struct msm_board_data {
+};
+
+static struct msm_board_data msm8x60_rumi3_board_data __initdata = {
+};
+
+static struct msm_board_data msm8x60_sim_board_data __initdata = {
+};
+
+static struct msm_board_data msm8x60_surf_board_data __initdata = {
+};
+
+static struct msm_board_data msm8x60_ffa_board_data __initdata = {
+};
+
+static struct msm_board_data msm8x60_fluid_board_data __initdata = {
+};
+
+static void __init msm8x60_init(struct msm_board_data *board_data)
 {
 	/*
 	 * Initialize RPM first as other drivers and devices may need
@@ -6289,6 +6307,31 @@ static void __init msm8x60_init(void)
 #endif
 }
 
+static void __init msm8x60_rumi3_init(void)
+{
+	msm8x60_init(&msm8x60_rumi3_board_data);
+}
+
+static void __init msm8x60_sim_init(void)
+{
+	msm8x60_init(&msm8x60_sim_board_data);
+}
+
+static void __init msm8x60_surf_init(void)
+{
+	msm8x60_init(&msm8x60_surf_board_data);
+}
+
+static void __init msm8x60_ffa_init(void)
+{
+	msm8x60_init(&msm8x60_ffa_board_data);
+}
+
+static void __init msm8x60_fluid_init(void)
+{
+	msm8x60_init(&msm8x60_fluid_board_data);
+}
+
 MACHINE_START(MSM8X60_RUMI3, "QCT MSM8X60 RUMI3")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io  = MSM_DEBUG_UART_PHYS,
@@ -6296,7 +6339,7 @@ MACHINE_START(MSM8X60_RUMI3, "QCT MSM8X60 RUMI3")
 #endif
 	.map_io = msm8x60_map_io,
 	.init_irq = msm8x60_init_irq,
-	.init_machine = msm8x60_init,
+	.init_machine = msm8x60_rumi3_init,
 	.timer = &msm_timer,
 MACHINE_END
 
@@ -6307,7 +6350,7 @@ MACHINE_START(MSM8X60_SIM, "QCT MSM8X60 SIMULATOR")
 #endif
 	.map_io = msm8x60_map_io,
 	.init_irq = msm8x60_init_irq,
-	.init_machine = msm8x60_init,
+	.init_machine = msm8x60_sim_init,
 	.timer = &msm_timer,
 MACHINE_END
 
@@ -6318,7 +6361,7 @@ MACHINE_START(MSM8X60_SURF, "QCT MSM8X60 SURF")
 #endif
 	.map_io = msm8x60_map_io,
 	.init_irq = msm8x60_init_irq,
-	.init_machine = msm8x60_init,
+	.init_machine = msm8x60_surf_init,
 	.timer = &msm_timer,
 MACHINE_END
 
@@ -6329,7 +6372,7 @@ MACHINE_START(MSM8X60_FFA, "QCT MSM8X60 FFA")
 #endif
 	.map_io = msm8x60_map_io,
 	.init_irq = msm8x60_init_irq,
-	.init_machine = msm8x60_init,
+	.init_machine = msm8x60_ffa_init,
 	.timer = &msm_timer,
 MACHINE_END
 
@@ -6340,6 +6383,6 @@ MACHINE_START(MSM8X60_FLUID, "QCT MSM8X60 FLUID")
 #endif
 	.map_io = msm8x60_map_io,
 	.init_irq = msm8x60_init_irq,
-	.init_machine = msm8x60_init,
+	.init_machine = msm8x60_fluid_init,
 	.timer = &msm_timer,
 MACHINE_END
