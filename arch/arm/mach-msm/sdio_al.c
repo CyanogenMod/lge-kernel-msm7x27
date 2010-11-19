@@ -132,7 +132,7 @@
 #define PIPE_TX_FIFO_ADDR   0x00
 
 /** Inactivity time to go to sleep in mseconds */
-#define INACTIVITY_TIME_MSEC 1000
+#define INACTIVITY_TIME_MSEC 100
 #define INITIAL_INACTIVITY_TIME_MSEC 5000
 
 /** Context validity check */
