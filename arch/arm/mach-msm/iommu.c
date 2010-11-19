@@ -27,7 +27,6 @@
 #include <linux/slab.h>
 #include <linux/iommu.h>
 #include <linux/clk.h>
-#include <linux/err.h>
 
 #include <asm/cacheflush.h>
 #include <asm/sizes.h>
@@ -37,25 +36,15 @@
 
 #define MRC(reg, processor, op1, crn, crm, op2)				\
 __asm__ __volatile__ (							\
-"   mrc   "   #processor "," #op1 ", %0,"  #crn "," #crm "," #op2 "\n" \
+"   mrc   "   #processor "," #op1 ", %0,"  #crn "," #crm "," #op2 "\n"  \
 : "=r" (reg))
 
 #define RCP15_PRRR(reg)		MRC(reg, p15, 0, c10, c2, 0)
 #define RCP15_NMRR(reg)		MRC(reg, p15, 0, c10, c2, 1)
 
-/* Local type attributes */
-#define ARM_MT_STRONGLYORDERED	0
-#define ARM_MT_DEVICE		1
-#define ARM_MT_NORMAL		2
-
-#define ARM_CP_NONCACHED	0
-#define ARM_CP_WB_WA		1
-#define ARM_CP_WT_NWA		2
-#define ARM_CP_WB_NWA		3
+static int msm_iommu_tex_class[4];
 
 DEFINE_SPINLOCK(msm_iommu_lock);
-
-static int msm_iommu_tex_class[4];
 
 struct msm_priv {
 	unsigned long *pgtable;
@@ -75,7 +64,6 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 		if (ret)
 			clk_disable(drvdata->pclk);
 	}
-
 fail:
 	return ret;
 }
@@ -92,7 +80,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 	struct msm_priv *priv = domain->priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
-	int ret;
+	int ret = 0;
 #ifndef CONFIG_IOMMU_PGTABLES_L2
 	unsigned long *fl_table = priv->pgtable;
 	int i;
@@ -103,7 +91,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 		for (i = 0; i < NUM_FL_PTE; i++)
 			if ((fl_table[i] & 0x03) == FL_TYPE_TABLE) {
 				void *sl_table = __va(fl_table[i] &
-								  FL_BASE_MASK);
+								FL_BASE_MASK);
 				dmac_flush_range(sl_table, sl_table + SZ_4K);
 			}
 	}
@@ -114,7 +102,6 @@ static int __flush_iotlb(struct iommu_domain *domain)
 			BUG();
 
 		iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
-
 		if (!iommu_drvdata)
 			BUG();
 
@@ -257,8 +244,6 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 	domain->priv = NULL;
 
 	if (priv) {
-		BUG_ON(!list_empty(&priv->list_attached));
-
 		fl_table = priv->pgtable;
 
 		for (i = 0; i < NUM_FL_PTE; i++)
@@ -321,9 +306,9 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			  __pa(priv->pgtable));
 
 	__disable_clocks(iommu_drvdata);
-
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 	ret = __flush_iotlb(domain);
+
 fail:
 	spin_unlock_irqrestore(&msm_iommu_lock, flags);
 	return ret;
@@ -362,7 +347,6 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	__reset_context(iommu_drvdata->base, ctx_dev->num);
 	__disable_clocks(iommu_drvdata);
-
 	list_del_init(&ctx_drvdata->attached_elm);
 
 fail:
@@ -384,15 +368,17 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	size_t len = 0x1000UL << order;
 	int ret = 0, tex, sh;
 
-	sh = (prot & MSM_IOMMU_ATTR_SH) ? 1 : 0;
-	tex = msm_iommu_tex_class[prot & 0x03];
-
-	if (tex < 0 || tex > 7)
-		return -EINVAL;
-
 	spin_lock_irqsave(&msm_iommu_lock, flags);
-	priv = domain->priv;
 
+	sh = (prot & MSM_IOMMU_ATTR_SH) ? 1 : 0;
+	tex = msm_iommu_tex_class[prot & MSM_IOMMU_CP_MASK];
+
+	if (tex < 0 || tex > NUM_TEX_CLASS - 1) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	priv = domain->priv;
 	if (!priv) {
 		ret = -EINVAL;
 		goto fail;
@@ -438,7 +424,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 
 	if (len == SZ_1M)
 		*fl_pte = (pa & 0xFFF00000) | FL_AP_READ | FL_AP_WRITE |
-					FL_TYPE_SECT | FL_SHARED | pgprot;
+					    FL_TYPE_SECT | FL_SHARED | pgprot;
 
 	/* Need a 2nd level table */
 	if ((len == SZ_4K || len == SZ_64K) && (*fl_pte) == 0) {
@@ -609,7 +595,6 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 		ret = 0;
 
 	__disable_clocks(iommu_drvdata);
-
 fail:
 	spin_unlock_irqrestore(&msm_iommu_lock, flags);
 	return ret;
@@ -652,9 +637,8 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 {
 	struct msm_iommu_drvdata *drvdata = dev_id;
 	void __iomem *base;
-	unsigned int fsr = 0;
-	int ncb = 0, i = 0;
-	int ret;
+	unsigned int fsr;
+	int ncb, i, ret;
 
 	spin_lock(&msm_iommu_lock);
 
@@ -682,9 +666,7 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 			SET_FSR(base, i, 0x4000000F);
 		}
 	}
-
 	__disable_clocks(drvdata);
-
 fail:
 	spin_unlock(&msm_iommu_lock);
 	return 0;
@@ -701,7 +683,7 @@ static struct iommu_ops msm_iommu_ops = {
 	.domain_has_cap = msm_iommu_domain_has_cap
 };
 
-static int __init find_tex_class(int icp, int ocp, int mt, int nos)
+static int __init get_tex_class(int icp, int ocp, int mt, int nos)
 {
 	int i = 0;
 	unsigned int prrr = 0;
@@ -711,9 +693,7 @@ static int __init find_tex_class(int icp, int ocp, int mt, int nos)
 	RCP15_PRRR(prrr);
 	RCP15_NMRR(nmrr);
 
-	/* There are only 8 classes on this architecture */
-	/* If they add more classes, registers will VASTLY change */
-	for (i = 0; i < 8; i++)	{
+	for (i = 0; i < NUM_TEX_CLASS; i++) {
 		c_nos = PRRR_NOS(prrr, i);
 		c_mt = PRRR_MT(prrr, i);
 		c_icp = NMRR_ICP(nmrr, i);
@@ -729,20 +709,16 @@ static int __init find_tex_class(int icp, int ocp, int mt, int nos)
 static void __init setup_iommu_tex_classes(void)
 {
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_NONCACHED] =
-		find_tex_class(ARM_CP_NONCACHED, ARM_CP_NONCACHED,
-			       ARM_MT_NORMAL, 1);
+			get_tex_class(CP_NONCACHED, CP_NONCACHED, MT_NORMAL, 1);
 
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_CACHED_WB_WA] =
-		find_tex_class(ARM_CP_WB_WA, ARM_CP_WB_WA,
-			       ARM_MT_NORMAL, 1);
+			get_tex_class(CP_WB_WA, CP_WB_WA, MT_NORMAL, 1);
 
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_CACHED_WB_NWA] =
-		find_tex_class(ARM_CP_WB_NWA, ARM_CP_WB_NWA,
-			       ARM_MT_NORMAL, 1);
+			get_tex_class(CP_WB_NWA, CP_WB_NWA, MT_NORMAL, 1);
 
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_CACHED_WT] =
-		find_tex_class(ARM_CP_WT_NWA, ARM_CP_WT_NWA,
-			       ARM_MT_NORMAL, 1);
+			get_tex_class(CP_WT, CP_WT, MT_NORMAL, 1);
 }
 
 static int __init msm_iommu_init(void)
