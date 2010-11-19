@@ -1246,7 +1246,11 @@ static int mdp_probe(struct platform_device *pdev)
 		pdata->on = mdp_lcdc_on;
 		pdata->off = mdp_lcdc_off;
 		mfd->hw_refresh = TRUE;
+#if	defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDP40)
+		mfd->cursor_update = mdp_hw_cursor_sync_update;
+#else
 		mfd->cursor_update = mdp_hw_cursor_update;
+#endif
 #ifndef CONFIG_FB_MSM_MDP22
 		mfd->lut_update = mdp_lut_update_lcdc;
 		mfd->do_histogram = mdp_do_histogram;

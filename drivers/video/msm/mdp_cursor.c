@@ -41,41 +41,165 @@ static int cursor_enabled;
 
 #include "mdp4.h"
 
-#ifdef CONFIG_FB_MSM_OVERLAY
-static struct completion cursor_update_comp;
+#if	defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDP40)
+static struct workqueue_struct *mdp_cursor_ctrl_wq;
+static struct work_struct mdp_cursor_ctrl_worker;
+
+/* cursor configuration */
+static void *cursor_buf_phys;
+static __u32 width, height, bg_color;
+static int calpha_en, transp_en, alpha;
+static int sync_disabled = -1;
+
+void mdp_cursor_ctrl_workqueue_handler(struct work_struct *work)
+{
+	unsigned long flag;
+
+	/* disable vsync */
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	mdp_disable_irq(MDP_OVERLAY0_TERM);
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+}
 
 void mdp_hw_cursor_init(void)
 {
-	init_completion(&cursor_update_comp);
+	mdp_cursor_ctrl_wq =
+			create_singlethread_workqueue("mdp_cursor_ctrl_wq");
+	INIT_WORK(&mdp_cursor_ctrl_worker, mdp_cursor_ctrl_workqueue_handler);
 }
 
 void mdp_hw_cursor_done(void)
 {
-	/* done */
-	complete(&cursor_update_comp);
+	/* Cursor configuration:
+	 *
+	 * This is done in DMA_P_DONE ISR because the following registers are
+	 * not double buffered in hardware:
+	 *
+	 * MDP_DMA_P_CURSOR_SIZE, address = 0x90044
+	 * MDP_DMA_P_CURSOR_BLEND_CONFIG, address = 0x90060
+	 * MDP_DMA_P_CURSOR_BLEND_PARAM, address = 0x90064
+	 * MDP_DMA_P_CURSOR_BLEND_TRANS_LOW, address = 0x90068
+	 * MDP_DMA_P_CURSOR_BLEND_TRANS_HIG, address = 0x9006C
+	 *
+	 * Moving this code out of the ISR will cause the MDP to underrun!
+	 */
+	spin_lock(&mdp_spin_lock);
+	if (sync_disabled) {
+		spin_unlock(&mdp_spin_lock);
+		return;
+	}
+
+	MDP_OUTP(MDP_BASE + 0x90044, (height << 16) | width);
+	MDP_OUTP(MDP_BASE + 0x90048, cursor_buf_phys);
+
+	MDP_OUTP(MDP_BASE + 0x90060,
+		 (transp_en << 3) | (calpha_en << 1) |
+		 (inp32(MDP_BASE + 0x90060) & 0x1));
+
+	MDP_OUTP(MDP_BASE + 0x90064, (alpha << 24));
+	MDP_OUTP(MDP_BASE + 0x90068, (0xffffff & bg_color));
+	MDP_OUTP(MDP_BASE + 0x9006C, (0xffffff & bg_color));
+
+	/* enable/disable the cursor as per the last request */
+	if (cursor_enabled && !(inp32(MDP_BASE + 0x90060) & (0x1)))
+		MDP_OUTP(MDP_BASE + 0x90060, inp32(MDP_BASE + 0x90060) | 0x1);
+	else if (!cursor_enabled && (inp32(MDP_BASE + 0x90060) & (0x1)))
+		MDP_OUTP(MDP_BASE + 0x90060,
+					inp32(MDP_BASE + 0x90060) & (~0x1));
+
+	/* enqueue the task to disable MDP interrupts */
+	queue_work(mdp_cursor_ctrl_wq, &mdp_cursor_ctrl_worker);
+
+	/* update done */
+	sync_disabled = 1;
+	spin_unlock(&mdp_spin_lock);
 }
 
-static void mdp_hw_cursor_wait_for_completion(void)
+static void mdp_hw_cursor_enable_vsync(void)
 {
-	unsigned long flag;
+	/* if the cursor registers were updated (once or more) since the
+	 * last vsync, enable the vsync interrupt (if not already enabled)
+	 * for the next update
+	 */
+	if (sync_disabled) {
 
-	/* enable irq */
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	mdp_enable_irq(MDP_OVERLAY0_TERM);
-	INIT_COMPLETION(cursor_update_comp);
-	/* enable vsync intr */
-	outp32(MDP_INTR_CLEAR, INTR_OVERLAY0_DONE);
-	mdp_intr_mask |= INTR_OVERLAY0_DONE;
-	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+		/* cancel pending task to disable MDP interrupts */
+		if (work_pending(&mdp_cursor_ctrl_worker))
+			cancel_work_sync(&mdp_cursor_ctrl_worker);
+		else
+			/* enable irq */
+			mdp_enable_irq(MDP_OVERLAY0_TERM);
+
+		sync_disabled = 0;
+
+		/* enable vsync intr */
+		outp32(MDP_INTR_CLEAR, INTR_OVERLAY0_DONE);
+		mdp_intr_mask |= INTR_OVERLAY0_DONE;
+		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
+	}
+}
+
+int mdp_hw_cursor_sync_update(struct fb_info *info, struct fb_cursor *cursor)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct fb_image *img = &cursor->image;
+	unsigned long flag;
+	int sync_needed = 0, ret = 0;
+
+	if ((img->width > MDP_CURSOR_WIDTH) ||
+	    (img->height > MDP_CURSOR_HEIGHT) ||
+	    (img->depth != 32))
+		return -EINVAL;
+
+	if (cursor->set & FB_CUR_SETPOS)
+		MDP_OUTP(MDP_BASE + 0x9004c, (img->dy << 16) | img->dx);
+
+	if (cursor->set & FB_CUR_SETIMAGE) {
+		ret = copy_from_user(mfd->cursor_buf, img->data,
+					img->width*img->height*4);
+		if (ret)
+			return ret;
+
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		if (img->bg_color == 0xffffffff)
+			transp_en = 0;
+		else
+			transp_en = 1;
+
+		alpha = (img->fg_color & 0xff000000) >> 24;
+
+		if (alpha)
+			calpha_en = 0x2; /* xrgb */
+		else
+			calpha_en = 0x1; /* argb */
+
+		/* cursor parameters */
+		height = img->height;
+		width = img->width;
+		bg_color = img->bg_color;
+		cursor_buf_phys = mfd->cursor_buf_phys;
+
+		sync_needed = 1;
+	} else
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+
+	if ((cursor->enable) && (!cursor_enabled)) {
+		cursor_enabled = 1;
+		sync_needed = 1;
+	} else if ((!cursor->enable) && (cursor_enabled)) {
+		cursor_enabled = 0;
+		sync_needed = 1;
+	}
+
+	/* if sync cursor update is needed, enable vsync */
+	if (sync_needed)
+		mdp_hw_cursor_enable_vsync();
+
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-	/* wait for next vsync */
-	wait_for_completion_killable(&cursor_update_comp);
-
-	/* disable irq */
-	mdp_disable_irq(MDP_OVERLAY0_TERM);
+	return 0;
 }
-#endif
+#endif /* CONFIG_FB_MSM_OVERLAY && CONFIG_FB_MSM_MDP40 */
 
 int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor)
 {
@@ -89,10 +213,6 @@ int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor)
 	    (img->height > MDP_CURSOR_HEIGHT) ||
 	    (img->depth != 32))
 		return -EINVAL;
-
-#ifdef CONFIG_FB_MSM_OVERLAY
-	mdp_hw_cursor_wait_for_completion();
-#endif
 
 	if (cursor->set & FB_CUR_SETPOS)
 		MDP_OUTP(MDP_BASE + 0x9004c, (img->dy << 16) | img->dx);

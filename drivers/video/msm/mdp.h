@@ -678,6 +678,7 @@ int mdp_lcdc_on(struct platform_device *pdev);
 int mdp_lcdc_off(struct platform_device *pdev);
 void mdp_lcdc_update(struct msm_fb_data_type *mfd);
 int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor);
+int mdp_hw_cursor_sync_update(struct fb_info *info, struct fb_cursor *cursor);
 void mdp_enable_irq(uint32 term);
 void mdp_disable_irq(uint32 term);
 void mdp_disable_irq_nosync(uint32 term);
