@@ -128,6 +128,7 @@ struct msm_hsusb_gadget_platform_data {
 	void (*phy_reset)(void);
 
 	int self_powered;
+	int is_phy_status_timer_on;
 };
 
 struct msm_hsusb_platform_data {
