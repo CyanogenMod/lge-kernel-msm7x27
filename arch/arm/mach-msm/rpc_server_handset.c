@@ -364,8 +364,6 @@ static int handle_hs_rpc_call(struct msm_rpc_server *server,
 		uint32_t key_parm;
 	};
 
-	printk(KERN_INFO"%s: \n",__func__);
-
 	switch (req->procedure) {
 	case RPC_KEYPAD_NULL_PROC:
 		return 0;
