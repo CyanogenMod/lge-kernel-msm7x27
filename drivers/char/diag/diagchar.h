@@ -54,9 +54,10 @@
 #define QDSP_DATA  		2
 #define APPS_DATA  		3
 #define MSG_MASK_SIZE 8000
-#define LOG_MASK_SIZE 1000
+#define LOG_MASK_SIZE 2000
 #define EVENT_MASK_SIZE 1000
 #define PKT_SIZE 4096
+#define MAX_EQUIP_ID 12
 /* This is the maximum number of pkt registrations supported at initialization*/
 extern unsigned int diag_max_registration;
 extern unsigned int diag_threshold_registration;
@@ -165,6 +166,7 @@ struct diagchar_dev {
 	struct work_struct diag_read_smd_qdsp_work;
 	uint8_t *msg_masks;
 	uint8_t *log_masks;
+	int log_masks_length;
 	uint8_t *event_masks;
 	struct diag_master_table *table;
 	uint8_t *pkt_buf;
