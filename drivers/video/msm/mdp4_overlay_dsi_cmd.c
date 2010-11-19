@@ -37,10 +37,7 @@
 #include "mdp4.h"
 #include "mipi_dsi.h"
 
-#define DSI_BASE	0xE0000
-
 static struct mdp4_overlay_pipe *dsi_pipe;
-static struct mdp4_overlay_pipe *pending_pipe;
 static struct msm_fb_data_type *dsi_mfd;
 static struct completion dsi_cmd_comp;
 
@@ -79,6 +76,13 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 
 		init_completion(&dsi_cmd_comp);
 		dsi_pipe = pipe; /* keep it */
+		/*
+		 * configure dsi stream id
+		 * dma_p = 0, dma_s = 1
+		 */
+		MDP_OUTP(MDP_BASE + 0x000a0, 0x10);
+		/* enable dsi trigger on dma_p */
+		MDP_OUTP(MDP_BASE + 0x000a4, 0x01);
 	} else {
 		pipe = dsi_pipe;
 	}
@@ -118,23 +122,36 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
+	wmb();
+}
+
+/*
+ * mdp4_overlay1_done_dsi_cmd: called from isr
+ */
+void mdp4_overlay0_done_dsi_cmd()
+{
+	complete(&dsi_cmd_comp);
 }
 
 void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
+
 	down(&mfd->sem);
-	mdp_enable_irq(MDP_OVERLAY0_TERM);
 	mfd->dma->busy = TRUE;
-	INIT_COMPLETION(pipe->comp);
-	pending_pipe = pipe;
+	INIT_COMPLETION(dsi_cmd_comp);
+	mdp_enable_irq(MDP_OVERLAY0_TERM);
+	/* Kick off overlay engine */
+	mdp_pipe_kickoff(MDP_OVERLAY0_TERM, mfd);
 
 	/* trigger dsi cmd engine */
 	mipi_dsi_cmd_mdp_sw_trigger();
+
 	up(&mfd->sem);
 
 	/* wait until DMA finishes the current job */
-	wait_for_completion_killable(&pipe->comp);
+	wait_for_completion_killable(&dsi_cmd_comp);
+
 	mdp_disable_irq(MDP_OVERLAY0_TERM);
 }
 

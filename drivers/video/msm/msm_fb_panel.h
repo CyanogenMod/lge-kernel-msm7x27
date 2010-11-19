@@ -97,6 +97,15 @@ struct mddi_panel_info {
 	__u32 vdopkt;
 };
 
+/* DSI PHY configuration */
+struct mipi_dsi_phy_ctrl {
+	uint32 regulator[4];
+	uint32 timing[12];
+	uint32 ctrl[4];
+	uint32 strength[4];
+	uint32 pll[21];
+};
+
 struct mipi_panel_info {
 	char mode;		/* video/cmd */
 	char interleave_mode;
@@ -116,6 +125,8 @@ struct mipi_panel_info {
 	char tx_eot_append;
 	char t_clk_post; /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
 	char t_clk_pre;  /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
+	char vc;	/* virtual channel */
+	struct mipi_dsi_phy_ctrl *dsi_phy_db;
 	/* video mode */
 	char pulse_mode_hsa_he;
 	char hfp_power_stop;
@@ -124,9 +135,15 @@ struct mipi_panel_info {
 	char eof_bllp_power_stop;
 	char bllp_power_stop;
 	char traffic_mode;
-	char vc_channel;
 	/* command mode */
 	char interleave_max;
+	char insert_dcs_cmd;
+	char wr_mem_continue;
+	char wr_mem_start;
+	char te_sel;
+	char stream;	/* 0 or 1 */
+	char mdp_trigger;
+	char dma_trigger;
 };
 
 struct msm_panel_info {

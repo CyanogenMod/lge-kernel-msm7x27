@@ -379,6 +379,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			}
 		}
 
+
 		if (isr & INTR_EXTERNAL_INTF_UDERRUN)
 			mdp4_stat.intr_underrun_e++;
 
@@ -463,6 +464,14 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 #endif
 #endif
 			}
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+			else if (panel & MDP4_PANEL_DSI_CMD) {
+				dma->busy = FALSE;
+				mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK,
+					MDP_BLOCK_POWER_OFF, TRUE);
+				mdp4_overlay0_done_dsi_cmd();
+			}
+#endif
 #ifdef CONFIG_FB_MSM_MDDI
 			else {	/* MDDI */
 				dma->busy = FALSE;

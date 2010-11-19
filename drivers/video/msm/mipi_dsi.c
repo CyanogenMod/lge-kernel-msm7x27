@@ -211,54 +211,79 @@ static void mipi_dsi_calibration(void)
 	}
 }
 
-static struct dsi_phy_ctrl dsi_phy_db[DSI_PANEL_MAX] = {
-	/* 480*854, RGB888, 2 Lane 60 fps video mode */
-	{
-		{0x03, 0x01, 0x01, 0x00},	/* regulator */
-		/* timing   */
-		{0x64, 0x1e, 0x14, 0x00, 0x2d, 0x23, 0x1e, 0x1c,
-		0x0b, 0x13, 0x04},
-		{0x7f, 0x00, 0x00, 0x00},	/* phy ctrl */
-		{0xee, 0x03, 0x86, 0x03},	/* strength */
-		/* pll control */
-
-#define DSI_BIT_CLK_380MHZ
-
-#if defined(DSI_BIT_CLK_366MHZ)
-		{0x41, 0xdb, 0xb2, 0xf5, 0x00, 0x50, 0x48, 0x63,
-		0x31, 0x0f, 0x07,
-		0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
-#elif defined(DSI_BIT_CLK_380MHZ)
-		{0x41, 0xf7, 0xb2, 0xf5, 0x00, 0x50, 0x48, 0x63,
-		0x31, 0x0f, 0x07,
-		0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
-#elif defined(DSI_BIT_CLK_400MHZ)
-		{0x41, 0x8f, 0xb1, 0xda, 0x00, 0x50, 0x48, 0x63,
-		0x31, 0x0f, 0x07,
-		0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
-#else		/* 200 mhz */
-		{0x41, 0x8f, 0xb1, 0xda, 0x00, 0x50, 0x48, 0x63,
-		0x33, 0x1f, 0x0f,
-		0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
-#endif
-	},
-	{ /* 480*854, RGB888, 2 Lane 60 fps cmd mode */
-		{0x03, 0x01, 0x01, 0x00},          /* regulator */
-		/* timing */
-		{0x52, 0x16, 0x10, 0x00, 0x22, 0x16, 0x22, 0x1c,
-		0x1c, 0x1b, 0x1c },
-		{0x7f, 0x00, 0x00, 0x00},           /* phy ctrl */
-		{0x88, 0x03, 0x86, 0x03},           /* strength */
-		/* pll control */
-		{0x41, 0x57, 0xba, 0xda, 0x00, 0x50, 0x48, 0x63,
-		0x31, 0x1f, 0x1f,
-		0x05, 0x14, 0x03, 0x03, 0x03, 0x54, 0x06, 0x10, 0x04, 0x03 },
-	}
+struct dsiphy_pll_divider_config {
+	u32 clk_rate;
+	u32 fb_divider;
+	u32 ref_divider_ratio;
+	u32 bit_clk_divider;	/* oCLK1 */
+	u32 byte_clk_divider;	/* oCLK2 */
+	u32 dsi_clk_divider;	/* oCLK3 */
 };
 
-void mipi_dsi_phy_init(int panel_ndx)
+static const struct dsiphy_pll_divider_config divider_db[] = {
+	{ 366000000, 366, 27, 2, 16, 16 }, /* test */
+	{ 380000000, 380, 27, 2, 16, 16 }, /* test */
+	{ 366000000, 732, 54, 2, 16,  8 },
+	{ 380000000, 760, 54, 2, 16,  8 },
+	{ 400000000, 400, 27, 2, 16,  8 },
+	{ 200000000, 400, 27, 4, 32, 16 },
+	{ 500000000, 250, 27, 1,  8,  8 },
+};
+
+int mipi_dsi_phy_pll_config(u32 clk_rate)
 {
-	struct dsi_phy_ctrl *pd;
+	struct dsiphy_pll_divider_config const *dividers = divider_db;
+	u32 fb_divider, tmp;
+
+	/* find the requested divider_db entry */
+	for (; dividers != divider_db + ARRAY_SIZE(divider_db); ++dividers) {
+		if (dividers->clk_rate == clk_rate)
+			break;
+	}
+
+	if (dividers == divider_db + ARRAY_SIZE(divider_db)) {
+		pr_err("%s: request clk_rate, %u, not supported\n",
+			__func__, clk_rate);
+		return -EINVAL;
+	}
+
+	/* DSIPHY_PLL_CTRL_x:    1     2     3     8     9     10 */
+	/* masks               0xff  0x07  0x3f  0x0f  0xff  0xff */
+
+	/* DSIPHY_PLL_CTRL_1 */
+	fb_divider = dividers->fb_divider - 1;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x204, fb_divider & 0xff);
+
+	/* DSIPHY_PLL_CTRL_2 */
+	tmp = MIPI_INP(MIPI_DSI_BASE + 0x208);
+	tmp &= ~0x07;
+	tmp |= (fb_divider >> 8) & 0x07;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x208, tmp);
+
+	/* DSIPHY_PLL_CTRL_3 */
+	tmp = MIPI_INP(MIPI_DSI_BASE + 0x20c);
+	tmp &= ~0x3f;
+	tmp |= (dividers->ref_divider_ratio - 1) & 0x3f;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x20c, tmp);
+
+	/* DSIPHY_PLL_CTRL_8 */
+	tmp = MIPI_INP(MIPI_DSI_BASE + 0x220);
+	tmp &= ~0x0f;
+	tmp |= (dividers->bit_clk_divider - 1) & 0x0f;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x220, tmp);
+
+	/* DSIPHY_PLL_CTRL_9 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x224, (dividers->byte_clk_divider - 1));
+
+	/* DSIPHY_PLL_CTRL_10 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x22c, (dividers->dsi_clk_divider - 1));
+
+	return 0;
+}
+
+void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info)
+{
+	struct mipi_dsi_phy_ctrl *pd;
 	int i, off;
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x128, 0x0001);/* start phy sw reset */
@@ -272,7 +297,7 @@ void mipi_dsi_phy_init(int panel_ndx)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x2dc, 0x0100);/* regulator_ctrl_4 */
 #endif
 
-	pd = &dsi_phy_db[panel_ndx];
+	pd = (panel_info->mipi).dsi_phy_db;
 
 	off = 0x02cc;	/* regulator ctrl 0 */
 	for (i = 0; i < 4; i++) {
@@ -312,6 +337,10 @@ void mipi_dsi_phy_init(int panel_ndx)
 	/* pll ctrl 0 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x200, pd->pll[0]);
 	wmb();
+	MIPI_OUTP(MIPI_DSI_BASE + 0x200, (pd->pll[0] | 0x01));
+
+	if (panel_info)
+		mipi_dsi_phy_pll_config(panel_info->clk_rate);
 }
 
 static int mipi_dsi_off(struct platform_device *pdev)
@@ -321,6 +350,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	mfd = platform_get_drvdata(pdev);
 
+#ifdef XXXXX
 
 	ret = panel_next_off(pdev);
 
@@ -349,6 +379,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	/* disbale dsi engine */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
+#endif
 
 	pr_debug("%s:\n", __func__);
 
@@ -364,6 +395,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	struct fb_var_screeninfo *var;
 	struct mipi_panel_info *mipi;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
+	u32 ystride, bpp, data;
 
 	mfd = platform_get_drvdata(pdev);
 	fbi = mfd->fbi;
@@ -398,14 +430,11 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	mipi_dsi_clk(1);
 	mipi_dsi_pclk(1);
 
-	mipi_dsi_phy_init(0); /* toshiba video */
+	mipi_dsi_phy_init(0, &(mfd->panel_info));
 
 	enable_irq(DSI_IRQ);
 
-	/*
-	 * turn esc, byte, dsi, pclk, sclk, hclk on
-	 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0x23f);	/* DSI_CLK_CTRL */
+	mipi  = &mfd->panel_info.mipi;
 
 	if (mfd->panel_info.type == MIPI_VIDEO_PANEL) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x20,
@@ -419,9 +448,29 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x30, 0);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x34, (vspw - 1) << 16);
 
+	} else {		/* command mode */
+		if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
+			bpp = 3;
+		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB666)
+			bpp = 3;
+		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB565)
+			bpp = 2;
+		else
+			bpp = 1;
+
+		ystride = width * bpp + 1;
+
+		/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
+		data = (ystride << 16) | (mipi->vc << 8) | DTYPE_DCS_LWRITE;
+		MIPI_OUTP(MIPI_DSI_BASE + 0x5c, data);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x54, data);
+
+		/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
+		data = height << 16 | width;
+		MIPI_OUTP(MIPI_DSI_BASE + 0x60, data);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x58, data);
 	}
 
-	mipi  = &mfd->panel_info.mipi;
 	mipi_dsi_host_init(mipi);
 
 	ret = panel_next_on(pdev);
