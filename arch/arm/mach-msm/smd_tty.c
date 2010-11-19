@@ -205,6 +205,8 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 release_pil:
 	if (res < 0)
 		pil_put(info->pil);
+	else
+		smd_disable_read_intr(info->ch);
 out:
 	mutex_unlock(&smd_tty_lock);
 
