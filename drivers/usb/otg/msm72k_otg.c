@@ -41,6 +41,11 @@
 #define USB_LINK_RESET_TIMEOUT	(msecs_to_jiffies(10))
 #define DRIVER_NAME	"msm_otg"
 
+#ifdef CONFIG_MACH_LGE
+#define wake_lock(lock)	do { ;} while(0);
+#define wake_unlock(lock)	do { ;} while(0);
+#endif
+
 static void otg_reset(struct otg_transceiver *xceiv, int phy_reset);
 static void msm_otg_set_vbus_state(int online);
 
