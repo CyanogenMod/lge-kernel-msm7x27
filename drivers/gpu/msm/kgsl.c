@@ -55,8 +55,7 @@ static void kgsl_put_phys_file(struct file *file);
 
 static int kgsl_runpending(struct kgsl_device *device)
 {
-	if (device->flags & KGSL_FLAGS_STARTED)
-		kgsl_cmdstream_memqueue_drain(device);
+	kgsl_cmdstream_memqueue_drain(device);
 
 	return KGSL_SUCCESS;
 }

@@ -789,11 +789,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	if (device->flags & KGSL_FLAGS_STARTED) {
-		KGSL_DRV_VDBG("already started");
-		return 0;
-	}
-
 	device->pwrctrl.power_flags |= KGSL_PWRFLAGS_CLK_OFF |
 		KGSL_PWRFLAGS_AXI_OFF | KGSL_PWRFLAGS_POWER_OFF |
 		KGSL_PWRFLAGS_IRQ_OFF;
@@ -881,7 +876,6 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 		goto error_irq_off;
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
-	device->flags |= KGSL_FLAGS_STARTED;
 	device->hwaccess_blocked = KGSL_FALSE;
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	pr_info("msm_kgsl: initialized dev=%d mmu=%s "
@@ -909,28 +903,23 @@ error_clk_off:
 static int kgsl_yamato_stop(struct kgsl_device *device)
 {
 	del_timer(&device->idle_timer);
-	if (device->flags & KGSL_FLAGS_STARTED) {
-		kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
+	kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
 
-		kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
+	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
-		kgsl_drawctxt_close(device);
+	kgsl_drawctxt_close(device);
 
-		kgsl_ringbuffer_stop(&device->ringbuffer);
+	kgsl_ringbuffer_stop(&device->ringbuffer);
 
-		kgsl_yamato_gmemclose(device);
+	kgsl_yamato_gmemclose(device);
 
-		kgsl_mmu_stop(device);
+	kgsl_mmu_stop(device);
 
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-		/* For some platforms, power needs to go off before clocks */
-		kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
-		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
-		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
-		device->hwaccess_blocked = KGSL_TRUE;
-
-		device->flags &= ~KGSL_FLAGS_STARTED;
-	}
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	/* For some platforms, power needs to go off before clocks */
+	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+	device->hwaccess_blocked = KGSL_TRUE;
 
 	return 0;
 }

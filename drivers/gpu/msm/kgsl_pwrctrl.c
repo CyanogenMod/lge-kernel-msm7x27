@@ -213,8 +213,7 @@ void kgsl_idle_check(struct work_struct *work)
 							idle_check_ws);
 
 	mutex_lock(&device->mutex);
-	if (device->hwaccess_blocked == KGSL_FALSE
-	    && device->flags & KGSL_FLAGS_STARTED) {
+	if (device->hwaccess_blocked == KGSL_FALSE) {
 		if (device->ftbl.device_sleep(device, KGSL_FALSE) ==
 								KGSL_FAILURE)
 			mod_timer(&device->idle_timer,
