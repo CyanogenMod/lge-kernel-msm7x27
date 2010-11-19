@@ -241,11 +241,10 @@ static int tdisc_open(struct input_dev *dev)
 		if (rc)
 			goto fail_open;
 	}
-
-	rc = request_irq(dd->clientp->irq, &tdisc_interrupt,
-			 IRQF_TRIGGER_FALLING, TDISC_INT, dd);
-	if (rc) {
-		pr_err("%s: request IRQ failed \n", __func__);
+	rc = request_any_context_irq(dd->clientp->irq, tdisc_interrupt,
+				 IRQF_TRIGGER_FALLING, TDISC_INT, dd);
+	if (rc < 0) {
+		pr_err("%s: request IRQ failed\n", __func__);
 		goto fail_irq_open;
 	}
 
