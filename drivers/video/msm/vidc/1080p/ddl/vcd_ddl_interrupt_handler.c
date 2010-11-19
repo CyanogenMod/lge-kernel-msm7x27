@@ -260,7 +260,9 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 			struct vcd_frame_data *input_vcd_frm =
 				&ddl->input_frame.vcd_frm;
 
-			if ((decoder->frame_size.width ==
+			if ((input_vcd_frm->flags &
+				  VCD_FRAME_FLAG_EOS) ||
+				((decoder->frame_size.width ==
 				decoder->client_frame_size.width) &&
 				(decoder->frame_size.height ==
 				decoder->client_frame_size.height) &&
@@ -271,7 +273,7 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 				(decoder->frame_size.scan_lines ==
 				decoder->client_frame_size.scan_lines) &&
 				(decoder->frame_size.stride ==
-				 decoder->client_frame_size.stride))
+				 decoder->client_frame_size.stride)))
 					need_reconfig = false;
 			if (((input_vcd_frm->flags &
 				VCD_FRAME_FLAG_CODECCONFIG) &&
