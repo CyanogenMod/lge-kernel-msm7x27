@@ -141,8 +141,6 @@ struct clkctl_acpu_speed {
 	struct clkctl_l2_speed *l2_level;
 	unsigned int     vdd_sc;
 	unsigned int     avsdscr_setting;
-	struct clkctl_acpu_speed *up;
-	struct clkctl_acpu_speed *down;
 };
 
 /* Instantaneous bandwidth requests in MB/s. */
@@ -481,7 +479,7 @@ static void switch_sc_speed(int cpu, struct clkctl_acpu_speed *tgt_s)
 
 int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 {
-	struct clkctl_acpu_speed *cur_s, *tgt_s, *strt_s;
+	struct clkctl_acpu_speed *tgt_s, *strt_s;
 	unsigned int vdd_mem, vdd_dig;
 	int freq_index = 0;
 	int rc = 0;
@@ -533,19 +531,8 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	dprintk("Switching from ACPU%d rate %u KHz -> %u KHz\n",
 		cpu, strt_s->acpuclk_khz, tgt_s->acpuclk_khz);
 
-	/* Step by at most drv_state.max_speed_delta_khz at a time. */
-	cur_s = strt_s;
-	while (cur_s != tgt_s) {
-		int d = abs((int)(cur_s->acpuclk_khz - tgt_s->acpuclk_khz));
-		if (d > drv_state.max_speed_delta_khz) {
-			if (tgt_s->acpuclk_khz > cur_s->acpuclk_khz)
-				cur_s = cur_s->up;
-			else
-				cur_s = cur_s->down;
-		} else
-			cur_s = tgt_s;
-		switch_sc_speed(cpu, cur_s);
-	}
+	/* Switch CPU speed. */
+	switch_sc_speed(cpu, tgt_s);
 
 	/* Update L2 cache speed and bandwidth request. */
 	update_l2_speed(cpu, tgt_s->l2_level);
@@ -615,44 +602,6 @@ static void __init scpll_init(int sc_pll)
 
 	/* Power-down SCPLL. */
 	scpll_disable(sc_pll);
-}
-
-static void __init precompute_stepping(void)
-{
-	int i, step_idx;
-
-#define cur_freq acpu_freq_tbl[i].acpuclk_khz
-#define step_freq acpu_freq_tbl[step_idx].acpuclk_khz
-#define cur_pll acpu_freq_tbl[i].pll
-
-	for (i = 0; acpu_freq_tbl[i].acpuclk_khz; i++) {
-
-		/* Calculate max "up" step at each frequency. */
-		step_idx = i + 1;
-		while (step_freq && (step_freq - cur_freq)
-					<= drv_state.max_speed_delta_khz) {
-			acpu_freq_tbl[i].up = &acpu_freq_tbl[step_idx];
-			step_idx++;
-		}
-		if (step_idx == (i + 1) && step_freq) {
-			pr_crit("Delta between freqs %u KHz and %u KHz is"
-				" too high!\n", cur_freq, step_freq);
-			BUG();
-		}
-
-		/* Calculate max "down" step at each frequency. */
-		step_idx = i - 1;
-		while (step_idx >= 0 && (cur_freq - step_freq)
-					<= drv_state.max_speed_delta_khz) {
-			acpu_freq_tbl[i].down =	&acpu_freq_tbl[step_idx];
-			step_idx--;
-		}
-		if (step_idx == (i - 1) && i > 0) {
-			pr_crit("Delta between freqs %u KHz and %u KHz is"
-				" too high!\n", cur_freq, step_freq);
-			BUG();
-		}
-	}
 }
 
 /* Force ACPU core and L2 cache clocks to rates that don't require SCPLLs. */
@@ -804,7 +753,6 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	mutex_init(&drv_state.lock);
 	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
-	drv_state.max_speed_delta_khz = clkdata->max_speed_delta_khz;
 
 	/* Configure hardware. */
 	unselect_scplls();
@@ -814,8 +762,6 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	scpll_init(L2);
 	regulator_init();
 	bus_init();
-
-	precompute_stepping();
 
 	/* Improve boot time by ramping up CPUs immediately. */
 	for_each_online_cpu(cpu)
