@@ -4240,8 +4240,8 @@ static void __init msm8x60_init_buses(void)
 #endif
 #ifdef CONFIG_MSM_BUS_SCALING
 
-	/* RPM calls are only enabled on V2 (minor number > 0) */
-	if (SOCINFO_VERSION_MINOR(socinfo_get_version())) {
+	/* RPM calls are only enabled on V2 */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
 		msm_bus_apps_fabric_pdata.rpm_enabled = 1;
 		msm_bus_sys_fabric_pdata.rpm_enabled = 1;
 		msm_bus_mm_fabric_pdata.rpm_enabled = 1;
@@ -6207,7 +6207,7 @@ static void __init msm8x60_init(void)
 	 * Initialize SPM before acpuclock as the latter calls into SPM
 	 * driver to set ACPU voltages.
 	 */
-	if (SOCINFO_VERSION_MINOR(socinfo_get_version()))
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1)
 		msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	else
 		msm_spm_init(msm_spm_data_v1, ARRAY_SIZE(msm_spm_data_v1));
@@ -6239,7 +6239,7 @@ static void __init msm8x60_init(void)
 	msm8x60_init_mmc();
 
 #if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
-	if (SOCINFO_VERSION_MINOR(socinfo_get_version()))
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2)
 		hsed_config_1.othc_support_n_switch = true;
 #endif
 
