@@ -215,7 +215,30 @@ enum {
 };
 
 static struct clk *msm_dmov_clk;
+static struct clk *msm_dmov_pclk;
 static unsigned int clk_ctl = CLK_DIS;
+
+static int msm_dmov_clk_toggle(int on)
+{
+	int ret = 0;
+
+	if (on) {
+		ret = clk_enable(msm_dmov_clk);
+		if (ret)
+			goto err;
+		if (msm_dmov_pclk) {
+			ret = clk_enable(msm_dmov_pclk);
+			if (ret)
+				clk_disable(msm_dmov_clk);
+		}
+	} else {
+		clk_disable(msm_dmov_clk);
+		if (msm_dmov_pclk)
+			clk_disable(msm_dmov_pclk);
+	}
+err:
+	return ret;
+}
 
 static void timer_func(unsigned long func_paramter)
 {
@@ -226,7 +249,7 @@ static void timer_func(unsigned long func_paramter)
 	if (clk_ctl == CLK_TO_BE_DIS) {
 		for (i = 0; i < ARRAY_SIZE(dmov_conf); i++)
 			BUG_ON(dmov_conf[i].channel_active);
-		clk_disable(msm_dmov_clk);
+		msm_dmov_clk_toggle(0);
 		clk_ctl = CLK_DIS;
 	}
 	for (i = 0; i < ARRAY_SIZE(dmov_conf); i++)
@@ -372,7 +395,7 @@ void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 	spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
 #ifndef CONFIG_MSM_ADM3
 	if (clk_ctl == CLK_DIS)
-		clk_enable(msm_dmov_clk);
+		msm_dmov_clk_toggle(1);
 	else if (clk_ctl == CLK_TO_BE_DIS)
 		del_timer(&timer);
 	clk_ctl = CLK_EN;
@@ -619,7 +642,7 @@ static int msm_dmov_suspend_late(struct device *dev)
 		for (i = 0; i < ARRAY_SIZE(dmov_conf); i++)
 			BUG_ON(dmov_conf[i].channel_active);
 		del_timer(&timer);
-		clk_disable(msm_dmov_clk);
+		msm_dmov_clk_toggle(0);
 		clk_ctl = CLK_DIS;
 	}
 	for (i = 0; i < ARRAY_SIZE(dmov_conf); i++)
@@ -659,8 +682,25 @@ static struct platform_driver msm_dmov_driver = {
 		.pm = &msm_dmov_dev_pm_ops,
 	},
 };
-#endif
 
+static int __init msm_dmov_init_clocks(void)
+{
+	msm_dmov_clk = clk_get(NULL, "adm_clk");
+	if (IS_ERR(msm_dmov_clk)) {
+		printk(KERN_ERR "%s: Error getting adm_clk\n", __func__);
+		msm_dmov_clk = NULL;
+		return -ENOENT;
+	}
+
+	msm_dmov_pclk = clk_get(NULL, "adm_pclk");
+	if (IS_ERR(msm_dmov_pclk)) {
+		msm_dmov_pclk = NULL;
+		/* pclk not present on all SoCs, don't bail on failure */
+	}
+
+	return 0;
+}
+#endif
 
 static void config_datamover(int adm)
 {
@@ -709,9 +749,7 @@ static int __init msm_init_datamover(void)
 		disable_irq(dmov_conf[j].irq);
 	}
 #ifndef CONFIG_MSM_ADM3
-	msm_dmov_clk = clk_get(NULL, "adm_clk");
-	if (IS_ERR(msm_dmov_clk))
-		return PTR_ERR(msm_dmov_clk);
+	msm_dmov_init_clocks();
 	ret = platform_driver_register(&msm_dmov_driver);
 	if (ret)
 		return ret;
