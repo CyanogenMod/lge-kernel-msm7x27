@@ -23,7 +23,6 @@
 
 #define VIDC_1080P_MAX_DEC_DPB 19
 #define VIDC_TILE_MULTIPLY_FACTOR 8192
-#define VIDC_1080P_DEC_DPB_RESET_VALUE 0xFFFFFFF8
 
 void vidc_pix_cache_sw_reset(void)
 {
@@ -82,6 +81,15 @@ void vidc_pix_cache_set_frame_range(u32 luma_size, u32 chroma_size)
 		(((luma_size / VIDC_TILE_MULTIPLY_FACTOR) & 0xFF) << 8)|
 		((chroma_size / VIDC_TILE_MULTIPLY_FACTOR) & 0xFF);
 	VIDC_HWIO_OUT(REG_905239, frame_range);
+}
+void vidc_pix_cache_set_frame_size(u32 frame_width, u32 frame_height)
+{
+   u32 frame_size;
+   frame_size =  (((u32) (frame_height << HWIO_REG_951731_FRAME_HEIGHT_SHFT) &
+		HWIO_REG_951731_FRAME_HEIGHT_BMSK) |
+		((u32) (frame_width << HWIO_REG_951731_FRAME_WIDTH_SHFT) &
+		 HWIO_REG_951731_FRAME_WIDTH_BMSK));
+   VIDC_HWIO_OUT(REG_951731, frame_size);
 }
 
 void vidc_pix_cache_init_config(

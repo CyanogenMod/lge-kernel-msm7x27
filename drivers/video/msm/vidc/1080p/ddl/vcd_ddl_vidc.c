@@ -725,13 +725,20 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 	if (ddl_context->pix_cache_enable) {
 		for (index = 0; index < enc_buffers->dpb_count;
 			index++) {
-			dpb_addr_y[index] = (u32) enc_buffers->dpb_y
-				[index].align_physical_addr;
+			dpb_addr_y[index] =
+			   (u32) VIDC_1080P_DEC_DPB_RESET_VALUE;
 			dpb_addr_c[index] = (u32) enc_buffers->dpb_c
 				[index].align_physical_addr;
 		}
+
+		dpb_addr_y[index] = (u32) input_vcd_frm->physical;
+		dpb_addr_c[index] = (u32) input_vcd_frm->physical +
+		   encoder->input_buf_size.size_y;
+
 		vidc_pix_cache_init_luma_chroma_base_addr(
-			enc_buffers->dpb_count, dpb_addr_y, dpb_addr_c);
+			enc_buffers->dpb_count + 1, dpb_addr_y, dpb_addr_c);
+		vidc_pix_cache_set_frame_size(encoder->frame_size.width,
+			encoder->frame_size.height);
 		vidc_pix_cache_set_frame_range(enc_buffers->sz_dpb_y,
 			enc_buffers->sz_dpb_c);
 		vidc_pix_cache_clear_cache_tags();

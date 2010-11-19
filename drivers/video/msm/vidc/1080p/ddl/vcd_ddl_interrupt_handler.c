@@ -143,6 +143,9 @@ static u32 ddl_encoder_seq_done_callback(struct ddl_context *ddl_context,
 		ddl_client_fatal_cb(ddl);
 		return true;
 	}
+#ifdef DDL_PROFILE
+	ddl_calc_core_time(1);
+#endif
 	ddl->cmd_state = DDL_CMD_INVALID;
 	DDL_MSG_LOW("ddl_state_transition: %s ~~> DDL_CLIENT_WAIT_FOR_FRAME",
 	ddl_get_state_string(ddl->client_state));
@@ -405,6 +408,9 @@ static void ddl_encoder_frame_run_callback(
 		DDL_MSG_ERROR("STATE-CRITICAL-ENCFRMRUN");
 		ddl_client_fatal_cb(ddl);
 	} else {
+#ifdef DDL_PROFILE
+	   ddl_calc_core_time(1);
+#endif
 		DDL_MSG_LOW("ENC_FRM_RUN_DONE");
 		ddl->cmd_state = DDL_CMD_INVALID;
 		vidc_1080p_get_encode_frame_info(&encoder->enc_frame_info);
@@ -423,9 +429,6 @@ static void ddl_encoder_frame_run_callback(
 			DDLCLIENT_STATE_IS(ddl,
 			DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
 			u8 *input_buffer_address = NULL;
-#ifdef DDL_PROFILE
-			ddl_calc_core_time(1);
-#endif
 			output_frame->data_len =
 				encoder->enc_frame_info.enc_frame_size;
 			output_frame->flags |= VCD_FRAME_FLAG_ENDOFFRAME;
@@ -660,6 +663,22 @@ static u32 ddl_frame_run_callback(struct ddl_context *ddl_context)
 	ddl = ddl_get_current_ddl_client_for_channel_id(ddl_context,
 			ddl_context->response_cmd_ch_id);
 	if (ddl) {
+		if (ddl_context->pix_cache_enable) {
+			struct vidc_1080P_pix_cache_statistics
+			pixel_cache_stats;
+			vidc_pix_cache_get_statistics(&pixel_cache_stats);
+
+			DDL_MSG_HIGH(" pixel cache hits = %d,"
+				"miss = %d", pixel_cache_stats.access_hit,
+				pixel_cache_stats.access_miss);
+			DDL_MSG_HIGH(" pixel cache core reqs = %d,"
+				"axi reqs = %d", pixel_cache_stats.core_req,
+				pixel_cache_stats.axi_req);
+			DDL_MSG_HIGH(" pixel cache core bus stats = %d,"
+			"axi bus stats = %d", pixel_cache_stats.core_bus,
+				pixel_cache_stats.axi_bus);
+		}
+
 		if (ddl->cmd_state == DDL_CMD_DECODE_FRAME)
 			return_status = ddl_decoder_frame_run_callback(ddl);
 		else if (ddl->cmd_state == DDL_CMD_ENCODE_FRAME)
@@ -1101,6 +1120,7 @@ static u32 ddl_get_encoded_frame(struct vcd_frame_data *frame,
 		}
 	} else
 		status = false;
+	DDL_MSG_HIGH("Enc Frame Type %u", (u32)frame->frame);
 	return status;
 }
 
