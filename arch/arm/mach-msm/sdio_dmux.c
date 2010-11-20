@@ -20,6 +20,8 @@
  *  SDIO DMUX module.
  */
 
+#define DEBUG
+
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
@@ -39,7 +41,6 @@
 #define SDIO_MUX_HDR_CMD_OPEN    1
 #define SDIO_MUX_HDR_CMD_CLOSE   2
 
-#define DEBUG
 
 static int msm_sdio_dmux_debug_enable;
 module_param_named(debug_enable, msm_sdio_dmux_debug_enable,
