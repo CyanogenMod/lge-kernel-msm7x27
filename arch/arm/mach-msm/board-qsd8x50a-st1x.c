@@ -1084,6 +1084,12 @@ static int st15_hdmi_power(int on)
 	return 0;
 }
 
+static unsigned int msm_fb_lcdc_get_clk(void)
+{
+	/* Return 160MHz(in Hz) as the AXI clock for st1x device */
+	return 192000000;
+}
+
 static int msm_fb_lcdc_gpio_config(int on)
 {
 
@@ -1125,6 +1131,7 @@ static struct msm_gpio msm_fb_st15_gpio_config_data[] = {
 
 static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_gpio_config = msm_fb_lcdc_gpio_config,
+	.lcdc_get_clk = msm_fb_lcdc_get_clk,
 };
 
 static struct msm_panel_common_pdata mdp_pdata = {
