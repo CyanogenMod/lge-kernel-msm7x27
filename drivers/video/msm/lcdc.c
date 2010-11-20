@@ -96,12 +96,17 @@ static int lcdc_on(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct msm_fb_data_type *mfd;
-	unsigned long panel_pixclock_freq;
+	unsigned long panel_pixclock_freq = 0;
 #ifndef CONFIG_MSM_BUS_SCALING
 	unsigned long pm_qos_rate;
 #endif
 	mfd = platform_get_drvdata(pdev);
-	panel_pixclock_freq = mfd->fbi->var.pixclock;
+
+	if (lcdc_pdata && lcdc_pdata->lcdc_get_clk)
+		panel_pixclock_freq = lcdc_pdata->lcdc_get_clk();
+
+	if (!panel_pixclock_freq)
+		panel_pixclock_freq = mfd->fbi->var.pixclock;
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #else
