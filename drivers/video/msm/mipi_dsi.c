@@ -351,8 +351,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	mfd = platform_get_drvdata(pdev);
 
-#ifdef XXXXX
-
 	ret = panel_next_off(pdev);
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
@@ -381,7 +379,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	/* disbale dsi engine */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
-#endif
 
 	pr_debug("%s:\n", __func__);
 
