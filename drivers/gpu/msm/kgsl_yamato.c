@@ -98,7 +98,6 @@ static struct kgsl_yamato_device yamato_device = {
 #endif
 		},
 		.mutex = __MUTEX_INITIALIZER(yamato_device.dev.mutex),
-		.is_suspended = KGSL_FALSE,
 	},
 	.gmemspace = {
 		.gpu_base = 0,
@@ -108,7 +107,7 @@ static struct kgsl_yamato_device yamato_device = {
 
 static int kgsl_yamato_start(struct kgsl_device *device);
 static int kgsl_yamato_stop(struct kgsl_device *device);
-static int kgsl_yamato_sleep(struct kgsl_device *device, const int idle);
+static int kgsl_yamato_sleep(struct kgsl_device *device);
 
 static int kgsl_yamato_gmeminit(struct kgsl_yamato_device *yamato_device)
 {
@@ -236,6 +235,11 @@ irqreturn_t kgsl_yamato_isr(int irq, void *data)
 	if (status & MASTER_INT_SIGNAL__SQ_INT_STAT) {
 		kgsl_yamato_sq_intrcallback(device);
 		result = IRQ_HANDLED;
+	}
+
+	if (device->pwrctrl.nap_allowed == true) {
+		device->requested_state = KGSL_STATE_NAP;
+		schedule_work(&device->idle_check_ws);
 	}
 	/* Reset the time-out in our idle timer */
 	mod_timer(&device->idle_timer,
@@ -535,6 +539,7 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		device->pwrctrl.gpu_reg = NULL;
 
 	device->pwrctrl.power_flags = 0;
+	device->pwrctrl.nap_allowed = pdata->nap_allowed;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_3d;
 	device->pwrctrl.pm_qos_req = pm_qos_add_request(
 					PM_QOS_SYSTEM_BUS_FREQ,
@@ -814,7 +819,7 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 		goto error_irq_off;
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
-	device->hwaccess_blocked = KGSL_FALSE;
+	device->state = KGSL_STATE_ACTIVE;
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	pr_info("msm_kgsl: initialized dev=%d mmu=%s "
 		"per_process_pagetable=on\n",
@@ -857,7 +862,7 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 	/* For some platforms, power needs to go off before clocks */
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
-	device->hwaccess_blocked = KGSL_TRUE;
+	device->state = KGSL_STATE_INIT;
 
 	return 0;
 }
@@ -1039,30 +1044,38 @@ static unsigned int kgsl_yamato_isidle(struct kgsl_device *device)
 
 /******************************************************************/
 /* Caller must hold the device mutex. */
-static int kgsl_yamato_sleep(struct kgsl_device *device, const int idle)
+static int kgsl_yamato_sleep(struct kgsl_device *device)
 {
-	int status = KGSL_SUCCESS;
+	KGSL_DRV_DBG("kgsl_yamato_sleep!!!\n");
 
-	/* Skip this request if we're already sleeping. */
-	if (device->hwaccess_blocked == KGSL_FALSE) {
-		/* See if the device is idle. If it is, we can shut down */
-		/* the core clock until the next attempt to access the HW. */
-		if (idle == KGSL_TRUE || kgsl_yamato_isidle(device)) {
-			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-			kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
-			/* Turn off the core clocks */
-			status = kgsl_pwrctrl_clk(device,
-				KGSL_PWRFLAGS_CLK_OFF);
-
-			/* Block further access to this core until it's awake */
-			device->hwaccess_blocked = KGSL_TRUE;
-		} else {
-			status = KGSL_FAILURE;
-		}
+	/* Work through the legal state transitions */
+	if (device->requested_state == KGSL_STATE_NAP) {
+		if (kgsl_yamato_isidle(device))
+			goto nap;
+	} else if (device->requested_state == KGSL_STATE_SUSPEND) {
+		goto sleep;
+	} else if (device->requested_state == KGSL_STATE_SLEEP) {
+		if (device->state == KGSL_STATE_NAP ||
+			kgsl_yamato_isidle(device))
+			goto sleep;
 	}
 
-	return status;
+	device->requested_state = KGSL_STATE_NONE;
+	return KGSL_FAILURE;
+
+sleep:
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
+
+nap:
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+
+	device->state = device->requested_state;
+	device->requested_state = KGSL_STATE_NONE;
+
+	return KGSL_SUCCESS;
 }
+
 
 /******************************************************************/
 /* Caller must hold the device mutex. */
@@ -1072,11 +1085,13 @@ static int kgsl_yamato_wake(struct kgsl_device *device)
 
 	/* Turn on the core clocks */
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	if (device->state != KGSL_STATE_NAP) {
+		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	}
 
 	/* Re-enable HW access */
-	device->hwaccess_blocked = KGSL_FALSE;
+	device->state = KGSL_STATE_ACTIVE;
 	complete_all(&device->hwaccess_gate);
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 
@@ -1096,8 +1111,9 @@ static int kgsl_yamato_suspend(struct kgsl_device *device)
 	status = kgsl_yamato_idle(device, IDLE_COUNT_MAX);
 
 	if (status == KGSL_SUCCESS) {
+		device->requested_state = KGSL_STATE_SUSPEND;
 		/* Put the device to sleep. */
-		status = kgsl_yamato_sleep(device, KGSL_TRUE);
+		status = kgsl_yamato_sleep(device);
 		/* Don't let the timer wake us during suspended sleep. */
 		del_timer(&device->idle_timer);
 		/* Get the completion ready to be waited upon. */

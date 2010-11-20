@@ -67,7 +67,7 @@
 static int kgsl_g12_start(struct kgsl_device *device);
 static int kgsl_g12_stop(struct kgsl_device *device);
 static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
-static int kgsl_g12_sleep(struct kgsl_device *device, const int idle);
+static int kgsl_g12_sleep(struct kgsl_device *device);
 static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 				unsigned int timestamp,
 				unsigned int msecs);
@@ -102,7 +102,6 @@ static struct kgsl_g12_device device_2d0 = {
 			.va_range = SZ_32M,
 		},
 		.mutex = __MUTEX_INITIALIZER(device_2d0.dev.mutex),
-		.is_suspended = KGSL_FALSE,
 	},
 	.iomemname = "kgsl_2d0_reg_memory",
 	.irqname = "kgsl_2d0_irq",
@@ -125,7 +124,6 @@ static struct kgsl_g12_device device_2d1 = {
 			.va_range = SZ_32M,
 		},
 		.mutex = __MUTEX_INITIALIZER(device_2d1.dev.mutex),
-		.is_suspended = KGSL_FALSE,
 	},
 	.iomemname = "kgsl_2d1_reg_memory",
 	.irqname = "kgsl_2d1_irq",
@@ -174,6 +172,10 @@ irqreturn_t kgsl_g12_isr(int irq, void *data)
 		}
 	}
 
+	if (device->pwrctrl.nap_allowed == true) {
+		device->requested_state = KGSL_STATE_NAP;
+		schedule_work(&device->idle_check_ws);
+	}
 	mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
 
@@ -328,6 +330,7 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	}
 
 	device->pwrctrl.power_flags = 0;
+	device->pwrctrl.nap_allowed = pdata->nap_allowed;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
 	device->pwrctrl.grp_clk = clk;
 	device->pwrctrl.grp_src_clk = clk;
@@ -516,7 +519,7 @@ static int kgsl_g12_start(struct kgsl_device *device)
 	if (status)
 		goto error_mmu_stop;
 
-	device->hwaccess_blocked = KGSL_FALSE;
+	device->state = KGSL_STATE_ACTIVE;
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 	return 0;
@@ -542,7 +545,7 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
-	device->hwaccess_blocked = KGSL_TRUE;
+	device->state = KGSL_STATE_INIT;
 
 	return 0;
 }
@@ -649,33 +652,40 @@ static unsigned int kgsl_g12_isidle(struct kgsl_g12_device *g12_device)
 
 /******************************************************************/
 /* Caller must hold the device mutex. */
-static int kgsl_g12_sleep(struct kgsl_device *device, const int idle)
+static int kgsl_g12_sleep(struct kgsl_device *device)
 {
-	int status = KGSL_SUCCESS;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 
 	KGSL_DRV_DBG("kgsl_g12_sleep!!!\n");
 
-	/* Skip this request if we're already sleeping. */
-	if (device->hwaccess_blocked == KGSL_FALSE) {
-		/* See if the device is idle. If it is, we can shut down */
-		/* the core clock until the next attempt to access the HW. */
-		if (idle || kgsl_g12_isidle(g12_device)) {
-			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-			kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
-			/* Turn off the core clocks */
-			status = kgsl_pwrctrl_clk(device,
-				KGSL_PWRFLAGS_CLK_OFF);
-
-			/* Block further access to this core until it's awake */
-			device->hwaccess_blocked = KGSL_TRUE;
-		} else {
-			status = KGSL_FAILURE;
-		}
+	/* Work through the legal state transitions */
+	if (device->requested_state == KGSL_STATE_NAP) {
+		if (kgsl_g12_isidle(g12_device))
+			goto nap;
+	} else if (device->requested_state == KGSL_STATE_SUSPEND) {
+		goto sleep;
+	} else if (device->requested_state == KGSL_STATE_SLEEP) {
+		if (device->state == KGSL_STATE_NAP ||
+			kgsl_g12_isidle(g12_device))
+				goto sleep;
 	}
 
-	return status;
+	device->requested_state = KGSL_STATE_NONE;
+	return KGSL_FAILURE;
+
+sleep:
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
+
+nap:
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+
+	device->state = device->requested_state;
+	device->requested_state = KGSL_STATE_NONE;
+
+	return KGSL_SUCCESS;
 }
+
 
 /******************************************************************/
 /* Caller must hold the device mutex. */
@@ -685,11 +695,14 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 
 	/* Turn on the core clocks */
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+
+	if (device->state != KGSL_STATE_NAP) {
+		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	}
 
 	/* Re-enable HW access */
-	device->hwaccess_blocked = KGSL_FALSE;
+	device->state = KGSL_STATE_ACTIVE;
 	complete_all(&device->hwaccess_gate);
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 
@@ -708,8 +721,9 @@ static int kgsl_g12_suspend(struct kgsl_device *device)
 	status = kgsl_g12_idle(device, KGSL_G12_IDLE_COUNT_MAX);
 
 	if (status == KGSL_SUCCESS) {
+		device->requested_state = KGSL_STATE_SUSPEND;
 		/* Put the device to sleep. */
-		status = kgsl_g12_sleep(device, true);
+		status = kgsl_g12_sleep(device);
 		/* Don't let the timer wake us during suspended sleep. */
 		del_timer(&device->idle_timer);
 		/* Get the completion ready to be waited upon. */

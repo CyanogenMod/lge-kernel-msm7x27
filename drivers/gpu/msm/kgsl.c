@@ -210,10 +210,18 @@ static int kgsl_suspend(struct platform_device *dev, pm_message_t state)
 			continue;
 
 		mutex_lock(&device->mutex);
-		device->is_suspended = KGSL_TRUE;
-		if (device->pwrctrl.power_flags != 0)
-			if (device->hwaccess_blocked == KGSL_FALSE)
-				device->ftbl.device_suspend(device);
+		switch (device->state) {
+		case KGSL_STATE_INIT:
+			break;
+		case KGSL_STATE_ACTIVE:
+		case KGSL_STATE_NAP:
+			device->ftbl.device_suspend(device);
+		case KGSL_STATE_SLEEP:
+			device->state = KGSL_STATE_SUSPEND;
+			break;
+		default:
+			return KGSL_FAILURE;
+		}
 		mutex_unlock(&device->mutex);
 	}
 	return KGSL_SUCCESS;
@@ -231,9 +239,8 @@ static int kgsl_resume(struct platform_device *dev)
 			continue;
 
 		mutex_lock(&device->mutex);
-		if (device->pwrctrl.power_flags != 0)
+		if (device->state == KGSL_STATE_SUSPEND)
 				device->ftbl.device_wake(device);
-		device->is_suspended = KGSL_FALSE;
 		mutex_unlock(&device->mutex);
 	}
 
