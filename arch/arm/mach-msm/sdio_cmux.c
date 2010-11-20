@@ -15,6 +15,8 @@
  * 02110-1301, USA.
  */
 
+#define DEBUG
+
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/delay.h>
@@ -31,7 +33,6 @@
 #define MAX_WRITE_RETRY 5
 #define MAGIC_NO_V1 0x33FC
 #define NUM_SDIO_CMUX_PORTS 8
-#define DEBUG
 
 static int msm_sdio_cmux_debug_mask;
 module_param_named(debug_mask, msm_sdio_cmux_debug_mask,
@@ -109,17 +110,17 @@ static struct platform_device sdio_ctl_dev = {
 do { \
 	if (msm_sdio_cmux_debug_mask & MSM_SDIO_CMUX_DUMP_BUFFER) { \
 		int i; \
-		pr_info("%s", prestr); \
+		pr_debug("%s", prestr); \
 		for (i = 0; i < cnt; i++) \
 			pr_info("%.2x", buf[i]); \
-		pr_info("\n"); \
+		pr_debug("\n"); \
 	} \
 } while (0)
 
 #define D(x...) \
 do { \
 	if (msm_sdio_cmux_debug_mask & MSM_SDIO_CMUX_DEBUG) \
-		pr_info(x); \
+		pr_debug(x); \
 } while (0)
 
 #else
@@ -610,7 +611,7 @@ static int sdio_cmux_probe(struct platform_device *pdev)
 {
 	int i, r;
 
-	pr_info("%s Begins\n", __func__);
+	D("%s Begins\n", __func__);
 	for (i = 0; i < NUM_SDIO_CMUX_PORTS; ++i)
 		sdio_cmux_ch_alloc(i);
 	INIT_LIST_HEAD(&temp_rx_list);
