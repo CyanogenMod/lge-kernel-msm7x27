@@ -25,8 +25,8 @@
 
 static struct resource msm_iommu_jpegd_resources[] = {
 	{
-		.start = 0x07300000,
-		.end   = 0x07300000 + SZ_1M - 1,
+		.start = MSM_IOMMU_JPEGD_PHYS,
+		.end   = MSM_IOMMU_JPEGD_PHYS + MSM_IOMMU_JPEGD_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -46,8 +46,8 @@ static struct resource msm_iommu_jpegd_resources[] = {
 
 static struct resource msm_iommu_vpe_resources[] = {
 	{
-		.start = 0x07400000,
-		.end   = 0x07400000 + SZ_1M - 1,
+		.start = MSM_IOMMU_VPE_PHYS,
+		.end   = MSM_IOMMU_VPE_PHYS + MSM_IOMMU_VPE_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -67,8 +67,8 @@ static struct resource msm_iommu_vpe_resources[] = {
 
 static struct resource msm_iommu_mdp0_resources[] = {
 	{
-		.start = 0x07500000,
-		.end   = 0x07500000 + SZ_1M - 1,
+		.start = MSM_IOMMU_MDP0_PHYS,
+		.end   = MSM_IOMMU_MDP0_PHYS + MSM_IOMMU_MDP0_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -88,8 +88,8 @@ static struct resource msm_iommu_mdp0_resources[] = {
 
 static struct resource msm_iommu_mdp1_resources[] = {
 	{
-		.start = 0x07600000,
-		.end   = 0x07600000 + SZ_1M - 1,
+		.start = MSM_IOMMU_MDP1_PHYS,
+		.end   = MSM_IOMMU_MDP1_PHYS + MSM_IOMMU_MDP1_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -109,8 +109,8 @@ static struct resource msm_iommu_mdp1_resources[] = {
 
 static struct resource msm_iommu_rot_resources[] = {
 	{
-		.start = 0x07700000,
-		.end   = 0x07700000 + SZ_1M - 1,
+		.start = MSM_IOMMU_ROT_PHYS,
+		.end   = MSM_IOMMU_ROT_PHYS + MSM_IOMMU_ROT_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -130,8 +130,8 @@ static struct resource msm_iommu_rot_resources[] = {
 
 static struct resource msm_iommu_ijpeg_resources[] = {
 	{
-		.start = 0x07800000,
-		.end   = 0x07800000 + SZ_1M - 1,
+		.start = MSM_IOMMU_IJPEG_PHYS,
+		.end   = MSM_IOMMU_IJPEG_PHYS + MSM_IOMMU_IJPEG_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -151,8 +151,8 @@ static struct resource msm_iommu_ijpeg_resources[] = {
 
 static struct resource msm_iommu_vfe_resources[] = {
 	{
-		.start = 0x07900000,
-		.end   = 0x07900000 + SZ_1M - 1,
+		.start = MSM_IOMMU_VFE_PHYS,
+		.end   = MSM_IOMMU_VFE_PHYS + MSM_IOMMU_VFE_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -172,8 +172,8 @@ static struct resource msm_iommu_vfe_resources[] = {
 
 static struct resource msm_iommu_vcodec_a_resources[] = {
 	{
-		.start = 0x07A00000,
-		.end   = 0x07A00000 + SZ_1M - 1,
+		.start = MSM_IOMMU_VCODEC_A_PHYS,
+		.end   = MSM_IOMMU_VCODEC_A_PHYS + MSM_IOMMU_VCODEC_A_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -193,8 +193,8 @@ static struct resource msm_iommu_vcodec_a_resources[] = {
 
 static struct resource msm_iommu_vcodec_b_resources[] = {
 	{
-		.start = 0x07B00000,
-		.end   = 0x07B00000 + SZ_1M - 1,
+		.start = MSM_IOMMU_VCODEC_B_PHYS,
+		.end   = MSM_IOMMU_VCODEC_B_PHYS + MSM_IOMMU_VCODEC_B_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -214,8 +214,8 @@ static struct resource msm_iommu_vcodec_b_resources[] = {
 
 static struct resource msm_iommu_gfx3d_resources[] = {
 	{
-		.start = 0x07C00000,
-		.end   = 0x07C00000 + SZ_1M - 1,
+		.start = MSM_IOMMU_GFX3D_PHYS,
+		.end   = MSM_IOMMU_GFX3D_PHYS + MSM_IOMMU_GFX3D_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -235,8 +235,8 @@ static struct resource msm_iommu_gfx3d_resources[] = {
 
 static struct resource msm_iommu_gfx2d0_resources[] = {
 	{
-		.start = 0x07D00000,
-		.end   = 0x07D00000 + SZ_1M - 1,
+		.start = MSM_IOMMU_GFX2D0_PHYS,
+		.end   = MSM_IOMMU_GFX2D0_PHYS + MSM_IOMMU_GFX2D0_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -256,8 +256,8 @@ static struct resource msm_iommu_gfx2d0_resources[] = {
 
 static struct resource msm_iommu_gfx2d1_resources[] = {
 	{
-		.start = 0x07E00000,
-		.end   = 0x07E00000 + SZ_1M - 1,
+		.start = MSM_IOMMU_GFX2D1_PHYS,
+		.end   = MSM_IOMMU_GFX2D1_PHYS + MSM_IOMMU_GFX2D1_SIZE - 1,
 		.name  = "physbase",
 		.flags = IORESOURCE_MEM,
 	},
@@ -280,61 +280,53 @@ static struct platform_device msm_root_iommu_dev = {
 	.id = -1,
 };
 
-static struct msm_iommu_dev jpegd_smmu = {
+static struct msm_iommu_dev jpegd_iommu = {
 	.name = "jpegd",
-	.clk_rate = -1
 };
 
-static struct msm_iommu_dev vpe_smmu = {
+static struct msm_iommu_dev vpe_iommu = {
 	.name = "vpe"
 };
 
-static struct msm_iommu_dev mdp0_smmu = {
+static struct msm_iommu_dev mdp0_iommu = {
 	.name = "mdp0"
 };
 
-static struct msm_iommu_dev mdp1_smmu = {
+static struct msm_iommu_dev mdp1_iommu = {
 	.name = "mdp1"
 };
 
-static struct msm_iommu_dev rot_smmu = {
+static struct msm_iommu_dev rot_iommu = {
 	.name = "rot"
 };
 
-static struct msm_iommu_dev ijpeg_smmu = {
+static struct msm_iommu_dev ijpeg_iommu = {
 	.name = "ijpeg"
 };
 
-static struct msm_iommu_dev vfe_smmu = {
+static struct msm_iommu_dev vfe_iommu = {
 	.name = "vfe",
-	.clk_rate = -1
 };
 
-static struct msm_iommu_dev vcodec_a_smmu = {
-	.name = "vcodec_a",
-	.clk_rate = -1
+static struct msm_iommu_dev vcodec_a_iommu = {
+	.name = "vcodec_a"
 };
 
-static struct msm_iommu_dev vcodec_b_smmu = {
-	.name = "vcodec_b",
-	.clk_rate = -1
+static struct msm_iommu_dev vcodec_b_iommu = {
+	.name = "vcodec_b"
 };
 
-static struct msm_iommu_dev gfx3d_smmu = {
+static struct msm_iommu_dev gfx3d_iommu = {
 	.name = "gfx3d",
-	.clk_rate = 27000000
 };
 
-static struct msm_iommu_dev gfx2d0_smmu = {
+static struct msm_iommu_dev gfx2d0_iommu = {
 	.name = "gfx2d0",
-	.clk_rate = 27000000
 };
 
-static struct msm_iommu_dev gfx2d1_smmu = {
+static struct msm_iommu_dev gfx2d1_iommu = {
 	.name = "gfx2d1",
-	.clk_rate = 27000000
 };
-
 
 struct platform_device msm_device_iommu_jpegd = {
 	.name = "msm_iommu",
@@ -766,19 +758,19 @@ static struct platform_device *msm_iommu_devs[] = {
 	&msm_device_iommu_gfx2d1,
 };
 
-static struct msm_iommu_dev *msm_iommu_data[] __initdata = {
-	&jpegd_smmu,
-	&vpe_smmu,
-	&mdp0_smmu,
-	&mdp1_smmu,
-	&rot_smmu,
-	&ijpeg_smmu,
-	&vfe_smmu,
-	&vcodec_a_smmu,
-	&vcodec_b_smmu,
-	&gfx3d_smmu,
-	&gfx2d0_smmu,
-	&gfx2d1_smmu,
+static struct msm_iommu_dev *msm_iommu_data[] = {
+	&jpegd_iommu,
+	&vpe_iommu,
+	&mdp0_iommu,
+	&mdp1_iommu,
+	&rot_iommu,
+	&ijpeg_iommu,
+	&vfe_iommu,
+	&vcodec_a_iommu,
+	&vcodec_b_iommu,
+	&gfx3d_iommu,
+	&gfx2d0_iommu,
+	&gfx2d1_iommu,
 };
 
 static struct platform_device *msm_iommu_ctx_devs[] = {
@@ -805,7 +797,7 @@ static struct platform_device *msm_iommu_ctx_devs[] = {
 	&msm_device_gfx2d1_2d1_ctx,
 };
 
-static struct msm_iommu_ctx_dev *msm_iommu_ctx_data[] __initdata = {
+static struct msm_iommu_ctx_dev *msm_iommu_ctx_data[] = {
 	&jpegd_src_ctx,
 	&jpegd_dst_ctx,
 	&vpe_src_ctx,
@@ -852,7 +844,7 @@ static int __init msm8x60_iommu_init(void)
 		ret = platform_device_register(msm_iommu_devs[i]);
 
 		if (ret != 0) {
-			pr_err("platform_device_register smmu failed, "
+			pr_err("platform_device_register iommu failed, "
 			       "i = %d\n", i);
 			goto failure_unwind;
 		}
@@ -863,7 +855,7 @@ static int __init msm8x60_iommu_init(void)
 					       msm_iommu_ctx_data[i],
 					       sizeof(*msm_iommu_ctx_devs[i]));
 		if (ret != 0) {
-			pr_err("platform_device_add_data smmu failed, "
+			pr_err("platform_device_add_data iommu failed, "
 			       "i = %d\n", i);
 			goto failure_unwind2;
 		}

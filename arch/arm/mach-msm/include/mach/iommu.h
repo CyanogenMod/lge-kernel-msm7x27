@@ -22,14 +22,17 @@
 #include <linux/clk.h>
 
 /* Sharability attributes of MSM IOMMU mappings */
-#define MSM_IOMMU_ATTR_NON_SH		(0x00)
-#define MSM_IOMMU_ATTR_SH		(0x04)
+#define MSM_IOMMU_ATTR_NON_SH		0x0
+#define MSM_IOMMU_ATTR_SH		0x4
 
 /* Cacheability attributes of MSM IOMMU mappings */
-#define MSM_IOMMU_ATTR_NONCACHED	(0x00)
-#define MSM_IOMMU_ATTR_CACHED_WB_WA	(0x01)
-#define MSM_IOMMU_ATTR_CACHED_WB_NWA	(0x02)
-#define MSM_IOMMU_ATTR_CACHED_WT	(0x03)
+#define MSM_IOMMU_ATTR_NONCACHED	0x0
+#define MSM_IOMMU_ATTR_CACHED_WB_WA	0x1
+#define MSM_IOMMU_ATTR_CACHED_WB_NWA	0x2
+#define MSM_IOMMU_ATTR_CACHED_WT	0x3
+
+/* Mask for the cache policy attribute */
+#define MSM_IOMMU_CP_MASK		0x03
 
 /* Maximum number of Machine IDs that we are allowing to be mapped to the same
  * context bank. The number of MIDs mapped to the same CB does not affect
@@ -37,19 +40,14 @@
  * be present. These mappings are typically determined at design time and are
  * not expected to change at run time.
  */
-#define MAX_NUM_MIDS	17
+#define MAX_NUM_MIDS	32
 
 /**
  * struct msm_iommu_dev - a single IOMMU hardware instance
  * name		Human-readable name given to this IOMMU HW instance
- * clk_rate	Rate to set for this IOMMU's clock, if applicable to this
- *		particular IOMMU. 0 means don't set a rate.
- *		-1 means it is an AXI clock with no valid rate
- *
  */
 struct msm_iommu_dev {
 	const char *name;
-	int clk_rate;
 };
 
 /**
@@ -72,8 +70,8 @@ struct msm_iommu_ctx_dev {
  * struct msm_iommu_drvdata - A single IOMMU hardware instance
  * @base:	IOMMU config port base address (VA)
  * @irq:	Interrupt number
- * @clk:	The clock associated with this particular iommu, if any
- * @pclk:	The bus clock for the IOMMU hardware instance
+ * @clk:	The bus clock for this IOMMU hardware instance
+ * @pclk:	The clock for the IOMMU bus interconnect
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.

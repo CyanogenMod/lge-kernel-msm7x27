@@ -54,6 +54,7 @@ do { \
 
 #define NUM_FL_PTE	4096
 #define NUM_SL_PTE	256
+#define NUM_TEX_CLASS	8
 
 /* First-level page table bits */
 #define FL_BASE_MASK		0xFFFFFC00
@@ -80,6 +81,15 @@ do { \
 #define SL_CACHEABLE		(1 << 3)
 #define SL_TEX0			(1 << 6)
 #define SL_OFFSET(va)		(((va) & 0xFF000) >> 12)
+
+/* Memory type and cache policy attributes */
+#define MT_SO			0
+#define MT_DEV			1
+#define MT_NORMAL		2
+#define CP_NONCACHED		0
+#define CP_WB_WA		1
+#define CP_WT			2
+#define CP_WB_NWA		3
 
 /* Global register setters / getters */
 #define SET_M2VCBR_N(b, N, v)	 SET_GLOBAL_REG_N(M2VCBR_N, N, (b), (v))
@@ -496,10 +506,6 @@ do { \
 
 
 /* NMRR */
-#define NMRR_ICP(nmrr, n)	(((nmrr) & (3 << ((n) * 2))) >> ((n) * 2))
-#define NMRR_OCP(nmrr, n)	(((nmrr) & (3 << ((n) * 2 + 16))) >> \
-								((n) * 2 + 16))
-
 #define SET_ICPC0(b, c, v)	 SET_CONTEXT_FIELD(b, c, NMRR, ICPC0, v)
 #define SET_ICPC1(b, c, v)	 SET_CONTEXT_FIELD(b, c, NMRR, ICPC1, v)
 #define SET_ICPC2(b, c, v)	 SET_CONTEXT_FIELD(b, c, NMRR, ICPC2, v)
@@ -542,8 +548,6 @@ do { \
 
 
 /* PRRR */
-#define PRRR_NOS(prrr, n)	 ((prrr) & (1 << ((n) + 24)) ? 1 : 0)
-#define PRRR_MT(prrr, n)	 ((((prrr) & (3 << ((n) * 2))) >> ((n) * 2)))
 #define SET_MTC0(b, c, v)	 SET_CONTEXT_FIELD(b, c, PRRR, MTC0, v)
 #define SET_MTC1(b, c, v)	 SET_CONTEXT_FIELD(b, c, PRRR, MTC1, v)
 #define SET_MTC2(b, c, v)	 SET_CONTEXT_FIELD(b, c, PRRR, MTC2, v)
@@ -718,7 +722,9 @@ do { \
 #define GET_OCPC5(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC5)
 #define GET_OCPC6(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC6)
 #define GET_OCPC7(b, c)		GET_CONTEXT_FIELD(b, c, NMRR, OCPC7)
-
+#define NMRR_ICP(nmrr, n)	(((nmrr) & (3 << ((n) * 2))) >> ((n) * 2))
+#define NMRR_OCP(nmrr, n)	(((nmrr) & (3 << ((n) * 2 + 16))) >> \
+								((n) * 2 + 16))
 
 /* PAR */
 #define GET_FAULT(b, c)		GET_CONTEXT_FIELD(b, c, PAR, FAULT)
@@ -762,6 +768,8 @@ do { \
 #define GET_NOS5(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS5)
 #define GET_NOS6(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS6)
 #define GET_NOS7(b, c)		GET_CONTEXT_FIELD(b, c, PRRR, NOS7)
+#define PRRR_NOS(prrr, n)	 ((prrr) & (1 << ((n) + 24)) ? 1 : 0)
+#define PRRR_MT(prrr, n)	 ((((prrr) & (3 << ((n) * 2))) >> ((n) * 2)))
 
 
 /* RESUME */
@@ -1575,8 +1583,8 @@ same as the fault fields in the FAR */
 #define FAULT_SS_MASK                    0x01
 
 /* If NO fault is present, the following
- fields are in effect */
-/* (FAULT remains as before) */
+ * fields are in effect
+ * (FAULT remains as before) */
 #define PAR_NOFAULT_SS_MASK              0x01
 #define PAR_NOFAULT_MT_MASK              0x07
 #define PAR_NOFAULT_SH_MASK              0x01
@@ -1779,8 +1787,8 @@ same as the fault fields in the FAR */
 #define FAULT_SS_SHIFT                 30
 
 /* If NO fault is present, the following
- fields are in effect */
-/* (FAULT remains as before) */
+ * fields are in effect
+ * (FAULT remains as before) */
 #define PAR_NOFAULT_SS_SHIFT           1
 #define PAR_NOFAULT_MT_SHIFT           4
 #define PAR_NOFAULT_SH_SHIFT           7

@@ -27,9 +27,9 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 
-#include <mach/clk.h>
 #include <mach/iommu_hw-8xxx.h>
 #include <mach/iommu.h>
+#include <mach/clk.h>
 
 struct iommu_ctx_iter_data {
 	/* input */
@@ -129,11 +129,12 @@ static void msm_iommu_reset(void __iomem *base)
 
 static int msm_iommu_probe(struct platform_device *pdev)
 {
-	struct resource *res_mem = NULL;
-	struct resource *ioregs;
-	struct msm_iommu_drvdata *drvdata = NULL;
+	struct resource *r, *r2;
+	struct clk *iommu_clk = NULL;
+	struct clk *iommu_pclk = NULL;
+	struct msm_iommu_drvdata *drvdata;
 	struct msm_iommu_dev *iommu_dev = pdev->dev.platform_data;
-	void __iomem *regs_base = NULL;
+	void __iomem *regs_base;
 	resource_size_t	len;
 	int ret, ncb, nm2v, irq;
 
@@ -144,19 +145,8 @@ static int msm_iommu_probe(struct platform_device *pdev)
 
 	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
 
-	if (!drvdata)
-		return -ENOMEM;
-
-	drvdata->pclk = clk_get(NULL, "smmu_pclk");
-	if (IS_ERR(drvdata->pclk)) {
-		ret = -ENODEV;
-		goto fail;
-	}
-
-	ret = clk_enable(drvdata->pclk);
-	if (ret) {
-		clk_put(drvdata->pclk);
-		drvdata->pclk = NULL;
+	if (!drvdata) {
+		ret = -ENOMEM;
 		goto fail;
 	}
 
@@ -165,50 +155,60 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	if (iommu_dev->clk_rate != 0) {
-		drvdata->clk = clk_get(&pdev->dev, "iommu_clk");
-
-		if (IS_ERR(drvdata->clk)) {
-			ret = -ENODEV;
-			goto fail;
-		}
-		if (clk_get_rate(drvdata->clk) == 0)
-			clk_set_min_rate(drvdata->clk, 1);
-
-		ret = clk_enable(drvdata->clk);
-		if (ret)
-			goto fail;
-	}
-
-	ioregs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "physbase");
-	if (!ioregs) {
+	iommu_pclk = clk_get(NULL, "smmu_pclk");
+	if (IS_ERR(iommu_pclk)) {
 		ret = -ENODEV;
 		goto fail;
 	}
 
-	len = ioregs->end - ioregs->start + 1;
+	ret = clk_enable(iommu_pclk);
+	if (ret)
+		goto fail_enable;
 
-	res_mem = request_mem_region(ioregs->start, len, ioregs->name);
-	if (!res_mem) {
-		pr_err("Could not request memory region: "
-		"start=%p, len=%d\n", (void *) ioregs->start, len);
-		ret = -EBUSY;
-		goto fail;
+	iommu_clk = clk_get(&pdev->dev, "iommu_clk");
+
+	if (!IS_ERR(iommu_clk))	{
+		if (clk_get_rate(iommu_clk) == 0)
+			clk_set_min_rate(iommu_clk, 1);
+
+		ret = clk_enable(iommu_clk);
+		if (ret) {
+			clk_put(iommu_clk);
+			goto fail_pclk;
+		}
+	} else
+		iommu_clk = NULL;
+
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "physbase");
+
+	if (!r) {
+		ret = -ENODEV;
+		goto fail_clk;
 	}
 
-	regs_base = ioremap(res_mem->start, len);
+	len = r->end - r->start + 1;
+
+	r2 = request_mem_region(r->start, len, r->name);
+	if (!r2) {
+		pr_err("Could not request memory region: start=%p, len=%d\n",
+							(void *) r->start, len);
+		ret = -EBUSY;
+		goto fail_clk;
+	}
+
+	regs_base = ioremap(r2->start, len);
 
 	if (!regs_base) {
 		pr_err("Could not ioremap: start=%p, len=%d\n",
-			 (void *) res_mem->start, len);
+			 (void *) r2->start, len);
 		ret = -EBUSY;
-		goto fail;
+		goto fail_mem;
 	}
 
 	irq = platform_get_irq_byname(pdev, "secure_irq");
 	if (irq < 0) {
 		ret = -ENODEV;
-		goto fail;
+		goto fail_io;
 	}
 
 	mb();
@@ -216,52 +216,50 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (GET_IDR(regs_base) == 0) {
 		pr_err("Invalid IDR value detected\n");
 		ret = -ENODEV;
-		goto fail;
+		goto fail_io;
 	}
 
 	ret = request_irq(irq, msm_iommu_fault_handler, 0,
 			"msm_iommu_secure_irpt_handler", drvdata);
-
 	if (ret) {
 		pr_err("Request IRQ %d failed with ret=%d\n", irq, ret);
-		goto fail;
+		goto fail_io;
 	}
 
 	msm_iommu_reset(regs_base);
+	drvdata->pclk = iommu_pclk;
+	drvdata->clk = iommu_clk;
 	drvdata->base = regs_base;
 	drvdata->irq = irq;
 
 	nm2v = GET_NM2VCBMT((unsigned long) regs_base);
 	ncb = GET_NCB((unsigned long) regs_base);
 
-	if (drvdata->clk)
-		clk_disable(drvdata->clk);
-	clk_disable(drvdata->pclk);
-
 	pr_info("device %s mapped at %p, irq %d with %d ctx banks\n",
 			iommu_dev->name, regs_base, irq, ncb+1);
 
 	platform_set_drvdata(pdev, drvdata);
 
+	if (iommu_clk)
+		clk_disable(iommu_clk);
+
+	clk_disable(iommu_pclk);
+
 	return 0;
-
+fail_io:
+	iounmap(regs_base);
+fail_mem:
+	release_mem_region(r->start, len);
+fail_clk:
+	if (iommu_clk) {
+		clk_disable(iommu_clk);
+		clk_put(iommu_clk);
+	}
+fail_pclk:
+	clk_disable(iommu_pclk);
+fail_enable:
+	clk_put(iommu_pclk);
 fail:
-	if (!IS_ERR(drvdata->pclk)) {
-		clk_disable(drvdata->pclk);
-		clk_put(drvdata->pclk);
-	}
-
-	if (drvdata->clk) {
-		clk_disable(drvdata->clk);
-		clk_put(drvdata->clk);
-	}
-
-	if (res_mem)
-		release_mem_region(res_mem->start, len);
-
-	if (regs_base)
-		iounmap(regs_base);
-
 	kfree(drvdata);
 	return ret;
 }
@@ -414,4 +412,3 @@ module_exit(msm_iommu_driver_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Stepan Moskovchenko <stepanm@codeaurora.org>");
-
