@@ -645,6 +645,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 	init_completion(&device->hwaccess_gate);
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
+	INIT_LIST_HEAD(&device->memqueue);
 
 	kgsl_yamato_getfunctable(&device->ftbl);
 
