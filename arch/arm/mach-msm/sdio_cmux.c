@@ -55,8 +55,8 @@ struct sdio_cmux_ch {
 	struct list_head tx_list;
 
 	void *priv;
-	void (*receive_cb)(int , void *, int);
-	void (*write_done)(int , void *, int);
+	void (*receive_cb)(void *, int, void *);
+	void (*write_done)(void *, int, void *);
 } logical_ch[NUM_SDIO_CMUX_PORTS];
 
 struct sdio_cmux_hdr {
@@ -172,14 +172,8 @@ static int sdio_cmux_ch_clear_and_signal(int id)
 	}
 	mutex_unlock(&logical_ch[id].tx_lock);
 	logical_ch[id].priv = NULL;
-	if (logical_ch[id].receive_cb) {
-		logical_ch[id].receive_cb(id, NULL, 0);
-		logical_ch[id].receive_cb = NULL;
-	}
-	if (logical_ch[id].write_done) {
-		logical_ch[id].write_done(id, NULL, 0);
-		logical_ch[id].write_done = NULL;
-	}
+	logical_ch[id].receive_cb = NULL;
+	logical_ch[id].write_done = NULL;
 	mutex_unlock(&logical_ch[id].lc_lock);
 	wake_up(&logical_ch[id].open_wait_queue);
 	return 0;
@@ -238,8 +232,8 @@ static int sdio_cmux_write_cmd(const int id, enum cmd_type type)
 }
 
 int sdio_cmux_open(const int id,
-		   void (*receive_cb)(int , void *, int),
-		   void (*write_done)(int , void *, int),
+		   void (*receive_cb)(void *, int, void *),
+		   void (*write_done)(void *, int, void *),
 		   void *priv)
 {
 	int r;
@@ -283,9 +277,10 @@ int sdio_cmux_open(const int id,
 		list_for_each_entry_safe(list_elem, list_elem_tmp,
 					 &temp_rx_list, list) {
 			if ((int)list_elem->cmux_pkt.hdr->lc_id == id) {
-				logical_ch[id].receive_cb(id,
+				logical_ch[id].receive_cb(
 					list_elem->cmux_pkt.data,
-					(int)list_elem->cmux_pkt.hdr->pkt_len);
+					(int)list_elem->cmux_pkt.hdr->pkt_len,
+					logical_ch[id].priv);
 				list_del(&list_elem->list);
 				kfree(list_elem->cmux_pkt.hdr);
 				kfree(list_elem);
@@ -477,7 +472,8 @@ static int process_cmux_pkt(void *pkt, int size)
 		data = (void *)((char *)pkt + sizeof(struct sdio_cmux_hdr));
 		data_size = (int)(((struct sdio_cmux_hdr *)pkt)->pkt_len);
 		if (logical_ch[id].receive_cb)
-			logical_ch[id].receive_cb(id, data, data_size);
+			logical_ch[id].receive_cb(data, data_size,
+						logical_ch[id].priv);
 		else
 			copy_packet(pkt, size);
 		mutex_unlock(&logical_ch[id].lc_lock);
@@ -596,7 +592,7 @@ static void sdio_cmux_fn(struct work_struct *work)
 			mutex_lock(&ch->tx_lock);
 		}
 		if (ch->write_done)
-			ch->write_done(i, NULL, bytes_written);
+			ch->write_done(NULL, bytes_written, ch->priv);
 		mutex_unlock(&ch->tx_lock);
 	}
 	return;
