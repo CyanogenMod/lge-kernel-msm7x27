@@ -20,6 +20,6 @@
 
 static int __init gpiomux_init(void)
 {
-	return 0;
+	return msm_gpiomux_init(NR_GPIO_IRQS);
 }
 postcore_initcall(gpiomux_init);
