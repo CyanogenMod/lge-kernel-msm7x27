@@ -314,6 +314,12 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 					int rate, int mode)
 {
 	int rc = 0, i = 0;
+
+	if ((popp_id >= MAX_SESSIONS) || (popp_id <= 0)) {
+		pr_err("%s: Invalid session id %d\n", __func__, popp_id);
+		return 0;
+	}
+
 	mutex_lock(&routing_info.adm_mutex);
 	if (set) {
 		rc = adm_open(copp_id, popp_id, PLAYBACK, rate, mode,
