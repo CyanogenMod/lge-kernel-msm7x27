@@ -448,11 +448,19 @@ void android_enable_function(struct usb_function *f, int enable)
 				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
 #endif
 			} else {
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Temporary USB setting */
+/* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
+				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
+				dev->cdev->desc.bDeviceSubClass      = 0x00;
+				dev->cdev->desc.bDeviceProtocol      = 0x00;
+
+#if 0 /* This is original */				
 				dev->cdev->desc.bDeviceClass = USB_CLASS_PER_INTERFACE;
 				dev->cdev->desc.bDeviceSubClass      = 0;
 				dev->cdev->desc.bDeviceProtocol      = 0;
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */
 			}
-
 			android_config_functions(f, enable);
 		}
 #endif

@@ -555,7 +555,7 @@ __WEAK struct android_usb_product usb_products[] = {
 __WEAK struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns		= 1,
 	.vendor		= "Qualcomm Incorporated",
-	.product        = "Mass storage",
+	.product    = "Mass storage",
 	.release	= 0x0100,
 };
 
@@ -766,11 +766,14 @@ static int msm_otg_rpc_phy_reset(void __iomem *regs)
 }
 
 static struct msm_otg_platform_data msm_otg_pdata = {
-	.rpc_connect    = hsusb_rpc_connect,
-	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
-	.chg_vbus_draw       = hsusb_chg_vbus_draw,
-	.chg_connected       = hsusb_chg_connected,
-	.chg_init        = hsusb_chg_init,
+	.rpc_connect    	= hsusb_rpc_connect,
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Add rpc USB LDO reset */
+	.phy_reset			= msm_otg_rpc_phy_reset,
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */	
+	.pmic_notif_init    = msm_hsusb_pmic_notif_init,
+	.chg_vbus_draw      = hsusb_chg_vbus_draw,
+	.chg_connected      = hsusb_chg_connected,
+	.chg_init        	= hsusb_chg_init,
 #ifdef CONFIG_USB_EHCI_MSM
 	.vbus_power = msm_hsusb_vbus_power,
 #endif

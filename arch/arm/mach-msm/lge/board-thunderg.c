@@ -155,7 +155,21 @@ char *usb_functions_all[] = {
 #endif
 };
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Temporary USB setting */
+/* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
+char *usb_functions_lge_default[] = {
+	"acm", "diag", "nmea", "usb_mass_storage",
+};
+
+char *usb_functions_lge_default_adb[] = {
+	"acm", "diag", "nmea", "usb_mass_storage", "adb",
+};
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */
+
 struct android_usb_product usb_products[] = {
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Temporary USB setting */
+/* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
+#if 0 /* comment out temporarily */
 	{
 		.product_id = 0x9026,
 		.num_functions  = ARRAY_SIZE(usb_functions_default),
@@ -176,12 +190,26 @@ struct android_usb_product usb_products[] = {
 		.num_functions  = ARRAY_SIZE(usb_functions_rndis_adb),
 		.functions  = usb_functions_rndis_adb,
 	},
+#endif	
+	{
+		.product_id = 0x618E,
+		.num_functions  = ARRAY_SIZE(usb_functions_lge_default),
+		.functions  = usb_functions_lge_default,
+	},
+	{
+		.product_id = 0x618E,
+		.num_functions  = ARRAY_SIZE(usb_functions_lge_default_adb),
+		.functions  = usb_functions_lge_default_adb,
+	},
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */
 };
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Temporary USB setting */
+/* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
 struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns      = 1,
-	.vendor     = "Qualcomm Incorporated",
-	.product        = "Mass storage",
+	.vendor     = "LG Electronics Inc.",
+	.product    = "Mass storage",
 	.release    = 0x0100,
 };
 
@@ -195,8 +223,8 @@ struct platform_device usb_mass_storage_device = {
 
 struct usb_ether_platform_data rndis_pdata = {
 	/* ethaddr is filled by board_serialno_setup */
-	.vendorID   = 0x05C6,
-	.vendorDescr    = "Qualcomm Incorporated",
+	.vendorID   = 0x1004,
+	.vendorDescr    = "LG Electronics Inc.",
 };
 
 struct platform_device rndis_device = {
@@ -208,17 +236,19 @@ struct platform_device rndis_device = {
 };
 
 struct android_usb_platform_data android_usb_pdata = {
-	.vendor_id  = 0x05C6,
-	.product_id = 0x9026,
+	.vendor_id  = 0x1004,
+	.product_id = 0x618E,
 	.version    = 0x0100,
-	.product_name       = "Qualcomm HSUSB Device",
-	.manufacturer_name  = "Qualcomm Incorporated",
+	.product_name       = "LGE USB Device",
+	.manufacturer_name  = "LG Electronics Inc.",
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
 	.num_functions = ARRAY_SIZE(usb_functions_all),
 	.functions = usb_functions_all,
-	.serial_number = "1234567890ABCDEF",
+	.serial_number = "LG_ANDROID_P500****",
 };
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */
+
 #endif /* CONFIG_USB_ANDROID */
 
 static struct platform_device *devices[] __initdata = {
