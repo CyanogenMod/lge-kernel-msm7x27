@@ -560,10 +560,8 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 	}
 
 	num_item = kgsl_ringbuffer_count(&device->ringbuffer, cp_rb_rptr);
-	if (num_item <= 0) {
+	if (num_item <= 0)
 		KGSL_LOG_POSTMORTEM_WRITE("Ringbuffer is Empty.\n");
-		goto end;
-	}
 
 	rb_copy = kmalloc(rb_count<<2, GFP_KERNEL);
 	if (!rb_copy) {
