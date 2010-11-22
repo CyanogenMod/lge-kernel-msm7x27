@@ -1887,10 +1887,14 @@ FUNCTION:  tavarua_vidioc_querycap
 static int tavarua_vidioc_querycap(struct file *file, void *priv,
 		struct v4l2_capability *capability)
 {
+	struct tavarua_device *radio = video_get_drvdata(video_devdata(file));
+
 	strlcpy(capability->driver, DRIVER_NAME, sizeof(capability->driver));
 	strlcpy(capability->card, DRIVER_CARD, sizeof(capability->card));
 	sprintf(capability->bus_info, "I2C");
 	capability->capabilities = V4L2_CAP_TUNER | V4L2_CAP_RADIO;
+
+	capability->version = radio->chipID;
 
 	return 0;
 }
