@@ -174,6 +174,12 @@ struct msm_otg_platform_data {
 	int			phy_can_powercollapse;
 	int			pclk_required_during_lpm;
 
+	/* HSUSB core in 8660 has the capability to gate the
+	 * pclk when not being used. Though this feature is
+	 * now being disabled because of H/w issues
+	 */
+	int			pclk_is_hw_gated;
+
 	int (*ldo_init) (int init);
 	int (*ldo_enable) (int enable);
 	int (*ldo_set_voltage) (int mV);

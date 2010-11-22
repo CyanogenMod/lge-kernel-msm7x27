@@ -332,18 +332,29 @@ static void otg_pm_qos_update_latency(struct msm_otg *dev, int vote)
 				PM_QOS_DEFAULT_VALUE);
 }
 
-/* Vote for max AXI frequency if pclk is derived from peripheral bus clock */
-static void otg_pm_qos_update_axi(struct msm_otg *dev, int vote)
+/* If USB Core is running its protocol engine based on PCLK,
+ * PCLK must be running at >60Mhz for correct HSUSB operation and
+ * USB core cannot tolerate frequency changes on PCLK. For such
+ * USB cores, vote for maximum clk frequency on pclk source
+ */
+static void msm_otg_vote_for_pclk_source(struct msm_otg *dev, int vote)
 {
-	struct msm_otg_platform_data *pdata = dev->pdata;
-	if (!depends_on_axi_freq(&dev->otg))
+	if (!pclk_requires_voting(&dev->otg))
 		return;
 
+	if (dev->pdata->usb_in_sps) {
+		if (vote)
+			clk_set_min_rate(dev->dfab_clk, 64000000);
+		else
+			clk_set_min_rate(dev->dfab_clk, 0);
+		return;
+	}
+
 	if (vote)
-		pm_qos_update_request(pdata->pm_qos_req_bus,
+		pm_qos_update_request(dev->pdata->pm_qos_req_bus,
 				MSM_AXI_MAX_FREQ);
 	else
-		pm_qos_update_request(pdata->pm_qos_req_bus,
+		pm_qos_update_request(dev->pdata->pm_qos_req_bus,
 				PM_QOS_DEFAULT_VALUE);
 }
 
@@ -703,8 +714,7 @@ static int msm_otg_suspend(struct msm_otg *dev)
 			enable_irq_wake(dev->vbus_on_irq);
 	}
 
-	/* Release vote for max AXI frequency */
-	otg_pm_qos_update_axi(dev, 0);
+	msm_otg_vote_for_pclk_source(dev, 0);
 
 	atomic_set(&dev->in_lpm, 1);
 
@@ -742,10 +752,7 @@ static int msm_otg_resume(struct msm_otg *dev)
 		pr_err("%s failed to vote for"
 			"TCXO D1 buffer%d\n", __func__, ret);
 
-	/* pclk might be derived from peripheral bus clock. If so then
-	 * vote for max AXI frequency before enabling pclk.
-	 */
-	otg_pm_qos_update_axi(dev, 1);
+	msm_otg_vote_for_pclk_source(dev, 1);
 
 	if (dev->hs_pclk)
 		clk_enable(dev->hs_pclk);
@@ -2279,12 +2286,33 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 	clk_set_rate(dev->hs_clk, 60000000);
 
-	if (!dev->pdata->usb_in_sps) {
+	if (dev->pdata->usb_in_sps) {
+		dev->dfab_clk = clk_get(0, "dfab_clk");
+		if (IS_ERR(dev->dfab_clk)) {
+			pr_err("%s: failed to get dfab clk\n", __func__);
+			ret = PTR_ERR(dev->dfab_clk);
+			goto put_hs_clk;
+		}
+	}
+
+	/* If USB Core is running its protocol engine based on PCLK,
+	 * PCLK must be running at >60Mhz for correct HSUSB operation and
+	 * USB core cannot tolerate frequency changes on PCLK. For such
+	 * USB cores, vote for maximum clk frequency on pclk source
+	 */
+	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
+					PM_QOS_DEFAULT_VALUE);
+	dev->pdata->pm_qos_req_bus = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
+					PM_QOS_DEFAULT_VALUE);
+	msm_otg_vote_for_pclk_source(dev, 1);
+
+
+	if (!dev->pdata->pclk_is_hw_gated) {
 		dev->hs_pclk = clk_get(&pdev->dev, "usb_hs_pclk");
 		if (IS_ERR(dev->hs_pclk)) {
 			pr_err("%s: failed to get usb_hs_pclk\n", __func__);
 			ret = PTR_ERR(dev->hs_pclk);
-			goto put_hs_clk;
+			goto put_dfab_clk;
 		}
 		clk_enable(dev->hs_pclk);
 	}
@@ -2354,15 +2382,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_wlock;
 	}
-
-	/* pclk might be derived from peripheral bus clock. If so then
-	 * vote for max AXI frequency before enabling pclk.
-	 */
-	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
-					PM_QOS_DEFAULT_VALUE);
-	dev->pdata->pm_qos_req_bus = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					PM_QOS_DEFAULT_VALUE);
-	otg_pm_qos_update_axi(dev, 1);
 
 	if (dev->pdata->init_gpio) {
 		ret = dev->pdata->init_gpio(1);
@@ -2517,6 +2536,11 @@ put_hs_pclk:
 	if (dev->hs_pclk) {
 		clk_disable(dev->hs_pclk);
 		clk_put(dev->hs_pclk);
+	}
+put_dfab_clk:
+	if (dev->dfab_clk) {
+		clk_set_min_rate(dev->dfab_clk, 0);
+		clk_put(dev->dfab_clk);
 	}
 put_hs_clk:
 	if (dev->hs_clk)

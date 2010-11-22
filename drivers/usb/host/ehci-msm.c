@@ -73,13 +73,12 @@ static void msm_xusb_pm_qos_update(struct msmusb_hcd *mhcd, int vote)
 {
 	struct msm_usb_host_platform_data *pdata = mhcd->pdata;
 
-	if (PHY_TYPE(mhcd->pdata->phy_info) == USB_PHY_SERIAL_PMIC)
-		goto vote_for_axi;
-
-	if (!depends_on_axi_freq(mhcd->xceiv))
+	/* if otg driver is available, it would take
+	 * care of voting for appropriate pclk source
+	 */
+	if (mhcd->xceiv)
 		return;
 
-vote_for_axi:
 	if (vote) {
 		pm_qos_update_request(pdata->pm_qos_req_bus,
 				 MSM_AXI_MAX_FREQ);
