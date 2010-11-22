@@ -309,6 +309,54 @@ error_adsp_get:
 }
 EXPORT_SYMBOL(afe_config_aux_codec);
 
+int afe_config_rmc_block(struct acdb_rmc_block *acdb_rmc)
+{
+	struct afe_cmd_cfg_rmc cmd;
+	struct msm_afe_state *afe = &the_afe_state;
+	int rc = 0;
+	int i = 0;
+	unsigned short *ptrmem = (unsigned short *)&cmd;
+
+	MM_DBG(" configure rmc block\n");
+	mutex_lock(&afe->lock);
+	if (!afe->in_use) {
+		/* enable afe */
+		rc = msm_adsp_get("AFETASK", &afe->mod, &afe->adsp_ops, afe);
+		if (rc < 0) {
+			MM_DBG("%s: failed to get AFETASK module\n", __func__);
+			goto error_adsp_get;
+		}
+		rc = msm_adsp_enable(afe->mod);
+		if (rc < 0)
+			goto error_adsp_enable;
+	}
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd_id = AFE_CMD_CFG_RMC_PARAMS;
+
+	cmd.rmc_mode = acdb_rmc->rmc_enable;
+	cmd.rmc_ipw_length_ms =	acdb_rmc->rmc_ipw_length_ms;
+	cmd.rmc_peak_length_ms = acdb_rmc->rmc_peak_length_ms;
+	cmd.rmc_init_pulse_length_ms = acdb_rmc->rmc_init_pulse_length_ms;
+	cmd.rmc_total_int_length_ms = acdb_rmc->rmc_total_int_length_ms;
+	cmd.rmc_rampupdn_length_ms = acdb_rmc->rmc_rampupdn_length_ms;
+	cmd.rmc_delay_length_ms = acdb_rmc->rmc_delay_length_ms;
+	cmd.rmc_detect_start_threshdb = acdb_rmc->rmc_detect_start_threshdb;
+	cmd.rmc_init_pulse_threshdb = acdb_rmc->rmc_init_pulse_threshdb;
+
+	for (i = 0; i < sizeof(cmd)/2; i++, ++ptrmem)
+		MM_DBG("cmd[%d]=0x%04x\n", i, *ptrmem);
+	afe_send_queue(afe, &cmd, sizeof(cmd));
+
+	mutex_unlock(&afe->lock);
+	return rc;
+error_adsp_enable:
+	msm_adsp_put(afe->mod);
+error_adsp_get:
+	mutex_unlock(&afe->lock);
+	return rc;
+}
+EXPORT_SYMBOL(afe_config_rmc_block);
+
 int afe_disable(u8 path_id)
 {
 	struct msm_afe_state *afe = &the_afe_state;

@@ -102,4 +102,21 @@ struct afe_cmd_loopback {
 	uint16_t reserved[2];
 } __attribute__ ((packed));
 
+#define AFE_CMD_CFG_RMC_PARAMS 0x12
+#define AFE_CMD_CFG_RMC_LEN \
+	sizeof(struct afe_cmd_cfg_rmc)
+
+struct afe_cmd_cfg_rmc {
+	unsigned short cmd_id;
+	signed short   rmc_mode;
+	unsigned short rmc_ipw_length_ms;
+	unsigned short rmc_peak_length_ms;
+	unsigned short rmc_init_pulse_length_ms;
+	unsigned short rmc_total_int_length_ms;
+	unsigned short rmc_rampupdn_length_ms;
+	unsigned short rmc_delay_length_ms;
+	unsigned short rmc_detect_start_threshdb;
+	signed short   rmc_init_pulse_threshdb;
+}  __attribute__((packed));
+
 #endif
