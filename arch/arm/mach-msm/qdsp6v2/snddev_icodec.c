@@ -140,46 +140,6 @@ static struct adie_codec_action_unit debug_tx_lb_actions[] = {
 	ADIE_CODEC_PACK_ENTRY(0x11, 0xff, 0x00)}
 };
 
-static struct adie_codec_action_unit debug_tx_actions[] = {
-	{ ADIE_CODEC_ACTION_STAGE_REACHED, ADIE_CODEC_DIGITAL_OFF },
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x80, 0x01, 0x01)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x80, 0x01, 0x00) },
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x8A, 0x30, 0x30)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x11, 0xfc, 0xfc)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x13, 0xfc, 0x58)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x14, 0xff, 0x65)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x15, 0xff, 0x64)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x82, 0xff, 0x5C)},
-	{ ADIE_CODEC_ACTION_STAGE_REACHED, ADIE_CODEC_DIGITAL_READY },
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x0D, 0xF0, 0xd0)},
-	{ ADIE_CODEC_ACTION_DELAY_WAIT, 0xbb8},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x83, 0x14, 0x14)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x86, 0xff, 0x00)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x8A, 0x50, 0x40)},
-	{ ADIE_CODEC_ACTION_STAGE_REACHED, ADIE_CODEC_DIGITAL_ANALOG_READY},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x8A, 0x10, 0x30)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x0D, 0xFF, 0x00)},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x83, 0x14, 0x00)},
-	{ ADIE_CODEC_ACTION_STAGE_REACHED, ADIE_CODEC_ANALOG_OFF},
-	{ ADIE_CODEC_ACTION_ENTRY,
-	ADIE_CODEC_PACK_ENTRY(0x11, 0xff, 0x00)}
-};
-
 static struct adie_codec_hwsetting_entry debug_rx_settings[] = {
 	{
 		.freq_plan = 8000,
@@ -198,25 +158,10 @@ static struct adie_codec_hwsetting_entry debug_tx_lb_settings[] = {
 	}
 };
 
-static struct adie_codec_hwsetting_entry debug_tx_settings[] = {
-	{
-		.freq_plan = 8000,
-		.osr = 256,
-		.actions = debug_tx_actions,
-		.action_sz = ARRAY_SIZE(debug_tx_actions),
-	}
-};
-
 static struct adie_codec_dev_profile debug_rx_profile = {
 	.path_type = ADIE_CODEC_RX,
 	.settings = debug_rx_settings,
 	.setting_sz = ARRAY_SIZE(debug_rx_settings),
-};
-
-static struct adie_codec_dev_profile debug_tx_profile = {
-	.path_type = ADIE_CODEC_TX,
-	.settings = debug_tx_settings,
-	.setting_sz = ARRAY_SIZE(debug_tx_settings),
 };
 
 static struct adie_codec_dev_profile debug_tx_lb_profile = {
@@ -1003,7 +948,6 @@ static struct platform_driver snddev_icodec_driver = {
 
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *debugfs_sdev_dent;
-static struct dentry *debugfs_afelb;
 static struct dentry *debugfs_adielb;
 static struct adie_codec_path *debugfs_rx_adie;
 static struct adie_codec_path *debugfs_tx_adie;
@@ -1078,90 +1022,6 @@ static void debugfs_adie_loopback(u32 loop)
 	}
 }
 
-static void debugfs_afe_loopback(u32 loop)
-{
-	int trc;
-	int sample_rate, channel_mode;
-	union afe_port_config afe_config;
-	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
-
-	if (loop) {
-
-		/* enable MI2S RX master block */
-		/* enable MI2S RX bit clock */
-		clk_enable(drv->rx_osrclk);
-		clk_enable(drv->rx_bitclk);
-		pr_info("%s: configure ADIE RX path\n", __func__);
-		/* Configure ADIE */
-		trc = adie_codec_open(&debug_rx_profile, &debugfs_rx_adie);
-		if (IS_ERR_VALUE(trc))
-			pr_err("%s: adie codec open failed\n", __func__);
-		else
-			adie_codec_setpath(debugfs_rx_adie, 8000, 256);
-		sample_rate = 8000;
-		channel_mode = 3;  /* stereo */
-		afe_config.mi2s.channel = channel_mode;
-		afe_config.mi2s.bitwidth = 16;
-		afe_config.mi2s.line = 1;
-		afe_config.mi2s.ws = 1;
-		trc = afe_open(PRIMARY_I2S_RX, &afe_config, sample_rate);
-		if (!trc)
-			adie_codec_proceed_stage(debugfs_rx_adie,
-				ADIE_CODEC_DIGITAL_ANALOG_READY);
-
-		pr_info("%s: Enable Handset Mic bias\n", __func__);
-		/* enable MI2S TX master block */
-		/* enable MI2S TX bit clock */
-		clk_enable(drv->tx_osrclk);
-		clk_enable(drv->tx_bitclk);
-		pm8058_micbias_enable(OTHC_MICBIAS_0,
-						OTHC_SIGNAL_ALWAYS_ON);
-		pr_info("%s: configure ADIE TX path\n", __func__);
-		/* Configure ADIE */
-		trc = adie_codec_open(&debug_tx_profile, &debugfs_tx_adie);
-		if (IS_ERR_VALUE(trc))
-			pr_err("%s: adie codec open failed\n", __func__);
-		else
-			adie_codec_setpath(debugfs_tx_adie, 8000, 256);
-		sample_rate = 8000;
-		afe_config.mi2s.channel = channel_mode;
-		afe_config.mi2s.bitwidth = 16;
-		afe_config.mi2s.line = 1;
-		afe_config.mi2s.ws = 1;
-		trc = afe_open(PRIMARY_I2S_TX, &afe_config, sample_rate);
-		if (!trc)
-			adie_codec_proceed_stage(debugfs_tx_adie,
-				ADIE_CODEC_DIGITAL_ANALOG_READY);
-	} else {
-		/* Disable ADIE */
-		if (debugfs_rx_adie) {
-			adie_codec_proceed_stage(debugfs_rx_adie,
-					ADIE_CODEC_DIGITAL_OFF);
-			adie_codec_close(debugfs_rx_adie);
-		}
-		if (debugfs_tx_adie) {
-			adie_codec_proceed_stage(debugfs_tx_adie,
-					ADIE_CODEC_DIGITAL_OFF);
-			adie_codec_close(debugfs_tx_adie);
-		}
-
-		pm8058_micbias_enable(OTHC_MICBIAS_0,
-						OTHC_SIGNAL_OFF);
-		afe_close(PRIMARY_I2S_TX);
-		afe_close(PRIMARY_I2S_RX);
-
-		/* Disable MI2S RX master block */
-		/* Disable MI2S RX bit clock */
-		clk_disable(drv->rx_bitclk);
-		clk_disable(drv->rx_osrclk);
-
-		/* Disable MI2S TX master block */
-		/* Disable MI2S TX bit clock */
-		clk_disable(drv->tx_bitclk);
-		clk_disable(drv->tx_osrclk);
-	}
-}
-
 static ssize_t snddev_icodec_debug_write(struct file *filp,
 	const char __user *ubuf, size_t cnt, loff_t *ppos)
 {
@@ -1180,15 +1040,6 @@ static ssize_t snddev_icodec_debug_write(struct file *filp,
 			break;
 		case '0':
 			debugfs_adie_loopback(0);
-			break;
-		}
-	} else if (!strcmp(lb_str, "afe_loopback")) {
-		switch (cmd) {
-		case '1':
-			debugfs_afe_loopback(1);
-			break;
-		case '0':
-			debugfs_afe_loopback(0);
 			break;
 		}
 	}
@@ -1227,9 +1078,6 @@ static int __init snddev_icodec_init(void)
 #ifdef CONFIG_DEBUG_FS
 	debugfs_sdev_dent = debugfs_create_dir("snddev_icodec", 0);
 	if (!IS_ERR(debugfs_sdev_dent)) {
-		debugfs_afelb = debugfs_create_file("afe_loopback",
-		S_IFREG | S_IRUGO, debugfs_sdev_dent,
-		(void *) "afe_loopback", &snddev_icodec_debug_fops);
 		debugfs_adielb = debugfs_create_file("adie_loopback",
 		S_IFREG | S_IRUGO, debugfs_sdev_dent,
 		(void *) "adie_loopback", &snddev_icodec_debug_fops);
@@ -1258,7 +1106,6 @@ static void __exit snddev_icodec_exit(void)
 	struct snddev_icodec_drv_state *icodec_drv = &snddev_icodec_drv;
 
 #ifdef CONFIG_DEBUG_FS
-	debugfs_remove(debugfs_afelb);
 	debugfs_remove(debugfs_adielb);
 	debugfs_remove(debugfs_sdev_dent);
 #endif
