@@ -93,7 +93,6 @@
 #define DDL_H263_COMV_BUF_NO              0
 #define DDL_COMV_BUFLINE_NO               128
 #define DDL_VC1_COMV_BUFLINE_NO           32
-#define DDL_MINIMUM_BYTE_PER_SLICE        1920
 
 #define DDL_MAX_H264_QP            51
 #define DDL_MAX_MPEG4_QP           31
