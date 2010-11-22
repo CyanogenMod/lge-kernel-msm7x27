@@ -42,6 +42,9 @@ enum {
 struct acdb_data {
 	struct mutex		acdb_mutex;
 
+	/* ANC Cal */
+	struct acdb_cal_block	anc_cal;
+
 	/* AudProc Cal */
 	struct acdb_cal_block	audproc_cal[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block	audstrm_cal[MAX_AUDPROC_TYPES];
@@ -69,6 +72,51 @@ struct acdb_data {
 
 static struct acdb_data		acdb_data;
 
+
+void get_anc_cal(struct acdb_cal_block *cal_block)
+{
+	pr_debug("%s\n", __func__);
+
+	if (cal_block == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		goto done;
+	}
+
+	mutex_lock(&acdb_data.acdb_mutex);
+
+	cal_block->cal_kvaddr = acdb_data.anc_cal.cal_kvaddr;
+	cal_block->cal_paddr = acdb_data.anc_cal.cal_paddr;
+	cal_block->cal_size = acdb_data.anc_cal.cal_size;
+
+	mutex_unlock(&acdb_data.acdb_mutex);
+done:
+	return;
+}
+
+void store_anc_cal(struct cal_block *cal_block)
+{
+	pr_debug("%s,\n", __func__);
+
+	if (cal_block->cal_offset > acdb_data.pmem_len) {
+		pr_err("%s: offset %d is > pmem_len %ld\n",
+			__func__, cal_block->cal_offset,
+			acdb_data.pmem_len);
+		goto done;
+	}
+
+	mutex_lock(&acdb_data.acdb_mutex);
+
+	acdb_data.anc_cal.cal_kvaddr =
+		cal_block->cal_offset + acdb_data.kvaddr;
+	acdb_data.anc_cal.cal_paddr =
+		cal_block->cal_offset + acdb_data.paddr;
+	acdb_data.anc_cal.cal_size =
+		cal_block->cal_size;
+
+	mutex_unlock(&acdb_data.acdb_mutex);
+done:
+	return;
+}
 
 void get_audproc_buffer_data(struct audproc_buffer_data *cal_buffers)
 {
@@ -610,6 +658,9 @@ static int acdb_ioctl(struct inode *inode, struct file *f,
 			pr_err("%s: More sidetone cal then expected, "
 				"size received: %d\n", __func__, size);
 		store_sidetone_cal((struct sidetone_cal *)data);
+		break;
+	case AUDIO_SET_ANC_CAL:
+		store_anc_cal(data);
 		break;
 	default:
 		pr_err("ACDB=> ACDB ioctl not found!\n");
