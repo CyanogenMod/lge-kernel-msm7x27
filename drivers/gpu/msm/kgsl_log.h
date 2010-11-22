@@ -84,6 +84,14 @@ int kgsl_debug_init(void);
 					__func__, ##args);\
 	} while (0)
 
+#define KGSL_LOG_POSTMORTEM_WRITE(fmt, args...) \
+	do { \
+		dev_crit(kgsl_driver_getdevnode(), fmt, \
+			##args);\
+	} while (0)
+
+#define KGSL_LOG_DUMP(fmt, args...)	pr_err(fmt, ##args)
+
 #define KGSL_DRV_VDBG(fmt, args...) KGSL_LOG_VDBG(kgsl_drv_log, fmt, ##args)
 #define KGSL_DRV_DBG(fmt, args...)  KGSL_LOG_DBG(kgsl_drv_log, fmt, ##args)
 #define KGSL_DRV_INFO(fmt, args...) KGSL_LOG_INFO(kgsl_drv_log, fmt, ##args)

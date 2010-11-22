@@ -6,6 +6,7 @@ msm_kgsl-y = \
 	kgsl.o \
 	kgsl_log.o \
 	kgsl_mmu.o \
+	kgsl_postmortem.o \
 	kgsl_ringbuffer.o \
 	kgsl_sharedmem.o \
 	kgsl_yamato.o \

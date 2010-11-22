@@ -114,7 +114,8 @@ enum kgsl_status {
 #endif
 
 void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry);
-
+uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);
 int kgsl_setstate(struct kgsl_device *device, uint32_t flags);
 int kgsl_regread(struct kgsl_device *device, unsigned int offsetwords,
@@ -147,5 +148,15 @@ static inline void kgsl_drm_exit(void)
 {
 }
 #endif
+
+static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
+				unsigned int gpuaddr)
+{
+	if (gpuaddr >= memdesc->gpuaddr && (gpuaddr + sizeof(unsigned int)) <=
+		(memdesc->gpuaddr + memdesc->size)) {
+		return 1;
+	}
+	return 0;
+}
 
 #endif /* _GSL_DRIVER_H */

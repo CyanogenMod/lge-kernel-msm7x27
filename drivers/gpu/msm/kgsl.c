@@ -46,6 +46,7 @@
 #include "kgsl_yamato.h"
 #include "kgsl_g12.h"
 #include "kgsl_cmdstream.h"
+#include "kgsl_postmortem.h"
 
 #include "kgsl_log.h"
 #include "kgsl_drm.h"
@@ -479,6 +480,66 @@ kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 		}
 	}
 
+	return result;
+}
+
+static uint8_t *gpuaddr_to_vaddr(const struct kgsl_memdesc *memdesc,
+	unsigned int gpuaddr, unsigned int *size)
+{
+	uint8_t *ptr = NULL;
+
+	if (memdesc->priv & KGSL_MEMFLAGS_VMALLOC_MEM)
+		ptr = (uint8_t *)memdesc->physaddr;
+	else if (memdesc->hostptr == NULL)
+		ptr = __va(memdesc->physaddr);
+	else
+		ptr = memdesc->hostptr;
+
+	if (memdesc->size <= (gpuaddr - memdesc->gpuaddr))
+		ptr = NULL;
+
+	*size = ptr ? (memdesc->size - (gpuaddr - memdesc->gpuaddr)) : 0;
+	return (uint8_t *)(ptr ? (ptr  + (gpuaddr - memdesc->gpuaddr)) : NULL);
+}
+
+uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size)
+{
+	uint8_t *result = NULL;
+	struct kgsl_mem_entry *entry;
+	struct kgsl_process_private *priv;
+
+	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.buffer_desc, gpuaddr)) {
+		return gpuaddr_to_vaddr(&device->ringbuffer.buffer_desc,
+					gpuaddr, size);
+	}
+
+	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.memptrs_desc,
+			gpuaddr)) {
+		return gpuaddr_to_vaddr(&device->ringbuffer.memptrs_desc,
+					gpuaddr, size);
+	}
+
+	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr)) {
+		return gpuaddr_to_vaddr(&device->memstore,
+					gpuaddr, size);
+	}
+
+	list_for_each_entry(priv , &kgsl_driver.process_list, list) {
+		if (pt_base != 0
+			&& priv->pagetable
+			&& priv->pagetable->base.gpuaddr != pt_base) {
+			continue;
+		}
+
+		entry = kgsl_sharedmem_find_region(priv, gpuaddr,
+						sizeof(unsigned int));
+		if (entry) {
+			result = gpuaddr_to_vaddr(&entry->memdesc,
+							gpuaddr, size);
+			break;
+		}
+	}
 	return result;
 }
 
