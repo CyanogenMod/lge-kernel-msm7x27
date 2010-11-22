@@ -47,6 +47,9 @@
 #include "../../../drivers/mmc/host/msm_sdcc.h"
 #include <mach/sdio_al.h>
 
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
+
 #define MODULE_NAME "sdio_al"
 #define DRV_VERSION "1.10"
 
@@ -144,6 +147,17 @@
 #define TIME_TO_WAIT_US 500
 #define SDIO_PREFIX "SDIO_"
 
+#define DATA_DEBUG(x...) if (sdio_al->debug.debug_data_on) pr_info(x)
+#define LPM_DEBUG(x...) if (sdio_al->debug.debug_lpm_on) pr_info(x)
+
+struct sdio_al_debug {
+
+	u8 debug_lpm_on;
+	u8 debug_data_on;
+	struct dentry *sdio_al_debug_root;
+	struct dentry *sdio_al_debug_lpm_on;
+	struct dentry *sdio_al_debug_data_on;
+};
 
 /**
  *  Mailbox structure.
@@ -459,6 +473,9 @@ struct sdio_al {
 	unsigned int is_suspended;
 
 	int use_default_conf;
+
+	struct sdio_al_debug debug;
+
 };
 
 /** The driver context */
@@ -473,6 +490,54 @@ static int get_min_poll_time_msec(void);
 static u32 check_pending_rx_packet(struct sdio_channel *ch, u32 eot);
 static u32 remove_handled_rx_packet(struct sdio_channel *ch);
 static int set_pipe_threshold(int pipe_index, int threshold);
+
+
+#ifdef CONFIG_DEBUG_FS
+/*
+*
+* Trigger on/off for debug messages
+* for trigger off the data messages debug level use:
+* echo 0 > /sys/kernel/debugfs/sdio_al/debug_data_on
+* for trigger on the data messages debug level use:
+* echo 1 > /sys/kernel/debugfs/sdio_al/debug_data_on
+* for trigger off the lpm messages debug level use:
+* echo 0 > /sys/kernel/debugfs/sdio_al/debug_lpm_on
+* for trigger on the lpm messages debug level use:
+* echo 1 > /sys/kernel/debugfs/sdio_al/debug_lpm_on
+*/
+static int sdio_al_debugfs_init(void)
+{
+	sdio_al->debug.sdio_al_debug_root = debugfs_create_dir("sdio_al", NULL);
+	if (!sdio_al->debug.sdio_al_debug_root)
+		return -ENOENT;
+
+	sdio_al->debug.sdio_al_debug_lpm_on = debugfs_create_u8("debug_lpm_on",
+					S_IRUGO | S_IWUGO,
+					sdio_al->debug.sdio_al_debug_root,
+					&sdio_al->debug.debug_lpm_on);
+
+	sdio_al->debug.sdio_al_debug_data_on = debugfs_create_u8(
+					"debug_data_on",
+					S_IRUGO | S_IWUGO,
+					sdio_al->debug.sdio_al_debug_root,
+					&sdio_al->debug.debug_data_on);
+
+	if ((!sdio_al->debug.sdio_al_debug_data_on) &&
+	    (!sdio_al->debug.sdio_al_debug_lpm_on)) {
+		debugfs_remove(sdio_al->debug.sdio_al_debug_root);
+		sdio_al->debug.sdio_al_debug_root = NULL;
+		return -ENOENT;
+	}
+	return 0;
+}
+
+static void sdio_al_debugfs_cleanup(void)
+{
+       debugfs_remove(sdio_al->debug.sdio_al_debug_lpm_on);
+       debugfs_remove(sdio_al->debug.sdio_al_debug_data_on);
+       debugfs_remove(sdio_al->debug.sdio_al_debug_root);
+}
+#endif
 
 /**
  *  Write SDIO-Client lpm information
@@ -655,9 +720,9 @@ static int read_mailbox(int from_isr)
 
 	if ((rx_notify_bitmask == 0) && (tx_notify_bitmask == 0) &&
 	    !any_read_avail) {
-		pr_debug(MODULE_NAME ":Nothing to Notify\n");
+		DATA_DEBUG(MODULE_NAME ":Nothing to Notify\n");
 	} else {
-		pr_debug(MODULE_NAME ":Notify bitmask rx=0x%x, tx=0x%x.\n",
+		DATA_DEBUG(MODULE_NAME ":Notify bitmask rx=0x%x, tx=0x%x.\n",
 			rx_notify_bitmask, tx_notify_bitmask);
 		/* Restart inactivity timer if any activity on the channel */
 		restart_inactive_time();
@@ -693,7 +758,7 @@ static int read_mailbox(int from_isr)
 
 	if (is_inactive_time_expired()) {
 		/* Go to sleep */
-		pr_info(MODULE_NAME  ":Inactivity timer expired."
+		LPM_DEBUG(MODULE_NAME  ":Inactivity timer expired."
 			" Going to sleep\n");
 		/* Stop mailbox timer */
 		sdio_al->poll_delay_msec = 0;
@@ -1484,7 +1549,8 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 		pr_info(MODULE_NAME ": Wake up by interrupt");
 
 	if (!sdio_al->is_ok_to_sleep) {
-		pr_info(MODULE_NAME ": already awake, no need to wake up\n");
+		LPM_DEBUG(MODULE_NAME ": already awake, "
+					  "no need to wake up\n");
 		return 0;
 	}
 
@@ -1536,7 +1602,7 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 	sdio_al->poll_delay_msec = get_min_poll_time_msec();
 	start_timer();
 
-	pr_info(MODULE_NAME ":Finished Wake up sequence");
+	LPM_DEBUG(MODULE_NAME ":Finished Wake up sequence");
 
 	msmsdcc_set_pwrsave(sdio_al->card->host, 1);
 	pr_debug(MODULE_NAME ":Turn clock off\n");
@@ -1921,7 +1987,7 @@ int sdio_read(struct sdio_channel *ch, void *data, int len)
 		return -EINVAL;
 	}
 
-	pr_debug(MODULE_NAME ":start ch %s read %d avail %d.\n",
+	DATA_DEBUG(MODULE_NAME ":start ch %s read %d avail %d.\n",
 		ch->name, len, ch->read_avail);
 
 	restart_inactive_time();
@@ -1951,7 +2017,7 @@ int sdio_read(struct sdio_channel *ch, void *data, int len)
 		ch->read_avail -= len;
 
 	ch->total_rx_bytes += len;
-	pr_debug(MODULE_NAME ":end ch %s read %d avail %d total %d.\n",
+	DATA_DEBUG(MODULE_NAME ":end ch %s read %d avail %d total %d.\n",
 		ch->name, len, ch->read_avail, ch->total_rx_bytes);
 
 	sdio_release_host(sdio_al->card->sdio_func[0]);
@@ -1997,7 +2063,7 @@ int sdio_write(struct sdio_channel *ch, const void *data, int len)
 		restart_inactive_time();
 	}
 
-	pr_debug(MODULE_NAME ":start ch %s write %d avail %d.\n",
+	DATA_DEBUG(MODULE_NAME ":start ch %s write %d avail %d.\n",
 		ch->name, len, ch->write_avail);
 
 	if (len > ch->write_avail) {
@@ -2010,7 +2076,7 @@ int sdio_write(struct sdio_channel *ch, const void *data, int len)
 	ret = sdio_ch_write(ch, data, len);
 
 	ch->total_tx_bytes += len;
-	pr_debug(MODULE_NAME ":end ch %s write %d avail %d total %d.\n",
+	DATA_DEBUG(MODULE_NAME ":end ch %s write %d avail %d total %d.\n",
 		ch->name, len, ch->write_avail, ch->total_tx_bytes);
 
 	if (ret) {
@@ -2330,11 +2396,11 @@ static int sdio_al_sdio_suspend(struct device *dev)
 	int ret = 0;
 
 
-	pr_info(MODULE_NAME ":sdio_al_sdio_suspend for func %d\n",
+	LPM_DEBUG(MODULE_NAME ":sdio_al_sdio_suspend for func %d\n",
 		func->num);
 
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore request\n");
+		pr_info(MODULE_NAME ":In Error state,ignore suspend request\n");
 		return -EPERM;
 	}
 
@@ -2434,6 +2500,13 @@ static int __init sdio_al_init(void)
 
 	sdio_al->is_suspended = 0;
 
+	sdio_al->debug.debug_lpm_on = 0;
+	sdio_al->debug.debug_data_on = 0;
+
+#ifdef CONFIG_DEBUG_FS
+	sdio_al_debugfs_init();
+#endif
+
 	ret = platform_driver_register(&msm_sdio_al_driver);
 	if (ret) {
 		pr_err(MODULE_NAME ": platform_driver_register failed: %d\n",
@@ -2476,6 +2549,10 @@ static void __exit sdio_al_exit(void)
 	kfree(sdio_al);
 
 	mmc_unregister_driver(&mmc_driver);
+
+#ifdef CONFIG_DEBUG_FS
+	sdio_al_debugfs_cleanup();
+#endif
 
 	pr_debug(MODULE_NAME ":sdio_al_exit complete\n");
 }
