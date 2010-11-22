@@ -38,11 +38,11 @@ int thunderg_pwrsink_suspend_noirq(struct device *dev)
 
 //	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_VSYNC_O, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
-	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	gpio_direction_output(GPIO_LCD_MAKER_LOW, 0);
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	/* gpio_direction_output(GPIO_LCD_MAKER_LOW, 0); */
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	gpio_direction_output(GPIO_LCD_RESET_N, 0);
+	/* gpio_direction_output(GPIO_LCD_RESET_N, 0); */
 
 	lcd_bl_power_state = BL_POWER_SUSPEND;
 	camera_power_mutex_unlock();
@@ -74,8 +74,8 @@ int thunderg_pwrsink_resume_noirq(struct device *dev)
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
-	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	gpio_direction_output(GPIO_LCD_RESET_N, 0);
+	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	/* gpio_direction_output(GPIO_LCD_RESET_N, 0); */
 
 	lcd_bl_power_state = BL_POWER_RESUME;
 
