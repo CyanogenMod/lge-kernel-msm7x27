@@ -174,6 +174,7 @@ struct clk_local {
  * SYS_VDD voltage levels
  */
 enum sys_vdd_level {
+	NONE,
 	LOW,
 	NOMINAL,
 	HIGH,
