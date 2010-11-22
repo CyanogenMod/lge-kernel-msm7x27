@@ -1659,6 +1659,7 @@ static struct platform_device *qrdc_devices[] __initdata = {
 
 #ifdef CONFIG_PMIC8058
 #define PMIC_GPIO_SDC3_DET 22
+#define PMIC_GPIO_EXT_POWER 1
 
 static int pm8058_gpios_init(void)
 {
@@ -1670,6 +1671,17 @@ static int pm8058_gpios_init(void)
 	};
 
 	struct pm8058_gpio_cfg gpio_cfgs[] = {
+		{ /* External power enable */
+			PMIC_GPIO_EXT_POWER - 1,
+			{
+				.direction      = PM_GPIO_DIR_OUT,
+				.output_value   = 1,
+				.pull           = PM_GPIO_PULL_UP_30,
+				.vin_sel        = 2,
+				.function       = PM_GPIO_FUNC_NORMAL,
+				.inv_int_pol    = 0,
+			},
+		},
 		{ /* FFA ethernet */
 			6,
 			{
