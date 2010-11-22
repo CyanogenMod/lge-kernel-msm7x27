@@ -25,6 +25,7 @@
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 
+#include "mpm.h"
 #include "rpm.h"
 #include "rpm_resources.h"
 
@@ -834,13 +835,34 @@ static void msm_rpmrs_exit_level_default(
 static int msm_rpmrs_enter_level_mpm(
 	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits)
 {
-	return 0;
+	int rc;
+
+	if (msm_mpm_irqs_detectable(from_idle)) {
+		rc = msm_rpmrs_flush_buffer(sclk_count, limits);
+		if (rc)
+			return rc;
+
+		msm_mpm_enter_sleep(from_idle);
+		return 0;
+	} else {
+		uint32_t vdd_mem_saved = limits->vdd_mem;
+		uint32_t vdd_dig_saved = limits->vdd_dig;
+
+		limits->vdd_mem = MSM_RPMRS_VDD_MEM_RET_HIGH;
+		limits->vdd_dig = MSM_RPMRS_VDD_DIG_RET_HIGH;
+		rc = msm_rpmrs_flush_buffer(sclk_count, limits);
+		limits->vdd_mem = vdd_mem_saved;
+		limits->vdd_dig = vdd_dig_saved;
+
+		return rc;
+	}
 }
 
 static void msm_rpmrs_exit_level_mpm(
 	bool from_idle, struct msm_rpmrs_limits *limits)
 {
-	return;
+	if (msm_mpm_irqs_detectable(from_idle))
+		msm_mpm_exit_sleep(from_idle);
 }
 
 /******************************************************************************
