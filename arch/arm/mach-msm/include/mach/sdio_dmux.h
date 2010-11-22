@@ -32,6 +32,19 @@
 #ifndef _SDIO_DMUX_H
 #define _SDIO_DMUX_H
 
+enum {
+	SDIO_DMUX_DATA_RMNET_0,
+	SDIO_DMUX_DATA_RMNET_1,
+	SDIO_DMUX_DATA_RMNET_2,
+	SDIO_DMUX_DATA_RMNET_3,
+	SDIO_DMUX_DATA_RMNET_4,
+	SDIO_DMUX_DATA_RMNET_5,
+	SDIO_DMUX_DATA_RMNET_6,
+	SDIO_DMUX_DATA_RMNET_7,
+	SDIO_DMUX_USB_RMNET_0,
+	SDIO_DMUX_NUM_CHANNELS
+};
+
 int msm_sdio_dmux_open(uint32_t id, void *priv,
 		       void (*receive_cb)(void *, struct sk_buff *),
 		       void (*write_done)(void *, struct sk_buff *));
