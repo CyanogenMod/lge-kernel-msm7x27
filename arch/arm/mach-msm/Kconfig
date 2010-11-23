@@ -959,6 +959,21 @@ config MSM_CPU_FREQ_MIN
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
 	default 245760
 
+config MSM7X27_OVERCLOCK
+	bool "Enable SoC overclocking"
+	depends on MSM_CPU_FREQ_SET_MIN_MAX
+	depends on MACH_MSM7X27_THUNDERG
+	default n
+	help
+	  Enable support for non-standard acpuclock frequencies/voltages.
+
+config MSM7X27_BACONMAKER
+	bool "Enable SoC overclocking to dangerous frequencies"
+	depends on MSM7X27_OVERCLOCK
+	default n
+	help
+	  Enable support for dangerous acpuclock frequencies/voltages.
+
 endif # CPU_FREQ_MSM
 
 config MSM_CPU_AVS
