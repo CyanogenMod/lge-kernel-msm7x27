@@ -35,6 +35,7 @@
 #include <mach/qdsp5v2/qdsp5audpreproccmdi.h>
 #include <mach/qdsp5v2/qdsp5audpreprocmsg.h>
 #include <mach/qdsp5v2/qdsp5audppmsg.h>
+#include <mach/qdsp5v2/afe.h>
 #include <mach/qdsp5v2/audio_acdbi.h>
 #include <mach/qdsp5v2/acdb_commands.h>
 #include <mach/qdsp5v2/audio_acdb_def.h>
@@ -85,7 +86,6 @@ struct acdb_data {
 	struct audpreproc_cmd_cfg_iir_tuning_filter_params *preproc_iir;
 	struct audpreproc_cmd_cfg_cal_gain *calib_gain_tx;
 	struct acdb_mbadrc_block mbadrc_block;
-	struct audpreproc_cmd_cfg_rmc *rmc_block;
 
 	wait_queue_head_t wait;
 	struct mutex acdb_mutex;
@@ -1042,7 +1042,7 @@ static s32 acdb_fill_audpreproc_cal_gain(void)
 	return 0;
 }
 
-static struct acdb_rmc_block *get_audpreproc_rmc_blk(void)
+static struct acdb_rmc_block *get_rmc_blk(void)
 {
 	struct header *prs_hdr;
 	u32 index = 0;
@@ -1053,8 +1053,7 @@ static struct acdb_rmc_block *get_audpreproc_rmc_blk(void)
 			if (prs_hdr->abid == ABID_AUDIO_RMC_TX) {
 				if (prs_hdr->iid ==
 					IID_AUDIO_RMC_PARAM) {
-					MM_DBG("Got audpreproc_rmc"
-					" block\n");
+					MM_DBG("Got afe_rmc block\n");
 					return (struct acdb_rmc_block *)
 						(acdb_data.virt_addr + index
 						+ sizeof(struct header));
@@ -1070,64 +1069,10 @@ static struct acdb_rmc_block *get_audpreproc_rmc_blk(void)
 	return NULL;
 }
 
-
-
-static s32 acdb_fill_audpreproc_rmc(void)
-{
-	struct acdb_rmc_block *acdb_rmc = NULL;
-
-	acdb_rmc = get_audpreproc_rmc_blk();
-	if (acdb_rmc == NULL) {
-		MM_DBG("unable to find  audpreproc"
-			" rmc block\n");
-		return -EPERM;
-	}
-	memset(acdb_data.rmc_block, 0, sizeof(*acdb_data.rmc_block));
-
-	acdb_data.rmc_block->cmd_id =
-					AUDPREPROC_CMD_CFG_CAL_GAIN_PARAMS;
-	acdb_data.rmc_block->stream_id = acdb_data.preproc_stream_id;
-	acdb_data.rmc_block->rmc_enable = acdb_rmc->rmc_enable;
-	acdb_data.rmc_block->rmc_ipw_length_ms =
-					acdb_rmc->rmc_ipw_length_ms;
-	acdb_data.rmc_block->rmc_peak_length_ms =
-					acdb_rmc->rmc_peak_length_ms;
-	acdb_data.rmc_block->rmc_init_pulse_length_ms =
-					acdb_rmc->rmc_init_pulse_length_ms;
-	acdb_data.rmc_block->rmc_total_int_length_ms =
-					acdb_rmc->rmc_total_int_length_ms;
-	acdb_data.rmc_block->rmc_rampupdn_length_ms =
-					acdb_rmc->rmc_rampupdn_length_ms;
-	acdb_data.rmc_block->rmc_delay_length_ms =
-					acdb_rmc->rmc_delay_length_ms;
-	acdb_data.rmc_block->rmc_detect_start_threshdb =
-					acdb_rmc->rmc_detect_start_threshdb;
-	acdb_data.rmc_block->rmc_init_pulse_threshdb =
-					acdb_rmc->rmc_init_pulse_threshdb;
-
-	MM_DBG("rmc_enable %d\n", acdb_data.rmc_block->rmc_enable);
-	MM_DBG("rmc_ipw_length_ms %u\n",\
-			acdb_data.rmc_block->rmc_ipw_length_ms);
-	MM_DBG("rmc_peak_length_ms %u\n",\
-			acdb_data.rmc_block->rmc_peak_length_ms);
-	MM_DBG("rmc_init_pulse_length_ms %u\n",\
-			acdb_data.rmc_block->rmc_init_pulse_length_ms);
-	MM_DBG("rmc_total_int_length_ms %u\n",\
-			acdb_data.rmc_block->rmc_total_int_length_ms);
-	MM_DBG("rmc_rampupdn_length_ms %u\n",\
-			acdb_data.rmc_block->rmc_rampupdn_length_ms);
-	MM_DBG("rmc_delay_length_ms %u\n",\
-			acdb_data.rmc_block->rmc_delay_length_ms);
-	MM_DBG("rmc_detect_start_threshdb %u\n",\
-			acdb_data.rmc_block->rmc_detect_start_threshdb);
-	MM_DBG("rmc_init_pulse_threshdb %d\n",\
-			acdb_data.rmc_block->rmc_init_pulse_threshdb);
-	return 0;
-}
-
 s32 acdb_calibrate_audpreproc(void)
 {
 	s32	result = 0;
+	struct acdb_rmc_block *acdb_rmc = NULL;
 
 	result = acdb_fill_audpreproc_agc();
 	if (!IS_ERR_VALUE(result)) {
@@ -1171,24 +1116,23 @@ s32 acdb_calibrate_audpreproc(void)
 			MM_DBG("AUDPREPROC is calibrated"
 				" with calib_gain_tx\n");
 	}
-	result = acdb_fill_audpreproc_rmc();
-	if (!(IS_ERR_VALUE(result))) {
-		result = audpreproc_dsp_set_rmc(acdb_data.rmc_block,
-				sizeof(struct audpreproc_cmd_cfg_rmc));
+	acdb_rmc = get_rmc_blk();
+	if (acdb_rmc != NULL) {
+		result = afe_config_rmc_block(acdb_rmc);
 		if (result) {
 			MM_ERR("ACDB=> Failed to send rmc"
-				" data to preproc\n");
+				" data to afe\n");
 			result = -EINVAL;
 			goto done;
 		} else
-			MM_DBG("AUDPREPROC is calibrated"
-				" with rmc params\n");
-	} else {
+			MM_DBG("AFE is calibrated with rmc params\n");
+	} else
 		MM_DBG("RMC block was not found\n");
-	}
+
 done:
 	return result;
 }
+
 static s32 acdb_send_calibration(void)
 {
 	s32 result = 0;
@@ -1574,23 +1518,6 @@ static s32 initialize_memory(void)
 		kfree(acdb_data.preproc_iir);
 		kfree(acdb_data.calib_gain_tx);
 		kfree(acdb_data.pbe_block);
-		result = -ENOMEM;
-		goto done;
-	}
-	acdb_data.rmc_block = kmalloc(sizeof(*acdb_data.rmc_block),
-						GFP_KERNEL);
-	if (acdb_data.rmc_block == NULL) {
-		MM_ERR("ACDB=> Cannot allocate rmc block memory\n");
-		free_memory_acdb_cache_rx();
-		free_memory_acdb_cache_tx();
-		kfree(acdb_data.pp_iir);
-		kfree(acdb_data.pp_mbadrc);
-		kfree(acdb_data.calib_gain_rx);
-		kfree(acdb_data.preproc_agc);
-		kfree(acdb_data.preproc_iir);
-		kfree(acdb_data.calib_gain_tx);
-		kfree(acdb_data.pbe_block);
-		pmem_kfree((int32_t)acdb_data.pbe_extbuff);
 		result = -ENOMEM;
 		goto done;
 	}
@@ -2009,7 +1936,6 @@ static void __exit acdb_exit(void)
 	kfree(acdb_data.pp_mbadrc);
 	kfree(acdb_data.preproc_agc);
 	kfree(acdb_data.preproc_iir);
-	kfree(acdb_data.rmc_block);
 	pmem_kfree((int32_t)acdb_data.pbe_extbuff);
 	mutex_destroy(&acdb_data.acdb_mutex);
 	memset(&acdb_data, 0, sizeof(acdb_data));

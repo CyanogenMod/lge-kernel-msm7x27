@@ -97,6 +97,4 @@ int audpreproc_register_event_callback(struct audpreproc_event_callback *ecb);
 int audpreproc_dsp_set_gain_tx(
 	struct audpreproc_cmd_cfg_cal_gain *calib_gain_tx, unsigned len);
 
-int audpreproc_dsp_set_rmc(
-	struct audpreproc_cmd_cfg_rmc *rmc_block, unsigned len);
 #endif /* _MACH_QDSP5_V2_AUDPREPROC_H */

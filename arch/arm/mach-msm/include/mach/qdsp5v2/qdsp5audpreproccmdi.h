@@ -486,22 +486,4 @@ struct audpreproc_cmd_cfg_cal_gain {
 	unsigned short  reserved;
 }  __attribute__((packed));
 
-#define AUDPREPROC_CMD_CFG_RMC_PARAMS 0x0005
-#define AUDPREPROC_CMD_CFG_RMC_LEN \
-	sizeof(struct audpreproc_cmd_cfg_rmc)
-
-struct audpreproc_cmd_cfg_rmc {
-	unsigned short cmd_id;
-	unsigned short stream_id;
-	signed short   rmc_enable;
-	unsigned short rmc_ipw_length_ms;
-	unsigned short rmc_peak_length_ms;
-	unsigned short rmc_init_pulse_length_ms;
-	unsigned short rmc_total_int_length_ms;
-	unsigned short rmc_rampupdn_length_ms;
-	unsigned short rmc_delay_length_ms;
-	unsigned short rmc_detect_start_threshdb;
-	signed short   rmc_init_pulse_threshdb;
-}  __attribute__((packed));
-
 #endif /* QDSP5AUDPREPROCCMDI_H */

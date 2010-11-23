@@ -30,6 +30,7 @@
 #define _MACH_QDSP5_V2_AFE_H
 
 #include <asm/types.h>
+#include <mach/qdsp5v2/audio_acdbi.h>
 
 #define AFE_HW_PATH_CODEC_RX    1
 #define AFE_HW_PATH_CODEC_TX    2
@@ -61,4 +62,5 @@ void afe_loopback(int enable);
 
 void afe_device_volume_ctrl(u16 device_id, u16 device_volume);
 
+int afe_config_rmc_block(struct acdb_rmc_block *acdb_rmc);
 #endif
