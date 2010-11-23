@@ -3880,6 +3880,34 @@ static struct pmic8058_leds_platform_data pm8058_flash_leds_data = {
 	.leds	= pmic8058_flash_leds,
 };
 
+static struct pmic8058_led pmic8058_fluid_flash_leds[] = {
+	[0] = {
+		.name		= "led:drv0",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_FLASH_LED_0,
+	},/* 300 mA flash led0 drv sink */
+	[1] = {
+		.name		= "led:drv1",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_FLASH_LED_1,
+	},/* 300 mA flash led1 sink */
+	[2] = {
+		.name		= "led:drv2",
+		.max_brightness = 20,
+		.id		= PMIC8058_ID_LED_0,
+	},/* 40 mA led0 sink */
+	[3] = {
+		.name		= "keypad:drv",
+		.max_brightness = 15,
+		.id		= PMIC8058_ID_LED_KB_LIGHT,
+	},/* 300 mA keypad drv sink */
+};
+
+static struct pmic8058_leds_platform_data pm8058_fluid_flash_leds_data = {
+	.num_leds = ARRAY_SIZE(pmic8058_fluid_flash_leds),
+	.leds	= pmic8058_fluid_flash_leds,
+};
+
 static struct resource resources_temp_alarm[] = {
        {
 		.start  = PM8058_TEMP_ALARM_IRQ(PM8058_IRQ_BASE),
@@ -3889,6 +3917,7 @@ static struct resource resources_temp_alarm[] = {
 };
 
 #define PM8058_SUBDEV_KPD 0
+#define PM8058_SUBDEV_LED 1
 
 static struct mfd_cell pm8058_subdevs[] = {
 	{
@@ -3896,6 +3925,9 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.id		= -1,
 		.num_resources	= ARRAY_SIZE(resources_keypad),
 		.resources	= resources_keypad,
+	},
+	{	.name = "pm8058-led",
+		.id		= -1,
 	},
 	{	.name = "pm8058-gpio",
 		.id		= -1,
@@ -3966,11 +3998,6 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.id = -1,
 		.num_resources  = ARRAY_SIZE(resources_rtc),
 		.resources      = resources_rtc,
-	},
-	{	.name = "pm8058-led",
-		.id		= -1,
-		.platform_data = &pm8058_flash_leds_data,
-		.data_size = sizeof(pm8058_flash_leds_data),
 	},
 	{
 		.name = "pm8058-charger",
@@ -6844,6 +6871,19 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	else
 		platform_device_register(&gpio_leds);
 #endif
+
+	/* configure pmic leds */
+	if (machine_is_msm8x60_fluid()) {
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].
+			platform_data = &pm8058_fluid_flash_leds_data;
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].data_size
+			= sizeof(pm8058_fluid_flash_leds_data);
+	} else {
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].
+			platform_data = &pm8058_flash_leds_data;
+		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].data_size
+			= sizeof(pm8058_flash_leds_data);
+	}
 }
 
 static void __init msm8x60_rumi3_init(void)
