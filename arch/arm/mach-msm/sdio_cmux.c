@@ -26,13 +26,15 @@
 #include <linux/uaccess.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
-#include <mach/sdio_al.h>
-#include "modem_notifier.h"
 #include <linux/slab.h>
+
+#include <mach/sdio_al.h>
+#include <mach/sdio_cmux.h>
+
+#include "modem_notifier.h"
 
 #define MAX_WRITE_RETRY 5
 #define MAGIC_NO_V1 0x33FC
-#define NUM_SDIO_CMUX_PORTS 8
 
 static int msm_sdio_cmux_debug_mask;
 module_param_named(debug_mask, msm_sdio_cmux_debug_mask,
@@ -58,7 +60,7 @@ struct sdio_cmux_ch {
 	void *priv;
 	void (*receive_cb)(void *, int, void *);
 	void (*write_done)(void *, int, void *);
-} logical_ch[NUM_SDIO_CMUX_PORTS];
+} logical_ch[SDIO_CMUX_NUM_CHANNELS];
 
 struct sdio_cmux_hdr {
 	uint16_t magic_no;
@@ -130,7 +132,7 @@ do { \
 
 static int sdio_cmux_ch_alloc(int id)
 {
-	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
+	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS) {
 		pr_err("%s: Invalid lc_id - %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -154,7 +156,7 @@ static int sdio_cmux_ch_clear_and_signal(int id)
 {
 	struct sdio_cmux_list_elem *list_elem;
 
-	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
+	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS) {
 		pr_err("%s: Invalid lc_id - %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -186,7 +188,7 @@ static int sdio_cmux_write_cmd(const int id, enum cmd_type type)
 	void *write_data = NULL;
 	struct sdio_cmux_list_elem *list_elem;
 
-	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
+	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS) {
 		pr_err("%s: Invalid lc_id - %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -242,7 +244,7 @@ int sdio_cmux_open(const int id,
 
 	if (!sdio_cmux_inited)
 		return -ENODEV;
-	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
+	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS) {
 		pr_err("%s: Invalid id - %d\n", __func__, id);
 		return -EINVAL;
 	}
@@ -301,7 +303,7 @@ int sdio_cmux_close(int id)
 
 	if (!sdio_cmux_inited)
 		return -ENODEV;
-	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
+	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS) {
 		pr_err("%s: Invalid channel close\n", __func__);
 		return -EINVAL;
 	}
@@ -335,7 +337,7 @@ int sdio_cmux_write(int id, void *data, int len)
 
 	if (!sdio_cmux_inited)
 		return -ENODEV;
-	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
+	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS) {
 		pr_err("%s: Invalid channel id %d\n", __func__, id);
 		return -ENODEV;
 	}
@@ -398,7 +400,7 @@ EXPORT_SYMBOL(sdio_cmux_write);
 
 int is_remote_open(int id)
 {
-	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS)
+	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS)
 		return -ENODEV;
 
 	return logical_ch[id].is_remote_open;
@@ -551,7 +553,7 @@ static void sdio_cmux_fn(struct work_struct *work)
 	struct sdio_cmux_list_elem *list_elem = NULL;
 	struct sdio_cmux_ch *ch;
 
-	for (i = 0; i < NUM_SDIO_CMUX_PORTS; i++) {
+	for (i = 0; i < SDIO_CMUX_NUM_CHANNELS; ++i) {
 		ch = &logical_ch[i];
 		bytes_written = 0;
 		mutex_lock(&ch->tx_lock);
@@ -612,7 +614,7 @@ static int sdio_cmux_probe(struct platform_device *pdev)
 	int i, r;
 
 	D("%s Begins\n", __func__);
-	for (i = 0; i < NUM_SDIO_CMUX_PORTS; ++i)
+	for (i = 0; i < SDIO_CMUX_NUM_CHANNELS; ++i)
 		sdio_cmux_ch_alloc(i);
 	INIT_LIST_HEAD(&temp_rx_list);
 
@@ -655,7 +657,7 @@ static int sdio_cmux_remove(struct platform_device *pdev)
 {
 	int i;
 
-	for (i = 0; i < NUM_SDIO_CMUX_PORTS; ++i)
+	for (i = 0; i < SDIO_CMUX_NUM_CHANNELS; ++i)
 		sdio_cmux_ch_clear_and_signal(i);
 
 	destroy_workqueue(sdio_cmux_wq);

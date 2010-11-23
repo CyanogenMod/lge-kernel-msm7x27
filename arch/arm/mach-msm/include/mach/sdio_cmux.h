@@ -34,6 +34,20 @@
 #ifndef __SDIO_CMUX__
 #define __SDIO_CMUX__
 
+enum {
+	SDIO_CMUX_DATA_CTL_0,
+	SDIO_CMUX_DATA_CTL_1,
+	SDIO_CMUX_DATA_CTL_2,
+	SDIO_CMUX_DATA_CTL_3,
+	SDIO_CMUX_DATA_CTL_4,
+	SDIO_CMUX_DATA_CTL_5,
+	SDIO_CMUX_DATA_CTL_6,
+	SDIO_CMUX_DATA_CTL_7,
+	SDIO_CMUX_USB_CTL_0,
+	SDIO_CMUX_NUM_CHANNELS
+};
+
+
 /*
  * sdio_cmux_open - Open the mux channel
  *
