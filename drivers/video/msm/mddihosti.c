@@ -1813,6 +1813,7 @@ uint32 mddi_get_client_id(void)
 	mddi_host_cntl_type *pmhctl;
 	unsigned long flags;
 	uint16 saved_rev_pkt_size;
+	int ret;
 
 	if (!client_detection_try) {
 		/* Toshiba display requires larger drive_lo value */
@@ -1865,6 +1866,10 @@ uint32 mddi_get_client_id(void)
 
 		if (!mddi_client_id)
 			mddi_disable(1);
+
+		ret = mddi_client_power(mddi_client_id);
+		if (ret < 0)
+			MDDI_MSG_ERR("mddi_client_power return %d", ret);
 	}
 
 #if 0

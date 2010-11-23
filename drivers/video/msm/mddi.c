@@ -331,6 +331,14 @@ mddi_probe_err:
 static int mddi_pad_ctrl;
 static int mddi_power_locked;
 
+int mddi_client_power(unsigned int client_id)
+{
+	int ret = 0;
+	if (mddi_pdata && mddi_pdata->mddi_client_power)
+		ret = mddi_pdata->mddi_client_power(client_id);
+	return ret;
+}
+
 void mddi_disable(int lock)
 {
 	mddi_host_type host_idx = MDDI_HOST_PRIM;
