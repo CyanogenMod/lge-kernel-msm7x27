@@ -379,9 +379,9 @@ void __init pll2_fixup(void)
 {
 	struct clkctl_acpu_speed *speed;
 	struct cpufreq_frequency_table *cpu_freq;
-	uint32_t pll2_l;
+	u8 pll2_l;
 
-	pll2_l = readl(PLL2_L_VAL_ADDR) & 0x3f;
+	pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
 	speed = &acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2];
 	cpu_freq = &freq_table[ARRAY_SIZE(freq_table)-2];
 
