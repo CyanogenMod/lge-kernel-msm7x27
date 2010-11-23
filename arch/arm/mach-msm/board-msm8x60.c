@@ -410,9 +410,11 @@ static struct resource smsc911x_resources[] = {
 };
 
 static struct smsc911x_platform_config smsc911x_config = {
-	.irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH,
-	.irq_type     = SMSC911X_IRQ_TYPE_PUSH_PULL,
-	.flags        = SMSC911X_USE_16BIT
+	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_HIGH,
+	.irq_type	= SMSC911X_IRQ_TYPE_PUSH_PULL,
+	.flags		= SMSC911X_USE_16BIT,
+	.has_reset_gpio	= 1,
+	.reset_gpio	= GPIO_ETHERNET_RESET_N
 };
 
 static struct platform_device smsc911x_device = {
@@ -3160,7 +3162,6 @@ common_sx150x_lp_cfgs[] __initdata = {
 	{GPIO_WLAN_DEEP_SLEEP_N, 0},
 	{GPIO_EXT_GPS_LNA_EN,    0},
 	{GPIO_MSM_WAKES_BT,      0},
-	{GPIO_ETHERNET_RESET_N,  0},
 	{GPIO_USB_UICC_EN,       0},
 	{GPIO_BATT_GAUGE_EN,     0},
 };
