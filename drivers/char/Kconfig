@@ -1158,7 +1158,7 @@ config MSM_ROTATOR
 
 config MSM_ROTATOR_USE_IMEM
         bool "Enable rotator driver to use iMem"
-        depends on ARCH_MSM7x30 && MSM_ROTATOR
+        depends on ARCH_MSM7X30 && MSM_ROTATOR
         default y
         help
           This option enables the msm_rotator driver to use the move efficient
