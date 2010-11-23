@@ -159,7 +159,8 @@ done:
 }
 
 int adm_open(int port_id, int session_id , int path,
-				int rate, int channel_mode)
+				int rate, int channel_mode,
+				int topology)
 {
 	struct adm_copp_open_command	open;
 	struct adm_routings_command	route;
@@ -200,12 +201,15 @@ int adm_open(int port_id, int session_id , int path,
 		open.mode = path;
 		open.endpoint_id1 = port_id & 0x00FF;
 		open.endpoint_id2 = 0xFFFF;
-		open.topology_id = DEFAULT_COPP_TOPOLOGY;
+		open.topology_id  = topology;
+
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
 
-		pr_debug("channel_config=%d port_id=%d\n",
-				open.channel_config, open.endpoint_id1);
+		pr_debug("channel_config=%d port_id=%d rate=%d\
+			topology_id=0x%X\n", open.channel_config,\
+			open.endpoint_id1, open.rate,\
+			open.topology_id);
 
 		atomic_set(&this_adm.copp_stat[port_id], 0);
 

@@ -26,6 +26,7 @@
 #include <linux/msm_audio.h>
 #include <asm/atomic.h>
 #include <mach/debug_mm.h>
+#include <mach/qdsp6v2/audio_dev_ctl.h>
 #include "apr_audio.h"
 #include "q6asm.h"
 
@@ -225,6 +226,24 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EFAULT;
 		break;
 	}
+	case AUDIO_ENABLE_AUDPRE: {
+
+		uint16_t enable_mask;
+
+		if (copy_from_user(&enable_mask, (void *) arg,
+						sizeof(enable_mask))) {
+			rc = -EFAULT;
+			break;
+		}
+		if (enable_mask & FLUENCE_ENABLE)
+			rc = auddev_cfg_tx_copp_topology(pcm->ac->session,
+					VPM_TX_DM_FLUENCE_COPP_TOPOLOGY);
+		else
+			rc = auddev_cfg_tx_copp_topology(pcm->ac->session,
+					DEFAULT_COPP_TOPOLOGY);
+		break;
+	}
+
 	default:
 		rc = -EINVAL;
 		break;
@@ -344,6 +363,12 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 {
 	int rc = 0;
 	struct pcm *pcm = file->private_data;
+
+	mutex_lock(&pcm->lock);
+	/* remove this session from topology list */
+	auddev_cfg_tx_copp_topology(pcm->ac->session,
+				DEFAULT_COPP_TOPOLOGY);
+	mutex_unlock(&pcm->lock);
 
 	rc = pcm_in_disable(pcm);
 

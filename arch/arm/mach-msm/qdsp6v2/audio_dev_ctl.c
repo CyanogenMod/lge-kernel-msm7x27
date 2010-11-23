@@ -27,6 +27,7 @@
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
 #include "q6adm.h"
+#include "apr_audio.h"
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -73,6 +74,15 @@ struct audio_routing_info {
 };
 
 static struct audio_routing_info routing_info;
+
+struct audio_copp_topology {
+	struct mutex lock;
+	int session_cnt;
+	int session_id[MAX_SESSIONS];
+	int topolog_id[MAX_SESSIONS];
+};
+static struct audio_copp_topology adm_tx_topology_tbl;
+
 
 int msm_get_voice_state(void)
 {
@@ -167,7 +177,8 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 					int rate, int mode)
 {
 	if (set)
-		adm_open(copp_id, popp_id, PLAYBACK, rate, mode);
+		adm_open(copp_id, popp_id, PLAYBACK, rate, mode,
+			DEFAULT_COPP_TOPOLOGY);
 	else
 		adm_close(copp_id);
 
@@ -175,11 +186,103 @@ int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 }
 EXPORT_SYMBOL(msm_snddev_set_dec);
 
+
+static int check_tx_copp_topology(int session_id)
+{
+	int cnt;
+	int ret_val = -ENOENT;
+
+	cnt = adm_tx_topology_tbl.session_cnt;
+	if (cnt) {
+		do {
+			if (adm_tx_topology_tbl.session_id[cnt-1]
+				== session_id)
+				ret_val = cnt-1;
+		} while (--cnt);
+	}
+
+	return ret_val;
+}
+
+static int add_to_tx_topology_lists(int session_id, int topology)
+{
+	int idx = 0, tbl_idx;
+	int ret_val = -ENOSPC;
+
+	mutex_lock(&adm_tx_topology_tbl.lock);
+
+	tbl_idx = check_tx_copp_topology(session_id);
+	if (tbl_idx == -ENOENT) {
+		while (adm_tx_topology_tbl.session_id[idx++])
+			;
+		tbl_idx = idx-1;
+	}
+
+	if (tbl_idx < MAX_SESSIONS) {
+		adm_tx_topology_tbl.session_id[tbl_idx] = session_id;
+		adm_tx_topology_tbl.topolog_id[tbl_idx] = topology;
+		adm_tx_topology_tbl.session_cnt++;
+
+		ret_val = 0;
+	}
+	mutex_unlock(&adm_tx_topology_tbl.lock);
+	return ret_val;
+}
+
+static void remove_from_tx_topology_lists(int session_id)
+{
+	int tbl_idx;
+
+	mutex_lock(&adm_tx_topology_tbl.lock);
+	tbl_idx = check_tx_copp_topology(session_id);
+	if (tbl_idx != -ENOENT) {
+
+		adm_tx_topology_tbl.session_cnt--;
+		adm_tx_topology_tbl.session_id[tbl_idx] = 0;
+		adm_tx_topology_tbl.topolog_id[tbl_idx] = 0;
+	}
+	mutex_unlock(&adm_tx_topology_tbl.lock);
+}
+
+int auddev_cfg_tx_copp_topology(int session_id, int cfg)
+{
+	int ret = 0;
+
+	if (cfg == DEFAULT_COPP_TOPOLOGY)
+		remove_from_tx_topology_lists(session_id);
+	else {
+		switch (cfg) {
+		case VPM_TX_SM_ECNS_COPP_TOPOLOGY:
+		case VPM_TX_DM_FLUENCE_COPP_TOPOLOGY:
+			ret = add_to_tx_topology_lists(session_id, cfg);
+			break;
+
+		default:
+			ret = -ENODEV;
+			break;
+		}
+	}
+	return ret;
+}
+
 int msm_snddev_set_enc(int popp_id, int copp_id, int set,
 					int rate, int mode)
 {
-	if (set)
-		adm_open(copp_id, popp_id, LIVE_RECORDING, rate, mode);
+	int topology;
+	int tbl_idx;
+	if (set) {
+		mutex_lock(&adm_tx_topology_tbl.lock);
+		tbl_idx = check_tx_copp_topology(popp_id);
+		if (tbl_idx == -ENOENT)
+			topology = DEFAULT_COPP_TOPOLOGY;
+		else {
+			topology = adm_tx_topology_tbl.topolog_id[tbl_idx];
+			rate = 16000;
+		}
+		mutex_unlock(&adm_tx_topology_tbl.lock);
+		adm_open(copp_id, popp_id, LIVE_RECORDING, rate, mode,
+			topology);
+	}
 	else
 		adm_close(copp_id);
 	return 0;
@@ -1075,6 +1178,9 @@ static int __init audio_dev_ctrl_init(void)
 	audio_dev_ctrl.voice_tx_dev = NULL;
 	audio_dev_ctrl.voice_rx_dev = NULL;
 	routing_info.voice_state = VOICE_STATE_INVALID;
+
+	mutex_init(&adm_tx_topology_tbl.lock);
+
 	return misc_register(&audio_dev_ctrl_misc);
 }
 
