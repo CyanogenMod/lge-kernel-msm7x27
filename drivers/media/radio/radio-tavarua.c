@@ -2962,6 +2962,8 @@ static int  __init tavarua_probe(struct platform_device *pdev)
 	radio->tune_req = 0;
 	/* initialize wait queue for event read */
 	init_waitqueue_head(&radio->event_queue);
+	/* initialize wait queue for raw rds read */
+	init_waitqueue_head(&radio->read_queue);
 
 	video_set_drvdata(radio->videodev, radio);
     /*Start the worker thread for event handling and register read_int_stat
