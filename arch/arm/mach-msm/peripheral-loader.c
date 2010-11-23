@@ -122,18 +122,23 @@ static int load_segment(struct elf32_phdr *phdr, unsigned num,
 		return -EPERM;
 	}
 
-	snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", pil->name, num);
-	ret = request_firmware(&fw, fw_name, &pil->pdev.dev);
-	if (ret) {
-		dev_err(&pil->pdev.dev, "Failed to locate blob %s\n", fw_name);
-		return ret;
-	}
+	if (phdr->p_filesz) {
+		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", pil->name,
+				num);
+		ret = request_firmware(&fw, fw_name, &pil->pdev.dev);
+		if (ret) {
+			dev_err(&pil->pdev.dev, "Failed to locate blob %s\n",
+					fw_name);
+			return ret;
+		}
 
-	if (fw->size != phdr->p_filesz) {
-		dev_err(&pil->pdev.dev, "Blob size %u doesn't match %u\n",
-				fw->size, phdr->p_filesz);
-		ret = -EPERM;
-		goto release_fw;
+		if (fw->size != phdr->p_filesz) {
+			dev_err(&pil->pdev.dev,
+					"Blob size %u doesn't match %u\n",
+					fw->size, phdr->p_filesz);
+			ret = -EPERM;
+			goto release_fw;
+		}
 	}
 
 	/* Load the segment into memory */
