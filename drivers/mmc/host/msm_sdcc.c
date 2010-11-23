@@ -138,7 +138,8 @@ static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 		pr_err("%s: Clock deassert failed at %u Hz with err %d\n",
 				mmc_hostname(host->mmc), host->clk_rate, ret);
 
-	pr_info("%s: Controller has been reset\n", mmc_hostname(host->mmc));
+	pr_info("%s: Controller has been reinitialized\n",
+			mmc_hostname(host->mmc));
 
 	/* Restore the contoller state */
 	writel(host->pwr, host->base + MMCIPOWER);
@@ -288,10 +289,6 @@ msmsdcc_dma_complete_tlet(unsigned long data)
 
 	if (host->curr.got_dataend || mrq->data->error) {
 
-		if (mrq->data->error && !(host->curr.got_dataend)) {
-			pr_info("%s: Worked around bug 1535304\n",
-			       mmc_hostname(host->mmc));
-		}
 		/*
 		 * If we've already gotten our DATAEND / DATABLKEND
 		 * for this request, then complete it through here.
