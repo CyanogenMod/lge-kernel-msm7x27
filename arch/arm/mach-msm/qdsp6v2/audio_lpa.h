@@ -59,12 +59,10 @@ struct audio {
 
 	uint8_t out_needed; /* number of buffers the dsp is waiting for */
 	struct list_head out_queue; /* queue to retain output buffers */
-	atomic_t out_bytes;
 
 	struct mutex lock;
 	struct mutex write_lock;
 	wait_queue_head_t write_wait;
-	wait_queue_head_t cmd_wait;
 
 	struct audio_client *ac;
 

@@ -174,7 +174,6 @@ static void audlpa_async_flush(struct audio *audio)
 	pr_info("%s:out_enabled = %d, drv_status = 0x%x\n", __func__,
 			audio->out_enabled, audio->drv_status);
 	if (audio->out_enabled) {
-		wake_up(&audio->cmd_wait);
 		list_for_each_safe(ptr, next, &audio->out_queue) {
 			buf_node = list_entry(ptr, struct audlpa_buffer_node,
 						list);
@@ -199,7 +198,6 @@ static void audlpa_async_flush(struct audio *audio)
 
 		audio->drv_status &= ~ADRV_STATUS_OBUF_GIVEN;
 		audio->out_needed = 0;
-		atomic_set(&audio->out_bytes, 0);
 
 		if (audio->stopped == 0) {
 			rc = audio_enable(audio);
@@ -212,6 +210,7 @@ static void audlpa_async_flush(struct audio *audio)
 					audio->drv_status &= ~ADRV_STATUS_PAUSE;
 			}
 		}
+		wake_up(&audio->write_wait);
 	}
 }
 
@@ -227,7 +226,6 @@ static int audio_disable(struct audio *audio)
 		rc = q6asm_cmd(audio->ac, CMD_CLOSE);
 		audio->drv_status &= ~ADRV_STATUS_OBUF_GIVEN;
 		wake_up(&audio->write_wait);
-		wake_up(&audio->cmd_wait);
 		audio->out_needed = 0;
 	}
 	return rc;
@@ -646,7 +644,6 @@ void q6_audlpa_out_cb(uint32_t opcode, uint32_t token,
 		if (audio->teos == 0) {
 			audio->teos = 1;
 			wake_up(&audio->write_wait);
-			wake_up(&audio->cmd_wait);
 		}
 		break;
 
@@ -904,8 +901,11 @@ int audlpa_async_fsync(struct audio *audio)
 	audio->teos = 0;
 
 	rc = wait_event_interruptible(audio->write_wait,
-					(list_empty(&audio->out_queue)) ||
-					audio->wflush || audio->stopped);
+					((list_empty(&audio->out_queue)) ||
+					audio->wflush || audio->stopped));
+
+	if (audio->wflush || audio->stopped)
+		goto flush_event;
 
 	if (rc < 0) {
 		pr_err("%s: wait event for list_empty failed, rc = %d\n",
@@ -939,6 +939,8 @@ int audlpa_async_fsync(struct audio *audio)
 			audio->out_needed = 1;
 		}
 	}
+
+flush_event:
 	if (audio->stopped || audio->wflush)
 		rc = -EBUSY;
 
@@ -1000,11 +1002,11 @@ static int audio_release(struct inode *inode, struct file *file)
 
 	mutex_lock(&audio->lock);
 	audlpa_unmap_pmem_region(audio);
+	audlpa_async_flush(audio);
 	audio_disable(audio);
 	msm_clear_session_id(audio->ac->session);
 	q6asm_audio_client_free(audio->ac);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, audio->ac->session);
-	audlpa_async_flush(audio);
 	audlpa_reset_pmem_region(audio);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&audio->suspend_ctl.node);
@@ -1187,7 +1189,6 @@ static int audio_open(struct inode *inode, struct file *file)
 	mutex_init(&audio->get_event_lock);
 	spin_lock_init(&audio->dsp_lock);
 	init_waitqueue_head(&audio->write_wait);
-	init_waitqueue_head(&audio->cmd_wait);
 	INIT_LIST_HEAD(&audio->out_queue);
 	INIT_LIST_HEAD(&audio->pmem_region_queue);
 	INIT_LIST_HEAD(&audio->free_event_queue);
