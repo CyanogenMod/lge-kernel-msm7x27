@@ -3617,6 +3617,8 @@ static struct msm_gpio fluid_vee_reset_gpio[] = {
 	{ GPIO_CFG(20, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "vee_reset" },
 };
 
+static unsigned char quickvx_mddi_client = 1;
+
 static unsigned quickvx_vlp_gpio =
 	GPIO_CFG(97, 0, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL,	GPIO_CFG_2MA);
 
@@ -3654,27 +3656,31 @@ static int display_common_power(int on)
 		/* bring reset line low to hold reset*/
 		gpio_set_value(180, 0);
 
-		/* QuickVX chip -- VLP pin -- gpio 97 */
-		rc = gpio_tlmm_config(quickvx_vlp_gpio, GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
-				__func__, quickvx_vlp_gpio, rc);
-			return rc;
+		if (quickvx_mddi_client) {
+			/* QuickVX chip -- VLP pin -- gpio 97 */
+			rc = gpio_tlmm_config(quickvx_vlp_gpio,
+				GPIO_CFG_ENABLE);
+			if (rc) {
+				pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
+					__func__, quickvx_vlp_gpio, rc);
+				return rc;
+			}
+
+			/* bring QuickVX VLP line low */
+			gpio_set_value(97, 0);
+
+			rc = pm8058_gpio_config(PMIC_GPIO_QUICKVX_CLK,
+				&pmic_quickvx_clk_gpio);
+			if (rc) {
+				pr_err("%s: pm8058_gpio_config(%#x)=%d\n",
+					__func__, PMIC_GPIO_QUICKVX_CLK + 1,
+					rc);
+				return rc;
+			}
+
+			gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+				PMIC_GPIO_QUICKVX_CLK), 0);
 		}
-
-		/* bring QuickVX VLP line low */
-		gpio_set_value(97, 0);
-
-		rc = pm8058_gpio_config(PMIC_GPIO_QUICKVX_CLK,
-			&pmic_quickvx_clk_gpio);
-		if (rc) {
-			pr_err("%s: pm8058_gpio_config(%#x)=%d\n",
-				__func__, PMIC_GPIO_QUICKVX_CLK + 1, rc);
-			return rc;
-		}
-
-		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
-			PMIC_GPIO_QUICKVX_CLK), 0);
 	}
 
 	/* Toshiba WeGA power -- has 3 power source */
@@ -3733,7 +3739,10 @@ static int display_common_power(int on)
 
 	/* For QuickLogic chip, LDO20 requires 1.8V */
 	/* Toshiba chip requires 1.5V, but can tolerate 1.8V since max is 3V */
-	rc = vreg_set_level(vreg_ldo20, 1800);
+	if (quickvx_mddi_client)
+		rc = vreg_set_level(vreg_ldo20, 1800);
+	else
+		rc = vreg_set_level(vreg_ldo20, 1500);
 	if (rc) {
 		pr_err("%s: vreg LDO20 set level failed (%d)\n",
 		       __func__, rc);
@@ -3827,11 +3836,15 @@ static int display_common_power(int on)
 
 		gpio_set_value(180, 1); /* bring reset line high */
 		mdelay(10);	/* 10 msec before IO can be accessed */
-		gpio_set_value(97, 1);
-		msleep(2);
-		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
-			PMIC_GPIO_QUICKVX_CLK), 1);
-		msleep(2);
+
+		if (quickvx_mddi_client) {
+			gpio_set_value(97, 1);
+			msleep(2);
+			gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+				PMIC_GPIO_QUICKVX_CLK), 1);
+			msleep(2);
+		}
+
 		rc = pmapp_display_clock_config(1);
 		if (rc) {
 			pr_err("%s pmapp_display_clock_config rc=%d\n",
@@ -3856,9 +3869,12 @@ static int display_common_power(int on)
 		}
 
 		gpio_set_value(180, 0); /* bring reset line low */
-		gpio_set_value(97, 0);
-		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
-			PMIC_GPIO_QUICKVX_CLK), 0);
+
+		if (quickvx_mddi_client) {
+			gpio_set_value(97, 0);
+			gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+				PMIC_GPIO_QUICKVX_CLK), 0);
+		}
 
 		if (machine_is_msm7x30_fluid()) {
 			rc = vreg_disable(vreg_ldo8);
@@ -3907,9 +3923,50 @@ static int msm_fb_mddi_sel_clk(u32 *clk_rate)
 	return 0;
 }
 
+static int msm_fb_mddi_client_power(u32 client_id)
+{
+	struct vreg *vreg_ldo20;
+	int rc;
+
+	printk(KERN_NOTICE "\n client_id = 0x%x", client_id);
+	/* Check if it is Quicklogic client */
+	if (client_id == 0xc5835800)
+		printk(KERN_NOTICE "\n Quicklogic MDDI client");
+	else {
+		printk(KERN_NOTICE "\n Non-Quicklogic MDDI client");
+		quickvx_mddi_client = 0;
+		gpio_set_value(97, 0);
+		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+			PMIC_GPIO_QUICKVX_CLK), 0);
+
+		vreg_ldo20 = vreg_get(NULL, "gp13");
+
+		if (IS_ERR(vreg_ldo20)) {
+			rc = PTR_ERR(vreg_ldo20);
+			pr_err("%s: gp13 vreg get failed (%d)\n",
+				   __func__, rc);
+			return rc;
+		}
+		rc = vreg_set_level(vreg_ldo20, 1500);
+		if (rc) {
+			pr_err("%s: vreg LDO20 set level failed (%d)\n",
+			       __func__, rc);
+			return rc;
+		}
+		rc = vreg_enable(vreg_ldo20);
+		if (rc) {
+			pr_err("%s: LDO20 vreg enable failed (%d)\n",
+			       __func__, rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 static struct mddi_platform_data mddi_pdata = {
 	.mddi_power_save = display_common_power,
 	.mddi_sel_clk = msm_fb_mddi_sel_clk,
+	.mddi_client_power = msm_fb_mddi_client_power,
 };
 
 int mdp_core_clk_rate_table[] = {
@@ -4072,6 +4129,7 @@ static int lcdc_panel_power(int on)
 		return 0;
 
 	lcdc_power_save_on = flag_on;
+	quickvx_mddi_client = 0;
 
 	if (machine_is_msm7x30_fluid())
 		return lcdc_sharp_panel_power(on);

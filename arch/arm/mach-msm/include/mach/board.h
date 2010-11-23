@@ -255,6 +255,7 @@ struct tvenc_platform_data {
 struct mddi_platform_data {
 	int (*mddi_power_save)(int on);
 	int (*mddi_sel_clk)(u32 *clk_rate);
+	int (*mddi_client_power)(u32 client_id);
 };
 
 struct mipi_dsi_platform_data {
