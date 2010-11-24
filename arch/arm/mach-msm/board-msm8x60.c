@@ -3306,6 +3306,7 @@ static struct pmic8058_othc_config_pdata othc_config_pdata_1 = {
 	.micbias_capability = OTHC_MICBIAS_HSED,
 	.micbias_enable = OTHC_SIGNAL_PWM_TCXO,
 	.hsed_config = &hsed_config_1,
+	.hsed_name = "8660_handset",
 };
 
 /* MIC_BIAS2 is configured as normal MIC BIAS */
