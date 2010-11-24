@@ -26,13 +26,17 @@
 #include <linux/platform_device.h>
 #include <linux/rfkill.h>
 
+static bool previous;
+
 static int bluetooth_toggle_radio(void *data, bool blocked)
 {
-	int ret;
+	int ret = 0;
 	int (*power_control)(int enable);
 
 	power_control = data;
-	ret = (*power_control)(!blocked);
+	if (previous != blocked)
+		ret = (*power_control)(!blocked);
+	previous = blocked;
 	return ret;
 }
 
@@ -56,6 +60,7 @@ static int bluetooth_power_rfkill_probe(struct platform_device *pdev)
 
 	/* force Bluetooth off during init to allow for user control */
 	rfkill_init_sw_state(rfkill, 1);
+	previous = 1;
 
 	ret = rfkill_register(rfkill);
 	if (ret) {
