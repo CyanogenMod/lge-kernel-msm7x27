@@ -618,11 +618,16 @@ int dal_call_f13(struct dal_client *client, uint32_t ddi, void *ibuf1,
 		 uint32_t ilen1, void *ibuf2, uint32_t ilen2, void *obuf,
 		 uint32_t olen)
 {
-	uint32_t tmp[128];
+	uint32_t tmp[DAL_DATA_MAX/4];
 	int res;
 	int param_idx = 0;
+	int num_bytes = 0;
 
-	if (ilen1 + ilen2 + 8 > DAL_DATA_MAX)
+	num_bytes = (DIV_ROUND_UP(ilen1, 4)) * 4;
+	num_bytes += (DIV_ROUND_UP(ilen2, 4)) * 4;
+
+	if ((num_bytes > DAL_DATA_MAX - 12) || (olen > DAL_DATA_MAX - 8) ||
+			(ilen1 > DAL_DATA_MAX) || (ilen2 > DAL_DATA_MAX))
 		return -EINVAL;
 
 	tmp[param_idx] = ilen1;
