@@ -43,6 +43,7 @@
 #define BATTERY_RPC_VER_1_1	0x00010001
 #define BATTERY_RPC_VER_2_1	0x00020001
 #define BATTERY_RPC_VER_4_1     0x00040001
+#define BATTERY_RPC_VER_5_1     0x00050001
 
 #define BATTERY_RPC_CB_PROG	(BATTERY_RPC_PROG | 0x01000000)
 
@@ -1526,6 +1527,13 @@ static int __devinit msm_batt_init_rpc(void)
 						BATTERY_RPC_VER_2_1,
 						1, msm_batt_cb_func);
 		msm_batt_info.batt_api_version =  BATTERY_RPC_VER_2_1;
+	}
+	if (IS_ERR(msm_batt_info.batt_client)) {
+		msm_batt_info.batt_client =
+			msm_rpc_register_client("battery", BATTERY_RPC_PROG,
+						BATTERY_RPC_VER_5_1,
+						1, msm_batt_cb_func);
+		msm_batt_info.batt_api_version =  BATTERY_RPC_VER_5_1;
 	}
 	if (IS_ERR(msm_batt_info.batt_client)) {
 		rc = PTR_ERR(msm_batt_info.batt_client);
