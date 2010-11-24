@@ -52,6 +52,7 @@ struct res_trk_context {
 	unsigned long vcodec_clk_rate;
 	unsigned int clock_enabled;
 	unsigned int perf_level;
+	struct regulator *footswitch;
 #ifdef CONFIG_MSM_BUS_SCALING
 	uint32_t     pcl;
 #endif

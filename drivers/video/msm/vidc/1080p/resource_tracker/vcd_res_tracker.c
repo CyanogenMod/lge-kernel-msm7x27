@@ -100,6 +100,12 @@ static u32 res_trk_shutdown_vidc(void)
 		mutex_lock(&resource_context.lock);
 	}
 	res_trk_put_clk();
+	if (resource_context.footswitch) {
+		if (regulator_disable(resource_context.footswitch))
+			VCDRES_MSG_ERROR("Regulator disable failed\n");
+		regulator_put(resource_context.footswitch);
+		resource_context.footswitch = NULL;
+	}
 	if (pm_runtime_put(resource_context.device) < 0)
 		VCDRES_MSG_ERROR("Error : pm_runtime_put failed");
 	mutex_unlock(&resource_context.lock);
@@ -200,6 +206,12 @@ static u32 res_trk_vidc_pwr_up(void)
 		VCDRES_MSG_ERROR("Error : pm_runtime_get failed\n");
 		goto bail_out;
 	}
+	resource_context.footswitch = regulator_get(NULL, "fs_ved");
+	if (IS_ERR(resource_context.footswitch)) {
+		VCDRES_MSG_ERROR("foot switch get failed\n");
+		resource_context.footswitch = NULL;
+	} else
+		regulator_enable(resource_context.footswitch);
 	if (!res_trk_get_clk())
 		goto rel_vidc_pm_runtime;
 	mutex_unlock(&resource_context.lock);
