@@ -20,6 +20,8 @@
  * RMNET SDIO Module.
  */
 
+#define DEBUG
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -39,6 +41,19 @@
 #endif
 
 #include <mach/sdio_dmux.h>
+
+static int msm_rmnet_sdio_debug_enable;
+module_param_named(debug_enable, msm_rmnet_sdio_debug_enable,
+			int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+#ifdef DEBUG
+#define DBG(x...) do {				\
+		if (msm_rmnet_sdio_debug_enable)\
+			pr_debug(x);		\
+	} while (0)
+#else
+#define DBG(x...) do {} while (0)
+#endif
 
 /* allow larger frames */
 #define RMNET_DATA_LEN 2000
@@ -305,7 +320,7 @@ xmit_out:
 
 static void sdio_write_done(void *dev, struct sk_buff *skb)
 {
-	pr_info("%s: write complete\n", __func__);
+	DBG("%s: write complete\n", __func__);
 	dev_kfree_skb_irq(skb);
 	netif_wake_queue(dev);
 }
@@ -315,7 +330,7 @@ static int __rmnet_open(struct net_device *dev)
 	int r;
 	struct rmnet_private *p = netdev_priv(dev);
 
-	pr_info("rmnet_open()\n");
+	pr_info("__rmnet_open()\n");
 
 	if (!p->device_up) {
 		r = msm_sdio_dmux_open(p->ch_id, dev,
@@ -530,8 +545,9 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		return -EINVAL;
 	}
 
-	pr_debug("%s: dev=%d cmd=0x%x opmode old=0x%08x new=0x%08x\n",
-		__func__, p->ch_id, cmd, old_opmode, p->operation_mode);
+	pr_info("%s: dev=%d name=%s cmd=0x%x opmode old=0x%08x new=0x%08x\n",
+		__func__, p->ch_id, dev->name, cmd, old_opmode,
+		p->operation_mode);
 	return rc;
 }
 
