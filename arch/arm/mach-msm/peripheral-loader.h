@@ -25,12 +25,24 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __MACH_PERIPHERAL_RESET_H
-#define __MACH_PERIPHERAL_RESET_H
+#ifndef __MACH_PERIPHERAL_LOADER_H
+#define __MACH_PERIPHERAL_LOADER_H
 
-#define PIL_MODEM	0
-#define PIL_Q6		1
-#define PIL_DSPS	2
+#include <linux/list.h>
+#include <linux/mutex.h>
+#include <linux/platform_device.h>
+
+struct pil_device {
+	unsigned id;
+	const char *name;
+	const char *depends_on;
+	int count;
+	struct mutex lock;
+	struct platform_device pdev;
+	struct list_head list;
+};
+
+extern int msm_pil_add_device(struct pil_device *pil);
 
 extern int init_image(int id, const u8 *metadata, size_t size);
 extern int verify_blob(u32 phy_addr, size_t size);

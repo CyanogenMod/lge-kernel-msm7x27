@@ -22,64 +22,38 @@
 #include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/elf.h>
+#include <linux/mutex.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
 
-#include "peripheral-reset.h"
+#include "peripheral-loader.h"
 
-struct pil_device {
-	const char *name;
-	const char *depends_on;
-	int count;
-	int id;
-	struct mutex lock;
-	struct platform_device pdev;
-};
+static DEFINE_MUTEX(pil_list_lock);
+static LIST_HEAD(pil_list);
 
-static struct pil_device peripherals[] = {
-	{
-		.name = "modem",
-		.depends_on = "q6",
-		.id = PIL_MODEM,
-		.pdev = {
-			.name = "pil_modem",
-			.id = -1,
-		},
-	},
-	{
-		.name = "q6",
-		.id = PIL_Q6,
-		.pdev = {
-			.name = "pil_q6",
-			.id = -1,
-		},
-	},
-	{
-		.name = "dsps",
-		.id = PIL_DSPS,
-		.pdev = {
-			.name = "pil_dsps",
-			.id = -1,
-		},
-	},
-};
+static struct pil_device *__find_peripheral(const char *str)
+{
+	struct pil_device *dev;
 
-#define for_each_pil(p) \
-	for (p = peripherals; p < peripherals + ARRAY_SIZE(peripherals); p++)
+	list_for_each_entry(dev, &pil_list, list)
+		if (!strcmp(dev->name, str))
+			return dev;
+	return NULL;
+}
 
 static struct pil_device *find_peripheral(const char *str)
 {
-	struct pil_device *pil;
+	struct pil_device *dev;
 
 	if (!str)
 		return NULL;
 
-	for_each_pil(pil) {
-		if (!strcmp(pil->name, str))
-			return pil;
-	}
-	return NULL;
+	mutex_lock(&pil_list_lock);
+	dev = __find_peripheral(str);
+	mutex_unlock(&pil_list_lock);
+
+	return dev;
 }
 
 static int segment_in_hole(unsigned long start, unsigned long end)
@@ -418,70 +392,63 @@ static const struct file_operations msm_pil_debugfs_fops = {
 	.write	= msm_pil_debugfs_write,
 };
 
+static struct dentry *pil_base_dir;
+
 static int msm_pil_debugfs_init(void)
 {
-	struct pil_device *pil;
-	struct dentry *base_dir;
-
-	base_dir = debugfs_create_dir("pil", NULL);
-
-	for_each_pil(pil) {
-		if (!debugfs_create_file(pil->name, S_IRUGO | S_IWUSR, base_dir,
-					pil, &msm_pil_debugfs_fops))
-			return -ENOMEM;
+	pil_base_dir = debugfs_create_dir("pil", NULL);
+	if (!pil_base_dir) {
+		pil_base_dir = NULL;
+		return -ENOMEM;
 	}
 
 	return 0;
 }
+arch_initcall(msm_pil_debugfs_init);
+
+static int msm_pil_debugfs_add(struct pil_device *pil)
+{
+	if (!pil_base_dir)
+		return -ENOMEM;
+
+	if (!debugfs_create_file(pil->name, S_IRUGO | S_IWUSR, pil_base_dir,
+				pil, &msm_pil_debugfs_fops))
+		return -ENOMEM;
+	return 0;
+}
 #else
-static int msm_pil_debugfs_init(void) { return 0; }
+static int msm_pil_debugfs_add(struct pil_device *pil) { return 0; }
 #endif
 
 static int msm_pil_shutdown_at_boot(void)
 {
 	struct pil_device *pil;
 
-	for_each_pil(pil)
+	mutex_lock(&pil_list_lock);
+	list_for_each_entry(pil, &pil_list, list)
 		peripheral_shutdown(pil->id);
+	mutex_unlock(&pil_list_lock);
 
 	return 0;
 }
 late_initcall(msm_pil_shutdown_at_boot);
 
-static int __init msm_pil_init(void)
+int msm_pil_add_device(struct pil_device *pil)
 {
 	int ret;
-	struct pil_device *pil;
+	ret = platform_device_register(&pil->pdev);
+	if (ret)
+		return ret;
 
-	for_each_pil(pil) {
-		mutex_init(&pil->lock);
-		ret = platform_device_register(&pil->pdev);
-		if (ret)
-			goto fail;
-	}
+	mutex_init(&pil->lock);
 
-	return msm_pil_debugfs_init();
-fail:
-	for ( ; pil >= peripherals; pil--) {
-		platform_device_unregister(&pil->pdev);
-		mutex_destroy(&pil->lock);
-	}
+	mutex_lock(&pil_list_lock);
+	list_add(&pil->list, &pil_list);
+	mutex_unlock(&pil_list_lock);
 
-	return ret;
+	msm_pil_debugfs_add(pil);
+	return 0;
 }
-
-static void __exit msm_pil_exit(void)
-{
-	struct pil_device *pil;
-
-	for_each_pil(pil) {
-		platform_device_unregister(&pil->pdev);
-		mutex_destroy(&pil->lock);
-	}
-}
-
-arch_initcall(msm_pil_init);
-module_exit(msm_pil_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Load peripheral images and bring peripherals out of reset");
