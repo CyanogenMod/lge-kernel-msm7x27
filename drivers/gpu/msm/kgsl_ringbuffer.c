@@ -233,6 +233,7 @@ static unsigned int *kgsl_ringbuffer_allocspace(struct kgsl_ringbuffer *rb,
 
 	BUG_ON(numcmds >= rb->sizedwords);
 
+	GSL_RB_GET_READPTR(rb, &rb->rptr);
 	/* check for available space */
 	if (rb->wptr >= rb->rptr) {
 		/* wptr ahead or equal to rptr */
