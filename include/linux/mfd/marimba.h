@@ -47,6 +47,11 @@
 
 #define MARIMBA_ID_TSADC			0x04
 
+#define BAHAMA_SLAVE_ID_FM_ID		0x02
+#define SLAVE_ID_BAHAMA			0x05
+#define SLAVE_ID_BAHAMA_FM		0x07
+#define SLAVE_ID_BAHAMA_QMEMBIST	0x08
+
 #if defined(CONFIG_ARCH_MSM7X30)
 #define MARIMBA_SSBI_ADAP		0x7
 #elif defined(CONFIG_ARCH_MSM8X60)
@@ -56,6 +61,7 @@
 enum chip_id {
 	MARIMBA_ID = 0,
 	TIMPANI_ID,
+	BAHAMA_ID,
 	CHIP_ID_MAX
 };
 
@@ -136,9 +142,11 @@ struct marimba_platform_data {
 	struct marimba_fm_platform_data		*fm;
 	struct marimba_codec_platform_data	*codec;
 	struct marimba_tsadc_platform_data	*tsadc;
-	u8 slave_id[MARIMBA_NUM_CHILD + 1];
+	u8 slave_id[(MARIMBA_NUM_CHILD + 1) * CHIP_ID_MAX];
 	u32 (*marimba_setup) (void);
 	void (*marimba_shutdown) (void);
+	u32 (*bahama_setup) (void);
+	u32 (*bahama_shutdown) (int);
 };
 
 /*
@@ -168,4 +176,6 @@ int timpani_write(struct marimba*, u8 reg, u8 *value,
 
 /* Get the detected codec type */
 int adie_get_detected_codec_type(void);
+int adie_get_detected_connectivity_type(void);
+
 #endif
