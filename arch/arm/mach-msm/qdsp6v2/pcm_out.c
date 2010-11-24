@@ -298,7 +298,7 @@ static ssize_t pcm_out_write(struct file *file, const char __user *buf,
 		rc = wait_event_timeout(pcm->write_wait,
 				(atomic_read(&pcm->out_count) ||
 				atomic_read(&pcm->out_stopped)), 5 * HZ);
-		if (rc < 0) {
+		if (!rc) {
 			pr_info("%s: wait_event_timeout failed\n", __func__);
 			goto fail;
 		}

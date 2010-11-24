@@ -161,7 +161,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 		}
 		ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
 						msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			goto fail;
 		}
@@ -191,7 +191,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 		}
 		ret = wait_event_timeout(v->cvs_wait, (v->cvs_state == 0),
 						msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			goto fail;
 		}
@@ -260,7 +260,7 @@ static int voice_send_tty_mode_to_modem(struct voice_data *v)
 		}
 		ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
 						msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			goto done;
 		}
@@ -334,7 +334,7 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 		}
 		ret = wait_event_timeout(v->cvs_wait, (v->cvs_state == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			return -EINVAL;
 		}
@@ -407,7 +407,7 @@ static int voice_send_cvp_cal_to_modem(struct voice_data *v)
 		}
 		ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			return -EINVAL;
 		}
@@ -479,7 +479,7 @@ static int voice_send_cvp_vol_tbl_to_modem(struct voice_data *v)
 		}
 		ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			return -EINVAL;
 		}
@@ -513,7 +513,7 @@ static int voice_send_start_voice_cmd(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
 		msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
@@ -546,7 +546,7 @@ static int voice_send_stop_voice_cmd(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
 					msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
@@ -612,7 +612,7 @@ static int voice_setup_modem_voice(struct voice_data *v)
 	pr_debug("wait for cvp create session event\n");
 	ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
 				msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
@@ -646,7 +646,7 @@ static int voice_setup_modem_voice(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
 					msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
@@ -672,7 +672,7 @@ static int voice_setup_modem_voice(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
 						msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
@@ -712,7 +712,7 @@ static int voice_destroy_modem_voice(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
 						msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
@@ -737,7 +737,7 @@ static int voice_destroy_modem_voice(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
 						msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		goto fail;
 	}
@@ -777,7 +777,7 @@ static int voice_send_mute_cmd_to_modem(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->cvs_wait, (v->cvs_state == 0),
 					msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0)
+	if (!ret)
 		pr_err("%s: wait_event timeout\n", __func__);
 
 fail:
@@ -809,7 +809,7 @@ static int voice_send_vol_index_to_modem(struct voice_data *v)
 	}
 	ret = wait_event_timeout(v->cvp_wait, (v->cvp_state == 0),
 		msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		return -EINVAL;
 	}

@@ -650,7 +650,7 @@ int q6asm_open_read(struct audio_client *ac,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for OPEN_WRITE rc[%d]\n", rc);
 		goto fail_cmd;
 	}
@@ -698,7 +698,7 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for OPEN_WRITR rc[%d]\n", rc);
 		goto fail_cmd;
 	}
@@ -768,7 +768,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for OPEN_WRITR rc[%d]\n", rc);
 		goto fail_cmd;
 	}
@@ -802,7 +802,7 @@ int q6asm_run(struct audio_client *ac, uint32_t flags,
 
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for run success rc[%d]", rc);
 		goto fail_cmd;
 	}
@@ -845,7 +845,7 @@ int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for FORMAT_UPDATE\n");
 		goto fail_cmd;
 	}
@@ -885,7 +885,7 @@ int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout opcode[0x%x] ", enc_cfg.hdr.opcode);
 		goto fail_cmd;
 	}
@@ -928,7 +928,7 @@ int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for FORMAT_UPDATE\n");
 		goto fail_cmd;
 	}
@@ -970,7 +970,7 @@ int q6asm_enc_cfg_blk_evrc(struct audio_client *ac, uint32_t frames_per_buf,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for FORMAT_UPDATE\n");
 		goto fail_cmd;
 	}
@@ -1008,7 +1008,7 @@ int q6asm_enc_cfg_blk_amrnb(struct audio_client *ac, uint32_t frames_per_buf,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for FORMAT_UPDATE\n");
 		goto fail_cmd;
 	}
@@ -1045,7 +1045,7 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for FORMAT_UPDATE\n");
 		rc = -EINVAL;
 	}
@@ -1089,7 +1089,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 
 	rc = wait_event_timeout(this_mmap.cmd_wait,
 		(atomic_read(&this_mmap.cmd_state) == 0), 5 * HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for memory_map\n");
 		rc = -EINVAL;
 		goto fail_cmd;
@@ -1126,7 +1126,7 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 
 	rc = wait_event_timeout(this_mmap.cmd_wait,
 			(atomic_read(&this_mmap.cmd_state) == 0), 5 * HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for memory_map\n");
 		rc = -EINVAL;
 		goto fail_cmd;
@@ -1168,7 +1168,7 @@ int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain)
 
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("%s: timeout in sending gain command to apr\n",
 			__func__);
 		rc = -EINVAL;
@@ -1232,7 +1232,7 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 
 	rc = wait_event_timeout(this_mmap.cmd_wait,
 			(atomic_read(&this_mmap.cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for memory_map\n");
 		rc = -EINVAL;
 		goto fail_cmd;
@@ -1291,7 +1291,7 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
 
 	rc = wait_event_timeout(this_mmap.cmd_wait,
 			(atomic_read(&this_mmap.cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for memory_unmap\n");
 		goto fail_cmd;
 	}
@@ -1331,7 +1331,7 @@ int q6asm_set_mute(struct audio_client *ac, int muteflag)
 
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("%s: timeout in sending mute command to apr\n",
 			__func__);
 		rc = -EINVAL;
@@ -1372,7 +1372,7 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("%s: timeout in sending volume command to apr\n",
 			__func__);
 		rc = -EINVAL;
@@ -1436,7 +1436,7 @@ int q6asm_equalizer(struct audio_client *ac, void *eq)
 
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for FORMAT_UPDATE\n");
 		rc = -EINVAL;
 		goto fail_cmd;
@@ -1639,7 +1639,7 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 		goto fail_cmd;
 	}
 	rc = wait_event_timeout(ac->cmd_wait, (atomic_read(state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for response opcode[0x%x]\n",
 							hdr.opcode);
 		goto fail_cmd;
@@ -1700,7 +1700,7 @@ int q6asm_reg_tx_overflow(struct audio_client *ac, uint16_t enable)
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 				(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (rc < 0) {
+	if (!rc) {
 		pr_err("timeout. waited for tx overflow\n");
 		goto fail_cmd;
 	}

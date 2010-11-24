@@ -314,7 +314,7 @@ static ssize_t pcm_in_read(struct file *file, char __user *buf,
 		rc = wait_event_timeout(pcm->wait,
 				(atomic_read(&pcm->in_count) ||
 				atomic_read(&pcm->in_stopped)), 5 * HZ);
-		if (rc < 0) {
+		if (!rc) {
 			pr_err("%s: wait_event_timeout failed\n", __func__);
 			goto fail;
 		}

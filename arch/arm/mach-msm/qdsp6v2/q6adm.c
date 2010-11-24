@@ -124,7 +124,7 @@ void send_cal(int port_id, struct acdb_cal_block *aud_cal)
 	result = wait_event_timeout(this_adm.wait,
 		atomic_read(&this_adm.copp_stat[port_id]),
 		msecs_to_jiffies(TIMEOUT_MS));
-	if (result < 0)
+	if (!result)
 		pr_err("%s: Set params timed out port = %d, payload = 0x%x\n",
 			__func__, port_id, aud_cal->cal_paddr);
 done:
@@ -223,7 +223,7 @@ int adm_open(int port_id, int session_id , int path,
 		ret = wait_event_timeout(this_adm.wait,
 			atomic_read(&this_adm.copp_stat[port_id]),
 			msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_err("ADM open failed for port %d\n", port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
@@ -270,7 +270,7 @@ int adm_open(int port_id, int session_id , int path,
 	ret = wait_event_timeout(this_adm.wait,
 				atomic_read(&this_adm.copp_stat[port_id]),
 				msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("ADM cmd Route failed for port %d\n", port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -346,7 +346,7 @@ int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 
 	ret = wait_event_timeout(this_adm.wait,
 			atomic_read(&this_adm.copp_stat[0]), 5 * HZ);
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("timeout. waited for memory_map\n");
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -411,7 +411,7 @@ int adm_memory_unmap_regions(uint32_t *buf_add, uint32_t *bufsz,
 
 	ret = wait_event_timeout(this_adm.wait,
 			atomic_read(&this_adm.copp_stat[0]), 5 * HZ);
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("timeout. waited for memory_unmap\n");
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -464,7 +464,7 @@ int adm_close(int port_id)
 		ret = wait_event_timeout(this_adm.wait,
 				atomic_read(&this_adm.copp_stat[port_id]),
 				msecs_to_jiffies(TIMEOUT_MS));
-		if (ret < 0) {
+		if (!ret) {
 			pr_info("%s: ADM cmd Route failed for port %d\n",
 							__func__, port_id);
 			ret = -EINVAL;
