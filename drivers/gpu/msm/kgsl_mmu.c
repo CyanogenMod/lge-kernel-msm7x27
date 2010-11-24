@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/genalloc.h>
 #include <linux/slab.h>
+#include <linux/io.h>
 #ifdef CONFIG_MSM_KGSL_MMU
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
@@ -105,14 +106,14 @@ static inline void
 kgsl_pt_map_set(struct kgsl_pagetable *pt, uint32_t pte, uint32_t val)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	baseptr[pte] = val;
+	writel(val, &baseptr[pte]);
 }
 
 static inline uint32_t
 kgsl_pt_map_getaddr(struct kgsl_pagetable *pt, uint32_t pte)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	return baseptr[pte] & GSL_PT_PAGE_ADDR_MASK;
+	return readl(&baseptr[pte]) & GSL_PT_PAGE_ADDR_MASK;
 }
 
 void kgsl_mh_intrcallback(struct kgsl_device *device)
