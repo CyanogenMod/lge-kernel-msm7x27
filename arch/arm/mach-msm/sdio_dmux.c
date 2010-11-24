@@ -97,6 +97,7 @@ struct sdio_ch_info {
 static struct sdio_channel *sdio_mux_ch;
 static struct sdio_ch_info sdio_ch[8];
 struct wake_lock sdio_mux_ch_wakelock;
+static int sdio_mux_initialized;
 
 struct sdio_mux_hdr {
 	uint16_t magic_num;
@@ -419,6 +420,8 @@ int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb)
 
 	if (!skb)
 		return -EINVAL;
+	if (!sdio_mux_initialized)
+		return -ENODEV;
 
 	DBG("%s: writing to ch %d len %d\n", __func__, id, skb->len);
 	spin_lock_irqsave(&sdio_ch[id].lock, flags);
@@ -483,6 +486,8 @@ int msm_sdio_dmux_open(uint32_t id, void *priv,
 	unsigned long flags;
 
 	DBG("%s: opening ch %d\n", __func__, id);
+	if (!sdio_mux_initialized)
+		return -ENODEV;
 	if (id >= 8)
 		return -EINVAL;
 
@@ -519,6 +524,8 @@ int msm_sdio_dmux_close(uint32_t id)
 	unsigned long flags;
 
 	DBG("%s: closing ch %d\n", __func__, id);
+	if (!sdio_mux_initialized)
+		return -ENODEV;
 	spin_lock_irqsave(&sdio_ch[id].lock, flags);
 
 	if (sdio_ch[id].skb) {
@@ -560,7 +567,6 @@ static void sdio_mux_notify(void *_dev, unsigned event)
 static int sdio_dmux_probe(struct platform_device *pdev)
 {
 	int rc;
-	static int sdio_mux_initialized;
 
 	DBG("%s probe called\n", __func__);
 	if (sdio_mux_initialized)
