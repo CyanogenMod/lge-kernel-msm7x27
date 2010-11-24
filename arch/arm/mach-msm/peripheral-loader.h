@@ -32,20 +32,23 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 
+struct pil_reset_ops {
+	int (*init_image)(const u8 *metadata, size_t size);
+	int (*verify_blob)(u32 phy_addr, size_t size);
+	int (*auth_and_reset)(void);
+	int (*shutdown)(void);
+};
+
 struct pil_device {
-	unsigned id;
 	const char *name;
 	const char *depends_on;
 	int count;
 	struct mutex lock;
 	struct platform_device pdev;
 	struct list_head list;
+	struct pil_reset_ops *ops;
 };
 
 extern int msm_pil_add_device(struct pil_device *pil);
 
-extern int init_image(int id, const u8 *metadata, size_t size);
-extern int verify_blob(u32 phy_addr, size_t size);
-extern int auth_and_reset(int id);
-extern int peripheral_shutdown(int id);
 #endif

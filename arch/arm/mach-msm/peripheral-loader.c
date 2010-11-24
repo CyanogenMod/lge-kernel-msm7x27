@@ -158,7 +158,7 @@ static int load_segment(struct elf32_phdr *phdr, unsigned num,
 		paddr += size;
 	}
 
-	ret = verify_blob(phdr->p_paddr, phdr->p_memsz);
+	ret = pil->ops->verify_blob(phdr->p_paddr, phdr->p_memsz);
 	if (ret)
 		dev_err(&pil->pdev.dev, "Blob %u failed verification\n", num);
 
@@ -209,7 +209,7 @@ static int load_image(struct pil_device *pil)
 	}
 
 	phdr = (struct elf32_phdr *)(fw->data + ehdr->e_phoff);
-	ret = init_image(pil->id, fw->data, fw->size);
+	ret = pil->ops->init_image(fw->data, fw->size);
 	if (ret) {
 		dev_err(&pil->pdev.dev, "Invalid firmware metadata\n");
 		goto release_fw;
@@ -232,7 +232,7 @@ static int load_image(struct pil_device *pil)
 		}
 	}
 
-	ret = auth_and_reset(pil->id);
+	ret = pil->ops->auth_and_reset();
 	if (ret) {
 		dev_err(&pil->pdev.dev, "Failed to bring out of reset\n");
 		goto release_fw;
@@ -314,7 +314,7 @@ void pil_put(void *peripheral_handle)
 	if (pil->count)
 		pil->count--;
 	if (pil->count == 0)
-		peripheral_shutdown(pil->id);
+		pil->ops->shutdown();
 unlock:
 	mutex_unlock(&pil->lock);
 
@@ -335,7 +335,7 @@ int pil_force_reset(const char *name)
 
 	mutex_lock(&pil->lock);
 	if (pil->count) {
-		peripheral_shutdown(pil->id);
+		pil->ops->shutdown();
 		ret = load_image(pil);
 	}
 	mutex_unlock(&pil->lock);
@@ -426,7 +426,7 @@ static int msm_pil_shutdown_at_boot(void)
 
 	mutex_lock(&pil_list_lock);
 	list_for_each_entry(pil, &pil_list, list)
-		peripheral_shutdown(pil->id);
+		pil->ops->shutdown();
 	mutex_unlock(&pil_list_lock);
 
 	return 0;

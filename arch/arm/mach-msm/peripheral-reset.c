@@ -65,26 +65,28 @@ static int modem_start, q6_start, dsps_start;
 static void __iomem *msm_mms_regs_base;
 static void __iomem *msm_lpass_qdsp6ss_base;
 
-int init_image(int id, const u8 *metadata, size_t size)
+static int init_image_modem(const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	switch (id) {
-	case PIL_MODEM:
-		modem_start = ehdr->e_entry;
-		break;
-	case PIL_Q6:
-		q6_start = ehdr->e_entry;
-		break;
-	case PIL_DSPS:
-		dsps_start = ehdr->e_entry;
-		break;
-	default:
-		return -EINVAL;
-	}
+	modem_start = ehdr->e_entry;
 	return 0;
 }
 
-int verify_blob(u32 phy_addr, size_t size)
+static int init_image_q6(const u8 *metadata, size_t size)
+{
+	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
+	q6_start = ehdr->e_entry;
+	return 0;
+}
+
+static int init_image_dsps(const u8 *metadata, size_t size)
+{
+	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
+	dsps_start = ehdr->e_entry;
+	return 0;
+}
+
+static int verify_blob(u32 phy_addr, size_t size)
 {
 	return 0;
 }
@@ -303,69 +305,52 @@ static int shutdown_dsps(void)
 	return 0;
 }
 
-int auth_and_reset(int id)
-{
-	int ret;
-	switch (id) {
-	case PIL_MODEM:
-		ret = reset_modem();
-		break;
-	case PIL_Q6:
-		ret = reset_q6();
-		break;
-	case PIL_DSPS:
-		ret = reset_dsps();
-		break;
-	default:
-		ret = -ENODEV;
-	}
-	return ret;
-}
+struct pil_reset_ops pil_modem_ops = {
+	.init_image = init_image_modem,
+	.verify_blob = verify_blob,
+	.auth_and_reset = reset_modem,
+	.shutdown = shutdown_modem,
+};
 
-int peripheral_shutdown(int id)
-{
-	int ret;
-	switch (id) {
-	case PIL_MODEM:
-		ret = shutdown_modem();
-		break;
-	case PIL_Q6:
-		ret = shutdown_q6();
-		break;
-	case PIL_DSPS:
-		ret = shutdown_dsps();
-		break;
-	default:
-		ret = -ENODEV;
-	}
-	return ret;
-}
+struct pil_reset_ops pil_q6_ops = {
+	.init_image = init_image_q6,
+	.verify_blob = verify_blob,
+	.auth_and_reset = reset_q6,
+	.shutdown = shutdown_q6,
+};
+
+struct pil_reset_ops pil_dsps_ops = {
+	.init_image = init_image_dsps,
+	.verify_blob = verify_blob,
+	.auth_and_reset = reset_dsps,
+	.shutdown = shutdown_dsps,
+};
 
 static struct pil_device peripherals[] = {
 	{
 		.name = "modem",
 		.depends_on = "q6",
-		.id = PIL_MODEM,
 		.pdev = {
 			.name = "pil_modem",
 			.id = -1,
 		},
+		.ops = &pil_modem_ops,
 	},
 	{
 		.name = "q6",
-		.id = PIL_Q6,
 		.pdev = {
 			.name = "pil_q6",
 			.id = -1,
 		},
+		.ops = &pil_q6_ops,
 	},
 	{
 		.name = "dsps",
-		.id = PIL_DSPS,
 		.pdev = {
 			.name = "pil_dsps",
 			.id = -1,
 		},
+		.ops = &pil_dsps_ops,
 	},
 };
 
