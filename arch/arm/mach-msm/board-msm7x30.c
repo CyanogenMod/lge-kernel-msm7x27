@@ -1492,6 +1492,7 @@ static int __init buses_init(void)
 
 static struct vreg *vreg_marimba_1;
 static struct vreg *vreg_marimba_2;
+static struct vreg *vreg_marimba_3;
 
 static struct msm_gpio timpani_reset_gpio_cfg[] = {
 { GPIO_CFG(TIMPANI_RESET_GPIO, 0, GPIO_CFG_OUTPUT,
@@ -1575,6 +1576,34 @@ static void msm_timpani_shutdown_power(void)
 
 	msm_gpios_free(timpani_reset_gpio_cfg,
 				   ARRAY_SIZE(timpani_reset_gpio_cfg));
+};
+
+static unsigned int msm_bahama_setup_power(void)
+{
+	int rc;
+
+	rc = vreg_enable(vreg_marimba_3);
+	if (rc) {
+		printk(KERN_ERR "%s: vreg_enable() = %d\n",
+				__func__, rc);
+	}
+
+	return rc;
+};
+
+static unsigned int msm_bahama_shutdown_power(int value)
+{
+	int rc = 0;
+
+	if (value != BAHAMA_ID) {
+		rc = vreg_disable(vreg_marimba_3);
+		if (rc) {
+			printk(KERN_ERR "%s: return val: %d\n",
+					__func__, rc);
+		}
+	}
+
+	return rc;
 };
 
 static unsigned int msm_marimba_setup_power(void)
@@ -1711,6 +1740,9 @@ static struct marimba_fm_platform_data marimba_fm_pdata = {
 #define MARIMBA_SLAVE_ID_FM_ADDR	0x2A
 #define MARIMBA_SLAVE_ID_CDC_ADDR	0x77
 #define MARIMBA_SLAVE_ID_QMEMBIST_ADDR	0X66
+
+#define BAHAMA_SLAVE_ID_FM_ADDR         0x2A
+#define BAHAMA_SLAVE_ID_QMEMBIST_ADDR   0x7B
 
 static const char *tsadc_id = "MADC";
 static const char *vregs_tsadc_name[] = {
@@ -1895,20 +1927,27 @@ static struct marimba_platform_data marimba_pdata = {
 	.slave_id[MARIMBA_SLAVE_ID_FM]       = MARIMBA_SLAVE_ID_FM_ADDR,
 	.slave_id[MARIMBA_SLAVE_ID_CDC]	     = MARIMBA_SLAVE_ID_CDC_ADDR,
 	.slave_id[MARIMBA_SLAVE_ID_QMEMBIST] = MARIMBA_SLAVE_ID_QMEMBIST_ADDR,
+	.slave_id[SLAVE_ID_BAHAMA_FM]        = BAHAMA_SLAVE_ID_FM_ADDR,
+	.slave_id[SLAVE_ID_BAHAMA_QMEMBIST]  = BAHAMA_SLAVE_ID_QMEMBIST_ADDR,
 	.marimba_setup = msm_marimba_setup_power,
 	.marimba_shutdown = msm_marimba_shutdown_power,
+	.bahama_setup = msm_bahama_setup_power,
+	.bahama_shutdown = msm_bahama_shutdown_power,
 	.fm = &marimba_fm_pdata,
 	.codec = &mariba_codec_pdata,
 };
 
 static void __init msm7x30_init_marimba(void)
 {
+	int rc;
+
 	vreg_marimba_1 = vreg_get(NULL, "s3");
 	if (IS_ERR(vreg_marimba_1)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
 			__func__, PTR_ERR(vreg_marimba_1));
 		return;
 	}
+	rc = vreg_set_level(vreg_marimba_1, 1800);
 
 	vreg_marimba_2 = vreg_get(NULL, "gp16");
 	if (IS_ERR(vreg_marimba_1)) {
@@ -1916,6 +1955,15 @@ static void __init msm7x30_init_marimba(void)
 			__func__, PTR_ERR(vreg_marimba_1));
 		return;
 	}
+	rc = vreg_set_level(vreg_marimba_2, 1200);
+
+	vreg_marimba_3 = vreg_get(NULL, "usb2");
+	if (IS_ERR(vreg_marimba_3)) {
+		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
+			__func__, PTR_ERR(vreg_marimba_3));
+		return;
+	}
+	rc = vreg_set_level(vreg_marimba_3, 1800);
 }
 
 static struct marimba_codec_platform_data timpani_codec_pdata = {
@@ -4283,23 +4331,169 @@ static int marimba_bt(int on)
 	return 0;
 }
 
-static const char *vregs_bt_name[] = {
+static int bahama_bt(int on)
+{
+	int rc;
+	int i;
+	struct marimba config = { .mod_id = SLAVE_ID_BAHAMA };
+
+	struct bahama_config_register {
+		u8 reg;
+		u8 value;
+		u8 mask;
+	};
+
+	struct bahama_variant_register {
+		const size_t size;
+		const struct bahama_config_register *set;
+	};
+
+	const struct bahama_config_register *p;
+
+	u8 version;
+
+	const struct bahama_config_register v10_bt_on[] = {
+		{ 0xE9, 0x00, 0xFF },
+		{ 0xF4, 0x80, 0xFF },
+		{ 0xF0, 0x06, 0xFF },
+		{ 0xE4, 0x00, 0xFF },
+		{ 0xE5, 0x00, 0x0F },
+		{ 0xE6, 0x38, 0x7F },
+		{ 0xE7, 0x06, 0xFF },
+		{ 0x11, 0x13, 0xFF },
+		{ 0xE9, 0x21, 0xFF },
+		{ 0x01, 0x0C, 0x1F },
+		{ 0x01, 0x08, 0x1F },
+	};
+
+	const struct bahama_config_register v10_bt_off[] = {
+		{ 0xE9, 0x00, 0xFF },
+	};
+
+	const struct bahama_variant_register bt_bahama[2][1] = {
+		{
+			{ ARRAY_SIZE(v10_bt_off), v10_bt_off },
+		},
+		{
+			{ ARRAY_SIZE(v10_bt_on), v10_bt_on },
+		}
+	};
+
+	on = on ? 1 : 0;
+
+	rc = marimba_read_bit_mask(&config, 0x00,  &version, 1, 0x1F);
+	if (rc < 0) {
+		dev_err(&msm_bt_power_device.dev,
+			"%s: version read failed: %d\n",
+			__func__, rc);
+		return rc;
+	} else {
+		dev_info(&msm_bt_power_device.dev,
+			"%s: version read got: 0x%x\n",
+			__func__, version);
+	}
+
+	switch (version) {
+	case 0x08: /* varient of bahama vers zero, same software if */
+		version = 0x00;
+	case 0x00:
+		break;
+	default:
+		version = 0xFF;
+	}
+
+	if ((version >= ARRAY_SIZE(bt_bahama[on])) ||
+	    (bt_bahama[on][version].size == 0)) {
+		dev_err(&msm_bt_power_device.dev,
+			"%s: unsupported version\n",
+			__func__);
+		return -EIO;
+	}
+
+	p = bt_bahama[on][version].set;
+
+	dev_info(&msm_bt_power_device.dev,
+		"%s: found version %d\n", __func__, version);
+
+	for (i = 0; i < bt_bahama[on][version].size; i++) {
+		u8 value = (p+i)->value;
+		rc = marimba_write_bit_mask(&config,
+			(p+i)->reg,
+			&value,
+			sizeof((p+i)->value),
+			(p+i)->mask);
+		if (rc < 0) {
+			dev_err(&msm_bt_power_device.dev,
+				"%s: reg %d write failed: %d\n",
+				__func__, (p+i)->reg, rc);
+			return rc;
+		}
+		dev_info(&msm_bt_power_device.dev,
+			"%s: reg 0x%02x write value 0x%02x mask 0x%02x\n",
+				__func__, (p+i)->reg,
+				value, (p+i)->mask);
+	}
+	return 0;
+}
+
+static int bahama_present(void)
+{
+	int id;
+	switch (id = adie_get_detected_connectivity_type()) {
+	case BAHAMA_ID:
+		return 1;
+
+	case MARIMBA_ID:
+		return 0;
+
+	case TIMPANI_ID:
+	default:
+		dev_err(&msm_bt_power_device.dev,
+			"%s: unexpected adie connectivity type: %d\n",
+			__func__, id);
+		return -ENODEV;
+	}
+}
+
+static const char *vregs_bt_marimba_name[] = {
+	"s3",
+	"s2",
 	"gp16",
+	"wlan"
+};
+static struct vreg *vregs_bt_marimba[ARRAY_SIZE(vregs_bt_marimba_name)];
+
+static const char *vregs_bt_bahama_name[] = {
+	"s3",
+	"usb2",
 	"s2",
 	"wlan"
 };
-static struct vreg *vregs_bt[ARRAY_SIZE(vregs_bt_name)];
+static struct vreg *vregs_bt_bahama[ARRAY_SIZE(vregs_bt_bahama_name)];
 
-static int bluetooth_power_regulators(int on)
+static int bluetooth_power_regulators(int on, int bahama_not_marimba)
 {
 	int i, rc;
+	const char **vregs_name;
+	struct vreg **vregs;
+	int vregs_size;
 
-	for (i = 0; i < ARRAY_SIZE(vregs_bt_name); i++) {
-		rc = on ? vreg_enable(vregs_bt[i]) :
-			  vreg_disable(vregs_bt[i]);
+	if (bahama_not_marimba) {
+		vregs_name = vregs_bt_bahama_name;
+		vregs = vregs_bt_bahama;
+		vregs_size = ARRAY_SIZE(vregs_bt_bahama_name);
+	} else {
+		vregs_name = vregs_bt_marimba_name;
+		vregs = vregs_bt_marimba;
+		vregs_size = ARRAY_SIZE(vregs_bt_marimba_name);
+	}
+
+	for (i = 0; i < vregs_size; i++) {
+		rc = on ? vreg_enable(vregs[i]) :
+			  vreg_disable(vregs[i]);
 		if (rc < 0) {
 			printk(KERN_ERR "%s: vreg %s %s failed (%d)\n",
-				__func__, vregs_bt_name[i],
+				__func__, vregs_name[i],
 			       on ? "enable" : "disable", rc);
 			return -EIO;
 		}
@@ -4312,6 +4506,14 @@ static int bluetooth_power(int on)
 	int rc;
 	const char *id = "BTPW";
 
+	int bahama_not_marimba = bahama_present();
+
+	if (bahama_not_marimba == -1) {
+		printk(KERN_WARNING "%s: bahama_present: %d\n",
+				__func__, bahama_not_marimba);
+		return -ENODEV;
+	}
+
 	if (on) {
 		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 1300);
 		if (rc < 0) {
@@ -4320,7 +4522,7 @@ static int bluetooth_power(int on)
 			return rc;
 		}
 
-		rc = bluetooth_power_regulators(on);
+		rc = bluetooth_power_regulators(on, bahama_not_marimba);
 		if (rc < 0)
 			return -EIO;
 
@@ -4334,7 +4536,7 @@ static int bluetooth_power(int on)
 			gpio_set_value(
 				GPIO_PIN(bt_config_clock->gpio_cfg), 1);
 
-		rc = marimba_bt(on);
+		rc = (bahama_not_marimba ? bahama_bt(on) : marimba_bt(on));
 		if (rc < 0)
 			return -EIO;
 
@@ -4366,7 +4568,7 @@ static int bluetooth_power(int on)
 		if (platform_get_drvdata(&msm_bt_power_device) == NULL)
 			goto out;
 
-		rc = marimba_bt(on);
+		rc = (bahama_not_marimba ? bahama_bt(on) : marimba_bt(on));
 		if (rc < 0)
 			return -EIO;
 
@@ -4375,7 +4577,7 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			return -EIO;
 
-		rc = bluetooth_power_regulators(on);
+		rc = bluetooth_power_regulators(on, bahama_not_marimba);
 		if (rc < 0)
 			return -EIO;
 
@@ -4396,12 +4598,22 @@ static void __init bt_power_init(void)
 {
 	int i, rc;
 
-	for (i = 0; i < ARRAY_SIZE(vregs_bt_name); i++) {
-		vregs_bt[i] = vreg_get(NULL, vregs_bt_name[i]);
-		if (IS_ERR(vregs_bt[i])) {
+	for (i = 0; i < ARRAY_SIZE(vregs_bt_marimba_name); i++) {
+		vregs_bt_marimba[i] = vreg_get(NULL, vregs_bt_marimba_name[i]);
+		if (IS_ERR(vregs_bt_marimba[i])) {
 			printk(KERN_ERR "%s: vreg get %s failed (%ld)\n",
-			       __func__, vregs_bt_name[i],
-			       PTR_ERR(vregs_bt[i]));
+			       __func__, vregs_bt_marimba_name[i],
+			       PTR_ERR(vregs_bt_marimba[i]));
+			return;
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(vregs_bt_bahama_name); i++) {
+		vregs_bt_bahama[i] = vreg_get(NULL, vregs_bt_bahama_name[i]);
+		if (IS_ERR(vregs_bt_bahama[i])) {
+			printk(KERN_ERR "%s: vreg get %s failed (%ld)\n",
+			       __func__, vregs_bt_bahama_name[i],
+			       PTR_ERR(vregs_bt_bahama[i]));
 			return;
 		}
 	}
