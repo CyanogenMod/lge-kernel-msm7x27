@@ -522,7 +522,11 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 		goto fail_othc_config;
 	}
 
-	ipd->name = "pmic8058_othc";
+	if (pdata->hsed_name != NULL)
+		ipd->name = pdata->hsed_name;
+	else
+		ipd->name = "pmic8058_othc";
+
 	ipd->phys = "pmic8058_othc/input0";
 	ipd->dev.parent = &pd->dev;
 

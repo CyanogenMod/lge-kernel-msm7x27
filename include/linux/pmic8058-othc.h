@@ -98,6 +98,7 @@ struct pmic8058_othc_config_pdata {
 	enum othc_micbias_enable micbias_enable;
 	enum othc_micbias_capability micbias_capability;
 	struct othc_hsed_config *hsed_config;
+	const char *hsed_name;
 };
 
 int pm8058_micbias_enable(enum othc_micbias micbias,
