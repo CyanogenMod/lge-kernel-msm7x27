@@ -335,6 +335,20 @@ config MACH_MSM8X60_FLUID
 	  of a phone than other targets. It also has a new display and
 	  touchscreen controller.
 
+config MACH_MSM8X60_CHARM_SURF
+	depends on ARCH_MSM8X60
+	default n
+	bool "MSM8x60 CHARM SURF"
+	help
+	  Support for the Qualcomm MSM8x60 Charm SURF device.
+
+config MACH_MSM8X60_CHARM_FFA
+	depends on ARCH_MSM8X60
+	default n
+	bool "MSM8x60 CHARM FFA"
+	help
+	  Support for the Qualcomm MSM8x60 Charm FFA device.
+
 endmenu
 
 config MSM_STACKED_MEMORY
