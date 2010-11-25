@@ -669,7 +669,7 @@ int soc_update_sys_vdd(enum sys_vdd_level level)
 {
 	int rc, target_mv;
 	static const int mv[NUM_SYS_VDD_LEVELS] = {
-		[LOW]     = 1000,
+		[NONE...LOW] = 1000,
 		[NOMINAL] = 1100,
 		[HIGH]    = 1200,
 	};

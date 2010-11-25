@@ -1603,6 +1603,7 @@ struct clk_source soc_clk_sources[NUM_SRC] = {
 int soc_update_sys_vdd(enum sys_vdd_level level)
 {
 	static const int vdd_uv[] = {
+		[NONE]    =  750000,
 		[LOW]     = 1000000,
 		[NOMINAL] = 1100000,
 		[HIGH]    = 1200000,
@@ -1911,6 +1912,7 @@ void __init msm_clk_soc_init(void)
 		soc_clk_sources[PXO].enable_func = NULL;
 	}
 
+	local_vote_sys_vdd(HIGH);
 	/* Initialize clock registers. */
 	reg_init(use_pxo);
 
@@ -1922,6 +1924,12 @@ void __init msm_clk_soc_init(void)
 	set_1rate(USB_FS1_SRC);
 	set_1rate(USB_FS2_SRC);
 }
+
+static int msm_clk_soc_late_init(void)
+{
+	return local_vote_sys_vdd(NONE);
+}
+late_initcall(msm_clk_soc_late_init);
 
 /*
  * Clock operation handler registration

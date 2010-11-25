@@ -115,8 +115,10 @@ static int local_update_sys_vdd(void)
 		level = HIGH;
 	else if (local_sys_vdd_votes[NOMINAL])
 		level = NOMINAL;
-	else
+	else if (local_sys_vdd_votes[LOW])
 		level = LOW;
+	else
+		level = NONE;
 
 	if (level == cur_level)
 		return rc;
