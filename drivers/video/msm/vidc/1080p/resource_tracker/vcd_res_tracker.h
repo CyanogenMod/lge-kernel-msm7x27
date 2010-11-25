@@ -48,11 +48,11 @@ struct res_trk_context {
 	u32 irq_num;
 	struct mutex lock;
 	struct clk *vcodec_clk;
-	struct regulator *footswitch;
+	struct clk *vcodec_pclk;
 	unsigned long vcodec_clk_rate;
 	unsigned int clock_enabled;
-	unsigned int rail_enabled;
 	unsigned int perf_level;
+	struct regulator *footswitch;
 #ifdef CONFIG_MSM_BUS_SCALING
 	uint32_t     pcl;
 #endif

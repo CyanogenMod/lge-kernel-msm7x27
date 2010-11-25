@@ -266,25 +266,23 @@ static int __init vidc_init(void)
 		ERR("%s() :request_irq failed\n", __func__);
 		goto error_vidc_platfom_register;
 	}
-
+	res_trk_init(vidc_device_p->device, vidc_device_p->irq);
 	vidc_timer_wq = create_singlethread_workqueue("vidc_timer_wq");
 	if (!vidc_timer_wq) {
 		ERR("%s: create workque failed\n", __func__);
 		rc = -ENOMEM;
 		goto error_vidc_platfom_register;
 	}
-
 	DBG("Disabling IRQ in %s()\n", __func__);
 	disable_irq_nosync(vidc_device_p->irq);
 	INIT_WORK(&vidc_device_p->vidc_timer_worker,
 			  vidc_timer_handler);
 	spin_lock_init(&vidc_spin_lock);
 	INIT_LIST_HEAD(&vidc_device_p->vidc_timer_queue);
-	res_trk_init(vidc_device_p->device, vidc_device_p->irq);
+
 	vidc_device_p->ref_count = 0;
 	vidc_device_p->firmware_refcount = 0;
 	vidc_device_p->get_firmware = 0;
-
 	return 0;
 
 error_vidc_platfom_register:
