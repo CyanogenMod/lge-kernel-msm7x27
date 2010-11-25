@@ -5488,6 +5488,8 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[1].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[1].vdd_data->level = 1800000;
 	sdcc_vreg_data[1].vccq_data = NULL;
+	if (machine_is_msm8x60_charm_surf())
+		msm8x60_sdc2_data.msmsdcc_fmax = 24000000;
 	msm_add_sdcc(2, &msm8x60_sdc2_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
@@ -5517,6 +5519,8 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[4].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[4].vdd_data->level = 1800000;
 	sdcc_vreg_data[4].vccq_data = NULL;
+	if (machine_is_msm8x60_charm_surf())
+		msm8x60_sdc5_data.msmsdcc_fmax = 24000000;
 	msm_add_sdcc(5, &msm8x60_sdc5_data);
 #endif
 }
