@@ -127,6 +127,10 @@ struct msm_otg {
 	struct clk		*hs_clk;
 	struct clk		*hs_pclk;
 	struct clk		*hs_cclk;
+
+	/* hsusb pclk on 8660 is sourced from daytona fabric clock */
+	struct clk		*dfab_clk;
+
 	/* clk regime has created dummy clock id for phy so
 	 * that generic clk_reset api can be used to reset phy
 	 */
@@ -168,21 +172,11 @@ struct msm_otg {
 #endif
 };
 
-/* usb controller's protocol engine depends on AXI clock.
- * On some platforms this dependency is removed by
- * introducing usb core clock
- */
-static inline int depends_on_axi_freq(struct otg_transceiver *xceiv)
+static inline int pclk_requires_voting(struct otg_transceiver *xceiv)
 {
 	struct msm_otg *dev;
 
 	if (!xceiv)
-		return 0;
-
-	/* for 8660 usb core is in sps and at the same time it does not
-	 * have core clock
-	 */
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa())
 		return 0;
 
 	dev = container_of(xceiv, struct msm_otg, otg);
