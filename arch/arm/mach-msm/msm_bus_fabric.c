@@ -129,6 +129,11 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 					info->node_info->slaveclk);
 				err = -EINVAL;
 			}
+			err = clk_enable(info->nodeclk);
+			if (err)
+				MSM_BUS_ERR("Could not enable clock %s\n",
+				info->node_info->slaveclk);
+
 		}
 		if (info->node_info->memclk) {
 			info->memclk = clk_get(NULL,
@@ -138,6 +143,10 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 					info->node_info->slaveclk);
 				err = -EINVAL;
 			}
+			err = clk_enable(info->memclk);
+			if (err)
+				MSM_BUS_ERR("Could not enable clock %s\n",
+				info->node_info->memclk);
 		}
 
 		ret = info->node_info->gateway ?
@@ -615,6 +624,12 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 			MSM_BUS_ERR("Could not get clock for %s\n",
 				pdata->fabclk);
 			ret = -EINVAL;
+			goto err;
+		}
+		ret = clk_enable(fabric->info.nodeclk);
+		if (ret) {
+			MSM_BUS_ERR("Could not enable clock %s\n",
+				pdata->fabclk);
 			goto err;
 		}
 	}
