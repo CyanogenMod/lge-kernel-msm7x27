@@ -28,101 +28,24 @@
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
 
-#include <mach/debug_mm.h>
 #include "apr_audio.h"
 #include "q6asm.h"
+#include "audio_utils.h"
 
-#define AUDAMRNB_EOS_SET  0x01
-#define TUNNEL_MODE     0x0000
-#define NON_TUNNEL_MODE 0x0001
-
-#define NO_BUF_ALLOC	0x00
-#define BUF_ALLOC_IN    0x01
-#define BUF_ALLOC_OUT   0x02
-#define BUF_ALLOC_INOUT 0x03
-
-struct timestamp{
-	unsigned long lowpart;
-	unsigned long highpart;
-} __attribute__ ((packed));
-
-struct meta_in{
-	unsigned short offset;
-	struct timestamp ntimestamp;
-	unsigned int nflags;
-} __attribute__ ((packed));
-
-struct meta_out_dsp{
-	u32 offset_to_frame;
-	u32 frame_size;
-	u32 encoded_pcm_samples;
-	u32 msw_ts;
-	u32 lsw_ts;
-	u32 nflags;
-} __attribute__ ((packed));
-
-struct meta_out{
-	unsigned char num_of_frames;
-	struct meta_out_dsp meta_out_dsp[];
-} __attribute__ ((packed));
-
-#define PCM_BUF_COUNT		(2)
 /* Buffer with meta*/
 #define PCM_BUF_SIZE		(16384 + sizeof(struct meta_in))
 
-/* FRAME_NUM must be a power of two */
-#define FRAME_NUM		(8)
 /* Maximum 10 frames in buffer with meta */
 #define FRAME_SIZE		(1 + ((32+sizeof(struct meta_out_dsp)) * 10))
-
-struct q6audio_amrnb{
-	spinlock_t			dsp_lock;
-	atomic_t			in_bytes;
-	atomic_t			in_samples;
-
-	struct mutex			lock;
-	struct mutex			read_lock;
-	struct mutex			write_lock;
-	wait_queue_head_t		read_wait;
-	wait_queue_head_t		write_wait;
-	wait_queue_head_t		cmd_wait;
-
-	struct audio_client             *ac;
-	struct msm_audio_stream_config  str_cfg;
-	struct msm_audio_amrnb_enc_config_v2 enc_cfg;
-	struct msm_audio_buf_cfg        buf_cfg;
-	struct msm_audio_config     pcm_cfg;
-
-	/* number of buffers available to read/write */
-	atomic_t			in_count;
-	atomic_t			out_count;
-
-	/* first idx: num of frames per buf, second idx: offset to frame */
-	uint32_t			out_frame_info[FRAME_NUM][2];
-	int				eos_ack;
-	int				eos_rsp;
-	int				opened;
-	int				enabled;
-	int				stopped;
-	int				pcm_feedback;
-	int				rflush;
-	int				wflush;
-	int				buf_alloc;
-};
-
-static void  amrnb_in_get_dsp_frames(struct q6audio_amrnb *audio,
-		uint32_t token,	uint32_t *payload);
-static int amrnb_in_wait_for_eos_ack(struct q6audio_amrnb *audio);
-static int amrnb_in_flush(struct q6audio_amrnb *ac);
-static int amrnb_in_pause(struct q6audio_amrnb *ac);
 
 void q6asm_amrnb_in_cb(uint32_t opcode, uint32_t token,
 		uint32_t *payload, void *priv)
 {
-	struct q6audio_amrnb * audio = (struct q6audio_amrnb *)priv;
+	struct q6audio_in * audio = (struct q6audio_in *)priv;
 	unsigned long flags;
 
-	MM_DBG("opcode - %d\n", opcode);
+	pr_debug("%s:session id %d: opcode - %d\n", __func__,
+			audio->ac->session, opcode);
 
 	spin_lock_irqsave(&audio->dsp_lock, flags);
 	switch (opcode) {
@@ -130,7 +53,7 @@ void q6asm_amrnb_in_cb(uint32_t opcode, uint32_t token,
 		audio->eos_ack = 1;
 		break;
 	case ASM_DATA_EVENT_READ_DONE:
-		amrnb_in_get_dsp_frames(audio, token, payload);
+		audio_in_get_dsp_frames(audio, token, payload);
 		break;
 	case ASM_DATA_EVENT_WRITE_DONE:
 		atomic_inc(&audio->in_count);
@@ -145,336 +68,100 @@ void q6asm_amrnb_in_cb(uint32_t opcode, uint32_t token,
 	case ASM_STREAM_CMDRSP_GET_PP_PARAMS:
 		break;
 	case ASM_SESSION_EVENT_TX_OVERFLOW:
-		MM_ERR("ASM_SESSION_EVENT_TX_OVERFLOW\n");
+		pr_err("%s:session id %d: ASM_SESSION_EVENT_TX_OVERFLOW\n",
+			__func__, audio->ac->session);
 		break;
 	default:
-		MM_ERR("Ignore opcode[0x%x]\n", opcode);
+		pr_err("%s:session id %d: Ignore opcode[0x%x]\n", __func__,
+				audio->ac->session, opcode);
 		break;
 	}
 	spin_unlock_irqrestore(&audio->dsp_lock, flags);
-}
-
-static void  amrnb_in_get_dsp_frames(struct q6audio_amrnb *audio,
-	uint32_t token,	uint32_t *payload)
-{
-	uint32_t index;
-
-	index = token;
-	MM_DBG("index=%d nr frames=%d offset[%d]\n", token,
-			payload[7], payload[3]);
-	MM_DBG("timemsw=%d lsw=%d\n", payload[4], payload[5]);
-	MM_DBG("uflags=0x%8x uid=0x%8x\n", payload[6],
-			payload[8]);
-	MM_DBG("enc frame size=0x%8x\n", payload[2]);
-
-	audio->out_frame_info[index][0] = payload[7];
-	audio->out_frame_info[index][1] = payload[3];
-
-	/* statistics of read */
-	atomic_add(payload[2], &audio->in_bytes);
-	atomic_add(payload[7], &audio->in_samples);
-
-	if (atomic_read(&audio->out_count) <= audio->str_cfg.buffer_count) {
-		atomic_inc(&audio->out_count);
-		wake_up(&audio->read_wait);
-	}
-}
-
-/* must be called with audio->lock held */
-static int amrnb_in_enable(struct q6audio_amrnb  *audio)
-{
-	if (audio->enabled)
-		return 0;
-
-	/* 2nd arg: 0 -> run immediately
-		3rd arg: 0 -> msw_ts, 4th arg: 0 ->lsw_ts */
-	return q6asm_run(audio->ac, 0x00, 0x00, 0x00);
-}
-
-/* must be called with audio->lock held */
-static int amrnb_in_disable(struct q6audio_amrnb  *audio)
-{
-	int rc = 0;
-	if (audio->opened) {
-		audio->enabled = 0;
-		audio->opened = 0;
-		MM_DBG("inbytes[%d] insamples[%d]\n",
-				atomic_read(&audio->in_bytes),
-				atomic_read(&audio->in_samples));
-
-		rc = q6asm_cmd(audio->ac, CMD_CLOSE);
-		if (rc < 0)
-			MM_ERR("Failed to close the session rc=%d\n", rc);
-		audio->stopped = 1;
-		memset(audio->out_frame_info, 0,
-				sizeof(audio->out_frame_info));
-		wake_up(&audio->cmd_wait);
-		wake_up(&audio->read_wait);
-		wake_up(&audio->write_wait);
-	}
-	MM_DBG("enabled[%d]\n", audio->enabled);
-	return rc;
-}
-
-static int amrnb_in_flush(struct q6audio_amrnb  *audio)
-{
-	int rc;
-
-	MM_DBG("flush\n");
-	/* Implicitly issue a pause to the decoder before flushing */
-	rc = amrnb_in_pause(audio);
-	if (rc < 0) {
-		MM_ERR("pause cmd failed rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = q6asm_cmd(audio->ac, CMD_FLUSH);
-	if (rc < 0) {
-		MM_ERR("flush cmd failed rc=%d\n", rc);
-		return rc;
-	}
-	audio->rflush = 1;
-	audio->wflush = 1;
-	memset(audio->out_frame_info, 0, sizeof(audio->out_frame_info));
-	wake_up(&audio->read_wait);
-	/* get read_lock to ensure no more waiting read thread */
-	mutex_lock(&audio->read_lock);
-	audio->rflush = 0;
-	mutex_unlock(&audio->read_lock);
-	wake_up(&audio->write_wait);
-	/* get write_lock to ensure no more waiting write thread */
-	mutex_lock(&audio->write_lock);
-	audio->wflush = 0;
-	mutex_unlock(&audio->write_lock);
-	MM_DBG("in_bytes %d\n", atomic_read(&audio->in_bytes));
-	MM_DBG("in_samples %d\n", atomic_read(&audio->in_samples));
-	atomic_set(&audio->in_bytes, 0);
-	atomic_set(&audio->in_samples, 0);
-	return 0;
-}
-
-static int amrnb_in_pause(struct q6audio_amrnb  *audio)
-{
-	int rc;
-
-	rc = q6asm_cmd(audio->ac, CMD_PAUSE);
-	if (rc < 0)
-		MM_ERR("pause cmd failed rc=%d\n", rc);
-
-	if (amrnb_in_wait_for_eos_ack(audio) < 0) {
-		MM_ERR("Wait for eos ack failed rc=%d\n", rc);
-		return rc;
-	}
-	return rc;
-}
-
-static int amrnb_in_wait_for_eos_ack(struct q6audio_amrnb *audio)
-{
-	int rc;
-	rc = wait_event_interruptible_timeout(audio->cmd_wait,
-				/*wait for eos ack for pause */
-				(audio->eos_ack == 1 || audio->stopped), 1*HZ);
-	if (rc < 0)
-		MM_ERR("Wait for eos ack timedout,rc=%d\n", rc);
-	audio->eos_ack = 0;
-
-	return rc;
-}
-
-static int amrnb_buf_alloc(struct q6audio_amrnb *audio)
-{
-	int rc = 0;
-
-	switch (audio->buf_alloc) {
-	case NO_BUF_ALLOC:
-		if (audio->pcm_feedback == NON_TUNNEL_MODE) {
-			rc = q6asm_audio_client_buf_alloc(IN,
-					audio->ac,
-					audio->pcm_cfg.buffer_size,
-					audio->pcm_cfg.buffer_count);
-			if (rc < 0) {
-				MM_ERR("Buffer Alloc failed\n");
-				rc = -ENOMEM;
-				break;
-			}
-			audio->buf_alloc |= BUF_ALLOC_IN;
-		}
-		rc = q6asm_audio_client_buf_alloc(OUT, audio->ac,
-					audio->str_cfg.buffer_size,
-					audio->str_cfg.buffer_count);
-		if (rc < 0) {
-			MM_ERR("Buffer Alloc failed rc=%d\n", rc);
-			rc = -ENOMEM;
-			break;
-		}
-		audio->buf_alloc |= BUF_ALLOC_OUT;
-		break;
-	case BUF_ALLOC_IN:
-		rc = q6asm_audio_client_buf_alloc(OUT, audio->ac,
-					audio->str_cfg.buffer_size,
-					audio->str_cfg.buffer_count);
-		if (rc < 0) {
-			MM_ERR("Buffer Alloc failed rc=%d\n", rc);
-			rc = -ENOMEM;
-			break;
-		}
-		audio->buf_alloc |= BUF_ALLOC_OUT;
-		break;
-	case BUF_ALLOC_OUT:
-		if (audio->pcm_feedback == NON_TUNNEL_MODE) {
-			rc = q6asm_audio_client_buf_alloc(IN, audio->ac,
-					audio->pcm_cfg.buffer_size,
-					audio->pcm_cfg.buffer_count);
-			if (rc < 0) {
-				MM_ERR("Buffer Alloc failed\n");
-				rc = -ENOMEM;
-				break;
-			}
-			audio->buf_alloc |= BUF_ALLOC_IN;
-		}
-		break;
-	default:
-		MM_DBG("buf[%d]\n", audio->buf_alloc);
-	}
-
-	return rc;
 }
 
 /* ------------------- device --------------------- */
 static long amrnb_in_ioctl(struct file *file,
 				unsigned int cmd, unsigned long arg)
 {
-	struct q6audio_amrnb  *audio = file->private_data;
+	struct q6audio_in  *audio = file->private_data;
 	int rc = 0;
 	int cnt = 0;
 
-	if (cmd == AUDIO_GET_STATS) {
-		struct msm_audio_stats stats;
-		stats.byte_count = atomic_read(&audio->in_bytes);
-		stats.sample_count = atomic_read(&audio->in_samples);
-		if (copy_to_user((void *) arg, &stats, sizeof(stats)))
-			return -EFAULT;
-		return rc;
-	}
-
-	mutex_lock(&audio->lock);
 	switch (cmd) {
 	case AUDIO_START: {
-		MM_DBG("default buf alloc[%d]\n", audio->buf_alloc);
-		rc = amrnb_buf_alloc(audio);
+		struct msm_audio_amrnb_enc_config_v2 *enc_cfg;
+		enc_cfg = audio->enc_cfg;
+		pr_debug("%s:session id %d: default buf alloc[%d]\n", __func__,
+				audio->ac->session, audio->buf_alloc);
+		rc = audio_in_buf_alloc(audio);
 		if (rc < 0) {
-			MM_ERR("buffer allocation failed\n");
+			pr_err("%s:session id %d: buffer allocation failed\n",
+				__func__, audio->ac->session);
 			break;
 		}
 
 		rc = q6asm_enc_cfg_blk_amrnb(audio->ac,
 			audio->buf_cfg.frames_per_buf,
-			audio->enc_cfg.band_mode, audio->enc_cfg.dtx_enable);
+			enc_cfg->band_mode,
+			enc_cfg->dtx_enable);
 
 		if (rc < 0) {
-			MM_ERR("cmd amrnb media format block failed\n");
+			pr_err("%s:session id %d: cmd amrnb media format block\
+				failed\n", __func__, audio->ac->session);
 			break;
 		}
-		if (audio->pcm_feedback == NON_TUNNEL_MODE) {
+		if (audio->feedback == NON_TUNNEL_MODE) {
 			rc = q6asm_media_format_block_pcm(audio->ac,
 				audio->pcm_cfg.sample_rate,
 				audio->pcm_cfg.channel_count);
 
 			if (rc < 0) {
-				MM_ERR("media format block failed\n");
+				pr_err("%s:session id %d: media format block\
+				failed\n", __func__, audio->ac->session);
 				break;
 			}
 		}
-		MM_DBG("AUDIO_START enable[%d]\n", audio->enabled);
-		rc = amrnb_in_enable(audio);
+		pr_debug("%s:session id %d: AUDIO_START enable[%d]\n",
+				__func__, audio->ac->session,
+				audio->enabled);
+		rc = audio_in_enable(audio);
 		if (!rc) {
 			audio->enabled = 1;
 		} else {
 			audio->enabled = 0;
-			MM_ERR("Audio Start procedure failed rc=%d\n", rc);
+			pr_err("%s:session id %d: Audio Start procedure failed\
+					rc=%d\n", __func__,
+					audio->ac->session, rc);
 			break;
 		}
 		while (cnt++ < audio->str_cfg.buffer_count)
 			q6asm_read(audio->ac); /* Push buffer to DSP */
 		rc = 0;
-		MM_INFO("AUDIO_START success enable[%d]\n", audio->enabled);
+		pr_debug("%s:session id %d: AUDIO_START success enable[%d]\n",
+				__func__, audio->ac->session, audio->enabled);
 		break;
 	}
 	case AUDIO_STOP: {
-		MM_INFO("AUDIO_STOP\n");
-		rc = amrnb_in_disable(audio);
+		pr_debug("%s:AUDIO_STOP\n", __func__);
+		rc = audio_in_disable(audio);
 		if (rc  < 0) {
-			MM_ERR("Audio Stop procedure failed rc=%d\n", rc);
+			pr_err("%s:session id %d: Audio Stop procedure failed\
+				rc=%d\n", __func__,
+				audio->ac->session, rc);
 			break;
 		}
-		break;
-	}
-	case AUDIO_FLUSH: {
-		/* Make sure we're stopped and we wake any threads
-		* that might be blocked holding the read_lock.
-		* While audio->stopped read threads will always
-		* exit immediately.
-		*/
-		wake_up(&audio->cmd_wait);
-		rc = amrnb_in_flush(audio);
-		if (rc < 0)
-			MM_ERR("Flush Fail rc=%d\n", rc);
-		break;
-	}
-	case AUDIO_PAUSE: {
-		MM_DBG("AUDIO_PAUSE\n");
-		if (audio->enabled)
-			amrnb_in_pause(audio);
-		break;
-	}
-	case AUDIO_GET_STREAM_CONFIG: {
-		struct msm_audio_stream_config cfg;
-		memset(&cfg, 0, sizeof(cfg));
-		cfg.buffer_size = audio->str_cfg.buffer_size;
-		cfg.buffer_count = audio->str_cfg.buffer_count;
-		if (copy_to_user((void *)arg, &cfg, sizeof(cfg)))
-			rc = -EFAULT;
-		MM_DBG("AUDIO_GET_STREAM_CONFIG %d %d\n", cfg.buffer_size,
-			cfg.buffer_count);
-		break;
-	}
-	case AUDIO_SET_STREAM_CONFIG: {
-		struct msm_audio_stream_config cfg;
-		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
-			rc = -EFAULT;
-			break;
-		}
-		/* Allow minimum single frame, but with in maximum frames */
-		if ((cfg.buffer_size < (32+sizeof(struct meta_out_dsp))) ||
-			(cfg.buffer_count < FRAME_NUM)) {
-			rc = -EINVAL;
-			break;
-		}
-		audio->str_cfg.buffer_size = cfg.buffer_size;
-		audio->str_cfg.buffer_count = cfg.buffer_count;
-		rc = q6asm_audio_client_buf_alloc(OUT, audio->ac,
-				audio->str_cfg.buffer_size,
-				audio->str_cfg.buffer_count);
-		if (rc < 0) {
-			MM_ERR("Buffer Alloc failed rc=%d\n", rc);
-			rc = -ENOMEM;
-			break;
-		}
-		audio->buf_alloc |= BUF_ALLOC_OUT;
-		rc = 0;
-		MM_DBG("AUDIO_SET_STREAM_CONFIG %d %d\n",
-			audio->str_cfg.buffer_size,
-			audio->str_cfg.buffer_count);
 		break;
 	}
 	case AUDIO_GET_AMRNB_ENC_CONFIG_V2: {
-		if (copy_to_user((void *)arg, &audio->enc_cfg,
+		if (copy_to_user((void *)arg, audio->enc_cfg,
 			sizeof(struct msm_audio_amrnb_enc_config_v2)))
 			rc = -EFAULT;
 		break;
 	}
 	case AUDIO_SET_AMRNB_ENC_CONFIG_V2: {
 		struct msm_audio_amrnb_enc_config_v2 cfg;
+		struct msm_audio_amrnb_enc_config_v2 *enc_cfg;
+		enc_cfg = audio->enc_cfg;
 		if (copy_from_user(&cfg, (void *) arg,
 				sizeof(struct msm_audio_amrnb_enc_config_v2))) {
 			rc = -EFAULT;
@@ -482,351 +169,51 @@ static long amrnb_in_ioctl(struct file *file,
 		}
 		if (cfg.band_mode > 8 ||
 			 cfg.band_mode < 1) {
-			MM_ERR("invalid band mode\n");
+			pr_err("%s:session id %d: invalid band mode\n",
+				__func__, audio->ac->session);
 			rc = -EINVAL;
 			break;
 		}
 		/* AMR NB encoder accepts values between 0-7
 		   while openmax provides value between 1-8
 		   as per spec */
-		audio->enc_cfg.band_mode = (cfg.band_mode - 1);
-		audio->enc_cfg.dtx_enable = (cfg.dtx_enable ? 1 : 0);
-		audio->enc_cfg.frame_format = 0;
-		MM_DBG("band_mode = 0x%x dtx_enable=0x%x\n",\
-					audio->enc_cfg.band_mode,
-					audio->enc_cfg.dtx_enable);
-		break;
-	}
-	case AUDIO_GET_SESSION_ID: {
-		if (copy_to_user((void *) arg, &audio->ac->session,
-			sizeof(unsigned short))) {
-			rc = -EFAULT;
-		}
-		break;
-	}
-	case AUDIO_SET_BUF_CFG: {
-		struct msm_audio_buf_cfg  cfg;
-		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
-			rc = -EFAULT;
-			break;
-		}
-		if ((audio->pcm_feedback == NON_TUNNEL_MODE) &&
-			!cfg.meta_info_enable) {
-			rc = -EFAULT;
-			break;
-		}
-
-		/* Restrict the num of frames per buf to 10 to coincide with
-		 * default buf size */
-		if (cfg.frames_per_buf > 10) {
-			rc = -EFAULT;
-			break;
-		}
-		audio->buf_cfg.meta_info_enable = cfg.meta_info_enable;
-		audio->buf_cfg.frames_per_buf = cfg.frames_per_buf;
-		MM_DBG("Set-buf-cfg: meta[%d] framesperbuf[%d]\n",
-					cfg.meta_info_enable,
-					cfg.frames_per_buf);
-		break;
-	}
-	case AUDIO_GET_BUF_CFG: {
-		MM_DBG("Get-buf-cfg: meta[%d] framesperbuf[%d]\n",
-				audio->buf_cfg.meta_info_enable,
-				audio->buf_cfg.frames_per_buf);
-
-		if (copy_to_user((void *)arg, &audio->buf_cfg,
-					sizeof(struct msm_audio_buf_cfg)))
-			rc = -EFAULT;
-		break;
-	}
-	case AUDIO_GET_CONFIG: {
-		if (copy_to_user((void *)arg, &audio->pcm_cfg,
-					sizeof(struct msm_audio_config)))
-			rc = -EFAULT;
-		break;
-
-	}
-	case AUDIO_SET_CONFIG: {
-		struct msm_audio_config cfg;
-		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
-			rc = -EFAULT;
-			break;
-		}
-		if (audio->pcm_feedback != NON_TUNNEL_MODE) {
-			MM_ERR("Not sufficient permission to"
-					"change the playback mode\n");
-			rc = -EACCES;
-			break;
-		}
-		if ((cfg.buffer_count > PCM_BUF_COUNT) ||
-				(cfg.buffer_count == 1))
-			cfg.buffer_count = PCM_BUF_COUNT;
-
-		audio->pcm_cfg.buffer_count = cfg.buffer_count;
-		audio->pcm_cfg.buffer_size  = cfg.buffer_size;
-		audio->pcm_cfg.channel_count = cfg.channel_count;
-		audio->pcm_cfg.sample_rate = cfg.sample_rate;
-		rc = q6asm_audio_client_buf_alloc(IN, audio->ac,
-			audio->pcm_cfg.buffer_size,
-			audio->pcm_cfg.buffer_count);
-		if (rc < 0) {
-			MM_ERR("Buffer Alloc failed\n");
-			rc = -ENOMEM;
-			break;
-		}
-		audio->buf_alloc |= BUF_ALLOC_IN;
-		rc = 0;
-		MM_DBG("AUDIO_SET_CONFIG %d %d\n",
-			audio->pcm_cfg.buffer_count,
-			audio->pcm_cfg.buffer_size);
+		enc_cfg->band_mode = (cfg.band_mode - 1);
+		enc_cfg->dtx_enable = (cfg.dtx_enable ? 1 : 0);
+		enc_cfg->frame_format = 0;
+		pr_debug("%s:session id %d: band_mode = 0x%x dtx_enable=0x%x\n",
+				__func__, audio->ac->session,
+				enc_cfg->band_mode, enc_cfg->dtx_enable);
 		break;
 	}
 	default:
 		rc = -EINVAL;
 	}
-	mutex_unlock(&audio->lock);
 	return rc;
-}
-
-static ssize_t amrnb_in_read(struct file *file,
-				char __user *buf,
-				size_t count, loff_t *pos)
-{
-	struct q6audio_amrnb  *audio = file->private_data;
-	const char __user *start = buf;
-	unsigned char *data;
-	uint32_t offset = 0;
-	uint32_t size = 0;
-	int rc = 0;
-	uint32_t idx;
-	struct meta_out_dsp meta;
-	uint32_t bytes_to_copy = 0;
-	uint32_t mfield_size = (audio->buf_cfg.meta_info_enable == 0) ? 0 :
-		(sizeof(unsigned char) +
-		(sizeof(struct meta_out_dsp)*(audio->buf_cfg.frames_per_buf)));
-
-	MM_DBG("read - %d\n", count);
-	mutex_lock(&audio->read_lock);
-	while (count > 0) {
-		rc = wait_event_interruptible(
-			audio->read_wait,
-			((atomic_read(&audio->out_count) > 0) ||
-			(audio->stopped) ||
-			 audio->rflush || audio->eos_rsp));
-
-		if (rc < 0)
-			break;
-
-		if ((audio->stopped && !(atomic_read(&audio->out_count))) ||
-			audio->rflush) {
-			MM_DBG("driver in stop state or flush,\
-					No more buf to read");
-			rc = 0;/* End of File */
-			break;
-		}
-		if (!(atomic_read(&audio->out_count)) &&
-			(audio->eos_rsp == 1) &&
-			(count >= (sizeof(unsigned char) +
-				sizeof(struct meta_out_dsp)))) {
-			unsigned char num_of_frames;
-			MM_INFO("eos %d at output\n", audio->eos_rsp);
-			if (buf != start)
-				break;
-			num_of_frames = 0xFF;
-			if (copy_to_user(buf, &num_of_frames,
-				sizeof(unsigned char))) {
-				rc = -EFAULT;
-				break;
-			}
-			buf += sizeof(unsigned char);
-			meta.frame_size = 0xFFFF;
-			meta.encoded_pcm_samples = 0xFFFF;
-			meta.msw_ts = 0x00;
-			meta.lsw_ts = 0x00;
-			meta.nflags = AUDAMRNB_EOS_SET;
-			audio->eos_rsp = 0;
-			if (copy_to_user(buf, &meta, sizeof(meta))) {
-				rc = -EFAULT;
-				break;
-			}
-			buf += sizeof(meta);
-			break;
-		}
-		data = (unsigned char *)q6asm_is_cpu_buf_avail(OUT, audio->ac,
-						&size, &idx);
-		if ((count >= (size + mfield_size)) && data) {
-			if (audio->buf_cfg.meta_info_enable) {
-				if (copy_to_user(buf,
-					&audio->out_frame_info[idx][0],
-					sizeof(unsigned char))) {
-					rc = -EFAULT;
-					break;
-				}
-				bytes_to_copy =
-					(size + audio->out_frame_info[idx][1]);
-				/* Number of frames information copied */
-				buf += sizeof(unsigned char);
-				count -= sizeof(unsigned char);
-			} else {
-				offset = audio->out_frame_info[idx][1];
-				bytes_to_copy = size;
-			}
-
-			MM_DBG("offset=%d nr of frames= %d\n",
-					audio->out_frame_info[idx][1],
-					audio->out_frame_info[idx][0]);
-
-			if (copy_to_user(buf, &data[offset], bytes_to_copy)) {
-				rc = -EFAULT;
-				break;
-			}
-			atomic_dec(&audio->out_count);
-			q6asm_read(audio->ac);
-			count -= bytes_to_copy;
-			buf += bytes_to_copy;
-		} else {
-			MM_ERR("short read data[%p] size[%d]\n", data, size);
-			break;
-		}
-		break;
-	}
-	mutex_unlock(&audio->read_lock);
-
-	MM_DBG("read: %d bytes\n", (buf-start));
-	if (buf > start)
-		return buf - start;
-	return rc;
-}
-
-static int extract_meta_info(char *buf, unsigned long *msw_ts,
-		unsigned long *lsw_ts, unsigned int *flags)
-{
-	struct meta_in *meta = (struct meta_in *)buf;
-	*msw_ts = meta->ntimestamp.lowpart;
-	*lsw_ts = meta->ntimestamp.highpart;
-	*flags = meta->nflags;
-	return 0;
-}
-
-static ssize_t amrnb_in_write(struct file *file,
-				const char __user *buf,
-				size_t count, loff_t *pos)
-{
-	struct q6audio_amrnb *audio = file->private_data;
-	const char __user *start = buf;
-	size_t xfer = 0;
-	char *cpy_ptr;
-	int rc = 0;
-	unsigned char *data;
-	uint32_t size = 0;
-	uint32_t idx = 0;
-	uint32_t nflags = 0;
-	unsigned long msw_ts = 0;
-	unsigned long lsw_ts = 0;
-	uint32_t mfield_size = (audio->buf_cfg.meta_info_enable == 0) ? 0 :
-			sizeof(struct meta_in);
-
-	MM_DBG("to write[%d]\n", count);
-	mutex_lock(&audio->write_lock);
-
-	while (count > 0) {
-		rc = wait_event_interruptible(audio->write_wait,
-				     ((atomic_read(&audio->in_count) > 0) ||
-				      (audio->stopped) ||
-				      (audio->wflush)));
-		if (rc < 0)
-			break;
-		if (audio->stopped || audio->wflush) {
-			rc = -EBUSY;
-			break;
-		}
-		data = (unsigned char *)q6asm_is_cpu_buf_avail(IN, audio->ac,
-						&size, &idx);
-		if (!data) {
-			MM_DBG("No buf available\n");
-			continue;
-		}
-		cpy_ptr = data;
-		if (audio->buf_cfg.meta_info_enable) {
-			if (buf == start) {
-				/* Processing beginning of user buffer */
-				if (copy_from_user(cpy_ptr, buf, mfield_size)) {
-					rc = -EFAULT;
-					break;
-				}
-				/* Check if EOS flag is set and buffer has
-				* contains just meta field
-				*/
-				extract_meta_info(cpy_ptr, &msw_ts, &lsw_ts,
-						&nflags);
-				buf += mfield_size;
-				if (count == mfield_size) {
-					/* send the EOS and return */
-					MM_DBG("send EOS 0x%8x\n", nflags);
-					break;
-				}
-				count -= mfield_size;
-			} else {
-				MM_DBG("continuous buffer\n");
-			}
-		}
-		xfer = (count > (audio->pcm_cfg.buffer_size)) ?
-				(audio->pcm_cfg.buffer_size) : count;
-
-		if (copy_from_user(cpy_ptr, buf, xfer)) {
-			rc = -EFAULT;
-			break;
-		}
-		rc = q6asm_write(audio->ac, xfer, msw_ts, lsw_ts, 0x00);
-		if (rc < 0) {
-			rc = -EFAULT;
-			break;
-		}
-		atomic_dec(&audio->in_count);
-		count -= xfer;
-		buf += xfer;
-	}
-	mutex_unlock(&audio->write_lock);
-	MM_DBG("eos_condition 0x%8x buf[0x%x] start[0x%x]\n", nflags,
-			(int) buf, (int) start);
-	if (nflags & AUDAMRNB_EOS_SET) {
-		rc = q6asm_cmd(audio->ac, CMD_EOS);
-		MM_INFO("eos %d at input\n", audio->eos_rsp);
-	}
-	MM_DBG("Written %d Avail Buf[%d]",
-					(buf - start - mfield_size),
-					atomic_read(&audio->in_count));
-	if (!rc) {
-		if (buf > start)
-			return buf - start;
-	}
-	return rc;
-}
-
-static int amrnb_in_release(struct inode *inode, struct file *file)
-{
-	struct q6audio_amrnb  *audio = file->private_data;
-	MM_INFO("\n");
-	mutex_lock(&audio->lock);
-	amrnb_in_disable(audio);
-	q6asm_audio_client_free(audio->ac);
-	mutex_unlock(&audio->lock);
-	kfree(audio);
-	MM_DBG("COMPLETED\n");
-	return 0;
 }
 
 static int amrnb_in_open(struct inode *inode, struct file *file)
 {
-	struct q6audio_amrnb *audio = NULL;
+	struct q6audio_in *audio = NULL;
+	struct msm_audio_amrnb_enc_config_v2 *enc_cfg;
 	int rc = 0;
 
-	audio = kzalloc(sizeof(struct q6audio_amrnb), GFP_KERNEL);
+	audio = kzalloc(sizeof(struct q6audio_in), GFP_KERNEL);
 
 	if (audio == NULL) {
-		MM_ERR("Could not allocate memory for amrnb driver\n");
+		pr_err("%s:session id %d: Could not allocate memory for amrnb\
+			driver\n", __func__, audio->ac->session);
 		return -ENOMEM;
 	}
+	/* Allocate memory for encoder config param */
+	audio->enc_cfg = kzalloc(sizeof(struct msm_audio_amrnb_enc_config_v2),
+				GFP_KERNEL);
+	if (audio->enc_cfg == NULL) {
+		pr_err("%s:session id %d: Could not allocate memory for aac\
+				config param\n", __func__, audio->ac->session);
+		kfree(audio);
+		return -ENOMEM;
+	}
+	enc_cfg = audio->enc_cfg;
 
 	mutex_init(&audio->lock);
 	mutex_init(&audio->read_lock);
@@ -841,10 +228,12 @@ static int amrnb_in_open(struct inode *inode, struct file *file)
 	*/
 	audio->str_cfg.buffer_size = FRAME_SIZE;
 	audio->str_cfg.buffer_count = FRAME_NUM;
+	audio->min_frame_size = 32;
+	audio->max_frames_per_buf = 10;
 	audio->pcm_cfg.buffer_size = PCM_BUF_SIZE;
 	audio->pcm_cfg.buffer_count = PCM_BUF_COUNT;
-	audio->enc_cfg.band_mode = 7;
-	audio->enc_cfg.dtx_enable = 0;
+	enc_cfg->band_mode = 7;
+	enc_cfg->dtx_enable = 0;
 	audio->pcm_cfg.channel_count = 1;
 	audio->pcm_cfg.sample_rate = 8000;
 	audio->buf_cfg.meta_info_enable = 0x01;
@@ -854,7 +243,9 @@ static int amrnb_in_open(struct inode *inode, struct file *file)
 				(void *)audio);
 
 	if (!audio->ac) {
-		MM_ERR("Could not allocate memory for audio client\n");
+		pr_err("%s:session id %d: Could not allocate memory for audio\
+				client\n", __func__, audio->ac->session);
+		kfree(audio->enc_cfg);
 		kfree(audio);
 		return -ENOMEM;
 	}
@@ -862,31 +253,41 @@ static int amrnb_in_open(struct inode *inode, struct file *file)
 	/* open amrnb encoder in T/NT mode */
 	if ((file->f_mode & FMODE_WRITE) &&
 		(file->f_mode & FMODE_READ)) {
-		audio->pcm_feedback = NON_TUNNEL_MODE;
+		audio->feedback = NON_TUNNEL_MODE;
 		rc = q6asm_open_read_write(audio->ac, FORMAT_AMRNB,
 					FORMAT_LINEAR_PCM);
 		if (rc < 0) {
-			MM_ERR("NT mode Open failed rc=%d\n", rc);
+			pr_err("%s:session id %d: NT mode Open failed rc=%d\n",
+				__func__, audio->ac->session, rc);
 			rc = -ENODEV;
 			goto fail;
 		}
+		pr_info("%s:session id %d: NT mode encoder success\n",
+				__func__, audio->ac->session);
 	} else if (!(file->f_mode & FMODE_WRITE) &&
 				(file->f_mode & FMODE_READ)) {
-		audio->pcm_feedback = TUNNEL_MODE;
+		audio->feedback = TUNNEL_MODE;
 		rc = q6asm_open_read(audio->ac, FORMAT_AMRNB);
 		if (rc < 0) {
-			MM_ERR("T mode Open failed rc=%d\n", rc);
+			pr_err("%s:session id %d: T mode Open failed rc=%d\n",
+				__func__, audio->ac->session, rc);
 			rc = -ENODEV;
 			goto fail;
 		}
 		/* register for tx overflow (valid for tunnel mode only) */
 		rc = q6asm_reg_tx_overflow(audio->ac, 0x01);
 		if (rc < 0) {
-			MM_ERR("TX Overflow registration failed rc=%d\n", rc);
+			pr_err("%s:session id %d: TX Overflow registration\
+				failed rc=%d\n", __func__, audio->ac->session,
+				rc);
 			rc = -ENODEV;
 			goto fail;
 		}
+		pr_info("%s:session id %d: T mode encoder success\n",
+				__func__, audio->ac->session);
 	} else {
+		pr_err("%s:session id %d: Unexpected mode\n", __func__,
+				audio->ac->session);
 		rc = -EACCES;
 		goto fail;
 	}
@@ -894,11 +295,14 @@ static int amrnb_in_open(struct inode *inode, struct file *file)
 	audio->opened = 1;
 	atomic_set(&audio->in_count, PCM_BUF_COUNT);
 	atomic_set(&audio->out_count, 0x00);
+	audio->enc_ioctl = amrnb_in_ioctl;
 	file->private_data = audio;
-	MM_INFO("success\n");
+
+	pr_info("%s:session id %d: success\n", __func__, audio->ac->session);
 	return 0;
 fail:
 	q6asm_audio_client_free(audio->ac);
+	kfree(audio->enc_cfg);
 	kfree(audio);
 	return rc;
 }
@@ -906,10 +310,10 @@ fail:
 static const struct file_operations audio_in_fops = {
 	.owner		= THIS_MODULE,
 	.open		= amrnb_in_open,
-	.release	= amrnb_in_release,
-	.read		= amrnb_in_read,
-	.write		= amrnb_in_write,
-	.unlocked_ioctl	= amrnb_in_ioctl,
+	.release	= audio_in_release,
+	.read		= audio_in_read,
+	.write		= audio_in_write,
+	.unlocked_ioctl	= audio_in_ioctl,
 };
 
 struct miscdevice audio_amrnb_in_misc = {
