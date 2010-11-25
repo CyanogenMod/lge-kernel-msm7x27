@@ -244,6 +244,9 @@ int sdio_cmux_open(const int id,
 {
 	int r;
 	struct sdio_cmux_list_elem *list_elem, *list_elem_tmp;
+
+	if (!sdio_cmux_inited)
+		return -ENODEV;
 	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
 		pr_err("%s: Invalid id - %d\n", __func__, id);
 		return -EINVAL;
@@ -300,6 +303,8 @@ int sdio_cmux_close(int id)
 {
 	struct sdio_cmux_ch *ch;
 
+	if (!sdio_cmux_inited)
+		return -ENODEV;
 	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
 		pr_err("%s: Invalid channel close\n", __func__);
 		return -EINVAL;
@@ -332,6 +337,8 @@ int sdio_cmux_write(int id, void *data, int len)
 	void *write_data = NULL;
 	struct sdio_cmux_ch *ch;
 
+	if (!sdio_cmux_inited)
+		return -ENODEV;
 	if (id < 0 || id >= NUM_SDIO_CMUX_PORTS) {
 		pr_err("%s: Invalid channel id %d\n", __func__, id);
 		return -ENODEV;
