@@ -29,6 +29,7 @@
 #include <linux/sched.h>
 #include <linux/skbuff.h>
 #include <linux/wakelock.h>
+#include <linux/debugfs.h>
 
 #include <mach/sdio_al.h>
 #include <mach/sdio_dmux.h>
@@ -132,6 +133,9 @@ static struct sdio_partial_pkt_info sdio_partial_pkt;
 
 #define sdio_ch_is_local_open(x)			\
 	(sdio_ch[(x)].status & SDIO_CH_LOCAL_OPEN)
+
+#define sdio_ch_is_remote_open(x)			\
+	(sdio_ch[(x)].status & SDIO_CH_REMOTE_OPEN)
 
 static inline void skb_set_data(struct sk_buff *skb,
 				unsigned char *data,
@@ -580,6 +584,55 @@ static void sdio_mux_notify(void *_dev, unsigned event)
 		queue_work(sdio_mux_read_workqueue, &work_sdio_mux_read);
 }
 
+#ifdef CONFIG_DEBUG_FS
+
+static int debug_tbl(char *buf, int max)
+{
+	int i = 0;
+	int j;
+
+	for (j = 0; j < SDIO_DMUX_NUM_CHANNELS; ++j) {
+		i += scnprintf(buf + i, max - i,
+			"ch%02d  local open=%s  remote open=%s\n",
+			j, sdio_ch_is_local_open(j) ? "Y" : "N",
+			sdio_ch_is_remote_open(j) ? "Y" : "N");
+	}
+
+	return i;
+}
+
+#define DEBUG_BUFMAX 4096
+static char debug_buffer[DEBUG_BUFMAX];
+
+static ssize_t debug_read(struct file *file, char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	int (*fill)(char *buf, int max) = file->private_data;
+	int bsize = fill(debug_buffer, DEBUG_BUFMAX);
+	return simple_read_from_buffer(buf, count, ppos, debug_buffer, bsize);
+}
+
+static int debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+
+static const struct file_operations debug_ops = {
+	.read = debug_read,
+	.open = debug_open,
+};
+
+static void debug_create(const char *name, mode_t mode,
+				struct dentry *dent,
+				int (*fill)(char *buf, int max))
+{
+	debugfs_create_file(name, mode, dent, fill, &debug_ops);
+}
+
+#endif
+
 static int sdio_dmux_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -628,6 +681,13 @@ static struct platform_driver sdio_dmux_driver = {
 
 static int __init sdio_dmux_init(void)
 {
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *dent;
+
+	dent = debugfs_create_dir("sdio_dmux", 0);
+	if (!IS_ERR(dent))
+		debug_create("tbl", 0444, dent, debug_tbl);
+#endif
 	return platform_driver_register(&sdio_dmux_driver);
 }
 
