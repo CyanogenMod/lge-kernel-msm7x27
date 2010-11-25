@@ -2408,12 +2408,22 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (dev->pdata->pmic_vbus_irq)
 		dev->vbus_on_irq = dev->pdata->pmic_vbus_irq;
 
+	/* vote for vddcx, as PHY cannot tolerate vddcx below 1.0V */
+	if (dev->pdata->config_vddcx) {
+		ret = dev->pdata->config_vddcx(1);
+		if (ret) {
+			pr_err("%s: unable to enable vddcx digital core:%d\n",
+				__func__, ret);
+			goto free_pmic_notif;
+		}
+	}
+
 	if (dev->pdata->ldo_init) {
 		ret = dev->pdata->ldo_init(1);
 		if (ret) {
 			pr_err("%s: ldo_init failed with err:%d\n",
 					__func__, ret);
-			goto free_pmic_notif;
+			goto free_config_vddcx;
 		}
 	}
 
@@ -2510,6 +2520,9 @@ free_ldo_enable:
 free_ldo_init:
 	if (dev->pdata->ldo_init)
 		dev->pdata->ldo_init(0);
+free_config_vddcx:
+	if (dev->pdata->config_vddcx)
+		dev->pdata->config_vddcx(0);
 free_pmic_notif:
 	if (dev->pmic_notif_supp && dev->pdata->pmic_notif_init)
 		dev->pdata->pmic_notif_init(&msm_otg_set_vbus_state, 0);
@@ -2566,6 +2579,8 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 	if (dev->pdata->setup_gpio)
 		dev->pdata->setup_gpio(USB_SWITCH_DISABLE);
 
+	if (dev->pdata->config_vddcx)
+		dev->pdata->config_vddcx(0);
 	if (dev->pdata->ldo_enable)
 		dev->pdata->ldo_enable(0);
 

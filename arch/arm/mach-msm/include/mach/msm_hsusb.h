@@ -200,6 +200,7 @@ struct msm_otg_platform_data {
 	void (*chg_connected)(enum chg_type chg_type);
 	void (*chg_vbus_draw)(unsigned ma);
 	int  (*chg_init)(int init);
+	int (*config_vddcx)(int enable);
 
 	struct pm_qos_request_list *pm_qos_req_dma;
 	struct pm_qos_request_list *pm_qos_req_bus;
