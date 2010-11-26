@@ -82,7 +82,9 @@ struct audio_in {
 
 	uint16_t source; /* Encoding source bit mask */
 	uint32_t device_events; /* device events interested in */
+	uint32_t in_call;
 	uint32_t dev_cnt;
+	int voice_state;
 	spinlock_t dev_lock;
 
 	/* data allocated for various buffers */
@@ -138,7 +140,8 @@ static void pcm_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 		MM_DBG("AUDDEV_EVT_DEV_RDY\n");
 		spin_lock_irqsave(&audio->dev_lock, flags);
 		audio->dev_cnt++;
-		audio->source |= (0x1 << evt_payload->routing_id);
+		if (!audio->in_call)
+			audio->source |= (0x1 << evt_payload->routing_id);
 		spin_unlock_irqrestore(&audio->dev_lock, flags);
 
 		if ((audio->running == 1) && (audio->enabled == 1))
@@ -150,7 +153,8 @@ static void pcm_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 		MM_DBG("AUDDEV_EVT_DEV_RLS\n");
 		spin_lock_irqsave(&audio->dev_lock, flags);
 		audio->dev_cnt--;
-		audio->source &= ~(0x1 << evt_payload->routing_id);
+		if (!audio->in_call)
+			audio->source &= ~(0x1 << evt_payload->routing_id);
 		spin_unlock_irqrestore(&audio->dev_lock, flags);
 
 		if (!audio->running || !audio->enabled)
@@ -163,6 +167,20 @@ static void pcm_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 			/* Turn off all */
 			audpcm_in_record_config(audio, 0);
 
+		break;
+	}
+	case AUDDEV_EVT_VOICE_STATE_CHG: {
+		MM_DBG("AUDDEV_EVT_VOICE_STATE_CHG, state = %d\n",
+				evt_payload->voice_state);
+		audio->voice_state = evt_payload->voice_state;
+		if (audio->in_call && audio->running) {
+			if (audio->voice_state == VOICE_STATE_INCALL)
+				audpcm_in_record_config(audio, 1);
+			else if (audio->voice_state == VOICE_STATE_OFFCALL) {
+				audpcm_in_record_config(audio, 0);
+				wake_up(&audio->wait);
+			}
+		}
 		break;
 	}
 	case AUDDEV_EVT_FREQ_CHG: {
@@ -247,7 +265,9 @@ static void audrec_dsp_event(void *data, unsigned id, size_t len,
 	case AUDREC_CMD_MEM_CFG_DONE_MSG: {
 		MM_DBG("CMD_MEM_CFG_DONE MSG DONE\n");
 		audio->running = 1;
-		if (audio->dev_cnt > 0)
+		if ((!audio->in_call && (audio->dev_cnt > 0)) ||
+			(audio->in_call &&
+				(audio->voice_state == VOICE_STATE_INCALL)))
 			audpcm_in_record_config(audio, 1);
 		break;
 	}
@@ -493,6 +513,11 @@ static long audpcm_in_ioctl(struct file *file,
 		/* Poll at 48KHz always */
 		freq = 48000;
 		MM_DBG("AUDIO_START\n");
+		if (audio->in_call && (audio->voice_state !=
+				VOICE_STATE_INCALL)) {
+			rc = -EPERM;
+			break;
+		}
 		rc = msm_snddev_request_freq(&freq, audio->enc_id,
 					SNDDEV_CAP_TX, AUDDEV_CLNT_ENC);
 		MM_DBG("sample rate configured %d sample rate requested %d\n",
@@ -577,6 +602,33 @@ static long audpcm_in_ioctl(struct file *file,
 			rc = -EFAULT;
 		break;
 	}
+	case AUDIO_SET_INCALL: {
+		struct msm_voicerec_mode cfg;
+		unsigned long flags;
+		if (copy_from_user(&cfg, (void *) arg, sizeof(cfg))) {
+			rc = -EFAULT;
+			break;
+		}
+		if (cfg.rec_mode != VOC_REC_BOTH &&
+			cfg.rec_mode != VOC_REC_UPLINK &&
+			cfg.rec_mode != VOC_REC_DOWNLINK) {
+			MM_ERR("invalid rec_mode\n");
+			rc = -EINVAL;
+			break;
+		} else {
+			spin_lock_irqsave(&audio->dev_lock, flags);
+			if (cfg.rec_mode == VOC_REC_UPLINK)
+				audio->source = VOICE_UL_SOURCE_MIX_MASK;
+			else if (cfg.rec_mode == VOC_REC_DOWNLINK)
+				audio->source = VOICE_DL_SOURCE_MIX_MASK;
+			else
+				audio->source = VOICE_DL_SOURCE_MIX_MASK |
+						VOICE_UL_SOURCE_MIX_MASK ;
+			audio->in_call = 1;
+			spin_unlock_irqrestore(&audio->dev_lock, flags);
+		}
+		break;
+	}
 	case AUDIO_GET_SESSION_ID: {
 		if (copy_to_user((void *) arg, &audio->enc_id,
 			sizeof(unsigned short))) {
@@ -607,15 +659,23 @@ static ssize_t audpcm_in_read(struct file *file,
 	while (count > 0) {
 		rc = wait_event_interruptible(
 			audio->wait, (audio->in_count > 0) || audio->stopped ||
-			audio->abort);
-
+			audio->abort || (audio->in_call && audio->running &&
+				(audio->voice_state == VOICE_STATE_OFFCALL)));
 		if (rc < 0)
 			break;
 
-		if (audio->stopped && !audio->in_count) {
-			MM_DBG("Driver in stop state, No more buffer to read");
-			rc = 0;/* End of File */
-			break;
+		if (!audio->in_count) {
+			if (audio->stopped) {
+				MM_DBG("Driver in stop state, No more \
+						buffer to read");
+				rc = 0;/* End of File */
+				break;
+			} else if (audio->in_call && audio->running &&
+				(audio->voice_state == VOICE_STATE_OFFCALL)) {
+				MM_DBG("Not Permitted Voice Terminated\n");
+				rc = -EPERM; /* Voice Call stopped */
+				break;
+			}
 		}
 
 		if (audio->abort) {
@@ -669,6 +729,7 @@ static int audpcm_in_release(struct inode *inode, struct file *file)
 	struct audio_in *audio = file->private_data;
 
 	mutex_lock(&audio->lock);
+	audio->in_call = 0;
 	/* with draw frequency for session
 	   incase not stopped the driver */
 	msm_snddev_withdraw_freq(audio->enc_id, SNDDEV_CAP_TX,
@@ -715,7 +776,6 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 	audio->buffer_size = MONO_DATA_SIZE;
 	audio->samp_rate = 8000;
 	audio->enc_type = ENC_TYPE_WAV | audio->mode;
-	audio->source = INTERNAL_CODEC_TX_SOURCE_MIX_MASK;
 
 	encid = audpreproc_aenc_alloc(audio->enc_type, &audio->module_name,
 			&audio->queue_ids);
@@ -739,8 +799,10 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 	audio->abort = 0;
 	audpcm_in_flush(audio);
 	audio->device_events = AUDDEV_EVT_DEV_RDY | AUDDEV_EVT_DEV_RLS |
-				AUDDEV_EVT_FREQ_CHG;
+				AUDDEV_EVT_FREQ_CHG |
+				AUDDEV_EVT_VOICE_STATE_CHG;
 
+	audio->voice_state = msm_get_voice_state();
 	rc = auddev_register_evt_listner(audio->device_events,
 					AUDDEV_CLNT_ENC, audio->enc_id,
 					pcm_in_listener, (void *) audio);
