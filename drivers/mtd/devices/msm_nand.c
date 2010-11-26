@@ -88,7 +88,7 @@ struct msm_nand_chip {
 #define DST_CRCI_NAND_DATA CMD_DST_CRCI(DMOV_NAND_CRCI_DATA)
 
 #define msm_virt_to_dma(chip, vaddr) \
-	((void)(*(vaddr)), (chip)->dma_addr + \
+	((chip)->dma_addr + \
 	 ((uint8_t *)(vaddr) - (chip)->dma_buffer))
 
 /**
