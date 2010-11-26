@@ -761,13 +761,18 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 		callback = event.cb;
 	else
 		return;
+
+	evt_payload = kzalloc(sizeof(union auddev_evt_data),
+			GFP_KERNEL);
+	if (evt_payload == NULL) {
+		MM_ERR("Memory allocation for event payload failed\n");
+		return;
+	}
+
 	mutex_lock(&session_lock);
 
 	if (evt_id == AUDDEV_EVT_VOICE_STATE_CHG)
 		routing_info.voice_state = dev_id;
-
-	evt_payload = kzalloc(sizeof(union auddev_evt_data),
-			GFP_KERNEL);
 
 	for (; ;) {
 		if (!(evt_id & callback->evt_id)) {

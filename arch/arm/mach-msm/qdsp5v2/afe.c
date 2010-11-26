@@ -145,6 +145,10 @@ int afe_enable(u8 path_id, struct msm_afe_config *config)
 	int rc;
 
 	MM_DBG("%s: path %d\n", __func__, path_id);
+	if ((GETDEVICEID(path_id) < 0) || (GETDEVICEID(path_id) > 5)) {
+		MM_ERR("Invalid path_id: %d\n", path_id);
+		return -EINVAL;
+	}
 	mutex_lock(&afe->lock);
 	if (!afe->in_use && !afe->aux_conf_flag) {
 		/* enable afe */
