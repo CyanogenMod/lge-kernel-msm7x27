@@ -1063,7 +1063,7 @@ EXPORT_SYMBOL(msm_charger_notify_event);
 int msm_charger_register(struct msm_hardware_charger *hw_chg)
 {
 	struct msm_hardware_charger_priv *priv;
-	int rc;
+	int rc = 0;
 
 	if (!msm_chg.inited) {
 		pr_err("%s: msm_chg is NULL,Too early to register\n", __func__);
@@ -1097,8 +1097,11 @@ int msm_charger_register(struct msm_hardware_charger *hw_chg)
 	priv->psy.get_property = msm_power_get_property;
 
 	rc = power_supply_register(NULL, &priv->psy);
-	if (rc)
-		return rc;
+	if (rc) {
+		dev_err(msm_chg.dev, "%s power_supply_register failed\n",
+			__func__);
+		goto out;
+	}
 
 	priv->hw_chg = hw_chg;
 	priv->hw_chg_state = CHG_ABSENT_STATE;
@@ -1107,8 +1110,11 @@ int msm_charger_register(struct msm_hardware_charger *hw_chg)
 	list_add_tail(&priv->list, &msm_chg.msm_hardware_chargers);
 	mutex_unlock(&msm_chg.msm_hardware_chargers_lock);
 	hw_chg->charger_private = (void *)priv;
-
 	return 0;
+
+out:
+	kfree(priv);
+	return rc;
 }
 EXPORT_SYMBOL(msm_charger_register);
 
