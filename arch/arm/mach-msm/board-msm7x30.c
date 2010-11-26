@@ -3094,7 +3094,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.rpc_connect	= hsusb_rpc_connect,
 
 #ifndef CONFIG_USB_EHCI_MSM
-	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+	.pmic_vbus_notif_init         = msm_hsusb_pmic_notif_init,
 #else
 	.vbus_power = msm_hsusb_vbus_power,
 #endif

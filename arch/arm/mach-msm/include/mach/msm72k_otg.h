@@ -151,13 +151,15 @@ struct msm_otg {
 	/* Reset phy and link */
 	void (*reset)		(struct otg_transceiver *otg, int phy_reset);
 	/* pmic notfications apis */
-	u8 pmic_notif_supp;
+	u8 pmic_vbus_notif_supp;
+	u8 pmic_id_notif_supp;
 	struct msm_otg_platform_data *pdata;
 
 	spinlock_t lock; /* protects OTG state */
 	struct wake_lock wlock;
 	unsigned long b_last_se0_sess; /* SRP initial condition check */
 	unsigned long inputs;
+	int pmic_id_status;
 	unsigned long tmouts;
 	u8 active_tmout;
 	struct hrtimer timer;

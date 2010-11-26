@@ -1848,7 +1848,7 @@ static int msm_hsusb_ldo_enable(int enable);
 
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.rpc_connect	= hsusb_rpc_connect,
-	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+	.pmic_vbus_notif_init         = msm_hsusb_pmic_notif_init,
 	.pemp_level              = PRE_EMPHASIS_WITH_10_PERCENT,
 	.cdr_autoreset           = CDR_AUTO_RESET_DEFAULT,
 	.drv_ampl                = HS_DRV_AMPLITUDE_5_PERCENT,

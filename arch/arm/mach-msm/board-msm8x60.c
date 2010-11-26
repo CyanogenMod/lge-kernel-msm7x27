@@ -494,6 +494,72 @@ static struct msm_cpuidle_state msm_cstates[] __initdata = {
 static struct regulator *ldo6_3p3;
 static struct regulator *ldo7_1p8;
 static struct regulator *vdd_cx;
+#define PMICID_INT		PM8058_GPIO_IRQ(PM8058_IRQ_BASE, 36)
+notify_vbus_state notify_vbus_state_func_ptr;
+
+#ifdef CONFIG_USB_EHCI_MSM
+static irqreturn_t pmic_id_on_irq(int irq, void *data)
+{
+	int val = gpio_get_value_cansleep(PM8058_GPIO_PM_TO_SYS(36));
+	pr_info("%s(): gpio_read_value = %d\n", __func__, val);
+
+	if (notify_vbus_state_func_ptr)
+		(*notify_vbus_state_func_ptr) (val);
+
+	return IRQ_HANDLED;
+}
+
+static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
+{
+	unsigned ret = -ENODEV;
+
+	if (!callback)
+		return -EINVAL;
+
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 2) {
+		pr_debug("%s: USB_ID pin is not routed to PMIC"
+					"on V1 surf/ffa\n", __func__);
+		return -ENOTSUPP;
+	}
+
+	if (machine_is_msm8x60_ffa()) {
+		pr_debug("%s: USB_ID is not routed to PMIC"
+			"on V2 ffa\n", __func__);
+		return -ENOTSUPP;
+	}
+
+	if (init) {
+		notify_vbus_state_func_ptr = callback;
+		ret = pm8901_mpp_config_digital_out(1,
+			PM8901_MPP_DIG_LEVEL_L5, 1);
+		if (ret) {
+			pr_err("%s: MPP2 configuration failed\n", __func__);
+			return -ENODEV;
+		}
+		ret = request_threaded_irq(PMICID_INT, NULL, pmic_id_on_irq,
+			(IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING),
+						"msm_otg_id", NULL);
+		if (ret) {
+			pm8901_mpp_config_digital_out(1,
+					PM8901_MPP_DIG_LEVEL_L5, 0);
+			pr_err("%s:pmic_usb_id interrupt registration failed",
+					__func__);
+			return ret;
+		}
+	} else {
+		free_irq(PMICID_INT, 0);
+		notify_vbus_state_func_ptr = NULL;
+		ret = pm8901_mpp_config_digital_out(1,
+			PM8901_MPP_DIG_LEVEL_L5, 0);
+		if (ret) {
+			pr_err("%s:MPP2 configuration failed\n", __func__);
+			return -ENODEV;
+		}
+	}
+	return 0;
+}
+#endif
+
 static int msm_hsusb_config_vddcx(int on)
 {
 	int ret = -ENODEV;
@@ -670,16 +736,39 @@ static struct msm_usb_host_platform_data msm_usb_host_pdata = {
 };
 #endif
 
-#if defined(CONFIG_BATTERY_MSM8X60) && !defined(CONFIG_USB_EHCI_MSM)
-static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
+#ifdef CONFIG_BATTERY_MSM8X60
+static int msm_hsusb_pmic_vbus_notif_init(void (*callback)(int online),
+								int init)
 {
+	int ret = -ENOTSUPP;
+
+	/* ID and VBUS lines are connected to pmic on 8660.V2.SURF,
+	 * hence, irrespective of either peripheral only mode or
+	 * OTG (host and peripheral) modes, can depend on pmic for
+	 * vbus notifications
+	 */
+	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2)
+			&& (machine_is_msm8x60_surf())) {
+		if (init)
+			ret = msm_charger_register_vbus_sn(callback);
+		else {
+			msm_charger_unregister_vbus_sn(callback);
+			ret = 0;
+		}
+	} else {
+#if !defined(CONFIG_USB_EHCI_MSM)
 	if (init)
-		msm_charger_register_vbus_sn(callback);
-	else
+		ret = msm_charger_register_vbus_sn(callback);
+	else {
 		msm_charger_unregister_vbus_sn(callback);
-	return 0;
+		ret = 0;
+	}
+#endif
+	}
+	return ret;
 }
 #endif
+
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_MSM)
 static struct msm_otg_platform_data msm_otg_pdata = {
 	/* if usb link is in sps there is no need for
@@ -691,10 +780,13 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.cdr_autoreset		 = CDR_AUTO_RESET_DISABLE,
 	.se1_gating		 = SE1_GATING_DISABLE,
 #ifdef CONFIG_USB_EHCI_MSM
+	.pmic_id_notif_init = msm_hsusb_pmic_id_notif_init,
+#endif
+#ifdef CONFIG_USB_EHCI_MSM
 	.vbus_power = msm_hsusb_vbus_power,
 #endif
-#if defined(CONFIG_BATTERY_MSM8X60) && !defined(CONFIG_USB_EHCI_MSM)
-	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+#ifdef CONFIG_BATTERY_MSM8X60
+	.pmic_vbus_notif_init	= msm_hsusb_pmic_vbus_notif_init,
 #endif
 	.ldo_init		 = msm_hsusb_ldo_init,
 	.ldo_enable		 = msm_hsusb_ldo_enable,
@@ -3121,6 +3213,16 @@ static int pm8058_gpios_init(void)
 				.output_buffer	= PM_GPIO_OUT_BUF_CMOS,
 				.pull		= PM_GPIO_PULL_DN,
 				.out_strength	= PM_GPIO_STRENGTH_HIGH,
+				.function	= PM_GPIO_FUNC_NORMAL,
+				.vin_sel	= 2,
+				.inv_int_pol	= 0,
+			}
+		},
+		{ /* PMIC ID interrupt */
+			36,
+			{
+				.direction	= PM_GPIO_DIR_IN,
+				.pull		= PM_GPIO_PULL_UP_1P5,
 				.function	= PM_GPIO_FUNC_NORMAL,
 				.vin_sel	= 2,
 				.inv_int_pol	= 0,
