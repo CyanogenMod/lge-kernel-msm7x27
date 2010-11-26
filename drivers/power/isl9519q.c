@@ -355,7 +355,13 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, isl_chg);
 
-	msm_charger_register(&isl_chg->adapter_hw_chg);
+	ret = msm_charger_register(&isl_chg->adapter_hw_chg);
+	if (ret) {
+		dev_err(&client->dev,
+			"%s msm_charger_register failed for ret =%d\n",
+			__func__, ret);
+		goto free_gpio;
+	}
 
 	ret = request_threaded_irq(client->irq, NULL,
 				   isl_valid_handler,
@@ -414,6 +420,7 @@ free_irq:
 	free_irq(client->irq, NULL);
 unregister:
 	msm_charger_register(&isl_chg->adapter_hw_chg);
+free_gpio:
 	gpio_free(pdata->valid_n_gpio);
 free_isl_chg:
 	kfree(isl_chg);
