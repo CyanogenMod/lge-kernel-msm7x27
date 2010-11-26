@@ -1550,6 +1550,7 @@ static int pm8058_usb_voltage_lower_limit(void)
 static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 {
 	struct pm8058_chip *pm_chip;
+	int rc = 0;
 
 	pm_chip = platform_get_drvdata(pdev);
 	if (pm_chip == NULL) {
@@ -1561,19 +1562,25 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 	pm8058_chg.pdata = pdev->dev.platform_data;
 	pm8058_chg.dev = &pdev->dev;
 
-	if (request_irqs(pdev)) {
+	rc = request_irqs(pdev);
+	if (rc) {
 		pr_err("%s: couldnt register interrupts\n", __func__);
-		return -EINVAL;
+		goto out;
 	}
 
-	if (pm8058_usb_voltage_lower_limit()) {
+	rc = pm8058_usb_voltage_lower_limit();
+	if (rc) {
 		pr_err("%s: couldnt set ignore lower limit bit to 0\n",
 								__func__);
-		free_irqs();
-		return -EINVAL;
+		goto free_irq;
 	}
 
-	msm_charger_register(&usb_hw_chg);
+	rc = msm_charger_register(&usb_hw_chg);
+	if (rc) {
+		pr_err("%s: msm_charger_register failed ret=%d\n",
+							__func__, rc);
+		goto free_irq;
+	}
 
 	pm_chg_batt_temp_disable(0);
 	msm_battery_gauge_register(&pm8058_batt_gauge);
@@ -1589,6 +1596,11 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 	pm8058_chg_enable_irq(BATTTEMP_IRQ);
 	pm8058_chg_enable_irq(BATTCONNECT_IRQ);
 	return 0;
+
+free_irq:
+	free_irqs();
+out:
+	return rc;
 }
 
 static int __devexit pm8058_charger_remove(struct platform_device *pdev)
