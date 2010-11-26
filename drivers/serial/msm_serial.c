@@ -1076,9 +1076,10 @@ static int __devexit msm_serial_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int msm_serial_suspend(struct platform_device *pdev, pm_message_t state)
+static int msm_serial_suspend(struct device *dev)
 {
 	struct uart_port *port;
+	struct platform_device *pdev = to_platform_device(dev);
 	port = get_port_from_line(pdev->id);
 
 	if (port) {
@@ -1090,9 +1091,10 @@ static int msm_serial_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int msm_serial_resume(struct platform_device *pdev)
+static int msm_serial_resume(struct device *dev)
 {
 	struct uart_port *port;
+	struct platform_device *pdev = to_platform_device(dev);
 	port = get_port_from_line(pdev->id);
 
 	if (port) {
@@ -1131,14 +1133,14 @@ static int msm_serial_runtime_resume(struct device *dev)
 }
 
 static struct dev_pm_ops msm_serial_dev_pm_ops = {
+	.suspend = msm_serial_suspend,
+	.resume = msm_serial_resume,
 	.runtime_suspend = msm_serial_runtime_suspend,
 	.runtime_resume = msm_serial_runtime_resume,
 };
 
 static struct platform_driver msm_platform_driver = {
 	.remove = msm_serial_remove,
-	.suspend = msm_serial_suspend,
-	.resume = msm_serial_resume,
 	.driver = {
 		.name = "msm_serial",
 		.owner = THIS_MODULE,
