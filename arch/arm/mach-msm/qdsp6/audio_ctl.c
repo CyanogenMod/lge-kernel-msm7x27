@@ -87,6 +87,7 @@ static int q6_ioctl(struct inode *inode, struct file *file,
 	int rc;
 	uint32_t n;
 	uint32_t id[2];
+	uint32_t mute_status;
 
 	switch (cmd) {
 	case AUDIO_SWITCH_DEVICE:
@@ -101,8 +102,21 @@ static int q6_ioctl(struct inode *inode, struct file *file,
 		break;
 	case AUDIO_SET_MUTE:
 		rc = copy_from_user(&n, (void *)arg, sizeof(n));
-		if (!rc)
-			rc = q6audio_set_tx_mute(n);
+		if (!rc) {
+			if (voice_started) {
+				if (n == 1)
+					mute_status = STREAM_MUTE;
+				else
+					mute_status = STREAM_UNMUTE;
+			} else {
+				if (n == 1)
+					mute_status = DEVICE_MUTE;
+				else
+					mute_status = DEVICE_UNMUTE;
+			}
+
+			rc = q6audio_set_tx_mute(mute_status);
+		}
 		break;
 	case AUDIO_UPDATE_ACDB:
 		rc = copy_from_user(&id, (void *)arg, sizeof(id));

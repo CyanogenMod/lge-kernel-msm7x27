@@ -23,6 +23,13 @@
 
 #include <linux/wait.h>
 
+enum {
+	DEVICE_UNMUTE = 0,
+	DEVICE_MUTE,
+	STREAM_UNMUTE,
+	STREAM_MUTE,
+};
+
 struct audio_buffer {
 	dma_addr_t phys;
 	void *data;
