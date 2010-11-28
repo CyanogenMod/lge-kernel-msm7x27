@@ -1350,13 +1350,13 @@ static int set_pipe_threshold(int pipe_index, int threshold)
 static int sdio_al_enable_func_retry(struct sdio_func *func, const char *name)
 {
 	int ret, i;
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 200; i++) {
 		ret = sdio_enable_func(func);
 		if (ret) {
 			pr_debug(MODULE_NAME ":retry enable %s func#%d "
 					     "ret=%d\n",
 					 name, func->num, ret);
-			msleep(500);
+			msleep(10);
 		} else
 			break;
 	}
