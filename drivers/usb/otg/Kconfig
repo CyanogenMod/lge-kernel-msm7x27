@@ -90,7 +90,7 @@ config MSM_OTG_ENABLE_A_WAIT_BCON_TIMEOUT
 
 config USB_MSM_ACA
 	bool "Support for Accessory Charger Adapter (ACA)"
-	depends on USB_MSM_OTG_72K && USB_OTG
+	depends on USB_MSM_OTG_72K
 	default n
 	help
 	  Accesory Charger Adapter is a charger specified in USB Battery
