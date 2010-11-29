@@ -88,6 +88,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct mdp4_overlay_pipe *pipe;
 	int ret;
+	ulong display_status;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
@@ -102,6 +103,11 @@ int mdp_lcdc_on(struct platform_device *pdev)
 
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	display_status = inpdw(MDP_BASE + 0x0018);
+	if (!display_status) {
+		mdp4_hw_init();
+		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
+	}
 
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
@@ -229,6 +235,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	mdp4_vg_qseed_init(0);
 	mdp4_vg_qseed_init(1);
 #endif
+	mdp4_overlay_reg_flush(pipe, 1);
 
 	ret = panel_next_on(pdev);
 	if (ret == 0) {

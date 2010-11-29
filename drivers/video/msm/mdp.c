@@ -88,6 +88,7 @@ static struct delayed_work mdp_pipe_ctrl_worker;
 struct mdp_dma_data dma2_data;
 struct mdp_dma_data dma_s_data;
 struct mdp_dma_data dma_e_data;
+ulong mdp4_display_intf;
 #else
 static struct mdp_dma_data dma2_data;
 static struct mdp_dma_data dma_s_data;
@@ -909,6 +910,16 @@ static int mdp_on(struct platform_device *pdev)
 #endif
 
 	int ret = 0;
+#ifdef CONFIG_FB_MSM_MDP40
+	ulong display_status = 0;
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	display_status = inpdw(MDP_BASE + 0x0018);
+	if (!display_status) {
+		mdp4_hw_init();
+		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
+	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+#endif
 
 #ifdef MDP_HW_VSYNC
 	mdp_hw_vsync_clk_enable(mfd);
@@ -1284,6 +1295,11 @@ static int mdp_probe(struct platform_device *pdev)
 		rc = -ENODEV;
 		goto mdp_probe_err;
 	}
+#ifdef CONFIG_FB_MSM_MDP40
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	mdp4_display_intf = inpdw(MDP_BASE + 0x0038);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+#endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	if (mdp_pdata && mdp_pdata->mdp_bus_scale_table) {
