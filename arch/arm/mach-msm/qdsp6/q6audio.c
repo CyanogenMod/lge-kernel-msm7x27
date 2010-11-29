@@ -440,6 +440,52 @@ static int audio_in_open(struct audio_client *ac, uint32_t bufsz,
 	return audio_ioctl(ac, &rpc, sizeof(rpc));
 }
 
+static int audio_auxpcm_out_open(struct audio_client *ac,
+			  uint32_t rate, uint32_t channels)
+{
+	struct adsp_open_command rpc;
+
+	memset(&rpc, 0, sizeof(rpc));
+
+	rpc.format.standard.format = ADSP_AUDIO_FORMAT_PCM;
+	rpc.format.standard.channels = channels;
+	rpc.format.standard.bits_per_sample = 16;
+	rpc.format.standard.sampling_rate = rate;
+	rpc.format.standard.is_signed = 1;
+	rpc.format.standard.is_interleaved = 1;
+
+	rpc.hdr.opcode = ADSP_AUDIO_IOCTL_CMD_OPEN_READ;
+	rpc.device = ADSP_AUDIO_DEVICE_ID_DEFAULT;
+	rpc.mode =  ADSP_AUDIO_OPEN_STREAM_MODE_AUX_PCM;
+	rpc.stream_context = ADSP_AUDIO_DEVICE_CONTEXT_RECORD;
+
+	TRACE("open out %p\n", ac);
+	return audio_ioctl(ac, &rpc, sizeof(rpc));
+}
+
+static int audio_auxpcm_in_open(struct audio_client *ac, uint32_t rate,
+		uint32_t channels)
+{
+	struct adsp_open_command rpc;
+
+	memset(&rpc, 0, sizeof(rpc));
+
+	rpc.format.standard.format = ADSP_AUDIO_FORMAT_PCM;
+	rpc.format.standard.channels = channels;
+	rpc.format.standard.bits_per_sample = 16;
+	rpc.format.standard.sampling_rate = rate;
+	rpc.format.standard.is_signed = 1;
+	rpc.format.standard.is_interleaved = 1;
+
+	rpc.hdr.opcode = ADSP_AUDIO_IOCTL_CMD_OPEN_WRITE;
+	rpc.device = ADSP_AUDIO_DEVICE_ID_DEFAULT;
+	rpc.mode =  ADSP_AUDIO_OPEN_STREAM_MODE_AUX_PCM;
+	rpc.stream_context = ADSP_AUDIO_DEVICE_CONTEXT_PLAYBACK;
+
+	TRACE("%p: open in\n", ac);
+	return audio_ioctl(ac, &rpc, sizeof(rpc));
+}
+
 static int audio_mp3_open(struct audio_client *ac, uint32_t bufsz,
 			  uint32_t rate, uint32_t channels)
 {
@@ -1155,6 +1201,27 @@ static int icodec_tx_clk_refcount;
 static int ecodec_clk_refcount;
 static int sdac_clk_refcount;
 
+static void ecodec_clk_enable(void)
+{
+	ecodec_clk_refcount++;
+	if (ecodec_clk_refcount == 1) {
+		clk_set_rate(ecodec_clk, 2048000);
+		clk_enable(ecodec_clk);
+	}
+}
+static void ecodec_clk_disable(int group_reset, int path)
+{
+	ecodec_clk_refcount--;
+	if (ecodec_clk_refcount == 0) {
+		clk_disable(ecodec_clk);
+		if (group_reset) {
+			if (path == ADSP_PATH_TX)
+				audio_tx_device_group = -1;
+			else
+				audio_rx_device_group = -1;
+		}
+	}
+}
 static void _audio_rx_clk_enable(void)
 {
 	uint32_t device_group = q6_device_to_codec(audio_rx_device_id);
@@ -1168,11 +1235,7 @@ static void _audio_rx_clk_enable(void)
 		}
 		break;
 	case Q6_ECODEC_RX:
-		ecodec_clk_refcount++;
-		if (ecodec_clk_refcount == 1) {
-			clk_set_rate(ecodec_clk, 2048000);
-			clk_enable(ecodec_clk);
-		}
+		ecodec_clk_enable();
 		break;
 	case Q6_SDAC_RX:
 		sdac_clk_refcount++;
@@ -1200,11 +1263,7 @@ static void _audio_tx_clk_enable(void)
 		}
 		break;
 	case Q6_ECODEC_TX:
-		ecodec_clk_refcount++;
-		if (ecodec_clk_refcount == 1) {
-			clk_set_rate(ecodec_clk, 2048000);
-			clk_enable(ecodec_clk);
-		}
+		ecodec_clk_enable();
 		break;
 	case Q6_SDAC_TX:
 		/* TODO: In QCT BSP, clk rate was set to 20480000 */
@@ -1231,11 +1290,7 @@ static void _audio_rx_clk_disable(void)
 		}
 		break;
 	case Q6_ECODEC_RX:
-		ecodec_clk_refcount--;
-		if (ecodec_clk_refcount == 0) {
-			clk_disable(ecodec_clk);
-			audio_rx_device_group = -1;
-		}
+		ecodec_clk_disable(1, ADSP_PATH_RX);
 		break;
 	case Q6_SDAC_RX:
 		sdac_clk_refcount--;
@@ -1262,11 +1317,7 @@ static void _audio_tx_clk_disable(void)
 		}
 		break;
 	case Q6_ECODEC_TX:
-		ecodec_clk_refcount--;
-		if (ecodec_clk_refcount == 0) {
-			clk_disable(ecodec_clk);
-			audio_tx_device_group = -1;
-		}
+		ecodec_clk_disable(1, ADSP_PATH_TX);
 		break;
 	case Q6_SDAC_TX:
 		sdac_clk_refcount--;
@@ -1580,8 +1631,73 @@ int q6audio_set_stream_eq_pcm(struct audio_client *ac, void *eq_config)
 	return rc;
 }
 
-struct audio_client *q6audio_open_pcm(uint32_t bufsz, uint32_t rate,
+struct audio_client *q6audio_open_auxpcm(uint32_t rate,
 				      uint32_t channels, uint32_t flags, uint32_t acdb_id)
+{
+	int rc, retry = 5;
+	struct audio_client *ac;
+
+	if (q6audio_init())
+		return NULL;
+	ac = audio_client_alloc(0);
+	if (!ac)
+		return NULL;
+
+	ac->flags = flags;
+
+	mutex_lock(&audio_path_lock);
+
+	if (ac->flags & AUDIO_FLAG_WRITE) {
+		audio_tx_path_refcount++;
+		if (audio_tx_path_refcount == 1) {
+			tx_clk_freq = rate;
+			_audio_tx_clk_enable();
+			_audio_tx_path_enable(0, acdb_id);
+		}
+	} else {
+		audio_rx_path_refcount++;
+		if (audio_rx_path_refcount == 1) {
+			_audio_rx_clk_enable();
+			_audio_rx_path_enable(0, acdb_id);
+		}
+	}
+
+	ecodec_clk_enable();
+
+	for (retry = 5;; retry--) {
+		if (ac->flags & AUDIO_FLAG_WRITE)
+			rc = audio_auxpcm_out_open(ac, rate, channels);
+		else
+			rc = audio_auxpcm_in_open(ac, rate, channels);
+		if (rc == 0)
+			break;
+		if (retry == 0)
+			q6audio_dsp_not_responding();
+
+		pr_err("[%s:%s] open pcm error %d, retrying\n",
+			__MM_FILE__, __func__, rc);
+		msleep(1);
+	}
+
+	mutex_unlock(&audio_path_lock);
+
+	for (retry = 5;; retry--) {
+		rc = audio_command(ac, ADSP_AUDIO_IOCTL_CMD_SESSION_START);
+		if (rc == 0)
+			break;
+		if (retry == 0)
+			q6audio_dsp_not_responding();
+
+		pr_err("[%s:%s] stream start error %d, retrying\n",
+			__MM_FILE__, __func__, rc);
+	}
+	audio_prevent_sleep();
+	return ac;
+
+}
+
+struct audio_client *q6audio_open_pcm(uint32_t bufsz, uint32_t rate,
+		      uint32_t channels, uint32_t flags, uint32_t acdb_id)
 {
 	int rc, retry = 5;
 	struct audio_client *ac;
@@ -1664,12 +1780,26 @@ int q6audio_close(struct audio_client *ac)
 		audio_rx_path_enable(0, 0);
 	else
 		audio_tx_path_enable(0, 0);
-
 	audio_client_free(ac);
 	audio_allow_sleep();
 	return 0;
 }
 
+int q6audio_auxpcm_close(struct audio_client *ac)
+{
+	audio_close(ac);
+	if (ac->flags & AUDIO_FLAG_WRITE) {
+		audio_tx_path_enable(0, 0);
+		ecodec_clk_disable(0, ADSP_PATH_RX);
+	} else {
+		audio_rx_path_enable(0, 0);
+		ecodec_clk_disable(0, ADSP_PATH_TX);
+	}
+
+	audio_client_free(ac);
+	audio_allow_sleep();
+	return 0;
+}
 struct audio_client *q6voice_open(uint32_t flags)
 {
 	struct audio_client *ac;
