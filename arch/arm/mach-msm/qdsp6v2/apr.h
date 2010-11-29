@@ -132,6 +132,7 @@ struct apr_svc {
 	apr_fn fn;
 	void *priv;
 	struct mutex m_lock;
+	spinlock_t w_lock;
 };
 
 struct apr_client {

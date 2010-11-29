@@ -96,20 +96,21 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 	uint16_t dest_id;
 	uint16_t client_id;
 	uint16_t w_len;
+	unsigned long flags;
 
 	if (!handle || !buf) {
 		pr_err("APR: Wrong parameters\n");
 		return -EINVAL;
 	}
 
-	mutex_lock(&svc->m_lock);
+	spin_lock_irqsave(&svc->w_lock, flags);
 	dest_id = svc->dest_id;
 	client_id = svc->client_id;
 	clnt = &client[dest_id][client_id];
 
 	if (!client[dest_id][client_id].handle) {
 		pr_err("APR: Still service is not yet opened\n");
-		mutex_unlock(&svc->m_lock);
+		spin_unlock_irqrestore(&svc->w_lock, flags);
 		return -EINVAL;
 	}
 	hdr = (struct apr_hdr *)buf;
@@ -126,7 +127,7 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 	w_len = apr_tal_write(clnt->handle, buf, hdr->pkt_size);
 	if (w_len != hdr->pkt_size)
 		pr_err("Unable to write APR pkt successfully: %d\n", w_len);
-	mutex_unlock(&svc->m_lock);
+	spin_unlock_irqrestore(&svc->w_lock, flags);
 
 	return w_len;
 }
@@ -500,8 +501,10 @@ static int __init apr_init(void)
 	pr_info("apr_probe\n");
 	for (i = 0; i < APR_DEST_MAX; i++)
 		for (j = 0; j < APR_CLIENT_MAX; j++)
-			for (k = 0; k < APR_SVC_MAX; k++)
+			for (k = 0; k < APR_SVC_MAX; k++) {
 				mutex_init(&client[i][j].svc[k].m_lock);
+				spin_lock_init(&client[i][j].svc[k].w_lock);
+			}
 	mutex_init(&q6.lock);
 	dsp_debug_register(adsp_state);
 	return 0;
