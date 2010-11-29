@@ -57,15 +57,17 @@ enum {
 };
 
 enum {
-	MSM_RPMRS_VDD_MEM_MIN_500 = 500,
-	MSM_RPMRS_VDD_MEM_MIN_750 = 750,
-	MSM_RPMRS_VDD_MEM_ACTIVE = 1100,
+	MSM_RPMRS_VDD_MEM_RET_LOW = 500,
+	MSM_RPMRS_VDD_MEM_RET_HIGH = 750,
+	MSM_RPMRS_VDD_MEM_ACTIVE = 1000,
+	MSM_RPMRS_VDD_MEM_MAX = 1250,
 };
 
 enum {
-	MSM_RPMRS_VDD_DIG_MIN_500 = 500,
-	MSM_RPMRS_VDD_DIG_MIN_750 = 750,
-	MSM_RPMRS_VDD_DIG_ACTIVE = 1100,
+	MSM_RPMRS_VDD_DIG_RET_LOW = 500,
+	MSM_RPMRS_VDD_DIG_RET_HIGH = 750,
+	MSM_RPMRS_VDD_DIG_ACTIVE = 1000,
+	MSM_RPMRS_VDD_DIG_MAX = 1250,
 };
 
 static int msm_rpmrs_append_pxo(struct msm_rpm_iv_pair *req, int count,
@@ -75,6 +77,8 @@ static int msm_rpmrs_append_l2_cache(struct msm_rpm_iv_pair *req, int count,
 static int msm_rpmrs_append_vdd_mem(struct msm_rpm_iv_pair *req, int count,
 	struct msm_rpmrs_limits *limits);
 static int msm_rpmrs_append_vdd_dig(struct msm_rpm_iv_pair *req, int count,
+	struct msm_rpmrs_limits *limits);
+static int msm_rpmrs_append_rpm_cpu(struct msm_rpm_iv_pair *req, int count,
 	struct msm_rpmrs_limits *limits);
 
 #define MSM_RPMRS_MAX_RS_REGISTER_COUNT 2
@@ -86,7 +90,7 @@ struct msm_rpmrs_resource {
 
 	uint32_t req_index[MSM_RPMRS_MAX_RS_REGISTER_COUNT];
 	bool is_set;
-	bool enable_low_power;
+	uint32_t enable_low_power;
 
 	int (*append_req)(struct msm_rpm_iv_pair *req, int count,
 			struct msm_rpmrs_limits *limits);
@@ -96,7 +100,6 @@ static struct msm_rpmrs_resource msm_rpmrs_pxo = {
 	.rs[0].id = MSM_RPM_ID_PXO_CLK,
 	.size = 1,
 	.name = "pxo",
-	.enable_low_power = 1,
 	.append_req = msm_rpmrs_append_pxo,
 };
 
@@ -125,15 +128,28 @@ static struct msm_rpmrs_resource msm_rpmrs_vdd_dig = {
 	.append_req = msm_rpmrs_append_vdd_dig,
 };
 
+static struct msm_rpmrs_resource msm_rpmrs_rpm_cpu = {
+	.rs[0].id = MSM_RPM_ID_TRIGGER_SET_FROM,
+	.rs[0].value = 0,
+	.size = 1,
+	.name = "rpm_cpu",
+	.is_set = true,
+	.append_req = msm_rpmrs_append_rpm_cpu,
+};
+
+/*
+ * Don't forget to adjust the array size of rs_req when adding any
+ * new resources.
+ */
 static struct msm_rpmrs_resource *msm_rpmrs_resources[] = {
 	&msm_rpmrs_pxo,
 	&msm_rpmrs_l2_cache,
 	&msm_rpmrs_vdd_mem,
 	&msm_rpmrs_vdd_dig,
+	&msm_rpmrs_rpm_cpu,
 };
 
 static DEFINE_SPINLOCK(msm_rpmrs_lock);
-static struct msm_rpm_iv_pair msm_rpmrs_req[8];
 
 #define MSM_RPMRS_VDD_MASK  0xfff
 #define MSM_RPMRS_VDD(v)  (v & (MSM_RPMRS_VDD_MASK))
@@ -160,11 +176,23 @@ struct msm_rpmrs_resource_sysfs {
  * Power Level Definitions
  *****************************************************************************/
 
-#define MSM_RPMRS_LIMITS(_pxo, _l2, _mem, _dig) { \
+static int msm_rpmrs_enter_level_default(
+	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_exit_level_default(
+	bool from_idle, struct msm_rpmrs_limits *limits);
+
+static int msm_rpmrs_enter_level_mpm(
+	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_exit_level_mpm(
+	bool from_idle, struct msm_rpmrs_limits *limits);
+
+#define MSM_RPMRS_LIMITS(_pxo, _l2, _vdd_upper_b, _vdd) { \
 	MSM_RPMRS_PXO_##_pxo, \
 	MSM_RPMRS_L2_CACHE_##_l2, \
-	MSM_RPMRS_VDD_MEM_##_mem, \
-	MSM_RPMRS_VDD_DIG_##_dig, \
+	MSM_RPMRS_VDD_MEM_##_vdd_upper_b, \
+	MSM_RPMRS_VDD_MEM_##_vdd, \
+	MSM_RPMRS_VDD_DIG_##_vdd_upper_b, \
+	MSM_RPMRS_VDD_DIG_##_vdd, \
 	{0}, {0}, \
 }
 
@@ -177,65 +205,83 @@ struct msm_rpmrs_level {
 	uint32_t steady_state_power;
 	uint32_t energy_overhead;
 	uint32_t time_overhead_us;
+
+	int (*enter)(bool from_idle, uint32_t sclk_count,
+			struct msm_rpmrs_limits *limits);
+	void (*exit)(bool from_idle, struct msm_rpmrs_limits *limits);
 };
 
 static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 	{
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
-		MSM_RPMRS_LIMITS(ON, ACTIVE, ACTIVE, ACTIVE),
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
-		1, 20000, 100000, 1
+		1, 20000, 100000, 1,
+		NULL,
+		NULL,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
-		MSM_RPMRS_LIMITS(ON, ACTIVE, ACTIVE, ACTIVE),
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
-		1500, 5000, 60100000, 3000
+		1500, 5000, 60100000, 3000,
+		NULL,
+		NULL,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-		MSM_RPMRS_LIMITS(ON, ACTIVE, ACTIVE, ACTIVE),
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
-		1800, 5000, 60350000, 3500
+		1800, 5000, 60350000, 3500,
+		msm_rpmrs_enter_level_default,
+		msm_rpmrs_exit_level_default,
 	},
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-		MSM_RPMRS_LIMITS(OFF, ACTIVE, ACTIVE, ACTIVE),
+		MSM_RPMRS_LIMITS(OFF, ACTIVE, MAX, ACTIVE),
 		true,
-		3800, 4500, 65350000, 5500
+		3800, 4500, 65350000, 5500,
+		msm_rpmrs_enter_level_default,
+		msm_rpmrs_exit_level_default,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, ACTIVE, ACTIVE),
+		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, MAX, ACTIVE),
 		false,
-		2800, 2500, 66850000, 4800
+		2800, 2500, 66850000, 4800,
+		msm_rpmrs_enter_level_default,
+		msm_rpmrs_exit_level_default,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, ACTIVE, ACTIVE),
+		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MAX, ACTIVE),
 		false,
-		4800, 2000, 71850000, 6800
+		4800, 2000, 71850000, 6800,
+		msm_rpmrs_enter_level_default,
+		msm_rpmrs_exit_level_default,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MIN_750, MIN_750),
+		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
-		6800, 500, 75850000, 8800
+		6800, 500, 75850000, 8800,
+		msm_rpmrs_enter_level_default,
+		msm_rpmrs_exit_level_default,
 	},
 
-	/*
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MIN_500, MIN_500),
+		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, RET_HIGH, RET_LOW),
 		false,
-		7800, 0, 76350000, 9800
+		7800, 0, 76350000, 9800,
+		msm_rpmrs_enter_level_mpm,
+		msm_rpmrs_exit_level_mpm,
 	},
-	*/
 };
 
 
@@ -343,12 +389,22 @@ static bool msm_rpmrs_vdd_mem_beyond_limits(struct msm_rpmrs_limits *limits)
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_vdd_mem;
 	uint32_t vdd_mem;
 
-	if (rs->enable_low_power && rs->is_set)
-		vdd_mem = rs->rs[0].value;
-	else
-		vdd_mem = MSM_RPMRS_VDD_MEM_ACTIVE;
+	if (rs->is_set) {
+		if (rs->enable_low_power == 0)
+			vdd_mem = MSM_RPMRS_VDD_MEM_ACTIVE;
+		else if (rs->enable_low_power == 1)
+			vdd_mem = MSM_RPMRS_VDD_MEM_RET_HIGH;
+		else
+			vdd_mem = MSM_RPMRS_VDD_MEM_RET_LOW;
 
-	return MSM_RPMRS_VDD(vdd_mem) > MSM_RPMRS_VDD(limits->vdd_mem);
+		if (MSM_RPMRS_VDD(rs->rs[0].value) > MSM_RPMRS_VDD(vdd_mem))
+			vdd_mem = rs->rs[0].value;
+	} else {
+		vdd_mem = MSM_RPMRS_VDD_MEM_ACTIVE;
+	}
+
+	return MSM_RPMRS_VDD(vdd_mem) >=
+				MSM_RPMRS_VDD(limits->vdd_mem_upper_bound);
 }
 
 static int msm_rpmrs_append_vdd_mem(struct msm_rpm_iv_pair *req, int count,
@@ -373,12 +429,22 @@ static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits)
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_vdd_dig;
 	uint32_t vdd_dig;
 
-	if (rs->enable_low_power && rs->is_set)
-		vdd_dig = rs->rs[0].value;
-	else
-		vdd_dig = MSM_RPMRS_VDD_DIG_ACTIVE;
+	if (rs->is_set) {
+		if (rs->enable_low_power == 0)
+			vdd_dig = MSM_RPMRS_VDD_DIG_ACTIVE;
+		else if (rs->enable_low_power == 1)
+			vdd_dig = MSM_RPMRS_VDD_DIG_RET_HIGH;
+		else
+			vdd_dig = MSM_RPMRS_VDD_DIG_RET_LOW;
 
-	return MSM_RPMRS_VDD(vdd_dig) > MSM_RPMRS_VDD(limits->vdd_dig);
+		if (MSM_RPMRS_VDD(rs->rs[0].value) > MSM_RPMRS_VDD(vdd_dig))
+			vdd_dig = rs->rs[0].value;
+	} else {
+		vdd_dig = MSM_RPMRS_VDD_DIG_ACTIVE;
+	}
+
+	return MSM_RPMRS_VDD(vdd_dig) >=
+				MSM_RPMRS_VDD(limits->vdd_dig_upper_bound);
 }
 
 static int msm_rpmrs_append_vdd_dig(struct msm_rpm_iv_pair *req, int count,
@@ -394,6 +460,21 @@ static int msm_rpmrs_append_vdd_dig(struct msm_rpm_iv_pair *req, int count,
 		req[0].value &= ~MSM_RPMRS_VDD_MASK;
 		req[0].value |= MSM_RPMRS_VDD(limits->vdd_dig);
 	}
+
+	return rc;
+}
+
+static int msm_rpmrs_append_rpm_cpu(struct msm_rpm_iv_pair *req, int count,
+	struct msm_rpmrs_limits *limits)
+{
+	int rc;
+
+	rc = msm_rpmrs_append_resource(req, count, &msm_rpmrs_rpm_cpu);
+	if (rc <= 0)
+		return rc;
+
+	if (!msm_rpmrs_rpm_cpu.enable_low_power)
+		req[0].value = 1;
 
 	return rc;
 }
@@ -543,6 +624,47 @@ static int msm_rpmrs_clear_buffer(struct msm_rpm_iv_pair *req, int count)
 	return nr_indexed;
 }
 
+static int msm_rpmrs_flush_buffer(
+	uint32_t sclk_count, struct msm_rpmrs_limits *limits)
+{
+	static struct msm_rpm_iv_pair rs_req[9];
+
+	struct msm_rpm_iv_pair *req = rs_req;
+	int count = ARRAY_SIZE(rs_req);
+	int rc;
+	int i;
+
+	rc = msm_rpmrs_append_sclk(req, count, sclk_count);
+	if (rc < 0)
+		goto flush_buffer_exit;
+
+	req += rc;
+	count -= rc;
+
+	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_resources); i++) {
+		rc = msm_rpmrs_resources[i]->append_req(req, count, limits);
+		if (rc < 0)
+			goto flush_buffer_exit;
+
+		req += rc;
+		count -= rc;
+	}
+
+	count = ARRAY_SIZE(rs_req) - count;
+
+	if (MSM_RPMRS_DEBUG_FLUSH & msm_rpmrs_debug_mask)
+		for (i = 0; i < count; i++)
+			pr_info("%s: flush reg %d: 0x%x\n", __func__,
+				rs_req[i].id, rs_req[i].value);
+
+	rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_SLEEP, rs_req, count);
+
+flush_buffer_exit:
+	if (rc)
+		pr_err("%s: failed: %d\n", __func__, rc);
+	return rc;
+}
+
 static int msm_rpmrs_set_common(
 	int ctx, struct msm_rpm_iv_pair *req, int count, bool noirq)
 {
@@ -629,7 +751,7 @@ static ssize_t msm_rpmrs_resource_attr_store(struct kobject *kobj,
 		return rc;
 
 	spin_lock(&msm_rpmrs_lock);
-	GET_RS_FROM_ATTR(attr)->enable_low_power = temp ? true : false;
+	GET_RS_FROM_ATTR(attr)->enable_low_power = temp;
 	msm_rpmrs_update_levels();
 	spin_unlock(&msm_rpmrs_lock);
 
@@ -694,6 +816,34 @@ resource_sysfs_add_exit:
 }
 
 /******************************************************************************
+ * Power Level Functions
+ *****************************************************************************/
+
+static int msm_rpmrs_enter_level_default(
+	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits)
+{
+	return msm_rpmrs_flush_buffer(sclk_count, limits);
+}
+
+static void msm_rpmrs_exit_level_default(
+	bool from_idle, struct msm_rpmrs_limits *limits)
+{
+	return;
+}
+
+static int msm_rpmrs_enter_level_mpm(
+	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits)
+{
+	return 0;
+}
+
+static void msm_rpmrs_exit_level_mpm(
+	bool from_idle, struct msm_rpmrs_limits *limits)
+{
+	return;
+}
+
+/******************************************************************************
  * Public Functions
  *****************************************************************************/
 
@@ -717,41 +867,18 @@ int msm_rpmrs_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 	return msm_rpmrs_clear_common(ctx, req, count, true);
 }
 
-int msm_rpmrs_flush_buffer(
-	uint32_t sclk_count, struct msm_rpmrs_limits *limits)
+void msm_rpmrs_show_resources(void)
 {
-	struct msm_rpm_iv_pair *req = msm_rpmrs_req;
-	int count = ARRAY_SIZE(msm_rpmrs_req);
-	int rc;
+	struct msm_rpmrs_resource *rs;
 	int i;
 
-	rc = msm_rpmrs_append_sclk(req, count, sclk_count);
-	if (rc < 0)
-		goto flush_buffer_exit;
-
-	req += rc;
-	count -= rc;
-
+	spin_lock(&msm_rpmrs_lock);
 	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_resources); i++) {
-		rc = msm_rpmrs_resources[i]->append_req(req, count, limits);
-		if (rc < 0)
-			goto flush_buffer_exit;
-
-		req += rc;
-		count -= rc;
+		rs = msm_rpmrs_resources[i];
+		pr_info("%s: resource %s: is_set %d, value 0x%x\n",
+			__func__, rs->name, (int)rs->is_set, rs->rs[0].value);
 	}
-
-	count = ARRAY_SIZE(msm_rpmrs_req) - count;
-
-	if (MSM_RPMRS_DEBUG_FLUSH & msm_rpmrs_debug_mask)
-		for (i = 0; i < count; i++)
-			pr_info("%s: flush reg %d: 0x%x\n", __func__,
-				msm_rpmrs_req[i].id, msm_rpmrs_req[i].value);
-
-	rc = msm_rpm_set_noirq(MSM_RPM_CTX_SET_SLEEP, msm_rpmrs_req, count);
-
-flush_buffer_exit:
-	return rc;
+	spin_unlock(&msm_rpmrs_lock);
 }
 
 struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
@@ -797,6 +924,23 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 	}
 
 	return best_level ? &best_level->rs_limits : NULL;
+}
+
+int msm_rpmrs_enter_sleep(
+	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits)
+{
+	struct msm_rpmrs_level *level;
+
+	level = container_of(limits, struct msm_rpmrs_level, rs_limits);
+	return level->enter(from_idle, sclk_count, limits);
+}
+
+void msm_rpmrs_exit_sleep(bool from_idle, struct msm_rpmrs_limits *limits)
+{
+	struct msm_rpmrs_level *level;
+
+	level = container_of(limits, struct msm_rpmrs_level, rs_limits);
+	level->exit(from_idle, limits);
 }
 
 device_initcall(msm_rpmrs_resource_sysfs_add);

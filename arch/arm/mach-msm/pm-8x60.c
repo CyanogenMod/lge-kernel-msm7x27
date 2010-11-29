@@ -538,22 +538,6 @@ static void msm_pm_config_hw_before_swfi(void)
 	return;
 }
 
-/*
- * Configure RPM resources.
- */
-static int msm_pm_config_rpm_resources(
-	uint32_t sclk_count, struct msm_rpmrs_limits *rs_limits)
-{
-	int ret;
-
-	ret = msm_rpmrs_flush_buffer(sclk_count, rs_limits);
-	if (ret)
-		pr_err("%s: msm_rpmrs_flush_buffer failed: %d\n",
-			__func__, ret);
-
-	return ret;
-}
-
 
 /******************************************************************************
  * Suspend Max Sleep Time
@@ -857,12 +841,15 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		if (sleep_delay == 0) /* 0 would mean infinite time */
 			sleep_delay = 1;
 
-		ret = msm_pm_config_rpm_resources(sleep_delay,
-				msm_pm_idle_rs_limits);
+		ret = msm_rpmrs_enter_sleep(
+				true, sleep_delay, msm_pm_idle_rs_limits);
 		if (!ret) {
 			msm_pm_power_collapse(true);
 			timer_halted = true;
+
+			msm_rpmrs_exit_sleep(true, msm_pm_idle_rs_limits);
 		}
+
 		msm_timer_exit_idle((int) timer_halted);
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_POWER_COLLAPSE;
@@ -930,6 +917,9 @@ static int msm_pm_enter(suspend_state_t state)
 		}
 #endif /* CONFIG_MSM_SLEEP_TIME_OVERRIDE */
 
+		if (MSM_PM_DEBUG_SUSPEND_LIMITS & msm_pm_debug_mask)
+			msm_rpmrs_show_resources();
+
 		rs_limits = msm_rpmrs_lowest_limits(
 				MSM_PM_SLEEP_MODE_POWER_COLLAPSE, -1, -1);
 
@@ -942,10 +932,12 @@ static int msm_pm_enter(suspend_state_t state)
 				rs_limits->vdd_mem, rs_limits->vdd_dig);
 
 		if (rs_limits) {
-			ret = msm_pm_config_rpm_resources(
-					msm_pm_max_sleep_time, rs_limits);
-			if (!ret)
+			ret = msm_rpmrs_enter_sleep(
+				false, msm_pm_max_sleep_time, rs_limits);
+			if (!ret) {
 				msm_pm_power_collapse(false);
+				msm_rpmrs_exit_sleep(false, rs_limits);
+			}
 		} else {
 			pr_err("%s: cannot find the lowest power limit\n",
 				__func__);
