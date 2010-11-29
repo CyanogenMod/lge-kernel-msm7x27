@@ -1927,7 +1927,7 @@ void __init msm_clk_soc_init(void)
 
 static int msm_clk_soc_late_init(void)
 {
-	return local_vote_sys_vdd(NONE);
+	return local_unvote_sys_vdd(HIGH);
 }
 late_initcall(msm_clk_soc_late_init);
 

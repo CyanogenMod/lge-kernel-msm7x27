@@ -107,7 +107,7 @@ struct banked_mnd_masks {
 	.extra_freq_data = e, \
 	}
 #define FREQ_END	(UINT_MAX-1)
-#define F_END	F_RAW(FREQ_END, SRC_NONE, 0, 0, 0, 0, 0, NULL)
+#define F_END	F_RAW(FREQ_END, SRC_NONE, 0, 0, 0, 0, LOW, NULL)
 #define PLL_RATE(l, m, n, v, d) { l, m, n, v, (d>>1) }
 
 /*
