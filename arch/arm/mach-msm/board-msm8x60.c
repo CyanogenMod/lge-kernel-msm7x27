@@ -4340,8 +4340,8 @@ static struct i2c_board_info msm_i2c_gsbi7_timpani_info[] = {
 
 static int pm8901_mpp0_init(void *data)
 {
-	int val = machine_is_msm8x60_surf() ?
-		PM_MPP_DOUT_CTL_LOW : PM_MPP_DOUT_CTL_HIGH;
+	int val = (machine_is_msm8x60_surf() || machine_is_msm8x60_charm_surf())
+			? PM_MPP_DOUT_CTL_LOW : PM_MPP_DOUT_CTL_HIGH;
 	int rc = pm8901_mpp_config(0, PM_MPP_TYPE_D_OUTPUT,
 			PM8901_MPP_DIG_LEVEL_VPH,
 			val);
@@ -4659,10 +4659,10 @@ static void fixup_i2c_configs(void)
 {
 #ifdef CONFIG_I2C
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
-	if (machine_is_msm8x60_surf())
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_charm_surf())
 		sx150x_data[SX150X_CORE].irq_summary =
 			PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT2_N);
-	else if (machine_is_msm8x60_ffa())
+	else if (machine_is_msm8x60_ffa() || machine_is_msm8x60_charm_ffa())
 		sx150x_data[SX150X_CORE].irq_summary =
 			PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT1_N);
 	else if (machine_is_msm8x60_fluid())
@@ -4679,9 +4679,9 @@ static void register_i2c_devices(void)
 	int i;
 
 	/* Build the matching 'supported_machs' bitmask */
-	if (machine_is_msm8x60_surf())
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_charm_surf())
 		mach_mask = I2C_SURF;
-	else if (machine_is_msm8x60_ffa())
+	else if (machine_is_msm8x60_ffa() || machine_is_msm8x60_charm_ffa())
 		mach_mask = I2C_FFA;
 	else if (machine_is_msm8x60_rumi3())
 		mach_mask = I2C_RUMI;
@@ -4785,8 +4785,8 @@ static void __init msm8x60_init_ebi2(void)
 		ebi2_cfg = readl(ebi2_cfg_ptr);
 
 		if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
-		    machine_is_msm8x60_fluid())
-			ebi2_cfg |= (1 << 4) | (1 << 5); /* CS2, CS3 */
+			machine_is_msm8x60_fluid())
+				ebi2_cfg |= (1 << 4) | (1 << 5); /* CS2, CS3 */
 		else if (machine_is_msm8x60_sim())
 			ebi2_cfg |= (1 << 4); /* CS2 */
 		else if (machine_is_msm8x60_rumi3())
@@ -4797,23 +4797,23 @@ static void __init msm8x60_init_ebi2(void)
 	}
 
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
-	    machine_is_msm8x60_fluid()) {
-		ebi2_cfg_ptr = ioremap_nocache(0x1a110000, SZ_4K);
-		if (ebi2_cfg_ptr != 0) {
-			/* EBI2_XMEM_CFG:PWRSAVE_MODE off */
-			writel(0UL, ebi2_cfg_ptr);
+		machine_is_msm8x60_fluid()) {
+			ebi2_cfg_ptr = ioremap_nocache(0x1a110000, SZ_4K);
+			if (ebi2_cfg_ptr != 0) {
+				/* EBI2_XMEM_CFG:PWRSAVE_MODE off */
+				writel(0UL, ebi2_cfg_ptr);
 
-			/* CS2: Delay 9 cycles (140ns@64MHz) between SMSC
-			 * LAN9221 Ethernet controller reads and writes.
-			 * The lowest 4 bits are the read delay, the next
-			 * 4 are the write delay. */
-			writel(0x031F1C99, ebi2_cfg_ptr + 0x10);
+				/* CS2: Delay 9 cycles (140ns@64MHz) between
+				 * SMSC LAN9221 Ethernet controller reads and
+				 * writes. The lowest 4 bits are the read delay,
+				 * the next 4 are the write delay. */
+				writel(0x031F1C99, ebi2_cfg_ptr + 0x10);
 
-			/* EBI2 CS3 muxed address/data,
-			 * two cyc addr enable */
-			writel(0xA3030020, ebi2_cfg_ptr + 0x34);
-			iounmap(ebi2_cfg_ptr);
-		}
+				/* EBI2 CS3 muxed address/data,
+				 * two cyc addr enable */
+				writel(0xA3030020, ebi2_cfg_ptr + 0x34);
+				iounmap(ebi2_cfg_ptr);
+			}
 	}
 }
 
@@ -5505,16 +5505,18 @@ static void setup_display_power(void)
 		if (lcdc_vga_enabled) {
 			gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 0);
 			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
-			if (machine_is_msm8x60_ffa())
+			if (machine_is_msm8x60_ffa() ||
+			    machine_is_msm8x60_charm_ffa())
 				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 1);
 		} else {
 			gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 1);
 			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 1);
-			if (machine_is_msm8x60_ffa())
+			if (machine_is_msm8x60_ffa() ||
+			    machine_is_msm8x60_charm_ffa())
 				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
 		}
 	else {
-		if (machine_is_msm8x60_ffa())
+		if (machine_is_msm8x60_ffa() || machine_is_msm8x60_charm_ffa())
 			gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
 		/* BACKLIGHT */
 		gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
@@ -5538,7 +5540,8 @@ static void display_common_power(int on)
 	int rc;
 	static struct regulator *display_reg;
 
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa()) {
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+	    machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa()) {
 		if (on) {
 			/* LVDS */
 			_GET_REGULATOR(display_reg, "8901_l2");
@@ -5569,7 +5572,8 @@ static void display_common_power(int on)
 				goto out3;
 			}
 
-			if (machine_is_msm8x60_ffa()) {
+			if (machine_is_msm8x60_ffa() ||
+			    machine_is_msm8x60_charm_ffa()) {
 				rc = gpio_request(GPIO_DONGLE_PWR_EN,
 						  "DONGLE_PWR_EN");
 				if (rc) {
@@ -5582,7 +5586,8 @@ static void display_common_power(int on)
 
 			gpio_direction_output(GPIO_LVDS_SHUTDOWN_N, 0);
 			gpio_direction_output(GPIO_BACKLIGHT_EN, 0);
-			if (machine_is_msm8x60_ffa())
+			if (machine_is_msm8x60_ffa() ||
+			    machine_is_msm8x60_charm_ffa())
 				gpio_direction_output(GPIO_DONGLE_PWR_EN, 0);
 			mdelay(20);
 			display_power_on = 1;
@@ -5592,7 +5597,8 @@ static void display_common_power(int on)
 				display_power_on = 0;
 				setup_display_power();
 				mdelay(20);
-				if (machine_is_msm8x60_ffa())
+				if (machine_is_msm8x60_ffa() ||
+				    machine_is_msm8x60_charm_ffa())
 					gpio_free(GPIO_DONGLE_PWR_EN);
 				goto out4;
 			}
@@ -6719,6 +6725,14 @@ static struct msm_board_data msm8x60_fluid_board_data __initdata = {
 	.gpiomux_cfgs = msm8x60_fluid_gpiomux_cfgs,
 };
 
+static struct msm_board_data msm8x60_charm_surf_board_data __initdata = {
+	.gpiomux_cfgs = msm8x60_charm_gpiomux_cfgs,
+};
+
+static struct msm_board_data msm8x60_charm_ffa_board_data __initdata = {
+	.gpiomux_cfgs = msm8x60_charm_gpiomux_cfgs,
+};
+
 static void __init msm8x60_init(struct msm_board_data *board_data)
 {
 	/*
@@ -6766,7 +6780,10 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (!machine_is_msm8x60_rumi3() && !machine_is_msm8x60_sim())
 		msm_acpu_clock_init(&msm8x60_acpu_clock_data);
 
-	msm8x60_init_ebi2();
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+		machine_is_msm8x60_fluid())
+		/* No EBI2 on 8660 charm targets */
+		msm8x60_init_ebi2();
 	msm8x60_init_tlmm();
 	msm8x60_init_gpiomux(board_data->gpiomux_cfgs);
 	msm8x60_init_uart12dm();
@@ -6792,7 +6809,8 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	}
 
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
-	    machine_is_msm8x60_fluid()) {
+	    machine_is_msm8x60_fluid() || machine_is_msm8x60_charm_surf() ||
+	    machine_is_msm8x60_charm_ffa()) {
 		msm8x60_cfg_smsc911x();
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1)
 			platform_add_devices(msm_footswitch_devices,
@@ -6853,6 +6871,15 @@ static void __init msm8x60_fluid_init(void)
 	msm8x60_init(&msm8x60_fluid_board_data);
 }
 
+static void __init msm8x60_charm_surf_init(void)
+{
+	msm8x60_init(&msm8x60_charm_surf_board_data);
+}
+
+static void __init msm8x60_charm_ffa_init(void)
+{
+	msm8x60_init(&msm8x60_charm_ffa_board_data);
+}
 MACHINE_START(MSM8X60_RUMI3, "QCT MSM8X60 RUMI3")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io  = MSM_DEBUG_UART_PHYS,
@@ -6905,5 +6932,27 @@ MACHINE_START(MSM8X60_FLUID, "QCT MSM8X60 FLUID")
 	.map_io = msm8x60_map_io,
 	.init_irq = msm8x60_init_irq,
 	.init_machine = msm8x60_fluid_init,
+	.timer = &msm_timer,
+MACHINE_END
+
+MACHINE_START(MSM8X60_CHARM_SURF, "QCT MSM8X60 CHARM SURF")
+#ifdef CONFIG_MSM_DEBUG_UART
+	.phys_io = MSM_DEBUG_UART_PHYS,
+	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
+#endif
+	.map_io = msm8x60_map_io,
+	.init_irq = msm8x60_init_irq,
+	.init_machine = msm8x60_charm_surf_init,
+	.timer = &msm_timer,
+MACHINE_END
+
+MACHINE_START(MSM8X60_CHARM_FFA, "QCT MSM8X60 CHARM FFA")
+#ifdef CONFIG_MSM_DEBUG_UART
+	.phys_io = MSM_DEBUG_UART_PHYS,
+	.io_pg_offst = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
+#endif
+	.map_io = msm8x60_map_io,
+	.init_irq = msm8x60_init_irq,
+	.init_machine = msm8x60_charm_ffa_init,
 	.timer = &msm_timer,
 MACHINE_END
