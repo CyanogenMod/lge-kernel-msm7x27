@@ -705,12 +705,6 @@ static int __init msm_audio_init(void)
 		platform_device_put(msm_audio_snd_device);
 		return ret;
 	}
-	mutex_init(&the_locks.lock);
-	mutex_init(&the_locks.write_lock);
-	mutex_init(&the_locks.read_lock);
-	spin_lock_init(&the_locks.read_dsp_lock);
-	spin_lock_init(&the_locks.write_dsp_lock);
-	spin_lock_init(&the_locks.mixer_lock);
 	init_waitqueue_head(&the_locks.enable_wait);
 	init_waitqueue_head(&the_locks.eos_wait);
 	init_waitqueue_head(&the_locks.write_wait);

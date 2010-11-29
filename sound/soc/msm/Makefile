@@ -23,7 +23,7 @@ obj-$(CONFIG_SND_MSM_SOC_MSM7KV2) += snd-soc-msm7kv2.o
 snd-soc-msm8x60-dai-objs := msm8x60-dai.o
 obj-$(CONFIG_SND_SOC_MSM8X60_DAI) += snd-soc-msm8x60-dai.o
 
-snd-soc-msm8x60-pcm-objs := msm8x60-dsp.o msm8x60-pcm.o
+snd-soc-msm8x60-pcm-objs := msm8x60-pcm.o
 obj-$(CONFIG_SND_SOC_MSM8X60_PCM) += snd-soc-msm8x60-pcm.o
 
 snd-soc-msm8x60-objs := msm8x60.o
