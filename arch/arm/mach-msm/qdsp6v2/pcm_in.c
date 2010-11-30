@@ -371,7 +371,7 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	mutex_unlock(&pcm->lock);
 
 	rc = pcm_in_disable(pcm);
-
+	 msm_clear_session_id(pcm->ac->session);
 	q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
 	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);

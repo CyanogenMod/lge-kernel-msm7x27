@@ -51,6 +51,7 @@ struct event_listner event;
 #define PLAYBACK 0x1
 #define LIVE_RECORDING 0x2
 #define NON_LIVE_RECORDING 0x3
+#define MAX_COPP_DEVICES 4
 
 struct session_freq {
 	int freq;
@@ -62,6 +63,7 @@ struct audio_routing_info {
 	unsigned short audrec_mixer_mask[MAX_SESSIONS];
 	struct session_freq dec_freq[MAX_SESSIONS];
 	struct session_freq enc_freq[MAX_SESSIONS];
+	unsigned char copp_list[MAX_SESSIONS][AFE_MAX_PORTS];
 	int voice_tx_dev_id;
 	int voice_rx_dev_id;
 	int voice_tx_sample_rate;
@@ -71,6 +73,8 @@ struct audio_routing_info {
 	int tx_mute;
 	int rx_mute;
 	int voice_state;
+	struct mutex copp_list_mutex;
+	struct mutex adm_mutex;
 };
 
 static struct audio_routing_info routing_info;
@@ -83,6 +87,139 @@ struct audio_copp_topology {
 };
 static struct audio_copp_topology adm_tx_topology_tbl;
 
+int msm_reset_all_device(void)
+{
+	int rc = 0;
+	int dev_id = 0;
+	struct msm_snddev_info *dev_info = NULL;
+
+	for (dev_id = 0; dev_id < audio_dev_ctrl.num_dev; dev_id++) {
+		dev_info = audio_dev_ctrl_find_dev(dev_id);
+		if (IS_ERR(dev_info)) {
+			pr_err("%s:pass invalid dev_id\n", __func__);
+			rc = PTR_ERR(dev_info);
+			return rc;
+		}
+		if (!dev_info->opened)
+			continue;
+		pr_debug("%s:Resetting device %d active on COPP %d"
+			"with  %lld as routing\n", __func__,
+				dev_id, dev_info->copp_id, dev_info->sessions);
+		broadcast_event(AUDDEV_EVT_REL_PENDING,
+					dev_id,
+					SESSION_IGNORE);
+		rc = dev_info->dev_ops.close(dev_info);
+		if (rc < 0) {
+			pr_err("%s:Snd device failed close!\n", __func__);
+			return rc;
+		} else {
+			dev_info->opened = 0;
+			broadcast_event(AUDDEV_EVT_DEV_RLS,
+				dev_id,
+				SESSION_IGNORE);
+		}
+	}
+	msm_clear_all_session();
+	dev_info->sessions = 0;
+	return 0;
+}
+EXPORT_SYMBOL(msm_reset_all_device);
+
+int msm_set_copp_id(int session_id, int copp_id)
+{
+	int rc = 0;
+
+	if (session_id < 1 || session_id > 8)
+		return -EINVAL;
+	if (copp_id < 0 || copp_id > AFE_MAX_PORTS)
+		return -EINVAL;
+	pr_debug("%s: session[%d] copp_id[%d]\n", __func__, session_id,
+						copp_id);
+	mutex_lock(&routing_info.copp_list_mutex);
+	if (routing_info.copp_list[session_id][copp_id] == DEVICE_IGNORE)
+		routing_info.copp_list[session_id][copp_id] = copp_id;
+	mutex_unlock(&routing_info.copp_list_mutex);
+
+	return rc;
+}
+EXPORT_SYMBOL(msm_set_copp_id);
+
+int msm_clear_copp_id(int session_id, int copp_id)
+{
+	int rc = 0;
+	if (session_id < 1 || session_id > 8)
+		return -EINVAL;
+	pr_debug("%s: session[%d] copp_id[%d]\n", __func__, session_id,
+						copp_id);
+	mutex_lock(&routing_info.copp_list_mutex);
+	if (routing_info.copp_list[session_id][copp_id] == copp_id)
+		routing_info.copp_list[session_id][copp_id] = DEVICE_IGNORE;
+	mutex_unlock(&routing_info.copp_list_mutex);
+
+	return rc;
+}
+EXPORT_SYMBOL(msm_clear_copp_id);
+
+int msm_clear_session_id(int session_id)
+{
+	int rc = 0;
+	int i = 0;
+	if (session_id < 1 || session_id > 8)
+		return -EINVAL;
+	pr_debug("%s: session[%d]\n", __func__, session_id);
+	mutex_lock(&routing_info.adm_mutex);
+	mutex_lock(&routing_info.copp_list_mutex);
+	for (i = 0; i < AFE_MAX_PORTS; i++) {
+		if (routing_info.copp_list[session_id][i] != DEVICE_IGNORE) {
+			rc = adm_close(routing_info.copp_list[session_id][i]);
+			if (rc < 0) {
+				pr_err("%s: adm close fail port[%d] rc[%d]\n",
+					__func__,
+					routing_info.copp_list[session_id][i],
+					rc);
+				continue;
+			}
+			routing_info.copp_list[session_id][i] = DEVICE_IGNORE;
+			rc = 0;
+		}
+	}
+	mutex_unlock(&routing_info.copp_list_mutex);
+	mutex_unlock(&routing_info.adm_mutex);
+
+	return rc;
+}
+EXPORT_SYMBOL(msm_clear_session_id);
+
+int msm_clear_all_session()
+{
+	int rc = 0;
+	int i = 0, j = 0;
+	pr_info("%s:\n", __func__);
+	mutex_lock(&routing_info.adm_mutex);
+	mutex_lock(&routing_info.copp_list_mutex);
+	for (j = 1; j < MAX_SESSIONS; j++) {
+		for (i = 0; i < AFE_MAX_PORTS; i++) {
+			if (routing_info.copp_list[j][i] != DEVICE_IGNORE) {
+				rc = adm_close(
+					routing_info.copp_list[j][i]);
+				if (rc < 0) {
+					pr_err("%s: adm close fail copp[%d]"
+					"session[%d] rc[%d]\n",
+					__func__,
+					routing_info.copp_list[j][i],
+					j, rc);
+					continue;
+				}
+				routing_info.copp_list[j][i] = DEVICE_IGNORE;
+				rc = 0;
+			}
+		}
+	}
+	mutex_unlock(&routing_info.copp_list_mutex);
+	mutex_unlock(&routing_info.adm_mutex);
+	return rc;
+}
+EXPORT_SYMBOL(msm_clear_all_session);
 
 int msm_get_voice_state(void)
 {
@@ -176,13 +313,36 @@ EXPORT_SYMBOL(msm_snddev_route_dec);
 int msm_snddev_set_dec(int popp_id, int copp_id, int set,
 					int rate, int mode)
 {
-	if (set)
-		adm_open(copp_id, popp_id, PLAYBACK, rate, mode,
+	int rc = 0, i = 0;
+	mutex_lock(&routing_info.adm_mutex);
+	if (set) {
+		rc = adm_open(copp_id, popp_id, PLAYBACK, rate, mode,
 			DEFAULT_COPP_TOPOLOGY);
-	else
-		adm_close(copp_id);
-
-	return 0;
+		if (rc < 0) {
+			pr_err("%s: adm open fail rc[%d]\n", __func__, rc);
+			rc = -EINVAL;
+			goto fail_cmd;
+		}
+		msm_set_copp_id(popp_id, copp_id);
+	} else {
+		for (i = 0; i < AFE_MAX_PORTS; i++) {
+			if (routing_info.copp_list[popp_id][i] == copp_id) {
+				rc = adm_close(copp_id);
+				if (rc < 0) {
+					pr_err("%s: adm close fail copp[%d]"
+						"rc[%d]\n",
+						__func__, copp_id, rc);
+					rc = -EINVAL;
+					goto fail_cmd;
+				}
+				msm_clear_copp_id(popp_id, copp_id);
+				break;
+			}
+		}
+	}
+fail_cmd:
+	mutex_unlock(&routing_info.adm_mutex);
+	return rc;
 }
 EXPORT_SYMBOL(msm_snddev_set_dec);
 
@@ -270,6 +430,8 @@ int msm_snddev_set_enc(int popp_id, int copp_id, int set,
 {
 	int topology;
 	int tbl_idx;
+	int rc = 0, i = 0;
+	mutex_lock(&routing_info.adm_mutex);
 	if (set) {
 		mutex_lock(&adm_tx_topology_tbl.lock);
 		tbl_idx = check_tx_copp_topology(popp_id);
@@ -280,12 +442,33 @@ int msm_snddev_set_enc(int popp_id, int copp_id, int set,
 			rate = 16000;
 		}
 		mutex_unlock(&adm_tx_topology_tbl.lock);
-		adm_open(copp_id, popp_id, LIVE_RECORDING, rate, mode,
+		rc = adm_open(copp_id, popp_id, LIVE_RECORDING, rate, mode,
 			topology);
+		if (rc < 0) {
+			pr_err("%s: adm open fail rc[%d]\n", __func__, rc);
+			rc = -EINVAL;
+			goto fail_cmd;
+		}
+		msm_set_copp_id(popp_id, copp_id);
+	} else {
+		for (i = 0; i < AFE_MAX_PORTS; i++) {
+			if (routing_info.copp_list[popp_id][i] == copp_id) {
+				rc = adm_close(copp_id);
+				if (rc < 0) {
+					pr_err("%s: adm close fail copp[%d]"
+					"rc[%d]\n",
+							__func__, copp_id, rc);
+					rc = -EINVAL;
+					goto fail_cmd;
+				}
+				msm_clear_copp_id(popp_id, copp_id);
+				break;
+			}
+		}
 	}
-	else
-		adm_close(copp_id);
-	return 0;
+fail_cmd:
+	mutex_unlock(&routing_info.adm_mutex);
+	return rc;
 }
 EXPORT_SYMBOL(msm_snddev_set_enc);
 
@@ -1180,7 +1363,11 @@ static int __init audio_dev_ctrl_init(void)
 	routing_info.voice_state = VOICE_STATE_INVALID;
 
 	mutex_init(&adm_tx_topology_tbl.lock);
+	mutex_init(&routing_info.copp_list_mutex);
+	mutex_init(&routing_info.adm_mutex);
 
+	memset(routing_info.copp_list, DEVICE_IGNORE,
+		(sizeof(char) * MAX_SESSIONS * AFE_MAX_PORTS));
 	return misc_register(&audio_dev_ctrl_misc);
 }
 

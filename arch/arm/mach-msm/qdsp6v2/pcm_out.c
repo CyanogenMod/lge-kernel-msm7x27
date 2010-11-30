@@ -27,6 +27,7 @@
 #include <mach/debug_mm.h>
 #include "apr_audio.h"
 #include "q6asm.h"
+#include <mach/qdsp6v2/audio_dev_ctl.h>
 
 #define MAX_BUF 2
 #define BUFSZ (4800)
@@ -344,6 +345,7 @@ static int pcm_out_release(struct inode *inode, struct file *file)
 	struct pcm *pcm = file->private_data;
 	if (pcm->ac)
 		pcm_out_disable(pcm);
+	msm_clear_session_id(pcm->ac->session);
 	q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
 	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);
