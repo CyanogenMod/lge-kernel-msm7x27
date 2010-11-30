@@ -3012,11 +3012,6 @@ static int vfe31_resource_init(struct msm_vfe_callback *presp,
 		goto cmd_init_failed2;
 	}
 
-	rc = request_irq(vfe31_ctrl->vfeirq, vfe31_parse_irq,
-		IRQF_TRIGGER_RISING, "vfe", 0);
-	if (rc < 0)
-		goto cmd_init_failed2;
-
 	if (presp && presp->vfe_resp)
 		vfe31_ctrl->resp = presp;
 	else {
@@ -3076,6 +3071,11 @@ static int vfe31_init(struct msm_vfe_callback *presp,
 	msm_camio_set_perf_lvl(S_INIT);
 	if (msm_vpe_open() < 0)
 		CDBG("%s: vpe_open failed\n", __func__);
+
+	/* TO DO: Need to release the VFE resources */
+	rc = request_irq(vfe31_ctrl->vfeirq, vfe31_parse_irq,
+			IRQF_TRIGGER_RISING, "vfe", 0);
+
 	return rc;
 }
 
