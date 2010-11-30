@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -24,44 +24,16 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
-#ifndef __ARCH_ARM_MACH_MSM_DEVICES_MSM8X60_H
-#define __ARCH_ARM_MACH_MSM_DEVICES_MSM8X60_H
 
-#define MSM_GSBI3_QUP_I2C_BUS_ID 0
-#define MSM_GSBI4_QUP_I2C_BUS_ID 1
-#define MSM_GSBI9_QUP_I2C_BUS_ID 2
-#define MSM_GSBI8_QUP_I2C_BUS_ID 3
-#define MSM_GSBI7_QUP_I2C_BUS_ID 4
-#define MSM_GSBI12_QUP_I2C_BUS_ID 5
-#define MSM_SSBI1_I2C_BUS_ID     6
-#define MSM_SSBI2_I2C_BUS_ID     7
-#define MSM_SSBI3_I2C_BUS_ID     8
+#ifndef _ARCH_ARM_MACH_MSM_MDM_IOCTLS_H
+#define _ARXH_ARM_MACH_MSM_MDM_IOCTLS_H
 
-#ifdef CONFIG_SPI_QUP
-extern struct platform_device msm_gsbi1_qup_spi_device;
-#endif
 
-#ifdef CONFIG_MSM_BUS_SCALING
-extern struct platform_device msm_bus_apps_fabric;
-extern struct platform_device msm_bus_sys_fabric;
-extern struct platform_device msm_bus_mm_fabric;
-extern struct platform_device msm_bus_sys_fpb;
-extern struct platform_device msm_bus_cpss_fpb;
-#endif
-
-extern struct platform_device msm_device_smd;
-extern struct platform_device msm_device_kgsl;
-extern struct platform_device msm_device_gpio;
-extern struct platform_device msm_device_vidc;
-#ifdef CONFIG_WEBCAM_OV7692
-extern struct platform_device msm_camera_sensor_webcam;
-#endif
-
-extern struct platform_device msm_charm_modem;
-
-void __init msm8x60_init_irq(void);
-void __init msm8x60_check_2d_hardware(void);
+#define CHARM_CODE      0xCC
+#define WAKE_CHARM      _IO(CHARM_CODE, 1)
+#define RESET_CHARM     _IO(CHARM_CODE, 2)
+#define CHECK_FOR_BOOT  _IOR(CHARM_CODE, 3, int)
+#define WAIT_FOR_BOOT   _IO(CHARM_CODE, 4)
 
 #endif
