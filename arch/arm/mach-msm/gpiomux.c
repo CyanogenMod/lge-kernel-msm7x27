@@ -29,12 +29,13 @@ static struct gpiomux_setting *msm_gpiomux_sets;
 static unsigned msm_gpiomux_ngpio;
 
 int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
-	struct gpiomux_setting *setting)
+	struct gpiomux_setting *setting, struct gpiomux_setting *old_setting)
 {
 	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;
 	unsigned set_slot = gpio * GPIOMUX_NSETTINGS + which;
 	unsigned long irq_flags;
 	struct gpiomux_setting *new_set;
+	int status = 0;
 
 	if (!msm_gpiomux_recs)
 		return -EFAULT;
@@ -43,6 +44,13 @@ int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
 		return -EINVAL;
 
 	spin_lock_irqsave(&gpiomux_lock, irq_flags);
+
+	if (old_setting) {
+		if (rec->sets[which] == NULL)
+			status = 1;
+		else
+			*old_setting =  *(rec->sets[which]);
+	}
 
 	if (setting) {
 		msm_gpiomux_sets[set_slot] = *setting;
@@ -57,7 +65,7 @@ int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
 		__msm_gpiomux_write(gpio, *new_set);
 
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
-	return 0;
+	return status;
 }
 EXPORT_SYMBOL(msm_gpiomux_write);
 
@@ -138,7 +146,7 @@ void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs)
 	for (c = 0; c < nconfigs; ++c) {
 		for (s = 0; s < GPIOMUX_NSETTINGS; ++s) {
 			rc = msm_gpiomux_write(configs[c].gpio, s,
-				&configs[c].settings[s]);
+				&configs[c].settings[s], NULL);
 			if (rc)
 				pr_err("%s: write failure: %d\n", __func__, rc);
 		}
