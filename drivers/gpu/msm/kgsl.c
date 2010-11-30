@@ -1080,6 +1080,10 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 		start = param.hostptr;
 		down_write(&current->mm->mmap_sem);
 		vma = kgsl_get_vma_from_start_addr(param.hostptr);
+		if (vma == NULL) {
+			result = -EINVAL;
+			goto error_up_write;
+		}
 		len = vma->vm_end - vma->vm_start;
 		if (!param.len)
 			param.len = len;
