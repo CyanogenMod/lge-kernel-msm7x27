@@ -824,6 +824,7 @@ static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 			NS_MM(23, 16, n, m, 15, 12, d, 2, 0, s), \
 			CC(6, n), MND_EN(B(5), n), v, NULL)
 static struct clk_freq_tbl clk_tbl_ijpeg[] = {
+	F_IJPEG( 27000000, MM_PXO,   1, 0,  0, LOW),
 	F_IJPEG( 36570000, MM_GPERF, 1, 2, 21, LOW),
 	F_IJPEG( 54860000, MM_GPERF, 7, 0,  0, LOW),
 	F_IJPEG( 96000000, MM_GPERF, 4, 0,  0, LOW),
@@ -882,6 +883,7 @@ static struct banked_mnd_masks bmnd_info_mdp = {
 static struct clk_freq_tbl clk_tbl_mdp[] = {
 	F_MDP(  9600000, MM_GPERF, 1, 40, LOW),
 	F_MDP( 13710000, MM_GPERF, 1, 28, LOW),
+	F_MDP( 27000000, MM_PXO,   0,  0, LOW),
 	F_MDP( 29540000, MM_GPERF, 1, 13, LOW),
 	F_MDP( 34910000, MM_GPERF, 1, 11, LOW),
 	F_MDP( 38400000, MM_GPERF, 1, 10, LOW),
@@ -1046,6 +1048,7 @@ static struct clk_freq_tbl clk_tbl_vpe[] = {
 			CC(6, n), MND_EN(B(5), n), v, NULL)
 static struct clk_freq_tbl clk_tbl_vfe[] = {
 	F_VFE( 13960000, MM_GPERF,  1, 2, 55, LOW),
+	F_VFE( 27000000, MM_PXO,    1, 0,  0, LOW),
 	F_VFE( 36570000, MM_GPERF,  1, 2, 21, LOW),
 	F_VFE( 38400000, MM_GPERF,  2, 1,  5, LOW),
 	F_VFE( 45180000, MM_GPERF,  1, 2, 17, LOW),
