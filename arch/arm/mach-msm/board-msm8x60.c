@@ -625,13 +625,25 @@ static struct regulator *vdd_cx;
 notify_vbus_state notify_vbus_state_func_ptr;
 
 #ifdef CONFIG_USB_EHCI_MSM
-static irqreturn_t pmic_id_on_irq(int irq, void *data)
+#define USB_PMIC_ID_DET_DELAY	msecs_to_jiffies(100)
+struct delayed_work pmic_id_det;
+static void pmic_id_detect(struct work_struct *w)
 {
 	int val = gpio_get_value_cansleep(PM8058_GPIO_PM_TO_SYS(36));
 	pr_info("%s(): gpio_read_value = %d\n", __func__, val);
 
 	if (notify_vbus_state_func_ptr)
 		(*notify_vbus_state_func_ptr) (val);
+}
+
+static irqreturn_t pmic_id_on_irq(int irq, void *data)
+{
+	/*
+	 * Spurious interrupts are observed on pmic gpio line
+	 * even though there is no state change on USB ID. Schedule the
+	 * work to to allow debounce on gpio
+	 */
+	schedule_delayed_work(&pmic_id_det, USB_PMIC_ID_DET_DELAY);
 
 	return IRQ_HANDLED;
 }
@@ -663,6 +675,7 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 			pr_err("%s: MPP2 configuration failed\n", __func__);
 			return -ENODEV;
 		}
+		INIT_DELAYED_WORK(&pmic_id_det, pmic_id_detect);
 		ret = request_threaded_irq(PMICID_INT, NULL, pmic_id_on_irq,
 			(IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING),
 						"msm_otg_id", NULL);
@@ -675,6 +688,7 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 		}
 	} else {
 		free_irq(PMICID_INT, 0);
+		cancel_delayed_work_sync(&pmic_id_det);
 		notify_vbus_state_func_ptr = NULL;
 		ret = pm8901_mpp_config_digital_out(1,
 			PM8901_MPP_DIG_LEVEL_L5, 0);
