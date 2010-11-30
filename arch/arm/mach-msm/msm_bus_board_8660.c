@@ -42,6 +42,7 @@ static struct msm_bus_node_info apps_fabric_info[] = {
 		.tier = MSM_BUS_APPSS_TIERED_SLAVE_EBI_CH0,
 		.buswidth = 8,
 		.slaveclk = "ebi1_clk",
+		.a_slaveclk = "ebi1_a_clk",
 	},
 	{
 		.id = MSM_BUS_APPSS_SLAVE_SMPSS_L2,
@@ -264,6 +265,7 @@ static struct msm_bus_node_info mmss_fabric_info[]  = {
 		.tier = MSM_BUS_MMSS_TIERED_SLAVE_SMI,
 		.buswidth = 16,
 		.slaveclk = "smi_clk",
+		.a_slaveclk = "smi_a_clk",
 	},
 	{
 		.id = MSM_BUS_MMSS_SLAVE_FAB_APPS_1,
@@ -615,6 +617,7 @@ struct msm_bus_fabric_registration msm_bus_apps_fabric_pdata = {
 	.len = ARRAY_SIZE(apps_fabric_info),
 	.ahb = 0,
 	.fabclk = "afab_clk",
+	.a_fabclk = "afab_a_clk",
 	.haltid = MSM_RPM_ID_APPS_FABRIC_HALT_0,
 	.offset = MSM_RPM_ID_APPS_FABRIC_ARB_0,
 };
@@ -626,6 +629,7 @@ struct msm_bus_fabric_registration msm_bus_sys_fabric_pdata = {
 	ARRAY_SIZE(system_fabric_info),
 	.ahb = 0,
 	.fabclk = "sfab_clk",
+	.a_fabclk = "sfab_a_clk",
 	.haltid = MSM_RPM_ID_SYSTEM_FABRIC_HALT_0,
 	.offset = MSM_RPM_ID_SYSTEM_FABRIC_ARB_0,
 };
@@ -637,6 +641,7 @@ struct msm_bus_fabric_registration msm_bus_mm_fabric_pdata = {
 	ARRAY_SIZE(mmss_fabric_info),
 	.ahb = 0,
 	.fabclk = "mmfab_clk",
+	.a_fabclk = "mmfab_a_clk",
 	.haltid = MSM_RPM_ID_MM_FABRIC_HALT_0,
 	.offset = MSM_RPM_ID_MM_FABRIC_ARB_0,
 };
@@ -648,6 +653,7 @@ struct msm_bus_fabric_registration msm_bus_sys_fpb_pdata = {
 	ARRAY_SIZE(sys_fpb_fabric_info),
 	.ahb = 1,
 	.fabclk = "sfpb_clk",
+	.fabclk = "sfpb_a_clk",
 };
 
 struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata = {
@@ -657,4 +663,5 @@ struct msm_bus_fabric_registration msm_bus_cpss_fpb_pdata = {
 	ARRAY_SIZE(cpss_fpb_fabric_info),
 	.ahb = 1,
 	.fabclk = "cfpb_clk",
+	.a_fabclk = "cfpb_a_clk",
 };
