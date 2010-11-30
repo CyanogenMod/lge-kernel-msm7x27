@@ -38,13 +38,17 @@
  * sdio_cmux_open - Open the mux channel
  *
  * @id: Mux Channel id to be opened
- * @receive_cb: Notification when data arrives
- * @write_done: Notification when data is written
+ * @receive_cb: Notification when data arrives.  Parameters are data received,
+ *	size of data, private context pointer.
+ * @write_done: Notification when data is written.  Parameters are data written,
+ *	size of data, private context pointer.  Please note that the data
+ *	written pointer will always be NULL as the cmux makes an internal copy
+ *	of the data.
  * @priv: caller's private context pointer
  */
 int sdio_cmux_open(const int id,
-		   void (*receive_cb)(int , void *, int),
-		   void (*write_done)(int , void *, int),
+		   void (*receive_cb)(void *, int, void *),
+		   void (*write_done)(void *, int, void *),
 		   void *priv);
 
 /*
