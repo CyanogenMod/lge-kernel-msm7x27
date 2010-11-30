@@ -6773,7 +6773,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	msm8x60_init_mmc();
 
 #if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2)
+	/* 3-switch supported on V2 FFA and FLUID */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2 ||
+						machine_is_msm8x60_fluid())
 		hsed_config_1.othc_support_n_switch = true;
 #endif
 
