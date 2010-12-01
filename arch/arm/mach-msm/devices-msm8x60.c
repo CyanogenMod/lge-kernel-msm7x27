@@ -75,6 +75,8 @@
 #define INT_UART1DM_IRQ     GSBI6_UARTDM_IRQ
 #define INT_UART2DM_IRQ     GSBI12_UARTDM_IRQ
 #define MSM_UART2DM_PHYS    0x19C40000
+#define MSM_UART3DM_PHYS    (MSM_GSBI3_PHYS + 0x40000)
+#define INT_UART3DM_IRQ     GSBI3_UARTDM_IRQ
 #define TCSR_BASE_PHYS      0x16b00000
 
 #ifdef CONFIG_WEBCAM_OV7692
@@ -161,6 +163,33 @@ struct platform_device msm_device_uart_dm1 = {
 		.dma_mask = &msm_uart_dm1_dma_mask,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
 	},
+};
+
+static struct resource msm_uart3_dm_resources[] = {
+	{
+		.start = MSM_UART3DM_PHYS,
+		.end   = MSM_UART3DM_PHYS + PAGE_SIZE - 1,
+		.name  = "uartdm_resource",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = INT_UART3DM_IRQ,
+		.end   = INT_UART3DM_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = MSM_GSBI3_PHYS,
+		.end   = MSM_GSBI3_PHYS + PAGE_SIZE - 1,
+		.name  = "gsbi_resource",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_device_uart_dm3 = {
+	.name = "msm_serial_hsl",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(msm_uart3_dm_resources),
+	.resource = msm_uart3_dm_resources,
 };
 
 static struct resource msm_uart12_dm_resources[] = {
@@ -1242,7 +1271,8 @@ struct clk msm_clocks_8x60[] = {
 
 	CLK_8X60("gsbi_uart_clk",	GSBI1_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI2_UART_CLK,		NULL, OFF),
-	CLK_8X60("gsbi_uart_clk",	GSBI3_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI3_UART_CLK,
+		 &msm_device_uart_dm3.dev, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI4_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI5_UART_CLK,		NULL, OFF),
 	CLK_8X60("uartdm_clk",	GSBI6_UART_CLK,
@@ -1298,6 +1328,8 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("gsbi_pclk",		GSBI1_P_CLK,
 					&msm_gsbi1_qup_spi_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI2_P_CLK,		NULL, 0),
+	CLK_8X60("gsbi_pclk",		GSBI3_P_CLK,
+		 &msm_device_uart_dm3.dev, 0),
 	CLK_8X60("gsbi_pclk",		GSBI3_P_CLK,
 					&msm_gsbi3_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI4_P_CLK,
