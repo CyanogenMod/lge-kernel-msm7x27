@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/termios.h>
+#include <linux/debugfs.h>
 
 #include <mach/sdio_al.h>
 #include <mach/sdio_cmux.h>
@@ -99,6 +100,12 @@ struct sdio_cmux_list_elem {
 	struct list_head list;
 	struct sdio_cmux_pkt cmux_pkt;
 };
+
+#define logical_ch_is_local_open(x)                        \
+	(logical_ch[(x)].is_local_open)
+
+#define logical_ch_is_remote_open(x)                       \
+	(logical_ch[(x)].is_remote_open)
 
 static void sdio_cdemux_fn(struct work_struct *work);
 static DECLARE_WORK(sdio_cdemux_work, sdio_cdemux_fn);
@@ -429,7 +436,7 @@ int is_remote_open(int id)
 	if (id < 0 || id >= SDIO_CMUX_NUM_CHANNELS)
 		return -ENODEV;
 
-	return logical_ch[id].is_remote_open;
+	return logical_ch_is_remote_open(id);
 }
 EXPORT_SYMBOL(is_remote_open);
 
@@ -675,6 +682,55 @@ static void sdio_qmi_chl_notify(void *priv, unsigned event)
 	}
 }
 
+#ifdef CONFIG_DEBUG_FS
+
+static int debug_tbl(char *buf, int max)
+{
+	int i = 0;
+	int j;
+
+	for (j = 0; j < SDIO_CMUX_NUM_CHANNELS; ++j) {
+		i += scnprintf(buf + i, max - i,
+			"ch%02d  local open=%s  remote open=%s\n",
+			j, logical_ch_is_local_open(j) ? "Y" : "N",
+			logical_ch_is_remote_open(j) ? "Y" : "N");
+	}
+
+	return i;
+}
+
+#define DEBUG_BUFMAX 4096
+static char debug_buffer[DEBUG_BUFMAX];
+
+static ssize_t debug_read(struct file *file, char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	int (*fill)(char *buf, int max) = file->private_data;
+	int bsize = fill(debug_buffer, DEBUG_BUFMAX);
+	return simple_read_from_buffer(buf, count, ppos, debug_buffer, bsize);
+}
+
+static int debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+
+static const struct file_operations debug_ops = {
+	.read = debug_read,
+	.open = debug_open,
+};
+
+static void debug_create(const char *name, mode_t mode,
+				struct dentry *dent,
+				int (*fill)(char *buf, int max))
+{
+	debugfs_create_file(name, mode, dent, fill, &debug_ops);
+}
+
+#endif
+
 static int sdio_cmux_probe(struct platform_device *pdev)
 {
 	int i, r;
@@ -745,6 +801,14 @@ static struct platform_driver sdio_cmux_driver = {
 
 static int __init sdio_cmux_init(void)
 {
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *dent;
+
+	dent = debugfs_create_dir("sdio_cmux", 0);
+	if (!IS_ERR(dent))
+		debug_create("tbl", 0444, dent, debug_tbl);
+#endif
+
 	msm_sdio_cmux_debug_mask = 0;
 	return platform_driver_register(&sdio_cmux_driver);
 }
