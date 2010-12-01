@@ -1132,6 +1132,7 @@ error:
 	return status;
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 static int hdmi_msm_ddc_read(uint32 dev_addr, uint32 offset, uint8 *data_buf,
 	uint32 data_len, int retry, const char *what)
 {
@@ -1142,7 +1143,7 @@ static int hdmi_msm_ddc_read(uint32 dev_addr, uint32 offset, uint8 *data_buf,
 	return hdmi_msm_ddc_read_retry(dev_addr, offset, data_buf, data_len,
 		32 * ((data_len + 31) / 32), retry, what);
 }
-
+#endif
 
 static int hdmi_msm_read_edid_block(int block, uint8 *edid_buf)
 {
