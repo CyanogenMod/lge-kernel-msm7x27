@@ -32,16 +32,16 @@
 
 static void q6_fatal_fn(struct work_struct *);
 static void modem_fatal_fn(struct work_struct *);
-static void check_modem_ahb_status(struct work_struct *work);
+static void modem_unlock_timeout(struct work_struct *work);
 static int modem_notif_handler(struct notifier_block *this,
 				unsigned long code,
 				void *_cmd);
 
 static DECLARE_WORK(modem_fatal_work, modem_fatal_fn);
 static DECLARE_WORK(q6_fatal_work, q6_fatal_fn);
-static DECLARE_DELAYED_WORK(check_modem_ahb_work, check_modem_ahb_status);
+static DECLARE_DELAYED_WORK(modem_unlock_timeout_work,
+				modem_unlock_timeout);
 
-static atomic_t modem_ahb_lockup = ATOMIC_INIT(0);
 static struct notifier_block modem_notif_nb = {
 	.notifier_call = modem_notif_handler,
 };
@@ -54,13 +54,9 @@ static void do_soc_restart(void)
 	unlock_kernel();
 }
 
-static void check_modem_ahb_status(struct work_struct *work)
+static void modem_unlock_timeout(struct work_struct *work)
 {
-	if (atomic_read(&modem_ahb_lockup)) {
-
-		disable_irq_nosync(MARM_WDOG_EXPIRED);
-		panic("subsys-restart: Timeout waiting for modem to reset.\n");
-	}
+	panic("subsys-restart: Timeout waiting for modem to unwedge.\n");
 }
 
 static void modem_fatal_fn(struct work_struct *work)
@@ -100,18 +96,19 @@ static void modem_fatal_fn(struct work_struct *work)
 		void *hwio_modem_reset_addr =
 				ioremap_nocache(MODEM_HWIO_MSS_RESET_ADDR, 8);
 
-		modem_register_notifier(&modem_notif_nb);
-		atomic_set(&modem_ahb_lockup, 1);
-
 		printk(KERN_CRIT "subsys-restart: Modem AHB locked up.\n");
 		printk(KERN_CRIT "subsys-restart: Trying to free up modem!\n");
 
 		writel(0x3, hwio_modem_reset_addr);
 
-		ret = schedule_delayed_work(&check_modem_ahb_work,
-					msecs_to_jiffies(1000));
+		/* If we are still alive after 6 seconds (allowing for
+		 * the 5-second-delayed-panic-reboot), modem is either
+		 * still wedged or SMSM didn't come through. Force panic
+		 * in that case.
+		*/
+		ret = schedule_delayed_work(&modem_unlock_timeout_work,
+					msecs_to_jiffies(6000));
 
-		enable_irq(MARM_WDOG_EXPIRED);
 		iounmap(hwio_modem_reset_addr);
 	}
 }
@@ -131,16 +128,6 @@ static irqreturn_t subsys_wdog_bite_irq(int irq, void *dev_id)
 	switch (irq) {
 
 	case MARM_WDOG_EXPIRED:
-
-		/*
-		* Do not process modem watchdog bites after an attempt
-		* has been made to bring the modem out of ahb lockup. Wait
-		* until the modem comes back up and enters its error handler.
-		*/
-
-		if (atomic_read(&modem_ahb_lockup))
-			return IRQ_HANDLED;
-
 		ret = schedule_work(&modem_fatal_work);
 		disable_irq_nosync(MARM_WDOG_EXPIRED);
 	break;
@@ -168,6 +155,9 @@ static int __init subsystem_fatal_init(void)
 {
 	int ret;
 
+	/* Need to listen for SMSM_RESET always */
+	modem_register_notifier(&modem_notif_nb);
+
 	ret = request_irq(MARM_WDOG_EXPIRED, subsys_wdog_bite_irq,
 			IRQF_TRIGGER_RISING, "modem_wdog", NULL);
 
@@ -181,10 +171,8 @@ static int modem_notif_handler(struct notifier_block *this,
 				unsigned long code,
 				void *_cmd)
 {
-	if (code == MODEM_NOTIFIER_START_RESET) {
-		atomic_set(&modem_ahb_lockup, 0);
-		modem_unregister_notifier(&modem_notif_nb);
-	}
+	if (code == MODEM_NOTIFIER_START_RESET)
+		panic("subsys-restart: Modem error fatal'ed.");
 
 	return NOTIFY_DONE;
 }
