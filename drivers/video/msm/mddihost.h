@@ -234,6 +234,7 @@ void mddi_assign_max_pkt_dimensions(uint16 image_cols,
 uint16 mddi_assign_pkt_height(uint16 pkt_width, uint16 pkt_height, uint16 bpp);
 #endif
 void mddi_queue_reverse_encapsulation(boolean wait);
+int mddi_client_power(unsigned int client_id);
 void mddi_disable(int lock);
 void mddi_window_adjust(struct msm_fb_data_type *mfd,
 	uint16 x1, uint16 x2, uint16 y1, uint16 y2);
