@@ -112,6 +112,7 @@ enum {
 	L_SDC5_P_CLK,
 
 	/* Multimedia Clocks */
+	L_AMP_CLK,
 	L_CAM_CLK,
 	L_CSI_SRC_CLK,
 	L_CSI0_CLK,
@@ -122,6 +123,7 @@ enum {
 	L_GFX2D1_CLK,
 	L_GFX3D_CLK,
 	L_IJPEG_CLK,
+	L_IMEM_CLK,
 	L_JPEGD_CLK,
 	L_MDP_CLK,
 	L_MDP_VSYNC_CLK,
