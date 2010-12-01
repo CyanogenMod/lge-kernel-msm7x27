@@ -32,6 +32,8 @@
 #include "q6afe.h"
 #include "apr_audio.h"
 
+#define ECODEC_SAMPLE_RATE 8000
+
 /* Context for each external codec device */
 struct snddev_ecodec_state {
 	struct snddev_ecodec_data *data;
@@ -175,7 +177,7 @@ static int snddev_ecodec_open(struct msm_snddev_info *dev_info)
 {
 	int rc;
 	struct snddev_ecodec_drv_state *drv = &snddev_ecodec_drv;
-	struct afe_port_pcm_cfg pcm_cfg;
+	union afe_port_config afe_config;
 
 	pr_debug("%s\n", __func__);
 
@@ -205,23 +207,20 @@ static int snddev_ecodec_open(struct msm_snddev_info *dev_info)
 
 	clk_reset(drv->ecodec_clk, CLK_RESET_ASSERT);
 
-	pcm_cfg.port_id = PCM_RX;
-	pcm_cfg.mode = AFE_PCM_CFG_MODE_PCM;
-	pcm_cfg.sync = AFE_PCM_CFG_SYNC_INT;
-	pcm_cfg.frame = AFE_PCM_CFG_FRM_256BPF;
-	pcm_cfg.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD;
-	pcm_cfg.slot = 0;
-	pcm_cfg.data = AFE_PCM_CFG_CDATAOE_MASTER;
+	afe_config.pcm.mode = AFE_PCM_CFG_MODE_PCM;
+	afe_config.pcm.sync = AFE_PCM_CFG_SYNC_INT;
+	afe_config.pcm.frame = AFE_PCM_CFG_FRM_256BPF;
+	afe_config.pcm.quant = AFE_PCM_CFG_QUANT_LINEAR_NOPAD;
+	afe_config.pcm.slot = 0;
+	afe_config.pcm.data = AFE_PCM_CFG_CDATAOE_MASTER;
 
-	rc = afe_open_pcmif(pcm_cfg);
+	rc = afe_open(PCM_RX, &afe_config, ECODEC_SAMPLE_RATE);
 	if (rc < 0) {
 		pr_err("%s: afe open failed for PCM_RX\n", __func__);
 		goto err_rx_afe;
 	}
 
-	pcm_cfg.port_id = PCM_TX;
-
-	rc = afe_open_pcmif(pcm_cfg);
+	rc = afe_open(PCM_TX, &afe_config, ECODEC_SAMPLE_RATE);
 	if (rc < 0) {
 		pr_err("%s: afe open failed for PCM_TX\n", __func__);
 		goto err_tx_afe;
@@ -293,7 +292,7 @@ int snddev_ecodec_set_freq(struct msm_snddev_info *dev_info, u32 rate)
 		rc = -EINVAL;
 		goto error;
 	}
-	return 8000;
+	return ECODEC_SAMPLE_RATE;
 
 error:
 	return rc;
@@ -341,7 +340,7 @@ static int snddev_ecodec_probe(struct platform_device *pdev)
 	msm_snddev_register(dev_info);
 
 	ecodec->data = pdata;
-	ecodec->sample_rate = 8000;	/* Default to 8KHz */
+	ecodec->sample_rate = ECODEC_SAMPLE_RATE;	/* Default to 8KHz */
 error:
 	return rc;
 }
