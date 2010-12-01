@@ -38,7 +38,7 @@
 #include "venc_internal.h"
 #include "vidc_init.h"
 
-#define VID_ENC_NAME   	  "msm_vidc_enc"
+#define VID_ENC_NAME	"msm_vidc_enc"
 
 #if DEBUG
 #define DBG(x...) printk(KERN_DEBUG x)
@@ -70,7 +70,7 @@ static s32 vid_enc_get_empty_client_index(void)
 	if (!found) {
 		ERR("%s():ERROR No space for new client\n",
 			__func__);
-		return -1;
+		return -ENOMEM;
 	} else {
 		DBG("%s(): available client index = %u\n",
 			__func__, i);
@@ -149,7 +149,7 @@ static void vid_enc_input_frame_done(struct video_client_ctx *client_ctx,
 	struct vid_enc_msg *venc_msg;
 
 	if (!client_ctx || !vcd_frame_data) {
-		ERR("vid_enc_input_frame_done() NULL pointer \n");
+		ERR("vid_enc_input_frame_done() NULL pointer\n");
 		return;
 	}
 
@@ -199,7 +199,7 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 	s32 buffer_index = -1;
 
 	if (!client_ctx || !vcd_frame_data) {
-		ERR("vid_enc_input_frame_done() NULL pointer \n");
+		ERR("vid_enc_input_frame_done() NULL pointer\n");
 		return;
 	}
 
@@ -221,7 +221,7 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 		venc_msg->venc_msg_info.msgcode =
 		VEN_MSG_OUTPUT_BUFFER_DONE;
 	else {
-		ERR("QVD: vid_enc_output_frame_done invalid cmd type \n");
+		ERR("QVD: vid_enc_output_frame_done invalid cmd type\n");
 		return;
 	}
 
@@ -267,7 +267,7 @@ static void vid_enc_lean_event(struct video_client_ctx *client_ctx,
 {
 	struct vid_enc_msg *venc_msg;
 	if (!client_ctx) {
-		ERR("%s(): !client_ctx pointer \n",
+		ERR("%s(): !client_ctx pointer\n",
 			__func__);
 		return;
 	}
@@ -343,7 +343,7 @@ void vid_enc_vcd_cb(u32 event, u32 status,
 	DBG("Entering %s()\n", __func__);
 
 	if (!client_ctx) {
-		ERR("%s(): client_ctx is NULL \n", __func__);
+		ERR("%s(): client_ctx is NULL\n", __func__);
 		return;
 	}
 
@@ -428,7 +428,7 @@ static u32 vid_enc_get_next_msg(struct video_client_ctx *client_ctx,
 	mutex_lock(&client_ctx->msg_queue_lock);
 
 	if (!list_empty(&client_ctx->msg_queue)) {
-		DBG("%s(): After Wait \n", __func__);
+		DBG("%s(): After Wait\n", __func__);
 		vid_enc_msg = list_first_entry(&client_ctx->msg_queue,
 					struct vid_enc_msg, list);
 		list_del(&vid_enc_msg->list);
@@ -467,7 +467,7 @@ static u32 vid_enc_close_client(struct video_client_ctx *client_ctx)
 
 			if (client_ctx->event_status) {
 				ERR("%s:ERROR "
-				"vcd_stop Not successs \n", __func__);
+				"vcd_stop Not successs\n", __func__);
 			}
 		}
 	}
@@ -763,7 +763,7 @@ static int vid_enc_ioctl(struct inode *inode, struct file *file,
 			result = vid_enc_fill_output_buffer(client_ctx,
 					&enc_buffer);
 		if (!result) {
-			DBG(" \n VEN_IOCTL_CMD_ENCODE_FRAME/"
+			DBG("\n VEN_IOCTL_CMD_ENCODE_FRAME/"
 				"VEN_IOCTL_CMD_FILL_OUTPUT_BUFFER failed");
 			return -EIO;
 		}
@@ -855,7 +855,7 @@ static int vid_enc_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 
 		DBG("VEN_IOCTL_GET_INPUT_BUFFER_REQ/"
-			"VEN_IOCTL_GET_OUTPUT_BUFFER_REQ \n");
+			"VEN_IOCTL_GET_OUTPUT_BUFFER_REQ\n");
 
 		if (cmd == VEN_IOCTL_GET_OUTPUT_BUFFER_REQ)
 			result = vid_enc_get_buffer_req(client_ctx,
@@ -1450,6 +1450,16 @@ static int vid_enc_ioctl(struct inode *inode, struct file *file,
 			ERR("setting VEN_IOCTL_(G)SET_LIVE_MODE failed\n");
 			return -EIO;
 		}
+		break;
+	}
+	case VEN_IOCTL_GET_NUMBER_INSTANCES:
+	{
+		DBG("VEN_IOCTL_GET_NUMBER_INSTANCES\n");
+		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
+			return -EFAULT;
+		if (copy_to_user(venc_msg.out,
+			&vid_enc_device_p->num_clients, sizeof(u32)))
+			return -EFAULT;
 		break;
 	}
 	case VEN_IOCTL_SET_AC_PREDICTION:
