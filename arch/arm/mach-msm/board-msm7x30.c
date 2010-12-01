@@ -101,7 +101,7 @@
 #define PMIC_VREG_WLAN_LEVEL	2900
 #define PMIC_GPIO_SD_DET	36
 #define PMIC_GPIO_SDC4_EN	17  /* PMIC GPIO Number 18 */
-#define PMIC_GPIO_HDMI_5V_EN	39  /* PMIC GPIO Number 40 */
+#define PMIC_GPIO_HDMI_5V_EN	32  /* PMIC GPIO Number 33 */
 
 #define FPGA_SDCC_STATUS       0x8E0001A8
 
@@ -158,6 +158,8 @@ static int pm8058_gpios_init(void)
 		.pull           = PM_GPIO_PULL_NO,
 		.vin_sel        = PM_GPIO_VIN_VPH,
 		.function       = PM_GPIO_FUNC_NORMAL,
+		.out_strength   = PM_GPIO_STRENGTH_LOW,
+		.output_value   = 0,
 	};
 
 	struct pm8058_gpio flash_boost_enable = {
