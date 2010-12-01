@@ -1771,13 +1771,25 @@ static int marimba_tsadc_power(int vreg_on)
 			goto vreg_fail;
 		}
 	}
-	/* vote for D0 buffer */
-	rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_DO,
-		vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
-	if (rc)	{
-		printk(KERN_ERR "%s: unable to %svote for d0 clk\n",
-			__func__, vreg_on ? "" : "de-");
-		goto do_vote_fail;
+
+	/* If timpani vote for D1 buffer */
+	if (adie_get_detected_codec_type() == TIMPANI_ID) {
+		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_D1,
+			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
+		if (rc)	{
+			printk(KERN_ERR "%s: unable to %svote for d1 clk\n",
+				__func__, vreg_on ? "" : "de-");
+			goto do_vote_fail;
+		}
+	} else {
+		/* If marimba vote for DO buffer */
+		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_DO,
+			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
+		if (rc)	{
+			printk(KERN_ERR "%s: unable to %svote for d0 clk\n",
+				__func__, vreg_on ? "" : "de-");
+			goto do_vote_fail;
+		}
 	}
 
 	msleep(5); /* ensure power is stable */
