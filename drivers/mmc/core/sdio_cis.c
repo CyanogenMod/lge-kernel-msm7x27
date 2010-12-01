@@ -21,6 +21,8 @@
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/sdio_func.h>
 
+#include <asm/mach-types.h>
+
 #include "sdio_cis.h"
 #include "sdio_ops.h"
 
@@ -270,8 +272,15 @@ static int sdio_read_cis(struct mmc_card *card, struct sdio_func *func)
 			break;
 
 		/* null entries have no link field or data */
-		if (tpl_code == 0x00)
-			continue;
+		if (tpl_code == 0x00) {
+			if (machine_is_msm8x60_charm_surf() ||
+			    machine_is_msm8x60_charm_ffa() ||
+			    machine_is_msm8x55_svlte_surf() ||
+			    machine_is_msm8x55_svlte_ffa())
+				break;
+			else
+				continue;
+		}
 
 		ret = mmc_io_rw_direct(card, 0, 0, ptr++, 0, &tpl_link);
 		if (ret)
