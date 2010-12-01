@@ -1589,7 +1589,6 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	int ret, mixer;
 	struct mdp4_overlay_pipe *pipe;
 	uint32 perf_level;
-	char *addr = NULL;
 
 	if (mfd == NULL) {
 		pr_err("%s: mfd == NULL, -ENODEV\n", __func__);
@@ -1623,22 +1622,6 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 						req->src.height,
 						req->src.format);
 
-	if (mdp_hw_revision != MDP4_REVISION_NONE) {
-		if (ctrl->panel_mode & MDP4_PANEL_LCDC)
-			addr = MDP_BASE + 0xC0000;
-		else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
-			addr = MDP_BASE + 0xD0000;
-
-		if (addr) {
-			mdp_pipe_ctrl(MDP_CMD_BLOCK,
-					MDP_BLOCK_POWER_ON, FALSE);
-			outpdw(addr, 0);
-			mdp_set_core_clk(perf_level);
-			outpdw(addr, 1);
-			mdp_pipe_ctrl(MDP_CMD_BLOCK,
-				MDP_BLOCK_POWER_OFF, FALSE);
-		}
-	}
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(OVERLAY_BUS_SCALE_TABLE_BASE
@@ -1652,7 +1635,6 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp4_overlay_pipe *pipe;
-	char *addr = NULL;
 
 	if (mfd == NULL)
 		return -ENODEV;
@@ -1687,24 +1669,6 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	mdp4_overlay_pipe_free(pipe);
 
 	mutex_unlock(&mfd->dma->ov_mutex);
-
-	if (mdp_hw_revision != MDP4_REVISION_NONE) {
-		msleep(30);
-		if (ctrl->panel_mode & MDP4_PANEL_LCDC)
-			addr = MDP_BASE + 0xC0000;
-		else if (ctrl->panel_mode &  MDP4_PANEL_DTV)
-			addr = MDP_BASE + 0xD0000;
-
-		if (addr) {
-			mdp_pipe_ctrl(MDP_CMD_BLOCK,
-					MDP_BLOCK_POWER_ON, FALSE);
-			outpdw(addr, 0);
-			mdp_set_core_clk(OVERLAY_PERF_LEVEL4);
-			outpdw(addr, 1);
-			mdp_pipe_ctrl(MDP_CMD_BLOCK,
-					MDP_BLOCK_POWER_OFF, FALSE);
-		}
-	}
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
