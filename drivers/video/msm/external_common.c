@@ -20,7 +20,7 @@
 #include <linux/bitops.h>
 #include <linux/mutex.h>
 
-#define DEBUG
+/* #define DEBUG */
 #define DEV_DBG_PREFIX "EXT_COMMON: "
 
 #include "msm_fb.h"
@@ -674,11 +674,11 @@ static void hdmi_edid_extract_latency_fields(const uint8 *in_buf)
 	if (vsd == NULL || len < 12 || !(vsd[8] & BIT(7))) {
 		external_common_state->video_latency = (uint16)-1;
 		external_common_state->audio_latency = (uint16)-1;
-		DEV_INFO("EDID: No audio/video latency present\n");
+		DEV_DBG("EDID: No audio/video latency present\n");
 	} else {
 		external_common_state->video_latency = vsd[9];
 		external_common_state->audio_latency = vsd[10];
-		DEV_INFO("EDID: video-latency=%04x, audio-latency=%04x\n",
+		DEV_DBG("EDID: video-latency=%04x, audio-latency=%04x\n",
 			external_common_state->video_latency,
 			external_common_state->audio_latency);
 	}
@@ -693,7 +693,7 @@ static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 		return;
 
 	external_common_state->speaker_allocation_block = sad[1];
-	DEV_INFO("EDID: speaker allocation data=%s%s%s%s%s%s%s\n",
+	DEV_DBG("EDID: speaker allocation data=%s%s%s%s%s%s%s\n",
 		(sad[1] & BIT(0)) ? "FL/FR," : "",
 		(sad[1] & BIT(1)) ? "LFE," : "",
 		(sad[1] & BIT(2)) ? "FC," : "",
@@ -714,7 +714,7 @@ static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
 
 	external_common_state->audio_data_block_cnt = 0;
 	while (len >= 3 && external_common_state->audio_data_block_cnt < 16) {
-		DEV_INFO("EDID: Audio Data Block=<ch=%d, format=%d "
+		DEV_DBG("EDID: Audio Data Block=<ch=%d, format=%d "
 			"sampling=0x%02x bit-depth=0x%02x>\n",
 			(sad[1] & 0x7)+1, sad[1] >> 3, sad[2], sad[3]);
 		*adb++ = (uint32)sad[1] + ((uint32)sad[2] << 8)
@@ -928,10 +928,13 @@ static int hdmi_common_read_edid_block(int block, uint8 *edid_buf)
 		check_sum += edid_buf[ndx];
 
 	if (check_sum & 0xFF) {
+#ifdef DEBUG
 		const u8 *b = edid_buf;
+#endif
 		DEV_ERR("%s: failed CHECKSUM (read:%x, expected:%x)\n",
 			__func__, (uint8)edid_buf[0x7F], (uint8)check_sum);
 
+#ifdef DEBUG
 		for (ndx = 0; ndx < 0x100; ndx += 16)
 			DEV_DBG("EDID[%02x-%02x] %02x %02x %02x %02x  "
 				"%02x %02x %02x %02x    %02x %02x %02x %02x  "
@@ -940,6 +943,7 @@ static int hdmi_common_read_edid_block(int block, uint8 *edid_buf)
 				b[ndx+4], b[ndx+5], b[ndx+6], b[ndx+7],
 				b[ndx+8], b[ndx+9], b[ndx+10], b[ndx+11],
 				b[ndx+12], b[ndx+13], b[ndx+14], b[ndx+15]);
+#endif
 		status = -EPROTO;
 		goto error;
 	}
@@ -1024,7 +1028,7 @@ int hdmi_common_read_edid(void)
 
 	/* EDID_VERSION[0x12] - EDID Version */
 	/* EDID_REVISION[0x13] - EDID Revision */
-	DEV_DBG("EDID (V=%d.%d, #CEABlocks=%d[V%d], ID=%s, IEEE=%04x, "
+	DEV_INFO("EDID (V=%d.%d, #CEABlocks=%d[V%d], ID=%s, IEEE=%04x, "
 		"EDID-Ext=0x%02x)\n", edid_buf[0x12], edid_buf[0x13],
 		num_og_cea_blocks, cea_extension_ver, vendor_id, ieee_reg_id,
 		edid_buf[0x80]);

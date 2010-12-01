@@ -35,6 +35,7 @@
 #include <mach/hardware.h>
 #include <mach/msm_reqs.h>
 #include <linux/pm_runtime.h>
+#include <mach/clk.h>
 
 #include "msm_fb.h"
 
@@ -162,7 +163,12 @@ static int dtv_on(struct platform_device *pdev)
 
 	clk_enable(tv_enc_clk);
 	clk_enable(tv_dac_clk);
+
 	clk_enable(hdmi_clk);
+	clk_reset(hdmi_clk, CLK_RESET_ASSERT);
+	udelay(20);
+	clk_reset(hdmi_clk, CLK_RESET_DEASSERT);
+
 	if (mdp_tv_clk)
 		clk_enable(mdp_tv_clk);
 
