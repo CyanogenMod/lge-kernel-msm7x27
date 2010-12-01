@@ -83,7 +83,7 @@
 	GPIOMUX_CFG(GPIOMUX_FUNC_2, GPIOMUX_DRV_10MA, GPIOMUX_PULL_UP)
 #define SDCC5_CLK_ACTV_CFG \
 	GPIOMUX_CFG(GPIOMUX_FUNC_2, GPIOMUX_DRV_16MA, GPIOMUX_PULL_NONE)
-#define SDCC5_SUSPEND_CONFIG (0, 0, GPIOMUX_PULL_DOWN)
+#define SDCC5_SUSPEND_CONFIG GPIOMUX_CFG(0, 0, GPIOMUX_PULL_DOWN)
 
 #define AUX_PCM_ACTIVE_CONFIG \
 	GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE)
@@ -104,12 +104,17 @@
 
 #define HDMI_SUSPEND_CFG GPIOMUX_CFG(0, 0, GPIOMUX_PULL_DOWN)
 
-#define MDM2AP_ACTIVE_CFG \
+#define MDM2AP_STATUS_ACTIVE_CFG \
 	GPIOMUX_CFG(GPIOMUX_FUNC_GPIO, GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE)
-#define MDM2AP_SUSPEND_CFG \
+#define MDM2AP_STATUS_SUSPEND_CFG \
 	GPIOMUX_CFG(0, 0, GPIOMUX_PULL_NONE)
 
 #define CAM_SUSPEND_CFG GPIOMUX_CFG(0, 0, GPIOMUX_PULL_DOWN)
+
+#define MDM2AP_SYNC_ACTIVE_CFG \
+	GPIOMUX_CFG(GPIOMUX_FUNC_GPIO, GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE)
+#define MDM2AP_SYNC_SUSPEND_CFG \
+	GPIOMUX_CFG(0, 0, GPIOMUX_PULL_NONE)
 
 static struct msm_gpiomux_config msm8x60_gsbi_configs[] __initdata = {
 	{
@@ -583,6 +588,147 @@ static struct msm_gpiomux_config msm_qrdc_sdc_configs[] __initdata = {
 	},
 };
 
+
+static struct msm_gpiomux_config msm8x60_charm_sdc_configs[] __initdata = {
+	/* SDCC5 cmd */
+	{
+		.gpio = 95,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC5_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC5_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC5 data[3]*/
+	{
+		.gpio = 96,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC5_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC5_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC5 clk */
+	{
+		.gpio = 97,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC5_CLK_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC5_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC5 data[2]*/
+	{
+		.gpio = 98,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC5_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC5_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC5 data[1]*/
+	{
+		.gpio = 99,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC5_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC5_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC5 data[0]*/
+	{
+		.gpio = 100,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC5_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC5_SUSPEND_CONFIG,
+		},
+	},
+	/* MDM2AP_SYNC */
+	{
+		.gpio = 129,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = MDM2AP_SYNC_ACTIVE_CFG,
+			[GPIOMUX_SUSPENDED] = MDM2AP_SYNC_SUSPEND_CFG,
+		},
+	},
+	/* SDCC2 data[0] */
+	{
+		.gpio = 143,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 data[1] */
+	{
+		.gpio = 144,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 data[2] */
+	{
+		.gpio = 145,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 data[3] */
+	{
+		.gpio = 146,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 data[4] */
+	{
+		.gpio = 147,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_4_7_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 data[5] */
+	{
+		.gpio = 148,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_4_7_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 data[6] */
+	{
+		.gpio = 149,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_4_7_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 data[7] */
+	{
+		.gpio = 150,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_4_7_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+	/* SDCC2 CMD */
+	{
+		.gpio = 151,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_DAT_0_3_CMD_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+
+	/* SDCC2 CLK */
+	{
+		.gpio = 152,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = SDCC2_CLK_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = SDCC2_SUSPEND_CONFIG,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_qrdc_usb_configs[] __initdata = {
 	{
 		.gpio      = 34,
@@ -950,8 +1096,8 @@ static struct msm_gpiomux_config msm8x60_common_configs[] __initdata = {
 	{
 		.gpio = 77,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = MDM2AP_ACTIVE_CFG,
-			[GPIOMUX_SUSPENDED] = MDM2AP_SUSPEND_CFG,
+			[GPIOMUX_ACTIVE]    = MDM2AP_STATUS_ACTIVE_CFG,
+			[GPIOMUX_SUSPENDED] = MDM2AP_STATUS_SUSPEND_CFG,
 		},
 	},
 };
@@ -1096,6 +1242,7 @@ msm8x60_charm_gpiomux_cfgs[] __initdata = {
 	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
 	{msm8x60_cam_configs, ARRAY_SIZE(msm8x60_cam_configs)},
 	{msm8x60_tmg200_configs, ARRAY_SIZE(msm8x60_tmg200_configs)},
+	{msm8x60_charm_sdc_configs, ARRAY_SIZE(msm8x60_charm_sdc_configs)},
 	{NULL, 0},
 };
 
