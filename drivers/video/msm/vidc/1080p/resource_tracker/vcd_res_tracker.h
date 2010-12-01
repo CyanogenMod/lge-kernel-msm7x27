@@ -90,14 +90,14 @@ static struct msm_bus_vectors vidc_venc_vga_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 51530000,
-		.ib  = 51830000,
+		.ab  = 54525952,
+		.ib  = 436207616,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 56485000,
-		.ib  = 68570000,
+		.ab  = 72351744,
+		.ib  = 289406976,
 	},
 	{
 		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
@@ -116,14 +116,14 @@ static struct msm_bus_vectors vidc_vdec_vga_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 29145000,
-		.ib  = 32590000,
+		.ab  = 40894464,
+		.ib  = 327155712,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 36145000,
-		.ib  = 38080000,
+		.ab  = 48234496,
+		.ib  = 192937984,
 	},
 	{
 		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
@@ -142,14 +142,14 @@ static struct msm_bus_vectors vidc_venc_720p_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 156210000,
-		.ib  = 156770000,
+		.ab  = 163577856,
+		.ib  = 1308622848,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 171305000,
-		.ib  = 208750000,
+		.ab  = 219152384,
+		.ib  = 876609536,
 	},
 	{
 		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
@@ -168,14 +168,14 @@ static struct msm_bus_vectors vidc_vdec_720p_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 85280000,
-		.ib  = 96820000,
+		.ab  = 121634816,
+		.ib  = 973078528,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 107580000,
-		.ib  = 123000000,
+		.ab  = 155189248,
+		.ib  = 620756992,
 	},
 	{
 		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
@@ -194,14 +194,14 @@ static struct msm_bus_vectors vidc_venc_1080p_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 355860000,
-		.ib  = 356680000,
+		.ab  = 372244480,
+		.ib  = 1861222400,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 391365000,
-		.ib  = 478130000,
+		.ab  = 501219328,
+		.ib  = 2004877312,
 	},
 	{
 		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
@@ -220,14 +220,14 @@ static struct msm_bus_vectors vidc_vdec_1080p_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 199250000,
-		.ib  = 211770000,
+		.ab  = 222298112,
+		.ib  = 1778384896,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 311045000,
-		.ib  = 1521190000,
+		.ab  = 330301440,
+		.ib  = 1321205760,
 	},
 	{
 		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
