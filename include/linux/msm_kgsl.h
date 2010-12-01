@@ -147,6 +147,7 @@ struct kgsl_platform_data {
 	struct msm_bus_scale_pdata *grp3d_bus_scale_table;
 	struct msm_bus_scale_pdata *grp2d0_bus_scale_table;
 	struct msm_bus_scale_pdata *grp2d1_bus_scale_table;
+	unsigned int nap_allowed;
 };
 
 #endif

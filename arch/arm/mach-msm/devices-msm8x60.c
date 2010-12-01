@@ -502,6 +502,7 @@ struct kgsl_platform_data kgsl_pdata = {
 	.grp3d_bus_scale_table = &grp3d_bus_scale_pdata,
 	.grp2d0_bus_scale_table = &grp2d0_bus_scale_pdata,
 	.grp2d1_bus_scale_table = &grp2d1_bus_scale_pdata,
+	.nap_allowed = true,
 #endif
 };
 

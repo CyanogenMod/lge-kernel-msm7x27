@@ -72,6 +72,7 @@ struct kgsl_pwrctrl {
 	unsigned int interval_timeout;
 	struct regulator *gpu_reg;
 	uint32_t pcl;
+	unsigned int nap_allowed;
 };
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag);
