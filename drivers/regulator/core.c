@@ -2704,15 +2704,15 @@ error:
 	return -ENOMEM;
 }
 #else
-static int regulator_debug_create_directory(struct regulator_dev
+static inline void regulator_debug_create_directory(struct regulator_dev
 						*regulator_dev)
 {
-	return 0;
+	return;
 }
 
-int reg_debug_init(void)
+static inline void reg_debug_init(void)
 {
-	return 0;
+	return;
 }
 #endif
 
