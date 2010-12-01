@@ -19,26 +19,18 @@
 #include <linux/fb.h>
 #include <linux/file.h>
 #include <linux/fs.h>
-#include <linux/interrupt.h>
-#include <linux/clk.h>
-#include <mach/clk.h>
-#include <mach/dal_axi.h>
 #include <linux/uaccess.h>
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/android_pmem.h>
-#include <linux/pm_qos_params.h>
 #include <linux/highmem.h>
 #include <linux/vmalloc.h>
 #include <linux/notifier.h>
 #include <linux/pm_runtime.h>
 
-#include <linux/delay.h>
 #include <asm/atomic.h>
-#include <mach/internal_power_rail.h>
-#include <linux/regulator/consumer.h>
 
 #include <linux/ashmem.h>
 
