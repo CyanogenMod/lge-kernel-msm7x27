@@ -716,7 +716,9 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		*cmds++ = ibdesc[i].sizedwords;
 	}
 
-	kgsl_setstate(device, device->mmu.tlb_flags);
+	kgsl_setstate(device,
+		      kgsl_pt_get_flags(device->mmu.hwpagetable,
+					device->id));
 
 	kgsl_drawctxt_switch(yamato_device,
 			&yamato_device->drawctxt[drawctxt_index], flags);
