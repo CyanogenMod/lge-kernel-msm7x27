@@ -92,7 +92,6 @@ struct kgsl_mem_entry {
 	struct kgsl_memdesc memdesc;
 	struct file *file_ptr;
 	struct list_head list;
-	struct list_head free_list;
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
@@ -113,7 +112,7 @@ enum kgsl_status {
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry);
+void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry);
 uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);

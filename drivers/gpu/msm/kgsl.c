@@ -65,6 +65,7 @@ static void kgsl_clean_cache_all(struct kgsl_process_private *private)
 {
 	struct kgsl_mem_entry *entry = NULL;
 
+	spin_lock(&private->mem_lock);
 	list_for_each_entry(entry, &private->mem_list, list) {
 		if (KGSL_MEMFLAGS_CACHE_MASK & entry->memdesc.priv) {
 			    kgsl_cache_range_op((unsigned long)entry->
@@ -73,6 +74,7 @@ static void kgsl_clean_cache_all(struct kgsl_process_private *private)
 						   entry->memdesc.priv);
 		}
 	}
+	spin_unlock(&private->mem_lock);
 }
 
 /*this is used for logging, so that we can call the dev_printk
@@ -268,6 +270,7 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 		goto out;
 	}
 
+	spin_lock_init(&private->mem_lock);
 	private->refcnt = 1;
 	private->pid = task_pid_nr(current);
 
@@ -314,8 +317,12 @@ kgsl_put_process_private(struct kgsl_device *device,
 
 	list_del(&private->list);
 
-	list_for_each_entry_safe(entry, entry_tmp, &private->mem_list, list)
-		kgsl_remove_mem_entry(entry);
+	spin_lock(&private->mem_lock);
+	list_for_each_entry_safe(entry, entry_tmp, &private->mem_list, list) {
+		list_del(&entry->list);
+		kgsl_destroy_mem_entry(entry);
+	}
+	spin_unlock(&private->mem_lock);
 
 #ifdef CONFIG_MSM_KGSL_MMU
 	if (private->pagetable != NULL)
@@ -345,8 +352,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	BUG_ON(private == NULL);
 	filep->private_data = NULL;
 
-	kgsl_put_process_private(device, private);
-
 	mutex_lock(&device->mutex);
 	while (dev_priv->ctxt_id_mask) {
 		if (dev_priv->ctxt_id_mask & (1 << i)) {
@@ -360,9 +365,15 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 		KGSL_DRV_VDBG("last_release\n");
 		result = device->ftbl.device_stop(device);
 	}
+	/* clean up any to-be-freed entries that belong to this
+	 * process and this device
+	 */
+	kgsl_cmdstream_memqueue_cleanup(device, private);
 
 	mutex_unlock(&device->mutex);
 	kfree(dev_priv);
+
+	kgsl_put_process_private(device, private);
 
 	BUG_ON(kgsl_driver.pdev == NULL);
 	pm_runtime_put(&kgsl_driver.pdev->dev);
@@ -436,7 +447,7 @@ done:
 	return result;
 }
 
-/*call with driver locked */
+/*call with private->mem_lock locked */
 static struct kgsl_mem_entry *
 kgsl_sharedmem_find(struct kgsl_process_private *private, unsigned int gpuaddr)
 {
@@ -453,7 +464,7 @@ kgsl_sharedmem_find(struct kgsl_process_private *private, unsigned int gpuaddr)
 	return result;
 }
 
-/*call with driver locked */
+/*call with private->mem_lock locked */
 struct kgsl_mem_entry *
 kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 				unsigned int gpuaddr,
@@ -517,20 +528,36 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 					gpuaddr, size);
 	}
 
-	list_for_each_entry(priv , &kgsl_driver.process_list, list) {
+	mutex_lock(&kgsl_driver.process_mutex);
+	list_for_each_entry(priv, &kgsl_driver.process_list, list) {
 		if (pt_base != 0
 			&& priv->pagetable
 			&& priv->pagetable->base.gpuaddr != pt_base) {
 			continue;
 		}
 
+		spin_lock(&priv->mem_lock);
 		entry = kgsl_sharedmem_find_region(priv, gpuaddr,
 						sizeof(unsigned int));
 		if (entry) {
 			result = gpuaddr_to_vaddr(&entry->memdesc,
 							gpuaddr, size);
+			spin_unlock(&priv->mem_lock);
+			mutex_unlock(&kgsl_driver.process_mutex);
+			return result;
+		}
+		spin_unlock(&priv->mem_lock);
+	}
+	mutex_unlock(&kgsl_driver.process_mutex);
+
+	BUG_ON(!mutex_is_locked(&device->mutex));
+	list_for_each_entry(entry, &device->memqueue, list) {
+		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr)) {
+			result = gpuaddr_to_vaddr(&entry->memdesc,
+							gpuaddr, size);
 			break;
 		}
+
 	}
 	return result;
 }
@@ -601,6 +628,29 @@ static long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
 done:
 	return result;
 }
+static bool check_ibdesc(struct kgsl_process_private *private,
+			 struct kgsl_ibdesc *ibdesc, unsigned int numibs)
+{
+	bool result = true;
+	unsigned int i;
+	for (i = 0; i < numibs; i++) {
+		struct kgsl_mem_entry *entry;
+		spin_lock(&private->mem_lock);
+		entry = kgsl_sharedmem_find_region(private, ibdesc[i].gpuaddr,
+						   ibdesc[i].sizedwords *
+							sizeof(uint32_t));
+		spin_unlock(&private->mem_lock);
+		if (entry == NULL) {
+			KGSL_DRV_ERR("invalid cmd buffer gpuaddr %08x " \
+						"sizedwords %d\n",
+						ibdesc[i].gpuaddr,
+						ibdesc[i].sizedwords);
+			result = false;
+			break;
+		}
+	}
+	return result;
+}
 
 static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 				     void __user *arg)
@@ -608,7 +658,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	int result = 0;
 	struct kgsl_ringbuffer_issueibcmds param;
 	struct kgsl_ibdesc *ibdesc;
-	unsigned int i;
 
 	if (copy_from_user(&param, arg, sizeof(param))) {
 		result = -EFAULT;
@@ -667,18 +716,10 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		param.numibs = 1;
 	}
 
-	for (i = 0; i < param.numibs; i++) {
-		if (kgsl_sharedmem_find_region(dev_priv->process_priv,
-					ibdesc[i].gpuaddr,
-					ibdesc[i].sizedwords *
-						sizeof(uint32_t)) == NULL) {
-			KGSL_DRV_ERR("invalid cmd buffer gpuaddr %08x " \
-						"sizedwords %d\n",
-						ibdesc[i].gpuaddr,
-						ibdesc[i].sizedwords);
-			result = -EINVAL;
-			goto free_ibdesc;
-		}
+	if (!check_ibdesc(dev_priv->process_priv, ibdesc, param.numibs)) {
+		KGSL_DRV_ERR("bad ibdesc");
+		result = -EINVAL;
+		goto free_ibdesc;
 	}
 
 	result = dev_priv->device->ftbl.device_issueibcmds(dev_priv,
@@ -690,6 +731,15 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	if (result != 0)
 		goto free_ibdesc;
+
+	/* this is a check to try to detect if a command buffer was freed
+	 * during issueibcmds().
+	 */
+	if (!check_ibdesc(dev_priv->process_priv, ibdesc, param.numibs)) {
+		KGSL_DRV_ERR("bad ibdesc AFTER issue");
+		result = -EINVAL;
+		goto free_ibdesc;
+	}
 
 	if (copy_to_user(arg, &param, sizeof(param))) {
 		result = -EFAULT;
@@ -736,22 +786,24 @@ static long kgsl_ioctl_cmdstream_freememontimestamp(struct kgsl_device_private
 		goto done;
 	}
 
+	spin_lock(&dev_priv->process_priv->mem_lock);
 	entry = kgsl_sharedmem_find(dev_priv->process_priv, param.gpuaddr);
-	if (entry == NULL) {
+	if (entry)
+		list_del(&entry->list);
+	spin_unlock(&dev_priv->process_priv->mem_lock);
+
+	if (entry) {
+#ifdef CONFIG_MSM_KGSL_MMU
+		if (entry->memdesc.priv & KGSL_MEMFLAGS_VMALLOC_MEM)
+			entry->memdesc.priv &= ~KGSL_MEMFLAGS_CACHE_MASK;
+#endif
+		kgsl_cmdstream_freememontimestamp(dev_priv->device, entry,
+						  param.timestamp, param.type);
+		kgsl_runpending(dev_priv->device);
+	} else {
 		KGSL_DRV_ERR("invalid gpuaddr %08x\n", param.gpuaddr);
 		result = -EINVAL;
-		goto done;
 	}
-#ifdef CONFIG_MSM_KGSL_MMU
-	if (entry->memdesc.priv & KGSL_MEMFLAGS_VMALLOC_MEM)
-		entry->memdesc.priv &= ~KGSL_MEMFLAGS_CACHE_MASK;
-#endif
-	result = kgsl_cmdstream_freememontimestamp(dev_priv->device,
-							entry,
-							param.timestamp,
-							param.type);
-
-	kgsl_runpending(dev_priv->device);
 done:
 	return result;
 }
@@ -810,7 +862,7 @@ done:
 	return result;
 }
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry)
+void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry)
 {
 	kgsl_mmu_unmap(entry->memdesc.pagetable,
 			entry->memdesc.gpuaddr & KGSL_PAGEMASK,
@@ -823,14 +875,7 @@ void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry)
 	else
 		kgsl_put_phys_file(entry->file_ptr);
 
-	/* remove the entry from list and free_list if it exists */
-	if (entry->list.prev)
-		list_del(&entry->list);
-	if (entry->free_list.prev)
-		list_del(&entry->free_list);
-
 	kfree(entry);
-
 }
 
 static long kgsl_ioctl_sharedmem_free(struct kgsl_process_private *private,
@@ -844,15 +889,19 @@ static long kgsl_ioctl_sharedmem_free(struct kgsl_process_private *private,
 		result = -EFAULT;
 		goto done;
 	}
-	entry = kgsl_sharedmem_find(private, param.gpuaddr);
 
-	if (entry == NULL) {
+	spin_lock(&private->mem_lock);
+	entry = kgsl_sharedmem_find(private, param.gpuaddr);
+	if (entry)
+		list_del(&entry->list);
+	spin_unlock(&private->mem_lock);
+
+	if (entry) {
+		kgsl_destroy_mem_entry(entry);
+	} else {
 		KGSL_DRV_ERR("invalid gpuaddr %08x\n", param.gpuaddr);
 		result = -EINVAL;
-		goto done;
 	}
-
-	kgsl_remove_mem_entry(entry);
 done:
 	return result;
 }
@@ -966,7 +1015,9 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_process_private *private,
 		result = -EFAULT;
 		goto error_unmap_entry;
 	}
+	spin_lock(&private->mem_lock);
 	list_add(&entry->list, &private->mem_list);
+	spin_unlock(&private->mem_lock);
 	up_write(&current->mm->mmap_sem);
 
 	return 0;
@@ -1176,6 +1227,7 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 		result = -EINVAL;
 		goto error_unmap_entry;
 	}
+	entry->priv = private;
 	entry->memdesc.gpuaddr = total_offset;
 	param.gpuaddr = entry->memdesc.gpuaddr;
 
@@ -1191,7 +1243,9 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 	}
 	if (param.memtype != KGSL_USER_MEM_TYPE_PMEM)
 		up_write(&current->mm->mmap_sem);
+	spin_lock(&private->mem_lock);
 	list_add(&entry->list, &private->mem_list);
+	spin_unlock(&private->mem_lock);
 	return result;
 
 error_unmap_entry:
@@ -1230,18 +1284,20 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_process_private *private,
 		goto done;
 	}
 
+	spin_lock(&private->mem_lock);
 	entry = kgsl_sharedmem_find(private, param.gpuaddr);
 	if (!entry) {
 		KGSL_DRV_ERR("invalid gpuaddr %08x\n", param.gpuaddr);
 		result = -EINVAL;
-		goto done;
+	} else {
+		kgsl_cache_range_op((unsigned long)entry->memdesc.hostptr,
+				    entry->memdesc.size,
+				    KGSL_MEMFLAGS_CACHE_CLEAN |
+				    KGSL_MEMFLAGS_HOSTADDR);
+		/* Mark memory as being flushed so we don't flush it again */
+		entry->memdesc.priv &= ~KGSL_MEMFLAGS_CACHE_MASK;
 	}
-	kgsl_cache_range_op((unsigned long)entry->memdesc.hostptr,
-				entry->memdesc.size,
-				KGSL_MEMFLAGS_CACHE_CLEAN |
-				KGSL_MEMFLAGS_HOSTADDR);
-	/* Mark memory as being flushed so we don't flush it again */
-	entry->memdesc.priv &= ~KGSL_MEMFLAGS_CACHE_MASK;
+	spin_unlock(&private->mem_lock);
 done:
 	return result;
 }

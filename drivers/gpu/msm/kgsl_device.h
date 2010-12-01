@@ -150,11 +150,14 @@ struct kgsl_device {
 	struct mutex mutex;
 	uint32_t		state;
 	uint32_t		requested_state;
+
+	struct list_head memqueue;
 };
 
 struct kgsl_process_private {
 	unsigned int refcnt;
 	pid_t pid;
+	spinlock_t mem_lock;
 	struct list_head mem_list;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;

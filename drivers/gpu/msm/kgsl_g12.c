@@ -426,8 +426,7 @@ kgsl_g12_init(struct kgsl_device *device)
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
-	INIT_LIST_HEAD(&device->ringbuffer.memqueue);
-
+	INIT_LIST_HEAD(&device->memqueue);
 	status = kgsl_g12_cmdstream_init(device);
 	if (status != 0)
 		goto error_free_irq;
