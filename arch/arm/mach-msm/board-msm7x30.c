@@ -3156,9 +3156,9 @@ static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
 			return -ENODEV;
 		}
 
-		ret = request_irq(vbus_on_irq, pmic_vbus_on_irq,
+		ret = request_any_context_irq(vbus_on_irq, pmic_vbus_on_irq,
 			IRQF_TRIGGER_RISING, "msm_otg_vbus_on", NULL);
-		if (ret) {
+		if (ret < 0) {
 			pr_info("%s: request_irq for vbus_on"
 				"interrupt failed\n", __func__);
 			return ret;
