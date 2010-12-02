@@ -253,7 +253,7 @@ qup_i2c_pwr_timer(unsigned long data)
 }
 
 static int
-qup_i2c_poll_writeready(struct qup_i2c_dev *dev)
+qup_i2c_poll_writeready(struct qup_i2c_dev *dev, int rem)
 {
 	uint32_t retries = 0;
 
@@ -261,7 +261,10 @@ qup_i2c_poll_writeready(struct qup_i2c_dev *dev)
 		uint32_t status = readl(dev->base + QUP_I2C_STATUS);
 
 		if (!(status & I2C_STATUS_WR_BUFFER_FULL)) {
-			if (!(status & I2C_STATUS_BUS_ACTIVE))
+			if (((dev->msg->flags & I2C_M_RD) || (rem == 0)) &&
+				!(status & I2C_STATUS_BUS_ACTIVE))
+				return 0;
+			else if ((dev->msg->flags == 0) && (rem > 0))
 				return 0;
 			else /* 1-bit delay before we check for bus busy */
 				udelay(dev->one_bit_t);
@@ -412,6 +415,17 @@ qup_issue_write(struct qup_i2c_dev *dev, struct i2c_msg *msg, int rem,
 				writel(((last_entry | msg->buf[dev->pos]) |
 					((1 | QUP_OUT_NOP) << 16)), dev->base +
 					QUP_OUT_FIFO_BASE);/* + (*idx) - 2); */
+				*idx += 2;
+			} else if (next->flags == 0 && dev->pos == msg->len - 1
+					&& *idx < (dev->wr_sz*2)) {
+				/* Last byte of an intermittent write */
+				writel((last_entry | msg->buf[dev->pos]),
+					dev->base + QUP_OUT_FIFO_BASE);
+
+				qup_verify_fifo(dev,
+					last_entry | msg->buf[dev->pos],
+					(uint32_t)dev->base +
+					QUP_OUT_FIFO_BASE + (*idx), 0);
 				*idx += 2;
 			} else
 				*carry_over = (last_entry | msg->buf[dev->pos]);
@@ -591,11 +605,12 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	writel(0, dev->base + QUP_I2C_CLK_CTL);
 	writel(QUP_I2C_STATUS_RESET, dev->base + QUP_I2C_STATUS);
 
-	dev->cnt = msgs->len;
-	dev->pos = 0;
-	dev->msg = msgs;
 	while (rem) {
 		bool filled = false;
+
+		dev->cnt = msgs->len;
+		dev->pos = 0;
+		dev->msg = msgs;
 
 		dev->wr_sz = dev->out_fifo_sz;
 		dev->err = 0;
@@ -738,13 +753,15 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 			rem--;
 			msgs++;
 			if (rem) {
-				dev->pos = 0;
-				dev->cnt = msgs->len;
-				dev->msg = msgs;
+				err = qup_update_state(dev, QUP_RESET_STATE);
+				if (err < 0) {
+					ret = err;
+					goto out_err;
+				}
 			}
 		}
 		/* Wait for I2C bus to be idle */
-		ret = qup_i2c_poll_writeready(dev);
+		ret = qup_i2c_poll_writeready(dev, rem);
 		if (ret) {
 			dev_err(dev->dev,
 				"Error waiting for write ready\n");
