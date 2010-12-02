@@ -396,6 +396,7 @@ u32 ddl_vidc_encode_set_metadata_output_buf(struct ddl_client_context *ddl)
 	u32 ext_buffer_end, hw_metadata_start;
 	u32 *buffer;
 
+	ddl_context = ddl_get_context();
 	ext_buffer_end = (u32) stream->physical + stream->alloc_len;
 	if (!encoder->meta_data_enable_flag) {
 		ext_buffer_end &= ~(DDL_STREAMBUF_ALIGN_GUARD_BYTES);
