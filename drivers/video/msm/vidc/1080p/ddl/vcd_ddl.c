@@ -18,6 +18,9 @@
 
 #include "vcd_ddl.h"
 #include "vcd_ddl_metadata.h"
+#ifdef DDL_PROFILE
+static unsigned int first_time;
+#endif
 
 u32 ddl_device_init(struct ddl_init_config *ddl_init_config,
 	void *client_data)
@@ -233,7 +236,11 @@ u32 ddl_encode_start(u32 *ddl_handle, void *client_data)
 
 	DDL_MSG_HIGH("ddl_encode_start");
 #ifdef DDL_PROFILE
-	ddl_reset_time_variables(1);
+	if (first_time < 2) {
+		ddl_reset_time_variables(1);
+		first_time++;
+	 }
+	ddl_get_core_start_time(1);
 #endif
 	ddl_context = ddl_get_context();
 	if (!DDL_IS_INITIALIZED(ddl_context)) {
