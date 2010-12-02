@@ -68,7 +68,6 @@ static struct snddev_icodec_data snddev_iearpiece_data = {
 
 static struct platform_device msm_iearpiece_device = {
 	.name = "snddev_icodec",
-	.id = 0,
 	.dev = { .platform_data = &snddev_iearpiece_data },
 };
 
@@ -103,7 +102,6 @@ static struct snddev_icodec_data snddev_imic_data = {
 
 static struct platform_device msm_imic_device = {
 	.name = "snddev_icodec",
-	.id = 1,
 	.dev = { .platform_data = &snddev_imic_data },
 };
 
@@ -140,7 +138,6 @@ static struct snddev_icodec_data snddev_ihs_stereo_rx_data = {
 
 static struct platform_device msm_headset_stereo_device = {
 	.name = "snddev_icodec",
-	.id = 34,
 	.dev = { .platform_data = &snddev_ihs_stereo_rx_data },
 };
 
@@ -175,7 +172,6 @@ static struct snddev_icodec_data snddev_ispkr_stereo_data = {
 
 static struct platform_device msm_ispkr_stereo_device = {
 	.name = "snddev_icodec",
-	.id = 2,
 	.dev = { .platform_data = &snddev_ispkr_stereo_data },
 };
 
@@ -210,7 +206,6 @@ static struct snddev_icodec_data snddev_ispkr_mic_data = {
 
 static struct platform_device msm_ispkr_mic_device = {
 	.name = "snddev_icodec",
-	.id = 3,
 	.dev = { .platform_data = &snddev_ispkr_mic_data },
 };
 
@@ -245,7 +240,6 @@ static struct snddev_icodec_data snddev_iearpiece_ffa_data = {
 
 static struct platform_device msm_iearpiece_ffa_device = {
 	.name = "snddev_icodec",
-	.id = 19,
 	.dev = { .platform_data = &snddev_iearpiece_ffa_data },
 };
 
@@ -262,7 +256,6 @@ static struct snddev_icodec_data snddev_imic_ffa_data = {
 
 static struct platform_device msm_imic_ffa_device = {
 	.name = "snddev_icodec",
-	.id = 20,
 	.dev = { .platform_data = &snddev_imic_ffa_data },
 };
 
@@ -297,7 +290,6 @@ static struct snddev_icodec_data snddev_dual_mic_endfire_data = {
 
 static struct platform_device msm_hs_dual_mic_endfire_device = {
 	.name = "snddev_icodec",
-	.id = 12,
 	.dev = { .platform_data = &snddev_dual_mic_endfire_data },
 };
 
@@ -380,7 +372,6 @@ static struct snddev_hdmi_data snddev_hdmi_stereo_rx_data = {
 
 static struct platform_device msm_snddev_hdmi_stereo_rx_device = {
 	.name = "snddev_hdmi",
-	.id = 0,
 	.dev = { .platform_data = &snddev_hdmi_stereo_rx_data },
 };
 
@@ -395,7 +386,6 @@ static struct snddev_mi2s_data snddev_mi2s_fm_tx_data = {
 
 static struct platform_device msm_mi2s_fm_tx_device = {
 	.name = "snddev_mi2s",
-	.id = 0,
 	.dev = { .platform_data = &snddev_mi2s_fm_tx_data },
 };
 
@@ -445,7 +435,6 @@ static struct snddev_icodec_data snddev_headset_mic_data = {
 
 static struct platform_device msm_headset_mic_device = {
 	.name = "snddev_icodec",
-	.id = 33,
 	.dev = { .platform_data = &snddev_headset_mic_data },
 };
 
@@ -503,13 +492,11 @@ static struct snddev_ecodec_data snddev_bt_sco_mic_data = {
 
 struct platform_device msm_bt_sco_earpiece_device = {
 	.name = "msm_snddev_ecodec",
-	.id = 0,
 	.dev = { .platform_data = &snddev_bt_sco_earpiece_data },
 };
 
 struct platform_device msm_bt_sco_mic_device = {
 	.name = "msm_snddev_ecodec",
-	.id = 1,
 	.dev = { .platform_data = &snddev_bt_sco_mic_data },
 };
 
@@ -544,7 +531,6 @@ static struct snddev_icodec_data snddev_itty_mono_tx_data = {
 
 static struct platform_device msm_itty_mono_tx_device = {
 	.name = "snddev_icodec",
-	.id = 16,
 	.dev = { .platform_data = &snddev_itty_mono_tx_data },
 };
 
@@ -581,7 +567,6 @@ static struct snddev_icodec_data snddev_itty_mono_rx_data = {
 
 static struct platform_device msm_itty_mono_rx_device = {
 	.name = "snddev_icodec",
-	.id = 17,
 	.dev = { .platform_data = &snddev_itty_mono_rx_data },
 };
 
@@ -755,14 +740,25 @@ static struct platform_device *snd_devices_fluid[] __initdata = {
 
 void __init msm_snddev_init(void)
 {
+	int i;
+
 	/* Auto detect device base on machine info */
 	if (machine_is_msm8x60_surf()) {
+		for (i = 0; i < ARRAY_SIZE(snd_devices_surf); i++)
+			snd_devices_surf[i]->id = i;
+
 		platform_add_devices(snd_devices_surf,
 		ARRAY_SIZE(snd_devices_surf));
 	} else if (machine_is_msm8x60_ffa()) {
+		for (i = 0; i < ARRAY_SIZE(snd_devices_ffa); i++)
+			snd_devices_ffa[i]->id = i;
+
 		platform_add_devices(snd_devices_ffa,
 		ARRAY_SIZE(snd_devices_ffa));
 	} else if (machine_is_msm8x60_fluid()) {
+		for (i = 0; i < ARRAY_SIZE(snd_devices_fluid); i++)
+			snd_devices_ffa[i]->id = i;
+
 		platform_add_devices(snd_devices_fluid,
 		ARRAY_SIZE(snd_devices_fluid));
 	}
