@@ -129,7 +129,7 @@ int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 	start.hdr.token = 0;
 	start.hdr.opcode = AFE_PORT_CMD_START;
 	start.port_id = port_id;
-	start.gain = 0x4000;
+	start.gain = 0x2000;
 	start.sample_rate = rate;
 
 	atomic_set(&this_afe.state, 1);
