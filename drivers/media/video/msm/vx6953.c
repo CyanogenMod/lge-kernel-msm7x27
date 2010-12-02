@@ -154,6 +154,7 @@
 #define	VX6953_HRZ_QTR_BLK_PIXELS	1628
 #define	VX6953_VER_QTR_BLK_LINES	28
 #define	MAX_LINE_LENGTH_PCK		8190
+#define	MAX_FRAME_LENGTH_LINES	16383
 #define	VX6953_REVISION_NUMBER_CUT2	0x10/*revision number	for	Cut2.0*/
 #define	VX6953_REVISION_NUMBER_CUT3	0x20/*revision number	for	Cut3.0*/
 /* FIXME: Changes from here */
@@ -2180,7 +2181,7 @@ static int32_t vx6953_write_exp_gain(uint16_t gain, uint32_t line)
 	uint16_t line_length_pck, frame_length_lines;
 	uint8_t gain_hi, gain_lo;
 	uint8_t intg_time_hi, intg_time_lo;
-	uint8_t line_length_pck_hi = 0, line_length_pck_lo = 0;
+	uint8_t frame_length_lines_hi = 0, frame_length_lines_lo = 0;
 	uint16_t line_length_ratio = 1 * Q8;
 	int32_t rc = 0;
 	if (vx6953_ctrl->sensormode != SENSOR_SNAPSHOT_MODE) {
@@ -2212,19 +2213,20 @@ static int32_t vx6953_write_exp_gain(uint16_t gain, uint32_t line)
 	}
 	vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
 		GROUPED_PARAMETER_HOLD);
-	line_length_pck = (line_length_pck >
-		MAX_LINE_LENGTH_PCK) ?
-		MAX_LINE_LENGTH_PCK : line_length_pck;
-	line_length_pck = (uint16_t) (line_length_pck *
-		line_length_ratio/Q8);
-	line_length_pck_hi = (uint8_t) ((line_length_pck &
+	if ((line + VX6953_STM5M0EDOF_OFFSET) > MAX_FRAME_LENGTH_LINES)
+		frame_length_lines = MAX_FRAME_LENGTH_LINES;
+	else if ((line + VX6953_STM5M0EDOF_OFFSET) > frame_length_lines)
+		frame_length_lines = line + VX6953_STM5M0EDOF_OFFSET;
+
+	frame_length_lines_hi = (uint8_t) ((frame_length_lines &
 		0xFF00) >> 8);
-	line_length_pck_lo = (uint8_t) (line_length_pck &
+	frame_length_lines_lo = (uint8_t) (frame_length_lines &
 		0x00FF);
-	vx6953_i2c_write_b_sensor(REG_LINE_LENGTH_PCK_HI,
-		line_length_pck_hi);
-	vx6953_i2c_write_b_sensor(REG_LINE_LENGTH_PCK_LO,
-		line_length_pck_lo);
+	vx6953_i2c_write_b_sensor(REG_FRAME_LENGTH_LINES_HI,
+		frame_length_lines_hi);
+	vx6953_i2c_write_b_sensor(REG_FRAME_LENGTH_LINES_LO,
+		frame_length_lines_lo);
+
 	/* update analogue gain registers */
 	gain_hi = (uint8_t) ((gain & 0xFF00) >> 8);
 	gain_lo = (uint8_t) (gain & 0x00FF);
