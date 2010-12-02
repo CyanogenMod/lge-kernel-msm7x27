@@ -574,19 +574,30 @@ int msm_camio_jpeg_clk_disable(void)
 {
 	int rc = 0;
 	if (fs_ijpeg) {
-		regulator_disable(fs_ijpeg);
+		rc = regulator_disable(fs_ijpeg);
+		if (rc < 0) {
+			CDBG("%s: Regulator disable failed %d\n", __func__, rc);
+			return rc;
+		}
 		regulator_put(fs_ijpeg);
 	}
-	rc = msm_camio_clk_disable(CAMIO_JPEG_CLK);
+	rc = msm_camio_clk_disable(CAMIO_JPEG_PCLK);
 	if (rc < 0)
 		return rc;
-	rc = msm_camio_clk_disable(CAMIO_JPEG_PCLK);
+	rc = msm_camio_clk_disable(CAMIO_JPEG_CLK);
+	CDBG("%s: exit %d\n", __func__, rc);
 	return rc;
 }
 
 int msm_camio_jpeg_clk_enable(void)
 {
 	int rc = 0;
+	rc = msm_camio_clk_enable(CAMIO_JPEG_CLK);
+	if (rc < 0)
+		return rc;
+	rc = msm_camio_clk_enable(CAMIO_JPEG_PCLK);
+	if (rc < 0)
+		return rc;
 	fs_ijpeg = regulator_get(NULL, "fs_ijpeg");
 	if (IS_ERR(fs_ijpeg)) {
 		CDBG("%s: Regulator FS_IJPEG get failed %ld\n", __func__,
@@ -596,11 +607,7 @@ int msm_camio_jpeg_clk_enable(void)
 		CDBG("%s: Regulator FS_IJPEG enable failed\n", __func__);
 		regulator_put(fs_ijpeg);
 	}
-
-	rc = msm_camio_clk_enable(CAMIO_JPEG_CLK);
-	if (rc < 0)
-		return rc;
-	rc = msm_camio_clk_enable(CAMIO_JPEG_PCLK);
+	CDBG("%s: exit %d\n", __func__, rc);
 	return rc;
 }
 
