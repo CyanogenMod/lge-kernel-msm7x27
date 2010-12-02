@@ -314,14 +314,14 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	return 0;
 xmit_out:
 	/* data xmited, safe to release skb */
-	dev_kfree_skb_irq(skb);
+	dev_kfree_skb_any(skb);
 	return 0;
 }
 
 static void sdio_write_done(void *dev, struct sk_buff *skb)
 {
 	DBG("%s: write complete\n", __func__);
-	dev_kfree_skb_irq(skb);
+	dev_kfree_skb_any(skb);
 	netif_wake_queue(dev);
 }
 
