@@ -604,6 +604,8 @@ static struct platform_driver usb_diag_driver = {
 
 static int __init usb_diag_init(void)
 {
+	printk(KERN_INFO "f_diag init\n");
+
 	return platform_driver_register(&usb_diag_driver);
 }
 module_init(usb_diag_init);

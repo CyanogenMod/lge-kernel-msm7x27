@@ -157,6 +157,28 @@ char *usb_functions_all[] = {
 
 /* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Temporary USB setting */
 /* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
+
+char *usb_functions_lge_all[] = {
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
+#endif
+#ifdef CONFIG_USB_ANDROID_DIAG
+	"diag",
+#endif
+#ifdef CONFIG_USB_F_SERIAL
+	"modem",
+	"nmea",
+#endif
+	"usb_mass_storage",
+	"adb",
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	"rndis",
+#endif
+#ifdef CONFIG_USB_ANDROID_RMNET
+	"rmnet",
+#endif
+};
+
 char *usb_functions_lge_default[] = {
 	"acm", "diag", "nmea", "usb_mass_storage",
 };
@@ -208,8 +230,8 @@ struct android_usb_product usb_products[] = {
 /* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
 struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns      = 1,
-	.vendor     = "LG Electronics Inc.",
-	.product    = "Mass storage",
+	.vendor     = "LGE",
+	.product    = "Android Platform",
 	.release    = 0x0100,
 };
 
@@ -243,8 +265,13 @@ struct android_usb_platform_data android_usb_pdata = {
 	.manufacturer_name  = "LG Electronics Inc.",
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
+#if 1
+	.num_functions = ARRAY_SIZE(usb_functions_lge_all),
+	.functions = usb_functions_lge_all,
+#else /* below is original */	
 	.num_functions = ARRAY_SIZE(usb_functions_all),
 	.functions = usb_functions_all,
+#endif	
 	.serial_number = "LG_ANDROID_P500****",
 };
 /* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */

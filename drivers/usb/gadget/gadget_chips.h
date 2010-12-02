@@ -156,6 +156,14 @@
 #define gadget_is_s3c_hsotg(g)    0
 #endif
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-02, MSM72K_UDC */
+#ifdef CONFIG_USB_GADGET_MSM_72K
+#define gadget_is_msm72k(g) !strcmp("msm72k_udc", (g)->name)
+#else
+#define gadget_is_msm72k(g) 0
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-02 */
+
 
 /**
  * usb_gadget_controller_number - support bcdDevice id convention
@@ -214,6 +222,10 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x25;
 	else if (gadget_is_s3c_hsotg(gadget))
 		return 0x26;
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-02, MSM72K_UDC */
+	else if (gadget_is_msm72k(gadget))
+		return 0x27;
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-02 */	
 	return -ENOENT;
 }
 

@@ -830,7 +830,7 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 
 /* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Apply Patch for LG ACM */
 #ifdef LG_ACM_FIX	
-                acm_interface_assoc_desc.iFunction = status;
+		acm_interface_assoc_desc.iFunction = status;
 #else
 		acm_iad_descriptor.iFunction = status;
 #endif
@@ -870,10 +870,19 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 
 int acm_function_bind_config(struct usb_configuration *c)
 {
+#if 1 /* Temporary Testing */
+	int ret;
+
+	ret = gserial_setup(c->cdev->gadget, 1);
+	if (ret)
+		return ret;
+	return acm_bind_config(c, 0);
+#else /* below is original */	
 	int ret = acm_bind_config(c, 0);
 	if (ret == 0)
 		gserial_setup(c->cdev->gadget, 1);
 	return ret;
+#endif	
 }
 
 static struct android_usb_function acm_function = {
