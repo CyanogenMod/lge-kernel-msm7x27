@@ -1011,6 +1011,7 @@ struct clk msm_clocks_7x30[] = {
 	CLK_PCOM("pbus_clk",	PBUS_CLK,	NULL, CLK_MIN),
 
 	CLK_7X30("adm_clk",	ADM_CLK,	NULL, 0),
+	CLK_7X30L("adm_pclk",   ADM_P_CLK,       NULL, 0),
 	CLK_7X30("cam_m_clk",	CAM_M_CLK,	NULL, 0),
 	CLK_7X30("camif_pad_pclk",	CAMIF_PAD_P_CLK,	NULL, OFF),
 	CLK_7X30("ce_clk",	CE_CLK,		NULL, 0),
