@@ -62,8 +62,6 @@ static struct snddev_icodec_data snddev_iearpiece_data = {
 	.profile = &iearpiece_profile,
 	.channel_mode = 1,
 	.default_sample_rate = 48000,
-	.pamp_on = msm_snddev_rx_route_config,
-	.pamp_off = msm_snddev_rx_route_deconfig,
 };
 
 static struct platform_device msm_iearpiece_device = {
@@ -130,8 +128,6 @@ static struct snddev_icodec_data snddev_ihs_stereo_rx_data = {
 	.profile = &headset_ab_cpls_profile,
 	.channel_mode = 2,
 	.default_sample_rate = 48000,
-	.pamp_on = msm_snddev_rx_route_config,
-	.pamp_off = msm_snddev_rx_route_deconfig,
 	.voltage_on = msm_snddev_voltage_on,
 	.voltage_off = msm_snddev_voltage_off,
 };
@@ -234,8 +230,6 @@ static struct snddev_icodec_data snddev_iearpiece_ffa_data = {
 	.profile = &iearpiece_ffa_profile,
 	.channel_mode = 1,
 	.default_sample_rate = 48000,
-	.pamp_on = msm_snddev_rx_route_config,
-	.pamp_off = msm_snddev_rx_route_deconfig,
 };
 
 static struct platform_device msm_iearpiece_ffa_device = {
@@ -429,8 +423,6 @@ static struct snddev_icodec_data snddev_headset_mic_data = {
 	.profile = &iheadset_mic_profile,
 	.channel_mode = 1,
 	.default_sample_rate = 48000,
-	.pamp_on = msm_snddev_tx_route_config,
-	.pamp_off = msm_snddev_tx_route_deconfig,
 };
 
 static struct platform_device msm_headset_mic_device = {
@@ -525,8 +517,6 @@ static struct snddev_icodec_data snddev_itty_mono_tx_data = {
 	.profile = &itty_mono_tx_profile,
 	.channel_mode = 1,
 	.default_sample_rate = 48000,
-	.pamp_on = msm_snddev_tx_route_config,
-	.pamp_off = msm_snddev_tx_route_deconfig,
 };
 
 static struct platform_device msm_itty_mono_tx_device = {
@@ -559,8 +549,6 @@ static struct snddev_icodec_data snddev_itty_mono_rx_data = {
 	.profile = &itty_mono_rx_profile,
 	.channel_mode = 1,
 	.default_sample_rate = 48000,
-	.pamp_on = msm_snddev_rx_route_config,
-	.pamp_off = msm_snddev_rx_route_deconfig,
 	.voltage_on = msm_snddev_voltage_on,
 	.voltage_off = msm_snddev_voltage_off,
 };
