@@ -597,7 +597,9 @@ static void vfe31_release(struct platform_device *pdev)
 	kfree(vfe31_ctrl);
 	vfe31_ctrl = NULL;
 	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
+	pr_info("%s, msm_camio_disable\n", __func__);
 	msm_camio_disable(pdev);
+	pr_info("%s, msm_camio_set_perf_lvl\n", __func__);
 	msm_camio_set_perf_lvl(S_DEFAULT);
 
 	vfe_syncdata = NULL;
@@ -1000,9 +1002,8 @@ static void vfe31_start_common(void){
 	unsigned long flags;
 
 	vfe31_ctrl->start_ack_pending = TRUE;
-	CDBG("VFE opertaion mode = 0x%x.\n", vfe31_ctrl->operation_mode);
-	CDBG("VFE output path out mode = 0x%x.\n",
-		vfe31_ctrl->outpath.output_mode);
+	pr_info("VFE opertaion mode = 0x%x, output mode = 0x%x\n",
+		vfe31_ctrl->operation_mode, vfe31_ctrl->outpath.output_mode);
 	msm_io_w(0x00EFE021, vfe31_ctrl->vfebase + VFE_IRQ_MASK_0);
 	msm_io_w(VFE_IMASK_WHILE_STOPPING_1,
 		vfe31_ctrl->vfebase + VFE_IRQ_MASK_1);
@@ -1301,15 +1302,21 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 		vfe31_general_cmd[cmd->id], cmd->length);
 	switch (cmd->id) {
 	case V31_RESET:
+		pr_info("vfe31_proc_general: cmdID = %s\n",
+			vfe31_general_cmd[cmd->id]);
 		vfe31_reset();
 		break;
 	case V31_START:
+		pr_info("vfe31_proc_general: cmdID = %s\n",
+			vfe31_general_cmd[cmd->id]);
 		rc = vfe31_start();
 		break;
 	case V31_UPDATE:
 		vfe31_update();
 		break;
 	case V31_CAPTURE:
+		pr_info("vfe31_proc_general: cmdID = %s\n",
+			vfe31_general_cmd[cmd->id]);
 		if (copy_from_user(&snapshot_cnt, (void __user *)(cmd->value),
 				sizeof(uint32_t))) {
 			rc = -EFAULT;
@@ -1318,9 +1325,13 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 		rc = vfe31_capture(snapshot_cnt);
 		break;
 	case V31_START_RECORDING:
+		pr_info("vfe31_proc_general: cmdID = %s\n",
+			vfe31_general_cmd[cmd->id]);
 		rc = vfe31_start_recording();
 		break;
 	case V31_STOP_RECORDING:
+		pr_info("vfe31_proc_general: cmdID = %s\n",
+			vfe31_general_cmd[cmd->id]);
 		rc = vfe31_stop_recording();
 		break;
 	case V31_OPERATION_CFG: {
@@ -1642,6 +1653,8 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 		break;
 
 	case V31_LIVESHOT:
+		pr_info("vfe31_proc_general: cmdID = %s\n",
+			vfe31_general_cmd[cmd->id]);
 		vfe31_liveshot();
 		break;
 
@@ -1742,6 +1755,8 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 		}
 		break;
 	case V31_STOP:
+		pr_info("vfe31_proc_general: cmdID = %s\n",
+			vfe31_general_cmd[cmd->id]);
 		vfe_stop();
 		break;
 
@@ -2134,7 +2149,7 @@ static void vfe31_process_reg_update_irq(void)
 			msm_io_w(old_val,
 				vfe31_ctrl->vfebase + VFE_MODULE_CFG);
 		}
-		CDBG("start video triggered .\n");
+		pr_info("start video triggered .\n");
 	} else if (vfe31_ctrl->req_stop_video_rec) {
 		if (vfe31_ctrl->outpath.output_mode & VFE31_OUTPUT_MODE_V) {
 			msm_io_w(0, vfe31_ctrl->vfebase + V31_AXI_OUT_OFF + 20 +
@@ -2167,7 +2182,7 @@ static void vfe31_process_reg_update_irq(void)
 		msm_io_w(old_val,
 				vfe31_ctrl->vfebase + VFE_MODULE_CFG);
 
-		CDBG("stop video triggered .\n");
+		pr_info("stop video triggered .\n");
 	}
 	if (vfe31_ctrl->start_ack_pending == TRUE) {
 		vfe31_send_msg_no_payload(MSG_ID_START_ACK);
@@ -2328,72 +2343,72 @@ static void vfe31_process_camif_sof_irq(void)
 static void vfe31_process_error_irq(uint32_t errStatus)
 {
 	if (errStatus & VFE31_IMASK_CAMIF_ERROR) {
-		CDBG("vfe31_irq: camif errors\n");
+		pr_err("vfe31_irq: camif errors\n");
 		vfe31_send_msg_no_payload(MSG_ID_CAMIF_ERROR);
 	}
 
 	if (errStatus & VFE31_IMASK_STATS_CS_OVWR)
-		CDBG("vfe31_irq: stats cs overwrite\n");
+		pr_err("vfe31_irq: stats cs overwrite\n");
 
 	if (errStatus & VFE31_IMASK_STATS_IHIST_OVWR)
-		CDBG("vfe31_irq: stats ihist overwrite\n");
+		pr_err("vfe31_irq: stats ihist overwrite\n");
 
 	if (errStatus & VFE31_IMASK_REALIGN_BUF_Y_OVFL)
-		CDBG("vfe31_irq: realign bug Y overflow\n");
+		pr_err("vfe31_irq: realign bug Y overflow\n");
 
 	if (errStatus & VFE31_IMASK_REALIGN_BUF_CB_OVFL)
-		CDBG("vfe31_irq: realign bug CB overflow\n");
+		pr_err("vfe31_irq: realign bug CB overflow\n");
 
 	if (errStatus & VFE31_IMASK_REALIGN_BUF_CR_OVFL)
-		CDBG("vfe31_irq: realign bug CR overflow\n");
+		pr_err("vfe31_irq: realign bug CR overflow\n");
 
 	if (errStatus & VFE31_IMASK_VIOLATION)
-		CDBG("vfe31_irq: violation interrupt\n");
+		pr_err("vfe31_irq: violation interrupt\n");
 
 	if (errStatus & VFE31_IMASK_IMG_MAST_0_BUS_OVFL)
-		CDBG("vfe31_irq: image master 0 bus overflow\n");
+		pr_err("vfe31_irq: image master 0 bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_IMG_MAST_1_BUS_OVFL)
-		CDBG("vfe31_irq: image master 1 bus overflow\n");
+		pr_err("vfe31_irq: image master 1 bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_IMG_MAST_2_BUS_OVFL)
-		CDBG("vfe31_irq: image master 2 bus overflow\n");
+		pr_err("vfe31_irq: image master 2 bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_IMG_MAST_3_BUS_OVFL)
-		CDBG("vfe31_irq: image master 3 bus overflow\n");
+		pr_err("vfe31_irq: image master 3 bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_IMG_MAST_4_BUS_OVFL)
-		CDBG("vfe31_irq: image master 4 bus overflow\n");
+		pr_err("vfe31_irq: image master 4 bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_IMG_MAST_5_BUS_OVFL)
-		CDBG("vfe31_irq: image master 5 bus overflow\n");
+		pr_err("vfe31_irq: image master 5 bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_IMG_MAST_6_BUS_OVFL)
-		CDBG("vfe31_irq: image master 6 bus overflow\n");
+		pr_err("vfe31_irq: image master 6 bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_STATS_AE_BUS_OVFL)
-		CDBG("vfe31_irq: ae stats bus overflow\n");
+		pr_err("vfe31_irq: ae stats bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_STATS_AF_BUS_OVFL)
-		CDBG("vfe31_irq: af stats bus overflow\n");
+		pr_err("vfe31_irq: af stats bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_STATS_AWB_BUS_OVFL)
-		CDBG("vfe31_irq: awb stats bus overflow\n");
+		pr_err("vfe31_irq: awb stats bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_STATS_RS_BUS_OVFL)
-		CDBG("vfe31_irq: rs stats bus overflow\n");
+		pr_err("vfe31_irq: rs stats bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_STATS_CS_BUS_OVFL)
-		CDBG("vfe31_irq: cs stats bus overflow\n");
+		pr_err("vfe31_irq: cs stats bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_STATS_IHIST_BUS_OVFL)
-		CDBG("vfe31_irq: ihist stats bus overflow\n");
+		pr_err("vfe31_irq: ihist stats bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_STATS_SKIN_BUS_OVFL)
-		CDBG("vfe31_irq: skin stats bus overflow\n");
+		pr_err("vfe31_irq: skin stats bus overflow\n");
 
 	if (errStatus & VFE31_IMASK_AXI_ERROR)
-		CDBG("vfe31_irq: axi error\n");
+		pr_err("vfe31_irq: axi error\n");
 }
 
 #define VFE31_AXI_OFFSET 0x0050
@@ -2471,7 +2486,7 @@ static void vfe31_process_output_path_irq_0(void)
 
 		} else {
 			vfe31_ctrl->outpath.out0.frame_drop_cnt++;
-			CDBG("path_irq_0 - no free buffer!\n");
+			pr_info("path_irq_0 - no free buffer!\n");
 		}
 	}
 
@@ -2502,7 +2517,7 @@ static void vfe31_process_output_path_irq_1(void)
 			pcbcraddr = vfe31_get_ch_addr(ping_pong,
 				vfe31_ctrl->outpath.out1.ch1);
 
-			CDBG("snapshot main, pyaddr = 0x%x, pcbcraddr = 0x%x\n",
+			pr_info("snapshot main, pyaddr = 0x%x, pcbcraddr = 0x%x\n",
 				pyaddr, pcbcraddr);
 			if (vfe31_ctrl->outpath.out1.free_buf.available) {
 				/* Y channel */
@@ -2524,7 +2539,7 @@ static void vfe31_process_output_path_irq_1(void)
 			}
 		} else {
 			vfe31_ctrl->outpath.out1.frame_drop_cnt++;
-			CDBG("path_irq_1 - no free buffer!\n");
+			pr_info("path_irq_1 - no free buffer!\n");
 	}
 }
 
@@ -2579,7 +2594,7 @@ static void vfe31_process_output_path_irq_2(void)
 			vfe_send_outmsg(MSG_ID_OUTPUT_V, pyaddr, pcbcraddr);
 		} else {
 			vfe31_ctrl->outpath.out2.frame_drop_cnt++;
-			CDBG("path_irq_2 - no free buffer!\n");
+			pr_info("path_irq_2 - no free buffer!\n");
 		}
 }
 
@@ -2798,13 +2813,13 @@ static void vfe31_do_tasklet(unsigned long data)
 
 		if (qcmd->vfeInterruptStatus1 &
 				VFE_IMASK_WHILE_STOPPING_1) {
-			CDBG("irq	resetAckIrq\n");
+			pr_info("irq	resetAckIrq\n");
 			vfe31_process_reset_irq();
 		}
 
 		if (qcmd->vfeInterruptStatus1 &
 				VFE31_IMASK_ERROR_ONLY_1) {
-			CDBG("irq	errorIrq\n");
+			pr_err("irq	errorIrq\n");
 			vfe31_process_error_irq(qcmd->vfeInterruptStatus1 &
 				VFE31_IMASK_ERROR_ONLY_1);
 		}
@@ -2933,14 +2948,14 @@ static irqreturn_t vfe31_parse_irq(int irq_num, void *data)
 	vfe31_read_irq_status(&irq);
 
 	if ((irq.vfeIrqStatus0 == 0) && (irq.vfeIrqStatus1 == 0)) {
-		CDBG("vfe_parse_irq: vfeIrqStatus0 & 1 are both 0!\n");
+		pr_info("vfe_parse_irq: vfeIrqStatus0 & 1 are both 0!\n");
 		return IRQ_HANDLED;
 	}
 
 	qcmd = kzalloc(sizeof(struct vfe31_isr_queue_cmd),
 		GFP_ATOMIC);
 	if (!qcmd) {
-		CDBG("vfe_parse_irq: qcmd malloc failed!\n");
+		pr_err("vfe_parse_irq: qcmd malloc failed!\n");
 		return IRQ_HANDLED;
 	}
 

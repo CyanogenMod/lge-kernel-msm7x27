@@ -1131,13 +1131,13 @@ int msm_vpe_release(void)
 	/* don't change the order of clock and irq.*/
 	int rc = 0;
 
-	CDBG("%s: In \n", __func__);
+	pr_info("%s: In\n", __func__);
 
 	free_irq(vpe_device->vpeirq, 0);
 	rc = msm_camio_vpe_clk_disable();
 	kfree(vpe_ctrl);
 
-	CDBG("%s: Out \n", __func__);
+	pr_info("%s: Out\n", __func__);
 	return rc;
 }
 
