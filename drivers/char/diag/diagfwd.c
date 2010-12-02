@@ -332,15 +332,39 @@ static void diag_update_event_mask(uint8_t *buf, int toggle, int num_bits)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-static void diag_update_log_mask(uint8_t *buf, int num_items)
+static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 {
-	uint8_t *ptr = driver->log_masks;
 	uint8_t *temp = buf;
+	struct mask_info {
+		int equip_id;
+		int index;
+	};
+	int i = 0;
+	unsigned char *ptr_data;
+	int offset = 8*MAX_EQUIP_ID;
+	struct mask_info *ptr = (struct mask_info *)driver->log_masks;
 
 	mutex_lock(&driver->diagchar_mutex);
-	if (CHK_OVERFLOW(ptr, ptr, ptr + LOG_MASK_SIZE,
-				  (num_items+7)/8))
-		memcpy(ptr, temp , (num_items+7)/8);
+	/* Check if we already know index of this equipment ID */
+	for (i = 0; i < MAX_EQUIP_ID; i++) {
+		if ((ptr->equip_id == equip_id) && (ptr->index != 0)) {
+			offset = ptr->index;
+			break;
+		}
+		if ((ptr->equip_id == 0) && (ptr->index == 0)) {
+			/*Reached a null entry */
+			ptr->equip_id = equip_id;
+			ptr->index = driver->log_masks_length;
+			offset = driver->log_masks_length;
+			driver->log_masks_length += ((num_items+7)/8);
+			break;
+		}
+		ptr++;
+	}
+	ptr_data = driver->log_masks + offset;
+	if (CHK_OVERFLOW(ptr_data, ptr_data, ptr_data + LOG_MASK_SIZE,
+							(num_items+7)/8))
+		memcpy(ptr_data, temp , (num_items+7)/8);
 	else
 		printk(KERN_CRIT " Not enough buffer space for LOG_MASK\n");
 	mutex_unlock(&driver->diagchar_mutex);
@@ -409,8 +433,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	else if (*buf == 0x73) {
 		buf += 4;
 		if (*(int *)buf == 3) {
-			buf += 8;
-			diag_update_log_mask(buf+4, *(int *)buf);
+			buf += 4;
+			/* Read Equip ID and pass as first param below*/
+			diag_update_log_mask(*(int *)buf, buf+8,
+							 *(int *)(buf+4));
 			diag_update_userspace_clients(LOG_MASKS_TYPE);
 		}
 	}
@@ -808,6 +834,7 @@ void diagfwd_init(void)
 	if (driver->log_masks == NULL &&
 	    (driver->log_masks = kzalloc(LOG_MASK_SIZE, GFP_KERNEL)) == NULL)
 		goto err;
+	driver->log_masks_length = 8*MAX_EQUIP_ID;
 	if (driver->event_masks == NULL &&
 	    (driver->event_masks = kzalloc(EVENT_MASK_SIZE,
 					    GFP_KERNEL)) == NULL)
