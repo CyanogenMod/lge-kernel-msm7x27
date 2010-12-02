@@ -211,10 +211,6 @@ static struct vreg vregs[RPM_VREG_ID_MAX] = {
 	VREG_1(PM8901_MVS0, MVS),
 };
 
-#define REG_IS_PM8058_S1(rpm_id) ((rpm_id) == MSM_RPM_ID_SMPS1_0 || \
-				  (rpm_id) == MSM_RPM_ID_SMPS1_1)
-
-
 static int voltage_from_req(struct vreg *vreg)
 {
 	int shift = 0;
@@ -366,43 +362,6 @@ static int vreg_set_noirq(struct vreg *vreg, enum rpm_vreg_voter voter,
 }
 
 /**
- * pm8058_s1_set_min_uv_noirq - vote for a min_uV value of regualtor pm8058_s1
- * @voter: ID for the voter
- * @min_uV: minimum acceptable voltage (in uV) that is voted for
- *
- * Returns 0 on success or less than 0 on error.
- *
- * This function is used to vote for the voltage of regulator pm8058_s1 without
- * using the regulator framework.  It is needed by consumers which hold spin
- * locks or have interrupts disabled because the regulator framework can sleep.
- */
-int pm8058_s1_set_min_uv_noirq(enum pm8058_s1_vote_client voter, int min_uV)
-{
-	int rc;
-
-	if (min_uV <
-	     vregs[RPM_VREG_ID_PM8058_S1].pdata->init_data.constraints.min_uV ||
-	    min_uV >
-	     vregs[RPM_VREG_ID_PM8058_S1].pdata->init_data.constraints.max_uV)
-			return -EINVAL;
-
-	rc = vreg_set_noirq(&vregs[RPM_VREG_ID_PM8058_S1], voter, 1,
-			SMPS_VOLTAGE,
-			MICRO_TO_MILLI(min_uV) << SMPS_VOLTAGE_SHIFT,
-			0, 0, 2);
-
-	if (rc)
-		return rc;
-
-	/* only save if nonzero (or not disabling) */
-	if (min_uV)
-		vregs[RPM_VREG_ID_PM8058_S1].save_uV = min_uV;
-
-	return rc;
-}
-EXPORT_SYMBOL_GPL(pm8058_s1_set_min_uv_noirq);
-
-/**
  * rpm_vreg_set_voltage - vote for a min_uV value of specified regualtor
  * @vreg: ID for regulator
  * @voter: ID for the voter
@@ -497,11 +456,6 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 	 * just the active set values.
 	 */
 	if (vreg->pdata->sleep_selectable)
-		return vreg_set_noirq(vreg, RPM_VREG_VOTER_REG_FRAMEWORK, 1,
-					mask0, val0, mask1, val1, cnt);
-
-	/* bypass normal route for PM8058_S1 */
-	if (REG_IS_PM8058_S1(vreg->req[0].id))
 		return vreg_set_noirq(vreg, RPM_VREG_VOTER_REG_FRAMEWORK, 1,
 					mask0, val0, mask1, val1, cnt);
 
