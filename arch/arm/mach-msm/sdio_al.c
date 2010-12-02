@@ -1111,13 +1111,6 @@ static int read_sdioc_software_header(struct peer_sdioc_sw_header *header)
 
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 		struct sdio_channel *ch = &sdio_al->channel[i];
-		int j;
-
-		pr_info(MODULE_NAME ":SDIOC channel ");
-		for (j = 0; j < PEER_CHANNEL_NAME_SIZE; j++)
-			pr_info("%c", header->channel_names[i][j]);
-		pr_info("\n");
-
 
 		/* Set default values */
 		ch->read_threshold  = DEFAULT_READ_THRESHOLD;
@@ -1145,12 +1138,13 @@ static int read_sdioc_software_header(struct peer_sdioc_sw_header *header)
 			sdio_al->use_default_conf = 0;
 		}
 
-		pr_info("Channel=%s, is_valid=%d\n", ch->name, ch->is_valid);
+		pr_info(MODULE_NAME ":Channel=%s, is_valid=%d\n", ch->name,
+			ch->is_valid);
 	}
 	/* Backwards compatiblity - use def values when no info from client */
 	if (sdio_al->use_default_conf) {
 		set_default_channels_config();
-		pr_err("Using default config\n");
+		pr_err(MODULE_NAME ":Using default config\n");
 	}
 
 	return 0;
