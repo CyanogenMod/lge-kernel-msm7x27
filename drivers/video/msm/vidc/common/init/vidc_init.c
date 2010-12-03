@@ -113,7 +113,7 @@ static void vidc_work_handler(struct work_struct *work)
 
 static DECLARE_WORK(vidc_work, vidc_work_handler);
 
-static int __init vidc_720p_probe(struct platform_device *pdev)
+static int __devinit vidc_720p_probe(struct platform_device *pdev)
 {
 	struct resource *resource;
 	DBG("Enter %s()\n", __func__);
