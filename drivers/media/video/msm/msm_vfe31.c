@@ -582,28 +582,6 @@ static int vfe31_disable(struct camera_enable_cmd *enable,
 	return 0;
 }
 
-static void vfe31_release(struct platform_device *pdev)
-{
-	struct resource	*vfemem, *vfeio;
-
-	vfemem = vfe31_ctrl->vfemem;
-	vfeio  = vfe31_ctrl->vfeio;
-
-	msm_vpe_release();
-
-	kfree(vfe31_ctrl->extdata);
-	free_irq(vfe31_ctrl->vfeirq, 0);
-	iounmap(vfe31_ctrl->vfebase);
-	kfree(vfe31_ctrl);
-	vfe31_ctrl = NULL;
-	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
-	pr_info("%s, msm_camio_disable\n", __func__);
-	msm_camio_disable(pdev);
-	pr_info("%s, msm_camio_set_perf_lvl\n", __func__);
-	msm_camio_set_perf_lvl(S_DEFAULT);
-
-	vfe_syncdata = NULL;
-}
 
 static int vfe31_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 {
@@ -2979,6 +2957,35 @@ static irqreturn_t vfe31_parse_irq(int irq_num, void *data)
 	spin_unlock_irqrestore(&vfe31_ctrl->tasklet_lock, flags);
 	tasklet_schedule(&vfe31_tasklet);
 	return IRQ_HANDLED;
+}
+
+static void vfe31_release(struct platform_device *pdev)
+{
+	struct resource	*vfemem, *vfeio;
+
+	pr_info("%s, free_irq\n", __func__);
+	free_irq(vfe31_ctrl->vfeirq, 0);
+	tasklet_kill(&vfe31_tasklet);
+
+	if (atomic_read(&irq_cnt))
+		pr_info("%s, Warning IRQ Count not ZERO\n", __func__);
+
+	vfemem = vfe31_ctrl->vfemem;
+	vfeio  = vfe31_ctrl->vfeio;
+
+	msm_vpe_release();
+
+	kfree(vfe31_ctrl->extdata);
+	iounmap(vfe31_ctrl->vfebase);
+	kfree(vfe31_ctrl);
+	vfe31_ctrl = NULL;
+	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
+	pr_info("%s, msm_camio_disable\n", __func__);
+	msm_camio_disable(pdev);
+	pr_info("%s, msm_camio_set_perf_lvl\n", __func__);
+	msm_camio_set_perf_lvl(S_DEFAULT);
+
+	vfe_syncdata = NULL;
 }
 
 static int vfe31_resource_init(struct msm_vfe_callback *presp,
