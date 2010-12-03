@@ -1203,16 +1203,6 @@ struct platform_device msm_bus_cpss_fpb = {
 };
 #endif
 
-/* XXX: TEMPORARY FUNCTION: Should not be present in final code. */
-void __init msm_clock_temp_force_on(void)
-{
-	/* The following clocks must be controlled in software, but
-	 * no drivers have taken ownership of them yet.  For now,
-	 * they are turned on here and left on. Once their device
-	 * drivers implement support for them, they must be removed
-	 * from this list. */
-}
-
 #define FS(_id, _name) (&(struct platform_device){ \
 	.name	= "footswitch-msm8x60", \
 	.id	= (_id), \
