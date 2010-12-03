@@ -30,6 +30,7 @@
 
 #define SCM_SVC_BOOT			0x1
 #define SCM_SVC_PIL			0x2
+#define SCM_SVC_UTIL			0x3
 
 extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		void *resp_buf, size_t resp_len);
