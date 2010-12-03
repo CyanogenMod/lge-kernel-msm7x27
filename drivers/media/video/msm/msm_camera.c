@@ -1925,6 +1925,7 @@ static int msm_set_crop(struct msm_sync *sync, void __user *arg)
 				crop.info,
 				crop.len)) {
 		ERR_COPY_FROM_USER();
+		sync->croplen = 0;
 		kfree(sync->cropinfo);
 		mutex_unlock(&sync->lock);
 		return -EFAULT;
