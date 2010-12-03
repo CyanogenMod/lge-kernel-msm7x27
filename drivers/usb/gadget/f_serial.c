@@ -18,12 +18,6 @@
 #include "u_serial.h"
 #include "gadget_chips.h"
 
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Temporary USB setting */
-/* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
-/* It MUST BE DEFINED at Kconfig file !!!*/
-#define CONFIG_USB_SUPPORT_LGE_ANDROID_NMEA_FIX
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */
-
 /*
  * This function packages a simple "generic serial" port with no real
  * control mechanisms, just raw data transfer over two bulk endpoints.

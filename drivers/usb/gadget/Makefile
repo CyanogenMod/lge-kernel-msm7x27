@@ -76,3 +76,8 @@ obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
 obj-$(CONFIG_USB_ANDROID_DIAG)	+= f_diag.o
 obj-$(CONFIG_USB_ANDROID_RMNET)	+= f_rmnet.o
 
+# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, add lge usb util code and cdc ecm driver
+# LG specific
+obj-$(CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET)	+= u_lgeusb.o
+obj-$(CONFIG_USB_ANDROID_CDC_ECM)	+= f_ecm.o u_ether.o
+# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03

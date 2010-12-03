@@ -27,8 +27,8 @@ int lge_detect_factory_cable(void);
 /* CDMA Class */
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_CDMA
 
-#define LG_FACTORY_CABLE_TYPE 3
-#define LG_FACTORY_CABLE_130K_TYPE 10
+#define LGE_FACTORY_CABLE_TYPE 3
+#define LGE_FACTORY_CABLE_130K_TYPE 10
 #define LT_ADB_CABLE 0xff
 
 #endif /* CDMA */
@@ -36,9 +36,17 @@ int lge_detect_factory_cable(void);
 /* GSM/WCDMA Class */
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_GSM
 
+#define LGE_FACTORY_CABLE_TYPE 1
 #define MAX_IMEI_LEN 19
 #define LGE_PIF_CABLE 2
 
 #endif /* GSM/WCDMA */
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-19, Detection of factory cable using wq */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
+extern int android_switch_composition_ext(u16 pid);
+extern int android_get_pid_ext(void);
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-19 */
 
 #endif /* __U_LGE_USB_H__ */

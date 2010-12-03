@@ -402,8 +402,12 @@ static void android_set_default_product(int pid)
  * This function selects product id having required function at first index.
  * TODO : Search of function in product id can be extended for all index.
  * RNDIS function enable/disable uses this.
-*/
-#ifdef CONFIG_USB_ANDROID_RNDIS
+ */
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For CDC ECM driver */
+/* #ifdef CONFIG_USB_ANDROID_RNDIS */
+#if defined(CONFIG_USB_ANDROID_RNDIS) || defined(CONFIG_USB_ANDROID_CDC_ECM)
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 static void android_config_functions(struct usb_function *f, int enable)
 {
 	struct android_dev *dev = _android_dev;
@@ -411,6 +415,28 @@ static void android_config_functions(struct usb_function *f, int enable)
 	int index;
 	char **functions;
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For CDC ECM  */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	int f_index, f_found;
+
+	/* Searches for product id having function at all index */
+	if (enable) {
+		for (index = 0; index < dev->num_products; index++, up++) {
+			functions = up->functions;
+			f_found = 0;
+			for (f_index = 0; f_index < up->num_functions; f_index++) {
+				if (!strcmp(up->functions[f_index], f->name)) {
+					f_found = 1;
+					break;
+				}
+			}
+			if (f_found)
+				break;
+		}
+		android_set_function_mask(up);
+	} else
+		android_set_default_product(dev->product_id);
+#else /* below is original */
 	/* Searches for product id having function at first index */
 	if (enable) {
 		for (index = 0; index < dev->num_products; index++, up++) {
@@ -421,6 +447,8 @@ static void android_config_functions(struct usb_function *f, int enable)
 		android_set_function_mask(up);
 	} else
 		android_set_default_product(dev->product_id);
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 }
 #endif
 
@@ -448,22 +476,49 @@ void android_enable_function(struct usb_function *f, int enable)
 				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
 #endif
 			} else {
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Temporary USB setting */
-/* FIXME : This is just TEMPORARY!!! must be fixed as soon as possible */
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For LG USB driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
 				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
 				dev->cdev->desc.bDeviceSubClass      = 0x00;
 				dev->cdev->desc.bDeviceProtocol      = 0x00;
-
-#if 0 /* This is original */				
+#else /* below is original */
 				dev->cdev->desc.bDeviceClass = USB_CLASS_PER_INTERFACE;
 				dev->cdev->desc.bDeviceSubClass      = 0;
 				dev->cdev->desc.bDeviceProtocol      = 0;
 #endif
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 			}
 			android_config_functions(f, enable);
 		}
 #endif
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For CDC ECM driver */
+/* NOTE : DO not configure rndis and cdc ecm driver together. */
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
+		if (!strcmp(f->name, "ecm")) {
+
+			/* We need to specify the COMM class in the device descriptor
+			 * if we are using RNDIS.
+			 */
+			if (enable) {
+				dev->cdev->desc.bDeviceClass = USB_CLASS_MISC;
+				dev->cdev->desc.bDeviceSubClass      = 0x02;
+				dev->cdev->desc.bDeviceProtocol      = 0x01;
+			} else {
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
+				dev->cdev->desc.bDeviceSubClass      = 0x00;
+				dev->cdev->desc.bDeviceProtocol      = 0x00;
+#else /* below is original */
+				dev->cdev->desc.bDeviceClass = USB_CLASS_PER_INTERFACE;
+				dev->cdev->desc.bDeviceSubClass      = 0;
+				dev->cdev->desc.bDeviceProtocol      = 0;
+#endif
+			}
+			android_config_functions(f, enable);
+		}
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 
 		product_id = get_product_id(dev);
 		device_desc.idProduct = __constant_cpu_to_le16(product_id);

@@ -61,6 +61,7 @@ struct f_acm {
 	u8				port_num;
 
 	u8				pending;
+	u8				online;
 
 	/* lock is mostly for pending and notify_req ... they get accessed
 	 * by callbacks both from tty (open/close/break) under its spinlock,
@@ -467,6 +468,7 @@ static int acm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	} else
 		return -EINVAL;
+	acm->online = 1;
 
 	return 0;
 }
@@ -478,7 +480,9 @@ static void acm_disable(struct usb_function *f)
 
 	DBG(cdev, "acm ttyGS%d deactivated\n", acm->port_num);
 	gserial_disconnect(&acm->port);
+	usb_ep_fifo_flush(acm->notify);
 	usb_ep_disable(acm->notify);
+	acm->online = 0;
 	acm->notify->driver_data = NULL;
 }
 
@@ -596,7 +600,7 @@ static void acm_cdc_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	acm->notify_req = req;
 	spin_unlock(&acm->lock);
 
-	if (doit)
+	if (doit && acm->online)
 		acm_notify_serial_state(acm);
 }
 
@@ -608,6 +612,57 @@ static void acm_connect(struct gserial *port)
 
 	acm->serial_state |= ACM_CTRL_DSR | ACM_CTRL_DCD;
 	acm_notify_serial_state(acm);
+}
+
+unsigned int acm_get_dtr(struct gserial *port)
+{
+	struct f_acm		*acm = port_to_acm(port);
+
+	if (acm->port_handshake_bits & ACM_CTRL_DTR)
+		return 1;
+	else
+		return 0;
+}
+
+unsigned int acm_get_rts(struct gserial *port)
+{
+	struct f_acm		*acm = port_to_acm(port);
+
+	if (acm->port_handshake_bits & ACM_CTRL_RTS)
+		return 1;
+	else
+		return 0;
+}
+
+unsigned int acm_send_carrier_detect(struct gserial *port, unsigned int yes)
+{
+	struct f_acm		*acm = port_to_acm(port);
+	u16			state;
+
+	pr_info("%s : ACM_CTRL_DCD is %s\n", __func__, (yes ? "yes": "no"));
+	state = acm->serial_state;
+	state &= ~ACM_CTRL_DCD;
+	if (yes)
+		state |= ACM_CTRL_DCD;
+
+	acm->serial_state = state;
+	return acm_notify_serial_state(acm);
+
+}
+
+unsigned int acm_send_ring_indicator(struct gserial *port, unsigned int yes)
+{
+	struct f_acm		*acm = port_to_acm(port);
+	u16			state;
+
+	state = acm->serial_state;
+	state &= ~ACM_CTRL_RI;
+	if (yes)
+		state |= ACM_CTRL_RI;
+
+	acm->serial_state = state;
+	return acm_notify_serial_state(acm);
+
 }
 
 static void acm_disconnect(struct gserial *port)
@@ -848,6 +903,12 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 	acm->port_num = port_num;
 
 	acm->port.connect = acm_connect;
+
+	acm->port.get_dtr = acm_get_dtr;
+	acm->port.get_rts = acm_get_rts;
+	acm->port.send_carrier_detect = acm_send_carrier_detect;
+	acm->port.send_ring_indicator = acm_send_ring_indicator;
+
 	acm->port.disconnect = acm_disconnect;
 	acm->port.send_break = acm_send_break;
 
@@ -870,7 +931,8 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 
 int acm_function_bind_config(struct usb_configuration *c)
 {
-#if 1 /* Temporary Testing */
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For AndroidNet driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
 	int ret;
 
 	ret = gserial_setup(c->cdev->gadget, 1);
@@ -882,18 +944,46 @@ int acm_function_bind_config(struct usb_configuration *c)
 	if (ret == 0)
 		gserial_setup(c->cdev->gadget, 1);
 	return ret;
-#endif	
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 }
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For AndroidNet driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+int acm2_function_bind_config(struct usb_configuration *c)
+{
+	int ret;
+
+	ret = gserial_setup(c->cdev->gadget, 1);
+	if (ret)
+		return ret;
+	return acm_bind_config(c, 0);
+}
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 
 static struct android_usb_function acm_function = {
 	.name = "acm",
 	.bind_config = acm_function_bind_config,
 };
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For AndroidNet driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+static struct android_usb_function acm2_function = {
+	.name = "acm2",
+	.bind_config = acm2_function_bind_config,
+};
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 
 static int __init init(void)
 {
 	printk(KERN_INFO "f_acm init\n");
 	android_register_function(&acm_function);
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, For AndroidNet driver */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	android_register_function(&acm2_function);
+#endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 	return 0;
 }
 module_init(init);

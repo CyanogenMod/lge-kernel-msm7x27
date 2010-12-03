@@ -22,7 +22,7 @@
 #include <mach/msm_hsusb.h>
 #include <mach/rpc_hsusb.h>
 #ifdef CONFIG_USB_ANDROID
-#include <linux/usb/android.h>
+#include <linux/usb/android_composite.h>
 #endif
 #include <mach/board.h>
 #ifdef CONFIG_MACH_LGE
@@ -48,28 +48,42 @@ static int do_get_usb_serial_number(char *serial_number)
 
 	msm_get_MEID_type(serial_number);
 
-	if(!strcmp(serial_number,"00000000000000")) 
+	if(!strcmp(serial_number,"00000000000000"))
 		serial_number[0] = '\0';
 #if 0
 	if(msm_chg_LG_cable_type() == LT_ADB_CABLE)
 	{
 		sprintf(serial_number,"%s","LGE_ANDROID_DE");
 	}
-#endif		
+#endif
 
 	return 0;
 /* LGE_CHANGES_E [younsuk.song@lge.com] 2010-06-21 */
 }
 
+/*
+ * CDMA class model must detect 2 types of factory cable
+ * 1. LT CABLE - must be FullSpeed setting
+ * 2. 130K CABLE - must be HighSpeed setting
+ *
+ * In case of normal USB cable, we return 0.
+ */
 static int do_detect_factory_cable(void)
 {
 	int cable_type =  msm_chg_LG_cable_type();
+	int ret;
 
-	if((cable_type == LG_FACTORY_CABLE_TYPE) ||
-			(cable_type == LG_FACTORY_CABLE_130K_TYPE))
-		return 1;
-	else
-		return 0;
+	switch(cable_type) {
+		case LGE_FACTORY_CABLE_TYPE :
+		case LGE_FACTORY_CABLE_130K_TYPE :
+			ret = cable_type;
+			break;
+		default:
+			ret = 0;
+			break;
+	}
+
+	return ret;
 }
 
 #endif /* CONFIG_USB_SUPPORT_LGE_GADGET_CDMA */
@@ -100,12 +114,18 @@ static int do_get_usb_serial_number(char *serial_number)
 			memcpy(serial_number, nv_imei_ptr, MAX_IMEI_LEN);
 		else
 			serial_number[0] = '\0';
-	} else 
+	} else
 		serial_number[0] = '\0';
 
 	return 0;
 }
 
+/*
+ * GSM class model must detect 1 types of factory cable
+ * 1. PIF CABLE - support at FullSpeed/HighSpeed setting
+ *
+ * In case of normal USB cable, we return 0.
+ */
 static int do_detect_factory_cable(void)
 {
 	int pif_detect = 0;
@@ -116,7 +136,7 @@ static int do_detect_factory_cable(void)
 	pr_info("%s : Using PIF ZIG (%d)\n", __func__, pif_detect);
 
 	if (pif_detect == LGE_PIF_CABLE)
-		return 1;
+		return LGE_FACTORY_CABLE_TYPE;
 	else
 		return 0;
 }
