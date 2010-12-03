@@ -1645,29 +1645,61 @@ static void msm_marimba_shutdown_power(void)
 	}
 };
 
+static int bahama_present(void)
+{
+	int id;
+	switch (id = adie_get_detected_connectivity_type()) {
+	case BAHAMA_ID:
+		return 1;
+
+	case MARIMBA_ID:
+		return 0;
+
+	case TIMPANI_ID:
+	default:
+	printk(KERN_ERR "%s: unexpected adie connectivity type: %d\n",
+			__func__, id);
+	return -ENODEV;
+	}
+}
+
+struct vreg *fm_regulator;
 static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 {
 	int rc;
 	uint32_t irqcfg;
 	const char *id = "FMPW";
 
-	pdata->vreg_s2 = vreg_get(NULL, "s2");
-	if (IS_ERR(pdata->vreg_s2)) {
+	int bahama_not_marimba = bahama_present();
+
+	if (bahama_not_marimba == -1) {
+		printk(KERN_WARNING "%s: bahama_present: %d\n",
+				__func__, bahama_not_marimba);
+		return -ENODEV;
+	}
+	if (bahama_not_marimba)
+		fm_regulator = vreg_get(NULL, "s3");
+	else
+		fm_regulator = vreg_get(NULL, "s2");
+
+	if (IS_ERR(fm_regulator)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
-			__func__, PTR_ERR(pdata->vreg_s2));
+			__func__, PTR_ERR(fm_regulator));
 		return -1;
 	}
+	if (!bahama_not_marimba) {
 
-	rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 1300);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: voltage level vote failed (%d)\n",
-			__func__, rc);
-		return rc;
+		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 1300);
+
+		if (rc < 0) {
+			printk(KERN_ERR "%s: voltage level vote failed (%d)\n",
+				__func__, rc);
+			return rc;
+		}
 	}
-
-	rc = vreg_enable(pdata->vreg_s2);
+	rc = vreg_enable(fm_regulator);
 	if (rc) {
-		printk(KERN_ERR "%s: vreg_enable() = %d \n",
+		printk(KERN_ERR "%s: vreg_enable() = %d\n",
 					__func__, rc);
 		return rc;
 	}
@@ -1694,7 +1726,7 @@ fm_gpio_config_fail:
 	pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
 				  PMAPP_CLOCK_VOTE_OFF);
 fm_clock_vote_fail:
-	vreg_disable(pdata->vreg_s2);
+	vreg_disable(fm_regulator);
 	return rc;
 
 };
@@ -1705,25 +1737,40 @@ static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
 	const char *id = "FMPW";
 	uint32_t irqcfg = GPIO_CFG(147, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
 					GPIO_CFG_2MA);
+
+	int bahama_not_marimba = bahama_present();
+	if (bahama_not_marimba == -1) {
+		printk(KERN_WARNING "%s: bahama_present: %d\n",
+			__func__, bahama_not_marimba);
+		return;
+	}
+
 	rc = gpio_tlmm_config(irqcfg, GPIO_CFG_ENABLE);
 	if (rc) {
 		printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
 				__func__, irqcfg, rc);
 	}
-	rc = vreg_disable(pdata->vreg_s2);
-	if (rc) {
-		printk(KERN_ERR "%s: return val: %d \n",
+	if (fm_regulator != NULL) {
+		rc = vreg_disable(fm_regulator);
+
+		if (rc) {
+			printk(KERN_ERR "%s: return val: %d\n",
 					__func__, rc);
+		}
+		fm_regulator = NULL;
 	}
 	rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
 					  PMAPP_CLOCK_VOTE_OFF);
 	if (rc < 0)
-		printk(KERN_ERR "%s: clock_vote return val: %d \n",
+		printk(KERN_ERR "%s: clock_vote return val: %d\n",
 						__func__, rc);
-	rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
-	if (rc < 0)
-		printk(KERN_ERR "%s: vreg level vote return val: %d \n",
+	if (!bahama_not_marimba)	{
+		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
+
+		if (rc < 0)
+			printk(KERN_ERR "%s: vreg level vote return val: %d\n",
 						__func__, rc);
+	}
 }
 
 static struct marimba_fm_platform_data marimba_fm_pdata = {
@@ -4506,25 +4553,6 @@ static int bahama_bt(int on)
 				value, (p+i)->mask);
 	}
 	return 0;
-}
-
-static int bahama_present(void)
-{
-	int id;
-	switch (id = adie_get_detected_connectivity_type()) {
-	case BAHAMA_ID:
-		return 1;
-
-	case MARIMBA_ID:
-		return 0;
-
-	case TIMPANI_ID:
-	default:
-		dev_err(&msm_bt_power_device.dev,
-			"%s: unexpected adie connectivity type: %d\n",
-			__func__, id);
-		return -ENODEV;
-	}
 }
 
 static const char *vregs_bt_marimba_name[] = {
