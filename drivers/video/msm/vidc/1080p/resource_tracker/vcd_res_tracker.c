@@ -403,5 +403,10 @@ void res_trk_init(struct device *device, u32 irq)
 		mutex_init(&resource_context.lock);
 		resource_context.device = device;
 		resource_context.irq_num = irq;
+		resource_context.core_type = VCD_CORE_1080P;
 	}
+}
+
+u32 res_trk_get_core_type(void){
+	return resource_context.core_type;
 }

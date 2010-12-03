@@ -56,6 +56,7 @@ struct res_trk_context {
 #ifdef CONFIG_MSM_BUS_SCALING
 	uint32_t     pcl;
 #endif
+	u32 core_type;
 };
 
 #ifdef CONFIG_MSM_BUS_SCALING
