@@ -902,7 +902,9 @@ static struct vm_area_struct *kgsl_get_vma_from_start_addr(unsigned int addr)
 	struct vm_area_struct *vma;
 	int len;
 
+	down_read(&current->mm->mmap_sem);
 	vma = find_vma(current->mm, addr);
+	up_read(&current->mm->mmap_sem);
 	if (!vma) {
 		KGSL_MEM_ERR("Could not find vma for address %x\n",
 			   addr);
@@ -947,18 +949,17 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_process_private *private,
 		goto error;
 	}
 
-	down_write(&current->mm->mmap_sem);
 	vma = kgsl_get_vma_from_start_addr(param.hostptr);
 	if (!vma) {
 		result = -EINVAL;
-		goto error_up_write;
+		goto error;
 	}
 	len = vma->vm_end - vma->vm_start;
 
 	entry = kzalloc(sizeof(struct kgsl_mem_entry), GFP_KERNEL);
 	if (entry == NULL) {
 		result = -ENOMEM;
-		goto error_up_write;
+		goto error;
 	}
 
 	/* allocate memory and map it to user space */
@@ -1009,7 +1010,6 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_process_private *private,
 	spin_lock(&private->mem_lock);
 	list_add(&entry->list, &private->mem_list);
 	spin_unlock(&private->mem_lock);
-	up_write(&current->mm->mmap_sem);
 
 	return 0;
 
@@ -1023,8 +1023,6 @@ error_free_vmalloc:
 error_free_entry:
 	kfree(entry);
 
-error_up_write:
-	up_write(&current->mm->mmap_sem);
 error:
 	return result;
 }
@@ -1127,11 +1125,10 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 			goto error;
 		}
 		start = param.hostptr;
-		down_write(&current->mm->mmap_sem);
 		vma = kgsl_get_vma_from_start_addr(param.hostptr);
 		if (vma == NULL) {
 			result = -EINVAL;
-			goto error_up_write;
+			goto error;
 		}
 		len = vma->vm_end - vma->vm_start;
 		if (!param.len)
@@ -1140,7 +1137,7 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 			KGSL_DRV_ERR("param.len(%d) invalid for given host "
 				"address(%x)\n", param.len, param.hostptr);
 			result = -EINVAL;
-			goto error_up_write;
+			goto error;
 		}
 		if (param.memtype == KGSL_USER_MEM_TYPE_ASHMEM) {
 			struct file *ashmem_vm_file;
@@ -1149,7 +1146,7 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 				KGSL_DRV_ERR("could not get ashmem "
 						"file pointer\n");
 				result = -EINVAL;
-				goto error_up_write;
+				goto error;
 			}
 			if (ashmem_vm_file != vma->vm_file) {
 				KGSL_DRV_ERR("ashmem shmem file(%p) does not "
@@ -1232,8 +1229,6 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 		result = -EFAULT;
 		goto error_unmap_entry;
 	}
-	if (param.memtype != KGSL_USER_MEM_TYPE_PMEM)
-		up_write(&current->mm->mmap_sem);
 	spin_lock(&private->mem_lock);
 	list_add(&entry->list, &private->mem_list);
 	spin_unlock(&private->mem_lock);
@@ -1251,9 +1246,6 @@ error_put_file_ptr:
 		put_ashmem_file(file_ptr);
 	else
 		kgsl_put_phys_file(file_ptr);
-error_up_write:
-	if (param.memtype != KGSL_USER_MEM_TYPE_PMEM)
-		up_write(&current->mm->mmap_sem);
 
 error:
 	return result;
