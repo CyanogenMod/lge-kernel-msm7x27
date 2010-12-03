@@ -1235,4 +1235,9 @@ config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"
 	depends on CPU_IDLE
 	default n
+
+config MSM_STANDALONE_POWER_COLLAPSE
+       bool "Enable standalone power collapse"
+       default n
+
 endif
