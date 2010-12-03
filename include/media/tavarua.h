@@ -92,8 +92,9 @@ int tavarua_set_audio_path(int digital_on, int analog_on);
 
 /* defines and enums*/
 
-#define MARIMBA_A0 0x01010013
-#define MARIMBA_2_1 0x02010204
+#define MARIMBA_A0	0x01010013
+#define MARIMBA_2_1	0x02010204
+#define BAHAMA_1_0	0x0302010A
 #define WAIT_TIMEOUT 2000
 #define RADIO_INIT_TIME 15
 #define TAVARUA_DELAY 10
@@ -184,6 +185,11 @@ enum register_t {
 	XFRCTRL,
 	LEAKAGE_CNTRL = 0xFE,
 };
+#define BAHAMA_RBIAS_CTL1       0x07
+#define	BAHAMA_FM_MODE_REG      0xFD
+#define	BAHAMA_FM_CTL1_REG      0xFE
+#define	BAHAMA_FM_CTL0_REG      0xFF
+#define BAHAMA_FM_MODE_NORMAL   0x00
 
 /* Radio Control */
 #define RDCTRL_STATE_OFFSET	0
