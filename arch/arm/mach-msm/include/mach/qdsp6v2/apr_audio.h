@@ -168,6 +168,23 @@ struct afe_port_pcm_cfg {
 	u16	reserved;
 } __attribute__ ((packed));
 
+enum {
+	AFE_I2S_SD0 = 1,
+	AFE_I2S_SD1,
+	AFE_I2S_SD2,
+	AFE_I2S_SD3,
+	AFE_I2S_QUAD01,
+	AFE_I2S_QUAD23,
+	AFE_I2S_6CHS,
+	AFE_I2S_8CHS,
+};
+
+#define AFE_MI2S_MONO 0
+#define AFE_MI2S_STEREO 3
+#define AFE_MI2S_4CHANNELS 4
+#define AFE_MI2S_6CHANNELS 6
+#define AFE_MI2S_8CHANNELS 8
+
 struct afe_port_mi2s_cfg {
 	u16	bitwidth;	/* 16,24,32 */
 	u16	line;		/* Called ChannelMode in documentation */
