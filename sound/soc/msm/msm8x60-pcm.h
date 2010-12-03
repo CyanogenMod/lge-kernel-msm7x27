@@ -75,6 +75,8 @@ struct msm_audio {
 	int cmd_ack;
 	atomic_t start;
 	atomic_t out_count;
+	atomic_t in_count;
+	int periods;
 };
 
 
