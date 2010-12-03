@@ -700,10 +700,22 @@ static int audio_tx_mute(struct audio_client *ac, uint32_t dev_id, int mute)
 {
 	struct adsp_set_dev_mute_command rpc;
 
+	if (mute < 0  ||  mute > 3) {
+		pr_err("[%s:%s] invalid mute status %d\n", __MM_FILE__,
+				__func__, mute);
+		return -EINVAL;
+	}
+
 	memset(&rpc, 0, sizeof(rpc));
 	rpc.hdr.opcode = ADSP_AUDIO_IOCTL_CMD_SET_DEVICE_MUTE;
-	rpc.device_id = dev_id;
-	rpc.path = ADSP_PATH_TX;
+	if ((mute == STREAM_UNMUTE) || (mute == STREAM_MUTE)) {
+		rpc.device_id = ADSP_AUDIO_DEVICE_ID_VOICE;
+		rpc.path = ADSP_PATH_TX_CNG_DIS;
+	} else {
+		rpc.device_id = dev_id;
+		rpc.path = ADSP_PATH_TX;
+	}
+	mute &= 0x01;
 	rpc.mute = !!mute;
 	return audio_ioctl(ac, &rpc, sizeof(rpc));
 }
@@ -1687,6 +1699,7 @@ int q6voice_close(struct audio_client *ac)
 	else
 		audio_tx_path_enable(0, 0);
 
+	tx_mute_status = 0;
 	audio_client_free(ac);
 	return 0;
 }
