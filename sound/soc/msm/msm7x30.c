@@ -572,6 +572,29 @@ static int msm_device_volume_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+static int msm_reset_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0;
+	return 0;
+}
+
+static int msm_reset_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_reset_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	MM_DBG("Resetting all devices\n");
+	return msm_reset_all_device();
+}
 
 static struct snd_kcontrol_new snd_dev_controls[AUDIO_DEV_CTL_MAX_DEV];
 
@@ -627,6 +650,8 @@ static struct snd_kcontrol_new snd_msm_controls[] = {
 						msm_v_call_put, 0),
 	MSM_EXT("Device_Volume", msm_device_volume_info,
 			msm_device_volume_get, msm_device_volume_put, 0),
+	MSM_EXT("Reset", msm_reset_info,
+			msm_reset_get, msm_reset_put, 0),
 };
 
 static int msm_new_mixer(struct snd_card *card)
