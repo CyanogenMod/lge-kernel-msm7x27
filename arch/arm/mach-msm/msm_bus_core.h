@@ -62,6 +62,11 @@
 	dev_err(&fabric->fabdev.dev, "AXI: %s(): " msg, __func__, ## \
 	__VA_ARGS__)
 
+enum msm_bus_dbg_op_type {
+	MSM_BUS_DBG_UNREGISTER = -2,
+	MSM_BUS_DBG_REGISTER,
+	MSM_BUS_DBG_OP = 1,
+};
 
 extern struct bus_type msm_bus_type;
 
@@ -154,5 +159,22 @@ struct msm_bus_client {
 int msm_bus_fabric_device_register(struct msm_bus_fabric_device *fabric);
 void msm_bus_fabric_device_unregister(struct msm_bus_fabric_device *fabric);
 struct msm_bus_fabric_device *msm_bus_get_fabric(int fabid);
+
+#ifdef CONFIG_DEBUG_FS
+void msm_bus_dbg_client_data(struct msm_bus_scale_pdata *pdata, int index,
+	uint32_t cl);
+void msm_bus_dbg_commit_data(const char *fabname, struct commit_data *cdata,
+	int nmasters, int nslaves, int ntslaves, int op);
+#else
+static inline void msm_bus_dbg_client_data(struct msm_bus_scale_pdata *pdata,
+	int index, uint32_t cl)
+{
+}
+static inline void msm_bus_dbg_commit_data(const char *fabname,
+	struct commit_data *cdata, int nmasters, int nslaves, int ntslaves,
+	int op)
+{
+}
+#endif
 
 #endif /*_ARCH_ARM_MACH_MSM_BUS_CORE_H*/

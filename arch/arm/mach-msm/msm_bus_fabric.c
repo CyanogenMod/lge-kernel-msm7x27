@@ -212,6 +212,8 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 	fabric->num_nodes = fabric->pdata->len;
 error:
 	fabric->num_nodes = i;
+	msm_bus_dbg_commit_data(fabric->fabdev.name, NULL, 0, 0, 0,
+		MSM_BUS_DBG_REGISTER);
 	return ret | err;
 }
 
@@ -290,6 +292,8 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
 	}
 
 	MSM_FAB_DBG("calling msm_rpm_set:  %d\n", status);
+	msm_bus_dbg_commit_data(fabric->fabdev.name, cdata, fabric->nmasters,
+		fabric->nslaves, fabric->ntieredslaves,	MSM_BUS_DBG_OP);
 	if (fabric->pdata->rpm_enabled) {
 		if (active_only)
 			status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data,
@@ -756,6 +760,8 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 	fabdev = platform_get_drvdata(pdev);
 	msm_bus_fabric_device_unregister(fabdev);
 	fabric = to_msm_bus_fabric(fabdev);
+	msm_bus_dbg_commit_data(fabric->fabdev.name, NULL, 0, 0, 0,
+		MSM_BUS_DBG_UNREGISTER);
 	for (i = 0; i < fabric->nmasters; i++)
 		radix_tree_delete(&fabric->fab_tree, fabric->fabdev.id + i);
 	for (i = (fabric->fabdev.id + SLAVE_ID_KEY); i < fabric->nslaves; i++)

@@ -470,6 +470,8 @@ uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 			goto err;
 		}
 	}
+	msm_bus_dbg_client_data(client->pdata, MSM_BUS_DBG_REGISTER,
+		(uint32_t)client);
 	mutex_unlock(&msm_bus_lock);
 	MSM_BUS_DBG("ret: %u num_paths: %d\n", (uint32_t)client,
 		pdata->usecase->num_paths);
@@ -547,6 +549,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 
 	client->curr = index;
 	context = ACTIVE_ONLY;
+	msm_bus_dbg_client_data(client->pdata, index, cl);
 	bus_for_each_dev(&msm_bus_type, NULL, (void *)context,
 		msm_bus_commit_fn);
 
@@ -568,6 +571,9 @@ void msm_bus_scale_unregister_client(uint32_t cl)
 	if (client->curr != 0)
 		msm_bus_scale_client_update_request(cl, 0);
 	MSM_BUS_DBG("Unregistering client %d\n", cl);
+	mutex_lock(&msm_bus_lock);
+	msm_bus_dbg_client_data(client->pdata, MSM_BUS_DBG_UNREGISTER, cl);
+	mutex_unlock(&msm_bus_lock);
 	kfree(client->src_pnode);
 	kfree(client);
 }
