@@ -105,6 +105,10 @@ static struct kgsl_yamato_device yamato_device = {
 	},
 };
 
+/* max msecs to wait for gpu to finish its operation(s) */
+#define MAX_WAITGPU_SECS (HZ + HZ/2)
+
+
 static int kgsl_yamato_start(struct kgsl_device *device);
 static int kgsl_yamato_stop(struct kgsl_device *device);
 static int kgsl_yamato_sleep(struct kgsl_device *device);
@@ -980,46 +984,37 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 /* Caller must hold the device mutex. */
 int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
-	int status = -EINVAL;
 	struct kgsl_ringbuffer *rb = &device->ringbuffer;
 	unsigned int rbbm_status;
-	int idle_count = 0;
-#define IDLE_COUNT_MAX 1500000
+	unsigned long wait_time = jiffies + MAX_WAITGPU_SECS;
 
-	KGSL_DRV_VDBG("enter (device=%p, timeout=%d)\n", device, timeout);
-
-	(void)timeout;
+	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
 	/* first, wait until the CP has consumed all the commands in
 	 * the ring buffer
 	 */
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		do {
-			idle_count++;
 			GSL_RB_GET_READPTR(rb, &rb->rptr);
-
-		} while (rb->rptr != rb->wptr && idle_count < IDLE_COUNT_MAX);
-		if (idle_count == IDLE_COUNT_MAX)
-			goto err;
+			if (time_after(jiffies, wait_time))
+				goto err;
+		} while (rb->rptr != rb->wptr);
 	}
-	/* now, wait for the GPU to finish its operations */
-	for (idle_count = 0; idle_count < IDLE_COUNT_MAX; idle_count++) {
-		kgsl_yamato_regread(device, REG_RBBM_STATUS, &rbbm_status);
 
+	/* now, wait for the GPU to finish its operations */
+	wait_time = jiffies + MAX_WAITGPU_SECS;
+	while (time_before(jiffies, wait_time)) {
+		kgsl_yamato_regread(device, REG_RBBM_STATUS, &rbbm_status);
 		if (rbbm_status == 0x110) {
-			status = 0;
-			goto done;
+			KGSL_DRV_VDBG("return %d\n", 0);
+			return 0;
 		}
 	}
 
 err:
 	KGSL_DRV_ERR("spun too long waiting for RB to idle\n");
 	kgsl_postmortem_dump(device);
-
-done:
-	KGSL_DRV_VDBG("return %d\n", status);
-
-	return status;
+	return -ETIMEDOUT;
 }
 
 static unsigned int kgsl_yamato_isidle(struct kgsl_device *device)
@@ -1109,7 +1104,7 @@ static int kgsl_yamato_suspend(struct kgsl_device *device)
 	int status;
 
 	/* Wait for the device to become idle */
-	status = kgsl_yamato_idle(device, IDLE_COUNT_MAX);
+	status = kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
 
 	if (status == KGSL_SUCCESS) {
 		device->requested_state = KGSL_STATE_SUSPEND;
