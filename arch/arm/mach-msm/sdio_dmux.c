@@ -31,6 +31,7 @@
 #include <linux/wakelock.h>
 
 #include <mach/sdio_al.h>
+#include <mach/sdio_dmux.h>
 
 #define SDIO_CH_LOCAL_OPEN       0x1
 #define SDIO_CH_REMOTE_OPEN      0x2
@@ -96,7 +97,7 @@ struct sdio_ch_info {
 };
 
 static struct sdio_channel *sdio_mux_ch;
-static struct sdio_ch_info sdio_ch[8];
+static struct sdio_ch_info sdio_ch[SDIO_DMUX_NUM_CHANNELS];
 struct wake_lock sdio_mux_ch_wakelock;
 static int sdio_mux_initialized;
 
@@ -398,7 +399,7 @@ static void sdio_mux_write_data(struct work_struct *work)
 	struct sk_buff *skb;
 	unsigned long flags;
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < SDIO_DMUX_NUM_CHANNELS; ++i) {
 		spin_lock_irqsave(&sdio_ch[i].lock, flags);
 		if (sdio_ch_is_local_open(i) && sdio_ch[i].skb) {
 			skb = sdio_ch[i].skb;
@@ -429,6 +430,8 @@ int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb)
 	unsigned long flags;
 	struct sk_buff *new_skb;
 
+	if (id >= SDIO_DMUX_NUM_CHANNELS)
+		return -EINVAL;
 	if (!skb)
 		return -EINVAL;
 	if (!sdio_mux_initialized)
@@ -499,7 +502,7 @@ int msm_sdio_dmux_open(uint32_t id, void *priv,
 	DBG("%s: opening ch %d\n", __func__, id);
 	if (!sdio_mux_initialized)
 		return -ENODEV;
-	if (id >= 8)
+	if (id >= SDIO_DMUX_NUM_CHANNELS)
 		return -EINVAL;
 
 	spin_lock_irqsave(&sdio_ch[id].lock, flags);
@@ -534,6 +537,8 @@ int msm_sdio_dmux_close(uint32_t id)
 	struct sdio_mux_hdr hdr;
 	unsigned long flags;
 
+	if (id >= SDIO_DMUX_NUM_CHANNELS)
+		return -EINVAL;
 	DBG("%s: closing ch %d\n", __func__, id);
 	if (!sdio_mux_initialized)
 		return -ENODEV;
@@ -595,7 +600,7 @@ static int sdio_dmux_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	for (rc = 0; rc < 8; rc++)
+	for (rc = 0; rc < SDIO_DMUX_NUM_CHANNELS; ++rc)
 		spin_lock_init(&sdio_ch[rc].lock);
 
 	wake_lock_init(&sdio_mux_ch_wakelock, WAKE_LOCK_SUSPEND,
