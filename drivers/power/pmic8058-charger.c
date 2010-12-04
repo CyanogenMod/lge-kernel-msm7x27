@@ -185,6 +185,7 @@ struct pm8058_charger {
 	int waiting_for_veoc;
 	struct msm_hardware_charger hw_chg;
 	int current_charger_current;
+	int disabled;
 
 	struct msm_xo_voter *voter;
 	struct dentry *dent;
@@ -521,6 +522,9 @@ static int __pm8058_start_charging(int chg_current, int termination_current,
 				   int time)
 {
 	int ret = 0;
+
+	if (pm8058_chg.disabled)
+		goto out;
 
 	dev_info(pm8058_chg.dev, "%s %dmA %dmin\n",
 			__func__, chg_current, time);
@@ -1208,6 +1212,30 @@ static int set_status(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(chg_fops, get_status, set_status, "%llu\n");
 
+static int get_disable_status(void *data, u64 * val)
+{
+	*val = pm8058_chg.disabled;
+	return 0;
+}
+
+static int set_disable_status(void *data, u64 val)
+{
+
+	pm8058_chg.disabled = val;
+	if (val) {
+		/*
+		 * stop_charging is called during usb suspend
+		 * act as the usb is removed by disabling auto and enum
+		 */
+		pm_chg_enum_done_enable(0);
+		pm_chg_auto_disable(1);
+		pm8058_stop_charging(NULL);
+	}
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(disable_fops, get_disable_status,
+					set_disable_status, "%llu\n");
+
 static int pm8058_charging_switched(struct msm_hardware_charger *hw_chg)
 {
 	u8 temp;
@@ -1289,6 +1317,9 @@ static void create_debugfs_entries(void)
 
 	debugfs_create_file("stop", 0644, pm8058_chg.dent, NULL,
 			    &chg_fops);
+
+	debugfs_create_file("disable", 0644, pm8058_chg.dent, NULL,
+			    &disable_fops);
 
 	if (pm8058_chg.pmic_chg_irq[CHGVAL_IRQ])
 		debugfs_create_file("CHGVAL", 0444, pm8058_chg.dent,
