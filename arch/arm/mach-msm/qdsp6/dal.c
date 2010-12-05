@@ -614,6 +614,36 @@ int dal_call_f9(struct dal_client *client, uint32_t ddi, void *obuf,
 	return res;
 }
 
+int dal_call_f11(struct dal_client *client, uint32_t ddi, uint32_t s1,
+		void *obuf, uint32_t olen)
+{
+	uint32_t tmp[DAL_DATA_MAX/4] = {0};
+	int res;
+	int param_idx = 0;
+	int num_bytes = 4;
+
+	num_bytes += (DIV_ROUND_UP(olen, 4)) * 4;
+
+	if ((num_bytes > DAL_DATA_MAX - 12) || (olen > DAL_DATA_MAX - 8))
+		return -EINVAL;
+
+	tmp[param_idx] = s1;
+	param_idx++;
+	tmp[param_idx] = olen;
+	param_idx += DIV_ROUND_UP(olen, 4);
+
+	res = dal_call(client, ddi, 11, tmp, param_idx * 4, tmp, sizeof(tmp));
+
+	if (res >= 4)
+		res = (int) tmp[0];
+	if (!res) {
+		if (tmp[1] > olen)
+			return -EIO;
+		memcpy(obuf, &tmp[2], tmp[1]);
+	}
+	return res;
+}
+
 int dal_call_f13(struct dal_client *client, uint32_t ddi, void *ibuf1,
 		 uint32_t ilen1, void *ibuf2, uint32_t ilen2, void *obuf,
 		 uint32_t olen)

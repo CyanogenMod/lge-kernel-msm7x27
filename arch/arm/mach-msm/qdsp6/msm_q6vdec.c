@@ -385,8 +385,27 @@ static int vdec_setproperty(struct vdec_data *vd, void *argp)
 		TRACE("Set Property failed");
 	else
 		TRACE("Set Property succeeded");
+	return res;
+}
+static int vdec_getproperty(struct vdec_data *vd, void *argp)
+{
+	int res;
+	union vdec_property property = {0};
 
-	return 0;
+	res = dal_call_f11(vd->vdec_handle, VDEC_DALRPC_GETPROPERTY,
+		((struct vdec_property_info *)argp)->id, &property,
+		sizeof(union vdec_property));
+
+	if (res)
+		TRACE("get Property failed");
+	else
+		TRACE("get Property succeeded");
+
+	res = copy_to_user(
+		(&((struct vdec_property_info *)argp)->property),
+		&property, sizeof(property));
+
+	return res;
 }
 static int vdec_performance_change_request(struct vdec_data *vd, void* argp)
 {
@@ -1063,12 +1082,6 @@ static int vdec_getversion(struct vdec_data *vd, void *argp)
 	return ret;
 
 }
-static int vdec_getproperty(struct vdec_data *vd, void *argp, uint32_t cmd_idx)
-{
-	/*dal_call_f11(vd->vdec_handle, VDEC_DALRPC_GETPROPERTY,);*/
-	return 0;
-}
-
 
 static long vdec_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -1162,13 +1175,13 @@ static long vdec_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case VDEC_IOCTL_GETPROPERTY:
 		TRACE("VDEC_IOCTL_GETPROPERTY (pid=%d tid=%d)\n",
 		      current->group_leader->pid, current->pid);
-		ret = vdec_getproperty(vd, argp,
-				0);
+		ret = vdec_getproperty(vd, argp);
 		break;
 	case VDEC_IOCTL_SETPROPERTY:
 		TRACE("VDEC_IOCTL_SETPROPERTY (pid=%d tid=%d)\n",
 		      current->group_leader->pid, current->pid);
 		ret = vdec_setproperty(vd, argp);
+		break;
 	case VDEC_IOCTL_PERFORMANCE_CHANGE_REQ:
 		ret = vdec_performance_change_request(vd, argp);
 		break;
