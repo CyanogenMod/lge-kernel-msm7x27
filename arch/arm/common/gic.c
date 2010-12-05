@@ -32,6 +32,7 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
+#include <../mach-msm/mpm.h>
 
 static DEFINE_SPINLOCK(irq_controller_lock);
 
@@ -107,6 +108,8 @@ static void gic_mask_irq(unsigned int irq)
 	spin_lock(&irq_controller_lock);
 	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_CLEAR + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
+
+	msm_mpm_enable_irq(irq, 0);
 }
 
 static void gic_unmask_irq(unsigned int irq)
@@ -116,6 +119,8 @@ static void gic_unmask_irq(unsigned int irq)
 	spin_lock(&irq_controller_lock);
 	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
+
+	msm_mpm_enable_irq(irq, 1);
 }
 
 #ifdef CONFIG_SMP
@@ -214,6 +219,7 @@ static int gic_set_wake(unsigned int irq, unsigned int on)
 	else
 		gic_data->wakeup_irqs[reg_offset] &=  ~(1 << bit_offset);
 
+	msm_mpm_set_irq_wake(irq, on);
 	return 0;
 }
 #else
@@ -266,6 +272,8 @@ static int gic_set_type(unsigned int irq, unsigned int type)
 		writel(enablemask, base + GIC_DIST_ENABLE_SET + enableoff);
 
 	spin_unlock(&irq_controller_lock);
+
+	msm_mpm_set_irq_type(irq, type);
 
 	return 0;
 }
