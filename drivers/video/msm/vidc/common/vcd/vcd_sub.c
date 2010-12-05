@@ -1730,6 +1730,7 @@ u32 vcd_handle_input_done_in_eos(
 	struct ddl_frame_data_tag *frame =
 		(struct ddl_frame_data_tag *) payload;
 	u32 rc = VCD_ERR_FAIL, codec_config = false;
+	u32 core_type = res_trk_get_core_type();
 	rc = vcd_validate_io_done_pyld(cctxt, payload, status);
 	if (rc == VCD_ERR_CLIENT_FATAL)
 		vcd_handle_clnt_fatal_input_done(cctxt, frame->frm_trans_end);
@@ -1744,8 +1745,9 @@ u32 vcd_handle_input_done_in_eos(
 		transc->input_done = false;
 		transc->in_use = true;
 		if (codec_config ||
-			(status == VCD_ERR_BITSTREAM_ERR &&
-			 !(cctxt->status.mask & VCD_FIRST_IP_DONE)))
+			((status == VCD_ERR_BITSTREAM_ERR) &&
+			 !(cctxt->status.mask & VCD_FIRST_IP_DONE) &&
+			 (core_type == VCD_CORE_720P)))
 			vcd_handle_eos_done(cctxt, transc, VCD_S_SUCCESS);
 	}
 	return rc;
