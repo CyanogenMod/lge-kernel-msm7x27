@@ -1046,6 +1046,7 @@ static void vpe_do_tasklet(unsigned long data)
 		vpe_send_outmsg(MSG_ID_VPE_OUTPUT_V, pyaddr, pcbcraddr);
 		vpe_ctrl->state = 0;   /* put it back to idle. */
 	}
+	kfree(qcmd);
 }
 DECLARE_TASKLET(vpe_tasklet, vpe_do_tasklet, 0);
 
