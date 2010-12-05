@@ -136,14 +136,14 @@ static struct msm_bus_vectors cam_preview_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_VFE,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 28200000,
-		.ib  = 28200000,
+		.ab  = 1521190000,
+		.ib  = 1521190000,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_VFE,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
-		.ab  = 28200000,
-		.ib  = 28200000,
+		.ab  = 1521190000,
+		.ib  = 1521190000,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_VPE,
