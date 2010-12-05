@@ -40,6 +40,65 @@ struct apr_svc *apr_handle_m;
 struct apr_client_data clnt_data;
 char l_buf[4096];
 
+static char *svc_names[] = {
+					"NULL",
+					"NULL",
+					"TEST",
+					"CORE",
+					"AFE",
+					"VSM",
+					"VPM",
+					"ASM",
+					"ADM",
+				};
+
+static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
+{
+	struct adsp_get_version *payload;
+	uint32_t *payload1;
+	struct adsp_service_info *svc_info;
+	int i;
+
+	pr_info("core msg: payload len = %d\n", data->payload_size);
+	switch (data->opcode) {
+	case APR_BASIC_RSP_RESULT:{
+		payload1 = data->payload;
+		if (payload1[0] == ADSP_CMD_SET_POWER_COLLAPSE_STATE) {
+			pr_info("Cmd[0x%x] status[0x%x]\n", payload1[0],
+							payload1[1]);
+			break;
+		} else
+			pr_err("Invalid cmd rsp[0x%x][0x%x]\n", payload1[0],
+								payload1[1]);
+		break;
+	}
+	case ADSP_GET_VERSION_RSP:{
+		if (data->payload_size) {
+			payload = data->payload;
+			svc_info = (struct adsp_service_info *)
+			((char *)payload + sizeof(struct adsp_get_version));
+			pr_info("----------------------------------------\n");
+			pr_info("Build id          = %x\n", payload->build_id);
+			pr_info("Number of services= %x\n", payload->svc_cnt);
+			pr_info("----------------------------------------\n");
+			for (i = 0; i < payload->svc_cnt; i++)
+				pr_info("%s\t%x.%x\n",
+				svc_names[svc_info[i].svc_id],
+				(svc_info[i].svc_ver & 0xFFFF0000) >> 16,
+				(svc_info[i].svc_ver & 0xFFFF));
+			pr_info("-----------------------------------------\n");
+		} else
+			pr_info("zero payload for ADSP_GET_VERSION_RSP\n");
+		break;
+	}
+	default:
+		pr_err("Message id from adsp core svc: %d\n", data->opcode);
+		break;
+	}
+
+	return 0;
+}
+
 static int32_t aprv2_debug_fn_q(struct apr_client_data *data, void *priv)
 {
 	pr_debug("Q6_Payload Length = %d\n", data->payload_size);
@@ -154,11 +213,70 @@ static ssize_t apr_debug_write(struct file *file, const char __user *buf,
 		apr_send_pkt(apr_handle_m, (uint32_t *)l_buf);
 		pr_info("Write_m\n");
 	} else if (!strncmp(l_buf + 20, "close", 64)) {
-		apr_deregister(apr_handle_q);
+		if (apr_handle_q)
+			apr_deregister(apr_handle_q);
 	} else if (!strncmp(l_buf + 20, "loaded", 64)) {
 		change_q6_state(APR_Q6_LOADED);
 	} else if (!strncmp(l_buf + 20, "boom", 64)) {
 		q6audio_dsp_not_responding();
+	} else if (!strncmp(l_buf + 20, "dsp_ver", 64)) {
+		struct apr_hdr *hdr;
+
+		apr_handle_q = apr_register("ADSP", "CORE", aprv2_core_fn_q,
+							0xFFFFFFFF, NULL);
+		pr_info("Open_q %p\n", apr_handle_q);
+		if (apr_handle_q) {
+			hdr = (struct apr_hdr *)l_buf;
+			hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+					APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+			hdr->pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, 0);
+			hdr->src_port = 0;
+			hdr->dest_port = 0;
+			hdr->token = 0;
+			hdr->opcode = ADSP_GET_VERSION;
+
+			apr_send_pkt(apr_handle_q, (uint32_t *)l_buf);
+			pr_info("Write_q\n");
+		} else
+			pr_info("apr registration failed\n");
+	} else if (!strncmp(l_buf + 20, "en_pwr_col", 64)) {
+		struct adsp_power_collapse pc;
+
+		apr_handle_q = apr_register("ADSP", "CORE", aprv2_core_fn_q,
+							0xFFFFFFFF, NULL);
+		pr_info("Open_q %p\n", apr_handle_q);
+		if (apr_handle_q) {
+			pc.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+					APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+			pc.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+						sizeof(uint32_t));;
+			pc.hdr.src_port = 0;
+			pc.hdr.dest_port = 0;
+			pc.hdr.token = 0;
+			pc.hdr.opcode = ADSP_CMD_SET_POWER_COLLAPSE_STATE;
+			pc.power_collapse = 0x00000000;
+			apr_send_pkt(apr_handle_q, (uint32_t *)&pc);
+			pr_info("Write_q :enable power collapse\n");
+		}
+	} else if (!strncmp(l_buf + 20, "dis_pwr_col", 64)) {
+		struct adsp_power_collapse pc;
+
+		apr_handle_q = apr_register("ADSP", "CORE", aprv2_core_fn_q,
+							0xFFFFFFFF, NULL);
+		pr_info("Open_q %p\n", apr_handle_q);
+		if (apr_handle_q) {
+			pc.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+					APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+			pc.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+							sizeof(uint32_t));
+			pc.hdr.src_port = 0;
+			pc.hdr.dest_port = 0;
+			pc.hdr.token = 0;
+			pc.hdr.opcode = ADSP_CMD_SET_POWER_COLLAPSE_STATE;
+			pc.power_collapse = 0x00000001;
+			apr_send_pkt(apr_handle_q, (uint32_t *)&pc);
+			pr_info("Write_q:disable power collapse\n");
+		}
 	} else
 		pr_info("Unknown Command\n");
 

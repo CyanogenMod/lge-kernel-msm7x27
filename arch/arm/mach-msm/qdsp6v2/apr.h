@@ -142,6 +142,26 @@ struct apr_client {
 	struct apr_svc_ch_dev *handle;
 	struct apr_svc svc[APR_SVC_MAX];
 };
+
+#define ADSP_GET_VERSION     0x00011152
+#define ADSP_GET_VERSION_RSP 0x00011153
+
+struct adsp_get_version {
+	uint32_t build_id;
+	uint32_t svc_cnt;
+};
+
+struct adsp_service_info {
+	uint32_t svc_id;
+	uint32_t svc_ver;
+};
+
+#define ADSP_CMD_SET_POWER_COLLAPSE_STATE 0x0001115C
+struct adsp_power_collapse {
+	struct apr_hdr hdr;
+	uint32_t power_collapse;
+};
+
 struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 					uint32_t src_port, void *priv);
 inline int apr_fill_hdr(void *handle, uint32_t *buf, uint16_t src_port,
