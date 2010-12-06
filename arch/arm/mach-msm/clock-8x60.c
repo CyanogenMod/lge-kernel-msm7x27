@@ -706,14 +706,14 @@ static struct clk_freq_tbl clk_tbl_dsi_byte[] = {
 static struct banked_mnd_masks bmnd_info_gfx2d0 = {
 	.bank_sel_mask =			B(11),
 	.bank0_mask = {
-			.md_reg = 		GFX2D0_MD0_REG,
+			.md_reg =		GFX2D0_MD0_REG,
 			.ns_mask =		BM(23, 20) | BM(5, 3),
 			.rst_mask =		B(25),
 			.mnd_en_mask =		B(8),
 			.mode_mask =		BM(10, 9),
 	},
 	.bank1_mask = {
-			.md_reg = 		GFX2D0_MD1_REG,
+			.md_reg =		GFX2D0_MD1_REG,
 			.ns_mask =		BM(19, 16) | BM(2, 0),
 			.rst_mask =		B(24),
 			.mnd_en_mask =		B(5),
@@ -728,14 +728,14 @@ static struct banked_mnd_masks bmnd_info_gfx2d0 = {
 static struct banked_mnd_masks bmnd_info_gfx2d1 = {
 	.bank_sel_mask =		B(11),
 	.bank0_mask = {
-			.md_reg = 		GFX2D1_MD0_REG,
+			.md_reg =		GFX2D1_MD0_REG,
 			.ns_mask =		BM(23, 20) | BM(5, 3),
 			.rst_mask =		B(25),
 			.mnd_en_mask =		B(8),
 			.mode_mask =		BM(10, 9),
 	},
 	.bank1_mask = {
-			.md_reg = 		GFX2D1_MD1_REG,
+			.md_reg =		GFX2D1_MD1_REG,
 			.ns_mask =		BM(19, 16) | BM(2, 0),
 			.rst_mask =		B(24),
 			.mnd_en_mask =		B(5),
@@ -769,16 +769,16 @@ static struct clk_freq_tbl clk_tbl_gfx2d[] = {
 
 /* GFX3D */
 static struct banked_mnd_masks bmnd_info_gfx3d = {
-	.bank_sel_mask = 		B(11),
+	.bank_sel_mask =		B(11),
 	.bank0_mask = {
-			.md_reg = 		GFX3D_MD0_REG,
+			.md_reg =		GFX3D_MD0_REG,
 			.ns_mask =		BM(21, 18) | BM(5, 3),
 			.rst_mask =		B(23),
 			.mnd_en_mask =		B(8),
 			.mode_mask =		BM(10, 9),
 	},
 	.bank1_mask = {
-			.md_reg = 		GFX3D_MD1_REG,
+			.md_reg =		GFX3D_MD1_REG,
 			.ns_mask =		BM(17, 14) | BM(2, 0),
 			.rst_mask =		B(22),
 			.mnd_en_mask =		B(5),
@@ -858,14 +858,14 @@ static struct clk_freq_tbl clk_tbl_jpegd[] = {
 static struct banked_mnd_masks bmnd_info_mdp = {
 	.bank_sel_mask =		B(11),
 	.bank0_mask = {
-			.md_reg = 		MDP_MD0_REG,
+			.md_reg =		MDP_MD0_REG,
 			.ns_mask =		BM(29, 22) | BM(5, 3),
 			.rst_mask =		B(31),
 			.mnd_en_mask =		B(8),
 			.mode_mask =		BM(10, 9),
 	},
 	.bank1_mask = {
-			.md_reg = 		MDP_MD1_REG,
+			.md_reg =		MDP_MD1_REG,
 			.ns_mask =		BM(21, 14) | BM(2, 0),
 			.rst_mask =		B(30),
 			.mnd_en_mask =		B(5),
@@ -1137,10 +1137,10 @@ static struct clk_freq_tbl clk_tbl_pcm[] = {
  */
 static const uint32_t chld_usb_fs1_src[] =	{C(USB_FS1_XCVR),
 						 C(USB_FS1_SYS), C(NONE)};
-static const uint32_t chld_usb_fs2_src[] = 	{C(USB_FS2_XCVR),
+static const uint32_t chld_usb_fs2_src[] =	{C(USB_FS2_XCVR),
 						 C(USB_FS2_SYS), C(NONE)};
-static const uint32_t chld_csi_src[] = 		{C(CSI0), C(CSI1), C(NONE)};
-static const uint32_t chld_pixel_mdp[] = 	{C(PIXEL_LCDC), C(NONE)};
+static const uint32_t chld_csi_src[] =		{C(CSI0), C(CSI1), C(NONE)};
+static const uint32_t chld_pixel_mdp[] =	{C(PIXEL_LCDC), C(NONE)};
 static const uint32_t chld_tv_src[] =		{C(TV_ENC), C(TV_DAC),
 						 C(MDP_TV), C(HDMI_TV),
 						 C(NONE)};
