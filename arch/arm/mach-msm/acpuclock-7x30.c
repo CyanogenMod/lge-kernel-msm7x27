@@ -71,7 +71,7 @@ struct clkctl_acpu_speed {
 	int		src;
 	unsigned int	acpu_src_sel;
 	unsigned int	acpu_src_div;
-	unsigned int	axi_clk_khz;
+	unsigned int	axi_clk_hz;
 	unsigned int	vdd_mv;
 	unsigned int	vdd_raw;
 	unsigned long	lpj; /* loops_per_jiffy */
@@ -99,20 +99,20 @@ static struct cpufreq_frequency_table freq_table[] = {
  * know all the h/w requirements.
  */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 24576,  SRC_LPXO, 0, 0,  30720,  900, VDD_RAW(900) },
-	{ 61440,  PLL_3,    5, 11, 61440,  900, VDD_RAW(900) },
-	{ 122880, PLL_3,    5, 5,  61440,  900, VDD_RAW(900) },
-	{ 184320, PLL_3,    5, 4,  61440,  900, VDD_RAW(900) },
-	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440, 900, VDD_RAW(900) },
-	{ 245760, PLL_3,    5, 2,  61440,  900, VDD_RAW(900) },
-	{ 368640, PLL_3,    5, 1,  122800, 900, VDD_RAW(900) },
+	{ 24576,  SRC_LPXO, 0, 0,  30720000,  900, VDD_RAW(900) },
+	{ 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
+	{ 122880, PLL_3,    5, 5,  61440000,  900, VDD_RAW(900) },
+	{ 184320, PLL_3,    5, 4,  61440000,  900, VDD_RAW(900) },
+	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440000, 900, VDD_RAW(900) },
+	{ 245760, PLL_3,    5, 2,  61440000,  900, VDD_RAW(900) },
+	{ 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(900) },
 	/* AXI has MSMC1 implications. See above. */
-	{ 768000, PLL_1,    2, 0,  153600, 1050, VDD_RAW(1050) },
+	{ 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
 	/*
 	 * AXI has MSMC1 implications. See above.
 	 * 806.4MHz is increased to match the SoC's capabilities at runtime
 	 */
-	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1100) },
+	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1100, VDD_RAW(1100) },
 	{ 0 }
 };
 
@@ -207,9 +207,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	/* Increase the AXI bus frequency if needed. This must be done before
 	 * increasing the ACPU frequency, since voting for high AXI rates
 	 * implicitly takes care of increasing the MSMC1 voltage, as needed. */
-	if (tgt_s->axi_clk_khz > strt_s->axi_clk_khz) {
+	if (tgt_s->axi_clk_hz > strt_s->axi_clk_hz) {
 		rc = clk_set_min_rate(drv_state.ebi1_clk,
-					tgt_s->axi_clk_khz * 1000);
+					tgt_s->axi_clk_hz);
 		if (rc < 0) {
 			pr_err("Setting AXI min rate failed (%d)\n", rc);
 			goto out;
@@ -238,9 +238,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	}
 
 	/* Decrease the AXI bus frequency if we can. */
-	if (tgt_s->axi_clk_khz < strt_s->axi_clk_khz) {
+	if (tgt_s->axi_clk_hz < strt_s->axi_clk_hz) {
 		res = clk_set_min_rate(drv_state.ebi1_clk,
-					tgt_s->axi_clk_khz * 1000);
+					tgt_s->axi_clk_hz);
 		if (res < 0)
 			pr_warning("Setting AXI min rate failed (%d)\n", res);
 	}
@@ -352,7 +352,7 @@ static void __init acpuclk_init(void)
 	if (s->src >= 0)
 		local_src_enable(s->src);
 
-	res = clk_set_min_rate(drv_state.ebi1_clk, s->axi_clk_khz * 1000);
+	res = clk_set_min_rate(drv_state.ebi1_clk, s->axi_clk_hz);
 	if (res < 0)
 		pr_warning("Setting AXI min rate failed!\n");
 
