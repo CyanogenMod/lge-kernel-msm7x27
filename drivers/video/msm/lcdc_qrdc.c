@@ -79,7 +79,7 @@ static void lcdc_qrdc_set_backlight(struct msm_fb_data_type *mfd)
 		wpce_smbus_write_word_data(0xC4, mfd->bl_level);
 }
 
-static int __init qrdc_probe(struct platform_device *pdev)
+static int __devinit qrdc_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	int rc = 0;
