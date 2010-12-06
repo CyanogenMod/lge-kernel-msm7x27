@@ -4704,24 +4704,47 @@ static int bahama_bt(int on)
 		{ 0xF0, 0x06, 0xFF },
 		{ 0xE4, 0x00, 0xFF },
 		{ 0xE5, 0x00, 0x0F },
+#ifdef CONFIG_WLAN
 		{ 0xE6, 0x38, 0x7F },
 		{ 0xE7, 0x06, 0xFF },
+#endif
 		{ 0x11, 0x13, 0xFF },
 		{ 0xE9, 0x21, 0xFF },
 		{ 0x01, 0x0C, 0x1F },
 		{ 0x01, 0x08, 0x1F },
 	};
 
+	const struct bahama_config_register v20_bt_on[] = {
+		{ 0x11, 0x0C, 0xFF },
+		{ 0x13, 0x01, 0xFF },
+		{ 0xF4, 0x80, 0xFF },
+		{ 0xF0, 0x00, 0xFF },
+		{ 0xE9, 0x00, 0xFF },
+#ifdef CONFIG_WLAN
+		{ 0x81, 0x00, 0xFF },
+		{ 0x82, 0x00, 0xFF },
+		{ 0xE6, 0x38, 0x7F },
+		{ 0xE7, 0x06, 0xFF },
+#endif
+		{ 0xE9, 0x21, 0xFF }
+	};
+
 	const struct bahama_config_register v10_bt_off[] = {
 		{ 0xE9, 0x00, 0xFF },
 	};
 
-	const struct bahama_variant_register bt_bahama[2][1] = {
+	const struct bahama_config_register v20_bt_off[] = {
+		{ 0xE9, 0x00, 0xFF },
+	};
+
+	const struct bahama_variant_register bt_bahama[2][2] = {
 		{
 			{ ARRAY_SIZE(v10_bt_off), v10_bt_off },
+			{ ARRAY_SIZE(v20_bt_off), v20_bt_off }
 		},
 		{
 			{ ARRAY_SIZE(v10_bt_on), v10_bt_on },
+			{ ARRAY_SIZE(v20_bt_on), v20_bt_on }
 		}
 	};
 
@@ -4740,9 +4763,13 @@ static int bahama_bt(int on)
 	}
 
 	switch (version) {
-	case 0x08: /* varient of bahama vers zero, same software if */
-		version = 0x00;
+	case 0x08: /* varients of bahama v1 */
+	case 0x10:
 	case 0x00:
+		version = 0x00;
+		break;
+	case 0x09: /* variant of bahama v2 */
+		version = 0x01;
 		break;
 	default:
 		version = 0xFF;
