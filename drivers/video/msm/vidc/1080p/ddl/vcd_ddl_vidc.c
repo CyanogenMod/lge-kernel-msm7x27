@@ -580,10 +580,12 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 			enc_buffers->dpb_y[0]);
 	luma[1] = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 			enc_buffers->dpb_y[1]);
-	luma[2] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
+	if (encoder->hw_bufs.dpb_count == DDL_ENC_MAX_DPB_BUFFERS) {
+		luma[2] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
 			enc_buffers->dpb_y[2]);
-	luma[3] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
+		luma[3] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
 			enc_buffers->dpb_y[3]);
+	}
 	for (index = 0; index < recon_bufs; index++)
 		chroma[index] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
 					enc_buffers->dpb_c[index]);

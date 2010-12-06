@@ -327,15 +327,15 @@ void vidc_1080p_set_encode_recon_buffers(u32 recon_buffer,
 			VIDC_1080P_BASE_OFFSET_SHIFT));
 	}
 	if (recon_buffer > 1) {
-		VIDC_HWIO_OUT(REG_61427, (pn_enc_luma[1] >>
+		VIDC_HWIO_OUT(REG_616802, (pn_enc_luma[1] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
-		VIDC_HWIO_OUT(REG_68356, (pn_enc_chroma[1] >>
+		VIDC_HWIO_OUT(REG_833502, (pn_enc_chroma[1] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
 	}
 	if (recon_buffer > 2) {
-		VIDC_HWIO_OUT(REG_616802, (pn_enc_luma[2] >>
+		VIDC_HWIO_OUT(REG_61427, (pn_enc_luma[2] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
-		VIDC_HWIO_OUT(REG_833502, (pn_enc_chroma[2] >>
+		VIDC_HWIO_OUT(REG_68356, (pn_enc_chroma[2] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
 	}
 	if (recon_buffer > 3) {
