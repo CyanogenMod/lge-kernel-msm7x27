@@ -1240,7 +1240,9 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 	._fsrc.pmic_src.pmic_set_current = pm8058_set_flash_led_current,
 };
 static struct msm_camera_sensor_strobe_flash_data strobe_flash_xenon = {
+	.flash_trigger = VFE_CAMIF_TIMER1_GPIO,
 	.flash_charge = VFE_CAMIF_TIMER2_GPIO,
+	.flash_charge_done = VFE_CAMIF_TIMER3_GPIO_INT,
 	.flash_recharge_duration = 50000,
 	.irq = MSM_GPIO_TO_INT(VFE_CAMIF_TIMER3_GPIO_INT),
 };
