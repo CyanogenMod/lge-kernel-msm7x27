@@ -111,6 +111,7 @@ module_param_named(
 				msm_pm_smem_data->pending_irqs); \
 	} while (0)
 
+#define MAX_NR_CLKS 33
 
 /******************************************************************************
  * Sleep Modes and Parameters

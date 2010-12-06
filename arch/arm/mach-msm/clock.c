@@ -28,12 +28,6 @@ static DEFINE_SPINLOCK(clocks_lock);
 static DEFINE_SPINLOCK(ebi1_vote_lock);
 static LIST_HEAD(clocks);
 
-/*
- * Bitmap of enabled clocks, excluding ACPU which is always
- * enabled
- */
-static DECLARE_BITMAP(clock_map_enabled, MAX_NR_CLKS);
-static DEFINE_SPINLOCK(clock_map_lock);
 static struct notifier_block axi_freq_notifier_block;
 
 /*
@@ -75,10 +69,6 @@ int clk_enable(struct clk *clk)
 		ret = clk->ops->enable(clk->id);
 		if (ret)
 			goto out;
-		BUG_ON(clk->id >= MAX_NR_CLKS);
-		spin_lock(&clock_map_lock);
-		clock_map_enabled[BIT_WORD(clk->id)] |= BIT_MASK(clk->id);
-		spin_unlock(&clock_map_lock);
 	}
 	clk->count++;
 out:
@@ -95,9 +85,6 @@ void clk_disable(struct clk *clk)
 	clk->count--;
 	if (clk->count == 0) {
 		clk->ops->disable(clk->id);
-		spin_lock(&clock_map_lock);
-		clock_map_enabled[BIT_WORD(clk->id)] &= ~BIT_MASK(clk->id);
-		spin_unlock(&clock_map_lock);
 	}
 	spin_unlock_irqrestore(&clocks_lock, flags);
 }
@@ -235,59 +222,6 @@ static int axi_freq_notifier_handler(struct notifier_block *block,
 	}
 }
 
-/*
- * Find out whether any clock is enabled that needs the TCXO clock.
- *
- * On exit, the buffer 'reason' holds a bitmap of ids of all enabled
- * clocks found that require TCXO.
- *
- * reason: buffer to hold the bitmap; must be compatible with
- *         linux/bitmap.h
- * nbits: number of bits that the buffer can hold; 0 is ok
- *
- * Return value:
- *      0: does not require the TCXO clock
- *      1: requires the TCXO clock
- */
-int msm_clock_require_tcxo(unsigned long *reason, int nbits)
-{
-	unsigned long flags;
-	int ret;
-
-	spin_lock_irqsave(&clock_map_lock, flags);
-	ret = !bitmap_empty(clock_map_enabled, MAX_NR_CLKS);
-	if (nbits > 0)
-		bitmap_copy(reason, clock_map_enabled, min(nbits, MAX_NR_CLKS));
-	spin_unlock_irqrestore(&clock_map_lock, flags);
-
-	return ret;
-}
-
-/*
- * Find the clock matching the given id and copy its name to the
- * provided buffer.
- *
- * Return value:
- * -ENODEV: there is no clock matching the given id
- *       0: success
- */
-int msm_clock_get_name(uint32_t id, char *name, uint32_t size)
-{
-	struct clk *c_clk;
-	int ret = -ENODEV;
-
-	mutex_lock(&clocks_mutex);
-	list_for_each_entry(c_clk, &clocks, list) {
-		if (id == c_clk->id) {
-			strlcpy(name, c_clk->name, size);
-			ret = 0;
-			break;
-		}
-	}
-	mutex_unlock(&clocks_mutex);
-
-	return ret;
-}
 
 void __init msm_clock_init(struct clk *clock_tbl, unsigned num_clocks)
 {
