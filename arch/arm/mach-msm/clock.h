@@ -21,8 +21,6 @@
 #include <linux/types.h>
 #include <mach/clk.h>
 
-#include "clock-pcom.h"
-
 #define CLKFLAG_INVERT			0x00000001
 #define CLKFLAG_NOINVERT		0x00000002
 #define CLKFLAG_NONEST			0x00000004
@@ -61,10 +59,6 @@ struct clk {
 	struct hlist_head voters;
 	const char *aggregator;
 };
-
-#define A11S_CLK_CNTL_ADDR		(MSM_CSR_BASE + 0x100)
-#define A11S_CLK_SEL_ADDR		(MSM_CSR_BASE + 0x104)
-#define A11S_VDD_SVS_PLEVEL_ADDR	(MSM_CSR_BASE + 0x124)
 
 #define OFF CLKFLAG_AUTO_OFF
 #define CLK_MIN CLKFLAG_MIN

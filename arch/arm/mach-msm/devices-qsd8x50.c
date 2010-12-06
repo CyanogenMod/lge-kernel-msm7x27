@@ -33,6 +33,7 @@
 #include <mach/usbdiag.h>
 #include <mach/rpc_hsusb.h>
 
+#include "clock-pcom.h"
 #include "clock-voter.h"
 
 static struct resource resources_uart1[] = {
