@@ -656,6 +656,100 @@ static u32 vid_dec_set_extradata(struct video_client_ctx *client_ctx,
 		return true;
 }
 
+static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
+					struct vdec_h264_mv *mv_data)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_h264_mv_buffer vcd_h264_mv_buffer;
+	u32 vcd_status = VCD_ERR_FAIL;
+	u32 len;
+	struct file *file;
+
+	if (!client_ctx || !mv_data)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_H264_MV_BUFFER;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_h264_mv_buffer);
+
+	memset(&vcd_h264_mv_buffer, 0,
+		   sizeof(struct vcd_property_h264_mv_buffer));
+	vcd_h264_mv_buffer.size = mv_data->size;
+	vcd_h264_mv_buffer.count = mv_data->count;
+	vcd_h264_mv_buffer.pmem_fd = mv_data->pmem_fd;
+	vcd_h264_mv_buffer.offset = mv_data->offset;
+
+	if (get_pmem_file(vcd_h264_mv_buffer.pmem_fd,
+		(unsigned long *) (&(vcd_h264_mv_buffer.physical_addr)),
+		(unsigned long *) (&vcd_h264_mv_buffer.kernel_virtual_addr),
+		(unsigned long *) (&len), &file)) {
+		ERR("%s(): get_pmem_file failed\n", __func__);
+		return false;
+	}
+	put_pmem_file(file);
+
+	DBG("Virt: %p, Phys %p, fd: %d\n", vcd_h264_mv_buffer.
+		kernel_virtual_addr, vcd_h264_mv_buffer.physical_addr,
+		vcd_h264_mv_buffer.pmem_fd);
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &vcd_h264_mv_buffer);
+
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_get_h264_mv_buffer_size(struct video_client_ctx *client_ctx,
+					struct vdec_mv_buff_size *mv_buff)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_buffer_size h264_mv_buffer_size;
+	u32 vcd_status = VCD_ERR_FAIL;
+
+	if (!client_ctx || !mv_buff)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_GET_H264_MV_SIZE;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
+
+	h264_mv_buffer_size.width = mv_buff->width;
+	h264_mv_buffer_size.height = mv_buff->height;
+
+	vcd_status = vcd_get_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &h264_mv_buffer_size);
+
+	mv_buff->width = h264_mv_buffer_size.width;
+	mv_buff->height = h264_mv_buffer_size.height;
+	mv_buff->size = h264_mv_buffer_size.size;
+	mv_buff->alignment = h264_mv_buffer_size.alignment;
+
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_free_h264_mv_buffers(struct video_client_ctx *client_ctx)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_buffer_size h264_mv_buffer_size;
+	u32 vcd_status = VCD_ERR_FAIL;
+
+	if (!client_ctx)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_FREE_H264_MV_BUFFER;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &h264_mv_buffer_size);
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
 static u32 vid_dec_get_buffer_req(struct video_client_ctx *client_ctx,
 				  struct vdec_allocatorproperty *vdec_buf_req)
 {
@@ -1423,6 +1517,50 @@ static int vid_dec_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		result = vid_dec_set_extradata(client_ctx, &extradata_flag);
 		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_SET_H264_MV_BUFFER:
+	{
+		struct vdec_h264_mv mv_data;
+		DBG("VDEC_IOCTL_SET_H264_MV_BUFFER\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&mv_data, vdec_msg.in,
+						   sizeof(mv_data)))
+			return -EFAULT;
+		result = vid_dec_set_h264_mv_buffers(client_ctx, &mv_data);
+
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_FREE_H264_MV_BUFFER:
+	{
+		DBG("VDEC_IOCTL_FREE_H264_MV_BUFFER\n");
+		result = vid_dec_free_h264_mv_buffers(client_ctx);
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_GET_MV_BUFFER_SIZE:
+	{
+		struct vdec_mv_buff_size mv_buff;
+		DBG("VDEC_IOCTL_GET_MV_BUFFER_SIZE\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&mv_buff, vdec_msg.out,
+						   sizeof(mv_buff)))
+			return -EFAULT;
+		result = vid_dec_get_h264_mv_buffer_size(client_ctx, &mv_buff);
+		if (result) {
+			DBG(" Returning W: %d, H: %d, S: %d, A: %d",
+				mv_buff.width, mv_buff.height,
+				mv_buff.size, mv_buff.alignment);
+			if (copy_to_user(vdec_msg.out, &mv_buff,
+					sizeof(mv_buff)))
+				return -EFAULT;
+		} else
 			return -EIO;
 		break;
 	}
