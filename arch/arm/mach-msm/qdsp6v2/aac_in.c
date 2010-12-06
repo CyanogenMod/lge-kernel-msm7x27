@@ -51,9 +51,6 @@ void q6asm_aac_in_cb(uint32_t opcode, uint32_t token,
 
 	spin_lock_irqsave(&audio->dsp_lock, flags);
 	switch (opcode) {
-	case ASM_DATA_EVENT_EOS:
-		audio->eos_ack = 1;
-		break;
 	case ASM_DATA_EVENT_READ_DONE:
 		audio_in_get_dsp_frames(audio, token, payload);
 		break;
@@ -248,7 +245,6 @@ static int aac_in_open(struct inode *inode, struct file *file)
 	mutex_init(&audio->read_lock);
 	mutex_init(&audio->write_lock);
 	spin_lock_init(&audio->dsp_lock);
-	init_waitqueue_head(&audio->cmd_wait);
 	init_waitqueue_head(&audio->read_wait);
 	init_waitqueue_head(&audio->write_wait);
 
