@@ -786,6 +786,8 @@ static struct snddev_icodec_data snddev_ihs_stereo_speaker_stereo_rx_data = {
 	.default_sample_rate = 48000,
 	.pamp_on = msm_snddev_poweramp_on,
 	.pamp_off = msm_snddev_poweramp_off,
+	.voltage_on = msm_snddev_voltage_on,
+	.voltage_off = msm_snddev_voltage_off,
 };
 
 static struct platform_device msm_ihs_stereo_speaker_stereo_rx_device = {
