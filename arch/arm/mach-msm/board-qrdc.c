@@ -774,6 +774,7 @@ static struct msm_i2c_platform_data msm_gsbi3_qup_i2c_pdata = {
 	.src_clk_rate = 24000000,
 	.clk = "gsbi_qup_clk",
 	.pclk = "gsbi_pclk",
+	.use_gsbi_shared_mode = 1,
 	.msm_i2c_config_gpio = gsbi_qup_i2c_gpio_config,
 };
 
@@ -1530,6 +1531,7 @@ static struct platform_device msm_aux_pcm_device = {
 static struct platform_device *qrdc_devices[] __initdata = {
 	&msm_device_smd,
 	&smsc911x_device,
+	&msm_device_uart_dm3,
 #ifdef CONFIG_I2C_QUP
 	&msm_gsbi3_qup_i2c_device,
 	&msm_gsbi4_qup_i2c_device,
@@ -2617,6 +2619,10 @@ static void __init msm8x60_init_uart12dm(void)
 static void __init msm8x60_init_buses(void)
 {
 #ifdef CONFIG_I2C_QUP
+	void *gsbi_mem = ioremap_nocache(0x16200000, 4);
+	/* Setting protocol code to 0x60 for dual UART/I2C in GSBI3 */
+	writel(0x6 << 4, gsbi_mem);
+	iounmap(gsbi_mem);
 	msm_gsbi3_qup_i2c_device.dev.platform_data = &msm_gsbi3_qup_i2c_pdata;
 	msm_gsbi4_qup_i2c_device.dev.platform_data = &msm_gsbi4_qup_i2c_pdata;
 	msm_gsbi7_qup_i2c_device.dev.platform_data = &msm_gsbi7_qup_i2c_pdata;
@@ -2718,6 +2724,11 @@ static uint32_t msm8x60_tlmm_cfgs[] = {
 	GPIO_CFG(55, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	/* UARTDM_RFR */
 	GPIO_CFG(56, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+
+	/* UARTDM_TX */
+	GPIO_CFG(41, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	/* UARTDM_RX */
+	GPIO_CFG(42, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 #endif
 #ifdef CONFIG_PMIC8901
 	/* PMIC8901 */
