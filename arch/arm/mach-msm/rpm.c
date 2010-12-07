@@ -753,6 +753,9 @@ EXPORT_SYMBOL(msm_rpm_set);
  */
 int msm_rpm_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 {
+	WARN(!irqs_disabled(), "msm_rpm_set_noirq can only be called "
+		"safely when local irqs are disabled.  Consider using "
+		"msm_rpm_set or msm_rpm_set_nosleep instead.");
 	return msm_rpm_set_common(ctx, req, count, true);
 }
 EXPORT_SYMBOL(msm_rpm_set_noirq);
@@ -789,6 +792,9 @@ EXPORT_SYMBOL(msm_rpm_clear);
  */
 int msm_rpm_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 {
+	WARN(!irqs_disabled(), "msm_rpm_clear_noirq can only be called "
+		"safely when local irqs are disabled.  Consider using "
+		"msm_rpm_clear or msm_rpm_clear_nosleep instead.");
 	return msm_rpm_clear_common(ctx, req, count, true);
 }
 EXPORT_SYMBOL(msm_rpm_clear_noirq);
