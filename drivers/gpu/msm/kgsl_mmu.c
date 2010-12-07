@@ -153,7 +153,6 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 {
 	int status = 0;
 	struct kgsl_pagetable *pagetable = NULL;
-	uint32_t flags;
 
 	KGSL_MEM_VDBG("enter (mmu=%p)\n", mmu);
 
@@ -198,11 +197,8 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 	}
 
 	/* allocate page table memory */
-	flags = (KGSL_MEMFLAGS_ALIGN4K | KGSL_MEMFLAGS_CONPHYS
-		 | KGSL_MEMFLAGS_STRICTREQUEST);
-	status = kgsl_sharedmem_alloc(flags,
-				      pagetable->max_entries * GSL_PTE_SIZE,
-				      &pagetable->base);
+	status = kgsl_sharedmem_alloc_coherent(&pagetable->base,
+				      pagetable->max_entries * GSL_PTE_SIZE);
 	if (status != 0)
 		goto err_pool;
 
@@ -342,7 +338,6 @@ int kgsl_mmu_init(struct kgsl_device *device)
 	 * call this with the global lock held
 	 */
 	int status;
-	uint32_t flags;
 	struct kgsl_mmu *mmu = &device->mmu;
 
 	KGSL_MEM_VDBG("enter (device=%p)\n", device);
@@ -371,9 +366,7 @@ int kgsl_mmu_init(struct kgsl_device *device)
 		/* allocate memory used for completing r/w operations that
 		 * cannot be mapped by the MMU
 		 */
-		flags = (KGSL_MEMFLAGS_ALIGN4K | KGSL_MEMFLAGS_CONPHYS
-			 | KGSL_MEMFLAGS_STRICTREQUEST);
-		status = kgsl_sharedmem_alloc(flags, 64, &mmu->dummyspace);
+		status = kgsl_sharedmem_alloc_coherent(&mmu->dummyspace, 64);
 		if (status != 0) {
 			KGSL_MEM_ERR
 			    ("Unable to allocate dummy space memory.\n");

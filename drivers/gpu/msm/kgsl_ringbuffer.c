@@ -521,7 +521,6 @@ int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 int kgsl_ringbuffer_init(struct kgsl_device *device)
 {
 	int status;
-	uint32_t flags;
 	struct kgsl_ringbuffer *rb = &device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device=%p)\n", device);
@@ -530,16 +529,9 @@ int kgsl_ringbuffer_init(struct kgsl_device *device)
 	rb->sizedwords = (2 << kgsl_cfg_rb_sizelog2quadwords);
 	rb->blksizequadwords = kgsl_cfg_rb_blksizequadwords;
 
-	/* allocate memory for ringbuffer, needs to be double octword aligned
-	* align on page from contiguous physical memory
-	*/
-	flags =
-	    (KGSL_MEMFLAGS_ALIGNPAGE | KGSL_MEMFLAGS_CONPHYS |
-	     KGSL_MEMFLAGS_STRICTREQUEST);
-
-	status = kgsl_sharedmem_alloc(flags, (rb->sizedwords << 2),
-					&rb->buffer_desc);
-
+	/* allocate memory for ringbuffer */
+	status = kgsl_sharedmem_alloc_coherent(&rb->buffer_desc,
+					       (rb->sizedwords << 2));
 	if (status != 0) {
 		kgsl_ringbuffer_close(rb);
 		KGSL_CMD_VDBG("return %d\n", status);
@@ -549,11 +541,8 @@ int kgsl_ringbuffer_init(struct kgsl_device *device)
 	/* allocate memory for polling and timestamps */
 	/* This really can be at 4 byte alignment boundry but for using MMU
 	 * we need to make it at page boundary */
-	flags = (KGSL_MEMFLAGS_ALIGNPAGE | KGSL_MEMFLAGS_CONPHYS);
-
-	status = kgsl_sharedmem_alloc(flags, sizeof(struct kgsl_rbmemptrs),
-					&rb->memptrs_desc);
-
+	status = kgsl_sharedmem_alloc_coherent(&rb->memptrs_desc,
+					       sizeof(struct kgsl_rbmemptrs));
 	if (status != 0) {
 		kgsl_ringbuffer_close(rb);
 		KGSL_CMD_VDBG("return %d\n", status);

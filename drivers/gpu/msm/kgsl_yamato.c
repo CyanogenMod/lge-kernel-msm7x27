@@ -590,7 +590,6 @@ kgsl_yamato_init(struct kgsl_device *device)
 								device;
 	int status = -EINVAL;
 	struct kgsl_memregion *regspace = &device->regspace;
-	unsigned int memflags = KGSL_MEMFLAGS_ALIGNPAGE | KGSL_MEMFLAGS_CONPHYS;
 	struct resource *res = NULL;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
@@ -665,8 +664,8 @@ kgsl_yamato_init(struct kgsl_device *device)
 		goto error_close_mmu;
 	}
 
-	status = kgsl_sharedmem_alloc(memflags, sizeof(device->memstore),
-				&device->memstore);
+	status = kgsl_sharedmem_alloc_coherent(&device->memstore,
+					       sizeof(device->memstore));
 	if (status != 0)  {
 		status = -ENODEV;
 		goto error_close_cmdstream;

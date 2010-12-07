@@ -31,6 +31,7 @@
 
 #include <linux/types.h>
 #include <linux/msm_kgsl.h>
+#include <linux/dma-mapping.h>
 
 #define KGSL_PAGESIZE           0x1000
 #define KGSL_PAGESIZE_SHIFT     12
@@ -102,6 +103,20 @@ struct kgsl_sharedmem {
 
 int kgsl_sharedmem_alloc(uint32_t flags, int size,
 			struct kgsl_memdesc *memdesc);
+
+static inline int
+kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
+{
+	size = ALIGN(size, KGSL_PAGESIZE);
+
+	memdesc->hostptr = dma_alloc_coherent(NULL, size, &memdesc->physaddr,
+					      GFP_KERNEL);
+	if (!memdesc->hostptr)
+		return -ENOMEM;
+	memdesc->size = size;
+	memdesc->priv = KGSL_MEMFLAGS_CONPHYS;
+	return 0;
+}
 
 /*TODO: add protection flags */
 int kgsl_sharedmem_import(struct kgsl_pagetable *,
