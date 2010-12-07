@@ -16,7 +16,6 @@
  *
  */
 
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -26,6 +25,7 @@
 #include <linux/pm.h>
 #include <linux/mfd/pmic8058.h>
 #include <linux/jiffies.h>
+#include <linux/suspend.h>
 #include <mach/msm_iomap.h>
 
 #define TCSR_BASE 0x16B00000
@@ -37,7 +37,7 @@
 #define WDT0_BITE_TIME	(MSM_TMR0_BASE + 0x5C)
 
 /* Watchdog pet interval in ms */
-#define PET_DELAY 300
+#define PET_DELAY 3000
 static unsigned long delay_time;
 
 /*
@@ -52,38 +52,83 @@ static void *tcsr_base;
 static void pet_watchdog(struct work_struct *work);
 static DECLARE_DELAYED_WORK(dogwork_struct, pet_watchdog);
 
+static int msm_watchdog_suspend(void)
+{
+	writel(1, WDT0_RST);
+	writel(0, WDT0_EN);
+	return NOTIFY_DONE;
+}
+static int msm_watchdog_resume(void)
+{
+	writel(1, WDT0_EN);
+	writel(1, WDT0_RST);
+	return NOTIFY_DONE;
+}
+
+static int msm_watchdog_power_event(struct notifier_block *this,
+				unsigned long event, void *ptr)
+{
+	switch (event) {
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+		return msm_watchdog_resume();
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		return msm_watchdog_suspend();
+	default:
+		return NOTIFY_DONE;
+	}
+}
+
+static struct notifier_block msm_watchdog_power_notifier = {
+	.notifier_call = msm_watchdog_power_event,
+};
+
 static void pet_watchdog(struct work_struct *work)
 {
 	writel(1, WDT0_RST);
-	schedule_delayed_work(&dogwork_struct, delay_time);
-}
 
-static void start_watchdog_timer(void)
-{
-	/* 22000 ticks at 32768Hz = 671ms */
-	writel(22000, WDT0_BARK_TIME);
-	writel(22000, WDT0_BITE_TIME);
-	writel(3, WDT0_EN);
-
-	INIT_DELAYED_WORK(&dogwork_struct, pet_watchdog);
-	schedule_delayed_work(&dogwork_struct, delay_time);
+	if (enable)
+		schedule_delayed_work(&dogwork_struct, delay_time);
 }
 
 static void __exit exit_watchdog(void)
 {
-	writel(0, WDT0_EN);
+	if (enable) {
+		writel(0, WDT0_EN);
+		unregister_pm_notifier(&msm_watchdog_power_notifier);
+		writel(0, WDT0_EN); /* In case we got suspended mid-exit */
+		writel(0, tcsr_base + TCSR_WDT_CFG);
+		iounmap(tcsr_base);
+		enable = 0;
+	}
 	printk(KERN_INFO "MSM Watchdog Exit - Deactivated\n");
 }
 
 static int __init init_watchdog(void)
 {
+	int ret;
 	if (enable) {
 		tcsr_base = ioremap_nocache(TCSR_BASE, SZ_4K);
 		if (tcsr_base == NULL)
 			return -ENOMEM;
-		writel(3, tcsr_base + TCSR_WDT_CFG);
+
+		writel(1, tcsr_base + TCSR_WDT_CFG);
 		delay_time = msecs_to_jiffies(PET_DELAY);
-		start_watchdog_timer();
+
+		/* 32768 ticks = 1 second */
+		writel(32768*4, WDT0_BARK_TIME);
+		writel(32768*4, WDT0_BITE_TIME);
+
+		ret = register_pm_notifier(&msm_watchdog_power_notifier);
+		if (ret)
+			return ret;
+
+		INIT_DELAYED_WORK(&dogwork_struct, pet_watchdog);
+		schedule_delayed_work(&dogwork_struct, delay_time);
+
+		writel(1, WDT0_EN);
+
 		printk(KERN_INFO "MSM Watchdog Initialized\n");
 	} else {
 		printk(KERN_INFO "MSM Watchdog Not Initialized\n");
