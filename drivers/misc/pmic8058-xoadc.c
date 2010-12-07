@@ -51,12 +51,12 @@ struct pmic8058_adc {
 	struct pm8058_chip *pm_chip;
 	struct adc_properties *adc_prop;
 	struct xoadc_conv_state	conv[2];
+	int xoadc_queue_count;
 	int adc_irq;
 	struct linear_graph *adc_graph;
 	struct xoadc_conv_state *conv_slot_request;
 	struct xoadc_conv_state *conv_queue_list;
 	struct adc_conv_slot conv_queue_elements[MAX_QUEUE_LENGTH];
-	int xoadc_queue_count;
 	int xoadc_num;
 };
 
@@ -320,6 +320,8 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		return rc;
 	}
 
+	enable_irq(adc_pmic->adc_irq);
+
 	rc = pm8058_write(adc_pmic->pm_chip,
 				ADC_ARB_USRP_CNRTL, &data_arb_cnrtl, 1);
 	if (rc < 0) {
@@ -358,7 +360,8 @@ static int32_t pm8058_xoadc_dequeue_slot_request(uint32_t adc_instance,
 	int rc = 0;
 
 	mutex_lock(&slot_state->list_lock);
-	if (adc_pmic->xoadc_queue_count) {
+	if (adc_pmic->xoadc_queue_count > 0 &&
+			!list_empty(&slot_state->slots)) {
 		*slot = list_first_entry(&slot_state->slots,
 			struct adc_conv_slot, list);
 		list_del(&(*slot)->list);
@@ -408,7 +411,7 @@ int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance, int32_t *data)
 
 	mutex_lock(&slot_state->list_lock);
 	adc_pmic->xoadc_queue_count--;
-	if (adc_pmic->xoadc_queue_count) {
+	if (adc_pmic->xoadc_queue_count > 0) {
 		slot = list_first_entry(&slot_state->slots,
 				struct adc_conv_slot, list);
 		pm8058_xoadc_configure(adc_instance, slot);
@@ -425,12 +428,15 @@ static irqreturn_t pm8058_xoadc(int irq, void *dev_id)
 	struct adc_conv_slot *slot = NULL;
 	int rc;
 
+	disable_irq_nosync(xoadc_8058->adc_irq);
+
 	rc = pm8058_xoadc_dequeue_slot_request(xoadc_8058->xoadc_num, &slot);
 
 	if (rc < 0)
 		return IRQ_NONE;
 
-	msm_adc_conv_cb(slot, 0, NULL, 0);
+	if (rc == 0)
+		msm_adc_conv_cb(slot, 0, NULL, 0);
 
 	return IRQ_HANDLED;
 }
@@ -490,6 +496,7 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 	adc_pmic->pm_chip = pm_chip;
 	adc_pmic->adc_prop = pdata->xoadc_prop;
 	adc_pmic->xoadc_num = pdata->xoadc_num;
+	adc_pmic->xoadc_queue_count = 0;
 
 	platform_set_drvdata(pdev, adc_pmic);
 
