@@ -352,7 +352,7 @@ static void __init acpuclk_init(void)
 	if (s->src >= 0)
 		local_src_enable(s->src);
 
-	res = ebi1_clk_set_min_rate(CLKVOTE_ACPUCLK, s->axi_clk_khz * 1000);
+	res = clk_set_min_rate(drv_state.ebi1_clk, s->axi_clk_khz * 1000);
 	if (res < 0)
 		pr_warning("Setting AXI min rate failed!\n");
 
