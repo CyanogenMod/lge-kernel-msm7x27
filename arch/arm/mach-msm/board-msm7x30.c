@@ -100,7 +100,7 @@
 #define PMIC_GPIO_INT		27
 #define PMIC_VREG_WLAN_LEVEL	2900
 #define PMIC_GPIO_SD_DET	36
-#define PMIC_GPIO_SDC4_EN	17  /* PMIC GPIO Number 18 */
+#define PMIC_GPIO_SDC4_EN_N	17  /* PMIC GPIO Number 18 */
 #define PMIC_GPIO_HDMI_5V_EN	32  /* PMIC GPIO Number 33 */
 
 #define FPGA_SDCC_STATUS       0x8E0001A8
@@ -136,10 +136,12 @@ static int pm8058_gpios_init(void)
 #endif
 	struct pm8058_gpio sdc4_en = {
 		.direction      = PM_GPIO_DIR_OUT,
-		.pull           = PM_GPIO_PULL_UP_1P5,
-		.vin_sel        = 2,
+		.pull           = PM_GPIO_PULL_NO,
+		.vin_sel        = PM_GPIO_VIN_L5,
 		.function       = PM_GPIO_FUNC_NORMAL,
 		.inv_int_pol    = 0,
+		.out_strength   = PM_GPIO_STRENGTH_LOW,
+		.output_value   = 0,
 	};
 
 	struct pm8058_gpio haptics_enable = {
@@ -206,14 +208,21 @@ static int pm8058_gpios_init(void)
 	}
 
 	if (machine_is_msm7x30_fluid()) {
-		rc = pm8058_gpio_config(PMIC_GPIO_SDC4_EN, &sdc4_en);
+		rc = pm8058_gpio_config(PMIC_GPIO_SDC4_EN_N, &sdc4_en);
 		if (rc) {
-			pr_err("%s PMIC_GPIO_SDC4_EN config failed\n",
+			pr_err("%s PMIC_GPIO_SDC4_EN_N config failed\n",
 								 __func__);
 			return rc;
 		}
+		rc = gpio_request(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N),
+				  "sdc4_en");
+		if (rc) {
+			pr_err("%s PMIC_GPIO_SDC4_EN_N gpio_request failed\n",
+				__func__);
+			return rc;
+		}
 		gpio_set_value_cansleep(
-			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN), 1);
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N), 0);
 	}
 
 	return 0;
