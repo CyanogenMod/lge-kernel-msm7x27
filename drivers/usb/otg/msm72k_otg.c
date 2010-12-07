@@ -633,6 +633,7 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	int vbus = 0;
 	unsigned ret;
 	enum chg_type chg_type = atomic_read(&dev->chg_type);
+	unsigned long flags;
 
 	disable_irq(dev->irq);
 	if (atomic_read(&dev->in_lpm))
@@ -689,8 +690,13 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	while (!is_phy_clk_disabled()) {
 		if (time_after(jiffies, timeout)) {
 			pr_err("%s: Unable to suspend phy\n", __func__);
-			/* Reset both phy and link */
-			otg_reset(&dev->otg, 1);
+			/*
+			 * Start otg state machine in default state upon
+			 * phy suspend failure*/
+			spin_lock_irqsave(&dev->lock, flags);
+			dev->otg.state = OTG_STATE_UNDEFINED;
+			spin_unlock_irqrestore(&dev->lock, flags);
+			queue_work(dev->wq, &dev->sm_work);
 			goto out;
 		}
 		msleep(1);
