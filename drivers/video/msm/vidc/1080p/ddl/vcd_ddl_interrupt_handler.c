@@ -562,7 +562,9 @@ static u32 ddl_decoder_frame_run_callback(struct ddl_client_context *ddl)
 					callback_end);
 			}
 			if (dec_disp_info->display_status ==
-				VIDC_1080P_DISPLAY_STATUS_DECODE_AND_DISPLAY) {
+				VIDC_1080P_DISPLAY_STATUS_DECODE_AND_DISPLAY ||
+				dec_disp_info->display_status ==
+				VIDC_1080P_DISPLAY_STATUS_DISPLAY_ONLY) {
 				u32 vcd_status;
 				if (!eos_present)
 					callback_end = (dec_disp_info->\
