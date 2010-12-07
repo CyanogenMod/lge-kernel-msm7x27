@@ -760,8 +760,6 @@ static struct android_usb_function modem_function = {
 
 static int __init init(void)
 {
-	printk(KERN_INFO "f_serial init\n");
-
 	android_register_function(&modem_function);
 	android_register_function(&nmea_function);
 	return 0;

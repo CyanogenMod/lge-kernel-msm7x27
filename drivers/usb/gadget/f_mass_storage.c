@@ -2817,7 +2817,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 
 		rc = device_register(&curlun->dev);
 		if (rc) {
-			INFO(common, "failed to register LUN%d: %d\n", i, rc);
+			ERROR(common, "failed to register LUN%d: %d\n", i, rc);
 			common->nluns = i;
 			goto error_release;
 		}
@@ -2910,8 +2910,8 @@ buffhds_first_it:
 
 
 	/* Information */
-	INFO(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
-	INFO(common, "Number of LUNs=%d\n", common->nluns);
+	DBG(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
+	DBG(common, "Number of LUNs=%d\n", common->nluns);
 
 	pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
 	for (i = 0, nluns = common->nluns, curlun = common->luns;
@@ -2927,7 +2927,7 @@ buffhds_first_it:
 					p = "(error)";
 			}
 		}
-		LINFO(curlun, "LUN: %s%s%sfile: %s\n",
+		LDBG(curlun, "LUN: %s%s%sfile: %s\n",
 		      curlun->removable ? "removable " : "",
 		      curlun->ro ? "read only " : "",
 		      curlun->cdrom ? "CD-ROM " : "",
@@ -3241,7 +3241,7 @@ static int fsg_probe(struct platform_device *pdev)
 	struct usb_mass_storage_platform_data *pdata = pdev->dev.platform_data;
 	int i, nluns;
 
-	printk(KERN_INFO "fsg_probe pdev: %p, pdata: %p\n", pdev, pdata);
+	dev_dbg(&pdev->dev, "%s: pdata: %p\n", __func__, pdata);
 	if (!pdata)
 		return -1;
 
@@ -3282,7 +3282,6 @@ static struct android_usb_function mass_storage_function = {
 static int __init init(void)
 {
 	int		rc;
-	printk(KERN_INFO "f_mass_storage init\n");
 	rc = platform_driver_register(&fsg_platform_driver);
 	if (rc != 0)
 		return rc;

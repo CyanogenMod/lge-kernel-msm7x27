@@ -342,7 +342,7 @@ static void usb_phy_stuck_recover(struct work_struct *w)
 	disable_irq(otg->irq);
 	if (usb_phy_stuck_check(ui)) {
 		ui->phy_fail_count++;
-		dev_info(&ui->pdev->dev,
+		dev_err(&ui->pdev->dev,
 				"%s():PHY stuck, resetting HW\n", __func__);
 		/*
 		 * PHY seems to have stuck,
@@ -626,7 +626,7 @@ int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
 	if (req->busy) {
 		req->req.status = -EBUSY;
 		spin_unlock_irqrestore(&ui->lock, flags);
-		dev_info(&ui->pdev->dev,
+		dev_err(&ui->pdev->dev,
 			"usb_ept_queue_xfer() tried to queue busy request\n");
 		return -EBUSY;
 	}
@@ -634,7 +634,7 @@ int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
 	if (!atomic_read(&ui->configured) && (ept->num != 0)) {
 		req->req.status = -ESHUTDOWN;
 		spin_unlock_irqrestore(&ui->lock, flags);
-		dev_info(&ui->pdev->dev,
+		dev_err(&ui->pdev->dev,
 			"usb_ept_queue_xfer() called while offline\n");
 		return -ESHUTDOWN;
 	}
@@ -1011,7 +1011,7 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 			/* XXX pass on more specific error code */
 			req->req.status = -EIO;
 			req->req.actual = 0;
-			dev_info(&ui->pdev->dev,
+			dev_err(&ui->pdev->dev,
 				"ept %d %s error. info=%08x\n",
 			       ept->num,
 			       (ept->flags & EPT_FLAG_IN) ? "in" : "out",
@@ -1110,19 +1110,19 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	if (n & STS_PCI) {
 		switch (readl(USB_PORTSC) & PORTSC_PSPD_MASK) {
 		case PORTSC_PSPD_FS:
-			dev_info(&ui->pdev->dev, "portchange USB_SPEED_FULL\n");
+			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_FULL\n");
 			spin_lock_irqsave(&ui->lock, flags);
 			ui->gadget.speed = USB_SPEED_FULL;
 			spin_unlock_irqrestore(&ui->lock, flags);
 			break;
 		case PORTSC_PSPD_LS:
-			dev_info(&ui->pdev->dev, "portchange USB_SPEED_LOW\n");
+			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_LOW\n");
 			spin_lock_irqsave(&ui->lock, flags);
 			ui->gadget.speed = USB_SPEED_LOW;
 			spin_unlock_irqrestore(&ui->lock, flags);
 			break;
 		case PORTSC_PSPD_HS:
-			dev_info(&ui->pdev->dev, "portchange USB_SPEED_HIGH\n");
+			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_HIGH\n");
 			spin_lock_irqsave(&ui->lock, flags);
 			ui->gadget.speed = USB_SPEED_HIGH;
 			spin_unlock_irqrestore(&ui->lock, flags);
@@ -1150,7 +1150,7 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	}
 
 	if (n & STS_URI) {
-		dev_info(&ui->pdev->dev, "reset\n");
+		dev_dbg(&ui->pdev->dev, "reset\n");
 		spin_lock_irqsave(&ui->lock, flags);
 		ui->gadget.speed = USB_SPEED_UNKNOWN;
 		spin_unlock_irqrestore(&ui->lock, flags);
@@ -1202,7 +1202,7 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	}
 
 	if (n & STS_SLI) {
-		dev_info(&ui->pdev->dev, "suspend\n");
+		dev_dbg(&ui->pdev->dev, "suspend\n");
 
 		spin_lock_irqsave(&ui->lock, flags);
 		ui->usb_state = USB_STATE_SUSPENDED;
@@ -1377,7 +1377,7 @@ static void usb_do_work(struct work_struct *w)
 
 				pm_runtime_get_noresume(&ui->pdev->dev);
 				pm_runtime_resume(&ui->pdev->dev);
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: IDLE -> ONLINE\n");
 				usb_reset(ui);
 				ret = request_irq(otg->irq, usb_interrupt,
@@ -1424,7 +1424,7 @@ static void usb_do_work(struct work_struct *w)
 				if (!ui->gadget.is_a_peripheral)
 					cancel_delayed_work_sync(&ui->chg_det);
 
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: ONLINE -> OFFLINE\n");
 
 				atomic_set(&ui->running, 0);
@@ -1507,12 +1507,12 @@ static void usb_do_work(struct work_struct *w)
 				break;
 			}
 			if (flags & USB_FLAG_RESET) {
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: ONLINE -> RESET\n");
 				msm72k_pullup_internal(&ui->gadget, 0);
 				usb_reset(ui);
 				msm72k_pullup_internal(&ui->gadget, 1);
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: RESET -> ONLINE\n");
 				break;
 			}
@@ -1526,7 +1526,7 @@ static void usb_do_work(struct work_struct *w)
 
 				pm_runtime_get_noresume(&ui->pdev->dev);
 				pm_runtime_resume(&ui->pdev->dev);
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: OFFLINE -> ONLINE\n");
 
 				usb_reset(ui);
@@ -2401,7 +2401,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 
 	retval = driver->bind(&ui->gadget);
 	if (retval) {
-		dev_info(&ui->pdev->dev, "bind to driver %s --> error %d\n",
+		dev_err(&ui->pdev->dev, "bind to driver %s --> error %d\n",
 				driver->driver.name, retval);
 		device_del(&ui->gadget.dev);
 		goto fail;
@@ -2409,20 +2409,17 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_wakeup);
 	if (retval != 0)
-		dev_info(&ui->pdev->dev, "failed to create sysfs entry:"
+		dev_err(&ui->pdev->dev, "failed to create sysfs entry:"
 			"(wakeup) error: (%d)\n", retval);
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_usb_state);
 	if (retval != 0)
-		dev_info(&ui->pdev->dev, "failed to create sysfs entry:"
+		dev_err(&ui->pdev->dev, "failed to create sysfs entry:"
 			" (usb_state) error: (%d)\n", retval);
 
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_usb_speed);
 	if (retval != 0)
-		dev_info(&ui->pdev->dev, "failed to create sysfs entry:"
+		dev_err(&ui->pdev->dev, "failed to create sysfs entry:"
 			" (usb_speed) error: (%d)\n", retval);
-
-	dev_info(&ui->pdev->dev, "registered gadget driver '%s'\n",
-			driver->driver.name);
 
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_chg_type);
 	if (retval != 0)
@@ -2434,6 +2431,9 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		dev_err(&ui->pdev->dev,
 			"failed to create sysfs entry(chg_current):"
 			"err:(%d)\n", retval);
+
+	dev_dbg(&ui->pdev->dev, "registered gadget driver '%s'\n",
+			driver->driver.name);
 	usb_start(ui);
 
 	return 0;
