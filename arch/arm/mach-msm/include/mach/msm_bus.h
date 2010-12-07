@@ -88,6 +88,7 @@ struct msm_bus_paths {
 struct msm_bus_scale_pdata {
 	struct msm_bus_paths *usecase;
 	int num_usecases;
+	const char *name;
 };
 
 /* Scaling APIs */
