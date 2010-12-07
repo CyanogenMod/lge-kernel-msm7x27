@@ -27,7 +27,7 @@
  */
 #ifndef __Q6AFE_H__
 #define __Q6AFE_H__
-#include "apr_audio.h"
+#include <mach/qdsp6v2/apr_audio.h>
 
 #define MSM_AFE_MONO		0
 #define MSM_AFE_MONO_RIGHT	1

@@ -27,10 +27,10 @@
 #include <linux/msm_audio.h>
 #include <mach/debug_mm.h>
 #include <mach/peripheral-loader.h>
+#include <mach/qdsp6v2/apr_audio.h>
+#include <mach/qdsp6v2/q6asm.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
-#include "q6asm.h"
-#include "apr_audio.h"
 
 #define SESSION_MAX 0x08
 #define TRUE        0x01

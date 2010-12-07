@@ -34,8 +34,8 @@
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
 #include <mach/msm_adsp.h>
-#include "apr_audio.h"
-#include "q6asm.h"
+#include <mach/qdsp6v2/apr_audio.h>
+#include <mach/qdsp6v2/q6asm.h>
 #include "audio_lpa.h"
 
 #include <linux/msm_audio.h>

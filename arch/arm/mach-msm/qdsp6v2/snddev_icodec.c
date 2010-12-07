@@ -28,11 +28,11 @@
 #include <linux/regulator/consumer.h>
 #include <asm/uaccess.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
+#include <mach/qdsp6v2/apr_audio.h>
 #include <mach/vreg.h>
 #include <mach/pmic.h>
 #include <mach/debug_mm.h>
 #include "q6afe.h"
-#include "apr_audio.h"
 #include "snddev_icodec.h"
 
 #define SNDDEV_ICODEC_PCM_SZ 32 /* 16 bit / sample stereo mode */

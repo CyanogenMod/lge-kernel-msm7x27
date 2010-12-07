@@ -26,9 +26,8 @@
 #include <linux/slab.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
-
-#include "apr_audio.h"
-#include "q6asm.h"
+#include <mach/qdsp6v2/apr_audio.h>
+#include <mach/qdsp6v2/q6asm.h>
 #include "audio_utils.h"
 
 static int audio_in_wait_for_eos_ack(struct q6audio_in *audio)

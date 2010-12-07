@@ -28,7 +28,7 @@
 #ifndef __Q6_ASM_H__
 #define __Q6_ASM_H__
 
-#include "apr.h"
+#include <mach/qdsp6v2/apr.h>
 
 #define IN                      0x000
 #define OUT                     0x001

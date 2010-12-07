@@ -19,6 +19,7 @@
 #include <linux/debugfs.h>
 #include <linux/mfd/msm-adie-codec.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
+#include <mach/qdsp6v2/apr_audio.h>
 #include <mach/board.h>
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
@@ -27,7 +28,6 @@
 #include "timpani_profile_8x60.h"
 #include "snddev_hdmi.h"
 #include "snddev_mi2s.h"
-#include "apr_audio.h"
 
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *debugfs_hsed_config;

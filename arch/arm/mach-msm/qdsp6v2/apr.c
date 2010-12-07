@@ -33,8 +33,9 @@
 #include <linux/device.h>
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smd.h>
+#include <mach/qdsp6v2/apr.h>
 
-#include "apr.h"
+#include "apr_tal.h"
 #include "dsp_debug.h"
 
 struct apr_q6 q6;

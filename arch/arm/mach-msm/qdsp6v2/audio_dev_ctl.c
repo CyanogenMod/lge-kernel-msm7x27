@@ -26,8 +26,8 @@
 #include <asm/atomic.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
+#include <mach/qdsp6v2/apr_audio.h>
 #include "q6adm.h"
-#include "apr_audio.h"
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))

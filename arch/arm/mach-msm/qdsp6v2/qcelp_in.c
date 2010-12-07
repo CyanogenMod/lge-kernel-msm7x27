@@ -27,9 +27,8 @@
 #include <linux/msm_audio_qcp.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
-
-#include "apr_audio.h"
-#include "q6asm.h"
+#include <mach/qdsp6v2/apr_audio.h>
+#include <mach/qdsp6v2/q6asm.h>
 #include "audio_utils.h"
 
 /* Buffer with meta*/

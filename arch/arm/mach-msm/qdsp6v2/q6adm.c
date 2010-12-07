@@ -20,8 +20,8 @@
 #include <linux/sched.h>
 #include <linux/jiffies.h>
 #include <asm/atomic.h>
+#include <mach/qdsp6v2/apr_audio.h>
 #include "audio_acdb.h"
-#include "apr_audio.h"
 
 #define TIMEOUT_MS 1000
 #define AUDIO_RX 0x0

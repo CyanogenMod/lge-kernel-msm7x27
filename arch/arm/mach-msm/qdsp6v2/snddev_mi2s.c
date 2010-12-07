@@ -25,8 +25,8 @@
 #include <asm/uaccess.h>
 #include <mach/board.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
+#include <mach/qdsp6v2/apr_audio.h>
 #include "q6afe.h"
-#include "apr_audio.h"
 #include "snddev_mi2s.h"
 
 #define SNDDEV_MI2S_PCM_SZ 32 /* 16 bit / sample stereo mode */

@@ -29,8 +29,6 @@
 #ifndef __APR_H_
 #define __APR_H_
 
-#include "apr_tal.h"
-
 #define APR_Q6_NOIMG   0
 #define APR_Q6_LOADING 1
 #define APR_Q6_LOADED  2

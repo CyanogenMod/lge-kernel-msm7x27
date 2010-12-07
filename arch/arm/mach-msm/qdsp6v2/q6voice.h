@@ -29,7 +29,7 @@
 #ifndef __QDSP6VOICE_H__
 #define __QDSP6VOICE_H__
 
-#include "apr.h"
+#include <mach/qdsp6v2/apr.h>
 
 /* Device Event */
 #define DEV_CHANGE_READY                0x1

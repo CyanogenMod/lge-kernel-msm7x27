@@ -27,10 +27,9 @@
 #include <asm/io.h>
 #include <mach/clk.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
-
+#include <mach/qdsp6v2/apr_audio.h>
 #include "snddev_ecodec.h"
 #include "q6afe.h"
-#include "apr_audio.h"
 
 #define ECODEC_SAMPLE_RATE 8000
 

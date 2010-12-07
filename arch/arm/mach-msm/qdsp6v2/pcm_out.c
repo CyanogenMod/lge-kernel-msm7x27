@@ -25,8 +25,8 @@
 #include <linux/slab.h>
 #include <asm/atomic.h>
 #include <mach/debug_mm.h>
-#include "apr_audio.h"
-#include "q6asm.h"
+#include <mach/qdsp6v2/apr_audio.h>
+#include <mach/qdsp6v2/q6asm.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 
 #define MAX_BUF 2

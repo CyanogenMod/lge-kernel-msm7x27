@@ -17,10 +17,11 @@
 
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
+#include <linux/uaccess.h>
 #include <linux/wait.h>
 #include <linux/jiffies.h>
-
-#include "apr_audio.h"
+#include <mach/qdsp6v2/apr_audio.h>
 
 struct afe_ctl {
 	void *apr;
