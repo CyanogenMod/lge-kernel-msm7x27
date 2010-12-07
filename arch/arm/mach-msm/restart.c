@@ -93,6 +93,8 @@ void arch_reset(char mode, const char *cmd)
 
 	printk(KERN_NOTICE "Going down for restart now\n");
 
+	pm8058_reset_pwr_off(1);
+
 	if (cmd != NULL) {
 		restart_reason = ioremap_nocache(RESTART_REASON_ADDR, SZ_4K);
 		if (!strncmp(cmd, "bootloader", 10)) {
