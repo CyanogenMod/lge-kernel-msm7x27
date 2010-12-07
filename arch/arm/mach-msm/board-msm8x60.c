@@ -3522,12 +3522,12 @@ static const unsigned int fluid_keymap[] = {
 	KEY(0, 0, KEY_FN_F1),	 /* LS - PUSH1 */
 	KEY(0, 1, KEY_UP),	 /* NAV - UP */
 	KEY(0, 2, KEY_LEFT),	 /* NAV - LEFT */
-	KEY(0, 3, KEY_VOLUMEUP), /* Shuttle SW_UP */
+	KEY(0, 3, KEY_VOLUMEDOWN), /* Shuttle SW_UP */
 
 	KEY(1, 0, KEY_FN_F2),	 /* LS - PUSH2 */
 	KEY(1, 1, KEY_RIGHT),    /* NAV - RIGHT */
 	KEY(1, 2, KEY_DOWN),     /* NAV - DOWN */
-	KEY(1, 3, KEY_VOLUMEDOWN),
+	KEY(1, 3, KEY_VOLUMEUP),
 
 	KEY(2, 3, KEY_ENTER),     /* SW_PUSH key */
 
