@@ -275,15 +275,23 @@ int pm8058_reset_pwr_off(int reset)
 
 	mutex_lock(&pmic_chip->pm_lock);
 
-	if (!reset) {
-		/* Set regulator L22 to 1.225V in high power mode. */
-		ctrl = 0xD3;
-		rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_L22_CTRL, &ctrl,
-				1);
-		if (rc)
-			pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d\n",
-			       __func__, SSBI_REG_ADDR_L22_CTRL, ctrl, rc);
+	/* Set regulator L22 to 1.225V in high power mode. */
+	rc = ssbi_read(pmic_chip->dev, SSBI_REG_ADDR_L22_CTRL, &ctrl, 1);
+	if (rc) {
+		pr_err("%s: FAIL ssbi_read(0x%x): rc=%d\n", __func__,
+			SSBI_REG_ADDR_L22_CTRL, rc);
+		goto get_out3;
+	}
+	/* Leave pull-down state intact. */
+	ctrl &= 0x40;
+	ctrl |= 0x93;
+	rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_L22_CTRL, &ctrl, 1);
+	if (rc)
+		pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d\n", __func__,
+			SSBI_REG_ADDR_L22_CTRL, ctrl, rc);
 
+get_out3:
+	if (!reset) {
 		/* Only modify the SLEEP_CNTL reg if shutdown is desired. */
 		rc = ssbi_read(pmic_chip->dev, SSBI_REG_ADDR_SLEEP_CNTL,
 			       &smpl, 1);
