@@ -135,6 +135,19 @@ void mdp4_overlay_update_lcd(struct msm_fb_data_type *mfd)
 		mddi_ld_param = 0;
 		mddi_vdo_packet_reg = mfd->panel_info.mddi.vdopkt;
 
+		if (mdp_hw_revision == MDP4_REVISION_V2_1) {
+			uint32	data;
+
+			data = inpdw(MDP_BASE + 0x0028);
+			data &= ~0x0300;	/* bit 8, 9, MASTER4 */
+			if (mfd->fbi->var.xres == 540) /* qHD, 540x960 */
+				data |= 0x0200;
+			else
+				data |= 0x0100;
+
+			MDP_OUTP(MDP_BASE + 0x00028, data);
+		}
+
 		if (mfd->panel_info.type == MDDI_PANEL) {
 			if (mfd->panel_info.pdest == DISPLAY_1)
 				mddi_ld_param = 0;
