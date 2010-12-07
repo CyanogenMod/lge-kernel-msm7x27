@@ -1107,7 +1107,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 29,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
-				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+				GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
@@ -1115,7 +1115,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 30,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
-				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+				GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
@@ -1123,7 +1123,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 31,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
-				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+				GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
@@ -1131,7 +1131,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 32,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
-				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+				GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
@@ -1139,7 +1139,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 47,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
-				GPIOMUX_PULL_UP, GPIOMUX_DRV_8MA),
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
@@ -1147,7 +1147,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 48,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_1,
-				GPIOMUX_PULL_UP, GPIOMUX_DRV_8MA),
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
@@ -1155,7 +1155,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 105,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
-				GPIOMUX_PULL_DOWN, GPIOMUX_DRV_2MA),
+				GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
@@ -1163,7 +1163,7 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 		.gpio = 106,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
-				GPIOMUX_PULL_NONE, GPIOMUX_DRV_2MA),
+				GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE),
 			[GPIOMUX_SUSPENDED] = CAM_SUSPEND_CFG,
 		},
 	},
