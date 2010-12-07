@@ -1955,6 +1955,37 @@ static struct vx6953_i2c_reg_conf cut3_cali_data[] = {
 		{0xFA9B, 0x01 },
 };
 
+#define NUM_LSC_CAST_REGS      33
+
+enum LSC_Cast_t{
+	cast_H = 0,
+	cast_U30,
+	cast_CW,
+	cast_D,
+	cast_MAX
+};
+
+static short int LSC_CorrectionForCast[cast_MAX][NUM_LSC_CAST_REGS] = {
+	{-30, -20,  8, 11, -16, -26, -35, -53, -9, -10, 44, 57, -39,
+		-14, 50, -173, -38, -32, -1, 9, 39, 51, -33, -49, -28,
+		-22, 7, 11, -21, 17, -62, -56, 0},
+	{-29, -18,  6,  1,  17, -35, -77, 0, 5, -17, -6, -22, -41, -1,
+		-37, 83, -38, -32, 1, -2, 15, 25, -67, 19, -28, -22, 5,
+		2, -18, 21, -86, 0, 0},
+	{-10, -15, -4, -6,  -8,  -3, -63, 8, 25, -9, -39, -51, -9,
+		0, -21, 112, -10, -23, -7, -9, 10, 18, -11, 23, -10,
+		-15, -4, -6, -10, -3, -52, 7, 0},
+	{  5,   3, -4, -5,  -1,   3,   4, 8, 12, 3, -22, -21, 7, 17,
+		2, 35, 8, 2, -3, -2, -9, -5, 10, 4, 9, 2, -4, -5,
+		-2, 0, -6, 9, 0}
+};
+
+static unsigned short LSC_CastRegs[] = {
+	0xFB7E,			/* H   */
+	0xFB3C,			/* U30 */
+	0xFAFA,			/* CW  */
+	0xFAB8			/* D65 */
+};
 
 /*=============================================================*/
 
@@ -2167,12 +2198,17 @@ static int32_t vx6953_set_fps(struct fps_cfg	*fps)
 	int32_t rc = 0;
 	total_lines_per_frame = (uint16_t)((VX6953_QTR_SIZE_HEIGHT +
 		VX6953_VER_QTR_BLK_LINES) * vx6953_ctrl->fps_divider/0x400);
+
+	vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
+		GROUPED_PARAMETER_HOLD);
 	if (vx6953_i2c_write_b_sensor(REG_FRAME_LENGTH_LINES_HI,
 		((total_lines_per_frame & 0xFF00) >> 8)) < 0)
 		return rc;
 	if (vx6953_i2c_write_b_sensor(REG_FRAME_LENGTH_LINES_LO,
 		(total_lines_per_frame & 0x00FF)) < 0)
 		return rc;
+	vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
+		GROUPED_PARAMETER_HOLD_OFF);
 	return rc;
 }
 
@@ -2182,7 +2218,6 @@ static int32_t vx6953_write_exp_gain(uint16_t gain, uint32_t line)
 	uint8_t gain_hi, gain_lo;
 	uint8_t intg_time_hi, intg_time_lo;
 	uint8_t frame_length_lines_hi = 0, frame_length_lines_lo = 0;
-	uint16_t line_length_ratio = 1 * Q8;
 	int32_t rc = 0;
 	if (vx6953_ctrl->sensormode != SENSOR_SNAPSHOT_MODE) {
 		frame_length_lines = VX6953_QTR_SIZE_HEIGHT +
@@ -2203,20 +2238,16 @@ static int32_t vx6953_write_exp_gain(uint16_t gain, uint32_t line)
 		line_length_pck = VX6953_FULL_SIZE_WIDTH +
 				VX6953_HRZ_FULL_BLK_PIXELS;
 	}
-	/* calculate line_length_ratio */
-	if ((frame_length_lines - VX6953_STM5M0EDOF_OFFSET) < line) {
-		line_length_ratio = (line*Q8) /
-			(frame_length_lines - VX6953_STM5M0EDOF_OFFSET);
-		line = frame_length_lines - VX6953_STM5M0EDOF_OFFSET;
-	} else {
-		line_length_ratio = 1*Q8;
-	}
+
 	vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
 		GROUPED_PARAMETER_HOLD);
-	if ((line + VX6953_STM5M0EDOF_OFFSET) > MAX_FRAME_LENGTH_LINES)
+	if ((line + VX6953_STM5M0EDOF_OFFSET) > MAX_FRAME_LENGTH_LINES) {
 		frame_length_lines = MAX_FRAME_LENGTH_LINES;
-	else if ((line + VX6953_STM5M0EDOF_OFFSET) > frame_length_lines)
+		line = MAX_FRAME_LENGTH_LINES - VX6953_STM5M0EDOF_OFFSET;
+	} else if ((line + VX6953_STM5M0EDOF_OFFSET) > frame_length_lines) {
 		frame_length_lines = line + VX6953_STM5M0EDOF_OFFSET;
+		line = frame_length_lines;
+	}
 
 	frame_length_lines_hi = (uint8_t) ((frame_length_lines &
 		0xFF00) >> 8);
@@ -2321,6 +2352,42 @@ static int32_t vx6953_patch_for_cut2(void)
 	return rc;
 }
 
+static int32_t vx6953_lsc_patch(void)
+{
+	int32_t rc = 0;
+	int i, j;
+	short int  v;
+	unsigned short version = 0;
+	unsigned short LSC_Raw[NUM_LSC_CAST_REGS];
+	unsigned short LSC_Fixed[NUM_LSC_CAST_REGS];
+
+	vx6953_i2c_read(0x10, &version, 1);
+	CDBG("Cut 3 Version %d\n", version);
+	if (version != 1)
+		return 0;
+
+	vx6953_i2c_write_b_sensor(0x3640, 0x00);
+	for (j = cast_H; j < cast_MAX; j++) {
+		for (i = 0; i < NUM_LSC_CAST_REGS; i++) {
+			rc = vx6953_i2c_read(LSC_CastRegs[cast_D]+(2*i),
+								&LSC_Raw[i], 2);
+			if (rc < 0)
+				return rc;
+			v = LSC_Raw[i];
+			v +=  LSC_CorrectionForCast[j][i];
+			LSC_Fixed[i] = (unsigned short) v;
+		}
+		for (i = 0; i < NUM_LSC_CAST_REGS; i++) {
+			rc = vx6953_i2c_write_w_sensor(LSC_CastRegs[j]+(2*i),
+								LSC_Fixed[i]);
+			if (rc < 0)
+				return rc;
+		}
+	}
+	CDBG("vx6953_lsc_patch done\n");
+	return rc;
+}
+
 static int32_t vx6953_sensor_setting(int update_type, int rt)
 {
 
@@ -2404,16 +2471,20 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 			/* reset fps_divider */
 			vx6953_ctrl->fps = 30 * Q8;
 			/* stop streaming */
+
 			count = 0;
 			CDBG("Init vx6953_sensor_setting standby\n");
 			if (vx6953_i2c_write_b_sensor(REG_MODE_SELECT,
 				MODE_SELECT_STANDBY_MODE) < 0)
 				return rc;
-			/*vx6953_stm5m0edof_delay_msecs_stdby*/
 			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
+			vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
+			GROUPED_PARAMETER_HOLD);
 
 			rc = vx6953_i2c_write_w_table(cut3_cali_data,
 				ARRAY_SIZE(cut3_cali_data));
+
+			vx6953_lsc_patch();
 
 			vx6953_i2c_write_w_sensor(0x100A, 0x07A3);
 			vx6953_i2c_write_w_sensor(0x114A, 0x002A);
@@ -2425,7 +2496,7 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 			if (rc < 0)
 				return rc;
 
-			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
+			msleep(10);
 
 		}
 		return rc;
@@ -2546,12 +2617,12 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 				{REG_0x3640, 0x00},
 			};
 			/* stop streaming */
+
 			if (vx6953_i2c_write_b_sensor(REG_MODE_SELECT,
 				MODE_SELECT_STANDBY_MODE) < 0)
 				return rc;
-			/*vx6953_stm5m0edof_delay_msecs_stdby*/
-			msleep(30);
 			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
+
 			if (count == 0) {
 				vx6953_csi_params.data_format = CSI_8BIT;
 				vx6953_csi_params.lane_cnt = 1;
@@ -2565,6 +2636,9 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 				msleep(20);
 				count = 1;
 			}
+
+			vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
+			GROUPED_PARAMETER_HOLD);
 
 			if (rt == RES_PREVIEW) {
 				rc = vx6953_i2c_write_w_table(
@@ -2580,14 +2654,15 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 				if (rc < 0)
 					return rc;
 			}
-			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
+
+			vx6953_i2c_write_b_sensor(REG_GROUPED_PARAMETER_HOLD,
+			GROUPED_PARAMETER_HOLD_OFF);
 
 			/* Start sensor streaming */
 			if (vx6953_i2c_write_b_sensor(REG_MODE_SELECT,
 				MODE_SELECT_STREAM) < 0)
 				return rc;
-
-			msleep(vx6953_stm5m0edof_delay_msecs_stdby);
+			msleep(10);
 
 			if (vx6953_i2c_read(0x0005, &frame_cnt, 1) < 0)
 				return rc;
@@ -2595,7 +2670,7 @@ static int32_t vx6953_sensor_setting(int update_type, int rt)
 			while (frame_cnt == 0xFF) {
 				if (vx6953_i2c_read(0x0005, &frame_cnt, 1) < 0)
 					return rc;
-				CDBG("frame_cnt=%d", frame_cnt);
+				CDBG("frame_cnt=%d\n", frame_cnt);
 				msleep(2);
 			}
 		}
@@ -3172,7 +3247,7 @@ static int32_t vx6953_power_down(void)
 
 static int vx6953_probe_init_done(const struct msm_camera_sensor_info *data)
 {
-	gpio_direction_output(data->sensor_reset, 0);
+	gpio_set_value_cansleep(data->sensor_reset, 0);
 	gpio_free(data->sensor_reset);
 	return 0;
 }
@@ -3187,25 +3262,24 @@ static int vx6953_probe_init_sensor(const struct msm_camera_sensor_info *data)
 		CDBG("sensor_reset = %d\n", rc);
 		CDBG(" vx6953_probe_init_sensor 1\n");
 		gpio_direction_output(data->sensor_reset, 0);
-		mdelay(50);
+		msleep(10);
 		CDBG(" vx6953_probe_init_sensor 1\n");
-		gpio_direction_output(data->sensor_reset, 1);
-		mdelay(13);
+		gpio_set_value_cansleep(data->sensor_reset, 1);
 	} else {
 		CDBG(" vx6953_probe_init_sensor 2\n");
 		goto init_probe_done;
 	}
-	mdelay(20);
-	CDBG(" vx6953_probe_init_sensor is called \n");
+	msleep(20);
+	CDBG(" vx6953_probe_init_sensor is called\n");
 	/* 3. Read sensor Model ID: */
 	rc = vx6953_i2c_read(0x0000, &chipidh, 1);
 	if (rc < 0) {
-		CDBG(" vx6953_probe_init_sensor 3 \n");
+		CDBG(" vx6953_probe_init_sensor 3\n");
 		goto init_probe_fail;
 	}
 	rc = vx6953_i2c_read(0x0001, &chipidl, 1);
 	if (rc < 0) {
-		CDBG(" vx6953_probe_init_sensor4 \n");
+		CDBG(" vx6953_probe_init_sensor4\n");
 		goto init_probe_fail;
 	}
 	CDBG("vx6953 model_id = 0x%x  0x%x\n", chipidh, chipidl);
@@ -3331,7 +3405,7 @@ static int vx6953_i2c_probe(struct i2c_client *client,
 	vx6953_init_client(client);
 	vx6953_client = client;
 
-	mdelay(50);
+	msleep(50);
 
 	CDBG("vx6953_probe successed! rc = %d\n", rc);
 	return 0;
