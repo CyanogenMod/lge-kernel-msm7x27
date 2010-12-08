@@ -731,13 +731,14 @@ void __init msm_snddev_init(void)
 	int i;
 
 	/* Auto detect device base on machine info */
-	if (machine_is_msm8x60_surf()) {
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_charm_surf()) {
 		for (i = 0; i < ARRAY_SIZE(snd_devices_surf); i++)
 			snd_devices_surf[i]->id = i;
 
 		platform_add_devices(snd_devices_surf,
 		ARRAY_SIZE(snd_devices_surf));
-	} else if (machine_is_msm8x60_ffa()) {
+	} else if (machine_is_msm8x60_ffa() ||
+			machine_is_msm8x60_charm_ffa()) {
 		for (i = 0; i < ARRAY_SIZE(snd_devices_ffa); i++)
 			snd_devices_ffa[i]->id = i;
 
