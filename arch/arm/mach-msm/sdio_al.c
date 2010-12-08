@@ -1461,33 +1461,6 @@ exit_err:
 	return ret;
 }
 
-/**
- *  Channel Close
- *
- *  Disable the relevant pipes interrupt.
- *  Disable the relevant SDIO-Client function.
- *  Update/stop the timer.
- *  Remove all pending Rx Packet list.
- *
- *  @note: The timer will not restart after expired if
- *  poll time is zero
- *
- */
-static int close_channel(struct sdio_channel *ch)
-{
-	int ret;
-
-	enable_eot_interrupt(ch->rx_pipe_index, false);
-	enable_eot_interrupt(ch->tx_pipe_index, false);
-
-	enable_threshold_interrupt(ch->rx_pipe_index, false);
-	enable_threshold_interrupt(ch->tx_pipe_index, false);
-
-	ret = sdio_disable_func(ch->func);
-
-	return ret;
-}
-
 
 /**
  *  Ask the worker to read the mailbox.
@@ -1903,39 +1876,9 @@ EXPORT_SYMBOL(sdio_open);
  */
 int sdio_close(struct sdio_channel *ch)
 {
-	int ret;
+	pr_debug(MODULE_NAME ":sdio_close is not supported\n");
 
-	BUG_ON(ch->signature != SDIO_AL_SIGNATURE);
-
-	if (!ch->is_open)
-		return -EINVAL;
-
-	sdio_claim_host(sdio_al->card->sdio_func[0]);
-	ret = sdio_al_wake_up(1);
-	if (ret) {
-		sdio_release_host(sdio_al->card->sdio_func[0]);
-		return ret;
-	}
-
-	pr_info(MODULE_NAME ":sdio_close %s\n", ch->name);
-
-	/* Stop channel notifications, and read/write operations. */
-	ch->is_open = false;
-	ch->is_suspend = true;
-
-	ch->notify = NULL;
-
-	ret = close_channel(ch);
-	sdio_release_host(sdio_al->card->sdio_func[0]);
-
-	do
-		ret = remove_handled_rx_packet(ch);
-	while (ret > 0);
-
-	if  (ch->poll_delay_msec > 0)
-		sdio_al->poll_delay_msec = get_min_poll_time_msec();
-
-	return ret;
+	return -EPERM;
 }
 EXPORT_SYMBOL(sdio_close);
 
