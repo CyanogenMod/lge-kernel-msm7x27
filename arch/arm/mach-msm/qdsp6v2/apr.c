@@ -214,7 +214,8 @@ static void apr_cb_func(void *buf, int len, void *priv)
 		if (svc == APR_SVC_AFE || svc == APR_SVC_ASM ||
 			svc == APR_SVC_VSM || svc == APR_SVC_VPM ||
 			svc == APR_SVC_ADM || svc == APR_SVC_ADSP_CORE ||
-			svc == APR_SVC_TEST_CLIENT)
+			svc == APR_SVC_TEST_CLIENT || svc == APR_SVC_ADSP_MVM ||
+			svc == APR_SVC_ADSP_CVS || svc == APR_SVC_ADSP_CVP)
 			clnt = APR_CLIENT_AUDIO;
 		else {
 			pr_err("APR: Wrong svc :%d\n", svc);
@@ -321,17 +322,35 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 		svc_idx = 2;
 		svc_id = APR_SVC_MVS;
 	} else if (!strcmp(svc_name, "MVM")) {
-		client_id = APR_CLIENT_VOICE;
-		svc_idx = 3;
-		svc_id = APR_SVC_MVM;
+		if (dest_id == APR_DEST_MODEM) {
+			client_id = APR_CLIENT_VOICE;
+			svc_idx = 3;
+			svc_id = APR_SVC_MVM;
+		} else {
+			client_id = APR_CLIENT_AUDIO;
+			svc_idx = 5;
+			svc_id = APR_SVC_ADSP_MVM;
+		}
 	} else if (!strcmp(svc_name, "CVS")) {
-		client_id = APR_CLIENT_VOICE;
-		svc_idx = 4;
-		svc_id = APR_SVC_CVS;
+		if (dest_id == APR_DEST_MODEM) {
+			client_id = APR_CLIENT_VOICE;
+			svc_idx = 4;
+			svc_id = APR_SVC_CVS;
+		} else {
+			client_id = APR_CLIENT_AUDIO;
+			svc_idx = 6;
+			svc_id = APR_SVC_ADSP_CVS;
+		}
 	} else if (!strcmp(svc_name, "CVP")) {
-		client_id = APR_CLIENT_VOICE;
-		svc_idx = 5;
-		svc_id = APR_SVC_CVP;
+		if (dest_id == APR_DEST_MODEM) {
+			client_id = APR_CLIENT_VOICE;
+			svc_idx = 5;
+			svc_id = APR_SVC_CVP;
+		} else {
+			client_id = APR_CLIENT_AUDIO;
+			svc_idx = 7;
+			svc_id = APR_SVC_ADSP_CVP;
+		}
 	} else if (!strcmp(svc_name, "SRD")) {
 		client_id = APR_CLIENT_VOICE;
 		svc_idx = 6;

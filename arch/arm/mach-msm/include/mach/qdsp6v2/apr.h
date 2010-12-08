@@ -89,7 +89,10 @@ struct apr_hdr {
 #define APR_SVC_VPM		0x6
 #define APR_SVC_ASM		0x7
 #define APR_SVC_ADM		0x8
-#define APR_SVC_MAX		0x9
+#define APR_SVC_ADSP_MVM	0x09
+#define APR_SVC_ADSP_CVS	0x0A
+#define APR_SVC_ADSP_CVP	0x0B
+#define APR_SVC_MAX		0x0C
 
 /* Modem Service IDs */
 #define APR_SVC_MVS		0x3
