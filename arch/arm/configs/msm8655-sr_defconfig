@@ -1224,6 +1224,7 @@ CONFIG_TCG_TIS=y
 # CONFIG_TCG_NSC is not set
 # CONFIG_TCG_ATMEL is not set
 # CONFIG_TCG_ST_I2C is not set
+# CONFIG_TCG_TPMD_DEV is not set
 # CONFIG_DCC_TTY is not set
 # CONFIG_RAMOOPS is not set
 CONFIG_MSM_ROTATOR=y
