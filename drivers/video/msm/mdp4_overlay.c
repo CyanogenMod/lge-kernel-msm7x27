@@ -1463,6 +1463,9 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	if (req->flags & MDP_DEINTERLACE)
 		pipe->op_mode |= MDP4_OP_DEINT_EN;
 
+	if (req->flags & MDP_DEINTERLACE_ODD)
+		pipe->op_mode |= MDP4_OP_DEINT_ODD_REF;
+
 	pipe->is_fg = req->is_fg;/* control alpha and color key */
 
 	pipe->alpha = req->alpha & 0x0ff;
