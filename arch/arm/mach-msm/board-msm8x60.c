@@ -5649,7 +5649,10 @@ static void __init msm8x60_init_mmc(void)
 	msm_add_sdcc(1, &msm8x60_sdc1_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
-	/* SDCC2 : NC (no card connected)*/
+	/*
+	 * MDM SDIO client is connected to SDC2 on charm SURF/FFA
+	 * and no card is connected on 8660 SURF/FFA/FLUID.
+	 */
 	sdcc_vreg_data[1].vdd_data = &sdcc_vdd_reg_data[1];
 	sdcc_vreg_data[1].vdd_data->reg_name = "8058_s3";
 	sdcc_vreg_data[1].vdd_data->set_voltage_sup = 1;
@@ -5657,7 +5660,8 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[1].vccq_data = NULL;
 	if (machine_is_msm8x60_charm_surf())
 		msm8x60_sdc2_data.msmsdcc_fmax = 24000000;
-	msm_add_sdcc(2, &msm8x60_sdc2_data);
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
+		msm_add_sdcc(2, &msm8x60_sdc2_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	/* SDCC3 : External card slot connected */
@@ -5680,7 +5684,10 @@ static void __init msm8x60_init_mmc(void)
 	msm_add_sdcc(4, &msm8x60_sdc4_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC5_SUPPORT
-	/* SDCC5 : NC (no card connected)*/
+	/*
+	 * MDM SDIO client is connected to SDC5 on charm SURF/FFA
+	 * and no card is connected on 8660 SURF/FFA/FLUID.
+	 */
 	sdcc_vreg_data[4].vdd_data = &sdcc_vdd_reg_data[4];
 	sdcc_vreg_data[4].vdd_data->reg_name = "8058_s3";
 	sdcc_vreg_data[4].vdd_data->set_voltage_sup = 1;
@@ -5688,7 +5695,8 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[4].vccq_data = NULL;
 	if (machine_is_msm8x60_charm_surf())
 		msm8x60_sdc5_data.msmsdcc_fmax = 24000000;
-	msm_add_sdcc(5, &msm8x60_sdc5_data);
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
+		msm_add_sdcc(5, &msm8x60_sdc5_data);
 #endif
 }
 
