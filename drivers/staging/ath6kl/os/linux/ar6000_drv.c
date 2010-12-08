@@ -1608,6 +1608,15 @@ ar6000_avail_ev(void *context, void *hif_handle)
     struct wireless_dev *wdev;
 #endif /* ATH6K_CONFIG_CFG80211 */
     A_STATUS init_status = A_OK;
+    HIF_DEVICE_OS_DEVICE_INFO osDevInfo;
+
+    A_MEMZERO(&osDevInfo, sizeof(osDevInfo));
+    if ( A_FAILED( HIFConfigureDevice(hif_handle, HIF_DEVICE_GET_OS_DEVICE,
+                    &osDevInfo, sizeof(osDevInfo))) )
+    {
+        AR_DEBUG_PRINTF(ATH_DEBUG_ERR,("%s: Failed to get OS device instance\n", __func__));
+        return A_ERROR;
+    }
 
     AR_DEBUG_PRINTF(ATH_DEBUG_INFO,("ar6000_available\n"));
 
@@ -1627,7 +1636,8 @@ ar6000_avail_ev(void *context, void *hif_handle)
     device_index = i;
 
 #ifdef ATH6K_CONFIG_CFG80211
-    wdev = ar6k_cfg80211_init(NULL);
+    wdev = ar6k_cfg80211_init(osDevInfo.pOSDevice);
+
     if (IS_ERR(wdev)) {
         AR_DEBUG_PRINTF(ATH_DEBUG_ERR, ("%s: ar6k_cfg80211_init failed\n", __func__));
         return A_ERROR;
@@ -1672,12 +1682,7 @@ ar6000_avail_ev(void *context, void *hif_handle)
 
 #ifdef SET_NETDEV_DEV
     if (ar_netif) { 
-        HIF_DEVICE_OS_DEVICE_INFO osDevInfo;
-        A_MEMZERO(&osDevInfo, sizeof(osDevInfo));
-        if ( A_SUCCESS( HIFConfigureDevice(hif_handle, HIF_DEVICE_GET_OS_DEVICE,
-                        &osDevInfo, sizeof(osDevInfo))) ) {
-            SET_NETDEV_DEV(dev, osDevInfo.pOSDevice);
-        }
+        SET_NETDEV_DEV(dev, osDevInfo.pOSDevice);
     }
 #endif 
 
