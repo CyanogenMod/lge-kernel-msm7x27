@@ -397,6 +397,45 @@ int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type)
 	return rc;
 }
 
+int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
+{
+	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
+	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_mpm_lock, flags);
+
+	if (on)
+		msm_mpm_wake_irq[index] |= mask;
+	else
+		msm_mpm_wake_irq[index] &= ~mask;
+
+	spin_unlock_irqrestore(&msm_mpm_lock, flags);
+	return 0;
+}
+
+int msm_mpm_set_pin_type(enum msm_mpm_pin pin, unsigned int flow_type)
+{
+	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
+	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_mpm_lock, flags);
+
+	if (flow_type & IRQ_TYPE_EDGE_BOTH)
+		msm_mpm_detect_ctl[index] |= mask;
+	else
+		msm_mpm_detect_ctl[index] &= ~mask;
+
+	if (flow_type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
+		msm_mpm_polarity[index] |= mask;
+	else
+		msm_mpm_polarity[index] &= ~mask;
+
+	spin_unlock_irqrestore(&msm_mpm_lock, flags);
+	return 0;
+}
+
 bool msm_mpm_irqs_detectable(bool from_idle)
 {
 	unsigned long *apps_irq_bitmap = from_idle ?
@@ -437,14 +476,15 @@ void msm_mpm_exit_sleep(bool from_idle)
 		while (k < 32) {
 			unsigned int mpm_irq = 32 * i + k;
 			unsigned int apps_irq = msm_mpm_get_irq_m2a(mpm_irq);
-			struct irq_desc *desc = irq_to_desc(apps_irq);
+			struct irq_desc *desc = apps_irq ?
+						irq_to_desc(apps_irq) : NULL;
 
 			/*
 			 * This function is called when only CPU 0 is
 			 * running and when both preemption and irqs
 			 * are disabled.  There is no need to lock desc.
 			 */
-			if (desc->status & IRQ_TYPE_EDGE_BOTH) {
+			if (desc && (desc->status & IRQ_TYPE_EDGE_BOTH)) {
 				desc->status |= IRQ_PENDING;
 				if (from_idle)
 					check_irq_resend(desc, apps_irq);
