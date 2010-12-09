@@ -1169,6 +1169,11 @@ static int msm_charger_suspend(struct device *dev)
 	dev_dbg(msm_chg.dev, "%s suspended\n", __func__);
 	msm_chg.stop_update = 1;
 	cancel_delayed_work(&msm_chg.update_heartbeat_work);
+	/*
+	 * we wont be charging in the suspend sequence, act as if the
+	 * battery is removed - this will stop the resume delayed work
+	 */
+	handle_battery_removed();
 	return 0;
 }
 
@@ -1182,6 +1187,7 @@ static int msm_charger_resume(struct device *dev)
 				&msm_chg.update_heartbeat_work,
 			      round_jiffies_relative(msecs_to_jiffies
 						     (msm_chg.update_time)));
+	handle_battery_inserted();
 	return 0;
 }
 
