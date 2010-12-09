@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/spinlock.h>
 #include <linux/genalloc.h>
+#include <linux/dma-mapping.h>
 #include <asm/cacheflush.h>
 
 #include "kgsl_sharedmem.h"
@@ -286,7 +287,11 @@ kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	BUG_ON((shmem->physbase + shmem->size)
 	       < (memdesc->physaddr + memdesc->size));
 
-	gen_pool_free(shmem->pool, memdesc->physaddr, memdesc->size);
+	if (memdesc->priv & KGSL_MEMFLAGS_CONPHYS)
+		dma_free_coherent(NULL, memdesc->size, memdesc->hostptr,
+				  memdesc->physaddr);
+	else
+		gen_pool_free(shmem->pool, memdesc->physaddr, memdesc->size);
 
 	memset(memdesc, 0, sizeof(struct kgsl_memdesc));
 	KGSL_MEM_VDBG("return\n");
