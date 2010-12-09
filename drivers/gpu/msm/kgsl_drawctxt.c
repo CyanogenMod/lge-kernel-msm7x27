@@ -1506,6 +1506,9 @@ int kgsl_drawctxt_init(struct kgsl_device *device)
 /* close draw context */
 int kgsl_drawctxt_close(struct kgsl_device *device)
 {
+	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
+							device;
+	yamato_device->drawctxt_active = NULL;
 	return 0;
 }
 

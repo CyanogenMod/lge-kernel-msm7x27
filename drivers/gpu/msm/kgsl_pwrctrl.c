@@ -109,10 +109,15 @@ int kgsl_pwrctrl_axi(struct kgsl_device *device, unsigned int pwrflag)
 int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, unsigned int pwrflag)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
 	switch (pwrflag) {
 	case KGSL_PWRFLAGS_POWER_OFF:
 		if (pwr->power_flags & KGSL_PWRFLAGS_POWER_ON) {
-			internal_pwr_rail_ctl(pwr->pwr_rail, KGSL_FALSE);
+			if (internal_pwr_rail_ctl(pwr->pwr_rail, KGSL_FALSE)) {
+				KGSL_DRV_ERR(
+					"call internal_pwr_rail_ctl failed\n");
+				return KGSL_FAILURE;
+			}
 			if (pwr->gpu_reg)
 				regulator_disable(pwr->gpu_reg);
 			pwr->power_flags &=
@@ -123,9 +128,12 @@ int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, unsigned int pwrflag)
 		return KGSL_SUCCESS;
 	case KGSL_PWRFLAGS_POWER_ON:
 		if (pwr->power_flags & KGSL_PWRFLAGS_POWER_OFF) {
-			internal_pwr_rail_mode(pwr->pwr_rail,
-					PWR_RAIL_CTL_MANUAL);
-			internal_pwr_rail_ctl(pwr->pwr_rail, KGSL_TRUE);
+			if (internal_pwr_rail_ctl(pwr->pwr_rail, KGSL_TRUE)) {
+				KGSL_DRV_ERR(
+					"call internal_pwr_rail_ctl failed\n");
+				return KGSL_FAILURE;
+			}
+
 			if (pwr->gpu_reg)
 				regulator_enable(pwr->gpu_reg);
 			pwr->power_flags &=
@@ -225,6 +233,8 @@ void kgsl_idle_check(struct work_struct *work)
 void kgsl_timer(unsigned long data)
 {
 	struct kgsl_device *device = (struct kgsl_device *) data;
+
+	BUG_ON(device->requested_state == KGSL_STATE_SUSPEND);
 	device->requested_state = KGSL_STATE_SLEEP;
 	/* Have work run in a non-interrupt context. */
 	schedule_work(&device->idle_check_ws);
@@ -232,19 +242,16 @@ void kgsl_timer(unsigned long data)
 
 void kgsl_pre_hwaccess(struct kgsl_device *device)
 {
-	while (1) {
-		if (device == NULL)
-			break;
-		if (device->state == KGSL_STATE_ACTIVE)
-			break;
-		if (device->state != KGSL_STATE_SUSPEND) {
-			device->ftbl.device_wake(device);
-			break;
-		}
+	if (device->state & (KGSL_STATE_SLEEP | KGSL_STATE_NAP))
+		device->ftbl.device_wake(device);
+}
+
+void kgsl_check_suspended(struct kgsl_device *device)
+{
+	if (device->requested_state == KGSL_STATE_SUSPEND ||
+				device->state == KGSL_STATE_SUSPEND) {
 		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->hwaccess_gate);
 		mutex_lock(&device->mutex);
 	}
-}
-
-
+ }

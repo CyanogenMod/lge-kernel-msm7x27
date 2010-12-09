@@ -64,7 +64,7 @@
 #define KGSL_G12_TIMESTAMP_EPSILON 20000
 #define KGSL_G12_IDLE_COUNT_MAX 1000000
 
-static int kgsl_g12_start(struct kgsl_device *device);
+static int kgsl_g12_start(struct kgsl_device *device, unsigned int init_ram);
 static int kgsl_g12_stop(struct kgsl_device *device);
 static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
 static int kgsl_g12_sleep(struct kgsl_device *device);
@@ -103,6 +103,8 @@ static struct kgsl_g12_device device_2d0 = {
 			.va_range = SZ_32M,
 		},
 		.mutex = __MUTEX_INITIALIZER(device_2d0.dev.mutex),
+		.state = KGSL_STATE_INIT,
+		.active_cnt = 0,
 	},
 	.iomemname = "kgsl_2d0_reg_memory",
 	.irqname = "kgsl_2d0_irq",
@@ -126,6 +128,8 @@ static struct kgsl_g12_device device_2d1 = {
 			.va_range = SZ_32M,
 		},
 		.mutex = __MUTEX_INITIALIZER(device_2d1.dev.mutex),
+		.state = KGSL_STATE_INIT,
+		.active_cnt = 0,
 	},
 	.iomemname = "kgsl_2d1_reg_memory",
 	.irqname = "kgsl_2d1_irq",
@@ -331,7 +335,9 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 		clk_set_rate(clk, device->pwrctrl.clk_freq[KGSL_MIN_FREQ]);
 	}
 
-	device->pwrctrl.power_flags = 0;
+	device->pwrctrl.power_flags = KGSL_PWRFLAGS_CLK_OFF |
+		KGSL_PWRFLAGS_AXI_OFF | KGSL_PWRFLAGS_POWER_OFF |
+		KGSL_PWRFLAGS_IRQ_OFF;
 	device->pwrctrl.nap_allowed = pdata->nap_allowed;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_2d;
 	device->pwrctrl.grp_clk = clk;
@@ -339,6 +345,13 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 	device->pwrctrl.grp_pclk = pclk;
 	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_2D_CLK;
 	device->pwrctrl.interval_timeout = pdata->idle_timeout_2d;
+
+	if (internal_pwr_rail_mode(device->pwrctrl.pwr_rail,
+						PWR_RAIL_CTL_MANUAL)) {
+		KGSL_DRV_ERR("call internal_pwr_rail_mode failed\n");
+		result = -EINVAL;
+		goto done;
+	}
 
 	device->pwrctrl.pm_qos_req = pm_qos_add_request(
 					PM_QOS_SYSTEM_BUS_FREQ,
@@ -420,6 +433,7 @@ kgsl_g12_init(struct kgsl_device *device)
 			regspace->sizebytes, regspace->mmio_virt_base);
 
 	init_completion(&device->hwaccess_gate);
+	init_completion(&device->suspend_gate);
 	kgsl_g12_getfunctable(&device->ftbl);
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 
@@ -486,14 +500,10 @@ int kgsl_g12_close(struct kgsl_device *device)
 	return 0;
 }
 
-static int kgsl_g12_start(struct kgsl_device *device)
+static int kgsl_g12_start(struct kgsl_device *device, unsigned int init_ram)
 {
 	int status = 0;
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
-
-	device->pwrctrl.power_flags |= KGSL_PWRFLAGS_CLK_OFF |
-		KGSL_PWRFLAGS_AXI_OFF | KGSL_PWRFLAGS_POWER_OFF |
-		KGSL_PWRFLAGS_IRQ_OFF;
 
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
@@ -517,7 +527,6 @@ static int kgsl_g12_start(struct kgsl_device *device)
 	if (status)
 		goto error_mmu_stop;
 
-	device->state = KGSL_STATE_ACTIVE;
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 	return 0;
@@ -525,7 +534,6 @@ error_clk_off:
 	kgsl_g12_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
-	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
 error_mmu_stop:
 	kgsl_mmu_stop(device);
 	return status;
@@ -543,7 +551,6 @@ static int kgsl_g12_stop(struct kgsl_device *device)
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
-	device->state = KGSL_STATE_INIT;
 
 	return 0;
 }
@@ -660,8 +667,6 @@ static int kgsl_g12_sleep(struct kgsl_device *device)
 	if (device->requested_state == KGSL_STATE_NAP) {
 		if (kgsl_g12_isidle(g12_device))
 			goto nap;
-	} else if (device->requested_state == KGSL_STATE_SUSPEND) {
-		goto sleep;
 	} else if (device->requested_state == KGSL_STATE_SLEEP) {
 		if (device->state == KGSL_STATE_NAP ||
 			kgsl_g12_isidle(g12_device))
@@ -691,6 +696,12 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
 
+	if (device->state == KGSL_STATE_SUSPEND || device->requested_state ==
+					KGSL_STATE_SUSPEND) {
+		KGSL_DRV_ERR("don't wake in suspended\n");
+		BUG();
+	}
+
 	/* Turn on the core clocks */
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
 
@@ -701,7 +712,6 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 
 	/* Re-enable HW access */
 	device->state = KGSL_STATE_ACTIVE;
-	complete_all(&device->hwaccess_gate);
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 
 	KGSL_DRV_VDBG("<-- kgsl_g12_wake(). Return value %d\n", status);
@@ -711,23 +721,60 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 
 /******************************************************************/
 /* Caller must hold the device mutex. */
+static int kgsl_g12_resume(struct kgsl_device *device)
+{
+	int status = KGSL_SUCCESS;
+
+	/* Call to restore state here. */
+	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
+	/* Turn on the core clocks */
+	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+
+	/* Re-enable HW access */
+	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
+	if (status == KGSL_SUCCESS) {
+		device->state = KGSL_STATE_ACTIVE;
+	} else {
+		KGSL_DRV_ERR("resume failed for dev->id=%d\n", device->id);
+		device->state = KGSL_STATE_INIT;
+	}
+
+	KGSL_DRV_VDBG("<-- kgsl_g12_resume(). Return value %d\n", status);
+
+	return status;
+}
+
+/******************************************************************/
+/* Caller must hold the device mutex. */
 static int kgsl_g12_suspend(struct kgsl_device *device)
 {
-	int status;
+	int status = KGSL_SUCCESS;
+
+	if (device->state == KGSL_STATE_NAP)
+		goto clk_off;
+	if (device->state == KGSL_STATE_SLEEP)
+		goto pwr_off;
 
 	/* Wait for the device to become idle */
 	status = kgsl_g12_idle(device, KGSL_G12_IDLE_COUNT_MAX);
 
-	if (status == KGSL_SUCCESS) {
-		device->requested_state = KGSL_STATE_SUSPEND;
-		/* Put the device to sleep. */
-		status = kgsl_g12_sleep(device);
-		/* Don't let the timer wake us during suspended sleep. */
-		del_timer(&device->idle_timer);
-		/* Get the completion ready to be waited upon. */
-		INIT_COMPLETION(device->hwaccess_gate);
-	}
+	if (status)
+		goto done;
 
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
+clk_off:
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+
+pwr_off:
+	/* Call to store state here. */
+	device->state = KGSL_STATE_SUSPEND;
+	/* Don't let the timer wake us during suspended sleep. */
+	status = del_timer(&device->idle_timer);
+
+ done:
 	return status;
 }
 
@@ -883,8 +930,9 @@ int kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
 	ftbl->device_setstate = kgsl_g12_setstate;
 	ftbl->device_idle = kgsl_g12_idle;
 	ftbl->device_sleep = kgsl_g12_sleep;
-	ftbl->device_suspend = kgsl_g12_suspend;
 	ftbl->device_wake = kgsl_g12_wake;
+	ftbl->device_suspend = kgsl_g12_suspend;
+	ftbl->device_resume = kgsl_g12_resume;
 	ftbl->device_start = kgsl_g12_start;
 	ftbl->device_stop = kgsl_g12_stop;
 	ftbl->device_getproperty = kgsl_g12_getproperty;
