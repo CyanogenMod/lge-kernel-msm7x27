@@ -63,6 +63,7 @@ enum {
 	MSM_PM_DEBUG_RESET_VECTOR = BIT(4),
 	MSM_PM_DEBUG_IDLE = BIT(6),
 	MSM_PM_DEBUG_IDLE_LIMITS = BIT(7),
+	MSM_PM_DEBUG_HOTPLUG = BIT(8),
 };
 
 static int msm_pm_debug_mask = 1;
@@ -1010,7 +1011,8 @@ void platform_cpu_die(unsigned int cpu)
 		allow[i] = mode->supported && mode->suspend_enabled;
 	}
 
-	pr_notice("CPU%u: %s: shutting down cpu\n", cpu, __func__);
+	if (MSM_PM_DEBUG_HOTPLUG & msm_pm_debug_mask)
+		pr_notice("CPU%u: %s: shutting down cpu\n", cpu, __func__);
 	complete(&__get_cpu_var(msm_pm_devices).cpu_killed);
 
 	flush_cache_all();
