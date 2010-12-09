@@ -52,7 +52,7 @@
 #include <linux/mfd/marimba.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
-
+#include <linux/slab.h>
 /*
 regional parameters for radio device
 */
