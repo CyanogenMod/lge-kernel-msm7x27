@@ -424,19 +424,34 @@ static int msm_hsusb_ldo_enable(int on)
  }
 #endif
 #ifdef CONFIG_USB_EHCI_MSM
-static struct regulator *votg_5v_switch;
 static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 {
+	static struct regulator *votg_5v_switch;
+	static struct regulator *ext_5v_reg;
 	static int vbus_is_on;
 
 	/* If VBUS is already on (or off), do nothing. */
 	if (on == vbus_is_on)
 		return;
 
-	if (on) {
+	if (!votg_5v_switch) {
 		votg_5v_switch = regulator_get(NULL, "8901_usb_otg");
 		if (IS_ERR(votg_5v_switch)) {
 			pr_err("%s: unable to get votg_5v_switch\n", __func__);
+			return;
+		}
+	}
+	if (!ext_5v_reg) {
+		ext_5v_reg = regulator_get(NULL, "8901_mpp0");
+		if (IS_ERR(ext_5v_reg)) {
+			pr_err("%s: unable to get ext_5v_reg\n", __func__);
+			return;
+		}
+	}
+	if (on) {
+		if (regulator_enable(ext_5v_reg)) {
+			pr_err("%s: Unable to enable the regulator:"
+					" ext_5v_reg\n", __func__);
 			return;
 		}
 		if (regulator_enable(votg_5v_switch)) {
@@ -447,8 +462,10 @@ static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 	} else {
 		if (regulator_disable(votg_5v_switch))
 			pr_err("%s: Unable to enable the regulator:"
-					" votg_5v_switch\n", __func__);
-		regulator_put(votg_5v_switch);
+				" votg_5v_switch\n", __func__);
+		if (regulator_disable(ext_5v_reg))
+			pr_err("%s: Unable to enable the regulator:"
+				" ext_5v_reg\n", __func__);
 	}
 
 	vbus_is_on = on;
