@@ -23,7 +23,6 @@
 #include "apr_audio.h"
 
 struct afe_ctl {
-	atomic_t ref_cnt;
 	void *apr;
 	atomic_t state;
 	wait_queue_head_t wait;
@@ -73,7 +72,7 @@ int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 
 	pr_info("%s: %d %d\n", __func__, port_id, rate);
 
-	if (atomic_read(&this_afe.ref_cnt) == 0) {
+	if (this_afe.apr == NULL) {
 		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
 					0xFFFFFFFF, &this_afe);
 		pr_info("%s: Register AFE\n", __func__);
@@ -148,12 +147,8 @@ int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-
-	atomic_inc(&this_afe.ref_cnt);
 	return 0;
 fail_cmd:
-	if (atomic_read(&this_afe.ref_cnt) == 0)
-		apr_deregister(this_afe.apr);
 	return ret;
 }
 
@@ -161,8 +156,8 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 {
 	struct afe_loopback_command lb_cmd;
 	int ret = 0;
-	if (atomic_read(&this_afe.ref_cnt) <= 0) {
-		pr_err("AFE is not opened\n");
+	if (this_afe.apr == NULL) {
+		pr_err("%s:AFE is not opened\n", __func__);
 		ret = -1;
 		goto done;
 	}
@@ -267,7 +262,7 @@ static ssize_t afe_debug_write(struct file *filp,
 				pr_err("%s: Error, invalid afe port\n",
 					__func__);
 			}
-			if (atomic_read(&this_afe.ref_cnt) == 0) {
+			if (this_afe.apr == NULL) {
 				pr_err("%s: Error, AFE not opened\n", __func__);
 				rc = -EINVAL;
 			} else {
@@ -298,7 +293,7 @@ int afe_close(int port_id)
 	struct afe_port_stop_command stop;
 	int ret = 0;
 
-	if (atomic_read(&this_afe.ref_cnt) <= 0) {
+	if (this_afe.apr == NULL) {
 		pr_err("AFE is already closed\n");
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -331,12 +326,6 @@ int afe_close(int port_id)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-
-	atomic_dec(&this_afe.ref_cnt);
-	if (atomic_read(&this_afe.ref_cnt) == 0) {
-		pr_debug("%s: Deregister AFE\n", __func__);
-		apr_deregister(this_afe.apr);
-	}
 fail_cmd:
 	return ret;
 }
@@ -346,7 +335,7 @@ static int __init afe_init(void)
 	pr_info("%s:\n", __func__);
 	init_waitqueue_head(&this_afe.wait);
 	atomic_set(&this_afe.state, 0);
-	atomic_set(&this_afe.ref_cnt, 0);
+	this_afe.apr = NULL;
 #ifdef CONFIG_DEBUG_FS
 	debugfs_afelb = debugfs_create_file("afe_loopback",
 	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback",

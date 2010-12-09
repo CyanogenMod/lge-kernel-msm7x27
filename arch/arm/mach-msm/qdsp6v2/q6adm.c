@@ -28,7 +28,6 @@
 #define AUDIO_TX 0x1
 
 struct adm_ctl {
-	atomic_t ref_cnt;
 	void *apr;
 	atomic_t copp_id[AFE_MAX_PORTS];
 	atomic_t copp_cnt[AFE_MAX_PORTS];
@@ -73,6 +72,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			atomic_set(&this_adm.copp_id[data->token],
 							open->copp_id);
 			atomic_set(&this_adm.copp_stat[data->token], 1);
+			pr_debug("%s: coppid rxed=%d\n", __func__,
+							open->copp_id);
 			wake_up(&this_adm.wait);
 			}
 			break;
@@ -228,8 +229,8 @@ int adm_open(int port_id, int session_id , int path,
 			ret = -EINVAL;
 			goto fail_cmd;
 		}
-		atomic_inc(&this_adm.copp_cnt[port_id]);
 	}
+	atomic_inc(&this_adm.copp_cnt[port_id]);
 	route.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	route.hdr.pkt_size = sizeof(route);
@@ -275,13 +276,10 @@ int adm_open(int port_id, int session_id , int path,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	atomic_inc(&this_adm.ref_cnt);
 	send_adm_cal(port_id, path);
 	return 0;
 
 fail_cmd:
-	if (atomic_read(&this_adm.ref_cnt) == 0)
-		apr_deregister(this_adm.apr);
 
 	return ret;
 }
@@ -429,12 +427,11 @@ int adm_close(int port_id)
 
 	pr_info("%s port_id=%d\n", __func__, port_id);
 
-	if (atomic_read(&this_adm.ref_cnt) <= 0) {
-		pr_err("ADM is already closed\n");
-		ret = -EINVAL;
-		return ret;
-	}
+	if (!(atomic_read(&this_adm.copp_cnt[port_id]))) {
+		pr_err("%s: copp count for port[%d]is 0\n", __func__, port_id);
 
+		goto fail_cmd;
+	}
 	atomic_dec(&this_adm.copp_cnt[port_id]);
 	if (!(atomic_read(&this_adm.copp_cnt[port_id]))) {
 
@@ -453,6 +450,12 @@ int adm_close(int port_id)
 		atomic_set(&this_adm.copp_id[port_id], 0);
 		atomic_set(&this_adm.copp_stat[port_id], 0);
 
+
+		pr_debug("%s:coppid %d portid=%d coppcnt=%d\n",
+				__func__,
+				atomic_read(&this_adm.copp_id[port_id]),
+				port_id,
+				atomic_read(&this_adm.copp_cnt[port_id]));
 
 		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&close);
 		if (ret < 0) {
@@ -473,11 +476,6 @@ int adm_close(int port_id)
 	}
 
 fail_cmd:
-	atomic_dec(&this_adm.ref_cnt);
-	if (atomic_read(&this_adm.ref_cnt) == 0) {
-		apr_deregister(this_adm.apr);
-		this_adm.apr = NULL;
-	}
 	return ret;
 }
 
@@ -486,7 +484,7 @@ static int __init adm_init(void)
 	int i = 0;
 	pr_info("%s\n", __func__);
 	init_waitqueue_head(&this_adm.wait);
-	atomic_set(&this_adm.ref_cnt, 0);
+	this_adm.apr = NULL;
 
 	for (i = 0; i < AFE_MAX_PORTS; i++) {
 		atomic_set(&this_adm.copp_id[i], 0);
