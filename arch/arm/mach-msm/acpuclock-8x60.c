@@ -169,6 +169,7 @@ static struct msm_bus_paths bw_level_tbl[] = {
 static struct msm_bus_scale_pdata bus_client_pdata = {
 	.usecase = bw_level_tbl,
 	.num_usecases = ARRAY_SIZE(bw_level_tbl),
+	.name = "acpuclock",
 };
 
 static uint32_t bus_perf_client;
