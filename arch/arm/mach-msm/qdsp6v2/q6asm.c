@@ -576,7 +576,7 @@ static void q6asm_add_hdr(struct audio_client *ac, struct apr_hdr *hdr,
 		hdr->token = ac->session;
 		atomic_set(&ac->cmd_state, 1);
 	}
-	hdr->pkt_size  = APR_PKT_SIZE(APR_HDR_SIZE, pkt_size);
+	hdr->pkt_size  = pkt_size;
 	mutex_unlock(&ac->cmd_lock);
 	return;
 }
@@ -823,7 +823,7 @@ int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 	pr_debug("frames[%d]SR[%d]ch[%d]bitrate[%d]mode[%d]format[%d]",
 		frames_per_buf, sample_rate, channels, bit_rate, mode, format);
 
-	q6asm_add_hdr(ac, &enc_cfg.hdr, (sizeof(enc_cfg) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
 
 	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
 	enc_cfg.param_id = ASM_ENCDEC_CFG_BLK_ID;
@@ -863,7 +863,7 @@ int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 
 	pr_debug("\n");
 
-	q6asm_add_hdr(ac, &enc_cfg.hdr, (sizeof(enc_cfg) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
 
 	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
 	enc_cfg.param_id = ASM_ENCDEC_CFG_BLK_ID;
@@ -906,7 +906,7 @@ int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
 		frames_per_buf, min_rate, max_rate,
 		reduced_rate_level, rate_modulation_cmd);
 
-	q6asm_add_hdr(ac, &enc_cfg.hdr, (sizeof(enc_cfg) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
 
 	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
 
@@ -948,7 +948,7 @@ int q6asm_enc_cfg_blk_evrc(struct audio_client *ac, uint32_t frames_per_buf,
 		rate_modulation_cmd[0x%4x]", frames_per_buf,
 		min_rate, max_rate, rate_modulation_cmd);
 
-	q6asm_add_hdr(ac, &enc_cfg.hdr, (sizeof(enc_cfg) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
 
 	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
 
@@ -988,7 +988,7 @@ int q6asm_enc_cfg_blk_amrnb(struct audio_client *ac, uint32_t frames_per_buf,
 	pr_debug("frames[%d]band_mode[0x%4x]dtx_enable[0x%4x]",
 		frames_per_buf, band_mode, dtx_enable);
 
-	q6asm_add_hdr(ac, &enc_cfg.hdr, (sizeof(enc_cfg) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
 
 	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
 
@@ -1025,7 +1025,7 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 
 	pr_debug("rate[%d]ch[%d]\n", rate, channels);
 
-	q6asm_add_hdr(ac, &fmt.hdr, (sizeof(fmt) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
 
 	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
 
@@ -1143,7 +1143,7 @@ int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain)
 
 	pr_info("%s:\n", __func__);
 
-	q6asm_add_hdr(ac, &vol_cmd.hdr, (sizeof(vol_cmd) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &vol_cmd.hdr, sizeof(vol_cmd), TRUE);
 
 	vol_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
 	vol_cmd.payload = NULL;
@@ -1309,7 +1309,7 @@ int q6asm_set_mute(struct audio_client *ac, int muteflag)
 
 	pr_info("%s:\n", __func__);
 
-	q6asm_add_hdr(ac, &vol_cmd.hdr, (sizeof(vol_cmd) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &vol_cmd.hdr, sizeof(vol_cmd), TRUE);
 
 	vol_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
 	vol_cmd.payload = NULL;
@@ -1349,7 +1349,7 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 
 	pr_info("%s:\n", __func__);
 
-	q6asm_add_hdr(ac, &vol_cmd.hdr, (sizeof(vol_cmd) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &vol_cmd.hdr, sizeof(vol_cmd), TRUE);
 
 	vol_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
 	vol_cmd.payload = NULL;
@@ -1393,7 +1393,7 @@ int q6asm_equalizer(struct audio_client *ac, void *eq)
 	pr_info("%s:\n", __func__);
 	eq_params = (struct msm_audio_eq_stream_config *) eq;
 
-	q6asm_add_hdr(ac, &eq_cmd.hdr, (sizeof(eq_cmd) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &eq_cmd.hdr, sizeof(eq_cmd), TRUE);
 
 	eq_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
 	eq_cmd.payload = NULL;
@@ -1460,8 +1460,7 @@ int q6asm_read(struct audio_client *ac)
 	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[OUT];
 
-		q6asm_add_hdr(ac, &read.hdr, (sizeof(read) - APR_HDR_SIZE),
-				FALSE);
+		q6asm_add_hdr(ac, &read.hdr, sizeof(read), FALSE);
 
 		mutex_lock(&port->lock);
 
@@ -1511,7 +1510,7 @@ int q6asm_async_write(struct audio_client *ac,
 	}
 	port = &ac->port[IN];
 
-	q6asm_add_hdr(ac, &write.hdr, (sizeof(write) - APR_HDR_SIZE), FALSE);
+	q6asm_add_hdr(ac, &write.hdr, sizeof(write), FALSE);
 	mutex_lock(&port->lock);
 
 	/* Pass physical address as token for AIO scheme */
@@ -1557,7 +1556,7 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[IN];
 
-		q6asm_add_hdr(ac, &write.hdr, (sizeof(write) - APR_HDR_SIZE),
+		q6asm_add_hdr(ac, &write.hdr, sizeof(write),
 				FALSE);
 		mutex_lock(&port->lock);
 
@@ -1603,7 +1602,7 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
-	q6asm_add_hdr(ac, &hdr, (sizeof(hdr) - APR_HDR_SIZE), TRUE);
+	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
 	switch (cmd) {
 	case CMD_PAUSE:
 		pr_debug("%s:CMD_PAUSE\n", __func__);
