@@ -83,7 +83,7 @@ static int segment_in_hole(unsigned long start, unsigned long end)
 
 #define IOMAP_SIZE SZ_4M
 
-static int load_segment(struct elf32_phdr *phdr, unsigned num,
+static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 		struct pil_device *pil)
 {
 	int ret, count, paddr;
@@ -169,12 +169,17 @@ release_fw:
 
 #define HASH_SEGMENT_FLAG	BIT(25)
 
+static int segment_is_loadable(const struct elf32_phdr *p)
+{
+	return (p->p_type & PT_LOAD) && !(p->p_flags & HASH_SEGMENT_FLAG);
+}
+
 static int load_image(struct pil_device *pil)
 {
-	int i, ret, has_hash;
+	int i, ret;
 	char fw_name[30];
 	struct elf32_hdr *ehdr;
-	struct elf32_phdr *phdr;
+	const struct elf32_phdr *phdr;
 	const struct firmware *fw;
 
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", pil->name);
@@ -208,22 +213,17 @@ static int load_image(struct pil_device *pil)
 		goto release_fw;
 	}
 
-	phdr = (struct elf32_phdr *)(fw->data + ehdr->e_phoff);
 	ret = pil->ops->init_image(fw->data, fw->size);
 	if (ret) {
 		dev_err(&pil->pdev.dev, "Invalid firmware metadata\n");
 		goto release_fw;
 	}
 
-	/* Only load segment 0 if it isn't a hash */
-	has_hash = (phdr->p_flags & HASH_SEGMENT_FLAG);
-	if (has_hash) {
-		i = 1;
-		phdr++;
-	} else
-		i = 0;
+	phdr = (const struct elf32_phdr *)(fw->data + ehdr->e_phoff);
+	for (i = 0; i < ehdr->e_phnum; i++, phdr++) {
+		if (!segment_is_loadable(phdr))
+			continue;
 
-	for (; i < ehdr->e_phnum; i++, phdr++) {
 		ret = load_segment(phdr, i, pil);
 		if (ret) {
 			dev_err(&pil->pdev.dev, "Failed to load segment %d\n",
