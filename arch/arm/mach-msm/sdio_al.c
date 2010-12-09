@@ -490,6 +490,7 @@ static int get_min_poll_time_msec(void);
 static u32 check_pending_rx_packet(struct sdio_channel *ch, u32 eot);
 static u32 remove_handled_rx_packet(struct sdio_channel *ch);
 static int set_pipe_threshold(int pipe_index, int threshold);
+static int sdio_al_wake_up(u32 enable_wake_up_func);
 
 
 #ifdef CONFIG_DEBUG_FS
@@ -895,6 +896,15 @@ static void worker(struct work_struct *work)
 	while ((sdio_al->is_ready) && (ret == 0)) {
 		pr_debug(MODULE_NAME ":Wait for read mailbox request..\n");
 		wait_event(sdio_al->wait_mbox, sdio_al->ask_mbox);
+		sdio_claim_host(sdio_al->card->sdio_func[0]);
+		if (sdio_al->is_ok_to_sleep) {
+			ret = sdio_al_wake_up(1);
+			if (ret) {
+				sdio_release_host(sdio_al->card->sdio_func[0]);
+				return;
+			}
+		}
+		sdio_release_host(sdio_al->card->sdio_func[0]);
 		ret = read_mailbox(false);
 		sdio_al->ask_mbox = false;
 	}
@@ -2014,11 +2024,11 @@ int sdio_read(struct sdio_channel *ch, void *data, int len)
 	DATA_DEBUG(MODULE_NAME ":end ch %s read %d avail %d total %d.\n",
 		ch->name, len, ch->read_avail, ch->total_rx_bytes);
 
-	sdio_release_host(sdio_al->card->sdio_func[0]);
-
 	if ((ch->read_avail == 0) &&
 	    !((ch->is_packet_mode) && (sdio_al->use_irq)))
 		ask_reading_mailbox();
+
+	sdio_release_host(sdio_al->card->sdio_func[0]);
 
 	return ret;
 }
@@ -2083,10 +2093,10 @@ int sdio_write(struct sdio_channel *ch, const void *data, int len)
 		ch->write_avail -= len;
 	}
 
-	sdio_release_host(sdio_al->card->sdio_func[0]);
-
 	if (ch->write_avail < ch->min_write_avail)
 		ask_reading_mailbox();
+
+	sdio_release_host(sdio_al->card->sdio_func[0]);
 
 	return ret;
 }
