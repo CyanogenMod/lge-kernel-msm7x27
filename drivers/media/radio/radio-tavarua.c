@@ -1064,8 +1064,11 @@ static int tavarua_request_irq(struct tavarua_device *radio)
 	-ENXIO The m68k returns this value for  an  invalid
 		IRQ number.
   */
-	retval = request_irq(irq, tavarua_isr, IRQ_TYPE_EDGE_FALLING,
-				"fm interrupt", radio);
+	/* Use request_any_context_irq, So that it might work for nested or
+	nested interrupts. in MSM8x60, FM is connected to PMIC GPIO and it
+	is a nested interrupt*/
+	retval = request_any_context_irq(irq, tavarua_isr,
+				IRQ_TYPE_EDGE_FALLING, "fm interrupt", radio);
 	if (retval < 0) {
 		FMDERR("Couldn't acquire FM gpio %d\n", irq);
 		return retval;
