@@ -2462,19 +2462,6 @@ static struct i2c_board_info msm_i2c_gsbi7_timpani_info[] = {
 
 #define PM8901_GPIO_INT           91
 
-static int pm8901_mpp0_init(void *data)
-{
-	int val = machine_is_msm8x60_surf() ?
-		PM_MPP_DOUT_CTL_LOW : PM_MPP_DOUT_CTL_HIGH;
-	int rc = pm8901_mpp_config(0, PM_MPP_TYPE_D_OUTPUT,
-			PM8901_MPP_DIG_LEVEL_VPH,
-			val);
-	if (rc)
-		pr_err("%s: pm8901_mpp_config failed with %d\n", __func__, rc);
-
-	return rc;
-}
-
 static struct pm8901_gpio_platform_data pm8901_mpp_data = {
 	.gpio_base	= PM8901_GPIO_PM_TO_SYS(0),
 	.irq_base	= PM8901_MPP_IRQ(PM8901_IRQ_BASE, 0),
@@ -2500,7 +2487,7 @@ static struct regulator_consumer_supply pm8901_vreg_supply[PM8901_VREG_MAX] = {
 };
 
 #define PM8901_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
-			 _always_on, _init, _active_high) \
+			 _always_on, _active_high) \
 	[_id] = { \
 		.init_data = { \
 			.constraints = { \
@@ -2514,24 +2501,23 @@ static struct regulator_consumer_supply pm8901_vreg_supply[PM8901_VREG_MAX] = {
 			}, \
 			.num_consumer_supplies = 1, \
 			.consumer_supplies = &pm8901_vreg_supply[_id], \
-			.regulator_init = _init, \
 		}, \
 		.active_high = _active_high, \
 	}
 
 #define PM8901_VREG_INIT_MPP(_id, _active_high) \
 	PM8901_VREG_INIT(_id, 0, 0, REGULATOR_MODE_NORMAL, \
-			REGULATOR_CHANGE_STATUS, 0, 0, NULL, _active_high)
+			REGULATOR_CHANGE_STATUS, 0, 0, _active_high)
 
-#define PM8901_VREG_INIT_VS(_id, _init) \
+#define PM8901_VREG_INIT_VS(_id) \
 	PM8901_VREG_INIT(_id, 0, 0, REGULATOR_MODE_NORMAL, \
-			REGULATOR_CHANGE_STATUS, 0, 0, _init, 0)
+			REGULATOR_CHANGE_STATUS, 0, 0, 0)
 
 static struct pm8901_vreg_pdata pm8901_vreg_init_pdata[PM8901_VREG_MAX] = {
-	PM8901_VREG_INIT_MPP(PM8901_VREG_ID_MPP0,    1),
+	PM8901_VREG_INIT_MPP(PM8901_VREG_ID_MPP0, 1),
 
-	PM8901_VREG_INIT_VS(PM8901_VREG_ID_USB_OTG,  pm8901_mpp0_init),
-	PM8901_VREG_INIT_VS(PM8901_VREG_ID_HDMI_MVS, NULL),
+	PM8901_VREG_INIT_VS(PM8901_VREG_ID_USB_OTG),
+	PM8901_VREG_INIT_VS(PM8901_VREG_ID_HDMI_MVS),
 };
 
 #define PM8901_VREG(_id) { \
@@ -3650,18 +3636,28 @@ fail_l1_enable:
 	}							\
 } while (0)
 
-static struct regulator *reg_8058_l16;		/* VDD_HDMI */
-static struct regulator *reg_8901_l3;		/* HDMI_CEC */
-static struct regulator *reg_8901_hdmi_mvs;	/* HDMI_5V */
-
 static int hdmi_enable_5v(int on)
 {
+	static struct regulator *reg_8901_hdmi_mvs;	/* HDMI_5V */
+	static struct regulator *reg_8901_mpp0;		/* External 5V */
+	static int prev_on;
 	int rc;
+
+	if (on == prev_on)
+		return 0;
 
 	if (!reg_8901_hdmi_mvs)
 		_GET_REGULATOR(reg_8901_hdmi_mvs, "8901_hdmi_mvs");
+	if (!reg_8901_mpp0)
+		_GET_REGULATOR(reg_8901_mpp0, "8901_mpp0");
 
 	if (on) {
+		rc = regulator_enable(reg_8901_mpp0);
+		if (rc) {
+			pr_err("'%s' regulator enable failed, rc=%d\n",
+				"reg_8901_mpp0", rc);
+			return rc;
+		}
 		rc = regulator_enable(reg_8901_hdmi_mvs);
 		if (rc) {
 			pr_err("'%s' regulator enable failed, rc=%d\n",
@@ -3674,15 +3670,26 @@ static int hdmi_enable_5v(int on)
 		if (rc)
 			pr_warning("'%s' regulator disable failed, rc=%d\n",
 				"8901_hdmi_mvs", rc);
+		rc = regulator_disable(reg_8901_mpp0);
+		if (rc)
+			pr_warning("'%s' regulator disable failed, rc=%d\n",
+				"reg_8901_mpp0", rc);
 		pr_info("%s(off): success\n", __func__);
 	}
+
+	prev_on = on;
 
 	return 0;
 }
 
 static int hdmi_core_power(int on)
 {
+	static struct regulator *reg_8058_l16;		/* VDD_HDMI */
+	static int prev_on;
 	int rc;
+
+	if (on == prev_on)
+		return 0;
 
 	if (!reg_8058_l16)
 		_GET_REGULATOR(reg_8058_l16, "8058_l16");
@@ -3726,6 +3733,8 @@ static int hdmi_core_power(int on)
 		pr_info("%s(off): success\n", __func__);
 	}
 
+	prev_on = on;
+
 	return 0;
 
 error3:
@@ -3739,7 +3748,12 @@ error1:
 
 static int hdmi_cec_power(int on)
 {
+	static struct regulator *reg_8901_l3;		/* HDMI_CEC */
+	static int prev_on;
 	int rc;
+
+	if (on == prev_on)
+		return 0;
 
 	if (!reg_8901_l3)
 		_GET_REGULATOR(reg_8901_l3, "8901_l3");
@@ -3768,6 +3782,8 @@ static int hdmi_cec_power(int on)
 				"8901_l3", rc);
 		pr_info("%s(off): success\n", __func__);
 	}
+
+	prev_on = on;
 
 	return 0;
 error:
