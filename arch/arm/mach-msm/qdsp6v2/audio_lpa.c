@@ -915,9 +915,10 @@ int audlpa_async_fsync(struct audio *audio)
 
 	rc = q6asm_cmd(audio->ac, CMD_EOS);
 
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("%s: q6asm_cmd failed, rc = %d", __func__, rc);
-
+		goto done;
+	}
 	rc = wait_event_interruptible(audio->write_wait,
 				  (audio->teos || audio->wflush ||
 				  audio->stopped));
@@ -1000,6 +1001,7 @@ static int audio_release(struct inode *inode, struct file *file)
 	mutex_lock(&audio->lock);
 	audlpa_unmap_pmem_region(audio);
 	audio_disable(audio);
+	msm_clear_session_id(audio->ac->session);
 	q6asm_audio_client_free(audio->ac);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, audio->ac->session);
 	audlpa_async_flush(audio);
