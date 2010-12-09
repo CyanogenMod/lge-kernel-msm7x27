@@ -738,17 +738,11 @@ static int msm_otg_suspend(struct msm_otg *dev)
 		}
 	}
 
-	/*
-	 * allow vdd minimization only in case cable is not connected
-	 * and pmic has capability to detect vbus and id events
+	/* phy can interrupts when vddcx is at 0.75, so irrespective
+	 * of pmic notification support, configure vddcx @0.75
 	 */
-	if ((dev->otg.gadget && chg_type != USB_CHG_TYPE__WALLCHARGER) &&
-		(dev->otg.host && !is_host()) &&
-		(dev->otg.host && dev->pmic_id_notif_supp) &&
-		(dev->otg.gadget && dev->pmic_vbus_notif_supp)) {
-		if (dev->pdata->config_vddcx)
-			dev->pdata->config_vddcx(0);
-	}
+	if (dev->pdata->config_vddcx)
+		dev->pdata->config_vddcx(0);
 	pr_info("%s: usb in low power mode\n", __func__);
 
 out:
@@ -2499,8 +2493,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		dev->vbus_on_irq = dev->pdata->pmic_vbus_irq;
 
 	/* vote for vddcx, as PHY cannot tolerate vddcx below 1.0V */
-	if (dev->pdata->config_vddcx) {
-		ret = dev->pdata->config_vddcx(1);
+	if (dev->pdata->init_vddcx) {
+		ret = dev->pdata->init_vddcx(1);
 		if (ret) {
 			pr_err("%s: unable to enable vddcx digital core:%d\n",
 				__func__, ret);
@@ -2611,8 +2605,8 @@ free_ldo_init:
 	if (dev->pdata->ldo_init)
 		dev->pdata->ldo_init(0);
 free_config_vddcx:
-	if (dev->pdata->config_vddcx)
-		dev->pdata->config_vddcx(0);
+	if (dev->pdata->init_vddcx)
+		dev->pdata->init_vddcx(0);
 free_pmic_id_notif:
 	if (dev->pdata->pmic_id_notif_init && dev->pmic_id_notif_supp)
 		dev->pdata->pmic_id_notif_init(&msm_otg_set_id_state, 0);
@@ -2672,8 +2666,8 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 	if (dev->pdata->setup_gpio)
 		dev->pdata->setup_gpio(USB_SWITCH_DISABLE);
 
-	if (dev->pdata->config_vddcx)
-		dev->pdata->config_vddcx(0);
+	if (dev->pdata->init_vddcx)
+		dev->pdata->init_vddcx(0);
 	if (dev->pdata->ldo_enable)
 		dev->pdata->ldo_enable(0);
 

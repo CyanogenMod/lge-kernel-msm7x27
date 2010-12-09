@@ -703,57 +703,72 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 }
 #endif
 
-static int msm_hsusb_config_vddcx(int on)
+#define USB_PHY_SUSPEND_MIN_VDD_DIG_VOL		750000
+#define USB_PHY_OPERATIONAL_MIN_VDD_DIG_VOL	1000000
+#define USB_PHY_MAX_VDD_DIG_VOL			1320000
+static int msm_hsusb_init_vddcx(int init)
 {
-	int ret = -ENODEV;
-	static int ldo_status;
+	int ret = 0;
 
-	if (ldo_status == on)
-		return 0;
-	ldo_status = on;
-
-	if (on) {
+	if (init) {
 		vdd_cx = regulator_get(NULL, "8058_s1");
 		if (IS_ERR(vdd_cx)) {
-			ldo_status = !on;
 			return PTR_ERR(vdd_cx);
 		}
 
-		ret = regulator_set_voltage(vdd_cx, 1100000, 1320000);
+		ret = regulator_set_voltage(vdd_cx,
+				USB_PHY_OPERATIONAL_MIN_VDD_DIG_VOL,
+				USB_PHY_MAX_VDD_DIG_VOL);
 		if (ret) {
 			pr_err("%s: unable to set the voltage for regulator"
 				"vdd_cx\n", __func__);
 			regulator_put(vdd_cx);
-			ldo_status = !on;
 			return ret;
 		}
+
 		ret = regulator_enable(vdd_cx);
 		if (ret) {
 			pr_err("%s: unable to enable regulator"
 				"vdd_cx\n", __func__);
-			ldo_status = !on;
 			regulator_put(vdd_cx);
 		}
 	} else {
-
-		if (!vdd_cx || IS_ERR(vdd_cx)) {
-			pr_err("%s: vdd_cx is not initialized\n", __func__);
-			return -ENODEV;
+		ret = regulator_disable(vdd_cx);
+		if (ret) {
+			pr_err("%s: Unable to disable the regulator:"
+				"vdd_cx\n", __func__);
+			return ret;
 		}
 
-		if (regulator_is_enabled(vdd_cx)) {
-			ret = regulator_disable(vdd_cx);
-			if (ret) {
-				pr_err("%s: Unable to disable the regulator:"
-					"vdd_cx\n", __func__);
-				ldo_status = !on;
-				return ret;
-			}
-		}
 		regulator_put(vdd_cx);
 	}
+
 	return ret;
 }
+
+static int msm_hsusb_config_vddcx(int high)
+{
+	int max_vol = USB_PHY_MAX_VDD_DIG_VOL;
+	int min_vol;
+	int ret;
+
+	if (high)
+		min_vol = USB_PHY_OPERATIONAL_MIN_VDD_DIG_VOL;
+	else
+		min_vol = USB_PHY_SUSPEND_MIN_VDD_DIG_VOL;
+
+	ret = regulator_set_voltage(vdd_cx, min_vol, max_vol);
+	if (ret) {
+		pr_err("%s: unable to set the voltage for regulator"
+			"vdd_cx\n", __func__);
+		return ret;
+	}
+
+	pr_debug("%s: min_vol:%d max_vol:%d\n", __func__, min_vol, max_vol);
+
+	return ret;
+}
+
 static int msm_hsusb_ldo_init(int init)
 {
 	if (init) {
@@ -934,6 +949,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.ldo_init		 = msm_hsusb_ldo_init,
 	.ldo_enable		 = msm_hsusb_ldo_enable,
 	.config_vddcx            = msm_hsusb_config_vddcx,
+	.init_vddcx              = msm_hsusb_init_vddcx,
 #ifdef CONFIG_BATTERY_MSM8X60
 	.chg_vbus_draw = msm_charger_vbus_draw,
 #endif
