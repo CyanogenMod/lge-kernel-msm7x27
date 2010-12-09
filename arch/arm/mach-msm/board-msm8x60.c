@@ -3392,7 +3392,7 @@ static int pm8058_gpios_init(void)
 				.vin_sel	= 2,
 				.inv_int_pol	= 0,
 			}
-		}
+		},
 	};
 
 #if defined(CONFIG_HAPTIC_ISA1200) || \
@@ -3418,6 +3418,29 @@ static int pm8058_gpios_init(void)
 				&en_hap_gpio_cfg.cfg);
 		if (rc < 0) {
 			pr_err("%s pmic haptics gpio config failed\n",
+							__func__);
+			return rc;
+		}
+	}
+#endif
+
+#if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
+	struct pm8058_gpio_cfg line_in_gpio_cfg = {
+			18,
+			{
+				.direction	= PM_GPIO_DIR_IN,
+				.pull           = PM_GPIO_PULL_UP_1P5,
+				.vin_sel        = 2,
+				.function       = PM_GPIO_FUNC_NORMAL,
+				.inv_int_pol    = 0,
+			}
+	};
+	/* Line_in only for 8660 ffa & surf */
+	if (machine_is_msm8x60_ffa() || machine_is_msm8x60_surf()) {
+		rc = pm8058_gpio_config(line_in_gpio_cfg.gpio,
+				&line_in_gpio_cfg.cfg);
+		if (rc < 0) {
+			pr_err("%s pmic line_in gpio config failed\n",
 							__func__);
 			return rc;
 		}
@@ -3566,9 +3589,51 @@ static struct pmic8058_vibrator_pdata pmic_vib_pdata = {
 	.max_timeout_ms = 15000,
 };
 
+#if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
 #define PM8058_OTHC_CNTR_BASE0	0xA0
 #define PM8058_OTHC_CNTR_BASE1	0x134
 #define PM8058_OTHC_CNTR_BASE2	0x137
+#define PM8058_LINE_IN_DET_GPIO	PM8058_GPIO_PM_TO_SYS(18)
+
+static struct othc_accessory_info othc_accessories[]  = {
+	{
+		.accessory = OTHC_ANC_HEADPHONE,
+		.detect_flags = OTHC_MICBIAS_DETECT | OTHC_GPIO_DETECT |
+							OTHC_SWITCH_DETECT,
+		.gpio = PM8058_LINE_IN_DET_GPIO,
+		.active_low = 1,
+		.key_code = SW_HEADPHONE_INSERT,
+		.enabled = true,
+	},
+	{
+		.accessory = OTHC_ANC_HEADSET,
+		.detect_flags = OTHC_MICBIAS_DETECT | OTHC_GPIO_DETECT,
+		.gpio = PM8058_LINE_IN_DET_GPIO,
+		.active_low = 1,
+		.key_code = SW_HEADPHONE_INSERT,
+		.enabled = true,
+	},
+	{
+		.accessory = OTHC_HEADPHONE,
+		.detect_flags = OTHC_MICBIAS_DETECT | OTHC_SWITCH_DETECT,
+		.key_code = SW_HEADPHONE_INSERT,
+		.enabled = true,
+	},
+	{
+		.accessory = OTHC_MICROPHONE,
+		.detect_flags = OTHC_GPIO_DETECT,
+		.gpio = PM8058_LINE_IN_DET_GPIO,
+		.active_low = 1,
+		.key_code = SW_MICROPHONE_INSERT,
+		.enabled = true,
+	},
+	{
+		.accessory = OTHC_HEADSET,
+		.detect_flags = OTHC_MICBIAS_DETECT,
+		.key_code = SW_HEADPHONE_INSERT,
+		.enabled = true,
+	},
+};
 
 static struct othc_switch_info switch_info[] = {
 	{
@@ -3596,7 +3661,8 @@ static struct othc_n_switch_config switch_config = {
 	.num_keys = ARRAY_SIZE(switch_info),
 };
 
-static struct othc_hsed_config hsed_config_1 = {
+static struct hsed_bias_config hsed_bias_config = {
+	/* HSED mic bias config info */
 	.othc_headset = OTHC_HEADSET_NO,
 	.othc_lowcurr_thresh_uA = 100,
 	.othc_highcurr_thresh_uA = 600,
@@ -3605,9 +3671,19 @@ static struct othc_hsed_config hsed_config_1 = {
 	.othc_hyst_clk_us = 121000,
 	.othc_period_clk_us = 312500,
 	.othc_wakeup = 1,
+};
+
+static struct othc_hsed_config hsed_config_1 = {
+	.hsed_bias_config = &hsed_bias_config,
+	.detection_delay_ms = 200,
+	/* Switch info */
 	.switch_debounce_ms = 1000,
 	.othc_support_n_switch = false,
 	.switch_config = &switch_config,
+	/* Accessory info */
+	.accessories_support = true,
+	.accessories = othc_accessories,
+	.othc_num_accessories = ARRAY_SIZE(othc_accessories),
 };
 
 /* MIC_BIAS0 is configured as normal MIC BIAS */
@@ -3632,6 +3708,68 @@ static struct pmic8058_othc_config_pdata othc_config_pdata_2 = {
 	.micbias_capability = OTHC_MICBIAS,
 	.micbias_enable = OTHC_SIGNAL_OFF,
 };
+
+static struct resource resources_othc_0[] = {
+	{
+		.name = "othc_base",
+		.start = PM8058_OTHC_CNTR_BASE0,
+		.end   = PM8058_OTHC_CNTR_BASE0,
+		.flags = IORESOURCE_IO,
+	},
+};
+
+static struct resource resources_othc_1[] = {
+	{
+		.start = PM8058_SW_1_IRQ(PM8058_IRQ_BASE),
+		.end   = PM8058_SW_1_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = PM8058_IR_1_IRQ(PM8058_IRQ_BASE),
+		.end   = PM8058_IR_1_IRQ(PM8058_IRQ_BASE),
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.name = "othc_base",
+		.start = PM8058_OTHC_CNTR_BASE1,
+		.end   = PM8058_OTHC_CNTR_BASE1,
+		.flags = IORESOURCE_IO,
+	},
+};
+
+static struct resource resources_othc_2[] = {
+	{
+		.name = "othc_base",
+		.start = PM8058_OTHC_CNTR_BASE2,
+		.end   = PM8058_OTHC_CNTR_BASE2,
+		.flags = IORESOURCE_IO,
+	},
+};
+
+static void __init msm8x60_init_pm8058_othc(void)
+{
+	int i;
+
+	/* 3-switch headset supported only by V2 FFA and FLUID */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2 ||
+					machine_is_msm8x60_fluid())
+		hsed_config_1.othc_support_n_switch = true;
+
+	for (i = 0; i < ARRAY_SIZE(othc_accessories); i++) {
+		if (machine_is_msm8x60_fluid()) {
+			switch (othc_accessories[i].accessory) {
+			case OTHC_ANC_HEADPHONE:
+			case OTHC_ANC_HEADSET:
+				othc_accessories[i].gpio = GPIO_HEADSET_DET_N;
+				break;
+			case OTHC_MICROPHONE:
+				othc_accessories[i].enabled = false;
+				break;
+			}
+		}
+	}
+}
+#endif
 
 static struct resource resources_pm8058_charger[] = {
 	{	.name = "CHGVAL",
@@ -3757,43 +3895,6 @@ static struct resource resources_pm8058_charger[] = {
 		.start = PM8058_VBATDET_LOW_IRQ(PM8058_IRQ_BASE),
 		.end = PM8058_VBATDET_LOW_IRQ(PM8058_IRQ_BASE),
 		.flags = IORESOURCE_IRQ,
-	},
-};
-
-static struct resource resources_othc_0[] = {
-	{
-		.name = "othc_base",
-		.start = PM8058_OTHC_CNTR_BASE0,
-		.end   = PM8058_OTHC_CNTR_BASE0,
-		.flags = IORESOURCE_IO,
-	},
-};
-
-static struct resource resources_othc_1[] = {
-	{
-		.start = PM8058_SW_1_IRQ(PM8058_IRQ_BASE),
-		.end   = PM8058_SW_1_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.start = PM8058_IR_1_IRQ(PM8058_IRQ_BASE),
-		.end   = PM8058_IR_1_IRQ(PM8058_IRQ_BASE),
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "othc_base",
-		.start = PM8058_OTHC_CNTR_BASE1,
-		.end   = PM8058_OTHC_CNTR_BASE1,
-		.flags = IORESOURCE_IO,
-	},
-};
-
-static struct resource resources_othc_2[] = {
-	{
-		.name = "othc_base",
-		.start = PM8058_OTHC_CNTR_BASE2,
-		.end   = PM8058_OTHC_CNTR_BASE2,
-		.flags = IORESOURCE_IO,
 	},
 };
 
@@ -3992,6 +4093,7 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.data_size = sizeof(xoadc_pdata),
 	},
 #endif
+#if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
 	{
 		.name = "pm8058-othc",
 		.id = 0,
@@ -4017,6 +4119,7 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.num_resources = ARRAY_SIZE(resources_othc_2),
 		.resources = resources_othc_2,
 	},
+#endif
 	{
 		.name = "pm8058-rtc",
 		.id = -1,
@@ -6807,10 +6910,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	msm8x60_init_mmc();
 
 #if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
-	/* 3-switch supported on V2 FFA and FLUID */
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2 ||
-						machine_is_msm8x60_fluid())
-		hsed_config_1.othc_support_n_switch = true;
+	msm8x60_init_pm8058_othc();
 #endif
 
 	if (machine_is_msm8x60_fluid()) {

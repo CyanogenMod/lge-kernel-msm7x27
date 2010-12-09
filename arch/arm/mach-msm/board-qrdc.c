@@ -1779,21 +1779,29 @@ static struct pmic8058_vibrator_pdata pmic_vib_pdata = {
 	.max_timeout_ms = 15000,
 };
 
-
 #define PM8058_OTHC_CNTR_BASE0	0xA0
 #define PM8058_OTHC_CNTR_BASE1	0x134
 #define PM8058_OTHC_CNTR_BASE2	0x137
 
-static struct othc_hsed_config hsed_config_1 = {
+static struct hsed_bias_config hsed_bias_config = {
+	/* HSED mic bias config info */
 	.othc_headset = OTHC_HEADSET_NO,
 	.othc_lowcurr_thresh_uA = 100,
-	.othc_highcurr_thresh_uA = 700,
+	.othc_highcurr_thresh_uA = 600,
 	.othc_hyst_prediv_us = 7800,
 	.othc_period_clkdiv_us = 62500,
 	.othc_hyst_clk_us = 121000,
 	.othc_period_clk_us = 312500,
 	.othc_wakeup = 1,
+};
+
+static struct othc_hsed_config hsed_config_1 = {
+	.hsed_bias_config = &hsed_bias_config,
+	/* Switch info */
 	.switch_debounce_ms = 1000,
+	.othc_support_n_switch = false,
+	/* Accessory info */
+	.accessories_support = false,
 };
 
 /* MIC_BIAS0 is configured as normal MIC BIAS */
@@ -1809,6 +1817,7 @@ static struct pmic8058_othc_config_pdata othc_config_pdata_1 = {
 	.micbias_capability = OTHC_MICBIAS_HSED,
 	.micbias_enable = OTHC_SIGNAL_PWM_TCXO,
 	.hsed_config = &hsed_config_1,
+	.hsed_name = "8660_handset",
 };
 
 /* MIC_BIAS2 is configured as normal MIC BIAS */
