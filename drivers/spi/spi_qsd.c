@@ -317,6 +317,8 @@ struct msm_spi {
 	bool                     use_rlock;
 	remote_mutex_t           r_lock;
 	uint32_t                 pm_lat;
+	/* When set indicates a write followed by read transfer */
+	bool                     multi_xfr;
 };
 
 /* Forward declaration */
@@ -402,8 +404,7 @@ static inline void msm_spi_free_irq(struct msm_spi *dd,
 
 static inline void msm_spi_get_clk_err(struct msm_spi *dd, u32 *spi_err) {}
 static inline void msm_spi_ack_clk_err(struct msm_spi *dd) {}
-static inline void msm_spi_set_qup_config(struct msm_spi *dd, int bpw,
-					  int set_flag) {}
+static inline void msm_spi_set_qup_config(struct msm_spi *dd, int bpw) {}
 
 static inline int msm_spi_prepare_for_write(struct msm_spi *dd) { return 0; }
 static inline void msm_spi_start_write(struct msm_spi *dd, u32 read_count)
@@ -530,16 +531,14 @@ static inline void msm_spi_ack_clk_err(struct msm_spi *dd)
 	writel(QUP_ERR_MASK, dd->base + QUP_ERROR_FLAGS);
 }
 
-static inline void msm_spi_add_configs(struct msm_spi *dd, u32 *config, int n,
-					int set_flag);
+static inline void msm_spi_add_configs(struct msm_spi *dd, u32 *config, int n);
 
 /* QUP has no_input, no_output, and N bits at QUP_CONFIG */
-static inline void msm_spi_set_qup_config(struct msm_spi *dd, int bpw,
-					  int set_flag)
+static inline void msm_spi_set_qup_config(struct msm_spi *dd, int bpw)
 {
 	u32 qup_config = readl(dd->base + QUP_CONFIG);
 
-	msm_spi_add_configs(dd, &qup_config, bpw-1, set_flag);
+	msm_spi_add_configs(dd, &qup_config, bpw-1);
 	writel(qup_config | QUP_CONFIG_SPI_MODE, dd->base + QUP_CONFIG);
 }
 
@@ -696,16 +695,20 @@ static void msm_spi_read_word_from_fifo(struct msm_spi *dd)
 			dd->rx_bytes_remaining = 0;
 	}
 	dd->read_xfr_cnt++;
-	if (!dd->rx_bytes_remaining) {
-		dd->cur_transfer = list_first_entry(&dd->cur_msg->transfers,
-					struct spi_transfer, transfer_list);
-		dd->write_buf          = dd->cur_transfer->tx_buf;
-		dd->read_buf           = dd->cur_transfer->rx_buf;
-		dd->read_xfr_cnt = 0;
-	} else if ((dd->read_xfr_cnt * dd->bytes_per_word) ==
+	if (dd->multi_xfr) {
+		if (!dd->rx_bytes_remaining) {
+			dd->cur_transfer = list_entry(
+					dd->cur_transfer->transfer_list.prev,
+					struct spi_transfer,
+					transfer_list);
+			dd->write_buf          = dd->cur_transfer->tx_buf;
+			dd->read_buf           = dd->cur_transfer->rx_buf;
+			dd->read_xfr_cnt = 0;
+		} else if ((dd->read_xfr_cnt * dd->bytes_per_word) ==
 						dd->cur_transfer->len) {
-		get_next_transfer(dd);
-		dd->read_xfr_cnt = 0;
+			get_next_transfer(dd);
+			dd->read_xfr_cnt = 0;
+		}
 	}
 }
 
@@ -778,15 +781,14 @@ static inline int msm_spi_set_state(struct msm_spi *dd,
 	return 0;
 }
 
-static inline void msm_spi_add_configs(struct msm_spi *dd, u32 *config, int n,
-					int set_flag)
+static inline void msm_spi_add_configs(struct msm_spi *dd, u32 *config, int n)
 {
 	*config &= ~(SPI_NO_INPUT|SPI_NO_OUTPUT);
 
 	if (n != (*config & SPI_CFG_N))
 		*config = (*config & ~SPI_CFG_N) | n;
 
-	if ((dd->mode == SPI_DMOV_MODE) && (set_flag)) {
+	if ((dd->mode == SPI_DMOV_MODE) && (!dd->multi_xfr)) {
 		if (dd->read_buf == NULL)
 			*config |= SPI_NO_INPUT;
 		if (dd->write_buf == NULL)
@@ -794,7 +796,7 @@ static inline void msm_spi_add_configs(struct msm_spi *dd, u32 *config, int n,
 	}
 }
 
-static void msm_spi_set_config(struct msm_spi *dd, int bpw, int set_flag)
+static void msm_spi_set_config(struct msm_spi *dd, int bpw)
 {
 	u32 spi_config;
 
@@ -808,9 +810,9 @@ static void msm_spi_set_config(struct msm_spi *dd, int bpw, int set_flag)
 		spi_config |= SPI_CFG_LOOPBACK;
 	else
 		spi_config &= ~SPI_CFG_LOOPBACK;
-	msm_spi_add_configs(dd, &spi_config, bpw-1, set_flag);
+	msm_spi_add_configs(dd, &spi_config, bpw-1);
 	writel(spi_config, dd->base + SPI_CONFIG);
-	msm_spi_set_qup_config(dd, bpw, set_flag);
+	msm_spi_set_qup_config(dd, bpw);
 }
 
 static void msm_spi_setup_dm_transfer(struct msm_spi *dd, int write_len,
@@ -1026,16 +1028,20 @@ static void msm_spi_write_word_to_fifo(struct msm_spi *dd)
 		else
 			dd->tx_bytes_remaining = 0;
 	dd->write_xfr_cnt++;
-	if (!dd->tx_bytes_remaining) {
-		dd->cur_transfer = list_first_entry(&dd->cur_msg->transfers,
-					struct spi_transfer, transfer_list);
-		dd->write_buf          = dd->cur_transfer->tx_buf;
-		dd->read_buf           = dd->cur_transfer->rx_buf;
-		dd->write_xfr_cnt = 0;
-	} else if ((dd->write_xfr_cnt * dd->bytes_per_word) ==
-					dd->cur_transfer->len) {
-		get_next_transfer(dd);
-		dd->write_xfr_cnt = 0;
+	if (dd->multi_xfr) {
+		if (!dd->tx_bytes_remaining) {
+			dd->cur_transfer = list_entry(
+					dd->cur_transfer->transfer_list.prev,
+					struct spi_transfer,
+					transfer_list);
+			dd->write_buf          = dd->cur_transfer->tx_buf;
+			dd->read_buf           = dd->cur_transfer->rx_buf;
+			dd->write_xfr_cnt = 0;
+		} else if ((dd->write_xfr_cnt * dd->bytes_per_word) ==
+						dd->cur_transfer->len) {
+			get_next_transfer(dd);
+			dd->write_xfr_cnt = 0;
+		}
 	}
 	writel(word, dd->base + SPI_OUTPUT_FIFO);
 }
@@ -1177,10 +1183,12 @@ static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
 	if (read_len && write_len) {
 		dd->tx_bytes_remaining = write_len;
 		dd->rx_bytes_remaining = read_len;
+		dd->multi_xfr = 1;
 		transfer_len = write_len + read_len;
 	} else {
 		dd->tx_bytes_remaining = dd->cur_transfer->len;
 		dd->rx_bytes_remaining = dd->cur_transfer->len;
+		dd->multi_xfr = 0;
 		transfer_len = dd->cur_transfer->len;
 	}
 	dd->read_buf           = dd->cur_transfer->rx_buf;
@@ -1244,10 +1252,7 @@ static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
 		spi_iom &= ~(SPI_IO_M_PACK_EN | SPI_IO_M_UNPACK_EN);
 	writel(spi_iom, dd->base + SPI_IO_MODES);
 
-	if (read_len && write_len)
-		msm_spi_set_config(dd, bpw, 0);
-	else
-		msm_spi_set_config(dd, bpw, 1);
+	msm_spi_set_config(dd, bpw);
 
 	spi_ioc = readl(dd->base + SPI_IO_CONTROL);
 	spi_ioc_orig = spi_ioc;
@@ -1332,7 +1337,7 @@ static int get_transfer_length(struct spi_transfer *tr, struct spi_message *msg)
 
 	if (write_len && read_len)
 		return tr->len;
-	else if (tr->transfer_list.next != &msg->transfers) {
+	else if ((tr->transfer_list.next != &msg->transfers) && (!read_len)) {
 		next_transfer = list_entry(tr->transfer_list.next,
 					struct spi_transfer,
 					transfer_list);
@@ -1365,7 +1370,6 @@ static void msm_spi_process_message(struct msm_spi *dd)
 			return;
 
 		if (next_xfr_processed) {
-			get_next_transfer(dd);
 			next_xfr_processed = 0;
 			continue;
 		}
@@ -2141,6 +2145,7 @@ skip_dma_resources:
 
 	dd->suspended = 0;
 	dd->transfer_pending = 0;
+	dd->multi_xfr = 0;
 	dd->mode = SPI_MODE_NONE;
 
 	rc = msm_spi_request_irq(dd, pdev->name, master);
