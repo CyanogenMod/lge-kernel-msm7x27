@@ -551,6 +551,13 @@ static void msm_otg_setup_analog_switch_gpio(enum usb_switch_control mode)
 		gpio_set_value(USB_HUB_RESET_GPIO, 1);
 		break;
 
+	case USB_SWITCH_PERIPHERAL:
+		/* Configure analog switch as USB peripheral. */
+		gpio_set_value(USB_SWITCH_EN_GPIO, 0);
+		gpio_set_value(USB_SWITCH_CNTL_GPIO, 1);
+		gpio_set_value(USB_HUB_RESET_GPIO, 0);
+		break;
+
 	case USB_SWITCH_DISABLE:
 	default:
 		/* Disable Switch */
