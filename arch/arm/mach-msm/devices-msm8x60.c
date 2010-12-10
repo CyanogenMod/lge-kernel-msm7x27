@@ -1323,7 +1323,7 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("usb_fs_sys_clk",	USB_FS2_SYS_CLK,	NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI1_P_CLK,
 					&msm_gsbi1_qup_spi_device.dev, OFF),
-	CLK_8X60("gsbi_pclk",		GSBI2_P_CLK,		NULL, 0),
+	CLK_8X60("gsbi_pclk",		GSBI2_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI3_P_CLK,
 		 &msm_device_uart_dm3.dev, 0),
 	CLK_8X60("gsbi_pclk",		GSBI3_P_CLK,
