@@ -268,7 +268,7 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 				decoder->client_frame_size.height) &&
 				(decoder->actual_output_buf_req.sz <=
 				decoder->client_output_buf_req.sz) &&
-				(decoder->actual_output_buf_req.actual_count <=
+				(decoder->actual_output_buf_req.actual_count ==
 				 decoder->client_output_buf_req.actual_count) &&
 				(decoder->frame_size.scan_lines ==
 				decoder->client_frame_size.scan_lines) &&
