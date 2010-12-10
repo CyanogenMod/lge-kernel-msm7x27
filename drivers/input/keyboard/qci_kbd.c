@@ -46,6 +46,8 @@
 #define SCAN_EMUL1         0xE1
 #define SCAN_PAUSE1        0x1D
 #define SCAN_PAUSE2        0x45
+#define SCAN_LIDSW_OPEN    0x70
+#define SCAN_LIDSW_CLOSE   0x71
 
 /* Keyboard keycodes */
 #define NOKEY           KEY_RESERVED
@@ -415,6 +417,19 @@ static struct i2c_driver i2ckbd_driver = {
  * Driver functions
  *---------------------------------------------------------------------------*/
 
+#ifdef CONFIG_KEYBOARD_QCIKBD_LID
+static void process_lid(struct input_dev *ikbdev, unsigned char scancode)
+{
+	if (scancode == SCAN_LIDSW_OPEN)
+		input_report_switch(ikbdev, SW_LID, 0);
+	else if (scancode == SCAN_LIDSW_CLOSE)
+		input_report_switch(ikbdev, SW_LID, 1);
+	else
+		return;
+	input_sync(ikbdev);
+}
+#endif
+
 static irqreturn_t qcikbd_interrupt(int irq, void *dev_id)
 {
 	struct i2ckbd_drv_data *ikbd_drv_data = dev_id;
@@ -425,6 +440,7 @@ static irqreturn_t qcikbd_interrupt(int irq, void *dev_id)
 static void qcikbd_work_handler(struct work_struct *_work)
 {
 	unsigned char scancode;
+	unsigned char scancode_only;
 	unsigned int  keycode;
 
 	struct i2ckbd_drv_data *ikbd_drv_data =
@@ -475,7 +491,15 @@ static void qcikbd_work_handler(struct work_struct *_work)
 		}
 		if (ikbd_drv_data->emul0) {
 			ikbd_drv_data->emul0 = 0;
-			keycode = emul0_map[scancode & 0x7f];
+			scancode_only = scancode & 0x7f;
+#ifdef CONFIG_KEYBOARD_QCIKBD_LID
+			if ((scancode_only == SCAN_LIDSW_OPEN) ||
+			    (scancode_only == SCAN_LIDSW_CLOSE)) {
+				process_lid(ikbdev, scancode);
+				goto work_exit;
+			}
+#endif
+			keycode = emul0_map[scancode_only];
 			if (!keycode) {
 				dev_err(&ikbdev->dev,
 					"Unrecognized scancode %02x %02x\n",
