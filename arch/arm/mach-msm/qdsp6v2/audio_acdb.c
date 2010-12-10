@@ -21,6 +21,7 @@
 #include <linux/mutex.h>
 #include <linux/uaccess.h>
 #include <linux/android_pmem.h>
+#include <linux/mm.h>
 #include "audio_acdb.h"
 
 
@@ -71,7 +72,7 @@ struct acdb_data {
 };
 
 static struct acdb_data		acdb_data;
-
+static atomic_t usage_count;
 
 void get_anc_cal(struct acdb_cal_block *cal_block)
 {
@@ -142,6 +143,8 @@ void store_audproc_cal(int32_t path, struct cal_block *cal_block)
 {
 	pr_debug("%s, path = %d\n", __func__, path);
 
+	mutex_lock(&acdb_data.acdb_mutex);
+
 	if (cal_block->cal_offset > acdb_data.pmem_len) {
 		pr_err("%s: offset %d is > pmem_len %ld\n",
 			__func__, cal_block->cal_offset,
@@ -154,8 +157,6 @@ void store_audproc_cal(int32_t path, struct cal_block *cal_block)
 		goto done;
 	}
 
-	mutex_lock(&acdb_data.acdb_mutex);
-
 	acdb_data.audproc_cal[path].cal_kvaddr =
 		cal_block->cal_offset + acdb_data.kvaddr;
 	acdb_data.audproc_cal[path].cal_paddr =
@@ -163,8 +164,8 @@ void store_audproc_cal(int32_t path, struct cal_block *cal_block)
 	acdb_data.audproc_cal[path].cal_size =
 		cal_block->cal_size;
 
-	mutex_unlock(&acdb_data.acdb_mutex);
 done:
+	mutex_unlock(&acdb_data.acdb_mutex);
 	return;
 }
 
@@ -197,6 +198,8 @@ void store_audstrm_cal(int32_t path, struct cal_block *cal_block)
 {
 	pr_debug("%s, path = %d\n", __func__, path);
 
+	mutex_lock(&acdb_data.acdb_mutex);
+
 	if (cal_block->cal_offset > acdb_data.pmem_len) {
 		pr_err("%s: offset %d is > pmem_len %ld\n",
 			__func__, cal_block->cal_offset,
@@ -209,8 +212,6 @@ void store_audstrm_cal(int32_t path, struct cal_block *cal_block)
 		goto done;
 	}
 
-	mutex_lock(&acdb_data.acdb_mutex);
-
 	acdb_data.audstrm_cal[path].cal_kvaddr =
 		cal_block->cal_offset + acdb_data.kvaddr;
 	acdb_data.audstrm_cal[path].cal_paddr =
@@ -218,8 +219,8 @@ void store_audstrm_cal(int32_t path, struct cal_block *cal_block)
 	acdb_data.audstrm_cal[path].cal_size =
 		cal_block->cal_size;
 
-	mutex_unlock(&acdb_data.acdb_mutex);
 done:
+	mutex_unlock(&acdb_data.acdb_mutex);
 	return;
 }
 
@@ -252,6 +253,8 @@ void store_audvol_cal(int32_t path, struct cal_block *cal_block)
 {
 	pr_debug("%s, path = %d\n", __func__, path);
 
+	mutex_lock(&acdb_data.acdb_mutex);
+
 	if (cal_block->cal_offset > acdb_data.pmem_len) {
 		pr_err("%s: offset %d is > pmem_len %ld\n",
 			__func__, cal_block->cal_offset,
@@ -264,8 +267,6 @@ void store_audvol_cal(int32_t path, struct cal_block *cal_block)
 		goto done;
 	}
 
-	mutex_lock(&acdb_data.acdb_mutex);
-
 	acdb_data.audvol_cal[path].cal_kvaddr =
 		cal_block->cal_offset + acdb_data.kvaddr;
 	acdb_data.audvol_cal[path].cal_paddr =
@@ -273,8 +274,8 @@ void store_audvol_cal(int32_t path, struct cal_block *cal_block)
 	acdb_data.audvol_cal[path].cal_size =
 		cal_block->cal_size;
 
-	mutex_unlock(&acdb_data.acdb_mutex);
 done:
+	mutex_unlock(&acdb_data.acdb_mutex);
 	return;
 }
 
@@ -507,16 +508,65 @@ static int acdb_open(struct inode *inode, struct file *f)
 	s32 result = 0;
 	pr_info("%s\n", __func__);
 
+	mutex_lock(&acdb_data.acdb_mutex);
 	if (acdb_data.pmem_fd) {
-		pr_err("%s: ACDB opened but PMEM allocated, freeing PMEM!\n",
+		pr_info("%s: ACDB opened but PMEM allocated, using existing PMEM!\n",
 			__func__);
-		put_pmem_file(acdb_data.file);
-		acdb_data.pmem_fd = 0;
 	}
+	mutex_unlock(&acdb_data.acdb_mutex);
 
+	atomic_inc(&usage_count);
 	return result;
 }
 
+static int deregister_pmem(void)
+{
+	int result;
+	struct audproc_buffer_data buffer;
+
+	get_audproc_buffer_data(&buffer);
+
+	result = adm_memory_unmap_regions(buffer.phys_addr,
+			buffer.buf_size, NUM_AUDPROC_BUFFERS);
+
+	if (result < 0)
+		pr_err("Audcal unmap did not work!\n");
+
+	if (acdb_data.pmem_fd) {
+		put_pmem_file(acdb_data.file);
+		acdb_data.pmem_fd = 0;
+	}
+	return result;
+}
+
+static int register_pmem(void)
+{
+	int result;
+	struct audproc_buffer_data buffer;
+
+	result = get_pmem_file(acdb_data.pmem_fd, &acdb_data.paddr,
+				&acdb_data.kvaddr, &acdb_data.pmem_len,
+				&acdb_data.file);
+	if (result != 0) {
+		acdb_data.pmem_fd = 0;
+		pr_err("%s: Could not register PMEM!!!\n", __func__);
+		goto done;
+	}
+
+	pr_debug("AUDIO_REGISTER_PMEM done! paddr = 0x%lx, "
+		"kvaddr = 0x%lx, len = x%lx\n", acdb_data.paddr,
+		acdb_data.kvaddr, acdb_data.pmem_len);
+	get_audproc_buffer_data(&buffer);
+	result = adm_memory_map_regions(buffer.phys_addr, 0,
+			buffer.buf_size,
+			NUM_AUDPROC_BUFFERS);
+	if (result < 0)
+		pr_err("Audcal mmap did not work!\n");
+	goto done;
+
+done:
+	return result;
+}
 static int acdb_ioctl(struct inode *inode, struct file *f,
 		unsigned int cmd, unsigned long arg)
 {
@@ -527,53 +577,28 @@ static int acdb_ioctl(struct inode *inode, struct file *f,
 	pr_debug("%s\n", __func__);
 
 	switch (cmd) {
-	case AUDIO_REGISTER_PMEM: {
-		struct msm_audio_pmem_info info;
-		struct audproc_buffer_data buffer;
-
+	case AUDIO_REGISTER_PMEM:
 		pr_debug("AUDIO_REGISTER_PMEM\n");
-		if (copy_from_user(&info, (void *)arg, sizeof(info)))
-			return -EFAULT;
-
-		result = get_pmem_file(info.fd, &acdb_data.paddr,
-					&acdb_data.kvaddr, &acdb_data.pmem_len,
-					&acdb_data.file);
-		if (result == 0)
-			acdb_data.pmem_fd = info.fd;
-		else{
-			pr_err("%s: Could not register PMEM!!!\n", __func__);
-			goto done;
-		}
-
-		pr_debug("AUDIO_REGISTER_PMEM done! paddr = 0x%lx, "
-			"kvaddr = 0x%lx, len = x%lx\n", acdb_data.paddr,
-			acdb_data.kvaddr, acdb_data.pmem_len);
-		get_audproc_buffer_data(&buffer);
-		result = adm_memory_map_regions(buffer.phys_addr, 0,
-				buffer.buf_size,
-				NUM_AUDPROC_BUFFERS);
-		if (result < 0)
-			pr_err("Audcal mmap did not work!\n");
-		goto done;
-	}
-	case AUDIO_DEREGISTER_PMEM: {
-
-		struct audproc_buffer_data buffer;
-
-		get_audproc_buffer_data(&buffer);
-
-		pr_debug("AUDIO_DEREGISTER_PMEM\n");
-
-		result = adm_memory_unmap_regions(buffer.phys_addr,
-				buffer.buf_size, NUM_AUDPROC_BUFFERS);
-		if (result < 0)
-			pr_err("Audcal unmap did not work!\n");
+		mutex_lock(&acdb_data.acdb_mutex);
 		if (acdb_data.pmem_fd) {
-			put_pmem_file(acdb_data.file);
-			acdb_data.pmem_fd = 0;
+			deregister_pmem();
+			pr_info("Remove the existing PMEM\n");
 		}
+
+		if (copy_from_user(&acdb_data.pmem_fd, (void *)arg,
+					sizeof(acdb_data.pmem_fd)))
+			result = -EFAULT;
+		else
+			result = register_pmem();
+		mutex_unlock(&acdb_data.acdb_mutex);
 		goto done;
-	}
+
+	case AUDIO_DEREGISTER_PMEM:
+		pr_debug("AUDIO_DEREGISTER_PMEM\n");
+		mutex_lock(&acdb_data.acdb_mutex);
+		deregister_pmem();
+		mutex_unlock(&acdb_data.acdb_mutex);
+		goto done;
 	}
 
 	if (copy_from_user(&size, (void *) arg, sizeof(size))) {
@@ -670,23 +695,46 @@ done:
 	return result;
 }
 
+static int acdb_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	int result = 0;
+
+	pr_debug("%s\n", __func__);
+
+	mutex_lock(&acdb_data.acdb_mutex);
+	if (acdb_data.pmem_fd) {
+		result = remap_pfn_range(vma,
+			    vma->vm_start,
+			    acdb_data.paddr >> PAGE_SHIFT,
+			    acdb_data.pmem_len,
+			    vma->vm_page_prot);
+	} else {
+		pr_err("%s: PMEM is not allocated, yet!\n", __func__);
+		result = -ENODEV;
+	}
+	mutex_unlock(&acdb_data.acdb_mutex);
+
+	return result;
+}
+
 static int acdb_release(struct inode *inode, struct file *f)
 {
 	s32 result = 0;
-	struct audproc_buffer_data buffer;
-	pr_info("%s\n", __func__);
 
+	atomic_dec(&usage_count);
+	atomic_read(&usage_count);
 
-	get_audproc_buffer_data(&buffer);
+	pr_info("%s: ref count %d!\n", __func__,
+		atomic_read(&usage_count));
 
-	result = adm_memory_unmap_regions(buffer.phys_addr,
-			buffer.buf_size, NUM_AUDPROC_BUFFERS);
-	if (result < 0)
-		pr_err("Audcal unmap did not work!\n");
-	if (acdb_data.pmem_fd) {
-		put_pmem_file(acdb_data.file);
-		acdb_data.pmem_fd = 0;
+	if (atomic_read(&usage_count) >= 1) {
+		result = -EBUSY;
+	} else {
+		mutex_lock(&acdb_data.acdb_mutex);
+		result = deregister_pmem();
+		mutex_unlock(&acdb_data.acdb_mutex);
 	}
+
 	return result;
 }
 
@@ -695,6 +743,7 @@ static const struct file_operations acdb_fops = {
 	.open = acdb_open,
 	.release = acdb_release,
 	.ioctl = acdb_ioctl,
+	.mmap = acdb_mmap,
 };
 
 struct miscdevice acdb_misc = {
@@ -708,6 +757,7 @@ static int __init acdb_init(void)
 	pr_info("%s\n", __func__);
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	mutex_init(&acdb_data.acdb_mutex);
+	atomic_set(&usage_count, 0);
 	return misc_register(&acdb_misc);
 }
 
