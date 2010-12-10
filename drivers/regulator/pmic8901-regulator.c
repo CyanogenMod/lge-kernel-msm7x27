@@ -21,13 +21,14 @@
 #include <linux/init.h>
 #include <linux/mfd/pmic8901.h>
 #include <linux/regulator/driver.h>
-#include <linux/regulator/machine.h>
 #include <linux/regulator/pmic8901-regulator.h>
+#include <mach/mpp.h>
 
 /* Regulator types */
 #define REGULATOR_TYPE_LDO		0
 #define REGULATOR_TYPE_SMPS		1
 #define REGULATOR_TYPE_VS		2
+#define REGULATOR_TYPE_MPP		3
 
 /* Bank select/write macros */
 #define REGULATOR_BANK_SEL(n)           ((n) << 4)
@@ -103,15 +104,18 @@
 #define VS_CTRL_ENABLE			0xC0
 
 struct pm8901_vreg {
-	u16			ctrl_addr;
-	u16			pmr_addr;
-	u16			test_addr;
-	u8			type;
-	u8			ctrl_reg;
-	u8			pmr_reg;
-	u8			test_reg[LDO_TEST_BANKS];
-	u8			is_nmos;
-	struct regulator_dev	*rdev;
+	struct pm8901_vreg_pdata	*pdata;
+	struct regulator_dev		*rdev;
+	u16				ctrl_addr;
+	u16				pmr_addr;
+	u16				test_addr;
+	u8				type;
+	u8				ctrl_reg;
+	u8				pmr_reg;
+	u8				test_reg[LDO_TEST_BANKS];
+	u8				is_nmos;
+	u8				mpp_id;
+	u8				state;
 };
 
 /*
@@ -148,6 +152,12 @@ struct pm8901_vreg {
 		.type = REGULATOR_TYPE_VS, \
 	}
 
+#define MPP(_id, _mpp_id) \
+	[_id] = { \
+		.mpp_id = _mpp_id, \
+		.type = REGULATOR_TYPE_MPP, \
+	}
+
 static struct pm8901_vreg pm8901_vreg[] = {
 	/*  id                 ctrl   pmr    tst    n/p */
 	LDO(PM8901_VREG_ID_L0, 0x02F, 0x0AB, 0x030, 1),
@@ -164,6 +174,9 @@ static struct pm8901_vreg pm8901_vreg[] = {
 	SMPS(PM8901_VREG_ID_S2, 0x079, 0x0A8),
 	SMPS(PM8901_VREG_ID_S3, 0x088, 0x0A9),
 	SMPS(PM8901_VREG_ID_S4, 0x097, 0x0AA),
+
+	/* id			  MPP ID */
+	MPP(PM8901_VREG_ID_MPP0,    0),
 
 	/* id                       ctrl   pmr */
 	VS(PM8901_VREG_ID_LVS0,     0x046, 0x0B2),
@@ -504,6 +517,52 @@ static int pm8901_smps_get_voltage(struct regulator_dev *dev)
 	return ret;
 }
 
+static int pm8901_mpp_enable(struct regulator_dev *dev)
+{
+	struct pm8901_vreg *vreg = rdev_get_drvdata(dev);
+	int out_val;
+	int rc;
+
+	out_val = (vreg->pdata->active_high
+		   ? PM_MPP_DOUT_CTL_HIGH : PM_MPP_DOUT_CTL_LOW);
+
+	rc = pm8901_mpp_config(vreg->mpp_id, PM_MPP_TYPE_D_OUTPUT,
+			PM8901_MPP_DIG_LEVEL_VPH, out_val);
+
+	if (rc)
+		pr_err("%s: pm8901_mpp_config failed with %d\n", __func__, rc);
+	else
+		vreg->state = 1;
+
+	return rc;
+}
+
+static int pm8901_mpp_disable(struct regulator_dev *dev)
+{
+	struct pm8901_vreg *vreg = rdev_get_drvdata(dev);
+	int out_val;
+	int rc;
+
+	out_val = (vreg->pdata->active_high
+		   ? PM_MPP_DOUT_CTL_LOW : PM_MPP_DOUT_CTL_HIGH);
+
+	rc = pm8901_mpp_config(vreg->mpp_id, PM_MPP_TYPE_D_OUTPUT,
+			PM8901_MPP_DIG_LEVEL_VPH, out_val);
+
+	if (rc)
+		pr_err("%s: pm8901_mpp_config failed with %d\n", __func__, rc);
+	else
+		vreg->state = 0;
+
+	return rc;
+}
+
+static int pm8901_mpp_is_enabled(struct regulator_dev *dev)
+{
+	struct pm8901_vreg *vreg = rdev_get_drvdata(dev);
+	return vreg->state;
+}
+
 static struct regulator_ops pm8901_ldo_ops = {
 	.enable = pm8901_vreg_enable,
 	.disable = pm8901_vreg_disable,
@@ -530,6 +589,12 @@ static struct regulator_ops pm8901_vs_ops = {
 	.is_enabled = pm8901_vreg_is_enabled,
 };
 
+static struct regulator_ops pm8901_mpp_ops = {
+	.enable = pm8901_mpp_enable,
+	.disable = pm8901_mpp_disable,
+	.is_enabled = pm8901_mpp_is_enabled,
+};
+
 #define VREG_DESCRIP(_id, _name, _ops) \
 	[_id] = { \
 		.name = _name, \
@@ -554,6 +619,8 @@ static struct regulator_desc pm8901_vreg_descrip[] = {
 	VREG_DESCRIP(PM8901_VREG_ID_S3, "8901_s3", &pm8901_smps_ops),
 	VREG_DESCRIP(PM8901_VREG_ID_S4, "8901_s4", &pm8901_smps_ops),
 
+	VREG_DESCRIP(PM8901_VREG_ID_MPP0,     "8901_mpp0",     &pm8901_mpp_ops),
+
 	VREG_DESCRIP(PM8901_VREG_ID_LVS0,     "8901_lvs0",     &pm8901_vs_ops),
 	VREG_DESCRIP(PM8901_VREG_ID_LVS1,     "8901_lvs1",     &pm8901_vs_ops),
 	VREG_DESCRIP(PM8901_VREG_ID_LVS2,     "8901_lvs2",     &pm8901_vs_ops),
@@ -566,7 +633,7 @@ static struct regulator_desc pm8901_vreg_descrip[] = {
 static int pm8901_init_regulator(struct pm8901_chip *chip,
 		struct pm8901_vreg *vreg)
 {
-	int rc, i;
+	int rc = 0, i;
 	u8 bank;
 
 	if (vreg->type == REGULATOR_TYPE_LDO) {
@@ -584,11 +651,13 @@ static int pm8901_init_regulator(struct pm8901_chip *chip,
 		}
 	}
 
-	rc = pm8901_read(chip, vreg->ctrl_addr, &vreg->ctrl_reg, 1);
-	if (rc)
-		goto bail;
+	if (vreg->type != REGULATOR_TYPE_MPP) {
+		rc = pm8901_read(chip, vreg->ctrl_addr, &vreg->ctrl_reg, 1);
+		if (rc)
+			goto bail;
 
-	rc = pm8901_read(chip, vreg->pmr_addr, &vreg->pmr_reg, 1);
+		rc = pm8901_read(chip, vreg->pmr_addr, &vreg->pmr_reg, 1);
+	}
 
 bail:
 	if (rc)
@@ -599,7 +668,6 @@ bail:
 
 static int __devinit pm8901_vreg_probe(struct platform_device *pdev)
 {
-	struct regulator_init_data *init_data;
 	struct regulator_desc *rdesc;
 	struct pm8901_chip *chip;
 	struct pm8901_vreg *vreg;
@@ -612,16 +680,19 @@ static int __devinit pm8901_vreg_probe(struct platform_device *pdev)
 		chip = platform_get_drvdata(pdev);
 		rdesc = &pm8901_vreg_descrip[pdev->id];
 		vreg = &pm8901_vreg[pdev->id];
-		init_data = pdev->dev.platform_data;
+		vreg->pdata = pdev->dev.platform_data;
 
 		rc = pm8901_init_regulator(chip, vreg);
 		if (rc)
 			goto bail;
 
 		vreg->rdev = regulator_register(rdesc, &pdev->dev,
-				init_data, vreg);
-		if (IS_ERR(vreg->rdev))
+				&vreg->pdata->init_data, vreg);
+		if (IS_ERR(vreg->rdev)) {
 			rc = PTR_ERR(vreg->rdev);
+			pr_err("%s: regulator_register failed, id=%d, rc=%d\n",
+				__func__, pdev->id, rc);
+		}
 	} else {
 		rc = -ENODEV;
 	}
