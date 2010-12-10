@@ -911,10 +911,8 @@ static int mdp_on(struct platform_device *pdev)
 
 	int ret = 0;
 #ifdef CONFIG_FB_MSM_MDP40
-	ulong display_status = 0;
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	display_status = inpdw(MDP_BASE + 0x0018);
-	if (!display_status) {
+	if (is_mdp4_hw_reset()) {
 		mdp4_hw_init();
 		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
 	}

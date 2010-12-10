@@ -38,6 +38,20 @@
 
 struct mdp4_statistic mdp4_stat;
 
+unsigned is_mdp4_hw_reset(void)
+{
+	unsigned hw_reset = 0;
+
+	/* Only revisions > v2.1 may be reset or powered off/on at runtime */
+	if (mdp_hw_revision > MDP4_REVISION_V2_1) {
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		hw_reset = !inpdw(MDP_BASE + 0x003c);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	}
+
+	return hw_reset;
+}
+
 void mdp4_sw_reset(ulong bits)
 {
 	/* MDP cmd block enable */
@@ -310,6 +324,11 @@ void mdp4_hw_init(void)
 
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
+	/* Mark hardware as initialized. Only revisions > v2.1 have a register
+	 * for tracking core reset status. */
+	if (mdp_hw_revision > MDP4_REVISION_V2_1)
+		outpdw(MDP_BASE + 0x003c, 1);
 }
 
 
