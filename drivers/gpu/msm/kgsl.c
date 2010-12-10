@@ -1125,12 +1125,39 @@ static int kgsl_ioctl_map_user_mem(struct kgsl_process_private *private,
 			goto error;
 		}
 		start = param.hostptr;
-		vma = kgsl_get_vma_from_start_addr(param.hostptr);
-		if (vma == NULL) {
-			result = -EINVAL;
-			goto error;
+
+		if (param.memtype == KGSL_USER_MEM_TYPE_ADDR) {
+			down_read(&current->mm->mmap_sem);
+			vma = find_vma(current->mm, start);
+			up_read(&current->mm->mmap_sem);
+
+			if (!vma) {
+				KGSL_MEM_ERR("Could not find vma for"
+						"address %lx\n", start);
+				result = -EINVAL;
+				goto error;
+			}
+
+			/* We don't necessarily start at vma->vm_start */
+			len = vma->vm_end - param.hostptr;
+
+			if (!KGSL_IS_PAGE_ALIGNED(len) ||
+					!KGSL_IS_PAGE_ALIGNED(start)) {
+				KGSL_MEM_ERR("user address error: len(%lu)"
+						"and start(0x%lx) must be page"
+						"aligned\n", len, start);
+				result = -EINVAL;
+				goto error;
+			}
+		} else {
+			vma = kgsl_get_vma_from_start_addr(param.hostptr);
+			if (vma == NULL) {
+				result = -EINVAL;
+				goto error;
+			}
+			len = vma->vm_end - vma->vm_start;
 		}
-		len = vma->vm_end - vma->vm_start;
+
 		if (!param.len)
 			param.len = len;
 		else if (param.len != len) {
