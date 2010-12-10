@@ -88,6 +88,7 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 
 static struct kgsl_g12_device device_2d0 = {
 	.dev = {
+		.name = "kgsl-2d0",
 		.id = KGSL_DEVICE_2D0,
 		.mmu = {
 			.config = KGSL_2D_MMU_CONFIG,
@@ -110,6 +111,7 @@ static struct kgsl_g12_device device_2d0 = {
 
 static struct kgsl_g12_device device_2d1 = {
 	.dev = {
+		.name = "kgsl-2d1",
 		.id = KGSL_DEVICE_2D1,
 		.mmu = {
 			.config = KGSL_2D_MMU_CONFIG,

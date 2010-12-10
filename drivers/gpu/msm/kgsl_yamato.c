@@ -80,6 +80,7 @@
 
 static struct kgsl_yamato_device yamato_device = {
 	.dev = {
+		.name = "kgsl-3d0",
 		.id = KGSL_DEVICE_YAMATO,
 		.mmu = {
 			.config = YAMATO_MMU_CONFIG,

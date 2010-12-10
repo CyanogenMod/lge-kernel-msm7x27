@@ -1589,7 +1589,6 @@ static int kgsl_register_dev(int num_devs)
 {
 	int err;
 	int j, i;
-	char device_str[sizeof(DRIVER_NAME) + 5];
 	dev_t dev;
 
 	/* alloc major and minor device numbers */
@@ -1609,21 +1608,14 @@ static int kgsl_register_dev(int num_devs)
 	}
 
 	for (i = 0; i < num_devs; i++) {
-		if (i == KGSL_DEVICE_YAMATO)
-			snprintf(device_str, sizeof(device_str), "%s-3d0",
-				DRIVER_NAME);
-		else if (i == KGSL_DEVICE_2D0)
-			snprintf(device_str, sizeof(device_str), "%s-2d0",
-				DRIVER_NAME);
-		else if (i == KGSL_DEVICE_2D1)
-			snprintf(device_str, sizeof(device_str), "%s-2d1",
-				DRIVER_NAME);
+		struct kgsl_device *device = kgsl_driver.devp[i];
+
 		dev = MKDEV(MAJOR(kgsl_driver.dev_num), i);
-		kgsl_driver.base_dev[i] = device_create(kgsl_driver.class,
-						&kgsl_driver.pdev->dev,
-						dev, NULL, device_str);
-		if (IS_ERR(kgsl_driver.base_dev[i])) {
-			err = PTR_ERR(kgsl_driver.base_dev[i]);
+		device->dev = device_create(kgsl_driver.class,
+					    &kgsl_driver.pdev->dev,
+					    dev, NULL, device->name);
+		if (IS_ERR(device->dev)) {
+			err = PTR_ERR(device->dev);
 			KGSL_DRV_ERR("device_create failed err=%d\n", err);
 			for (j = 0; j < i; j++)
 				device_destroy(kgsl_driver.class,
@@ -1672,10 +1664,9 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 
 	kgsl_debug_init();
 
-	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-		kgsl_driver.base_dev[i] = NULL;
+	for (i = 0; i < KGSL_DEVICE_MAX; i++)
 		kgsl_driver.devp[i] = NULL;
-	}
+
 	kgsl_driver.num_devs = 0;
 	INIT_LIST_HEAD(&kgsl_driver.process_list);
 

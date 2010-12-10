@@ -66,7 +66,6 @@ struct kgsl_driver {
 	dev_t dev_num;
 	struct class *class;
 	struct kgsl_device *devp[KGSL_DEVICE_MAX];
-	struct device *base_dev[KGSL_DEVICE_MAX];
 	int num_devs;
 	struct platform_device *pdev;
 
