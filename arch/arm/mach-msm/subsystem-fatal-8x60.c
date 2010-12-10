@@ -27,8 +27,10 @@
 
 #include "smd_private.h"
 #include "modem_notifier.h"
+#include "scm.h"
 
 #define MODEM_HWIO_MSS_RESET_ADDR       0x00902C48
+#define SCM_Q6_NMI_CMD			0x1
 
 static void q6_fatal_fn(struct work_struct *);
 static void modem_fatal_fn(struct work_struct *);
@@ -54,42 +56,49 @@ static void do_soc_restart(void)
 	unlock_kernel();
 }
 
+static void send_q6_nmi(void)
+{
+	/* Send NMI to QDSP6 via an SCM call. */
+	uint32_t cmd = 0x1;
+	scm_call(SCM_SVC_UTIL, SCM_Q6_NMI_CMD,
+		&cmd, sizeof(cmd), NULL, 0);
+
+	/* Q6 requires atleast 5ms to dump caches etc.
+	 * Check panic timeout value and usleep if necessary.
+	*/
+	if (panic_timeout < 1)
+		usleep(5000);
+}
+
 static void modem_unlock_timeout(struct work_struct *work)
 {
+	send_q6_nmi();
 	panic("subsys-restart: Timeout waiting for modem to unwedge.\n");
 }
 
 static void modem_fatal_fn(struct work_struct *work)
 {
 	uint32_t modem_state;
+	uint32_t panic_smsm_states = SMSM_RESET | SMSM_SYSTEM_DOWNLOAD;
+	uint32_t reset_smsm_states = SMSM_SYSTEM_REBOOT_USR |
+					SMSM_SYSTEM_PWRDWN_USR;
 
 	printk(KERN_CRIT "Watchdog bite received from modem!\n");
 
 	modem_state = smsm_get_state(SMSM_MODEM_STATE);
 
-	if (modem_state == 0) {
+	if (modem_state == 0 || modem_state & panic_smsm_states) {
 
-		panic("subsys-restart: Unable to detect modem smsm state!");
+		send_q6_nmi();
+		panic("subsys-restart: Modem SMSM state = 0x%x!", modem_state);
 
-	} else if (modem_state & SMSM_RESET) {
-
-		panic("subsys-restart: Modem in reset mode!");
-
-	} else if (modem_state & SMSM_SYSTEM_DOWNLOAD) {
-
-		panic("subsys-restart: Modem in download mode!");
-
-	} else if (modem_state & SMSM_SYSTEM_REBOOT_USR) {
+	} else if (modem_state & reset_smsm_states) {
 
 		printk(KERN_CRIT
-			"subsys-restart: User invoked system reboot.\n");
+			"subsys-restart: User invoked system reset/powerdown. \
+			Modem SMSM state = 0x%x", modem_state);
 		do_soc_restart();
 
-	} else if (modem_state & SMSM_SYSTEM_PWRDWN_USR) {
-
-		printk(KERN_CRIT
-			"subsys-restart: User invoked system powerdown.\n");
-		do_soc_restart();
 	} else {
 
 		int ret;
@@ -115,7 +124,12 @@ static void modem_fatal_fn(struct work_struct *work)
 
 static void q6_fatal_fn(struct work_struct *work)
 {
-	/* Send modem an SMSM_RESET message to allow flushing of caches etc. */
+	send_q6_nmi();
+
+	/* Send modem an SMSM_RESET message to allow flushing of caches etc.
+	 * Unregister for SMSM notifications to prevent second panic.
+	 */
+	modem_unregister_notifier(&modem_notif_nb);
 	smsm_reset_modem(SMSM_RESET);
 
 	panic("Watchdog bite received from Q6! Rebooting.\n");
@@ -171,9 +185,10 @@ static int modem_notif_handler(struct notifier_block *this,
 				unsigned long code,
 				void *_cmd)
 {
-	if (code == MODEM_NOTIFIER_START_RESET)
+	if (code == MODEM_NOTIFIER_START_RESET) {
+		send_q6_nmi();
 		panic("subsys-restart: Modem error fatal'ed.");
-
+	}
 	return NOTIFY_DONE;
 }
 
