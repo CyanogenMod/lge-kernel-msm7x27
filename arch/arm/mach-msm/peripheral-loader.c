@@ -167,11 +167,11 @@ release_fw:
 	return ret;
 }
 
-#define HASH_SEGMENT_FLAG	BIT(25)
+#define segment_is_hash(flag) (((flag) & (0x7 << 24)) == (0x2 << 24))
 
 static int segment_is_loadable(const struct elf32_phdr *p)
 {
-	return (p->p_type & PT_LOAD) && !(p->p_flags & HASH_SEGMENT_FLAG);
+	return (p->p_type & PT_LOAD) && !segment_is_hash(p->p_flags);
 }
 
 static int load_image(struct pil_device *pil)
