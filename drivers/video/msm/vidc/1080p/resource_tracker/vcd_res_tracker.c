@@ -294,7 +294,8 @@ int res_trk_update_bus_perf_level(struct vcd_dev_ctxt *dev_ctxt, u32 perf_level)
 	VCDRES_MSG_LOW("%s(), bus_clk_index = %d", __func__, bus_clk_index);
 	VCDRES_MSG_LOW("%s(),context.pcl = %x", __func__, resource_context.pcl);
 	VCDRES_MSG_LOW("%s(), bus_perf_level = %x", __func__, perf_level);
-	rc = msm_bus_scale_client_update_request(resource_context.pcl, 6);
+	rc = msm_bus_scale_client_update_request(resource_context.pcl,
+		bus_clk_index);
 	return rc;
 }
 #endif
