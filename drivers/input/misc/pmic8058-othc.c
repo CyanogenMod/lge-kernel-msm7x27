@@ -127,9 +127,11 @@ static int pm8058_othc_suspend(struct device *dev)
 {
 	struct pm8058_othc *dd = dev_get_drvdata(dev);
 
-	if (device_may_wakeup(dev)) {
-		enable_irq_wake(dd->othc_irq_sw);
-		enable_irq_wake(dd->othc_irq_ir);
+	if (dd->othc_pdata->micbias_capability == OTHC_MICBIAS_HSED) {
+		if (device_may_wakeup(dev)) {
+			enable_irq_wake(dd->othc_irq_sw);
+			enable_irq_wake(dd->othc_irq_ir);
+		}
 	}
 
 	return 0;
@@ -139,9 +141,11 @@ static int pm8058_othc_resume(struct device *dev)
 {
 	struct pm8058_othc *dd = dev_get_drvdata(dev);
 
-	if (device_may_wakeup(dev)) {
-		disable_irq_wake(dd->othc_irq_sw);
-		disable_irq_wake(dd->othc_irq_ir);
+	if (dd->othc_pdata->micbias_capability == OTHC_MICBIAS_HSED) {
+		if (device_may_wakeup(dev)) {
+			disable_irq_wake(dd->othc_irq_sw);
+			disable_irq_wake(dd->othc_irq_ir);
+		}
 	}
 
 	return 0;
@@ -159,26 +163,27 @@ static int __devexit pm8058_othc_remove(struct platform_device *pd)
 
 	pm_runtime_set_suspended(&pd->dev);
 	pm_runtime_disable(&pd->dev);
-	device_init_wakeup(&pd->dev, 0);
 
-	if (dd->othc_support_n_switch == true) {
-		adc_channel_close(dd->adc_handle);
-		cancel_work_sync(&dd->switch_work);
-	}
-
-	if (dd->accessory_support == true) {
-		int i;
-		for (i = 0; i < dd->num_accessories; i++) {
-			if (dd->accessory_info[i].detect_flags &
-							OTHC_GPIO_DETECT)
-				gpio_free(dd->accessory_info[i].gpio);
+	if (dd->othc_pdata->micbias_capability == OTHC_MICBIAS_HSED) {
+		device_init_wakeup(&pd->dev, 0);
+		if (dd->othc_support_n_switch == true) {
+			adc_channel_close(dd->adc_handle);
+			cancel_work_sync(&dd->switch_work);
 		}
-	}
-	cancel_delayed_work_sync(&dd->detect_work);
-	free_irq(dd->othc_irq_sw, dd);
-	free_irq(dd->othc_irq_ir, dd);
 
-	input_unregister_device(dd->othc_ipd);
+		if (dd->accessory_support == true) {
+			int i;
+			for (i = 0; i < dd->num_accessories; i++) {
+				if (dd->accessory_info[i].detect_flags &
+							OTHC_GPIO_DETECT)
+					gpio_free(dd->accessory_info[i].gpio);
+			}
+		}
+		cancel_delayed_work_sync(&dd->detect_work);
+		free_irq(dd->othc_irq_sw, dd);
+		free_irq(dd->othc_irq_ir, dd);
+		input_unregister_device(dd->othc_ipd);
+	}
 	kfree(dd);
 
 	return 0;
