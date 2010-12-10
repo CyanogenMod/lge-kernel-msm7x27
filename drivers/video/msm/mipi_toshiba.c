@@ -49,15 +49,11 @@ static char exit_sleep[2] = {0x11, 0x00};
 static char display_on[2] = {0x29, 0x00};
 static char display_off[2] = {0x28, 0x00};
 static char max_pktsize[2] = {0x00, 0x04};	/* LSB tx first */
-#ifdef TOSHIBA_ENTER_SLEEP
 static char enter_sleep[2] = {0x10, 0x00};
-#endif
 
 static struct dsi_cmd_desc toshiba_display_off_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 10, sizeof(display_off), display_off},
-#ifdef TOSHIBA_ENTER_SLEEP
 	{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(enter_sleep), enter_sleep}
-#endif
 };
 
 static struct dsi_cmd_desc toshiba_display_on_cmds[] = {
