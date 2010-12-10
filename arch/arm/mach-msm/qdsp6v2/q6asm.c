@@ -360,13 +360,13 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	unsigned long dsp_flags;
 	uint32_t *payload = data->payload;
 
-	if (ac == NULL) {
-		pr_err("ac NULL\n");
+	if ((ac == NULL) || (data == NULL)) {
+		pr_err("ac or priv NULL\n");
 		return -EINVAL;
 	}
-	pr_debug("session[%d]ptr0[0x%x]ptr1[0x%x]opcode[0x%x] "
+	pr_debug("session[%d]opcode[0x%x] "
 		"token[0x%x]payload_s[%d] src[%d] dest[%d]\n",
-		ac->session, payload[0], payload[1], data->opcode,
+		ac->session, data->opcode,
 		data->token, data->payload_size, data->src_port,
 		data->dest_port);
 
@@ -411,9 +411,24 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	case ASM_DATA_EVENT_WRITE_DONE:{
 		struct audio_port_data *port = &ac->port[IN];
 		pr_debug("%s: Rxed opcode[0x%x] status[0x%x] token[%d]",
-				__func__, payload[0], payload[1], data->token);
+				__func__, payload[0], payload[1],
+				data->token);
 		if (ac->io_mode == SYNC_IO_MODE) {
+			if (port->buf == NULL) {
+				pr_err("%s: Unexpected Write Done\n",
+								__func__);
+				return -EINVAL;
+			}
 			spin_lock_irqsave(&port->dsp_lock, dsp_flags);
+			if (port->buf[data->token].phys !=
+				payload[0]) {
+				pr_err("Buf expected[%p]rxed[%p]\n",\
+				   (void *)port->buf[data->token].phys,\
+				   (void *)payload[0]);
+				spin_unlock_irqrestore(&port->dsp_lock,
+								dsp_flags);
+				return -EINVAL;
+			}
 			token = data->token;
 			port->buf[token].used = 1;
 			spin_unlock_irqrestore(&port->dsp_lock, dsp_flags);
@@ -440,6 +455,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				payload[READDONE_IDX_NUMFRAMES]);
 
 		if (ac->io_mode == SYNC_IO_MODE) {
+			if (port->buf == NULL) {
+				pr_err("%s: Unexpected Write Done\n", __func__);
+				return -EINVAL;
+			}
 			spin_lock_irqsave(&port->dsp_lock, dsp_flags);
 			token = data->token;
 			if (port->buf[token].phys !=
@@ -570,8 +589,8 @@ static void q6asm_add_hdr(struct audio_client *ac, struct apr_hdr *hdr,
 	hdr->src_domain = APR_DOMAIN_APPS;
 	hdr->dest_svc = APR_SVC_ASM;
 	hdr->dest_domain = APR_DOMAIN_ADSP;
-	hdr->src_port = (ac->session << 8) | 0x0001;
-	hdr->dest_port = (ac->session << 8) | 0x0001;
+	hdr->src_port = ((ac->session << 8) & 0xFF00) | 0x01;
+	hdr->dest_port = ((ac->session << 8) & 0xFF00) | 0x01;
 	if (cmd_flg) {
 		hdr->token = ac->session;
 		atomic_set(&ac->cmd_state, 1);
@@ -1597,6 +1616,7 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 	struct apr_hdr hdr;
 	int rc;
 	atomic_t *state;
+	int cnt = 0;
 
 	if (!ac || ac->apr == NULL) {
 		pr_err("APR handle NULL\n");
@@ -1630,7 +1650,8 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 		pr_err("Invalid format[%d]\n", cmd);
 		goto fail_cmd;
 	}
-	pr_debug("session[%d]opcode[0x%x] ", ac->session,
+	pr_debug("%s:session[%d]opcode[0x%x] ", __func__,
+						ac->session,
 						hdr.opcode);
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &hdr);
 	if (rc < 0) {
@@ -1645,6 +1666,26 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 	}
 	if (cmd == CMD_FLUSH)
 		q6asm_reset_buf_state(ac);
+	if (cmd == CMD_CLOSE) {
+		/* check if DSP return all buffers */
+		if (ac->port[IN].buf) {
+			for (cnt = 0; cnt < ac->port[IN].max_buf_cnt;
+								cnt++) {
+				if (ac->port[IN].buf[cnt].used == IN) {
+					pr_err("Write Buf[%d] not returned\n",
+									cnt);
+				}
+			}
+		}
+		if (ac->port[OUT].buf) {
+			for (cnt = 0; cnt < ac->port[OUT].max_buf_cnt; cnt++) {
+				if (ac->port[OUT].buf[cnt].used == OUT) {
+					pr_err("Read Buf[%d] not returned\n",
+									cnt);
+				}
+			}
+		}
+	}
 	return 0;
 fail_cmd:
 	return -EINVAL;
