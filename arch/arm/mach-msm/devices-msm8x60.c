@@ -1240,6 +1240,7 @@ struct platform_device *msm_footswitch_devices[] = {
 	FS(FS_VED,	"fs_ved"),
 	FS(FS_VFE,	"fs_vfe"),
 	FS(FS_VPE,	"fs_vpe"),
+	FS(FS_GFX3D,	"fs_gfx3d"),
 };
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
