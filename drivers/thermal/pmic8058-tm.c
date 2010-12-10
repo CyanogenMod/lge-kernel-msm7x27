@@ -424,7 +424,7 @@ static int __devinit pmic8058_tm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, tmdev);
 
-	rc = request_threaded_irq(irq, pm8058_tm_isr, NULL,
+	rc = request_threaded_irq(irq, NULL, pm8058_tm_isr,
 			 IRQF_TRIGGER_RISING | IRQF_DISABLED,
 			 "pm8058-tm-irq", tmdev);
 	if (rc < 0) {
