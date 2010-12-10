@@ -125,8 +125,7 @@ long pc_clk_round_rate(unsigned id, unsigned rate)
 struct clk_ops clk_ops_remote = {
 	.enable = pc_clk_enable,
 	.disable = pc_clk_disable,
-	.output_enable = pc_clk_enable,
-	.output_disable = pc_clk_disable,
+	.auto_off = pc_clk_disable,
 	.reset = pc_clk_reset,
 	.set_rate = pc_clk_set_rate,
 	.set_min_rate = pc_clk_set_min_rate,

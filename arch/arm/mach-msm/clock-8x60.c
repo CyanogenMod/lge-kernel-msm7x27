@@ -1957,8 +1957,7 @@ late_initcall(msm_clk_soc_late_init);
 struct clk_ops soc_clk_ops_8x60 = {
 	.enable = local_clk_enable,
 	.disable = local_clk_disable,
-	.output_enable = local_clk_output_enable,
-	.output_disable = local_clk_output_disable,
+	.auto_off = local_clk_auto_off,
 	.set_rate = local_clk_set_rate,
 	.set_min_rate = local_clk_set_min_rate,
 	.set_max_rate = local_clk_set_max_rate,
