@@ -1136,7 +1136,7 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470)
 		*cmd++ = 0x00000000;
 	else
-		*cmd++ = 0xffffffff;
+		*cmd++ = 0x80;
 
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 		unsigned int i;

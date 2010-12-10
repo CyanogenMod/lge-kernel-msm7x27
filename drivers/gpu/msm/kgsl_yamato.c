@@ -793,6 +793,8 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470)
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
+	else
+		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 
 	kgsl_sharedmem_set(&device->memstore, 0, 0, device->memstore.size);
 
