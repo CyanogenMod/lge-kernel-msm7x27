@@ -876,6 +876,9 @@ int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req, int count)
 
 int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 {
+	WARN(!irqs_disabled(), "msm_rpmrs_set_noirq can only be called "
+		"safely when local irqs are disabled.  Consider using "
+		"msm_rpmrs_set or msm_rpmrs_set_nosleep instead.");
 	return msm_rpmrs_set_common(ctx, req, count, true);
 }
 
@@ -886,6 +889,9 @@ int msm_rpmrs_clear(int ctx, struct msm_rpm_iv_pair *req, int count)
 
 int msm_rpmrs_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 {
+	WARN(!irqs_disabled(), "msm_rpmrs_clear_noirq can only be called "
+		"safely when local irqs are disabled.  Consider using "
+		"msm_rpmrs_clear or msm_rpmrs_clear_nosleep instead.");
 	return msm_rpmrs_clear_common(ctx, req, count, true);
 }
 

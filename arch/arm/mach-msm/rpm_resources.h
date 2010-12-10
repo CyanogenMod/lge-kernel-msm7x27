@@ -47,8 +47,36 @@ struct msm_rpmrs_limits {
 
 int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
+
+static inline int msm_rpmrs_set_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	unsigned long flags;
+	int rc;
+
+	local_irq_save(flags);
+	rc = msm_rpmrs_set_noirq(ctx, req, count);
+	local_irq_restore(flags);
+
+	return rc;
+}
+
 int msm_rpmrs_clear(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
+
+static inline int msm_rpmrs_clear_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	unsigned long flags;
+	int rc;
+
+	local_irq_save(flags);
+	rc = msm_rpmrs_clear_noirq(ctx, req, count);
+	local_irq_restore(flags);
+
+	return rc;
+}
+
 void msm_rpmrs_show_resources(void);
 
 struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
