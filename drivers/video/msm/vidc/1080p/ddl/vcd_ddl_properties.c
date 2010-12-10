@@ -1620,14 +1620,10 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 	}
 	memset(output_buf_req, 0,
 		sizeof(struct vcd_buffer_requirement));
-	if ((frame_size->width * frame_size->height) >=
-		 VCD_DDL_WVGA_BUF_SIZE) {
-		output_buf_req->actual_count = min_dpb + 2;
-		if (output_buf_req->actual_count < 10)
-			output_buf_req->actual_count = 10;
-	} else
-		output_buf_req->actual_count = min_dpb + 5;
-
+	if (!estimate)
+		output_buf_req->actual_count = min_dpb + 4;
+	else
+		output_buf_req->actual_count = min_dpb;
 	output_buf_req->min_count = min_dpb;
 	output_buf_req->max_count = DDL_MAX_BUFFER_COUNT;
 	output_buf_req->sz = y_cb_cr_size;
@@ -1643,7 +1639,7 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 	memset(input_buf_req, 0,
 		sizeof(struct vcd_buffer_requirement));
 	input_buf_req->min_count = 1;
-	input_buf_req->actual_count = input_buf_req->min_count + 2;
+	input_buf_req->actual_count = input_buf_req->min_count + 1;
 	input_buf_req->max_count = DDL_MAX_BUFFER_COUNT;
 	input_buf_req->sz = (1024 * 1024);
 	input_buf_req->align = DDL_LINEAR_BUFFER_ALIGN_BYTES;
