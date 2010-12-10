@@ -58,7 +58,7 @@ static struct notifier_block panic_blk = {
 static void set_dload_mode(int on)
 {
 	void *dload_mode_addr;
-	dload_mode_addr = ioremap_nocache(0x2A03E008, SZ_4K);
+	dload_mode_addr = ioremap_nocache(0x2A05F000, SZ_4K);
 	if (dload_mode_addr) {
 		writel(on ? 0xE47B337D : 0, dload_mode_addr);
 		writel(on ? 0xCE14091A : 0,
