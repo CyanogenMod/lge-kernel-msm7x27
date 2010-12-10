@@ -133,7 +133,6 @@
 #define JPEGD_CC_REG				REG_MM(0x00A4)
 #define JPEGD_NS_REG				REG_MM(0x00AC)
 #define MAXI_EN_REG				REG_MM(0x0018)
-#define MAXI_EN2_REG				REG_MM(0x0020)
 #define MAXI_EN3_REG				REG_MM(0x002C)
 #define MDP_CC_REG				REG_MM(0x00C0)
 #define MDP_MD0_REG				REG_MM(0x00C4)
@@ -2344,7 +2343,7 @@ static void reg_init(void)
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
 	 * delays to safe values. */
 	rmwreg(0x000307F9, MAXI_EN_REG,  0x0FFFFFFF);
-	rmwreg(0x1A27FCFF, MAXI_EN2_REG, 0x1FFFFFFF);
+	/* MAXI_EN2_REG is owned by the RPM.  Don't touch it. */
 	writel(0x3FE7FCFF, MAXI_EN3_REG);
 	writel(0x000001D8, SAXI_EN_REG);
 
