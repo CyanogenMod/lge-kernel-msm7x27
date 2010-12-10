@@ -48,12 +48,17 @@
 /* Core clock rate to use if one has not previously been set. */
 #define DEFAULT_CLK_RATE	27000000
 
+/* Lock is only needed to protect against the first footswitch_enable()
+ * call occuring concurrently with late_footswitch_init(). */
+static DEFINE_MUTEX(claim_lock);
+
 struct footswitch {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	desc;
 	void			*gfs_ctl_reg;
 	int			bus_port1, bus_port2;
 	int			is_enabled;
+	int			is_claimed;
 	const char		*core_clk_name;
 	const char		*ahb_clk_name;
 	const char		*axi_clk_name;
@@ -76,6 +81,10 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	struct footswitch *fs = rdev_get_drvdata(rdev);
 	int ahb_clk_en, axi_clk_en = 0, core_clk_rate = 0;
 	uint32_t regval, rc = 0;
+
+	mutex_lock(&claim_lock);
+	fs->is_claimed = 1;
+	mutex_unlock(&claim_lock);
 
 	if (fs->is_enabled)
 		return 0;
@@ -397,6 +406,21 @@ static struct platform_driver footswitch_driver = {
 		.owner		= THIS_MODULE,
 	},
 };
+
+static int __init late_footswitch_init(void)
+{
+	int i;
+
+	mutex_lock(&claim_lock);
+	/* Turn off all registered but unused footswitches. */
+	for (i = 0; i < ARRAY_SIZE(footswitches); i++)
+		if (footswitches[i].rdev && !footswitches[i].is_claimed)
+			footswitch_disable(footswitches[i].rdev);
+	mutex_unlock(&claim_lock);
+
+	return 0;
+}
+late_initcall(late_footswitch_init);
 
 static int __init footswitch_init(void)
 {
