@@ -5047,8 +5047,9 @@ err:
 	return bcmerror;
 }
 #endif /* BCMEMBEDIMAGE */
-
+#ifdef DOWNLOAD_ARRAY
 static char temp_array[MEMBLOCK + DHD_SDALIGN];
+#endif
 static int
 dhdsdio_download_code_file(struct dhd_bus *bus, char *fw_path)
 {
@@ -5057,9 +5058,9 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *fw_path)
 	uint len;
 	void * image = NULL;
 	uint8 * memblock = NULL, * memptr;
-#ifdef DOWNLOAD_ARRAY
-	//char temp_array[MEMBLOCK + DHD_SDALIGN];
-#endif
+//#ifdef DOWNLOAD_ARRAY
+//	char temp_array[MEMBLOCK + DHD_SDALIGN];
+//#endif
 	DHD_INFO(("%s: download firmware %s\n", __FUNCTION__, fw_path));
 
 	image = dhd_os_open_image(fw_path);
@@ -5179,9 +5180,9 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 	char *bufp;
 	char *nv_path;
 	bool nvram_file_exists;
-#ifdef DOWNLOAD_ARRAY
-	//char temp_array[MEMBLOCK];
-#endif
+//#ifdef DOWNLOAD_ARRAY
+//	char temp_array[MEMBLOCK];
+//#endif
 	nv_path = bus->nv_path;
 
 	nvram_file_exists = ((nv_path != NULL) && (nv_path[0] != '\0'));
@@ -5448,11 +5449,13 @@ static char iovbuf[1024];
 int dhdsdio_setiovar(struct dhd_bus *bus, char *cmd, void *data, int size)
 {
 		int ret = 0;
+//		char iovbuf[1024] = {0};
 		dhd_pub_t *dhd = NULL;
 		wl_ioctl_t ioc = {0};
 		int ioctl_len = 0;
 
 		DHD_INFO(("%s: Enter\n", __FUNCTION__));
+		memset(&iovbuf, 0, sizeof(iovbuf));
 
 		if(!bus)
 				return -1;

@@ -448,6 +448,7 @@ _dhd_set_multicast_list(dhd_info_t *dhd, int ifidx)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 	cnt = netdev_mc_count(dev);
 #else
+	mclist = dev->mc_list;
 	cnt = dev->mc_count;
 #endif
 
@@ -1904,24 +1905,6 @@ static struct net_device_ops dhd_ops_virt = {
     .ndo_set_multicast_list = dhd_set_multicast_list
 };
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 31)) */
-
-/* LGE_CHANGES_S [taekeun1.kim@lge.com] 2010-06-06, for wifi */
-#if defined (CONFIG_MACH_LGE)
-static const struct net_device_ops bcm4325_netdev_ops = {
-    .ndo_init       = NULL,
-	.ndo_open       = dhd_open,
-	.ndo_stop       = dhd_stop,
-	.ndo_set_multicast_list = dhd_set_multicast_list,
-	.ndo_set_mac_address    = dhd_set_mac_address,
-	.ndo_start_xmit     = dhd_start_xmit,
-	.ndo_change_mtu     = NULL,
-	.ndo_validate_addr  = NULL,
-	.ndo_do_ioctl  = dhd_ioctl_entry,
-	.ndo_get_stats = dhd_get_stats,
-
-};
-#endif
-
 int
 dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 {

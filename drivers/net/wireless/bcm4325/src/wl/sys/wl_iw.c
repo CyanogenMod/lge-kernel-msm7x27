@@ -1621,7 +1621,9 @@ static int iwpriv_set_ap_config(struct net_device *dev,
 	}
 
 
-	set_ap_cfg(dev, ap_cfg);
+/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
+	res = set_ap_cfg(dev, ap_cfg);
+/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
 	kfree(extra);
 
 	return res;
@@ -5307,11 +5309,16 @@ static int get_softap_auto_channel(struct net_device *dev, struct ap_profile *ap
 
                         ret = dev_wlc_ioctl(dev, WLC_GET_CHANNEL_SEL, &chosen, sizeof(chosen));
                         if (ret < 0 || dtoh32(chosen) == 0) {
-                                if (retry++ < 3)
+/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
+                                if (retry++ < 5)
+/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
                                         goto get_channel_retry;
                                 else {
                                         WL_ERROR(("can't get auto channel sel, err = %d, \
                                                 chosen = %d\n", ret, chosen));
+/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
+					res = -1;
+/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
                                         goto fail;
                                 }
                         }
@@ -5434,7 +5441,9 @@ static int set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 
 	WL_SOFTAP(("~~~~START SET AUTO CHANNEL~~~~[channel = %d]\n",ap->channel ));	//by sjpark 100818
 
-	ap->channel = 0;	//by sjpakr 100819 : for set auto channel
+/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
+//	ap->channel = 0;	//by sjpakr 100819 : for set auto channel
+/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
 	if ((ap->channel == 0) && (get_softap_auto_channel(dev, ap) < 0)) {
 		ap->channel = 1;
 		WL_ERROR(("%s auto channel failed, pick up channel=%d\n", \
@@ -6109,7 +6118,9 @@ int wl_iw_process_private_ascii_cmd(
 				WL_ERROR(("ERROR: SoftAP CFG prams !\n"));
 				ret = -1;
 		} else {
-			set_ap_cfg(dev, &my_ap);
+/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
+			ret = set_ap_cfg(dev, &my_ap);
+/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-11-01, <Error case of failing auto channel> */
 		}
 
 	} else if (strnicmp(sub_cmd, "AP_BSS_START", strlen("AP_BSS_START")) == 0) {
