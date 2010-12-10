@@ -80,6 +80,24 @@ static int msm_watchdog_power_event(struct notifier_block *this,
 	}
 }
 
+static int panic_wdog_handler(struct notifier_block *this,
+			      unsigned long event, void *ptr)
+{
+	if (panic_timeout == 0) {
+		writel(0, WDT0_EN);
+		writel(0, tcsr_base + TCSR_WDT_CFG);
+	} else {
+		writel(32768 * (panic_timeout + 4), WDT0_BARK_TIME);
+		writel(32768 * (panic_timeout + 4), WDT0_BITE_TIME);
+		writel(1, WDT0_RST);
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_blk = {
+	.notifier_call	= panic_wdog_handler,
+};
+
 static struct notifier_block msm_watchdog_power_notifier = {
 	.notifier_call = msm_watchdog_power_event,
 };
@@ -127,8 +145,10 @@ static int __init init_watchdog(void)
 		INIT_DELAYED_WORK(&dogwork_struct, pet_watchdog);
 		schedule_delayed_work(&dogwork_struct, delay_time);
 
-		writel(1, WDT0_EN);
+		atomic_notifier_chain_register(&panic_notifier_list,
+					       &panic_blk);
 
+		writel(1, WDT0_EN);
 		printk(KERN_INFO "MSM Watchdog Initialized\n");
 	} else {
 		printk(KERN_INFO "MSM Watchdog Not Initialized\n");
