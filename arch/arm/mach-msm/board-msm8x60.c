@@ -4526,30 +4526,42 @@ static struct resource pm8901_temp_alarm[] = {
 };
 
 static struct regulator_consumer_supply pm8901_vreg_supply[PM8901_VREG_MAX] = {
+	[PM8901_VREG_ID_MPP0] =     REGULATOR_SUPPLY("8901_mpp0",     NULL),
 	[PM8901_VREG_ID_USB_OTG]  = REGULATOR_SUPPLY("8901_usb_otg",  NULL),
 	[PM8901_VREG_ID_HDMI_MVS] = REGULATOR_SUPPLY("8901_hdmi_mvs", NULL),
 };
 
-#define PM8901_VREG_INIT(_id, _min_uV, _max_uV, \
-		_modes, _ops, _apply_uV, _init) \
+#define PM8901_VREG_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, \
+			 _always_on, _init, _active_high) \
 	[_id] = { \
-		.constraints = { \
-			.valid_modes_mask = _modes, \
-			.valid_ops_mask = _ops, \
-			.min_uV = _min_uV, \
-			.max_uV = _max_uV, \
-			.apply_uV = _apply_uV, \
+		.init_data = { \
+			.constraints = { \
+				.valid_modes_mask = _modes, \
+				.valid_ops_mask = _ops, \
+				.min_uV = _min_uV, \
+				.max_uV = _max_uV, \
+				.input_uV = _min_uV, \
+				.apply_uV = _apply_uV, \
+				.always_on = _always_on, \
+			}, \
+			.num_consumer_supplies = 1, \
+			.consumer_supplies = &pm8901_vreg_supply[_id], \
+			.regulator_init = _init, \
 		}, \
-		.num_consumer_supplies = 1, \
-		.consumer_supplies = &pm8901_vreg_supply[_id], \
-		.regulator_init = _init, \
+		.active_high = _active_high, \
 	}
+
+#define PM8901_VREG_INIT_MPP(_id, _active_high) \
+	PM8901_VREG_INIT(_id, 0, 0, REGULATOR_MODE_NORMAL, \
+			REGULATOR_CHANGE_STATUS, 0, 0, NULL, _active_high)
 
 #define PM8901_VREG_INIT_VS(_id, _init) \
 	PM8901_VREG_INIT(_id, 0, 0, REGULATOR_MODE_NORMAL, \
-			REGULATOR_CHANGE_STATUS, 0, _init)
+			REGULATOR_CHANGE_STATUS, 0, 0, _init, 0)
 
-static struct regulator_init_data pm8901_vreg_init[PM8901_VREG_MAX] = {
+static struct pm8901_vreg_pdata pm8901_vreg_init_pdata[PM8901_VREG_MAX] = {
+	PM8901_VREG_INIT_MPP(PM8901_VREG_ID_MPP0,    1),
+
 	PM8901_VREG_INIT_VS(PM8901_VREG_ID_USB_OTG,  pm8901_mpp0_init),
 	PM8901_VREG_INIT_VS(PM8901_VREG_ID_HDMI_MVS, NULL),
 };
@@ -4557,8 +4569,8 @@ static struct regulator_init_data pm8901_vreg_init[PM8901_VREG_MAX] = {
 #define PM8901_VREG(_id) { \
 	.name = "pm8901-regulator", \
 	.id = _id, \
-	.platform_data = &pm8901_vreg_init[_id], \
-	.data_size = sizeof(pm8901_vreg_init[_id]), \
+	.platform_data = &pm8901_vreg_init_pdata[_id], \
+	.data_size = sizeof(pm8901_vreg_init_pdata[_id]), \
 }
 
 static struct mfd_cell pm8901_subdevs[] = {
@@ -4572,6 +4584,7 @@ static struct mfd_cell pm8901_subdevs[] = {
 		.num_resources  = ARRAY_SIZE(pm8901_temp_alarm),
 		.resources      = pm8901_temp_alarm,
 	},
+	PM8901_VREG(PM8901_VREG_ID_MPP0),
 	PM8901_VREG(PM8901_VREG_ID_USB_OTG),
 	PM8901_VREG(PM8901_VREG_ID_HDMI_MVS),
 };
@@ -4825,6 +4838,15 @@ static void fixup_i2c_configs(void)
 		sx150x_data[SX150X_CORE_FLUID].irq_summary =
 			PM8058_GPIO_IRQ(PM8058_IRQ_BASE, UI_INT1_N);
 #endif
+	/*
+	 * Set PMIC 8901 MPP0 active_high to 0 for surf and charm_surf. This
+	 * implies that the regulator connected to MPP0 is enabled when
+	 * MPP0 is low.
+	 */
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_charm_surf())
+		pm8901_vreg_init_pdata[PM8901_VREG_ID_MPP0].active_high = 0;
+	else
+		pm8901_vreg_init_pdata[PM8901_VREG_ID_MPP0].active_high = 1;
 #endif
 }
 
