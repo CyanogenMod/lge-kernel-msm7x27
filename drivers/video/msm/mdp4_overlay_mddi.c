@@ -386,6 +386,7 @@ void mdp4_mddi_overlay_restore(void)
 			mdp4_mddi_dma_busy_wait(mddi_mfd, mddi_pipe);
 			mdp4_overlay_update_lcd(mddi_mfd);
 			mdp4_mddi_overlay_kickoff(mddi_mfd, mddi_pipe);
+			mddi_mfd->dma_update_flag = 1;
 		}
 	}
 }
@@ -409,6 +410,7 @@ void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd,
 	if (pending_pipe != NULL) {
 		/* wait until DMA finishes the current job */
 		wait_for_completion_killable(&pipe->comp);
+		mfd->dma_update_flag = 0;
 		pending_pipe = NULL;
 	}
 }
@@ -541,6 +543,7 @@ void mdp4_mddi_overlay_dmas_restore(void)
 		mdp4_mddi_dma_busy_wait(mddi_mfd, mddi_pipe);
 		mdp4_dma_s_update_lcd(mddi_mfd, mddi_pipe);
 		mdp4_mddi_dma_s_kickoff(mddi_mfd, mddi_pipe);
+		mddi_mfd->dma_update_flag = 1;
 	}
 }
 

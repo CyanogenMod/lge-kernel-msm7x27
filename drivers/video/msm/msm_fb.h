@@ -162,6 +162,7 @@ struct msm_fb_data_type {
 	u32 mdp_fb_page_protection;
 
 	struct pm_qos_request_list *pm_qos_req;
+	boolean dma_update_flag;
 };
 
 struct dentry *msm_fb_get_debugfs_root(void);
