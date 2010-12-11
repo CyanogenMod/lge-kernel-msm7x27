@@ -1245,14 +1245,23 @@ unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
 struct clk msm_clocks_8x60[] = {
 	CLK_RPM("afab_clk",		AFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("afab_a_clk",		AFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("cfpb_clk",		CFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("cfpb_a_clk",		CFPB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("dfab_clk",		DFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("dfab_a_clk",		DFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("ebi1_clk",		EBI1_CLK,		NULL, CLK_MIN),
+	CLK_RPM("ebi1_a_clk",		EBI1_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("mmfab_clk",		MMFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("mmfab_a_clk",		MMFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("mmfpb_clk",		MMFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("mmfpb_a_clk",		MMFPB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("sfab_clk",		SFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("sfab_a_clk",		SFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("sfpb_clk",		SFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("sfpb_a_clk",		SFPB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("smi_clk",		SMI_CLK,		NULL, CLK_MIN),
+	CLK_RPM("smi_a_clk",		SMI_A_CLK,		NULL, CLK_MIN),
 
 	CLK_8X60("gsbi_uart_clk",	GSBI1_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI2_UART_CLK,		NULL, OFF),
