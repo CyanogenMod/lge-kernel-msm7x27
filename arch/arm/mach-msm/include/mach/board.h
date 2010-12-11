@@ -130,7 +130,9 @@ struct msm_camera_sensor_flash_data {
 };
 
 struct msm_camera_sensor_strobe_flash_data {
-	int flash_charge; /* pin for charge */
+	uint8_t flash_trigger;
+	uint8_t flash_charge; /* pin for charge */
+	uint8_t flash_charge_done;
 	uint32_t flash_recharge_duration;
 	uint32_t irq;
 	spinlock_t spin_lock;

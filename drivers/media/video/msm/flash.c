@@ -28,6 +28,47 @@
 
 struct timer_list timer_flash;
 
+enum msm_cam_flash_stat{
+	MSM_CAM_FLASH_OFF,
+	MSM_CAM_FLASH_ON,
+};
+
+static int config_flash_gpio_table(enum msm_cam_flash_stat stat,
+			struct msm_camera_sensor_strobe_flash_data *sfdata)
+{
+	int rc = 0, i = 0;
+	int msm_cam_flash_gpio_tbl[][2] = {
+		{sfdata->flash_trigger, 1},
+		{sfdata->flash_charge, 1},
+		{sfdata->flash_charge_done, 0}
+	};
+
+	if (stat == MSM_CAM_FLASH_ON) {
+		for (i = 0; i < ARRAY_SIZE(msm_cam_flash_gpio_tbl); i++) {
+			rc = gpio_request(msm_cam_flash_gpio_tbl[i][0],
+							  "CAM_FLASH_GPIO");
+			if (unlikely(rc < 0)) {
+				pr_err("%s not able to get gpio\n", __func__);
+				for (i--; i >= 0; i--)
+					gpio_free(msm_cam_flash_gpio_tbl[i][0]);
+				break;
+			}
+			if (msm_cam_flash_gpio_tbl[i][1])
+				gpio_direction_output(
+					msm_cam_flash_gpio_tbl[i][0], 0);
+			else
+				gpio_direction_input(
+					msm_cam_flash_gpio_tbl[i][0]);
+		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(msm_cam_flash_gpio_tbl); i++) {
+			gpio_direction_input(msm_cam_flash_gpio_tbl[i][0]);
+			gpio_free(msm_cam_flash_gpio_tbl[i][0]);
+		}
+	}
+	return rc;
+}
+
 int msm_camera_flash_current_driver(
 	struct msm_camera_sensor_flash_current_driver *current_driver,
 	unsigned led_state)
@@ -220,7 +261,7 @@ int32_t msm_camera_flash_set_led_state(
 static int msm_strobe_flash_xenon_charge(int32_t flash_charge,
 		int32_t charge_enable, uint32_t flash_recharge_duration)
 {
-	gpio_direction_output(flash_charge, charge_enable);
+	gpio_set_value_cansleep(flash_charge, charge_enable);
 	if (charge_enable) {
 		timer_flash.expires = jiffies +
 			msecs_to_jiffies(flash_recharge_duration);
@@ -252,7 +293,7 @@ static irqreturn_t strobe_flash_charge_ready_irq(int irq_num, void *data)
 		(struct msm_camera_sensor_strobe_flash_data *)data;
 
 	/* put the charge signal to low */
-	gpio_direction_output(sfdata->flash_charge, 0);
+	gpio_set_value_cansleep(sfdata->flash_charge, 0);
 
 	return IRQ_HANDLED;
 }
@@ -265,18 +306,19 @@ static int msm_strobe_flash_xenon_init(
 
 	spin_lock_irqsave(&sfdata->spin_lock, flags);
 	if (!sfdata->state) {
+
+		rc = config_flash_gpio_table(MSM_CAM_FLASH_ON, sfdata);
+		if (rc < 0) {
+			pr_err("%s: gpio_request failed\n", __func__);
+			goto go_out;
+		}
 		rc = request_irq(sfdata->irq, strobe_flash_charge_ready_irq,
 			IRQF_TRIGGER_FALLING, "charge_ready", sfdata);
 		if (rc < 0) {
 			pr_err("%s: request_irq failed %d\n", __func__, rc);
 			goto go_out;
 		}
-		rc = gpio_request(sfdata->flash_charge, "charge");
-		if (rc < 0) {
-			pr_err("%s: gpio_request failed\n", __func__);
-			free_irq(sfdata->irq, sfdata);
-			goto go_out;
-		}
+
 		spin_lock_init(&sfdata->timer_lock);
 		/* setup timer */
 		init_timer(&timer_flash);
@@ -304,7 +346,7 @@ static int msm_strobe_flash_xenon_release
 
 		if (!sfdata->state) {
 			free_irq(sfdata->irq, sfdata);
-			gpio_free(sfdata->flash_charge);
+			config_flash_gpio_table(MSM_CAM_FLASH_OFF, sfdata);
 			if (timer_pending(&timer_flash))
 				del_timer_sync(&timer_flash);
 		}
