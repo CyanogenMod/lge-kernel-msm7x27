@@ -4677,9 +4677,11 @@ static int bluetooth_power(int on)
 			return -EIO;
 
 		if (machine_is_msm8x55_svlte_surf() ||
-				machine_is_msm8x55_svlte_ffa())
-			gpio_set_value(GPIO_PIN(
-				marimba_svlte_config_clock->gpio_cfg), 1);
+				machine_is_msm8x55_svlte_ffa()) {
+					rc = marimba_gpio_config(1);
+					if (rc < 0)
+						return -EIO;
+		}
 
 		rc = (bahama_not_marimba ? bahama_bt(on) : marimba_bt(on));
 		if (rc < 0)
@@ -4693,10 +4695,11 @@ static int bluetooth_power(int on)
 			return -EIO;
 
 		if (machine_is_msm8x55_svlte_surf() ||
-				machine_is_msm8x55_svlte_ffa())
-			gpio_set_value(
-				GPIO_PIN(
-				marimba_svlte_config_clock->gpio_cfg), 0);
+				machine_is_msm8x55_svlte_ffa()) {
+					rc = marimba_gpio_config(0);
+					if (rc < 0)
+						return -EIO;
+		}
 
 		rc = msm_gpios_enable(bt_config_power_on,
 			ARRAY_SIZE(bt_config_power_on));
