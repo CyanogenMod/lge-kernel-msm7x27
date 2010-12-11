@@ -31,9 +31,10 @@
 #define TCSR_BASE 0x16B00000
 #define TCSR_WDT_CFG 0x30
 
-#define WDT0_RST       (MSM_TMR_BASE + 0x38)
-#define WDT0_EN        (MSM_TMR_BASE + 0x40)
-#define WDT0_BARK_TIME (MSM_TMR_BASE + 0x4C)
+#define WDT0_RST       (MSM_TMR0_BASE + 0x38)
+#define WDT0_EN        (MSM_TMR0_BASE + 0x40)
+#define WDT0_BARK_TIME (MSM_TMR0_BASE + 0x4C)
+#define WDT0_BITE_TIME (MSM_TMR0_BASE + 0x5C)
 
 #define PSHOLD_CTL_SU (MSM_TLMM_BASE + 0x820)
 
@@ -115,6 +116,7 @@ void arch_reset(char mode, const char *cmd)
 	writel(1, WDT0_RST);
 	writel(0, WDT0_EN);
 	writel(0x31F3, WDT0_BARK_TIME);
+	writel(0x31F3, WDT0_BITE_TIME);
 	writel(3, WDT0_EN);
 	dmb();
 	if (tcsr_base != NULL)
