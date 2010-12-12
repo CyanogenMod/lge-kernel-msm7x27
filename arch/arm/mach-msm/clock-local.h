@@ -216,8 +216,7 @@ int local_unvote_sys_vdd(enum sys_vdd_level level);
  */
 int local_clk_enable(unsigned id);
 void local_clk_disable(unsigned id);
-int local_clk_output_enable(unsigned id);
-void local_clk_output_disable(unsigned id);
+void local_clk_auto_off(unsigned id);
 int local_clk_set_rate(unsigned id, unsigned rate);
 int local_clk_set_min_rate(unsigned id, unsigned rate);
 int local_clk_set_max_rate(unsigned id, unsigned rate);
