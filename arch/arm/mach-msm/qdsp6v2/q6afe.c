@@ -46,6 +46,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			case AFE_PORT_CMD_STOP:
 			case AFE_PORT_CMD_START:
 			case AFE_PORT_CMD_LOOPBACK:
+			case AFE_PORT_CMD_SIDETONE_CTL:
 				atomic_set(&this_afe.state, 0);
 				wake_up(&this_afe.wait);
 				break;
@@ -288,6 +289,46 @@ static const struct file_operations afe_debug_fops = {
 	.write = afe_debug_write
 };
 #endif
+int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
+{
+	struct afe_port_sidetone_command cmd_sidetone;
+	int ret = 0;
+
+	pr_info("%s: tx_port_id:%d rx_port_id:%d enable:%d gain:%d\n", __func__,
+					tx_port_id, rx_port_id, enable, gain);
+	cmd_sidetone.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cmd_sidetone.hdr.pkt_size = sizeof(cmd_sidetone);
+	cmd_sidetone.hdr.src_port = 0;
+	cmd_sidetone.hdr.dest_port = 0;
+	cmd_sidetone.hdr.token = 0;
+	cmd_sidetone.hdr.opcode = AFE_PORT_CMD_SIDETONE_CTL;
+	cmd_sidetone.tx_port_id = tx_port_id;
+	cmd_sidetone.rx_port_id = rx_port_id;
+	cmd_sidetone.gain = gain;
+	cmd_sidetone.enable = enable;
+
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &cmd_sidetone);
+	if (ret < 0) {
+		pr_err("%s: AFE sidetone failed for tx_port:%d rx_port:%d\n",
+					__func__, tx_port_id, rx_port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+		(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return ret;
+}
 
 int afe_close(int port_id)
 {

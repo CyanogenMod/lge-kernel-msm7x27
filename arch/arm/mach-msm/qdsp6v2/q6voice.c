@@ -158,7 +158,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 		if (ret < 0) {
 			pr_err("Fail in sending MVM_CONTROL_SESSION\n");
 			goto fail;
-		}
+	}
 		ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
 						msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
@@ -821,6 +821,7 @@ static void voice_auddev_cb_function(u32 evt_id,
 			void *private_data)
 {
 	struct voice_data *v = &voice;
+	struct sidetone_cal sidetone_cal_data;
 
 	pr_info("auddev_cb_function, evt_id=%d,\n", evt_id);
 	if ((evt_id != AUDDEV_EVT_START_VOICE) ||
@@ -842,11 +843,18 @@ static void voice_auddev_cb_function(u32 evt_id,
 				voice_create_mvm_cvs_session(v);
 				voice_setup_modem_voice(v);
 				voice_send_start_voice_cmd(v);
+				get_sidetone_cal(&sidetone_cal_data);
+				msm_snddev_enable_sidetone(
+					v->dev_rx.dev_id,
+					sidetone_cal_data.enable,
+					sidetone_cal_data.gain);
 				v->voc_state = VOC_RUN;
 			}
 		}
 		break;
 	case AUDDEV_EVT_DEV_CHG_VOICE:
+		if (v->dev_rx.enabled == VOICE_DEV_ENABLED)
+			msm_snddev_enable_sidetone(v->dev_rx.dev_id, 0, 0);
 		v->dev_rx.enabled = VOICE_DEV_DISABLED;
 		v->dev_tx.enabled = VOICE_DEV_DISABLED;
 		if (v->voc_state == VOC_RUN) {
@@ -880,6 +888,11 @@ static void voice_auddev_cb_function(u32 evt_id,
 				voice_setup_modem_voice(v);
 				voice_send_mute_cmd_to_modem(v);
 				voice_send_vol_index_to_modem(v);
+				get_sidetone_cal(&sidetone_cal_data);
+				msm_snddev_enable_sidetone(
+					v->dev_rx.dev_id,
+					sidetone_cal_data.enable,
+					sidetone_cal_data.gain);
 				v->voc_state = VOC_RUN;
 			}
 		} else if ((v->voc_state == VOC_INIT) ||
@@ -911,6 +924,11 @@ static void voice_auddev_cb_function(u32 evt_id,
 				voice_create_mvm_cvs_session(v);
 				voice_setup_modem_voice(v);
 				voice_send_start_voice_cmd(v);
+				get_sidetone_cal(&sidetone_cal_data);
+				msm_snddev_enable_sidetone(
+					v->dev_rx.dev_id,
+					sidetone_cal_data.enable,
+					sidetone_cal_data.gain);
 				v->voc_state = VOC_RUN;
 			}
 		}
@@ -947,7 +965,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 		/* recover the tx mute and rx volume to the default values */
 		v->dev_tx.mute = v->default_mute_val;
 		v->dev_rx.volume = v->default_vol_val;
-
+		if (v->dev_rx.enabled == VOICE_DEV_ENABLED)
+			msm_snddev_enable_sidetone(v->dev_rx.dev_id, 0, 0);
 		if (v->voc_state == VOC_RUN) {
 			/* call stop modem voice */
 			voice_send_stop_voice_cmd(v);

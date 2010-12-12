@@ -866,7 +866,7 @@ int msm_snddev_request_freq(int *freq, u32 session_id,
 }
 EXPORT_SYMBOL(msm_snddev_request_freq);
 
-int msm_snddev_enable_sidetone(u32 dev_id, u32 enable)
+int msm_snddev_enable_sidetone(u32 dev_id, u32 enable, uint16_t gain)
 {
 	int rc;
 	struct msm_snddev_info *dev_info;
@@ -882,7 +882,7 @@ int msm_snddev_enable_sidetone(u32 dev_id, u32 enable)
 		pr_debug("dev %d no sidetone support\n", dev_id);
 		rc = -EPERM;
 	} else
-		rc = dev_info->dev_ops.enable_sidetone(dev_info, enable);
+		rc = dev_info->dev_ops.enable_sidetone(dev_info, enable, gain);
 
 	return rc;
 }

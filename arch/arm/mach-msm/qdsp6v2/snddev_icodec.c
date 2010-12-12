@@ -831,7 +831,7 @@ error:
 }
 
 static int snddev_icodec_enable_sidetone(struct msm_snddev_info *dev_info,
-	u32 enable)
+	u32 enable, uint16_t gain)
 {
 	int rc = 0;
 	struct snddev_icodec_state *icodec;
@@ -853,7 +853,9 @@ static int snddev_icodec_enable_sidetone(struct msm_snddev_info *dev_info,
 			mutex_unlock(&drv->rx_lock);
 			goto error;
 		}
-		rc = adie_codec_enable_sidetone(icodec->adie_path, enable);
+		rc = afe_sidetone(PRIMARY_I2S_TX, PRIMARY_I2S_RX, enable, gain);
+		if (rc < 0)
+			pr_err("%s: AFE command sidetone failed\n", __func__);
 		mutex_unlock(&drv->rx_lock);
 	} else {
 		rc = -EINVAL;
