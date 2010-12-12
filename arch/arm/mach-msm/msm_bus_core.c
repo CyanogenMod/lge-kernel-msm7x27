@@ -36,6 +36,20 @@
 #define GET_INDEX(n) ((n) & INDEX_MASK)
 #define GET_NODE(n) ((n) >> SHIFT_VAL)
 #define IS_NODE(n) ((n) % FABRIC_ID_KEY)
+#define ACTIVE_ONLY 1
+#define SEL_FAB_CLK 1
+#define SEL_SLAVE_CLK 0
+
+#define SELECT_BW_CLK(active_only, x) \
+	do { \
+		if (active_only) { \
+			x.sel_bw = &x.a_bw; \
+			x.sel_clk = &x.a_clk; \
+		} else { \
+			x.sel_bw = &x.bw; \
+			x.sel_clk = &x.clk; \
+		} \
+	} while (0);
 
 static DEFINE_MUTEX(msm_bus_lock);
 static atomic_t num_fab = ATOMIC_INIT(0);
@@ -107,6 +121,8 @@ static int add_path_node(struct msm_bus_inode_info *info, int next)
 	info->pnode = pnode;
 	info->pnode[info->num_pnodes].clk = 0;
 	info->pnode[info->num_pnodes].bw = 0;
+	info->pnode[info->num_pnodes].a_clk = 0;
+	info->pnode[info->num_pnodes].a_bw = 0;
 	info->pnode[info->num_pnodes].next = next;
 	return info->num_pnodes;
 }
@@ -293,7 +309,7 @@ void msm_bus_fabric_device_unregister(struct msm_bus_fabric_device *fabdev)
  * to RPM for each master and slave is also calculated here.
  */
 static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
-		unsigned curr_clk, unsigned curr_bw)
+		unsigned curr_clk, unsigned curr_bw, unsigned int active_only)
 {
 	int index, ret = 0;
 	struct msm_bus_inode_info *info;
@@ -304,9 +320,9 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 	struct msm_bus_fabric_device *fabdev = msm_bus_get_fabric_device
 		(GET_FABID(curr));
 
-	MSM_BUS_DBG("args: %d %d %d %u %u %u %u\n",
+	MSM_BUS_DBG("args: %d %d %d %u %u %u %u %u\n",
 		curr, GET_NODE(pnode), GET_INDEX(pnode), req_clk, req_bw,
-		curr_clk, curr_bw);
+		curr_clk, curr_bw, active_only);
 	index = GET_INDEX(pnode);
 	MSM_BUS_DBG("Client passed index :%d\n", index);
 	info = fabdev->algo->find_node(fabdev, curr);
@@ -314,9 +330,12 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 		MSM_BUS_ERR("Cannot find node info!\n");
 		return -ENXIO;
 	}
-	info->link_info.bw += add_bw;
-	info->pnode[index].clk = req_clk;
-	info->pnode[index].bw += add_bw;
+
+	SELECT_BW_CLK(active_only, info->link_info);
+	SELECT_BW_CLK(active_only, info->pnode[index]);
+	*info->link_info.sel_bw += add_bw;
+	*info->pnode[index].sel_clk = req_clk;
+	*info->pnode[index].sel_bw += add_bw;
 	info->link_info.tier = info->node_info->tier;
 	master_tier = info->node_info->tier;
 
@@ -347,18 +366,22 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 			MSM_BUS_ERR("Null Info found for hop\n");
 			return -ENXIO;
 		}
-		hop->link_info.bw += add_bw;
-		hop->pnode[index].clk = req_clk;
-		hop->pnode[index].bw += add_bw;
+
+		SELECT_BW_CLK(active_only, hop->link_info);
+		SELECT_BW_CLK(active_only, hop->pnode[index]);
+
+		*hop->link_info.sel_bw += add_bw;
+		*hop->pnode[index].sel_clk = req_clk;
+		*hop->pnode[index].sel_bw += add_bw;
 		MSM_BUS_DBG("fabric: %d slave: %d info: %d\n",
 			fabdev->id, hop->node_info->id, info->node_info->id);
 		/* Update Bandwidth */
 		fabdev->algo->update_bw(fabdev, hop, info, add_bw,
-			master_tier);
-		bwsum = (uint16_t)hop->link_info.bw;
+			master_tier, active_only);
+		bwsum = (uint16_t)*hop->link_info.sel_bw;
 		/* Update Fabric clocks */
 		ret = fabdev->algo->update_clks(fabdev, hop, index,
-			curr_clk, req_clk, bwsum, 1);
+			curr_clk, req_clk, bwsum, SEL_FAB_CLK, active_only);
 		if (ret)
 			MSM_BUS_WARN("Failed to update clk\n");
 		info = hop;
@@ -371,7 +394,7 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 	}
 	/* Update slave clocks */
 	ret = fabdev->algo->update_clks(fabdev, info, index, curr_clk,
-	    req_clk, bwsum, 0);
+	    req_clk, bwsum, SEL_SLAVE_CLK, active_only);
 	if (ret)
 		MSM_BUS_ERR("Failed to update clk\n");
 	return ret;
@@ -387,7 +410,7 @@ static int msm_bus_commit_fn(struct device *dev, void *data)
 	int ret = 0;
 	struct msm_bus_fabric_device *fabdev = to_msm_bus_fabric_device(dev);
 	MSM_BUS_DBG("Committing: fabid: %d\n", fabdev->id);
-	ret = fabdev->algo->commit(fabdev);
+	ret = fabdev->algo->commit(fabdev, (int)data);
 	return ret;
 }
 
@@ -471,6 +494,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	unsigned int req_clk, req_bw, curr_clk, curr_bw;
 	int pnode, src, curr;
 	struct msm_bus_client *client = (struct msm_bus_client *)cl;
+	int context;
 	if (IS_ERR(client)) {
 		MSM_BUS_ERR("msm_bus_scale_client update req error %d\n",
 				(uint32_t)client);
@@ -504,8 +528,17 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 			MSM_BUS_DBG("ab: %d ib: %d\n", curr_bw, curr_clk);
 		}
 
+		if (!pdata->active_only) {
+			ret = update_path(src, pnode, req_clk, req_bw,
+				curr_clk, curr_bw, 0);
+			if (ret) {
+				MSM_BUS_ERR("Update path failed! %d\n", ret);
+				goto err;
+			}
+		}
+
 		ret = update_path(src, pnode, req_clk, req_bw, curr_clk,
-				curr_bw);
+				curr_bw, ACTIVE_ONLY);
 		if (ret) {
 			MSM_BUS_ERR("Update Path failed! %d\n", ret);
 			goto err;
@@ -513,7 +546,10 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	}
 
 	client->curr = index;
-	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_commit_fn);
+	context = ACTIVE_ONLY;
+	bus_for_each_dev(&msm_bus_type, NULL, (void *)context,
+		msm_bus_commit_fn);
+
 err:
 	mutex_unlock(&msm_bus_lock);
 	return ret;
@@ -531,6 +567,7 @@ void msm_bus_scale_unregister_client(uint32_t cl)
 		return;
 	if (client->curr != 0)
 		msm_bus_scale_client_update_request(cl, 0);
+	MSM_BUS_DBG("Unregistering client %d\n", cl);
 	kfree(client->src_pnode);
 	kfree(client);
 }

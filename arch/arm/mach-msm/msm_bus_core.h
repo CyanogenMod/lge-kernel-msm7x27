@@ -67,14 +67,22 @@ extern struct bus_type msm_bus_type;
 
 struct path_node {
 	unsigned long clk;
+	unsigned long a_clk;
 	unsigned long bw;
+	unsigned long a_bw;
+	unsigned long *sel_clk;
+	unsigned long *sel_bw;
 	int next;
 };
 
 struct msm_bus_link_info {
 	unsigned long clk;
+	unsigned long a_clk;
+	unsigned long *sel_clk;
 	unsigned long memclk;
-	int bw;
+	long  bw;
+	long a_bw;
+	long *sel_bw;
 	int tier;
 };
 
@@ -87,6 +95,7 @@ struct msm_bus_inode_info {
 	struct path_node *pnode;
 	int commit_index;
 	struct clk *nodeclk;
+	struct clk *a_nodeclk;
 	struct clk *memclk;
 };
 
@@ -110,10 +119,11 @@ struct msm_bus_fab_algorithm {
 	int (*update_clks)(struct msm_bus_fabric_device *fabdev,
 		struct msm_bus_inode_info *pme, int index,
 		unsigned long curr_clk, unsigned long req_clk,
-		unsigned long bwsum, int flag);
+		unsigned long bwsum, int flag, int context);
 	int (*port_halt)(struct msm_bus_fabric_device *fabdev, int portid);
 	int (*port_unhalt)(struct msm_bus_fabric_device *fabdev, int portid);
-	int (*commit)(struct msm_bus_fabric_device *fabdev);
+	int (*commit)(struct msm_bus_fabric_device *fabdev,
+		int active_only);
 	struct msm_bus_inode_info *(*find_node)(struct msm_bus_fabric_device
 		*fabdev, int id);
 	struct msm_bus_inode_info *(*find_gw_node)(struct msm_bus_fabric_device
@@ -121,7 +131,7 @@ struct msm_bus_fab_algorithm {
 	struct list_head *(*get_gw_list)(struct msm_bus_fabric_device *fabdev);
 	void (*update_bw)(struct msm_bus_fabric_device *fabdev, struct
 		msm_bus_inode_info * hop, struct msm_bus_inode_info *info,
-		int add_bw, int master_tier);
+		int add_bw, int master_tier, int context);
 };
 
 /**

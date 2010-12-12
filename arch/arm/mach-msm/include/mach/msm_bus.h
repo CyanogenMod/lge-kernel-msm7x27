@@ -69,6 +69,7 @@ struct msm_bus_node_info {
 	int tier;
 	int ahb;
 	const char *slaveclk;
+	const char *a_slaveclk;
 	const char *memclk;
 	unsigned int buswidth;
 };
@@ -89,6 +90,13 @@ struct msm_bus_scale_pdata {
 	struct msm_bus_paths *usecase;
 	int num_usecases;
 	const char *name;
+	/*
+	 * If the active_only flag is set to 1, the BW request is applied
+	 * only when at least one CPU is active (powered on). If the flag
+	 * is set to 0, then the BW request is always applied irrespective
+	 * of the CPU state.
+	 */
+	unsigned int active_only;
 };
 
 /* Scaling APIs */
