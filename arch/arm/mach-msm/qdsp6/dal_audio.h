@@ -200,6 +200,9 @@ union adsp_audio_codec_config {
 /* This bit, if set, indicates that the sync clock is enabled */
 #define  ADSP_AUDIO_OPEN_STREAM_MODE_ENABLE_SYNC_CLOCK	0x0004
 
+/* This bit, if set, indicates that the AUX PCM loopback is enabled */
+#define  ADSP_AUDIO_OPEN_STREAM_MODE_AUX_PCM		0x0040
+
 struct adsp_open_command {
 	struct adsp_command_hdr hdr;
 
@@ -564,6 +567,7 @@ struct adsp_buffer_event {
 #define ADSP_AUDIO_DEVICE_ID_HEADSET_MIC	0x1081510
 #define ADSP_AUDIO_DEVICE_ID_SPKR_PHONE_MIC	0x1081512
 #define ADSP_AUDIO_DEVICE_ID_BT_SCO_MIC		0x1081518
+#define ADSP_AUDIO_DEVICE_ID_AUXPCM_TX		0x1081518
 #define ADSP_AUDIO_DEVICE_ID_TTY_HEADSET_MIC	0x108151b
 #define ADSP_AUDIO_DEVICE_ID_I2S_MIC		0x1089bf3
 
@@ -585,6 +589,7 @@ struct adsp_buffer_event {
 #define ADSP_AUDIO_DEVICE_ID_SPKR_PHONE_STEREO_W_MONO_HEADSET   0x108c895
 #define ADSP_AUDIO_DEVICE_ID_SPKR_PHONE_STEREO_W_STEREO_HEADSET	0x108c509
 #define ADSP_AUDIO_DEVICE_ID_BT_SCO_SPKR			0x1081519
+#define ADSP_AUDIO_DEVICE_ID_AUXPCM_RX				0x1081519
 #define ADSP_AUDIO_DEVICE_ID_TTY_HEADSET_SPKR			0x108151c
 #define ADSP_AUDIO_DEVICE_ID_I2S_SPKR				0x1089bf4
 #define ADSP_AUDIO_DEVICE_ID_NULL_SINK				0x108e512
