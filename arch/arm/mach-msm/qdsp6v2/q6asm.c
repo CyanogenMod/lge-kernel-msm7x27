@@ -517,6 +517,10 @@ void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac, uint32_t *size,
 
 		mutex_lock(&port->lock);
 		idx = port->cpu_buf;
+		if (port->buf == NULL) {
+			pr_debug("%s:Buffer pointer null\n", __func__);
+			return NULL;
+		}
 		/*  dir 0: used = 0 means buf in use
 			dir 1: used = 1 means buf in use */
 		if (port->buf[idx].used == dir) {
@@ -1679,7 +1683,7 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 		}
 		if (ac->port[OUT].buf) {
 			for (cnt = 0; cnt < ac->port[OUT].max_buf_cnt; cnt++) {
-				if (ac->port[OUT].buf[cnt].used == OUT) {
+				if (ac->port[OUT].buf[cnt].used == (OUT ^ 1)) {
 					pr_err("Read Buf[%d] not returned\n",
 									cnt);
 				}

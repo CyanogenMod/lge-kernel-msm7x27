@@ -436,6 +436,8 @@ ssize_t audio_in_read(struct file *file,
 
 	pr_debug("%s:session id %d: read - %d\n", __func__, audio->ac->session,
 			count);
+	if (!audio->enabled)
+		return -EFAULT;
 	mutex_lock(&audio->read_lock);
 	while (count > 0) {
 		rc = wait_event_interruptible(
@@ -564,6 +566,8 @@ ssize_t audio_in_write(struct file *file,
 
 	pr_debug("%s:session id %d: to write[%d]\n", __func__,
 			audio->ac->session, count);
+	if (!audio->enabled)
+		return -EFAULT;
 	mutex_lock(&audio->write_lock);
 
 	while (count > 0) {
