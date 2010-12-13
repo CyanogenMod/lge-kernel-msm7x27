@@ -231,13 +231,13 @@ void mdp4_overlay_dmap_xy(struct mdp4_overlay_pipe *pipe)
 	MDP_OUTP(MDP_BASE + 0x90004,
 			(pipe->src_height << 16 | pipe->src_width));
 	if (pipe->blt_addr) {
-		bpp = 2; /* overlay ouput is RGB888 */
+		bpp = 2; /* overlay ouput is RGB565 */
 		off = 0;
 		if (pipe->blt_cnt & 0x01)
-			off = pipe->src_height * pipe->src_width * 2;
+			off = pipe->src_height * pipe->src_width * bpp;
 		MDP_OUTP(MDP_BASE + 0x90008, pipe->blt_addr + off);
 		/* RGB888, output of overlay blending */
-		MDP_OUTP(MDP_BASE + 0x9000c, pipe->src_width * 2);
+		MDP_OUTP(MDP_BASE + 0x9000c, pipe->src_width * bpp);
 	} else {
 		MDP_OUTP(MDP_BASE + 0x90008, pipe->srcp0_addr);
 		MDP_OUTP(MDP_BASE + 0x9000c, pipe->srcp0_ystride);
