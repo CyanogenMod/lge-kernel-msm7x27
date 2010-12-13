@@ -299,7 +299,8 @@ static void audlpa_async_send_data(struct audio *audio, unsigned needed,
 				param.len = next_buf->buf.data_len;
 				param.msw_ts = 0;
 				param.lsw_ts = 0;
-				param.flags = 0;
+				/* No time stamp valid */
+				param.flags = NO_TIMESTAMP;
 				param.uid = next_buf->paddr;
 				rc = q6asm_async_write(ac, &param);
 				if (rc < 0)

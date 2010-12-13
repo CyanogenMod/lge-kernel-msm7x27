@@ -132,8 +132,8 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 			}
 			--cnt;
 		}
-	kfree(port->buf);
-	port->buf = NULL;
+		kfree(port->buf);
+		port->buf = NULL;
 	}
 	mutex_unlock(&ac->cmd_lock);
 	return 0;
@@ -305,14 +305,13 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 		}
 		ac->port[dir].max_buf_cnt = cnt;
 
+		mutex_unlock(&ac->cmd_lock);
 		rc = q6asm_memory_map_regions(ac, dir, bufsz, cnt);
 		if (rc < 0) {
 			pr_err("CMD Memory_map_regions failed\n");
-			mutex_unlock(&ac->cmd_lock);
 			goto fail;
 		}
 	}
-	mutex_unlock(&ac->cmd_lock);
 	return 0;
 fail:
 	q6asm_audio_client_buf_free(dir, ac);
@@ -1094,7 +1093,8 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 
 	mem_map.buf_add = buf_add;
 	mem_map.buf_size = bufsz * bufcnt;
-	mem_map.mempool_id = 0;
+	mem_map.mempool_id = 0; /* EBI */
+	mem_map.reserved = 0;
 
 	q6asm_add_mmaphdr(&mem_map.hdr,
 			sizeof(struct asm_stream_cmd_memory_map), TRUE);
@@ -1519,36 +1519,59 @@ int q6asm_read(struct audio_client *ac)
 fail_cmd:
 	return -EINVAL;
 }
+
+static void q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
+			uint32_t pkt_size, uint32_t cmd_flg)
+{
+	pr_debug("pkt size=%d cmd_flg=%d\n", pkt_size, cmd_flg);
+	pr_debug("**************\n");
+	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
+				APR_HDR_LEN(sizeof(struct apr_hdr)),\
+				APR_PKT_VER);
+	hdr->src_svc = ((struct apr_svc *)ac->apr)->id;
+	hdr->src_domain = APR_DOMAIN_APPS;
+	hdr->dest_svc = APR_SVC_ASM;
+	hdr->dest_domain = APR_DOMAIN_ADSP;
+	hdr->src_port = ((ac->session << 8) & 0xFF00) | 0x01;
+	hdr->dest_port = ((ac->session << 8) & 0xFF00) | 0x01;
+	if (cmd_flg) {
+		hdr->token = ac->session;
+		atomic_set(&ac->cmd_state, 1);
+	}
+	hdr->pkt_size  = pkt_size;
+	return;
+}
+
 int q6asm_async_write(struct audio_client *ac,
 					  struct audio_aio_write_param *param)
 {
 	int rc = 0;
 	struct asm_stream_cmd_write write;
-	struct audio_port_data *port;
 
 	pr_debug("%s: session[%d] len=%d", __func__, ac->session, param->len);
 	if (!ac || ac->apr == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
 		return -EINVAL;
 	}
-	port = &ac->port[IN];
 
-	q6asm_add_hdr(ac, &write.hdr, sizeof(write), FALSE);
-	mutex_lock(&port->lock);
+	q6asm_add_hdr_async(ac, &write.hdr, sizeof(write), FALSE);
 
 	/* Pass physical address as token for AIO scheme */
 	write.hdr.token = param->uid;
 	write.hdr.opcode = ASM_DATA_CMD_WRITE;
 	write.buf_add = param->paddr;
 	write.avail_bytes = param->len;
+	write.uid = param->uid;
 	write.msw_ts = param->msw_ts;
 	write.lsw_ts = param->lsw_ts;
-	write.uflags = (0x8000 | param->flags);
-	write.uid = param->uid;
+	/* Use 0xFF00 for disabling timestamps */
+	if (param->flags == 0xFF00)
+		write.uflags = (0x00000000 | (param->flags & 0x800000FF));
+	else
+		write.uflags = (0x80000000 | param->flags);
 
 	pr_debug("%s: bufadd[0x%x]len[0x%x]", __func__, write.buf_add,
 		write.avail_bytes);
-	mutex_unlock(&port->lock);
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &write);
 	if (rc < 0) {
@@ -1590,10 +1613,14 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 		write.hdr.opcode = ASM_DATA_CMD_WRITE;
 		write.buf_add = ab->phys;
 		write.avail_bytes = len;
+		write.uid = port->dsp_buf;
 		write.msw_ts = msw_ts;
 		write.lsw_ts = lsw_ts;
-		write.uflags = (0x8000 | flags);
-		write.uid = port->dsp_buf;
+		/* Use 0xFF00 for disabling timestamps */
+		if (flags == 0xFF00)
+			write.uflags = (0x00000000 | (flags & 0x800000FF));
+		else
+			write.uflags = (0x80000000 | flags);
 		port->dsp_buf = (port->dsp_buf + 1) & (port->max_buf_cnt - 1);
 
 		pr_debug("ab->phys[0x%x]bufadd[0x%x]token[0x%x]buf_id[0x%x]",

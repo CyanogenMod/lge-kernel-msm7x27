@@ -72,6 +72,8 @@
 
 #define ASYNC_IO_MODE	0x0002
 #define SYNC_IO_MODE	0x0001
+#define NO_TIMESTAMP    0xFF00
+#define SET_TIMESTAMP   0x0000
 
 typedef void (*app_cb)(uint32_t opcode, uint32_t token,
 			uint32_t *payload, void *priv);

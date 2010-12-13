@@ -513,13 +513,30 @@ struct asm_wma_cfg {
 	u16 format_tag;
 	u16 ch_cfg;
 	u32 sample_rate;
-	u32 ave_bytes_per_sec;
+	u32 avg_bytes_per_sec;
 	u16 block_align;
 	u16 valid_bits_per_sample;
 	u32 ch_mask;
 	u16 encode_opt;
 	u16 adv_encode_opt;
-	u16 adv_encode_opt2;
+	u32 adv_encode_opt2;
+	u32 drc_peak_ref;
+	u32 drc_peak_target;
+	u32 drc_ave_ref;
+	u32 drc_ave_target;
+};
+
+struct asm_wmapro_cfg {
+	u16 format_tag;
+	u16 ch_cfg;
+	u32 sample_rate;
+	u32 avg_bytes_per_sec;
+	u16 block_align;
+	u16 valid_bits_per_sample;
+	u32 ch_mask;
+	u16 encode_opt;
+	u16 adv_encode_opt;
+	u32 adv_encode_opt2;
 	u32 drc_peak_ref;
 	u32 drc_peak_target;
 	u32 drc_ave_ref;
@@ -603,8 +620,7 @@ struct asm_sbc_bitrate {
 };
 
 struct asm_immed_decode {
-	u16 mode;
-	u16 padding;
+	u32 mode;
 };
 
 struct asm_encode_cfg_blk {
@@ -796,10 +812,10 @@ struct asm_stream_cmd_write{
 	struct apr_hdr     hdr;
 	u32	buf_add;
 	u32	avail_bytes;
+	u32	uid;
 	u32	msw_ts;
 	u32	lsw_ts;
 	u32	uflags;
-	u32	uid;
 } __attribute__((packed));
 
 #define ASM_DATA_CMD_READ                                0x00010BDA
@@ -822,6 +838,7 @@ struct asm_stream_media_format_update{
 		struct asm_yadpcm_cfg      yadpcm_cfg;
 		struct asm_midi_cfg        midi_cfg;
 		struct asm_wma_cfg         wma_cfg;
+		struct asm_wmapro_cfg      wmapro_cfg;
 		struct asm_aac_cfg         aac_cfg;
 		struct asm_flac_cfg        flac_cfg;
 		struct asm_vorbis_cfg      vorbis_cfg;

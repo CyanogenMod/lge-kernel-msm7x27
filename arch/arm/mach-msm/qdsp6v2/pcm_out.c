@@ -324,7 +324,7 @@ static ssize_t pcm_out_write(struct file *file, const char __user *buf,
 			}
 			buf += xfer;
 			count -= xfer;
-			rc = q6asm_write(pcm->ac, xfer, 0, 0, 0);
+			rc = q6asm_write(pcm->ac, xfer, 0, 0, NO_TIMESTAMP);
 			wmb();
 			if (rc < 0) {
 				rc = -EFAULT;
