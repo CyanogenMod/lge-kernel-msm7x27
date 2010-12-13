@@ -218,7 +218,9 @@ struct pll_rate {
 	const uint32_t	n_val;
 	const uint32_t	vco;
 	const uint32_t	post_div;
+	const uint32_t	i_bits;
 };
+#define PLL_RATE(l, m, n, v, d, i) { l, m, n, v, (d>>1), i }
 
 extern struct clk_ops soc_clk_ops_8x60;
 #define CLK_8X60(clk_name, clk_id, clk_dev, clk_flags) {	\
