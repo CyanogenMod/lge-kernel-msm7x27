@@ -1581,6 +1581,7 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 			       -ret);
 			ret = -EIO;
 			WARN_ON(ret);
+			return ret;
 		}
 	}
 	/* Mark NOT OK_TOSLEEP */
