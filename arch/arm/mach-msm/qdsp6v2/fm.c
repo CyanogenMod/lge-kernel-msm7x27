@@ -38,7 +38,7 @@
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include "q6afe.h"
 
-#define SESSION_ID_FM 10
+#define SESSION_ID_FM  (MAX_SESSIONS + 1)
 #define FM_ENABLE	0x1
 #define FM_DISABLE	0x0
 #define FM_COPP		0x7
