@@ -277,6 +277,7 @@ static struct msm_bus_paths vidc_bus_client_config[] = {
 static struct msm_bus_scale_pdata vidc_bus_client_pdata = {
 	vidc_bus_client_config,
 	ARRAY_SIZE(vidc_bus_client_config),
+	.name = "vidc",
 };
 
 #endif
