@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -61,6 +61,15 @@
 #define KGSL_NUM_2D_DEVICES 2
 #define IDX_2D(X) ((X)-KGSL_DEVICE_2D0)
 
+/* The size of each entry in a page table */
+#define KGSL_PAGETABLE_ENTRY_SIZE  4
+
+/* Extra accounting entries needed in the pagetable */
+#define KGSL_PT_EXTRA_ENTRIES      16
+
+#define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> KGSL_PAGESIZE_SHIFT) + \
+				     KGSL_PT_EXTRA_ENTRIES)
+
 struct kgsl_driver {
 	struct cdev cdev;
 	dev_t dev_num;
@@ -81,6 +90,25 @@ struct kgsl_driver {
 	struct mutex process_mutex;
 
 	struct kgsl_pagetable *global_pt;
+
+	/* Size (in bytes) for each pagetable */
+	unsigned int ptsize;
+
+	/* The virtual address range for each pagetable as set by the
+	   platform */
+
+	unsigned int pt_va_size;
+
+	/* A structure for information about the pool of
+	   pagetable memory */
+
+	struct {
+		unsigned long *bitmap;
+		int entries;
+		spinlock_t lock;
+		void *hostptr;
+		unsigned int physaddr;
+	} ptpool;
 };
 
 extern struct kgsl_driver kgsl_driver;

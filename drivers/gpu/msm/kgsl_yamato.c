@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,14 +89,8 @@ static struct kgsl_yamato_device yamato_device = {
 			   all pages. */
 			.mpu_base = 0x00000000,
 			.mpu_range =  0xFFFFF000,
-			/* These might be better set from the platform
-			   device */
 			.va_base = 0x66000000,
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-			.va_range = SZ_32M,
-#else
-			.va_range = SZ_128M,
-#endif
+			/* va_range is set by the platform file */
 		},
 		.mutex = __MUTEX_INITIALIZER(yamato_device.dev.mutex),
 		.state = KGSL_STATE_INIT,
@@ -604,6 +598,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 	int status = -EINVAL;
 	struct kgsl_memregion *regspace = &device->regspace;
 	struct resource *res = NULL;
+	struct kgsl_platform_data *pdata = NULL;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
@@ -665,6 +660,9 @@ kgsl_yamato_init(struct kgsl_device *device)
 	INIT_LIST_HEAD(&device->memqueue);
 
 	kgsl_yamato_getfunctable(&device->ftbl);
+
+	pdata = kgsl_driver.pdev->dev.platform_data;
+	device->mmu.va_range = pdata->pt_va_size;
 
 	status = kgsl_mmu_init(device);
 	if (status != 0) {

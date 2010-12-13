@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,10 +97,8 @@ static struct kgsl_g12_device device_2d0 = {
 			   all pages. */
 			.mpu_base = 0x00000000,
 			.mpu_range =  0xFFFFF000,
-			/* These might be better set from the platform
-			   device */
 			.va_base = 0x66000000,
-			.va_range = SZ_32M,
+			/* va_range is set by the platform driver */
 		},
 		.mutex = __MUTEX_INITIALIZER(device_2d0.dev.mutex),
 		.state = KGSL_STATE_INIT,
@@ -125,7 +123,7 @@ static struct kgsl_g12_device device_2d1 = {
 			/* These might be better set from the platform
 			   device */
 			.va_base = 0x66000000,
-			.va_range = SZ_32M,
+			/* va_range is set by the platform driver */
 		},
 		.mutex = __MUTEX_INITIALIZER(device_2d1.dev.mutex),
 		.state = KGSL_STATE_INIT,
@@ -381,6 +379,7 @@ kgsl_g12_init(struct kgsl_device *device)
 	struct kgsl_memregion *regspace = &device->regspace;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 	struct resource *res;
+	struct kgsl_platform_data *pdata = NULL;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
@@ -447,6 +446,9 @@ kgsl_g12_init(struct kgsl_device *device)
 	status = kgsl_g12_cmdstream_init(device);
 	if (status != 0)
 		goto error_free_irq;
+
+	pdata = kgsl_driver.pdev->dev.platform_data;
+	device->mmu.va_range = pdata->pt_va_size;
 
 	status = kgsl_mmu_init(device);
 	if (status != 0)
