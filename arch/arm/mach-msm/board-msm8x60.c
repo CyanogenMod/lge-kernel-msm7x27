@@ -618,6 +618,80 @@ static struct msm_cpuidle_state msm_cstates[] __initdata = {
 	{1, 1, "C1", "STANDALONE_POWER_COLLAPSE",
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
 };
+#ifdef CONFIG_USB_PEHCI_HCD
+
+#define ISP1763_INT_GPIO		117
+#define ISP1763_RST_GPIO		152
+static struct resource isp1763_resources[] = {
+	[0] = {
+		.flags	= IORESOURCE_MEM,
+		.start	= 0x1D000000,
+		.end	= 0x1D005FFF,		/* 24KB */
+	},
+	[1] = {
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+static void __init msm8x60_cfg_isp1763(void)
+{
+	isp1763_resources[1].start = gpio_to_irq(ISP1763_INT_GPIO);
+	isp1763_resources[1].end = gpio_to_irq(ISP1763_INT_GPIO);
+}
+
+static int isp1763_setup_gpio(int enable)
+{
+	int status = 0;
+
+	if (enable) {
+		status = gpio_request(ISP1763_INT_GPIO, "isp1763_usb");
+		if (status) {
+			pr_err("%s:Failed to request GPIO %d\n",
+						__func__, ISP1763_INT_GPIO);
+			return status;
+		}
+		status = gpio_direction_input(ISP1763_INT_GPIO);
+		if (status) {
+			pr_err("%s:Failed to configure GPIO %d\n",
+					__func__, ISP1763_INT_GPIO);
+			goto gpio_free_int;
+		}
+		status = gpio_request(ISP1763_RST_GPIO, "isp1763_usb");
+		if (status) {
+			pr_err("%s:Failed to request GPIO %d\n",
+						__func__, ISP1763_RST_GPIO);
+			goto gpio_free_int;
+		}
+		status = gpio_direction_output(ISP1763_RST_GPIO, 1);
+		if (status) {
+			pr_err("%s:Failed to configure GPIO %d\n",
+					__func__, ISP1763_RST_GPIO);
+			goto gpio_free_rst;
+		}
+		pr_debug("\nISP GPIO configuration done\n");
+		return status;
+	}
+
+gpio_free_rst:
+	gpio_free(ISP1763_RST_GPIO);
+gpio_free_int:
+	gpio_free(ISP1763_INT_GPIO);
+
+	return status;
+}
+static struct isp1763_platform_data isp1763_pdata = {
+	.reset_gpio	= ISP1763_RST_GPIO,
+	.setup_gpio	= isp1763_setup_gpio
+};
+
+static struct platform_device isp1763_device = {
+	.name          = "isp1763_usb",
+	.num_resources = ARRAY_SIZE(isp1763_resources),
+	.resource      = isp1763_resources,
+	.dev           = {
+		.platform_data = &isp1763_pdata
+	}
+};
+#endif
 
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_MSM)
 static struct regulator *ldo6_3p3;
@@ -2847,6 +2921,9 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_ssbi2,
 	&msm_device_ssbi3,
 #endif
+#ifdef CONFIG_USB_PEHCI_HCD
+	&isp1763_device,
+#endif
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_HCD)
 	&msm_device_otg,
 #endif
@@ -4803,6 +4880,8 @@ static void register_i2c_devices(void)
 
 static void __init msm8x60_init_uart12dm(void)
 {
+#ifndef CONFIG_USB_PEHCI_HCD
+	/* 0x1D000000 now belongs to EBI2:CS3 i.e. USB ISP Controller */
 	void *fpga_mem = ioremap_nocache(0x1D000000, SZ_4K);
 	/* Advanced mode */
 	writew(0xFFFF, fpga_mem + 0x15C);
@@ -4814,6 +4893,7 @@ static void __init msm8x60_init_uart12dm(void)
 	writew(1, fpga_mem + 0xEC);
 	dmb();
 	iounmap(fpga_mem);
+#endif
 }
 
 static void __init msm8x60_init_buses(void)
@@ -4896,23 +4976,37 @@ static void __init msm8x60_init_ebi2(void)
 	}
 
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
-		machine_is_msm8x60_fluid()) {
-			ebi2_cfg_ptr = ioremap_nocache(0x1a110000, SZ_4K);
-			if (ebi2_cfg_ptr != 0) {
-				/* EBI2_XMEM_CFG:PWRSAVE_MODE off */
-				writel(0UL, ebi2_cfg_ptr);
+	    machine_is_msm8x60_fluid()) {
+		ebi2_cfg_ptr = ioremap_nocache(0x1a110000, SZ_4K);
+		if (ebi2_cfg_ptr != 0) {
+			/* EBI2_XMEM_CFG:PWRSAVE_MODE off */
+			writel(0UL, ebi2_cfg_ptr);
 
-				/* CS2: Delay 9 cycles (140ns@64MHz) between
-				 * SMSC LAN9221 Ethernet controller reads and
-				 * writes. The lowest 4 bits are the read delay,
-				 * the next 4 are the write delay. */
-				writel(0x031F1C99, ebi2_cfg_ptr + 0x10);
+			/* CS2: Delay 9 cycles (140ns@64MHz) between SMSC
+			 * LAN9221 Ethernet controller reads and writes.
+			 * The lowest 4 bits are the read delay, the next
+			 * 4 are the write delay. */
+			writel(0x031F1C99, ebi2_cfg_ptr + 0x10);
+#ifdef CONFIG_USB_PEHCI_HCD
+			/*
+			 * RECOVERY=5, HOLD_WR=1
+			 * INIT_LATENCY_WR=1, INIT_LATENCY_RD=1
+			 * WAIT_WR=1, WAIT_RD=2
+			 */
+			writel(0x51010112, ebi2_cfg_ptr + 0x14);
+			/*
+			 * HOLD_RD=1
+			 * ADV_OE_RECOVERY=0, ADDR_HOLD_ENA=1
+			 */
+			writel(0x01000020, ebi2_cfg_ptr + 0x34);
+#else
+			/* EBI2 CS3 muxed address/data,
+			* two cyc addr enable */
+			writel(0xA3030020, ebi2_cfg_ptr + 0x34);
 
-				/* EBI2 CS3 muxed address/data,
-				 * two cyc addr enable */
-				writel(0xA3030020, ebi2_cfg_ptr + 0x34);
-				iounmap(ebi2_cfg_ptr);
-			}
+#endif
+			iounmap(ebi2_cfg_ptr);
+		}
 	}
 }
 
@@ -6704,6 +6798,10 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		platform_add_devices(rumi_sim_devices,
 				     ARRAY_SIZE(rumi_sim_devices));
 	}
+#ifdef CONFIG_USB_PEHCI_HCD
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa())
+		msm8x60_cfg_isp1763();
+#endif
 	if (!machine_is_msm8x60_sim())
 		msm_fb_add_devices();
 	fixup_i2c_configs();

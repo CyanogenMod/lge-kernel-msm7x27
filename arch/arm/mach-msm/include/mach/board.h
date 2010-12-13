@@ -307,6 +307,12 @@ struct msm_ssbi_platform_data {
 	enum msm_ssbi_controller_type controller_type;
 };
 
+#ifdef CONFIG_USB_PEHCI_HCD
+struct isp1763_platform_data {
+	unsigned reset_gpio;
+	int (*setup_gpio)(int enable);
+};
+#endif
 /* common init routines for use by arch/arm/mach-msm/board-*.c */
 
 void __init msm_add_devices(void);

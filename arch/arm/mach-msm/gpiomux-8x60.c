@@ -59,7 +59,13 @@
 #define EBI2_WE	 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP)
 #define EBI2_CS2 GPIOMUX_CFG(GPIOMUX_FUNC_2, GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP)
 #define EBI2_CS3 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP)
+#define EBI2_CS4 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP)
 #define EBI2_ADV GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP)
+
+#define USB_ISP1763_ACTV_CFG GPIOMUX_CFG(GPIOMUX_FUNC_GPIO, GPIOMUX_DRV_8MA, \
+					 GPIOMUX_PULL_NONE)
+#define USB_ISP1763_SUSP_CFG GPIOMUX_CFG(GPIOMUX_FUNC_GPIO, 0, \
+					 GPIOMUX_PULL_DOWN)
 
 #define SDCC1_DAT_0_3_CMD_ACTV_CFG \
 	GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_10MA, GPIOMUX_PULL_UP)
@@ -252,6 +258,15 @@ static struct msm_gpiomux_config msm8x60_ebi2_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = EBI2_A_D,
 		},
 	},
+#ifdef CONFIG_USB_PEHCI_HCD
+	/* ISP VDD_3V3_EN */
+	{
+		.gpio      = 132,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = EBI2_CS4,
+		},
+	},
+#endif
 	{
 		.gpio      = 133,
 		.settings = {
@@ -374,6 +389,25 @@ static struct msm_gpiomux_config msm8x60_ebi2_configs[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_USB_PEHCI_HCD
+static struct msm_gpiomux_config msm8x60_isp_usb_configs[] __initdata = {
+	{
+		.gpio      = 117,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = USB_ISP1763_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = USB_ISP1763_SUSP_CFG,
+		},
+	},
+	{
+		.gpio      = 152,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = USB_ISP1763_ACTV_CFG,
+			[GPIOMUX_SUSPENDED] = USB_ISP1763_SUSP_CFG,
+		},
+	},
+
+};
+#endif
 static struct msm_gpiomux_config msm8x60_uart_configs[] __initdata = {
 	{ /* UARTDM_TX */
 		.gpio      = 53,
@@ -415,12 +449,15 @@ static struct msm_gpiomux_config msm8x60_uart_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = CONSOLE_UART,
 		},
 	},
+#ifndef CONFIG_USB_PEHCI_HCD
+	/* USB ISP1763 may also use 117 GPIO */
 	{
 		.gpio      = 117,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = CONSOLE_UART,
 		},
 	},
+#endif
 	{
 		.gpio      = 118,
 		.settings = {
@@ -1174,6 +1211,9 @@ msm8x60_surf_ffa_gpiomux_cfgs[] __initdata = {
 	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
 	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
 	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
+#ifdef CONFIG_USB_PEHCI_HCD
+	{msm8x60_isp_usb_configs, ARRAY_SIZE(msm8x60_isp_usb_configs)},
+#endif
 	{msm8x60_ts_configs, ARRAY_SIZE(msm8x60_ts_configs)},
 	{msm8x60_aux_pcm_configs, ARRAY_SIZE(msm8x60_aux_pcm_configs)},
 	{msm8x60_sdc_configs, ARRAY_SIZE(msm8x60_sdc_configs)},
