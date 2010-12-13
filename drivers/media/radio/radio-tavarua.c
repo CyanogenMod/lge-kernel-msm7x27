@@ -1723,10 +1723,13 @@ static int tavarua_fops_release(struct file *file)
 	struct tavarua_device *radio = video_get_drvdata(video_devdata(file));
 	unsigned char value;
 	int i = 0;
+	/*FM Core shutdown sequence for Bahama*/
 	char fm_ctl0_part1[] = { 0xB7 };
 	char fm_ctl1[] = { 0x03 };
 	char fm_ctl0_part2[] = { 0x9F, 0x48, 0x02 };
 	int bahama_present = -ENODEV;
+	/*FM Core shutdown sequence for Marimba*/
+	char buffer[] = {0x18, 0xB7, 0x48};
 
 	if (!radio)
 		return -ENODEV;
@@ -1778,6 +1781,15 @@ static int tavarua_fops_release(struct file *file)
 						retval);
 			break;
 			}
+		}
+	}	else	{
+
+		retval = tavarua_write_registers(radio, FM_CTL0,
+				buffer, sizeof(buffer)/sizeof(buffer[0]));
+		if (retval < 0) {
+			printk(KERN_ERR "%s: failed to bring down the  FM Core\n",
+							__func__);
+			return retval;
 		}
 	}
 	if (bahama_present)   {
