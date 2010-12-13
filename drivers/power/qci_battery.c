@@ -28,37 +28,48 @@
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/wpce775x.h>
+#include <linux/delay.h>
 
 #include "qci_battery.h"
 
-struct qci_bat_info {
-	u8 type_id;
-	u8 power_flag;
-	u8 ec_ver_lsb;
-	u8 ec_ver_msb;
-	u8 mbat_rsoc;
-	u8 mbat_volt_lsb;
-	u8 mbat_volt_msb;
-	u8 mbat_status;
-	u8 mbchg_status;
-	u8 mbat_temp_lsb;
-	u8 mbat_temp_msb;
-};
+#define QCIBAT_DEFAULT_CHARGE_FULL_CAPACITY 2200 /* 2200 mAh */
+#define QCIBAT_DEFAULT_CHARGE_FULL_DESIGN   2200
+#define QCIBAT_DEFAULT_VOLTAGE_DESIGN      10800 /* 10.8 V */
+#define QCIBAT_STRING_SIZE 16
 
 /* General structure to hold the driver data */
 struct i2cbat_drv_data {
 	struct i2c_client *bi2c_client;
 	struct work_struct work;
-	char batt_data[I2C_BAT_BUFFER_LEN+1];
 	unsigned int qcibat_irq;
 	unsigned int qcibat_gpio;
-	struct qci_bat_info bif;
+	u8 battery_state;
+	u8 battery_dev_name[QCIBAT_STRING_SIZE];
+	u8 serial_number[QCIBAT_STRING_SIZE];
+	u8 manufacturer_name[QCIBAT_STRING_SIZE];
+	unsigned int charge_full;
+	unsigned int charge_full_design;
+	unsigned int voltage_full_design;
+	unsigned int energy_full;
 };
 
 static struct i2cbat_drv_data context;
+static struct mutex qci_i2c_lock;
+static struct mutex qci_transaction_lock;
 /*********************************************************************
  *		Power
  *********************************************************************/
+
+static int get_bat_info(u8 ec_data)
+{
+	u8 byte_read;
+
+	mutex_lock(&qci_i2c_lock);
+	i2c_smbus_write_byte(context.bi2c_client, ec_data);
+	byte_read = i2c_smbus_read_byte(context.bi2c_client);
+	mutex_unlock(&qci_i2c_lock);
+	return byte_read;
+}
 
 static int qci_ac_get_prop(struct power_supply *psy,
 			    enum power_supply_property psp,
@@ -67,7 +78,7 @@ static int qci_ac_get_prop(struct power_supply *psy,
 	int ret = 0;
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		if (context.bif.power_flag & EC_FLAG_ADAPTER_IN)
+		if (get_bat_info(ECRAM_POWER_SOURCE) & EC_FLAG_ADAPTER_IN)
 			val->intval =  EC_ADAPTER_PRESENT;
 		else
 			val->intval =  EC_ADAPTER_NOT_PRESENT;
@@ -92,29 +103,61 @@ static enum power_supply_property qci_bat_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_TEMP,
-	POWER_SUPPLY_PROP_TEMP_AMBIENT,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
+	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_ENERGY_NOW,
+	POWER_SUPPLY_PROP_ENERGY_FULL,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY,
 };
+
+static int read_data_from_battery(u8 smb_cmd, u8 smb_prtcl)
+{
+	if (context.battery_state & MAIN_BATTERY_STATUS_BAT_IN)	{
+		mutex_lock(&qci_i2c_lock);
+		i2c_smbus_write_byte_data(context.bi2c_client,
+					  ECRAM_SMB_STS, 0);
+		i2c_smbus_write_byte_data(context.bi2c_client, ECRAM_SMB_ADDR,
+					  BATTERY_SLAVE_ADDRESS);
+		i2c_smbus_write_byte_data(context.bi2c_client,
+					  ECRAM_SMB_CMD, smb_cmd);
+		i2c_smbus_write_byte_data(context.bi2c_client,
+					  ECRAM_SMB_PRTCL, smb_prtcl);
+		mutex_unlock(&qci_i2c_lock);
+		msleep(100);
+		return get_bat_info(ECRAM_SMB_STS);
+	} else
+		return SMBUS_DEVICE_NOACK;
+}
 
 static int qbat_get_status(union power_supply_propval *val)
 {
-	if ((context.bif.mbat_status & MAIN_BATTERY_STATUS_BAT_IN) == 0x0)
+	int status;
+
+	status = get_bat_info(ECRAM_BATTERY_STATUS);
+
+	if ((status & MAIN_BATTERY_STATUS_BAT_IN) == 0x0)
 		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
-	else if (context.bif.mbchg_status & CHG_STATUS_BAT_INCHARGE)
+	else if (status & MAIN_BATTERY_STATUS_BAT_CHARGING)
 		val->intval = POWER_SUPPLY_STATUS_CHARGING;
-	else if (context.bif.mbat_status & MAIN_BATTERY_STATUS_BAT_FULL)
+	else if (status & MAIN_BATTERY_STATUS_BAT_FULL)
 		val->intval = POWER_SUPPLY_STATUS_FULL;
-	else
+	else if (status & MAIN_BATTERY_STATUS_BAT_DISCHRG)
 		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+	else
+		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
 	return 0;
 }
 
 static int qbat_get_present(union power_supply_propval *val)
 {
-	if (context.bif.mbat_status & MAIN_BATTERY_STATUS_BAT_IN)
+	if (context.battery_state & MAIN_BATTERY_STATUS_BAT_IN)
 		val->intval = EC_BAT_PRESENT;
 	else
 		val->intval = EC_BAT_NOT_PRESENT;
@@ -123,8 +166,17 @@ static int qbat_get_present(union power_supply_propval *val)
 
 static int qbat_get_health(union power_supply_propval *val)
 {
-	if ((context.bif.mbat_status & MAIN_BATTERY_STATUS_BAT_IN) == 0x0)
+	u8 health;
+
+	health = get_bat_info(ECRAM_CHARGER_ALARM);
+	if (!(context.battery_state & MAIN_BATTERY_STATUS_BAT_IN))
 		val->intval = POWER_SUPPLY_HEALTH_UNKNOWN;
+	else if (health & ALARM_OVER_TEMP)
+		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+	else if (health & ALARM_REMAIN_CAPACITY)
+		val->intval = POWER_SUPPLY_HEALTH_DEAD;
+	else if (health & ALARM_OVER_CHARGE)
+		val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 	else
 		val->intval = POWER_SUPPLY_HEALTH_GOOD;
 	return 0;
@@ -132,43 +184,275 @@ static int qbat_get_health(union power_supply_propval *val)
 
 static int qbat_get_voltage_avg(union power_supply_propval *val)
 {
-	val->intval = (context.bif.mbat_volt_msb << 8 |
-		       context.bif.mbat_volt_lsb);
+	val->intval = (get_bat_info(ECRAM_BATTERY_VOLTAGE_MSB) << 8 |
+		       get_bat_info(ECRAM_BATTERY_VOLTAGE_LSB)) * 1000;
+	return 0;
+}
+
+static int qbat_get_current_avg(union power_supply_propval *val)
+{
+	val->intval = (get_bat_info(ECRAM_BATTERY_CURRENT_MSB) << 8 |
+		       get_bat_info(ECRAM_BATTERY_CURRENT_LSB));
 	return 0;
 }
 
 static int qbat_get_capacity(union power_supply_propval *val)
 {
-	if ((context.bif.mbat_status & MAIN_BATTERY_STATUS_BAT_IN) == 0x0)
+	if (!(context.battery_state & MAIN_BATTERY_STATUS_BAT_IN))
 		val->intval = 0xFF;
 	else
-		val->intval = context.bif.mbat_rsoc;
+		val->intval = get_bat_info(ECRAM_BATTERY_CAPACITY);
 	return 0;
 }
 
 static int qbat_get_temp_avg(union power_supply_propval *val)
 {
-	if ((context.bif.mbat_status & MAIN_BATTERY_STATUS_BAT_IN) == 0x0)
+	int temp;
+	int rc = 0;
+
+	if (!(context.battery_state & MAIN_BATTERY_STATUS_BAT_IN)) {
 		val->intval = 0xFFFF;
-	else
-		val->intval = ((context.bif.mbat_temp_msb << 8) |
-			       context.bif.mbat_temp_lsb) - 2731;
+		rc = -ENODATA;
+	} else {
+		temp = (get_bat_info(ECRAM_BATTERY_TEMP_MSB) << 8) |
+			get_bat_info(ECRAM_BATTERY_TEMP_LSB);
+		val->intval = (temp - 2730) / 10;
+	}
+	return rc;
+}
+
+static int qbat_get_charge_full_design(union power_supply_propval *val)
+{
+	val->intval = context.charge_full_design;
 	return 0;
 }
 
-static int qbat_get_mfr(union power_supply_propval *val)
+static int qbat_get_charge_full(union power_supply_propval *val)
 {
-	val->strval = "Unknown";
+	val->intval = context.charge_full;
 	return 0;
 }
 
-static int qbat_get_tech(union power_supply_propval *val)
+static int qbat_get_charge_counter(union power_supply_propval *val)
 {
-	if ((context.bif.mbat_status & MAIN_BATTERY_STATUS_BAT_IN) == 0x0)
-		val->intval = POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	else
-		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+	u16 charge = 0;
+	int rc = 0;
+
+	mutex_lock(&qci_transaction_lock);
+	if (read_data_from_battery(BATTERY_CYCLE_COUNT,
+				   SMBUS_READ_WORD_PRTCL) == SMBUS_DONE) {
+		charge = get_bat_info(ECRAM_SMB_DATA1);
+		charge = charge << 8;
+		charge |= get_bat_info(ECRAM_SMB_DATA0);
+	} else
+		rc = -ENODATA;
+	mutex_unlock(&qci_transaction_lock);
+	val->intval = charge;
+	return rc;
+}
+
+static int qbat_get_time_empty_avg(union power_supply_propval *val)
+{
+	u16 avg = 0;
+	int rc = 0;
+
+	mutex_lock(&qci_transaction_lock);
+	if (read_data_from_battery(BATTERY_AVERAGE_TIME_TO_EMPTY,
+				   SMBUS_READ_WORD_PRTCL) == SMBUS_DONE) {
+		avg = get_bat_info(ECRAM_SMB_DATA1);
+		avg = avg << 8;
+		avg |= get_bat_info(ECRAM_SMB_DATA0);
+	} else
+		rc = -ENODATA;
+	mutex_unlock(&qci_transaction_lock);
+	val->intval = avg;
+	return rc;
+}
+
+static int qbat_get_time_full_avg(union power_supply_propval *val)
+{
+	u16 avg = 0;
+	int rc = 0;
+
+	mutex_lock(&qci_transaction_lock);
+	if (read_data_from_battery(BATTERY_AVERAGE_TIME_TO_FULL,
+				   SMBUS_READ_WORD_PRTCL) == SMBUS_DONE) {
+		avg = get_bat_info(ECRAM_SMB_DATA1);
+		avg = avg << 8;
+		avg |= get_bat_info(ECRAM_SMB_DATA0);
+	} else
+		rc = -ENODATA;
+	mutex_unlock(&qci_transaction_lock);
+	val->intval = avg;
+	return rc;
+}
+
+static int qbat_get_model_name(union power_supply_propval *val)
+{
+	unsigned char i, size;
+
+	mutex_lock(&qci_transaction_lock);
+	if (read_data_from_battery(BATTERY_DEVICE_NAME,
+				   SMBUS_READ_BLOCK_PRTCL) == SMBUS_DONE) {
+		size = min(get_bat_info(ECRAM_SMB_BCNT), QCIBAT_STRING_SIZE);
+		for (i = 0; i < size; i++) {
+			context.battery_dev_name[i] =
+				get_bat_info(ECRAM_SMB_DATA_START + i);
+		}
+		val->strval = context.battery_dev_name;
+	} else
+		val->strval = "Unknown";
+	mutex_unlock(&qci_transaction_lock);
 	return 0;
+}
+
+static int qbat_get_manufacturer_name(union power_supply_propval *val)
+{
+	val->strval = context.manufacturer_name;
+	return 0;
+}
+
+static int qbat_get_serial_number(union power_supply_propval *val)
+{
+	val->strval = context.serial_number;
+	return 0;
+}
+
+static int qbat_get_technology(union power_supply_propval *val)
+{
+	val->intval = POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	return 0;
+}
+
+static int qbat_get_energy_now(union power_supply_propval *val)
+{
+	if (!(get_bat_info(ECRAM_BATTERY_STATUS) & MAIN_BATTERY_STATUS_BAT_IN))
+		val->intval = 0;
+	else
+		val->intval = (get_bat_info(ECRAM_BATTERY_CAPACITY) *
+			       context.energy_full) / 100;
+	return 0;
+}
+
+static int qbat_get_energy_full(union power_supply_propval *val)
+{
+	val->intval = context.energy_full;
+	return 0;
+}
+
+static int qbat_get_energy_empty(union power_supply_propval *val)
+{
+	val->intval = 0;
+	return 0;
+}
+
+static void qbat_init_get_charge_full(void)
+{
+	u16 charge = QCIBAT_DEFAULT_CHARGE_FULL_CAPACITY;
+
+	mutex_lock(&qci_transaction_lock);
+	if (read_data_from_battery(BATTERY_FULL_CAPACITY,
+				   SMBUS_READ_WORD_PRTCL) == SMBUS_DONE) {
+		charge = get_bat_info(ECRAM_SMB_DATA1);
+		charge = charge << 8;
+		charge |= get_bat_info(ECRAM_SMB_DATA0);
+	}
+	mutex_unlock(&qci_transaction_lock);
+	context.charge_full = charge;
+}
+
+static void qbat_init_get_charge_full_design(void)
+{
+	u16 charge = QCIBAT_DEFAULT_CHARGE_FULL_DESIGN;
+
+	mutex_lock(&qci_transaction_lock);
+	if (read_data_from_battery(BATTERY_DESIGN_CAPACITY,
+				   SMBUS_READ_WORD_PRTCL) == SMBUS_DONE) {
+		charge = get_bat_info(ECRAM_SMB_DATA1);
+		charge = charge << 8;
+		charge |= get_bat_info(ECRAM_SMB_DATA0);
+	}
+	mutex_unlock(&qci_transaction_lock);
+	context.charge_full_design = charge;
+}
+
+static void qbat_init_get_voltage_full_design(void)
+{
+	u16 voltage = QCIBAT_DEFAULT_VOLTAGE_DESIGN;
+
+	mutex_lock(&qci_transaction_lock);
+	if (read_data_from_battery(BATTERY_DESIGN_VOLTAGE,
+				   SMBUS_READ_WORD_PRTCL) == SMBUS_DONE) {
+		voltage = get_bat_info(ECRAM_SMB_DATA1);
+		voltage = voltage << 8;
+		voltage |= get_bat_info(ECRAM_SMB_DATA0);
+	}
+	mutex_unlock(&qci_transaction_lock);
+	context.voltage_full_design = voltage;
+}
+
+static void qbat_init_get_manufacturer_name(void)
+{
+	u8 size;
+	u8 i;
+	int rc;
+
+	mutex_lock(&qci_transaction_lock);
+	rc = read_data_from_battery(BATTERY_MANUFACTURE_NAME,
+				    SMBUS_READ_BLOCK_PRTCL);
+	if (rc == SMBUS_DONE) {
+		size = min(get_bat_info(ECRAM_SMB_BCNT), QCIBAT_STRING_SIZE);
+		for (i = 0; i < size; i++) {
+			context.manufacturer_name[i] =
+				get_bat_info(ECRAM_SMB_DATA_START + i);
+		}
+	} else
+		strcpy(context.manufacturer_name, "Unknown");
+	mutex_unlock(&qci_transaction_lock);
+}
+
+static void qbat_init_get_serial_number(void)
+{
+	u8 size;
+	u8 i;
+	int rc;
+
+	mutex_lock(&qci_transaction_lock);
+	rc = read_data_from_battery(BATTERY_SERIAL_NUMBER,
+				    SMBUS_READ_BLOCK_PRTCL);
+	if (rc == SMBUS_DONE) {
+		size = min(get_bat_info(ECRAM_SMB_BCNT), QCIBAT_STRING_SIZE);
+		for (i = 0; i < size; i++) {
+			context.serial_number[i] =
+				get_bat_info(ECRAM_SMB_DATA_START + i);
+		}
+	} else
+		strcpy(context.serial_number, "Unknown");
+	mutex_unlock(&qci_transaction_lock);
+}
+
+static void init_battery_stats(void)
+{
+	int i;
+
+	context.battery_state = get_bat_info(ECRAM_BATTERY_STATUS);
+	if (!(context.battery_state & MAIN_BATTERY_STATUS_BAT_IN))
+		return;
+	/* EC bug? needs some initial priming */
+	for (i = 0; i < 5; i++) {
+		read_data_from_battery(BATTERY_DESIGN_CAPACITY,
+				       SMBUS_READ_WORD_PRTCL);
+	}
+
+	qbat_init_get_charge_full_design();
+	qbat_init_get_charge_full();
+	qbat_init_get_voltage_full_design();
+
+	context.energy_full = context.voltage_full_design *
+		context.charge_full;
+
+	qbat_init_get_serial_number();
+	qbat_init_get_manufacturer_name();
 }
 
 /*********************************************************************
@@ -179,6 +463,7 @@ static int qbat_get_property(struct power_supply *psy,
 			     union power_supply_propval *val)
 {
 	int ret = 0;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = qbat_get_status(val);
@@ -190,15 +475,16 @@ static int qbat_get_property(struct power_supply *psy,
 		ret = qbat_get_health(val);
 		break;
 	case POWER_SUPPLY_PROP_MANUFACTURER:
-		ret = qbat_get_mfr(val);
+		ret = qbat_get_manufacturer_name(val);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		ret = qbat_get_tech(val);
+		ret = qbat_get_technology(val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		ret = qbat_get_voltage_avg(val);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
+		ret = qbat_get_current_avg(val);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		ret = qbat_get_capacity(val);
@@ -206,12 +492,35 @@ static int qbat_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		ret = qbat_get_temp_avg(val);
 		break;
-	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
-		ret = qbat_get_temp_avg(val);
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		ret = qbat_get_charge_full_design(val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		ret = qbat_get_charge_full(val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+		ret = qbat_get_charge_counter(val);
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
+		ret = qbat_get_time_empty_avg(val);
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
+		ret = qbat_get_time_full_avg(val);
+		break;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		ret = qbat_get_model_name(val);
 		break;
 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
+		ret = qbat_get_serial_number(val);
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_NOW:
+		ret = qbat_get_energy_now(val);
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_FULL:
+		ret = qbat_get_energy_full(val);
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		ret = qbat_get_energy_empty(val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -249,28 +558,22 @@ static irqreturn_t qbat_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int qci_get_bat_info(struct i2c_client *client, char *ec_data)
-{
-	struct i2c_msg bat_msg;
-	bat_msg.addr = client->addr;
-	bat_msg.flags = I2C_M_RD;
-	bat_msg.len = I2C_BAT_BUFFER_LEN;
-	bat_msg.buf = ec_data;
-	return i2c_transfer(client->adapter, &bat_msg, 1);
-}
-
 static void qbat_work(struct work_struct *_work)
 {
-	struct i2cbat_drv_data *ibat_drv_data =
-		container_of(_work, struct i2cbat_drv_data, work);
-	struct i2c_client *ibatclient = ibat_drv_data->bi2c_client;
+	u8 status;
 
-	qci_get_bat_info(ibatclient, ibat_drv_data->batt_data);
-	memcpy(&context.bif,
-	       ibat_drv_data->batt_data,
-	       sizeof(struct qci_bat_info));
-	power_supply_changed(&qci_ac);
-	power_supply_changed(&qci_bat);
+	status = get_bat_info(ECRAM_BATTERY_EVENTS);
+	if (status & EC_EVENT_AC) {
+		context.battery_state = get_bat_info(ECRAM_BATTERY_STATUS);
+		power_supply_changed(&qci_ac);
+	}
+
+	if (status & (EC_EVENT_BATTERY | EC_EVENT_CHARGER | EC_EVENT_TIMER)) {
+		context.battery_state = get_bat_info(ECRAM_BATTERY_STATUS);
+		power_supply_changed(&qci_bat);
+		if (status & EC_EVENT_BATTERY)
+			init_battery_stats();
+	}
 }
 
 static struct platform_device *bat_pdev;
@@ -278,6 +581,9 @@ static struct platform_device *bat_pdev;
 static int __init qbat_init(void)
 {
 	int err = 0;
+
+	mutex_init(&qci_i2c_lock);
+	mutex_init(&qci_transaction_lock);
 
 	context.bi2c_client = wpce_get_i2c_client();
 	if (context.bi2c_client == NULL)
@@ -316,8 +622,8 @@ static int __init qbat_init(void)
 			"[BAT] unable to get IRQ\n");
 		goto request_irq_fail;
 	}
-	err = qci_get_bat_info(context.bi2c_client, context.batt_data);
 
+	init_battery_stats();
 	goto success;
 
 request_irq_fail:
