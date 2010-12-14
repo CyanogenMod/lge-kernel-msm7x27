@@ -326,8 +326,8 @@ static ssize_t mdp_stat_read(
 					mdp4_stat.kickoff_mddi);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "kickoff_mddi_skip: %08lu\n",
-					mdp4_stat.kickoff_mddi_skip);
+	len = snprintf(bp, dlen, "kickoff_piggyback: %08lu\n",
+					mdp4_stat.kickoff_piggy);
 	bp += len;
 	dlen -= len;
 	len = snprintf(bp, dlen, "kickoff_lcdc:      %08lu\n",
