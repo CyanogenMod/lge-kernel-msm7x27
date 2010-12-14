@@ -52,6 +52,12 @@
  * call occuring concurrently with late_footswitch_init(). */
 static DEFINE_MUTEX(claim_lock);
 
+struct clock_state {
+	int ahb_clk_en;
+	int axi_clk_en;
+	int core_clk_rate;
+};
+
 struct footswitch {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	desc;
@@ -66,8 +72,53 @@ struct footswitch {
 	struct clk		*ahb_clk;
 	struct clk		*axi_clk;
 	unsigned int		reset_rate;
+	struct clock_state	clk_state;
 	unsigned int		gfs_delay_cnt:5;
 };
+
+static int setup_clocks(struct footswitch *fs)
+{
+	int rc = 0;
+
+	/* Enable all clocks in the power domain. If a core requires a
+	 * specific clock rate when being reset, apply it. */
+	fs->clk_state.core_clk_rate = clk_get_rate(fs->core_clk);
+	if (!fs->clk_state.core_clk_rate || fs->reset_rate) {
+		int rate = fs->reset_rate ? fs->reset_rate : DEFAULT_CLK_RATE;
+		rc = clk_set_rate(fs->core_clk, rate);
+		if (rc) {
+			pr_err("%s: Failed to set %s rate to %d Hz.\n",
+				__func__, fs->core_clk_name,
+				fs->reset_rate);
+			return rc;
+		}
+	}
+	clk_enable(fs->core_clk);
+
+	/* Some AHB and AXI clocks are for reset purposes only. These clocks
+	 * will fail to enable. Keep track of them so we don't try to disable
+	 * them later and crash. */
+	fs->clk_state.ahb_clk_en = !clk_enable(fs->ahb_clk);
+	if (fs->axi_clk)
+		fs->clk_state.axi_clk_en = !clk_enable(fs->axi_clk);
+
+	return rc;
+}
+
+static void restore_clocks(struct footswitch *fs)
+{
+	/* Restore clocks to their orignal states before setup_clocks(). */
+	if (fs->axi_clk && fs->clk_state.axi_clk_en)
+		clk_disable(fs->axi_clk);
+	if (fs->clk_state.ahb_clk_en)
+		clk_disable(fs->ahb_clk);
+	clk_disable(fs->core_clk);
+	if (fs->clk_state.core_clk_rate) {
+		if (clk_set_rate(fs->core_clk, fs->clk_state.core_clk_rate))
+			pr_err("%s: Failed to restore %s rate.\n",
+					__func__, fs->core_clk_name);
+	}
+}
 
 static int footswitch_is_enabled(struct regulator_dev *rdev)
 {
@@ -79,36 +130,16 @@ static int footswitch_is_enabled(struct regulator_dev *rdev)
 static int footswitch_enable(struct regulator_dev *rdev)
 {
 	struct footswitch *fs = rdev_get_drvdata(rdev);
-	int ahb_clk_en, axi_clk_en = 0, core_clk_rate = 0;
 	uint32_t regval, rc = 0;
 
 	mutex_lock(&claim_lock);
 	fs->is_claimed = 1;
 	mutex_unlock(&claim_lock);
 
-	if (fs->is_enabled)
-		return 0;
-
-	/* Enable all clocks in the power domain. If a core requires a
-	 * specific clock rate when being reset, apply it. */
-	core_clk_rate = clk_get_rate(fs->core_clk);
-	if (!core_clk_rate || fs->reset_rate) {
-		int rate = fs->reset_rate ? fs->reset_rate : DEFAULT_CLK_RATE;
-		rc = clk_set_rate(fs->core_clk, rate);
-		if (rc) {
-			pr_err("%s: Failed to set %s rate to %d Hz.\n",
-				__func__, fs->core_clk_name,
-				fs->reset_rate);
-			goto out;
-		}
-	}
-	clk_enable(fs->core_clk);
-	/* Some AHB and AXI clocks are for reset purposes only. These clocks
-	 * will fail to enable. Keep track of them so we don't try to disable
-	 * them later and crash. */
-	ahb_clk_en = !clk_enable(fs->ahb_clk);
-	if (fs->axi_clk)
-		axi_clk_en = !clk_enable(fs->axi_clk);
+	/* Make sure required clocks are on at the correct rates. */
+	rc = setup_clocks(fs);
+	if (rc)
+		goto out;
 
 	/* (Re-)Assert resets for all clocks in the clock domain, since
 	 * footswitch_enable() is first called before footswitch_disable()
@@ -162,19 +193,9 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	udelay(5);
 
 	/* Return clocks to their state before this function. */
-	if (fs->axi_clk && axi_clk_en)
-		clk_disable(fs->axi_clk);
-	if (ahb_clk_en)
-		clk_disable(fs->ahb_clk);
-	clk_disable(fs->core_clk);
-	if (core_clk_rate) {
-		if (clk_set_rate(fs->core_clk, core_clk_rate))
-			pr_err("%s: Failed to restore %s rate.\n",
-					__func__, fs->core_clk_name);
-	}
+	restore_clocks(fs);
 
 	fs->is_enabled = 1;
-
 out:
 	return rc;
 }
@@ -182,27 +203,19 @@ out:
 static int footswitch_disable(struct regulator_dev *rdev)
 {
 	struct footswitch *fs = rdev_get_drvdata(rdev);
-	int ahb_clk_en, axi_clk_en = 0;
 	uint32_t regval, rc = 0;
 
-	if (!fs->is_enabled)
-		return 0;
-
-	/* Enable all clocks in the power domain. */
-	clk_enable(fs->core_clk);
-	/* Some AHB and AXI clocks are for reset purposes only. These clocks
-	 * will fail to enable. Keep track of them so we don't try to disable
-	 * them later and crash. */
-	ahb_clk_en = !clk_enable(fs->ahb_clk);
-	if (fs->axi_clk)
-		axi_clk_en = !clk_enable(fs->axi_clk);
+	/* Make sure required clocks are on at the correct rates. */
+	rc = setup_clocks(fs);
+	if (rc)
+		goto out;
 
 	/* Halt all bus ports in the power domain. */
 	if (fs->bus_port1) {
 		rc = msm_bus_axi_porthalt(fs->bus_port1);
 		if (rc) {
 			pr_err("%s: Port 1 halt failed.\n", __func__);
-			goto err_port1_halt;
+			goto out;
 		}
 	}
 	if (fs->bus_port2) {
@@ -233,11 +246,7 @@ static int footswitch_disable(struct regulator_dev *rdev)
 	writel(regval, fs->gfs_ctl_reg);
 
 	/* Return clocks to their state before this function. */
-	if (fs->axi_clk && axi_clk_en)
-		clk_disable(fs->axi_clk);
-	if (ahb_clk_en)
-		clk_disable(fs->ahb_clk);
-	clk_disable(fs->core_clk);
+	restore_clocks(fs);
 
 	fs->is_enabled = 0;
 
@@ -245,7 +254,7 @@ static int footswitch_disable(struct regulator_dev *rdev)
 
 err_port2_halt:
 	msm_bus_axi_portunhalt(fs->bus_port1);
-err_port1_halt:
+out:
 	return rc;
 }
 
