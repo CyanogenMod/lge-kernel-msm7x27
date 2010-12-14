@@ -146,7 +146,11 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	case AUDIO_START: {
 		int cnt = 0;
-
+		if (atomic_read(&pcm->in_enabled)) {
+			pr_info("%s:AUDIO_START already over\n", __func__);
+			rc = 0;
+			break;
+		}
 		rc = config(pcm);
 		if (rc) {
 			pr_err("%s: IN Configuration failed\n", __func__);
@@ -309,6 +313,8 @@ static ssize_t pcm_in_read(struct file *file, char __user *buf,
 	uint32_t idx;
 	int rc = 0;
 
+	if (!atomic_read(&pcm->in_enabled))
+		return -EFAULT;
 	mutex_lock(&pcm->read_lock);
 	while (count > 0) {
 		rc = wait_event_timeout(pcm->wait,

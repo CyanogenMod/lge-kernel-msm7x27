@@ -95,6 +95,12 @@ static long aac_in_ioctl(struct file *file,
 		/* ENCODE CFG (after new set of API's are published )bharath*/
 		pr_debug("%s:session id %d: default buf alloc[%d]\n", __func__,
 				audio->ac->session, audio->buf_alloc);
+		if (audio->enabled == 1) {
+			pr_info("%s:AUDIO_START already over\n", __func__);
+			rc = 0;
+			break;
+		}
+
 		rc = audio_in_buf_alloc(audio);
 		if (rc < 0) {
 			pr_err("%s:session id %d: buffer allocation failed\n",
