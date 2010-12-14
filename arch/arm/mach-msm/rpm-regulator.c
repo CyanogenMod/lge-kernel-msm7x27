@@ -1184,8 +1184,6 @@ static struct regulator_desc vreg_descrip[RPM_VREG_ID_MAX] = {
 static void ldo_init(struct vreg *vreg)
 {
 	vreg->req[0].value =
-		MICRO_TO_MILLI(vreg->pdata->default_uV) <<
-			LDO_VOLTAGE_SHIFT |
 		MICRO_TO_MILLI(saturate_load(vreg->pdata->peak_uA)) <<
 			LDO_PEAK_CURRENT_SHIFT |
 		vreg->pdata->mode << LDO_MODE_SHIFT |
@@ -1200,7 +1198,6 @@ static void ldo_init(struct vreg *vreg)
 static void smps_init(struct vreg *vreg)
 {
 	vreg->req[0].value =
-		MICRO_TO_MILLI(vreg->pdata->default_uV) << SMPS_VOLTAGE_SHIFT |
 		MICRO_TO_MILLI(saturate_load(vreg->pdata->peak_uA)) <<
 			SMPS_PEAK_CURRENT_SHIFT |
 		vreg->pdata->mode << SMPS_MODE_SHIFT |
@@ -1217,9 +1214,7 @@ static void smps_init(struct vreg *vreg)
 
 static void ncp_init(struct vreg *vreg)
 {
-	vreg->req[0].value =
-		MICRO_TO_MILLI(vreg->pdata->default_uV) << NCP_VOLTAGE_SHIFT |
-		vreg->pdata->state << NCP_STATE_SHIFT;
+	vreg->req[0].value = vreg->pdata->state << NCP_STATE_SHIFT;
 }
 
 static void switch_init(struct vreg *vreg)
@@ -1233,8 +1228,7 @@ static void switch_init(struct vreg *vreg)
 
 static int vreg_init(enum rpm_vreg_id id, struct vreg *vreg)
 {
-	/* save_uV must be > 0 for regulator_set_optimum_mode to work. */
-	vreg->save_uV = 1;
+	vreg->save_uV = vreg->pdata->default_uV;
 
 	if (vreg->pdata->peak_uA > vreg->lpm_max_load)
 		vreg->optimum = REGULATOR_MODE_FAST;

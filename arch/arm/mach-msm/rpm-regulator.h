@@ -130,6 +130,22 @@ enum rpm_vreg_id {
 	RPM_VREG_ID_MAX,
 };
 
+/*
+ * default_uV = initial voltage to set the regulator to if enable is called
+ *		before set_voltage (e.g. when boot_on or always_on is set).
+ * peak_uA    = initial load requirement sent in RPM request; used to determine
+ *		initial mode.
+ * avg_uA     = initial avg load requirement sent in RPM request; overwritten
+ *		along with peak_uA when regulator_set_mode or
+ *		regulator_set_optimum_mode is called.
+ * pin_fn     = RPM_VREG_PIN_FN_ENABLE - pin control ON/OFF
+ *	      = RPM_VREG_PIN_FN_MODE   - pin control LPM/HPM
+ * mode	      = used to specify a force mode which overrides the votes of other
+ *		RPM masters.
+ * state      = initial state sent in RPM request.
+ * sleep_selectable = flag which indicates that regulator should be accessable
+ *		by external private API and that spinlocks should be used.
+ */
 struct rpm_vreg_pdata {
 	struct regulator_init_data	init_data;
 	int				default_uV;
