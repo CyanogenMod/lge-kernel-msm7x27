@@ -1754,6 +1754,24 @@ error:
 	return rc;
 }
 
+static int timpani_adie_codec_set_master_mode(struct adie_codec_path *path_ptr,
+			u8 master)
+{
+	u8 val = master ? 1 : 0;
+
+	if (!path_ptr)
+		return -EINVAL;
+
+	if (path_ptr->reg_owner == RA_OWNER_PATH_RX1)
+		adie_codec_write(TIMPANI_A_CDC_RX1_CTL, 0x01, val);
+	else if (path_ptr->reg_owner == RA_OWNER_PATH_TX1)
+		adie_codec_write(TIMPANI_A_CDC_TX_I2S_CTL, 0x01, val);
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
 static const struct adie_codec_operations timpani_adie_ops = {
 	.codec_id = TIMPANI_ID,
 	.codec_open = timpani_adie_codec_open,
@@ -1762,6 +1780,7 @@ static const struct adie_codec_operations timpani_adie_ops = {
 	.codec_proceed_stage = timpani_adie_codec_proceed_stage,
 	.codec_freq_supported = timpani_adie_codec_freq_supported,
 	.codec_enable_sidetone = timpani_adie_codec_enable_sidetone,
+	.codec_set_master_mode = timpani_adie_codec_set_master_mode,
 };
 
 #ifdef CONFIG_DEBUG_FS

@@ -168,4 +168,19 @@ int adie_codec_proceed_stage(struct adie_codec_path *path_ptr, u32 state)
 }
 EXPORT_SYMBOL(adie_codec_proceed_stage);
 
+int adie_codec_set_master_mode(struct adie_codec_path *path_ptr, u8 master)
+{
+	int rc = -EPERM;
+
+	if (cur_adie_ops != NULL) {
+		if (cur_adie_ops->codec_set_master_mode != NULL)
+			rc = cur_adie_ops->codec_set_master_mode(path_ptr,
+					master);
+	} else
+		rc = -ENODEV;
+
+	return rc;
+}
+EXPORT_SYMBOL(adie_codec_set_master_mode);
+
 

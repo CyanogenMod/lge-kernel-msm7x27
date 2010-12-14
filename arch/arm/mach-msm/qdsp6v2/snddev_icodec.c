@@ -48,6 +48,8 @@
 #define SNDDEV_VREG_LOW_POWER_LOAD (36000)
 #define SNDDEV_VREG_HIGH_POWER_LOAD (56000)
 
+int msm_codec_i2s_slave_mode;
+
 #ifdef CONFIG_DEBUG_FS
 static struct adie_codec_action_unit debug_rx_actions[] = {
 	{ ADIE_CODEC_ACTION_STAGE_REACHED, ADIE_CODEC_DIGITAL_OFF},
@@ -429,7 +431,13 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	 * OSR Rate bit clock = bit/sample * channel master
 	 * clock / bit clock = divider value = 8
 	 */
-	trc =  clk_set_rate(drv->rx_bitclk, 8);
+	if (msm_codec_i2s_slave_mode) {
+		pr_info("%s: configuring bit clock for slave mode\n",
+				__func__);
+		trc =  clk_set_rate(drv->rx_bitclk, 0);
+	} else
+		trc =  clk_set_rate(drv->rx_bitclk, 8);
+
 	if (IS_ERR_VALUE(trc)) {
 		pr_err("ERROR setting m clock1\n");
 		goto error_adie;
@@ -462,7 +470,11 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	afe_config.mi2s.channel = afe_channel_mode;
 	afe_config.mi2s.bitwidth = 16;
 	afe_config.mi2s.line = 1;
-	afe_config.mi2s.ws = 1;
+	if (msm_codec_i2s_slave_mode)
+		afe_config.mi2s.ws = 0;
+	else
+		afe_config.mi2s.ws = 1;
+
 	trc = afe_open(icodec->data->copp_id, &afe_config, icodec->sample_rate);
 
 	/* Enable ADIE */
@@ -472,6 +484,11 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 		adie_codec_proceed_stage(icodec->adie_path,
 					ADIE_CODEC_DIGITAL_ANALOG_READY);
 	}
+
+	if (msm_codec_i2s_slave_mode)
+		adie_codec_set_master_mode(icodec->adie_path, 1);
+	else
+		adie_codec_set_master_mode(icodec->adie_path, 0);
 
 	/* Enable power amplifier */
 	if (icodec->data->pamp_on)
@@ -530,7 +547,13 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	 * OSR Rate bit clock = bit/sample * channel master
 	 * clock / bit clock = divider value = 8
 	 */
-	trc =  clk_set_rate(drv->tx_bitclk, 8);
+	if (msm_codec_i2s_slave_mode) {
+		pr_info("%s: configuring bit clock for slave mode\n",
+				__func__);
+		trc =  clk_set_rate(drv->tx_bitclk, 0);
+	} else
+		trc =  clk_set_rate(drv->tx_bitclk, 8);
+
 	clk_enable(drv->tx_bitclk);
 
 	/* Enable ADIE */
@@ -553,7 +576,11 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	afe_config.mi2s.channel = afe_channel_mode;
 	afe_config.mi2s.bitwidth = 16;
 	afe_config.mi2s.line = 1;
-	afe_config.mi2s.ws = 1;
+	if (msm_codec_i2s_slave_mode)
+		afe_config.mi2s.ws = 0;
+	else
+		afe_config.mi2s.ws = 1;
+
 	trc = afe_open(icodec->data->copp_id, &afe_config, icodec->sample_rate);
 
 	if (icodec->adie_path) {
@@ -562,6 +589,11 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 		adie_codec_proceed_stage(icodec->adie_path,
 					ADIE_CODEC_DIGITAL_ANALOG_READY);
 	}
+
+	if (msm_codec_i2s_slave_mode)
+		adie_codec_set_master_mode(icodec->adie_path, 1);
+	else
+		adie_codec_set_master_mode(icodec->adie_path, 0);
 
 	icodec->enabled = 1;
 
@@ -1169,6 +1201,9 @@ static const struct file_operations snddev_icodec_debug_fops = {
 	.write = snddev_icodec_debug_write
 };
 #endif
+
+module_param(msm_codec_i2s_slave_mode, bool, 0);
+MODULE_PARM_DESC(msm_codec_i2s_slave_mode, "Set MSM to I2S slave clock mode");
 
 static int __init snddev_icodec_init(void)
 {
