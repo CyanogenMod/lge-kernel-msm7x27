@@ -270,7 +270,7 @@ static int kgsl_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 		status = request_firmware(&fw, LEIA_PM4_470_FW,
-			kgsl_driver.base_dev[KGSL_DEVICE_YAMATO]);
+					  device->dev);
 		if (status != 0) {
 			KGSL_DRV_ERR(
 				"request_firmware failed for %s  \
@@ -280,7 +280,7 @@ static int kgsl_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 		}
 	} else {
 		status = request_firmware(&fw, YAMATO_PM4_FW,
-			kgsl_driver.base_dev[KGSL_DEVICE_YAMATO]);
+					  device->dev);
 		if (status != 0) {
 			KGSL_DRV_ERR(
 				"request_firmware failed for %s  \
@@ -320,7 +320,7 @@ static int kgsl_ringbuffer_load_pfp_ucode(struct kgsl_device *device)
 
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 		status = request_firmware(&fw, LEIA_PFP_470_FW,
-				kgsl_driver.base_dev[KGSL_DEVICE_YAMATO]);
+					  device->dev);
 		if (status != 0) {
 			KGSL_DRV_ERR(
 				"request_firmware for %s \
@@ -330,7 +330,7 @@ static int kgsl_ringbuffer_load_pfp_ucode(struct kgsl_device *device)
 		}
 	} else {
 		status = request_firmware(&fw, YAMATO_PFP_FW,
-				kgsl_driver.base_dev[KGSL_DEVICE_YAMATO]);
+					  device->dev);
 		if (status != 0) {
 			KGSL_DRV_ERR(
 				"request_firmware for %s \
