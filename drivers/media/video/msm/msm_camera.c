@@ -2070,32 +2070,24 @@ static int msm_pp_grab(struct msm_sync *sync, void __user *arg)
 
 static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 {
-	uint32_t mask;
 	unsigned long flags;
-	if (copy_from_user(&mask, arg, sizeof(uint32_t))) {
-		ERR_COPY_FROM_USER();
-		return -EFAULT;
-	}
 
-	mask &= PP_MASK;
 	if (!sync->pp_mask) {
-		pr_warning("%s: pp not in progress for %x\n", __func__,
-			mask);
+		pr_warning("%s: pp not in progress for\n", __func__);
 		return -EINVAL;
 	}
 	if (sync->pp_mask & PP_PREV) {
 
-		if (mask & PP_PREV) {
-			spin_lock_irqsave(&pp_prev_spinlock, flags);
-			if (!sync->pp_prev) {
-				pr_err("%s: no preview frame to deliver!\n",
-					__func__);
-				spin_unlock_irqrestore(&pp_prev_spinlock,
-					flags);
-				return -EINVAL;
-			}
-			CDBG("%s: delivering pp_prev\n", __func__);
 
+		spin_lock_irqsave(&pp_prev_spinlock, flags);
+		if (!sync->pp_prev) {
+			pr_err("%s: no preview frame to deliver!\n",
+				__func__);
+			spin_unlock_irqrestore(&pp_prev_spinlock,
+				flags);
+			return -EINVAL;
+		}
+		CDBG("%s: delivering pp_prev\n", __func__);
 
 			if (sync->frame_q.len <= 100 &&
 				sync->event_q.len <= 100) {
@@ -2112,15 +2104,11 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 
 			sync->pp_prev = NULL;
 			spin_unlock_irqrestore(&pp_prev_spinlock, flags);
-		} else if (!(mask & PP_PREV)) {
-			sync->pp_mask &= ~PP_PREV;
-			CDBG("%s: pp_prev is done.\n", __func__);
-		}
 		goto done;
 	}
 
-	if (((mask & PP_SNAP) && (sync->pp_mask & PP_SNAP)) ||
-		((mask & PP_RAW_SNAP) && (sync->pp_mask & PP_RAW_SNAP))) {
+	if ((sync->pp_mask & PP_SNAP) ||
+		(sync->pp_mask & PP_RAW_SNAP)) {
 		spin_lock_irqsave(&pp_snap_spinlock, flags);
 		if (!sync->pp_snap) {
 			pr_err("%s: no snapshot to deliver!\n", __func__);
@@ -2131,8 +2119,6 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 		msm_enqueue(&sync->pict_q, &sync->pp_snap->list_pict);
 		sync->pp_snap = NULL;
 		spin_unlock_irqrestore(&pp_snap_spinlock, flags);
-		sync->pp_mask &=
-			(mask & PP_SNAP) ? ~PP_SNAP : ~PP_RAW_SNAP;
 	}
 
 done:
