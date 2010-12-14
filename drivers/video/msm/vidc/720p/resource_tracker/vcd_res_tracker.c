@@ -28,6 +28,7 @@
 #include "vidc_init.h"
 
 #define MSM_AXI_QOS_NAME "msm_vidc_reg"
+#define AXI_CLK_SCALING
 
 #define QVGA_PERF_LEVEL (300 * 30)
 #define VGA_PERF_LEVEL (1200 * 30)

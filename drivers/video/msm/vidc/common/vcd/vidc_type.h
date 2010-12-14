@@ -42,7 +42,7 @@
 #define DEBUG   0
 
 #define USE_RES_TRACKER
-#undef CORE_TIMING_INFO
+#undef  CORE_TIMING_INFO
 
 #ifdef CONFIG_KERNEL_PMEM_SMI_REGION
 #define PMEM_MEMTYPE   PMEM_MEMTYPE_SMI
@@ -50,7 +50,4 @@
 #define PMEM_MEMTYPE   PMEM_MEMTYPE_EBI1
 #endif
 
-#ifdef CONFIG_ARCH_MSM7X30
-#define AXI_CLK_SCALING
-#endif
 #endif
