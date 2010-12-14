@@ -169,6 +169,7 @@ typedef struct _isp1763_id {
 typedef struct isp1763_dev {
 	/*added for pci device */
 	struct pci_dev *pcidev;
+	struct device *dev;		/* corresponding device structure */
 	struct isp1763_driver *driver;	/* which driver has allocated this device */
 	void *driver_data;	/* data private to the host controller driver */
 	void *otg_driver_data;	/*data private for otg controler */

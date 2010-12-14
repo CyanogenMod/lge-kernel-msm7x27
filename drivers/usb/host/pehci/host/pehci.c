@@ -4871,8 +4871,7 @@ static const struct hc_driver pehci_driver = {
 int
 pehci_hcd_probe(struct isp1763_dev *tmp_1763_dev, isp1763_id * ids)
 {
-
-	struct pci_dev *dev = tmp_1763_dev->pcidev;
+	struct device *dev = tmp_1763_dev->dev;
 	struct usb_hcd *usb_hcd;
 	phci_hcd *pehci_hcd;
 
@@ -4886,7 +4885,7 @@ pehci_hcd_probe(struct isp1763_dev *tmp_1763_dev, isp1763_id * ids)
 	if (usb_disabled())
 		return -ENODEV;
 
-	usb_hcd = usb_create_hcd(&pehci_driver, &dev->dev, "ISP1763");
+	usb_hcd = usb_create_hcd(&pehci_driver, dev, "ISP1763");
 
 	if (usb_hcd == NULL) {
 		status = -ENOMEM;
@@ -4898,21 +4897,9 @@ pehci_hcd_probe(struct isp1763_dev *tmp_1763_dev, isp1763_id * ids)
 	pehci_hcd->dev = tmp_1763_dev;
 	pehci_hcd->iobase = (u8 *) tmp_1763_dev->baseaddress;
 	pehci_hcd->iolength = tmp_1763_dev->length;
-	pehci_hcd->plxiobase = (u8 *) tmp_1763_dev->dmabase;
-	pehci_hcd->plxiolength = tmp_1763_dev->length;
-
 
 	/*lets keep our host here */
 	tmp_1763_dev->driver_data = usb_hcd;
-
-
-
-	/*enable the interrupts from PLX to PCI */
-	/*CONFIGURE PCI/PLX interrupt */
-	u32 uReg;
-	uReg = readl(pehci_hcd->plxiobase + 0x68);
-	uReg |= 0x900;
-	writel(uReg, pehci_hcd->plxiobase + 0x68);
 
 #ifdef LINUX_2620
 	usb_hcd->self.controller->dma_mask = 0;
@@ -4930,7 +4917,7 @@ pehci_hcd_probe(struct isp1763_dev *tmp_1763_dev, isp1763_id * ids)
 	usb_hcd->self.controller->dma_mask = 0;
 	if (status == 0){
 		status = usb_add_hcd(usb_hcd, tmp_1763_dev->irq,
-		IRQF_SHARED | IRQF_DISABLED);
+		IRQF_SHARED | IRQF_DISABLED | IRQF_TRIGGER_LOW);
 	}
 #endif
 
@@ -4949,7 +4936,6 @@ pehci_hcd_remove(struct isp1763_dev *tmp_1763_dev)
 {
 
 	struct usb_hcd *usb_hcd;
-	struct pci_dev *dev = tmp_1763_dev->pcidev;
 
 	phci_hcd *hcd = NULL;
 	u32 temp;
@@ -4994,7 +4980,6 @@ void
 pehci_hcd_suspend(struct isp1763_dev *dev)
 {
 	struct usb_hcd *usb_hcd;
-	struct pci_dev *pcidev = dev->pcidev;
 	phci_hcd *hcd = NULL;
 	u32 temp;
 	usb_hcd = (struct usb_hcd *) dev->driver_data;
@@ -5073,7 +5058,6 @@ pehci_hcd_resume(struct isp1763_dev *dev)
 	int i;
 	unsigned int temp;
 	struct usb_hcd *usb_hcd;
-	struct pci_dev *pcidev = dev->pcidev;
 	phci_hcd *hcd = NULL;
 	printk("%s\n", __FUNCTION__);
 
