@@ -118,9 +118,9 @@ int msm_reset_all_device(void)
 				dev_id,
 				SESSION_IGNORE);
 		}
+		dev_info->sessions = 0;
 	}
 	msm_clear_all_session();
-	dev_info->sessions = 0;
 	return 0;
 }
 EXPORT_SYMBOL(msm_reset_all_device);
