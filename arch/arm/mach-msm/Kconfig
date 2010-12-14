@@ -778,9 +778,9 @@ config MSM_SDIO_CMUX
 config MSM_SDIO_CTL
 	bool "SDIO CTL Driver"
 	depends on MSM_SDIO_CMUX
-	default y
+	default n
 	help
-	  Provides a binay SDIO control port interface.
+	  Provides a binary SDIO control port interface.
 
 config MSM_ONCRPCROUTER
 	depends on MSM_SMD
