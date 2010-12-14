@@ -1146,7 +1146,6 @@ static struct android_usb_function rmnet_function = {
 
 static int __init init(void)
 {
-	printk(KERN_INFO "f_rmnet init\n");
 	android_register_function(&rmnet_function);
 	return 0;
 }

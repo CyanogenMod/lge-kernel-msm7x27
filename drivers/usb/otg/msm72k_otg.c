@@ -84,8 +84,8 @@ static unsigned ulpi_read(struct msm_otg *dev, unsigned reg)
 		cpu_relax();
 
 	if (timeout == 0) {
-		printk(KERN_ERR "ulpi_read: timeout %08x\n",
-			readl(USB_ULPI_VIEWPORT));
+		pr_err("%s: timeout %08x\n", __func__,
+				 readl(USB_ULPI_VIEWPORT));
 		spin_unlock_irqrestore(&dev->lock, flags);
 		return 0xffffffff;
 	}
@@ -113,7 +113,7 @@ static int ulpi_write(struct msm_otg *dev, unsigned val, unsigned reg)
 		;
 
 	if (timeout == 0) {
-		printk(KERN_ERR "ulpi_write: timeout\n");
+		pr_err("%s: timeout\n", __func__);
 		spin_unlock_irqrestore(&dev->lock, flags);
 		return -1;
 	}
@@ -2330,7 +2330,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	if (dev->pdata->rpc_connect) {
 		ret = dev->pdata->rpc_connect(1);
-		pr_info("%s: rpc_connect(%d)\n", __func__, ret);
+		pr_debug("%s: rpc_connect(%d)\n", __func__, ret);
 		if (ret) {
 			pr_err("%s: rpc connect failed\n", __func__);
 			ret = -ENODEV;
@@ -2529,7 +2529,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	ret = request_irq(dev->irq, msm_otg_irq, IRQF_SHARED,
 					"msm_otg", dev);
 	if (ret) {
-		pr_info("%s: request irq failed\n", __func__);
+		pr_err("%s: request irq failed\n", __func__);
 		goto free_ldo_enable;
 	}
 
@@ -2566,7 +2566,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	ret = pm_runtime_set_active(&pdev->dev);
 	if (ret < 0)
-		printk(KERN_ERR "pm_runtime: fail to set active\n");
+		pr_err("%s: pm_runtime: Fail to set active\n", __func__);
 
 	ret = 0;
 	pm_runtime_enable(&pdev->dev);
@@ -2575,7 +2575,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	ret = otg_debugfs_init(dev);
 	if (ret) {
-		pr_info("%s: otg_debugfs_init failed\n", __func__);
+		pr_err("%s: otg_debugfs_init failed\n", __func__);
 		goto chg_deinit;
 	}
 
