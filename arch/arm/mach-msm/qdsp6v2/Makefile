@@ -9,3 +9,4 @@ obj-y += audio_lpa.o
 obj-y += q6voice.o
 obj-y += snddev_hdmi.o
 obj-y += aac_in.o qcelp_in.o evrc_in.o amrnb_in.o audio_utils.o
+obj-y += audio_mvs.o
