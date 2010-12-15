@@ -392,6 +392,84 @@ static struct platform_device msm_spk_idual_mic_endfire_device = {
 	.dev = { .platform_data = &snddev_spk_idual_mic_endfire_data },
 };
 
+static struct adie_codec_action_unit itty_mono_tx_actions[] =
+	TTY_HEADSET_MONO_TX_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry itty_mono_tx_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = itty_mono_tx_actions,
+		.action_sz = ARRAY_SIZE(itty_mono_tx_actions),
+	},
+};
+
+static struct adie_codec_dev_profile itty_mono_tx_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = itty_mono_tx_settings,
+	.setting_sz = ARRAY_SIZE(itty_mono_tx_settings),
+};
+
+static struct snddev_icodec_data snddev_itty_mono_tx_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE | SNDDEV_CAP_TTY),
+	.name = "tty_headset_mono_tx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_TTY_HEADSET_MIC,
+	.profile = &itty_mono_tx_profile,
+	.channel_mode = 1,
+	.default_sample_rate = 48000,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.pamp_on = NULL,
+	.pamp_off = NULL,
+};
+
+static struct platform_device msm_itty_mono_tx_device = {
+	.name = "snddev_icodec",
+	.id = 16,
+	.dev = { .platform_data = &snddev_itty_mono_tx_data },
+};
+
+static struct adie_codec_action_unit itty_mono_rx_actions[] =
+	TTY_HEADSET_MONO_RX_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry itty_mono_rx_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = itty_mono_rx_actions,
+		.action_sz = ARRAY_SIZE(itty_mono_rx_actions),
+	},
+};
+
+static struct adie_codec_dev_profile itty_mono_rx_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = itty_mono_rx_settings,
+	.setting_sz = ARRAY_SIZE(itty_mono_rx_settings),
+};
+
+static struct snddev_icodec_data snddev_itty_mono_rx_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE | SNDDEV_CAP_TTY),
+	.name = "tty_headset_mono_rx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_TTY_HEADSET_SPKR,
+	.profile = &itty_mono_rx_profile,
+	.channel_mode = 1,
+	.default_sample_rate = 48000,
+	.pamp_on = NULL,
+	.pamp_off = NULL,
+	.max_voice_rx_vol[VOC_NB_INDEX] = 0,
+	.min_voice_rx_vol[VOC_NB_INDEX] = 0,
+	.max_voice_rx_vol[VOC_WB_INDEX] = 0,
+	.min_voice_rx_vol[VOC_WB_INDEX] = 0,
+};
+
+static struct platform_device msm_itty_mono_rx_device = {
+	.name = "snddev_icodec",
+	.id = 17,
+	.dev = { .platform_data = &snddev_itty_mono_rx_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -404,6 +482,8 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_headset_stereo_device,
 	&msm_idual_mic_endfire_device,
 	&msm_spk_idual_mic_endfire_device,
+	&msm_itty_mono_tx_device,
+	&msm_itty_mono_rx_device,
 };
 
 void __ref msm_snddev_init_timpani(void)
