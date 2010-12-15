@@ -249,7 +249,8 @@ static int dtv_probe(struct platform_device *pdev)
 	fbi->var.vsync_len = mfd->panel_info.lcdc.v_pulse_width;
 
 #ifdef CONFIG_MSM_BUS_SCALING
-	if (dtv_pdata && dtv_pdata->bus_scale_table) {
+	if (!dtv_bus_scale_handle && dtv_pdata &&
+		dtv_pdata->bus_scale_table) {
 		dtv_bus_scale_handle =
 			msm_bus_scale_register_client(
 					dtv_pdata->bus_scale_table);
