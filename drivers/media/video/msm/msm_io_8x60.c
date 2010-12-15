@@ -235,6 +235,7 @@ static struct msm_bus_paths cam_bus_client_config[] = {
 static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 		cam_bus_client_config,
 		ARRAY_SIZE(cam_bus_client_config),
+		.name = "msm_camera",
 };
 
 
