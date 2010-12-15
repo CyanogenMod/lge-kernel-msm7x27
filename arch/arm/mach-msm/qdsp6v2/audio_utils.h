@@ -65,7 +65,6 @@ struct q6audio_in{
 	struct mutex			write_lock;
 	wait_queue_head_t		read_wait;
 	wait_queue_head_t		write_wait;
-	wait_queue_head_t		cmd_wait;
 
 	struct audio_client             *ac;
 	struct msm_audio_stream_config  str_cfg;
@@ -79,7 +78,6 @@ struct q6audio_in{
 
 	/* first idx: num of frames per buf, second idx: offset to frame */
 	uint32_t			out_frame_info[FRAME_NUM][2];
-	int				eos_ack;
 	int				eos_rsp;
 	int				opened;
 	int				enabled;

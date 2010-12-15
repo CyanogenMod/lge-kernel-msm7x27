@@ -30,22 +30,6 @@
 #include <mach/qdsp6v2/q6asm.h>
 #include "audio_utils.h"
 
-static int audio_in_wait_for_eos_ack(struct q6audio_in *audio)
-{
-	int rc;
-	rc = wait_event_interruptible_timeout(audio->cmd_wait,
-				/*wait for eos ack for pause */
-				(audio->eos_ack == 1 || audio->stopped), 1*HZ);
-	if (rc == 0) {
-		pr_err("%s:session id %d: Wait for eos ack timedout,rc=%d\n",
-				__func__, audio->ac->session, rc);
-		rc = -ETIMEDOUT;
-	}
-	audio->eos_ack = 0;
-
-	return rc;
-}
-
 static int audio_in_pause(struct q6audio_in  *audio)
 {
 	int rc;
@@ -55,11 +39,6 @@ static int audio_in_pause(struct q6audio_in  *audio)
 		pr_err("%s:session id %d: pause cmd failed rc=%d\n", __func__,
 				audio->ac->session, rc);
 
-	if (audio_in_wait_for_eos_ack(audio) < 0) {
-		pr_err("%s:session id %d: Wait for eos ack failed rc=%d\n",
-				__func__, audio->ac->session, rc);
-		return rc;
-	}
 	return rc;
 }
 
@@ -164,7 +143,6 @@ int audio_in_disable(struct q6audio_in  *audio)
 		audio->stopped = 1;
 		memset(audio->out_frame_info, 0,
 				sizeof(audio->out_frame_info));
-		wake_up(&audio->cmd_wait);
 		wake_up(&audio->read_wait);
 		wake_up(&audio->write_wait);
 	}
@@ -262,7 +240,6 @@ long audio_in_ioctl(struct file *file,
 		* While audio->stopped read threads will always
 		* exit immediately.
 		*/
-		wake_up(&audio->cmd_wait);
 		rc = audio_in_flush(audio);
 		if (rc < 0)
 			pr_err("%s:session id %d: Flush Fail rc=%d\n",
