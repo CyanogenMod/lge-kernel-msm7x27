@@ -1788,6 +1788,15 @@ static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 			__func__, rc);
 		goto fm_clock_vote_fail;
 	}
+	/*Request the Clock Using GPIO34/AP2MDM_MRMBCK_EN in case
+	of svlte*/
+	if (machine_is_msm8x55_svlte_surf() ||
+			machine_is_msm8x55_svlte_ffa())	{
+		rc = marimba_gpio_config(1);
+		if (rc < 0)
+			printk(KERN_ERR "%s: clock enable for svlte : %d\n",
+						__func__, rc);
+	}
 	irqcfg = GPIO_CFG(147, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
 					GPIO_CFG_2MA);
 	rc = gpio_tlmm_config(irqcfg, GPIO_CFG_ENABLE);
@@ -1841,6 +1850,18 @@ static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
 	if (rc < 0)
 		printk(KERN_ERR "%s: clock_vote return val: %d\n",
 						__func__, rc);
+
+	/*Disable the Clock Using GPIO34/AP2MDM_MRMBCK_EN in case
+	of svlte*/
+	if (machine_is_msm8x55_svlte_surf() ||
+			machine_is_msm8x55_svlte_ffa())	{
+		rc = marimba_gpio_config(0);
+		if (rc < 0)
+			printk(KERN_ERR "%s: clock disable for svlte : %d\n",
+						__func__, rc);
+	}
+
+
 	if (!bahama_not_marimba)	{
 		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
 
