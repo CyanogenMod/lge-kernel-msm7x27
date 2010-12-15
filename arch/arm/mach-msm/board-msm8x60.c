@@ -6320,6 +6320,7 @@ static struct msm_bus_paths mdp_bus_scale_usecases[] = {
 static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 	mdp_bus_scale_usecases,
 	ARRAY_SIZE(mdp_bus_scale_usecases),
+	.name = "mdp",
 };
 
 #endif
@@ -6373,6 +6374,7 @@ static struct msm_bus_paths dtv_bus_scale_usecases[] = {
 static struct msm_bus_scale_pdata dtv_bus_scale_pdata = {
 	dtv_bus_scale_usecases,
 	ARRAY_SIZE(dtv_bus_scale_usecases),
+	.name = "dtv",
 };
 
 static struct lcdc_platform_data dtv_pdata = {
@@ -6497,6 +6499,7 @@ static struct msm_bus_paths atv_bus_scale_usecases[] = {
 static struct msm_bus_scale_pdata atv_bus_scale_pdata = {
 	atv_bus_scale_usecases,
 	ARRAY_SIZE(atv_bus_scale_usecases),
+	.name = "atv",
 };
 #endif
 
