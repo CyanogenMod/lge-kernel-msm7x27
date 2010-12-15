@@ -98,6 +98,7 @@ static struct regulator *fs_ijpeg;
 static struct regulator *fs_vpe;
 static struct regulator *ldo15;
 static struct regulator *lvs0;
+static struct regulator *ldo25;
 
 static struct msm_camera_io_ext camio_ext;
 static struct msm_camera_io_clk camio_clk;
@@ -343,6 +344,21 @@ static void msm_camera_vreg_enable(void)
 		goto lvs0_put;
 	}
 
+	ldo25 = regulator_get(NULL, "8058_l25");
+	if (IS_ERR(ldo25)) {
+		pr_err("%s: VREG LDO25 get failed\n", __func__);
+		ldo25 = NULL;
+		goto lvs0_disable;
+	}
+	if (regulator_set_voltage(ldo25, 1200000, 1200000)) {
+		pr_err("%s: VREG LDO25 set voltage failed\n",  __func__);
+		goto ldo25_disable;
+	}
+	if (regulator_enable(ldo25)) {
+		pr_err("%s: VREG LDO25 enable failed\n", __func__);
+		goto ldo25_put;
+	}
+
 	fs_vfe = regulator_get(NULL, "fs_vfe");
 	if (IS_ERR(fs_vfe)) {
 		CDBG("%s: Regulator FS_VFE get failed %ld\n", __func__,
@@ -354,6 +370,12 @@ static void msm_camera_vreg_enable(void)
 	}
 	return;
 
+ldo25_disable:
+	regulator_disable(ldo25);
+ldo25_put:
+	regulator_put(ldo25);
+lvs0_disable:
+	regulator_disable(lvs0);
 lvs0_put:
 	regulator_put(lvs0);
 ldo15_disable:
@@ -372,6 +394,11 @@ static void msm_camera_vreg_disable(void)
 	if (lvs0) {
 		regulator_disable(lvs0);
 		regulator_put(lvs0);
+	}
+
+	if (ldo25) {
+		regulator_disable(ldo25);
+		regulator_put(ldo25);
 	}
 
 	if (fs_vfe) {
