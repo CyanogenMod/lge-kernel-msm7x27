@@ -58,20 +58,11 @@
 #include "../hal/isp1763.h"
 
 
-#ifdef ENABLE_PLX_DMA
-u32 plx9054_reg_read(u32 reg);
-void plx9054_reg_write(u32 reg, u32 data);
-
-u8 *g_pDMA_Write_Buf = 0;
-u8 *g_pDMA_Read_Buf = 0;
-
-#endif
 
 
 /*--------------------------------------------------------------*
  *               Local variable Definitions
  *--------------------------------------------------------------*/
-char IsrName[] = "isp1763 HAL";
 struct isp1763_dev isp1763_loc_dev[ISP1763_LAST_DEV];
 static struct isp1763_hal hal_data;
 static u32 pci_io_base = 0;
@@ -80,9 +71,6 @@ int iolength = 0;
 static u32 pci_mem_phy0 = 0;
 static u32 pci_mem_len = 0x20000;	
 static int isp1763_pci_latency;
-struct tasklet_struct irq_tasklet;
-spinlock_t hal_lock;
-spinlock_t rw_lock;
 
 
 
@@ -100,157 +88,6 @@ static void __devexit isp1763_pci_remove(struct pci_dev *dev);
 static int __devinit isp1763_pci_probe(struct pci_dev *dev,
 	const struct pci_device_id *id);
 
-static irqreturn_t isp1763_pci_isr(int irq, void *dev_id, 
-	struct pt_regs *regs);
-
-
-/*--------------------------------------------------------------*
- *               ISP1763 Interrupt Service Routines
- *--------------------------------------------------------------*/
-/*tasklet handler*/
-static void
-hal_handle_int(unsigned long pass)
-
-{
-	unsigned long ulFlags;
-	struct isp1763_dev *dev;
-
-	spin_lock_irqsave(&hal_lock, ulFlags);
-
-	dev = &isp1763_loc_dev[ISP1763_HC];
-	if (dev->active) {
-		if (dev->int_reg & ~HC_OTG_INTERRUPT) {
-			if (dev->handler) {
-#ifdef LINUX_2620
-				dev->handler(dev, dev->isr_data, NULL);
-#else
-				dev->handler(dev, dev->isr_data);
-#endif
-			}
-
-		}
-	}
-
-	dev = &isp1763_loc_dev[ISP1763_DC];
-	if (dev->active) {
-		if (dev->int_reg) {
-
-			if (dev->handler) {
-#ifdef LINUX_2620
-				dev->handler(dev, dev->isr_data, NULL);
-#else
-				dev->handler(dev, dev->isr_data);
-#endif
-			}
-		}
-
-	}
-
-	dev = &isp1763_loc_dev[ISP1763_OTG];
-	if (dev->active) {
-		printk("%s Error: OTG is active \n", __FUNCTION__);
-
-	}
-
-	spin_unlock_irqrestore(&hal_lock, ulFlags);
-
-}
-
-
-
-/* Interrupt Service Routine of isp1763
- * Reads the source of interrupt and calls the corresponding driver's ISR.
- * Before calling the driver's ISR clears the source of interrupt.
- * The drivers can get the source of interrupt from the dev->int_reg field
- */
-irqreturn_t
-isp1763_pci_isr(int irq, void *__data, struct pt_regs *r)
-{
-	u32 irq_mask = 0;
-	struct isp1763_dev *dev;
-
-	u32 int_enable;
-	u32 int_status = IRQ_NONE;
-
-	/* Process the Host Controller Driver */
-	dev = &isp1763_loc_dev[ISP1763_HC];
-
-	if (dev->active) {
-		/* Get the source of interrupts for Host Controller */
-		dev->int_reg =
-			isp1763_reg_read16(dev,HC_INTERRUPT_REG, dev->int_reg);
-
-		if (dev->int_reg != 0) {
-
-			if (dev->int_reg & HC_ATL_INTERRUPT) {
-				dev->atl_donemap_reg |=
-					isp1763_reg_read16(dev,
-						HC_ATL_PTD_DONEMAP_REG,
-						dev->atl_donemap_reg);
-			}
-			if (dev->int_reg & HC_INTL_INTERRUPT) {
-				dev->intl_donemap_reg |=
-					isp1763_reg_read16(dev,
-						HC_INT_PTD_DONEMAP_REG,
-						dev->intl_donemap_reg);
-			}
-			if (dev->int_reg & HC_ISO_INTERRUPT) {
-				dev->iso_donemap_reg |=
-					isp1763_reg_read16(dev,
-						HC_ISO_PTD_DONEMAP_REG,
-						dev->iso_donemap_reg);
-			}
-
-			isp1763_reg_write16(dev, HC_INTERRUPT_REG,
-				dev->int_reg);
-
-			irq_mask =
-				isp1763_reg_read16(dev, HC_INTENABLE_REG,
-					irq_mask);
-			dev->int_reg &= irq_mask;	/*shared irq */
-			int_status = IRQ_HANDLED;
-		}
-	}
-
-	/*Process the Device Controller */
-	dev = &isp1763_loc_dev[ISP1763_DC];
-
-	if (dev->active) {
-		/*unblock the device interrupt */
-		isp1763_reg_write16(dev, DEV_UNLOCK_REGISTER, 0xaa37);
-		dev->int_reg =
-			isp1763_reg_read32(dev, DEV_INTERRUPT_REGISTER,
-				dev->int_reg);
-		if (dev->int_reg != 0) {
-			int_enable =
-				isp1763_reg_read32(dev, INT_ENABLE_REGISTER,
-					int_enable);
-			hal_int("isp1763_pci_dc_isr:INTERRUPT_REGISTER 0x%x\n",
-				dev->int_reg);
-
-			/*clear the interrupt source */
-			isp1763_reg_write32(dev, DEV_INTERRUPT_REGISTER,
-				dev->int_reg);
-			int_status = IRQ_HANDLED;
-		}
-
-	}
-
-	/*Process the OTG Controller */
-	dev = &isp1763_loc_dev[ISP1763_OTG];
-
-	if (dev->active) {
-		printk("%s Error: OTG is active \n", __FUNCTION__);
-	}
-
-/* schedule the tasklet*/
-	if (int_status != IRQ_NONE) {
-		tasklet_schedule(&irq_tasklet);
-	}
-
-
-	return int_status;
-}				/* End of isp1763_pci_isr */
 
 /*--------------------------------------------------------------*
  *               PCI Driver Interface Functions
@@ -400,174 +237,6 @@ isp1763_reg_write8(struct isp1763_dev *dev, u16 reg, u8 data)
 }
 EXPORT_SYMBOL(isp1763_reg_write8);
 
-/* Access PLX9054 Register */
-void
-plx9054_reg_write(u32 reg, u32 data)
-{
-	writel(data, iobase + (reg));
-}
-EXPORT_SYMBOL(plx9054_reg_write);
-
-
-void
-plx9054_reg_writeb(u32 reg, u32 data)
-{
-	writeb(data, iobase + (reg));
-}
-EXPORT_SYMBOL(plx9054_reg_writeb);
-
-u32
-plx9054_reg_read(u32 reg)
-{
-	u32 uData;
-	u32 uDataLow, uDataHigh;
-
-	uData = readl(iobase + (reg));
-
-	return uData;
-}
-EXPORT_SYMBOL(plx9054_reg_read);
-
-
-u8
-plx9054_reg_readb(u32 reg)
-{
-	u8 bData;
-
-	bData = readb(iobase + (reg));
-
-	return bData;
-}
-EXPORT_SYMBOL(plx9054_reg_readb);
-
-#ifdef ENABLE_PLX_DMA
-
-int 
-isp1763_mem_read_dma(struct isp1763_dev *dev, u32 start_add,
-	u32 end_add, u32 * buffer, u32 length, u16 dir)
-{
-	u8 *pDMABuffer = 0;
-	u32 uPhyAddress = 0;
-
-
-	/* Set start memory location for write*/
-	isp1763_reg_write16(dev, HC_MEM_READ_REG, start_add);
-	udelay(1);
-
-	/* Malloc DMA safe buffer and convert to PHY Address*/
-	pDMABuffer = g_pDMA_Read_Buf;
-
-	if (pDMABuffer == NULL) {
-		printk("Cannnot allocate DMA safe memory for DMA read\n");
-		return -1;
-	}
-	uPhyAddress = virt_to_phys(pDMABuffer);
-
-	/* Program DMA transfer*/
-
-	/*DMA CHANNEL 1 PCI ADDRESS */
-	plx9054_reg_write(0x98, uPhyAddress);
-
-	/*DMA CHANNEL 1 LOCAL ADDRESS */
-	plx9054_reg_write(0x9C, 0x40);
-
-	/*DMA CHANNEL 1 TRANSFER SIZE */
-	plx9054_reg_write(0xA0, length);
-
-	/*DMA CHANNEL 1 DESCRIPTOR POINTER */
-	plx9054_reg_write(0xA4, 0x08);
-
-	/*DMA THRESHOLD */
-	plx9054_reg_write(0xB0, 0x77220000);
-
-	/*DMA CHANNEL 1 COMMAND STATUS */
-	plx9054_reg_writeb(0xA9, 0x03);
-
-
-	u32 ulDmaCmdStatus, ulDmaIntrStatus, fDone = 0;
-
-	do {
-		ulDmaCmdStatus = plx9054_reg_read(0xA8);	
-
-		if ((ulDmaCmdStatus & 0x00001000)) {
-			ulDmaCmdStatus |= 0x00000800;
-			plx9054_reg_write(0xA8, ulDmaCmdStatus);
-			fDone = 1;
-		} else {
-			
-			fDone = 0;
-		}
-	} while (fDone == 0);
-
-	/* Copy DMA buffer to upper layer buffer*/
-	memcpy(buffer, pDMABuffer, length);
-
-	
-	return 0;
-}
-
-int
-isp1763_mem_write_dma(struct isp1763_dev *dev,
-	u32 start_add, u32 end_add, u32 * buffer, u32 length, u16 dir)
-{
-	u8 *pDMABuffer = 0;
-	u8 bDmaCmdStatus = 0;
-	u32 uPhyAddress;
-
-	isp1763_reg_write16(dev, HC_MEM_READ_REG, start_add);
-	udelay(1);		
-
-	/* Malloc DMA safe buffer and convert to PHY Address*/
-	pDMABuffer = g_pDMA_Write_Buf;
-
-	if (pDMABuffer == NULL) {
-		printk("Cannnot allocate DMA safe memory for DMA write\n");
-		return -1;
-	}
-	/* Copy content to DMA safe buffer*/
-	memcpy(pDMABuffer, buffer, length);	
-	uPhyAddress = virt_to_phys(pDMABuffer);
-
-
-	/*DMA CHANNEL 1 PCI ADDRESS */
-	plx9054_reg_write(0x98, uPhyAddress);
-
-	/*DMA CHANNEL 1 LOCAL ADDRESS */
-	plx9054_reg_write(0x9C, 0x40);
-
-	/*DMA CHANNEL 1 TRANSFER SIZE */
-	plx9054_reg_write(0xA0, length);
-
-	/*DMA CHANNEL 1 DESCRIPTOR POINTER */
-	plx9054_reg_write(0xA4, 0x00);
-
-	/*DMA THRESHOLD */
-	plx9054_reg_write(0xB0, 0x77220000);
-
-	/*DMA CHANNEL 1 COMMAND STATUS */
-	bDmaCmdStatus = plx9054_reg_readb(0xA9);
-	bDmaCmdStatus |= 0x03;
-	plx9054_reg_writeb(0xA9, bDmaCmdStatus);
-
-
-	u32 ulDmaCmdStatus, ulDmaIntrStatus, fDone = 0;
-
-	do {
-		ulDmaCmdStatus = plx9054_reg_read(0xA8);	
-
-		if ((ulDmaCmdStatus & 0x00001000)){
-			ulDmaCmdStatus |= 0x00000800;
-			plx9054_reg_write(0xA8, ulDmaCmdStatus);
-			fDone = 1;
-		} else {
-			fDone = 0;
-		}
-	} while (fDone == 0);
-
-	return 0;
-}
-
-#endif
 
 /*--------------------------------------------------------------*
  *
@@ -612,12 +281,6 @@ isp1763_mem_read(struct isp1763_dev *dev, u32 start_add,
 	}
 
 
-#ifdef ENABLE_PLX_DMA
-
-	isp1763_mem_read_dma(dev, start_add, end_add, buffer, length, dir);
-	a = 0;
-
-#else
 	isp1763_reg_write16(dev, HC_MEM_READ_REG, start_add);
 
 last:
@@ -660,7 +323,6 @@ last:
 		w2 <<= 16;
 		w = w | w2;
 	}
-#endif
 	return ((a < 0) || (a == 0)) ? 0 : (-1);
 
 }
@@ -707,12 +369,6 @@ isp1763_mem_write(struct isp1763_dev *dev,
 		printk("Wrong length or buffer pointer\n");
 		return -1;
 	}
-#ifdef ENABLE_PLX_DMA
-
-	isp1763_mem_write_dma(dev, start_add, end_add, buffer, length, dir);
-	a = 0;
-
-#else
 
 	isp1763_reg_write16(dev, HC_MEM_READ_REG, start_add);
 	a = (int) (length);
@@ -749,77 +405,11 @@ isp1763_mem_write(struct isp1763_dev *dev,
 		temp16++;
 
 	}
-#endif
 
 	return ((a < 0) || (a == 0)) ? 0 : (-1);
 
 }
 EXPORT_SYMBOL(isp1763_mem_write);
-
-
-
-/*--------------------------------------------------------------*
- *
- * Module dtatils: isp1763_request_irq
- *
- * This function registers the ISR of driver with this driver.
- * Since there is only one interrupt line, when the first driver
- * is registerd, will call the system function request_irq. The PLX
- * bridge needs enabling of interrupt in the interrupt control register to
- * pass the local interrupts to the PCI (cpu).
- * For later registrations will just update the variables. On ISR, this driver
- * will look for registered handlers and calls the corresponding driver's
- * ISR "handler" function with "isr_data" as parameter.
- *
- *  Input: struct
- *              (void (*handler)(struct isp1763_dev *, void *)-->handler.
- *               isp1763_driver *drv  --> Driver structure.
- *  Output result
- *         0= complete
- *         1= error.
- *
- *  Called by: system function module_init
- *
- *
- *--------------------------------------------------------------*/
-#ifdef LINUX_2620
-int
-isp1763_request_irq(void (*handler)     
-	(struct isp1763_dev * dev, void *isr_data),
-	 struct isp1763_dev *dev, void *isr_data)
-#else
-int
-isp1763_request_irq(void (*handler) (struct isp1763_dev *, void *),
-	struct isp1763_dev *dev, void *isr_data)
-#endif
-{
-	int result = 0;
-	u32 intcsr = 0;
-	u32 ul_busregion_descr = 0;
-	hal_entry("%s: Entered\n", __FUNCTION__);
-	hal_int("isp1763_request_irq: dev->index %x\n", dev->index);
-
-	printk(KERN_NOTICE "+isp1763_request_irq: dev->index %x\n", dev->index);
-
-	/*Interrupt handler routine */
-	if (dev->active) {
-		dev->handler = handler;
-		dev->isr_data = isr_data;
-		printk(KERN_NOTICE "-isp1763_request_irq: dev->index %x\n",
-			dev->index);
-		hal_int("isp1763_request_irq: dev->handler %s\n", dev->handler);
-		hal_int("isp1763_request_irq: dev->isr_data %x\n",
-			dev->isr_data);
-	} else {
-		printk("%s : error - driver %d is not active \n", __FUNCTION__,
-			dev->index);
-	}
-	hal_entry("%s: Exit\n", __FUNCTION__);
-	return result;
-}				/* End of isp1763_request_irq */
-
-EXPORT_SYMBOL(isp1763_request_irq);
-
 
 
 /*--------------------------------------------------------------*
@@ -982,10 +572,6 @@ isp1763_pci_module_cleanup(void)
 	u32 intcsr;
 	struct isp1763_dev *dev = &isp1763_loc_dev[0];
 	printk("Hal Module Cleanup\n");
-	/*free the irq*/
-#ifdef LINUX_2620
-	free_irq(dev->irq, &isp1763_loc_dev);
-#endif
 	intcsr = readl(iobase + 0x68);
 	intcsr &= ~0x900;
 	writel(intcsr, iobase + 0x68);
@@ -1135,23 +721,8 @@ isp1763_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	ul_busregion_descr |= 0x00000001;
 	writel(ul_busregion_descr, iobase + 0x18);
 	ul_busregion_descr = readl(iobase + 0x18);
-	printk(KERN_NOTICE "BusRegionDesc %x \n", ul_busregion_descr);
+	printk(KERN_NOTICE "BusRegionDesc %x\n", ul_busregion_descr);
 
-#ifdef ENABLE_PLX_DMA
-	u32 ulDmaModeCh1;
-
-	ulDmaModeCh1 = plx9054_reg_read(0x94);
-
-	/* Set as 16 bit mode */
-	ulDmaModeCh1 &= 0xFFFFFFFC;
-	ulDmaModeCh1 |= 0x00020401;
-
-	ulDmaModeCh1 |= 0x00000800;	/*Holds local address bus constant*/
-
-	plx9054_reg_write(0x94, ulDmaModeCh1);
-
-
-#endif /*ENABLE_PLX_DMA*/
 
 #else /* we are in 8-bit mode*/
 	ul_busregion_descr = readl(iobase + 0xF8);
@@ -1310,32 +881,12 @@ isp1763_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	pci_set_drvdata(dev, loc_dev);
 
 	/* PLX DMA Test */
-#ifdef ENABLE_PLX_DMA
-	int i;
-	g_pDMA_Read_Buf = kmalloc(DMA_BUF_SIZE, GFP_KERNEL | GFP_DMA);
-	g_pDMA_Write_Buf = kmalloc(DMA_BUF_SIZE, GFP_KERNEL | GFP_DMA);
-
-	if (g_pDMA_Read_Buf == NULL || g_pDMA_Write_Buf == NULL) {
-		printk("Cannot allocate memory for DMA operations!\n");
-		return -2;
-	}
-#endif
 
 /*initialize tasklet*/
-	tasklet_init(&irq_tasklet, (void (*)(unsigned long)) hal_handle_int,
-		&isp1763_loc_dev);
 /*register for interrupts*/
-#ifdef LINUX_2620
-	status = request_irq(dev->irq, isp1763_pci_isr, SA_SHIRQ, &IsrName,
-		&isp1763_loc_dev);
-#else /*Linux 2.6.28*/
 	/* Interrupt will be registered by HCD directly due to 2.6.28 kernel nature*/
 
-#endif
-
-	spin_lock_init(&hal_lock);
-	spin_lock_init(&rw_lock);
-	printk(KERN_NOTICE "-isp1763_pci_probe \n");
+	printk(KERN_NOTICE "-isp1763_pci_probe\n");
 	hal_entry("%s: Exit\n", __FUNCTION__);
 	return 1;
 
@@ -1376,14 +927,6 @@ isp1763_pci_remove(struct pci_dev *dev)
 	struct isp1763_dev *loc_dev;
 	hal_init(("isp1763_pci_remove(dev=%p)\n", dev));
 
-#ifdef ENABLE_PLX_DMA
-	if (g_pDMA_Read_Buf != NULL){
-		kfree(g_pDMA_Read_Buf);
-	}
-	if (g_pDMA_Write_Buf != NULL){
-		kfree(g_pDMA_Write_Buf);
-	}
-#endif
 
 	/*Lets handle the host first */
 	loc_dev = &isp1763_loc_dev[ISP1763_HC];
@@ -1394,8 +937,6 @@ isp1763_pci_remove(struct pci_dev *dev)
 	iounmap(loc_dev->baseaddress);
 	/* unmap the occupied io resources */
 	iounmap(iobase);
-	/*kill the tasklet*/
-	tasklet_kill(&irq_tasklet);
 	return;
 }				/* End of isp1763_pci_remove */
 
