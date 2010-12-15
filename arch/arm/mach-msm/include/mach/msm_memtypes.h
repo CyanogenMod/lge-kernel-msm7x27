@@ -33,9 +33,9 @@
 #ifndef __ASM_ARCH_MSM_MEMTYPES_H
 #define __ASM_ARCH_MSM_MEMTYPES_H
 
+#include <mach/memory.h>
 /* Redundant check to prevent this from being included outside of 7x30 */
 #if defined(CONFIG_ARCH_MSM7X30)
-#define EBI1_PHYS_OFFSET 0x40000000UL
 unsigned int get_num_populated_chipselects(void);
 #endif
 
