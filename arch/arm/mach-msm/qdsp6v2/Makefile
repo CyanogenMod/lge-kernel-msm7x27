@@ -1,4 +1,5 @@
-obj-y += audio_dev_ctl.o snddev_data.o
+obj-y += audio_dev_ctl.o
+obj-y += board-msm8x60-audio.o
 obj-$(CONFIG_TIMPANI_CODEC) += snddev_icodec.o
 obj-y += snddev_ecodec.o snddev_mi2s.o
 obj-y += apr.o apr_tal.o apr_tal_debug.o dsp_debug.o

@@ -2531,98 +2531,6 @@ static struct platform_device msm_bt_power_device = {
 };
 #endif
 
-static struct resource msm_cdcclk_ctl_resources[] = {
-	{
-		.name   = "msm_snddev_tx_mclk",
-		.start  = 108,
-		.end    = 108,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "msm_snddev_rx_mclk",
-		.start  = 109,
-		.end    = 109,
-		.flags  = IORESOURCE_IO,
-	},
-};
-
-static struct platform_device msm_cdcclk_ctl_device = {
-	.name   = "msm_cdcclk_ctl",
-	.id     = 0,
-	.num_resources  = ARRAY_SIZE(msm_cdcclk_ctl_resources),
-	.resource       = msm_cdcclk_ctl_resources,
-};
-
-static struct resource msm_aux_pcm_resources[] = {
-
-	{
-		.name   = "aux_pcm_dout",
-		.start  = 111,
-		.end    = 111,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "aux_pcm_din",
-		.start  = 112,
-		.end    = 112,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "aux_pcm_syncout",
-		.start  = 113,
-		.end    = 113,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "aux_pcm_clkin_a",
-		.start  = 114,
-		.end    = 114,
-		.flags  = IORESOURCE_IO,
-	},
-};
-
-static struct platform_device msm_aux_pcm_device = {
-	.name   = "msm_aux_pcm",
-	.id     = 0,
-	.num_resources  = ARRAY_SIZE(msm_aux_pcm_resources),
-	.resource       = msm_aux_pcm_resources,
-};
-
-static struct resource msm_mi2s_gpio_resources[] = {
-
-	{
-		.name   = "mi2s_ws",
-		.start  = 101,
-		.end    = 101,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "mi2s_sclk",
-		.start  = 102,
-		.end    = 102,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "mi2s_mclk",
-		.start  = 103,
-		.end    = 103,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "fm_mi2s_sd",
-		.start  = 107,
-		.end    = 107,
-		.flags  = IORESOURCE_IO,
-	},
-};
-
-static struct platform_device msm_mi2s_device = {
-	.name		= "msm_mi2s",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(msm_mi2s_gpio_resources),
-	.resource	= msm_mi2s_gpio_resources,
-};
-
 static struct platform_device *rumi_sim_devices[] __initdata = {
 	&smc91x_device,
 	&msm_device_uart_dm12,
@@ -2678,9 +2586,6 @@ static struct platform_device *rumi_sim_devices[] __initdata = {
 	&msm_vpe_device,
 #endif
 	&msm_device_vidc,
-	&msm_aux_pcm_device,
-	&msm_cdcclk_ctl_device,
-	&msm_mi2s_device,
 };
 
 #ifdef CONFIG_SENSORS_M_ADC
@@ -3009,8 +2914,6 @@ static struct platform_device *surf_devices[] __initdata = {
 	(defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
 	&msm_bt_power_device,
 #endif
-	&msm_aux_pcm_device,
-	&msm_mi2s_device,
 #ifdef CONFIG_SENSORS_M_ADC
 	&msm_adc_device,
 #endif
@@ -3068,7 +2971,6 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_MSM_SDIO_AL
 	&msm_device_sdio_al,
 #endif
-	&msm_cdcclk_ctl_device,
 };
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
@@ -6279,263 +6181,6 @@ static int atv_dac_power(int on)
 }
 #endif
 
-#ifdef CONFIG_MSM8X60_AUDIO
-void msm_snddev_enable_amic_power(void)
-{
-
-#ifdef CONFIG_PMIC8058_OTHC
-	int ret;
-
-	if (machine_is_msm8x60_fluid()) {
-
-		ret = pm8058_micbias_enable(OTHC_MICBIAS_0,
-				OTHC_SIGNAL_ALWAYS_ON);
-		if (ret)
-			pr_err("%s: Enabling amic power failed\n", __func__);
-
-		ret = gpio_request(GPIO_MIC2_ANCR_SEL, "MIC2_ANCR_SEL");
-		if (ret) {
-			pr_err("%s: spkr pamp gpio %d request"
-			"failed\n", __func__, GPIO_MIC2_ANCR_SEL);
-			return;
-		}
-		gpio_direction_output(GPIO_MIC2_ANCR_SEL, 0);
-		gpio_set_value_cansleep(GPIO_MIC2_ANCR_SEL, 0);
-
-	} else {
-		ret = pm8058_micbias_enable(OTHC_MICBIAS_2,
-				OTHC_SIGNAL_ALWAYS_ON);
-		if (ret)
-			pr_err("%s: Enabling amic power failed\n", __func__);
-	}
-#endif
-}
-
-void msm_snddev_disable_amic_power(void)
-{
-#ifdef CONFIG_PMIC8058_OTHC
-	int ret;
-	if (machine_is_msm8x60_fluid()) {
-		ret = pm8058_micbias_enable(OTHC_MICBIAS_0,
-				OTHC_SIGNAL_OFF);
-	} else {
-		ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
-	}
-	if (ret)
-		pr_err("%s: Disabling amic power failed\n", __func__);
-#endif
-}
-
-void msm_snddev_enable_dmic_sec_power(void)
-{
-	msm_snddev_enable_dmic_power();
-
-#ifdef CONFIG_PMIC8058_OTHC
-	pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_ALWAYS_ON);
-#endif
-}
-
-void msm_snddev_disable_dmic_sec_power(void)
-{
-	msm_snddev_disable_dmic_power();
-
-#ifdef CONFIG_PMIC8058_OTHC
-	pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
-#endif
-}
-
-static struct regulator *s3;
-static struct regulator *mvs;
-
-void msm_snddev_enable_dmic_power(void)
-{
-	int ret;
-
-	s3 = regulator_get(NULL, "8058_s3");
-	if (IS_ERR(s3))
-		return;
-
-	ret = regulator_set_voltage(s3, 1800000, 1800000);
-	if (ret) {
-		pr_err("%s: error setting voltage\n", __func__);
-		goto fail_s3;
-	}
-
-	ret = regulator_enable(s3);
-	if (ret) {
-		pr_err("%s: error enabling regulator\n", __func__);
-		goto fail_s3;
-	}
-
-	mvs = regulator_get(NULL, "8901_mvs0");
-	if (IS_ERR(mvs))
-		goto fail_mvs0_get;
-
-	ret = regulator_enable(mvs);
-	if (ret) {
-		pr_err("%s: error setting regulator\n", __func__);
-		goto fail_mvs0_enable;
-	}
-	return;
-
-fail_mvs0_enable:
-	regulator_put(mvs);
-	mvs = NULL;
-fail_mvs0_get:
-	regulator_disable(s3);
-fail_s3:
-	regulator_put(s3);
-	s3 = NULL;
-}
-
-void msm_snddev_disable_dmic_power(void)
-{
-	int ret;
-
-	if (mvs) {
-		ret = regulator_disable(mvs);
-		if (ret < 0)
-			pr_err("%s: error disabling vreg mvs\n", __func__);
-		regulator_put(mvs);
-		mvs = NULL;
-	}
-
-	if (s3) {
-		ret = regulator_disable(s3);
-		if (ret < 0)
-			pr_err("%s: error disabling regulator s3\n", __func__);
-		regulator_put(s3);
-		s3 = NULL;
-	}
-}
-
-#define PM8901_MPP_3 (2) /* PM8901 MPP starts from 0 */
-static void config_class_d1_gpio(int enable)
-{
-	int rc;
-
-	if (enable) {
-		rc = gpio_request(GPIO_CLASS_D1_EN, "CLASSD1_EN");
-		if (rc) {
-			pr_err("%s: spkr pamp gpio %d request"
-			"failed\n", __func__, GPIO_CLASS_D1_EN);
-			return;
-		}
-		gpio_direction_output(GPIO_CLASS_D1_EN, 1);
-		gpio_set_value_cansleep(GPIO_CLASS_D1_EN, 1);
-	} else {
-		gpio_set_value_cansleep(GPIO_CLASS_D1_EN, 0);
-		gpio_free(GPIO_CLASS_D1_EN);
-	}
-}
-
-static void config_class_d0_gpio(int enable)
-{
-	int rc;
-
-	if (enable) {
-		rc = pm8901_mpp_config_digital_out(PM8901_MPP_3,
-			PM8901_MPP_DIG_LEVEL_MSMIO, 1);
-
-		if (rc) {
-			pr_err("%s: CLASS_D0_EN failed\n", __func__);
-			return;
-		}
-
-		rc = gpio_request(PM8901_GPIO_PM_TO_SYS(PM8901_MPP_3),
-			"CLASSD0_EN");
-
-		if (rc) {
-			pr_err("%s: spkr pamp gpio pm8901 mpp3 request"
-			"failed\n", __func__);
-			pm8901_mpp_config_digital_out(PM8901_MPP_3,
-			PM8901_MPP_DIG_LEVEL_MSMIO, 0);
-			return;
-		}
-
-		gpio_direction_output(PM8901_GPIO_PM_TO_SYS(PM8901_MPP_3), 1);
-		gpio_set_value(PM8901_GPIO_PM_TO_SYS(PM8901_MPP_3), 1);
-
-	} else {
-		pm8901_mpp_config_digital_out(PM8901_MPP_3,
-		PM8901_MPP_DIG_LEVEL_MSMIO, 0);
-		gpio_set_value(PM8901_GPIO_PM_TO_SYS(PM8901_MPP_3), 0);
-		gpio_free(PM8901_GPIO_PM_TO_SYS(PM8901_MPP_3));
-	}
-}
-
-static void __init msm8x60_init_poweramp(void)
-{
-	int rc;
-	rc = gpio_request(GPIO_CLASS_D1_EN, "CLASSD1_EN");
-	if (rc) {
-		pr_err("%s: spkr pamp gpio %d request"
-		"failed\n", __func__, GPIO_CLASS_D1_EN);
-	} else {
-		gpio_direction_output(GPIO_CLASS_D1_EN, 0);
-		gpio_free(GPIO_CLASS_D1_EN);
-	}
-}
-
-void msm_snddev_poweramp_on(void)
-{
-
-	pr_debug("%s: enable stereo spkr amp\n", __func__);
-	config_class_d0_gpio(1);
-	config_class_d1_gpio(1);
-}
-
-void msm_snddev_poweramp_off(void)
-{
-
-	pr_debug("%s: disable stereo spkr amp\n", __func__);
-	config_class_d0_gpio(0);
-	config_class_d1_gpio(0);
-	msleep(30);
-}
-
-static struct regulator *snddev_reg_ncp;
-
-void msm_snddev_voltage_on(void)
-{
-	int rc;
-	pr_debug("%s\n", __func__);
-
-	snddev_reg_ncp = regulator_get(NULL, "8058_ncp");
-	if (IS_ERR(snddev_reg_ncp)) {
-		pr_err("%s: regulator_get(%s) failed (%ld)\n", __func__,
-			"ncp", PTR_ERR(snddev_reg_ncp));
-		return;
-	}
-
-	rc = regulator_set_voltage(snddev_reg_ncp, 1800000, 1800000);
-	if (rc < 0)
-		pr_err("%s: regulator_set_voltage(ncp) failed (%d)\n",
-				__func__, rc);
-
-	rc = regulator_enable(snddev_reg_ncp);
-	if (rc < 0)
-		pr_err("%s: regulator_enable(ncp) failed (%d)\n", __func__, rc);
-}
-
-void msm_snddev_voltage_off(void)
-{
-	int rc;
-	pr_debug("%s\n", __func__);
-
-	if (!snddev_reg_ncp)
-		return;
-
-	rc = regulator_disable(snddev_reg_ncp);
-	if (rc < 0)
-		pr_err("%s: regulator_disable(ncp) failed (%d)\n",
-				__func__, rc);
-	regulator_put(snddev_reg_ncp);
-
-	snddev_reg_ncp = NULL;
-}
-#endif /* CONFIG_MSM8X60_AUDIO */
-
 int mdp_core_clk_rate_table[] = {
 	59080000,
 	128000000,
@@ -7070,7 +6715,6 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 #ifdef CONFIG_MSM8X60_AUDIO
 	msm_snddev_init();
-	msm8x60_init_poweramp();
 #endif
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
 	if (machine_is_msm8x60_fluid())
