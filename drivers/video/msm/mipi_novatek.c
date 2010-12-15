@@ -101,11 +101,14 @@ static char display_config_set_threelane[] = {
 #else
 
 static char sw_reset[2] = {0x01, 0x00}; /* DTYPE_DCS_WRITE */
+static char enter_sleep[2] = {0x10, 0x00}; /* DTYPE_DCS_WRITE */
 static char exit_sleep[2] = {0x11, 0x00}; /* DTYPE_DCS_WRITE */
+static char display_off[2] = {0x28, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_on[2] = {0x29, 0x00}; /* DTYPE_DCS_WRITE */
 
 static char set_onelane[2] = {0xae, 0x01}; /* DTYPE_DCS_WRITE1 */
 static char rgb_888[2] = {0x3A, 0x77}; /* DTYPE_DCS_WRITE1 */
+static char set_twolane[2] = {0xae, 0x03}; /* DTYPE_DCS_WRITE1 */
 
 /* commands by Novatke */
 static char novatek_f4[2] = {0xf4, 0x55}; /* DTYPE_DCS_WRITE1 */
@@ -147,7 +150,7 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 50,
 		sizeof(novatek_ff), novatek_ff},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
-		sizeof(set_onelane), set_onelane},
+		sizeof(set_twolane), set_twolane},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 50,
 		sizeof(set_width), set_width},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 50,
@@ -156,6 +159,12 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 		sizeof(rgb_888), rgb_888}
 };
 
+static struct dsi_cmd_desc novatek_display_off_cmds[] = {
+	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
+		sizeof(display_off), display_off},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
+		sizeof(enter_sleep), enter_sleep}
+};
 static int mipi_novatek_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -182,6 +191,23 @@ static int mipi_novatek_lcd_on(struct platform_device *pdev)
 
 static int mipi_novatek_lcd_off(struct platform_device *pdev)
 {
+	struct msm_fb_data_type *mfd;
+
+	mfd = platform_get_drvdata(pdev);
+
+	if (!mfd)
+		return -ENODEV;
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	/* change to DSI_CMD_MODE since it needed to
+	 * tx DCS dsiplay off comamnd to toshiba panel
+	 */
+	mipi_dsi_op_mode_config(DSI_CMD_MODE);
+
+	mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_display_off_cmds,
+			ARRAY_SIZE(novatek_display_off_cmds));
+
 	return 0;
 }
 
