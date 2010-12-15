@@ -1545,6 +1545,11 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 	unsigned long time_to_wait;
 	struct mmc_host *host = wk_func->card->host;
 
+	if (sdio_al->is_err) {
+		pr_info(MODULE_NAME ":In Error state, ignore %s\n", __func__);
+		return -ENODEV;
+	}
+
 	/* Wake up sequence */
 	wake_lock(&sdio_al->wake_lock);
 	if (enable_wake_up_func)
@@ -1581,6 +1586,7 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 			       -ret);
 			ret = -EIO;
 			WARN_ON(ret);
+			sdio_al->is_err = true;
 			return ret;
 		}
 	}
