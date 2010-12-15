@@ -147,6 +147,7 @@ typedef struct {
 
 extern mddi_lcd_func_type mddi_lcd;
 void mddi_init(void);
+extern int irq_enabled;
 
 void mddi_powerdown(void);
 
@@ -239,5 +240,6 @@ void mddi_disable(int lock);
 void mddi_window_adjust(struct msm_fb_data_type *mfd,
 	uint16 x1, uint16 x2, uint16 y1, uint16 y2);
 void mddi_send_fw_link_skew_cal(mddi_host_type host_idx);
+void pmdh_clk_set(int enable);
 
 #endif /* MDDIHOST_H */

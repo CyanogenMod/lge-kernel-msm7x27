@@ -485,6 +485,9 @@ void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd)
 #endif
 }
 
+static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
+static int pdev_list_cnt;
+
 static void mdp_pipe_ctrl_workqueue_handler(struct work_struct *work)
 {
 	mdp_pipe_ctrl(MDP_MASTER_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
@@ -495,7 +498,7 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 	boolean mdp_all_blocks_off = TRUE;
 	int i;
 	unsigned long flag;
-
+	struct msm_fb_panel_data *pdata;
 
 	/*
 	 * It is assumed that if isr = TRUE then start = OFF
@@ -583,6 +586,13 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 				if (footswitch != NULL)
 					regulator_disable(footswitch);
 				/* turn off MDP clks */
+				mdp_vsync_clk_disable();
+				for (i = 0; i < pdev_list_cnt; i++) {
+					pdata = (struct msm_fb_panel_data *)
+						pdev_list[i]->dev.platform_data;
+					if (pdata && pdata->clk_set)
+						pdata->clk_set(0);
+				}
 				if (mdp_clk != NULL) {
 					clk_disable(mdp_clk);
 					MSM_FB_DEBUG("MDP CLK OFF\n");
@@ -600,6 +610,12 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 		} else if ((!mdp_all_blocks_off) && (!mdp_current_clk_on)) {
 			mdp_current_clk_on = TRUE;
 			/* turn on MDP clks */
+			for (i = 0; i < pdev_list_cnt; i++) {
+				pdata = (struct msm_fb_panel_data *)
+					pdev_list[i]->dev.platform_data;
+				if (pdata && pdata->clk_set)
+					pdata->clk_set(1);
+			}
 			if (mdp_clk != NULL) {
 				clk_enable(mdp_clk);
 				MSM_FB_DEBUG("MDP CLK ON\n");
@@ -608,6 +624,7 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 				clk_enable(mdp_pclk);
 				MSM_FB_DEBUG("MDP PCLK ON\n");
 			}
+			mdp_vsync_clk_enable();
 			if (footswitch != NULL)
 				regulator_enable(footswitch);
 		}
@@ -928,9 +945,6 @@ static int mdp_on(struct platform_device *pdev)
 	return ret;
 }
 
-
-static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
-static int pdev_list_cnt;
 static int mdp_resource_initialized;
 static struct msm_panel_common_pdata *mdp_pdata;
 
