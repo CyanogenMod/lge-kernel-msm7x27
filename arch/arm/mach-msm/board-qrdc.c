@@ -3408,6 +3408,48 @@ static void __init msm8x60_init_mmc(void)
 #endif
 }
 
+static int wifi_power(int on)
+{
+	int rc = 0;
+	static struct regulator *reg_8901_l2;
+
+	if (reg_8901_l2 == NULL) {
+		reg_8901_l2 = regulator_get(NULL, "8901_l2");
+		if (IS_ERR(reg_8901_l2)) {
+			pr_err("%s: Unable to get 8901_l2\n", __func__);
+			return PTR_ERR(reg_8901_l2);
+		}
+	}
+
+	if (on) {
+		rc = regulator_set_voltage(reg_8901_l2, 3300000, 3300000);
+		if (rc) {
+			pr_err("%s: error set 8901_l2 to 3.3V\n", __func__);
+			goto wifi_power_fail;
+		}
+
+		rc = regulator_enable(reg_8901_l2);
+		if (rc) {
+			pr_err("%s: 8901_l2 enable failed, rc=%d\n",
+				__func__, rc);
+			goto wifi_power_fail;
+		}
+	} else {
+		if (regulator_is_enabled(reg_8901_l2)) {
+			rc = regulator_disable(reg_8901_l2);
+			if (rc)
+				pr_warning("%s: 8901_l2 disable failed, "
+					"rc=%d\n", __func__, rc);
+		}
+	}
+
+	return rc;
+
+wifi_power_fail:
+	regulator_put(reg_8901_l2);
+	return rc;
+}
+
 static uint32_t lcd_panel_gpios[] = {
 	GPIO_CFG(0,  1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_16MA), /* lcdc_pclk */
 	GPIO_CFG(1,  1, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_16MA), /* lcdc_hsync*/
@@ -3440,37 +3482,7 @@ static uint32_t lcd_panel_gpios[] = {
 };
 
 static struct regulator *reg_8901_l1;
-static struct regulator *reg_8901_l2;
 static struct regulator *vga_5v_reg;
-
-static int lcdc_onboard_panel_power(int on)
-{
-	int rc = 0;
-
-	if (on) {
-		rc = regulator_set_voltage(reg_8901_l2, 3300000, 3300000);
-		if (rc) {
-			pr_err("%s: error set 8901_l2 to 3.3V\n", __func__);
-			return rc;
-		}
-
-		rc = regulator_enable(reg_8901_l2);
-		if (rc) {
-			pr_err("%s: 8901_l2 enable failed, rc=%d\n",
-				__func__, rc);
-			return rc;
-		}
-	} else {
-		if (regulator_is_enabled(reg_8901_l2)) {
-			rc = regulator_disable(reg_8901_l2);
-			if (rc)
-				pr_warning("%s: 8901_l2 disable failed, "
-					"rc=%d\n", __func__, rc);
-		}
-	}
-
-	return rc;
-}
 
 static int lcdc_vga_panel_power(int on)
 {
@@ -3507,14 +3519,6 @@ static void lcd_panel_power(int on)
 		}
 	}
 
-	if (!reg_8901_l2) {
-		reg_8901_l2 = regulator_get(NULL, "8901_l2");
-		if (IS_ERR(reg_8901_l2)) {
-			pr_err("%s: Unable to get 8901_l2\n", __func__);
-			goto fail_get_l2;
-		}
-	}
-
 	if (!vga_5v_reg) {
 		vga_5v_reg = regulator_get(NULL, "8901_usb_otg");
 		if (IS_ERR(vga_5v_reg)) {
@@ -3540,16 +3544,9 @@ static void lcd_panel_power(int on)
 		if (vga_enabled) {
 			if (lcdc_vga_panel_power(1))
 				goto fail_vga_enable;
-			if (lcdc_onboard_panel_power(0))
-				pr_warning("%s: failed to turn off onboard "
-					   "display, rc=%d\n", __func__, rc);
-		} else {
-			if (lcdc_onboard_panel_power(1))
-				goto fail_vga_enable;
-			if (lcdc_vga_panel_power(0))
+		} else if (lcdc_vga_panel_power(0))
 				pr_warning("%s: failed to turn off VGA "
 					   "display, rc=%d\n", __func__, rc);
-		}
 	} else {
 		if (regulator_is_enabled(reg_8901_l1)) {
 			rc = regulator_disable(reg_8901_l1);
@@ -3559,7 +3556,6 @@ static void lcd_panel_power(int on)
 		}
 
 		lcdc_vga_panel_power(0);
-		lcdc_onboard_panel_power(0);
 	}
 
 	/*TODO if on = 0 free the gpio's */
@@ -3570,10 +3566,6 @@ static void lcd_panel_power(int on)
 
 
 fail_get_vga_5v:
-	regulator_put(reg_8901_l2);
-	reg_8901_l2 = NULL;
-
-fail_get_l2:
 	regulator_put(reg_8901_l1);
 	reg_8901_l1 = NULL;
 
@@ -3584,10 +3576,8 @@ fail_vga_enable:
 	regulator_disable(reg_8901_l1);
 fail_l1_enable:
 	regulator_put(reg_8901_l1);
-	regulator_put(reg_8901_l2);
 	regulator_put(vga_5v_reg);
 	reg_8901_l1 = NULL;
-	reg_8901_l2 = NULL;
 	vga_5v_reg = NULL;
 }
 
@@ -4146,6 +4136,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 				     msm_num_footswitch_devices);
 	platform_add_devices(qrdc_devices,
 			     ARRAY_SIZE(qrdc_devices));
+	wifi_power(1);
 #ifdef CONFIG_USB_EHCI_MSM
 	msm_add_host(0, &msm_usb_host_pdata);
 #endif
