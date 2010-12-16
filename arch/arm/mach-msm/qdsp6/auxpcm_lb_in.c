@@ -34,6 +34,7 @@ struct auxpcm {
 	struct audio_client *ac;
 	uint32_t sample_rate;
 	uint32_t channel_count;
+	int opened;;
 };
 
 static long auxpcmin_ioctl(struct file *file, unsigned int cmd,
@@ -113,29 +114,36 @@ static long auxpcmin_ioctl(struct file *file, unsigned int cmd,
 	return rc;
 }
 
+static struct auxpcm the_auxpcmin;
+
 static int auxpcmin_open(struct inode *inode, struct file *file)
 {
-	struct auxpcm *auxpcmin;
+	struct auxpcm *auxpcmin = &the_auxpcmin;
 
 	pr_info("[%s:%s] open\n", __MM_FILE__, __func__);
-	auxpcmin = kzalloc(sizeof(struct auxpcm), GFP_KERNEL);
-
-	if (!auxpcmin)
-		return -ENOMEM;
-
-	mutex_init(&auxpcmin->lock);
+	mutex_lock(&auxpcmin->lock);
+	if (auxpcmin->opened) {
+		pr_err("aux pcm loopback tx already open!\n");
+		mutex_unlock(&auxpcmin->lock);
+		return -EBUSY;
+	}
 	auxpcmin->channel_count = 1;
 	auxpcmin->sample_rate = 8000;
+	auxpcmin->opened = 1;
 	file->private_data = auxpcmin;
+	mutex_unlock(&auxpcmin->lock);
 	return 0;
 }
 
 static int auxpcmin_release(struct inode *inode, struct file *file)
 {
 	struct auxpcm *auxpcmin = file->private_data;
+	mutex_lock(&auxpcmin->lock);
 	if (auxpcmin->ac)
 		q6audio_auxpcm_close(auxpcmin->ac);
-	kfree(auxpcmin);
+	auxpcmin->ac = NULL;
+	auxpcmin->opened = 0;
+	mutex_unlock(&auxpcmin->lock);
 	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);
 	return 0;
 }
@@ -155,6 +163,7 @@ struct miscdevice auxpcmin_misc = {
 
 static int __init auxpcmin_init(void)
 {
+	mutex_init(&the_auxpcmin.lock);
 	return misc_register(&auxpcmin_misc);
 }
 
