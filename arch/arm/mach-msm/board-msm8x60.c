@@ -6914,9 +6914,8 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (!machine_is_msm8x60_rumi3() && !machine_is_msm8x60_sim())
 		msm_acpu_clock_init(&msm8x60_acpu_clock_data);
 
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
-		machine_is_msm8x60_fluid())
-		/* No EBI2 on 8660 charm targets */
+	/* No EBI2 on 8660 charm targets */
+	if (!machine_is_msm8x60_charm_surf() && !machine_is_msm8x60_charm_ffa())
 		msm8x60_init_ebi2();
 	msm8x60_init_tlmm();
 	msm8x60_init_gpiomux(board_data->gpiomux_cfgs);
