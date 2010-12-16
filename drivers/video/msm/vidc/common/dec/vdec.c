@@ -172,8 +172,9 @@ static void vid_dec_input_frame_done(struct video_client_ctx *client_ctx,
 		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_RESP_INPUT_FLUSHED;
 		DBG("Send INPUT_FLUSHED message to client = %p\n", client_ctx);
 	} else {
-		ERR("vid_dec_input_frame_done(): invalid event type\n");
-		return;
+		ERR("vid_dec_input_frame_done(): invalid event type: "
+			"%d\n", event);
+		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_INVALID;
 	}
 
 	vdec_msg->vdec_msg_info.msgdata.input_frame_clientdata =
@@ -215,12 +216,12 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 	if (event == VCD_EVT_RESP_OUTPUT_DONE)
 		vdec_msg->vdec_msg_info.msgcode =
 		    VDEC_MSG_RESP_OUTPUT_BUFFER_DONE;
-
 	else if (event == VCD_EVT_RESP_OUTPUT_FLUSHED)
 		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_RESP_OUTPUT_FLUSHED;
 	else {
-		ERR("QVD: vid_dec_output_frame_done invalid cmd type\n");
-		return;
+		ERR("QVD: vid_dec_output_frame_done invalid cmd type: "
+			"%d\n", event);
+		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_INVALID;
 	}
 
 	kernel_vaddr = (unsigned long)vcd_frame_data->virtual;
