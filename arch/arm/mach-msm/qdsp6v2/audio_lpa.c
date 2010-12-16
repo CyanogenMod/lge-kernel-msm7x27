@@ -219,11 +219,16 @@ static int audio_disable(struct audio *audio)
 {
 	int rc = 0;
 
-	pr_info("%s:\n", __func__);
+	pr_info("%s:%d %d\n", __func__, audio->opened, audio->out_enabled);
 
-	if (audio->out_enabled) {
+	if (audio->opened) {
 		audio->out_enabled = 0;
+		audio->opened = 0;
 		rc = q6asm_cmd(audio->ac, CMD_CLOSE);
+		if (rc < 0)
+			pr_err("%s: CLOSE cmd failed\n", __func__);
+		else
+			pr_debug("%s: rxed CLOSE resp\n", __func__);
 		audio->drv_status &= ~ADRV_STATUS_OBUF_GIVEN;
 		wake_up(&audio->write_wait);
 		audio->out_needed = 0;
@@ -716,6 +721,11 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case AUDIO_START:
 		pr_info("%s: AUDIO_START\n", __func__);
+		if (!audio->opened) {
+			pr_err("%s: Driver not opened\n", __func__);
+			rc = -EFAULT;
+			goto fail;
+		}
 		rc = config(audio);
 		if (rc) {
 			pr_err("%s: Out Configuration failed\n", __func__);
@@ -1146,7 +1156,6 @@ static int audio_open(struct inode *inode, struct file *file)
 		rc = -ENOMEM;
 		goto done;
 	}
-	pr_info("%s: audio instance 0x%08x created\n", __func__, (int)audio);
 
 	if ((file->f_mode & FMODE_WRITE) && !(file->f_mode & FMODE_READ)) {
 		pr_info("%s: Tunnel Mode playback\n", __func__);
@@ -1178,7 +1187,9 @@ static int audio_open(struct inode *inode, struct file *file)
 		goto err;
 	}
 
-	pr_debug("%s: Set io_mode to AIO\n", __func__);
+	pr_debug("%s: Set mode to AIO session[%d]\n",
+						__func__,
+						audio->ac->session);
 	rc = q6asm_set_io_mode(audio->ac, ASYNC_IO_MODE);
 	if (rc < 0)
 		pr_err("%s: Set IO mode failed\n", __func__);
@@ -1245,6 +1256,9 @@ static int audio_open(struct inode *inode, struct file *file)
 			break;
 		}
 	}
+	pr_info("%s: audio instance 0x%08x created session[%d]\n", __func__,
+						(int)audio,
+						audio->ac->session);
 done:
 	return rc;
 err:
