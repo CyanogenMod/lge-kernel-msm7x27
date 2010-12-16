@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -76,7 +76,7 @@ struct clk_freq_tbl {
 	const uint32_t	cc_val;
 	uint32_t	mnd_en_mask;
 	const unsigned	sys_vdd;
-	void 		*const extra_freq_data;
+	void		*const extra_freq_data;
 };
 
 /* Some clocks have two banks to avoid glitches when switching frequencies.
