@@ -88,7 +88,7 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 {
 	int ret, count, paddr;
 	char fw_name[30];
-	const struct firmware *fw;
+	const struct firmware *fw = NULL;
 	const u8 *data;
 
 	if (!segment_in_hole(phdr->p_paddr, phdr->p_paddr + phdr->p_memsz)) {
@@ -118,7 +118,7 @@ static int load_segment(const struct elf32_phdr *phdr, unsigned num,
 	/* Load the segment into memory */
 	count = phdr->p_filesz;
 	paddr = phdr->p_paddr;
-	data = fw->data;
+	data = fw ? fw->data : NULL;
 	while (count > 0) {
 		int size;
 		u8 __iomem *buf;
