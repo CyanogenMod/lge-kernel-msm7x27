@@ -1010,6 +1010,13 @@ static struct platform_device msm_tvout_device = {
 };
 #endif
 
+#ifdef CONFIG_MSM_BUS_SCALING
+static struct platform_device msm_dtv_device = {
+	.name   = "dtv",
+	.id     = 0,
+};
+#endif
+
 void __init msm_fb_register_device(char *name, void *data)
 {
 	if (!strncmp(name, "mdp", 3))
@@ -1023,6 +1030,10 @@ void __init msm_fb_register_device(char *name, void *data)
 		msm_register_device(&msm_tvenc_device, data);
 	else if (!strncmp(name, "tvout_device", 12))
 		msm_register_device(&msm_tvout_device, data);
+#endif
+#ifdef CONFIG_MSM_BUS_SCALING
+	else if (!strncmp(name, "dtv", 3))
+		msm_register_device(&msm_dtv_device, data);
 #endif
 	else
 		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
