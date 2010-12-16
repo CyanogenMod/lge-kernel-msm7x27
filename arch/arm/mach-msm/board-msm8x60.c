@@ -1258,6 +1258,7 @@ static int config_camera_on_gpios(void)
 
 	rc = gpio_request(GPIO_EXT_CAMIF_PWR_EN, "CAM_EN");
 	if (rc < 0) {
+		config_gpio_table(MSM_CAM_OFF);
 		printk(KERN_ERR "%s: CAMSENSOR gpio %d request"
 			"failed\n", __func__, GPIO_EXT_CAMIF_PWR_EN);
 		return rc;
@@ -1288,6 +1289,7 @@ static int config_camera_on_gpios_web_cam(void)
 
 	rc = gpio_request(GPIO_WEB_CAMIF_STANDBY, "CAM_EN");
 	if (rc < 0) {
+		config_gpio_table(MSM_CAM_OFF);
 		pr_err(KERN_ERR "%s: CAMSENSOR gpio %d request"
 			"failed\n", __func__, GPIO_WEB_CAMIF_STANDBY);
 		return rc;
