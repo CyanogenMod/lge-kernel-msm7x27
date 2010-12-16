@@ -48,6 +48,7 @@
 #include <linux/input/cy8c_ts.h>
 #include <linux/cyttsp.h>
 #include <linux/i2c/isa1200.h>
+#include <linux/dma-mapping.h>
 
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -57,6 +58,7 @@
 #include <asm/mach/arch.h>
 #include <asm/setup.h>
 
+#include <mach/dma.h>
 #include <mach/mpp.h>
 #include <mach/board.h>
 #include <mach/irqs.h>
@@ -426,6 +428,81 @@ static struct platform_device smsc911x_device = {
 		.platform_data = &smsc911x_config
 	}
 };
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+
+#define QCE_SIZE		0x10000
+#define QCE_0_BASE		0x18500000
+
+#define ADM_CHANNEL_CE_0_IN	DMOV_CE_CHAN_IN
+#define ADM_CHANNEL_CE_0_OUT	DMOV_CE_CHAN_OUT
+
+#define ADM_CRCI_0_IN		DMOV_CE_CRCI_IN
+#define ADM_CRCI_0_OUT		DMOV_CE_CRCI_OUT
+#define ADM_CRCI_0_HASH		DMOV_CE_CRCI_HASH
+
+static struct resource qce_resources[] = {
+	[0] = {
+		.start = QCE_0_BASE,
+		.end = QCE_0_BASE + QCE_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name = "crypto_channels",
+		.start = ADM_CHANNEL_CE_0_IN,
+		.end = ADM_CHANNEL_CE_0_OUT,
+		.flags = IORESOURCE_DMA,
+	},
+	[2] = {
+		.name = "crypto_crci_in",
+		.start = ADM_CRCI_0_IN,
+		.end = ADM_CRCI_0_IN,
+		.flags = IORESOURCE_DMA,
+	},
+	[3] = {
+		.name = "crypto_crci_out",
+		.start = ADM_CRCI_0_OUT,
+		.end = ADM_CRCI_0_OUT,
+		.flags = IORESOURCE_DMA,
+	},
+	[4] = {
+		.name = "crypto_crci_hash",
+		.start = ADM_CRCI_0_HASH,
+		.end = ADM_CRCI_0_HASH,
+		.flags = IORESOURCE_DMA,
+	},
+};
+
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+static struct platform_device qcrypto_device = {
+	.name		= "qcrypto",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(qce_resources),
+	.resource	= qce_resources,
+	.dev		= {
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+};
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+static struct platform_device qcedev_device = {
+	.name		= "qce",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(qce_resources),
+	.resource	= qce_resources,
+	.dev		= {
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+};
+#endif
 
 #if defined(CONFIG_HAPTIC_ISA1200) || \
 		defined(CONFIG_HAPTIC_ISA1200_MODULE)
@@ -3047,6 +3124,17 @@ static struct platform_device *surf_devices[] __initdata = {
 	&rpm_vreg_device[RPM_VREG_ID_PM8901_LVS3],
 	&rpm_vreg_device[RPM_VREG_ID_PM8901_MVS0],
 #endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+	&qcrypto_device,
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+	&qcedev_device,
+#endif
+
 #ifdef CONFIG_MSM_SDIO_AL
 	&msm_device_sdio_al,
 #endif
