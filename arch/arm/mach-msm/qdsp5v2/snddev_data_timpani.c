@@ -27,6 +27,7 @@
 #include <mach/qdsp5v2/snddev_mi2s.h>
 #include <mach/qdsp5v2/mi2s.h>
 #include <mach/qdsp5v2/audio_acdb_def.h>
+#include <mach/qdsp5v2/snddev_virtual.h>
 #include "timpani_profile_7x30.h"
 
 /* define the value for BT_SCO */
@@ -470,6 +471,45 @@ static struct platform_device msm_itty_mono_rx_device = {
 	.dev = { .platform_data = &snddev_itty_mono_rx_data },
 };
 
+static struct snddev_virtual_data snddev_a2dp_tx_data = {
+	.capability = SNDDEV_CAP_TX,
+	.name = "a2dp_tx",
+	.copp_id = 5,
+	.acdb_id = PSEUDO_ACDB_ID,
+};
+
+static struct snddev_virtual_data snddev_a2dp_rx_data = {
+	.capability = SNDDEV_CAP_RX,
+	.name = "a2dp_rx",
+	.copp_id = 2,
+	.acdb_id = PSEUDO_ACDB_ID,
+};
+
+static struct platform_device msm_a2dp_rx_device = {
+	.name = "snddev_virtual",
+	.id = 0,
+	.dev = { .platform_data = &snddev_a2dp_rx_data },
+};
+
+static struct platform_device msm_a2dp_tx_device = {
+	.name = "snddev_virtual",
+	.id = 1,
+	.dev = { .platform_data = &snddev_a2dp_tx_data },
+};
+
+static struct snddev_virtual_data snddev_uplink_rx_data = {
+	.capability = SNDDEV_CAP_RX,
+	.name = "uplink_rx",
+	.copp_id = 5,
+	.acdb_id = PSEUDO_ACDB_ID,
+};
+
+static struct platform_device msm_uplink_rx_device = {
+	.name = "snddev_virtual",
+	.id = 2,
+	.dev = { .platform_data = &snddev_uplink_rx_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -484,6 +524,9 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_spk_idual_mic_endfire_device,
 	&msm_itty_mono_tx_device,
 	&msm_itty_mono_rx_device,
+	&msm_a2dp_rx_device,
+	&msm_a2dp_tx_device,
+	&msm_uplink_rx_device,
 };
 
 void __ref msm_snddev_init_timpani(void)
