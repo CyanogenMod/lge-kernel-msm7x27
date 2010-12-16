@@ -87,9 +87,10 @@ struct kgsl_functable {
 	int (*device_setstate) (struct kgsl_device *device, uint32_t flags);
 	int (*device_idle) (struct kgsl_device *device, unsigned int timeout);
 	int (*device_suspend) (struct kgsl_device *device);
+	int (*device_resume) (struct kgsl_device *device);
 	int (*device_sleep) (struct kgsl_device *device);
 	int (*device_wake) (struct kgsl_device *device);
-	int (*device_start) (struct kgsl_device *device);
+	int (*device_start) (struct kgsl_device *device, unsigned int init_ram);
 	int (*device_stop) (struct kgsl_device *device);
 	int (*device_getproperty) (struct kgsl_device *device,
 					enum kgsl_property_type type,
@@ -154,6 +155,8 @@ struct kgsl_device {
 	uint32_t		requested_state;
 
 	struct list_head memqueue;
+	unsigned int active_cnt;
+	struct completion suspend_gate;
 };
 
 struct kgsl_process_private {

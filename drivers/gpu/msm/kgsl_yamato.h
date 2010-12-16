@@ -38,6 +38,10 @@ struct kgsl_yamato_device {
 	struct kgsl_drawctxt *drawctxt_active;
 	struct kgsl_drawctxt drawctxt[KGSL_CONTEXT_MAX];
 	wait_queue_head_t ib1_wq;
+	unsigned int *pfp_fw;
+	size_t pfp_fw_size;
+	unsigned int *pm4_fw;
+	size_t pm4_fw_size;
 };
 
 
