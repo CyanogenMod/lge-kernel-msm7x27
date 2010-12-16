@@ -29,6 +29,7 @@
 #include <mach/qdsp5v2/audio_acdb_def.h>
 #include <mach/qdsp5v2/snddev_virtual.h>
 #include "timpani_profile_7x30.h"
+#include <mach/qdsp5v2/audio_dev_ctl.h>
 
 /* define the value for BT_SCO */
 #define BT_SCO_PCM_CTL_VAL (PCM_CTL__RPCM_WIDTH__LINEAR_V |\
@@ -510,6 +511,28 @@ static struct platform_device msm_uplink_rx_device = {
 	.dev = { .platform_data = &snddev_uplink_rx_data },
 };
 
+static struct snddev_icodec_data\
+		snddev_idual_mic_endfire_real_stereo_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "handset_dual_mic_endfire_tx_real_stereo",
+	.copp_id = 0,
+	.acdb_id = PSEUDO_ACDB_ID,
+	.profile = &idual_mic_endfire_profile,
+	.channel_mode = REAL_STEREO_CHANNEL_MODE,
+	.default_sample_rate = 48000,
+	.pmctl_id = idual_mic_endfire_pmctl_id,
+	.pmctl_id_sz = ARRAY_SIZE(idual_mic_endfire_pmctl_id),
+	.pamp_on = NULL,
+	.pamp_off = NULL,
+};
+
+static struct platform_device msm_real_stereo_tx_device = {
+	.name = "snddev_icodec",
+	.id = 26,
+	.dev = { .platform_data =
+			&snddev_idual_mic_endfire_real_stereo_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -527,6 +550,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_a2dp_rx_device,
 	&msm_a2dp_tx_device,
 	&msm_uplink_rx_device,
+	&msm_real_stereo_tx_device,
 };
 
 void __ref msm_snddev_init_timpani(void)
