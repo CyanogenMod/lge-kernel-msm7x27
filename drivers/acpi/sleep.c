@@ -82,6 +82,20 @@ static int acpi_sleep_prepare(u32 acpi_state)
 static u32 acpi_target_sleep_state = ACPI_STATE_S0;
 
 /*
+ * The ACPI specification wants us to save NVS memory regions during hibernation
+ * and to restore them during the subsequent resume.  Windows does that also for
+ * suspend to RAM.  However, it is known that this mechanism does not work on
+ * all machines, so we allow the user to disable it with the help of the
+ * 'acpi_sleep=nonvs' kernel command line option.
+ */
+static bool nvs_nosave;
+
+void __init acpi_nvs_nosave(void)
+{
+	nvs_nosave = true;
+}
+
+/*
  * ACPI 1.0 wants us to execute _PTS before suspending devices, so we allow the
  * user to request that behavior by using the 'acpi_old_suspend_ordering'
  * kernel command line option that causes the following variable to be set.
@@ -197,8 +211,7 @@ static int acpi_suspend_begin(suspend_state_t pm_state)
 	u32 acpi_state = acpi_suspend_states[pm_state];
 	int error = 0;
 
-	error = suspend_nvs_alloc();
-
+	error = nvs_nosave ? 0 : suspend_nvs_alloc();
 	if (error)
 		return error;
 
@@ -349,6 +362,12 @@ static int __init init_old_suspend_ordering(const struct dmi_system_id *d)
 	return 0;
 }
 
+static int __init init_nvs_nosave(const struct dmi_system_id *d)
+{
+	acpi_nvs_nosave();
+	return 0;
+}
+
 static struct dmi_system_id __initdata acpisleep_dmi_table[] = {
 	{
 	.callback = init_old_suspend_ordering,
@@ -383,25 +402,27 @@ static struct dmi_system_id __initdata acpisleep_dmi_table[] = {
 		DMI_MATCH(DMI_BOARD_NAME, "CF51-2L"),
 		},
 	},
+	{
+	.callback = init_nvs_nosave,
+	.ident = "Sony Vaio VGN-SR11M",
+	.matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "Sony Corporation"),
+		DMI_MATCH(DMI_PRODUCT_NAME, "VGN-SR11M"),
+		},
+	},
+	{
+	.callback = init_nvs_nosave,
+	.ident = "Everex StepNote Series",
+	.matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "Everex Systems, Inc."),
+		DMI_MATCH(DMI_PRODUCT_NAME, "Everex StepNote Series"),
+		},
+	},
 	{},
 };
 #endif /* CONFIG_SUSPEND */
 
 #ifdef CONFIG_HIBERNATION
-/*
- * The ACPI specification wants us to save NVS memory regions during hibernation
- * and to restore them during the subsequent resume.  However, it is not certain
- * if this mechanism is going to work on all machines, so we allow the user to
- * disable this mechanism using the 'acpi_sleep=s4_nonvs' kernel command line
- * option.
- */
-static bool s4_no_nvs;
-
-void __init acpi_s4_no_nvs(void)
-{
-	s4_no_nvs = true;
-}
-
 static unsigned long s4_hardware_signature;
 static struct acpi_table_facs *facs;
 static bool nosigcheck;
@@ -415,7 +436,7 @@ static int acpi_hibernation_begin(void)
 {
 	int error;
 
-	error = s4_no_nvs ? 0 : suspend_nvs_alloc();
+	error = nvs_nosave ? 0 : suspend_nvs_alloc();
 	if (!error) {
 		acpi_target_sleep_state = ACPI_STATE_S4;
 		acpi_sleep_tts_switch(acpi_target_sleep_state);
@@ -510,7 +531,7 @@ static int acpi_hibernation_begin_old(void)
 	error = acpi_sleep_prepare(ACPI_STATE_S4);
 
 	if (!error) {
-		if (!s4_no_nvs)
+		if (!nvs_nosave)
 			error = suspend_nvs_alloc();
 		if (!error)
 			acpi_target_sleep_state = ACPI_STATE_S4;

@@ -282,12 +282,14 @@ Conexant 5051
   hp		HP Spartan laptop
   hp-dv6736	HP dv6736
   hp-f700	HP Compaq Presario F700
+  ideapad	Lenovo IdeaPad laptop
   lenovo-x200	Lenovo X200 laptop
   toshiba	Toshiba Satellite M300
 
 Conexant 5066
 =============
   laptop	Basic Laptop config (default)
+  hp-laptop	HP laptops, e g G60
   dell-laptop	Dell laptops
   olpc-xo-1_5	OLPC XO 1.5
   ideapad       Lenovo IdeaPad U150

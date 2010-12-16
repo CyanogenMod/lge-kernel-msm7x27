@@ -345,10 +345,10 @@ static u32 group_table[] = {
 	DstMem | SrcNone | ModRM, DstMem | SrcNone | ModRM,
 	0, 0, 0, 0,
 	[Group4*8] =
-	ByteOp | DstMem | SrcNone | ModRM, ByteOp | DstMem | SrcNone | ModRM,
+	ByteOp | DstMem | SrcNone | ModRM | Lock, ByteOp | DstMem | SrcNone | ModRM | Lock,
 	0, 0, 0, 0, 0, 0,
 	[Group5*8] =
-	DstMem | SrcNone | ModRM, DstMem | SrcNone | ModRM,
+	DstMem | SrcNone | ModRM | Lock, DstMem | SrcNone | ModRM | Lock,
 	SrcMem | ModRM | Stack, 0,
 	SrcMem | ModRM | Stack, SrcMem | ModRM | Src2Mem16 | ImplicitOps,
 	SrcMem | ModRM | Stack, 0,
@@ -1712,17 +1712,16 @@ static inline int emulate_grp9(struct x86_emulate_ctxt *ctxt,
 			       struct x86_emulate_ops *ops)
 {
 	struct decode_cache *c = &ctxt->decode;
-	u64 old = c->dst.orig_val;
+	u64 old = c->dst.orig_val64;
 
 	if (((u32) (old >> 0) != (u32) c->regs[VCPU_REGS_RAX]) ||
 	    ((u32) (old >> 32) != (u32) c->regs[VCPU_REGS_RDX])) {
-
 		c->regs[VCPU_REGS_RAX] = (u32) (old >> 0);
 		c->regs[VCPU_REGS_RDX] = (u32) (old >> 32);
 		ctxt->eflags &= ~EFLG_ZF;
 	} else {
-		c->dst.val = ((u64)c->regs[VCPU_REGS_RCX] << 32) |
-		       (u32) c->regs[VCPU_REGS_RBX];
+		c->dst.val64 = ((u64)c->regs[VCPU_REGS_RCX] << 32) |
+			(u32) c->regs[VCPU_REGS_RBX];
 
 		ctxt->eflags |= EFLG_ZF;
 	}
@@ -2535,7 +2534,7 @@ x86_emulate_insn(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 					ctxt->vcpu);
 		if (rc != X86EMUL_CONTINUE)
 			goto done;
-		c->src.orig_val = c->src.val;
+		c->src.orig_val64 = c->src.val64;
 	}
 
 	if (c->src2.type == OP_MEM) {

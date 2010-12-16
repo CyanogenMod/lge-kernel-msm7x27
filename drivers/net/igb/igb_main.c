@@ -630,9 +630,6 @@ static void igb_cache_ring_register(struct igb_adapter *adapter)
 			for (; i < adapter->rss_queues; i++)
 				adapter->rx_ring[i]->reg_idx = rbase_offset +
 				                               Q_IDX_82576(i);
-			for (; j < adapter->rss_queues; j++)
-				adapter->tx_ring[j]->reg_idx = rbase_offset +
-				                               Q_IDX_82576(j);
 		}
 	case e1000_82575:
 	case e1000_82580:
@@ -996,7 +993,10 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter)
 
 	/* Number of supported queues. */
 	adapter->num_rx_queues = adapter->rss_queues;
-	adapter->num_tx_queues = adapter->rss_queues;
+	if (adapter->vfs_allocated_count)
+		adapter->num_tx_queues = 1;
+	else
+		adapter->num_tx_queues = adapter->rss_queues;
 
 	/* start with one vector for every rx queue */
 	numvecs = adapter->num_rx_queues;
@@ -1721,6 +1721,15 @@ static int __devinit igb_probe(struct pci_dev *pdev,
 	int err, pci_using_dac;
 	u16 eeprom_apme_mask = IGB_EEPROM_APME;
 	u32 part_num;
+
+	/* Catch broken hardware that put the wrong VF device ID in
+	 * the PCIe SR-IOV capability.
+	 */
+	if (pdev->is_virtfn) {
+		WARN(1, KERN_ERR "%s (%hx:%hx) should not be a VF!\n",
+		     pci_name(pdev), pdev->vendor, pdev->device);
+		return -EINVAL;
+	}
 
 	err = pci_enable_device_mem(pdev);
 	if (err)
@@ -5335,6 +5344,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
 
 	while ((eop_desc->wb.status & cpu_to_le32(E1000_TXD_STAT_DD)) &&
 	       (count < tx_ring->count)) {
+		rmb();	/* read buffer_info after eop_desc status */
 		for (cleaned = false; !cleaned; count++) {
 			tx_desc = E1000_TX_DESC_ADV(*tx_ring, i);
 			buffer_info = &tx_ring->buffer_info[i];
@@ -5540,6 +5550,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
 		if (*work_done >= budget)
 			break;
 		(*work_done)++;
+		rmb(); /* read descriptor and rx_buffer_info after status DD */
 
 		skb = buffer_info->skb;
 		prefetch(skb->data - NET_IP_ALIGN);

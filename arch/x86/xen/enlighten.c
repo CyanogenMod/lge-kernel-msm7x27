@@ -927,7 +927,7 @@ static const struct pv_init_ops xen_init_ops __initdata = {
 };
 
 static const struct pv_time_ops xen_time_ops __initdata = {
-	.sched_clock = xen_sched_clock,
+	.sched_clock = xen_clocksource_read,
 };
 
 static const struct pv_cpu_ops xen_cpu_ops __initdata = {
@@ -1001,7 +1001,7 @@ static void xen_reboot(int reason)
 	struct sched_shutdown r = { .reason = reason };
 
 #ifdef CONFIG_SMP
-	smp_send_stop();
+	stop_other_cpus();
 #endif
 
 	if (HYPERVISOR_sched_op(SCHEDOP_shutdown, &r))

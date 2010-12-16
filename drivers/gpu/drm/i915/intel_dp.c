@@ -229,7 +229,6 @@ intel_dp_aux_ch(struct intel_encoder *intel_encoder,
 	uint32_t ch_data = ch_ctl + 4;
 	int i;
 	int recv_bytes;
-	uint32_t ctl;
 	uint32_t status;
 	uint32_t aux_clock_divider;
 	int try, precharge;
@@ -253,41 +252,43 @@ intel_dp_aux_ch(struct intel_encoder *intel_encoder,
 	else
 		precharge = 5;
 
+	if (I915_READ(ch_ctl) & DP_AUX_CH_CTL_SEND_BUSY) {
+		DRM_ERROR("dp_aux_ch not started status 0x%08x\n",
+			  I915_READ(ch_ctl));
+		return -EBUSY;
+	}
+
 	/* Must try at least 3 times according to DP spec */
 	for (try = 0; try < 5; try++) {
 		/* Load the send data into the aux channel data registers */
-		for (i = 0; i < send_bytes; i += 4) {
-			uint32_t    d = pack_aux(send + i, send_bytes - i);
-	
-			I915_WRITE(ch_data + i, d);
-		}
-	
-		ctl = (DP_AUX_CH_CTL_SEND_BUSY |
-		       DP_AUX_CH_CTL_TIME_OUT_400us |
-		       (send_bytes << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
-		       (precharge << DP_AUX_CH_CTL_PRECHARGE_2US_SHIFT) |
-		       (aux_clock_divider << DP_AUX_CH_CTL_BIT_CLOCK_2X_SHIFT) |
-		       DP_AUX_CH_CTL_DONE |
-		       DP_AUX_CH_CTL_TIME_OUT_ERROR |
-		       DP_AUX_CH_CTL_RECEIVE_ERROR);
+		for (i = 0; i < send_bytes; i += 4)
+			I915_WRITE(ch_data + i,
+				   pack_aux(send + i, send_bytes - i));
 	
 		/* Send the command and wait for it to complete */
-		I915_WRITE(ch_ctl, ctl);
-		(void) I915_READ(ch_ctl);
+		I915_WRITE(ch_ctl,
+			   DP_AUX_CH_CTL_SEND_BUSY |
+			   DP_AUX_CH_CTL_TIME_OUT_400us |
+			   (send_bytes << DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT) |
+			   (precharge << DP_AUX_CH_CTL_PRECHARGE_2US_SHIFT) |
+			   (aux_clock_divider << DP_AUX_CH_CTL_BIT_CLOCK_2X_SHIFT) |
+			   DP_AUX_CH_CTL_DONE |
+			   DP_AUX_CH_CTL_TIME_OUT_ERROR |
+			   DP_AUX_CH_CTL_RECEIVE_ERROR);
 		for (;;) {
-			udelay(100);
 			status = I915_READ(ch_ctl);
 			if ((status & DP_AUX_CH_CTL_SEND_BUSY) == 0)
 				break;
+			udelay(100);
 		}
 	
 		/* Clear done status and any errors */
-		I915_WRITE(ch_ctl, (status |
-				DP_AUX_CH_CTL_DONE |
-				DP_AUX_CH_CTL_TIME_OUT_ERROR |
-				DP_AUX_CH_CTL_RECEIVE_ERROR));
-		(void) I915_READ(ch_ctl);
-		if ((status & DP_AUX_CH_CTL_TIME_OUT_ERROR) == 0)
+		I915_WRITE(ch_ctl,
+			   status |
+			   DP_AUX_CH_CTL_DONE |
+			   DP_AUX_CH_CTL_TIME_OUT_ERROR |
+			   DP_AUX_CH_CTL_RECEIVE_ERROR);
+		if (status & DP_AUX_CH_CTL_DONE)
 			break;
 	}
 
@@ -314,15 +315,12 @@ intel_dp_aux_ch(struct intel_encoder *intel_encoder,
 	/* Unload any bytes sent back from the other side */
 	recv_bytes = ((status & DP_AUX_CH_CTL_MESSAGE_SIZE_MASK) >>
 		      DP_AUX_CH_CTL_MESSAGE_SIZE_SHIFT);
-
 	if (recv_bytes > recv_size)
 		recv_bytes = recv_size;
 	
-	for (i = 0; i < recv_bytes; i += 4) {
-		uint32_t    d = I915_READ(ch_data + i);
-
-		unpack_aux(d, recv + i, recv_bytes - i);
-	}
+	for (i = 0; i < recv_bytes; i += 4)
+		unpack_aux(I915_READ(ch_data + i),
+			   recv + i, recv_bytes - i);
 
 	return recv_bytes;
 }
@@ -717,6 +715,51 @@ intel_dp_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	}
 }
 
+static void ironlake_edp_panel_on (struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned long timeout = jiffies + msecs_to_jiffies(5000);
+	u32 pp, pp_status;
+
+	pp_status = I915_READ(PCH_PP_STATUS);
+	if (pp_status & PP_ON)
+		return;
+
+	pp = I915_READ(PCH_PP_CONTROL);
+	pp |= PANEL_UNLOCK_REGS | POWER_TARGET_ON;
+	I915_WRITE(PCH_PP_CONTROL, pp);
+	do {
+		pp_status = I915_READ(PCH_PP_STATUS);
+	} while (((pp_status & PP_ON) == 0) && !time_after(jiffies, timeout));
+
+	if (time_after(jiffies, timeout))
+		DRM_DEBUG_KMS("panel on wait timed out: 0x%08x\n", pp_status);
+
+	pp &= ~(PANEL_UNLOCK_REGS | EDP_FORCE_VDD);
+	I915_WRITE(PCH_PP_CONTROL, pp);
+}
+
+static void ironlake_edp_panel_off (struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned long timeout = jiffies + msecs_to_jiffies(5000);
+	u32 pp, pp_status;
+
+	pp = I915_READ(PCH_PP_CONTROL);
+	pp &= ~POWER_TARGET_ON;
+	I915_WRITE(PCH_PP_CONTROL, pp);
+	do {
+		pp_status = I915_READ(PCH_PP_STATUS);
+	} while ((pp_status & PP_ON) && !time_after(jiffies, timeout));
+
+	if (time_after(jiffies, timeout))
+		DRM_DEBUG_KMS("panel off wait timed out\n");
+
+	/* Make sure VDD is enabled so DP AUX will work */
+	pp |= EDP_FORCE_VDD;
+	I915_WRITE(PCH_PP_CONTROL, pp);
+}
+
 static void ironlake_edp_backlight_on (struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -751,14 +794,18 @@ intel_dp_dpms(struct drm_encoder *encoder, int mode)
 	if (mode != DRM_MODE_DPMS_ON) {
 		if (dp_reg & DP_PORT_EN) {
 			intel_dp_link_down(intel_encoder, dp_priv->DP);
-			if (IS_eDP(intel_encoder))
+			if (IS_eDP(intel_encoder)) {
 				ironlake_edp_backlight_off(dev);
+				ironlake_edp_panel_off(dev);
+			}
 		}
 	} else {
 		if (!(dp_reg & DP_PORT_EN)) {
 			intel_dp_link_train(intel_encoder, dp_priv->DP, dp_priv->link_configuration);
-			if (IS_eDP(intel_encoder))
+			if (IS_eDP(intel_encoder)) {
+				ironlake_edp_panel_on(dev);
 				ironlake_edp_backlight_on(dev);
+			}
 		}
 	}
 	dp_priv->dpms_mode = mode;

@@ -206,6 +206,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 				     uint16_t *line_mux,
 				     struct radeon_hpd *hpd)
 {
+	struct radeon_device *rdev = dev->dev_private;
 
 	/* Asus M2A-VM HDMI board lists the DVI port as HDMI */
 	if ((dev->pdev->device == 0x791e) &&
@@ -223,6 +224,15 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 		if ((*connector_type == DRM_MODE_CONNECTOR_HDMIA) &&
 		    (supported_device == ATOM_DEVICE_DFP3_SUPPORT))
 			*connector_type = DRM_MODE_CONNECTOR_DVID;
+	}
+
+	/* MSI K9A2GM V2/V3 board has no HDMI or DVI */
+	if ((dev->pdev->device == 0x796e) &&
+	    (dev->pdev->subsystem_vendor == 0x1462) &&
+	    (dev->pdev->subsystem_device == 0x7302)) {
+		if ((supported_device == ATOM_DEVICE_DFP2_SUPPORT) ||
+		    (supported_device == ATOM_DEVICE_DFP3_SUPPORT))
+			return false;
 	}
 
 	/* a-bit f-i90hd - ciaranm on #radeonhd - this board has no DVI */
@@ -308,13 +318,22 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 		}
 	}
 
-	/* Acer laptop reports DVI-D as DVI-I */
+	/* Acer laptop reports DVI-D as DVI-I and hpd pins reversed */
 	if ((dev->pdev->device == 0x95c4) &&
 	    (dev->pdev->subsystem_vendor == 0x1025) &&
 	    (dev->pdev->subsystem_device == 0x013c)) {
+		struct radeon_gpio_rec gpio;
+
 		if ((*connector_type == DRM_MODE_CONNECTOR_DVII) &&
-		    (supported_device == ATOM_DEVICE_DFP1_SUPPORT))
+		    (supported_device == ATOM_DEVICE_DFP1_SUPPORT)) {
+			gpio = radeon_lookup_gpio(rdev, 6);
+			*hpd = radeon_atom_get_hpd_info_from_gpio(rdev, &gpio);
 			*connector_type = DRM_MODE_CONNECTOR_DVID;
+		} else if ((*connector_type == DRM_MODE_CONNECTOR_HDMIA) &&
+			   (supported_device == ATOM_DEVICE_DFP1_SUPPORT)) {
+			gpio = radeon_lookup_gpio(rdev, 7);
+			*hpd = radeon_atom_get_hpd_info_from_gpio(rdev, &gpio);
+		}
 	}
 
 	/* XFX Pine Group device rv730 reports no VGA DDC lines
@@ -1049,7 +1068,7 @@ bool radeon_atombios_sideport_present(struct radeon_device *rdev)
 			}
 			break;
 		case 2:
-			if (igp_info->info_2.ucMemoryType & 0x0f)
+			if (igp_info->info_2.ulBootUpSidePortClock)
 				return true;
 			break;
 		default:

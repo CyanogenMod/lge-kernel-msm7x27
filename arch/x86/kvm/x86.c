@@ -1562,7 +1562,7 @@ static int msr_io(struct kvm_vcpu *vcpu, struct kvm_msrs __user *user_msrs,
 
 	r = -ENOMEM;
 	size = sizeof(struct kvm_msr_entry) * msrs.nmsrs;
-	entries = vmalloc(size);
+	entries = kmalloc(size, GFP_KERNEL);
 	if (!entries)
 		goto out;
 
@@ -1581,7 +1581,7 @@ static int msr_io(struct kvm_vcpu *vcpu, struct kvm_msrs __user *user_msrs,
 	r = n;
 
 out_free:
-	vfree(entries);
+	kfree(entries);
 out:
 	return r;
 }
@@ -1910,9 +1910,9 @@ static void do_cpuid_ent(struct kvm_cpuid_entry2 *entry, u32 function,
 		0 /* Reserved, XSAVE, OSXSAVE */;
 	/* cpuid 0x80000001.ecx */
 	const u32 kvm_supported_word6_x86_features =
-		F(LAHF_LM) | F(CMP_LEGACY) | F(SVM) | 0 /* ExtApicSpace */ |
+		F(LAHF_LM) | F(CMP_LEGACY) | 0 /*SVM*/ | 0 /* ExtApicSpace */ |
 		F(CR8_LEGACY) | F(ABM) | F(SSE4A) | F(MISALIGNSSE) |
-		F(3DNOWPREFETCH) | 0 /* OSVW */ | 0 /* IBS */ | F(SSE5) |
+		F(3DNOWPREFETCH) | 0 /* OSVW */ | 0 /* IBS */ | F(XOP) |
 		0 /* SKINIT */ | 0 /* WDT */;
 
 	/* all calls to cpuid_count() should be made on the same cpu */
@@ -5438,6 +5438,11 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 				int user_alloc)
 {
 	int npages = memslot->npages;
+	int map_flags = MAP_PRIVATE | MAP_ANONYMOUS;
+
+	/* Prevent internal slot pages from being moved by fork()/COW. */
+	if (memslot->id >= KVM_MEMORY_SLOTS)
+		map_flags = MAP_SHARED | MAP_ANONYMOUS;
 
 	/*To keep backward compatibility with older userspace,
 	 *x86 needs to hanlde !user_alloc case.
@@ -5450,7 +5455,7 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 			userspace_addr = do_mmap(NULL, 0,
 						 npages * PAGE_SIZE,
 						 PROT_READ | PROT_WRITE,
-						 MAP_PRIVATE | MAP_ANONYMOUS,
+						 map_flags,
 						 0);
 			up_write(&current->mm->mmap_sem);
 
