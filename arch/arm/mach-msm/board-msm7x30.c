@@ -843,6 +843,11 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 		I2C_BOARD_INFO("vx6953", 0x20),
 	},
 #endif
+#ifdef CONFIG_MT9E013
+	{
+		I2C_BOARD_INFO("mt9e013", 0x6C >> 2),
+	},
+#endif
 #ifdef CONFIG_SN12M0PZ
 	{
 		I2C_BOARD_INFO("sn12m0pz", 0x34 >> 1),
@@ -1091,6 +1096,34 @@ static struct platform_device msm_camera_sensor_mt9p012 = {
 	},
 };
 #endif
+
+#ifdef CONFIG_MT9E013
+static struct msm_camera_sensor_flash_data flash_mt9e013 = {
+	.flash_type = MSM_CAMERA_FLASH_LED,
+	.flash_src  = &msm_flash_src_pwm
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
+	.sensor_name    = "mt9e013",
+	.sensor_reset   = 0,
+	.sensor_pwd     = 85,
+	.vcm_pwd        = 1,
+	.vcm_enable     = 1,
+	.pdata          = &msm_camera_device_data,
+	.resource       = msm_camera_resources,
+	.num_resources  = ARRAY_SIZE(msm_camera_resources),
+	.flash_data     = &flash_mt9e013,
+	.csi_if         = 1
+};
+
+static struct platform_device msm_camera_sensor_mt9e013 = {
+	.name      = "msm_camera_mt9e013",
+	.dev       = {
+		.platform_data = &msm_camera_sensor_mt9e013_data,
+	},
+};
+#endif
+
 #ifdef CONFIG_VX6953
 static struct msm_camera_sensor_flash_data flash_vx6953 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
@@ -5128,6 +5161,9 @@ static struct platform_device *devices[] __initdata = {
 #endif
 #ifdef CONFIG_MT9P012
 	&msm_camera_sensor_mt9p012,
+#endif
+#ifdef CONFIG_MT9E013
+	&msm_camera_sensor_mt9e013,
 #endif
 #ifdef CONFIG_VX6953
 	&msm_camera_sensor_vx6953,

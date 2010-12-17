@@ -413,6 +413,12 @@ void msm_camio_clk_rate_set(int rate)
 	clk_set_rate(clk, rate);
 }
 
+void msm_camio_vfe_clk_rate_set(int rate)
+{
+	struct clk *clk = camio_vfe_clk;
+	clk_set_rate(clk, rate);
+}
+
 void msm_camio_clk_rate_set_2(struct clk *clk, int rate)
 {
 	clk_set_rate(clk, rate);
