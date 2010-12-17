@@ -26,6 +26,7 @@
 #include <linux/mfd/pmic8058.h>
 #include <linux/jiffies.h>
 #include <linux/suspend.h>
+#include <linux/interrupt.h>
 #include <mach/msm_iomap.h>
 
 #define TCSR_BASE 0x16B00000
@@ -39,6 +40,7 @@
 /* Watchdog pet interval in ms */
 #define PET_DELAY 3000
 static unsigned long delay_time;
+static unsigned long long last_pet;
 
 /*
  * On the kernel command line specify
@@ -105,6 +107,7 @@ static struct notifier_block msm_watchdog_power_notifier = {
 static void pet_watchdog(struct work_struct *work)
 {
 	writel(1, WDT0_RST);
+	last_pet = sched_clock();
 
 	if (enable)
 		schedule_delayed_work(&dogwork_struct, delay_time);
@@ -118,9 +121,27 @@ static void __exit exit_watchdog(void)
 		writel(0, WDT0_EN); /* In case we got suspended mid-exit */
 		writel(0, tcsr_base + TCSR_WDT_CFG);
 		iounmap(tcsr_base);
+		free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 		enable = 0;
 	}
 	printk(KERN_INFO "MSM Watchdog Exit - Deactivated\n");
+}
+
+static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
+{
+	unsigned long nanosec_rem;
+	unsigned long long t = sched_clock();
+
+	nanosec_rem = do_div(t, 1000000000);
+	printk(KERN_INFO "Watchdog bark! Now = %lu.%06lu\n", (unsigned long) t,
+		nanosec_rem / 1000);
+
+	nanosec_rem = do_div(last_pet, 1000000000);
+	printk(KERN_INFO "Watchdog last pet at %lu.%06lu\n", (unsigned long)
+		last_pet, nanosec_rem / 1000);
+
+	panic("Apps watchdog bark received!");
+	return IRQ_HANDLED;
 }
 
 static int __init init_watchdog(void)
@@ -136,9 +157,14 @@ static int __init init_watchdog(void)
 
 		/* 32768 ticks = 1 second */
 		writel(32768*4, WDT0_BARK_TIME);
-		writel(32768*4, WDT0_BITE_TIME);
+		writel(32768*5, WDT0_BITE_TIME);
 
 		ret = register_pm_notifier(&msm_watchdog_power_notifier);
+		if (ret)
+			return ret;
+
+		ret = request_irq(WDT0_ACCSCSSNBARK_INT, wdog_bark_handler, 0,
+				  "apps_wdog_bark", NULL);
 		if (ret)
 			return ret;
 
@@ -149,6 +175,9 @@ static int __init init_watchdog(void)
 					       &panic_blk);
 
 		writel(1, WDT0_EN);
+		writel(1, WDT0_RST);
+		last_pet = sched_clock();
+
 		printk(KERN_INFO "MSM Watchdog Initialized\n");
 	} else {
 		printk(KERN_INFO "MSM Watchdog Not Initialized\n");
