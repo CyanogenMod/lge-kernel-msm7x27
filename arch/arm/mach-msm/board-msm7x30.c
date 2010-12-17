@@ -492,34 +492,16 @@ static int pm8058_pwm_enable(struct pwm_device *pwm, int ch, int on)
 
 static const unsigned int fluid_keymap[] = {
 	KEY(0, 0, KEY_7),
-	KEY(0, 1, KEY_DOWN),
+	KEY(0, 1, KEY_ENTER),
 	KEY(0, 2, KEY_UP),
-	KEY(0, 3, KEY_RIGHT),
-	KEY(0, 4, KEY_ENTER),
+	/* drop (0,3) as it always shows up in pair with(0,2) */
+	KEY(0, 4, KEY_DOWN),
 
-	KEY(1, 0, KEY_LEFT),
-	KEY(1, 1, KEY_SEND),
+	KEY(1, 0, KEY_CAMERA_SNAPSHOT),
+	KEY(1, 1, KEY_SELECT),
 	KEY(1, 2, KEY_1),
-	KEY(1, 3, KEY_4),
-	KEY(1, 4, KEY_CLEAR),
-
-	KEY(2, 0, KEY_6),
-	KEY(2, 1, KEY_5),
-	KEY(2, 2, KEY_8),
-	KEY(2, 3, KEY_3),
-	KEY(2, 4, KEY_NUMERIC_STAR),
-
-	KEY(3, 0, KEY_9),
-	KEY(3, 1, KEY_NUMERIC_POUND),
-	KEY(3, 2, KEY_0),
-	KEY(3, 3, KEY_2),
-	KEY(3, 4, KEY_END),
-
-	KEY(4, 0, KEY_BACK),
-	KEY(4, 1, KEY_HOME),
-	KEY(4, 2, KEY_MENU),
-	KEY(4, 3, KEY_VOLUMEUP),
-	KEY(4, 4, KEY_VOLUMEDOWN),
+	KEY(1, 3, KEY_VOLUMEUP),
+	KEY(1, 4, KEY_VOLUMEDOWN),
 };
 
 static const unsigned int surf_keymap[] = {
