@@ -7642,6 +7642,8 @@ static void msm8x60_charm_hub_init(void)
 
 static void __init msm8x60_init(struct msm_board_data *board_data)
 {
+	uint32_t soc_platform_version;
+
 	/*
 	 * Initialize RPM first as other drivers and devices may need
 	 * it for their initialization.
@@ -7656,6 +7658,21 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		printk(KERN_ERR "%s: socinfo_init() failed!\n",
 		       __func__);
 	msm8x60_check_2d_hardware();
+
+	/* Change SPM handling of core 1 if PMM 8160 is present. */
+	soc_platform_version = socinfo_get_platform_version();
+	if (SOCINFO_VERSION_MAJOR(soc_platform_version) == 1 &&
+			SOCINFO_VERSION_MINOR(soc_platform_version) >= 2) {
+		struct msm_spm_platform_data *spm_data;
+
+		spm_data = &msm_spm_data_v1[1];
+		spm_data->reg_init_values[MSM_SPM_REG_SAW_CFG] &= ~0x0F00UL;
+		spm_data->reg_init_values[MSM_SPM_REG_SAW_CFG] |= 0x0100UL;
+
+		spm_data = &msm_spm_data[1];
+		spm_data->reg_init_values[MSM_SPM_REG_SAW_CFG] &= ~0x0F00UL;
+		spm_data->reg_init_values[MSM_SPM_REG_SAW_CFG] |= 0x0100UL;
+	}
 
 	/*
 	 * Initialize SPM before acpuclock as the latter calls into SPM
