@@ -273,10 +273,9 @@ static int sdio_read_cis(struct mmc_card *card, struct sdio_func *func)
 
 		/* null entries have no link field or data */
 		if (tpl_code == 0x00) {
-			if (machine_is_msm8x60_charm_surf() ||
-			    machine_is_msm8x60_charm_ffa() ||
-			    machine_is_msm8x55_svlte_surf() ||
-			    machine_is_msm8x55_svlte_ffa())
+			if (card->cis.vendor == 0x70 &&
+				(card->cis.device == 0x2460 ||
+				 card->cis.device == 0x0460))
 				break;
 			else
 				continue;
