@@ -450,8 +450,8 @@ static u32 vid_enc_get_next_msg(struct video_client_ctx *client_ctx,
 
 static u32 vid_enc_close_client(struct video_client_ctx *client_ctx)
 {
+	struct vid_enc_msg *vid_enc_msg = NULL;
 	u32 vcd_status;
-
 	int rc;
 
 	INFO("\n msm_vidc_enc: Inside %s()", __func__);
@@ -480,6 +480,15 @@ static u32 vid_enc_close_client(struct video_client_ctx *client_ctx)
 		}
 	}
 	DBG("VCD_STOPPED: After Timeout, calling VCD_CLOSE\n");
+	mutex_lock(&client_ctx->msg_queue_lock);
+	while (!list_empty(&client_ctx->msg_queue)) {
+		DBG("%s(): Delete remaining entries\n", __func__);
+		vid_enc_msg = list_first_entry(&client_ctx->msg_queue,
+					struct vid_enc_msg, list);
+		list_del(&vid_enc_msg->list);
+		kfree(vid_enc_msg);
+	}
+	mutex_unlock(&client_ctx->msg_queue_lock);
 	vcd_status = vcd_close(client_ctx->vcd_handle);
 
 	if (vcd_status) {
