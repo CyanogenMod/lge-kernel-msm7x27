@@ -1570,9 +1570,6 @@ static void kgsl_driver_cleanup(void)
 	kgsl_g12_close(kgsl_get_2d_device(KGSL_DEVICE_2D0));
 	kgsl_g12_close(kgsl_get_2d_device(KGSL_DEVICE_2D1));
 
-	/* shutdown memory apertures */
-	kgsl_sharedmem_close(&kgsl_driver.shmem);
-
 	kgsl_driver.pdev = NULL;
 }
 
@@ -1682,7 +1679,6 @@ error_class_create:
 static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 {
 	int i, result = 0;
-	struct resource *res = NULL;
 	struct kgsl_platform_data *pdata = NULL;
 	struct kgsl_device *device = kgsl_get_yamato_generic_device();
 	struct kgsl_device *device_2d0 = kgsl_get_2d_device(KGSL_DEVICE_2D0);
@@ -1723,21 +1719,6 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 			goto done;
 		}
 	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					   "kgsl_phys_memory");
-	if (res == NULL) {
-		result = -EINVAL;
-		goto done;
-	}
-
-	kgsl_driver.shmem.physbase = res->start;
-	kgsl_driver.shmem.size = resource_size(res);
-
-	/* init memory apertures */
-	result = kgsl_sharedmem_init(&kgsl_driver.shmem);
-	if (result != 0)
-		goto done;
 
 	result = kgsl_drm_init(pdev);
 

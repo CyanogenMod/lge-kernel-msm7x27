@@ -71,8 +71,6 @@ struct kgsl_driver {
 
 	uint32_t flags_debug;
 
-	struct kgsl_sharedmem shmem;
-
 	/* Global lilst of open processes */
 	struct list_head process_list;
 	/* Global list of pagetables */
