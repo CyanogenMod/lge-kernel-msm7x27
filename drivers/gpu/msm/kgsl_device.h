@@ -42,7 +42,7 @@
 #include "kgsl_ringbuffer.h"
 #include "kgsl_pwrctrl.h"
 
-#define KGSL_CONTEXT_MAX        8
+#define KGSL_CONTEXT_MAX (CONFIG_MSM_KGSL_CONTEXTS)
 
 #define KGSL_TIMEOUT_NONE       0
 #define KGSL_TIMEOUT_DEFAULT    0xFFFFFFFF
@@ -169,7 +169,7 @@ struct kgsl_process_private {
 };
 
 struct kgsl_device_private {
-	uint32_t ctxt_id_mask;
+	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
 	struct kgsl_device *device;
 	struct kgsl_process_private *process_priv;
 };
