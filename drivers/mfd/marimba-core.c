@@ -39,6 +39,10 @@ struct marimba marimba_modules[ADIE_ARRY_SIZE];
 #define MARIMBA_VERSION_REG		0x11
 #define MARIMBA_MODE_REG		0x00
 
+struct marimba_platform_data *marimba_pdata;
+
+static uint32_t marimba_gpio_count;
+
 #ifdef CONFIG_I2C_SSBI
 #define NUM_ADD	MARIMBA_NUM_CHILD
 #else
@@ -363,6 +367,33 @@ static int marimba_add_child(struct marimba_platform_data *pdata,
 	return 0;
 }
 
+int marimba_gpio_config(int gpio_value)
+{
+	struct marimba *marimba = &marimba_modules[MARIMBA_SLAVE_ID_MARIMBA];
+	struct marimba_platform_data *pdata = marimba_pdata;
+	int rc = 0;
+
+	/* Clients BT/FM need to manage GPIO 34 on Fusion for its clocks */
+
+	mutex_lock(&marimba->xfer_lock);
+
+	if (gpio_value) {
+		marimba_gpio_count++;
+		if (marimba_gpio_count == 1)
+			rc = pdata->marimba_gpio_config(1);
+	} else {
+		marimba_gpio_count--;
+		if (marimba_gpio_count == 0)
+			rc = pdata->marimba_gpio_config(0);
+	}
+
+	mutex_unlock(&marimba->xfer_lock);
+
+	return rc;
+
+}
+EXPORT_SYMBOL(marimba_gpio_config);
+
 static int get_adie_type(void)
 {
 	u8 rd_val;
@@ -516,6 +547,8 @@ static int marimba_probe(struct i2c_client *client,
 	marimba_init_reg(client, id->driver_data);
 
 	status = marimba_add_child(pdata, id->driver_data);
+
+	marimba_pdata = pdata;
 
 	return 0;
 

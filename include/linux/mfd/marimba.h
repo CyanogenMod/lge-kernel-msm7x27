@@ -147,6 +147,7 @@ struct marimba_platform_data {
 	void (*marimba_shutdown) (void);
 	u32 (*bahama_setup) (void);
 	u32 (*bahama_shutdown) (int);
+	u32 (*marimba_gpio_config) (int);
 };
 
 /*
@@ -177,5 +178,6 @@ int timpani_write(struct marimba*, u8 reg, u8 *value,
 /* Get the detected codec type */
 int adie_get_detected_codec_type(void);
 int adie_get_detected_connectivity_type(void);
+int marimba_gpio_config(int gpio_value);
 
 #endif
