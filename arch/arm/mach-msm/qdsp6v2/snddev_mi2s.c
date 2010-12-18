@@ -163,10 +163,25 @@ static struct platform_driver mi2s_fm_driver = {
 	.driver = { .name = "msm_mi2s"}
 };
 
+static u8 num_of_bits_set(u8 sd_line_mask)
+{
+	u8 num_bits_set = 0;
+
+	while (sd_line_mask) {
+
+		if (sd_line_mask & 1)
+			num_bits_set++;
+		sd_line_mask = sd_line_mask >> 1;
+	}
+	return num_bits_set;
+}
+
 static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 {
 	int rc = 0;
 	union afe_port_config afe_config;
+	u8 channels;
+	u8 num_of_sd_lines = 0;
 	struct snddev_mi2s_drv_state *drv = &snddev_mi2s_drv;
 	struct snddev_mi2s_data *snddev_mi2s_data = dev_info->private_data;
 
@@ -201,18 +216,116 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 	}
 	clk_enable(drv->tx_bitclk);
 
-	afe_config.mi2s.channel = snddev_mi2s_data->channel_mode;
 	afe_config.mi2s.bitwidth = 16;
-	afe_config.mi2s.line = 4;
+
+	if (snddev_mi2s_data->channel_mode == 1)
+		channels = AFE_MI2S_MONO;
+	else if (snddev_mi2s_data->channel_mode == 2)
+		channels = AFE_MI2S_STEREO;
+	else if (snddev_mi2s_data->channel_mode == 4)
+		channels = AFE_MI2S_4CHANNELS;
+	else if (snddev_mi2s_data->channel_mode == 6)
+		channels = AFE_MI2S_6CHANNELS;
+	else if (snddev_mi2s_data->channel_mode == 8)
+		channels = AFE_MI2S_8CHANNELS;
+	else {
+		pr_err("ERROR: Invalid MI2S channel mode\n");
+		goto error_invalid_data;
+	}
+
+	num_of_sd_lines = num_of_bits_set(snddev_mi2s_data->sd_lines);
+
+	switch (num_of_sd_lines) {
+	case 1:
+		switch (snddev_mi2s_data->sd_lines) {
+		case MI2S_SD0:
+			afe_config.mi2s.line = AFE_I2S_SD0;
+			break;
+		case MI2S_SD1:
+			afe_config.mi2s.line = AFE_I2S_SD1;
+			break;
+		case MI2S_SD2:
+			afe_config.mi2s.line = AFE_I2S_SD2;
+			break;
+		case MI2S_SD3:
+			afe_config.mi2s.line = AFE_I2S_SD3;
+			break;
+		default:
+			pr_err("%s: invalid SD line\n",
+			__func__);
+			goto error_invalid_data;
+		}
+		if (channels != AFE_MI2S_STEREO &&
+		channels != AFE_MI2S_MONO) {
+			pr_err("%s: for one SD line, channel "
+			"must be 1 or 2\n", __func__);
+			goto error_invalid_data;
+		}
+		afe_config.mi2s.channel = channels;
+		break;
+	case 2:
+		switch (snddev_mi2s_data->sd_lines) {
+		case MI2S_SD0 | MI2S_SD1:
+			afe_config.mi2s.line = AFE_I2S_QUAD01;
+			break;
+		case MI2S_SD2 | MI2S_SD3:
+			afe_config.mi2s.line = AFE_I2S_QUAD23;
+			break;
+		default:
+			pr_err("%s: invalid SD line\n",
+			__func__);
+			goto error_invalid_data;
+		}
+		if (channels != AFE_MI2S_4CHANNELS) {
+			pr_err("%s: for two SD lines, channel "
+			"must be 1 and 2 or 3 and 4\n", __func__);
+			goto error_invalid_data;
+		}
+		break;
+	case 3:
+		switch (snddev_mi2s_data->sd_lines) {
+		case MI2S_SD0 | MI2S_SD1 | MI2S_SD2:
+			afe_config.mi2s.line = AFE_I2S_6CHS;
+			break;
+		default:
+			pr_err("%s: invalid SD lines\n",
+			__func__);
+			goto error_invalid_data;
+		}
+		if (channels != AFE_MI2S_6CHANNELS) {
+			pr_err("%s: for three SD lines, lines "
+			"must be 1, 2, and 3\n", __func__);
+			goto error_invalid_data;
+		}
+		break;
+	case 4:
+		switch (snddev_mi2s_data->sd_lines) {
+		case MI2S_SD0 | MI2S_SD1 | MI2S_SD2 | MI2S_SD3:
+			afe_config.mi2s.line = AFE_I2S_8CHS;
+			break;
+		default:
+			pr_err("%s: invalid SD lines\n",
+			__func__);
+			goto error_invalid_data;
+		}
+
+		if (channels != AFE_MI2S_8CHANNELS) {
+			pr_err("%s: for four SD lines, lines "
+			"must be 1, 2, 3, and 4\n", __func__);
+			goto error_invalid_data;
+		}
+		break;
+	default:
+		pr_err("%s: invalid SD lines\n", __func__);
+		goto error_invalid_data;
+	}
 	afe_config.mi2s.ws = 1;
 	rc = afe_open(snddev_mi2s_data->copp_id, &afe_config,
 		dev_info->sample_rate);
 
 	if (rc < 0) {
 		pr_err("%s:  afe_open failed\n", __func__);
-		clk_disable(drv->tx_bitclk);
-		clk_disable(drv->tx_osrclk);
-		return -EINVAL;
+		goto error_invalid_data;
 	}
 
 	/*enable fm gpio here*/
@@ -225,6 +338,12 @@ static int snddev_mi2s_open(struct msm_snddev_info *dev_info)
 	pr_info("%s:  afe_open  done\n", __func__);
 
 	return rc;
+
+error_invalid_data:
+
+	clk_disable(drv->tx_bitclk);
+	clk_disable(drv->tx_osrclk);
+	return -EINVAL;
 }
 
 static int snddev_mi2s_close(struct msm_snddev_info *dev_info)

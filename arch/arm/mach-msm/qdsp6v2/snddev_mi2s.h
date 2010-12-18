@@ -37,4 +37,10 @@ struct snddev_mi2s_data {
 	u16 sd_lines;
 	u32 sample_rate;
 };
+
+#define MI2S_SD0 (1 << 0)
+#define MI2S_SD1 (1 << 1)
+#define MI2S_SD2 (1 << 2)
+#define MI2S_SD3 (1 << 3)
+
 #endif

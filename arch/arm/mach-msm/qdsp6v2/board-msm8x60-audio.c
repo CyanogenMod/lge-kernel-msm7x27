@@ -699,8 +699,8 @@ static struct snddev_mi2s_data snddev_mi2s_fm_tx_data = {
 	.capability = SNDDEV_CAP_TX ,
 	.name = "fmradio_stereo_tx",
 	.copp_id = MI2S_TX,
-	.channel_mode = 3, /* stereo */
-	.sd_lines = 4, /* sd3 */
+	.channel_mode = 2, /* stereo */
+	.sd_lines = MI2S_SD3, /* sd3 */
 	.sample_rate = 48000,
 };
 
@@ -713,8 +713,8 @@ static struct snddev_mi2s_data snddev_mi2s_fm_rx_data = {
 	.capability = SNDDEV_CAP_RX ,
 	.name = "fmradio_stereo_rx",
 	.copp_id = MI2S_RX,
-	.channel_mode = 3, /* stereo */
-	.sd_lines = 4, /* sd3 */
+	.channel_mode = 2, /* stereo */
+	.sd_lines = MI2S_SD3, /* sd3 */
 	.sample_rate = 48000,
 };
 
