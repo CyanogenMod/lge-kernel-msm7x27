@@ -291,7 +291,7 @@ static void set_rate_cam(struct clk_local *clk, struct clk_freq_tbl *nf)
 static void set_rate_tv(struct clk_local *clk, struct clk_freq_tbl *nf)
 {
 	struct pll_rate *rate = nf->extra_freq_data;
-	uint32_t pll_mode, pll_config;
+	uint32_t pll_mode, pll_config, misc_cc2;
 
 	/* Disable PLL output. */
 	pll_mode = readl(MM_PLL2_MODE_REG);
@@ -307,15 +307,23 @@ static void set_rate_tv(struct clk_local *clk, struct clk_freq_tbl *nf)
 	writel(rate->m_val, MM_PLL2_M_VAL_REG);
 	writel(rate->n_val, MM_PLL2_N_VAL_REG);
 
-	/* Configure post-divide and VCO. */
+	/* Configure MN counter, post-divide, VCO, and i-bits. */
 	pll_config = readl(MM_PLL2_CONFIG_REG);
-	pll_config &= ~(BM(21, 20) | BM(17, 16));
-	pll_config |= (BVAL(21, 20, rate->post_div));
-	pll_config |= (BVAL(17, 16, rate->vco));
+	pll_config &= ~(BM(22, 20) | BM(18, 0));
+	pll_config |= rate->n_val ? B(22) : 0;
+	pll_config |= BVAL(21, 20, rate->post_div);
+	pll_config |= BVAL(17, 16, rate->vco);
+	pll_config |= rate->i_bits;
 	writel(pll_config, MM_PLL2_CONFIG_REG);
 
 	/* Configure MND. */
 	set_rate_mnd(clk, nf);
+
+	/* Configure hdmi_ref_clk to be equal to the TV clock rate. */
+	misc_cc2 = readl(MISC_CC2_REG);
+	misc_cc2 &= ~(B(28)|BM(21, 18));
+	misc_cc2 |= (B(28)|BVAL(21, 18, (nf->ns_val >> 14) & 0x3));
+	writel(misc_cc2, MISC_CC2_REG);
 
 	/* De-assert active-low PLL reset. */
 	pll_mode |= B(2);
@@ -976,16 +984,16 @@ static struct clk_freq_tbl clk_tbl_rot[] = {
 			CC(6, n), MND_EN(B(5), n), v, p_r)
 /* Switching TV freqs requires PLL reconfiguration. */
 static struct pll_rate mm_pll2_rate[] = {
-	[0] = PLL_RATE( 7, 6301, 13500, 0, 4), /*  50400500 Hz */
-	[1] = PLL_RATE( 8,    0,     1, 0, 4), /*  54000000 Hz */
-	[2] = PLL_RATE( 8,    1,   125, 0, 4), /*  54054000 Hz */
-	[3] = PLL_RATE(22,    0,     1, 2, 4), /* 148500000 Hz */
-	[4] = PLL_RATE(44,    0,     1, 2, 4), /* 297000000 Hz */
+	[0] = PLL_RATE( 7, 6301, 13500, 0, 4, 0x4248B), /*  50400500 Hz */
+	[1] = PLL_RATE( 8,    0,     0, 0, 4, 0x4248B), /*  54000000 Hz */
+	[2] = PLL_RATE(16,    2,   125, 0, 4, 0x4248F), /* 108108000 Hz */
+	[3] = PLL_RATE(22,    0,     0, 2, 4, 0x6248B), /* 148500000 Hz */
+	[4] = PLL_RATE(44,    0,     0, 2, 4, 0x6248F), /* 297000000 Hz */
 };
 static struct clk_freq_tbl clk_tbl_tv[] = {
 	F_TV( 25200000, MM_PLL2, &mm_pll2_rate[0], 2, 0, 0, LOW),
 	F_TV( 27000000, MM_PLL2, &mm_pll2_rate[1], 2, 0, 0, LOW),
-	F_TV( 27030000, MM_PLL2, &mm_pll2_rate[2], 2, 0, 0, LOW),
+	F_TV( 27030000, MM_PLL2, &mm_pll2_rate[2], 4, 0, 0, LOW),
 	F_TV( 74250000, MM_PLL2, &mm_pll2_rate[3], 2, 0, 0, NOMINAL),
 	F_TV(148500000, MM_PLL2, &mm_pll2_rate[4], 2, 0, 0, NOMINAL),
 	F_END,
@@ -1837,7 +1845,7 @@ static void reg_init(int use_pxo)
 		writel(0, MM_PLL2_MODE_REG); /* PXO */
 	else
 		writel(B(4), MM_PLL2_MODE_REG); /* MXO */
-	writel(0x00C02080, MM_PLL2_CONFIG_REG); /* Enable MN, main out, misc. */
+	writel(0x00800000, MM_PLL2_CONFIG_REG); /* Enable main out. */
 
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel(0, SW_RESET_ALL_REG);
@@ -1896,9 +1904,6 @@ static void reg_init(int use_pxo)
 	udelay(5);
 	writel(0, SW_RESET_CORE_REG);
 	local_clk_disable(C(GFX3D));
-
-	/* Set hdmi_ref_clk to MM_PLL2/2. */
-	rmwreg(B(28)|BVAL(21, 18, 0x1), MISC_CC2_REG, B(28)|BM(21, 18));
 
 	if (use_pxo) {
 		/* Enable TSSC and PDM PXO sources. */
