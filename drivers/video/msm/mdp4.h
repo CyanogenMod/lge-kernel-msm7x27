@@ -442,6 +442,16 @@ void mdp4_mddi_kickoff_video(struct msm_fb_data_type *mfd,
 
 void mdp4_mddi_read_ptr_intr(void);
 
+void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_cmd_overlay_restore(void);
+
 void mdp_dmap_vsync_set(int enable);
 int mdp_dmap_vsync_get(void);
 void mdp_hw_cursor_done(void);

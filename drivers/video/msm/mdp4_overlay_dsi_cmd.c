@@ -38,9 +38,21 @@
 #include "mipi_dsi.h"
 
 static struct mdp4_overlay_pipe *dsi_pipe;
+static struct mdp4_overlay_pipe *pending_pipe;
 static struct msm_fb_data_type *dsi_mfd;
-static struct completion dsi_cmd_comp;
+static struct completion dsi_delay_comp;
+static atomic_t dsi_delay_kickoff_cnt;
 
+struct timer_list dsi_timer;
+
+void dsi_delay_tout(unsigned long data)
+{
+	if (atomic_read(&dsi_delay_kickoff_cnt) != 0) {
+		atomic_dec(&dsi_delay_kickoff_cnt);
+		if (atomic_read(&dsi_delay_kickoff_cnt) == 0)
+			complete(&dsi_delay_comp);
+	}
+}
 
 void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 {
@@ -74,8 +86,11 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 		if (ret < 0)
 			printk(KERN_INFO "%s: format2type failed\n", __func__);
 
-		init_completion(&dsi_cmd_comp);
+		init_completion(&dsi_delay_comp);
 		dsi_pipe = pipe; /* keep it */
+		init_timer(&dsi_timer);
+		dsi_timer.function = dsi_delay_tout;
+		dsi_timer.data = 0;
 		/*
 		 * configure dsi stream id
 		 * dma_p = 0, dma_s = 1
@@ -130,39 +145,110 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
  */
 void mdp4_overlay0_done_dsi_cmd()
 {
-	complete(&dsi_cmd_comp);
+	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
+
+	if (pending_pipe)
+		complete(&pending_pipe->comp);
 }
+
+void mdp4_dsi_cmd_overlay_restore(void)
+{
+	/* mutex holded by caller */
+	if (dsi_mfd && dsi_pipe) {
+		mdp4_dsi_cmd_dma_busy_wait(dsi_mfd, dsi_pipe);
+		mdp4_overlay_update_dsi_cmd(dsi_mfd);
+		mdp4_dsi_cmd_overlay_kickoff(dsi_mfd, dsi_pipe);
+		dsi_mfd->dma_update_flag = 1;
+	}
+}
+
+void dsi_add_delay_timer(int delay_ms)
+{
+	dsi_timer.expires = jiffies + ((delay_ms * HZ) / 1000);
+	add_timer(&dsi_timer);
+}
+
+void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe)
+{
+	unsigned long flag;
+
+	if (pipe == NULL) /* first time since boot up */
+		return;
+
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	if (mfd->dma->busy == TRUE) {
+		INIT_COMPLETION(pipe->comp);
+		pending_pipe = pipe;
+	}
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	if (pending_pipe != NULL) {
+		/* wait until DMA finishes the current job */
+		wait_for_completion_killable(&pipe->comp);
+		mfd->dma_update_flag = 0;
+		pending_pipe = NULL;
+	}
+}
+
+void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe)
+{
+	unsigned long flag;
+
+	if (atomic_read(&dsi_delay_kickoff_cnt) != 0) {
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		complete(&dsi_delay_comp);
+		atomic_set(&dsi_delay_kickoff_cnt, 0);
+		del_timer(&dsi_timer);
+		mdp4_stat.kickoff_piggy++;
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+		return;
+	}
+
+	mdp4_dsi_cmd_overlay_kickoff(mfd, pipe);
+}
+
+void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe)
+{
+
+	if (mdp4_overlay_mixer_play(dsi_pipe->mixer_num) > 0) {
+		dsi_add_delay_timer(10);
+		atomic_set(&dsi_delay_kickoff_cnt, 1);
+		INIT_COMPLETION(dsi_delay_comp);
+		mutex_unlock(&mfd->dma->ov_mutex);
+		wait_for_completion_killable(&dsi_delay_comp);
+		mutex_lock(&mfd->dma->ov_mutex);
+	}
+
+	mdp4_dsi_cmd_overlay_kickoff(mfd, pipe);
+}
+
 
 void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
 
 	down(&mfd->sem);
-	mfd->dma->busy = TRUE;
-	INIT_COMPLETION(dsi_cmd_comp);
 	mdp_enable_irq(MDP_OVERLAY0_TERM);
-	/* Kick off overlay engine */
+	mfd->dma->busy = TRUE;
+	/* start OVERLAY pipe */
 	mdp_pipe_kickoff(MDP_OVERLAY0_TERM, mfd);
-
 	/* trigger dsi cmd engine */
 	mipi_dsi_cmd_mdp_sw_trigger();
-
 	up(&mfd->sem);
-
-	/* wait until DMA finishes the current job */
-	wait_for_completion_killable(&dsi_cmd_comp);
-
-	mdp_disable_irq(MDP_OVERLAY0_TERM);
 }
 
 void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 {
 	mutex_lock(&mfd->dma->ov_mutex);
 
-	if ((mfd) && (!mfd->dma->busy) && (mfd->panel_power_on)) {
+	if (mfd && mfd->panel_power_on) {
+		mdp4_dsi_cmd_dma_busy_wait(mfd, dsi_pipe);
 		mdp4_overlay_update_dsi_cmd(mfd);
 
-		mdp4_dsi_cmd_overlay_kickoff(mfd, dsi_pipe);
+		mdp4_dsi_cmd_kickoff_ui(mfd, dsi_pipe);
 
 		mdp4_stat.kickoff_dsi++;
 
