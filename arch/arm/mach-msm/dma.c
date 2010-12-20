@@ -111,9 +111,9 @@ static struct msm_dmov_crci_conf adm0_crci_conf[] = {
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
-	DMOV_CRCI_CONF(0, 1),
-	DMOV_CRCI_CONF(0, 1),
-	DMOV_CRCI_CONF(0, 0x101),
+	DMOV_CRCI_DEFAULT_CONF,
+	DMOV_CRCI_DEFAULT_CONF,
+	DMOV_CRCI_CONF(0, 4),
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
@@ -132,7 +132,7 @@ static struct msm_dmov_crci_conf adm1_crci_conf[] = {
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_CONF(0, 1),
 	DMOV_CRCI_CONF(0, 1),
-	DMOV_CRCI_CONF(0, 5),
+	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
@@ -718,6 +718,13 @@ static void config_datamover(int adm)
 			writel(conf | DMOV_CONF_SHADOW_EN,
 			       DMOV_REG(DMOV_CONF(i), adm));
 		}
+	}
+	for (i = 0; i < MSM_DMOV_CRCI_COUNT; i++) {
+		struct msm_dmov_crci_conf *crci_conf =
+			dmov_conf[adm].crci_conf;
+
+		writel(DMOV_CRCI_CTL_BLK_SZ(crci_conf[i].blk_size),
+		       DMOV_REG(DMOV_CRCI_CTL(i), adm));
 	}
 #endif
 }
