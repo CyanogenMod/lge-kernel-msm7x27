@@ -291,6 +291,7 @@ static void sdio_xprt_write_data(struct work_struct *work)
 static int rpcrouter_sdio_remote_close(void)
 {
 	SDIO_XPRT_DBG("sdio_xprt Called %s\n", __func__);
+	flush_workqueue(sdio_xprt_read_workqueue);
 	sdio_close(sdio_remote_xprt.channel->handle);
 	free_sdio_xprt(sdio_remote_xprt.channel);
 	return 0;
