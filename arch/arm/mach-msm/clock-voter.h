@@ -44,6 +44,8 @@ enum {
 	V_EBI_VCD_CLK,
 	V_EBI_VFE_CLK,
 
+	V_EBI_PM_QOS_CLK,
+
 	V_NR_CLKS
 };
 
