@@ -306,12 +306,8 @@ int mmc_card_can_sleep(struct mmc_host *host);
 int mmc_host_enable(struct mmc_host *host);
 int mmc_host_disable(struct mmc_host *host);
 int mmc_host_lazy_disable(struct mmc_host *host);
-#ifdef CONFIG_PM
-int mmc_pm_notify(struct notifier_block *notify_block, unsigned long mode,
-		  void *unused);
-#else
-#define mmc_pm_notify NULL
-#endif
+
+int mmc_pm_notify(struct notifier_block *notify_block, unsigned long, void *);
 
 static inline void mmc_set_disable_delay(struct mmc_host *host,
 					 unsigned int disable_delay)
