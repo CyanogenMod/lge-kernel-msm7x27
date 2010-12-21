@@ -702,10 +702,19 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				idx, rem, num, dev->mode);
 
 			qup_print_status(dev);
-			timeout = wait_for_completion_timeout(&complete,
-					msecs_to_jiffies(dev->out_fifo_sz));
+			timeout = wait_for_completion_timeout(&complete, HZ);
 			if (!timeout) {
+				uint32_t istatus = readl(dev->base +
+							QUP_I2C_STATUS);
+				uint32_t qstatus = readl(dev->base +
+							QUP_ERROR_FLAGS);
+				uint32_t op_flgs = readl(dev->base +
+							QUP_OPERATIONAL);
+
 				dev_err(dev->dev, "Transaction timed out\n");
+				dev_err(dev->dev, "I2C Status: %x\n", istatus);
+				dev_err(dev->dev, "QUP Status: %x\n", qstatus);
+				dev_err(dev->dev, "OP Flags: %x\n", op_flgs);
 				writel(1, dev->base + QUP_SW_RESET);
 				ret = -ETIMEDOUT;
 				goto out_err;
