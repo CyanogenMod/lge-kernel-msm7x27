@@ -1576,6 +1576,6 @@ module_init(_qcrypto_init);
 module_exit(_qcrypto_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Qualcomm Innovation Center, Inc.");
+MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm Crypto driver");
 MODULE_VERSION("1.01");

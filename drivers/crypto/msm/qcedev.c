@@ -1312,7 +1312,7 @@ static void qcedev_exit(void)
 }
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Qualcomm Innovation Center, Inc.");
+MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
 MODULE_VERSION("1.01");
 
