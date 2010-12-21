@@ -72,6 +72,7 @@ struct xoadc_platform_data {
 	u32 (*xoadc_setup) (void);
 	void (*xoadc_shutdown) (void);
 	void (*xoadc_mpp_config) (void);
+	int (*xoadc_vreg_set) (int);
 	u32 xoadc_num;
 	u32 xoadc_wakeup;
 };

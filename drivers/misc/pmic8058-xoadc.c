@@ -567,10 +567,18 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 
 	pmic_adc[adc_pmic->xoadc_num] = adc_pmic;
 
-	pr_debug("pm8058 xoadc successfully registered\n");
-
 	if (pdata->xoadc_setup != NULL)
 		pdata->xoadc_setup();
+
+	if (pdata->xoadc_vreg_set != NULL) {
+		rc = pdata->xoadc_vreg_set(1);
+		if (rc) {
+			pr_err("%s: adc vreg sleep set failed (%d)\n",
+				__func__, rc);
+			goto err_cleanup;
+		}
+	}
+	pr_debug("pm8058 xoadc successfully registered\n");
 
 	xoadc_initialized = true;
 
