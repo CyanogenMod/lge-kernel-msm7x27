@@ -553,14 +553,12 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		KGSL_PWRFLAGS_IRQ_OFF;
 	device->pwrctrl.nap_allowed = pdata->nap_allowed;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_3d;
-	device->pwrctrl.pm_qos_req = pm_qos_add_request(
-					PM_QOS_SYSTEM_BUS_FREQ,
-					PM_QOS_DEFAULT_VALUE);
-	if (!device->pwrctrl.pm_qos_req) {
-		KGSL_DRV_ERR("pm_qos_add_request() returned NULL\n");
-		result = -EINVAL;
-		goto done;
-	}
+	device->pwrctrl.ebi1_clk = clk_get(NULL, "ebi1_kgsl_clk");
+	if (IS_ERR(device->pwrctrl.ebi1_clk))
+		device->pwrctrl.ebi1_clk = NULL;
+	else
+		clk_set_rate(device->pwrctrl.ebi1_clk,
+				device->pwrctrl.clk_freq[KGSL_AXI_HIGH] * 1000);
 	if (pdata->grp3d_bus_scale_table != NULL) {
 		device->pwrctrl.pcl =
 		msm_bus_scale_register_client(pdata->grp3d_bus_scale_table);

@@ -353,9 +353,12 @@ kgsl_g12_init_pwrctrl(struct kgsl_device *device)
 		goto done;
 	}
 
-	device->pwrctrl.pm_qos_req = pm_qos_add_request(
-					PM_QOS_SYSTEM_BUS_FREQ,
-					PM_QOS_DEFAULT_VALUE);
+	clk = clk_get(NULL, "ebi1_kgsl_clk");
+	if (IS_ERR(clk))
+		clk = NULL;
+	else
+		clk_set_rate(clk, device->pwrctrl.clk_freq[KGSL_AXI_HIGH]*1000);
+	device->pwrctrl.ebi1_clk = clk;
 
 	if (bus_table) {
 		device->pwrctrl.pcl = msm_bus_scale_register_client(bus_table);
