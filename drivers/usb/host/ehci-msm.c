@@ -35,7 +35,6 @@
 #include <mach/msm_otg.h>
 #include <mach/clk.h>
 #include <linux/wakelock.h>
-#include <linux/pm_qos_params.h>
 #include <linux/pm_runtime.h>
 
 #include <mach/msm72k_otg.h>
@@ -79,13 +78,10 @@ static void msm_xusb_pm_qos_update(struct msmusb_hcd *mhcd, int vote)
 	if (mhcd->xceiv)
 		return;
 
-	if (vote) {
-		pm_qos_update_request(pdata->pm_qos_req_bus,
-				 MSM_AXI_MAX_FREQ);
-	} else {
-		pm_qos_update_request(pdata->pm_qos_req_bus,
-				PM_QOS_DEFAULT_VALUE);
-	}
+	if (vote)
+		clk_enable(pdata->ebi1_clk);
+	else
+		clk_disable(pdata->ebi1_clk);
 }
 
 static void msm_xusb_enable_clks(struct msmusb_hcd *mhcd)
@@ -724,15 +720,18 @@ static int __devinit ehci_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&mhcd->lpm_exit_work, usb_lpm_exit_w);
 
 	wake_lock_init(&mhcd->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
-	pdata->pm_qos_req_bus = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					PM_QOS_DEFAULT_VALUE);
+	pdata->ebi1_clk = clk_get(NULL, "ebi1_usb_clk");
+	if (IS_ERR(pdata->ebi1_clk))
+		pdata->ebi1_clk = NULL;
+	else
+		clk_set_rate(pdata->ebi1_clk, INT_MAX);
 
 	retval = msm_xusb_init_host(mhcd);
 
 	if (retval < 0) {
 		usb_put_hcd(hcd);
 		wake_lock_destroy(&mhcd->wlock);
-		pm_qos_remove_request(pdata->pm_qos_req_bus);
+		clk_put(pdata->ebi1_clk);
 	}
 
 	pm_runtime_enable(&pdev->dev);
@@ -780,7 +779,7 @@ static int __exit ehci_msm_remove(struct platform_device *pdev)
 	retval = msm_xusb_rpc_close(mhcd);
 
 	wake_lock_destroy(&mhcd->wlock);
-	pm_qos_remove_request(pdata->pm_qos_req_bus);
+	clk_put(pdata->ebi1_clk);
 
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);

@@ -205,7 +205,7 @@ struct msm_otg_platform_data {
 	int (*init_vddcx)(int init);
 
 	struct pm_qos_request_list *pm_qos_req_dma;
-	struct pm_qos_request_list *pm_qos_req_bus;
+	struct clk *ebi1_clk;
 };
 
 struct msm_usb_host_platform_data {
@@ -214,7 +214,7 @@ struct msm_usb_host_platform_data {
 	void (*config_gpio)(unsigned int config);
 	void (*vbus_power) (unsigned phy_info, int on);
 	int  (*vbus_init)(int init);
-	struct pm_qos_request_list *pm_qos_req_bus;
+	struct clk *ebi1_clk;
 };
 
 #endif
