@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,6 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#include <linux/pm_qos_params.h>
 #include <mach/msm_reqs.h>
 
 #define TVENC_C
@@ -46,7 +45,7 @@
 #define MSM_SYSTEM_BUS_RATE	MSM_AXI_FLOW_MDP_DTV_720P_2BPP
 #else
 /* AXI rate in KHz */
-#define MSM_SYSTEM_BUS_RATE	128000
+#define MSM_SYSTEM_BUS_RATE	128000000
 #endif
 
 static int tvenc_probe(struct platform_device *pdev);
@@ -207,8 +206,8 @@ static int tvenc_off(struct platform_device *pdev)
 		msm_bus_scale_client_update_request(tvenc_bus_scale_handle,
 							0);
 #else
-	pm_qos_update_request(mfd->pm_qos_req,
-			      PM_QOS_DEFAULT_VALUE);
+	if (mfd->ebi1_clk)
+		clk_disable(mfd->ebi1_clk);
 #endif
 
 	if (ret)
@@ -231,7 +230,8 @@ static int tvenc_on(struct platform_device *pdev)
 		msm_bus_scale_client_update_request(tvenc_bus_scale_handle,
 							1);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, MSM_SYSTEM_BUS_RATE);
+	if (mfd->ebi1_clk)
+		clk_enable(mfd->ebi1_clk);
 #endif
 	if (tvenc_pdata && tvenc_pdata->pm_vid_en)
 		ret = tvenc_pdata->pm_vid_en(1);
@@ -408,8 +408,12 @@ static int tvenc_probe(struct platform_device *pdev)
 		}
 	}
 #else
-	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					     PM_QOS_DEFAULT_VALUE);
+	mfd->ebi1_clk = clk_get(NULL, "ebi1_tv_clk");
+	if (IS_ERR(mfd->ebi1_clk)) {
+		rc = PTR_ERR(mfd->ebi1_clk);
+		goto tvenc_probe_err;
+	}
+	clk_set_rate(mfd->ebi1_clk, MSM_SYSTEM_BUS_RATE);
 #endif
 
 	/*
@@ -430,10 +434,6 @@ static int tvenc_probe(struct platform_device *pdev)
 
 
 	pdev_list[pdev_list_cnt++] = pdev;
-
-
-	if (!mfd->pm_qos_req)
-		goto tvenc_probe_err;
 
 	return 0;
 
@@ -458,7 +458,7 @@ static int tvenc_remove(struct platform_device *pdev)
 		tvenc_bus_scale_handle > 0)
 		msm_bus_scale_unregister_client(tvenc_bus_scale_handle);
 #else
-	pm_qos_remove_request(mfd->pm_qos_req);
+	clk_put(mfd->ebi1_clk);
 #endif
 
 	pm_runtime_disable(&pdev->dev);

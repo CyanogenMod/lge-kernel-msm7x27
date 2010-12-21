@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,9 +29,6 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#ifndef CONFIG_MSM_BUS_SCALING
-#include <linux/pm_qos_params.h>
-#endif
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
@@ -358,7 +355,8 @@ static int mipi_dsi_off(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+	if (mfd->ebi1_clk)
+		clk_disable(mfd->ebi1_clk);
 #endif
 
 	disable_irq(DSI_IRQ);
@@ -480,7 +478,8 @@ static int mipi_dsi_on(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, 122000);
+	if (mfd->ebi1_clk)
+		clk_enable(mfd->ebi1_clk);
 #endif
 
 	pr_debug("%s:\n", __func__);
@@ -625,10 +624,11 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	pdev_list[pdev_list_cnt++] = pdev;
 
 #ifndef CONFIG_MSM_BUS_SCALING
-	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					       PM_QOS_DEFAULT_VALUE);
-	if (!mfd->pm_qos_req)
+	if (IS_ERR(mfd->ebi1_clk)) {
+		rc = PTR_ERR(mfd->ebi1_clk);
 		goto mipi_dsi_probe_err;
+	}
+	clk_set_rate(mfd->ebi1_clk, 122000000);
 #endif
 
 	return 0;
@@ -644,7 +644,7 @@ static int mipi_dsi_remove(struct platform_device *pdev)
 
 	mfd = platform_get_drvdata(pdev);
 #ifndef CONFIG_MSM_BUS_SCALING
-	pm_qos_remove_request(mfd->pm_qos_req);
+	clk_put(mfd->ebi1_clk);
 #endif
 
 	iounmap(msm_pmdh_base);
