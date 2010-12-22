@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -144,9 +144,6 @@ static int list_rates_show(struct seq_file *m, void *unused)
 	struct clk *clock = m->private;
 	int rate, i = 0;
 
-	if (clock->ops->list_rate == NULL)
-		return -EINVAL;
-
 	while ((rate = clock->ops->list_rate(clock->id, i++)) >= 0)
 		seq_printf(m, "%d\n", rate);
 
@@ -193,13 +190,15 @@ int __init clock_debug_add(struct clk *clock)
 				&clock_local_fops))
 		goto error;
 
-	if (!debugfs_create_file("measure", S_IRUGO, clk_dir,
-				clock, &clock_measure_fops))
-		goto error;
+	if (clock->ops->measure_rate)
+		if (!debugfs_create_file("measure",
+				S_IRUGO, clk_dir, clock, &clock_measure_fops))
+			goto error;
 
-	if (!debugfs_create_file("list_rates", S_IRUGO, clk_dir,
-				clock, &list_rates_fops))
-		goto error;
+	if (clock->ops->list_rate)
+		if (!debugfs_create_file("list_rates",
+				S_IRUGO, clk_dir, clock, &list_rates_fops))
+			goto error;
 
 	return 0;
 error:
