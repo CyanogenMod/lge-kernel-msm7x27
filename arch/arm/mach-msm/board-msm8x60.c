@@ -70,6 +70,7 @@
 #include <mach/msm_hsusb.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus_board.h>
+#include <mach/msm_tsif.h>
 #include <linux/i2c/isl9519.h>
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
@@ -379,6 +380,70 @@ static struct platform_device msm_device_saw_s1 = {
 		.platform_data = &saw_s1_init_data,
 	},
 };
+
+/* TSIF begin */
+#if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
+#define MSM_TSIF_PHYS        (0x18200000)
+#define MSM_TSIF_SIZE        (0x200)
+#define TSIF_B_SYNC      GPIO_CFG(96, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_B_DATA      GPIO_CFG(95, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_B_EN        GPIO_CFG(94, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_B_CLK       GPIO_CFG(93, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+
+static const struct msm_gpio tsif_gpios[] = {
+	{ .gpio_cfg = TSIF_B_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_B_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_B_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_B_SYNC, .label =  "tsif_sync", },
+};
+
+static struct resource tsif_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF1_IRQ,
+		.end   = TSIF2_IRQ,
+	},
+	[1] = {
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSIF_PHYS,
+		.end   = MSM_TSIF_PHYS + MSM_TSIF_SIZE - 1,
+	},
+	[2] = {
+		.flags = IORESOURCE_DMA,
+		.start = DMOV_TSIF_CHAN,
+		.end   = DMOV_TSIF_CRCI,
+	},
+};
+
+static struct msm_tsif_platform_data tsif_platform_data = {
+	.num_gpios = ARRAY_SIZE(tsif_gpios),
+	.gpios = tsif_gpios,
+	/* .tsif_clk = "tsif_clk", */
+	.tsif_pclk = "tsif_pclk",
+	.tsif_ref_clk = "tsif_ref_clk",
+};
+
+static void tsif_release(struct device *dev)
+{
+	dev_info(dev, "release\n");
+}
+
+struct platform_device msm_device_tsif = {
+	.name          = "msm_tsif",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(tsif_resources),
+	.resource      = tsif_resources,
+	.dev = {
+		.release       = tsif_release,
+		.platform_data = &tsif_platform_data
+	},
+};
+#endif /* defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE) */
+/* TSIF end   */
 
 /*
  * The smc91x configuration varies depending on platform.
@@ -3137,6 +3202,9 @@ static struct platform_device *surf_devices[] __initdata = {
 
 #ifdef CONFIG_MSM_SDIO_AL
 	&msm_device_sdio_al,
+#endif
+#if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
+	&msm_device_tsif,
 #endif
 };
 
