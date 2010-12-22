@@ -1634,7 +1634,7 @@ struct clk_source soc_clk_sources[NUM_SRC] = {
 int soc_update_sys_vdd(enum sys_vdd_level level)
 {
 	static const int vdd_uv[] = {
-		[NONE]    =  750000,
+		[NONE]    =  500000,
 		[LOW]     = 1000000,
 		[NOMINAL] = 1100000,
 		[HIGH]    = 1200000,
