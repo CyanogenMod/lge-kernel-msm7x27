@@ -1304,7 +1304,8 @@ static int mdp_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
-	if (mdp_pdata && mdp_pdata->mdp_bus_scale_table) {
+	if (!mdp_bus_scale_handle && mdp_pdata &&
+		mdp_pdata->mdp_bus_scale_table) {
 		mdp_bus_scale_handle =
 			msm_bus_scale_register_client(
 					mdp_pdata->mdp_bus_scale_table);
