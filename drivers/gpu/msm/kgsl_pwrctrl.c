@@ -231,10 +231,11 @@ void kgsl_timer(unsigned long data)
 {
 	struct kgsl_device *device = (struct kgsl_device *) data;
 
-	BUG_ON(device->requested_state == KGSL_STATE_SUSPEND);
-	device->requested_state = KGSL_STATE_SLEEP;
-	/* Have work run in a non-interrupt context. */
-	schedule_work(&device->idle_check_ws);
+	if (device->requested_state != KGSL_STATE_SUSPEND) {
+		device->requested_state = KGSL_STATE_SLEEP;
+		/* Have work run in a non-interrupt context. */
+		schedule_work(&device->idle_check_ws);
+	}
 }
 
 void kgsl_pre_hwaccess(struct kgsl_device *device)
