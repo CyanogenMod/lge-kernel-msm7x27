@@ -45,6 +45,7 @@
 
 struct mvs_driver_info {
 	uint32_t media_type;
+	uint32_t rate;
 	uint32_t network_type;
 	ul_cb_fn ul_cb;
 	dl_cb_fn dl_cb;
@@ -735,8 +736,9 @@ static int voice_send_tty_mode_to_modem(struct voice_data *v)
 			pr_err("Fail: sending VSS_ISTREAM_CMD_SET_TTY_MODE\n");
 			goto done;
 		}
-		ret = wait_event_timeout(v->mvm_wait, (v->mvm_state == 0),
-						msecs_to_jiffies(TIMEOUT_MS));
+		ret = wait_event_timeout(v->mvm_wait,
+					 (v->mvm_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			goto done;
@@ -811,8 +813,9 @@ static int voice_send_cvs_cal_to_modem(struct voice_data *v)
 			pr_err("Fail: sending cvs cal, idx=%d\n", index);
 			continue;
 		}
-		ret = wait_event_timeout(v->cvs_wait, (v->cvs_state == 0),
-			msecs_to_jiffies(TIMEOUT_MS));
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
 			return -EINVAL;
@@ -975,6 +978,250 @@ done:
 	return 0;
 }
 
+static int voice_config_cvs_vocoder(struct voice_data *v)
+{
+	int ret = 0;
+	void *apr_cvs = voice_get_apr_cvs(v);
+	u16 cvs_handle = voice_get_cvs_handle(v);
+
+	/* Set media type. */
+	struct cvs_set_media_type_cmd cvs_set_media_cmd;
+
+	pr_info("%s: Setting media type\n", __func__);
+
+	cvs_set_media_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						APR_HDR_LEN(APR_HDR_SIZE),
+						APR_PKT_VER);
+	cvs_set_media_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				      sizeof(cvs_set_media_cmd) - APR_HDR_SIZE);
+	cvs_set_media_cmd.hdr.src_port = 0;
+	cvs_set_media_cmd.hdr.dest_port = cvs_handle;
+	cvs_set_media_cmd.hdr.token = 0;
+	cvs_set_media_cmd.hdr.opcode = VSS_ISTREAM_CMD_SET_MEDIA_TYPE;
+	cvs_set_media_cmd.media_type.tx_media_id = v->mvs_info.media_type;
+	cvs_set_media_cmd.media_type.rx_media_id = v->mvs_info.media_type;
+
+	v->cvs_state = CMD_STATUS_FAIL;
+
+	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_media_cmd);
+	if (ret < 0) {
+		pr_err("%s: Error %d sending SET_MEDIA_TYPE\n",
+		       __func__, ret);
+
+		goto fail;
+	}
+
+	ret = wait_event_timeout(v->cvs_wait,
+				 (v->cvs_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+
+		goto fail;
+	}
+
+	/* Set encoder properties. */
+	switch (v->mvs_info.media_type) {
+	case VSS_MEDIA_ID_EVRC_MODEM: {
+		struct cvs_set_cdma_enc_minmax_rate_cmd cvs_set_cdma_rate;
+
+		pr_info("%s: Setting EVRC min-max rate\n", __func__);
+
+		cvs_set_cdma_rate.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					      APR_HDR_LEN(APR_HDR_SIZE),
+					      APR_PKT_VER);
+		cvs_set_cdma_rate.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				      sizeof(cvs_set_cdma_rate) - APR_HDR_SIZE);
+		cvs_set_cdma_rate.hdr.src_port = 0;
+		cvs_set_cdma_rate.hdr.dest_port = cvs_handle;
+		cvs_set_cdma_rate.hdr.token = 0;
+		cvs_set_cdma_rate.hdr.opcode =
+				VSS_ISTREAM_CMD_CDMA_SET_ENC_MINMAX_RATE;
+		cvs_set_cdma_rate.cdma_rate.min_rate = v->mvs_info.rate;
+		cvs_set_cdma_rate.cdma_rate.max_rate = v->mvs_info.rate;
+
+		v->cvs_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_cdma_rate);
+		if (ret < 0) {
+			pr_err("%s: Error %d sending SET_EVRC_MINMAX_RATE\n",
+			       __func__, ret);
+
+			goto fail;
+		}
+
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+
+			goto fail;
+		}
+
+		break;
+	}
+
+	case VSS_MEDIA_ID_AMR_NB_MODEM: {
+		struct cvs_set_amr_enc_rate_cmd cvs_set_amr_rate;
+		struct cvs_set_enc_dtx_mode_cmd cvs_set_dtx;
+
+		pr_info("%s: Setting AMR rate\n", __func__);
+
+		cvs_set_amr_rate.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					      APR_HDR_LEN(APR_HDR_SIZE),
+					      APR_PKT_VER);
+		cvs_set_amr_rate.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				       sizeof(cvs_set_amr_rate) - APR_HDR_SIZE);
+		cvs_set_amr_rate.hdr.src_port = 0;
+		cvs_set_amr_rate.hdr.dest_port = cvs_handle;
+		cvs_set_amr_rate.hdr.token = 0;
+		cvs_set_amr_rate.hdr.opcode =
+					VSS_ISTREAM_CMD_VOC_AMR_SET_ENC_RATE;
+		cvs_set_amr_rate.amr_rate.mode = v->mvs_info.rate;
+
+		v->cvs_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_amr_rate);
+		if (ret < 0) {
+			pr_err("%s: Error %d sending SET_AMR_RATE\n",
+			       __func__, ret);
+
+			goto fail;
+		}
+
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+
+			goto fail;
+		}
+
+		/* Disable DTX */
+		pr_info("%s: Disabling DTX\n", __func__);
+
+		cvs_set_dtx.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						      APR_HDR_LEN(APR_HDR_SIZE),
+						      APR_PKT_VER);
+		cvs_set_dtx.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				       sizeof(cvs_set_dtx) - APR_HDR_SIZE);
+		cvs_set_dtx.hdr.src_port = 0;
+		cvs_set_dtx.hdr.dest_port = cvs_handle;
+		cvs_set_dtx.hdr.token = 0;
+		cvs_set_dtx.hdr.opcode = VSS_ISTREAM_CMD_SET_ENC_DTX_MODE;
+		cvs_set_dtx.dtx_mode.enable = 0;
+
+		v->cvs_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_dtx);
+		if (ret < 0) {
+			pr_err("%s: Error %d sending SET_DTX\n",
+			       __func__, ret);
+
+			goto fail;
+		}
+
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+
+			goto fail;
+		}
+
+		break;
+	}
+
+	case VSS_MEDIA_ID_AMR_WB_MODEM: {
+		struct cvs_set_amrwb_enc_rate_cmd cvs_set_amrwb_rate;
+		struct cvs_set_enc_dtx_mode_cmd cvs_set_dtx;
+
+		pr_info("%s: Setting AMR WB rate\n", __func__);
+
+		cvs_set_amrwb_rate.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					      APR_HDR_LEN(APR_HDR_SIZE),
+					      APR_PKT_VER);
+		cvs_set_amrwb_rate.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				     sizeof(cvs_set_amrwb_rate) - APR_HDR_SIZE);
+		cvs_set_amrwb_rate.hdr.src_port = 0;
+		cvs_set_amrwb_rate.hdr.dest_port = cvs_handle;
+		cvs_set_amrwb_rate.hdr.token = 0;
+		cvs_set_amrwb_rate.hdr.opcode =
+					VSS_ISTREAM_CMD_VOC_AMRWB_SET_ENC_RATE;
+		cvs_set_amrwb_rate.amrwb_rate.mode = v->mvs_info.rate;
+
+		v->cvs_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_amrwb_rate);
+		if (ret < 0) {
+			pr_err("%s: Error %d sending SET_AMRWB_RATE\n",
+			       __func__, ret);
+
+			goto fail;
+		}
+
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+
+			goto fail;
+		}
+
+		/* Disable DTX */
+		pr_info("%s: Disabling DTX\n", __func__);
+
+		cvs_set_dtx.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						      APR_HDR_LEN(APR_HDR_SIZE),
+						      APR_PKT_VER);
+		cvs_set_dtx.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+				       sizeof(cvs_set_dtx) - APR_HDR_SIZE);
+		cvs_set_dtx.hdr.src_port = 0;
+		cvs_set_dtx.hdr.dest_port = cvs_handle;
+		cvs_set_dtx.hdr.token = 0;
+		cvs_set_dtx.hdr.opcode = VSS_ISTREAM_CMD_SET_ENC_DTX_MODE;
+		cvs_set_dtx.dtx_mode.enable = 0;
+
+		v->cvs_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_dtx);
+		if (ret < 0) {
+			pr_err("%s: Error %d sending SET_DTX\n",
+			       __func__, ret);
+
+			goto fail;
+		}
+
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+
+			goto fail;
+		}
+
+		break;
+	}
+
+	default: {
+		/* Do nothing. */
+	}
+	}
+
+	return 0;
+
+fail:
+	return -EINVAL;
+}
+
 static int voice_send_start_voice_cmd(struct voice_data *v)
 {
 	struct apr_hdr mvm_start_voice_cmd;
@@ -1053,14 +1300,11 @@ static int voice_setup_modem_voice(struct voice_data *v)
 	struct cvp_create_full_ctl_session_cmd cvp_session_cmd;
 	struct apr_hdr cvp_enable_cmd;
 	struct mvm_attach_vocproc_cmd mvm_a_vocproc_cmd;
-	struct cvs_set_media_type_cmd cvs_set_media_cmd;
 	int ret = 0;
 	struct msm_snddev_info *dev_tx_info;
 	void *apr_mvm = voice_get_apr_mvm(v);
-	void *apr_cvs = voice_get_apr_cvs(v);
 	void *apr_cvp = voice_get_apr_cvp(v);
 	u16 mvm_handle = voice_get_mvm_handle(v);
-	u16 cvs_handle = voice_get_cvs_handle(v);
 	u16 cvp_handle = voice_get_cvp_handle(v);
 
 	/* create cvp session and wait for response */
@@ -1184,44 +1428,14 @@ static int voice_setup_modem_voice(struct voice_data *v)
 	/* send tty mode if tty device is used */
 	voice_send_tty_mode_to_modem(v);
 
-
 	if (v->voc_path == VOC_PATH_FULL) {
 		struct mvm_set_network_cmd mvm_set_network;
 		struct mvm_set_voice_timing_cmd mvm_set_voice_timing;
 
-		pr_info("%s: Setting media type\n", __func__);
-
-		/* Set media type and encoder properties. */
-		cvs_set_media_cmd.hdr.hdr_field =
-			APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				      APR_HDR_LEN(APR_HDR_SIZE),
-				      APR_PKT_VER);
-		cvs_set_media_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-				      sizeof(cvs_set_media_cmd) - APR_HDR_SIZE);
-		cvs_set_media_cmd.hdr.src_port = 0;
-		cvs_set_media_cmd.hdr.dest_port = cvs_handle;
-		cvs_set_media_cmd.hdr.token = 0;
-		cvs_set_media_cmd.hdr.opcode = VSS_ISTREAM_CMD_SET_MEDIA_TYPE;
-		cvs_set_media_cmd.media_type.tx_media_id =
-			v->mvs_info.media_type;
-		cvs_set_media_cmd.media_type.rx_media_id =
-			v->mvs_info.media_type;
-
-		v->cvs_state = CMD_STATUS_FAIL;
-
-		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_media_cmd);
+		ret = voice_config_cvs_vocoder(v);
 		if (ret < 0) {
-			pr_err("%s: Error %d sending SET_MEDIA_TYPE\n",
+			pr_err("%s: Error %d configuring CVS voc",
 			       __func__, ret);
-
-			goto fail;
-		}
-
-		ret = wait_event_timeout(v->cvs_wait,
-					 (v->cvs_state == CMD_STATUS_SUCCESS),
-					 msecs_to_jiffies(TIMEOUT_MS));
-		if (!ret) {
-			pr_err("%s: wait_event timeout\n", __func__);
 
 			goto fail;
 		}
@@ -1651,7 +1865,7 @@ EXPORT_SYMBOL(voice_auddev_cb_function);
 
 int voice_set_voc_path_full(uint32_t set)
 {
-		int rc = 0;
+	int rc = 0;
 
 	pr_info("%s: %d\n", __func__, set);
 
@@ -1662,7 +1876,7 @@ int voice_set_voc_path_full(uint32_t set)
 			voice.voc_path = VOC_PATH_FULL;
 		else
 			voice.voc_path = VOC_PATH_PASSIVE;
-	}  else {
+	} else {
 		pr_err("%s: Invalid voc path set to %d, in state %d\n",
 		       __func__, set, voice.voc_state);
 
@@ -1684,9 +1898,11 @@ void voice_register_mvs_cb(ul_cb_fn ul_cb,
 }
 
 void voice_config_vocoder(uint32_t media_type,
+			  uint32_t rate,
 			  uint32_t network_type)
 {
 	voice.mvs_info.media_type = media_type;
+	voice.mvs_info.rate = rate;
 	voice.mvs_info.network_type = network_type;
 }
 
@@ -1742,24 +1958,30 @@ static int32_t modem_mvm_callback(struct apr_client_data *data, void *priv)
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 			} else if (ptr[0] == APRV2_IBASIC_CMD_DESTROY_SESSION) {
-				pr_info("%s: DESTROY resp\n", __func__);
+				pr_debug("%s: DESTROY resp\n", __func__);
 
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 			} else if (ptr[0] == VSS_IMVM_CMD_ATTACH_STREAM) {
-				pr_info("%s: ATTACH_STREAM resp 0x%x\n",
+				pr_debug("%s: ATTACH_STREAM resp 0x%x\n",
+					__func__, ptr[1]);
+
+				v->mvm_state = CMD_STATUS_SUCCESS;
+				wake_up(&v->mvm_wait);
+			} else if (ptr[0] == VSS_IMVM_CMD_DETACH_STREAM) {
+				pr_debug("%s: DETACH_STREAM resp 0x%x\n",
 					__func__, ptr[1]);
 
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 			} else if (ptr[0] == VSS_ICOMMON_CMD_SET_NETWORK) {
-				pr_info("%s: SET_NETWORK resp 0x%x\n",
+				pr_debug("%s: SET_NETWORK resp 0x%x\n",
 					__func__, ptr[1]);
 
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 			} else if (ptr[0] == VSS_ICOMMON_CMD_SET_VOICE_TIMING) {
-				pr_info("%s: SET_VOICE_TIMING resp 0x%x\n",
+				pr_debug("%s: SET_VOICE_TIMING resp 0x%x\n",
 					__func__, ptr[1]);
 
 				v->mvm_state = CMD_STATUS_SUCCESS;
@@ -1810,18 +2032,46 @@ static int32_t modem_cvs_callback(struct apr_client_data *data, void *priv)
 				v->cvs_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvs_wait);
 			} else if (ptr[0] == VSS_ISTREAM_CMD_SET_MEDIA_TYPE) {
-				pr_info("%s: Set media resp\n", __func__);
+				pr_debug("%s: SET_MEDIA resp 0x%x\n",
+					 __func__, ptr[1]);
+
+				v->cvs_state = CMD_STATUS_SUCCESS;
+				wake_up(&v->cvs_wait);
+			} else if (ptr[0] ==
+				   VSS_ISTREAM_CMD_VOC_AMR_SET_ENC_RATE) {
+				pr_debug("%s: SET_AMR_RATE resp 0x%x\n",
+					 __func__, ptr[1]);
+
+				v->cvs_state = CMD_STATUS_SUCCESS;
+				wake_up(&v->cvs_wait);
+			} else if (ptr[0] ==
+				   VSS_ISTREAM_CMD_VOC_AMRWB_SET_ENC_RATE) {
+				pr_debug("%s: SET_AMR_WB_RATE resp 0x%x\n",
+					 __func__, ptr[1]);
+
+				v->cvs_state = CMD_STATUS_SUCCESS;
+				wake_up(&v->cvs_wait);
+			} else if (ptr[0] == VSS_ISTREAM_CMD_SET_ENC_DTX_MODE) {
+				pr_debug("%s: SET_DTX resp 0x%x\n",
+					 __func__, ptr[1]);
+
+				v->cvs_state = CMD_STATUS_SUCCESS;
+				wake_up(&v->cvs_wait);
+			} else if (ptr[0] ==
+				   VSS_ISTREAM_CMD_CDMA_SET_ENC_MINMAX_RATE) {
+				pr_debug("%s: SET_CDMA_RATE resp 0x%x\n",
+					 __func__, ptr[1]);
 
 				v->cvs_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvs_wait);
 			} else if (ptr[0] == APRV2_IBASIC_CMD_DESTROY_SESSION) {
-				pr_info("%s: DESTROY resp\n", __func__);
+				pr_debug("%s: DESTROY resp\n", __func__);
 
 				v->cvs_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvs_wait);
 			} else
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
-			}
+		}
 	} else if (data->opcode == VSS_ISTREAM_EVT_SEND_ENC_BUFFER) {
 		uint32_t *voc_pkt = data->payload;
 		uint32_t pkt_len = data->payload_size;
@@ -1862,7 +2112,7 @@ static int32_t modem_cvs_callback(struct apr_client_data *data, void *priv)
 					      APR_HDR_LEN(APR_HDR_SIZE),
 					      APR_PKT_VER);
 			send_dec_buf.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-					   sizeof(send_dec_buf) - APR_HDR_SIZE);
+			       sizeof(send_dec_buf.dec_buf.media_id) + pkt_len);
 			send_dec_buf.hdr.src_port = 0;
 			send_dec_buf.hdr.dest_port = voice_get_cvs_handle(v);
 			send_dec_buf.hdr.token = 0;

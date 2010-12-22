@@ -241,6 +241,18 @@ struct mvm_set_voice_timing_cmd {
  * VSS_ISTREAM_EVT_REQUEST_DEC_BUFFER event, providing a decoder packet.
  */
 
+#define VSS_ISTREAM_CMD_VOC_AMR_SET_ENC_RATE		0x0001113E
+/* Set AMR encoder rate. */
+
+#define VSS_ISTREAM_CMD_VOC_AMRWB_SET_ENC_RATE		0x0001113F
+/* Set AMR-WB encoder rate. */
+
+#define VSS_ISTREAM_CMD_CDMA_SET_ENC_MINMAX_RATE	0x00011019
+/* Set encoder minimum and maximum rate. */
+
+#define VSS_ISTREAM_CMD_SET_ENC_DTX_MODE		0x0001101D
+/* Set encoder DTX mode. */
+
 struct vss_istream_cmd_create_passive_control_session_t {
 	char name[20];
 	/**<
@@ -315,6 +327,67 @@ struct vss_istream_evt_send_dec_buffer_t {
       /* Packet data. */
 } __attribute__((packed));
 
+struct vss_istream_cmd_voc_amr_set_enc_rate_t {
+	uint32_t mode;
+	/* Set the AMR encoder rate.
+	 *
+	 * 0x00000000 : 4.75 kbps
+	 * 0x00000001 : 5.15 kbps
+	 * 0x00000002 : 5.90 kbps
+	 * 0x00000003 : 6.70 kbps
+	 * 0x00000004 : 7.40 kbps
+	 * 0x00000005 : 7.95 kbps
+	 * 0x00000006 : 10.2 kbps
+	 * 0x00000007 : 12.2 kbps
+	 */
+} __attribute__((packed));
+
+struct vss_istream_cmd_voc_amrwb_set_enc_rate_t {
+	uint32_t mode;
+	/* Set the AMR-WB encoder rate.
+	 *
+	 * 0x00000000 :  6.60 kbps
+	 * 0x00000001 :  8.85 kbps
+	 * 0x00000002 : 12.65 kbps
+	 * 0x00000003 : 14.25 kbps
+	 * 0x00000004 : 15.85 kbps
+	 * 0x00000005 : 18.25 kbps
+	 * 0x00000006 : 19.85 kbps
+	 * 0x00000007 : 23.05 kbps
+	 * 0x00000008 : 23.85 kbps
+	 */
+} __attribute__((packed));
+
+struct vss_istream_cmd_cdma_set_enc_minmax_rate_t {
+	uint16_t min_rate;
+	/* Set the lower bound encoder rate.
+	 *
+	 * 0x0000 : Blank frame
+	 * 0x0001 : Eighth rate
+	 * 0x0002 : Quarter rate
+	 * 0x0003 : Half rate
+	 * 0x0004 : Full rate
+	 */
+	uint16_t max_rate;
+	/* Set the upper bound encoder rate.
+	 *
+	 * 0x0000 : Blank frame
+	 * 0x0001 : Eighth rate
+	 * 0x0002 : Quarter rate
+	 * 0x0003 : Half rate
+	 * 0x0004 : Full rate
+	 */
+} __attribute__((packed));
+
+struct vss_istream_cmd_set_enc_dtx_mode_t {
+	uint32_t enable;
+	/* Toggle DTX on or off.
+	 *
+	 * 0 : Disables DTX
+	 * 1 : Enables DTX
+	 */
+} __attribute__((packed));
+
 struct cvs_create_passive_ctl_session_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_cmd_create_passive_control_session_t cvs_session;
@@ -346,6 +419,26 @@ struct cvs_set_media_type_cmd {
 struct cvs_send_dec_buf_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_evt_send_dec_buffer_t dec_buf;
+} __attribute__((packed));
+
+struct cvs_set_amr_enc_rate_cmd {
+	struct apr_hdr hdr;
+	struct vss_istream_cmd_voc_amr_set_enc_rate_t amr_rate;
+} __attribute__((packed));
+
+struct cvs_set_amrwb_enc_rate_cmd {
+	struct apr_hdr hdr;
+	struct vss_istream_cmd_voc_amrwb_set_enc_rate_t amrwb_rate;
+} __attribute__((packed));
+
+struct cvs_set_cdma_enc_minmax_rate_cmd {
+	struct apr_hdr hdr;
+	struct vss_istream_cmd_cdma_set_enc_minmax_rate_t cdma_rate;
+} __attribute__((packed));
+
+struct cvs_set_enc_dtx_mode_cmd {
+	struct apr_hdr hdr;
+	struct vss_istream_cmd_set_enc_dtx_mode_t dtx_mode;
 } __attribute__((packed));
 
 /* TO CVP commands */
@@ -510,6 +603,7 @@ void voice_register_mvs_cb(ul_cb_fn ul_cb,
 			   void *private_data);
 
 void voice_config_vocoder(uint32_t media_type,
+			  uint32_t rate,
 			  uint32_t network_type);
 
 #endif
