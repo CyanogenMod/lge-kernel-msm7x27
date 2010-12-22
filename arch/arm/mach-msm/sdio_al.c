@@ -492,6 +492,13 @@ static u32 remove_handled_rx_packet(struct sdio_channel *ch);
 static int set_pipe_threshold(int pipe_index, int threshold);
 static int sdio_al_wake_up(u32 enable_wake_up_func);
 
+#define SDIO_AL_ERR(func)					\
+	do {							\
+		printk_once(KERN_ERR MODULE_NAME		\
+			":In Error state, ignore %s\n",		\
+			func);					\
+	} while (0)
+
 
 #ifdef CONFIG_DEBUG_FS
 /*
@@ -616,7 +623,7 @@ static int read_mailbox(int from_isr)
 	u32 thresh_intr_mask = 0;
 
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore request\n");
+		SDIO_AL_ERR(__func__);
 		return 0;
 	}
 
@@ -1519,7 +1526,7 @@ static int sdio_al_wake_up(u32 enable_wake_up_func)
 	struct mmc_host *host = wk_func->card->host;
 
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore %s\n", __func__);
+		SDIO_AL_ERR(__func__);
 		return -ENODEV;
 	}
 
@@ -1809,10 +1816,9 @@ int sdio_open(const char *name, struct sdio_channel **ret_ch, void *priv,
 	}
 
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore %s\n", __func__);
+		SDIO_AL_ERR(__func__);
 		return -ENODEV;
 	}
-
 
 	if (!sdio_al->is_ready) {
 		ret = sdio_al_setup();
@@ -1931,7 +1937,7 @@ int sdio_read(struct sdio_channel *ch, void *data, int len)
 	BUG_ON(sdio_al->is_ok_to_sleep);
 
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore sdio_read\n");
+		SDIO_AL_ERR(__func__);
 		return -ENODEV;
 	}
 
@@ -1996,7 +2002,7 @@ int sdio_write(struct sdio_channel *ch, const void *data, int len)
 	WARN_ON(len > ch->write_avail);
 
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore sdio_write\n");
+		SDIO_AL_ERR(__func__);
 		return -ENODEV;
 	}
 
@@ -2063,9 +2069,10 @@ int sdio_set_write_threshold(struct sdio_channel *ch, int threshold)
 
 	BUG_ON(ch->signature != SDIO_AL_SIGNATURE);
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore %s\n", __func__);
+		SDIO_AL_ERR(__func__);
 		return -ENODEV;
 	}
+
 	sdio_claim_host(sdio_al->card->sdio_func[0]);
 	ret = sdio_al_wake_up(1);
 	if (ret) {
@@ -2096,7 +2103,7 @@ int sdio_set_read_threshold(struct sdio_channel *ch, int threshold)
 
 	BUG_ON(ch->signature != SDIO_AL_SIGNATURE);
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore %s\n", __func__);
+		SDIO_AL_ERR(__func__);
 		return -ENODEV;
 	}
 
@@ -2133,7 +2140,7 @@ int sdio_set_poll_time(struct sdio_channel *ch, int poll_delay_msec)
 
 	BUG_ON(ch->signature != SDIO_AL_SIGNATURE);
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state, ignore %s\n", __func__);
+		SDIO_AL_ERR(__func__);
 		return -ENODEV;
 	}
 
@@ -2355,8 +2362,8 @@ static int sdio_al_sdio_suspend(struct device *dev)
 		func->num);
 
 	if (sdio_al->is_err) {
-		pr_info(MODULE_NAME ":In Error state,ignore suspend request\n");
-		return -EPERM;
+		SDIO_AL_ERR(__func__);
+		return -ENODEV;
 	}
 
 	sdio_claim_host(sdio_al->card->sdio_func[0]);
@@ -2457,6 +2464,8 @@ static int __init sdio_al_init(void)
 
 	sdio_al->debug.debug_lpm_on = 0;
 	sdio_al->debug.debug_data_on = 0;
+
+	sdio_al->is_err = false;
 
 #ifdef CONFIG_DEBUG_FS
 	sdio_al_debugfs_init();
