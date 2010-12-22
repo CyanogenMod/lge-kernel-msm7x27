@@ -28,6 +28,7 @@ int vos_chip_power_qrf8615(int on)
 {
 	static char wlan_on;
 	static const char *vregs_qwlan_name[] = {
+		"8058_l20",
 		"8058_l8",
 		"8901_s4",
 		"8901_lvs1",
@@ -36,6 +37,7 @@ int vos_chip_power_qrf8615(int on)
 		"8058_s1",
 	};
 	static const int vregs_qwlan_val_min[] = {
+		1800000,
 		2900000,
 		1225000,
 		0,
@@ -44,6 +46,7 @@ int vos_chip_power_qrf8615(int on)
 		880000,
 	};
 	static const int vregs_qwlan_val_max[] = {
+		1800000,
 		2900000,
 		1225000,
 		0,
