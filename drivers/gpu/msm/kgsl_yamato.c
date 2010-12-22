@@ -35,6 +35,7 @@
 #include "kgsl_pm4types.h"
 #include "kgsl_cmdstream.h"
 #include "kgsl_postmortem.h"
+#include "kgsl_cffdump.h"
 
 #include "yamato_reg.h"
 
@@ -653,6 +654,8 @@ kgsl_yamato_init(struct kgsl_device *device)
 			device->id, regspace->mmio_phys_base,
 			regspace->sizebytes, regspace->mmio_virt_base);
 
+	kgsl_cffdump_open(device->id);
+
 	init_completion(&device->hwaccess_gate);
 	init_completion(&device->suspend_gate);
 
@@ -734,6 +737,7 @@ int kgsl_yamato_close(struct kgsl_device *device)
 					regspace->sizebytes);
 	}
 	kgsl_pwrctrl_close(device);
+	kgsl_cffdump_close(device->id);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
 	return 0;
@@ -1001,6 +1005,8 @@ int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
+	kgsl_cffdump_regpoll(device->id, REG_RBBM_STATUS,
+		0x00000000, 0x80000000);
 	/* first, wait until the CP has consumed all the commands in
 	 * the ring buffer
 	 */
@@ -1196,14 +1202,17 @@ int kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int value)
 {
 	unsigned int *reg;
-	kgsl_pre_hwaccess(device);
+
 	if (offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes) {
 		KGSL_DRV_ERR("invalid offset %d\n", offsetwords);
 		return -ERANGE;
 	}
 
+	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
 	reg = (unsigned int *)(device->regspace.mmio_virt_base
 				+ (offsetwords << 2));
+
+	kgsl_pre_hwaccess(device);
 	writel(value, reg);
 
 	return 0;

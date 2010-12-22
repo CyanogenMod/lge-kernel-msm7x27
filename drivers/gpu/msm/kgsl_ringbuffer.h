@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -119,10 +119,12 @@ struct kgsl_ringbuffer {
 /* dword base address of the GFX decode space */
 #define GSL_HAL_SUBBLOCK_OFFSET(reg) ((unsigned int)((reg) - (0x2000)))
 
-#define GSL_RB_WRITE(ring, data) \
+#define GSL_RB_WRITE(ring, gpuaddr, data) \
 	do { \
 		writel(data, ring); \
+		kgsl_cffdump_setmem(gpuaddr, data, 4); \
 		ring++; \
+		gpuaddr += sizeof(uint); \
 		wmb(); \
 	} while (0)
 

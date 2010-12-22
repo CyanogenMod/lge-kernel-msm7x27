@@ -35,6 +35,7 @@
 #include "kgsl_g12_cmdwindow.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_g12_vgv3types.h"
+#include "kgsl_cffdump.h"
 
 #include "g12_reg.h"
 
@@ -434,6 +435,8 @@ kgsl_g12_init(struct kgsl_device *device)
 			device->id, regspace->mmio_phys_base,
 			regspace->sizebytes, regspace->mmio_virt_base);
 
+	kgsl_cffdump_open(device->id);
+
 	init_completion(&device->hwaccess_gate);
 	init_completion(&device->suspend_gate);
 	kgsl_g12_getfunctable(&device->ftbl);
@@ -500,6 +503,7 @@ int kgsl_g12_close(struct kgsl_device *device)
 	}
 
 	kgsl_pwrctrl_close(device);
+	kgsl_cffdump_close(device->id);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
 	return 0;
@@ -833,6 +837,7 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 
 		reg = (unsigned int *)(device->regspace.mmio_virt_base
 				+ (offsetwords << 2));
+		kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
 		writel(value, reg);
 		/* Drain write buffer */
 		dsb();
