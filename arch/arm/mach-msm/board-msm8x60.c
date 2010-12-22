@@ -3079,77 +3079,6 @@ static struct platform_device msm_adc_device = {
 	},
 };
 
-static struct regulator *xoadc_1;
-static struct regulator *xoadc_2;
-
-static unsigned int pmic8058_xoadc_setup_power(void)
-{
-	int rc;
-
-	xoadc_1 = regulator_get(NULL, "8058_s4");
-	if (IS_ERR(xoadc_1)) {
-		pr_err("%s: Unable to get 8058_s4\n", __func__);
-		rc = PTR_ERR(xoadc_1);
-		return rc;
-	}
-
-	rc = regulator_set_voltage(xoadc_1, 2200000, 2200000);
-	if (rc) {
-		pr_err("%s: vreg_set_level failed\n", __func__);
-		goto fail_vreg_xoadc;
-	}
-
-	rc = regulator_enable(xoadc_1);
-	if (rc) {
-		pr_err("%s: vreg_enable failed\n", __func__);
-		goto fail_vreg_xoadc;
-	}
-
-	xoadc_2 = regulator_get(NULL, "8058_l18");
-	if (IS_ERR(xoadc_2)) {
-		pr_err("%s: Unable to get 8058_l18\n", __func__);
-		rc = PTR_ERR(xoadc_2);
-		goto fail_vreg_xoadc;
-	}
-
-	rc = regulator_set_voltage(xoadc_2, 2200000, 2200000);
-	if (rc) {
-		pr_err("%s: vreg_set_level failed\n", __func__);
-		goto fail_vreg_xoadc2;
-	}
-
-	rc = regulator_enable(xoadc_2);
-	if (rc) {
-		pr_err("%s: vreg_enable failed\n", __func__);
-		goto fail_vreg_xoadc2;
-	}
-
-	return rc;
-
-fail_vreg_xoadc2:
-	regulator_put(xoadc_2);
-fail_vreg_xoadc:
-	regulator_put(xoadc_1);
-	return rc;
-}
-
-static void pmic8058_xoadc_shutdown_power(void)
-{
-	int rc;
-
-	rc = regulator_disable(xoadc_1);
-	if (rc)
-		pr_err("%s: Disable regulator 8058_s4 failed\n", __func__);
-
-	regulator_put(xoadc_1);
-
-	rc = regulator_disable(xoadc_2);
-	if (rc)
-		pr_err("%s: Disable regulator 8058_l18 failed\n", __func__);
-
-	regulator_put(xoadc_2);
-}
-
 static void pmic8058_xoadc_mpp_config(void)
 {
 	int rc;
@@ -3185,6 +3114,16 @@ static void pmic8058_xoadc_mpp_config(void)
 		pr_err("%s: Config mpp10 on pmic 8058 failed\n", __func__);
 }
 
+static int pmic8058_xoadc_rpm_vreg_config(int on)
+{
+	int rc;
+
+	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8058_L18,
+				RPM_VREG_VOTER3, (on ? 2200000 : 0), 0);
+
+	return rc;
+}
+
 /* usec. For this ADC,
  * this time represents clk rate @ txco w/ 1024 decimation ratio.
  * Each channel has different configuration, thus at the time of starting
@@ -3199,9 +3138,8 @@ static struct adc_properties pm8058_xoadc_data = {
 
 static struct xoadc_platform_data xoadc_pdata = {
 	.xoadc_prop = &pm8058_xoadc_data,
-	.xoadc_setup = pmic8058_xoadc_setup_power,
-	.xoadc_shutdown = pmic8058_xoadc_shutdown_power,
 	.xoadc_mpp_config = pmic8058_xoadc_mpp_config,
+	.xoadc_vreg_set = pmic8058_xoadc_rpm_vreg_config,
 	.xoadc_num = XOADC_PMIC_0,
 };
 #endif
