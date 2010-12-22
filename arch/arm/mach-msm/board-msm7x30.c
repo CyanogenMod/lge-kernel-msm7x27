@@ -968,6 +968,9 @@ struct resource msm_camera_resources[] = {
 		.end	= INT_VFE,
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.flags  = IORESOURCE_DMA,
+	}
 };
 
 struct msm_camera_device_platform_data msm_camera_device_data = {
