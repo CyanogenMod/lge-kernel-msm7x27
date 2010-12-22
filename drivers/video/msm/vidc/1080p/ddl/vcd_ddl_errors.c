@@ -400,6 +400,13 @@ static u32 ddl_handle_dec_seq_hdr_fail_error(struct ddl_client_context *ddl)
 	case VIDC_1080P_ERROR_PPS_PARSE_ERROR:
 	{
 		struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
+		if (ddl_context->cmd_err_status ==
+			VIDC_1080P_ERROR_UNSUPPORTED_FEATURE_IN_PROFILE
+			&& decoder->codec.codec == VCD_CODEC_H264) {
+			DDL_MSG_ERROR("Unsupported Feature for H264");
+			ddl_client_fatal_cb(ddl);
+			return true;
+		}
 
 		DDL_MSG_ERROR("SEQHDR-FAILED");
 		if (decoder->header_in_start) {
