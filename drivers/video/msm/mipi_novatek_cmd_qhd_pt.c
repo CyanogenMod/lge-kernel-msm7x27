@@ -23,7 +23,7 @@
 static struct msm_panel_info pinfo;
 
 static struct mipi_dsi_phy_ctrl dsi_cmd_mode_phy_db = {
-/* DSI_BIT_CLK at 400MHz, 1 lane, RGB888 */
+/* DSI_BIT_CLK at 500MHz, 2 lane, RGB888 */
 		{0x03, 0x01, 0x01, 0x00},	/* regulator */
 		/* timing   */
 		{0x96, 0x26, 0x23, 0x00, 0x50, 0x4B, 0x1e,
@@ -32,8 +32,11 @@ static struct mipi_dsi_phy_ctrl dsi_cmd_mode_phy_db = {
 		{0xee, 0x02, 0x86, 0x00},	/* strength */
 		/* pll control */
 		{0x40, 0xf9, 0xb0, 0xda, 0x00, 0x50, 0x48, 0x63,
-		/* 0x30, 0x07, 0x07, --> One lane configuration */
-		0x30, 0x07, 0x03, /* --> Two lane configuration */
+#if defined(NOVATEK_TWO_LANE)
+		0x30, 0x07, 0x03,
+#else           /* default set to 1 lane */
+		0x30, 0x07, 0x07,
+#endif
 		0x05, 0x14, 0x03, 0x0, 0x0, 0x54, 0x06, 0x10, 0x04, 0x0},
 };
 
@@ -71,7 +74,9 @@ static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 	pinfo.mipi.vc = 0;
 	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_BGR;
 	pinfo.mipi.data_lane0 = TRUE;
+#if defined(NOVATEK_TWO_LANE)
 	pinfo.mipi.data_lane1 = TRUE;
+#endif
 	pinfo.mipi.t_clk_post = 0x0a;
 	pinfo.mipi.t_clk_pre = 0x1e;
 	pinfo.mipi.stream = 0;	/* dma_p */

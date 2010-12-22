@@ -97,7 +97,6 @@ static char display_config_set_threelane[] = {
 	0xae, 0x05, 0x15, 0x80
 };
 
-
 #else
 
 static char sw_reset[2] = {0x01, 0x00}; /* DTYPE_DCS_WRITE */
@@ -106,10 +105,13 @@ static char exit_sleep[2] = {0x11, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_off[2] = {0x28, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_on[2] = {0x29, 0x00}; /* DTYPE_DCS_WRITE */
 
-static char set_onelane[2] = {0xae, 0x01}; /* DTYPE_DCS_WRITE1 */
 static char rgb_888[2] = {0x3A, 0x77}; /* DTYPE_DCS_WRITE1 */
-static char set_twolane[2] = {0xae, 0x03}; /* DTYPE_DCS_WRITE1 */
 
+#if defined(NOVATEK_TWO_LANE)
+static char set_num_of_lanes[2] = {0xae, 0x03}; /* DTYPE_DCS_WRITE1 */
+#else  /* 1 lane */
+static char set_num_of_lanes[2] = {0xae, 0x01}; /* DTYPE_DCS_WRITE1 */
+#endif
 /* commands by Novatke */
 static char novatek_f4[2] = {0xf4, 0x55}; /* DTYPE_DCS_WRITE1 */
 static char novatek_8c[16] = { /* DTYPE_DCS_LWRITE */
@@ -131,7 +133,7 @@ static struct dsi_cmd_desc novatek_video_on_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
 		sizeof(display_on), display_on},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
-		sizeof(set_onelane), set_onelane},
+		sizeof(set_num_of_lanes), set_num_of_lanes},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
 		sizeof(rgb_888), rgb_888}
 };
@@ -150,7 +152,7 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 50,
 		sizeof(novatek_ff), novatek_ff},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
-		sizeof(set_twolane), set_twolane},
+		sizeof(set_num_of_lanes), set_num_of_lanes},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 50,
 		sizeof(set_width), set_width},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 50,

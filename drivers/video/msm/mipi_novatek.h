@@ -30,6 +30,8 @@
 #ifndef MIPI_NOVATEK_BLUE_H
 #define MIPI_NOVATEK_BLUE_H
 
+#define NOVATEK_TWO_LANE
+
 int mipi_novatek_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel);
 

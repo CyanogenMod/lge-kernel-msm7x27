@@ -23,7 +23,7 @@
 static struct msm_panel_info pinfo;
 
 static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
-/* DSI_BIT_CLK at 400MHz, 1 lane, RGB888 */
+/* DSI_BIT_CLK at 500MHz, 2 lane, RGB888 */
 		{0x03, 0x01, 0x01, 0x00},	/* regulator */
 		/* timing   */
 		{0x96, 0x26, 0x23, 0x0, 0x50, 0x4B, 0x1e,
@@ -32,7 +32,11 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 		{0xee, 0x02, 0x86, 0x00},	/* strength */
 		/* pll control */
 		{0x40, 0xf9, 0xb0, 0xda, 0x00, 0x50, 0x48, 0x63,
+#if defined(NOVATEK_TWO_LANE)
+		0x30, 0x07, 0x03,
+#else           /* default set to 1 lane */
 		0x30, 0x07, 0x07,
+#endif
 		0x05, 0x14, 0x03, 0x0, 0x0, 0x54, 0x06, 0x10, 0x04, 0x0},
 };
 
@@ -51,12 +55,12 @@ static int __init mipi_video_novatek_qhd_pt_init(void)
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
-	pinfo.lcdc.h_back_porch = 50;
-	pinfo.lcdc.h_front_porch = 50;
-	pinfo.lcdc.h_pulse_width = 20;
-	pinfo.lcdc.v_back_porch = 11;
-	pinfo.lcdc.v_front_porch = 10;
-	pinfo.lcdc.v_pulse_width = 5;
+	pinfo.lcdc.h_back_porch = 96;
+	pinfo.lcdc.h_front_porch = 32;
+	pinfo.lcdc.h_pulse_width = 8;
+	pinfo.lcdc.v_back_porch = 16;
+	pinfo.lcdc.v_front_porch = 8;
+	pinfo.lcdc.v_pulse_width = 1;
 	pinfo.lcdc.border_clr = 0;	/* blk */
 	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
 	pinfo.lcdc.hsync_skew = 0;
@@ -77,6 +81,9 @@ static int __init mipi_video_novatek_qhd_pt_init(void)
 	pinfo.mipi.vc = 0;
 	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_BGR;
 	pinfo.mipi.data_lane0 = TRUE;
+#if defined(NOVATEK_TWO_LANE)
+	pinfo.mipi.data_lane1 = TRUE;
+#endif
 	pinfo.mipi.tx_eot_append = TRUE;
 	pinfo.mipi.t_clk_post = 10;
 	pinfo.mipi.t_clk_pre = 30;
