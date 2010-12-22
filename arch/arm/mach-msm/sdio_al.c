@@ -2249,7 +2249,8 @@ static int mmc_probe(struct mmc_card *card)
 	}
 
 	if ((card->cis.vendor != 0x70) ||
-	    ((card->cis.device != 0x2460) && (card->cis.device != 0x0460))) {
+	    ((card->cis.device != 0x2460) && (card->cis.device != 0x0460)
+	     && (card->cis.device != 0x23F1))) {
 		dev_info(&card->dev,
 			 "ignore card vendor id 0x%x, device id 0x%x",
 			 card->cis.vendor, card->cis.device);
