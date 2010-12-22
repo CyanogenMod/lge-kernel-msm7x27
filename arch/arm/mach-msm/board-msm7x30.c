@@ -991,13 +991,6 @@ static struct msm_camera_sensor_flash_src msm_flash_src_pwm = {
 	._fsrc.pwm_src.channel = 7,
 };
 
-static struct msm_camera_sensor_flash_src msm_flash_src_current_driver = {
-	.flash_sr_type = MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
-	._fsrc.current_driver_src.low_current = 210,
-	._fsrc.current_driver_src.high_current = 700,
-	._fsrc.current_driver_src.driver_channel = &pm8058_fluid_leds_data,
-};
-
 #ifdef CONFIG_MT9D112
 static struct msm_camera_sensor_flash_data flash_mt9d112 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
@@ -1132,6 +1125,13 @@ static struct platform_device msm_camera_sensor_vx6953 = {
 #endif
 
 #ifdef CONFIG_SN12M0PZ
+static struct msm_camera_sensor_flash_src msm_flash_src_current_driver = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
+	._fsrc.current_driver_src.low_current = 210,
+	._fsrc.current_driver_src.high_current = 700,
+	._fsrc.current_driver_src.driver_channel = &pm8058_fluid_leds_data,
+};
+
 static struct msm_camera_sensor_flash_data flash_sn12m0pz = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
 	.flash_src  = &msm_flash_src_current_driver
