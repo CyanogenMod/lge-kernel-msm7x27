@@ -561,6 +561,8 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 		goto err_cleanup;
 	}
 
+	disable_irq(adc_pmic->adc_irq);
+
 	device_init_wakeup(&pdev->dev, pdata->xoadc_wakeup);
 
 	pmic_adc[adc_pmic->xoadc_num] = adc_pmic;
