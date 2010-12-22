@@ -2795,17 +2795,17 @@ static void vfe31_do_tasklet(unsigned long data)
 			vfe31_process_reset_irq();
 		}
 
-		if (qcmd->vfeInterruptStatus1 &
-				VFE31_IMASK_ERROR_ONLY_1) {
-			pr_err("irq	errorIrq\n");
-			vfe31_process_error_irq(qcmd->vfeInterruptStatus1 &
-				VFE31_IMASK_ERROR_ONLY_1);
-		}
-
 		spin_lock_irqsave(&vfe31_ctrl->state_lock, flags);
 		if (vfe31_ctrl->vstate == VFE_STATE_ACTIVE) {
 			/* irqs below are only valid when in active state. */
 			spin_unlock_irqrestore(&vfe31_ctrl->state_lock, flags);
+			if (qcmd->vfeInterruptStatus1 &
+					VFE31_IMASK_ERROR_ONLY_1) {
+				pr_err("irq	errorIrq\n");
+				vfe31_process_error_irq(
+					qcmd->vfeInterruptStatus1 &
+					VFE31_IMASK_ERROR_ONLY_1);
+			}
 			/* next, check output path related interrupts. */
 			if (qcmd->vfeInterruptStatus0 &
 				VFE_IRQ_STATUS0_IMAGE_COMPOSIT_DONE0_MASK) {
