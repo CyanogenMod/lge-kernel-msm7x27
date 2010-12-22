@@ -154,10 +154,10 @@ int kgsl_pwrctrl_irq(struct kgsl_device *device, unsigned int pwrflag)
 	switch (pwrflag) {
 	case KGSL_PWRFLAGS_IRQ_ON:
 		if (pwr->power_flags & KGSL_PWRFLAGS_IRQ_OFF) {
-			enable_irq(pwr->interrupt_num);
 			pwr->power_flags &=
 				~(KGSL_PWRFLAGS_IRQ_OFF);
 			pwr->power_flags |= KGSL_PWRFLAGS_IRQ_ON;
+			enable_irq(pwr->interrupt_num);
 		}
 	return KGSL_SUCCESS;
 	case KGSL_PWRFLAGS_IRQ_OFF:
