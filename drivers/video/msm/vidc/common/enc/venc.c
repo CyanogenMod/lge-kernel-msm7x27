@@ -163,18 +163,22 @@ static void vid_enc_input_frame_done(struct video_client_ctx *client_ctx,
 
 	venc_msg->venc_msg_info.statuscode = vid_enc_get_status(status);
 
-	if (event == VCD_EVT_RESP_INPUT_DONE) {
-		venc_msg->venc_msg_info.msgcode =
-			VEN_MSG_INPUT_BUFFER_DONE;
-		DBG("Send INPUT_DON message to client = %p\n",
+	venc_msg->venc_msg_info.msgcode = VEN_MSG_INPUT_BUFFER_DONE;
+
+	switch (event) {
+	case VCD_EVT_RESP_INPUT_DONE:
+	   DBG("Send INPUT_DON message to client = %p\n",
 			client_ctx);
-	} else if (event == VCD_EVT_RESP_INPUT_FLUSHED) {
-		venc_msg->venc_msg_info.msgcode = VEN_MSG_INPUT_BUFFER_DONE;
+	   break;
+	case VCD_EVT_RESP_INPUT_FLUSHED:
 		DBG("Send INPUT_FLUSHED message to client = %p\n",
 			client_ctx);
-	} else {
-		ERR("vid_enc_input_frame_done(): invalid event type\n");
-		return;
+	   break;
+	default:
+		ERR("vid_enc_input_frame_done(): invalid event type: "
+			"%d\n", event);
+		venc_msg->venc_msg_info.statuscode = VEN_S_EFATAL;
+	   break;
 	}
 
 	venc_msg->venc_msg_info.buf.clientdata =
@@ -212,17 +216,21 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 	}
 
 	venc_msg->venc_msg_info.statuscode = vid_enc_get_status(status);
+	venc_msg->venc_msg_info.msgcode = VEN_MSG_OUTPUT_BUFFER_DONE;
 
-	if (event == VCD_EVT_RESP_OUTPUT_DONE)
-		venc_msg->venc_msg_info.msgcode =
-		VEN_MSG_OUTPUT_BUFFER_DONE;
-
-	else if (event == VCD_EVT_RESP_OUTPUT_FLUSHED)
-		venc_msg->venc_msg_info.msgcode =
-		VEN_MSG_OUTPUT_BUFFER_DONE;
-	else {
-		ERR("QVD: vid_enc_output_frame_done invalid cmd type\n");
-		return;
+	switch (event) {
+	case VCD_EVT_RESP_OUTPUT_DONE:
+	   DBG("Send INPUT_DON message to client = %p\n",
+			client_ctx);
+	   break;
+	case VCD_EVT_RESP_OUTPUT_FLUSHED:
+	   DBG("Send INPUT_FLUSHED message to client = %p\n",
+		   client_ctx);
+	   break;
+	default:
+	   ERR("QVD: vid_enc_output_frame_done invalid cmd type: %d\n", event);
+	   venc_msg->venc_msg_info.statuscode = VEN_S_EFATAL;
+	   break;
 	}
 
 	kernel_vaddr =
