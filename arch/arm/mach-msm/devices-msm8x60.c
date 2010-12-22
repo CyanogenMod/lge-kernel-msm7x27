@@ -406,8 +406,8 @@ static struct msm_bus_vectors grp3d_max_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_3D,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
-		.ab = 248000000,
-		.ib = 248000000,
+		.ab = 2096000000U,
+		.ib = 2096000000U,
 	},
 };
 
