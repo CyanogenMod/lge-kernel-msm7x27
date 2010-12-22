@@ -23,9 +23,6 @@
 
 #include "clock-pcom.h"
 
-/* Maximum number of clocks supported. */
-#define MAX_NR_CLKS	300
-
 #define CLKFLAG_INVERT			0x00000001
 #define CLKFLAG_NOINVERT		0x00000002
 #define CLKFLAG_NONEST			0x00000004
@@ -111,8 +108,16 @@ static inline void msm_clk_soc_init(void) { }
 static inline void msm_clk_soc_set_ops(struct clk *clk) { }
 #endif
 
-int msm_clock_require_tcxo(unsigned long *reason, int nbits);
-int msm_clock_get_name(uint32_t id, char *name, uint32_t size);
+static inline int msm_clock_require_tcxo(unsigned long *reason, int nbits)
+{
+	return 0;
+}
+
+static inline int msm_clock_get_name(uint32_t id, char *name, uint32_t size)
+{
+	return 0;
+}
+
 int ebi1_clk_set_min_rate(enum clkvote_client client, unsigned long rate);
 unsigned long clk_get_max_axi_khz(void);
 
