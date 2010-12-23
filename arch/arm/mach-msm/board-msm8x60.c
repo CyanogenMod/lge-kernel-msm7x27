@@ -5793,33 +5793,6 @@ static void __init msm8x60_init_mmc(void)
 static inline void display_common_power(int on) {}
 #else
 
-static int display_power_on;
-static void setup_display_power(void)
-{
-	if (display_power_on)
-		if (lcdc_vga_enabled) {
-			gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 0);
-			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
-			if (machine_is_msm8x60_ffa() ||
-			    machine_is_msm8x60_charm_ffa())
-				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 1);
-		} else {
-			gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 1);
-			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 1);
-			if (machine_is_msm8x60_ffa() ||
-			    machine_is_msm8x60_charm_ffa())
-				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
-		}
-	else {
-		if (machine_is_msm8x60_ffa() || machine_is_msm8x60_charm_ffa())
-			gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
-		/* BACKLIGHT */
-		gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
-		/* LVDS */
-		gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 0);
-	}
-}
-
 #define _GET_REGULATOR(var, name) do {					\
 	if (var == NULL) {						\
 		var = regulator_get(NULL, name);			\
@@ -5830,6 +5803,98 @@ static void setup_display_power(void)
 		}							\
 	}								\
 } while (0)
+
+static int dsub_regulator(int on)
+{
+	static struct regulator *dsub_reg;
+	static struct regulator *mpp0_reg;
+	static int dsub_reg_enabled;
+	int rc = 0;
+
+	_GET_REGULATOR(dsub_reg, "8901_l3");
+	if (IS_ERR(dsub_reg)) {
+		printk(KERN_ERR "%s: failed to get reg 8901_l3 err=%ld",
+		       __func__, PTR_ERR(dsub_reg));
+		return PTR_ERR(dsub_reg);
+	}
+
+	_GET_REGULATOR(mpp0_reg, "8901_mpp0");
+	if (IS_ERR(mpp0_reg)) {
+		printk(KERN_ERR "%s: failed to get reg 8901_mpp0 err=%ld",
+		       __func__, PTR_ERR(mpp0_reg));
+		return PTR_ERR(mpp0_reg);
+	}
+
+	if (on && !dsub_reg_enabled) {
+		rc = regulator_set_voltage(dsub_reg, 3300000, 3300000);
+		if (rc) {
+			printk(KERN_ERR "%s: failed to set reg 8901_l3 voltage"
+			       " err=%d", __func__, rc);
+			goto dsub_regulator_err;
+		}
+		rc = regulator_enable(dsub_reg);
+		if (rc) {
+			printk(KERN_ERR "%s: failed to enable reg 8901_l3"
+			       " err=%d", __func__, rc);
+			goto dsub_regulator_err;
+		}
+		rc = regulator_enable(mpp0_reg);
+		if (rc) {
+			printk(KERN_ERR "%s: failed to enable reg 8901_mpp0"
+			       " err=%d", __func__, rc);
+			goto dsub_regulator_err;
+		}
+		dsub_reg_enabled = 1;
+	} else if (!on && dsub_reg_enabled) {
+		rc = regulator_disable(dsub_reg);
+		if (rc)
+			printk(KERN_WARNING "%s: failed to disable reg 8901_l3"
+			       " err=%d", __func__, rc);
+		rc = regulator_disable(mpp0_reg);
+		if (rc)
+			printk(KERN_WARNING "%s: failed to disable reg "
+			       "8901_mpp0 err=%d", __func__, rc);
+		dsub_reg_enabled = 0;
+	}
+
+	return rc;
+
+dsub_regulator_err:
+	regulator_put(mpp0_reg);
+	regulator_put(dsub_reg);
+	return rc;
+}
+
+static int display_power_on;
+static void setup_display_power(void)
+{
+	if (display_power_on)
+		if (lcdc_vga_enabled) {
+			dsub_regulator(1);
+			gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 0);
+			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
+			if (machine_is_msm8x60_ffa() ||
+			    machine_is_msm8x60_charm_ffa())
+				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 1);
+		} else {
+			dsub_regulator(0);
+			gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 1);
+			gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 1);
+			if (machine_is_msm8x60_ffa() ||
+			    machine_is_msm8x60_charm_ffa())
+				gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
+		}
+	else {
+		dsub_regulator(0);
+		if (machine_is_msm8x60_ffa() || machine_is_msm8x60_charm_ffa())
+			gpio_set_value_cansleep(GPIO_DONGLE_PWR_EN, 0);
+		/* BACKLIGHT */
+		gpio_set_value_cansleep(GPIO_BACKLIGHT_EN, 0);
+		/* LVDS */
+		gpio_set_value_cansleep(GPIO_LVDS_SHUTDOWN_N, 0);
+	}
+}
+
 static void display_common_power(int on)
 {
 	int rc;
