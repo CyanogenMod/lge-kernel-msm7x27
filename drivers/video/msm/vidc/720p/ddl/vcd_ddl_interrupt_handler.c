@@ -229,7 +229,8 @@ static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
 	ddl_getdec_profilelevel(decoder, seq_hdr_info.profile,
 		seq_hdr_info.level);
 	ddl_calculate_stride(&decoder->frame_size,
-			!decoder->progressive_only);
+			!decoder->progressive_only,
+			decoder->codec.codec);
 	if (seq_hdr_info.crop_exists)	{
 		decoder->frame_size.width -=
 		(seq_hdr_info.crop_right_offset

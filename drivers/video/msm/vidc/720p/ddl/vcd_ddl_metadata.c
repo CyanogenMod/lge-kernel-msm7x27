@@ -494,7 +494,7 @@ void ddl_decode_set_metadata_output(struct ddl_decoder_data *decoder)
 
 	decoder->meta_data_offset = ddl_get_yuv_buffer_size(
 		&decoder->client_frame_size, &decoder->buf_format,
-		(!decoder->progressive_only));
+		(!decoder->progressive_only), decoder->codec.codec);
 
 	buffer = decoder->meta_data_input.align_virtual_addr;
 
