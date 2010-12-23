@@ -268,6 +268,8 @@ struct msm_spi {
 	u32                      irq_in;
 	int                      read_xfr_cnt;
 	int                      write_xfr_cnt;
+	int                      write_len;
+	int                      read_len;
 #if defined(CONFIG_SPI_QSD) || defined(CONFIG_SPI_QSD_MODULE)
 	u32                      irq_out;
 	u32                      irq_err;
@@ -696,17 +698,16 @@ static void msm_spi_read_word_from_fifo(struct msm_spi *dd)
 	}
 	dd->read_xfr_cnt++;
 	if (dd->multi_xfr) {
-		if (!dd->rx_bytes_remaining) {
-			dd->cur_transfer = list_entry(
-					dd->cur_transfer->transfer_list.prev,
+		if (!dd->rx_bytes_remaining)
+			dd->read_xfr_cnt = 0;
+		else if ((dd->read_xfr_cnt * dd->bytes_per_word) ==
+						dd->read_len) {
+			struct spi_transfer *t = dd->cur_transfer;
+			t = list_entry(t->transfer_list.next,
 					struct spi_transfer,
 					transfer_list);
-			dd->write_buf          = dd->cur_transfer->tx_buf;
-			dd->read_buf           = dd->cur_transfer->rx_buf;
-			dd->read_xfr_cnt = 0;
-		} else if ((dd->read_xfr_cnt * dd->bytes_per_word) ==
-						dd->cur_transfer->len) {
-			get_next_transfer(dd);
+			dd->read_buf = t->rx_buf;
+			dd->read_len = t->len;
 			dd->read_xfr_cnt = 0;
 		}
 	}
@@ -815,8 +816,7 @@ static void msm_spi_set_config(struct msm_spi *dd, int bpw)
 	msm_spi_set_qup_config(dd, bpw);
 }
 
-static void msm_spi_setup_dm_transfer(struct msm_spi *dd, int write_len,
-					int read_len)
+static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
 {
 	dmov_box *box;
 	int bytes_to_send, num_rows, bytes_sent;
@@ -888,18 +888,19 @@ static void msm_spi_setup_dm_transfer(struct msm_spi *dd, int write_len,
 	/* This also takes care of the padding dummy buf
 	   Since this is set to the correct length, the
 	   dummy bytes won't be actually sent */
-	if (read_len && write_len) {
-		if (read_len + write_len > 0) {
+	if (dd->read_len && dd->write_len) {
+		if (dd->read_len + dd->write_len > 0) {
 			/*
 			 *  The read following a write transfer must take
 			 *  into account, that the bytes pertaining to
 			 *  the write transfer needs to be discarded,
 			 *  before the actual read begins.
 			 */
-			write_transfers = DIV_ROUND_UP(write_len,
+			write_transfers = DIV_ROUND_UP(dd->write_len,
 						       dd->bytes_per_word);
-			read_transfers = DIV_ROUND_UP(read_len + write_len,
-						      dd->bytes_per_word);
+			read_transfers = DIV_ROUND_UP(
+						dd->read_len + dd->write_len,
+						dd->bytes_per_word);
 			writel(write_transfers, dd->base + SPI_MX_OUTPUT_COUNT);
 			writel(read_transfers, dd->base + SPI_MX_INPUT_COUNT);
 		}
@@ -940,12 +941,13 @@ static int msm_spi_dm_send_next(struct msm_spi *dd)
 		dd->tx_bytes_remaining -= SPI_MAX_LEN;
 		if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
 			return 0;
-		msm_spi_setup_dm_transfer(dd, 0, 0);
+		dd->read_len = dd->write_len = 0;
+		msm_spi_setup_dm_transfer(dd);
 		msm_spi_enqueue_dm_commands(dd);
 		if (msm_spi_set_state(dd, SPI_OP_STATE_RUN))
 			return 0;
 		return 1;
-	} else {
+	} else if (dd->multi_xfr) {
 		u32 prev_xfr_len = dd->cur_transfer->len;
 		dd->tx_bytes_remaining -= dd->cur_transfer->len;
 		if (list_is_last(&dd->cur_transfer->transfer_list,
@@ -956,7 +958,8 @@ static int msm_spi_dm_send_next(struct msm_spi *dd)
 			return 0;
 		dd->tx_bytes_remaining = dd->rx_bytes_remaining =
 					 dd->cur_transfer->len + prev_xfr_len;
-		msm_spi_setup_dm_transfer(dd, -1, -1);
+		dd->read_len = dd->write_len = -1;
+		msm_spi_setup_dm_transfer(dd);
 		msm_spi_enqueue_dm_commands(dd);
 		if (msm_spi_set_state(dd, SPI_OP_STATE_RUN))
 			return 0;
@@ -1029,17 +1032,16 @@ static void msm_spi_write_word_to_fifo(struct msm_spi *dd)
 			dd->tx_bytes_remaining = 0;
 	dd->write_xfr_cnt++;
 	if (dd->multi_xfr) {
-		if (!dd->tx_bytes_remaining) {
-			dd->cur_transfer = list_entry(
-					dd->cur_transfer->transfer_list.prev,
+		if (!dd->tx_bytes_remaining)
+			dd->write_xfr_cnt = 0;
+		else if ((dd->write_xfr_cnt * dd->bytes_per_word) ==
+						dd->write_len) {
+			struct spi_transfer *t = dd->cur_transfer;
+			t = list_entry(t->transfer_list.next,
 					struct spi_transfer,
 					transfer_list);
-			dd->write_buf          = dd->cur_transfer->tx_buf;
-			dd->read_buf           = dd->cur_transfer->rx_buf;
-			dd->write_xfr_cnt = 0;
-		} else if ((dd->write_xfr_cnt * dd->bytes_per_word) ==
-						dd->cur_transfer->len) {
-			get_next_transfer(dd);
+			dd->write_buf = t->tx_buf;
+			dd->write_len = t->len;
 			dd->write_xfr_cnt = 0;
 		}
 	}
@@ -1166,8 +1168,7 @@ static inline int msm_use_dm(struct msm_spi *dd, struct spi_transfer *tr,
 	return 1;
 }
 
-static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
-					u32 read_len)
+static void msm_spi_process_transfer(struct msm_spi *dd)
 {
 	u8  bpw;
 	u32 spi_ioc;
@@ -1180,11 +1181,11 @@ static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
 	u32 transfer_len = 0;
 	u32 int_loopback = 0;
 
-	if (read_len && write_len) {
-		dd->tx_bytes_remaining = write_len;
-		dd->rx_bytes_remaining = read_len;
+	if (dd->read_len && dd->write_len) {
+		dd->tx_bytes_remaining = dd->write_len;
+		dd->rx_bytes_remaining = dd->read_len;
 		dd->multi_xfr = 1;
-		transfer_len = write_len + read_len;
+		transfer_len = dd->write_len + dd->read_len;
 	} else {
 		dd->tx_bytes_remaining = dd->cur_transfer->len;
 		dd->rx_bytes_remaining = dd->cur_transfer->len;
@@ -1213,7 +1214,7 @@ static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
 	read_count = DIV_ROUND_UP(transfer_len, dd->bytes_per_word);
 	if (dd->cur_msg->spi->mode & SPI_LOOP)
 		int_loopback = 1;
-	if (int_loopback && read_len && write_len &&
+	if (int_loopback && dd->read_len && dd->write_len &&
 			(read_count > dd->input_fifo_size)) {
 		printk(KERN_WARNING
 		"%s:Internal Loopback does not support > fifo size\
@@ -1225,6 +1226,10 @@ static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
 		dd->mode = SPI_FIFO_MODE;
 		dd->tx_bytes_remaining = transfer_len;
 		dd->rx_bytes_remaining = transfer_len;
+		if (dd->multi_xfr) {
+			dd->read_len = dd->cur_transfer->len;
+			dd->write_len = dd->cur_transfer->len;
+		}
 		/* read_count cannot exceed fifo_size, and only one READ COUNT
 		   interrupt is generated per transaction, so for transactions
 		   larger than fifo size READ COUNT must be disabled.
@@ -1269,7 +1274,7 @@ static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
 		writel(spi_ioc, dd->base + SPI_IO_CONTROL);
 
 	if (dd->mode == SPI_DMOV_MODE) {
-		msm_spi_setup_dm_transfer(dd, write_len, read_len);
+		msm_spi_setup_dm_transfer(dd);
 		msm_spi_enqueue_dm_commands(dd);
 	}
 	/* The output fifo interrupt handler will handle all writes after
@@ -1308,8 +1313,6 @@ static void msm_spi_process_transfer(struct msm_spi *dd, u32 write_len,
 				}
 				break;
 		}
-		if (!(write_len && read_len))
-			break;
 	} while (msm_spi_dm_send_next(dd));
 
 transfer_end:
@@ -1358,8 +1361,6 @@ static int get_transfer_length(struct spi_transfer *tr, struct spi_message *msg)
 
 static void msm_spi_process_message(struct msm_spi *dd)
 {
-	u32 write_len = 0;
-	u32 read_len = 0;
 	u32 xfr_len = 0;
 	int next_xfr_processed = 0;
 
@@ -1369,22 +1370,24 @@ static void msm_spi_process_message(struct msm_spi *dd)
 		if (!dd->cur_transfer->len)
 			return;
 
+		dd->write_xfr_cnt = dd->read_xfr_cnt = 0;
+		dd->read_len = dd->write_len = 0;
 		if (next_xfr_processed) {
 			next_xfr_processed = 0;
 			continue;
 		}
 		xfr_len = get_transfer_length(dd->cur_transfer, dd->cur_msg);
 		if (xfr_len == dd->cur_transfer->len)
-			msm_spi_process_transfer(dd, 0, 0);
+			msm_spi_process_transfer(dd);
 		else {
 			if (dd->cur_transfer->tx_buf) {
-				write_len =  dd->cur_transfer->len;
-				read_len = xfr_len - write_len;
+				dd->write_len =  dd->cur_transfer->len;
+				dd->read_len = xfr_len - dd->write_len;
 			} else {
-				read_len = dd->cur_transfer->len;
-				write_len = xfr_len - read_len;
+				dd->read_len = dd->cur_transfer->len;
+				dd->write_len = xfr_len - dd->read_len;
 			}
-			msm_spi_process_transfer(dd, write_len, read_len);
+			msm_spi_process_transfer(dd);
 			next_xfr_processed = 1;
 		}
 	}
