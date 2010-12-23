@@ -24,7 +24,6 @@
 #include "socinfo.h"
 
 static DEFINE_MUTEX(clocks_mutex);
-static DEFINE_SPINLOCK(clocks_lock);
 static DEFINE_SPINLOCK(ebi1_vote_lock);
 static LIST_HEAD(clocks);
 
@@ -61,32 +60,13 @@ EXPORT_SYMBOL(clk_put);
 
 int clk_enable(struct clk *clk)
 {
-	int ret = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&clocks_lock, flags);
-	if (clk->count == 0) {
-		ret = clk->ops->enable(clk->id);
-		if (ret)
-			goto out;
-	}
-	clk->count++;
-out:
-	spin_unlock_irqrestore(&clocks_lock, flags);
-	return ret;
+	return clk->ops->enable(clk->id);
 }
 EXPORT_SYMBOL(clk_enable);
 
 void clk_disable(struct clk *clk)
 {
-	unsigned long flags;
-	spin_lock_irqsave(&clocks_lock, flags);
-	BUG_ON(clk->count == 0);
-	clk->count--;
-	if (clk->count == 0) {
-		clk->ops->disable(clk->id);
-	}
-	spin_unlock_irqrestore(&clocks_lock, flags);
+	clk->ops->disable(clk->id);
 }
 EXPORT_SYMBOL(clk_disable);
 
@@ -230,7 +210,6 @@ void __init msm_clock_init(struct clk *clock_tbl, unsigned num_clocks)
 	/* Do SoC-speficic clock init operations. */
 	msm_clk_soc_init();
 
-	spin_lock_init(&clocks_lock);
 	mutex_lock(&clocks_mutex);
 	for (n = 0; n < num_clocks; n++) {
 		msm_clk_soc_set_ops(&clock_tbl[n]);
@@ -255,26 +234,16 @@ void __init msm_clock_init(struct clk *clock_tbl, unsigned num_clocks)
  */
 static int __init clock_late_init(void)
 {
-	unsigned long flags;
 	struct clk *clk;
-	unsigned count = 0;
 
 	clock_debug_init();
 	mutex_lock(&clocks_mutex);
 	list_for_each_entry(clk, &clocks, list) {
 		clock_debug_add(clk);
-		if (clk->flags & CLKFLAG_AUTO_OFF) {
-			spin_lock_irqsave(&clocks_lock, flags);
-			if (!clk->count) {
-				count++;
-				clk->ops->auto_off(clk->id);
-			}
-			spin_unlock_irqrestore(&clocks_lock, flags);
-		}
+		if (clk->flags & CLKFLAG_AUTO_OFF)
+			clk->ops->auto_off(clk->id);
 	}
 	mutex_unlock(&clocks_mutex);
-	pr_info("clock_late_init() disabled %d unused clocks\n", count);
 	return 0;
 }
-
 late_initcall(clock_late_init);

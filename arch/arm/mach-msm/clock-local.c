@@ -497,8 +497,6 @@ void local_clk_disable(unsigned id)
 	soc_set_pwr_rail(id, 0);
 	local_clk_disable_nolock(id);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	return;
 }
 
 /* Turn off a clock at boot, without checking refcounts or disabling parents. */
@@ -511,7 +509,8 @@ void local_clk_auto_off(unsigned id)
 		return;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	local_clk_disable_reg(id);
+	if (clk->count == 0)
+		local_clk_disable_reg(id);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
