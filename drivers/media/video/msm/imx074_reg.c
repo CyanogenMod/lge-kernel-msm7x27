@@ -22,7 +22,7 @@ const struct reg_struct_init imx074_reg_init[1] = {
 		0x02,	/* pll_divider 0x0305 */
 		0x4B,	/* plstatim 0x302b */
 		0x03,	/* reg_3024 */
-		0x03,	/* image_orientation 0x0101 */
+		0x00,	/* image_orientation 0x0101 */
 		0x80,	/* vndmy_ablmgshlmt 0x300a*/
 		0x08,	/* y_opbaddr_start_di 3014*/
 		0x37,	/* 0x3015*/
