@@ -391,7 +391,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 		}
 		buf += xfer;
 		fbytes -= xfer;
-		ret = q6asm_write(prtd->audio_client, xfer, 0, 0, 0);
+		ret = q6asm_write(prtd->audio_client, xfer, 0, 0, NO_TIMESTAMP);
 		if (ret < 0) {
 			ret = -EFAULT;
 			goto fail;
