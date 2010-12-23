@@ -88,6 +88,12 @@ int sdio_cmux_write_avail(int id);
  */
 int sdio_cmux_write(int id, void *data, int len);
 
+/* these are used to get and set the IF sigs of a channel.
+ * DTR and RTS can be set; DSR, CTS, CD and RI can be read.
+ */
+int sdio_cmux_tiocmget(int id);
+int sdio_cmux_tiocmset(int id, unsigned int set, unsigned int clear);
+
 /*
  * is_remote_open - Check whether the remote channel is open
  *

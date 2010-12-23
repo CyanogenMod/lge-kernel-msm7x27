@@ -27,6 +27,7 @@
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/termios.h>
 
 #include <mach/sdio_al.h>
 #include <mach/sdio_cmux.h>
@@ -44,7 +45,14 @@ enum cmd_type {
 	DATA = 0,
 	OPEN,
 	CLOSE,
+	STATUS,
+	NUM_CMDS
 };
+
+#define DSR_POS 0x1
+#define CTS_POS 0x2
+#define RI_POS 0x4
+#define CD_POS 0x8
 
 struct sdio_cmux_ch {
 	int lc_id;
@@ -53,6 +61,16 @@ struct sdio_cmux_ch {
 	wait_queue_head_t open_wait_queue;
 	int is_remote_open;
 	int is_local_open;
+
+	char local_fDSR;
+	char local_fCTS;
+	char local_fCD;
+	char local_fRI;
+
+	char remote_fDSR;
+	char remote_fCTS;
+	char remote_fCD;
+	char remote_fRI;
 
 	struct mutex tx_lock;
 	struct list_head tx_list;
@@ -64,7 +82,8 @@ struct sdio_cmux_ch {
 
 struct sdio_cmux_hdr {
 	uint16_t magic_no;
-	uint8_t reserved;
+	uint8_t status;         /* This field is reserved for commands other
+				 * than STATUS */
 	uint8_t cmd;
 	uint8_t pad_bytes;
 	uint8_t lc_id;
@@ -193,7 +212,7 @@ static int sdio_cmux_write_cmd(const int id, enum cmd_type type)
 		return -EINVAL;
 	}
 
-	if (type < OPEN || type > CLOSE) {
+	if (type < 0 || type > NUM_CMDS) {
 		pr_err("%s: Invalid cmd - %d\n", __func__, type);
 		return -EINVAL;
 	}
@@ -218,7 +237,14 @@ static int sdio_cmux_write_cmd(const int id, enum cmd_type type)
 	list_elem->cmux_pkt.hdr->lc_id = (uint8_t)id;
 	list_elem->cmux_pkt.hdr->pkt_len = (uint16_t)0;
 	list_elem->cmux_pkt.hdr->cmd = (uint8_t)type;
-	list_elem->cmux_pkt.hdr->reserved = (uint8_t)0;
+	list_elem->cmux_pkt.hdr->status = (uint8_t)0;
+	if (type == STATUS) {
+		list_elem->cmux_pkt.hdr->status =
+			(uint8_t)(logical_ch[id].local_fDSR ? DSR_POS : 0 |
+				logical_ch[id].local_fCTS ? CTS_POS : 0 |
+				logical_ch[id].local_fRI ? RI_POS : 0 |
+				logical_ch[id].local_fCD ? CD_POS : 0);
+	}
 	list_elem->cmux_pkt.hdr->pad_bytes = (uint8_t)0;
 	list_elem->cmux_pkt.hdr->magic_no = (uint16_t)MAGIC_NO_V1;
 
@@ -371,7 +397,7 @@ int sdio_cmux_write(int id, void *data, int len)
 	list_elem->cmux_pkt.hdr->lc_id = (uint8_t)ch->lc_id;
 	list_elem->cmux_pkt.hdr->pkt_len = (uint16_t)len;
 	list_elem->cmux_pkt.hdr->cmd = (uint8_t)DATA;
-	list_elem->cmux_pkt.hdr->reserved = (uint8_t)0;
+	list_elem->cmux_pkt.hdr->status = (uint8_t)0;
 	list_elem->cmux_pkt.hdr->pad_bytes = (uint8_t)0;
 	list_elem->cmux_pkt.hdr->magic_no = (uint16_t)MAGIC_NO_V1;
 
@@ -406,6 +432,36 @@ int is_remote_open(int id)
 	return logical_ch[id].is_remote_open;
 }
 EXPORT_SYMBOL(is_remote_open);
+
+int sdio_cmux_tiocmget(int id)
+{
+	return  logical_ch[id].remote_fDSR ? TIOCM_DSR : 0 |
+		logical_ch[id].remote_fCTS ? TIOCM_CTS : 0 |
+		logical_ch[id].remote_fCD ? TIOCM_CD : 0 |
+		logical_ch[id].remote_fRI ? TIOCM_RI : 0 |
+		logical_ch[id].local_fCTS ? TIOCM_RTS : 0 |
+		logical_ch[id].local_fDSR ? TIOCM_DTR : 0;
+}
+EXPORT_SYMBOL(sdio_cmux_tiocmget);
+
+int sdio_cmux_tiocmset(int id, unsigned int set, unsigned int clear)
+{
+	if (set & TIOCM_DTR)
+		logical_ch[id].local_fDSR = 1;
+
+	if (set & TIOCM_RTS)
+		logical_ch[id].local_fCTS = 1;
+
+	if (clear & TIOCM_DTR)
+		logical_ch[id].local_fDSR = 0;
+
+	if (clear & TIOCM_RTS)
+		logical_ch[id].local_fCTS = 0;
+
+	sdio_cmux_write_cmd(id, STATUS);
+	return 0;
+}
+EXPORT_SYMBOL(sdio_cmux_tiocmset);
 
 static int copy_packet(void *pkt, int size)
 {
@@ -479,6 +535,16 @@ static int process_cmux_pkt(void *pkt, int size)
 						logical_ch[id].priv);
 		else
 			copy_packet(pkt, size);
+		mutex_unlock(&logical_ch[id].lc_lock);
+		break;
+
+	case STATUS:
+		D("%s: Received STATUS command for ch%d\n", __func__, id);
+		mutex_lock(&logical_ch[id].lc_lock);
+		logical_ch[id].remote_fDSR = mux_hdr->status & DSR_POS;
+		logical_ch[id].remote_fCTS = mux_hdr->status & CTS_POS;
+		logical_ch[id].remote_fRI = mux_hdr->status & RI_POS;
+		logical_ch[id].remote_fCD = mux_hdr->status & CD_POS;
 		mutex_unlock(&logical_ch[id].lc_lock);
 		break;
 	}
