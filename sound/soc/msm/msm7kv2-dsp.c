@@ -210,7 +210,7 @@ static void audrec_dsp_event(void *data, unsigned id, size_t len,
 			fatal_err_msg.audrec_err_id);
 		/* Error stop the encoder */
 		prtd->stopped = 1;
-		wake_up(&the_locks.wait);
+		wake_up(&the_locks.read_wait);
 		break;
 	}
 	case AUDREC_UP_PACKET_READY_MSG: {
