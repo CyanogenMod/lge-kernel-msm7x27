@@ -181,3 +181,32 @@ struct clk_ops clk_ops_remote = {
 	.is_enabled = pc_clk_is_enabled,
 	.round_rate = pc_clk_round_rate,
 };
+
+int pc_clk_set_rate2(unsigned id, unsigned rate)
+{
+	return pc_clk_set_rate(id, rate / 2);
+}
+
+int pc_clk_set_min_rate2(unsigned id, unsigned rate)
+{
+	return pc_clk_set_min_rate(id, rate / 2);
+}
+
+unsigned pc_clk_get_rate2(unsigned id)
+{
+	return pc_clk_get_rate(id) * 2;
+}
+
+struct clk_ops clk_ops_pcom_div2 = {
+	.enable = pc_clk_enable,
+	.disable = pc_clk_disable,
+	.auto_off = pc_clk_auto_off,
+	.reset = pc_clk_reset,
+	.set_rate = pc_clk_set_rate2,
+	.set_min_rate = pc_clk_set_min_rate2,
+	.set_flags = pc_clk_set_flags,
+	.get_rate = pc_clk_get_rate2,
+	.measure_rate = pc_clk_measure_rate,
+	.is_enabled = pc_clk_is_enabled,
+	.round_rate = pc_clk_round_rate,
+};
