@@ -2982,8 +2982,7 @@ static void vfe31_release(struct platform_device *pdev)
 	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
 	pr_info("%s, msm_camio_disable\n", __func__);
 	msm_camio_disable(pdev);
-	pr_info("%s, msm_camio_set_perf_lvl\n", __func__);
-	msm_camio_set_perf_lvl(S_DEFAULT);
+	msm_camio_set_perf_lvl(S_EXIT);
 
 	vfe_syncdata = NULL;
 }
@@ -3091,6 +3090,7 @@ static int vfe31_init(struct msm_vfe_callback *presp,
 	/* Bring up all the required GPIOs and Clocks */
 	rc = msm_camio_enable(pdev);
 	msm_camio_set_perf_lvl(S_INIT);
+	msm_camio_set_perf_lvl(S_PREVIEW);
 	if (msm_vpe_open() < 0)
 		CDBG("%s: vpe_open failed\n", __func__);
 

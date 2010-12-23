@@ -191,8 +191,8 @@ static struct msm_bus_vectors cam_snapshot_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_VFE,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 559977600,
-		.ib  = 559977600,
+		.ab  = 1521190000,
+		.ib  = 1521190000,
 	},
 	{
 		.src = MSM_BUS_MMSS_MASTER_VFE,
@@ -209,8 +209,8 @@ static struct msm_bus_vectors cam_snapshot_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_JPEG_ENC,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab  = 559977600,
-		.ib  = 559977600,
+		.ab  = 1521190000,
+		.ib  = 1521190000,
 	},
 };
 
@@ -944,46 +944,46 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 		bus_perf_client =
 			msm_bus_scale_register_client(&cam_bus_client_pdata);
 		if (!bus_perf_client) {
-			CDBG("%s: Registration Failed!!!\n", __func__);
+			pr_err("%s: Registration Failed!!!\n", __func__);
 			bus_perf_client = 0;
 			return;
 		}
-		CDBG("%s: S_INIT rc = %u\n", __func__, bus_perf_client);
+		pr_info("%s: S_INIT rc = %u\n", __func__, bus_perf_client);
 		break;
 	case S_EXIT:
 		if (bus_perf_client) {
-			CDBG("%s: S_EXIT\n", __func__);
+			pr_info("%s: S_EXIT\n", __func__);
 			msm_bus_scale_unregister_client(bus_perf_client);
 		} else
-			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_PREVIEW:
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 1);
-			CDBG("%s: S_PREVIEW rc = %d\n", __func__, rc);
+			pr_info("%s: S_PREVIEW rc = %d\n", __func__, rc);
 		} else
-			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_VIDEO:
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 2);
-			CDBG("%s: S_VIDEO rc = %d\n", __func__, rc);
+			pr_info("%s: S_VIDEO rc = %d\n", __func__, rc);
 		} else
-			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_CAPTURE:
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 3);
-			CDBG("%s: S_CAPTURE rc = %d\n", __func__, rc);
+			pr_info("%s: S_CAPTURE rc = %d\n", __func__, rc);
 		} else
-			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_DEFAULT:
 		break;
 	default:
-		CDBG("%s: INVALID CASE\n", __func__);
+		pr_info("%s: INVALID CASE\n", __func__);
 	}
 }
