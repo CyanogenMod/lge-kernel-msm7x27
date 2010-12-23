@@ -1571,8 +1571,7 @@ void msm_hsusb_set_vbus_state(int online)
 	struct usb_info *ui = the_usb_info;
 
 	if (!ui) {
-		dev_err(&ui->pdev->dev, "msm_hsusb_set_vbus_state called"
-			" before driver initialized\n");
+		pr_err("%s called before driver initialized\n", __func__);
 		return;
 	}
 
