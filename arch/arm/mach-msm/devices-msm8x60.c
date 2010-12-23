@@ -425,6 +425,7 @@ static struct msm_bus_paths grp3d_bus_scale_usecases[] = {
 static struct msm_bus_scale_pdata grp3d_bus_scale_pdata = {
 	grp3d_bus_scale_usecases,
 	ARRAY_SIZE(grp3d_bus_scale_usecases),
+	.name = "grp3d",
 };
 
 static struct msm_bus_vectors grp2d0_init_vectors[] = {
@@ -459,6 +460,7 @@ static struct msm_bus_paths grp2d0_bus_scale_usecases[] = {
 struct msm_bus_scale_pdata grp2d0_bus_scale_pdata = {
 	grp2d0_bus_scale_usecases,
 	ARRAY_SIZE(grp2d0_bus_scale_usecases),
+	.name = "grp2d0",
 };
 
 static struct msm_bus_vectors grp2d1_init_vectors[] = {
@@ -493,6 +495,7 @@ static struct msm_bus_paths grp2d1_bus_scale_usecases[] = {
 struct msm_bus_scale_pdata grp2d1_bus_scale_pdata = {
 	grp2d1_bus_scale_usecases,
 	ARRAY_SIZE(grp2d1_bus_scale_usecases),
+	.name = "grp2d1",
 };
 #endif
 
