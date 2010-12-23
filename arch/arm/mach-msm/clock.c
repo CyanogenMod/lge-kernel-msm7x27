@@ -116,6 +116,8 @@ EXPORT_SYMBOL(clk_set_max_rate);
 
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
+	if (clk->ops->set_parent)
+		return clk->ops->set_parent(clk->id, parent);
 	return -ENOSYS;
 }
 EXPORT_SYMBOL(clk_set_parent);

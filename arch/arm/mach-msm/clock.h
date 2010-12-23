@@ -47,6 +47,7 @@ struct clk_ops {
 	int (*measure_rate)(unsigned id);
 	unsigned (*is_enabled)(unsigned id);
 	long (*round_rate)(unsigned id, unsigned rate);
+	int (*set_parent)(unsigned id, struct clk *parent);
 };
 
 struct clk {
