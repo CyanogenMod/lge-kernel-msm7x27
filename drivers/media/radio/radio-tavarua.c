@@ -2810,7 +2810,8 @@ static int tavarua_setup_interrupts(struct tavarua_device *radio,
 	int_ctrl[STATUS_REG3] = TRANSFER | ERROR;
 
 	/* use xfr for interrupt setup */
-    if (radio->chipID == MARIMBA_2_1 || radio->chipID == BAHAMA_1_0) {
+    if (radio->chipID == MARIMBA_2_1 || radio->chipID == BAHAMA_1_0
+		|| radio->chipID == BAHAMA_2_0) {
 		FMDBG("Setting interrupts\n");
 		retval =  sync_write_xfr(radio, INT_CTRL, int_ctrl);
 	/* use register write to setup interrupts */
@@ -2835,7 +2836,8 @@ static int tavarua_setup_interrupts(struct tavarua_device *radio,
 	/* tavarua_handle_interrupts force reads all the interrupt status
 	*  registers and it is not valid for MBA 2.1
 	*/
-	if (radio->chipID != MARIMBA_2_1 || radio->chipID != BAHAMA_1_0)
+	if ((radio->chipID != MARIMBA_2_1) && (radio->chipID != BAHAMA_1_0)
+		&& (radio->chipID != BAHAMA_2_0))
 		tavarua_handle_interrupts(radio);
 
 	return retval;
@@ -2867,7 +2869,8 @@ static int tavarua_disable_interrupts(struct tavarua_device *radio)
 	lpm_buf[STATUS_REG3] = TRANSFER;
 	/* use xfr for interrupt setup */
 	wait_timeout = 100;
-	if (radio->chipID == MARIMBA_2_1 || radio->chipID == BAHAMA_1_0)
+	if (radio->chipID == MARIMBA_2_1 || radio->chipID == BAHAMA_1_0
+		|| radio->chipID == BAHAMA_2_0)
 		retval = sync_write_xfr(radio, INT_CTRL, lpm_buf);
 	/* use register write to setup interrupts */
 	else
