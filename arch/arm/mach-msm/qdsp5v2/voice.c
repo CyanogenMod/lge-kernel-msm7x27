@@ -38,11 +38,12 @@ struct voice_data {
 	int network; /* Network information */
 	int dev_state;/*READY, CHANGE, REL_DONE,INIT*/
 	int voc_state;/*INIT, CHANGE, RELEASE, ACQUIRE */
-	struct mutex lock;
+	struct mutex voc_lock;
 	int voc_event;
 	int dev_event;
 	atomic_t rel_start_flag;
 	atomic_t acq_start_flag;
+	atomic_t chg_start_flag;
 	struct task_struct *task;
 	struct completion complete;
 	wait_queue_head_t dev_wait;
@@ -96,8 +97,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 	struct voice_data *v = &voice;
 	int rc = 0, i;
 
-	MM_INFO("auddev_cb_function, evt_id=%d, dev_state=%d\n",
-		evt_id, v->dev_state);
+	MM_INFO("auddev_cb_function, evt_id=%d, dev_state=%d, voc_state=%d\n",
+		evt_id, v->dev_state, v->voc_state);
 	if ((evt_id != AUDDEV_EVT_START_VOICE) ||
 			(evt_id != AUDDEV_EVT_END_VOICE)) {
 		if (evt_payload == NULL) {
@@ -113,14 +114,8 @@ static void voice_auddev_cb_function(u32 evt_id,
 			if ((v->dev_rx.enabled == VOICE_DEV_ENABLED)
 				&& (v->dev_tx.enabled == VOICE_DEV_ENABLED)) {
 				v->dev_state = DEV_READY;
-				MM_DBG(" dev_state into ready \n");
+				MM_DBG("dev_state into ready\n");
 				wake_up(&v->dev_wait);
-				if (v->voc_state == VOICE_CHANGE) {
-					mutex_lock(&voice.lock);
-					v->dev_event = DEV_CHANGE_READY;
-					mutex_unlock(&voice.lock);
-					complete(&v->complete);
-				}
 			}
 		}
 		break;
@@ -129,17 +124,22 @@ static void voice_auddev_cb_function(u32 evt_id,
 			v->dev_rx.enabled = VOICE_DEV_DISABLED;
 			v->dev_tx.enabled = VOICE_DEV_DISABLED;
 			v->dev_state = DEV_CHANGE;
+			mutex_lock(&voice.voc_lock);
 			if (v->voc_state == VOICE_ACQUIRE) {
-				msm_snddev_enable_sidetone(v->dev_rx.dev_id,
-				0);
 				/* send device change to modem */
 				voice_cmd_change();
+				mutex_unlock(&voice.voc_lock);
+				msm_snddev_enable_sidetone(v->dev_rx.dev_id,
+				0);
 				/* block to wait for CHANGE_START */
 				rc = wait_event_interruptible(
 				v->voc_wait, (v->voc_state == VOICE_CHANGE)
+				|| (atomic_read(&v->chg_start_flag) == 1)
 				|| (atomic_read(&v->rel_start_flag) == 1));
-			} else
+			} else {
+				mutex_unlock(&voice.voc_lock);
 				MM_ERR(" Voice is not at ACQUIRE state\n");
+			}
 		} else if ((v->dev_state == DEV_INIT) ||
 				(v->dev_state == DEV_REL_DONE)) {
 				v->dev_rx.enabled = VOICE_DEV_DISABLED;
@@ -179,13 +179,14 @@ static void voice_auddev_cb_function(u32 evt_id,
 				(v->dev_tx.enabled == VOICE_DEV_ENABLED)) {
 				v->dev_state = DEV_READY;
 				MM_DBG("dev state into ready\n");
+				voice_cmd_device_info(v);
 				wake_up(&v->dev_wait);
+				mutex_lock(&voice.voc_lock);
 				if (v->voc_state == VOICE_CHANGE) {
-					mutex_lock(&voice.lock);
 					v->dev_event = DEV_CHANGE_READY;
-					mutex_unlock(&voice.lock);
 					complete(&v->complete);
 				}
+				mutex_unlock(&voice.voc_lock);
 			}
 		} else if ((v->dev_state == DEV_INIT) ||
 			(v->dev_state == DEV_REL_DONE)) {
@@ -210,14 +211,15 @@ static void voice_auddev_cb_function(u32 evt_id,
 				(v->dev_tx.enabled == VOICE_DEV_ENABLED) &&
 				(v->v_call_status == VOICE_CALL_START)) {
 				v->dev_state = DEV_READY;
-				MM_DBG(" dev state into ready \n");
+				MM_DBG("dev state into ready\n");
+				voice_cmd_device_info(v);
 				wake_up(&v->dev_wait);
+				mutex_lock(&voice.voc_lock);
 				if (v->voc_state == VOICE_CHANGE) {
-					mutex_lock(&voice.lock);
 					v->dev_event = DEV_CHANGE_READY;
-					mutex_unlock(&voice.lock);
 					complete(&v->complete);
 				}
+				mutex_unlock(&voice.voc_lock);
 			}
 		} else
 			MM_ERR("Receive READY not at the proper state =%d\n",
@@ -244,7 +246,10 @@ static void voice_auddev_cb_function(u32 evt_id,
 					v->dev_tx.enabled = VOICE_DEV_DISABLED;
 				v->dev_state = DEV_REL_DONE;
 				wake_up(&v->dev_wait);
-			} else if ((v->voc_state == VOICE_RELEASE) ||
+				break;
+			}
+			mutex_lock(&voice.voc_lock);
+			if ((v->voc_state == VOICE_RELEASE) ||
 					(v->voc_state == VOICE_INIT)) {
 				if (evt_payload->voc_devinfo.dev_type
 							== DIR_RX) {
@@ -253,12 +258,15 @@ static void voice_auddev_cb_function(u32 evt_id,
 					v->dev_tx.enabled = VOICE_DEV_DISABLED;
 				}
 				v->dev_state = DEV_REL_DONE;
+				mutex_unlock(&voice.voc_lock);
 				wake_up(&v->dev_wait);
 			} else {
 				/* send device change to modem */
 				voice_cmd_change();
+				mutex_unlock(&voice.voc_lock);
 				rc = wait_event_interruptible(
 				v->voc_wait, (v->voc_state == VOICE_CHANGE)
+				|| (atomic_read(&v->chg_start_flag) == 1)
 				|| (atomic_read(&v->rel_start_flag) == 1));
 				if (atomic_read(&v->rel_start_flag) == 1)
 					atomic_dec(&v->rel_start_flag);
@@ -293,20 +301,26 @@ static void voice_auddev_cb_function(u32 evt_id,
 				v->v_call_status = VOICE_CALL_END;
 				v->dev_state = DEV_REL_DONE;
 				wake_up(&v->dev_wait);
-			} else if ((v->voc_state == VOICE_RELEASE) ||
+				break;
+			}
+			mutex_lock(&voice.voc_lock);
+			if ((v->voc_state == VOICE_RELEASE) ||
 					(v->voc_state == VOICE_INIT)) {
 				v->v_call_status = VOICE_CALL_END;
 				v->dev_state = DEV_REL_DONE;
+				mutex_unlock(&voice.voc_lock);
 				wake_up(&v->dev_wait);
 			} else {
 				/* send mute and default volume value to MCAD */
 				voice_cmd_device_info(v);
 				/* send device change to modem */
 				voice_cmd_change();
+				mutex_unlock(&voice.voc_lock);
 				/* block to wait for RELEASE_START
 						or CHANGE_START */
 				rc = wait_event_interruptible(
 				v->voc_wait, (v->voc_state == VOICE_CHANGE)
+				|| (atomic_read(&v->chg_start_flag) == 1)
 				|| (atomic_read(&v->rel_start_flag) == 1));
 				if (atomic_read(&v->rel_start_flag) == 1)
 					atomic_dec(&v->rel_start_flag);
@@ -326,17 +340,22 @@ static void voice_auddev_cb_function(u32 evt_id,
 		if (v->dev_state == DEV_READY) {
 			v->dev_tx.enabled = VOICE_DEV_DISABLED;
 			v->dev_state = DEV_CHANGE;
+			mutex_lock(&voice.voc_lock);
 			if (v->voc_state == VOICE_ACQUIRE) {
 				msm_snddev_enable_sidetone(v->dev_rx.dev_id,
 				0);
 				/* send device change to modem */
 				voice_cmd_change();
+				mutex_unlock(&voice.voc_lock);
 				/* block to wait for CHANGE_START */
 				rc = wait_event_interruptible(
 				v->voc_wait, (v->voc_state == VOICE_CHANGE)
+				|| (atomic_read(&v->chg_start_flag) == 1)
 				|| (atomic_read(&v->rel_start_flag) == 1));
-			} else
+			} else {
+				mutex_unlock(&voice.voc_lock);
 				MM_ERR(" Voice is not at ACQUIRE state\n");
+			}
 		} else if ((v->dev_state == DEV_INIT) ||
 				(v->dev_state == DEV_REL_DONE)) {
 				v->dev_tx.enabled = VOICE_DEV_DISABLED;
@@ -370,10 +389,8 @@ static void remote_cb_function(void *context, u32 param,
 	case EVENT_ACQUIRE_START:
 		atomic_inc(&v->acq_start_flag);
 		wake_up(&v->dev_wait);
-		mutex_lock(&voice.lock);
 		v->voc_event = VOICE_ACQUIRE_START;
 		v->network = ((struct voice_network *)evt_buf)->network_info;
-		mutex_unlock(&voice.lock);
 		complete(&v->complete);
 		break;
 	case EVENT_RELEASE_START:
@@ -382,25 +399,21 @@ static void remote_cb_function(void *context, u32 param,
 		atomic_inc(&v->rel_start_flag);
 		wake_up(&v->voc_wait);
 		wake_up(&v->dev_wait);
-		mutex_lock(&voice.lock);
 		v->voc_event = VOICE_RELEASE_START;
-		mutex_unlock(&voice.lock);
 		complete(&v->complete);
 		break;
 	case EVENT_CHANGE_START:
-		mutex_lock(&voice.lock);
+		atomic_inc(&v->chg_start_flag);
+		wake_up(&v->voc_wait);
 		v->voc_event = VOICE_CHANGE_START;
-		mutex_unlock(&voice.lock);
 		complete(&v->complete);
 		break;
 	case EVENT_NETWORK_RECONFIG:
 		/* send network change to audio_dev,
 		if sample rate is less than 16k,
 		otherwise, send acquire done */
-		mutex_lock(&voice.lock);
 		v->voc_event = VOICE_NETWORK_RECONFIG;
 		v->network = ((struct voice_network *)evt_buf)->network_info;
-		mutex_unlock(&voice.lock);
 		complete(&v->complete);
 		break;
 	default:
@@ -528,10 +541,12 @@ static int voice_thread(void *data)
 			if ((v->voc_state == VOICE_INIT) ||
 				(v->voc_state == VOICE_RELEASE)) {
 				if (v->dev_state == DEV_READY) {
+					mutex_lock(&voice.voc_lock);
 					voice_change_sample_rate(v);
 					rc = voice_cmd_device_info(v);
 					rc = voice_cmd_acquire_done(v);
 					v->voc_state = VOICE_ACQUIRE;
+					mutex_unlock(&voice.voc_lock);
 					broadcast_event(
 					AUDDEV_EVT_VOICE_STATE_CHG,
 					VOICE_STATE_INCALL, SESSION_IGNORE);
@@ -552,10 +567,12 @@ static int voice_thread(void *data)
 						VOICE_STATE_OFFCALL,
 						SESSION_IGNORE);
 					} else {
+						mutex_lock(&voice.voc_lock);
 						voice_change_sample_rate(v);
 						rc = voice_cmd_device_info(v);
 						rc = voice_cmd_acquire_done(v);
 						v->voc_state = VOICE_ACQUIRE;
+						mutex_unlock(&voice.voc_lock);
 						broadcast_event(
 						AUDDEV_EVT_VOICE_STATE_CHG,
 						VOICE_STATE_INCALL,
@@ -597,6 +614,8 @@ static int voice_thread(void *data)
 			else
 				MM_ERR("Get this event at the wrong state\n");
 			wake_up(&v->voc_wait);
+			if (atomic_read(&v->chg_start_flag))
+				atomic_dec(&v->chg_start_flag);
 			break;
 		case VOICE_NETWORK_RECONFIG:
 			if ((v->voc_state == VOICE_ACQUIRE)
@@ -613,23 +632,28 @@ static int voice_thread(void *data)
 		switch (v->dev_event) {
 		case DEV_CHANGE_READY:
 			if (v->voc_state == VOICE_CHANGE) {
+				mutex_lock(&voice.voc_lock);
 				msm_snddev_enable_sidetone(v->dev_rx.dev_id,
 				1);
-				/* send device info to modem */
-				voice_cmd_device_info(v);
 				/* update voice state */
 				v->voc_state = VOICE_ACQUIRE;
+				v->dev_event = 0;
+				mutex_unlock(&voice.voc_lock);
 				broadcast_event(AUDDEV_EVT_VOICE_STATE_CHG,
 					VOICE_STATE_INCALL, SESSION_IGNORE);
-			} else
+			} else {
+				mutex_lock(&voice.voc_lock);
+				v->dev_event = 0;
+				mutex_unlock(&voice.voc_lock);
 				MM_ERR("Get this event at the wrong state\n");
+			}
 			break;
 		default:
+			mutex_lock(&voice.voc_lock);
+			v->dev_event = 0;
+			mutex_unlock(&voice.voc_lock);
 			break;
 		}
-		mutex_lock(&voice.lock);
-		v->dev_event = 0;
-		mutex_unlock(&voice.lock);
 	}
 	return 0;
 }
@@ -640,7 +664,7 @@ static int __init voice_init(void)
 	struct voice_data *v = &voice;
 	MM_INFO("\n"); /* Macro prints the file name and function */
 
-	mutex_init(&voice.lock);
+	mutex_init(&voice.voc_lock);
 	v->handle = NULL;
 	v->cb_handle = NULL;
 
