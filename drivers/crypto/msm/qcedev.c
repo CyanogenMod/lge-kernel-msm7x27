@@ -59,11 +59,9 @@ enum qcedev_crypto_oper_type {
   QCEDEV_CRYPTO_OPER_LAST
 };
 
-
 struct qcedev_control;
 
-
-struct qcedev_cipher_request {
+struct qcedev_cipher_req {
 	struct ablkcipher_request creq;
 	void *cookie;
 };
@@ -77,14 +75,12 @@ struct qcedev_async_req {
 		struct qcedev_sha_op_req	sha_op_req;
 	};
 	union{
-		struct qcedev_cipher_request	cipher_req;
+		struct qcedev_cipher_req	cipher_req;
 		struct qce_sha_req		sha_req;
 	};
 	struct qcedev_control			*podev;
 	int					err;
 };
-
-
 
 /**********************************************************************
  * Register ourselves as a misc device to be able to access the dev driver
@@ -262,10 +258,10 @@ static void qcedev_sha_req_cb(void *cookie, unsigned char *iv,
 static void qcedev_cipher_req_cb(void *cookie, unsigned char *icv,
 	unsigned char *iv, int ret)
 {
-	struct qcedev_cipher_request *areq;
+	struct qcedev_cipher_req *areq;
 	struct qcedev_control *pdev;
 
-	areq = (struct qcedev_cipher_request *) cookie;
+	areq = (struct qcedev_cipher_req *) cookie;
 	pdev = (struct qcedev_control *) areq->cookie;
 
 	tasklet_schedule(&pdev->done_tasklet);
@@ -283,7 +279,7 @@ static int start_cipher_req(struct qcedev_control *podev)
 
 	qcedev_areq->cipher_req.cookie = qcedev_areq->podev;
 	creq.use_pmem = qcedev_areq->cipher_op_req.use_pmem;
-	if (qcedev_areq->cipher_op_req.use_pmem == 1)
+	if (qcedev_areq->cipher_op_req.use_pmem == QCEDEV_USE_PMEM)
 		creq.pmem = &qcedev_areq->cipher_op_req.pmem;
 	else
 		creq.pmem = NULL;
@@ -411,7 +407,6 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 	}
 
 	return qcedev_areq->err;
-
 }
 
 static int qcedev_sha_init(struct qcedev_async_req *areq,
@@ -560,8 +555,11 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 		/* save the original req structure */
 		saved_req =
 			kmalloc(sizeof(struct qcedev_sha_op_req), GFP_KERNEL);
-		if (saved_req == NULL)
+		if (saved_req == NULL) {
+			printk(KERN_ERR "%s:Can't Allocate mem:saved_req %x\n",
+			__func__, (uint32_t)saved_req);
 			return -ENOMEM;
+		}
 		memcpy(&req, sreq, sizeof(struct qcedev_sha_op_req));
 		memcpy(saved_req, sreq, sizeof(struct qcedev_sha_op_req));
 
@@ -578,8 +576,8 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 				sreq->data_len = QCE_MAX_OPER_DATA;
 				sreq->entries = 1;
 
-				err =
-				qcedev_sha_update_max_xfer(qcedev_areq, podev);
+				err = qcedev_sha_update_max_xfer(qcedev_areq,
+									podev);
 
 				sreq->data[i].len = req.data[i].len -
 							QCE_MAX_OPER_DATA;
@@ -612,8 +610,8 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 				sreq->entries = num_entries;
 
 				i = j;
-				err =
-				qcedev_sha_update_max_xfer(qcedev_areq, podev);
+				err = qcedev_sha_update_max_xfer(qcedev_areq,
+									podev);
 				num_entries = 0;
 
 				sreq->data[i].vaddr = req.data[i].vaddr +
@@ -626,7 +624,6 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 				if (sreq->data[i].len == 0)
 					i++;
 			}
-
 		} /* end of while ((i < req.entries) && (err == 0)) */
 
 		/* Restore the original req structure */
@@ -709,8 +706,12 @@ static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 
 	sg_src = kmalloc((sizeof(struct scatterlist) *
 				areq->cipher_op_req.entries),	GFP_KERNEL);
-	if (sg_src == NULL)
+	if (sg_src == NULL) {
+		printk(KERN_ERR "%s: Can't Allocate memory:s g_src 0x%x\n",
+			__func__, (uint32_t)sg_src);
 		return -ENOMEM;
+
+	}
 	memset(sg_src, 0, (sizeof(struct scatterlist) *
 				areq->cipher_op_req.entries));
 	sg_ndex = sg_src;
@@ -799,8 +800,11 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 		memcpy(&req, creq, sizeof(struct qcedev_cipher_op_req));
 		saved_req =
 		kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
-		if (saved_req == NULL)
+		if (saved_req == NULL) {
+			printk(KERN_ERR "%s:Can't Allocate mem:saved_req %x\n",
+			__func__, (uint32_t)saved_req);
 			return -ENOMEM;
+		}
 		memcpy(saved_req, creq, sizeof(struct qcedev_cipher_op_req));
 
 		i = 0;
@@ -885,8 +889,8 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 		creq->data_len = saved_req->data_len;
 		kfree(saved_req);
 	} else
-		err = qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq, cmd, podev);
-
+		err = qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq, cmd,
+								podev);
 	return err;
 
 }
@@ -1025,7 +1029,8 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 				sizeof(struct qcedev_cipher_op_req)))
 			return -EFAULT;
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_CIPHER;
-		if (qcedev_areq.cipher_op_req.use_pmem == 1)
+
+		if (qcedev_areq.cipher_op_req.use_pmem == QCEDEV_USE_PMEM)
 			qcedev_pmem_ablk_cipher(&qcedev_areq, cmd, podev);
 		else
 			qcedev_vbuf_ablk_cipher(&qcedev_areq, cmd, podev);
@@ -1048,7 +1053,6 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 		if (__copy_to_user((void __user *)arg, &qcedev_areq.sha_op_req,
 					sizeof(struct qcedev_sha_op_req)))
 				return -EFAULT;
-
 	break;
 
 	case QCEDEV_IOCTL_SHA_UPDATE_REQ:
@@ -1070,7 +1074,6 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 		if (__copy_to_user((void __user *)arg, &qcedev_areq.sha_op_req,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
-
 	break;
 
 	case QCEDEV_IOCTL_SHA_FINAL_REQ:
@@ -1094,7 +1097,6 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 		if (__copy_to_user((void __user *)arg, &qcedev_areq.sha_op_req,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
-
 	break;
 
 	case QCEDEV_IOCTL_GET_SHA_REQ:
@@ -1120,7 +1122,6 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 		if (__copy_to_user((void __user *)arg, &qcedev_areq.sha_op_req,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
-
 	break;
 
 	default:
@@ -1314,7 +1315,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.01");
+MODULE_VERSION("1.02");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
