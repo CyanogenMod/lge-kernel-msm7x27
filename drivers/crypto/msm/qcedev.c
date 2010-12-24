@@ -260,10 +260,15 @@ static void qcedev_cipher_req_cb(void *cookie, unsigned char *icv,
 {
 	struct qcedev_cipher_req *areq;
 	struct qcedev_control *pdev;
+	struct qcedev_async_req *qcedev_areq;
 
 	areq = (struct qcedev_cipher_req *) cookie;
 	pdev = (struct qcedev_control *) areq->cookie;
+	qcedev_areq = pdev->active_command;
 
+	if (iv)
+		memcpy(&qcedev_areq->cipher_op_req.iv[0], iv,
+					qcedev_areq->cipher_op_req.ivlen);
 	tasklet_schedule(&pdev->done_tasklet);
 };
 
@@ -895,68 +900,42 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 
 }
 
-static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq, unsigned cmd,
-					struct qcedev_control *podev)
+static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
+				int *di, struct qcedev_control *podev,
+				uint8_t *k_align_src)
 {
 	int err = 0;
 	int i = 0;
+	int dst_i = *di;
 	struct scatterlist sg_src;
-	uint32_t total;
 	uint32_t byteoffset;
-
 	uint8_t *user_src = NULL;
-	uint8_t *user_dst = NULL;
-	uint8_t *k_buf_src = NULL;
-	uint8_t *k_align_src = NULL;
-	uint8_t *k_align_dst = NULL;
+	uint8_t *k_align_dst = k_align_src;
+	struct	qcedev_cipher_op_req *creq = &areq->cipher_op_req;
 
 	byteoffset = areq->cipher_op_req.byteoffset;
-	total = areq->cipher_op_req.data_len;
-
-	/* address src */
 	user_src = (void __user *)areq->cipher_op_req.vbuf.src[0].vaddr;
-	for (i = 0; i < areq->cipher_op_req.entries; i++)
-		if (!access_ok(VERIFY_READ,
-			(void __user *)areq->cipher_op_req.vbuf.src[i].vaddr,
-			areq->cipher_op_req.vbuf.src[i].len))
-			return -EFAULT;
-
-	if (areq->cipher_op_req.in_place_op != 1)
-		for (i = 0; i < areq->cipher_op_req.entries; i++)
-			if (!access_ok(VERIFY_READ,
-			(void __user *)areq->cipher_op_req.vbuf.dst[i].vaddr,
-			areq->cipher_op_req.vbuf.dst[i].len))
-				return -EFAULT;
-
-	k_buf_src = kmalloc(total + byteoffset + CACHE_LINE_SIZE * 2,
-				GFP_KERNEL);
-	if (k_buf_src == NULL)
-		return -ENOMEM;
-
-	k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
-							CACHE_LINE_SIZE);
-	k_align_dst = k_align_src;
 	if (user_src && __copy_from_user((k_align_src + byteoffset),
 				(void __user *)user_src,
-				areq->cipher_op_req.vbuf.src[0].len)) {
-		kfree(k_buf_src);
+				areq->cipher_op_req.vbuf.src[0].len))
 		return -EFAULT;
-	}
+
+	k_align_src += areq->cipher_op_req.vbuf.src[0].len;
 
 	for (i = 1; i < areq->cipher_op_req.entries; i++) {
-		k_align_src += areq->cipher_op_req.vbuf.src[i-1].len;
-		user_src = (void __user *)areq->cipher_op_req.vbuf.src[i].vaddr;
+		user_src =
+			(void __user *)areq->cipher_op_req.vbuf.src[i].vaddr;
 		if (user_src && __copy_from_user(k_align_src,
 					(void __user *)user_src,
 					areq->cipher_op_req.vbuf.src[i].len)) {
-			kfree(k_buf_src);
 			return -EFAULT;
 		}
+		k_align_src += areq->cipher_op_req.vbuf.src[i].len;
 	}
-	areq->cipher_op_req.data_len += byteoffset;
 
-	/* address dst */
-	user_dst = (void __user *)areq->cipher_op_req.vbuf.dst[0].vaddr;
+	/* restore src beginning */
+	k_align_src = k_align_dst;
+	areq->cipher_op_req.data_len += byteoffset;
 
 	areq->cipher_req.creq.src = (struct scatterlist *) &sg_src;
 	areq->cipher_req.creq.dst = (struct scatterlist *) &sg_src;
@@ -967,33 +946,219 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq, unsigned cmd,
 					areq->cipher_op_req.data_len);
 	sg_mark_end(areq->cipher_req.creq.src);
 
-	areq->cipher_op_req.op = cmd;
-
 	areq->cipher_req.creq.nbytes = areq->cipher_op_req.data_len;
 	areq->cipher_req.creq.info = areq->cipher_op_req.iv;
+	areq->cipher_op_req.entries = 1;
 
 	err = submit_req(areq, podev);
 
-	if (err == 0 && __copy_to_user(user_dst,
-			(k_align_dst + byteoffset),
-			areq->cipher_op_req.vbuf.dst[0].len)) {
-		err = -EFAULT;
-	}
+	/* copy data to destination buffer*/
+	creq->data_len -= byteoffset;
 
-	for (i = 1; i < areq->cipher_op_req.entries; i++) {
-		k_align_dst += areq->cipher_op_req.vbuf.dst[i-1].len;
-		user_dst = (void __user *)areq->cipher_op_req.vbuf.dst[i].vaddr;
-		if (user_dst && __copy_to_user(user_dst,
-				k_align_dst,
-				areq->cipher_op_req.vbuf.dst[i].len)) {
-			kfree(k_buf_src);
-			return -EFAULT;
+	while (creq->data_len > 0) {
+		if (creq->vbuf.dst[dst_i].len <= creq->data_len) {
+			if (err == 0 && __copy_to_user(
+				(void __user *)creq->vbuf.dst[dst_i].vaddr,
+					(k_align_dst + byteoffset),
+					creq->vbuf.dst[dst_i].len))
+					return -EFAULT;
+
+			k_align_dst += creq->vbuf.dst[dst_i].len +
+						byteoffset;
+			creq->data_len -= creq->vbuf.dst[dst_i].len;
+			dst_i++;
+		} else {
+				if (err == 0 && __copy_to_user(
+				(void __user *)creq->vbuf.dst[dst_i].vaddr,
+				(k_align_dst + byteoffset),
+				creq->data_len))
+					return -EFAULT;
+
+			k_align_dst += creq->data_len;
+			creq->vbuf.dst[dst_i].len -= creq->data_len;
+			creq->vbuf.dst[dst_i].vaddr += creq->data_len;
+			creq->data_len = 0;
 		}
 	}
+	*di = dst_i;
 
-	kfree(k_buf_src);
 	return err;
 };
+
+static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
+			unsigned cmd, struct qcedev_control *podev)
+{
+	int err = 0;
+	int di = 0;
+	int i = 0;
+	int j = 0;
+	int k = 0;
+	uint32_t byteoffset;
+	int num_entries = 0;
+	uint32_t total = 0;
+	uint8_t *k_buf_src = NULL;
+	uint8_t *k_align_src = NULL;
+	uint32_t max_data_xfer;
+	struct qcedev_cipher_op_req *saved_req;
+	struct	qcedev_cipher_op_req *creq = &areq->cipher_op_req;
+
+	/* Verify Source Address's */
+	for (i = 0; i < areq->cipher_op_req.entries; i++)
+		if (!access_ok(VERIFY_READ,
+			(void __user *)areq->cipher_op_req.vbuf.src[i].vaddr,
+					areq->cipher_op_req.vbuf.src[i].len))
+			return -EFAULT;
+
+	/* Verify Destination Address's */
+	if (areq->cipher_op_req.in_place_op != 1)
+		for (i = 0; i < areq->cipher_op_req.entries; i++)
+			if (!access_ok(VERIFY_READ,
+			(void __user *)areq->cipher_op_req.vbuf.dst[i].vaddr,
+					areq->cipher_op_req.vbuf.dst[i].len))
+				return -EFAULT;
+
+	areq->cipher_op_req.op = cmd;
+
+	byteoffset = areq->cipher_op_req.byteoffset;
+	k_buf_src = kmalloc(QCE_MAX_OPER_DATA + CACHE_LINE_SIZE * 2,
+				GFP_KERNEL);
+	if (k_buf_src == NULL) {
+		printk(KERN_ERR "%s: Can't Allocate memory: k_buf_src 0x%x\n",
+			__func__, (uint32_t)k_buf_src);
+		return -ENOMEM;
+	}
+	k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
+							CACHE_LINE_SIZE);
+	max_data_xfer = QCE_MAX_OPER_DATA - byteoffset;
+
+	saved_req = kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
+	if (saved_req == NULL) {
+		printk(KERN_ERR "%s: Can't Allocate memory:saved_req 0x%x\n",
+			__func__, (uint32_t)saved_req);
+		kfree(k_buf_src);
+		return -ENOMEM;
+
+	}
+	memcpy(saved_req, creq, sizeof(struct qcedev_cipher_op_req));
+
+	if (areq->cipher_op_req.data_len > max_data_xfer) {
+		struct qcedev_cipher_op_req req;
+
+		/* save the original req structure */
+		memcpy(&req, creq, sizeof(struct qcedev_cipher_op_req));
+
+		i = 0;
+		/* Address 32 KB  at a time */
+		while ((i < req.entries) && (err == 0)) {
+			if (creq->vbuf.src[i].len > max_data_xfer) {
+				creq->vbuf.src[0].len =	max_data_xfer;
+				if (i > 0) {
+					creq->vbuf.src[0].vaddr =
+						creq->vbuf.src[i].vaddr;
+				}
+
+				creq->data_len = max_data_xfer;
+				creq->entries = 1;
+
+				err = qcedev_vbuf_ablk_cipher_max_xfer(areq,
+						&di, podev, k_align_src);
+				if (err < 0) {
+					kfree(k_buf_src);
+					kfree(saved_req);
+					return err;
+				}
+
+				creq->vbuf.src[i].len =	req.vbuf.src[i].len -
+							max_data_xfer;
+				creq->vbuf.src[i].vaddr =
+						req.vbuf.src[i].vaddr +
+						max_data_xfer;
+				req.vbuf.src[i].vaddr =
+						creq->vbuf.src[i].vaddr;
+				req.vbuf.src[i].len = creq->vbuf.src[i].len;
+
+			} else {
+				total = areq->cipher_op_req.byteoffset;
+				for (j = i; j < req.entries; j++) {
+					num_entries++;
+					if ((total + creq->vbuf.src[j].len)
+							>= max_data_xfer) {
+						creq->vbuf.src[j].len =
+						max_data_xfer - total;
+						total = max_data_xfer;
+						break;
+					}
+					total += creq->vbuf.src[j].len;
+				}
+
+				creq->data_len = total;
+				if (i > 0)
+					for (k = 0; k < num_entries; k++) {
+						creq->vbuf.src[k].len =
+						creq->vbuf.src[i+k].len;
+						creq->vbuf.src[k].vaddr =
+						creq->vbuf.src[i+k].vaddr;
+					}
+				creq->entries =  num_entries;
+
+				i = j;
+				err = qcedev_vbuf_ablk_cipher_max_xfer(areq,
+						&di, podev, k_align_src);
+				if (err < 0) {
+					kfree(k_buf_src);
+					kfree(saved_req);
+					return err;
+				}
+
+				num_entries = 0;
+				areq->cipher_op_req.byteoffset = 0;
+
+				creq->vbuf.src[i].vaddr = req.vbuf.src[i].vaddr
+					+ creq->vbuf.src[i].len;
+				creq->vbuf.src[i].len =	req.vbuf.src[i].len -
+							creq->vbuf.src[i].len;
+
+				req.vbuf.src[i].vaddr =
+						creq->vbuf.src[i].vaddr;
+				req.vbuf.src[i].len = creq->vbuf.src[i].len;
+
+				if (creq->vbuf.src[i].len == 0)
+					i++;
+			}
+
+			areq->cipher_op_req.byteoffset = 0;
+			max_data_xfer = QCE_MAX_OPER_DATA;
+			byteoffset = 0;
+
+		} /* end of while ((i < req.entries) && (err == 0)) */
+
+		/* Restore the original req structure */
+		for (i = 0; i < saved_req->entries; i++) {
+			creq->vbuf.src[i].len = saved_req->vbuf.src[i].len;
+			creq->vbuf.src[i].vaddr =
+						saved_req->vbuf.src[i].vaddr;
+		}
+		creq->entries = saved_req->entries;
+		creq->data_len = saved_req->data_len;
+		creq->byteoffset = saved_req->byteoffset;
+	} else {
+		err = qcedev_vbuf_ablk_cipher_max_xfer(areq, &di, podev,
+								k_align_src);
+		/* Restore the original req structure */
+		for (i = 0; i < saved_req->entries; i++) {
+			creq->vbuf.src[i].len = saved_req->vbuf.src[i].len;
+			creq->vbuf.src[i].vaddr =
+						saved_req->vbuf.src[i].vaddr;
+		}
+		creq->entries = saved_req->entries;
+		creq->data_len = saved_req->data_len;
+		creq->byteoffset = saved_req->byteoffset;
+	}
+	kfree(saved_req);
+	kfree(k_buf_src);
+	return err;
+
+}
 
 static int qcedev_ioctl(struct inode *inode, struct file *file,
 			  unsigned cmd, unsigned long arg)
@@ -1034,6 +1199,11 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 			qcedev_pmem_ablk_cipher(&qcedev_areq, cmd, podev);
 		else
 			qcedev_vbuf_ablk_cipher(&qcedev_areq, cmd, podev);
+
+		if (__copy_to_user((void __user *)arg,
+					&qcedev_areq.cipher_op_req,
+					sizeof(struct qcedev_cipher_op_req)))
+				return -EFAULT;
 	break;
 
 	case QCEDEV_IOCTL_SHA_INIT_REQ:
@@ -1315,7 +1485,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.02");
+MODULE_VERSION("1.03");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
