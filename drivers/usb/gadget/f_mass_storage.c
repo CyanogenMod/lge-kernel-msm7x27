@@ -316,7 +316,9 @@ static const char fsg_string_interface[] = "Mass Storage";
 
 #include "storage_common.c"
 
-
+#ifdef CONFIG_USB_CSW_HACK
+static int write_error_after_csw_sent;
+#endif
 /*-------------------------------------------------------------------------*/
 
 struct fsg_dev;
@@ -1028,29 +1030,21 @@ static int do_write(struct fsg_common *common)
 
 			/* If an error occurred, report it and its position */
 			if (nwritten < amount) {
-#ifdef CONFIG_USB_CSW_HACK
-				/*
-				 * If csw is already sent & write failure
-				 * occured, then detach the storage media
-				 * from the corresponding lun, and cable must
-				 * be disconnected to recover fom this error.
-				 */
-				if (csw_hack_sent) {
-					if (!fsg_lun_is_open(curlun)) {
-						curlun->sense_data = SS_MEDIUM_NOT_PRESENT;
-						return -EINVAL;
-					}
-					break;
-				}
-#endif
 				curlun->sense_data = SS_WRITE_ERROR;
 				curlun->sense_data_info = file_offset >> 9;
 				curlun->info_valid = 1;
+#ifdef CONFIG_USB_CSW_HACK
+				write_error_after_csw_sent = 1;
+				goto write_error;
+#endif
 				break;
 			}
 
 #ifdef CONFIG_USB_CSW_HACK
+write_error:
 			if ((nwritten == amount) && !csw_hack_sent) {
+				if (write_error_after_csw_sent)
+					break;
 				/*
 				 * Check if any of the buffer is in the
 				 * busy state, if any buffer is in busy state,
@@ -1827,7 +1821,11 @@ static int send_status(struct fsg_common *common)
 	 * writing on to storage media, need to set
 	 * residue to zero,assuming that write will succeed.
 	 */
-	csw->Residue = 0;
+	if (write_error_after_csw_sent) {
+		write_error_after_csw_sent = 0;
+		csw->Residue = cpu_to_le32(common->residue);
+	} else
+		csw->Residue = 0;
 #else
 	csw->Residue = cpu_to_le32(common->residue);
 #endif
@@ -2685,8 +2683,10 @@ static int fsg_main_thread(void *common_)
 		 * need to skip sending status once again if it is a
 		 * write scsi command.
 		 */
-		if (common->cmnd[0] == SC_WRITE_6  || common->cmnd[0] == SC_WRITE_10
-					|| common->cmnd[0] == SC_WRITE_12)
+		if (!(write_error_after_csw_sent) &&
+			(common->cmnd[0] == SC_WRITE_6
+			|| common->cmnd[0] == SC_WRITE_10
+			|| common->cmnd[0] == SC_WRITE_12))
 			continue;
 #endif
 		if (send_status(common))
