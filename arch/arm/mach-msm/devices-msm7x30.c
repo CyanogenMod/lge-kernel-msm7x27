@@ -24,6 +24,7 @@
 
 #include "devices.h"
 #include "clock-7x30.h"
+#include "clock-voter.h"
 #include "gpio_hw.h"
 
 #include <asm/mach/flash.h>
@@ -1016,6 +1017,15 @@ struct clk msm_clocks_7x30[] = {
 		.flags = CLK_MIN,
 		.dbg_name = "pbus_clk",
 	},
+
+	CLK_VOTER("ebi1_dtv_clk",	EBI_DTV_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_kgsl_clk",	EBI_KGSL_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_lcdc_clk",	EBI_LCDC_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_mddi_clk",	EBI_MDDI_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_tv_clk",	EBI_TV_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_usb_clk",	EBI_USB_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_vcd_clk",	EBI_VCD_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_vfe_clk",	EBI_VFE_CLK,	"pbus_clk", NULL, 0),
 
 	CLK_7X30("adm_clk",	ADM_CLK,	NULL, 0),
 	CLK_7X30L("adm_pclk",   ADM_P_CLK,       NULL, 0),
