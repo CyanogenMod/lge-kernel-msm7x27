@@ -998,19 +998,21 @@ static int pm8058_suspend(struct device *dev)
 {
 	struct i2c_client *client;
 	struct	pm8058_chip *chip;
-	int	i;
+	int	i, irq;
 
 	client = to_i2c_client(dev);
 	chip = i2c_get_clientdata(client);
 
 	for (i = 0; i < MAX_PM_IRQ; i++) {
-		mutex_lock(&chip->pm_lock);
 		if (chip->config[i] && !chip->wake_enable[i]) {
 			if (!((chip->config[i] & PM8058_IRQF_MASK_ALL)
-			      == PM8058_IRQF_MASK_ALL))
-				pm8058_irq_mask(i + chip->pdata.irq_base);
+			      == PM8058_IRQF_MASK_ALL)) {
+				irq = i + chip->pdata.irq_base;
+				pm8058_irq_bus_lock(irq);
+				pm8058_irq_mask(irq);
+				pm8058_irq_bus_sync_unlock(irq);
+			}
 		}
-		mutex_unlock(&chip->pm_lock);
 	}
 
 	if (!chip->count_wakeable)
@@ -1023,19 +1025,21 @@ static int pm8058_resume(struct device *dev)
 {
 	struct i2c_client *client;
 	struct	pm8058_chip *chip;
-	int	i;
+	int	i, irq;
 
 	client = to_i2c_client(dev);
 	chip = i2c_get_clientdata(client);
 
 	for (i = 0; i < MAX_PM_IRQ; i++) {
-		mutex_lock(&chip->pm_lock);
 		if (chip->config[i] && !chip->wake_enable[i]) {
 			if (!((chip->config[i] & PM8058_IRQF_MASK_ALL)
-			      == PM8058_IRQF_MASK_ALL))
-				pm8058_irq_unmask(i + chip->pdata.irq_base);
+			      == PM8058_IRQF_MASK_ALL)) {
+				irq = i + chip->pdata.irq_base;
+				pm8058_irq_bus_lock(irq);
+				pm8058_irq_unmask(irq);
+				pm8058_irq_bus_sync_unlock(irq);
+			}
 		}
-		mutex_unlock(&chip->pm_lock);
 	}
 
 	if (!chip->count_wakeable)
