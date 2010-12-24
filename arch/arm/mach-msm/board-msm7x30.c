@@ -1862,45 +1862,79 @@ static const char *vregs_tsadc_name[] = {
 };
 static struct vreg *vregs_tsadc[ARRAY_SIZE(vregs_tsadc_name)];
 
+static const char *vregs_timpani_tsadc_name[] = {
+	"s3",
+	"gp12",
+	"gp16"
+};
+static struct vreg *vregs_timpani_tsadc[ARRAY_SIZE(vregs_timpani_tsadc_name)];
+
 static int marimba_tsadc_power(int vreg_on)
 {
 	int i, rc = 0;
+	int tsadc_adie_type = adie_get_detected_codec_type();
 
-	for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
-		if (!vregs_tsadc[i]) {
-			printk(KERN_ERR "%s: vreg_get %s failed (%d)\n",
-				__func__, vregs_tsadc_name[i], rc);
-			goto vreg_fail;
+	if (tsadc_adie_type == TIMPANI_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_timpani_tsadc_name); i++) {
+			if (!vregs_timpani_tsadc[i]) {
+				pr_err("%s: vreg_get %s failed(%d)\n",
+				__func__, vregs_timpani_tsadc_name[i], rc);
+				goto vreg_fail;
+			}
+
+			rc = vreg_on ? vreg_enable(vregs_timpani_tsadc[i]) :
+				  vreg_disable(vregs_timpani_tsadc[i]);
+			if (rc < 0) {
+				pr_err("%s: vreg %s %s failed(%d)\n",
+					__func__, vregs_timpani_tsadc_name[i],
+				       vreg_on ? "enable" : "disable", rc);
+				goto vreg_fail;
+			}
 		}
-
-		rc = vreg_on ? vreg_enable(vregs_tsadc[i]) :
-			  vreg_disable(vregs_tsadc[i]);
-		if (rc < 0) {
-			printk(KERN_ERR "%s: vreg %s %s failed (%d)\n",
-				__func__, vregs_tsadc_name[i],
-			       vreg_on ? "enable" : "disable", rc);
-			goto vreg_fail;
-		}
-	}
-
-	/* If timpani vote for D1 buffer */
-	if (adie_get_detected_codec_type() == TIMPANI_ID) {
+		/* Vote for D0 and D1 buffer */
 		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_D1,
 			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
 		if (rc)	{
-			printk(KERN_ERR "%s: unable to %svote for d1 clk\n",
+			pr_err("%s: unable to %svote for d1 clk\n",
 				__func__, vreg_on ? "" : "de-");
 			goto do_vote_fail;
 		}
-	} else {
+		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_DO,
+			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
+		if (rc)	{
+			pr_err("%s: unable to %svote for d1 clk\n",
+				__func__, vreg_on ? "" : "de-");
+			goto do_vote_fail;
+		}
+	} else if (tsadc_adie_type == MARIMBA_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
+			if (!vregs_tsadc[i]) {
+				pr_err("%s: vreg_get %s failed (%d)\n",
+					__func__, vregs_tsadc_name[i], rc);
+				goto vreg_fail;
+			}
+
+			rc = vreg_on ? vreg_enable(vregs_tsadc[i]) :
+				  vreg_disable(vregs_tsadc[i]);
+			if (rc < 0) {
+				pr_err("%s: vreg %s %s failed (%d)\n",
+					__func__, vregs_tsadc_name[i],
+				       vreg_on ? "enable" : "disable", rc);
+				goto vreg_fail;
+			}
+		}
 		/* If marimba vote for DO buffer */
 		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_DO,
 			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
 		if (rc)	{
-			printk(KERN_ERR "%s: unable to %svote for d0 clk\n",
+			pr_err("%s: unable to %svote for d0 clk\n",
 				__func__, vreg_on ? "" : "de-");
 			goto do_vote_fail;
 		}
+	} else {
+		pr_err("%s:Adie %d not supported\n",
+				__func__, tsadc_adie_type);
+		return -ENODEV;
 	}
 
 	msleep(5); /* ensure power is stable */
@@ -1909,21 +1943,34 @@ static int marimba_tsadc_power(int vreg_on)
 
 do_vote_fail:
 vreg_fail:
-	while (i)
-		vreg_disable(vregs_tsadc[--i]);
+	while (i) {
+		if (vreg_on) {
+			if (tsadc_adie_type == TIMPANI_ID)
+				vreg_disable(vregs_timpani_tsadc[--i]);
+			else if (tsadc_adie_type == MARIMBA_ID)
+				vreg_disable(vregs_tsadc[--i]);
+		} else {
+			if (tsadc_adie_type == TIMPANI_ID)
+				vreg_enable(vregs_timpani_tsadc[--i]);
+			else if (tsadc_adie_type == MARIMBA_ID)
+				vreg_enable(vregs_tsadc[--i]);
+		}
+	}
+
 	return rc;
 }
 
 static int marimba_tsadc_vote(int vote_on)
 {
-	int rc, level;
+	int rc = 0;
 
-	level = vote_on ? 1300 : 0;
-
-	rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, level);
-	if (rc < 0)
-		printk(KERN_ERR "%s: vreg level %s failed (%d)\n",
+	if (adie_get_detected_codec_type() == MARIMBA_ID) {
+		int level = vote_on ? 1300 : 0;
+		rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, level);
+		if (rc < 0)
+			pr_err("%s: vreg level %s failed (%d)\n",
 			__func__, vote_on ? "on" : "off", rc);
+	}
 
 	return rc;
 }
@@ -1931,39 +1978,73 @@ static int marimba_tsadc_vote(int vote_on)
 static int marimba_tsadc_init(void)
 {
 	int i, rc = 0;
+	int tsadc_adie_type = adie_get_detected_codec_type();
 
-	for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
-		vregs_tsadc[i] = vreg_get(NULL, vregs_tsadc_name[i]);
-		if (IS_ERR(vregs_tsadc[i])) {
-			printk(KERN_ERR "%s: vreg get %s failed (%ld)\n",
-			       __func__, vregs_tsadc_name[i],
-			       PTR_ERR(vregs_tsadc[i]));
-			rc = PTR_ERR(vregs_tsadc[i]);
-			goto vreg_get_fail;
+	if (tsadc_adie_type == TIMPANI_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_timpani_tsadc_name); i++) {
+			vregs_timpani_tsadc[i] = vreg_get(NULL,
+						vregs_timpani_tsadc_name[i]);
+			if (IS_ERR(vregs_timpani_tsadc[i])) {
+				pr_err("%s: vreg get %s failed (%ld)\n",
+				       __func__, vregs_timpani_tsadc_name[i],
+				       PTR_ERR(vregs_timpani_tsadc[i]));
+				rc = PTR_ERR(vregs_timpani_tsadc[i]);
+				goto vreg_get_fail;
+			}
 		}
+	} else if (tsadc_adie_type == MARIMBA_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
+			vregs_tsadc[i] = vreg_get(NULL, vregs_tsadc_name[i]);
+			if (IS_ERR(vregs_tsadc[i])) {
+				pr_err("%s: vreg get %s failed (%ld)\n",
+				       __func__, vregs_tsadc_name[i],
+				       PTR_ERR(vregs_tsadc[i]));
+				rc = PTR_ERR(vregs_tsadc[i]);
+				goto vreg_get_fail;
+			}
+		}
+	} else {
+		pr_err("%s:Adie %d not supported\n",
+				__func__, tsadc_adie_type);
+		return -ENODEV;
 	}
 
-	return rc;
+	return 0;
 
 vreg_get_fail:
-	while (i)
-		vreg_put(vregs_tsadc[--i]);
+	while (i) {
+		if (tsadc_adie_type == TIMPANI_ID)
+			vreg_put(vregs_timpani_tsadc[--i]);
+		else if (tsadc_adie_type == MARIMBA_ID)
+			vreg_put(vregs_tsadc[--i]);
+	}
 	return rc;
 }
 
 static int marimba_tsadc_exit(void)
 {
-	int i, rc;
+	int i, rc = 0;
+	int tsadc_adie_type = adie_get_detected_codec_type();
 
-	for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
-		if (vregs_tsadc[i])
-			vreg_put(vregs_tsadc[i]);
+	if (tsadc_adie_type == TIMPANI_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_timpani_tsadc_name); i++) {
+			if (vregs_tsadc[i])
+				vreg_put(vregs_timpani_tsadc[i]);
+		}
+	} else if (tsadc_adie_type == MARIMBA_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
+			if (vregs_tsadc[i])
+				vreg_put(vregs_tsadc[i]);
+		}
+		rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, 0);
+		if (rc < 0)
+			pr_err("%s: vreg level off failed (%d)\n",
+						__func__, rc);
+	} else {
+		pr_err("%s:Adie %d not supported\n",
+				__func__, tsadc_adie_type);
+		rc = -ENODEV;
 	}
-
-	rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, 0);
-	if (rc < 0)
-		printk(KERN_ERR "%s: vreg level off failed (%d)\n",
-			__func__, rc);
 
 	return rc;
 }
