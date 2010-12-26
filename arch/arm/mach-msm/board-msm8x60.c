@@ -114,6 +114,8 @@
 #define PM8901_IRQ_BASE				(PM8058_IRQ_BASE + \
 						NR_PMIC8058_IRQS)
 
+#define MDM2AP_SYNC 129
+
 enum {
 	GPIO_EXPANDER_IRQ_BASE  = PM8901_IRQ_BASE + NR_PMIC8901_IRQS,
 	GPIO_EXPANDER_GPIO_BASE = PM8901_GPIO_BASE + PM8901_MPPS,
@@ -223,6 +225,16 @@ enum {
 #define UI_INT1_N 25
 #define UI_INT2_N 34
 #define UI_INT3_N 14
+
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+static void (*sdc2_status_notify_cb)(int card_present, void *dev_id);
+static void *sdc2_status_notify_cb_devid;
+#endif
+
+#ifdef CONFIG_MMC_MSM_SDC5_SUPPORT
+static void (*sdc5_status_notify_cb)(int card_present, void *dev_id);
+static void *sdc5_status_notify_cb_devid;
+#endif
 
 static struct msm_spm_platform_data msm_spm_data_v1[] __initdata = {
 	[0] = {
@@ -5776,6 +5788,89 @@ static int msm_sdc3_get_wpswitch(struct device *dev)
 	}
 	return status;
 }
+
+#ifdef CONFIG_MMC_MSM_SDC5_SUPPORT
+int sdc5_register_status_notify(void (*callback)(int, void *),
+	void *dev_id)
+{
+	sdc5_status_notify_cb = callback;
+	sdc5_status_notify_cb_devid = dev_id;
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+int sdc2_register_status_notify(void (*callback)(int, void *),
+	void *dev_id)
+{
+	sdc2_status_notify_cb = callback;
+	sdc2_status_notify_cb_devid = dev_id;
+	return 0;
+}
+#endif
+
+/* Interrupt handler for SDC2 and SDC5 detection */
+static irqreturn_t msm8x60_multi_sdio_slot_status_irq(int irq, void *dev_id)
+{
+	int status;
+
+	if (!machine_is_msm8x60_charm_surf() &&
+	    !machine_is_msm8x60_charm_ffa())
+		return IRQ_NONE;
+
+	status = gpio_get_value(MDM2AP_SYNC);
+	pr_info("%s: MDM2AP_SYNC Status = %d\n",
+		 __func__, status);
+
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+	if (sdc2_status_notify_cb) {
+		pr_info("%s: calling sdc2_status_notify_cb\n", __func__);
+		sdc2_status_notify_cb(status,
+			sdc2_status_notify_cb_devid);
+	}
+#endif
+
+#ifdef CONFIG_MMC_MSM_SDC5_SUPPORT
+	if (sdc5_status_notify_cb) {
+		pr_info("%s: calling sdc5_status_notify_cb\n", __func__);
+		sdc5_status_notify_cb(status,
+			sdc5_status_notify_cb_devid);
+	}
+#endif
+	return IRQ_HANDLED;
+}
+
+static int msm8x60_multi_sdio_init(void)
+{
+	int ret, irq_num;
+
+	if (!machine_is_msm8x60_charm_surf() &&
+	    !machine_is_msm8x60_charm_ffa())
+		return 0;
+
+	ret = msm_gpiomux_get(MDM2AP_SYNC);
+	if (ret) {
+		pr_err("%s:Failed to request GPIO %d, ret=%d\n",
+					__func__, MDM2AP_SYNC, ret);
+		return ret;
+	}
+
+	irq_num = gpio_to_irq(MDM2AP_SYNC);
+
+	ret = request_irq(irq_num,
+		msm8x60_multi_sdio_slot_status_irq,
+		IRQF_TRIGGER_RISING,
+		"sdio_multidetection", NULL);
+
+	if (ret) {
+		pr_err("%s:Failed to request irq, ret=%d\n",
+					__func__, ret);
+		return ret;
+	}
+
+	return ret;
+}
+
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 static unsigned int msm8x60_sdcc_slot_status(struct device *dev)
@@ -5826,6 +5921,7 @@ static struct mmc_platform_data msm8x60_sdc2_data = {
 	.msmsdcc_fmid	= 24000000,
 	.msmsdcc_fmax	= 48000000,
 	.nonremovable	= 1,
+	.register_status_notify = sdc2_register_status_notify,
 };
 #endif
 
@@ -5869,6 +5965,7 @@ static struct mmc_platform_data msm8x60_sdc5_data = {
 	.msmsdcc_fmid	= 24000000,
 	.msmsdcc_fmax	= 48000000,
 	.nonremovable	= 1,
+	.register_status_notify = sdc5_register_status_notify,
 };
 #endif
 
@@ -7149,6 +7246,8 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		pm8058_platform_data.sub_devices[PM8058_SUBDEV_LED].data_size
 			= sizeof(pm8058_flash_leds_data);
 	}
+
+	msm8x60_multi_sdio_init();
 }
 
 static void __init msm8x60_rumi3_init(void)
