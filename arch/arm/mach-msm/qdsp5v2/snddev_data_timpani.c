@@ -533,11 +533,53 @@ static struct platform_device msm_real_stereo_tx_device = {
 			&snddev_idual_mic_endfire_real_stereo_data },
 };
 
+static struct adie_codec_action_unit ihs_ffa_mono_rx_48KHz_osr256_actions[] =
+	HEADSET_RX_CAPLESS_48000_OSR_256;
+
+static struct adie_codec_hwsetting_entry ihs_ffa_mono_rx_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = ihs_ffa_mono_rx_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(ihs_ffa_mono_rx_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile ihs_ffa_mono_rx_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = ihs_ffa_mono_rx_settings,
+	.setting_sz = ARRAY_SIZE(ihs_ffa_mono_rx_settings),
+};
+
+static struct snddev_icodec_data snddev_ihs_ffa_mono_rx_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE),
+	.name = "headset_mono_rx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_HEADSET_SPKR_MONO,
+	.profile = &ihs_ffa_mono_rx_profile,
+	.channel_mode = 1,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_hsed_voltage_on,
+	.pamp_off = msm_snddev_hsed_voltage_off,
+	.max_voice_rx_vol[VOC_NB_INDEX] = -700,
+	.min_voice_rx_vol[VOC_NB_INDEX] = -2200,
+	.max_voice_rx_vol[VOC_WB_INDEX] = -900,
+	.min_voice_rx_vol[VOC_WB_INDEX] = -2400,
+};
+
+static struct platform_device msm_ihs_ffa_mono_rx_device = {
+	.name = "snddev_icodec",
+	.id = 5,
+	.dev = { .platform_data = &snddev_ihs_ffa_mono_rx_data },
+};
+
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
 	&msm_ispkr_stereo_device,
 	&msm_headset_mic_device,
+	&msm_ihs_ffa_mono_rx_device,
 	&msm_snddev_mi2s_fm_tx_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
