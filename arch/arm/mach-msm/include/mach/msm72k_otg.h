@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -128,8 +128,8 @@ struct msm_otg {
 	struct clk		*hs_pclk;
 	struct clk		*hs_cclk;
 
-	/* hsusb pclk on 8660 is sourced from daytona fabric clock */
-	struct clk		*dfab_clk;
+	/* pclk source for voting */
+	struct clk		*pclk_src;
 
 	/* clk regime has created dummy clock id for phy so
 	 * that generic clk_reset api can be used to reset phy
