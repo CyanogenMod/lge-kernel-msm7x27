@@ -1703,7 +1703,7 @@ static struct platform_device msm_batt_device = {
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
 #define MSM_PMEM_ADSP_SIZE         0x2000000
-#define MSM_PMEM_AUDIO_SIZE        0x219000
+#define MSM_PMEM_AUDIO_SIZE        0x239000
 
 #define MSM_SMI_BASE          0x38000000
 /* Kernel SMI PMEM Region for video core, used for Firmware */

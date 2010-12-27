@@ -95,6 +95,12 @@ struct audio_aio_write_param {
 	uint32_t flags;
 };
 
+struct audio_aio_read_param {
+	unsigned long paddr;
+	uint32_t len;
+	uint32_t uid;
+};
+
 struct audio_port_data {
 	struct audio_buffer *buf;
 	uint32_t	    max_buf_cnt;
@@ -145,6 +151,9 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 int q6asm_async_write(struct audio_client *ac,
 					  struct audio_aio_write_param *param);
 
+int q6asm_async_read(struct audio_client *ac,
+					  struct audio_aio_read_param *param);
+
 int q6asm_read(struct audio_client *ac);
 
 int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add,
@@ -189,6 +198,13 @@ int q6asm_enc_cfg_blk_amrnb(struct audio_client *ac, uint32_t frames_per_buf,
 
 int q6asm_media_format_block_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
+
+int q6asm_media_format_block_wma(struct audio_client *ac,
+			void *cfg);
+
+int q6asm_media_format_block_wmapro(struct audio_client *ac,
+			void *cfg);
+
 /* PP specific */
 int q6asm_equalizer(struct audio_client *ac, void *eq);
 

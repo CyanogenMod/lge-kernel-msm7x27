@@ -626,12 +626,11 @@ int q6asm_open_read(struct audio_client *ac,
 	int rc = 0x00;
 	struct asm_stream_cmd_open_read open;
 
-	pr_debug("session[%d]", ac->session);
-
 	if ((ac == NULL) || (ac->apr == NULL)) {
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
+	pr_debug("session[%d]", ac->session);
 
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READ;
@@ -686,12 +685,13 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	int rc = 0x00;
 	struct asm_stream_cmd_open_write open;
 
-	pr_debug("session[%d]", ac->session);
-
 	if ((ac == NULL) || (ac->apr == NULL)) {
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
+	pr_debug("%s: session[%d] wr_format[0x%x]", __func__, ac->session,
+		format);
+
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE;
@@ -708,6 +708,12 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	case FORMAT_MPEG4_AAC:
 		open.format = MPEG4_AAC;
 		break;
+	case FORMAT_WMA_V9:
+		open.format = WMA_V9;
+		break;
+	case FORMAT_WMA_V10PRO:
+		open.format = WMA_V10PRO;
+		break;
 	default:
 		pr_err("Invalid format[%d]\n", format);
 		goto fail_cmd;
@@ -721,7 +727,8 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("timeout. waited for OPEN_WRITR rc[%d]\n", rc);
+		pr_err("%s: timeout. waited for OPEN_WRITR rc[%d]\n", __func__,
+			rc);
 		goto fail_cmd;
 	}
 	return 0;
@@ -736,14 +743,14 @@ int q6asm_open_read_write(struct audio_client *ac,
 	int rc = 0x00;
 	struct asm_stream_cmd_open_read_write open;
 
-	pr_debug("session[%d]", ac->session);
-	pr_debug("wr_format[0x%x]rd_format[0x%x]",
-				wr_format, rd_format);
-
 	if ((ac == NULL) || (ac->apr == NULL)) {
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
+	pr_debug("%s: session[%d]", __func__, ac->session);
+	pr_debug("wr_format[0x%x]rd_format[0x%x]",
+				wr_format, rd_format);
+
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READWRITE;
 
@@ -753,6 +760,12 @@ int q6asm_open_read_write(struct audio_client *ac,
 	switch (wr_format) {
 	case FORMAT_LINEAR_PCM:
 		open.write_format = LINEAR_PCM;
+		break;
+	case FORMAT_WMA_V9:
+		open.write_format = WMA_V9;
+		break;
+	case FORMAT_WMA_V10PRO:
+		open.write_format = WMA_V10PRO;
 		break;
 	default:
 		pr_err("Invalid format[%d]\n", wr_format);
@@ -804,11 +817,11 @@ int q6asm_run(struct audio_client *ac, uint32_t flags,
 {
 	struct asm_stream_cmd_run run;
 	int rc;
-	pr_debug("session[%d]", ac->session);
 	if (!ac || ac->apr == NULL) {
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
+	pr_debug("session[%d]", ac->session);
 	q6asm_add_hdr(ac, &run.hdr, sizeof(run), TRUE);
 
 	run.hdr.opcode = ASM_SESSION_CMD_RUN;
@@ -1061,15 +1074,121 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
 	if (rc < 0) {
-		pr_err("Comamnd open failed\n");
-		rc = -EINVAL;
+		pr_err("%s:Comamnd open failed\n", __func__);
 		goto fail_cmd;
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("timeout. waited for FORMAT_UPDATE\n");
-		rc = -EINVAL;
+		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_media_format_block_wma(struct audio_client *ac,
+				void *cfg)
+{
+	struct asm_stream_media_format_update fmt;
+	struct asm_wma_cfg *wma_cfg = (struct asm_wma_cfg *)cfg;
+	int rc = 0;
+
+	pr_debug("format_tag[0x%4x] rate[%d] ch[0x%4x] bps[%d], balign[0x%4x],\
+		bit_sample[0x%4x], ch_msk[%d], enc_opt[0x%4x]\n",
+		wma_cfg->format_tag, wma_cfg->sample_rate, wma_cfg->ch_cfg,
+		wma_cfg->avg_bytes_per_sec, wma_cfg->block_align,
+		wma_cfg->valid_bits_per_sample, wma_cfg->ch_mask,
+		wma_cfg->encode_opt);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
+
+	fmt.format = WMA_V9;
+	fmt.cfg_size = sizeof(struct asm_wma_cfg);
+	fmt.write_cfg.wma_cfg.format_tag = wma_cfg->format_tag;
+	fmt.write_cfg.wma_cfg.ch_cfg = wma_cfg->ch_cfg;
+	fmt.write_cfg.wma_cfg.sample_rate = wma_cfg->sample_rate;
+	fmt.write_cfg.wma_cfg.avg_bytes_per_sec = wma_cfg->avg_bytes_per_sec;
+	fmt.write_cfg.wma_cfg.block_align = wma_cfg->block_align;
+	fmt.write_cfg.wma_cfg.valid_bits_per_sample =
+			wma_cfg->valid_bits_per_sample;
+	fmt.write_cfg.wma_cfg.ch_mask = wma_cfg->ch_mask;
+	fmt.write_cfg.wma_cfg.encode_opt = wma_cfg->encode_opt;
+	fmt.write_cfg.wma_cfg.adv_encode_opt = 0;
+	fmt.write_cfg.wma_cfg.adv_encode_opt2 = 0;
+	fmt.write_cfg.wma_cfg.drc_peak_ref = 0;
+	fmt.write_cfg.wma_cfg.drc_peak_target = 0;
+	fmt.write_cfg.wma_cfg.drc_ave_ref = 0;
+	fmt.write_cfg.wma_cfg.drc_ave_target = 0;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s:Comamnd open failed\n", __func__);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_media_format_block_wmapro(struct audio_client *ac,
+				void *cfg)
+{
+	struct asm_stream_media_format_update fmt;
+	struct asm_wmapro_cfg *wmapro_cfg = (struct asm_wmapro_cfg *)cfg;
+	int rc = 0;
+
+	pr_debug("format_tag[0x%4x] rate[%d] ch[0x%4x] bps[%d], balign[0x%4x],\
+		bit_sample[0x%4x], ch_msk[%d], enc_opt[0x%4x],\
+		adv_enc_opt[0x%4x], adv_enc_opt2[0x%8x]\n",
+		wmapro_cfg->format_tag, wmapro_cfg->sample_rate,
+		wmapro_cfg->ch_cfg,  wmapro_cfg->avg_bytes_per_sec,
+		wmapro_cfg->block_align, wmapro_cfg->valid_bits_per_sample,
+		wmapro_cfg->ch_mask, wmapro_cfg->encode_opt,
+		wmapro_cfg->adv_encode_opt, wmapro_cfg->adv_encode_opt2);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
+
+	fmt.format = WMA_V10PRO;
+	fmt.cfg_size = sizeof(struct asm_wmapro_cfg);
+	fmt.write_cfg.wmapro_cfg.format_tag = wmapro_cfg->format_tag;
+	fmt.write_cfg.wmapro_cfg.ch_cfg = wmapro_cfg->ch_cfg;
+	fmt.write_cfg.wmapro_cfg.sample_rate = wmapro_cfg->sample_rate;
+	fmt.write_cfg.wmapro_cfg.avg_bytes_per_sec =
+				wmapro_cfg->avg_bytes_per_sec;
+	fmt.write_cfg.wmapro_cfg.block_align = wmapro_cfg->block_align;
+	fmt.write_cfg.wmapro_cfg.valid_bits_per_sample =
+				wmapro_cfg->valid_bits_per_sample;
+	fmt.write_cfg.wmapro_cfg.ch_mask = wmapro_cfg->ch_mask;
+	fmt.write_cfg.wmapro_cfg.encode_opt = wmapro_cfg->encode_opt;
+	fmt.write_cfg.wmapro_cfg.adv_encode_opt = wmapro_cfg->adv_encode_opt;
+	fmt.write_cfg.wmapro_cfg.adv_encode_opt2 = wmapro_cfg->adv_encode_opt2;
+	fmt.write_cfg.wmapro_cfg.drc_peak_ref = 0;
+	fmt.write_cfg.wmapro_cfg.drc_peak_target = 0;
+	fmt.write_cfg.wmapro_cfg.drc_ave_ref = 0;
+	fmt.write_cfg.wmapro_cfg.drc_ave_target = 0;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s:Comamnd open failed\n", __func__);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
+		goto fail_cmd;
 	}
 	return 0;
 fail_cmd:
@@ -1548,7 +1667,6 @@ int q6asm_async_write(struct audio_client *ac,
 	int rc = 0;
 	struct asm_stream_cmd_write write;
 
-	pr_debug("%s: session[%d] len=%d", __func__, ac->session, param->len);
 	if (!ac || ac->apr == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
 		return -EINVAL;
@@ -1570,8 +1688,8 @@ int q6asm_async_write(struct audio_client *ac,
 	else
 		write.uflags = (0x80000000 | param->flags);
 
-	pr_debug("%s: bufadd[0x%x]len[0x%x]", __func__, write.buf_add,
-		write.avail_bytes);
+	pr_debug("%s: session[%d] bufadd[0x%x]len[0x%x]", __func__, ac->session,
+		write.buf_add, write.avail_bytes);
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &write);
 	if (rc < 0) {
@@ -1579,7 +1697,40 @@ int q6asm_async_write(struct audio_client *ac,
 			write.hdr.opcode, rc);
 		goto fail_cmd;
 	}
-	pr_debug("%s: ASYNC_WRITE SUCCESS\n", __func__);
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_async_read(struct audio_client *ac,
+					  struct audio_aio_read_param *param)
+{
+	int rc = 0;
+	struct asm_stream_cmd_read read;
+
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	q6asm_add_hdr_async(ac, &read.hdr, sizeof(read), FALSE);
+
+	/* Pass physical address as token for AIO scheme */
+	read.hdr.token = param->paddr;
+	read.hdr.opcode = ASM_DATA_CMD_READ;
+	read.buf_add = param->paddr;
+	read.buf_size = param->len;
+	read.uid = param->uid;
+
+	pr_debug("%s: session[%d] bufadd[0x%x]len[0x%x]", __func__, ac->session,
+		read.buf_add, read.buf_size);
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &read);
+	if (rc < 0) {
+		pr_debug("[%s] read op[0x%x]rc[%d]\n", __func__,
+			read.hdr.opcode, rc);
+		goto fail_cmd;
+	}
 	return 0;
 fail_cmd:
 	return -EINVAL;
@@ -1594,11 +1745,11 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 	struct audio_buffer    *ab;
 	int dsp_buf = 0;
 
-	pr_debug("session[%d] len=%d", ac->session, len);
 	if (!ac || ac->apr == NULL) {
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
+	pr_debug("%s: session[%d] len=%d", __func__, ac->session, len);
 	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[IN];
 
