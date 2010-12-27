@@ -447,6 +447,23 @@ static int msm_gpio_suspend_noirq(struct device *dev)
 	return 0;
 }
 
+void msm_gpio_show_resume_irq(void)
+{
+	unsigned long irq_flags;
+	int i, irq, intstat;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	for_each_set_bit(i, msm_gpio.wake_irqs, NR_MSM_GPIOS) {
+		intstat = readl(GPIO_INTR_STATUS(i)) & BIT(INTR_STATUS_BIT);
+		if (intstat) {
+			irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
+			pr_warning("%s: %d triggered\n",
+				__func__, irq);
+		}
+	}
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+}
+
 static int msm_gpio_resume_noirq(struct device *dev)
 {
 	unsigned long irq_flags;
