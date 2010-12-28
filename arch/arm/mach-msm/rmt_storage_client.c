@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,9 @@
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 #include <mach/msm_rpcrouter.h>
+#ifdef CONFIG_MSM_SDIO_SMEM
+#include <mach/sdio_smem.h>
+#endif
 #include "smd_private.h"
 
 enum {
@@ -109,6 +112,10 @@ static uint32_t rmt_storage_get_sid(const char *path);
 
 static struct rmt_storage_client_info *rmc;
 
+#ifdef CONFIG_MSM_SDIO_SMEM
+static struct sdio_smem_client *sdio_smem;
+#endif
+
 #ifdef CONFIG_MSM_RMT_STORAGE_CLIENT_STATS
 struct rmt_storage_op_stats {
 	unsigned long count;
@@ -149,13 +156,13 @@ static struct dentry *stats_dentry;
 #define RAMFS_INFO_VERSION		0x00000001
 #define RAMFS_DEFAULT			0xFFFFFFFF
 
-/* 8660 EFS*/
+/* MSM EFS*/
 #define RAMFS_MODEMSTORAGE_ID		0x4D454653
 #define RAMFS_SHARED_EFS_RAM_BASE	0x46100000
 #define RAMFS_SHARED_EFS_RAM_SIZE	(3 * 1024 * 1024)
 
-/* MDM9K FS*/
-#define RAMFS_MDM9K_STORAGE_ID		0x4D4583A1
+/* MDM EFS*/
+#define RAMFS_MDM_STORAGE_ID		0x4D4583A1
 
 #define for_each_smem_info(s, i)	\
 		for (i = 0; \
@@ -644,6 +651,57 @@ static int rmt_storage_event_read_iovec_cb(
 	return RMT_STORAGE_NO_ERROR;
 }
 
+#ifdef CONFIG_MSM_SDIO_SMEM
+static int sdio_smem_cb(int event)
+{
+	pr_debug("%s: Received event %d\n", __func__, event);
+
+	switch (event) {
+	case SDIO_SMEM_EVENT_READ_DONE:
+		pr_debug("Read done\n");
+		break;
+	case SDIO_SMEM_EVENT_READ_ERR:
+		pr_err("Read overflow\n");
+		return -EIO;
+	default:
+		pr_err("Unhandled event\n");
+	}
+	return 0;
+}
+
+static int sdio_smem_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct rmt_shrd_mem_param *shrd_mem;
+
+	sdio_smem = container_of(pdev, struct sdio_smem_client, plat_dev);
+
+	/* SDIO SMEM is supported only for MDM */
+	shrd_mem = rmt_storage_get_shrd_mem(RAMFS_MDM_STORAGE_ID);
+	if (!shrd_mem) {
+		pr_err("%s: No shared mem entry for sid=0x%08x\n",
+		       __func__, (uint32_t)RAMFS_MDM_STORAGE_ID);
+		return -ENOMEM;
+	}
+	sdio_smem->buf = __va(shrd_mem->start);
+	sdio_smem->size = shrd_mem->size;
+	sdio_smem->cb_func = sdio_smem_cb;
+	ret = sdio_smem_register_client();
+	if (ret)
+		pr_info("%s: Error (%d) registering sdio_smem client\n",
+			__func__, ret);
+	return ret;
+}
+
+static struct platform_driver sdio_smem_drv = {
+	.probe		= sdio_smem_probe,
+	.driver		= {
+		.name	= "SDIO_SMEM_CLIENT",
+		.owner	= THIS_MODULE,
+	},
+};
+#endif
+
 static int rmt_storage_event_alloc_rmt_buf_cb(
 		struct rmt_storage_event *event_args,
 		struct msm_rpc_xdr *xdr)
@@ -652,7 +710,9 @@ static int rmt_storage_event_alloc_rmt_buf_cb(
 	struct rmt_shrd_mem_param *shrd_mem;
 	uint32_t event_type, handle, size;
 	int i;
-
+#ifdef CONFIG_MSM_SDIO_SMEM
+	int ret;
+#endif
 	xdr_recv_uint32(xdr, &event_type);
 	if (event_type != RMT_STORAGE_EVNT_ALLOC_RMT_BUF)
 		return -EINVAL;
@@ -697,15 +757,29 @@ static int rmt_storage_event_alloc_rmt_buf_cb(
 		return -EINVAL;
 	}
 
-	if (!shrd_mem->start) {
-		pr_err("%s: Unable to allocate memory\n", __func__);
-		return -EINVAL;
+	if (rs_client->srv->prog != MDM_RMT_STORAGE_APIPROG)
+		shrd_mem->start = 0;
+	else {
+		shrd_mem->start = (uint32_t)kzalloc(size, GFP_KERNEL);
+		if (!shrd_mem->start) {
+			pr_err("%s: Unable to allocate memory\n", __func__);
+			spin_lock(&rmc->lock);
+			shrd_mem->sid = 0;
+			spin_unlock(&rmc->lock);
+			return -EINVAL;
+		}
+		shrd_mem->start = __pa(shrd_mem->start);
 	}
 	shrd_mem->sid = rs_client->sid;
 	shrd_mem->size = size;
 	pr_debug("%s: Allocated %d bytes at phys_addr=0x%x for handle=%d\n",
 		__func__, shrd_mem->size, shrd_mem->start, rs_client->handle);
 
+#ifdef CONFIG_MSM_SDIO_SMEM
+	ret = platform_driver_register(&sdio_smem_drv);
+	if (ret)
+		pr_err("%s: Unable to register sdio smem client\n", __func__);
+#endif
 	return (int) shrd_mem->start;
 }
 
@@ -758,7 +832,10 @@ static int handle_rmt_storage_call(struct msm_rpc_client *client,
 		rc = cb_func(event_args, xdr);
 		/* ALLOC_RMT_BUF returns an address, which when casted
 		   to int could be negative */
-		if ((rc < 0) && (rc >  ERANGE)) {
+		if (rc < 0) {
+			if (req->procedure ==
+			    RMT_STORAGE_ALLOC_RMT_BUF_CB_TYPE_PROC)
+				break;
 			pr_err("%s: Invalid parameters received\n", __func__);
 			result = RMT_STORAGE_ERROR_PARAM;
 			kfree(kevent);
@@ -775,9 +852,12 @@ static int handle_rmt_storage_call(struct msm_rpc_client *client,
 		goto out;
 	}
 
-	put_event(rmc, kevent);
-	atomic_inc(&rmc->total_events);
-	wake_up(&rmc->event_q);
+	if (req->procedure != RMT_STORAGE_ALLOC_RMT_BUF_CB_TYPE_PROC) {
+		put_event(rmc, kevent);
+		atomic_inc(&rmc->total_events);
+		wake_up(&rmc->event_q);
+	} else
+		kfree(kevent);
 
 out:
 	pr_debug("%s: Sending result=0x%x\n", __func__, result);
@@ -1176,7 +1256,7 @@ static int rmt_storage_get_ramfs(void)
 
 		if (rmc->open_excl == 1) {
 			rmc->smem_info[index]->client_sts = 1;
-			pr_info("%s: setting client_sts to 1\n", __func__);
+			pr_debug("%s: setting client_sts to 1\n", __func__);
 		}
 	}
 	return 0;
@@ -1460,15 +1540,14 @@ static uint32_t rmt_storage_get_sid(const char *path)
 {
 	if (!strncmp(path, "/boot/modem_fs1", MAX_PATH_NAME))
 		return RAMFS_MODEMSTORAGE_ID;
-
 	if (!strncmp(path, "/boot/modem_fs2", MAX_PATH_NAME))
 		return RAMFS_MODEMSTORAGE_ID;
-
 	if (!strncmp(path, "/boot/modem_fsg", MAX_PATH_NAME))
 		return RAMFS_MODEMSTORAGE_ID;
-
-	if (!strncmp(path, "/boot/modem_mdm9k", MAX_PATH_NAME))
-		return RAMFS_MDM9K_STORAGE_ID;
+	if (!strncmp(path, "/q6_fs1_parti_id_0x59", MAX_PATH_NAME))
+		return RAMFS_MDM_STORAGE_ID;
+	if (!strncmp(path, "/q6_fs2_parti_id_0x5A", MAX_PATH_NAME))
+		return RAMFS_MDM_STORAGE_ID;
 
 	return 0;
 }
