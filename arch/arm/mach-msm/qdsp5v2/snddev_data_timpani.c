@@ -672,6 +672,56 @@ static struct platform_device msm_spk_idual_mic_broadside_device = {
 	.dev = { .platform_data = &snddev_spk_idual_mic_broadside_data },
 };
 
+static struct adie_codec_action_unit idual_mic_bs_8KHz_osr256_actions[] =
+	MIC1_LEFT_AUX_IN_RIGHT_8000_OSR_256;
+
+static struct adie_codec_hwsetting_entry idual_mic_broadside_settings[] = {
+	{
+		.freq_plan = 8000,
+		.osr = 256,
+		.actions = idual_mic_bs_8KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(idual_mic_bs_8KHz_osr256_actions),
+	}, /* 8KHz profile can be used for 16KHz */
+	{
+		.freq_plan = 16000,
+		.osr = 256,
+		.actions = idual_mic_bs_8KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(idual_mic_bs_8KHz_osr256_actions),
+	}, /* 8KHz profile can be used for 16KHz */
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = idual_mic_bs_8KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(idual_mic_bs_8KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile idual_mic_broadside_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = idual_mic_broadside_settings,
+	.setting_sz = ARRAY_SIZE(idual_mic_broadside_settings),
+};
+
+static struct snddev_icodec_data snddev_idual_mic_broadside_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "handset_dual_mic_broadside_tx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_HANDSET_MIC_BROADSIDE,
+	.profile = &idual_mic_broadside_profile,
+	.channel_mode = 2,
+	.default_sample_rate = 48000,
+	.pmctl_id = idual_mic_broadside_pmctl_id,
+	.pmctl_id_sz = ARRAY_SIZE(idual_mic_broadside_pmctl_id),
+	.pamp_on = NULL,
+	.pamp_off = NULL,
+};
+
+static struct platform_device msm_idual_mic_broadside_device = {
+	.name = "snddev_icodec",
+	.id = 13,
+	.dev = { .platform_data = &snddev_idual_mic_broadside_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -693,6 +743,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_real_stereo_tx_device,
 	&msm_ihs_stereo_speaker_stereo_rx_device,
 	&msm_spk_idual_mic_broadside_device,
+	&msm_idual_mic_broadside_device,
 };
 
 void __ref msm_snddev_init_timpani(void)
