@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
  */
+
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/module.h>
@@ -54,6 +55,7 @@ struct pm8058_othc {
 	bool switch_reject;
 	bool othc_support_n_switch;
 	bool accessory_support;
+	bool accessories_adc_support;
 	int othc_base;
 	int othc_irq_sw;
 	int othc_irq_ir;
@@ -61,10 +63,13 @@ struct pm8058_othc {
 	int num_accessories;
 	int curr_accessory_code;
 	int curr_accessory;
+	int video_out_gpio;
 	u32 sw_key_code;
+	u32 accessories_adc_channel;
 	unsigned long switch_debounce_ms;
 	unsigned long detection_delay_ms;
 	void *adc_handle;
+	void *accessory_adc_handle;
 	spinlock_t lock;
 	struct input_dev *othc_ipd;
 	struct switch_dev othc_sdev;
@@ -121,6 +126,42 @@ int pm8058_micbias_enable(enum othc_micbias micbias,
 	return rc;
 }
 EXPORT_SYMBOL(pm8058_micbias_enable);
+
+int pm8058_othc_svideo_enable(enum othc_micbias micbias, bool enable)
+{
+	struct pm8058_othc *dd = config[micbias];
+
+	if (dd == NULL) {
+		pr_err("MIC_BIAS not registered, cannot enable\n");
+		return -ENODEV;
+	}
+
+	if (dd->othc_pdata->micbias_capability != OTHC_MICBIAS_HSED) {
+		pr_err("MIC_BIAS enable capability not supported\n");
+		return -EINVAL;
+	}
+
+	if (dd->accessories_adc_support) {
+		/* GPIO state for MIC_IN = 0, SVIDEO = 1 */
+		gpio_set_value_cansleep(dd->video_out_gpio, !!enable);
+		if (enable) {
+			pr_debug("Enable the video path\n");
+			switch_set_state(&dd->othc_sdev, dd->curr_accessory);
+			input_report_switch(dd->othc_ipd,
+						dd->curr_accessory_code, 1);
+			input_sync(dd->othc_ipd);
+		} else {
+			pr_debug("Disable the video path\n");
+			switch_set_state(&dd->othc_sdev, 0);
+			input_report_switch(dd->othc_ipd,
+					dd->curr_accessory_code, 0);
+			input_sync(dd->othc_ipd);
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(pm8058_othc_svideo_enable);
 
 #ifdef CONFIG_PM
 static int pm8058_othc_suspend(struct device *dev)
@@ -260,6 +301,44 @@ bail_out:
 	enable_irq(dd->othc_irq_sw);
 }
 
+static int accessory_adc_detect(struct pm8058_othc *dd, int accessory)
+{
+	int rc;
+	u32 res;
+	struct adc_chan_result accessory_adc_result;
+	DECLARE_COMPLETION_ONSTACK(accessory_adc_wait);
+
+	rc = adc_channel_request_conv(dd->accessory_adc_handle,
+						&accessory_adc_wait);
+	if (rc) {
+		pr_err("adc_channel_request_conv failed\n");
+		goto adc_failed;
+	}
+	rc = wait_for_completion_interruptible(&accessory_adc_wait);
+	if (rc) {
+		pr_err("wait_for_completion_interruptible failed\n");
+		goto adc_failed;
+	}
+	rc = adc_channel_read_result(dd->accessory_adc_handle,
+						&accessory_adc_result);
+	if (rc) {
+		pr_err("adc_channel_read_result failed\n");
+		goto adc_failed;
+	}
+
+	res = accessory_adc_result.physical;
+
+	if (res >= dd->accessory_info[accessory].adc_thres.min_threshold &&
+		res <= dd->accessory_info[accessory].adc_thres.max_threshold) {
+		pr_debug("Accessory on ADC detected!, ADC Value = %u\n", res);
+		return 1;
+	}
+
+adc_failed:
+	return 0;
+}
+
+
 static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 {
 	int i, rc, detected = 0;
@@ -276,7 +355,15 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 
 	/* For accessory */
 	if (dd->accessory_support == true && status == 0) {
-		/* Report removal of the accessory */
+		/* Report removal of the accessory. */
+
+		/*
+		 * If the current accessory is video cable, reject the removal
+		 * interrupt.
+		 */
+		if (dd->curr_accessory == OTHC_SVIDEO_OUT)
+			return 0;
+
 		switch_set_state(&dd->othc_sdev, 0);
 		input_report_switch(dd->othc_ipd, dd->curr_accessory_code, 0);
 		input_sync(dd->othc_ipd);
@@ -328,17 +415,29 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 			else
 				continue;
 		}
+		if (dd->accessory_info[i].detect_flags & OTHC_ADC_DETECT)
+			detected = accessory_adc_detect(dd, i);
+
 		if (detected)
 			break;
 	}
 
 	if (detected) {
-		/* Accessory present, report it */
 		dd->curr_accessory = dd->accessory_info[i].accessory;
 		dd->curr_accessory_code = dd->accessory_info[i].key_code;
-		switch_set_state(&dd->othc_sdev, dd->curr_accessory);
-		input_report_switch(dd->othc_ipd, dd->curr_accessory_code, 1);
-		input_sync(dd->othc_ipd);
+
+		/* if Video out cable detected enable the video path*/
+		if (dd->curr_accessory == OTHC_SVIDEO_OUT) {
+			pm8058_othc_svideo_enable(
+					dd->othc_pdata->micbias_select, true);
+
+		} else {
+			switch_set_state(&dd->othc_sdev, dd->curr_accessory);
+			input_report_switch(dd->othc_ipd,
+						dd->curr_accessory_code, 1);
+			input_sync(dd->othc_ipd);
+		}
+
 	} else
 		pr_info("Unable to detect accessory. False interrupt!\n");
 
@@ -609,7 +708,7 @@ static int pm8058_configure_switch(struct pm8058_othc *dd)
 	return 0;
 }
 
-static void
+static int
 pm8058_configure_accessory(struct pm8058_othc *dd)
 {
 	int i, rc;
@@ -639,7 +738,53 @@ pm8058_configure_accessory(struct pm8058_othc *dd)
 				continue;
 			}
 		}
+		input_set_capability(dd->othc_ipd, EV_SW,
+					dd->accessory_info[i].key_code);
 	}
+
+	if (dd->accessories_adc_support) {
+		/*
+		 * Check if 3 switch is supported. If both are using the same
+		 * ADC channel, the same handle can be used.
+		 */
+		if (dd->othc_support_n_switch) {
+			if (dd->adc_handle != NULL &&
+				(dd->accessories_adc_channel ==
+				 dd->switch_config->adc_channel))
+				dd->accessory_adc_handle = dd->adc_handle;
+		} else {
+			rc = adc_channel_open(dd->accessories_adc_channel,
+						&dd->accessory_adc_handle);
+			if (rc) {
+				pr_err("Unable to open ADC channel\n");
+				rc = -ENODEV;
+				goto accessory_adc_fail;
+			}
+		}
+		if (dd->video_out_gpio != 0) {
+			rc = gpio_request(dd->video_out_gpio, "vout_enable");
+			if (rc < 0) {
+				pr_err("request VOUT gpio failed (%d)\n", rc);
+				goto accessory_adc_fail;
+			}
+			rc = gpio_direction_output(dd->video_out_gpio, 0);
+			if (rc < 0) {
+				pr_err("direction_out failed (%d)\n", rc);
+				goto accessory_adc_fail;
+			}
+		}
+
+	}
+
+	return 0;
+
+accessory_adc_fail:
+	for (i = 0; i < dd->num_accessories; i++) {
+		if (dd->accessory_info[i].enabled == false)
+			continue;
+		gpio_free(dd->accessory_info[i].gpio);
+	}
+	return rc;
 }
 
 static int
@@ -696,6 +841,11 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 	if (dd->accessory_support == true) {
 		dd->accessory_info = pdata->hsed_config->accessories;
 		dd->num_accessories = pdata->hsed_config->othc_num_accessories;
+		dd->accessories_adc_support =
+				pdata->hsed_config->accessories_adc_support;
+		dd->accessories_adc_channel =
+				pdata->hsed_config->accessories_adc_channel;
+		dd->video_out_gpio = pdata->hsed_config->video_out_gpio;
 	}
 
 	/* Configure the MIC_BIAS line for headset detection */
@@ -709,10 +859,12 @@ othc_configure_hsed(struct pm8058_othc *dd, struct platform_device *pd)
 		goto fail_micbias_config;
 
 	/* Configure the accessory */
-	if (dd->accessory_support == true)
-		pm8058_configure_accessory(dd);
+	if (dd->accessory_support == true) {
+		rc = pm8058_configure_accessory(dd);
+		if (rc < 0)
+			goto fail_micbias_config;
+	}
 
-	input_set_capability(ipd, EV_SW, SW_HEADPHONE_INSERT);
 	input_set_drvdata(ipd, dd);
 	spin_lock_init(&dd->lock);
 
