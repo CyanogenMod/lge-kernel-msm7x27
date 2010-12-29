@@ -273,6 +273,9 @@ static int gic_set_type(unsigned int irq, unsigned int type)
 
 	spin_unlock(&irq_controller_lock);
 
+	if ((type & IRQ_TYPE_EDGE_RISING) && gicirq > 31)
+		__set_irq_handler_unlocked(irq, handle_edge_irq);
+
 	msm_mpm_set_irq_type(irq, type);
 
 	return 0;
