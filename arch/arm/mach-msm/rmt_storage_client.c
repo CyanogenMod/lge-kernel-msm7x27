@@ -1464,6 +1464,9 @@ static uint32_t rmt_storage_get_sid(const char *path)
 	if (!strncmp(path, "/boot/modem_fs2", MAX_PATH_NAME))
 		return RAMFS_MODEMSTORAGE_ID;
 
+	if (!strncmp(path, "/boot/modem_fsg", MAX_PATH_NAME))
+		return RAMFS_MODEMSTORAGE_ID;
+
 	if (!strncmp(path, "/boot/modem_mdm9k", MAX_PATH_NAME))
 		return RAMFS_MDM9K_STORAGE_ID;
 
