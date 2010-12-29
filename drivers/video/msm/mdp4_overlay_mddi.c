@@ -417,18 +417,14 @@ void mdp4_mddi_overlay_restore(void)
 
 	if (mddi_mfd->panel_power_on == 0)
 		return;
-
+	if (mddi_mfd && mddi_pipe) {
+		mdp4_mddi_dma_busy_wait(mddi_mfd, mddi_pipe);
+		mdp4_overlay_update_lcd(mddi_mfd);
+		mdp4_mddi_overlay_kickoff(mddi_mfd, mddi_pipe);
+		mddi_mfd->dma_update_flag = 1;
+	}
 	if (mdp_hw_revision < MDP4_REVISION_V2_1) /* need dmas dmap switch */
 		mdp4_mddi_overlay_dmas_restore();
-	else { /* no dmas dmap switch */
-		/* mutex holded by caller */
-		if (mddi_mfd && mddi_pipe) {
-			mdp4_mddi_dma_busy_wait(mddi_mfd, mddi_pipe);
-			mdp4_overlay_update_lcd(mddi_mfd);
-			mdp4_mddi_overlay_kickoff(mddi_mfd, mddi_pipe);
-			mddi_mfd->dma_update_flag = 1;
-		}
-	}
 }
 
 
