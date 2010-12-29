@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1280,30 +1280,40 @@ fail_cmd:
 
 int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain)
 {
-	struct asm_pp_params_command vol_cmd;
+	void *vol_cmd = NULL;
+	void *payload = NULL;
+	struct asm_pp_params_command *cmd = NULL;
+	struct asm_lrchannel_gain_params *lrgain = NULL;
+	int sz = 0;
 	int rc  = 0;
 
-	pr_info("%s:\n", __func__);
+	sz = sizeof(struct asm_pp_params_command) +
+		+ sizeof(struct asm_lrchannel_gain_params);
+	vol_cmd = kzalloc(sz, GFP_KERNEL);
+	if (vol_cmd == NULL) {
+		pr_err("%s[%d]: Mem alloc failed\n", __func__, ac->session);
+		rc = -EINVAL;
+		return rc;
+	}
+	cmd = (struct asm_pp_params_command *)vol_cmd;
+	q6asm_add_hdr(ac, &cmd->hdr, sz, TRUE);
+	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
+	cmd->payload = NULL;
+	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
+				sizeof(struct asm_lrchannel_gain_params);
+	cmd->params.module_id = VOLUME_CONTROL_MODULE_ID;
+	cmd->params.param_id = L_R_CHANNEL_GAIN_PARAM_ID;
+	cmd->params.param_size = sizeof(struct asm_lrchannel_gain_params);
+	cmd->params.reserved = 0;
 
-	q6asm_add_hdr(ac, &vol_cmd.hdr, sizeof(vol_cmd), TRUE);
+	payload = (u8 *)(vol_cmd + sizeof(struct asm_pp_params_command));
+	lrgain = (struct asm_lrchannel_gain_params *)payload;
 
-	vol_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
-	vol_cmd.payload = NULL;
-	vol_cmd.payload_size = sizeof(struct  asm_pp_param_data_hdr);
-	vol_cmd.params.module_id = VOLUME_CONTROL_MODULE_ID;
-	vol_cmd.params.param_id = L_R_CHANNEL_GAIN_PARAM_ID;
-	vol_cmd.params.param_size = sizeof(struct asm_volume_params);
-	vol_cmd.params.reserved = 0;
-	pr_debug("%s: set gain, left = %d, right = %d\n", __func__, left_gain,
-			 right_gain);
-	vol_cmd.params.pp_param.vol_params.vparams.lr_gain.left_gain =
-		left_gain;
-	vol_cmd.params.pp_param.vol_params.vparams.lr_gain.right_gain =
-		right_gain;
-
-	rc = apr_send_pkt(ac->apr, (uint32_t *) &vol_cmd);
+	lrgain->left_gain = left_gain;
+	lrgain->right_gain = right_gain;
+	rc = apr_send_pkt(ac->apr, (uint32_t *) vol_cmd);
 	if (rc < 0) {
-		pr_err("%s: Channel Gain Command failed\n", __func__);
+		pr_err("%s: Volume Command failed\n", __func__);
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
@@ -1311,13 +1321,14 @@ int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain)
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("%s: timeout in sending gain command to apr\n",
+		pr_err("%s: timeout in sending volume command to apr\n",
 			__func__);
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
 	rc = 0;
 fail_cmd:
+	kfree(vol_cmd);
 	return rc;
 }
 
@@ -1446,27 +1457,39 @@ fail_cmd:
 
 int q6asm_set_mute(struct audio_client *ac, int muteflag)
 {
-	struct asm_pp_params_command vol_cmd;
+	void *vol_cmd = NULL;
+	void *payload = NULL;
+	struct asm_pp_params_command *cmd = NULL;
+	struct asm_mute_params *mute = NULL;
+	int sz = 0;
 	int rc  = 0;
 
-	pr_info("%s:\n", __func__);
+	sz = sizeof(struct asm_pp_params_command) +
+		+ sizeof(struct asm_mute_params);
+	vol_cmd = kzalloc(sz, GFP_KERNEL);
+	if (vol_cmd == NULL) {
+		pr_err("%s[%d]: Mem alloc failed\n", __func__, ac->session);
+		rc = -EINVAL;
+		return rc;
+	}
+	cmd = (struct asm_pp_params_command *)vol_cmd;
+	q6asm_add_hdr(ac, &cmd->hdr, sz, TRUE);
+	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
+	cmd->payload = NULL;
+	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
+				sizeof(struct asm_mute_params);
+	cmd->params.module_id = VOLUME_CONTROL_MODULE_ID;
+	cmd->params.param_id = MUTE_CONFIG_PARAM_ID;
+	cmd->params.param_size = sizeof(struct asm_mute_params);
+	cmd->params.reserved = 0;
 
-	q6asm_add_hdr(ac, &vol_cmd.hdr, sizeof(vol_cmd), TRUE);
+	payload = (u8 *)(vol_cmd + sizeof(struct asm_pp_params_command));
+	mute = (struct asm_mute_params *)payload;
 
-	vol_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
-	vol_cmd.payload = NULL;
-	vol_cmd.payload_size = sizeof(struct  asm_pp_param_data_hdr);
-	vol_cmd.params.module_id = VOLUME_CONTROL_MODULE_ID;
-	vol_cmd.params.param_id = MUTE_CONFIG_PARAM_ID;
-	vol_cmd.params.param_size = sizeof(struct asm_volume_params);
-	vol_cmd.params.reserved = 0;
-	pr_debug("%s: set Mute = %d\n", __func__, muteflag);
-	vol_cmd.params.pp_param.vol_params.vparams.mute.muteflag =
-		muteflag;
-
-	rc = apr_send_pkt(ac->apr, (uint32_t *) &vol_cmd);
+	mute->muteflag = muteflag;
+	rc = apr_send_pkt(ac->apr, (uint32_t *) vol_cmd);
 	if (rc < 0) {
-		pr_err("%s: mute Command failed\n", __func__);
+		pr_err("%s: Mute Command failed\n", __func__);
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
@@ -1481,31 +1504,44 @@ int q6asm_set_mute(struct audio_client *ac, int muteflag)
 	}
 	rc = 0;
 fail_cmd:
+	kfree(vol_cmd);
 	return rc;
 }
 
 int q6asm_set_volume(struct audio_client *ac, int volume)
 {
-	struct asm_pp_params_command vol_cmd;
+	void *vol_cmd = NULL;
+	void *payload = NULL;
+	struct asm_pp_params_command *cmd = NULL;
+	struct asm_master_gain_params *mgain = NULL;
+	int sz = 0;
 	int rc  = 0;
 
-	pr_info("%s:\n", __func__);
+	sz = sizeof(struct asm_pp_params_command) +
+		+ sizeof(struct asm_master_gain_params);
+	vol_cmd = kzalloc(sz, GFP_KERNEL);
+	if (vol_cmd == NULL) {
+		pr_err("%s[%d]: Mem alloc failed\n", __func__, ac->session);
+		rc = -EINVAL;
+		return rc;
+	}
+	cmd = (struct asm_pp_params_command *)vol_cmd;
+	q6asm_add_hdr(ac, &cmd->hdr, sz, TRUE);
+	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
+	cmd->payload = NULL;
+	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
+				sizeof(struct asm_master_gain_params);
+	cmd->params.module_id = VOLUME_CONTROL_MODULE_ID;
+	cmd->params.param_id = MASTER_GAIN_PARAM_ID;
+	cmd->params.param_size = sizeof(struct asm_master_gain_params);
+	cmd->params.reserved = 0;
 
-	q6asm_add_hdr(ac, &vol_cmd.hdr, sizeof(vol_cmd), TRUE);
+	payload = (u8 *)(vol_cmd + sizeof(struct asm_pp_params_command));
+	mgain = (struct asm_master_gain_params *)payload;
 
-	vol_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
-	vol_cmd.payload = NULL;
-	vol_cmd.payload_size = sizeof(struct  asm_pp_param_data_hdr);
-	vol_cmd.params.module_id = VOLUME_CONTROL_MODULE_ID;
-	vol_cmd.params.param_id = MASTER_GAIN_PARAM_ID;
-	vol_cmd.params.param_size = sizeof(struct asm_volume_params);
-	vol_cmd.params.reserved = 0;
-	pr_debug("%s: set volume = %d\n", __func__, volume);
-	vol_cmd.params.pp_param.vol_params.vparams.m_gain.master_gain =
-		volume;
-	vol_cmd.params.pp_param.vol_params.vparams.m_gain.padding = 0;
-
-	rc = apr_send_pkt(ac->apr, (uint32_t *) &vol_cmd);
+	mgain->master_gain = volume;
+	mgain->padding = 0x00;
+	rc = apr_send_pkt(ac->apr, (uint32_t *) vol_cmd);
 	if (rc < 0) {
 		pr_err("%s: Volume Command failed\n", __func__);
 		rc = -EINVAL;
@@ -1522,42 +1558,57 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 	}
 	rc = 0;
 fail_cmd:
+	kfree(vol_cmd);
 	return rc;
 }
 
 int q6asm_equalizer(struct audio_client *ac, void *eq)
 {
+	void *eq_cmd = NULL;
+	void *payload = NULL;
+	struct asm_pp_params_command *cmd = NULL;
+	struct asm_equalizer_params *equalizer = NULL;
 	struct msm_audio_eq_stream_config *eq_params = NULL;
-	struct asm_pp_params_command eq_cmd;
 	int i  = 0;
+	int sz = 0;
 	int rc  = 0;
 
-	pr_info("%s:\n", __func__);
+	sz = sizeof(struct asm_pp_params_command) +
+		+ sizeof(struct asm_equalizer_params);
+	eq_cmd = kzalloc(sz, GFP_KERNEL);
+	if (eq_cmd == NULL) {
+		pr_err("%s[%d]: Mem alloc failed\n", __func__, ac->session);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
 	eq_params = (struct msm_audio_eq_stream_config *) eq;
+	cmd = (struct asm_pp_params_command *)eq_cmd;
+	q6asm_add_hdr(ac, &cmd->hdr, sz, TRUE);
+	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
+	cmd->payload = NULL;
+	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
+				sizeof(struct asm_equalizer_params);
+	cmd->params.module_id = EQUALIZER_MODULE_ID;
+	cmd->params.param_id = EQUALIZER_PARAM_ID;
+	cmd->params.param_size = sizeof(struct asm_equalizer_params);
+	cmd->params.reserved = 0;
+	payload = (u8 *)(eq_cmd + sizeof(struct asm_pp_params_command));
+	equalizer = (struct asm_equalizer_params *)payload;
 
-	q6asm_add_hdr(ac, &eq_cmd.hdr, sizeof(eq_cmd), TRUE);
-
-	eq_cmd.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
-	eq_cmd.payload = NULL;
-	eq_cmd.payload_size = sizeof(struct  asm_pp_param_data_hdr);
-	eq_cmd.params.module_id = EQUALIZER_MODULE_ID;
-	eq_cmd.params.param_id = EQUALIZER_PARAM_ID;
-	eq_cmd.params.param_size = sizeof(struct asm_equalizer_params);
-	eq_cmd.params.reserved = 0;
-	eq_cmd.params.pp_param.eq_params.enable = eq_params->enable;
-	eq_cmd.params.pp_param.eq_params.num_bands = eq_params->num_bands;
+	equalizer->enable = eq_params->enable;
+	equalizer->num_bands = eq_params->num_bands;
 	pr_debug("%s: enable:%d numbands:%d\n", __func__, eq_params->enable,
 							eq_params->num_bands);
 	for (i = 0; i < eq_params->num_bands; i++) {
-		eq_cmd.params.pp_param.eq_params.eq_bands[i].band_idx =
+		equalizer->eq_bands[i].band_idx =
 					eq_params->eq_bands[i].band_idx;
-		eq_cmd.params.pp_param.eq_params.eq_bands[i].filter_type =
+		equalizer->eq_bands[i].filter_type =
 					eq_params->eq_bands[i].filter_type;
-		eq_cmd.params.pp_param.eq_params.eq_bands[i].center_freq_hz =
+		equalizer->eq_bands[i].center_freq_hz =
 					eq_params->eq_bands[i].center_freq_hz;
-		eq_cmd.params.pp_param.eq_params.eq_bands[i].filter_gain =
+		equalizer->eq_bands[i].filter_gain =
 					eq_params->eq_bands[i].filter_gain;
-		eq_cmd.params.pp_param.eq_params.eq_bands[i].q_factor =
+		equalizer->eq_bands[i].q_factor =
 					eq_params->eq_bands[i].q_factor;
 		pr_debug("%s: filter_type:%u bandnum:%d\n", __func__,
 				eq_params->eq_bands[i].filter_type, i);
@@ -1568,10 +1619,9 @@ int q6asm_equalizer(struct audio_client *ac, void *eq)
 		pr_debug("%s: q_factor:%d bandnum:%d\n", __func__,
 				eq_params->eq_bands[i].q_factor, i);
 	}
-
-	rc = apr_send_pkt(ac->apr, (uint32_t *) &eq_cmd);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) eq_cmd);
 	if (rc < 0) {
-		pr_err("Comamnd failed\n");
+		pr_err("%s: Equalizer Command failed\n", __func__);
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
@@ -1579,12 +1629,14 @@ int q6asm_equalizer(struct audio_client *ac, void *eq)
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("timeout. waited for FORMAT_UPDATE\n");
+		pr_err("%s: timeout in sending equalizer command to apr\n",
+			__func__);
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
 	rc = 0;
 fail_cmd:
+	kfree(eq_cmd);
 	return rc;
 }
 

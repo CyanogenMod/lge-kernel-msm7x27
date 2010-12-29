@@ -1,7 +1,7 @@
 
 /*
  *
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -394,24 +394,11 @@ struct asm_softvolume_params {
 	u32 rampingcurve;
 } __attribute__ ((packed));
 
-struct asm_volume_params {
-	union {
-		struct asm_master_gain_params m_gain;;
-		struct asm_lrchannel_gain_params lr_gain;
-		struct asm_mute_params mute;
-		struct asm_softvolume_params softvol;
-	} __attribute__ ((packed)) vparams;
-} __attribute__ ((packed));
-
 struct asm_pp_param_data_hdr {
 	u32 module_id;
 	u32 param_id;
 	u16 param_size;
 	u16 reserved;
-	union {
-		struct asm_equalizer_params eq_params;
-		struct asm_volume_params vol_params;
-	} __attribute__ ((packed)) pp_param;
 } __attribute__ ((packed));
 
 struct asm_pp_params_command {
