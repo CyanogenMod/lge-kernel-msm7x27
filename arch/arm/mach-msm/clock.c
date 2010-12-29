@@ -143,7 +143,6 @@ EXPORT_SYMBOL(clk_set_flags);
  */
 static unsigned long ebi1_min_rate[CLKVOTE_MAX];
 static struct clk *ebi1_clk;
-static struct clk *pbus_clk;
 
 /* Rate is in Hz to be consistent with the other clk APIs. */
 int ebi1_clk_set_min_rate(enum clkvote_client client, unsigned long rate)
@@ -194,7 +193,7 @@ static int axi_freq_notifier_handler(struct notifier_block *block,
 		/* On 7x30/8x55, ebi1_clk votes are dropped during power
 		 * collapse, but pbus_clk votes are not. Use pbus_clk to
 		 * implicitly request ebi1 and AXI rates. */
-		return clk_set_min_rate(pbus_clk, min_freq);
+		return clk_set_min_rate(ebi1_clk, min_freq);
 	case MSM_CPU_8X60:
 		/* The bus driver handles ebi1_clk requests on 8x60. */
 		return 0;
@@ -230,11 +229,10 @@ void __init msm_clock_init(struct clk *clock_tbl, unsigned num_clocks)
 		}
 	}
 
-	ebi1_clk = clk_get(NULL, "ebi1_clk");
-	BUG_ON(IS_ERR(ebi1_clk));
-	if (cpu_is_msm7x30() || cpu_is_msm8x55()) {
-		pbus_clk = clk_get(NULL, "pbus_clk");
-		BUG_ON(IS_ERR(pbus_clk));
+	ebi1_clk = clk_get(NULL, "ebi1_pm_qos_clk");
+	if (!cpu_is_msm8x60()) {
+		BUG_ON(IS_ERR(ebi1_clk));
+		clk_enable(ebi1_clk);
 	}
 
 	axi_freq_notifier_block.notifier_call = axi_freq_notifier_handler;

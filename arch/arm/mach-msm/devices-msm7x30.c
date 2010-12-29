@@ -1026,6 +1026,7 @@ struct clk msm_clocks_7x30[] = {
 	CLK_VOTER("ebi1_usb_clk",	EBI_USB_CLK,	"pbus_clk", NULL, 0),
 	CLK_VOTER("ebi1_vcd_clk",	EBI_VCD_CLK,	"pbus_clk", NULL, 0),
 	CLK_VOTER("ebi1_vfe_clk",	EBI_VFE_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_pm_qos_clk",	EBI_PM_QOS_CLK,	"pbus_clk", NULL, 0),
 
 	CLK_7X30("adm_clk",	ADM_CLK,	NULL, 0),
 	CLK_7X30L("adm_pclk",   ADM_P_CLK,       NULL, 0),
