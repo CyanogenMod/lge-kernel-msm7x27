@@ -1136,6 +1136,7 @@ int msm_vpe_release(void)
 	pr_info("%s: In\n", __func__);
 
 	free_irq(vpe_device->vpeirq, 0);
+	tasklet_kill(&vpe_tasklet);
 	rc = msm_camio_vpe_clk_disable();
 	kfree(vpe_ctrl);
 
