@@ -40,4 +40,4 @@ obj-$(CONFIG_PM8058_CHARGER)	+= pmic8058-charger.o
 obj-$(CONFIG_ISL9519_CHARGER)	+= isl9519q.o
 obj-$(CONFIG_PM8058_FIX_USB)	+= pm8058_usb_fix.o
 obj-$(CONFIG_BATTERY_QCIBAT)	+= qci_battery.o
-
+obj-$(CONFIG_SMB137B_CHARGER)   += smb137b.o
