@@ -75,9 +75,8 @@ int kgsl_pwrctrl_axi(struct kgsl_device *device, unsigned int pwrflag)
 	switch (pwrflag) {
 	case KGSL_PWRFLAGS_AXI_OFF:
 		if (pwr->power_flags & KGSL_PWRFLAGS_AXI_ON) {
-			if (pwr->clk_freq[KGSL_AXI_HIGH])
-				pm_qos_update_request(
-					pwr->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+			if (pwr->clk_freq[KGSL_AXI_HIGH] && pwr->ebi1_clk)
+				clk_disable(pwr->ebi1_clk);
 			if (pwr->pcl)
 				msm_bus_scale_client_update_request(pwr->pcl,
 								BW_INIT);
@@ -88,10 +87,8 @@ int kgsl_pwrctrl_axi(struct kgsl_device *device, unsigned int pwrflag)
 		return KGSL_SUCCESS;
 	case KGSL_PWRFLAGS_AXI_ON:
 		if (pwr->power_flags & KGSL_PWRFLAGS_AXI_OFF) {
-			if (pwr->clk_freq[KGSL_AXI_HIGH])
-				pm_qos_update_request(
-					pwr->pm_qos_req,
-					pwr->clk_freq[KGSL_AXI_HIGH]);
+			if (pwr->clk_freq[KGSL_AXI_HIGH] && pwr->ebi1_clk)
+				clk_enable(pwr->ebi1_clk);
 			if (pwr->pcl)
 				msm_bus_scale_client_update_request(pwr->pcl,
 								BW_MAX);
@@ -184,7 +181,7 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 		pwr->interrupt_num = 0;
 	}
 
-	pm_qos_remove_request(pwr->pm_qos_req);
+	clk_put(pwr->ebi1_clk);
 
 	if (pwr->pcl)
 		msm_bus_scale_unregister_client(pwr->pcl);

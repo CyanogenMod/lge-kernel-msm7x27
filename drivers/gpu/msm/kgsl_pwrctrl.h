@@ -61,7 +61,7 @@ struct kgsl_pwrctrl {
 	int interrupt_num;
 	int have_irq;
 	unsigned int pwr_rail;
-	struct pm_qos_request_list *pm_qos_req;
+	struct clk *ebi1_clk;
 	struct clk *grp_clk;
 	struct clk *grp_pclk;
 	struct clk *grp_src_clk;
