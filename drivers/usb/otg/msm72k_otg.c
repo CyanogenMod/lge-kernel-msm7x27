@@ -353,11 +353,9 @@ static void msm_otg_vote_for_pclk_source(struct msm_otg *dev, int vote)
 	}
 
 	if (vote)
-		pm_qos_update_request(dev->pdata->pm_qos_req_bus,
-				MSM_AXI_MAX_FREQ);
+		clk_enable(dev->pdata->ebi1_clk);
 	else
-		pm_qos_update_request(dev->pdata->pm_qos_req_bus,
-				PM_QOS_DEFAULT_VALUE);
+		clk_disable(dev->pdata->ebi1_clk);
 }
 
 /* Controller gives interrupt for every 1 mesc if 1MSIE is set in OTGSC.
@@ -2362,9 +2360,16 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	 */
 	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
 					PM_QOS_DEFAULT_VALUE);
-	dev->pdata->pm_qos_req_bus = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					PM_QOS_DEFAULT_VALUE);
-	msm_otg_vote_for_pclk_source(dev, 1);
+
+	if (pclk_requires_voting(&dev->otg)) {
+		dev->pdata->ebi1_clk = clk_get(NULL, "ebi1_usb_clk");
+		if (IS_ERR(dev->pdata->ebi1_clk)) {
+			ret = PTR_ERR(dev->pdata->ebi1_clk);
+			goto put_dfab_clk;
+		}
+		clk_set_rate(dev->pdata->ebi1_clk, INT_MAX);
+		msm_otg_vote_for_pclk_source(dev, 1);
+	}
 
 
 	if (!dev->pdata->pclk_is_hw_gated) {
@@ -2372,7 +2377,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		if (IS_ERR(dev->hs_pclk)) {
 			pr_err("%s: failed to get usb_hs_pclk\n", __func__);
 			ret = PTR_ERR(dev->hs_pclk);
-			goto put_dfab_clk;
+			goto put_ebi_clk;
 		}
 		clk_enable(dev->hs_pclk);
 	}
@@ -2637,6 +2642,8 @@ put_hs_pclk:
 		clk_disable(dev->hs_pclk);
 		clk_put(dev->hs_pclk);
 	}
+put_ebi_clk:
+	clk_put(dev->pdata->ebi1_clk);
 put_dfab_clk:
 	if (dev->dfab_clk) {
 		clk_set_min_rate(dev->dfab_clk, 0);
@@ -2707,7 +2714,7 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	kfree(dev);
 	pm_qos_remove_request(dev->pdata->pm_qos_req_dma);
-	pm_qos_remove_request(dev->pdata->pm_qos_req_bus);
+	clk_put(dev->pdata->ebi1_clk);
 	return 0;
 }
 
