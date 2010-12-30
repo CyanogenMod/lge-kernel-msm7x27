@@ -52,6 +52,7 @@
 #define CHG_RPC_VER_1_3		0x00010003
 #define CHG_RPC_VER_2_2		0x00020002
 #define CHG_RPC_VER_3_1         0x00030001
+#define CHG_RPC_VER_4_1         0x00040001
 
 #define BATTERY_REGISTER_PROC				2
 #define BATTERY_MODIFY_CLIENT_PROC			4
@@ -1463,13 +1464,19 @@ static int __devinit msm_batt_init_rpc(void)
 #ifdef CONFIG_BATTERY_MSM_FAKE
 	pr_info("Faking MSM battery\n");
 #else
-	msm_batt_info.chg_ep =
-		msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_3_1, 0);
-	msm_batt_info.chg_api_version =  CHG_RPC_VER_3_1;
 
+	msm_batt_info.chg_ep =
+		msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_4_1, 0);
+	msm_batt_info.chg_api_version =  CHG_RPC_VER_4_1;
 	if (msm_batt_info.chg_ep == NULL) {
 		pr_err("%s: rpc connect CHG_RPC_PROG = NULL\n", __func__);
 		return -ENODEV;
+	}
+
+	if (IS_ERR(msm_batt_info.chg_ep)) {
+		msm_batt_info.chg_ep = msm_rpc_connect_compatible(
+				CHG_RPC_PROG, CHG_RPC_VER_3_1, 0);
+		msm_batt_info.chg_api_version =  CHG_RPC_VER_3_1;
 	}
 	if (IS_ERR(msm_batt_info.chg_ep)) {
 		msm_batt_info.chg_ep = msm_rpc_connect_compatible(
