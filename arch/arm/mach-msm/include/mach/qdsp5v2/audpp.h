@@ -1,7 +1,7 @@
 /*arch/arm/mach-msm/qdsp5iv2/audpp.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -48,7 +48,8 @@ typedef void (*audpp_event_func)(void *private, unsigned id, uint16_t *msg);
 			AUDPP_CMD_CFG_DEV_MIXER_DEV_1 | \
 			AUDPP_CMD_CFG_DEV_MIXER_DEV_2 | \
 			AUDPP_CMD_CFG_DEV_MIXER_DEV_3)
-#define AUDPP_MAX_COPP_DEVICES		5
+#define AUDPP_MIXER_UPLINK_RX		AUDPP_CMD_CFG_DEV_MIXER_DEV_5
+#define AUDPP_MAX_COPP_DEVICES		6
 
 enum obj_type {
 	COPP,
