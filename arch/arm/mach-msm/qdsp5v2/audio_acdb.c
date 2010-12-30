@@ -118,7 +118,7 @@ static struct acdb_data		acdb_data;
 
 struct acdb_cache_node {
 	u32 node_status;
-	u32 stream_id;
+	s32 stream_id;
 	u32 phys_addr_acdb_values;
 	u8 *virt_addr_acdb_values;
 	struct auddev_evt_audcal_info device_info;
@@ -1536,11 +1536,12 @@ static u32 free_acdb_cache_node(union auddev_evt_data *evt)
 		acdb_cache_tx[session_id].
 			node_status = ACDB_VALUES_NOT_FILLED;
 	} else {
-		if (--(acdb_cache_rx[evt->audcal_info.dev_id].stream_id) == 0) {
+		if (--(acdb_cache_rx[evt->audcal_info.dev_id].stream_id) <= 0) {
 			MM_DBG("freeing rx cache node %d\n",
 						evt->audcal_info.dev_id);
 			acdb_cache_rx[evt->audcal_info.dev_id].
 				node_status = ACDB_VALUES_NOT_FILLED;
+			acdb_cache_rx[evt->audcal_info.dev_id].stream_id = 0;
 		}
 	}
 	return 0;
@@ -1560,6 +1561,14 @@ static void device_cb(u32 evt_id, union auddev_evt_data *evt, void *private)
 		(evt->audcal_info.acdb_id == PSEUDO_ACDB_ID)) {
 		goto done;
 	}
+	/*if session value is zero it indicates that device call back is for
+	voice call we will drop the request as acdb values for voice call is
+	not applied from acdb driver*/
+	if (!evt->audcal_info.sessions) {
+		MM_DBG("no active sessions and call back is for"
+				" voice call\n");
+		goto done;
+	}
 	if (evt_id == AUDDEV_EVT_DEV_RLS) {
 		MM_DBG("got release command for dev %d\n",
 					evt->audcal_info.dev_id);
@@ -1573,14 +1582,6 @@ static void device_cb(u32 evt_id, union auddev_evt_data *evt, void *private)
 	MM_DBG("acdb_id = %d\n", audcal_info.acdb_id);
 	MM_DBG("sessions = %d\n", audcal_info.sessions);
 	MM_DBG("acdb_state = %d\n", acdb_data.acdb_state);
-	/*if session value is zero it indicates that device call back is for
-	voice call we will drop the request as acdb values for voice call is
-	not applied from acdb driver*/
-	if (!audcal_info.sessions) {
-		MM_DBG("no active sessions and call back is for"
-				" voice call\n");
-		goto done;
-	}
 	mutex_lock(&acdb_data.acdb_mutex);
 	if (acdb_data.acdb_state & CAL_DATA_READY) {
 		if ((audcal_info.dev_id ==
