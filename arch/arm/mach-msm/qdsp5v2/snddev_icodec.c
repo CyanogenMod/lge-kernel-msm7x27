@@ -235,7 +235,6 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	 * If OSR is to be changed, need clock API for setting the divider
 	 */
 	adie_codec_setpath(icodec->adie_path, icodec->sample_rate, 256);
-	lpa_cmd_enable_codec(drv->lpa, 1);
 	/* Start AFE */
 	afe_config.sample_rate = icodec->sample_rate / 1000;
 	afe_config.channel_mode = icodec->data->channel_mode;
@@ -243,6 +242,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	trc = afe_enable(AFE_HW_PATH_CODEC_RX, &afe_config);
 	if (IS_ERR_VALUE(trc))
 		goto error_afe;
+	lpa_cmd_enable_codec(drv->lpa, 1);
 	/* Enable ADIE */
 	adie_codec_proceed_stage(icodec->adie_path, ADIE_CODEC_DIGITAL_READY);
 	adie_codec_proceed_stage(icodec->adie_path,
