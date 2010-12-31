@@ -22,7 +22,7 @@
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/mfd/pmic8058.h>
-#include <linux/mfd/bahama.h>
+
 #include <linux/input/pmic8058-keypad.h>
 #include <linux/pmic8058-pwrkey.h>
 #include <linux/pmic8058-vibrator.h>
@@ -225,6 +225,12 @@ enum {
 #define UI_INT1_N 25
 #define UI_INT2_N 34
 #define UI_INT3_N 14
+/*
+FM GPIO is GPIO 18 on PMIC 8058.
+As the index starts from 0 in the PMIC driver, and hence 17
+corresponds to GPIO 18 on PMIC 8058.
+*/
+#define FM_GPIO 17
 
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
 static void (*sdc2_status_notify_cb)(int card_present, void *dev_id);
@@ -2772,7 +2778,7 @@ static struct platform_device *early_devices[] __initdata = {
 #endif
 };
 
-#if (defined(CONFIG_BAHAMA_CORE)) && \
+#if (defined(CONFIG_MARIMBA_CORE)) && \
 	(defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
 
 static int bluetooth_power(int);
@@ -3164,7 +3170,7 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_rpm_log_device,
 #endif
 	&msm_device_vidc,
-#if (defined(CONFIG_BAHAMA_CORE)) && \
+#if (defined(CONFIG_MARIMBA_CORE)) && \
 	(defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
 	&msm_bt_power_device,
 #endif
@@ -4837,27 +4843,28 @@ static struct i2c_board_info pm8901_boardinfo[] __initdata = {
 
 #endif /* CONFIG_PMIC8901 */
 
-#if defined(CONFIG_BAHAMA_CORE) && (defined(CONFIG_GPIO_SX150X) \
+#if defined(CONFIG_MARIMBA_CORE) && (defined(CONFIG_GPIO_SX150X) \
 	|| defined(CONFIG_GPIO_SX150X_MODULE))
 
 static struct regulator *vreg_bahama;
+static unsigned int msm_bahama_setup_power(void)
 
-static int msm_bahama_setup_power(struct device *dev)
+
 {
 	int rc = 0;
 	const char *msm_bahama_regulator = "8058_s3";
+	vreg_bahama = regulator_get(NULL, msm_bahama_regulator);
 
-	vreg_bahama = regulator_get(dev, msm_bahama_regulator);
 	if (IS_ERR(vreg_bahama)) {
 		rc = PTR_ERR(vreg_bahama);
-		dev_err(dev, "%s: regulator_get %s = %d\n", __func__,
+		pr_err("%s: regulator_get %s = %d\n", __func__,
 			msm_bahama_regulator, rc);
 	}
 
 	if (!rc)
 		rc = regulator_set_voltage(vreg_bahama, 1800000, 1800000);
 	else {
-		dev_err(dev, "%s: regulator_set_voltage %s = %d\n", __func__,
+		pr_err("%s: regulator_set_voltage %s = %d\n", __func__,
 			msm_bahama_regulator, rc);
 		goto unget;
 	}
@@ -4865,7 +4872,7 @@ static int msm_bahama_setup_power(struct device *dev)
 	if (!rc)
 		rc = regulator_enable(vreg_bahama);
 	else {
-		dev_err(dev, "%s: regulator_enable %s = %d\n", __func__,
+		pr_err("%s: regulator_enable %s = %d\n", __func__,
 			msm_bahama_regulator, rc);
 		goto unget;
 	}
@@ -4873,7 +4880,7 @@ static int msm_bahama_setup_power(struct device *dev)
 	if (!rc)
 		rc = gpio_request(GPIO_MS_SYS_RESET_N, "bahama sys_rst_n");
 	else {
-		dev_err(dev, "%s: gpio_request %d = %d\n", __func__,
+		pr_err("%s: gpio_request %d = %d\n", __func__,
 			GPIO_MS_SYS_RESET_N, rc);
 		goto unenable;
 	}
@@ -4881,7 +4888,7 @@ static int msm_bahama_setup_power(struct device *dev)
 	if (!rc)
 		rc = gpio_direction_output(GPIO_MS_SYS_RESET_N, 1);
 	else {
-		dev_err(dev, "%s: gpio_direction_output %d = %d\n", __func__,
+		pr_err("%s: gpio_direction_output %d = %d\n", __func__,
 			GPIO_MS_SYS_RESET_N, rc);
 		goto unrequest;
 	}
@@ -4896,8 +4903,9 @@ unget:
 	regulator_put(vreg_bahama);
 	return rc;
 };
+static unsigned int msm_bahama_shutdown_power(int value)
 
-static void msm_bahama_shutdown_power(struct device *dev)
+
 {
 	gpio_set_value(GPIO_MS_SYS_RESET_N, 0);
 
@@ -4906,20 +4914,143 @@ static void msm_bahama_shutdown_power(struct device *dev)
 	regulator_disable(vreg_bahama);
 
 	regulator_put(vreg_bahama);
+
+	return 0;
+};
+static struct regulator *fm_regulator_s3;
+static struct msm_xo_voter *fm_clock;
+
+static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
+{
+	int rc = 0;
+	struct pm8058_gpio cfg = {
+				.direction      = PM_GPIO_DIR_IN,
+				.pull           = PM_GPIO_PULL_NO,
+				.vin_sel        = PM_GPIO_VIN_S3,
+				.function       = PM_GPIO_FUNC_NORMAL,
+				.inv_int_pol    = 0,
+				};
+
+	if (!fm_regulator_s3) {
+		fm_regulator_s3 = regulator_get(NULL, "8058_s3");
+		if (IS_ERR(fm_regulator_s3)) {
+			rc = PTR_ERR(fm_regulator_s3);
+			printk(KERN_ERR "%s: regulator get s3 (%d)\n",
+				__func__, rc);
+			goto out;
+			}
+	}
+
+
+	rc = regulator_set_voltage(fm_regulator_s3, 1800000, 1800000);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: regulator set voltage failed (%d)\n",
+				__func__, rc);
+		goto fm_fail_put;
+	}
+
+	rc = regulator_enable(fm_regulator_s3);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: regulator s3 enable failed (%d)\n",
+					__func__, rc);
+		goto fm_fail_put;
+	}
+
+	/*Vote for XO clock*/
+	fm_clock = msm_xo_get(MSM_XO_TCXO_D0, "fm_power");
+
+	if (IS_ERR(fm_clock)) {
+		rc = PTR_ERR(fm_clock);
+		printk(KERN_ERR "%s: Couldn't get TCXO_D0 vote for FM (%d)\n",
+					__func__, rc);
+		goto fm_fail_switch;
+	}
+
+	rc = msm_xo_mode_vote(fm_clock, MSM_XO_MODE_ON);
+	if (rc < 0) {
+		printk(KERN_ERR "%s:  Failed to vote for TCX0_D0 ON (%d)\n",
+					__func__, rc);
+		goto fm_fail_vote;
+	}
+
+	/*GPIO 18 on PMIC is FM_IRQ*/
+	rc = pm8058_gpio_config(FM_GPIO, &cfg);
+	if (rc) {
+		printk(KERN_ERR "%s: return val of pm8058_gpio_config: %d\n",
+						__func__,  rc);
+		goto fm_fail_clock;
+	}
+	goto out;
+
+fm_fail_clock:
+		msm_xo_mode_vote(fm_clock, MSM_XO_MODE_OFF);
+fm_fail_vote:
+		msm_xo_put(fm_clock);
+fm_fail_switch:
+		regulator_disable(fm_regulator_s3);
+fm_fail_put:
+		regulator_put(fm_regulator_s3);
+out:
+	return rc;
 };
 
-static struct bahama_platform_data bahama_pdata = {
+static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
+{
+	int rc = 0;
+	if (fm_regulator_s3 != NULL) {
+		rc = regulator_disable(fm_regulator_s3);
+		if (rc < 0) {
+			printk(KERN_ERR "%s: regulator s3 disable (%d)\n",
+							__func__, rc);
+		}
+		regulator_put(fm_regulator_s3);
+		fm_regulator_s3 = NULL;
+	}
+	printk(KERN_ERR "%s: Voting off for XO", __func__);
+
+	if (fm_clock != NULL) {
+		rc = msm_xo_mode_vote(fm_clock, MSM_XO_MODE_OFF);
+		if (rc < 0) {
+			printk(KERN_ERR "%s: Voting off XO clock (%d)\n",
+					__func__, rc);
+		}
+		msm_xo_put(fm_clock);
+	}
+	printk(KERN_ERR "%s: coming out of fm_radio_shutdown", __func__);
+}
+
+/* Slave id address for FM/CDC/QMEMBIST
+ * Values can be programmed using Marimba slave id 0
+ * should there be a conflict with other I2C devices
+ * */
+#define BAHAMA_SLAVE_ID_FM_ADDR         0x2A
+#define BAHAMA_SLAVE_ID_QMEMBIST_ADDR   0x7B
+
+static struct marimba_fm_platform_data marimba_fm_pdata = {
+	.fm_setup =  fm_radio_setup,
+	.fm_shutdown = fm_radio_shutdown,
+	.irq = PM8058_GPIO_IRQ(PM8058_IRQ_BASE, FM_GPIO),
+};
+
+/*
+Just initializing the BAHAMA related slave
+*/
+static struct marimba_platform_data marimba_pdata = {
+	.slave_id[SLAVE_ID_BAHAMA_FM]        = BAHAMA_SLAVE_ID_FM_ADDR,
+	.slave_id[SLAVE_ID_BAHAMA_QMEMBIST]  = BAHAMA_SLAVE_ID_QMEMBIST_ADDR,
 	.bahama_setup = msm_bahama_setup_power,
 	.bahama_shutdown = msm_bahama_shutdown_power,
+	.fm = &marimba_fm_pdata,
 };
 
-static struct i2c_board_info msm_i2c_gsbi7_bahama_info[] = {
+
+static struct i2c_board_info msm_marimba_board_info[] = {
 	{
-		I2C_BOARD_INFO("bahama", 0xc),
-		.platform_data = &bahama_pdata,
+		I2C_BOARD_INFO("marimba", 0xc),
+		.platform_data = &marimba_pdata,
 	}
 };
-#endif /* CONFIG_BAHAMA_CORE */
+#endif /* CONFIG_MAIMBA_CORE */
 
 #ifdef CONFIG_I2C
 #define I2C_SURF 1
@@ -5028,14 +5159,14 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		msm_i2c_gsbi7_timpani_info,
 		ARRAY_SIZE(msm_i2c_gsbi7_timpani_info),
 	},
-#if defined(CONFIG_BAHAMA_CORE)
+#if defined(CONFIG_MARIMBA_CORE)
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_GSBI7_QUP_I2C_BUS_ID,
-		msm_i2c_gsbi7_bahama_info,
-		ARRAY_SIZE(msm_i2c_gsbi7_bahama_info),
+		msm_marimba_board_info,
+		ARRAY_SIZE(msm_marimba_board_info),
 	},
-#endif /* CONFIG_BAHAMA_CORE */
+#endif /* CONFIG_MARIMBA_CORE */
 #ifdef CONFIG_ISL9519_CHARGER
 	{
 		I2C_SURF | I2C_FFA,
@@ -6775,13 +6906,13 @@ static void __init msm_fb_add_devices(void)
 #endif
 }
 
-#if (defined(CONFIG_BAHAMA_CORE)) && \
+#if (defined(CONFIG_MARIMBA_CORE)) && \
 	(defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
 static int bahama_bt(int on)
 {
 	int rc;
 	int i;
-	struct bahama config = { .mod_id = BAHAMA_SLAVE_ID_BAHAMA };
+	struct marimba config = { .mod_id =  SLAVE_ID_BAHAMA};
 
 	struct bahama_config_register {
 		u8 reg;
@@ -6847,8 +6978,8 @@ static int bahama_bt(int on)
 	};
 
 	on = on ? 1 : 0;
+	rc = marimba_read_bit_mask(&config, 0x00,  &version, 1, 0x1F);
 
-	rc = bahama_read_bit_mask(&config, 0x00,  &version, 1, 0x1F);
 	if (rc < 0) {
 		dev_err(&msm_bt_power_device.dev,
 			"%s: version read failed: %d\n",
@@ -6886,7 +7017,7 @@ static int bahama_bt(int on)
 
 	for (i = 0; i < bt_bahama[on][version].size; i++) {
 		u8 value = (p+i)->value;
-		rc = bahama_write_bit_mask(&config,
+		rc = marimba_write_bit_mask(&config,
 			(p+i)->reg,
 			&value,
 			sizeof((p+i)->value),
@@ -7056,7 +7187,7 @@ out:
 	return rc;
 }
 
-#endif /* CONFIG_BAHAMA_CORE, CONFIG_MSM_BT_POWER, CONFIG_MSM_BT_POWER_MODULE */
+#endif /*CONFIG_MARIMBA_CORE, CONFIG_MSM_BT_POWER, CONFIG_MSM_BT_POWER_MODULE*/
 
 static void __init msm8x60_cfg_smsc911x(void)
 {
