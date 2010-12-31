@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,6 +44,17 @@ enum {
 	ACDB_MBADRC_BLOCK		= 343
 };
 
+/* Structure to query for acdb parameter */
+struct acdb_get_block {
+	u32	acdb_id;
+	u32	sample_rate_id;		/* Actual sample rate value */
+	u32	interface_id;		/* Interface id's */
+	u32	algorithm_block_id;	/* Algorithm block id */
+	u32	total_bytes;		/* Length in bytes used by buffer for
+						configuration */
+	u32	*buf_ptr;		/* Address for storing configuration
+						data */
+};
 
 struct acdb_agc_block {
 	u16	enable_status;
@@ -178,4 +189,5 @@ struct acdb_rmc_block  {
 	s16 reserved04;
 };
 
+s32 acdb_get_calibration_data(struct acdb_get_block *get_block);
 #endif

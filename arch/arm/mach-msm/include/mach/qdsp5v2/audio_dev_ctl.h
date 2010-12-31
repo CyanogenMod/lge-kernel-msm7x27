@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -115,6 +115,14 @@ struct auddev_evt_audcal_info {
 	u32 sessions;
 };
 
+struct auddev_evt_devinfo {
+	u32 dev_id;
+	u32 acdb_id;
+	u32 sample_rate;
+	u32 dev_type;
+	u32 sessions;
+};
+
 union msm_vol_mute {
 	int vol;
 	bool mute;
@@ -140,6 +148,7 @@ union auddev_evt_data {
 	s32 session_vol;
 	s32 voice_state;
 	struct auddev_evt_audcal_info audcal_info;
+	struct auddev_evt_devinfo devinfo;
 };
 
 struct message_header {
@@ -157,6 +166,8 @@ struct message_header {
 #define AUDDEV_EVT_STREAM_VOL_CHG	0x80 	/* device volume changed */
 #define AUDDEV_EVT_FREQ_CHG		0x100	/* Change in freq */
 #define AUDDEV_EVT_VOICE_STATE_CHG	0x200   /* Change in voice state */
+#define AUDDEV_EVT_DEVICE_INFO		0x400	/* routed device information
+							event */
 
 #define AUDDEV_CLNT_VOC 		0x1	/* Vocoder clients */
 #define AUDDEV_CLNT_DEC 		0x2	/* Decoder clients */

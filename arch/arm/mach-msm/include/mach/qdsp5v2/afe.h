@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -57,7 +57,8 @@ int afe_config_aux_codec(int pcm_ctl_value, int aux_codec_intf_value,
 int afe_config_fm_codec(int fm_enable, uint16_t source);
 
 int afe_config_fm_volume(uint16_t volume);
-
+int afe_config_fm_calibration_gain(uint16_t device_id,
+			uint16_t calibration_gain);
 void afe_loopback(int enable);
 
 void afe_device_volume_ctrl(u16 device_id, u16 device_volume);

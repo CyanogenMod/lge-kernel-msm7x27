@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,9 @@ struct acdb_data {
 	unsigned long kvaddr;
 	unsigned long pmem_len;
 	struct file *file;
+	/* pmem for get acdb blk */
+	unsigned long	get_blk_paddr;
+	u8		*get_blk_kvaddr;
 };
 
 static struct acdb_data		acdb_data;
@@ -294,6 +297,51 @@ struct miscdevice acdb_misc = {
 	.name	= "msm_acdb",
 	.fops	= &acdb_fops,
 };
+
+s32 acdb_get_calibration_data(struct acdb_get_block *get_block)
+{
+	s32 result = -EINVAL;
+	struct acdb_cmd_device acdb_cmd;
+	struct acdb_result acdb_result;
+
+	MM_DBG("acdb_get_calibration_data\n");
+
+	acdb_cmd.command_id = ACDB_GET_DEVICE;
+	acdb_cmd.network_id = 0x0108B153;
+	acdb_cmd.device_id = get_block->acdb_id;
+	acdb_cmd.sample_rate_id = get_block->sample_rate_id;
+	acdb_cmd.interface_id = get_block->interface_id;
+	acdb_cmd.algorithm_block_id = get_block->algorithm_block_id;
+	acdb_cmd.total_bytes = get_block->total_bytes;
+	acdb_cmd.phys_buf = (u32 *)acdb_data.get_blk_paddr;
+
+	result = dalrpc_fcn_8(ACDB_DalACDB_ioctl, acdb_data.handle,
+			(const void *)&acdb_cmd, sizeof(acdb_cmd),
+			&acdb_result,
+			sizeof(acdb_result));
+
+	if (result < 0) {
+		MM_ERR("ACDB=> Device Get RPC failure"
+			" result = %d\n", result);
+		goto err_state;
+	} else {
+		MM_DBG("ACDB=> Device Get RPC Success\n");
+		if (acdb_result.result == ACDB_RES_SUCCESS) {
+			MM_DBG("ACDB_GET_DEVICE Success\n");
+			result = 0;
+			memcpy(get_block->buf_ptr, acdb_data.get_blk_kvaddr,
+					get_block->total_bytes);
+		} else if (acdb_result.result == ACDB_RES_FAILURE)
+			MM_ERR("ACDB_GET_DEVICE Failure\n");
+		else if (acdb_result.result == ACDB_RES_BADPARM)
+			MM_ERR("ACDB_GET_DEVICE BadParams\n");
+		else
+			MM_ERR("Unknown error\n");
+	}
+err_state:
+	return result;
+}
+EXPORT_SYMBOL(acdb_get_calibration_data);
 
 static u8 check_device_info_already_present(
 		struct auddev_evt_audcal_info   audcal_info,
@@ -1380,6 +1428,30 @@ error:
 	return result;
 }
 
+static u32 allocate_memory_acdb_get_blk(void)
+{
+	u32 result = 0;
+	acdb_data.get_blk_paddr = pmem_kalloc(ACDB_BUF_SIZE,
+						(PMEM_MEMTYPE_EBI1
+						| PMEM_ALIGNMENT_4K));
+	if (IS_ERR((void *)acdb_data.get_blk_paddr)) {
+		MM_ERR("ACDB=> Cannot allocate physical memory\n");
+		result = -ENOMEM;
+		goto error;
+	}
+	acdb_data.get_blk_kvaddr = ioremap(acdb_data.get_blk_paddr,
+					ACDB_BUF_SIZE);
+	if (acdb_data.get_blk_kvaddr == NULL) {
+		MM_ERR("ACDB=> Could not map physical address\n");
+		result = -ENOMEM;
+		pmem_kfree(acdb_data.get_blk_paddr);
+		goto error;
+	}
+	memset(acdb_data.get_blk_kvaddr, 0, ACDB_BUF_SIZE);
+error:
+	return result;
+}
+
 static void free_memory_acdb_cache_rx(void)
 {
 	u32 i = 0;
@@ -1400,26 +1472,40 @@ static void free_memory_acdb_cache_tx(void)
 	}
 }
 
+static void free_memory_acdb_get_blk(void)
+{
+	iounmap(acdb_data.get_blk_kvaddr);
+	pmem_kfree(acdb_data.get_blk_paddr);
+}
+
 static s32 initialize_memory(void)
 {
 	s32 result = 0;
 
+	result = allocate_memory_acdb_get_blk();
+	if (result < 0) {
+		MM_ERR("memory allocation for get blk failed\n");
+		goto done;
+	}
+
 	result = allocate_memory_acdb_cache_rx();
 	if (result < 0) {
 		MM_ERR("memory allocation for rx cache is failed\n");
+		free_memory_acdb_get_blk();
 		goto done;
 	}
 	result = allocate_memory_acdb_cache_tx();
 	if (result < 0) {
 		MM_ERR("memory allocation for tx cache is failed\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		goto done;
 	}
-
 	acdb_data.pp_iir = kmalloc(sizeof(*acdb_data.pp_iir),
 		GFP_KERNEL);
 	if (acdb_data.pp_iir == NULL) {
 		MM_ERR("ACDB=> Could not allocate postproc iir memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		result = -ENOMEM;
@@ -1429,6 +1515,7 @@ static s32 initialize_memory(void)
 	acdb_data.pp_mbadrc = kmalloc(sizeof(*acdb_data.pp_mbadrc), GFP_KERNEL);
 	if (acdb_data.pp_mbadrc == NULL) {
 		MM_ERR("ACDB=> Could not allocate postproc mbadrc memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		kfree(acdb_data.pp_iir);
@@ -1440,6 +1527,7 @@ static s32 initialize_memory(void)
 	if (acdb_data.calib_gain_rx == NULL) {
 		MM_ERR("ACDB=> Could not allocate"
 			" postproc calib_gain_rx memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		kfree(acdb_data.pp_iir);
@@ -1452,6 +1540,7 @@ static s32 initialize_memory(void)
 							GFP_KERNEL);
 	if (acdb_data.preproc_agc == NULL) {
 		MM_ERR("ACDB=> Could not allocate preproc agc memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		kfree(acdb_data.pp_iir);
@@ -1465,6 +1554,7 @@ static s32 initialize_memory(void)
 							GFP_KERNEL);
 	if (acdb_data.preproc_iir == NULL) {
 		MM_ERR("ACDB=> Could not allocate preproc iir memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		kfree(acdb_data.pp_iir);
@@ -1479,6 +1569,7 @@ static s32 initialize_memory(void)
 	if (acdb_data.calib_gain_tx == NULL) {
 		MM_ERR("ACDB=> Could not allocate"
 			" preproc calib_gain_tx memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		kfree(acdb_data.pp_iir);
@@ -1493,6 +1584,7 @@ static s32 initialize_memory(void)
 						GFP_KERNEL);
 	if (acdb_data.pbe_block == NULL) {
 		MM_ERR("ACDB=> Could not allocate pbe_block memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		kfree(acdb_data.pp_iir);
@@ -1509,6 +1601,7 @@ static s32 initialize_memory(void)
 					PMEM_ALIGNMENT_4K)));
 	if (IS_ERR((void *)acdb_data.pbe_extbuff)) {
 		MM_ERR("ACDB=> Cannot allocate physical memory\n");
+		free_memory_acdb_get_blk();
 		free_memory_acdb_cache_rx();
 		free_memory_acdb_cache_tx();
 		kfree(acdb_data.pp_iir);
@@ -1923,6 +2016,8 @@ static void __exit acdb_exit(void)
 	result = kthread_stop(acdb_data.cb_thread_task);
 	if (result)
 		MM_ERR("ACDB=> Could not stop kthread\n");
+
+	free_memory_acdb_get_blk();
 
 	for (i = 0; i < MAX_COPP_NODE_SUPPORTED; i++) {
 		if (i < MAX_AUDREC_SESSIONS) {
