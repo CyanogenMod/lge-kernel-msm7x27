@@ -240,6 +240,14 @@ config LGE_DIAG_WMC
 	help
 	  LGE diag WMC enable
 
+config LGE_ATCMD_TTY
+	bool "Support LGE atcmd bypassing tty"
+	default n
+	help
+	  Support LGE atcmd bypassing tty. "/dev/atcmd-tty0" is back-end tty,
+	  and "dev/atcmd-tty1" is front-end tty. Back-end tty will be interfaced
+	  with portbridge and front-end tty will be interfaced with parser/filter.
+
 config LGE_GRAM_REFRESH_PATCH
 	bool "LGE gram refresh patch"
 	default n

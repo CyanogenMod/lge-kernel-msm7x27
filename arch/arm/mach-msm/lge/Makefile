@@ -58,4 +58,4 @@ obj-$(CONFIG_LGE_ATS_UEVENT_DEVICE) += lge_ats_uevent.o
 obj-$(CONFIG_LGE_ATS_INPUT_DEVICE) += lge_ats_input.o
 obj-$(CONFIG_LGE_DIAG_WMC) += lg_diag_wmc.o
 obj-$(CONFIG_LGE_PWRSINK) += lge_pwrsink.o
-
+obj-$(CONFIG_LGE_ATCMD_TTY) += lge_tty_atcmd.o
