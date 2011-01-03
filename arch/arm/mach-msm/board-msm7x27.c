@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1960,6 +1960,16 @@ static void __init msm7x2x_init(void)
 	kgsl_pdata.grp2d0_clk_name = NULL;
 	kgsl_pdata.idle_timeout_3d = HZ/5;
 	kgsl_pdata.idle_timeout_2d = 0;
+
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	kgsl_pdata.pt_va_size = SZ_32M;
+	/* Maximum of 32 concurrent processes */
+	kgsl_pdata.pt_max_count = 32;
+#else
+	kgsl_pdata.pt_va_size = SZ_128M;
+	/* We only ever have one pagetable for everybody */
+	kgsl_pdata.pt_max_count = 1;
+#endif
 #endif
 	usb_mpp_init();
 
