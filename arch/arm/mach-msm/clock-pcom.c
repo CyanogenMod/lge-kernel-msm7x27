@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,9 +25,13 @@
 
 struct clk_pcom {
 	unsigned count;
+	bool always_on;
 };
 
-static struct clk_pcom pcom_clocks[P_NR_CLKS];
+static struct clk_pcom pcom_clocks[P_NR_CLKS] = {
+	[P_EBI1_CLK] = { .always_on = true },
+	[P_PBUS_CLK] = { .always_on = true },
+};
 
 static DEFINE_SPINLOCK(pc_clk_lock);
 
@@ -39,6 +43,9 @@ int pc_clk_enable(unsigned id)
 	int rc;
 	unsigned long flags;
 	struct clk_pcom *clk = &pcom_clocks[id];
+
+	if (clk->always_on)
+		return 0;
 
 	spin_lock_irqsave(&pc_clk_lock, flags);
 	if (clk->count == 0) {
@@ -61,6 +68,9 @@ void pc_clk_disable(unsigned id)
 {
 	unsigned long flags;
 	struct clk_pcom *clk = &pcom_clocks[id];
+
+	if (clk->always_on)
+		return;
 
 	spin_lock_irqsave(&pc_clk_lock, flags);
 	if (WARN_ON(clk->count == 0))
