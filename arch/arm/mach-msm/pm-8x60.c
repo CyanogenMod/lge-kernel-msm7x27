@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -893,7 +893,6 @@ static int msm_pm_enter(suspend_state_t state)
 		goto enter_exit;
 	}
 
-	gic_suspend(0);
 
 	for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
 		struct msm_pm_platform_data *mode;
@@ -967,7 +966,6 @@ static int msm_pm_enter(suspend_state_t state)
 		msm_pm_swfi();
 	}
 
-	gic_resume(0);
 
 enter_exit:
 	if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)

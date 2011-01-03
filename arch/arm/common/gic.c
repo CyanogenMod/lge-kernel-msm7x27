@@ -28,6 +28,7 @@
 #include <linux/smp.h>
 #include <linux/cpumask.h>
 #include <linux/io.h>
+#include <linux/sysdev.h>
 
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
@@ -172,10 +173,12 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 }
 
 #ifdef CONFIG_PM
-void gic_suspend(unsigned int gic_nr)
+static int gic_suspend(struct sys_device *sysdev, pm_message_t state)
 {
 	unsigned int i;
+	unsigned int gic_nr = sysdev->id;
 	void __iomem *base = gic_data[gic_nr].dist_base;
+
 	/* Dont disable STI's and PPI's. Assume they are quiesced
 	 * by the suspend framework */
 	for (i = 1; i * 32 < gic_data[gic_nr].max_irq; i++) {
@@ -187,12 +190,15 @@ void gic_suspend(unsigned int gic_nr)
 		writel(gic_data[gic_nr].wakeup_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
+	return 0;
 }
 
-void gic_resume(unsigned int gic_nr)
+static int gic_resume(struct sys_device *sysdev)
 {
 	unsigned int i;
+	unsigned int gic_nr = sysdev->id;
 	void __iomem *base = gic_data[gic_nr].dist_base;
+
 	for (i = 1; i * 32 < gic_data[gic_nr].max_irq; i++) {
 		/* disable all of them */
 		writel(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4);
@@ -200,6 +206,7 @@ void gic_resume(unsigned int gic_nr)
 		writel(gic_data[gic_nr].enabled_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
+	return 0;
 }
 
 static int gic_set_wake(unsigned int irq, unsigned int on)
@@ -222,9 +229,38 @@ static int gic_set_wake(unsigned int irq, unsigned int on)
 	msm_mpm_set_irq_wake(irq, on);
 	return 0;
 }
+
+static struct sysdev_class gic_sysdev_class = {
+	.name = "gic_irq",
+	.suspend = gic_suspend,
+	.resume = gic_resume,
+};
+
+static struct sys_device gic_sys_device[MAX_GIC_NR] = {
+	[0 ... MAX_GIC_NR-1] = {
+		.cls = &gic_sysdev_class
+	},
+};
+
+static int __init gic_init_sysdev(void)
+{
+	int i;
+	int rc = sysdev_class_register(&gic_sysdev_class);
+
+	if (!rc)
+		for (i = 0; i < MAX_GIC_NR; i++) {
+			gic_sys_device[i].id = i;
+			rc = sysdev_register(&gic_sys_device[i]);
+			if (rc) {
+				printk(KERN_ERR "%s sysdev_register for"
+						" %d failed err = %d\n",
+						__func__, i, rc);
+			}
+		}
+	return 0;
+}
+arch_initcall(gic_init_sysdev);
 #else
-void gic_suspend(unsigned int gic_nr) {}
-void gic_resume(unsigned int gic_nr) {}
 static int gic_set_wake(unsigned int irq, unsigned int on)
 {
 	return 0;
