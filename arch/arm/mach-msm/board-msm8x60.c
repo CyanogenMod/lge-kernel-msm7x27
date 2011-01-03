@@ -866,6 +866,18 @@ notify_vbus_state notify_vbus_state_func_ptr;
 #ifdef CONFIG_USB_EHCI_MSM
 #define USB_PMIC_ID_DET_DELAY	msecs_to_jiffies(100)
 struct delayed_work pmic_id_det;
+static int pmic_id_notif_supported;
+static int usb_phy_susp_dig_vol = 750000;
+
+static int __init usb_id_pin_rework_setup(char *support)
+{
+	if (strncmp(support, "true", 4) == 0)
+		pmic_id_notif_supported = 1;
+
+	return 1;
+}
+__setup("usb_id_pin_rework=", usb_id_pin_rework_setup);
+
 static void pmic_id_detect(struct work_struct *w)
 {
 	int val = gpio_get_value_cansleep(PM8058_GPIO_PM_TO_SYS(36));
@@ -900,11 +912,13 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 		return -ENOTSUPP;
 	}
 
-	if (machine_is_msm8x60_ffa()) {
+	if (machine_is_msm8x60_ffa() && !pmic_id_notif_supported) {
 		pr_debug("%s: USB_ID is not routed to PMIC"
 			"on V2 ffa\n", __func__);
 		return -ENOTSUPP;
 	}
+
+	usb_phy_susp_dig_vol = 500000;
 
 	if (init) {
 		notify_vbus_state_func_ptr = callback;
@@ -940,7 +954,6 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 }
 #endif
 
-#define USB_PHY_SUSPEND_MIN_VDD_DIG_VOL		750000
 #define USB_PHY_OPERATIONAL_MIN_VDD_DIG_VOL	1000000
 #define USB_PHY_MAX_VDD_DIG_VOL			1320000
 static int msm_hsusb_init_vddcx(int init)
@@ -992,7 +1005,7 @@ static int msm_hsusb_config_vddcx(int high)
 	if (high)
 		min_vol = USB_PHY_OPERATIONAL_MIN_VDD_DIG_VOL;
 	else
-		min_vol = USB_PHY_SUSPEND_MIN_VDD_DIG_VOL;
+		min_vol = usb_phy_susp_dig_vol;
 
 	ret = regulator_set_voltage(vdd_cx, min_vol, max_vol);
 	if (ret) {
