@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Based on the mp3 native driver in arch/arm/mach-msm/qdsp5v2/audio_mp3.c
  *
@@ -37,11 +37,23 @@
 #include <mach/debug_mm.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/qdsp5v2/afe.h>
+#include <mach/qdsp5v2/acdb_commands.h>
+#include <mach/qdsp5v2/audio_acdbi.h>
+#include <mach/qdsp5v2/audio_acdb_def.h>
 
 #define SESSION_ID_FM 6
 #define FM_ENABLE	0xFFFF
 #define FM_DISABLE	0x0
 #define FM_COPP		0x2
+/* Macro specifies maximum FM routing
+	possible */
+#define FM_MAX_RX_ROUTE	0x2
+
+struct fm_rx_calib_gain {
+	uint16_t device_id;
+	struct auddev_evt_devinfo dev_details;
+	struct  acdb_calib_gain_rx  calib_rx;
+};
 
 struct audio {
 	struct mutex lock;
@@ -56,6 +68,7 @@ struct audio {
 	uint16_t fm_mask;
 	uint32_t device_events;
 	uint16_t volume;
+	struct fm_rx_calib_gain fm_calibration_rx[FM_MAX_RX_ROUTE];
 };
 
 static struct audio fm_audio;
@@ -73,6 +86,20 @@ static int audio_enable(struct audio *audio)
 		rc = afe_config_fm_codec(FM_ENABLE, audio->fm_mask);
 		if (!rc)
 			audio->running = 1;
+		/* Routed to icodec rx path */
+		if ((audio->fm_mask & AFE_HW_PATH_CODEC_RX) ==
+				AFE_HW_PATH_CODEC_RX) {
+			afe_config_fm_calibration_gain(
+			audio->fm_calibration_rx[0].device_id,
+			audio->fm_calibration_rx[0].calib_rx.audppcalgain);
+		}
+		/* Routed to aux codec rx path */
+		if ((audio->fm_mask & AFE_HW_PATH_AUXPCM_RX) ==
+				AFE_HW_PATH_AUXPCM_RX){
+			afe_config_fm_calibration_gain(
+			audio->fm_calibration_rx[1].device_id,
+			audio->fm_calibration_rx[1].calib_rx.audppcalgain);
+		}
 	}
 
 	audio->enabled = 1;
@@ -83,6 +110,8 @@ static void fm_listner(u32 evt_id, union auddev_evt_data *evt_payload,
 			void *private_data)
 {
 	struct audio *audio = (struct audio *) private_data;
+	struct auddev_evt_devinfo *devinfo =
+			(struct auddev_evt_devinfo *)evt_payload;
 	switch (evt_id) {
 	case AUDDEV_EVT_DEV_RDY:
 		MM_DBG(":AUDDEV_EVT_DEV_RDY\n");
@@ -132,6 +161,69 @@ static void fm_listner(u32 evt_id, union auddev_evt_data *evt_payload,
 		audio->volume = evt_payload->session_vol;
 		afe_config_fm_volume(audio->volume);
 		break;
+	case AUDDEV_EVT_DEVICE_INFO:{
+		struct acdb_get_block get_block;
+		int rc = 0;
+		MM_DBG(":AUDDEV_EVT_DEVICE_INFO\n");
+		MM_DBG("sample_rate = %d\n", devinfo->sample_rate);
+		MM_DBG("acdb_id = %d\n", devinfo->acdb_id);
+		/* Applucable only for icodec rx and aux codec rx path
+			and fm stream routed to it */
+		if (((devinfo->dev_id == 0x00) || (devinfo->dev_id == 0x01)) &&
+			(devinfo->sessions && (1 << audio->dec_id))) {
+			/* Query ACDB driver for calib gain, only if difference
+				in device */
+			if ((audio->fm_calibration_rx[devinfo->dev_id].
+				dev_details.acdb_id != devinfo->acdb_id) ||
+				(audio->fm_calibration_rx[devinfo->dev_id].
+				dev_details.sample_rate !=
+					devinfo->sample_rate)) {
+				audio->fm_calibration_rx[devinfo->dev_id].
+					dev_details.dev_id = devinfo->dev_id;
+				audio->fm_calibration_rx[devinfo->dev_id].
+					dev_details.sample_rate =
+						devinfo->sample_rate;
+				audio->fm_calibration_rx[devinfo->dev_id].
+					dev_details.dev_type =
+						devinfo->dev_type;
+				audio->fm_calibration_rx[devinfo->dev_id].
+					dev_details.sessions =
+						devinfo->sessions;
+				/* Query ACDB driver for calibration gain */
+				get_block.acdb_id = devinfo->acdb_id;
+				get_block.sample_rate_id = devinfo->sample_rate;
+				get_block.interface_id =
+					IID_AUDIO_CALIBRATION_GAIN_RX;
+				get_block.algorithm_block_id =
+					ABID_AUDIO_CALIBRATION_GAIN_RX;
+				get_block.total_bytes =
+					sizeof(struct  acdb_calib_gain_rx);
+				get_block.buf_ptr = (u32 *)
+				&audio->fm_calibration_rx[devinfo->dev_id].
+				calib_rx;
+
+				rc = acdb_get_calibration_data(&get_block);
+				if (rc < 0) {
+					MM_ERR("Unable to get calibration"\
+						"gain\n");
+					/* Set to unity incase of error */
+					audio->\
+					fm_calibration_rx[devinfo->dev_id].
+					calib_rx.audppcalgain = 0x2000;
+				} else
+					MM_DBG("calibration gain = 0x%8x\n",
+						*(get_block.buf_ptr));
+			}
+			if (audio->running) {
+				afe_config_fm_calibration_gain(
+				audio->fm_calibration_rx[devinfo->dev_id].
+					device_id,
+				audio->fm_calibration_rx[devinfo->dev_id].
+					calib_rx.audppcalgain);
+				}
+			}
+		break;
+	}
 	default:
 		MM_DBG(":ERROR:wrong event\n");
 		break;
@@ -208,9 +300,18 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->fm_source = 0;
 	audio->fm_mask = 0;
 
+	/* Initialize the calibration gain structure */
+	audio->fm_calibration_rx[0].device_id = AFE_HW_PATH_CODEC_RX;
+	audio->fm_calibration_rx[1].device_id = AFE_HW_PATH_AUXPCM_RX;
+	audio->fm_calibration_rx[0].calib_rx.audppcalgain = 0x2000;
+	audio->fm_calibration_rx[1].calib_rx.audppcalgain = 0x2000;
+	audio->fm_calibration_rx[0].dev_details.acdb_id = PSEUDO_ACDB_ID;
+	audio->fm_calibration_rx[1].dev_details.acdb_id = PSEUDO_ACDB_ID;
+
 	audio->device_events = AUDDEV_EVT_DEV_RDY
 				|AUDDEV_EVT_DEV_RLS|
-				AUDDEV_EVT_STREAM_VOL_CHG;
+				AUDDEV_EVT_STREAM_VOL_CHG|
+				AUDDEV_EVT_DEVICE_INFO;
 
 	rc = auddev_register_evt_listner(audio->device_events,
 					AUDDEV_CLNT_DEC,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -89,6 +89,16 @@ struct afe_cmd_fm_volume_config{
 	uint16_t cmd_id;
 	uint16_t volume;
 	uint16_t reserved;
+} __attribute__ ((packed));
+
+#define AFE_CMD_FM_CALIBRATION_GAIN_CMD	0x11
+#define AFE_CMD_FM_CALIBRATION_GAIN_LEN \
+	sizeof(struct afe_cmd_fm_calibgain_config)
+
+struct afe_cmd_fm_calibgain_config{
+	uint16_t cmd_id;
+	uint16_t device_id;
+	uint16_t calibration_gain;
 } __attribute__ ((packed));
 
 #define AFE_CMD_LOOPBACK	0xD
