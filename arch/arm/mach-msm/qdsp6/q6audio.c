@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google, Inc.
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1517,6 +1517,11 @@ static void do_rx_routing(uint32_t device_id, uint32_t acdb_id)
 		_audio_rx_clk_reinit(device_id, acdb_id);
 		_audio_rx_path_enable(1, acdb_id);
 	} else {
+		qdsp6_devchg_notify(ac_control, ADSP_AUDIO_RX_DEVICE,
+					 device_id);
+		audio_update_acdb(device_id, acdb_id);
+		qdsp6_standby(ac_control);
+		qdsp6_start(ac_control);
 		audio_rx_device_id = device_id;
 		audio_rx_path_id = q6_device_to_path(device_id, acdb_id);
 	}
@@ -1527,7 +1532,8 @@ static void do_tx_routing(uint32_t device_id, uint32_t acdb_id)
 	if (device_id == audio_tx_device_id &&
 		audio_tx_path_id == q6_device_to_path(device_id, acdb_id)) {
 		if (acdb_id != tx_acdb) {
-			qdsp6_devchg_notify(ac_control, ADSP_AUDIO_TX_DEVICE, device_id);
+			qdsp6_devchg_notify(ac_control, ADSP_AUDIO_TX_DEVICE,
+						 device_id);
 			audio_update_acdb(device_id, acdb_id);
 			qdsp6_standby(ac_control);
 			qdsp6_start(ac_control);
@@ -1541,6 +1547,11 @@ static void do_tx_routing(uint32_t device_id, uint32_t acdb_id)
 		_audio_tx_clk_reinit(device_id, acdb_id);
 		_audio_tx_path_enable(1, acdb_id);
 	} else {
+		qdsp6_devchg_notify(ac_control, ADSP_AUDIO_TX_DEVICE,
+					 device_id);
+		audio_update_acdb(device_id, acdb_id);
+		qdsp6_standby(ac_control);
+		qdsp6_start(ac_control);
 		audio_tx_device_id = device_id;
 		audio_tx_path_id = q6_device_to_path(device_id, acdb_id);
 		tx_acdb = acdb_id;
