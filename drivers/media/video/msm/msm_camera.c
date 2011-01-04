@@ -2982,9 +2982,10 @@ static int msm_open_control(struct inode *inode, struct file *filep)
 		return -ENOMEM;
 
 	rc = msm_open_common(inode, filep, 0);
-	if (rc < 0)
+	if (rc < 0) {
+		kfree(ctrl_pmsm);
 		return rc;
-
+	}
 	ctrl_pmsm->pmsm = filep->private_data;
 	filep->private_data = ctrl_pmsm;
 
