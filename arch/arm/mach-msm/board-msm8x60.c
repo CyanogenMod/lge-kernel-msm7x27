@@ -7359,7 +7359,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		msm8x60_cfg_isp1763();
 #endif
 #ifdef CONFIG_BATTERY_MSM8X60
-	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa())
+	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
+		machine_is_msm8x60_charm_surf() ||
+		machine_is_msm8x60_charm_ffa())
 		platform_device_register(&msm_charger_device);
 #endif
 
