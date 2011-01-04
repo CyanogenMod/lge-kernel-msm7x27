@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2361,7 +2361,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
 					PM_QOS_DEFAULT_VALUE);
 
-	if (pclk_requires_voting(&dev->otg)) {
+	if (pclk_requires_voting(&dev->otg) && !dev->pdata->usb_in_sps) {
 		dev->pdata->ebi1_clk = clk_get(NULL, "ebi1_usb_clk");
 		if (IS_ERR(dev->pdata->ebi1_clk)) {
 			ret = PTR_ERR(dev->pdata->ebi1_clk);
