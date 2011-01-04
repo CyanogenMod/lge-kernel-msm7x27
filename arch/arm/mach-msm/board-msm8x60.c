@@ -3262,6 +3262,10 @@ static struct platform_device *surf_devices[] __initdata = {
 #if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
 	&msm_device_tsif,
 #endif
+
+#ifdef CONFIG_HW_RANDOM_MSM
+	&msm_device_rng,
+#endif
 };
 
 #if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
