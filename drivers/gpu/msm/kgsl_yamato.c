@@ -1159,8 +1159,6 @@ static int kgsl_yamato_suspend(struct kgsl_device *device)
 	/* save ctxt ptr and switch to NULL ctxt */
 	device->pwrctrl.suspended_ctxt = yamato_device->drawctxt_active;
 	if (device->pwrctrl.suspended_ctxt != NULL) {
-		/* not sure need to save gem flags */
-		device->pwrctrl.suspended_ctxt->flags |= CTXT_FLAGS_GMEM_SAVE;
 		kgsl_drawctxt_switch(yamato_device, NULL, 0);
 		status = kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
 		if (status)
