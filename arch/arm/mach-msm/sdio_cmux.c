@@ -546,6 +546,7 @@ static int process_cmux_pkt(void *pkt, int size)
 		break;
 
 	case STATUS:
+		id = (uint32_t)(mux_hdr->lc_id);
 		D("%s: Received STATUS command for ch%d\n", __func__, id);
 		mutex_lock(&logical_ch[id].lc_lock);
 		logical_ch[id].remote_fDSR = mux_hdr->status & DSR_POS;
