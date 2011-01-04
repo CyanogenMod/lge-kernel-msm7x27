@@ -4246,12 +4246,6 @@ static int msm_fb_mddi_client_power(u32 client_id)
 			       __func__, rc);
 			return rc;
 		}
-		rc = vreg_enable(vreg_ldo20);
-		if (rc) {
-			pr_err("%s: LDO20 vreg enable failed (%d)\n",
-			       __func__, rc);
-			return rc;
-		}
 	}
 	return 0;
 }
