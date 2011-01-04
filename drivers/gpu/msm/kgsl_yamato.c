@@ -1092,8 +1092,7 @@ static int kgsl_yamato_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
 
-	if (device->state == KGSL_STATE_SUSPEND || device->requested_state ==
-						KGSL_STATE_SUSPEND)
+	if (device->state == KGSL_STATE_SUSPEND)
 		return status;
 
 	/* Turn on the core clocks */
