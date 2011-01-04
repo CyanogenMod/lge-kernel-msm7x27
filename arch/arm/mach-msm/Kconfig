@@ -685,13 +685,6 @@ config MSM_SDIO_AL
 	  Support MSM<->MDM Communication over SDIO bus.
 	  MDM SDIO-Client should have pipes support.
 
-config MSM_SDIO_AL_TEST
-	depends on MSM_SDIO_AL
-	default n
-	tristate "SDIO-Abstraction-Layer Test"
-	help
-	  SDIO-AL functionality and performance test.
-
 config MSM_SDIO_DMUX
 	bool "SDIO Data Mux Driver"
 	depends on MSM_SDIO_AL
