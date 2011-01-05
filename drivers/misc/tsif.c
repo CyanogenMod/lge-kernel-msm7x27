@@ -1,7 +1,7 @@
 /*
  * TSIF Driver
  *
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1252,7 +1252,7 @@ static struct msm_tsif_device *tsif_find_by_id(int id)
 	return NULL;
 }
 
-static int __init msm_tsif_probe(struct platform_device *pdev)
+static int __devinit msm_tsif_probe(struct platform_device *pdev)
 {
 	int rc = -ENODEV;
 	struct msm_tsif_platform_data *plat = pdev->dev.platform_data;
