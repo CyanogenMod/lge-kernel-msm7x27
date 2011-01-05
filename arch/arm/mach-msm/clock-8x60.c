@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +66,7 @@
 #define RINGOSC_NS_REG				REG(0x2DC0)
 #define RINGOSC_STATUS_REG			REG(0x2DCC)
 #define RINGOSC_TCXO_CTL_REG			REG(0x2DC4)
-#define SC0_U_CLK_BRANCH_ENA_VOTE_REG		REG(0x3084)
+#define SC0_U_CLK_BRANCH_ENA_VOTE_REG		REG(0x3080)
 #define SDCn_APPS_CLK_NS_REG(n)			REG(0x282C+(0x20*((n)-1)))
 #define SDCn_HCLK_CTL_REG(n)			REG(0x2820+(0x20*((n)-1)))
 #define TSIF_HCLK_CTL_REG			REG(0x2700)
