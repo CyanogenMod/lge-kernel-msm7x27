@@ -4312,6 +4312,14 @@ static struct resource resources_temp_alarm[] = {
        },
 };
 
+static struct resource resources_pm8058_misc[] = {
+       {
+		.start  = PM8058_OSCHALT_IRQ(PM8058_IRQ_BASE),
+		.end    = PM8058_OSCHALT_IRQ(PM8058_IRQ_BASE),
+		.flags  = IORESOURCE_IRQ,
+       },
+};
+
 #define PM8058_SUBDEV_KPD 0
 #define PM8058_SUBDEV_LED 1
 
@@ -4411,6 +4419,12 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.id = -1,
 		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
 		.resources = resources_pm8058_charger,
+	},
+	{
+		.name = "pm8058-misc",
+		.id = -1,
+		.num_resources  = ARRAY_SIZE(resources_pm8058_misc),
+		.resources      = resources_pm8058_misc,
 	},
 };
 
