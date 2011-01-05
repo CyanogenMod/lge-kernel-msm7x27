@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1487,7 +1487,7 @@ static void ddl_set_default_enc_rc_params(
 	encoder->rc_level.frame_level_rc = true;
 	encoder->qp_range.min_qp = 0x1;
 	if (codec == VCD_CODEC_H264) {
-		encoder->qp_range.min_qp = 0x0;
+		encoder->qp_range.min_qp = 0x1;
 		encoder->qp_range.max_qp = 0x33;
 		encoder->session_qp.i_frame_qp = 0x14;
 		encoder->session_qp.p_frame_qp = 0x14;
@@ -1518,7 +1518,7 @@ static void ddl_set_default_enc_rc_params(
 			encoder->session_qp.p_frame_qp = 0xf;
 			encoder->session_qp.b_frame_qp = 0xf;
 		}
-		encoder->frame_level_rc.reaction_coeff = 0x6;
+		encoder->frame_level_rc.reaction_coeff = 0x14;
 	break;
 	case VCD_RATE_CONTROL_CBR_CFR:
 		encoder->r_cframe_skip = 0;
