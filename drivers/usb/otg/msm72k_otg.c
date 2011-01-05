@@ -2653,7 +2653,8 @@ put_hs_clk:
 	if (dev->hs_clk)
 		clk_put(dev->hs_clk);
 rpc_fail:
-	dev->pdata->rpc_connect(0);
+	if (dev->pdata->rpc_connect)
+		dev->pdata->rpc_connect(0);
 free_dev:
 	kfree(dev);
 	return ret;
