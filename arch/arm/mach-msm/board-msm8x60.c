@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -7149,6 +7149,8 @@ static int bluetooth_power(int on)
 
 		if (rc < 0)
 			goto fail_clock;
+
+		msleep(10);
 
 		rc = msm_xo_mode_vote(bt_clock, MSM_XO_MODE_PIN_CTRL);
 
