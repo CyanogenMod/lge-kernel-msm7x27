@@ -502,6 +502,15 @@ config PMIC8058_XOADC
 	  PMIC8058. Driver interface to program registers of the ADC over
 	  AMUX channels, devices on programmable MPP's and xotherm.
 
+config PMIC8058_MISC
+	tristate "Qualcomm PM8058 Misc Device driver"
+	depends on PMIC8058
+	default n
+	help
+	  Provides functionality for various small drivers utilizing the
+	  Qualcomm PM8058 chip.  Examples include: signalling when the 32kHz
+	  oscillator malfunctions.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
