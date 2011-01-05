@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include <linux/delay.h>
 #include <linux/relay.h>
 #include <linux/debugfs.h>
-#include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include "kgsl.h"
 #include "kgsl_device.h"
 #include "kgsl_cmdstream.h"
@@ -563,7 +563,7 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 	if (num_item <= 0)
 		KGSL_LOG_POSTMORTEM_WRITE("Ringbuffer is Empty.\n");
 
-	rb_copy = kmalloc(rb_count<<2, GFP_KERNEL);
+	rb_copy = vmalloc(rb_count<<2);
 	if (!rb_copy) {
 		KGSL_LOG_POSTMORTEM_WRITE("Failed to allocate buffer.\n");
 		result = -ENOMEM;
@@ -576,7 +576,7 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 					cp_rb_base, &rb_memsize);
 	if (!rb_vaddr) {
 		KGSL_LOG_POSTMORTEM_WRITE("Can't fetch vaddr for CP_RB_BASE\n");
-		goto error_kfree;
+		goto error_vfree;
 	}
 
 	read_idx = (int)cp_rb_rptr - 64;
@@ -650,8 +650,8 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 	}
 
 	kgsl_yamato_dump_regs(device);
-error_kfree:
-	kfree(rb_copy);
+error_vfree:
+	vfree(rb_copy);
 end:
 	return result;
 }
