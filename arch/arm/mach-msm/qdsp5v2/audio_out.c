@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -85,6 +85,7 @@ struct audio {
 	int running;
 	int stopped; /* set when stopped, cleared on flush */
 	uint16_t dec_id;
+	int voice_state;
 
 	struct wake_lock wakelock;
 	struct wake_lock idlelock;
@@ -116,6 +117,19 @@ static void audio_out_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 		if (audio->running)
 			audpp_dsp_set_vol_pan(audio->dec_id, &audio->vol_pan,
 					POPP);
+		break;
+	case AUDDEV_EVT_VOICE_STATE_CHG:
+		MM_DBG("AUDDEV_EVT_VOICE_STATE_CHG, state = %d\n",
+						evt_payload->voice_state);
+		audio->voice_state = evt_payload->voice_state;
+		/* Voice uplink Rx case */
+		if (audio->running &&
+			(audio->source & AUDPP_MIXER_UPLINK_RX) &&
+			(audio->voice_state == VOICE_STATE_OFFCALL)) {
+			MM_DBG("Voice is terminated, Wake up write: %x %x\n",
+					audio->voice_state, audio->source);
+			wake_up(&audio->wait);
+		}
 		break;
 	default:
 		MM_ERR("ERROR:wrong event\n");
@@ -364,6 +378,13 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	mutex_lock(&audio->lock);
 	switch (cmd) {
 	case AUDIO_START:
+		if ((audio->voice_state != VOICE_STATE_INCALL)
+			&& (audio->source & AUDPP_MIXER_UPLINK_RX)) {
+			MM_ERR("Unable to Start : state %d source %d\n",
+					audio->voice_state, audio->source);
+			rc = -EPERM;
+			break;
+		}
 		rc = audio_enable(audio);
 		break;
 	case AUDIO_STOP:
@@ -496,6 +517,14 @@ static ssize_t audio_write(struct file *file, const char __user *buf,
 	int rc = 0;
 
 
+	if ((audio->voice_state == VOICE_STATE_OFFCALL)
+		&& (audio->source & AUDPP_MIXER_UPLINK_RX) &&
+							audio->running) {
+		MM_ERR("Not Permitted Voice Terminated: state %d source %x \
+			running %d\n",
+			audio->voice_state, audio->source, audio->running);
+		return -EPERM;
+	}
 	/* just for this write, set us real-time */
 	if (!task_has_rt_policy(current)) {
 		struct cred *new = prepare_creds();
@@ -510,15 +539,23 @@ static ssize_t audio_write(struct file *file, const char __user *buf,
 		frame = audio->out + audio->out_head;
 
 		rc = wait_event_interruptible(audio->wait,
-					      (frame->used == 0) ||
-						(audio->stopped));
+		      (frame->used == 0) || (audio->stopped) ||
+			((audio->voice_state == VOICE_STATE_OFFCALL) &&
+			(audio->source & AUDPP_MIXER_UPLINK_RX)));
 
 		if (rc < 0)
 			break;
 		if (audio->stopped) {
 			rc = -EBUSY;
 			break;
+		} else if ((audio->voice_state == VOICE_STATE_OFFCALL) &&
+			(audio->source & AUDPP_MIXER_UPLINK_RX)) {
+			MM_ERR("Not Permitted Voice Terminated: %d\n",
+							audio->voice_state);
+			rc = -EPERM;
+			break;
 		}
+
 		xfer = count > frame->size ? frame->size : count;
 		if (copy_from_user(frame->data, buf, xfer)) {
 			rc = -EFAULT;
@@ -622,9 +659,12 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->source = 0x0;
 
 	audio_flush(audio);
+	audio->voice_state = msm_get_voice_state();
+	MM_DBG("voice_state = %x\n", audio->voice_state);
 	audio->device_events = AUDDEV_EVT_DEV_RDY
 				|AUDDEV_EVT_DEV_RLS|
-				AUDDEV_EVT_STREAM_VOL_CHG;
+				AUDDEV_EVT_STREAM_VOL_CHG|
+				AUDDEV_EVT_VOICE_STATE_CHG;
 
 	MM_DBG("register for event callback pdata %p\n", audio);
 	rc = auddev_register_evt_listner(audio->device_events,

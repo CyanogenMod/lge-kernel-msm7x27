@@ -15,7 +15,7 @@ REFERENCES
 EXTERNALIZED FUNCTIONS
   None
 
-Copyright(c) 1992-2010, Code Aurora Forum. All rights reserved.
+Copyright(c) 1992-2011, Code Aurora Forum. All rights reserved.
 
 This software is licensed under the terms of the GNU General Public
 License version 2, as published by the Free Software Foundation, and
@@ -270,6 +270,7 @@ struct audpp_cmd_cfg_adec_params_wav {
 #define AUDPP_CMD_CFG_DEV_MIXER_ID_2       2
 #define AUDPP_CMD_CFG_DEV_MIXER_ID_3       3
 #define AUDPP_CMD_CFG_DEV_MIXER_ID_4       4
+#define AUDPP_CMD_CFG_DEV_MIXER_ID_5       5
 
 #define AUDPP_CMD_CFG_DEV_MIXER_DEV_NONE   0x0000
 #define AUDPP_CMD_CFG_DEV_MIXER_DEV_0      \
@@ -282,6 +283,8 @@ struct audpp_cmd_cfg_adec_params_wav {
 				(0x1 << AUDPP_CMD_CFG_DEV_MIXER_ID_3)
 #define AUDPP_CMD_CFG_DEV_MIXER_DEV_4      \
 				(0x1 << AUDPP_CMD_CFG_DEV_MIXER_ID_4)
+#define AUDPP_CMD_CFG_DEV_MIXER_DEV_5      \
+				(0x1 << AUDPP_CMD_CFG_DEV_MIXER_ID_5)
 
 struct audpp_cmd_cfg_dev_mixer_params {
 	unsigned short cmd_id;
