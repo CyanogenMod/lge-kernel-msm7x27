@@ -53,6 +53,8 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv);
 static int32_t q6asm_callback(struct apr_client_data *data, void *priv);
 static void q6asm_add_hdr(struct audio_client *ac, struct apr_hdr *hdr,
 			uint32_t pkt_size, uint32_t cmd_flg);
+static void q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
+			uint32_t pkt_size, uint32_t cmd_flg);
 static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 				uint32_t bufsz, uint32_t bufcnt);
 static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
@@ -1296,7 +1298,7 @@ int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain)
 		return rc;
 	}
 	cmd = (struct asm_pp_params_command *)vol_cmd;
-	q6asm_add_hdr(ac, &cmd->hdr, sz, TRUE);
+	q6asm_add_hdr_async(ac, &cmd->hdr, sz, TRUE);
 	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
 	cmd->payload = NULL;
 	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
@@ -1473,7 +1475,7 @@ int q6asm_set_mute(struct audio_client *ac, int muteflag)
 		return rc;
 	}
 	cmd = (struct asm_pp_params_command *)vol_cmd;
-	q6asm_add_hdr(ac, &cmd->hdr, sz, TRUE);
+	q6asm_add_hdr_async(ac, &cmd->hdr, sz, TRUE);
 	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
 	cmd->payload = NULL;
 	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
@@ -1526,7 +1528,7 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 		return rc;
 	}
 	cmd = (struct asm_pp_params_command *)vol_cmd;
-	q6asm_add_hdr(ac, &cmd->hdr, sz, TRUE);
+	q6asm_add_hdr_async(ac, &cmd->hdr, sz, TRUE);
 	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
 	cmd->payload = NULL;
 	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
