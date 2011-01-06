@@ -267,6 +267,8 @@ struct msm_panel_lgit_pdata {
 };
 
 /* Define new structure named 'msm_panel_hitachi_pdata' */
+#define PANEL_ID_AUO          0
+#define PANEL_ID_HITACHI      1
 struct msm_panel_hitachi_pdata {
 	int gpio;
 	int (*backlight_level)(int level, int max, int min);
@@ -275,6 +277,7 @@ struct msm_panel_hitachi_pdata {
 	void (*panel_config_gpio)(int);
 	int *gpio_num;
 	int initialized;
+	int maker_id;
 };
 
 struct msm_panel_novatek_pdata {

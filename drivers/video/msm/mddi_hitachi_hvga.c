@@ -37,14 +37,8 @@
 static uint32 mddi_hitachi_curr_vpos;
 static boolean mddi_hitachi_monitor_refresh_value = FALSE;
 static boolean mddi_hitachi_report_refresh_measurements = FALSE;
+static uint32 mddi_hitachi_usecs_per_refresh = 15360; /* rows_per_refresh / rows_per_second */
 #endif
-static boolean is_lcd_on = -1;
-
-/* The comment from AMSS codes:
- * Dot clock (10MHz) / pixels per row (320) = rows_per_second
- * Rows Per second, this number arrived upon empirically 
- * after observing the timing of Vsync pulses
- * XXX: TODO: change this values for INNOTEK PANEL */
 static uint32 mddi_hitachi_rows_per_second = 31250;
 static uint32 mddi_hitachi_rows_per_refresh = 480;
 extern boolean mddi_vsync_detect_enabled;
@@ -53,11 +47,7 @@ static msm_fb_vsync_handler_type mddi_hitachi_vsync_handler = NULL;
 static void *mddi_hitachi_vsync_handler_arg;
 static uint16 mddi_hitachi_vsync_attempts;
 
-#ifdef CONFIG_MACH_LGE
 static struct msm_panel_hitachi_pdata *mddi_hitachi_pdata;
-#else
-static struct msm_panel_common_pdata *mddi_hitachi_pdata;
-#endif
 
 static int mddi_hitachi_lcd_on(struct platform_device *pdev);
 static int mddi_hitachi_lcd_off(struct platform_device *pdev);
@@ -65,7 +55,6 @@ static int mddi_hitachi_lcd_off(struct platform_device *pdev);
 static int mddi_hitachi_lcd_init(void);
 static void mddi_hitachi_lcd_panel_poweron(void);
 static void mddi_hitachi_lcd_panel_poweroff(void);
-static void mddi_hitachi_lcd_panel_store_poweron(void);
 
 #define DEBUG 1
 #if DEBUG
@@ -97,23 +86,13 @@ static struct display_table mddi_hitachi_position_table[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
-static struct display_table mddi_hitachi_display_on_3rd[] = {
+static struct display_table mddi_hitachi_display_on[] = {
 	// Display on sequence
 	{0x11, 4, {0x00, 0x00, 0x00, 0x00}},
 	{REGFLAG_DELAY, 80, {}},
 	{0x29, 4, {0x00, 0x00, 0x00, 0x00}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
-
-#if 0
-static struct display_table2 mddi_hitachi_img[] = {
-	{0x2c, 16384, {}},
-};
-static struct display_table mddi_hitachi_img_end[] = {
-	{0x00, 0, {}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-#endif
 
 #if 0
 static struct display_table mddi_hitachi_display_off[] = {
@@ -137,7 +116,7 @@ static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
-static struct display_table mddi_hitachi_initialize_3rd_p500[] = {
+static struct display_table mddi_hitachi_initialize[] = {
 
 	// Power ON Sequence 
 	{0xf0, 4, {0x5a, 0x5a, 0x00, 0x00}},
@@ -192,6 +171,54 @@ static struct display_table mddi_hitachi_initialize_3rd_p500[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
+static struct display_table mddi_auo_initialize[] = {
+	// Power ON Sequence 
+	{0xf0, 4, {0x5a, 0x5a, 0x00, 0x00}},
+	{0xf1, 4, {0x5a, 0x5a, 0x00, 0x00}},
+	{0xf2, 20, {0x3b, 0x48, 0x03, 0x08, 0x08, 0x08, 0x08, 0x00,
+			    0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x54, 0x08,
+			    0x08, 0x08, 0x08, 0x00}},
+	// PWRCTL 
+	{0xf4, 12, {0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			    0x3f, 0x79, 0x03, 0x00 }},
+	// VCMCTL 
+	// Revert 6th parameter. From 0x04 to 0x00. 2010-09-02. minjong.gong@lge.com
+	{0xf5, 12, {0x00, 0x5d, 0x75, 0x00, 0x00, 0x00, 0x00, 0x00,
+			    0x04, 0x00, 0x5d, 0x75}},
+        // SRCCTL
+	{0xf6, 8, {0x04, 0x00, 0x08, 0x03, 0x01, 0x00, 0x01, 0x00}},
+        // IFCTL
+	{0xf7, 8, {0x48, 0x80, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00}},
+        // PANELCTL
+	{0xf8, 4, {0x11, 0x00, 0x00, 0x00}},
+        // GAMMASEL
+	{0xf9, 4,  {0x24, 0x00, 0x00, 0x00}},
+	// PGAMMACTL 
+	{0xfa, 16, {0x0b, 0x0b, 0x0c, 0x1f, 0x27, 0x2f, 0x14, 0x21,
+			    0x26, 0x32, 0x31, 0x24, 0x00, 0x00, 0x01, 0x00}},
+        // GAMMASEL
+	{0xf9, 4,  {0x22, 0x00, 0x00, 0x00}},
+	// PGAMMACTL 
+	{0xfa, 16, {0x0b, 0x0b, 0x0e, 0x27, 0x29, 0x30, 0x33, 0x12,
+			    0x1f, 0x25, 0x31, 0x30, 0x24, 0x00, 0x00, 0x01}},
+        // GAMMASEL
+	{0xf9, 4,  {0x21, 0x00, 0x00, 0x00}},
+	// PGAMMACTL 
+	{0xfa, 16, {0x0b, 0x0b, 0x1a, 0x3a, 0x3f, 0x3f, 0x3f, 0x08,
+			    0x19, 0x21, 0x2c, 0x2a, 0x1a, 0x00, 0x00, 0x01}},
+	// COLMOD 
+	{0x3a,  4, {0x55, 0x00, 0x00, 0x00}},
+	// MADCTL 
+	{0x36,  4, {0x00, 0x00, 0x00, 0x00}},
+	// TEON 
+	{0x35,  4, {0x00, 0x00, 0x00, 0x00}},
+	// set page address 
+	{0x2b,  4, {0x00, 0x00, 0x01, 0xdf}},
+	// set column address 
+	{0x2a,  4, {0x00, 0x00, 0x01, 0x3f}},
+	{REGFLAG_END_OF_TABLE, 0x00, {}}
+};
+
 void display_table(struct display_table *table, unsigned int count)
 {
 	unsigned int i;
@@ -219,8 +246,7 @@ void display_table(struct display_table *table, unsigned int count)
 	
 }
 
-#if 0
-static void compare_table(struct display_table *table, unsigned int count)
+static void __attribute__ ((unused)) compare_table(struct display_table *table, unsigned int count)
 {
 	unsigned int i;
 
@@ -245,7 +271,6 @@ static void compare_table(struct display_table *table, unsigned int count)
        	}
     }	
 }
-#endif
 
 static void mddi_hitachi_vsync_set_handler(msm_fb_vsync_handler_type handler,	/* ISR to be executed */
 					 void *arg)
@@ -282,13 +307,9 @@ static void mddi_hitachi_vsync_set_handler(msm_fb_vsync_handler_type handler,	/*
 	}
 }
 
-/* FIXME: following function has no meaning any more
- * should be eliminated
- * 2010-11-16, cleaneye.kim@lge.com
- */
 static void mddi_hitachi_lcd_vsync_detected(boolean detected)
 {
-#if 0
+#if 0 /* Block temporaly till vsync implement */
 	/* static timetick_type start_time = 0; */
 	static struct timeval start_time;
 	static boolean first_time = TRUE;
@@ -297,7 +318,6 @@ static void mddi_hitachi_lcd_vsync_detected(boolean detected)
 	struct timeval now;
 	uint32 elapsed_us;
 	uint32 num_vsyncs;
-#endif
 
 /* LGE_CHANGE
   * Close below code to fix screen shaking problem
@@ -305,7 +325,6 @@ static void mddi_hitachi_lcd_vsync_detected(boolean detected)
   */
 //	mddi_queue_register_write_int(0x2C, 0);
 
-#if 0 /* Block temporaly till vsync implement */
 	if ((detected) || (mddi_hitachi_vsync_attempts > 5)) {
 		if ((detected) || (mddi_hitachi_monitor_refresh_value)) {
 			/* if (start_time != 0) */
@@ -380,43 +399,27 @@ static void mddi_hitachi_lcd_vsync_detected(boolean detected)
 
 static int mddi_hitachi_lcd_on(struct platform_device *pdev)
 {
+	struct display_table *init_table;
+	int size;
+
 	EPRINTK("%s: started.\n", __func__);
 
-#ifdef CONFIG_MACH_LGE
 	if (system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized) {
-		is_lcd_on = TRUE;
 		return 0;
 	}
-#endif
 
+	if(mddi_hitachi_pdata->maker_id == PANEL_ID_HITACHI) {
+		init_table = mddi_hitachi_initialize;
+		size = sizeof(mddi_hitachi_initialize)/sizeof(struct display_table);
+	} else {
+		init_table = mddi_auo_initialize;
+		size = sizeof(mddi_auo_initialize)/sizeof(struct display_table);
+	}
 	// LCD HW Reset
 	mddi_hitachi_lcd_panel_poweron();
+	display_table(init_table, size);
+	display_table(mddi_hitachi_display_on, sizeof(mddi_hitachi_display_on) / sizeof(struct display_table));
 
-	display_table(mddi_hitachi_initialize_3rd_p500, sizeof(mddi_hitachi_initialize_3rd_p500)/sizeof(struct display_table));
-	display_table(mddi_hitachi_display_on_3rd, sizeof(mddi_hitachi_display_on_3rd) / sizeof(struct display_table));
-
-	is_lcd_on = TRUE;
-	return 0;
-}
-
-static int mddi_hitachi_lcd_store_on(void)
-{
-	EPRINTK("%s: started.\n", __func__);
-
-#ifdef CONFIG_MACH_LGE
-	if (system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized) {
-		is_lcd_on = TRUE;
-		return 0;
-	}
-#endif
-	// LCD HW Reset
-	mddi_hitachi_lcd_panel_store_poweron();
-
-	display_table(mddi_hitachi_initialize_3rd_p500, sizeof(mddi_hitachi_initialize_3rd_p500)/sizeof(struct display_table));
-	mdelay(200);
-	display_table(mddi_hitachi_display_on_3rd, sizeof(mddi_hitachi_display_on_3rd) / sizeof(struct display_table));
-
-	is_lcd_on = TRUE;
 	return 0;
 }
 
@@ -424,7 +427,6 @@ static int mddi_hitachi_lcd_off(struct platform_device *pdev)
 {
 	display_table(mddi_hitachi_sleep_mode_on_data, sizeof(mddi_hitachi_sleep_mode_on_data)/sizeof(struct display_table));
 	mddi_hitachi_lcd_panel_poweroff();
-	is_lcd_on = FALSE;
 	return 0;
 }
 
@@ -436,24 +438,20 @@ ssize_t mddi_hitachi_lcd_show_onoff(struct device *dev, struct device_attribute 
 
 ssize_t mddi_hitachi_lcd_store_onoff(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct platform_device dummy_pdev;
-	int onoff; // = simple_strtol(buf, NULL, count);
+	int onoff;
+
 	sscanf(buf, "%d", &onoff);
 
 	EPRINTK("%s: onoff : %d\n", __func__, onoff);
 	
 	if(onoff) {
-//		display_table(mddi_hitachi_display_on, sizeof(mddi_hitachi_display_on) / sizeof(struct display_table));
-		mddi_hitachi_lcd_store_on();
-		is_lcd_on = TRUE;
+		mddi_hitachi_lcd_on(NULL);
 	}
 	else {
-//		display_table(mddi_hitachi_display_off, sizeof(mddi_hitachi_display_off) / sizeof(struct display_table));
-		mddi_hitachi_lcd_off(&dummy_pdev);
-		is_lcd_on = FALSE;
+		mddi_hitachi_lcd_off(NULL);
 	}
 
-	return 0;
+	return count;
 }
 
 int mddi_hitachi_position(void)
@@ -572,11 +570,7 @@ extern unsigned fb_height;
 
 static void mddi_hitachi_lcd_panel_poweron(void)
 {
-#ifdef CONFIG_MACH_LGE
 	struct msm_panel_hitachi_pdata *pdata = mddi_hitachi_pdata;
-#else
-	struct msm_panel_common_pdata *pdata = mddi_hitachi_pdata;
-#endif
 
 	EPRINTK("%s: started.\n", __func__);
 
@@ -584,8 +578,6 @@ static void mddi_hitachi_lcd_panel_poweron(void)
 	fb_height = 480;
 
 	if(pdata && pdata->gpio) {
-	//	gpio_set_value(pdata->gpio, 1);
-	//	mdelay(10);
 		gpio_set_value(pdata->gpio, 0);
 		mdelay(10);
 		gpio_set_value(pdata->gpio, 1);
@@ -593,13 +585,10 @@ static void mddi_hitachi_lcd_panel_poweron(void)
 	}
 }
 
+#if 0
 static void mddi_hitachi_lcd_panel_store_poweron(void)
 {
-#ifdef CONFIG_MACH_LGE
 	struct msm_panel_hitachi_pdata *pdata = mddi_hitachi_pdata;
-#else
-	struct msm_panel_common_pdata *pdata = mddi_hitachi_pdata;
-#endif
 
 	EPRINTK("%s: started.\n", __func__);
 
@@ -607,15 +596,13 @@ static void mddi_hitachi_lcd_panel_store_poweron(void)
 	fb_height = 480;
 
 	if(pdata && pdata->gpio) {
-	//	gpio_set_value(pdata->gpio, 1);
-	//	mdelay(10);
 		gpio_set_value(pdata->gpio, 0);
 		mdelay(50);
 		gpio_set_value(pdata->gpio, 1);
 		mdelay(50);
 	}
 }
-
+#endif
 /* LGE_CHANGE
   * Add new function to reduce current comsumption in sleep mode.
   * In sleep mode disable LCD by assertion low on reset pin.

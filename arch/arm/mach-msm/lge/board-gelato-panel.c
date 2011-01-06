@@ -80,20 +80,10 @@ static int mddi_hitachi_pmic_backlight(int level)
 	return 0;
 }
 
-#if 1//def CONFIG_MACH_MSM7X27_ALOHAG
-		/* LGE_CHANGE
-		  * Define new structure named 'msm_panel_hitachi_pdata' to use LCD initialization Flag (.initialized).
-		  * 2010-04-21, minjong.gong@lge.com
-		  */
-	static struct msm_panel_hitachi_pdata mddi_hitachi_panel_data = {
+static struct msm_panel_hitachi_pdata mddi_hitachi_panel_data = {
 		.gpio = 102,				/* lcd reset_n */
 		.pmic_backlight = mddi_hitachi_pmic_backlight,
 		.initialized = 1,
-#else
-	static struct msm_panel_common_pdata mddi_hitachi_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = mddi_hitachi_pmic_backlight,
-#endif
 };
 
 static struct platform_device mddi_hitachi_panel_device = {
@@ -154,9 +144,27 @@ void __init gelato_init_i2c_backlight(int bus_num)
 	platform_device_register(&bl_i2c_device);
 }
 
+static void gelato_panel_set_maker_id(void)
+{
+	int id;
+
+#if 0
+	id = gpio_get_value(101);
+	printk(KERN_INFO "%s: panel maker id = %d\n", __func__, id);
+#else
+	id = 1;
+#endif
+
+	if(id == 0)
+		mddi_hitachi_panel_data.maker_id = PANEL_ID_AUO;
+	else if(id == 1)
+		mddi_hitachi_panel_data.maker_id = PANEL_ID_HITACHI;
+}
+
 /* common functions */
 void __init lge_add_lcd_devices(void)
 {
+	gelato_panel_set_maker_id();
 	platform_device_register(&mddi_hitachi_panel_device);
 
 	msm_fb_add_devices();
