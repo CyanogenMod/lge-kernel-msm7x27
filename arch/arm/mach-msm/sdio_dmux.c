@@ -295,13 +295,19 @@ static void sdio_mux_read_data(struct work_struct *work)
 
 	/* If allocation fails attempt to get a smaller chunk of mem */
 	do {
-		skb_mux = dev_alloc_skb(sz + NET_IP_ALIGN + len);
+		skb_mux = __dev_alloc_skb(sz + NET_IP_ALIGN + len, GFP_KERNEL);
 		if (skb_mux)
 			break;
 
-		pr_err("%s: cannot allocate skb of size:%d\n", __func__,
-			sz + NET_IP_ALIGN + len);
-		if (sz + NET_IP_ALIGN + len <= PAGE_SIZE) {
+		pr_err("%s: cannot allocate skb of size:%d + "
+			"%d (NET_SKB_PAD)\n", __func__,
+			sz + NET_IP_ALIGN + len, NET_SKB_PAD);
+		/* the skb structure adds NET_SKB_PAD bytes to the memory
+		 * request, which may push the actual request above PAGE_SIZE
+		 * in that case, we need to iterate one more time to make sure
+		 * we get the memory request under PAGE_SIZE
+		 */
+		if (sz + NET_IP_ALIGN + len + NET_SKB_PAD <= PAGE_SIZE) {
 			pr_err("%s: allocation failed\n", __func__);
 			mutex_unlock(&sdio_mux_lock);
 			return;
