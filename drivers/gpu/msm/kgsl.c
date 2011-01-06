@@ -42,6 +42,7 @@
 
 #include "kgsl_log.h"
 #include "kgsl_drm.h"
+#include "kgsl_cffdump.h"
 
 
 static void kgsl_put_phys_file(struct file *file);
@@ -496,12 +497,13 @@ kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 	return result;
 }
 
-static uint8_t *gpuaddr_to_vaddr(const struct kgsl_memdesc *memdesc,
+uint8_t *kgsl_gpuaddr_to_vaddr(const struct kgsl_memdesc *memdesc,
 	unsigned int gpuaddr, unsigned int *size)
 {
 	uint8_t *ptr = NULL;
 
-	if (memdesc->priv & KGSL_MEMFLAGS_VMALLOC_MEM)
+	if ((memdesc->priv & KGSL_MEMFLAGS_VMALLOC_MEM) &&
+		(memdesc->physaddr || !memdesc->hostptr))
 		ptr = (uint8_t *)memdesc->physaddr;
 	else if (memdesc->hostptr == NULL)
 		ptr = __va(memdesc->physaddr);
@@ -523,18 +525,18 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 	struct kgsl_process_private *priv;
 
 	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.buffer_desc, gpuaddr)) {
-		return gpuaddr_to_vaddr(&device->ringbuffer.buffer_desc,
+		return kgsl_gpuaddr_to_vaddr(&device->ringbuffer.buffer_desc,
 					gpuaddr, size);
 	}
 
 	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.memptrs_desc,
 			gpuaddr)) {
-		return gpuaddr_to_vaddr(&device->ringbuffer.memptrs_desc,
+		return kgsl_gpuaddr_to_vaddr(&device->ringbuffer.memptrs_desc,
 					gpuaddr, size);
 	}
 
 	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr)) {
-		return gpuaddr_to_vaddr(&device->memstore,
+		return kgsl_gpuaddr_to_vaddr(&device->memstore,
 					gpuaddr, size);
 	}
 
@@ -550,7 +552,7 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 		entry = kgsl_sharedmem_find_region(priv, gpuaddr,
 						sizeof(unsigned int));
 		if (entry) {
-			result = gpuaddr_to_vaddr(&entry->memdesc,
+			result = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
 							gpuaddr, size);
 			spin_unlock(&priv->mem_lock);
 			mutex_unlock(&kgsl_driver.process_mutex);
@@ -563,7 +565,7 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 	BUG_ON(!mutex_is_locked(&device->mutex));
 	list_for_each_entry(entry, &device->memqueue, list) {
 		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr)) {
-			result = gpuaddr_to_vaddr(&entry->memdesc,
+			result = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
 							gpuaddr, size);
 			break;
 		}
@@ -638,23 +640,33 @@ static long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
 done:
 	return result;
 }
-static bool check_ibdesc(struct kgsl_process_private *private,
-			 struct kgsl_ibdesc *ibdesc, unsigned int numibs)
+static bool check_ibdesc(struct kgsl_device_private *dev_priv,
+			 struct kgsl_ibdesc *ibdesc, unsigned int numibs,
+			 bool parse)
 {
 	bool result = true;
 	unsigned int i;
 	for (i = 0; i < numibs; i++) {
 		struct kgsl_mem_entry *entry;
-		spin_lock(&private->mem_lock);
-		entry = kgsl_sharedmem_find_region(private, ibdesc[i].gpuaddr,
-						   ibdesc[i].sizedwords *
-							sizeof(uint32_t));
-		spin_unlock(&private->mem_lock);
+		spin_lock(&dev_priv->process_priv->mem_lock);
+		entry = kgsl_sharedmem_find_region(dev_priv->process_priv,
+			ibdesc[i].gpuaddr, ibdesc[i].sizedwords * sizeof(uint));
+		spin_unlock(&dev_priv->process_priv->mem_lock);
 		if (entry == NULL) {
 			KGSL_DRV_ERR("invalid cmd buffer gpuaddr %08x " \
 						"sizedwords %d\n",
 						ibdesc[i].gpuaddr,
 						ibdesc[i].sizedwords);
+			result = false;
+			break;
+		}
+
+		if (parse && !kgsl_cffdump_parse_ibs(dev_priv, &entry->memdesc,
+			ibdesc[i].gpuaddr, ibdesc[i].sizedwords, true)) {
+			KGSL_DRV_ERR("invalid cmd buffer gpuaddr %08x " \
+				"sizedwords %d numibs %d/%d\n",
+				ibdesc[i].gpuaddr,
+				ibdesc[i].sizedwords, i+1, numibs);
 			result = false;
 			break;
 		}
@@ -726,7 +738,7 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		param.numibs = 1;
 	}
 
-	if (!check_ibdesc(dev_priv->process_priv, ibdesc, param.numibs)) {
+	if (!check_ibdesc(dev_priv, ibdesc, param.numibs, true)) {
 		KGSL_DRV_ERR("bad ibdesc");
 		result = -EINVAL;
 		goto free_ibdesc;
@@ -745,7 +757,7 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	/* this is a check to try to detect if a command buffer was freed
 	 * during issueibcmds().
 	 */
-	if (!check_ibdesc(dev_priv->process_priv, ibdesc, param.numibs)) {
+	if (!check_ibdesc(dev_priv, ibdesc, param.numibs, false)) {
 		KGSL_DRV_ERR("bad ibdesc AFTER issue");
 		result = -EINVAL;
 		goto free_ibdesc;
@@ -1741,6 +1753,7 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	struct kgsl_device *device_2d1 = kgsl_get_2d_device(KGSL_DEVICE_2D1);
 
 	kgsl_debug_init();
+	kgsl_cffdump_init();
 
 	for (i = 0; i < KGSL_DEVICE_MAX; i++)
 		kgsl_driver.devp[i] = NULL;
@@ -1859,6 +1872,7 @@ static int kgsl_platform_remove(struct platform_device *pdev)
 	kgsl_driver_cleanup();
 	kgsl_drm_exit();
 	kgsl_device_unregister();
+	kgsl_cffdump_destroy();
 
 	return 0;
 }

@@ -9,6 +9,19 @@ config MSM_KGSL
 	  3D graphics driver. Required to use hardware accelerated
 	  OpenGL ES 2.0 and 1.1.
 
+config MSM_KGSL_CFF_DUMP
+	bool "Enable KGSL Common File Format (CFF) Dump Feature [Use with caution]"
+	default n
+	depends on MSM_KGSL
+	select RELAY
+	---help---
+	  This is an analysis and diagnostic feature only, and should only be
+	  turned on during KGSL GPU diagnostics and will slow down the KGSL
+	  performance sigificantly, hence *do not use in production builds*.
+	  When enabled, CFF Dump is on at boot. It can be turned off at runtime
+	  via 'echo 0 > /d/kgsl/cff_dump'.  The log can be captured via
+	  /d/kgsl-cff/cpu[0|1].
+
 config MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
 	bool "Disable human readable CP_STAT fields in post-mortem dump"
 	default n

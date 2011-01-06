@@ -138,6 +138,11 @@ enum kgsl_status {
 #endif
 
 void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry);
+uint8_t *kgsl_gpuaddr_to_vaddr(const struct kgsl_memdesc *memdesc,
+	unsigned int gpuaddr, unsigned int *size);
+struct kgsl_mem_entry *kgsl_sharedmem_find_region(
+	struct kgsl_process_private *private, unsigned int gpuaddr,
+	size_t size);
 uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);

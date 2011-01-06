@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include "kgsl_device.h"
 #include "kgsl.h"
 #include "kgsl_log.h"
+#include "kgsl_cffdump.h"
 
 #ifdef CONFIG_OUTER_CACHE
 static void _outer_cache_range_op(unsigned long addr, int size,
@@ -204,6 +205,8 @@ kgsl_sharedmem_writel(const struct kgsl_memdesc *memdesc,
 				offsetbytes, memdesc->size);
 		return -ERANGE;
 	}
+	kgsl_cffdump_setmem(memdesc->gpuaddr + offsetbytes,
+		src, sizeof(uint));
 	writel(src, memdesc->hostptr + offsetbytes);
 	return 0;
 }
@@ -225,8 +228,10 @@ kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc,
 				offsetbytes, sizebytes, memdesc->size);
 		return -ERANGE;
 	}
-	memcpy((void *)(((char *)memdesc->hostptr) + offsetbytes),
-		src, sizebytes);
+
+	memcpy(memdesc->hostptr + offsetbytes, src, sizebytes);
+	kgsl_cffdump_syncmem(NULL, memdesc, memdesc->gpuaddr + offsetbytes,
+		sizebytes, false);
 	return 0;
 }
 
@@ -244,6 +249,8 @@ kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes,
 				offsetbytes, sizebytes, memdesc->size);
 		return -ERANGE;
 	}
+	kgsl_cffdump_setmem(memdesc->gpuaddr + offsetbytes,
+			    value, sizebytes);
 	memset(memdesc->hostptr + offsetbytes, value, sizebytes);
 	return 0;
 }
