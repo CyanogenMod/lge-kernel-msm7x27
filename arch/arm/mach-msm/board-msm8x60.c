@@ -3084,6 +3084,10 @@ struct platform_device msm_device_sdio_al = {
 
 #endif /* CONFIG_MSM_SDIO_AL */
 
+static struct platform_device *charm_devices[] __initdata = {
+	&msm_charm_modem,
+};
+
 static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_smd,
 	&smsc911x_device,
@@ -7367,6 +7371,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		machine_is_msm8x60_charm_ffa())
 		platform_device_register(&msm_charger_device);
 #endif
+
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
+		platform_add_devices(charm_devices, ARRAY_SIZE(charm_devices));
 
 #if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
 	if (machine_is_msm8x60_fluid()) {

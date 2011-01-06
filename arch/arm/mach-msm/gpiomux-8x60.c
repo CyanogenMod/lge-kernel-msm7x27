@@ -1221,6 +1221,77 @@ static struct msm_gpiomux_config msm8x60_cam_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm8x60_charm_configs[] __initdata = {
+	/* AP2MDM_WAKEUP */
+	{
+		.gpio = 135,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_DOWN)
+		}
+	},
+	/* MDM2AP_VFR */
+	{
+		.gpio = 94,
+		.settings = {
+			[GPIOMUX_ACTIVE] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_UP),
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_DOWN)
+		}
+	},
+	/* AP2MDM_STATUS */
+	{
+		.gpio = 136,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_DOWN)
+		}
+	},
+	/* MDM2AP_STATUS */
+	{
+		.gpio = 134,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_DOWN)
+		}
+	},
+	/* MDM2AP_WAKEUP */
+	{
+		.gpio = 40,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_DOWN)
+		}
+	},
+	/* MDM2AP_ERRFATAL */
+	{
+		.gpio = 133,
+		.settings = {
+			[GPIOMUX_ACTIVE] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_16MA, GPIOMUX_PULL_DOWN),
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_16MA, GPIOMUX_PULL_DOWN)
+		}
+	},
+	/* AP2MDM_ERRFATAL */
+	{
+		.gpio = 93,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_DOWN)
+		}
+	},
+	/* AP2MDM_KPDPWR_N */
+	{
+		.gpio = 132,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GPIOMUX_CFG(GPIOMUX_FUNC_GPIO,
+				GPIOMUX_DRV_8MA, GPIOMUX_PULL_NONE)
+		}
+	}
+};
+
 struct msm_gpiomux_configs
 msm8x60_surf_ffa_gpiomux_cfgs[] __initdata = {
 	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
@@ -1299,6 +1370,7 @@ msm8x60_charm_gpiomux_cfgs[] __initdata = {
 	{msm8x60_tmg200_configs, ARRAY_SIZE(msm8x60_tmg200_configs)},
 	{msm8x60_charm_sdc_configs, ARRAY_SIZE(msm8x60_charm_sdc_configs)},
 	{msm8x60_charm_usb_configs, ARRAY_SIZE(msm8x60_charm_usb_configs)},
+	{msm8x60_charm_configs, ARRAY_SIZE(msm8x60_charm_configs)},
 	{NULL, 0},
 };
 

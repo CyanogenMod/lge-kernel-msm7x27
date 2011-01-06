@@ -41,6 +41,8 @@
 #include <mach/usbdiag.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <linux/gpio.h>
+#include "mdm.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -84,6 +86,48 @@
 #else
 #define WEBCAM_DEV NULL
 #endif
+
+
+static void charm_ap2mdm_kpdpwr_on(void)
+{
+	gpio_request(132, "AP2MDM_KPDPWR_N");
+	if (machine_is_msm8x60_charm_surf())
+		gpio_direction_output(132, 0);
+	else
+		gpio_direction_output(132, 1);
+}
+
+static void charm_ap2mdm_kpdpwr_off(void)
+{
+	if (machine_is_msm8x60_charm_surf())
+		gpio_direction_output(132, 1);
+	else
+		gpio_direction_output(132, 0);
+
+}
+
+static struct resource charm_resources[] = {
+	{
+		.start	= MSM_GPIO_TO_INT(133),
+		.end	= MSM_GPIO_TO_INT(133),
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct charm_platform_data mdm_platform_data = {
+	.charm_modem_on		= charm_ap2mdm_kpdpwr_on,
+	.charm_modem_off	= charm_ap2mdm_kpdpwr_off,
+};
+
+struct platform_device msm_charm_modem = {
+	.name		= "charm_modem",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(charm_resources),
+	.resource	= charm_resources,
+	.dev		= {
+		.platform_data = &mdm_platform_data,
+	},
+};
 
 void __iomem *gic_cpu_base_addr;
 
