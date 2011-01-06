@@ -70,6 +70,13 @@ config MT9P012_KM
 	---help---
 	  MICRON 5M Bayer Sensor KM modules with Autofocus
 
+config MT9E013
+	bool "Sensor mt9e013 module (BAYER 8M)"
+	depends on MSM_CAMERA && ARCH_MSM7X30
+	default y
+	---help---
+	  Aptina 8M Bayer Sensor modules with Autofocus
+
 config S5K3E2FX
 	bool "Sensor s5k3e2fx (Samsung 5M)"
 	depends on MSM_CAMERA && !ARCH_MSM8X60
