@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,8 +126,29 @@ static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] = {
 };
 
 static uint16_t msm_mpm_bypassed_apps_irqs[] = {
-	RPM_SCSS_CPU0_WAKE_UP_IRQ,
+	TLMM_SCSS_SUMMARY_IRQ,
+	RPM_SCSS_CPU0_GP_HIGH_IRQ,
 	RPM_SCSS_CPU0_GP_MEDIUM_IRQ,
+	RPM_SCSS_CPU0_GP_LOW_IRQ,
+	RPM_SCSS_CPU0_WAKE_UP_IRQ,
+	RPM_SCSS_CPU1_GP_HIGH_IRQ,
+	RPM_SCSS_CPU1_GP_MEDIUM_IRQ,
+	RPM_SCSS_CPU1_GP_LOW_IRQ,
+	RPM_SCSS_CPU1_WAKE_UP_IRQ,
+	MARM_SCSS_GP_IRQ_0,
+	MARM_SCSS_GP_IRQ_1,
+	MARM_SCSS_GP_IRQ_2,
+	MARM_SCSS_GP_IRQ_3,
+	MARM_SCSS_GP_IRQ_4,
+	MARM_SCSS_GP_IRQ_5,
+	MARM_SCSS_GP_IRQ_6,
+	MARM_SCSS_GP_IRQ_7,
+	MARM_SCSS_GP_IRQ_8,
+	MARM_SCSS_GP_IRQ_9,
+	LPASS_SCSS_GP_LOW_IRQ,
+	LPASS_SCSS_GP_MEDIUM_IRQ,
+	LPASS_SCSS_GP_HIGH_IRQ,
+	SPS_MTI_31,
 };
 
 static DEFINE_SPINLOCK(msm_mpm_lock);
