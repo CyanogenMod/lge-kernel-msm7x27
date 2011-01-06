@@ -798,7 +798,7 @@ u32 vid_enc_set_get_intraperiod(struct video_client_ctx *client_ctx,
 
 	if (set_flag) {
 		period.p_frames = intraperiod->num_pframes;
-		period.b_frames = 0;
+		period.b_frames = intraperiod->num_bframes;
 		vcd_status = vcd_set_property(client_ctx->vcd_handle,
 				&vcd_property_hdr, &period);
 

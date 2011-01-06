@@ -1874,6 +1874,7 @@ u32 vcd_handle_output_required(struct vcd_clnt_ctxt
 	else
 		cctxt->status.frame_delayed--;
 
+
 	if (!VCD_FAILED(status) &&
 		cctxt->decoding &&
 		frame->vcd_frm.interlaced) {
@@ -2250,7 +2251,6 @@ void vcd_handle_eos_done(struct vcd_clnt_ctxt *cctxt,
 		if (transc->ip_buf_entry->frame.virtual) {
 			transc->ip_buf_entry->frame.ip_frm_tag =
 				transc->ip_frm_tag;
-
 			cctxt->callback(VCD_EVT_RESP_INPUT_DONE,
 					  VCD_S_SUCCESS,
 					  &transc->ip_buf_entry->frame,
@@ -2260,7 +2260,10 @@ void vcd_handle_eos_done(struct vcd_clnt_ctxt *cctxt,
 		transc->ip_buf_entry->in_use = false;
 		VCD_BUFFERPOOL_INUSE_DECREMENT(cctxt->in_buf_pool.in_use);
 		transc->ip_buf_entry = NULL;
-		cctxt->status.frame_submitted--;
+		if (cctxt->status.frame_submitted)
+			cctxt->status.frame_submitted--;
+		else
+			cctxt->status.frame_delayed--;
 	}
 
 	vcd_release_trans_tbl_entry(transc);
