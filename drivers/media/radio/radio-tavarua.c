@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +129,8 @@ static int radio_nr = -1;
 module_param(radio_nr, int, 0);
 MODULE_PARM_DESC(radio_nr, "Radio Nr");
 static int wait_timeout = WAIT_TIMEOUT;
+/* Bahama's version*/
+static u8 bahama_version;
 /* RDS buffer blocks */
 static unsigned int rds_buf = 100;
 module_param(rds_buf, uint, 0);
@@ -1609,6 +1611,41 @@ static int tavarua_fops_open(struct file *file)
 
 	/* Bring up FM core */
 	if (bahama_present)	{
+
+		radio->marimba->mod_id = SLAVE_ID_BAHAMA;
+		/* Read the Bahama version*/
+		retval = marimba_read_bit_mask(radio->marimba,
+				0x00,  &bahama_version, 1, 0x1F);
+		if (retval < 0) {
+			printk(KERN_ERR "%s: version read failed",
+				__func__);
+			goto open_err_all;
+		}
+		/* Check for Bahama V2 variant*/
+		if (bahama_version == 0x09)	{
+
+			/* In case of Bahama v2, forcefully enable the
+			 * internal analog and digital voltage controllers
+			 */
+			value = 0x06;
+			/* value itself used as mask in these writes*/
+			retval = marimba_write_bit_mask(radio->marimba,
+			BAHAMA_LDO_DREG_CTL0, &value, 1, value);
+			if (retval < 0) {
+				printk(KERN_ERR "%s:0xF0 write failed\n",
+					__func__);
+				goto open_err_all;
+			}
+			value = 0x86;
+			retval = marimba_write_bit_mask(radio->marimba,
+				BAHAMA_LDO_AREG_CTL0, &value, 1, value);
+			if (retval < 0) {
+				printk(KERN_ERR "%s:0xF4 write failed\n",
+					__func__);
+				goto open_err_all;
+			}
+		}
+
 		/*write FM mode*/
 		retval = tavarua_write_register(radio, BAHAMA_FM_MODE_REG,
 					BAHAMA_FM_MODE_NORMAL);
@@ -1689,6 +1726,7 @@ static int tavarua_fops_open(struct file *file)
 	}
 
 	radio->handle_irq = 0;
+	marimba_set_fm_status(radio->marimba, true);
 	return 0;
 
 
@@ -1730,6 +1768,17 @@ static int tavarua_fops_release(struct file *file)
 	int bahama_present = -ENODEV;
 	/*FM Core shutdown sequence for Marimba*/
 	char buffer[] = {0x18, 0xB7, 0x48};
+	bool bt_status = false;
+	int index;
+	/* internal regulator controllers DREG_CTL0, AREG_CTL0
+	 * has to be kept in the valid state based on the bt status.
+	 * 1st row is the state when no clients are active,
+	 * and the second when bt is in on state.
+	 */
+	char internal_vreg_ctl[2][2] = {
+		{ 0x04, 0x84 },
+		{ 0x00, 0x80 }
+	};
 
 	if (!radio)
 		return -ENODEV;
@@ -1792,12 +1841,34 @@ static int tavarua_fops_release(struct file *file)
 			return retval;
 		}
 	}
-	if (bahama_present)   {
+
+	bt_status = marimba_get_bt_status(radio->marimba);
+	/* Set the index based on the bt status*/
+	index = bt_status ?  1 : 0;
+	/* Check for Bahama's existance and Bahama V2 variant*/
+	if (bahama_present && (bahama_version == 0x09))   {
 		radio->marimba->mod_id = SLAVE_ID_BAHAMA;
-	}   else    {
+		/* actual value itself used as mask*/
+		retval = marimba_write_bit_mask(radio->marimba,
+			BAHAMA_LDO_DREG_CTL0, &internal_vreg_ctl[bt_status][0],
+			 1, internal_vreg_ctl[index][0]);
+		if (retval < 0) {
+			printk(KERN_ERR "%s:0xF0 write failed\n", __func__);
+			return retval;
+		}
+		/* actual value itself used as mask*/
+		retval = marimba_write_bit_mask(radio->marimba,
+			BAHAMA_LDO_AREG_CTL0, &internal_vreg_ctl[bt_status][1],
+			1, internal_vreg_ctl[index][1]);
+		if (retval < 0) {
+			printk(KERN_ERR "%s:0xF4 write failed\n", __func__);
+			return retval;
+		}
+	} else    {
 		/* disable fm core */
 		radio->marimba->mod_id = MARIMBA_SLAVE_ID_MARIMBA;
 	}
+
 	value = 0x00;
 	retval = marimba_write_bit_mask(radio->marimba, MARIMBA_XO_BUFF_CNTRL,
 							&value, 1, FM_ENABLE);
@@ -1810,6 +1881,7 @@ static int tavarua_fops_release(struct file *file)
 	radio->pdata->fm_shutdown(radio->pdata);
 	radio->handle_irq = 1;
 	radio->users = 0;
+	marimba_set_fm_status(radio->marimba, false);
 	return 0;
 }
 
