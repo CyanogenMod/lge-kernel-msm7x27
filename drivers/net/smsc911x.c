@@ -2161,20 +2161,10 @@ static int smsc911x_resume(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct smsc911x_data *pdata = netdev_priv(ndev);
-	struct smsc911x_platform_config config = pdata->config;
-
 	unsigned int to = 100;
-	int retval;
 
-	if (config.has_reset_gpio) {
-		retval = gpio_direction_output(config.reset_gpio, 1);
-		if (retval) {
-			pr_warning("%s: Could not set direction for GPIO %d\n",
-					SMSC_CHIPNAME, config.reset_gpio);
-			gpio_free(config.reset_gpio);
-			return retval;
-		}
-	}
+	if (pdata->config.has_reset_gpio)
+		gpio_set_value_cansleep(pdata->config.reset_gpio, 1);
 
 	/* Note 3.11 from the datasheet:
 	 * 	"When the LAN9220 is in a power saving state, a write of any
