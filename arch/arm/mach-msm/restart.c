@@ -38,7 +38,7 @@
 
 #define PSHOLD_CTL_SU (MSM_TLMM_BASE + 0x820)
 
-#define RESTART_REASON_ADDR 0x401FFFFC
+#define RESTART_REASON_ADDR 0x2A05F010
 
 static void *tcsr_base;
 
