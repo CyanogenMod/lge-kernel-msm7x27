@@ -882,7 +882,6 @@ static struct platform_device msm_batt_device = {
 #define MSM_FB_SIZE 0x811000
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 #define MSM_PMEM_SF_SIZE 0x1700000
-#define MSM_GPU_PHYS_SIZE       SZ_2M
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
 #define MSM_PMEM_ADSP_SIZE         0x2000000
@@ -907,14 +906,6 @@ static int __init fb_size_setup(char *p)
 	return 0;
 }
 early_param("fb_size", fb_size_setup);
-
-static unsigned gpu_phys_size = MSM_GPU_PHYS_SIZE;
-static int __init gpu_phys_size_setup(char *p)
-{
-	gpu_phys_size = memparse(p, NULL);
-	return 0;
-}
-early_param("gpu_phys_size", gpu_phys_size_setup);
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
@@ -1145,16 +1136,6 @@ static void __init msm8x60_allocate_memory_regions(void)
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n",
 		size, addr, __pa(addr));
-
-	size = gpu_phys_size;
-	if (size) {
-		addr = alloc_bootmem(size);
-		msm_device_kgsl.resource[1].start = __pa(addr);
-		msm_device_kgsl.resource[1].end =
-			msm_device_kgsl.resource[1].start + size - 1;
-		pr_info("allocating %lu bytes at %p (%lx physical) for "
-		"KGSL\n", size, addr, __pa(addr));
-	}
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 	size = pmem_kernel_ebi1_size;

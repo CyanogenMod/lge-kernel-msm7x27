@@ -83,7 +83,6 @@
 #define MSM_PMEM_ADSP_SIZE	0xB71000
 #define MSM_PMEM_AUDIO_SIZE	0x5B000
 #define MSM_FB_SIZE		0x177000
-#define MSM_GPU_PHYS_SIZE	SZ_2M
 #define PMEM_KERNEL_EBI1_SIZE	0x1C000
 #endif
 
@@ -1015,12 +1014,6 @@ static struct resource kgsl_resources[] = {
 		.name = "kgsl_reg_memory",
 		.start = 0xA0000000,
 		.end = 0xA001ffff,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name   = "kgsl_phys_memory",
-		.start = 0,
-		.end = 0,
 		.flags = IORESOURCE_MEM,
 	},
 	{
@@ -2127,16 +2120,6 @@ static void __init msm_msm7x2x_allocate_memory_regions(void)
 		pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
 			" ebi1 pmem arena\n", size, addr, __pa(addr));
 	}
-#ifdef CONFIG_ARCH_MSM7X27
-	size = MSM_GPU_PHYS_SIZE;
-	addr = alloc_bootmem(size);
-	kgsl_resources[1].start = __pa(addr);
-	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
-	pr_info("allocating %lu bytes (at %lx physical) for KGSL\n",
-		size , __pa(addr));
-
-#endif
-
 }
 
 static void __init msm7x2x_map_io(void)
