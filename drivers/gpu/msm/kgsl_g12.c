@@ -851,11 +851,13 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 	KGSL_DRV_INFO("current (device=%p,timestamp=%d)\n",
 			device, g12_device->timestamp);
 
+	mutex_unlock(&device->mutex);
 	timeout = wait_event_interruptible_timeout(
 			g12_device->wait_timestamp_wq,
 			kgsl_check_timestamp((struct kgsl_device *) g12_device,
 					     timestamp),
 			msecs_to_jiffies(msecs));
+	mutex_lock(&device->mutex);
 
 	if (timeout > 0)
 		status = 0;
