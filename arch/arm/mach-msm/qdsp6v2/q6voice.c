@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,7 @@
 #include <linux/mutex.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/dal.h>
-#include "q6voice.h"
+#include <mach/qdsp6v2/q6voice.h>
 #include "audio_acdb.h"
 
 #define TIMEOUT_MS 3000
@@ -1927,6 +1927,7 @@ int voice_set_voc_path_full(uint32_t set)
 
 	return rc;
 }
+EXPORT_SYMBOL(voice_set_voc_path_full);
 
 void voice_register_mvs_cb(ul_cb_fn ul_cb,
 			   dl_cb_fn dl_cb,
