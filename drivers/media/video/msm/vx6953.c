@@ -3635,6 +3635,7 @@ static int vx6953_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = vx6953_sensor_open_init;
 	s->s_release = vx6953_sensor_release;
 	s->s_config  = vx6953_sensor_config;
+	s->s_mount_angle  = 0;
 	vx6953_probe_init_done(info);
 	return rc;
 

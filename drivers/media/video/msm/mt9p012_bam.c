@@ -1398,6 +1398,7 @@ static int mt9p012_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = mt9p012_sensor_open_init;
 	s->s_release = mt9p012_sensor_release;
 	s->s_config = mt9p012_sensor_config;
+	s->s_mount_angle  = 0;
 	mt9p012_probe_init_done(info);
 
 probe_done:

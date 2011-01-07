@@ -1589,6 +1589,7 @@ static int vb6801_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = vb6801_sensor_open_init;
 	s->s_release = vb6801_sensor_release;
 	s->s_config = vb6801_sensor_config;
+	s->s_mount_angle  = 0;
 	vb6801_sensor_init_done(info);
 
 probe_done:
