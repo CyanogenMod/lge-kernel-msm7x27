@@ -187,6 +187,7 @@ struct msm_sensor_ctrl {
 	int (*s_release)(void);
 	int (*s_config)(void __user *);
 	enum msm_camera_type s_camera_type;
+	uint32_t s_mount_angle;
 };
 struct msm_strobe_flash_ctrl {
 	int (*strobe_flash_init)

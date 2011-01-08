@@ -57,6 +57,7 @@ struct  msm_control_device *g_v4l2_control_device;
 int g_v4l2_opencnt;
 static int camera_node;
 static enum msm_camera_type camera_type[MSM_MAX_CAMERA_SENSORS];
+static uint32_t sensor_mount_angle[MSM_MAX_CAMERA_SENSORS];
 
 static const char *vfe_config_cmd[] = {
 	"CMD_GENERAL",  /* 0 */
@@ -1567,18 +1568,18 @@ static int msm_get_camera_info(void __user *arg)
 	int i = 0;
 	struct msm_camera_info info;
 
-	if (copy_from_user(&info,
-			arg,
-			sizeof(struct msm_camera_info))) {
+	if (copy_from_user(&info, arg, sizeof(struct msm_camera_info))) {
 		ERR_COPY_FROM_USER();
 		return -EFAULT;
 	}
 
 	CDBG("%s: camera_node %d\n", __func__, camera_node);
 	info.num_cameras = camera_node;
+
 	for (i = 0; i < camera_node; i++) {
 		info.has_3d_support[i] = 0;
 		info.is_internal_cam[i] = 0;
+		info.s_mount_angle[i] = sensor_mount_angle[i];
 		switch (camera_type[i]) {
 		case FRONT_CAMERA_2D:
 			info.is_internal_cam[i] = 1;
@@ -1591,15 +1592,11 @@ static int msm_get_camera_info(void __user *arg)
 			break;
 		}
 	}
-
 	/* copy back to user space */
-	if (copy_to_user((void *)arg,
-			&info,
-			sizeof(struct msm_camera_info))) {
+	if (copy_to_user((void *)arg, &info, sizeof(struct msm_camera_info))) {
 		ERR_COPY_TO_USER();
 		rc = -EFAULT;
 	}
-
 	return rc;
 }
 
@@ -3283,6 +3280,7 @@ int msm_camera_drv_start(struct platform_device *dev,
 	}
 
 	camera_type[camera_node] = sync->sctrl.s_camera_type;
+	sensor_mount_angle[camera_node] = sync->sctrl.s_mount_angle;
 	camera_node++;
 	if (camera_node == 1) {
 		rc = add_axi_qos();
