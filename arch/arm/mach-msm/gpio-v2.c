@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -553,9 +553,11 @@ int gpio_tlmm_config(unsigned config, unsigned disable)
 }
 EXPORT_SYMBOL(gpio_tlmm_config);
 
-int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq)
+int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
+					unsigned int input_polarity)
 {
 	unsigned long irq_flags;
+	uint32_t bits;
 
 	if (gpio >= NR_MSM_GPIOS || irq >= NR_TLMM_SCSS_DIR_CONN_IRQ)
 		return -EINVAL;
@@ -569,8 +571,11 @@ int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq)
 		GPIO_INTR_CFG(gpio));
 	writel(DC_IRQ_ENABLE | TARGET_PROC_NONE,
 		GPIO_INTR_CFG_SU(gpio));
-	writel(DC_POLARITY_HI |	TARGET_PROC_SCORPION | (gpio << 3),
-		DIR_CONN_INTR_CFG_SU(irq));
+
+	bits = TARGET_PROC_SCORPION | (gpio << 3);
+	if (input_polarity)
+		bits |= DC_POLARITY_HI;
+	writel(bits, DIR_CONN_INTR_CFG_SU(irq));
 
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 
