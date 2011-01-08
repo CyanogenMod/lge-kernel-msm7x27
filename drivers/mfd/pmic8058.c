@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -959,7 +959,7 @@ static int pm8058_probe(struct i2c_client *client,
 	}
 
 	rc = request_threaded_irq(chip->dev->irq, NULL, pm8058_isr_thread,
-			IRQF_ONESHOT | IRQF_DISABLED | IRQF_TRIGGER_LOW,
+			IRQF_ONESHOT | IRQF_DISABLED | pdata->irq_trigger_flags,
 			"pm8058-irq", chip);
 	if (rc < 0)
 		pr_err("%s: could not request irq %d: %d\n", __func__,
