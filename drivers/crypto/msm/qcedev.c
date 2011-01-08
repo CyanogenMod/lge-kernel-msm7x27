@@ -1,6 +1,6 @@
 /* Qualcomm CE device driver.
  *
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -292,7 +292,8 @@ static int start_cipher_req(struct qcedev_control *podev)
 	creq.alg = qcedev_areq->cipher_op_req.alg;
 	creq.mode = qcedev_areq->cipher_op_req.mode;
 
-	if (creq.mode == QCEDEV_AES_MODE_CTR) {
+	if ((creq.alg == QCEDEV_ALG_AES) &&
+		(creq.mode == QCEDEV_AES_MODE_CTR)) {
 		creq.dir = QCE_ENCRYPT;
 	} else {
 		if (QCEDEV_OPER_ENC == qcedev_areq->cipher_op_req.op)
@@ -696,7 +697,7 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 }
 
 static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
-				unsigned cmd, struct qcedev_control *podev)
+						struct qcedev_control *podev)
 {
 	int i = 0;
 	int err = 0;
@@ -762,11 +763,13 @@ static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 							(uint32_t)paddr;
 	} else {
 		areq->cipher_req.creq.dst = sg_src;
-		for (i = 0; i < areq->cipher_op_req.entries; i++)
+		for (i = 0; i < areq->cipher_op_req.entries; i++) {
 			areq->cipher_op_req.pmem.dst[i].offset =
 				areq->cipher_op_req.pmem.src[i].offset;
+			areq->cipher_op_req.pmem.dst[i].len =
+				areq->cipher_op_req.pmem.src[i].len;
+		}
 	}
-	areq->cipher_op_req.op = cmd;
 
 	areq->cipher_req.creq.nbytes = areq->cipher_op_req.data_len;
 	areq->cipher_req.creq.info = areq->cipher_op_req.iv;
@@ -784,8 +787,9 @@ static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 	return err;
 };
 
+
 static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
-			unsigned cmd, struct qcedev_control *podev)
+						struct qcedev_control *podev)
 {
 	int err = 0;
 	int i = 0;
@@ -793,24 +797,23 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 	int k = 0;
 	int num_entries = 0;
 	uint32_t total = 0;
+	struct qcedev_cipher_op_req *saved_req;
+	struct qcedev_cipher_op_req *creq = &qcedev_areq->cipher_op_req;
+
+	saved_req = kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
+	if (saved_req == NULL) {
+		printk(KERN_ERR "%s:Can't Allocate mem:saved_req %x\n",
+		__func__, (uint32_t)saved_req);
+		return -ENOMEM;
+	}
+	memcpy(saved_req, creq, sizeof(struct qcedev_cipher_op_req));
 
 	if (qcedev_areq->cipher_op_req.data_len > QCE_MAX_OPER_DATA) {
 
-		struct qcedev_cipher_op_req *saved_req;
 		struct qcedev_cipher_op_req req;
-		struct	qcedev_cipher_op_req *creq =
-						&qcedev_areq->cipher_op_req;
 
 		/* save the original req structure */
 		memcpy(&req, creq, sizeof(struct qcedev_cipher_op_req));
-		saved_req =
-		kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
-		if (saved_req == NULL) {
-			printk(KERN_ERR "%s:Can't Allocate mem:saved_req %x\n",
-			__func__, (uint32_t)saved_req);
-			return -ENOMEM;
-		}
-		memcpy(saved_req, creq, sizeof(struct qcedev_cipher_op_req));
 
 		i = 0;
 		/* Address 32 KB  at a time */
@@ -827,7 +830,7 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 
 				err =
 				qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq,
-								cmd, podev);
+								podev);
 
 				creq->pmem.src[i].len =	req.pmem.src[i].len -
 							QCE_MAX_OPER_DATA;
@@ -864,7 +867,7 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 				i = j;
 				err =
 				qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq,
-								cmd, podev);
+								podev);
 				num_entries = 0;
 
 					creq->pmem.src[i].offset =
@@ -884,18 +887,18 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 
 		} /* end of while ((i < req.entries) && (err == 0)) */
 
-		/* Restore the original req structure */
-		for (i = 0; i < saved_req->entries; i++) {
-			creq->pmem.src[i].len = saved_req->pmem.src[i].len;
-			creq->pmem.src[i].offset =
-						saved_req->pmem.src[i].offset;
-		}
-		creq->entries = saved_req->entries;
-		creq->data_len = saved_req->data_len;
-		kfree(saved_req);
 	} else
-		err = qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq, cmd,
-								podev);
+		err = qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq, podev);
+
+	/* Restore the original req structure */
+	for (i = 0; i < saved_req->entries; i++) {
+		creq->pmem.src[i].len = saved_req->pmem.src[i].len;
+		creq->pmem.src[i].offset = saved_req->pmem.src[i].offset;
+	}
+	creq->entries = saved_req->entries;
+	creq->data_len = saved_req->data_len;
+	kfree(saved_req);
+
 	return err;
 
 }
@@ -986,7 +989,7 @@ static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 };
 
 static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
-			unsigned cmd, struct qcedev_control *podev)
+						struct qcedev_control *podev)
 {
 	int err = 0;
 	int di = 0;
@@ -1016,8 +1019,6 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 			(void __user *)areq->cipher_op_req.vbuf.dst[i].vaddr,
 					areq->cipher_op_req.vbuf.dst[i].len))
 				return -EFAULT;
-
-	areq->cipher_op_req.op = cmd;
 
 	byteoffset = areq->cipher_op_req.byteoffset;
 	k_buf_src = kmalloc(QCE_MAX_OPER_DATA + CACHE_LINE_SIZE * 2,
@@ -1131,29 +1132,19 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 			byteoffset = 0;
 
 		} /* end of while ((i < req.entries) && (err == 0)) */
-
-		/* Restore the original req structure */
-		for (i = 0; i < saved_req->entries; i++) {
-			creq->vbuf.src[i].len = saved_req->vbuf.src[i].len;
-			creq->vbuf.src[i].vaddr =
-						saved_req->vbuf.src[i].vaddr;
-		}
-		creq->entries = saved_req->entries;
-		creq->data_len = saved_req->data_len;
-		creq->byteoffset = saved_req->byteoffset;
-	} else {
+	} else
 		err = qcedev_vbuf_ablk_cipher_max_xfer(areq, &di, podev,
 								k_align_src);
-		/* Restore the original req structure */
-		for (i = 0; i < saved_req->entries; i++) {
-			creq->vbuf.src[i].len = saved_req->vbuf.src[i].len;
-			creq->vbuf.src[i].vaddr =
-						saved_req->vbuf.src[i].vaddr;
-		}
-		creq->entries = saved_req->entries;
-		creq->data_len = saved_req->data_len;
-		creq->byteoffset = saved_req->byteoffset;
+
+	/* Restore the original req structure */
+	for (i = 0; i < saved_req->entries; i++) {
+		creq->vbuf.src[i].len = saved_req->vbuf.src[i].len;
+		creq->vbuf.src[i].vaddr = saved_req->vbuf.src[i].vaddr;
 	}
+	creq->entries = saved_req->entries;
+	creq->data_len = saved_req->data_len;
+	creq->byteoffset = saved_req->byteoffset;
+
 	kfree(saved_req);
 	kfree(k_buf_src);
 	return err;
@@ -1196,9 +1187,9 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_CIPHER;
 
 		if (qcedev_areq.cipher_op_req.use_pmem == QCEDEV_USE_PMEM)
-			qcedev_pmem_ablk_cipher(&qcedev_areq, cmd, podev);
+			qcedev_pmem_ablk_cipher(&qcedev_areq, podev);
 		else
-			qcedev_vbuf_ablk_cipher(&qcedev_areq, cmd, podev);
+			qcedev_vbuf_ablk_cipher(&qcedev_areq, podev);
 
 		if (__copy_to_user((void __user *)arg,
 					&qcedev_areq.cipher_op_req,
@@ -1485,7 +1476,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.03");
+MODULE_VERSION("1.04");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
