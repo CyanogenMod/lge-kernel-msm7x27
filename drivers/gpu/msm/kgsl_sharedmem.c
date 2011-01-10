@@ -129,20 +129,23 @@ kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 			memdesc, memdesc->physaddr, memdesc->size);
 
 	BUG_ON(memdesc == NULL);
-	BUG_ON(memdesc->size <= 0);
 
-	if (memdesc->priv & KGSL_MEMFLAGS_VMALLOC_MEM) {
-		if (memdesc->gpuaddr)
-			kgsl_mmu_unmap(memdesc->pagetable, memdesc->gpuaddr,
-				       memdesc->size);
+	if (memdesc->size > 0) {
+		if (memdesc->priv & KGSL_MEMFLAGS_VMALLOC_MEM) {
+			if (memdesc->gpuaddr)
+				kgsl_mmu_unmap(memdesc->pagetable,
+					       memdesc->gpuaddr,
+					       memdesc->size);
 
-		if (memdesc->hostptr)
-			vfree(memdesc->hostptr);
-	} else if (memdesc->priv & KGSL_MEMFLAGS_CONPHYS)
-		dma_free_coherent(NULL, memdesc->size, memdesc->hostptr,
-				  memdesc->physaddr);
-	else
-		BUG();
+			if (memdesc->hostptr)
+				vfree(memdesc->hostptr);
+		} else if (memdesc->priv & KGSL_MEMFLAGS_CONPHYS)
+			dma_free_coherent(NULL, memdesc->size,
+					  memdesc->hostptr,
+					  memdesc->physaddr);
+		else
+			BUG();
+	}
 
 	memset(memdesc, 0, sizeof(struct kgsl_memdesc));
 	KGSL_MEM_VDBG("return\n");
