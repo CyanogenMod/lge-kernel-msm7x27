@@ -29,6 +29,7 @@
 #define GSBI4 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, 0)
 #define GSBI7 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_12MA, 0)
 #define GSBI8 GPIOMUX_CFG(GPIOMUX_FUNC_1, 0, 0)
+#define GSBI9 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, 0)
 
 #define PS_HOLD	GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_12MA, 0)
 
@@ -105,6 +106,9 @@
 	GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, GPIOMUX_PULL_NONE)
 #define UART1DM_SUSPENDED \
 	GPIOMUX_CFG(GPIOMUX_FUNC_GPIO, GPIOMUX_DRV_2MA, GPIOMUX_PULL_DOWN)
+
+#define UART9DM_ACTIVE \
+	GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA , GPIOMUX_PULL_DOWN)
 
 #define MI2S_ACTIVE_CFG \
 	GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_2MA, GPIOMUX_PULL_NONE)
@@ -471,6 +475,25 @@ static struct msm_gpiomux_config msm8x60_uart_configs[] __initdata = {
 		},
 	},
 };
+
+#ifdef CONFIG_MSM_GSBI9_UART
+static struct msm_gpiomux_config msm8x60_charm_uart_configs[] __initdata = {
+	{ /* UART9DM  RX */
+		.gpio	   = 66,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = UART9DM_ACTIVE,
+			[GPIOMUX_SUSPENDED] = GSBI9,
+		},
+	},
+	{ /* UART9DM TX */
+		.gpio	   = 67,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = UART9DM_ACTIVE,
+			[GPIOMUX_SUSPENDED] = GSBI9,
+		},
+	},
+};
+#endif
 
 static struct msm_gpiomux_config msm8x60_ts_configs[] __initdata = {
 	{
@@ -1357,6 +1380,9 @@ struct msm_gpiomux_configs
 msm8x60_charm_gpiomux_cfgs[] __initdata = {
 	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
 	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
+#ifdef CONFIG_MSM_GSBI9_UART
+	{msm8x60_charm_uart_configs, ARRAY_SIZE(msm8x60_charm_uart_configs)},
+#endif
 	{msm8x60_ts_configs, ARRAY_SIZE(msm8x60_ts_configs)},
 	{msm8x60_aux_pcm_configs, ARRAY_SIZE(msm8x60_aux_pcm_configs)},
 	{msm8x60_sdc_configs, ARRAY_SIZE(msm8x60_sdc_configs)},
