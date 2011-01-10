@@ -705,11 +705,8 @@ static int kgsl_g12_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
 
-	if (device->state == KGSL_STATE_SUSPEND || device->requested_state ==
-					KGSL_STATE_SUSPEND) {
-		KGSL_DRV_ERR("don't wake in suspended\n");
-		BUG();
-	}
+	if (device->state == KGSL_STATE_SUSPEND)
+		return status;
 
 	/* Turn on the core clocks */
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
@@ -734,12 +731,7 @@ static int kgsl_g12_resume(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
 
-	/* Call to restore state here. */
-	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
-	/* Turn on the core clocks */
-	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	status = kgsl_g12_start(device, 0);
 
 	/* Re-enable HW access */
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
@@ -760,25 +752,18 @@ static int kgsl_g12_resume(struct kgsl_device *device)
 static int kgsl_g12_suspend(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
-
-	if (device->state == KGSL_STATE_NAP)
-		goto clk_off;
-	if (device->state == KGSL_STATE_SLEEP)
-		goto pwr_off;
+	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *)device;
 
 	/* Wait for the device to become idle */
-	status = kgsl_g12_idle(device, KGSL_G12_IDLE_COUNT_MAX);
+	if (device->state == KGSL_STATE_ACTIVE)
+		status = kgsl_g12_idle(device, KGSL_G12_IDLE_COUNT_MAX);
 
 	if (status)
 		goto done;
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
-clk_off:
-	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+	kgsl_g12_stop(device);
+	g12_device->ringbuffer.prevctx = KGSL_G12_INVALID_CONTEXT;
 
-pwr_off:
-	/* Call to store state here. */
 	device->state = KGSL_STATE_SUSPEND;
 	/* Don't let the timer wake us during suspended sleep. */
 	status = del_timer(&device->idle_timer);
