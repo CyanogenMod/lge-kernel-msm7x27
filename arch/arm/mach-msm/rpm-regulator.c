@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -300,6 +300,9 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 				(set == MSM_RPM_CTX_SET_0 ? "active" : "sleep"),
 				vreg->req[0].id, rc);
 		} else {
+			/* Only save if nonzero and active set. */
+			if (max_mV_vote && (set == MSM_RPM_CTX_SET_0))
+				vreg->save_uV = MILLI_TO_MICRO(max_mV_vote);
 			prev_req[0].value = vreg->req[0].value;
 			prev_req[1].value = vreg->req[1].value;
 		}
@@ -414,13 +417,6 @@ int rpm_vreg_set_voltage(enum rpm_vreg_id vreg_id, enum rpm_vreg_voter voter,
 	rc = vreg_set_noirq(&vregs[vreg_id], voter, sleep_also, mask0, val0,
 			    mask1, val1, cnt);
 
-	if (rc)
-		return rc;
-
-	/* only save if nonzero (or not disabling) */
-	if (min_uV)
-		vregs[vreg_id].save_uV = min_uV;
-
 	return rc;
 }
 EXPORT_SYMBOL_GPL(rpm_vreg_set_voltage);
@@ -499,7 +495,7 @@ static int smps_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 		return rc;
 
 	/* only save if nonzero (or not disabling) */
-	if (min_uV)
+	if (min_uV && !vreg->pdata->sleep_selectable)
 		vreg->save_uV = min_uV;
 
 	return rc;
@@ -537,7 +533,7 @@ static int smps_8901_set_voltage(struct regulator_dev *dev, int min_uV,
 		return rc;
 
 	/* only save if nonzero (or not disabling) */
-	if (min_uV)
+	if (min_uV && !vreg->pdata->sleep_selectable)
 		vreg->save_uV = min_uV;
 
 	return rc;
@@ -750,7 +746,7 @@ static int ldo_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 		return rc;
 
 	/* only save if nonzero (or not disabling) */
-	if (min_uV)
+	if (min_uV && !vreg->pdata->sleep_selectable)
 		vreg->save_uV = min_uV;
 
 	return rc;
