@@ -153,8 +153,8 @@ struct clkctl_acpu_speed {
 #define BW_MBPS(_bw) \
 	{ \
 		.vectors = &(struct msm_bus_vectors){ \
-			.src = MSM_BUS_APPSS_MASTER_SMPSS_M0, \
-			.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0, \
+			.src = MSM_BUS_MASTER_AMPSS_M0, \
+			.dst = MSM_BUS_SLAVE_EBI_CH0, \
 			.ib = (_bw) * 1000000UL, \
 			.ab = 0, \
 		}, \
