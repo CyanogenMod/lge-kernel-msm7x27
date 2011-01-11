@@ -15,6 +15,7 @@
  * 02110-1301, USA.
  */
 
+#include <linux/module.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -26,6 +27,19 @@
 #include "rpm-regulator.h"
 #include "rpm.h"
 #include "rpm_resources.h"
+
+/* Debug Definitions */
+
+enum {
+	MSM_RPM_VREG_DEBUG_REQUEST = BIT(0),
+	MSM_RPM_VREG_DEBUG_VOTE = BIT(1),
+	MSM_RPM_VREG_DEBUG_DUPLICATE = BIT(2),
+};
+
+static int msm_rpm_vreg_debug_mask;
+module_param_named(
+	debug_mask, msm_rpm_vreg_debug_mask, int, S_IRUSR | S_IWUSR
+);
 
 #define MICRO_TO_MILLI(uV)			((uV) / 1000)
 #define MILLI_TO_MICRO(mV)			((mV) * 1000)
@@ -211,6 +225,11 @@ static struct vreg vregs[RPM_VREG_ID_MAX] = {
 	VREG_1(PM8901_MVS0, MVS),
 };
 
+static void print_rpm_request(struct vreg *vreg, int set);
+static void print_rpm_vote(struct vreg *vreg, enum rpm_vreg_voter voter,
+			int set, int voter_mV, int aggregate_mV);
+static void print_rpm_duplicate(struct vreg *vreg, int set, int cnt);
+
 static int voltage_from_req(struct vreg *vreg)
 {
 	int shift = 0;
@@ -286,6 +305,10 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 		max_mV_vote = max(max_mV_vote, min_mV_vote[i]);
 	voltage_to_req(max_mV_vote, vreg);
 
+	if (msm_rpm_vreg_debug_mask & MSM_RPM_VREG_DEBUG_VOTE)
+		print_rpm_vote(vreg, voter, set, min_mV_vote[voter],
+				max_mV_vote);
+
 	/* Ignore duplicate requests */
 	if (vreg->req[0].value != prev_req[0].value ||
 	    vreg->req[1].value != prev_req[1].value) {
@@ -303,9 +326,14 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 			/* Only save if nonzero and active set. */
 			if (max_mV_vote && (set == MSM_RPM_CTX_SET_0))
 				vreg->save_uV = MILLI_TO_MICRO(max_mV_vote);
+			if (msm_rpm_vreg_debug_mask
+			    & MSM_RPM_VREG_DEBUG_REQUEST)
+				print_rpm_request(vreg, set);
 			prev_req[0].value = vreg->req[0].value;
 			prev_req[1].value = vreg->req[1].value;
 		}
+	} else if (msm_rpm_vreg_debug_mask & MSM_RPM_VREG_DEBUG_DUPLICATE) {
+		print_rpm_duplicate(vreg, set, cnt);
 	}
 
 	return rc;
@@ -465,8 +493,11 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 
 	/* Ignore duplicate requests */
 	if (vreg->req[0].value == vreg->prev_active_req[0].value &&
-	    vreg->req[1].value == vreg->prev_active_req[1].value)
+	    vreg->req[1].value == vreg->prev_active_req[1].value) {
+		if (msm_rpm_vreg_debug_mask & MSM_RPM_VREG_DEBUG_DUPLICATE)
+			print_rpm_duplicate(vreg, MSM_RPM_CTX_SET_0, cnt);
 		return 0;
+	}
 
 	rc = msm_rpm_set(MSM_RPM_CTX_SET_0, vreg->req, cnt);
 	if (rc) {
@@ -476,6 +507,8 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 		pr_err("%s: msm_rpm_set fail id=%d, rc=%d\n",
 				__func__, vreg->req[0].id, rc);
 	} else {
+		if (msm_rpm_vreg_debug_mask & MSM_RPM_VREG_DEBUG_REQUEST)
+			print_rpm_request(vreg, MSM_RPM_CTX_SET_0);
 		vreg->prev_active_req[0].value = vreg->req[0].value;
 		vreg->prev_active_req[1].value = vreg->req[1].value;
 	}
@@ -1316,6 +1349,152 @@ static void __exit rpm_vreg_exit(void)
 
 postcore_initcall(rpm_vreg_init);
 module_exit(rpm_vreg_exit);
+
+static void print_rpm_request(struct vreg *vreg, int set)
+{
+	int v, ip, fm, pc, pf, pd, ia, freq, clk, state;
+
+	if (IS_LDO(vreg->id)) {
+		v = (vreg->req[0].value & LDO_VOLTAGE) >> LDO_VOLTAGE_SHIFT;
+		ip = (vreg->req[0].value & LDO_PEAK_CURRENT)
+			>> LDO_PEAK_CURRENT_SHIFT;
+		fm = (vreg->req[0].value & LDO_MODE) >> LDO_MODE_SHIFT;
+		pc = (vreg->req[0].value & LDO_PIN_CTRL) >> LDO_PIN_CTRL_SHIFT;
+		pf = (vreg->req[0].value & LDO_PIN_FN) >> LDO_PIN_FN_SHIFT;
+		pd = (vreg->req[1].value & LDO_PULL_DOWN_ENABLE)
+			>> LDO_PULL_DOWN_ENABLE_SHIFT;
+		ia = (vreg->req[1].value & LDO_AVG_CURRENT)
+				>> LDO_AVG_CURRENT_SHIFT;
+
+		pr_info("rpm-regulator: %s %-9s: s=%c, v=%4d mV, ip=%4d "
+			"mA, fm=%s (%d), pc=%s%s%s%s%s (%d), pf=%s (%d), pd=%s "
+			"(%d), ia=%4d mA; req[0]={%d, 0x%08X}, "
+			"req[1]={%d, 0x%08X}\n",
+			(set == MSM_RPM_CTX_SET_0 ? "sending " : "buffered"),
+			vreg_descrip[vreg->id].name,
+			(set == MSM_RPM_CTX_SET_0 ? 'A' : 'S'), v, ip,
+			(fm == RPM_VREG_MODE_NONE ? "none" :
+				(fm == RPM_VREG_MODE_LPM ? "LPM" :
+				       (fm == RPM_VREG_MODE_HPM ? "HPM" : ""))),
+			fm,
+			(pc & RPM_VREG_PIN_CTRL_A0 ? " A0" : ""),
+			(pc & RPM_VREG_PIN_CTRL_A1 ? " A1" : ""),
+			(pc & RPM_VREG_PIN_CTRL_D0 ? " D0" : ""),
+			(pc & RPM_VREG_PIN_CTRL_D1 ? " D1" : ""),
+			(pc == RPM_VREG_PIN_CTRL_NONE ? " none" : ""), pc,
+			(pf == RPM_VREG_PIN_FN_ENABLE ?
+				"on/off" :
+				(pf == RPM_VREG_PIN_FN_MODE ?
+					"HPM/LPM" : "")),
+			pf, (pd == 1 ? "Y" : "N"), pd, ia,
+			vreg->req[0].id, vreg->req[0].value,
+			vreg->req[1].id, vreg->req[1].value);
+
+	} else if (IS_SMPS(vreg->id)) {
+		v = (vreg->req[0].value & SMPS_VOLTAGE) >> SMPS_VOLTAGE_SHIFT;
+		ip = (vreg->req[0].value & SMPS_PEAK_CURRENT)
+			>> SMPS_PEAK_CURRENT_SHIFT;
+		fm = (vreg->req[0].value & SMPS_MODE) >> SMPS_MODE_SHIFT;
+		pc = (vreg->req[0].value & SMPS_PIN_CTRL)
+			>> SMPS_PIN_CTRL_SHIFT;
+		pf = (vreg->req[0].value & SMPS_PIN_FN) >> SMPS_PIN_FN_SHIFT;
+		pd = (vreg->req[1].value & SMPS_PULL_DOWN_ENABLE)
+			>> SMPS_PULL_DOWN_ENABLE_SHIFT;
+		ia = (vreg->req[1].value & SMPS_AVG_CURRENT)
+			>> SMPS_AVG_CURRENT_SHIFT;
+		freq = (vreg->req[1].value & SMPS_FREQ) >> SMPS_FREQ_SHIFT;
+		clk = (vreg->req[1].value & SMPS_CLK_SRC) >> SMPS_CLK_SRC_SHIFT;
+
+		pr_info("rpm-regulator: %s %-9s: s=%c, v=%4d mV, ip=%4d "
+			"mA, fm=%s (%d), pc=%s%s%s%s%s (%d), pf=%s (%d), pd=%s "
+			"(%d), ia=%4d mA, freq=%2d, clk=%d; "
+			"req[0]={%d, 0x%08X}, req[1]={%d, 0x%08X}\n",
+			(set == MSM_RPM_CTX_SET_0 ? "sending " : "buffered"),
+			vreg_descrip[vreg->id].name,
+			(set == MSM_RPM_CTX_SET_0 ? 'A' : 'S'), v, ip,
+			(fm == RPM_VREG_MODE_NONE ? "none" :
+				(fm == RPM_VREG_MODE_LPM ? "LPM" :
+				       (fm == RPM_VREG_MODE_HPM ? "HPM" : ""))),
+			fm,
+			(pc & RPM_VREG_PIN_CTRL_A0 ? " A0" : ""),
+			(pc & RPM_VREG_PIN_CTRL_A1 ? " A1" : ""),
+			(pc & RPM_VREG_PIN_CTRL_D0 ? " D0" : ""),
+			(pc & RPM_VREG_PIN_CTRL_D1 ? " D1" : ""),
+			(pc == RPM_VREG_PIN_CTRL_NONE ? " none" : ""), pc,
+			(pf == RPM_VREG_PIN_FN_ENABLE ?
+				"on/off" :
+				(pf == RPM_VREG_PIN_FN_MODE ?
+					"HPM/LPM" : "")),
+			pf, (pd == 1 ? "Y" : "N"), pd, ia, freq, clk,
+			vreg->req[0].id, vreg->req[0].value,
+			vreg->req[1].id, vreg->req[1].value);
+
+	} else if (IS_SWITCH(vreg->id)) {
+		state = (vreg->req[0].value & SWITCH_STATE)
+			>> SWITCH_STATE_SHIFT;
+		pd = (vreg->req[0].value & SWITCH_PULL_DOWN_ENABLE)
+			>> SWITCH_PULL_DOWN_ENABLE_SHIFT;
+		pc = (vreg->req[0].value & SWITCH_PIN_CTRL)
+			>> SWITCH_PIN_CTRL_SHIFT;
+		pf = (vreg->req[0].value & SWITCH_PIN_FN)
+			>> SWITCH_PIN_FN_SHIFT;
+
+		pr_info("rpm-regulator: %s %-9s: s=%c, state=%s (%d), "
+			"pd=%s (%d), pc =%s%s%s%s%s (%d), pf=%s (%d); "
+			"req[0]={%d, 0x%08X}\n",
+			(set == MSM_RPM_CTX_SET_0 ? "sending " : "buffered"),
+			vreg_descrip[vreg->id].name,
+			(set == MSM_RPM_CTX_SET_0 ? 'A' : 'S'),
+			(state == 1 ? "on" : "off"), state,
+			(pd == 1 ? "Y" : "N"), pd,
+			(pc & RPM_VREG_PIN_CTRL_A0 ? " A0" : ""),
+			(pc & RPM_VREG_PIN_CTRL_A1 ? " A1" : ""),
+			(pc & RPM_VREG_PIN_CTRL_D0 ? " D0" : ""),
+			(pc & RPM_VREG_PIN_CTRL_D1 ? " D1" : ""),
+			(pc == RPM_VREG_PIN_CTRL_NONE ? " none" : ""), pc,
+			(pf == RPM_VREG_PIN_FN_ENABLE ?
+				"on/off" :
+				(pf == RPM_VREG_PIN_FN_MODE ?
+					"HPM/LPM" : "")),
+			pf, vreg->req[0].id, vreg->req[0].value);
+
+	} else if (IS_NCP(vreg->id)) {
+		v = (vreg->req[0].value & NCP_VOLTAGE) >> NCP_VOLTAGE_SHIFT;
+		state = (vreg->req[0].value & NCP_STATE) >> NCP_STATE_SHIFT;
+
+		pr_info("rpm-regulator: %s %-9s: s=%c, v=-%4d mV, "
+			"state=%s (%d); req[0]={%d, 0x%08X}\n",
+			(set == MSM_RPM_CTX_SET_0 ? "sending " : "buffered"),
+			vreg_descrip[vreg->id].name,
+			(set == MSM_RPM_CTX_SET_0 ? 'A' : 'S'),
+			v, (state == 1 ? "on" : "off"), state,
+			vreg->req[0].id, vreg->req[0].value);
+	}
+}
+
+static void print_rpm_vote(struct vreg *vreg, enum rpm_vreg_voter voter,
+			int set, int voter_mV, int aggregate_mV)
+{
+	pr_info("rpm-regulator: vote received %-9s: voter=%d, set=%c, "
+		"v_voter=%4d mV, v_aggregate=%4d mV\n",
+		vreg_descrip[vreg->id].name, voter, (set == 0 ? 'A' : 'S'),
+		voter_mV, aggregate_mV);
+}
+
+static void print_rpm_duplicate(struct vreg *vreg, int set, int cnt)
+{
+	if (cnt == 2)
+		pr_info("rpm-regulator: ignored duplicate request %-9s: set=%c;"
+			" req[0]={%d, 0x%08X}, req[1]={%d, 0x%08X}\n",
+			vreg_descrip[vreg->id].name, (set == 0 ? 'A' : 'S'),
+			vreg->req[0].id, vreg->req[0].value,
+			vreg->req[1].id, vreg->req[1].value);
+	else if (cnt == 1)
+		pr_info("rpm-regulator: ignored duplicate request %-9s: set=%c;"
+			" req[0]={%d, 0x%08X}\n",
+			vreg_descrip[vreg->id].name, (set == 0 ? 'A' : 'S'),
+			vreg->req[0].id, vreg->req[0].value);
+}
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("rpm regulator driver");
