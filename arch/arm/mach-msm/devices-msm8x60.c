@@ -812,6 +812,35 @@ struct platform_device msm_gsbi1_qup_spi_device = {
 	.resource	= gsbi1_qup_spi_resources,
 };
 
+
+static struct resource gsbi10_qup_spi_resources[] = {
+	{
+		.name	= "spi_base",
+		.start	= MSM_GSBI10_QUP_PHYS,
+		.end	= MSM_GSBI10_QUP_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "gsbi_base",
+		.start	= MSM_GSBI10_PHYS,
+		.end	= MSM_GSBI10_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "spi_irq_in",
+		.start	= GSBI10_QUP_IRQ,
+		.end	= GSBI10_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+/* Use GSBI10 QUP for SPI-1 */
+struct platform_device msm_gsbi10_qup_spi_device = {
+	.name		= "spi_qsd",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(gsbi10_qup_spi_resources),
+	.resource	= gsbi10_qup_spi_resources,
+};
 #define MSM_SDC1_BASE         0x12400000
 #define MSM_SDC2_BASE         0x12140000
 #define MSM_SDC3_BASE         0x12180000
@@ -1428,7 +1457,8 @@ struct clk msm_clocks_8x60[] = {
 					&msm_gsbi8_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI9_QUP_CLK,
 					&msm_gsbi9_qup_i2c_device.dev, OFF),
-	CLK_8X60("gsbi_qup_clk",	GSBI10_QUP_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI10_QUP_CLK,
+					&msm_gsbi10_qup_spi_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI11_QUP_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,
 					&msm_gsbi12_qup_i2c_device.dev, OFF),
@@ -1475,7 +1505,8 @@ struct clk msm_clocks_8x60[] = {
 					GSBI9_UART_DEV, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK,
 					&msm_gsbi9_qup_i2c_device.dev, OFF),
-	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK,
+					&msm_gsbi10_qup_spi_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
 		&msm_device_uart_dm12.dev, 0),

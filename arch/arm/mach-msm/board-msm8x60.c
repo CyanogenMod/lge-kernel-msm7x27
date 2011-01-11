@@ -1701,6 +1701,12 @@ static struct msm_spi_platform_data msm_gsbi1_qup_spi_pdata = {
 	.clk_name = "gsbi_qup_clk",
 	.pclk_name = "gsbi_pclk",
 };
+
+static struct msm_spi_platform_data msm_gsbi10_qup_spi_pdata = {
+	.max_clock_speed = 24000000,
+	.clk_name = "gsbi_qup_clk",
+	.pclk_name = "gsbi_pclk",
+};
 #endif
 
 #ifdef CONFIG_I2C_SSBI
@@ -5350,12 +5356,16 @@ static void __init msm8x60_init_buses(void)
 	msm_device_ssbi3.dev.platform_data = &msm_ssbi3_pdata;
 #endif
 
-#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
 	if (machine_is_msm8x60_fluid()) {
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
 		msm_otg_pdata.vbus_power = msm_hsusb_smb137b_vbus_power;
 		msm_otg_pdata.chg_vbus_draw = smb137b_vbus_draw;
-	}
 #endif
+#if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
+		msm_gsbi10_qup_spi_device.dev.platform_data =
+					&msm_gsbi10_qup_spi_pdata;
+#endif
+	}
 
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_HCD)
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
@@ -7447,12 +7457,16 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
 		platform_add_devices(charm_devices, ARRAY_SIZE(charm_devices));
 
-#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
 	if (machine_is_msm8x60_fluid()) {
+#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
 		/* we dont want to register the pmic charger driver*/
 		pm8058_platform_data.num_subdevs--;
-	}
 #endif
+#if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
+		platform_device_register(&msm_gsbi10_qup_spi_device);
+#endif
+	}
+
 	if (!machine_is_msm8x60_sim())
 		msm_fb_add_devices();
 	fixup_i2c_configs();
