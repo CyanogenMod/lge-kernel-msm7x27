@@ -147,14 +147,32 @@
  * Clock frequency definitions and macros
  */
 #define F_BASIC(f, s, div, v) \
-	F_RAW(f, SRC_##s, 0, SDIV(SRC_SEL_##s, div), 0, 0, v, NULL)
+	{ \
+		.freq_hz = f, \
+		.src = SRC_##s, \
+		.ns_val = SDIV(SRC_SEL_##s, div), \
+		.sys_vdd = v, \
+	}
+
 #define F_MND16(f, s, div, m, n, v) \
-	F_RAW(f, SRC_##s, MD16(m, n), N16(m, n)|SPDIV(SRC_SEL_##s, div), \
-		0, (B(8) * !!(n)), v, NULL)
+	{ \
+		.freq_hz = f, \
+		.src = SRC_##s, \
+		.md_val = MD16(m, n), \
+		.ns_val = N16(m, n) | SPDIV(SRC_SEL_##s, div), \
+		.mnd_en_mask = BIT(8) * !!(n), \
+		.sys_vdd = v, \
+	}
+
 #define F_MND8(f, nmsb, nlsb, s, div, m, n, v) \
-	F_RAW(f, SRC_##s, MD8(m, n), \
-		N8(nmsb, nlsb, m, n)|SPDIV(SRC_SEL_##s, div), 0, \
-		(B(8) * !!(n)), v, NULL)
+	{ \
+		.freq_hz = f, \
+		.src = SRC_##s, \
+		.md_val = MD8(m, n), \
+		.ns_val = N8(nmsb, nlsb, m, n) | SPDIV(SRC_SEL_##s, div), \
+		.mnd_en_mask = BIT(8) * !!(n), \
+		.sys_vdd = v, \
+	}
 
 static struct clk_freq_tbl clk_tbl_csi[] = {
 	F_MND8(153600000, 24, 17, PLL1, 2, 2, 5, NOMINAL),
@@ -399,37 +417,152 @@ static uint32_t const chld_vfe[] =	{C(VFE_MDC), C(VFE_CAMIF), C(CSI0_VFE),
  * Clock declaration macros
  */
 #define CLK_BASIC(id, ns, br, root, tbl, par, h_r, h_c, h_b, tv) \
-		CLK(id, BASIC, ns, ns, NULL, NULL, 0, h_r, h_c, \
-			h_b, br, root, F_MASK_BASIC, 0, set_rate_basic, tbl, \
-			NULL, par, NULL, tv)
+	[L_##id##_CLK] = { \
+		.type = BASIC, \
+		.ns_reg = ns, \
+		.cc_reg = ns, \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.root_en_mask = root, \
+		.ns_mask = F_MASK_BASIC, \
+		.test_vector = tv, \
+		.parent = L_##par##_CLK, \
+		.set_rate = set_rate_basic, \
+		.freq_tbl = tbl, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_MND8_P(id, ns, m, l, br, root, tbl, par, chld_lst, \
 						h_r, h_c, h_b, tv) \
-		CLK(id, MND, ns, ns, (ns-4), NULL, 0, h_r, h_c, \
-			h_b, br, root, F_MASK_MND8(m, l), 0, set_rate_mnd, \
-			tbl, NULL, par, chld_lst, tv)
+	[L_##id##_CLK] = { \
+		.type = MND, \
+		.ns_reg = ns, \
+		.cc_reg = ns, \
+		.md_reg = (ns-4), \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.root_en_mask = root, \
+		.ns_mask = F_MASK_MND8(m, l), \
+		.test_vector = tv, \
+		.parent = L_##par##_CLK, \
+		.children = chld_lst, \
+		.set_rate = set_rate_mnd, \
+		.freq_tbl = tbl, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_MND8(id, ns, m, l, br, root, tbl, chld_lst, h_r, h_c, h_b, tv) \
-		CLK_MND8_P(id, ns, m, l, br, root, tbl, NONE, chld_lst, \
-							h_r, h_c, h_b, tv)
+	[L_##id##_CLK] = { \
+		.type = MND, \
+		.ns_reg = ns, \
+		.cc_reg = ns, \
+		.md_reg = (ns-4), \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.root_en_mask = root, \
+		.ns_mask = F_MASK_MND8(m, l), \
+		.test_vector = tv, \
+		.parent = L_NONE_CLK, \
+		.children = chld_lst, \
+		.set_rate = set_rate_mnd, \
+		.freq_tbl = tbl, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_MND16(id, ns, br, root, tbl, par, chld_lst, h_r, h_c, h_b, tv) \
-		CLK(id, MND, ns, ns, (ns-4), NULL, 0, h_r, h_c, \
-			h_b, br, root, F_MASK_MND16, 0, set_rate_mnd, tbl, \
-			NULL, par, chld_lst, tv)
+	[L_##id##_CLK] = { \
+		.type = MND, \
+		.ns_reg = ns, \
+		.cc_reg = ns, \
+		.md_reg = (ns-4), \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.root_en_mask = root, \
+		.ns_mask = F_MASK_MND16, \
+		.test_vector = tv, \
+		.parent = L_##par##_CLK, \
+		.children = chld_lst, \
+		.set_rate = set_rate_mnd, \
+		.freq_tbl = tbl, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_1RATE(id, ns, br, root, tbl, h_r, h_c, h_b, tv) \
-		CLK(id, BASIC, NULL, ns, NULL, NULL, 0, h_r, h_c, \
-			h_b, br, root, 0, 0, set_rate_nop, tbl, \
-			NULL, NONE, NULL, tv)
+	[L_##id##_CLK] = { \
+		.type = BASIC, \
+		.cc_reg = ns, \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.root_en_mask = root, \
+		.test_vector = tv, \
+		.parent = L_NONE_CLK, \
+		.set_rate = set_rate_nop, \
+		.freq_tbl = tbl, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_SLAVE(id, ns, br, par, h_r, h_c, h_b, tv) \
-		CLK(id, NORATE, NULL, ns, NULL, NULL, 0, h_r, h_c, \
-			h_b, br, 0, 0, 0, NULL, NULL, NULL, par, NULL, tv)
+	[L_##id##_CLK] = { \
+		.type = NORATE, \
+		.cc_reg = ns, \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.test_vector = tv, \
+		.parent = L_##par##_CLK, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_NORATE(id, ns, br, root, h_r, h_c, h_b, tv) \
-		CLK(id, NORATE, NULL, ns, NULL, NULL, 0, h_r, h_c, \
-			h_b, br, root, 0, 0, NULL, NULL, NULL, NONE, NULL, tv)
+	[L_##id##_CLK] = { \
+		.type = NORATE, \
+		.cc_reg = ns, \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.root_en_mask = root, \
+		.test_vector = tv, \
+		.parent = L_NONE_CLK, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_GLBL(id, glbl, br, h_r, h_c, h_b, tv) \
-		CLK(id, NORATE, NULL, glbl, NULL, NULL, 0, h_r, h_c, \
-			h_b, br, 0, 0, 0, NULL, NULL, NULL, GLBL_ROOT, NULL, tv)
+	[L_##id##_CLK] = { \
+		.type = NORATE, \
+		.cc_reg = glbl, \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.test_vector = tv, \
+		.parent = L_GLBL_ROOT_CLK, \
+		.current_freq = &local_dummy_freq, \
+	}
+
 #define CLK_BRIDGE(id, glbl, br, par, h_r, h_c, h_b, tv) \
-		CLK(id, NORATE, NULL, glbl, NULL, NULL, 0, h_r, h_c, \
-			h_b, br, 0, 0, 0, NULL, NULL, NULL, par, NULL, tv)
+	[L_##id##_CLK] = { \
+		.type = NORATE, \
+		.cc_reg = glbl, \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.test_vector = tv, \
+		.parent = L_##par##_CLK, \
+		.current_freq = &local_dummy_freq, \
+	}
 
 /*
  * Clock table
