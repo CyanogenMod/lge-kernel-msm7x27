@@ -80,7 +80,7 @@ void set_rate_mnd(struct clk_local *clk, struct clk_freq_tbl *nf)
 
 	/* Assert MND reset. */
 	ns_reg_val = readl(clk->ns_reg);
-	ns_reg_val |= B(7);
+	ns_reg_val |= BIT(7);
 	writel(ns_reg_val, clk->ns_reg);
 
 	/* Program M and D values. */
@@ -100,7 +100,7 @@ void set_rate_mnd(struct clk_local *clk, struct clk_freq_tbl *nf)
 	}
 
 	/* Deassert MND reset. */
-	ns_reg_val &= ~B(7);
+	ns_reg_val &= ~BIT(7);
 	writel(ns_reg_val, clk->ns_reg);
 }
 
@@ -296,7 +296,7 @@ static int local_clk_is_halted(unsigned id)
 {
 	struct clk_local *clk = &soc_clk_local_tbl[id];
 	int invert = (clk->halt_check == ENABLE);
-	int status_bit = readl(clk->halt_reg) & B(clk->halt_bit);
+	int status_bit = readl(clk->halt_reg) & BIT(clk->halt_bit);
 	return invert ? !status_bit : status_bit;
 }
 
