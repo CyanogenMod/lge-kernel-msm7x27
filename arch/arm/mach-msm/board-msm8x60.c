@@ -96,6 +96,7 @@
 #include "rpm-regulator.h"
 #include "gpiomux.h"
 #include "gpiomux-8x60.h"
+#include "mpm.h"
 
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
@@ -5453,6 +5454,9 @@ static void __init msm8x60_init_tlmm(void)
 		msm_gpio_install_direct_irq(0, 0, 1);
 
 	msm_gpio_install_direct_irq(PM8058_GPIO_INT, 1, 0);
+	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_1,
+				MSM_GPIO_TO_INT(PM8058_GPIO_INT), 1);
+
 }
 
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT)\
