@@ -731,13 +731,17 @@ static int msm_hsl_request_port(struct uart_port *port)
 
 	uart_resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						     "uartdm_resource");
-	if (unlikely(!uart_resource))
+	if (unlikely(!uart_resource)) {
+		pr_err("%s: can't get uartdm resource\n", __func__);
 		return -ENXIO;
+	}
 	size = uart_resource->end - uart_resource->start + 1;
 
 	if (unlikely(!request_mem_region(port->mapbase, size,
-					 "msm_serial_hs")))
+					 "msm_serial_hsl"))) {
+		pr_err("%s: can't get mem region for uartdm\n", __func__);
 		return -EBUSY;
+	}
 
 	port->membase = ioremap(port->mapbase, size);
 	if (!port->membase) {
@@ -749,13 +753,17 @@ static int msm_hsl_request_port(struct uart_port *port)
 		gsbi_resource = platform_get_resource_byname(pdev,
 							     IORESOURCE_MEM,
 							     "gsbi_resource");
-		if (unlikely(!gsbi_resource))
+		if (unlikely(!gsbi_resource)) {
+			pr_err("%s: can't get gsbi resource\n", __func__);
 			return -ENXIO;
+		}
 
 		size = gsbi_resource->end - gsbi_resource->start + 1;
 		if (unlikely(!request_mem_region(gsbi_resource->start, size,
-						 "msm_serial_hs")))
+						 "msm_serial_hsl"))) {
+			pr_err("%s: can't get mem region for gsbi\n", __func__);
 			return -EBUSY;
+		}
 
 		msm_hsl_port->mapped_gsbi = ioremap(gsbi_resource->start,
 						    size);
