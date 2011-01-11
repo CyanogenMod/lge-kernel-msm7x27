@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -462,6 +462,7 @@ static int __devinit pmic8901_tm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	tmdev->pm_chip = pm_chip;
 	tmdev->tz_dev = thermal_zone_device_register("pm8901_tz",
 						     PM8901_TRIP_NUM, tmdev,
 						     &pm8901_thermal_zone_ops,
@@ -473,7 +474,6 @@ static int __devinit pmic8901_tm_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	tmdev->pm_chip = pm_chip;
 	rc = pm8901_tm_init_reg(tmdev);
 	pm8901_tm_shutdown_override(tmdev->pm_chip, SOFTWARE_OVERRIDE_DISABLED);
 	if (rc < 0) {
