@@ -552,6 +552,7 @@ int __msm_gemini_open(struct msm_gemini_device *pgmn_dev)
 	msm_gemini_outbuf_q_cleanup(&pgmn_dev->output_buf_q);
 	msm_gemini_q_cleanup(&pgmn_dev->input_rtn_q);
 	msm_gemini_q_cleanup(&pgmn_dev->input_buf_q);
+	msm_gemini_core_init();
 
 	GMN_DBG("%s:%d] success\n", __func__, __LINE__);
 	return rc;
