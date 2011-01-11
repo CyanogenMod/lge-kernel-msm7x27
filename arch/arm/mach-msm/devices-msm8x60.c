@@ -81,6 +81,9 @@
 #define INT_UART3DM_IRQ     GSBI3_UARTDM_IRQ
 #define TCSR_BASE_PHYS      0x16b00000
 
+/* PRNG device */
+#define MSM_PRNG_PHYS		0x16C00000
+
 #ifdef CONFIG_WEBCAM_OV7692
 #define WEBCAM_DEV (&msm_camera_sensor_webcam.dev)
 #else
@@ -540,6 +543,21 @@ struct msm_bus_scale_pdata grp2d1_bus_scale_pdata = {
 	grp2d1_bus_scale_usecases,
 	ARRAY_SIZE(grp2d1_bus_scale_usecases),
 	.name = "grp2d1",
+};
+#endif
+
+#ifdef CONFIG_HW_RANDOM_MSM
+static struct resource rng_resources = {
+	.flags = IORESOURCE_MEM,
+	.start = MSM_PRNG_PHYS,
+	.end   = MSM_PRNG_PHYS + SZ_512 - 1,
+};
+
+struct platform_device msm_device_rng = {
+	.name          = "msm_rng",
+	.id            = 0,
+	.num_resources = 1,
+	.resource      = &rng_resources,
 };
 #endif
 

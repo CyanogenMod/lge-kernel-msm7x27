@@ -61,6 +61,10 @@ extern struct platform_device msm_camera_sensor_webcam;
 
 extern struct platform_device msm_charm_modem;
 
+#ifdef CONFIG_HW_RANDOM_MSM
+extern struct platform_device msm_device_rng;
+#endif
+
 void __init msm8x60_init_irq(void);
 void __init msm8x60_check_2d_hardware(void);
 
