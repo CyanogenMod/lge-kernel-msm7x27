@@ -46,4 +46,5 @@ int msm_gemini_core_reset(uint8_t op_mode, void *base, int size);
 int msm_gemini_core_fe_start(void);
 
 void msm_gemini_core_release(void);
+void msm_gemini_core_init(void);
 #endif /* MSM_GEMINI_CORE_H */

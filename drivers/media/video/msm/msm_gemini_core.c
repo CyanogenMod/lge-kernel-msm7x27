@@ -24,14 +24,37 @@
 static struct msm_gemini_hw_pingpong fe_pingpong_buf;
 static struct msm_gemini_hw_pingpong we_pingpong_buf;
 static int we_pingpong_index;
+static int reset_done_ack;
+static spinlock_t reset_lock;
+static wait_queue_head_t reset_wait;
 
 int msm_gemini_core_reset(uint8_t op_mode, void *base, int size)
 {
+	unsigned long flags;
+	int rc = 0;
+	int tm = 500; /*500ms*/
 	memset(&fe_pingpong_buf, 0, sizeof(fe_pingpong_buf));
 	fe_pingpong_buf.is_fe = 1;
 	we_pingpong_index = 0;
 	memset(&we_pingpong_buf, 0, sizeof(we_pingpong_buf));
+	spin_lock_irqsave(&reset_lock, flags);
+	reset_done_ack = 0;
+	spin_unlock_irqrestore(&reset_lock, flags);
 	msm_gemini_hw_reset(base, size);
+	rc = wait_event_interruptible_timeout(
+			reset_wait,
+			reset_done_ack,
+			msecs_to_jiffies(tm));
+
+	if (rc || !reset_done_ack) {
+		GMN_DBG("%s: reset ACK failed %d", __func__, rc);
+		return -EBUSY;
+	}
+
+	GMN_DBG("%s: reset_done_ack %d", __func__, reset_done_ack);
+	spin_lock_irqsave(&reset_lock, flags);
+	reset_done_ack = 0;
+	spin_unlock_irqrestore(&reset_lock, flags);
 
 	if (op_mode == MSM_GEMINI_MODE_REALTIME_ENCODE) {
 		/* Nothing needed for fe buffer cfg, config we only */
@@ -54,6 +77,11 @@ void msm_gemini_core_release(void)
 			msm_gemini_platform_p2v(we_pingpong_buf.buf[i].file);
 		}
 	}
+}
+
+void msm_gemini_core_init(void)
+{
+	init_waitqueue_head(&reset_wait);
 }
 
 int msm_gemini_core_fe_start(void)
@@ -128,7 +156,7 @@ static int (*msm_gemini_irq_handler) (int, void *, void *);
 irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 {
 	void *data = NULL;
-
+	unsigned long flags;
 	int gemini_irq_status;
 
 	GMN_DBG("%s:%d] irq_num = %d\n", __func__, __LINE__, irq_num);
@@ -139,7 +167,14 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 		gemini_irq_status);
 
 	/*For reset and framedone IRQs, clear all bits*/
-	if ((gemini_irq_status & 0x1) || (gemini_irq_status & 0x400)) {
+	if (gemini_irq_status & 0x400) {
+		spin_lock_irqsave(&reset_lock, flags);
+		reset_done_ack = 1;
+		spin_unlock_irqrestore(&reset_lock, flags);
+		wake_up(&reset_wait);
+		msm_gemini_hw_irq_clear(HWIO_JPEG_IRQ_CLEAR_RMSK,
+			JPEG_IRQ_CLEAR_ALL);
+	} else if (gemini_irq_status & 0x1) {
 		msm_gemini_hw_irq_clear(HWIO_JPEG_IRQ_CLEAR_RMSK,
 			JPEG_IRQ_CLEAR_ALL);
 	} else {
