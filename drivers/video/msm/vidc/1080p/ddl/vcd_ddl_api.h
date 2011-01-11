@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -69,10 +69,10 @@ struct vcd_property_frame_level_rc_params{
 	u32 reaction_coeff;
 };
 struct vcd_property_adaptive_rc_params{
-	u32 dark_region_as_flag;
-	u32 smooth_region_as_flag;
-	u32 static_region_as_flag;
-	u32 activity_region_flag;
+	u32 disable_dark_region_as_flag;
+	u32 disable_smooth_region_as_flag;
+	u32 disable_static_region_as_flag;
+	u32 disable_activity_region_flag;
 };
 struct ddl_property_dec_pic_buffers{
 	struct ddl_frame_data_tag *dec_pic_buffers;

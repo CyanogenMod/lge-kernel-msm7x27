@@ -435,6 +435,7 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 	u32 vcd_status = VCD_ERR_ILLEGAL_PARM;
 
 	if (DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME) ||
+		DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME_DONE) ||
 		DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_OPEN)) {
 		vcd_status = ddl_set_enc_dynamic_property(ddl,
 				property_hdr, property_value);
@@ -1369,7 +1370,8 @@ static u32 ddl_set_enc_dynamic_property(struct ddl_client_context *ddl,
 		break;
 	}
 
-	if (!vcd_status && DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME))
+	if (!vcd_status && (DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME)
+		|| DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME_DONE)))
 		encoder->dynamic_prop_change |= dynamic_prop_change;
 
 	return vcd_status;
@@ -1493,10 +1495,10 @@ static void ddl_set_default_enc_rc_params(
 		encoder->session_qp.p_frame_qp = 0x14;
 		encoder->session_qp.b_frame_qp = 0x14;
 		encoder->rc_level.mb_level_rc  = true;
-		encoder->adaptive_rc.activity_region_flag  = false;
-		encoder->adaptive_rc.dark_region_as_flag   = false;
-		encoder->adaptive_rc.smooth_region_as_flag = false;
-		encoder->adaptive_rc.static_region_as_flag = false;
+		encoder->adaptive_rc.disable_activity_region_flag = true;
+		encoder->adaptive_rc.disable_dark_region_as_flag = true;
+		encoder->adaptive_rc.disable_smooth_region_as_flag = true;
+		encoder->adaptive_rc.disable_static_region_as_flag = true;
 	} else {
 		encoder->qp_range.max_qp       = 0x1f;
 		encoder->qp_range.min_qp       = 0x1;
