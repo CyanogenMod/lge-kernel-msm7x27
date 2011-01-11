@@ -5445,7 +5445,7 @@ static void __init msm8x60_configure_smc91x(void)
 static void __init msm8x60_init_tlmm(void)
 {
 	if (machine_is_msm8x60_rumi3())
-		msm_gpio_install_direct_irq(0, 0);
+		msm_gpio_install_direct_irq(0, 0, 1);
 }
 
 #if (defined(CONFIG_MMC_MSM_SDC1_SUPPORT)\
