@@ -141,7 +141,6 @@ struct kgsl_device {
 	struct kgsl_memdesc memstore;
 
 	struct kgsl_mmu 	  mmu;
-	struct kgsl_ringbuffer ringbuffer;
 	struct completion hwaccess_gate;
 	struct kgsl_functable ftbl;
 	struct work_struct idle_check_ws;

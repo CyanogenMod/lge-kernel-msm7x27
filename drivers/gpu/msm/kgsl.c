@@ -523,15 +523,17 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 	uint8_t *result = NULL;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_process_private *priv;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *ringbuffer = &yamato_device->ringbuffer;
 
-	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.buffer_desc, gpuaddr)) {
-		return kgsl_gpuaddr_to_vaddr(&device->ringbuffer.buffer_desc,
+	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->buffer_desc, gpuaddr)) {
+		return kgsl_gpuaddr_to_vaddr(&ringbuffer->buffer_desc,
 					gpuaddr, size);
 	}
 
-	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.memptrs_desc,
-			gpuaddr)) {
-		return kgsl_gpuaddr_to_vaddr(&device->ringbuffer.memptrs_desc,
+	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->memptrs_desc, gpuaddr)) {
+		return kgsl_gpuaddr_to_vaddr(&ringbuffer->memptrs_desc,
 					gpuaddr, size);
 	}
 

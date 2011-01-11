@@ -73,9 +73,9 @@ inline unsigned int kgsl_ringbuffer_sizelog2quadwords(unsigned int sizedwords)
 void kgsl_cp_intrcallback(struct kgsl_device *device)
 {
 	unsigned int status = 0, num_reads = 0, master_status = 0;
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-								device;
-	struct kgsl_ringbuffer *rb = &device->ringbuffer;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device=%p)\n", device);
 
@@ -575,7 +575,9 @@ int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 int kgsl_ringbuffer_init(struct kgsl_device *device)
 {
 	int status;
-	struct kgsl_ringbuffer *rb = &device->ringbuffer;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device=%p)\n", device);
 
@@ -721,7 +723,9 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 						unsigned int *cmds,
 						int sizedwords)
 {
-	struct kgsl_ringbuffer *rb = &device->ringbuffer;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device->id=%d, flags=%d, cmds=%p, "
 		"sizedwords=%d)\n", device->id, flags, cmds, sizedwords);
@@ -738,8 +742,8 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				unsigned int flags)
 {
 	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-							device;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
 	unsigned int *link;
 	unsigned int *cmds;
 	unsigned int i;
@@ -749,7 +753,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 			device->id, drawctxt_index, (unsigned int)ibdesc,
 			numibs, timestamp);
 
-	if (!(device->ringbuffer.flags & KGSL_FLAGS_STARTED) ||
+	if (!(yamato_device->ringbuffer.flags & KGSL_FLAGS_STARTED) ||
 				(drawctxt_index >= KGSL_CONTEXT_MAX)) {
 		KGSL_CMD_VDBG("return %d\n", -EINVAL);
 		return -EINVAL;
@@ -782,7 +786,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	kgsl_drawctxt_switch(yamato_device,
 			yamato_device->drawctxt[drawctxt_index], flags);
 
-	*timestamp = kgsl_ringbuffer_addcmds(&device->ringbuffer,
+	*timestamp = kgsl_ringbuffer_addcmds(&yamato_device->ringbuffer,
 					0, &link[0], (cmds - link));
 
 	KGSL_CMD_INFO("ctxt %d g %08x numibs %d ts %d\n",
