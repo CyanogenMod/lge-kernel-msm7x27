@@ -724,6 +724,24 @@ static struct platform_device msm_idual_mic_broadside_device = {
 	.dev = { .platform_data = &snddev_idual_mic_broadside_data },
 };
 
+static struct snddev_mi2s_data snddev_mi2s_stereo_rx_data = {
+	.capability = SNDDEV_CAP_RX ,
+	.name = "hdmi_stereo_rx",
+	.copp_id = 3,
+	.acdb_id = ACDB_ID_HDMI,
+	.channel_mode = 2,
+	.sd_lines = MI2S_SD_0,
+	.route = msm_snddev_tx_route_config,
+	.deroute = msm_snddev_tx_route_deconfig,
+	.default_sample_rate = 48000,
+};
+
+static struct platform_device msm_snddev_mi2s_stereo_rx_device = {
+	.name = "snddev_mi2s",
+	.id = 0,
+	.dev = { .platform_data = &snddev_mi2s_stereo_rx_data },
+};
+
 static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_iearpiece_ffa_device,
 	&msm_imic_ffa_device,
@@ -746,6 +764,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_ihs_stereo_speaker_stereo_rx_device,
 	&msm_spk_idual_mic_broadside_device,
 	&msm_idual_mic_broadside_device,
+	&msm_snddev_mi2s_stereo_rx_device,
 };
 
 void __ref msm_snddev_init_timpani(void)
