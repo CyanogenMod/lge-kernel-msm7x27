@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,9 +38,10 @@
 #define SMPS_BAND_1_VSTEP		6250
 
 #define SMPS_BAND_2_VMIN		700000
-#define SMPS_BAND_2_VMAX		1487500
+#define SMPS_BAND_2_VMAX		1400000
 #define SMPS_BAND_2_VSTEP		12500
 
+#define SMPS_BAND_3_SETPOINT_VMIN	1500000
 #define SMPS_BAND_3_VMIN		1400000
 #define SMPS_BAND_3_VMAX		3300000
 #define SMPS_BAND_3_VSTEP		50000
@@ -49,6 +50,12 @@
 					 (rev) == PM_8901_REV_1p1)
 
 #define PMIC_8901_V1_SCALE(uV)		((((uV) - 62100) * 23) / 25)
+
+/*
+ * Band 1 of PMIC 8901 SMPS regulators only supports set points with the 3 LSB's
+ * equal to 0.  This is accomplished in the macro by truncating the bits.
+ */
+#define PMIC_8901_SMPS_BAND_1_COMPENSATE(vprog)		((vprog) & 0xF8)
 
 /*
  * This defines what the application processor believes the boot loader
@@ -110,10 +117,21 @@ static int saw_set_voltage(struct regulator_dev *dev, int min_uV, int max_uV)
 	} else if (IS_PMIC_8901_V1(pmic8901_rev))
 		min_uV = PMIC_8901_V1_SCALE(min_uV);
 
+	if (min_uV < SMPS_BAND_1_VMIN || min_uV > SMPS_BAND_3_VMAX)
+		return -EINVAL;
+
+	/* Round down for set points in the gaps between bands. */
+	if (min_uV > SMPS_BAND_1_VMAX && min_uV < SMPS_BAND_2_VMIN)
+		min_uV = SMPS_BAND_1_VMAX;
+	else if (min_uV > SMPS_BAND_2_VMAX
+			&& min_uV < SMPS_BAND_3_SETPOINT_VMIN)
+		min_uV = SMPS_BAND_2_VMAX;
+
 	if (min_uV < SMPS_BAND_2_VMIN) {
 		vlevel = ((min_uV - SMPS_BAND_1_VMIN) / SMPS_BAND_1_VSTEP);
+		vlevel = PMIC_8901_SMPS_BAND_1_COMPENSATE(vlevel);
 		band = SMPS_BAND_1;
-	} else if (min_uV < SMPS_BAND_3_VMIN) {
+	} else if (min_uV < SMPS_BAND_3_SETPOINT_VMIN) {
 		vlevel = ((min_uV - SMPS_BAND_2_VMIN) / SMPS_BAND_2_VSTEP);
 		band = SMPS_BAND_2;
 	} else {
