@@ -217,7 +217,7 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
-		1, 20000, 100000, 1,
+		1, 8000, 100000, 1,
 		NULL,
 		NULL,
 	},
