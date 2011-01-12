@@ -1548,7 +1548,8 @@ static uint32_t rmt_storage_get_sid(const char *path)
 		return RAMFS_MDM_STORAGE_ID;
 	if (!strncmp(path, "/q6_fs2_parti_id_0x5A", MAX_PATH_NAME))
 		return RAMFS_MDM_STORAGE_ID;
-
+	if (!strncmp(path, "/q6_fsg_parti_id_0x5B", MAX_PATH_NAME))
+		return RAMFS_MDM_STORAGE_ID;
 	return 0;
 }
 
