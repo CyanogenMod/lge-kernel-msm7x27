@@ -83,6 +83,8 @@
 
 /* PRNG device */
 #define MSM_PRNG_PHYS		0x16C00000
+#define MSM_UART9DM_PHYS    (MSM_GSBI9_PHYS + 0x40000)
+#define INT_UART9DM_IRQ     GSBI9_UARTDM_IRQ
 
 #ifdef CONFIG_WEBCAM_OV7692
 #define WEBCAM_DEV (&msm_camera_sensor_webcam.dev)
@@ -90,6 +92,11 @@
 #define WEBCAM_DEV NULL
 #endif
 
+#ifdef CONFIG_MSM_GSBI9_UART
+#define GSBI9_UART_DEV (&msm_device_uart_gsbi9.dev)
+#else
+#define GSBI9_UART_DEV NULL
+#endif
 
 static void charm_ap2mdm_kpdpwr_on(void)
 {
@@ -266,6 +273,36 @@ struct platform_device msm_device_uart_dm12 = {
 	.num_resources = ARRAY_SIZE(msm_uart12_dm_resources),
 	.resource = msm_uart12_dm_resources,
 };
+
+#ifdef CONFIG_MSM_GSBI9_UART
+static struct resource msm_uart_gsbi9_resources[] = {
+       {
+		.start	= MSM_UART9DM_PHYS,
+		.end	= MSM_UART9DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_UART9DM_IRQ,
+		.end	= INT_UART9DM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		/* GSBI 9 is UART_GSBI9 */
+		.start	= MSM_GSBI9_PHYS,
+		.end	= MSM_GSBI9_PHYS + PAGE_SIZE - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_device_uart_gsbi9 = {
+	.name	= "msm_serial_hsl",
+	.id	= 1,
+	.num_resources	= ARRAY_SIZE(msm_uart_gsbi9_resources),
+	.resource	= msm_uart_gsbi9_resources,
+};
+#endif
 
 static struct resource gsbi3_qup_i2c_resources[] = {
 	{
@@ -1356,7 +1393,8 @@ struct clk msm_clocks_8x60[] = {
 		 &msm_device_uart_dm1.dev, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI7_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI8_UART_CLK,		NULL, OFF),
-	CLK_8X60("gsbi_uart_clk",	GSBI9_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI9_UART_CLK,
+					GSBI9_UART_DEV, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI10_UART_CLK,	NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI11_UART_CLK,	NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI12_UART_CLK,
@@ -1419,6 +1457,8 @@ struct clk msm_clocks_8x60[] = {
 					&msm_gsbi7_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI8_P_CLK,
 					&msm_gsbi8_qup_i2c_device.dev, OFF),
+	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK,
+					GSBI9_UART_DEV, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK,
 					&msm_gsbi9_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK,		NULL, OFF),

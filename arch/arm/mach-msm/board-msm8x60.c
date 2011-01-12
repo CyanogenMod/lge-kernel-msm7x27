@@ -67,6 +67,7 @@
 #include <mach/irqs.h>
 #include <mach/msm_spi.h>
 #include <mach/msm_serial_hs.h>
+#include <mach/msm_serial_hs_lite.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach/mmc.h>
 #include <mach/msm_battery.h>
@@ -2326,6 +2327,14 @@ static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
        .inject_rx_on_wakeup = 1,
        .rx_to_inject = 0xFD,
        .gpio_config = configure_uart_gpios,
+};
+#endif
+
+#ifdef CONFIG_MSM_GSBI9_UART
+static struct msm_serial_hslite_platform_data msm_uart_gsbi9_pdata = {
+	.config_gpio	= 1,
+	.uart_tx_gpio	= 67,
+	.uart_rx_gpio	= 66,
 };
 #endif
 
@@ -5290,10 +5299,16 @@ static void __init msm8x60_init_buses(void)
 	/* Setting protocol code to 0x60 for dual UART/I2C in GSBI12 */
 	writel(0x6 << 4, gsbi_mem);
 	iounmap(gsbi_mem);
+
 	msm_gsbi3_qup_i2c_device.dev.platform_data = &msm_gsbi3_qup_i2c_pdata;
 	msm_gsbi4_qup_i2c_device.dev.platform_data = &msm_gsbi4_qup_i2c_pdata;
 	msm_gsbi7_qup_i2c_device.dev.platform_data = &msm_gsbi7_qup_i2c_pdata;
 	msm_gsbi8_qup_i2c_device.dev.platform_data = &msm_gsbi8_qup_i2c_pdata;
+
+#ifdef CONFIG_MSM_GSBI9_UART
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
+		msm_gsbi9_qup_i2c_pdata.use_gsbi_shared_mode = 1;
+#endif
 	msm_gsbi9_qup_i2c_device.dev.platform_data = &msm_gsbi9_qup_i2c_pdata;
 	msm_gsbi12_qup_i2c_device.dev.platform_data = &msm_gsbi12_qup_i2c_pdata;
 #endif
@@ -5320,6 +5335,14 @@ static void __init msm8x60_init_buses(void)
 	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(54); /* GSBI6(2) */
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
+#ifdef CONFIG_MSM_GSBI9_UART
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa()) {
+		msm_device_uart_gsbi9.dev.platform_data =
+					&msm_uart_gsbi9_pdata;
+		platform_device_register(&msm_device_uart_gsbi9);
+	}
+#endif
+
 #ifdef CONFIG_MSM_BUS_SCALING
 
 	/* RPM calls are only enabled on V2 */
