@@ -401,12 +401,6 @@ static struct resource kgsl_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.name   = "kgsl_phys_memory",
-		.start = 0,
-		.end = 0,
-		.flags = IORESOURCE_MEM,
-	},
-	{
 		.name = "kgsl_yamato_irq",
 		.start = GFX3D_IRQ,
 		.end = GFX3D_IRQ,

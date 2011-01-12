@@ -92,7 +92,6 @@
 
 #define MSM_PMEM_SF_SIZE	0x1700000
 #define MSM_FB_SIZE		0x500000
-#define MSM_GPU_PHYS_SIZE       SZ_2M
 #define MSM_PMEM_ADSP_SIZE      0x1800000
 #define MSM_FLUID_PMEM_ADSP_SIZE	0x2800000
 #define PMEM_KERNEL_EBI1_SIZE   0x600000
@@ -3795,12 +3794,6 @@ static struct resource kgsl_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.name   = "kgsl_phys_memory",
-		.start = 0,
-		.end = 0,
-		.flags = IORESOURCE_MEM,
-	},
-	{
 		.name = "kgsl_yamato_irq",
 		.start = INT_GRP_3D,
 		.end = INT_GRP_3D,
@@ -6911,14 +6904,6 @@ static int __init fb_size_setup(char *p)
 }
 early_param("fb_size", fb_size_setup);
 
-static unsigned gpu_phys_size = MSM_GPU_PHYS_SIZE;
-static int __init gpu_phys_size_setup(char *p)
-{
-	gpu_phys_size = memparse(p, NULL);
-	return 0;
-}
-early_param("gpu_phys_size", gpu_phys_size_setup);
-
 static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
 static int __init pmem_adsp_size_setup(char *p)
 {
@@ -6982,15 +6967,6 @@ static void __init msm7x30_allocate_memory_regions(void)
 		android_pmem_audio_pdata.size = size;
 		pr_info("allocating %lu bytes at %p (%lx physical) for audio "
 			"pmem arena\n", size, addr, __pa(addr));
-	}
-
-	size = gpu_phys_size;
-	if (size) {
-		addr = alloc_bootmem(size);
-		kgsl_resources[1].start = __pa(addr);
-		kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
-		pr_info("allocating %lu bytes at %p (%lx physical) for "
-			"KGSL\n", size, addr, __pa(addr));
 	}
 
 	size = pmem_kernel_ebi1_size;
