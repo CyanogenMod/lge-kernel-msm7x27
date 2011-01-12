@@ -1840,6 +1840,14 @@ static void hdmi_msm_init_phy(int video_format)
 	HDMI_OUTP_ND(0x0330, 0x13); /*0b00010011*/
 }
 
+static void hdmi_msm_powerdown_phy(void)
+{
+	/* Disable PLL */
+	HDMI_OUTP_ND(0x030C, 0x00);
+	/* Power down PHY */
+	HDMI_OUTP_ND(0x0308, 0x7F); /*0b01111111*/
+}
+
 static void hdmi_msm_video_setup(int video_format)
 {
 	uint32 total_v   = 0;
@@ -2836,6 +2844,7 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	DEV_INFO("power: OFF (audio off, Reset Core)\n");
 	hdmi_msm_audio_off();
 	hdmi_msm_hpd_off();
+	hdmi_msm_powerdown_phy();
 	hdmi_msm_dump_regs("HDMI-OFF: ");
 	hdmi_msm_hpd_on(false);
 
@@ -3084,6 +3093,7 @@ static int hdmi_msm_device_pm_suspend(struct device *dev)
 	hdmi_msm_state->pm_suspended = TRUE;
 	mutex_unlock(&hdmi_msm_state_mutex);
 
+	hdmi_msm_powerdown_phy();
 	hdmi_msm_state->pd->enable_5v(0);
 	hdmi_msm_state->pd->core_power(0);
 	return 0;
