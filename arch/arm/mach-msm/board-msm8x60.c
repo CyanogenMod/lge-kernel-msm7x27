@@ -3090,7 +3090,6 @@ static struct platform_device *charm_devices[] __initdata = {
 
 static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_smd,
-	&smsc911x_device,
 	&msm_device_uart_dm12,
 #ifdef CONFIG_I2C_QUP
 	&msm_gsbi3_qup_i2c_device,
@@ -7420,6 +7419,8 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		msm_fb_add_devices();
 	fixup_i2c_configs();
 	register_i2c_devices();
+
+	platform_device_register(&smsc911x_device);
 
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	msm_cpuidle_set_states(msm_cstates, ARRAY_SIZE(msm_cstates),
