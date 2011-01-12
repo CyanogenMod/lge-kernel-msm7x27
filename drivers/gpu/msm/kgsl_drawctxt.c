@@ -1503,8 +1503,7 @@ int kgsl_drawctxt_init(struct kgsl_device *device)
 /* close draw context */
 int kgsl_drawctxt_close(struct kgsl_device *device)
 {
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-							device;
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	yamato_device->drawctxt_active = NULL;
 	return 0;
 }
@@ -1517,8 +1516,7 @@ kgsl_drawctxt_create(struct kgsl_device_private *dev_priv,
 {
 	struct kgsl_drawctxt *drawctxt;
 	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-							device;
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	struct kgsl_pagetable *pagetable = dev_priv->process_priv->pagetable;
 	int index;
 	struct tmp_ctx ctx;
@@ -1585,8 +1583,7 @@ kgsl_drawctxt_create(struct kgsl_device_private *dev_priv,
 int kgsl_drawctxt_destroy(struct kgsl_device *device, unsigned int drawctxt_id)
 {
 	struct kgsl_drawctxt *drawctxt;
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-							device;
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 
 	if (drawctxt_id >= KGSL_CONTEXT_MAX)
 		return -EINVAL;
@@ -1738,8 +1735,7 @@ int kgsl_drawctxt_set_bin_base_offset(struct kgsl_device *device,
 					unsigned int offset)
 {
 	struct kgsl_drawctxt *drawctxt;
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-								device;
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 
 	drawctxt = yamato_device->drawctxt[drawctxt_id];
 	if (drawctxt == NULL)

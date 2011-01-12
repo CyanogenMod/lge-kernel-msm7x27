@@ -73,8 +73,7 @@ inline unsigned int kgsl_ringbuffer_sizelog2quadwords(unsigned int sizedwords)
 void kgsl_cp_intrcallback(struct kgsl_device *device)
 {
 	unsigned int status = 0, num_reads = 0, master_status = 0;
-	struct kgsl_yamato_device *yamato_device = container_of(device,
-					struct kgsl_yamato_device, dev);
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device=%p)\n", device);
@@ -271,8 +270,7 @@ static int kgsl_ringbuffer_load_pm4_ucode(struct kgsl_device *device)
 	const struct firmware *fw = NULL;
 	unsigned int *fw_ptr = NULL;
 	size_t fw_word_size = 0;
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-							device;
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	if (yamato_device->pm4_fw == NULL) {
 		if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 			status = request_firmware(&fw, LEIA_PM4_470_FW,
@@ -341,8 +339,7 @@ static int kgsl_ringbuffer_load_pfp_ucode(struct kgsl_device *device)
 	const struct firmware *fw = NULL;
 	unsigned int *fw_ptr = NULL;
 	size_t fw_word_size = 0;
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-							device;
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 
 	if (yamato_device->pfp_fw == NULL) {
 		if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
@@ -576,8 +573,7 @@ int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 int kgsl_ringbuffer_init(struct kgsl_device *device)
 {
 	int status;
-	struct kgsl_yamato_device *yamato_device = container_of(device,
-					struct kgsl_yamato_device, dev);
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device=%p)\n", device);
@@ -615,8 +611,8 @@ int kgsl_ringbuffer_init(struct kgsl_device *device)
 
 int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
 {
-	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
-							rb->device;
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(
+							rb->device);
 	KGSL_CMD_VDBG("enter (rb=%p)\n", rb);
 
 	if (rb->buffer_desc.hostptr)
@@ -724,8 +720,7 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 						unsigned int *cmds,
 						int sizedwords)
 {
-	struct kgsl_yamato_device *yamato_device = container_of(device,
-					struct kgsl_yamato_device, dev);
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 
 	KGSL_CMD_VDBG("enter (device->id=%d, flags=%d, cmds=%p, "
@@ -743,8 +738,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				unsigned int flags)
 {
 	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_yamato_device *yamato_device = container_of(device,
-					struct kgsl_yamato_device, dev);
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	unsigned int *link;
 	unsigned int *cmds;
 	unsigned int i;
