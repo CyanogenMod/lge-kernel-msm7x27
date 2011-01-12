@@ -68,6 +68,7 @@
 #include <mach/msm_battery.h>
 #include <mach/rpc_server_handset.h>
 #include <mach/msm_tsif.h>
+#include <mach/socinfo.h>
 #include <linux/cyttsp.h>
 
 #include <asm/mach/mmc.h>
@@ -75,7 +76,6 @@
 #include <mach/vreg.h>
 #include "devices.h"
 #include "timer.h"
-#include "socinfo.h"
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
 #endif
