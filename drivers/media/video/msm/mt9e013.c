@@ -501,7 +501,7 @@ static int32_t mt9e013_sensor_setting(int update_type, int rt)
 		}
 		msleep(10);
 		if (!CSI_CONFIG) {
-			msm_camio_vfe_clk_rate_set(153600000);
+			msm_camio_vfe_clk_rate_set(192000000);
 			mt9e013_csi_params.data_format = CSI_10BIT;
 			mt9e013_csi_params.lane_cnt = 2;
 			mt9e013_csi_params.lane_assign = 0xe4;

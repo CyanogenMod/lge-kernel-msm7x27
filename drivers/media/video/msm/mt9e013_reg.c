@@ -36,7 +36,7 @@ struct mt9e013_i2c_reg_conf pll_settings[] = {
 	{0x0300, 0x0004},/*VT_PIX_CLK_DIV*/
 	{0x0302, 0x0001},/*VT_SYS_CLK_DIV*/
 	{0x0304, 0x0002},/*PRE_PLL_CLK_DIV*/
-	{0x0306, 0x0030},/*PLL_MULTIPLIER*/
+	{0x0306, 0x003A},/*PLL_MULTIPLIER*/
 	{0x0308, 0x000A},/*OP_PIX_CLK_DIV*/
 	{0x030A, 0x0001},/*OP_SYS_CLK_DIV*/
 };
