@@ -7093,11 +7093,22 @@ static int bahama_bt(int on)
 		{ 0x01, 0x08, 0x1F },
 	};
 
-	const struct bahama_config_register v10_bt_off[] = {
+	const struct bahama_config_register v20_bt_on_fm_off[] = {
+		{ 0x11, 0x0C, 0xFF },
+		{ 0x13, 0x01, 0xFF },
+		{ 0xF4, 0x80, 0xFF },
+		{ 0xF0, 0x00, 0xFF },
 		{ 0xE9, 0x00, 0xFF },
+#ifdef CONFIG_WLAN
+		{ 0x81, 0x00, 0x7F },
+		{ 0x82, 0x00, 0xFF },
+		{ 0xE6, 0x38, 0x7F },
+		{ 0xE7, 0x06, 0xFF },
+#endif
+		{ 0xE9, 0x21, 0xFF },
 	};
 
-	const struct bahama_config_register v20_bt_on[] = {
+	const struct bahama_config_register v20_bt_on_fm_on[] = {
 		{ 0x11, 0x0C, 0xFF },
 		{ 0x13, 0x01, 0xFF },
 		{ 0xF4, 0x86, 0xFF },
@@ -7112,20 +7123,36 @@ static int bahama_bt(int on)
 		{ 0xE9, 0x21, 0xFF },
 	};
 
-	const struct bahama_config_register v20_bt_off[] = {
+	const struct bahama_config_register v10_bt_off[] = {
 		{ 0xE9, 0x00, 0xFF },
 	};
 
-	const struct bahama_variant_register bt_bahama[2][2] = {
+	const struct bahama_config_register v20_bt_off_fm_off[] = {
+		{ 0xF4, 0x84, 0xFF },
+		{ 0xF0, 0x04, 0xFF },
+		{ 0xE9, 0x00, 0xFF }
+	};
+
+	const struct bahama_config_register v20_bt_off_fm_on[] = {
+		{ 0xF4, 0x86, 0xFF },
+		{ 0xF0, 0x06, 0xFF },
+		{ 0xE9, 0x00, 0xFF }
+	};
+	const struct bahama_variant_register bt_bahama[2][3] = {
 		{
 			{ ARRAY_SIZE(v10_bt_off), v10_bt_off },
-			{ ARRAY_SIZE(v20_bt_off), v20_bt_off },
+			{ ARRAY_SIZE(v20_bt_off_fm_off), v20_bt_off_fm_off },
+			{ ARRAY_SIZE(v20_bt_off_fm_on), v20_bt_off_fm_on }
 		},
 		{
 			{ ARRAY_SIZE(v10_bt_on), v10_bt_on },
-			{ ARRAY_SIZE(v20_bt_on), v20_bt_on },
+			{ ARRAY_SIZE(v20_bt_on_fm_off), v20_bt_on_fm_off },
+			{ ARRAY_SIZE(v20_bt_on_fm_on), v20_bt_on_fm_on }
 		}
 	};
+
+	/* Init mutex to get/set FM/BT status respectively */
+	mutex_init(&config.xfer_lock);
 
 	on = on ? 1 : 0;
 	rc = marimba_read_bit_mask(&config, 0x00,  &version, 1, 0x1F);
@@ -7137,13 +7164,13 @@ static int bahama_bt(int on)
 		return rc;
 	}
 	switch (version) {
-	case 0x00:
+	case 0x00: /* varients of bahama v1 */
 	case 0x08:
 	case 0X10:
 		version = 0x00;
 		break;
-	case 0x09:
-		version = 0x01;
+	case 0x09: /* variant of bahama v2 */
+		version = marimba_get_fm_status(&config) ? 0x02 : 0x01;
 		break;
 	default:
 		version = 0xFF;
@@ -7183,6 +7210,15 @@ static int bahama_bt(int on)
 				__func__, (p+i)->reg,
 				value, (p+i)->mask);
 	}
+	/* Update BT Status */
+	if (on)
+		marimba_set_bt_status(&config, true);
+	else
+		marimba_set_bt_status(&config, false);
+
+	/* Destroy mutex */
+	mutex_destroy(&config.xfer_lock);
+
 	return 0;
 }
 
