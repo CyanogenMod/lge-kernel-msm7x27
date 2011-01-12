@@ -31,6 +31,21 @@
 #include "mpm.h"
 
 /******************************************************************************
+ * Debug Definitions
+ *****************************************************************************/
+
+enum {
+	MSM_MPM_DEBUG_NON_DETECTABLE_IRQ = BIT(0),
+	MSM_MPM_DEBUG_PENDING_IRQ = BIT(1),
+	MSM_MPM_DEBUG_WRITE = BIT(2),
+};
+
+static int msm_mpm_debug_mask;
+module_param_named(
+	debug_mask, msm_mpm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
+);
+
+/******************************************************************************
  * Request and Status Definitions
  *****************************************************************************/
 
@@ -182,6 +197,10 @@ static inline void msm_mpm_write(
 {
 	unsigned int offset = reg * MSM_MPM_REG_WIDTH + subreg_index;
 	writel(value, MSM_MPM_REQUEST_BASE + offset * 4);
+
+	if (MSM_MPM_DEBUG_WRITE & msm_mpm_debug_mask)
+		pr_info("%s: reg %u.%u: 0x%08x\n",
+			__func__, reg, subreg_index, value);
 }
 
 static inline void msm_mpm_write_barrier(void)
@@ -383,6 +402,16 @@ bool msm_mpm_irqs_detectable(bool from_idle)
 	unsigned long *apps_irq_bitmap = from_idle ?
 			msm_mpm_enabled_apps_irqs : msm_mpm_wake_apps_irqs;
 
+	if (MSM_MPM_DEBUG_NON_DETECTABLE_IRQ & msm_mpm_debug_mask) {
+		static char buf[DIV_ROUND_UP(MSM_MPM_NR_APPS_IRQS, 32)*9+1];
+
+		bitmap_scnprintf(buf, sizeof(buf), apps_irq_bitmap,
+				MSM_MPM_NR_APPS_IRQS);
+		buf[sizeof(buf) - 1] = '\0';
+
+		pr_info("%s: cannot monitor %s", __func__, buf);
+	}
+
 	return (bool)__bitmap_empty(apps_irq_bitmap, MSM_MPM_NR_APPS_IRQS);
 }
 
@@ -398,7 +427,11 @@ void msm_mpm_exit_sleep(bool from_idle)
 	int k;
 
 	for (i = 0; i < MSM_MPM_REG_WIDTH; i++) {
-		pending = msm_mpm_read(MSM_MPM_STATUS_REG_PENDING, i),
+		pending = msm_mpm_read(MSM_MPM_STATUS_REG_PENDING, i);
+
+		if (MSM_MPM_DEBUG_PENDING_IRQ & msm_mpm_debug_mask)
+			pr_info("%s: pending.%d: 0x%08lu", __func__,
+				i, pending);
 
 		k = find_first_bit(&pending, 32);
 		while (k < 32) {
