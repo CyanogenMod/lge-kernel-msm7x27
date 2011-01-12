@@ -463,6 +463,42 @@ static struct platform_device msm_headset_stereo_device = {
 	.dev = { .platform_data = &snddev_ihs_stereo_rx_data },
 };
 
+static struct adie_codec_action_unit headset_anc_48KHz_osr256_actions[] =
+	ANC_HEADSET_CPLS_AMIC1_AUXL_RX1_48000_OSR_256;
+
+static struct adie_codec_hwsetting_entry headset_anc_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = headset_anc_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(headset_anc_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile headset_anc_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = headset_anc_settings,
+	.setting_sz = ARRAY_SIZE(headset_anc_settings),
+};
+
+static struct snddev_icodec_data snddev_anc_headset_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE | SNDDEV_CAP_ANC),
+	.name = "anc_headset_stereo_rx",
+	.copp_id = PRIMARY_I2S_RX,
+	.profile = &headset_anc_profile,
+	.channel_mode = 2,
+	.default_sample_rate = 48000,
+	.pamp_on = msm_snddev_enable_amic_power,
+	.pamp_off = msm_snddev_disable_amic_power,
+	.voltage_on = msm_snddev_voltage_on,
+	.voltage_off = msm_snddev_voltage_off,
+};
+
+static struct platform_device msm_anc_headset_device = {
+	.name = "snddev_icodec",
+	.dev = { .platform_data = &snddev_anc_headset_data },
+};
+
 static struct adie_codec_action_unit ispkr_stereo_48KHz_osr256_actions[] =
 	SPEAKER_PRI_STEREO_48000_OSR_256;
 
@@ -1026,6 +1062,7 @@ static struct platform_device *snd_devices_ffa[] __initdata = {
 	&msm_hs_dual_mic_broadside_device,
 	&msm_spkr_dual_mic_broadside_device,
 	&msm_ihs_stereo_speaker_stereo_rx_device,
+	&msm_anc_headset_device,
 };
 
 static struct platform_device *snd_devices_surf[] __initdata = {
@@ -1054,6 +1091,7 @@ static struct platform_device *snd_devices_fluid[] __initdata = {
 	&msm_bt_sco_mic_device,
 	&msm_mi2s_fm_tx_device,
 	&msm_mi2s_fm_rx_device,
+	&msm_anc_headset_device,
 };
 
 static struct platform_device *snd_devices_common[] __initdata = {
