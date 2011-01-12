@@ -846,8 +846,10 @@ phy_resumed:
 	/* If resume signalling finishes before lpm exit, PCD is not set in
 	 * USBSTS register. Drive resume signal to the downstream device now
 	 * so that host driver can process the upcoming port change interrupt.*/
-	if (is_host() || test_bit(ID_A, &dev->inputs))
+	if (is_host() || test_bit(ID_A, &dev->inputs)) {
 		writel(readl(USB_PORTSC) | PORTSC_FPR, USB_PORTSC);
+		msm_otg_start_host(&dev->otg, REQUEST_RESUME);
+	}
 
 	/* Enable irq which was disabled before scheduling this work.
 	 * But don't release wake_lock, as we got async interrupt and
