@@ -594,7 +594,52 @@ static int msm_reset_put(struct snd_kcontrol *kcontrol,
 	pr_err("%s:Resetting all devices\n", __func__);
 	return msm_reset_all_device();
 }
+static int msm_anc_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 1;
+	return 0;
+}
 
+static int msm_anc_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_anc_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = -EPERM;
+	struct msm_snddev_info *dev_info;
+
+	int dev_id = ucontrol->value.integer.value[0];
+	int enable = ucontrol->value.integer.value[1];
+
+	pr_debug("%s: dev_id = %d, enable = %d\n", __func__, dev_id, enable);
+	dev_info = audio_dev_ctrl_find_dev(dev_id);
+
+	if (IS_ERR(dev_info)) {
+		rc = PTR_ERR(dev_info);
+		pr_err("%s: audio_dev_ctrl_find_dev failed. %ld\n",
+			__func__, PTR_ERR(dev_info));
+		return rc;
+	}
+
+	if (dev_info->dev_ops.enable_anc) {
+		rc = dev_info->dev_ops.enable_anc(dev_info, enable);
+	} else {
+		pr_info("%s : device %s does not support anc control.",
+				 __func__, dev_info->name);
+		return -EPERM;
+	}
+
+	return rc;
+}
 
 static struct snd_kcontrol_new snd_dev_controls[AUDIO_DEV_CTL_MAX_DEV];
 
@@ -652,6 +697,7 @@ static struct snd_kcontrol_new snd_msm_controls[] = {
 			msm_device_volume_get, msm_device_volume_put, 0),
 	MSM_EXT("Reset", 10, msm_reset_info,
 			msm_reset_get, msm_reset_put, 0),
+	MSM_EXT("ANC", 11, msm_anc_info, msm_anc_get, msm_anc_put, 0),
 };
 
 static int msm_new_mixer(struct snd_card *card)
