@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@
 struct pmic8058_pwrkey {
 	struct input_dev *pwr;
 	int key_press_irq;
+	int key_release_irq;
 	struct pm8058_chip	*pm_chip;
 	struct hrtimer timer;
 	bool key_pressed;
@@ -122,8 +123,10 @@ static int pmic8058_pwrkey_suspend(struct device *dev)
 {
 	struct pmic8058_pwrkey *pwrkey = dev_get_drvdata(dev);
 
-	if (device_may_wakeup(dev))
+	if (device_may_wakeup(dev)) {
 		enable_irq_wake(pwrkey->key_press_irq);
+		enable_irq_wake(pwrkey->key_release_irq);
+	}
 
 	return 0;
 }
@@ -132,8 +135,10 @@ static int pmic8058_pwrkey_resume(struct device *dev)
 {
 	struct pmic8058_pwrkey *pwrkey = dev_get_drvdata(dev);
 
-	if (device_may_wakeup(dev))
+	if (device_may_wakeup(dev)) {
 		disable_irq_wake(pwrkey->key_press_irq);
+		disable_irq_wake(pwrkey->key_release_irq);
+	}
 
 	return 0;
 }
@@ -236,6 +241,7 @@ static int __devinit pmic8058_pwrkey_probe(struct platform_device *pdev)
 	}
 
 	pwrkey->key_press_irq = key_press_irq;
+	pwrkey->key_release_irq = key_release_irq;
 	pwrkey->pwr = pwr;
 
 	platform_set_drvdata(pdev, pwrkey);
