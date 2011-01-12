@@ -54,10 +54,10 @@
 #include <mach/msm_tsif.h>
 #include <mach/msm_battery.h>
 #include <mach/rpc_server_handset.h>
+#include <mach/socinfo.h>
 
 #include "devices.h"
 #include "timer.h"
-#include "socinfo.h"
 #include "msm-keypad-devices.h"
 #include "pm.h"
 #include "proc_comm.h"

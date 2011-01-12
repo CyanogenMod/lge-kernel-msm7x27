@@ -22,7 +22,7 @@
 
 #include <linux/types.h>
 #include <linux/sysdev.h>
-#include "socinfo.h"
+#include <mach/socinfo.h>
 #include "smd_private.h"
 
 #define BUILD_ID_LENGTH 32
