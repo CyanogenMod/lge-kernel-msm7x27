@@ -1133,13 +1133,9 @@ static int __init msm_serial_hsl_probe(struct platform_device *pdev)
 		printk(KERN_ERR "%s: getting irq failed\n", __func__);
 		return -ENXIO;
 	}
+
+	device_set_wakeup_capable(&pdev->dev, 1);
 	platform_set_drvdata(pdev, port);
-
-	if (unlikely(set_irq_wake(port->irq, 1))) {
-		printk(KERN_ERR "%s: set_irq_wake failed\n", __func__);
-		/* return -ENXIO; */
-	}
-
 	pm_runtime_enable(port->dev);
 	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
 
@@ -1173,6 +1169,9 @@ static int msm_serial_hsl_suspend(struct device *dev)
 
 	if (port) {
 		uart_suspend_port(&msm_hsl_uart_driver, port);
+		if (device_may_wakeup(dev))
+			enable_irq_wake(port->irq);
+
 		if (is_console(port))
 			msm_hsl_deinit_clock(port);
 	}
@@ -1190,6 +1189,9 @@ static int msm_serial_hsl_resume(struct device *dev)
 		if (is_console(port))
 			msm_hsl_init_clock(port);
 		uart_resume_port(&msm_hsl_uart_driver, port);
+
+		if (device_may_wakeup(dev))
+			disable_irq_wake(port->irq);
 	}
 
 	return 0;
