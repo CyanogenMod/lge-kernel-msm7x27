@@ -1553,6 +1553,54 @@ error:
 	mutex_unlock(&adie_codec.lock);
 	return rc;
 }
+static int timpani_adie_codec_enable_anc(struct adie_codec_path *rx_path_ptr,
+	u32 enable, struct adie_codec_anc_data *calibration_writes)
+{
+	int index = 0;
+	int rc = 0;
+	u8 reg, mask, val;
+	pr_debug("%s: enable = %d\n", __func__, enable);
+
+	mutex_lock(&adie_codec.lock);
+
+	if (!rx_path_ptr || &adie_codec.path[ADIE_CODEC_RX] != rx_path_ptr) {
+		pr_err("%s: invalid path pointer\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	} else if (rx_path_ptr->curr_stage !=
+		ADIE_CODEC_DIGITAL_ANALOG_READY) {
+		pr_err("%s: bad state\n", __func__);
+		rc = -EPERM;
+		goto error;
+	}
+	if (enable) {
+		if (!calibration_writes | !calibration_writes->writes) {
+			pr_err("%s: No ANC calibration data\n", __func__);
+			rc = -EPERM;
+			goto error;
+		}
+		while (index < calibration_writes->size) {
+			ADIE_CODEC_UNPACK_ENTRY(calibration_writes->
+				writes[index], reg, mask, val);
+			adie_codec_write(reg, mask, val);
+			index++;
+		}
+	} else {
+		adie_codec_write(TIMPANI_A_CDC_ANC1_CTL1,
+		TIMPANI_CDC_ANC1_CTL1_ANC1_EN_M,
+		TIMPANI_CDC_ANC1_CTL1_ANC1_EN_ANC_DIS <<
+		TIMPANI_CDC_ANC1_CTL1_ANC1_EN_S);
+
+		adie_codec_write(TIMPANI_A_CDC_ANC2_CTL1,
+		TIMPANI_CDC_ANC2_CTL1_ANC2_EN_M,
+		TIMPANI_CDC_ANC2_CTL1_ANC2_EN_ANC_DIS <<
+		TIMPANI_CDC_ANC2_CTL1_ANC2_EN_S);
+	}
+
+error:
+	mutex_unlock(&adie_codec.lock);
+	return rc;
+}
 
 static void adie_codec_restore_regdefault(u32 blk)
 {
@@ -1781,6 +1829,7 @@ static const struct adie_codec_operations timpani_adie_ops = {
 	.codec_freq_supported = timpani_adie_codec_freq_supported,
 	.codec_enable_sidetone = timpani_adie_codec_enable_sidetone,
 	.codec_set_master_mode = timpani_adie_codec_set_master_mode,
+	.codec_enable_anc = timpani_adie_codec_enable_anc,
 };
 
 #ifdef CONFIG_DEBUG_FS
