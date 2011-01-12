@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,12 +39,6 @@
 #include <mach/sdio_al.h>
 #include "smd_rpcrouter.h"
 
-enum buf_state_type {
-	FREE = 0,
-	FULL,
-	DATA_READY,
-};
-
 enum {
 	MSM_SDIO_XPRT_DEBUG = 1U << 0,
 	MSM_SDIO_XPRT_INFO = 1U << 1,
@@ -70,21 +64,20 @@ module_param_named(debug_mask, msm_sdio_xprt_debug_mask,
 #endif
 
 #define MAX_SDIO_WRITE_RETRY 5
-#define SDIO_IN_BUF_SIZE 16384
-#define NO_OF_SDIO_IN_BUF 1
-struct sdio_in_buf {
-	enum buf_state_type state;
-	uint32_t size;
-	uint32_t read_avail;
-	uint32_t read_start_index;
-	uint32_t read_end_index;
-	void *in_buf;
-};
+#define SDIO_BUF_SIZE (RPCROUTER_MSGSIZE_MAX + sizeof(struct rr_header) - 8)
+#define NUM_SDIO_BUFS 20
 
 struct sdio_xprt {
 	struct sdio_channel *handle;
-	spinlock_t lock;
-	struct sdio_in_buf buffer[NO_OF_SDIO_IN_BUF];
+
+	struct list_head write_list;
+	spinlock_t write_list_lock;
+
+	struct list_head read_list;
+	spinlock_t read_list_lock;
+
+	struct list_head free_list;
+	spinlock_t free_list_lock;
 };
 
 struct rpcrouter_sdio_xprt {
@@ -95,92 +88,122 @@ struct rpcrouter_sdio_xprt {
 static struct rpcrouter_sdio_xprt sdio_remote_xprt;
 
 static void sdio_xprt_read_data(struct work_struct *work);
-static DECLARE_WORK(work_read_data, sdio_xprt_read_data);
+static DECLARE_DELAYED_WORK(work_read_data, sdio_xprt_read_data);
 static struct workqueue_struct *sdio_xprt_read_workqueue;
-static wait_queue_head_t free_buf_wait;
 
-static uint32_t active_in_buf;
-static uint32_t work_queued;
-
-static LIST_HEAD(write_list);
-static DEFINE_SPINLOCK(write_list_lock);
-struct sdio_write_data_struct {
+struct sdio_buf_struct {
 	struct list_head list;
-	uint32_t write_len;
-	void *write_data;
+	uint32_t size;
+	uint32_t read_index;
+	uint32_t write_index;
+	unsigned char data[SDIO_BUF_SIZE];
 };
-static struct sdio_write_data_struct *sdio_write_pkt;
+
 static void sdio_xprt_write_data(struct work_struct *work);
 static DECLARE_WORK(work_write_data, sdio_xprt_write_data);
 static wait_queue_head_t write_avail_wait_q;
 
 static void free_sdio_xprt(struct sdio_xprt *chnl)
 {
-	int i;
-	if (chnl) {
-		for (i = 0; i < NO_OF_SDIO_IN_BUF; i++)
-			kfree(chnl->buffer[i].in_buf);
-		kfree(chnl);
+	struct sdio_buf_struct *buf;
+	unsigned long flags;
+
+	if (!chnl) {
+		printk(KERN_ERR "Invalid chnl to free\n");
+		return;
 	}
+
+	spin_lock_irqsave(&chnl->free_list_lock, flags);
+	while (!list_empty(&chnl->free_list)) {
+		buf = list_first_entry(&chnl->free_list,
+					struct sdio_buf_struct, list);
+		list_del(&buf->list);
+		kfree(buf);
+	}
+	spin_unlock_irqrestore(&chnl->free_list_lock, flags);
+
+	spin_lock_irqsave(&chnl->write_list_lock, flags);
+	while (!list_empty(&chnl->write_list)) {
+		buf = list_first_entry(&chnl->write_list,
+					struct sdio_buf_struct, list);
+		list_del(&buf->list);
+		kfree(buf);
+	}
+	spin_unlock_irqrestore(&chnl->write_list_lock, flags);
+
+	spin_lock_irqsave(&chnl->read_list_lock, flags);
+	while (!list_empty(&chnl->read_list)) {
+		buf = list_first_entry(&chnl->read_list,
+					struct sdio_buf_struct, list);
+		list_del(&buf->list);
+		kfree(buf);
+	}
+	spin_unlock_irqrestore(&chnl->read_list_lock, flags);
+
+	kfree(chnl);
+}
+
+static struct sdio_buf_struct *alloc_from_free_list(struct sdio_xprt *chnl)
+{
+	struct sdio_buf_struct *buf;
+	unsigned long flags;
+
+	spin_lock_irqsave(&chnl->free_list_lock, flags);
+	if (list_empty(&chnl->free_list)) {
+		spin_unlock_irqrestore(&chnl->free_list_lock, flags);
+		SDIO_XPRT_DBG("%s: Free list empty\n", __func__);
+		return NULL;
+	}
+	buf = list_first_entry(&chnl->free_list, struct sdio_buf_struct, list);
+	list_del(&buf->list);
+	spin_unlock_irqrestore(&chnl->free_list_lock, flags);
+
+	buf->size = 0;
+	buf->read_index = 0;
+	buf->write_index = 0;
+
+	return buf;
+}
+
+static void return_to_free_list(struct sdio_xprt *chnl,
+				struct sdio_buf_struct *buf)
+{
+	unsigned long flags;
+
+	if (!chnl || !buf) {
+		pr_err("%s: Invalid chnl or buf\n", __func__);
+		return;
+	}
+
+	buf->size = 0;
+	buf->read_index = 0;
+	buf->write_index = 0;
+
+	spin_lock_irqsave(&chnl->free_list_lock, flags);
+	list_add_tail(&buf->list, &chnl->free_list);
+	spin_unlock_irqrestore(&chnl->free_list_lock, flags);
+
 }
 
 static int rpcrouter_sdio_remote_read_avail(void)
 {
-	int i, size = 0;
+	int read_avail = 0;
 	unsigned long flags;
-	SDIO_XPRT_DBG("sdio_xprt Called %s\n", __func__);
+	struct sdio_buf_struct *buf;
 
-	spin_lock_irqsave(&sdio_remote_xprt.channel->lock, flags);
-	for (i = 0; i < NO_OF_SDIO_IN_BUF; i++)
-		size += sdio_remote_xprt.channel->buffer[i].read_avail;
-
-	spin_unlock_irqrestore(&sdio_remote_xprt.channel->lock, flags);
-
-	return size;
-}
-
-static int sdio_buf_read(void *data, uint32_t len)
-{
-	uint32_t xfer = len;
-	uint32_t avail;
-	unsigned char *src;
-	struct sdio_in_buf *active_buf;
-
-	SDIO_XPRT_DBG("sdio_xprt Called %s\n", __func__);
-
-	active_buf = &sdio_remote_xprt.channel->buffer[active_in_buf];
-	while ((xfer > 0) && (active_buf->read_avail > 0)) {
-		src = ((unsigned char *)active_buf->in_buf +
-					active_buf->read_end_index);
-		avail = SDIO_IN_BUF_SIZE - active_buf->read_end_index;
-
-		if (avail > active_buf->read_avail)
-			avail = active_buf->read_avail;
-
-		if (avail > xfer)
-			avail = xfer;
-
-		memcpy(data, src, avail);
-		active_buf->size -= avail;
-		active_buf->read_avail -= avail;
-		active_buf->read_end_index += avail;
-		active_buf->read_end_index &= (SDIO_IN_BUF_SIZE - 1);
-		data = (void *)((unsigned char *)data + avail);
-		xfer -= avail;
-		if (active_buf->read_avail <= 0 && (!work_queued)) {
-			active_buf->read_start_index = 0;
-			active_buf->read_end_index = 0;
-			active_buf->size = 0;
-			active_buf->state = FREE;
-		} else
-			active_buf->state = DATA_READY;
+	spin_lock_irqsave(&sdio_remote_xprt.channel->read_list_lock, flags);
+	list_for_each_entry(buf, &sdio_remote_xprt.channel->read_list, list) {
+		read_avail += buf->size;
 	}
-	return len - xfer;
+	spin_unlock_irqrestore(&sdio_remote_xprt.channel->read_list_lock,
+				flags);
+	return read_avail;
 }
 
 static int rpcrouter_sdio_remote_read(void *data, uint32_t len)
 {
-	uint32_t i, xfer = 0, size;
+	struct sdio_buf_struct *buf;
+	unsigned char *buf_data;
 	unsigned long flags;
 
 	SDIO_XPRT_DBG("sdio_xprt Called %s\n", __func__);
@@ -189,62 +212,103 @@ static int rpcrouter_sdio_remote_read(void *data, uint32_t len)
 	else if (len == 0)
 		return 0;
 
-	spin_lock_irqsave(&sdio_remote_xprt.channel->lock, flags);
-	for (i = 0; i < NO_OF_SDIO_IN_BUF; i++)
-		xfer += sdio_remote_xprt.channel->buffer[i].read_avail;
-
-	if (xfer < len) {
-		spin_unlock_irqrestore(&sdio_remote_xprt.channel->lock, flags);
+	spin_lock_irqsave(&sdio_remote_xprt.channel->read_list_lock, flags);
+	if (list_empty(&sdio_remote_xprt.channel->read_list)) {
+		spin_unlock_irqrestore(
+			&sdio_remote_xprt.channel->read_list_lock, flags);
 		return -EINVAL;
 	}
-	xfer = len;
 
-	size = sdio_buf_read(data, xfer);
-	spin_unlock_irqrestore(&sdio_remote_xprt.channel->lock, flags);
+	buf = list_first_entry(&sdio_remote_xprt.channel->read_list,
+				struct sdio_buf_struct, list);
+	if (buf->size < len) {
+		spin_unlock_irqrestore(
+			&sdio_remote_xprt.channel->read_list_lock, flags);
+		return -EINVAL;
+	}
 
-	return size;
+	buf_data = buf->data + buf->read_index;
+	memcpy(data, buf_data, len);
+	buf->read_index += len;
+	buf->size -= len;
+	if (buf->size == 0) {
+		list_del(&buf->list);
+		return_to_free_list(sdio_remote_xprt.channel, buf);
+	}
+	spin_unlock_irqrestore(&sdio_remote_xprt.channel->read_list_lock,
+				flags);
+	return len;
 }
 
 static int rpcrouter_sdio_remote_write_avail(void)
 {
+	uint32_t write_avail = 0;
+	struct sdio_buf_struct *buf;
+	unsigned long flags;
+
 	SDIO_XPRT_DBG("sdio_xprt Called %s\n", __func__);
-	return sdio_write_avail(sdio_remote_xprt.channel->handle);
+	spin_lock_irqsave(&sdio_remote_xprt.channel->free_list_lock, flags);
+	list_for_each_entry(buf, &sdio_remote_xprt.channel->free_list, list) {
+		write_avail += SDIO_BUF_SIZE;
+	}
+	spin_unlock_irqrestore(&sdio_remote_xprt.channel->free_list_lock,
+				flags);
+	return write_avail;
 }
 
 static int rpcrouter_sdio_remote_write(void *data, uint32_t len,
 					enum write_data_type type)
 {
 	unsigned long flags;
-	static void *buf;
+	static struct sdio_buf_struct *buf;
+	unsigned char *buf_data;
 
 	switch (type) {
 	case HEADER:
 		SDIO_XPRT_DBG("sdio_xprt WRITE HEADER %s\n", __func__);
-		sdio_write_pkt = kmalloc(sizeof(struct sdio_write_data_struct),
-					 GFP_ATOMIC);
-		sdio_write_pkt->write_len = len +
-					    ((struct rr_header *)data)->size;
-		sdio_write_pkt->write_data = kmalloc(sdio_write_pkt->write_len,
-						     GFP_ATOMIC);
-		buf = sdio_write_pkt->write_data;
-		memcpy(buf, data, len);
-		buf = (void *)((unsigned char *)buf + len);
+		buf = alloc_from_free_list(sdio_remote_xprt.channel);
+		if (!buf) {
+			pr_err("%s: alloc_from_free_list failed\n", __func__);
+			return -ENOMEM;
+		}
+		buf_data = buf->data + buf->write_index;
+		memcpy(buf_data, data, len);
+		buf->write_index += len;
+		buf->size += len;
 		return len;
 	case PACKMARK:
 		SDIO_XPRT_DBG("sdio_xprt WRITE PACKMARK %s\n",	__func__);
-		memcpy(buf, data, len);
-		buf = (void *)((unsigned char *)buf + len);
+		if (!buf) {
+			pr_err("%s: HEADER not written or alloc failed\n",
+				__func__);
+			return -ENOMEM;
+		}
+		buf_data = buf->data + buf->write_index;
+		memcpy(buf_data, data, len);
+		buf->write_index += len;
+		buf->size += len;
 		return len;
 	case PAYLOAD:
-		SDIO_XPRT_DBG("sdio_xprt WRITE PAYLOAD %s \n",	__func__);
-		memcpy(buf, data, len);
+		SDIO_XPRT_DBG("sdio_xprt WRITE PAYLOAD %s\n",	__func__);
+		if (!buf) {
+			pr_err("%s: HEADER not written or alloc failed\n",
+				__func__);
+			return -ENOMEM;
+		}
+		buf_data = buf->data + buf->write_index;
+		memcpy(buf_data, data, len);
+		buf->write_index += len;
+		buf->size += len;
 
-		SDIO_XPRT_DBG("sdio_xprt flush %d bytes\n",
-				sdio_write_pkt->write_len);
-		spin_lock_irqsave(&write_list_lock, flags);
-		list_add_tail(&sdio_write_pkt->list, &write_list);
-		spin_unlock_irqrestore(&write_list_lock, flags);
+		SDIO_XPRT_DBG("sdio_xprt flush %d bytes\n", buf->size);
+		spin_lock_irqsave(&sdio_remote_xprt.channel->write_list_lock,
+				   flags);
+		list_add_tail(&buf->list,
+			      &sdio_remote_xprt.channel->write_list);
+		spin_unlock_irqrestore(
+			&sdio_remote_xprt.channel->write_list_lock, flags);
 		queue_work(sdio_xprt_read_workqueue, &work_write_data);
+		buf = NULL;
 		return len;
 	default:
 		return -EINVAL;
@@ -255,37 +319,36 @@ static void sdio_xprt_write_data(struct work_struct *work)
 {
 	int rc = 0, sdio_write_retry = 0;
 	unsigned long flags;
-	struct sdio_write_data_struct *sdio_write_data;
+	struct sdio_buf_struct *buf;
 
-	spin_lock_irqsave(&write_list_lock, flags);
-	while (!list_empty(&write_list)) {
-		sdio_write_data = list_first_entry(&write_list,
-					struct sdio_write_data_struct,
-					list);
-		list_del(&sdio_write_data->list);
-		spin_unlock_irqrestore(&write_list_lock, flags);
+	spin_lock_irqsave(&sdio_remote_xprt.channel->write_list_lock, flags);
+	while (!list_empty(&sdio_remote_xprt.channel->write_list)) {
+		buf = list_first_entry(&sdio_remote_xprt.channel->write_list,
+					struct sdio_buf_struct, list);
+		list_del(&buf->list);
+		spin_unlock_irqrestore(
+			&sdio_remote_xprt.channel->write_list_lock, flags);
 
 		wait_event(write_avail_wait_q,
 			   (sdio_write_avail(
 			   sdio_remote_xprt.channel->handle) >=
-			   sdio_write_data->write_len));
+			   buf->size));
 		while (((rc = sdio_write(sdio_remote_xprt.channel->handle,
-					sdio_write_data->write_data,
-					sdio_write_data->write_len)) < 0) &&
+					buf->data, buf->size)) < 0) &&
 			(sdio_write_retry++ < MAX_SDIO_WRITE_RETRY)) {
-			printk(KERN_ERR "sdio_write failed with RC %d\n",
-					rc);
+			printk(KERN_ERR "sdio_write failed with RC %d\n", rc);
 			msleep(250);
 		}
 		if (!rc)
 			SDIO_XPRT_DBG("sdio_write %d bytes completed\n",
-					sdio_write_data->write_len);
+					buf->size);
 
-		kfree(sdio_write_data->write_data);
-		kfree(sdio_write_data);
-		spin_lock_irqsave(&write_list_lock, flags);
+		return_to_free_list(sdio_remote_xprt.channel, buf);
+		spin_lock_irqsave(&sdio_remote_xprt.channel->write_list_lock,
+				   flags);
 	}
-	spin_unlock_irqrestore(&write_list_lock, flags);
+	spin_unlock_irqrestore(&sdio_remote_xprt.channel->write_list_lock,
+				flags);
 }
 
 static int rpcrouter_sdio_remote_close(void)
@@ -299,88 +362,52 @@ static int rpcrouter_sdio_remote_close(void)
 
 static void sdio_xprt_read_data(struct work_struct *work)
 {
-	int i, size = 0, avail, read_avail;
+	int size = 0, read_avail;
 	unsigned long flags;
-	unsigned char *data;
-	struct sdio_in_buf *input_buffer;
+	struct sdio_buf_struct *buf;
 	SDIO_XPRT_DBG("sdio_xprt Called %s\n", __func__);
 
-find_buf:
-	spin_lock_irqsave(&sdio_remote_xprt.channel->lock, flags);
-	for (i = 0; i < NO_OF_SDIO_IN_BUF; i++) {
-		if (sdio_remote_xprt.channel->buffer[i].state != FULL)
-			break;
-	}
+	while ((read_avail =
+		sdio_read_avail(sdio_remote_xprt.channel->handle))) {
 
-	if (i >= NO_OF_SDIO_IN_BUF) {
-		spin_unlock_irqrestore(&sdio_remote_xprt.channel->lock, flags);
-		msm_rpcrouter_xprt_notify(&sdio_remote_xprt.xprt,
-					   RPCROUTER_XPRT_EVENT_DATA);
-		SDIO_XPRT_DBG("sdio_xprt enter wait:\n");
-		wait_event_timeout(free_buf_wait,
-			   (sdio_remote_xprt.channel->buffer[0].state != FULL),
-				(1 * HZ));
-		SDIO_XPRT_DBG("sdio_xprt exit wait:\n");
-		goto find_buf;
-	}
-
-	work_queued = 1;
-	input_buffer = &sdio_remote_xprt.channel->buffer[i];
-	avail = SDIO_IN_BUF_SIZE - input_buffer->size;
-
-	while ((read_avail = sdio_read_avail(sdio_remote_xprt.channel->handle))
-		&& avail) {
-		data = (unsigned char *)input_buffer->in_buf +
-					input_buffer->read_start_index;
-
-		/* Trim to end of buffer */
-		avail = min(read_avail, avail);
-		if (avail >
-		    (SDIO_IN_BUF_SIZE - input_buffer->read_start_index)) {
-			avail = (SDIO_IN_BUF_SIZE -
-				 input_buffer->read_start_index);
+		buf = alloc_from_free_list(sdio_remote_xprt.channel);
+		if (!buf) {
+			SDIO_XPRT_DBG("%s: Failed to alloc_from_free_list"
+				      " Try again later\n", __func__);
+			queue_delayed_work(sdio_xprt_read_workqueue,
+					   &work_read_data,
+					   msecs_to_jiffies(100));
+			return;
 		}
-		spin_unlock_irqrestore(&sdio_remote_xprt.channel->lock, flags);
 
 		size = sdio_read(sdio_remote_xprt.channel->handle,
-				 data, avail);
-		spin_lock_irqsave(&sdio_remote_xprt.channel->lock, flags);
+				 buf->data, read_avail);
 		if (size < 0) {
-			work_queued = 0;
-			spin_unlock_irqrestore(&sdio_remote_xprt.channel->lock,
-						 flags);
 			printk(KERN_ERR "sdio_read failed,"
-					" read %d bytes, expected %d \n",
-					size, avail);
+					" read %d bytes, expected %d\n",
+					size, read_avail);
+			return_to_free_list(sdio_remote_xprt.channel, buf);
+			queue_delayed_work(sdio_xprt_read_workqueue,
+					   &work_read_data,
+					   msecs_to_jiffies(100));
 			return;
 		}
 
 		if (size == 0)
-			size = avail;
+			size = read_avail;
 
-		input_buffer->size += size;
-		input_buffer->read_avail += size;
-		input_buffer->read_start_index += size;
-		input_buffer->read_start_index &= (SDIO_IN_BUF_SIZE - 1);
-		input_buffer->state = DATA_READY;
-		avail = SDIO_IN_BUF_SIZE - input_buffer->size;
+		buf->size = size;
+		buf->write_index = size;
+		spin_lock_irqsave(&sdio_remote_xprt.channel->read_list_lock,
+				   flags);
+		list_add_tail(&buf->list,
+			      &sdio_remote_xprt.channel->read_list);
+		spin_unlock_irqrestore(
+			&sdio_remote_xprt.channel->read_list_lock, flags);
 	}
-	if (input_buffer->size >= SDIO_IN_BUF_SIZE)
-		input_buffer->state = FULL;
-
-	work_queued = 0;
-	spin_unlock_irqrestore(&sdio_remote_xprt.channel->lock, flags);
 
 	msm_rpcrouter_xprt_notify(&sdio_remote_xprt.xprt,
 				  RPCROUTER_XPRT_EVENT_DATA);
-	SDIO_XPRT_DBG("%s Notify Router Event Data\n", __func__);
-	for (i = 0; i < NO_OF_SDIO_IN_BUF; i++) {
-		SDIO_XPRT_DBG("sdio_xprt Buffer %d: RA %4d bytes,"
-			"SI: %4d, EI %4d\n", i,
-			sdio_remote_xprt.channel->buffer[i].read_avail,
-			sdio_remote_xprt.channel->buffer[0].read_start_index,
-			sdio_remote_xprt.channel->buffer[0].read_end_index);
-	}
 }
 
 static void rpcrouter_sdio_remote_notify(void *_dev, unsigned event)
@@ -388,7 +415,8 @@ static void rpcrouter_sdio_remote_notify(void *_dev, unsigned event)
 	if (event == SDIO_EVENT_DATA_READ_AVAIL) {
 		SDIO_XPRT_DBG("%s Received Notify"
 			      "SDIO_EVENT_DATA_READ_AVAIL\n", __func__);
-		queue_work(sdio_xprt_read_workqueue, &work_read_data);
+		queue_delayed_work(sdio_xprt_read_workqueue,
+				   &work_read_data, 0);
 	}
 	if (event == SDIO_EVENT_DATA_WRITE_AVAIL) {
 		SDIO_XPRT_DBG("%s Received Notify"
@@ -399,40 +427,52 @@ static void rpcrouter_sdio_remote_notify(void *_dev, unsigned event)
 
 static int allocate_sdio_xprt(struct sdio_xprt **sdio_xprt_chnl)
 {
-	void *buf;
+	struct sdio_buf_struct *buf;
 	struct sdio_xprt *chnl;
 	int i;
+	unsigned long flags;
 	int rc = -ENOMEM;
-
-	buf = kmalloc(SDIO_IN_BUF_SIZE, GFP_KERNEL);
-	if (!buf) {
-		printk(KERN_ERR "sdio_in_buf allocation failed\n");
-		return -ENOMEM;
-	}
 
 	chnl = kmalloc(sizeof(struct sdio_xprt), GFP_KERNEL);
 	if (!chnl) {
 		printk(KERN_ERR "sdio_xprt channel allocation failed\n");
-		goto alloc_failure;
+		return rc;
 	}
 
-	spin_lock_init(&chnl->lock);
+	spin_lock_init(&chnl->write_list_lock);
+	spin_lock_init(&chnl->read_list_lock);
+	spin_lock_init(&chnl->free_list_lock);
 
-	for (i = 0; i < NO_OF_SDIO_IN_BUF; i++) {
-		chnl->buffer[i].state = FREE;
-		chnl->buffer[i].size = 0;
-		chnl->buffer[i].read_avail = 0;
-		chnl->buffer[i].read_start_index = 0;
-		chnl->buffer[i].read_end_index = 0;
+	INIT_LIST_HEAD(&chnl->write_list);
+	INIT_LIST_HEAD(&chnl->read_list);
+	INIT_LIST_HEAD(&chnl->free_list);
+
+	for (i = 0; i < NUM_SDIO_BUFS; i++) {
+		buf = kzalloc(sizeof(struct sdio_buf_struct), GFP_KERNEL);
+		if (!buf) {
+			printk(KERN_ERR "sdio_buf_struct alloc failed\n");
+			goto alloc_failure;
+		}
+		spin_lock_irqsave(&chnl->free_list_lock, flags);
+		list_add_tail(&buf->list, &chnl->free_list);
+		spin_unlock_irqrestore(&chnl->free_list_lock, flags);
 	}
-	chnl->buffer[0].in_buf = buf;
 
 	*sdio_xprt_chnl = chnl;
 	return 0;
 
 alloc_failure:
-	kfree(buf);
+	spin_lock_irqsave(&chnl->free_list_lock, flags);
+	while (!list_empty(&chnl->free_list)) {
+		buf = list_first_entry(&chnl->free_list,
+					struct sdio_buf_struct,
+					list);
+		list_del(&buf->list);
+		kfree(buf);
+	}
+	spin_unlock_irqrestore(&chnl->free_list_lock, flags);
 
+	kfree(chnl);
 	return rc;
 }
 
@@ -459,10 +499,7 @@ static int rpcrouter_sdio_remote_probe(struct platform_device *pdev)
 	sdio_remote_xprt.xprt.close = rpcrouter_sdio_remote_close;
 	sdio_remote_xprt.xprt.priv = NULL;
 
-	init_waitqueue_head(&free_buf_wait);
 	init_waitqueue_head(&write_avail_wait_q);
-
-	INIT_LIST_HEAD(&write_list);
 
 	/* Open up SDIO channel */
 	rc = sdio_open("SDIO_RPC", &sdio_remote_xprt.channel->handle, NULL,
