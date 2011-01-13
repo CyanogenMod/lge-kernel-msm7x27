@@ -75,6 +75,7 @@
 #include "cpuidle.h"
 #include "pm.h"
 #include "rpm.h"
+#include "mpm.h"
 #include "spm.h"
 #include "rpm_log.h"
 #include "timer.h"
@@ -2749,6 +2750,10 @@ static void __init msm8x60_init_tlmm(void)
 
 	for (n = 0; n < ARRAY_SIZE(msm8x60_tlmm_cfgs); ++n)
 		gpio_tlmm_config(msm8x60_tlmm_cfgs[n], 0);
+
+	msm_gpio_install_direct_irq(PM8058_GPIO_INT, 1, 0);
+	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_1,
+			MSM_GPIO_TO_INT(PM8058_GPIO_INT), 1);
 }
 
 #define GPIO_SDC3_WP_SWITCH (GPIO_EXPANDER_GPIO_BASE + (16 * 1) + 6)
