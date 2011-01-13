@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -295,7 +295,8 @@ int sdio_ctl_open(struct inode *inode, struct file *file)
 
 	D("%s called on sdioctl%d device\n", __func__, sdio_ctl_devp->id);
 	r = sdio_cmux_open(sdio_ctl_devp->id, sdio_ctl_receive_cb,
-			   sdio_ctl_write_done, sdio_ctl_devp);
+			   sdio_ctl_write_done, NULL,
+			   sdio_ctl_devp);
 	if (r < 0) {
 		pr_err("ERROR %s: sdio_cmux_open failed with rc %d\n",
 			__func__, r);

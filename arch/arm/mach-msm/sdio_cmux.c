@@ -63,15 +63,8 @@ struct sdio_cmux_ch {
 	int is_remote_open;
 	int is_local_open;
 
-	char local_fDSR;
-	char local_fCTS;
-	char local_fCD;
-	char local_fRI;
-
-	char remote_fDSR;
-	char remote_fCTS;
-	char remote_fCD;
-	char remote_fRI;
+	char local_status;
+	char remote_status;
 
 	struct mutex tx_lock;
 	struct list_head tx_list;
@@ -79,6 +72,7 @@ struct sdio_cmux_ch {
 	void *priv;
 	void (*receive_cb)(void *, int, void *);
 	void (*write_done)(void *, int, void *);
+	void (*status_callback)(int, void *);
 } logical_ch[SDIO_CMUX_NUM_CHANNELS];
 
 struct sdio_cmux_hdr {
@@ -245,13 +239,8 @@ static int sdio_cmux_write_cmd(const int id, enum cmd_type type)
 	list_elem->cmux_pkt.hdr->pkt_len = (uint16_t)0;
 	list_elem->cmux_pkt.hdr->cmd = (uint8_t)type;
 	list_elem->cmux_pkt.hdr->status = (uint8_t)0;
-	if (type == STATUS) {
-		list_elem->cmux_pkt.hdr->status =
-			(uint8_t)(logical_ch[id].local_fDSR ? DSR_POS : 0 |
-				logical_ch[id].local_fCTS ? CTS_POS : 0 |
-				logical_ch[id].local_fRI ? RI_POS : 0 |
-				logical_ch[id].local_fCD ? CD_POS : 0);
-	}
+	if (type == STATUS)
+		list_elem->cmux_pkt.hdr->status = logical_ch[id].local_status;
 	list_elem->cmux_pkt.hdr->pad_bytes = (uint8_t)0;
 	list_elem->cmux_pkt.hdr->magic_no = (uint16_t)MAGIC_NO_V1;
 
@@ -270,6 +259,7 @@ static int sdio_cmux_write_cmd(const int id, enum cmd_type type)
 int sdio_cmux_open(const int id,
 		   void (*receive_cb)(void *, int, void *),
 		   void (*write_done)(void *, int, void *),
+		   void (*status_callback)(int, void *),
 		   void *priv)
 {
 	int r;
@@ -308,6 +298,7 @@ int sdio_cmux_open(const int id,
 	logical_ch[id].priv = priv;
 	logical_ch[id].receive_cb = receive_cb;
 	logical_ch[id].write_done = write_done;
+	logical_ch[id].status_callback = status_callback;
 	if (logical_ch[id].receive_cb) {
 		mutex_lock(&temp_rx_lock);
 		list_for_each_entry_safe(list_elem, list_elem_tmp,
@@ -442,28 +433,29 @@ EXPORT_SYMBOL(is_remote_open);
 
 int sdio_cmux_tiocmget(int id)
 {
-	return  logical_ch[id].remote_fDSR ? TIOCM_DSR : 0 |
-		logical_ch[id].remote_fCTS ? TIOCM_CTS : 0 |
-		logical_ch[id].remote_fCD ? TIOCM_CD : 0 |
-		logical_ch[id].remote_fRI ? TIOCM_RI : 0 |
-		logical_ch[id].local_fCTS ? TIOCM_RTS : 0 |
-		logical_ch[id].local_fDSR ? TIOCM_DTR : 0;
+	int ret =  (logical_ch[id].remote_status & DSR_POS ? TIOCM_DSR : 0) |
+		(logical_ch[id].remote_status & CTS_POS ? TIOCM_CTS : 0) |
+		(logical_ch[id].remote_status & CD_POS ? TIOCM_CD : 0) |
+		(logical_ch[id].remote_status & RI_POS ? TIOCM_RI : 0) |
+		(logical_ch[id].local_status & CTS_POS ? TIOCM_RTS : 0) |
+		(logical_ch[id].local_status & DSR_POS ? TIOCM_DTR : 0);
+	return ret;
 }
 EXPORT_SYMBOL(sdio_cmux_tiocmget);
 
 int sdio_cmux_tiocmset(int id, unsigned int set, unsigned int clear)
 {
 	if (set & TIOCM_DTR)
-		logical_ch[id].local_fDSR = 1;
+		logical_ch[id].local_status |= DSR_POS;
 
 	if (set & TIOCM_RTS)
-		logical_ch[id].local_fCTS = 1;
+		logical_ch[id].local_status |= CTS_POS;
 
 	if (clear & TIOCM_DTR)
-		logical_ch[id].local_fDSR = 0;
+		logical_ch[id].local_status &= ~DSR_POS;
 
 	if (clear & TIOCM_RTS)
-		logical_ch[id].local_fCTS = 0;
+		logical_ch[id].local_status &= ~CTS_POS;
 
 	sdio_cmux_write_cmd(id, STATUS);
 	return 0;
@@ -548,12 +540,15 @@ static int process_cmux_pkt(void *pkt, int size)
 	case STATUS:
 		id = (uint32_t)(mux_hdr->lc_id);
 		D("%s: Received STATUS command for ch%d\n", __func__, id);
-		mutex_lock(&logical_ch[id].lc_lock);
-		logical_ch[id].remote_fDSR = mux_hdr->status & DSR_POS;
-		logical_ch[id].remote_fCTS = mux_hdr->status & CTS_POS;
-		logical_ch[id].remote_fRI = mux_hdr->status & RI_POS;
-		logical_ch[id].remote_fCD = mux_hdr->status & CD_POS;
-		mutex_unlock(&logical_ch[id].lc_lock);
+		if (logical_ch[id].remote_status != mux_hdr->status) {
+			mutex_lock(&logical_ch[id].lc_lock);
+			logical_ch[id].remote_status = mux_hdr->status;
+			mutex_unlock(&logical_ch[id].lc_lock);
+			if (logical_ch[id].status_callback)
+				logical_ch[id].status_callback(
+							sdio_cmux_tiocmget(id),
+							logical_ch[id].priv);
+		}
 		break;
 	}
 	return 0;
