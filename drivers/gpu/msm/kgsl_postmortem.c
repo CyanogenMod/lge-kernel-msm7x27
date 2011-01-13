@@ -396,6 +396,9 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 
 	static struct ib_list ib_list;
 
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+
 	mb();
 
 	kgsl_regread(device, REG_RBBM_STATUS, &rbbm_status);
@@ -559,7 +562,8 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 		KGSL_LOG_DUMP("TIMESTM RTRD: %08X\n", ts_processed);
 	}
 
-	num_item = kgsl_ringbuffer_count(&device->ringbuffer, cp_rb_rptr);
+	num_item = kgsl_ringbuffer_count(&yamato_device->ringbuffer,
+						cp_rb_rptr);
 	if (num_item <= 0)
 		KGSL_LOG_POSTMORTEM_WRITE("Ringbuffer is Empty.\n");
 

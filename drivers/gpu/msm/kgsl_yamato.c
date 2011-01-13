@@ -255,14 +255,17 @@ irqreturn_t kgsl_yamato_isr(int irq, void *data)
 static int kgsl_yamato_cleanup_pt(struct kgsl_device *device,
 			struct kgsl_pagetable *pagetable)
 {
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 	if (device->mmu.defaultpagetable == pagetable)
 		device->mmu.defaultpagetable = NULL;
 
-	kgsl_mmu_unmap(pagetable, device->ringbuffer.buffer_desc.gpuaddr,
-			device->ringbuffer.buffer_desc.size);
+	kgsl_mmu_unmap(pagetable, rb->buffer_desc.gpuaddr,
+			rb->buffer_desc.size);
 
-	kgsl_mmu_unmap(pagetable, device->ringbuffer.memptrs_desc.gpuaddr,
-			device->ringbuffer.memptrs_desc.size);
+	kgsl_mmu_unmap(pagetable, rb->memptrs_desc.gpuaddr,
+			rb->memptrs_desc.size);
 
 	kgsl_mmu_unmap(pagetable, device->memstore.gpuaddr,
 			device->memstore.size);
@@ -278,9 +281,12 @@ static int kgsl_yamato_setup_pt(struct kgsl_device *device,
 {
 	int result = 0;
 	unsigned int flags = KGSL_MEMFLAGS_CONPHYS | KGSL_MEMFLAGS_ALIGN4K;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 
-	BUG_ON(device->ringbuffer.buffer_desc.physaddr == 0);
-	BUG_ON(device->ringbuffer.memptrs_desc.physaddr == 0);
+	BUG_ON(rb->buffer_desc.physaddr == 0);
+	BUG_ON(rb->memptrs_desc.physaddr == 0);
 	BUG_ON(device->memstore.physaddr == 0);
 #ifdef CONFIG_MSM_KGSL_MMU
 	BUG_ON(device->mmu.dummyspace.physaddr == 0);
@@ -288,13 +294,12 @@ static int kgsl_yamato_setup_pt(struct kgsl_device *device,
 	if (device->mmu.defaultpagetable == NULL)
 		device->mmu.defaultpagetable = pagetable;
 
-	result = kgsl_mmu_map_global(pagetable, &device->ringbuffer.buffer_desc,
+	result = kgsl_mmu_map_global(pagetable, &rb->buffer_desc,
 				     GSL_PT_PAGE_RV, flags);
 	if (result)
 		goto error;
 
-	result = kgsl_mmu_map_global(pagetable,
-				     &device->ringbuffer.memptrs_desc,
+	result = kgsl_mmu_map_global(pagetable, &rb->memptrs_desc,
 				     GSL_PT_PAGE_RV | GSL_PT_PAGE_WV, flags);
 	if (result)
 		goto unmap_buffer_desc;
@@ -316,11 +321,11 @@ unmap_memstore_desc:
 			device->memstore.size);
 
 unmap_memptrs_desc:
-	kgsl_mmu_unmap(pagetable, device->ringbuffer.memptrs_desc.gpuaddr,
-			device->ringbuffer.memptrs_desc.size);
+	kgsl_mmu_unmap(pagetable, rb->memptrs_desc.gpuaddr,
+			rb->memptrs_desc.size);
 unmap_buffer_desc:
-	kgsl_mmu_unmap(pagetable, device->ringbuffer.buffer_desc.gpuaddr,
-			device->ringbuffer.buffer_desc.size);
+	kgsl_mmu_unmap(pagetable, rb->buffer_desc.gpuaddr,
+			rb->buffer_desc.size);
 error:
 	return result;
 }
@@ -698,7 +703,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 	return 0;
 
 error_close_rb:
-	kgsl_ringbuffer_close(&device->ringbuffer);
+	kgsl_ringbuffer_close(&yamato_device->ringbuffer);
 error_free_memstore:
 	kgsl_sharedmem_free(&device->memstore);
 error_close_cmdstream:
@@ -720,8 +725,10 @@ error:
 int kgsl_yamato_close(struct kgsl_device *device)
 {
 	struct kgsl_memregion *regspace = &device->regspace;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
 
-	kgsl_ringbuffer_close(&device->ringbuffer);
+	kgsl_ringbuffer_close(&yamato_device->ringbuffer);
 	if (device->memstore.hostptr)
 		kgsl_sharedmem_free(&device->memstore);
 
@@ -835,7 +842,7 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 
-	status = kgsl_ringbuffer_start(&device->ringbuffer, init_ram);
+	status = kgsl_ringbuffer_start(&yamato_device->ringbuffer, init_ram);
 	if (status != 0)
 		goto error_irq_off;
 
@@ -865,6 +872,8 @@ error_clk_off:
 
 static int kgsl_yamato_stop(struct kgsl_device *device)
 {
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
 	del_timer(&device->idle_timer);
 	kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
 
@@ -872,7 +881,7 @@ static int kgsl_yamato_stop(struct kgsl_device *device)
 
 	kgsl_drawctxt_close(device);
 
-	kgsl_ringbuffer_stop(&device->ringbuffer);
+	kgsl_ringbuffer_stop(&yamato_device->ringbuffer);
 
 	kgsl_yamato_gmemclose(device);
 
@@ -999,7 +1008,9 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 /* Caller must hold the device mutex. */
 int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
-	struct kgsl_ringbuffer *rb = &device->ringbuffer;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 	unsigned int rbbm_status;
 	unsigned long wait_time = jiffies + MAX_WAITGPU_SECS;
 
@@ -1037,7 +1048,9 @@ err:
 static unsigned int kgsl_yamato_isidle(struct kgsl_device *device)
 {
 	int status = KGSL_FALSE;
-	struct kgsl_ringbuffer *rb = &device->ringbuffer;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *rb = &yamato_device->ringbuffer;
 	unsigned int rbbm_status;
 
 	if (rb->flags & KGSL_FLAGS_STARTED) {
