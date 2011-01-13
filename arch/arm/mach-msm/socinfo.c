@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,7 +398,7 @@ static struct sys_device soc_sys_device = {
 	.cls = &soc_sysdev_class,
 };
 
-static void __init socinfo_create_files(struct sys_device *dev,
+static int __init socinfo_create_files(struct sys_device *dev,
 					struct sysdev_attribute files[],
 					int size)
 {
@@ -408,12 +408,13 @@ static void __init socinfo_create_files(struct sys_device *dev,
 		if (err) {
 			pr_err("%s: sysdev_create_file(%s)=%d\n",
 			       __func__, files[i].attr.name, err);
-			return;
+			return err;
 		}
 	}
+	return 0;
 }
 
-static void __init socinfo_init_sysdev(void)
+static int __init socinfo_init_sysdev(void)
 {
 	int err;
 
@@ -421,40 +422,42 @@ static void __init socinfo_init_sysdev(void)
 	if (err) {
 		pr_err("%s: sysdev_class_register fail (%d)\n",
 		       __func__, err);
-		return;
+		return err;
 	}
 	err = sysdev_register(&soc_sys_device);
 	if (err) {
 		pr_err("%s: sysdev_register fail (%d)\n",
 		       __func__, err);
-		return;
+		return err;
 	}
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)
-		return;
+		return err;
 	socinfo_create_files(&soc_sys_device, socinfo_v2_files,
 				ARRAY_SIZE(socinfo_v2_files));
 
 	if (socinfo->v1.format < 3)
-		return;
+		return err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v3_files,
 				ARRAY_SIZE(socinfo_v3_files));
 
 	if (socinfo->v1.format < 4)
-		return;
+		return err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
 				ARRAY_SIZE(socinfo_v4_files));
 
 	if (socinfo->v1.format < 5)
-		return;
+		return err;
 
-	socinfo_create_files(&soc_sys_device, socinfo_v5_files,
+	return socinfo_create_files(&soc_sys_device, socinfo_v5_files,
 				ARRAY_SIZE(socinfo_v5_files));
 
 }
+
+arch_initcall(socinfo_init_sysdev);
 
 int __init socinfo_init(void)
 {
@@ -483,8 +486,6 @@ int __init socinfo_init(void)
 
 	if (socinfo->v1.id < ARRAY_SIZE(cpu_of_id))
 		cur_cpu = cpu_of_id[socinfo->v1.id];
-
-	socinfo_init_sysdev();
 
 	switch (socinfo->v1.format) {
 	case 1:
