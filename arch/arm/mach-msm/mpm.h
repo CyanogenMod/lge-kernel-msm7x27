@@ -33,9 +33,18 @@
 #include <linux/types.h>
 #include <linux/list.h>
 
+enum msm_mpm_pin {
+	MSM_MPM_PIN_SDC3_DAT1 = 21,
+	MSM_MPM_PIN_SDC3_DAT3 = 22,
+	MSM_MPM_PIN_SDC4_DAT1 = 23,
+	MSM_MPM_PIN_SDC4_DAT3 = 24,
+};
+
 int msm_mpm_enable_irq(unsigned int irq, unsigned int enable);
 int msm_mpm_set_irq_wake(unsigned int irq, unsigned int on);
 int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type);
+int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on);
+int msm_mpm_set_pin_type(enum msm_mpm_pin pin, unsigned int flow_type);
 bool msm_mpm_irqs_detectable(bool from_idle);
 void msm_mpm_enter_sleep(bool from_idle);
 void msm_mpm_exit_sleep(bool from_idle);
