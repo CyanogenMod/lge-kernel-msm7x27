@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,6 +34,7 @@
 #define OTHC_MICBIAS_DETECT	BIT(0)
 #define OTHC_GPIO_DETECT	BIT(1)
 #define OTHC_SWITCH_DETECT	BIT(2)
+#define OTHC_ADC_DETECT		BIT(3)
 
 enum othc_accessory_type {
 	OTHC_NO_DEVICE = 0,
@@ -43,6 +44,12 @@ enum othc_accessory_type {
 	OTHC_ANC_HEADSET = 1 << 3,
 	OTHC_ANC_HEADPHONE = 1 << 4,
 	OTHC_ANC_MICROPHONE = 1 << 5,
+	OTHC_SVIDEO_OUT = 1 << 6,
+};
+
+struct accessory_adc_thres {
+	int min_threshold;
+	int max_threshold;
 };
 
 struct othc_accessory_info {
@@ -52,6 +59,7 @@ struct othc_accessory_info {
 	unsigned int active_low;
 	unsigned int key_code;
 	bool enabled;
+	struct accessory_adc_thres adc_thres;
 };
 
 enum othc_headset_type {
@@ -121,8 +129,11 @@ struct othc_hsed_config {
 	struct othc_n_switch_config *switch_config;
 	/* Accessory configuration */
 	bool accessories_support;
+	bool accessories_adc_support;
+	uint32_t accessories_adc_channel;
 	struct othc_accessory_info *accessories;
 	int othc_num_accessories;
+	int video_out_gpio;
 };
 
 struct pmic8058_othc_config_pdata {
@@ -135,5 +146,7 @@ struct pmic8058_othc_config_pdata {
 
 int pm8058_micbias_enable(enum othc_micbias micbias,
 			enum othc_micbias_enable enable);
+int pm8058_othc_svideo_enable(enum othc_micbias micbias,
+			bool enable);
 
 #endif /* __PMIC8058_OTHC_H__ */
