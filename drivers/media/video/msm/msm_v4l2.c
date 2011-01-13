@@ -81,7 +81,7 @@ static int msm_v4l2_open(struct file *f)
 	if (!g_pmsm_v4l2_dev->opencnt) {
 		rc = g_pmsm_v4l2_dev->drv->open(
 				g_pmsm_v4l2_dev->drv->sync,
-				MSM_APPS_ID_V4L2);
+				MSM_APPS_ID_V4L2, 0);
 	}
 	if (!rc)
 		g_pmsm_v4l2_dev->opencnt++;
