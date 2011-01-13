@@ -2781,8 +2781,8 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 	if (!hdmi_msm_state->hpd_on_feature) {
 		int rc;
 		rc = hdmi_msm_hpd_on(true);
-		if (!rc) {
-			DEV_INFO("HPD: activation failed: rc=%d\n", rc);
+		if (rc) {
+			DEV_WARN("HPD: activation failed: rc=%d\n", rc);
 			return rc;
 		}
 	}
