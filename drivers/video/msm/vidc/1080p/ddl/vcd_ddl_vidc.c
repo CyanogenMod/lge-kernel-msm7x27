@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -489,12 +489,9 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 		r_cframe_skip, false, 0);
 	vidc_sm_set_encoder_hec_period(&ddl->shared_mem
 		[ddl->command_channel], encoder->hdr_ext_control);
-	if ((encoder->codec.codec == VCD_CODEC_MPEG4) &&
-		(encoder->vop_timing.vop_time_resolution > 0)) {
 		vidc_sm_set_encoder_vop_time(&ddl->shared_mem
 			[ddl->command_channel], true,
 			encoder->vop_timing.vop_time_resolution, 0);
-	}
 	if (encoder->rc_level.frame_level_rc)
 		vidc_1080p_encode_set_frame_level_rc_params((
 			DDL_FRAMERATE_SCALE(encoder->\
@@ -715,27 +712,24 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 	if (encoder->intra_frame_insertion)
 		encoder->intra_frame_insertion = false;
 	enc_param.input_flush = false;
-	if ((encoder->codec.codec == VCD_CODEC_MPEG4) &&
-		(encoder->vop_timing.vop_time_resolution > 0)) {
 		vidc_sm_set_encoder_vop_time(
 			&ddl->shared_mem[ddl->command_channel], true,
 			encoder->vop_timing.vop_time_resolution,
 			ddl->input_frame.frm_delta);
-	}
 	vidc_sm_set_frame_tag(&ddl->shared_mem[ddl->command_channel],
 	ddl->input_frame.vcd_frm.ip_frm_tag);
 	if (ddl_context->pix_cache_enable) {
 		for (index = 0; index < enc_buffers->dpb_count;
 			index++) {
 			dpb_addr_y[index] =
-			   (u32) VIDC_1080P_DEC_DPB_RESET_VALUE;
+				(u32) VIDC_1080P_DEC_DPB_RESET_VALUE;
 			dpb_addr_c[index] = (u32) enc_buffers->dpb_c
 				[index].align_physical_addr;
 		}
 
 		dpb_addr_y[index] = (u32) input_vcd_frm->physical;
 		dpb_addr_c[index] = (u32) input_vcd_frm->physical +
-		   encoder->input_buf_size.size_y;
+			encoder->input_buf_size.size_y;
 
 		vidc_pix_cache_init_luma_chroma_base_addr(
 			enc_buffers->dpb_count + 1, dpb_addr_y, dpb_addr_c);
