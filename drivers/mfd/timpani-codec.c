@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,14 @@
 		TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_R_M)
 #define TIMPANI_RX1_ST_ENABLE ((1 << TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_L_S) |\
 		(1 << TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_R_S))
+#define TIMPANI_CDC_ST_MIXING_TX1_MASK (TIMPANI_CDC_ST_MIXING_TX1_L_M |\
+		TIMPANI_CDC_ST_MIXING_TX1_R_M)
+#define TIMPANI_CDC_ST_MIXING_TX1_ENABLE ((1 << TIMPANI_CDC_ST_MIXING_TX1_L_S)\
+		| (1 << TIMPANI_CDC_ST_MIXING_TX1_R_S))
+#define TIMPANI_CDC_ST_MIXING_TX2_MASK (TIMPANI_CDC_ST_MIXING_TX2_L_M |\
+		TIMPANI_CDC_ST_MIXING_TX2_R_M)
+#define TIMPANI_CDC_ST_MIXING_TX2_ENABLE ((1 << TIMPANI_CDC_ST_MIXING_TX2_L_S)\
+		| (1 << TIMPANI_CDC_ST_MIXING_TX2_R_S))
 
 struct adie_codec_path {
 	struct adie_codec_dev_profile *profile;
@@ -1543,10 +1551,26 @@ int timpani_adie_codec_enable_sidetone(struct adie_codec_path *rx_path_ptr,
 
 	if (enable) {
 		rc = adie_codec_write(TIMPANI_A_CDC_RX1_CTL,
-		TIMPANI_RX1_ST_MASK, TIMPANI_RX1_ST_ENABLE);
+			TIMPANI_RX1_ST_MASK, TIMPANI_RX1_ST_ENABLE);
+
+		if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX1)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX1_MASK,
+				TIMPANI_CDC_ST_MIXING_TX1_ENABLE);
+		else if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX2)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX2_MASK,
+				TIMPANI_CDC_ST_MIXING_TX2_ENABLE);
 	 } else {
 		rc = adie_codec_write(TIMPANI_A_CDC_RX1_CTL,
-		TIMPANI_RX1_ST_MASK, 0);
+			TIMPANI_RX1_ST_MASK, 0);
+
+		if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX1)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX1_MASK, 0);
+		else if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX2)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX2_MASK, 0);
 	 }
 
 error:
