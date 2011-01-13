@@ -180,6 +180,12 @@ static uint32_t msm_mpm_wake_irq[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_detect_ctl[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_polarity[MSM_MPM_REG_WIDTH];
 
+struct gpio_direct_connect {
+	int gpio_irq;
+	int reverse_polarity;
+};
+
+static struct gpio_direct_connect direct_connect[NR_TLMM_SCSS_DIR_CONN_IRQ];
 
 /******************************************************************************
  * Low Level Functions for Accessing MPM
@@ -271,6 +277,12 @@ static inline void msm_mpm_set_irq_a2m(unsigned int apps_irq,
 	msm_mpm_irqs_a2m[apps_irq] = (uint8_t) mpm_irq;
 }
 
+static inline void msm_mpm_set_irq_m2a(unsigned int mpm_irq,
+	unsigned int apps_irq)
+{
+	msm_mpm_irqs_m2a[mpm_irq] = (uint8_t) apps_irq;
+}
+
 static inline bool msm_mpm_is_valid_mpm_irq(unsigned int irq)
 {
 	return irq < ARRAY_SIZE(msm_mpm_irqs_m2a);
@@ -279,6 +291,15 @@ static inline bool msm_mpm_is_valid_mpm_irq(unsigned int irq)
 static inline uint16_t msm_mpm_get_irq_m2a(unsigned int irq)
 {
 	return msm_mpm_irqs_m2a[irq];
+}
+
+static inline uint16_t msm_mpm_is_direct_connect_and_reversed(unsigned int irq)
+{
+	int index = irq - TLMM_SCSS_DIR_CONN_IRQ_0;
+
+	if (index < 0 || index > NR_TLMM_SCSS_DIR_CONN_IRQ-1)
+		return 0;
+	return direct_connect[index].reverse_polarity;
 }
 
 static bool msm_mpm_bypass_apps_irq(unsigned int irq)
@@ -352,6 +373,14 @@ static int msm_mpm_set_irq_type_exclusive(
 			msm_mpm_polarity[index] |= mask;
 		else
 			msm_mpm_polarity[index] &= ~mask;
+
+		if (msm_mpm_is_direct_connect_and_reversed(irq)) {
+				if (flow_type & (IRQ_TYPE_EDGE_RISING
+						| IRQ_TYPE_LEVEL_HIGH))
+					msm_mpm_polarity[index] &= ~mask;
+				else
+					msm_mpm_polarity[index] |= mask;
+		}
 	}
 
 	return 0;
@@ -495,6 +524,24 @@ void msm_mpm_exit_sleep(bool from_idle)
 	}
 
 	msm_mpm_set(!from_idle);
+}
+
+void msm_set_direct_connect(int apps_irq, int gpio_irq, int reverse_polarity)
+{
+	int mpm_irq;
+	int index = apps_irq - TLMM_SCSS_DIR_CONN_IRQ_0;
+
+	BUG_ON(index < 0
+			|| index > NR_TLMM_SCSS_DIR_CONN_IRQ-1);
+
+	direct_connect[index].reverse_polarity = reverse_polarity;
+
+	mpm_irq = msm_mpm_get_irq_a2m(gpio_irq);
+	if (mpm_irq) {
+		msm_mpm_set_irq_a2m(gpio_irq, 0);
+		msm_mpm_set_irq_a2m(apps_irq, mpm_irq);
+		msm_mpm_set_irq_m2a(mpm_irq, apps_irq);
+	}
 }
 
 static int __init msm_mpm_early_init(void)
