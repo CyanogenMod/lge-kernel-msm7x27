@@ -1344,6 +1344,19 @@ done:
 }
 #endif /*CONFIG_MSM_KGSL_MMU*/
 
+static void kgsl_ioctl_idle_check(struct kgsl_device *device)
+{
+
+	if (device->state & KGSL_STATE_ACTIVE) {
+		device->requested_state = KGSL_STATE_NAP;
+		if (device->ftbl.device_sleep(device) == KGSL_FAILURE)
+			mod_timer(&device->idle_timer,
+					jiffies +
+					device->pwrctrl.interval_timeout);
+	}
+}
+
+
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	int result = 0;
@@ -1458,6 +1471,8 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	if (device->active_cnt == 0)
 		complete(&device->suspend_gate);
 
+	if (device->pwrctrl.nap_allowed == true)
+		kgsl_ioctl_idle_check(device);
 	mutex_unlock(&device->mutex);
 	KGSL_DRV_VDBG("result %d\n", result);
 	return result;
