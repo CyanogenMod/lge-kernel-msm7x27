@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,6 +56,7 @@ struct pm8901_platform_data {
 
 	int		num_subdevs;
 	struct mfd_cell *sub_devices;
+	int		irq_trigger_flags;
 };
 
 struct pm8901_gpio_platform_data {

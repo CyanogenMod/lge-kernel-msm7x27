@@ -2496,6 +2496,7 @@ static struct pm8901_platform_data pm8901_platform_data = {
 	.irq_base = PM8901_IRQ_BASE,
 	.num_subdevs = ARRAY_SIZE(pm8901_subdevs),
 	.sub_devices = pm8901_subdevs,
+	.irq_trigger_flags = IRQF_TRIGGER_LOW,
 };
 
 static struct i2c_board_info pm8901_boardinfo[] __initdata = {
