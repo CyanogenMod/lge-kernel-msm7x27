@@ -138,7 +138,7 @@ static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 		pr_err("%s: Clock deassert failed at %u Hz with err %d\n",
 				mmc_hostname(host->mmc), host->clk_rate, ret);
 
-	pr_info("%s: Controller has been reinitialized\n",
+	pr_debug("%s: Controller has been reinitialized\n",
 			mmc_hostname(host->mmc));
 
 	/* Restore the contoller state */
