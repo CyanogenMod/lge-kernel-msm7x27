@@ -32,12 +32,12 @@
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <asm/mach-types.h>
+#include <mach/socinfo.h>
 
 #include "proc_comm.h"
 #include "smd_private.h"
 #include "clock.h"
 #include "acpuclock.h"
-#include "socinfo.h"
 
 #define A11S_CLK_CNTL_ADDR (MSM_CSR_BASE + 0x100)
 #define A11S_CLK_SEL_ADDR (MSM_CSR_BASE + 0x104)

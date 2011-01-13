@@ -50,6 +50,7 @@
 #include <mach/msm_battery.h>
 #include <mach/rpc_server_handset.h>
 #include <mach/msm_tsif.h>
+#include <mach/socinfo.h>
 
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -58,7 +59,6 @@
 #include <mach/camera.h>
 
 #include "devices.h"
-#include "socinfo.h"
 #include "clock.h"
 #include "msm-keypad-devices.h"
 #include "pm.h"

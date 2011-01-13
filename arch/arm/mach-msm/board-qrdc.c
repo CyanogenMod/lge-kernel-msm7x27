@@ -63,6 +63,7 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_bus_board.h>
 #include <mach/tpm_st_i2c.h>
+#include <mach/socinfo.h>
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
 #endif
@@ -78,7 +79,6 @@
 #include "rpm_log.h"
 #include "timer.h"
 #include "saw-regulator.h"
-#include "socinfo.h"
 #include "rpm-regulator.h"
 #include "gpiomux.h"
 #include "gpiomux-8x60.h"

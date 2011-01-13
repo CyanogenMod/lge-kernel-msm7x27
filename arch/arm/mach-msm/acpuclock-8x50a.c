@@ -25,10 +25,10 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/socinfo.h>
 
 #include "acpuclock.h"
 #include "clock.h"
-#include "socinfo.h"
 
 /* Frequency switch modes. */
 #define SHOT_SWITCH		4

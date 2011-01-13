@@ -59,10 +59,10 @@
 #include <mach/clk.h>
 #include <mach/tpm_st_i2c.h>
 #include <mach/rpc_server_handset.h>
+#include <mach/socinfo.h>
 
 #include "devices.h"
 #include "timer.h"
-#include "socinfo.h"
 #include "msm-keypad-devices.h"
 #include "pm.h"
 #include <linux/msm_kgsl.h>
