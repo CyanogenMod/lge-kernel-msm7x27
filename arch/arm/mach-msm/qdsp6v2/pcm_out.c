@@ -28,6 +28,7 @@
 #include <mach/qdsp6v2/apr_audio.h>
 #include <mach/qdsp6v2/q6asm.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
+#include <linux/wakelock.h>
 
 #define MAX_BUF 2
 #define BUFSZ (4800)
@@ -48,6 +49,8 @@ struct pcm {
 	atomic_t out_opened;
 	atomic_t out_stopped;
 	atomic_t out_prefill;
+	struct wake_lock wakelock;
+	struct wake_lock idlelock;
 };
 
 void pcm_out_cb(uint32_t opcode, uint32_t token,
@@ -66,6 +69,20 @@ void pcm_out_cb(uint32_t opcode, uint32_t token,
 		break;
 	}
 	spin_unlock_irqrestore(&pcm->dsp_lock, flags);
+}
+
+static void audio_prevent_sleep(struct pcm *audio)
+{
+	pr_debug("%s:\n", __func__);
+	wake_lock(&audio->wakelock);
+	wake_lock(&audio->idlelock);
+}
+
+static void audio_allow_sleep(struct pcm *audio)
+{
+	pr_debug("%s:\n", __func__);
+	wake_unlock(&audio->wakelock);
+	wake_unlock(&audio->idlelock);
 }
 
 static int pcm_out_enable(struct pcm *pcm)
@@ -154,6 +171,7 @@ static long pcm_out_ioctl(struct file *file, unsigned int cmd,
 			rc = -EFAULT;
 			break;
 		}
+		audio_prevent_sleep(pcm);
 		atomic_set(&pcm->out_enabled, 1);
 		break;
 	}
@@ -264,6 +282,8 @@ static int pcm_out_open(struct inode *inode, struct file *file)
 	atomic_set(&pcm->out_count, pcm->buffer_count);
 	atomic_set(&pcm->out_prefill, 0);
 	atomic_set(&pcm->out_opened, 1);
+	wake_lock_init(&pcm->wakelock, WAKE_LOCK_SUSPEND, "audio_pcm");
+	wake_lock_init(&pcm->idlelock, WAKE_LOCK_IDLE, "audio_pcm_idle");
 	file->private_data = pcm;
 	return 0;
 fail:
@@ -347,6 +367,7 @@ static int pcm_out_release(struct inode *inode, struct file *file)
 		pcm_out_disable(pcm);
 	msm_clear_session_id(pcm->ac->session);
 	q6asm_audio_client_free(pcm->ac);
+	audio_allow_sleep(pcm);
 	kfree(pcm);
 	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);
 	return 0;
