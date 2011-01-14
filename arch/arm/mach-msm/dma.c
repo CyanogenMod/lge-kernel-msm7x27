@@ -60,7 +60,7 @@ struct msm_dmov_conf {
 
 #ifdef CONFIG_MSM_ADM3
 
-#define DMOV_CHANNEL_DEFAULT_CONF { .sd = 0, .block = 0, .priority = 0 }
+#define DMOV_CHANNEL_DEFAULT_CONF { .sd = 1, .block = 0, .priority = 0 }
 #define DMOV_CHANNEL_MODEM_CONF { .sd = 3, .block = 0, .priority = 0 }
 #define DMOV_CHANNEL_CONF(secd, blk, pri) \
 	{ .sd = secd, .block = blk, .priority = pri }
@@ -103,7 +103,7 @@ static struct msm_dmov_chan_conf adm1_chan_conf[] = {
 	DMOV_CHANNEL_MODEM_CONF,
 };
 
-#define DMOV_CRCI_DEFAULT_CONF { .sd = 0, .blk_size = 0 }
+#define DMOV_CRCI_DEFAULT_CONF { .sd = 1, .blk_size = 0 }
 #define DMOV_CRCI_CONF(secd, blk) { .sd = secd, .blk_size = blk }
 
 static struct msm_dmov_crci_conf adm0_crci_conf[] = {
@@ -113,7 +113,7 @@ static struct msm_dmov_crci_conf adm0_crci_conf[] = {
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
-	DMOV_CRCI_CONF(0, 4),
+	DMOV_CRCI_CONF(1, 4),
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
@@ -127,20 +127,20 @@ static struct msm_dmov_crci_conf adm0_crci_conf[] = {
 
 static struct msm_dmov_crci_conf adm1_crci_conf[] = {
 	DMOV_CRCI_DEFAULT_CONF,
-	DMOV_CRCI_CONF(0, 1),
-	DMOV_CRCI_CONF(0, 1),
+	DMOV_CRCI_CONF(1, 1),
+	DMOV_CRCI_CONF(1, 1),
 	DMOV_CRCI_DEFAULT_CONF,
-	DMOV_CRCI_CONF(0, 1),
-	DMOV_CRCI_CONF(0, 1),
-	DMOV_CRCI_DEFAULT_CONF,
-	DMOV_CRCI_DEFAULT_CONF,
+	DMOV_CRCI_CONF(1, 1),
+	DMOV_CRCI_CONF(1, 1),
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
 	DMOV_CRCI_DEFAULT_CONF,
-	DMOV_CRCI_CONF(0, 1),
+	DMOV_CRCI_DEFAULT_CONF,
+	DMOV_CRCI_DEFAULT_CONF,
+	DMOV_CRCI_CONF(1, 1),
 	DMOV_CRCI_DEFAULT_CONF,
 };
 
@@ -150,13 +150,13 @@ static struct msm_dmov_conf dmov_conf[] = {
 		.crci_conf = adm0_crci_conf,
 		.chan_conf = adm0_chan_conf,
 		.lock = __SPIN_LOCK_UNLOCKED(dmov_lock),
-		.irq = INT_ADM0_MASTER
+		.irq = INT_ADM0_AARM
 	}, {
 		.base = MSM_DMOV_ADM1_BASE,
 		.crci_conf = adm1_crci_conf,
 		.chan_conf = adm1_chan_conf,
 		.lock = __SPIN_LOCK_UNLOCKED(dmov_lock),
-		.irq = INT_ADM1_MASTER
+		.irq = INT_ADM1_AARM
 	}
 };
 #else
