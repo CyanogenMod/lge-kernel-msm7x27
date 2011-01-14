@@ -1021,6 +1021,24 @@ static int pm8058_suspend(struct device *dev)
 	return 0;
 }
 
+void pm8058_show_resume_irq(void)
+{
+	u8	block, bits;
+	int i;
+	struct pm8058_chip *chip = pmic_chip;
+
+	for (i = 0; i < MAX_PM_IRQ; i++) {
+		if (chip->wake_enable[i]) {
+			block = i / 8;
+			if (!pm8058_read_block(chip, &block, &bits)) {
+				if (bits & (1 << (i & 0x7)))
+					pr_warning("%s:%d triggered\n",
+					__func__, i + chip->pdata.irq_base);
+			}
+		}
+	}
+}
+
 static int pm8058_resume(struct device *dev)
 {
 	struct i2c_client *client;
