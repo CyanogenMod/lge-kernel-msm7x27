@@ -1102,7 +1102,7 @@ static struct resource hdmi_msm_resources[] = {
 };
 
 static int hdmi_enable_5v(int on);
-static int hdmi_core_power(int on);
+static int hdmi_core_power(int on, int show);
 static int hdmi_cec_power(int on);
 
 static struct msm_hdmi_platform_data hdmi_msm_data = {
@@ -3630,7 +3630,7 @@ static int hdmi_enable_5v(int on)
 	return 0;
 }
 
-static int hdmi_core_power(int on)
+static int hdmi_core_power(int on, int show)
 {
 	static struct regulator *reg_8058_l16;		/* VDD_HDMI */
 	static int prev_on;

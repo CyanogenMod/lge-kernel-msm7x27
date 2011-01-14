@@ -2654,7 +2654,7 @@ static void hdmi_msm_hpd_read_work(struct work_struct *work)
 	uint32 hpd_ctrl;
 
 	clk_enable(hdmi_msm_state->hdmi_app_clk);
-	hdmi_msm_state->pd->core_power(1);
+	hdmi_msm_state->pd->core_power(1, 1);
 	hdmi_msm_state->pd->enable_5v(1);
 	hdmi_msm_set_mode(FALSE);
 	hdmi_msm_init_phy(external_common_state->video_resolution);
@@ -2677,7 +2677,7 @@ static void hdmi_msm_hpd_read_work(struct work_struct *work)
 	}
 
 	hdmi_msm_set_mode(FALSE);
-	hdmi_msm_state->pd->core_power(0);
+	hdmi_msm_state->pd->core_power(0, 1);
 	hdmi_msm_state->pd->enable_5v(0);
 	clk_disable(hdmi_msm_state->hdmi_app_clk);
 }
@@ -2692,7 +2692,7 @@ static void hdmi_msm_hpd_off(void)
 	HDMI_OUTP_ND(0x0308, 0x7F); /*0b01111111*/
 	hdmi_msm_state->hpd_initialized = FALSE;
 	hdmi_msm_state->pd->enable_5v(0);
-	hdmi_msm_state->pd->core_power(0);
+	hdmi_msm_state->pd->core_power(0, 1);
 	hdmi_msm_clk(0);
 	hdmi_msm_state->hpd_initialized = FALSE;
 }
@@ -2708,7 +2708,7 @@ static void hdmi_msm_dump_regs(const char *prefex)
 static int hdmi_msm_hpd_on(bool trigger_handler)
 {
 	hdmi_msm_clk(1);
-	hdmi_msm_state->pd->core_power(1);
+	hdmi_msm_state->pd->core_power(1, 1);
 	hdmi_msm_state->pd->enable_5v(1);
 	hdmi_msm_dump_regs("HDMI-INIT: ");
 	hdmi_msm_set_mode(FALSE);
@@ -3095,7 +3095,7 @@ static int hdmi_msm_device_pm_suspend(struct device *dev)
 
 	hdmi_msm_powerdown_phy();
 	hdmi_msm_state->pd->enable_5v(0);
-	hdmi_msm_state->pd->core_power(0);
+	hdmi_msm_state->pd->core_power(0, 1);
 	return 0;
 }
 
@@ -3109,7 +3109,7 @@ static int hdmi_msm_device_pm_resume(struct device *dev)
 
 	DEV_DBG("pm_resume\n");
 
-	hdmi_msm_state->pd->core_power(1);
+	hdmi_msm_state->pd->core_power(1, 1);
 	hdmi_msm_state->pd->enable_5v(1);
 	clk_enable(hdmi_msm_state->hdmi_app_clk);
 	clk_enable(hdmi_msm_state->hdmi_m_pclk);

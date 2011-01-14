@@ -2933,7 +2933,7 @@ static struct ofn_atlab_platform_data optnav_data = {
 static int hdmi_comm_power(int on, int show);
 static int hdmi_init_irq(void);
 static int hdmi_enable_5v(int on);
-static int hdmi_core_power(int on);
+static int hdmi_core_power(int on, int show);
 static int hdmi_cec_power(int on);
 
 static struct msm_hdmi_platform_data adv7520_hdmi_data = {
@@ -3594,9 +3594,10 @@ static int hdmi_enable_5v(int on)
 	return 0;
 }
 
-static int hdmi_core_power(int on)
+static int hdmi_core_power(int on, int show)
 {
-	pr_info("%s: %d <LDO8>\n", __func__, on);
+	if (show)
+		pr_info("%s: %d <LDO8>\n", __func__, on);
 	return gpio_set("gp7", "LDO8", 1800, on);
 }
 

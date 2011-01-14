@@ -275,7 +275,7 @@ struct msm_hdmi_platform_data {
 	int (*cable_detect)(int insert);
 	int (*comm_power)(int on, int show);
 	int (*enable_5v)(int on);
-	int (*core_power)(int on);
+	int (*core_power)(int on, int show);
 	int (*cec_power)(int on);
 	int (*init_irq)(void);
 };
