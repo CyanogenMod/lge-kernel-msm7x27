@@ -50,6 +50,14 @@ static unsigned long long last_pet;
 static int enable = 1;
 module_param(enable, int, 0);
 
+/*
+ * Use /sys/module/msm_watchdog/parameters/print_all_stacks
+ * to control whether stacks of all running
+ * processes are printed when a wdog bark is received.
+ */
+static int print_all_stacks = 1;
+module_param(print_all_stacks, int,  S_IRUGO | S_IWUSR);
+
 static void pet_watchdog(struct work_struct *work);
 static DECLARE_DELAYED_WORK(dogwork_struct, pet_watchdog);
 
@@ -129,6 +137,7 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 {
 	unsigned long nanosec_rem;
 	unsigned long long t = sched_clock();
+	struct task_struct *tsk;
 
 	nanosec_rem = do_div(t, 1000000000);
 	printk(KERN_INFO "Watchdog bark! Now = %lu.%06lu\n", (unsigned long) t,
@@ -137,6 +146,22 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	nanosec_rem = do_div(last_pet, 1000000000);
 	printk(KERN_INFO "Watchdog last pet at %lu.%06lu\n", (unsigned long)
 		last_pet, nanosec_rem / 1000);
+
+	if (print_all_stacks) {
+
+		/* Suspend wdog until all stacks are printed */
+		msm_watchdog_suspend();
+
+		printk(KERN_INFO "Stack trace dump:\n");
+
+		for_each_process(tsk) {
+			printk(KERN_INFO "\nPID: %d, Name: %s\n",
+				tsk->pid, tsk->comm);
+			show_stack(tsk, NULL);
+		}
+
+		msm_watchdog_resume();
+	}
 
 	panic("Apps watchdog bark received!");
 	return IRQ_HANDLED;
