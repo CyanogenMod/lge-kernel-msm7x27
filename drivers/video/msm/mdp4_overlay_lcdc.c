@@ -102,6 +102,10 @@ int mdp_lcdc_on(struct platform_device *pdev)
 
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	if (is_mdp4_hw_reset()) {
+		mdp4_hw_init();
+		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
+	}
 
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
@@ -112,7 +116,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 		ptype = mdp4_overlay_format2type(mfd->fb_imgType);
 		if (ptype < 0)
 			printk(KERN_INFO "%s: format2type failed\n", __func__);
-		pipe = mdp4_overlay_pipe_alloc(ptype, FALSE);
+		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER0, 0);
 		if (pipe == NULL)
 			printk(KERN_INFO "%s: pipe_alloc failed\n", __func__);
 		pipe->pipe_used++;
@@ -159,8 +163,8 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	lcdc_underflow_clr = mfd->panel_info.lcdc.underflow_clr;
 	lcdc_hsync_skew = mfd->panel_info.lcdc.hsync_skew;
 
-	lcdc_width = mfd->panel_info.xres;
-	lcdc_height = mfd->panel_info.yres;
+	lcdc_width = var->xres;
+	lcdc_height = var->yres;
 	lcdc_bpp = mfd->panel_info.bpp;
 
 	hsync_period =
@@ -229,6 +233,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	mdp4_vg_qseed_init(0);
 	mdp4_vg_qseed_init(1);
 #endif
+	mdp4_overlay_reg_flush(pipe, 1);
 
 	ret = panel_next_on(pdev);
 	if (ret == 0) {

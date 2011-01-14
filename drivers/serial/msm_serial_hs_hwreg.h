@@ -23,6 +23,7 @@
 
 #define GSBI_CONTROL_ADDR              0x0
 #define GSBI_PROTOCOL_CODE_MASK        0x30
+#define GSBI_PROTOCOL_I2C_UART         0x60
 #define GSBI_PROTOCOL_UART             0x40
 #define GSBI_PROTOCOL_IDLE             0x0
 

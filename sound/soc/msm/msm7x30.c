@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -356,6 +356,9 @@ static int msm_device_put(struct snd_kcontrol *kcontrol,
 			dev_info->opened = 1;
 			broadcast_event(AUDDEV_EVT_DEV_RDY, route_cfg.dev_id,
 							SESSION_IGNORE);
+			/* Event to notify client for device info */
+			broadcast_event(AUDDEV_EVT_DEVICE_INFO,
+					route_cfg.dev_id, SESSION_IGNORE);
 		}
 	} else {
 		if (dev_info->opened) {
@@ -463,10 +466,15 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 			dev_info->sessions &= ~(session_mask);
 		} else {
 			dev_info->sessions = dev_info->sessions | session_mask;
-			if (dev_info->opened)
+			if (dev_info->opened) {
 				broadcast_event(AUDDEV_EVT_DEV_RDY,
 							route_cfg.dev_id,
 							session_mask);
+				/* Event to notify client for device info */
+				broadcast_event(AUDDEV_EVT_DEVICE_INFO,
+							route_cfg.dev_id,
+							session_mask);
+			}
 		}
 	} else {
 		rc = msm_snddev_set_enc(session_id, dev_info->copp_id, set);
@@ -500,10 +508,15 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 							SESSION_IGNORE);
 				}
 			}
-			if (dev_info->opened)
+			if (dev_info->opened) {
 				broadcast_event(AUDDEV_EVT_DEV_RDY,
 							route_cfg.dev_id,
 							session_mask);
+				/* Event to notify client for device info */
+				broadcast_event(AUDDEV_EVT_DEVICE_INFO,
+							route_cfg.dev_id,
+							session_mask);
+			}
 		}
 	}
 
@@ -572,6 +585,29 @@ static int msm_device_volume_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+static int msm_reset_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0;
+	return 0;
+}
+
+static int msm_reset_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_reset_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	MM_DBG("Resetting all devices\n");
+	return msm_reset_all_device();
+}
 
 static struct snd_kcontrol_new snd_dev_controls[AUDIO_DEV_CTL_MAX_DEV];
 
@@ -627,6 +663,8 @@ static struct snd_kcontrol_new snd_msm_controls[] = {
 						msm_v_call_put, 0),
 	MSM_EXT("Device_Volume", msm_device_volume_info,
 			msm_device_volume_get, msm_device_volume_put, 0),
+	MSM_EXT("Reset", msm_reset_info,
+			msm_reset_get, msm_reset_put, 0),
 };
 
 static int msm_new_mixer(struct snd_card *card)

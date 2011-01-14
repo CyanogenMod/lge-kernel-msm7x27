@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -729,6 +729,8 @@ static int mddi_sharp_lcd_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
+	mddi_host_client_cnt_reset();
+
 	if (mfd->panel.id == SHARP_QVGA_PRIM)
 		mddi_sharp_prim_lcd_init();
 	else
@@ -751,7 +753,7 @@ static int mddi_sharp_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
-static int __init mddi_sharp_probe(struct platform_device *pdev)
+static int __devinit mddi_sharp_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		mddi_sharp_pdata = pdev->dev.platform_data;
@@ -847,6 +849,7 @@ static int __init mddi_sharp_init(void)
 		pinfo = &mddi_sharp_panel_data0.panel_info;
 		pinfo->xres = 240;
 		pinfo->yres = 320;
+		MSM_FB_SINGLE_MODE_PANEL(pinfo);
 		pinfo->type = MDDI_PANEL;
 		pinfo->pdest = DISPLAY_1;
 		pinfo->mddi.vdopkt = MDDI_DEFAULT_PRIM_PIX_ATTR;
@@ -875,6 +878,7 @@ static int __init mddi_sharp_init(void)
 		pinfo = &mddi_sharp_panel_data1.panel_info;
 		pinfo->xres = 128;
 		pinfo->yres = 128;
+		MSM_FB_SINGLE_MODE_PANEL(pinfo);
 		pinfo->type = MDDI_PANEL;
 		pinfo->pdest = DISPLAY_2;
 		pinfo->mddi.vdopkt = 0x400;

@@ -58,9 +58,13 @@ obj-$(CONFIG_FB_MSM_MDDI) += msm_mddi.o
 msm_mddi_ext-objs := mddihost_e.o mddi_ext.o
 obj-$(CONFIG_FB_MSM_EXTMDDI) += msm_mddi_ext.o
 
-# MIPI
-msm_mipi-objs := mipi_dsi.o mipi_dsi_host.o mipi_toshiba.o
+# MIPI gereric
+msm_mipi-objs := mipi_dsi.o mipi_dsi_host.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI) += msm_mipi.o
+
+# MIPI manufacture
+obj-$(CONFIG_FB_MSM_MIPI_DSI_TOSHIBA) += mipi_toshiba.o
+obj-$(CONFIG_FB_MSM_MIPI_DSI_NOVATEK) += mipi_novatek.o
 
 # TVEnc
 obj-$(CONFIG_FB_MSM_TVOUT) += tvenc.o
@@ -97,7 +101,17 @@ obj-$(CONFIG_FB_MSM_MDDI_HITACHI_HVGA) += mddi_hitachi_hvga.o
 obj-$(CONFIG_FB_MSM_MDDI_NOVATEK_HVGA) += mddi_novatek_hvga.o
 endif
 
+ifeq ($(CONFIG_FB_MSM_MIPI_PANEL_DETECT),y)
+obj-y += mipi_toshiba_video_wvga_pt.o mipi_novatek_video_qhd_pt.o
+obj-y += mipi_toshiba_video_wvga_pt.o mipi_novatek_video_qhd_pt.o mipi_novatek_cmd_qhd_pt.o
+else
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT) += mipi_toshiba_video_wvga_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_VIDEO_QHD_PT) += mipi_novatek_video_qhd_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_CMD_QHD_PT) += mipi_novatek_cmd_qhd_pt.o
+endif
+
+
+
 
 obj-$(CONFIG_FB_MSM_LCDC_PANEL) += lcdc_panel.o
 obj-$(CONFIG_FB_MSM_LCDC_PRISM_WVGA) += lcdc_prism.o

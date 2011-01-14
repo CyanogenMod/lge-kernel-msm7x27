@@ -44,6 +44,8 @@
 #define MSMFB_OVERLAY_BLT       _IOWR(MSMFB_IOCTL_MAGIC, 142, \
 						struct msmfb_overlay_blt)
 #define MSMFB_OVERLAY_BLT_OFFSET     _IOW(MSMFB_IOCTL_MAGIC, 143, unsigned int)
+#define MSMFB_HISTOGRAM_START	_IO(MSMFB_IOCTL_MAGIC, 144)
+#define MSMFB_HISTOGRAM_STOP	_IO(MSMFB_IOCTL_MAGIC, 145)
 
 #define MDP_IMGTYPE2_START 0x10000
 
@@ -62,6 +64,8 @@ enum {
 	MDP_RGBX_8888,	  /* RGBX 888 */
 	MDP_Y_CRCB_H2V2_TILE,  /* Y and CrCb, pseudo planer tile */
 	MDP_Y_CBCR_H2V2_TILE,  /* Y and CbCr, pseudo planer tile */
+	MDP_Y_CR_CB_H2V2,  /* Y, Cr and Cb, planar */
+	MDP_Y_CB_CR_H2V2,  /* Y, Cb and Cr, planar */
 	MDP_IMGTYPE_LIMIT,
 	MDP_BGR_565 = MDP_IMGTYPE2_START,      /* BGR 565 planer */
 	MDP_FB_FORMAT,    /* framebuffer format */
@@ -94,6 +98,9 @@ enum {
 #define MDP_BLIT_SRC_GEM                0x04000000
 #define MDP_BLIT_DST_GEM                0x02000000
 #define MDP_BLIT_NON_CACHED		0x01000000
+#define MDP_OV_PIPE_SHARE		0x00800000
+#define MDP_DEINTERLACE_ODD		0x00400000
+
 #define MDP_TRANSP_NOP 0xffffffff
 #define MDP_ALPHA_NOP 0xff
 

@@ -130,7 +130,8 @@ static struct usb_interface_descriptor rndis_control_intf = {
 	/* .bInterfaceNumber = DYNAMIC */
 	/* status endpoint is optional; this could be patched later */
 	.bNumEndpoints =	1,
-#ifdef CONFIG_USB_ANDROID_RNDIS_WCEIS
+#if defined(CONFIG_USB_ANDROID_RNDIS_WCEIS) || \
+    defined(CONFIG_USB_MAEMO_RNDIS_WCEIS)
 	/* "Wireless" RNDIS; auto-detected by Windows */
 	.bInterfaceClass =	USB_CLASS_WIRELESS_CONTROLLER,
 	.bInterfaceSubClass = 1,
@@ -198,7 +199,8 @@ rndis_iad_descriptor = {
 
 	.bFirstInterface =	0, /* XXX, hardcoded */
 	.bInterfaceCount = 	2,	// control + data
-#ifdef CONFIG_USB_ANDROID_RNDIS_WCEIS
+#if defined(CONFIG_USB_ANDROID_RNDIS_WCEIS) || \
+    defined(CONFIG_USB_MAEMO_RNDIS_WCEIS)
 	.bFunctionClass    = 	USB_CLASS_WIRELESS_CONTROLLER,
 	.bFunctionSubClass = 	1,
 	.bFunctionProtocol = 	3,
@@ -496,6 +498,7 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_rndis		*rndis = func_to_rndis(f);
 	struct usb_composite_dev *cdev = f->config->cdev;
+	int ret = 0;
 
 	/* we know alt == 0 */
 
@@ -509,7 +512,13 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		rndis->notify_desc = ep_choose(cdev->gadget,
 				rndis->hs.notify,
 				rndis->fs.notify);
-		usb_ep_enable(rndis->notify, rndis->notify_desc);
+
+		ret = usb_ep_enable(rndis->notify, rndis->notify_desc);
+		if (ret) {
+			ERROR(cdev, "can't enable %s, result %d\n",
+						rndis->notify->name, ret);
+			return ret;
+		}
 		rndis->notify->driver_data = rndis;
 
 	} else if (intf == rndis->data_id) {
@@ -555,7 +564,7 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	} else
 		goto fail;
 
-	return 0;
+	return ret;
 fail:
 	return -EINVAL;
 }
@@ -902,12 +911,11 @@ int rndis_function_bind_config(struct usb_configuration *c)
 	int ret;
 
 	if (!rndis_pdata) {
-		printk(KERN_ERR "rndis_pdata null in rndis_function_bind_config\n");
+		pr_err("%s: rndis_pdata null\n", __func__);
 		return -1;
 	}
 
-	printk(KERN_INFO
-		"rndis_function_bind_config MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+	pr_debug("%s: MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
 		rndis_pdata->ethaddr[0], rndis_pdata->ethaddr[1],
 		rndis_pdata->ethaddr[2], rndis_pdata->ethaddr[3],
 		rndis_pdata->ethaddr[4], rndis_pdata->ethaddr[5]);
@@ -925,7 +933,6 @@ static struct android_usb_function rndis_function = {
 
 static int __init init(void)
 {
-	printk(KERN_INFO "f_rndis init\n");
 	platform_driver_register(&rndis_platform_driver);
 	android_register_function(&rndis_function);
 	return 0;

@@ -53,9 +53,48 @@
 
 #define DSI_PANEL_MAX	2
 
+enum {		/* mipi dsi panel */
+	DSI_VIDEO_MODE,
+	DSI_CMD_MODE,
+};
+
+#define DSI_NON_BURST_SYNCH_PULSE	0
+#define DSI_NON_BURST_SYNCH_EVENT	1
+#define DSI_BURST_MODE			2
 
 
-#define DSI_ERROR_STAT BIT(24)
+#define DSI_RGB_SWAP_RGB	0
+#define DSI_RGB_SWAP_RBG	1
+#define DSI_RGB_SWAP_BGR	2
+#define DSI_RGB_SWAP_BRG	3
+#define DSI_RGB_SWAP_GRB	4
+#define DSI_RGB_SWAP_GBR	5
+
+#define DSI_VIDEO_DST_FORMAT_RGB565		0
+#define DSI_VIDEO_DST_FORMAT_RGB666		1
+#define DSI_VIDEO_DST_FORMAT_RGB666_LOOSE	2
+#define DSI_VIDEO_DST_FORMAT_RGB888		3
+
+#define DSI_CMD_DST_FORMAT_RGB111	0
+#define DSI_CMD_DST_FORMAT_RGB332	3
+#define DSI_CMD_DST_FORMAT_RGB444	4
+#define DSI_CMD_DST_FORMAT_RGB565	6
+#define DSI_CMD_DST_FORMAT_RGB666	7
+#define DSI_CMD_DST_FORMAT_RGB888	8
+
+#define DSI_INTR_ERROR_MASK		BIT(25)
+#define DSI_INTR_ERROR			BIT(24)
+#define DSI_INTR_VIDEO_DONE_MASK	BIT(17)
+#define DSI_INTR_VIDEO_DONE		BIT(16)
+#define DSI_INTR_CMD_MDP_DONE_MASK	BIT(9)
+#define DSI_INTR_CMD_MDP_DONE		BIT(8)
+#define DSI_INTR_CMD_DMA_DONE_MASK	BIT(1)
+#define DSI_INTR_CMD_DMA_DONE		BIT(0)
+
+#define DSI_CMD_TRIGGER_TE		0x02
+#define DSI_CMD_TRIGGER_SW		0x04
+#define DSI_CMD_TRIGGER_SW_SEOF		0x05	/* cmd dma only */
+#define DSI_CMD_TRIGGER_SW_TE		0x06
 
 extern struct device dsi_dev;
 
@@ -64,15 +103,6 @@ struct dsi_clk_desc {
 	uint32 m;
 	uint32 n;
 	uint32 d;
-};
-
-struct dsi_phy_ctrl {
-	uint32 regulator[4];
-	uint32 timing[12];
-	uint32 ctrl[4];
-	uint32 strength[4];
-	uint32 pll[21];
-	uint32 clkout;
 };
 
 #define DSI_HOST_HDR_SIZE	4
@@ -127,18 +157,24 @@ struct dsi_cmd_desc {
 	int last;
 	int vc;
 	int ack;	/* ask ACK from peripheral */
+	int wait;
 	int dlen;
 	char *payload;
 };
 
 char *mipi_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mipi_dsi_buf_init(struct dsi_buf *dp);
+void mipi_dsi_init_comp(void);
 int mipi_dsi_buf_alloc(struct dsi_buf *, int size);
-int mipi_dsi_dma_cmd_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm);
-int mipi_dsi_dma_cmd_tx(struct dsi_buf *dp);
+int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm);
+int mipi_dsi_cmds_tx(struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt);
+int mipi_dsi_cmd_dma_tx(struct dsi_buf *dp);
 int mipi_dsi_cmd_reg_tx(uint32 data);
-void mipi_dsi_host_init(void);
+void mipi_dsi_host_init(struct mipi_panel_info *pinfo);
+void mipi_dsi_op_mode_config(int mode);
 void mipi_dsi_cmd_mode_ctrl(int enable);
+void mdp4_dsi_cmd_trigger(void);
+void mipi_dsi_cmd_mdp_sw_trigger(void);
 
 irqreturn_t mipi_dsi_isr(int irq, void *ptr);
 

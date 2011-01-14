@@ -371,6 +371,8 @@ union reg_cp_rb_cntl {
 #define REG_RBBM_PERIPHID1               0x03F9
 #define REG_RBBM_PERIPHID2               0x03FA
 #define REG_RBBM_DEBUG                   0x039B
+#define REG_RBBM_DEBUG_OUT               0x03A0
+#define REG_RBBM_DEBUG_CNTL              0x03A1
 #define REG_RBBM_PM_OVERRIDE1            0x039C
 #define REG_RBBM_PM_OVERRIDE2            0x039D
 #define REG_RBBM_READ_ERROR              0x03B3
@@ -427,6 +429,8 @@ union reg_cp_rb_cntl {
 #define REG_SQ_FETCH_0                   0x4800
 
 #define REG_MH_AXI_ERROR		 0xA45
+#define REG_MH_DEBUG_CTRL		 0xA4E
+#define REG_MH_DEBUG_DATA		 0xA4F
 #define REG_COHER_BASE_PM4		 0xA2A
 #define REG_COHER_STATUS_PM4		 0xA2B
 #define REG_COHER_SIZE_PM4		 0xA29

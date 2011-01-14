@@ -30,6 +30,7 @@
 #ifndef VCM_TYPES_H
 #define VCM_TYPES_H
 
+#include <linux/device.h>
 #include <linux/types.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
@@ -233,7 +234,7 @@ enum memtype_t {
  * fault was handled. A non-zero return value is an error and will be
  * propagated up the stack.
  */
-typedef int (*vcm_handler)(size_t dev, void *data, void *fault_data);
+typedef int (*vcm_handler)(struct device *dev, void *data, void *fault_data);
 
 
 /**
@@ -268,6 +269,8 @@ struct vcm {
 
 	struct device *dev; /* opaque device control */
 
+	struct iommu_domain *domain;
+
 	/* allocator dependent */
 	struct gen_pool *pool;
 
@@ -286,7 +289,7 @@ struct vcm {
 struct avcm {
 	/* public */
 	struct vcm *vcm;
-	size_t dev;
+	struct device *dev;
 	u32 attr;
 
 	/* private */

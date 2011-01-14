@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd.h,v 1.32.4.7.2.4.14.27 2010/01/19 06:42:55 Exp $
+ * $Id: dhd.h,v 1.32.4.7.2.4.14.49 2010/08/20 17:32:48 Exp $
  */
 
 /****************
@@ -59,10 +59,11 @@
 
 #include <wlioctl.h>
 
-#if defined(NDIS60)
-#include <wdf.h>
-#include <WdfMiniport.h>
-#endif 
+#ifdef DHD_DEBUG
+#ifndef DHD_DEBUG_TRAP
+#define DHD_DEBUG_TRAP
+#endif
+#endif
 
 /* Forward decls */
 struct dhd_bus;
@@ -85,6 +86,9 @@ enum dhd_bus_wake_state {
 	WAKE_LOCK_TMOUT,
 	WAKE_LOCK_WATCHDOG,
 	WAKE_LOCK_LINK_DOWN_TMOUT,
+	WAKE_LOCK_SOFTAP_SET,
+	WAKE_LOCK_SOFTAP_STOP,
+	WAKE_LOCK_SOFTAP_START,
 	WAKE_LOCK_MAX
 };
 enum dhd_prealloc_index {
@@ -146,44 +150,48 @@ typedef struct dhd_pub {
 	/* Last error from dongle */
 	int dongle_error;
 
+	/* Suspend disable flag and "in suspend" flag */
+	int suspend_disable_flag; /* "1" to disable all extra powersaving during suspend */
+	int in_suspend;			/* flag set to 1 when early suspend called */
+#ifdef PNO_SUPPORT
+	int pno_enable;                 /* pno status : "1" is pno enable */
+#endif /* PNO_SUPPORT */
+	int dtim_skip;         /* dtim skip , default 0 means wake each dtim */
+
+	/* Pkt filter defination */
+	char * pktfilter[100];
+	int pktfilter_count;
+
 	uint8 country_code[WLC_CNTRY_BUF_SZ];
+	char eventmask[WL_EVENTING_MASK_LEN];
+
 } dhd_pub_t;
 
-#if defined(NDIS60)
-
-typedef struct _wdf_device_info {
-	dhd_pub_t *dhd;
-} wdf_device_info_t;
-
-WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(wdf_device_info_t, dhd_get_wdf_device_info)
-
-
-#endif /* NDIS60 && !UNDERC_CE */
-
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 
 	#define DHD_PM_RESUME_WAIT_INIT(a) DECLARE_WAIT_QUEUE_HEAD(a);
-	#define _DHD_PM_RESUME_WAIT(a, b) do {\
+	#define _DHD_PM_RESUME_WAIT(a, b) do { \
 			int retry = 0; \
+			smp_mb(); \
 			while (dhd_mmc_suspend && retry++ != b) { \
 				wait_event_interruptible_timeout(a, FALSE, HZ/100); \
 			} \
 		} 	while (0)
-	#define DHD_PM_RESUME_WAIT(a) 			_DHD_PM_RESUME_WAIT(a, 30)
+	#define DHD_PM_RESUME_WAIT(a) 		_DHD_PM_RESUME_WAIT(a, 30)
 	#define DHD_PM_RESUME_WAIT_FOREVER(a) 	_DHD_PM_RESUME_WAIT(a, ~0)
 	#define DHD_PM_RESUME_RETURN_ERROR(a)	do { if (dhd_mmc_suspend) return a; } while (0)
 	#define DHD_PM_RESUME_RETURN		do { if (dhd_mmc_suspend) return; } while (0)
 
 	#define DHD_SPINWAIT_SLEEP_INIT(a) DECLARE_WAIT_QUEUE_HEAD(a);
 	#define SPINWAIT_SLEEP(a, exp, us) do { \
-		uint countdown = (us) + 9; \
-		while ((exp) && (countdown >= 10)) { \
+		uint countdown = (us) + 9999; \
+		while ((exp) && (countdown >= 10000)) { \
 			wait_event_interruptible_timeout(a, FALSE, HZ/100); \
-			countdown -= 10; \
+			countdown -= 10000; \
 		} \
 	} while (0)
 
-	#else
+#else
 
 	#define DHD_PM_RESUME_WAIT_INIT(a)
 	#define DHD_PM_RESUME_WAIT(a)
@@ -200,7 +208,8 @@ WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(wdf_device_info_t, dhd_get_wdf_device_info)
 		} \
 	} while (0)
 
-	#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
+
 #define DHD_IF_VIF	0x01	/* Virtual IF (Hidden from user) */
 
 /* Wakelock Functions */
@@ -274,9 +283,13 @@ extern void dhd_os_sdlock_rxq(dhd_pub_t * pub);
 extern void dhd_os_sdunlock_rxq(dhd_pub_t * pub);
 extern void dhd_os_sdlock_sndup_rxq(dhd_pub_t * pub);
 extern void dhd_customer_gpio_wlan_ctrl(int onoff);
+extern int dhd_custom_get_mac_address(unsigned char *buf);
 extern void dhd_os_sdunlock_sndup_rxq(dhd_pub_t * pub);
 extern void dhd_os_sdlock_eventq(dhd_pub_t * pub);
 extern void dhd_os_sdunlock_eventq(dhd_pub_t * pub);
+#ifdef DHD_DEBUG
+extern int write_to_file(dhd_pub_t *dhd, uint8 *buf, int size);
+#endif /* DHD_DEBUG */
 #if defined(OOB_INTR_ONLY)
 extern int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr);
 #endif /* defined(OOB_INTR_ONLY) */
@@ -323,6 +336,7 @@ extern int dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag);
 extern uint dhd_bus_status(dhd_pub_t *dhdp);
 extern int  dhd_bus_start(dhd_pub_t *dhdp);
 
+extern void print_buf(void *pbuf, int len, int bytes_per_line);
 
 
 typedef enum cust_gpio_modes {
@@ -332,6 +346,7 @@ typedef enum cust_gpio_modes {
 	WLAN_POWER_OFF
 } cust_gpio_modes_t;
 extern int wl_iw_iscan_set_scan_broadcast_prep(struct net_device *dev, uint flag);
+extern int wl_iw_send_priv_event(struct net_device *dev, char *flag);
 /*
  * Insmod parameters for debug/test
  */
@@ -339,16 +354,37 @@ extern int wl_iw_iscan_set_scan_broadcast_prep(struct net_device *dev, uint flag
 /* Watchdog timer interval */
 extern uint dhd_watchdog_ms;
 
-
 #if defined(DHD_DEBUG)
-extern uint wl_msg_level;
-#endif /* DHD_DEBUG */
+/* Console output poll interval */
+extern uint dhd_console_ms;
+#endif /* defined(DHD_DEBUG) */
 
 /* Use interrupts */
 extern uint dhd_intr;
 
 /* Use polling */
 extern uint dhd_poll;
+
+/* ARP offload agent mode */
+extern uint dhd_arp_mode;
+
+/* ARP offload enable */
+extern uint dhd_arp_enable;
+
+/* Pkt filte enable control */
+extern uint dhd_pkt_filter_enable;
+
+/*  Pkt filter init setup */
+extern uint dhd_pkt_filter_init;
+
+/* Pkt filter mode control */
+extern uint dhd_master_mode;
+
+/* Roaming mode control */
+extern uint dhd_roam;
+
+/* Roaming mode control */
+extern uint dhd_radio_up;
 
 /* Initial idletime ticks (may be -1 for immediate idle, 0 for no idle) */
 extern int dhd_idletime;
@@ -380,9 +416,6 @@ extern char nv_path[MOD_PARAM_PATHLEN];
 #define DHD_DEL_IF	-0xe
 #define DHD_BAD_IF	-0xf
 
-#ifdef APSTA_PINGTEST
-#define MAX_GUEST 8
-#endif
 
 extern void dhd_wait_for_event(dhd_pub_t *dhd, bool *lockvar);
 extern void dhd_wait_event_wakeup(dhd_pub_t*dhd);

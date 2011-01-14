@@ -38,4 +38,6 @@
  */
 int rtc_hctosys(void);
 
+extern void msm_pm_set_max_sleep_time(int64_t sleep_time_ns);
+
 #endif  /* __RTC_MSM_H__ */

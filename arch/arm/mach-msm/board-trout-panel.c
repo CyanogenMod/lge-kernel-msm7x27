@@ -23,6 +23,7 @@
 #include "devices.h"
 
 #define TROUT_DEFAULT_BACKLIGHT_BRIGHTNESS 255
+#define VSYNC_GPIO 97
 
 static struct clk *gp_clk;
 static int trout_backlight_off;
@@ -570,9 +571,10 @@ struct msm_mddi_bridge_platform_data toshiba_client_data = {
 	},
 };
 
-struct msm_mddi_platform_data mddi_pdata = {
+static struct msm_mddi_platform_data mddi_pdata = {
 	.clk_rate = 122880000,
 	.power_client = trout_mddi_power_client,
+	.vsync_irq = MSM_GPIO_TO_INT(VSYNC_GPIO),
 	.fb_resource = resources_msm_fb,
 	.num_clients = 1,
 	.client_platform_data = {
@@ -607,13 +609,13 @@ int __init trout_init_panel(void)
 
 	trout_new_backlight = system_rev >= 5;
 	if (trout_new_backlight) {
-		uint32_t config = PCOM_GPIO_CFG(27, 0, GPIO_CFG_OUTPUT,
-						GPIO_CFG_NO_PULL, GPIO_CFG_8MA);
+		uint32_t config = PCOM_GPIO_CFG(27, 0, GPIO_OUTPUT,
+						GPIO_NO_PULL, GPIO_8MA);
 		msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &config, 0);
 	}
 	else {
-		uint32_t config = PCOM_GPIO_CFG(27, 1, GPIO_CFG_OUTPUT,
-						GPIO_CFG_NO_PULL, GPIO_CFG_8MA);
+		uint32_t config = PCOM_GPIO_CFG(27, 1, GPIO_OUTPUT,
+						GPIO_NO_PULL, GPIO_8MA);
 		msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &config, 0);
 
 		gp_clk = clk_get(NULL, "gp_clk");
@@ -628,6 +630,12 @@ int __init trout_init_panel(void)
 			       "failed\n");
 	}
 
+	rc = gpio_request(VSYNC_GPIO, "vsync");
+	if (rc)
+		return rc;
+	rc = gpio_direction_input(VSYNC_GPIO);
+	if (rc)
+		return rc;
 	rc = platform_device_register(&msm_device_mdp);
 	if (rc)
 		return rc;

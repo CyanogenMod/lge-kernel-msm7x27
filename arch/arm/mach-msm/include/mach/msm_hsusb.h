@@ -128,6 +128,7 @@ struct msm_hsusb_gadget_platform_data {
 	void (*phy_reset)(void);
 
 	int self_powered;
+	int is_phy_status_timer_on;
 };
 
 struct msm_hsusb_platform_data {
@@ -173,13 +174,20 @@ struct msm_otg_platform_data {
 	int			phy_can_powercollapse;
 	int			pclk_required_during_lpm;
 
+	/* HSUSB core in 8660 has the capability to gate the
+	 * pclk when not being used. Though this feature is
+	 * now being disabled because of H/w issues
+	 */
+	int			pclk_is_hw_gated;
+
 	int (*ldo_init) (int init);
 	int (*ldo_enable) (int enable);
 	int (*ldo_set_voltage) (int mV);
 
 	u32 			swfi_latency;
 	/* pmic notfications apis */
-	int (*pmic_notif_init) (void (*callback)(int online), int init);
+	int (*pmic_vbus_notif_init) (void (*callback)(int online), int init);
+	int (*pmic_id_notif_init) (void (*callback)(int online), int init);
 	int (*pmic_register_vbus_sn) (void (*callback)(int online));
 	void (*pmic_unregister_vbus_sn) (void (*callback)(int online));
 	int (*pmic_enable_ldo) (int);
@@ -193,9 +201,11 @@ struct msm_otg_platform_data {
 	void (*chg_connected)(enum chg_type chg_type);
 	void (*chg_vbus_draw)(unsigned ma);
 	int  (*chg_init)(int init);
+	int (*config_vddcx)(int high);
+	int (*init_vddcx)(int init);
 
 	struct pm_qos_request_list *pm_qos_req_dma;
-	struct pm_qos_request_list *pm_qos_req_bus;
+	struct clk *ebi1_clk;
 };
 
 struct msm_usb_host_platform_data {
@@ -204,7 +214,7 @@ struct msm_usb_host_platform_data {
 	void (*config_gpio)(unsigned int config);
 	void (*vbus_power) (unsigned phy_info, int on);
 	int  (*vbus_init)(int init);
-	struct pm_qos_request_list *pm_qos_req_bus;
+	struct clk *ebi1_clk;
 };
 
 #endif

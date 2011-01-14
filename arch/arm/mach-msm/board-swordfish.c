@@ -334,14 +334,27 @@ static void __init swordfish_fixup(struct machine_desc *desc, struct tag *tags,
 
 static void __init swordfish_map_io(void)
 {
-	msm_map_common_io();
-	msm_clock_init();
+	msm_map_qsd8x50_io();
+	msm_clock_init(msm_clocks_8x50, msm_num_clocks_8x50);
 }
 
 MACHINE_START(SWORDFISH, "Swordfish Board (QCT SURF8250)")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io        = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst    = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
+#endif
+	.boot_params	= 0x20000100,
+	.fixup		= swordfish_fixup,
+	.map_io		= swordfish_map_io,
+	.init_irq	= msm_init_irq,
+	.init_machine	= swordfish_init,
+	.timer		= &msm_timer,
+MACHINE_END
+
+MACHINE_START(QSD8X50_FFA, "qsd8x50 FFA Board (QCT FFA8250)")
+#ifdef CONFIG_MSM_DEBUG_UART
+	.phys_io	= MSM_DEBUG_UART_PHYS,
+	.io_pg_offst	= ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
 #endif
 	.boot_params	= 0x20000100,
 	.fixup		= swordfish_fixup,

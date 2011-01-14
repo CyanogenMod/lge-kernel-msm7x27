@@ -27,6 +27,7 @@
 #include <linux/spinlock.h>
 #include <mach/msm_iomap.h>
 #include "gpiomux.h"
+#include "mpm.h"
 
 /* Bits of interest in the GPIO_IN_OUT register.
  */
@@ -290,6 +291,8 @@ static void msm_gpio_irq_mask(unsigned int irq)
 	clr_gpio_bits(INTR_RAW_STATUS_EN | INTR_ENABLE, GPIO_INTR_CFG(gpio));
 	__clear_bit(gpio, msm_gpio.enabled_irqs);
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	msm_mpm_enable_irq(irq, 0);
 }
 
 static void msm_gpio_irq_unmask(unsigned int irq)
@@ -302,6 +305,8 @@ static void msm_gpio_irq_unmask(unsigned int irq)
 	set_gpio_bits(INTR_RAW_STATUS_EN | INTR_ENABLE, GPIO_INTR_CFG(gpio));
 	writel(TARGET_PROC_SCORPION, GPIO_INTR_CFG_SU(gpio));
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	msm_mpm_enable_irq(irq, 1);
 }
 
 static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
@@ -338,6 +343,7 @@ static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
 		msm_gpio_update_dual_edge_pos(gpio);
 
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+	msm_mpm_set_irq_type(irq, flow_type);
 
 	return 0;
 }
@@ -376,6 +382,7 @@ static int msm_gpio_irq_set_wake(unsigned int irq, unsigned int on)
 			set_irq_wake(TLMM_SCSS_SUMMARY_IRQ, 0);
 	}
 
+	msm_mpm_set_irq_wake(irq, on);
 	return 0;
 }
 

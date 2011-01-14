@@ -33,9 +33,14 @@ struct snddev_mi2s_data {
 	u32 capability; /* RX or TX */
 	const char *name;
 	u32 copp_id; /* audpp routing */
-	u32 acdb_id; /* Audio Cal purpose */
 	u16 channel_mode;
 	u16 sd_lines;
 	u32 sample_rate;
 };
+
+#define MI2S_SD0 (1 << 0)
+#define MI2S_SD1 (1 << 1)
+#define MI2S_SD2 (1 << 2)
+#define MI2S_SD3 (1 << 3)
+
 #endif

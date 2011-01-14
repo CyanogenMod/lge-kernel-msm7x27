@@ -228,6 +228,7 @@ enum VFE_RAW_PIXEL_DATA_SIZE {
 
 #define VFE_AXI_OUTPUT_BURST_LENGTH     4
 #define VFE_MAX_NUM_FRAGMENTS_PER_FRAME 4
+#define VFE_MIN_NUM_FRAGMENTS_PER_FRAME 1
 #define VFE_AXI_OUTPUT_CFG_FRAME_COUNT  3
 
 struct vfe_cmds_axi_out_per_component {

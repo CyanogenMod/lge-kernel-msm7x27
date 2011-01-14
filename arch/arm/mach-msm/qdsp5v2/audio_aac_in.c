@@ -389,7 +389,7 @@ static void audrec_dsp_event(void *data, unsigned id, size_t len,
 		break;
 	}
 	case AUDREC_CMD_PCM_BUFFER_PTR_UPDATE_ARM_TO_ENC_MSG: {
-		MM_ERR("ptr_update recieved from DSP\n");
+		MM_DBG("ptr_update recieved from DSP\n");
 		audpreproc_pcm_send_data(audio, 1);
 		break;
 	}
@@ -1011,7 +1011,7 @@ static ssize_t audaac_in_read(struct file *file,
 			buf += size;
 			if ((audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) &&
 						(!audio->eos_ack)) {
-				MM_ERR("sending read ptr command %d %d\n",
+				MM_DBG("sending read ptr command %d %d\n",
 							audio->dsp_cnt,
 							audio->in_tail);
 				audaac_dsp_read_buffer(audio,

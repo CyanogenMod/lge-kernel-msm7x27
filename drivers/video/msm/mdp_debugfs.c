@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,9 @@
 #endif
 #include "mddihosti.h"
 #include "tvenc.h"
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+#include "hdmi_msm.h"
+#endif
 
 #define MDP_DEBUG_BUF	2048
 
@@ -72,7 +75,7 @@ static ssize_t mdp_offset_write(
 {
 	uint32 off, cnt;
 
-	if (count > sizeof(debug_buf))
+	if (count >= sizeof(debug_buf))
 		return -EFAULT;
 
 	if (copy_from_user(debug_buf, buff, count))
@@ -108,12 +111,11 @@ static ssize_t mdp_offset_read(
 
 	len = snprintf(debug_buf, sizeof(debug_buf), "0x%08x %d\n",
 					mdp_offset, mdp_count);
+	if (len < 0)
+		return 0;
 
 	if (copy_to_user(buff, debug_buf, len))
 		return -EFAULT;
-
-	if (len < 0)
-		return 0;
 
 	*ppos += len;	/* increase offset */
 
@@ -148,7 +150,7 @@ static ssize_t mdp_reg_write(
 	uint32 off, data;
 	int cnt;
 
-	if (count > sizeof(debug_buf))
+	if (count >= sizeof(debug_buf))
 		return -EFAULT;
 
 	if (copy_from_user(debug_buf, buff, count))
@@ -208,6 +210,7 @@ static ssize_t mdp_reg_read(
 				break;
 		}
 		*bp++ = '\n';
+		--dlen;
 		tot++;
 		cp += off;
 		if (num >= mdp_count)
@@ -219,9 +222,6 @@ static ssize_t mdp_reg_read(
 
 	if (copy_to_user(buff, debug_buf, tot))
 		return -EFAULT;
-
-	if (tot < 0)
-		return 0;
 
 	*ppos += tot;	/* increase offset */
 
@@ -326,8 +326,8 @@ static ssize_t mdp_stat_read(
 					mdp4_stat.kickoff_mddi);
 	bp += len;
 	dlen -= len;
-	len = snprintf(bp, dlen, "kickoff_mddi_skip: %08lu\n",
-					mdp4_stat.kickoff_mddi_skip);
+	len = snprintf(bp, dlen, "kickoff_piggyback: %08lu\n",
+					mdp4_stat.kickoff_piggy);
 	bp += len;
 	dlen -= len;
 	len = snprintf(bp, dlen, "kickoff_lcdc:      %08lu\n",
@@ -401,11 +401,10 @@ static ssize_t mdp_stat_read(
 	*bp = 0;
 	tot++;
 
-	if (copy_to_user(buff, debug_buf, tot))
-		return -EFAULT;
-
 	if (tot < 0)
 		return 0;
+	if (copy_to_user(buff, debug_buf, tot))
+		return -EFAULT;
 
 	*ppos += tot;	/* increase offset */
 
@@ -482,7 +481,9 @@ static void mddi_reg_write(int ndx, uint32 off, uint32 data)
 	else
 		base = (char *)msm_pmdh_base;
 
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	writel(data, base + off);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	printk(KERN_INFO "%s: addr=%x data=%x\n",
 			__func__, (int)(base+off), (int)data);
@@ -506,6 +507,8 @@ static int mddi_reg_read(int ndx)
 	reg = mddi_regs_list;
 	bp = debug_buf;
 	dlen = sizeof(debug_buf);
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	while (reg->name) {
 		data = readl((u32)base + reg->off);
 		len = snprintf(bp, dlen, "%s:0x%08x\t\t= 0x%08x\n",
@@ -515,6 +518,7 @@ static int mddi_reg_read(int ndx)
 		dlen -= len;
 		reg++;
 	}
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	*bp = 0;
 	tot++;
 
@@ -530,7 +534,7 @@ static ssize_t pmdh_reg_write(
 	uint32 off, data;
 	int cnt;
 
-	if (count > sizeof(debug_buf))
+	if (count >= sizeof(debug_buf))
 		return -EFAULT;
 
 	if (copy_from_user(debug_buf, buff, count))
@@ -558,11 +562,10 @@ static ssize_t pmdh_reg_read(
 
 	tot = mddi_reg_read(0);	/* pmdh */
 
-	if (copy_to_user(buff, debug_buf, tot))
-		return -EFAULT;
-
 	if (tot < 0)
 		return 0;
+	if (copy_to_user(buff, debug_buf, tot))
+		return -EFAULT;
 
 	*ppos += tot;	/* increase offset */
 
@@ -578,7 +581,8 @@ static const struct file_operations pmdh_fops = {
 };
 
 
-#ifdef MDP4_MDDI_DMA_SWITCH
+
+#if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
 static int vsync_reg_open(struct inode *inode, struct file *file)
 {
 	/* non-seekable */
@@ -600,7 +604,7 @@ static ssize_t vsync_reg_write(
 	uint32 enable;
 	int cnt;
 
-	if (count > sizeof(debug_buf))
+	if (count >= sizeof(debug_buf))
 		return -EFAULT;
 
 	if (copy_from_user(debug_buf, buff, count))
@@ -652,7 +656,6 @@ static const struct file_operations vsync_fops = {
 	.read = vsync_reg_read,
 	.write = vsync_reg_write,
 };
-
 #endif
 
 static ssize_t emdh_reg_write(
@@ -664,7 +667,7 @@ static ssize_t emdh_reg_write(
 	uint32 off, data;
 	int cnt;
 
-	if (count > sizeof(debug_buf))
+	if (count >= sizeof(debug_buf))
 		return -EFAULT;
 
 	if (copy_from_user(debug_buf, buff, count))
@@ -692,11 +695,10 @@ static ssize_t emdh_reg_read(
 
 	tot = mddi_reg_read(1);	/* emdh */
 
-	if (copy_to_user(buff, debug_buf, tot))
-		return -EFAULT;
-
 	if (tot < 0)
 		return 0;
+	if (copy_to_user(buff, debug_buf, tot))
+		return -EFAULT;
 
 	*ppos += tot;	/* increase offset */
 
@@ -786,11 +788,10 @@ static ssize_t dbg_base_read(
 	*bp = 0;
 	tot++;
 
-	if (copy_to_user(buff, debug_buf, tot))
-		return -EFAULT;
-
 	if (tot < 0)
 		return 0;
+	if (copy_to_user(buff, debug_buf, tot))
+		return -EFAULT;
 
 	*ppos += tot;	/* increase offset */
 
@@ -812,7 +813,7 @@ static ssize_t dbg_offset_write(
 {
 	uint32 off, cnt, num, base;
 
-	if (count > sizeof(debug_buf))
+	if (count >= sizeof(debug_buf))
 		return -EFAULT;
 
 	if (copy_from_user(debug_buf, buff, count))
@@ -852,12 +853,11 @@ static ssize_t dbg_offset_read(
 
 	len = snprintf(debug_buf, sizeof(debug_buf), "0x%08x %d 0x%08x\n",
 				dbg_offset, dbg_count, (int)dbg_base);
+	if (len < 0)
+		return 0;
 
 	if (copy_to_user(buff, debug_buf, len))
 		return -EFAULT;
-
-	if (len < 0)
-		return 0;
 
 	*ppos += len;	/* increase offset */
 
@@ -881,7 +881,7 @@ static ssize_t dbg_reg_write(
 	uint32 off, data;
 	int cnt;
 
-	if (count > sizeof(debug_buf))
+	if (count >= sizeof(debug_buf))
 		return -EFAULT;
 
 	if (copy_from_user(debug_buf, buff, count))
@@ -943,6 +943,7 @@ static ssize_t dbg_reg_read(
 		}
 		data = readl((u32)cp + off);
 		*bp++ = '\n';
+		--dlen;
 		tot++;
 		cp += off;
 		if (num >= dbg_count)
@@ -953,9 +954,6 @@ static ssize_t dbg_reg_read(
 
 	if (copy_to_user(buff, debug_buf, tot))
 		return -EFAULT;
-
-	if (tot < 0)
-		return 0;
 
 	*ppos += tot;	/* increase offset */
 
@@ -969,6 +967,188 @@ static const struct file_operations dbg_reg_fops = {
 	.read = dbg_reg_read,
 	.write = dbg_reg_write,
 };
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+static uint32 hdmi_offset;
+static uint32 hdmi_count;
+
+static int hdmi_open(struct inode *inode, struct file *file)
+{
+	/* non-seekable */
+	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
+	return 0;
+}
+
+static int hdmi_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static ssize_t hdmi_offset_write(
+	struct file *file,
+	const char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	uint32 off, cnt, num;
+
+	if (count >= sizeof(debug_buf))
+		return -EFAULT;
+
+	if (copy_from_user(debug_buf, buff, count))
+		return -EFAULT;
+
+	debug_buf[count] = 0;	/* end of string */
+
+	cnt = sscanf(debug_buf, "%x %d", &off, &num);
+
+	if (cnt < 0)
+		cnt = 0;
+
+	if (cnt >= 1)
+		hdmi_offset = off;
+	if (cnt >= 2)
+		hdmi_count = num;
+
+	printk(KERN_INFO "%s: offset=%x cnt=%d\n", __func__,
+				hdmi_offset, hdmi_count);
+
+	return count;
+}
+
+static ssize_t hdmi_offset_read(
+	struct file *file,
+	char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	int len = 0;
+
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	len = snprintf(debug_buf, sizeof(debug_buf), "0x%08x %d\n",
+				hdmi_offset, hdmi_count);
+	if (len < 0)
+		return 0;
+
+	if (copy_to_user(buff, debug_buf, len))
+		return -EFAULT;
+
+	*ppos += len;	/* increase offset */
+
+	return len;
+}
+
+static const struct file_operations hdmi_off_fops = {
+	.open = hdmi_open,
+	.release = hdmi_release,
+	.read = hdmi_offset_read,
+	.write = hdmi_offset_write,
+};
+
+
+static ssize_t hdmi_reg_write(
+	struct file *file,
+	const char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	uint32 off, data, base;
+	int cnt;
+
+	if (count >= sizeof(debug_buf))
+		return -EFAULT;
+
+	if (copy_from_user(debug_buf, buff, count))
+		return -EFAULT;
+
+	base = hdmi_msm_get_io_base();
+	if (base == 0)
+		return -EFAULT;
+
+	debug_buf[count] = 0;	/* end of string */
+
+	cnt = sscanf(debug_buf, "%x %x", &off, &data);
+
+	writel(data, base + off);
+
+	printk(KERN_INFO "%s: addr=%x data=%x\n",
+			__func__, (int)(base+off), (int)data);
+
+	return count;
+}
+
+static ssize_t hdmi_reg_read(
+	struct file *file,
+	char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	int len = 0;
+	uint32 data;
+	int i, j, off, dlen, num;
+	char *bp, *cp;
+	int tot = 0;
+
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	if (hdmi_msm_get_io_base() == 0)
+		return 0;	/* nothing to read */
+
+	j = 0;
+	num = 0;
+	bp = debug_buf;
+	cp = (char *)(hdmi_msm_get_io_base() + hdmi_offset);
+	dlen = sizeof(debug_buf);
+	while (j++ < 16) {
+		len = snprintf(bp, dlen, "0x%08x: ", (int)cp);
+		tot += len;
+		bp += len;
+		dlen -= len;
+		off = 0;
+		i = 0;
+		while (i++ < 4) {
+			data = readl(cp + off);
+			len = snprintf(bp, dlen, "%08x ", data);
+			tot += len;
+			bp += len;
+			dlen -= len;
+			off += 4;
+			num++;
+			if (num >= hdmi_count)
+				break;
+		}
+		data = readl((u32)cp + off);
+		*bp++ = '\n';
+		--dlen;
+		tot++;
+		cp += off;
+		if (num >= hdmi_count)
+			break;
+	}
+	*bp = 0;
+	tot++;
+
+	if (copy_to_user(buff, debug_buf, tot))
+		return -EFAULT;
+
+	*ppos += tot;	/* increase offset */
+
+	return tot;
+}
+
+
+static const struct file_operations hdmi_reg_fops = {
+	.open = hdmi_open,
+	.release = hdmi_release,
+	.read = hdmi_reg_read,
+	.write = hdmi_reg_write,
+};
+#endif
 
 /*
  * debugfs
@@ -1023,7 +1203,7 @@ int mdp_debugfs_init(void)
 		return -1;
 	}
 
-#ifdef MDP4_MDDI_DMA_SWITCH
+#if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
 	if (debugfs_create_file("vsync", 0644, dent, 0, &vsync_fops)
 			== NULL) {
 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
@@ -1075,6 +1255,30 @@ int mdp_debugfs_init(void)
 			__FILE__, __LINE__);
 		return -1;
 	}
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+	dent = debugfs_create_dir("hdmi", NULL);
+
+	if (IS_ERR(dent)) {
+		printk(KERN_ERR "%s(%d): debugfs_create_dir fail, error %ld\n",
+			__FILE__, __LINE__, PTR_ERR(dent));
+		return PTR_ERR(dent);
+	}
+
+	if (debugfs_create_file("off", 0644, dent, 0, &hdmi_off_fops)
+			== NULL) {
+		printk(KERN_ERR "%s(%d): debugfs_create_file: 'off' fail\n",
+			__FILE__, __LINE__);
+		return -ENOENT;
+	}
+
+	if (debugfs_create_file("reg", 0644, dent, 0, &hdmi_reg_fops)
+			== NULL) {
+		printk(KERN_ERR "%s(%d): debugfs_create_file: 'reg' fail\n",
+			__FILE__, __LINE__);
+		return -ENOENT;
+	}
+#endif
 
 	return 0;
 }

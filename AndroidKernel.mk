@@ -17,6 +17,11 @@ endif
 KERNEL_MODULES_OUT := $(TARGET_OUT)/lib/modules
 #LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24, <cp wireless.ko to system/lib/modules>
 
+file := $(TARGET_OUT)/lib/modules/oprofile.ko
+ALL_PREBUILT += $(file)
+$(file) : $(TARGET_PREBUILT_KERNEL) | $(ACP)
+	$(transform-prebuild-to-target)
+
 $(KERNEL_OUT):
 	mkdir -p $(KERNEL_OUT)
 

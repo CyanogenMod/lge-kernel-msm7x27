@@ -814,6 +814,7 @@ static int mt9d112_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = mt9d112_sensor_init;
 	s->s_release = mt9d112_sensor_release;
 	s->s_config  = mt9d112_sensor_config;
+	s->s_mount_angle  = 0;
 
 probe_done:
 	CDBG("%s %s:%d\n", __FILE__, __func__, __LINE__);

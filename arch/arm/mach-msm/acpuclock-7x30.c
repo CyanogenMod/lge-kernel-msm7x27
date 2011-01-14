@@ -40,7 +40,9 @@
 #define SCSS_CLK_SEL_ADDR	(MSM_ACC_BASE + 0x08)
 
 #define PLL2_L_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x33C)
+#define PLL2_806_MHZ		42
 #define PLL2_1024_MHZ		53
+#define PLL2_1200_MHZ		125
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -69,10 +71,9 @@ struct clkctl_acpu_speed {
 	int		src;
 	unsigned int	acpu_src_sel;
 	unsigned int	acpu_src_div;
-	unsigned int	axi_clk_khz;
+	unsigned int	axi_clk_hz;
 	unsigned int	vdd_mv;
 	unsigned int	vdd_raw;
-	uint32_t	msmc1;
 	unsigned long	lpj; /* loops_per_jiffy */
 };
 
@@ -98,20 +99,20 @@ static struct cpufreq_frequency_table freq_table[] = {
  * know all the h/w requirements.
  */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 24576,  SRC_LPXO, 0, 0,  30720,  900, VDD_RAW(900), LOW },
-	{ 61440,  PLL_3,    5, 11, 61440,  900, VDD_RAW(900), LOW },
-	{ 122880, PLL_3,    5, 5,  61440,  900, VDD_RAW(900), LOW },
-	{ 184320, PLL_3,    5, 4,  61440,  900, VDD_RAW(900), LOW },
-	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440, 900, VDD_RAW(900), LOW },
-	{ 245760, PLL_3,    5, 2,  61440,  900, VDD_RAW(900), LOW },
-	{ 368640, PLL_3,    5, 1,  122800, 900, VDD_RAW(900), LOW },
+	{ 24576,  SRC_LPXO, 0, 0,  30720000,  900, VDD_RAW(900) },
+	{ 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
+	{ 122880, PLL_3,    5, 5,  61440000,  900, VDD_RAW(900) },
+	{ 184320, PLL_3,    5, 4,  61440000,  900, VDD_RAW(900) },
+	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440000, 900, VDD_RAW(900) },
+	{ 245760, PLL_3,    5, 2,  61440000,  900, VDD_RAW(900) },
+	{ 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(900) },
 	/* AXI has MSMC1 implications. See above. */
-	{ 768000, PLL_1,    2, 0,  153600, 1050, VDD_RAW(1050), NOMINAL },
+	{ 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
 	/*
 	 * AXI has MSMC1 implications. See above.
 	 * 806.4MHz is increased to match the SoC's capabilities at runtime
 	 */
-	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1100), NOMINAL },
+	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1100, VDD_RAW(1100) },
 	{ 0 }
 };
 
@@ -189,17 +190,8 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	}
 
 	if (reason == SETRATE_CPUFREQ) {
-		/* Increase VDDs if needed. */
-		if (tgt_s->msmc1 > strt_s->msmc1) {
-			rc = local_vote_sys_vdd(tgt_s->msmc1);
-			if (rc) {
-				pr_err("Failed to vote for MSMC1\n");
-				goto out;
-			}
-			local_unvote_sys_vdd(strt_s->msmc1);
-		}
+		/* Increase VDD if needed. */
 		if (tgt_s->vdd_mv > strt_s->vdd_mv) {
-
 			rc = acpuclk_set_acpu_vdd(tgt_s);
 			if (rc < 0) {
 				pr_err("ACPU VDD increase to %d mV failed "
@@ -215,9 +207,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	/* Increase the AXI bus frequency if needed. This must be done before
 	 * increasing the ACPU frequency, since voting for high AXI rates
 	 * implicitly takes care of increasing the MSMC1 voltage, as needed. */
-	if (tgt_s->axi_clk_khz > strt_s->axi_clk_khz) {
+	if (tgt_s->axi_clk_hz > strt_s->axi_clk_hz) {
 		rc = clk_set_min_rate(drv_state.ebi1_clk,
-					tgt_s->axi_clk_khz * 1000);
+					tgt_s->axi_clk_hz);
 		if (rc < 0) {
 			pr_err("Setting AXI min rate failed (%d)\n", rc);
 			goto out;
@@ -246,9 +238,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	}
 
 	/* Decrease the AXI bus frequency if we can. */
-	if (tgt_s->axi_clk_khz < strt_s->axi_clk_khz) {
+	if (tgt_s->axi_clk_hz < strt_s->axi_clk_hz) {
 		res = clk_set_min_rate(drv_state.ebi1_clk,
-					tgt_s->axi_clk_khz * 1000);
+					tgt_s->axi_clk_hz);
 		if (res < 0)
 			pr_warning("Setting AXI min rate failed (%d)\n", res);
 	}
@@ -257,19 +249,12 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	if (reason == SETRATE_PC)
 		goto out;
 
-	/* Drop VDD levels if we can */
+	/* Drop VDD level if we can. */
 	if (tgt_s->vdd_mv < strt_s->vdd_mv) {
 		res = acpuclk_set_acpu_vdd(tgt_s);
 		if (res)
 			pr_warning("ACPU VDD decrease to %d mV failed (%d)\n",
 					tgt_s->vdd_mv, res);
-	}
-	if (tgt_s->msmc1 < strt_s->msmc1) {
-		res = local_vote_sys_vdd(tgt_s->msmc1);
-		if (res)
-			pr_err("Failed to vote for MSMC1\n");
-		else
-			local_unvote_sys_vdd(strt_s->msmc1);
 	}
 
 	dprintk("ACPU speed change complete\n");
@@ -358,10 +343,7 @@ static void __init acpuclk_init(void)
 		return;
 	}
 
-	/* Set initial VDDs */
-	res = local_vote_sys_vdd(s->msmc1);
-	if (res)
-		pr_warning("Failed to vote for MSMC1\n");
+	/* Set initial ACPU VDD. */
 	acpuclk_set_acpu_vdd(s);
 
 	drv_state.current_speed = s;
@@ -370,7 +352,7 @@ static void __init acpuclk_init(void)
 	if (s->src >= 0)
 		local_src_enable(s->src);
 
-	res = ebi1_clk_set_min_rate(CLKVOTE_ACPUCLK, s->axi_clk_khz * 1000);
+	res = clk_set_min_rate(drv_state.ebi1_clk, s->axi_clk_hz);
 	if (res < 0)
 		pr_warning("Setting AXI min rate failed!\n");
 
@@ -395,23 +377,39 @@ static void __init lpj_init(void)
 /* Update frequency tables for PLL2. */
 void __init pll2_fixup(void)
 {
-	uint32_t pll2_l = readl(PLL2_L_VAL_ADDR) & 0x3f;
+	struct clkctl_acpu_speed *speed;
+	struct cpufreq_frequency_table *cpu_freq;
+	u8 pll2_l;
 
-	BUG_ON(pll2_l == 0);
+	pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
+	speed = &acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2];
+	cpu_freq = &freq_table[ARRAY_SIZE(freq_table)-2];
 
-	if (pll2_l != PLL2_1024_MHZ)
-		return;
-
-	if (acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz != 806400
-		  || freq_table[ARRAY_SIZE(freq_table)-2].frequency != 806400) {
+	if (speed->acpu_clk_khz != 806400 || cpu_freq->frequency != 806400) {
 		pr_err("Frequency table fixups for PLL2 rate failed.\n");
 		BUG();
 	}
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz = 1024000;
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].vdd_mv = 1200;
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].vdd_raw = VDD_RAW(1200);
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].msmc1 = HIGH;
-	freq_table[ARRAY_SIZE(freq_table)-2].frequency = 1024000;
+
+	switch (pll2_l) {
+	case PLL2_1024_MHZ:
+		speed->acpu_clk_khz = 1024000;
+		speed->vdd_mv = 1200;
+		speed->vdd_raw = VDD_RAW(1200);
+		cpu_freq->frequency = 1024000;
+		break;
+	case PLL2_1200_MHZ:
+		speed->acpu_clk_khz = 1200000;
+		speed->vdd_mv = 1200;
+		speed->vdd_raw = VDD_RAW(1200);
+		cpu_freq->frequency = 1200000;
+		break;
+	case PLL2_806_MHZ:
+		/* No fixup necessary */
+		break;
+	default:
+		pr_err("Unknown PLL2 lval %d\n", pll2_l);
+		BUG();
+	}
 }
 
 #define RPM_BYPASS_MASK	(1 << 3)

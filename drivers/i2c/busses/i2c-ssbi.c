@@ -472,7 +472,6 @@ static int __devexit i2c_ssbi_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver i2c_ssbi_driver = {
-	.probe          = i2c_ssbi_probe,
 	.driver		= {
 		.name	= "i2c_ssbi",
 		.owner	= THIS_MODULE,
@@ -482,7 +481,7 @@ static struct platform_driver i2c_ssbi_driver = {
 
 static int __init i2c_ssbi_init(void)
 {
-	return platform_driver_register(&i2c_ssbi_driver);
+	return platform_driver_probe(&i2c_ssbi_driver, i2c_ssbi_probe);
 }
 arch_initcall(i2c_ssbi_init);
 

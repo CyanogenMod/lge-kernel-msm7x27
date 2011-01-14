@@ -108,15 +108,17 @@ void set_rate_nop(struct clk_local *clk, struct clk_freq_tbl *nf)
 /* Update system voltage level given the current votes. */
 static int local_update_sys_vdd(void)
 {
-	static int cur_level;
+	static int cur_level = NUM_SYS_VDD_LEVELS;
 	int level, rc = 0;
 
 	if (local_sys_vdd_votes[HIGH])
 		level = HIGH;
 	else if (local_sys_vdd_votes[NOMINAL])
 		level = NOMINAL;
-	else
+	else if (local_sys_vdd_votes[LOW])
 		level = LOW;
+	else
+		level = NONE;
 
 	if (level == cur_level)
 		return rc;
@@ -495,28 +497,10 @@ void local_clk_disable(unsigned id)
 	soc_set_pwr_rail(id, 0);
 	local_clk_disable_nolock(id);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	return;
 }
 
-/* Turn on a clock without checking/changing refcounts or parents. */
-int local_clk_output_enable(unsigned id)
-{
-	struct clk_local *clk = &soc_clk_local_tbl[id];
-	unsigned long flags;
-
-	if (clk->type == RESET)
-		return -EPERM;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	local_clk_enable_reg(id);
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	return 0;
-}
-
-/* Turn off a clock without checking/changing refcounts or parents. */
-void local_clk_output_disable(unsigned id)
+/* Turn off a clock at boot, without checking refcounts or disabling parents. */
+void local_clk_auto_off(unsigned id)
 {
 	struct clk_local *clk = &soc_clk_local_tbl[id];
 	unsigned long flags;
@@ -525,7 +509,8 @@ void local_clk_output_disable(unsigned id)
 		return;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	local_clk_disable_reg(id);
+	if (clk->count == 0)
+		local_clk_disable_reg(id);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 

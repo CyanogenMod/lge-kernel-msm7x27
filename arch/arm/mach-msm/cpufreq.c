@@ -23,6 +23,8 @@
 #include <linux/workqueue.h>
 #include <linux/completion.h>
 #include <linux/cpu.h>
+#include <linux/cpumask.h>
+#include <linux/sched.h>
 
 #include "acpuclock.h"
 
@@ -45,12 +47,6 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 {
 	int ret = 0;
 	struct cpufreq_freqs freqs;
-
-	if (policy->cpu != smp_processor_id()) {
-		pr_err("cpufreq: Attempting to cross set core %d frequency "
-			"from core %d\n", policy->cpu, smp_processor_id());
-		return -EFAULT;
-	}
 
 	freqs.old = policy->cur;
 	freqs.new = new_freq;
@@ -83,6 +79,15 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	struct cpufreq_frequency_table *table;
 #ifdef CONFIG_SMP
 	struct cpufreq_work_struct *cpu_work = NULL;
+	cpumask_var_t mask;
+
+	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
+		return -ENOMEM;
+
+	if (!cpu_active(policy->cpu)) {
+		pr_info("cpufreq: cpu %d is not active.\n", policy->cpu);
+		return -ENODEV;
+	}
 #endif
 	table = cpufreq_frequency_get_table(policy->cpu);
 	if (cpufreq_frequency_table_target(policy, table, target_freq, relation,
@@ -103,19 +108,18 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	cpu_work->frequency = table[index].frequency;
 	cpu_work->status = -ENODEV;
 
-	get_online_cpus();
-	if (cpu_online(policy->cpu)) {
-		if (policy->cpu == smp_processor_id()) {
-			cpu_work->status = set_cpu_freq(cpu_work->policy,
-						cpu_work->frequency);
-		} else {
-			cancel_work_sync(&cpu_work->work);
-			init_completion(&cpu_work->complete);
-			schedule_work_on(policy->cpu, &cpu_work->work);
-			wait_for_completion(&cpu_work->complete);
-		}
+	cpumask_clear(mask);
+	cpumask_set_cpu(policy->cpu, mask);
+	if (cpumask_equal(mask, &current->cpus_allowed)) {
+		return set_cpu_freq(cpu_work->policy, cpu_work->frequency);
+	} else {
+		cancel_work_sync(&cpu_work->work);
+		init_completion(&cpu_work->complete);
+		schedule_work_on(policy->cpu, &cpu_work->work);
+		wait_for_completion(&cpu_work->complete);
 	}
-	put_online_cpus();
+
+	free_cpumask_var(mask);
 	ret = cpu_work->status;
 #else
 	ret = set_cpu_freq(policy, table[index].frequency);

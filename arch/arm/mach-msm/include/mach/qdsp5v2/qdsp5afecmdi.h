@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -91,6 +91,16 @@ struct afe_cmd_fm_volume_config{
 	uint16_t reserved;
 } __attribute__ ((packed));
 
+#define AFE_CMD_FM_CALIBRATION_GAIN_CMD	0x11
+#define AFE_CMD_FM_CALIBRATION_GAIN_LEN \
+	sizeof(struct afe_cmd_fm_calibgain_config)
+
+struct afe_cmd_fm_calibgain_config{
+	uint16_t cmd_id;
+	uint16_t device_id;
+	uint16_t calibration_gain;
+} __attribute__ ((packed));
+
 #define AFE_CMD_LOOPBACK	0xD
 #define AFE_CMD_LOOPBACK_LEN sizeof(struct afe_cmd_loopback)
 #define AFE_LOOPBACK_ENABLE_COMMAND 0xFFFF
@@ -101,5 +111,22 @@ struct afe_cmd_loopback {
 	uint16_t enable_flag;
 	uint16_t reserved[2];
 } __attribute__ ((packed));
+
+#define AFE_CMD_CFG_RMC_PARAMS 0x12
+#define AFE_CMD_CFG_RMC_LEN \
+	sizeof(struct afe_cmd_cfg_rmc)
+
+struct afe_cmd_cfg_rmc {
+	unsigned short cmd_id;
+	signed short   rmc_mode;
+	unsigned short rmc_ipw_length_ms;
+	unsigned short rmc_peak_length_ms;
+	unsigned short rmc_init_pulse_length_ms;
+	unsigned short rmc_total_int_length_ms;
+	unsigned short rmc_rampupdn_length_ms;
+	unsigned short rmc_delay_length_ms;
+	unsigned short rmc_detect_start_threshdb;
+	signed short   rmc_init_pulse_threshdb;
+}  __attribute__((packed));
 
 #endif

@@ -19,12 +19,16 @@
 
 #include "clock.h"
 
+extern struct platform_device msm_ebi0_thermal;
+extern struct platform_device msm_ebi1_thermal;
+
 extern struct platform_device msm_device_uart1;
 extern struct platform_device msm_device_uart2;
 extern struct platform_device msm_device_uart3;
 
 extern struct platform_device msm_device_uart_dm1;
 extern struct platform_device msm_device_uart_dm2;
+extern struct platform_device msm_device_uart_dm3;
 extern struct platform_device msm_device_uart_dm12;
 
 extern struct platform_device msm_device_sdc1;
@@ -52,6 +56,7 @@ extern struct platform_device msm_gsbi4_qup_i2c_device;
 extern struct platform_device msm_gsbi7_qup_i2c_device;
 extern struct platform_device msm_gsbi8_qup_i2c_device;
 extern struct platform_device msm_gsbi9_qup_i2c_device;
+extern struct platform_device msm_gsbi12_qup_i2c_device;
 
 extern struct platform_device msm_device_smd;
 extern struct platform_device msm_device_dmov;
@@ -73,6 +78,9 @@ extern struct platform_device msm_device_ssbi7;
 extern struct platform_device msm_gsbi1_qup_spi_device;
 
 extern struct platform_device msm_device_vidc_720p;
+
+extern struct platform_device *msm_footswitch_devices[];
+extern unsigned msm_num_footswitch_devices;
 
 extern struct clk msm_clocks_7x01a[];
 extern unsigned msm_num_clocks_7x01a;

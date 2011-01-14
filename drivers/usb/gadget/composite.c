@@ -24,6 +24,8 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/kdev_t.h>
 
 #include <linux/usb/composite.h>
 
@@ -858,9 +860,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			 * This is required for MTP.
 			 */
 			if (value < 0) {
-				struct usb_configuration        *cfg;
+				struct usb_configuration        *cfg = NULL;
 				list_for_each_entry(cfg, &cdev->configs, list) {
-					if (cfg && cfg->setup) {
+					if (cfg != NULL && cfg->setup) {
 						value = cfg->setup(cfg, ctrl);
 						if (value >= 0)
 							break;
@@ -963,7 +965,7 @@ unknown:
 				tmp--;
 			}
 
-			if (!tmp)
+			if (tmp)
 				f = NULL;
 			break;
 
@@ -1083,12 +1085,16 @@ composite_unbind(struct usb_gadget *gadget)
 			f = list_first_entry(&c->functions,
 					struct usb_function, list);
 			list_del(&f->list);
+			device_remove_file(f->dev, &dev_attr_enable);
+			device_destroy(cdev->driver->class,
+						f->dev->devt);
 			if (f->unbind) {
 				DBG(cdev, "unbind function '%s'/%p\n",
 						f->name, f);
-				f->unbind(c, f);
 				/* may free memory for "f" */
+				f->unbind(c, f);
 			}
+			atomic_dec(&cdev->driver->function_count);
 		}
 		list_del(&c->list);
 		if (c->unbind) {
@@ -1360,4 +1366,6 @@ void usb_composite_unregister(struct usb_composite_driver *driver)
 	if (composite != driver)
 		return;
 	usb_gadget_unregister_driver(&composite_driver);
+	class_destroy(driver->class);
+	driver->class = NULL;
 }

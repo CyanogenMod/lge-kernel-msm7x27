@@ -43,8 +43,8 @@ int kgsl_g12_cmdstream_init(struct kgsl_device *device)
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 	memset(&g12_device->ringbuffer, 0, sizeof(struct kgsl_g12_ringbuffer));
 	g12_device->ringbuffer.prevctx = KGSL_G12_INVALID_CONTEXT;
-	return kgsl_sharedmem_alloc(0, KGSL_G12_RB_SIZE,
-				    &g12_device->ringbuffer.cmdbufdesc);
+	return kgsl_sharedmem_alloc_coherent(&g12_device->ringbuffer.cmdbufdesc,
+					     KGSL_G12_RB_SIZE);
 }
 
 static void addmarker(struct kgsl_g12_ringbuffer *rb, unsigned int index)
@@ -133,6 +133,7 @@ void kgsl_g12_cmdstream_close(struct kgsl_device *device)
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 	kgsl_sharedmem_free(&g12_device->ringbuffer.cmdbufdesc);
 	memset(&g12_device->ringbuffer, 0, sizeof(struct kgsl_g12_ringbuffer));
+	kgsl_cmdstream_close(device);
 }
 
 static int room_in_rb(struct kgsl_g12_device *device)
@@ -180,15 +181,16 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	KGSL_CMD_INFO("ctxt %d ibaddr 0x%08x sizedwords %d",
 		      drawctxt_index, cmd, sizedwords);
 	/* context switch */
-	if (drawctxt_index != (int)g12_device->ringbuffer.prevctx) {
+	if ((drawctxt_index != (int)g12_device->ringbuffer.prevctx) ||
+	    (ctrl & KGSL_CONTEXT_CTX_SWITCH)) {
 		KGSL_CMD_INFO("context switch %d -> %d",
 				drawctxt_index, g12_device->ringbuffer.prevctx);
 		kgsl_mmu_setstate(device, pagetable);
 		cnt = PACKETSIZE_STATESTREAM;
 		ofs = 0;
 	}
-
-	kgsl_g12_setstate(device, device->mmu.tlb_flags);
+	kgsl_g12_setstate(device, kgsl_pt_get_flags(device->mmu.hwpagetable,
+						    device->id));
 
 	result = wait_event_interruptible_timeout(g12_device->wait_timestamp_wq,
 				  room_in_rb(g12_device),

@@ -36,20 +36,15 @@ struct snddev_icodec_data {
 	u32 capability; /* RX or TX */
 	const char *name;
 	u32 copp_id; /* audpp routing */
-	u32 acdb_id; /* Audio Cal purpose */
 	/* Adie profile */
 	struct adie_codec_dev_profile *profile;
 	/* Afe setting */
 	u8 channel_mode;
-	enum hsed_controller *pmctl_id; /* tx only enable mic bias */
-	u32 pmctl_id_sz;
 	u32 default_sample_rate;
 	void (*pamp_on) (void);
 	void (*pamp_off) (void);
 	void (*voltage_on) (void);
 	void (*voltage_off) (void);
-	s32 max_voice_rx_vol[VOC_RX_VOL_ARRAY_NUM]; /* [0]: NB,[1]: WB */
-	s32 min_voice_rx_vol[VOC_RX_VOL_ARRAY_NUM];
 	u32 dev_vol_type;
 };
 

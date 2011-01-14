@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/kernel_stat.h>
 #include <linux/workqueue.h>
+#include <linux/slab.h>
 
 #include "avs.h"
 

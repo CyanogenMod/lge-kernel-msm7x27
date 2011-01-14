@@ -17,6 +17,10 @@
  */
 
 #include "vcd_ddl.h"
+#include "vcd_ddl_metadata.h"
+#ifdef DDL_PROFILE
+static unsigned int first_time;
+#endif
 
 u32 ddl_device_init(struct ddl_init_config *ddl_init_config,
 	void *client_data)
@@ -74,6 +78,15 @@ u32 ddl_device_init(struct ddl_init_config *ddl_init_config,
 			ddl_context->dram_base_a.align_physical_addr;
 		ddl_context->dram_base_b.align_virtual_addr  =
 			ddl_context->dram_base_a.align_virtual_addr;
+	}
+	if (!status) {
+		ptr = ddl_pmem_alloc(&ddl_context->metadata_shared_input,
+			DDL_METADATA_TOTAL_INPUTBUFSIZE,
+			DDL_LINEAR_BUFFER_ALIGN_BYTES);
+		if (!ptr) {
+			DDL_MSG_ERROR("ddl_device_init: metadata alloc fail");
+			status = VCD_ERR_ALLOC_FAIL;
+		}
 	}
 	if (!status && !ddl_fw_init(&ddl_context->dram_base_a)) {
 		DDL_MSG_ERROR("ddl_dev_init:fw_init_failed");
@@ -167,6 +180,7 @@ u32 ddl_open(u32 **ddl_handle, u32 decoding)
 		ddl->client_state = DDL_CLIENT_OPEN;
 		ddl->codec_data.hdr.decoding = decoding;
 		ddl->decoding = decoding;
+		ddl_set_default_meta_data_hdr(ddl);
 		ddl_set_initial_default_values(ddl);
 		*ddl_handle	= (u32 *) ddl;
 	} else {
@@ -222,7 +236,11 @@ u32 ddl_encode_start(u32 *ddl_handle, void *client_data)
 
 	DDL_MSG_HIGH("ddl_encode_start");
 #ifdef DDL_PROFILE
-	ddl_reset_time_variables(1);
+	if (first_time < 2) {
+		ddl_reset_time_variables(1);
+		first_time++;
+	 }
+	ddl_get_core_start_time(1);
 #endif
 	ddl_context = ddl_get_context();
 	if (!DDL_IS_INITIALIZED(ddl_context)) {
@@ -577,7 +595,7 @@ u32 ddl_reset_hw(u32 mode)
 		vidc_1080p_do_sw_reset(VIDC_1080P_RESET_IN_SEQ_FIRST_STAGE);
 		msleep(DDL_SW_RESET_SLEEP);
 		vidc_1080p_do_sw_reset(VIDC_1080P_RESET_IN_SEQ_SECOND_STAGE);
-		vidc_1080p_release_sw_reset();
+		msleep(DDL_SW_RESET_SLEEP);
 		ddl_context->core_virtual_base_addr = NULL;
 	}
 	ddl_context->device_state = DDL_DEVICE_NOTINIT;

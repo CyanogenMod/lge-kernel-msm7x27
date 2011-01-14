@@ -57,6 +57,8 @@
 #define HS_HEADSET_SWITCH_K	0x84
 #define HS_HEADSET_SWITCH_2_K	0xF0
 #define HS_HEADSET_SWITCH_3_K	0xF1
+#define HS_HEADSET_HEADPHONE_K	0xF6
+#define HS_HEADSET_MICROPHONE_K 0xF7
 #define HS_REL_K		0xFF	/* key release */
 
 #ifndef CONFIG_MACH_MSM7X27_ALOHAV
@@ -69,6 +71,8 @@
 #define HS_ON_HOOK_K		0x01	/* headphone hook key */
 #define GPIO_EAR_SENSE_BIAS		0x1D
 #define HS_DESKDOCK_DETECT	0x02	/* deskdock detect */
+#else
+#define SW_HEADPHONE_INSERT_W_MIC 1 /* HS with mic */
 #endif
 
 #define KEY(hs_key, input_key) ((hs_key << 24) | input_key)
@@ -200,11 +204,14 @@ struct hs_cmd_data_type {
 static const uint32_t hs_key_map[] = {
 	KEY(HS_PWR_K, KEY_POWER),
 	KEY(HS_END_K, KEY_END),
-	KEY(HS_STEREO_HEADSET_K, SW_HEADPHONE_INSERT),
 #ifndef CONFIG_MACH_MSM7X27_ALOHAV
+	KEY(HS_STEREO_HEADSET_K, SW_HEADPHONE_INSERT),
 	KEY(HS_ON_HOOK_K, KEY_MEDIA),
 	KEY(HS_DESKDOCK_DETECT, KEY_CONNECT),
 #else
+	KEY(HS_STEREO_HEADSET_K, SW_HEADPHONE_INSERT_W_MIC),
+	KEY(HS_HEADSET_HEADPHONE_K, SW_HEADPHONE_INSERT),
+	KEY(HS_HEADSET_MICROPHONE_K, SW_MICROPHONE_INSERT),
 	KEY(HS_HEADSET_SWITCH_K, KEY_MEDIA),
 	KEY(HS_HEADSET_SWITCH_2_K, KEY_VOLUMEUP),
 	KEY(HS_HEADSET_SWITCH_3_K, KEY_VOLUMEDOWN),
@@ -239,6 +246,7 @@ struct msm_handset {
 	struct switch_dev sdev;
 #endif
 	struct msm_handset_platform_data *hs_pdata;
+	bool mic_on, hs_on;
 };
 
 static struct msm_rpc_client *rpc_client;
@@ -264,7 +272,7 @@ static int hs_find_key(uint32_t hscode)
 	return -1;
 }
 
-#ifndef CONFIG_LGE_HEADSET
+ #ifndef CONFIG_LGE_HEADSET
 static void
 report_headset_switch(struct input_dev *dev, int key, int value)
 {
@@ -273,6 +281,24 @@ report_headset_switch(struct input_dev *dev, int key, int value)
 	input_report_switch(dev, key, value);
 	switch_set_state(&hs->sdev, value);
 }
+#else
+#if 0
+static void update_state(void)
+{
+	int state;
+
+	if (hs->mic_on && hs->hs_on)
+		state = 1 << 0;
+	else if (hs->hs_on)
+		state = 1 << 1;
+	else if (hs->mic_on)
+		state = 1 << 2;
+	else
+		state = 0;
+
+	switch_set_state(&hs->sdev, state);
+}
+#endif
 #endif
 
 /*
@@ -318,6 +344,18 @@ static void report_hs_key(uint32_t key_code, uint32_t key_parm)
 		if (deskdock_detect_callback)
 			deskdock_detect_callback((key_code != HS_REL_K));
 		break;
+	case SW_HEADPHONE_INSERT:
+#ifndef CONFIG_LGE_HEADSET
+		report_headset_switch(hs->ipdev, key, (key_code != HS_REL_K));
+#endif
+#if defined(CONFIG_LGE_DIAGTEST)
+		/* LGE_CHANGES
+		 * [woonghee@lge.com] 2010-01-23
+		 * [VS740] for key test */
+		if(if_condition_is_on_key_buffering == HS_TRUE && key_code == 0/*press*/)
+			lgf_factor_key_test_rsp((uint8_t)key);
+#endif
+		break;
 #else /*CONFIG_MACH_MSM7X27_ALOHAG*/
 	case KEY_POWER:
 	case KEY_END:
@@ -334,20 +372,26 @@ static void report_hs_key(uint32_t key_code, uint32_t key_parm)
 			lgf_factor_key_test_rsp((uint8_t)key);
 #endif
 		break;
-#endif /*CONFIG_MACH_MSM7X27_ALOHAG */
+	case SW_HEADPHONE_INSERT_W_MIC:
+		hs->mic_on = hs->hs_on = (key_code != HS_REL_K) ? 1 : 0;
+		input_report_switch(hs->ipdev, SW_HEADPHONE_INSERT,
+							hs->hs_on);
+		input_report_switch(hs->ipdev, SW_MICROPHONE_INSERT,
+							hs->mic_on);
+		update_state();
+		break;
 
 	case SW_HEADPHONE_INSERT:
-#ifndef CONFIG_LGE_HEADSET
-		report_headset_switch(hs->ipdev, key, (key_code != HS_REL_K));
-#endif
-#if defined(CONFIG_LGE_DIAGTEST)
-		/* LGE_CHANGES
-		 * [woonghee@lge.com] 2010-01-23
-		 * [VS740] for key test */
-		if(if_condition_is_on_key_buffering == HS_TRUE && key_code == 0/*press*/)
-			lgf_factor_key_test_rsp((uint8_t)key);
-#endif
+		hs->hs_on = (key_code != HS_REL_K) ? 1 : 0;
+		input_report_switch(hs->ipdev, key, hs->hs_on);
+		update_state();
 		break;
+	case SW_MICROPHONE_INSERT:
+		hs->mic_on = (key_code != HS_REL_K) ? 1 : 0;
+		input_report_switch(hs->ipdev, key, hs->mic_on);
+		update_state();
+		break;
+#endif /*CONFIG_MACH_MSM7X27_ALOHAG */
 	case -1:
 		printk(KERN_ERR "%s: No mapping for remote handset event %d\n",
 				 __func__, temp_key_code);
@@ -718,6 +762,7 @@ static int __devinit hs_probe(struct platform_device *pdev)
 	input_set_capability(ipdev, EV_KEY, KEY_VOLUMEUP);
 	input_set_capability(ipdev, EV_KEY, KEY_VOLUMEDOWN);
 	input_set_capability(ipdev, EV_SW, SW_HEADPHONE_INSERT);
+	input_set_capability(ipdev, EV_SW, SW_MICROPHONE_INSERT);
 	input_set_capability(ipdev, EV_KEY, KEY_POWER);
 	input_set_capability(ipdev, EV_KEY, KEY_END);
 

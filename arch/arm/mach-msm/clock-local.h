@@ -107,8 +107,7 @@ struct banked_mnd_masks {
 	.extra_freq_data = e, \
 	}
 #define FREQ_END	(UINT_MAX-1)
-#define F_END	F_RAW(FREQ_END, SRC_NONE, 0, 0, 0, 0, 0, NULL)
-#define PLL_RATE(r, l, m, n, v, d) { l, m, n, v, (d>>1) }
+#define F_END	F_RAW(FREQ_END, SRC_NONE, 0, 0, 0, 0, LOW, NULL)
 
 /*
  * Generic clock-definition struct and macros
@@ -174,6 +173,7 @@ struct clk_local {
  * SYS_VDD voltage levels
  */
 enum sys_vdd_level {
+	NONE,
 	LOW,
 	NOMINAL,
 	HIGH,
@@ -215,8 +215,7 @@ int local_unvote_sys_vdd(enum sys_vdd_level level);
  */
 int local_clk_enable(unsigned id);
 void local_clk_disable(unsigned id);
-int local_clk_output_enable(unsigned id);
-void local_clk_output_disable(unsigned id);
+void local_clk_auto_off(unsigned id);
 int local_clk_set_rate(unsigned id, unsigned rate);
 int local_clk_set_min_rate(unsigned id, unsigned rate);
 int local_clk_set_max_rate(unsigned id, unsigned rate);

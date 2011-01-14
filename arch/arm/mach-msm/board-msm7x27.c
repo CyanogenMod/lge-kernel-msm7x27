@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -434,7 +434,7 @@ static int msm_otg_rpc_phy_reset(void __iomem *regs)
 
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.rpc_connect	= hsusb_rpc_connect,
-	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+	.pmic_vbus_notif_init         = msm_hsusb_pmic_notif_init,
 	.chg_vbus_draw		 = hsusb_chg_vbus_draw,
 	.chg_connected		 = hsusb_chg_connected,
 	.chg_init		 = hsusb_chg_init,
@@ -1451,9 +1451,6 @@ static struct platform_device msm_batt_device = {
 
 
 static struct platform_device *devices[] __initdata = {
-#if !defined(CONFIG_MSM_SERIAL_DEBUGGER)
-	&msm_device_uart3,
-#endif
 	&msm_device_smd,
 	&msm_device_dmov,
 	&msm_device_nand,
@@ -1919,11 +1916,6 @@ static void __init msm7x2x_init(void)
 	msm_clock_init(msm_clocks_7x27, msm_num_clocks_7x27);
 #endif
 
-#if defined(CONFIG_MSM_SERIAL_DEBUGGER)
-	msm_serial_debug_init(MSM_UART3_PHYS, INT_UART3,
-			&msm_device_uart3.dev, 1);
-#endif
-
 #if defined(CONFIG_SMC91X)
 	if (machine_is_msm7x25_ffa() || machine_is_msm7x27_ffa()) {
 		smc91x_resources[0].start = 0x98000300;
@@ -1964,9 +1956,20 @@ static void __init msm7x2x_init(void)
 	kgsl_pdata.set_grp3d_async = NULL;
 	kgsl_pdata.imem_clk_name = "imem_clk";
 	kgsl_pdata.grp3d_clk_name = "grp_clk";
+	kgsl_pdata.grp3d_pclk_name = "grp_pclk";
 	kgsl_pdata.grp2d0_clk_name = NULL;
 	kgsl_pdata.idle_timeout_3d = HZ/5;
 	kgsl_pdata.idle_timeout_2d = 0;
+
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	kgsl_pdata.pt_va_size = SZ_32M;
+	/* Maximum of 32 concurrent processes */
+	kgsl_pdata.pt_max_count = 32;
+#else
+	kgsl_pdata.pt_va_size = SZ_128M;
+	/* We only ever have one pagetable for everybody */
+	kgsl_pdata.pt_max_count = 1;
+#endif
 #endif
 	usb_mpp_init();
 
@@ -2000,6 +2003,7 @@ static void __init msm7x2x_init(void)
 		msm7x27_pm_data
 		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
 	msm_device_gadget_peripheral.dev.platform_data = &msm_gadget_pdata;
+	msm_gadget_pdata.is_phy_status_timer_on = 1;
 #endif
 #endif
 #if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)

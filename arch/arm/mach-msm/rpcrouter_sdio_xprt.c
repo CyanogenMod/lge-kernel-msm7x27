@@ -221,11 +221,11 @@ static int rpcrouter_sdio_remote_write(void *data, uint32_t len,
 	case HEADER:
 		SDIO_XPRT_DBG("sdio_xprt WRITE HEADER %s\n", __func__);
 		sdio_write_pkt = kmalloc(sizeof(struct sdio_write_data_struct),
-					 GFP_KERNEL);
+					 GFP_ATOMIC);
 		sdio_write_pkt->write_len = len +
 					    ((struct rr_header *)data)->size;
 		sdio_write_pkt->write_data = kmalloc(sdio_write_pkt->write_len,
-						     GFP_KERNEL);
+						     GFP_ATOMIC);
 		buf = sdio_write_pkt->write_data;
 		memcpy(buf, data, len);
 		buf = (void *)((unsigned char *)buf + len);
@@ -291,6 +291,7 @@ static void sdio_xprt_write_data(struct work_struct *work)
 static int rpcrouter_sdio_remote_close(void)
 {
 	SDIO_XPRT_DBG("sdio_xprt Called %s\n", __func__);
+	flush_workqueue(sdio_xprt_read_workqueue);
 	sdio_close(sdio_remote_xprt.channel->handle);
 	free_sdio_xprt(sdio_remote_xprt.channel);
 	return 0;

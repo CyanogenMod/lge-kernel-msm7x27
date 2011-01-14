@@ -204,6 +204,7 @@ struct _mmc_csd {
  * OCR bits are mostly in host.h
  */
 #define MMC_CARD_BUSY	0x80000000	/* Card Power up status bit */
+#define MMC_CARD_SECTOR_ADDR 0x40000000 /* Card supports sectors */
 
 /*
  * Card Command Classes (CCC)
@@ -256,10 +257,11 @@ struct _mmc_csd {
 #define EXT_CSD_BUS_WIDTH	183	/* R/W */
 #define EXT_CSD_HS_TIMING	185	/* R/W */
 #define EXT_CSD_CARD_TYPE	196	/* RO */
+#define EXT_CSD_STRUCTURE	194	/* RO */
 #define EXT_CSD_REV		192	/* RO */
 #define EXT_CSD_SEC_CNT		212	/* RO, 4 bytes */
 #define EXT_CSD_S_A_TIMEOUT	217
-
+#define EXT_CSD_BOOT_SIZE_MULTI	226
 /*
  * EXT_CSD field definitions
  */

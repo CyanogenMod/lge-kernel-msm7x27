@@ -36,7 +36,9 @@
 struct msm_rpmrs_limits {
 	uint32_t pxo;
 	uint32_t l2_cache;
+	uint32_t vdd_mem_upper_bound;
 	uint32_t vdd_mem;
+	uint32_t vdd_dig_upper_bound;
 	uint32_t vdd_dig;
 
 	uint32_t latency_us[NR_CPUS];
@@ -45,13 +47,44 @@ struct msm_rpmrs_limits {
 
 int msm_rpmrs_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
+
+static inline int msm_rpmrs_set_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	unsigned long flags;
+	int rc;
+
+	local_irq_save(flags);
+	rc = msm_rpmrs_set_noirq(ctx, req, count);
+	local_irq_restore(flags);
+
+	return rc;
+}
+
 int msm_rpmrs_clear(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpmrs_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
 
-int msm_rpmrs_flush_buffer(
-	uint32_t sclk_count, struct msm_rpmrs_limits *limits);
+static inline int msm_rpmrs_clear_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	unsigned long flags;
+	int rc;
+
+	local_irq_save(flags);
+	rc = msm_rpmrs_clear_noirq(ctx, req, count);
+	local_irq_restore(flags);
+
+	return rc;
+}
+
+void msm_rpmrs_show_resources(void);
+
 struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 	enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
 	uint32_t sleep_us);
+
+int msm_rpmrs_enter_sleep(
+	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits);
+void msm_rpmrs_exit_sleep(bool from_idle, struct msm_rpmrs_limits *limits);
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H */

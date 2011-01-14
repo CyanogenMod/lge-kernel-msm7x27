@@ -98,6 +98,37 @@ void vidc_1080p_do_sw_reset(enum vidc_1080p_reset init_flag)
 
 void vidc_1080p_release_sw_reset(void)
 {
+	u32 nAxiCtl;
+	u32 nAxiStatus;
+	u32 nRdWrBurst;
+
+	nAxiCtl = VIDC_SETFIELD(1, HWIO_REG_471159_AXI_HALT_REQ_SHFT,
+				HWIO_REG_471159_AXI_HALT_REQ_BMSK);
+
+	VIDC_HWIO_OUT(REG_471159, nAxiCtl);
+
+	do {
+		VIDC_HWIO_IN(REG_437878, &nAxiStatus);
+		nAxiStatus = VIDC_GETFIELD(nAxiStatus,
+					 HWIO_REG_437878_AXI_HALT_ACK_BMSK,
+					 HWIO_REG_437878_AXI_HALT_ACK_SHFT);
+	} while (0x3 != nAxiStatus);
+
+	nAxiCtl  =  VIDC_SETFIELD(1,
+				HWIO_REG_471159_AXI_RESET_SHFT,
+				HWIO_REG_471159_AXI_RESET_BMSK);
+
+	VIDC_HWIO_OUT(REG_471159, nAxiCtl);
+	VIDC_HWIO_OUT(REG_471159, 0);
+
+	nRdWrBurst = VIDC_SETFIELD(8,
+				HWIO_REG_922106_XBAR_OUT_MAX_RD_BURST_SHFT,
+				HWIO_REG_922106_XBAR_OUT_MAX_RD_BURST_BMSK) |
+	VIDC_SETFIELD(8, HWIO_REG_922106_XBAR_OUT_MAX_WR_BURST_SHFT,
+				HWIO_REG_922106_XBAR_OUT_MAX_WR_BURST_BMSK);
+
+	VIDC_HWIO_OUT(REG_922106, nRdWrBurst);
+
 	VIDC_HWIO_OUT(REG_666957, VIDC_1080P_INIT_CH_INST_ID);
 	VIDC_HWIO_OUT(REG_313350, VIDC_1080P_INIT_CH_INST_ID);
 	VIDC_HWIO_OUT(REG_695082, VIDC_1080P_RISC2HOST_CMD_EMPTY);
@@ -296,15 +327,15 @@ void vidc_1080p_set_encode_recon_buffers(u32 recon_buffer,
 			VIDC_1080P_BASE_OFFSET_SHIFT));
 	}
 	if (recon_buffer > 1) {
-		VIDC_HWIO_OUT(REG_61427, (pn_enc_luma[1] >>
+		VIDC_HWIO_OUT(REG_616802, (pn_enc_luma[1] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
-		VIDC_HWIO_OUT(REG_68356, (pn_enc_chroma[1] >>
+		VIDC_HWIO_OUT(REG_833502, (pn_enc_chroma[1] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
 	}
 	if (recon_buffer > 2) {
-		VIDC_HWIO_OUT(REG_616802, (pn_enc_luma[2] >>
+		VIDC_HWIO_OUT(REG_61427, (pn_enc_luma[2] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
-		VIDC_HWIO_OUT(REG_833502, (pn_enc_chroma[2] >>
+		VIDC_HWIO_OUT(REG_68356, (pn_enc_chroma[2] >>
 			VIDC_1080P_BASE_OFFSET_SHIFT));
 	}
 	if (recon_buffer > 3) {

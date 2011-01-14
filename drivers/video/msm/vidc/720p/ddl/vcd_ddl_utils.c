@@ -89,6 +89,10 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 	s32 physical_addr;
 	u32 align_offset;
 
+	DBG("\n%s() IN : phy_addr(%p) ker_addr(%p) size(%u)",
+		__func__, buff_addr->physical_base_addr,
+		buff_addr->virtual_base_addr, (u32)sz);
+
 	if (align == DDL_LINEAR_BUFFER_ALIGN_BYTES) {
 
 		guard_bytes = 31;
@@ -134,18 +138,17 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 	    (u32 *) ((u32) (buff_addr->virtual_base_addr)
 		     + align_offset);
 
-	pr_debug("%s(): phy addr 0x%08x kernel addr 0x%08x\n", __func__,
-		 (u32) buff_addr->align_physical_addr,
-		 (u32) buff_addr->align_physical_addr);
+	DBG("\n%s() OUT : phy_addr(%p) ker_addr(%p) size(%u)", __func__,
+		buff_addr->physical_base_addr, buff_addr->virtual_base_addr,
+		buff_addr->buffer_size);
 
 	return;
 }
 
 void ddl_pmem_free(struct ddl_buf_addr buff_addr)
 {
-	DBG("\n %s(): ddl_pmem_free v_address %p address %p",
-			__func__, buff_addr.physical_base_addr,
-			buff_addr.virtual_base_addr);
+	DBG("\n%s(): phy_addr %p ker_addr %p", __func__,
+		buff_addr.physical_base_addr, buff_addr.virtual_base_addr);
 
 	if (buff_addr.virtual_base_addr)
 		iounmap((void *)buff_addr.virtual_base_addr);
@@ -158,6 +161,7 @@ void ddl_pmem_free(struct ddl_buf_addr buff_addr)
 	}
 
 	buff_addr.buffer_size = 0;
+	buff_addr.physical_base_addr = NULL;
 	buff_addr.virtual_base_addr = NULL;
 }
 #endif

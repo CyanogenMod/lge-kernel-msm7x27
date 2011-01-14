@@ -120,7 +120,7 @@ static struct msm_rpm_map_data msm_rpm_raw_map[] __initdata = {
 
 	MSM_RPM_MAP(MM_FABRIC_HALT_0, MM_FABRIC_HALT, 2),
 	MSM_RPM_MAP(MM_FABRIC_CLOCK_MODE_0, MM_FABRIC_CLOCK_MODE, 3),
-	MSM_RPM_MAP(MM_FABRIC_ARB_0, MM_FABRIC_ARB, 15),
+	MSM_RPM_MAP(MM_FABRIC_ARB_0, MM_FABRIC_ARB, 23),
 
 	MSM_RPM_MAP(SMPS0B_0, SMPS0B, 2),
 	MSM_RPM_MAP(SMPS1B_0, SMPS1B, 2),
@@ -281,6 +281,15 @@ static void __init msm_rpm_populate_map(void)
 	}
 }
 
+static inline void msm_rpm_write_barrier(void)
+{
+	/*
+	 * By the time the read from RPM memory returns, all previous
+	 * writes are guaranteed visible to RPM.
+	 */
+	msm_rpm_read(MSM_RPM_PAGE_STATUS, MSM_RPM_STATUS_ID_VERSION_MAJOR);
+}
+
 static inline void msm_rpm_send_req_interrupt(void)
 {
 	writel(APPS_IPC_RPM, APPS_IPC);
@@ -365,13 +374,23 @@ static irqreturn_t msm_rpm_ack_interrupt(int irq, void *dev_id)
 /*
  * Note: assumes caller has acquired <msm_rpm_irq_lock>.
  */
-static void msm_rpm_busy_wait_for_request_completion(void)
+static void msm_rpm_busy_wait_for_request_completion(
+	bool allow_async_completion)
 {
 	int rc;
 
 	do {
-		while (!gic_is_spi_pending(msm_rpm_platform->irq_ack))
+		while (!gic_is_spi_pending(msm_rpm_platform->irq_ack) &&
+				msm_rpm_request) {
+			if (allow_async_completion)
+				spin_unlock(&msm_rpm_irq_lock);
 			udelay(1);
+			if (allow_async_completion)
+				spin_lock(&msm_rpm_irq_lock);
+		}
+
+		if (!msm_rpm_request)
+			break;
 
 		rc = msm_rpm_process_ack_interrupt();
 		gic_clear_spi_pending(msm_rpm_platform->irq_ack);
@@ -402,7 +421,9 @@ static int msm_rpm_set_exclusive(int ctx,
 	msm_rpm_request_irq_mode.sel_masks_ack = sel_masks_ack;
 	msm_rpm_request_irq_mode.done = &ack;
 
+	spin_lock(&msm_rpm_lock);
 	spin_lock_irqsave(&msm_rpm_irq_lock, flags);
+
 	BUG_ON(msm_rpm_request);
 	msm_rpm_request = &msm_rpm_request_irq_mode;
 
@@ -415,8 +436,12 @@ static int msm_rpm_set_exclusive(int ctx,
 		MSM_RPM_CTRL_REQ_SEL_0, sel_masks, MSM_RPM_SEL_MASK_SIZE);
 	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_REQ_CTX_0, ctx_mask);
 
+	msm_rpm_write_barrier();
 	msm_rpm_send_req_interrupt();
+
 	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
+	spin_unlock(&msm_rpm_lock);
+
 	wait_for_completion(&ack);
 
 	BUG_ON((ctx_mask_ack & ~(msm_rpm_get_ctx_mask(MSM_RPM_CTX_REJECTED)))
@@ -451,10 +476,11 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	msm_rpm_request_poll_mode.sel_masks_ack = sel_masks_ack;
 	msm_rpm_request_poll_mode.done = NULL;
 
-	get_irq_chip(irq)->mask(irq);
 	spin_lock_irqsave(&msm_rpm_irq_lock, flags);
+	get_irq_chip(irq)->mask(irq);
+
 	if (msm_rpm_request) {
-		msm_rpm_busy_wait_for_request_completion();
+		msm_rpm_busy_wait_for_request_completion(true);
 		BUG_ON(msm_rpm_request);
 	}
 
@@ -469,12 +495,14 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 		MSM_RPM_CTRL_REQ_SEL_0, sel_masks, MSM_RPM_SEL_MASK_SIZE);
 	msm_rpm_write(MSM_RPM_PAGE_CTRL, MSM_RPM_CTRL_REQ_CTX_0, ctx_mask);
 
+	msm_rpm_write_barrier();
 	msm_rpm_send_req_interrupt();
-	msm_rpm_busy_wait_for_request_completion();
 
+	msm_rpm_busy_wait_for_request_completion(false);
 	BUG_ON(msm_rpm_request);
-	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
+
 	get_irq_chip(irq)->unmask(irq);
+	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
 
 	BUG_ON((ctx_mask_ack & ~(msm_rpm_get_ctx_mask(MSM_RPM_CTX_REJECTED)))
 		!= ctx_mask);
@@ -725,6 +753,9 @@ EXPORT_SYMBOL(msm_rpm_set);
  */
 int msm_rpm_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 {
+	WARN(!irqs_disabled(), "msm_rpm_set_noirq can only be called "
+		"safely when local irqs are disabled.  Consider using "
+		"msm_rpm_set or msm_rpm_set_nosleep instead.");
 	return msm_rpm_set_common(ctx, req, count, true);
 }
 EXPORT_SYMBOL(msm_rpm_set_noirq);
@@ -761,6 +792,9 @@ EXPORT_SYMBOL(msm_rpm_clear);
  */
 int msm_rpm_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count)
 {
+	WARN(!irqs_disabled(), "msm_rpm_clear_noirq can only be called "
+		"safely when local irqs are disabled.  Consider using "
+		"msm_rpm_clear or msm_rpm_clear_nosleep instead.");
 	return msm_rpm_clear_common(ctx, req, count, true);
 }
 EXPORT_SYMBOL(msm_rpm_clear_noirq);

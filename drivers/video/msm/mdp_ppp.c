@@ -1162,27 +1162,42 @@ static int mdp_ppp_verify_req(struct mdp_blit_req *req)
 {
 	u32 src_width, src_height, dst_width, dst_height;
 
-	if (req == NULL)
+	if (req == NULL) {
+		printk(KERN_ERR "\n%s(): Error in Line %u", __func__,
+			__LINE__);
 		return -1;
+	}
 
 	if (MDP_IS_IMGTYPE_BAD(req->src.format) ||
-	    MDP_IS_IMGTYPE_BAD(req->dst.format))
+	    MDP_IS_IMGTYPE_BAD(req->dst.format)) {
+		printk(KERN_ERR "\n%s(): Error in Line %u", __func__,
+			__LINE__);
 		return -1;
+	}
 
 	if ((req->src.width == 0) || (req->src.height == 0) ||
 	    (req->src_rect.w == 0) || (req->src_rect.h == 0) ||
 	    (req->dst.width == 0) || (req->dst.height == 0) ||
-	    (req->dst_rect.w == 0) || (req->dst_rect.h == 0))
+	    (req->dst_rect.w == 0) || (req->dst_rect.h == 0)) {
+		printk(KERN_ERR "\n%s(): Error in Line %u", __func__,
+			__LINE__);
 
 		return -1;
+	}
 
 	if (((req->src_rect.x + req->src_rect.w) > req->src.width) ||
-	    ((req->src_rect.y + req->src_rect.h) > req->src.height))
+	    ((req->src_rect.y + req->src_rect.h) > req->src.height)) {
+		printk(KERN_ERR "\n%s(): Error in Line %u", __func__,
+			__LINE__);
 		return -1;
+	}
 
 	if (((req->dst_rect.x + req->dst_rect.w) > req->dst.width) ||
-	    ((req->dst_rect.y + req->dst_rect.h) > req->dst.height))
+	    ((req->dst_rect.y + req->dst_rect.h) > req->dst.height)) {
+		printk(KERN_ERR "\n%s(): Error in Line %u", __func__,
+			__LINE__);
 		return -1;
+	}
 
 	/*
 	 * scaling range check
@@ -1221,15 +1236,20 @@ static int mdp_ppp_verify_req(struct mdp_blit_req *req)
 	if (((MDP_SCALE_Q_FACTOR * dst_width) / src_width >
 	     MDP_MAX_X_SCALE_FACTOR)
 	    || ((MDP_SCALE_Q_FACTOR * dst_width) / src_width <
-		MDP_MIN_X_SCALE_FACTOR))
+		MDP_MIN_X_SCALE_FACTOR)) {
+		printk(KERN_ERR "\n%s(): Error in Line %u", __func__,
+			__LINE__);
 		return -1;
+	}
 
 	if (((MDP_SCALE_Q_FACTOR * dst_height) / src_height >
 	     MDP_MAX_Y_SCALE_FACTOR)
 	    || ((MDP_SCALE_Q_FACTOR * dst_height) / src_height <
-		MDP_MIN_Y_SCALE_FACTOR))
+		MDP_MIN_Y_SCALE_FACTOR)) {
+		printk(KERN_ERR "\n%s(): Error in Line %u", __func__,
+			__LINE__);
 		return -1;
-
+	}
 	return 0;
 }
 

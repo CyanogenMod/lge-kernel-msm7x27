@@ -38,6 +38,20 @@
 
 struct mdp4_statistic mdp4_stat;
 
+unsigned is_mdp4_hw_reset(void)
+{
+	unsigned hw_reset = 0;
+
+	/* Only revisions > v2.1 may be reset or powered off/on at runtime */
+	if (mdp_hw_revision > MDP4_REVISION_V2_1) {
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		hw_reset = !inpdw(MDP_BASE + 0x003c);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	}
+
+	return hw_reset;
+}
+
 void mdp4_sw_reset(ulong bits)
 {
 	/* MDP cmd block enable */
@@ -310,6 +324,11 @@ void mdp4_hw_init(void)
 
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
+	/* Mark hardware as initialized. Only revisions > v2.1 have a register
+	 * for tracking core reset status. */
+	if (mdp_hw_revision > MDP4_REVISION_V2_1)
+		outpdw(MDP_BASE + 0x003c, 1);
 }
 
 
@@ -320,8 +339,10 @@ void mdp4_clear_lcdc(void)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	bits = inpdw(MDP_BASE + 0xc0000);
-	if (bits & 0x01) /* enabled already */
+	if (bits & 0x01) { /* enabled already */
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 		return;
+	}
 
 	outpdw(MDP_BASE + 0xc0004, 0);	/* vsync ctrl out */
 	outpdw(MDP_BASE + 0xc0008, 0);	/* vsync period */
@@ -370,7 +391,13 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			that histogram works.*/
 			MDP_OUTP(MDP_BASE + 0x95010, 1);
 			outpdw(MDP_BASE + 0x9501c, INTR_HIST_DONE);
+			if (mdp_is_hist_start == TRUE) {
+				MDP_OUTP(MDP_BASE + 0x95004,
+						mdp_hist.frame_cnt);
+				MDP_OUTP(MDP_BASE + 0x95000, 1);
+			}
 		}
+
 
 		if (isr & INTR_EXTERNAL_INTF_UDERRUN)
 			mdp4_stat.intr_underrun_e++;
@@ -409,7 +436,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		}
 		if (isr & INTR_DMA_S_DONE) {
 			mdp4_stat.intr_dma_s++;
-#ifdef MDP4_MDDI_DMA_SWITCH
+#if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
 			dma = &dma2_data;
 			dma->busy = FALSE;
 			mdp_pipe_ctrl(MDP_DMA_S_BLOCK,
@@ -456,6 +483,12 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 #endif
 #endif
 			}
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+			else if (panel & MDP4_PANEL_DSI_CMD) {
+				dma->busy = FALSE;
+				mdp4_overlay0_done_dsi_cmd();
+			}
+#endif
 #ifdef CONFIG_FB_MSM_MDDI
 			else {	/* MDDI */
 				dma->busy = FALSE;
@@ -507,8 +540,17 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 					memcpy(mdp_hist.b, MDP_BASE + 0x95300,
 						mdp_hist.bin_cnt*4);
 				complete(&mdp_hist_comp);
+				if (mdp_is_hist_start == TRUE) {
+					MDP_OUTP(MDP_BASE + 0x95004,
+							mdp_hist.frame_cnt);
+					MDP_OUTP(MDP_BASE + 0x95000, 1);
+				}
 			}
 		}
+#ifdef CONFIG_FB_MSM_MDDI
+		if (isr & INTR_PRIMARY_READ_PTR)
+			mdp4_mddi_read_ptr_intr();
+#endif
 	}
 
 	mdp_is_in_isr = FALSE;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -38,6 +38,7 @@ extern unsigned int kgsl_drv_log;
 extern unsigned int kgsl_cmd_log;
 extern unsigned int kgsl_ctxt_log;
 extern unsigned int kgsl_mem_log;
+extern unsigned int kgsl_cff_dump_enable;
 
 struct device *kgsl_driver_getdevnode(void);
 int kgsl_debug_init(void);
@@ -83,6 +84,14 @@ int kgsl_debug_init(void);
 			dev_crit(kgsl_driver_getdevnode(), "|%s| " fmt, \
 					__func__, ##args);\
 	} while (0)
+
+#define KGSL_LOG_POSTMORTEM_WRITE(fmt, args...) \
+	do { \
+		dev_crit(kgsl_driver_getdevnode(), fmt, \
+			##args);\
+	} while (0)
+
+#define KGSL_LOG_DUMP(fmt, args...)	pr_err(fmt, ##args)
 
 #define KGSL_DRV_VDBG(fmt, args...) KGSL_LOG_VDBG(kgsl_drv_log, fmt, ##args)
 #define KGSL_DRV_DBG(fmt, args...)  KGSL_LOG_DBG(kgsl_drv_log, fmt, ##args)

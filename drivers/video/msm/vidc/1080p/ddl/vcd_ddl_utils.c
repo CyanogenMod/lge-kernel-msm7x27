@@ -47,7 +47,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 			alloc_size);
 		return NULL;
 	}
-	DDL_MSG_LOW("%s() : pmem alloc physical base addr/sz 0x%x / %d \n",\
+	DDL_MSG_LOW("%s() : pmem alloc physical base addr/sz 0x%x / %d\n",\
 		__func__, (u32)addr->physical_base_addr, alloc_size);
 	addr->virtual_base_addr = (u8 *)ioremap((unsigned long)
 		addr->physical_base_addr, alloc_size);
@@ -56,7 +56,7 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 			(u32)addr->virtual_base_addr);
 		return NULL;
 	}
-	DDL_MSG_LOW("%s() : pmem alloc virtual base addr/sz 0x%x / %d \n",\
+	DDL_MSG_LOW("%s() : pmem alloc virtual base addr/sz 0x%x / %d\n",\
 		__func__, (u32)addr->virtual_base_addr, alloc_size);
 	addr->align_physical_addr = (u8 *) DDL_ALIGN((u32)
 		addr->physical_base_addr, alignment);
@@ -64,9 +64,9 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 			addr->physical_base_addr);
 	addr->align_virtual_addr = addr->virtual_base_addr + offset;
 	addr->buffer_size = sz;
-	DDL_MSG_LOW("%s() : pmem alloc physical aligned addr/sz 0x%x/ %d \n",\
+	DDL_MSG_LOW("%s() : pmem alloc physical aligned addr/sz 0x%x/ %d\n",\
 		__func__, (u32)addr->align_physical_addr, sz);
-	DDL_MSG_LOW("%s() : pmem alloc virtual aligned addr/sz 0x%x / %d \n",\
+	DDL_MSG_LOW("%s() : pmem alloc virtual aligned addr/sz 0x%x / %d\n",\
 		__func__, (u32)addr->virtual_base_addr, sz);
 	return addr->virtual_base_addr;
 }

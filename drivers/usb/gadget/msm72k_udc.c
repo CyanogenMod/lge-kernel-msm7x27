@@ -23,6 +23,7 @@
 #include <linux/list.h>
 
 #include <linux/delay.h>
+#include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
@@ -121,6 +122,9 @@ struct msm_endpoint {
 	struct ept_queue_head *head;
 };
 
+/* PHY status check timer to monitor phy stuck up on reset */
+static struct timer_list phy_status_timer;
+
 static void usb_do_work(struct work_struct *w);
 static void usb_do_remote_wakeup(struct work_struct *w);
 
@@ -138,6 +142,7 @@ static void usb_do_remote_wakeup(struct work_struct *w);
 
 #define USB_CHG_DET_DELAY	msecs_to_jiffies(1000)
 #define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(1000)
+#define PHY_STATUS_CHECK_DELAY	msecs_to_jiffies(1000)
 
 struct usb_info {
 	/* lock for register/queue/device state changes */
@@ -173,14 +178,14 @@ struct usb_info {
 	*/
 	struct msm_endpoint ept[32];
 
-	int *phy_init_seq;
-	void (*phy_reset)(void);
 
 	/* max power requested by selected configuration */
 	unsigned b_max_pow;
 	unsigned chg_current;
 	struct delayed_work chg_det;
 	struct delayed_work chg_stop;
+	struct msm_hsusb_gadget_platform_data *pdata;
+	struct work_struct phy_status_check;
 
 	struct work_struct work;
 	unsigned phy_status;
@@ -217,6 +222,7 @@ static int msm72k_wakeup(struct usb_gadget *_gadget);
 static int msm72k_pullup_internal(struct usb_gadget *_gadget, int is_active);
 static int msm72k_set_halt(struct usb_ep *_ep, int value);
 static void flush_endpoint(struct msm_endpoint *ept);
+static void usb_reset(struct usb_info *ui);
 
 static void msm_hsusb_set_state(enum usb_device_state state)
 {
@@ -287,6 +293,72 @@ static int usb_get_max_power(struct usb_info *ui)
 		return 0;
 
 	return bmaxpow;
+}
+
+static int usb_phy_stuck_check(struct usb_info *ui)
+{
+	/*
+	 * write some value (0xAA) into scratch reg (0x16) and read it back,
+	 * If the read value is same as written value, means PHY is normal
+	 * otherwise, PHY seems to have stuck.
+	 */
+
+	if (ui->xceiv->io_ops->write) {
+		if (ui->xceiv->io_ops->write(ui->xceiv, 0xAA, 0x16) == -1) {
+			dev_dbg(&ui->pdev->dev,
+				"%s(): ulpi write timeout\n", __func__);
+			return -EIO;
+		}
+	}
+	if (ui->xceiv->io_ops->read) {
+		if (ui->xceiv->io_ops->read(ui->xceiv, 0x16) != 0xAA) {
+			dev_dbg(&ui->pdev->dev,
+				"%s(): read value is incorrect\n", __func__);
+			return -EIO;
+		}
+	}
+	return 0;
+}
+
+/*
+ * This function checks the phy status by reading/writing to the
+ * phy scratch register. If the phy is stuck resets the HW
+ * */
+static void usb_phy_stuck_recover(struct work_struct *w)
+{
+	struct usb_info *ui = the_usb_info;
+	struct msm_otg *otg = to_msm_otg(ui->xceiv);
+	unsigned long flags;
+
+	spin_lock_irqsave(&ui->lock, flags);
+	if (ui->gadget.speed != USB_SPEED_UNKNOWN ||
+			ui->usb_state == USB_STATE_NOTATTACHED ||
+			ui->driver == NULL) {
+		spin_unlock_irqrestore(&ui->lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&ui->lock, flags);
+
+	disable_irq(otg->irq);
+	if (usb_phy_stuck_check(ui)) {
+		ui->phy_fail_count++;
+		dev_err(&ui->pdev->dev,
+				"%s():PHY stuck, resetting HW\n", __func__);
+		/*
+		 * PHY seems to have stuck,
+		 * reset the PHY and HW link to recover the PHY
+		 */
+		usb_reset(ui);
+		msm72k_pullup_internal(&ui->gadget, 1);
+	}
+	enable_irq(otg->irq);
+}
+
+static void usb_phy_status_check_timer(unsigned long data)
+{
+	struct usb_info *ui = the_usb_info;
+
+	schedule_work(&ui->phy_status_check);
 }
 
 static void usb_chg_stop(struct work_struct *w)
@@ -554,7 +626,7 @@ int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
 	if (req->busy) {
 		req->req.status = -EBUSY;
 		spin_unlock_irqrestore(&ui->lock, flags);
-		dev_info(&ui->pdev->dev,
+		dev_err(&ui->pdev->dev,
 			"usb_ept_queue_xfer() tried to queue busy request\n");
 		return -EBUSY;
 	}
@@ -562,7 +634,7 @@ int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
 	if (!atomic_read(&ui->configured) && (ept->num != 0)) {
 		req->req.status = -ESHUTDOWN;
 		spin_unlock_irqrestore(&ui->lock, flags);
-		dev_info(&ui->pdev->dev,
+		dev_err(&ui->pdev->dev,
 			"usb_ept_queue_xfer() called while offline\n");
 		return -ESHUTDOWN;
 	}
@@ -939,7 +1011,7 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 			/* XXX pass on more specific error code */
 			req->req.status = -EIO;
 			req->req.actual = 0;
-			dev_info(&ui->pdev->dev,
+			dev_err(&ui->pdev->dev,
 				"ept %d %s error. info=%08x\n",
 			       ept->num,
 			       (ept->flags & EPT_FLAG_IN) ? "in" : "out",
@@ -1022,17 +1094,6 @@ static void flush_endpoint(struct msm_endpoint *ept)
 	flush_endpoint_sw(ept);
 }
 
-static void flush_all_endpoints(struct usb_info *ui)
-{
-	unsigned n;
-
-	flush_endpoint_hw(ui, 0xffffffff);
-
-	for (n = 0; n < 32; n++)
-		flush_endpoint_sw(ui->ept + n);
-}
-
-
 static irqreturn_t usb_interrupt(int irq, void *data)
 {
 	struct usb_info *ui = data;
@@ -1049,16 +1110,22 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	if (n & STS_PCI) {
 		switch (readl(USB_PORTSC) & PORTSC_PSPD_MASK) {
 		case PORTSC_PSPD_FS:
-			dev_info(&ui->pdev->dev, "portchange USB_SPEED_FULL\n");
+			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_FULL\n");
+			spin_lock_irqsave(&ui->lock, flags);
 			ui->gadget.speed = USB_SPEED_FULL;
+			spin_unlock_irqrestore(&ui->lock, flags);
 			break;
 		case PORTSC_PSPD_LS:
-			dev_info(&ui->pdev->dev, "portchange USB_SPEED_LOW\n");
+			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_LOW\n");
+			spin_lock_irqsave(&ui->lock, flags);
 			ui->gadget.speed = USB_SPEED_LOW;
+			spin_unlock_irqrestore(&ui->lock, flags);
 			break;
 		case PORTSC_PSPD_HS:
-			dev_info(&ui->pdev->dev, "portchange USB_SPEED_HIGH\n");
+			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_HIGH\n");
+			spin_lock_irqsave(&ui->lock, flags);
 			ui->gadget.speed = USB_SPEED_HIGH;
+			spin_unlock_irqrestore(&ui->lock, flags);
 			break;
 		}
 		if (atomic_read(&ui->configured)) {
@@ -1083,8 +1150,10 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	}
 
 	if (n & STS_URI) {
-		dev_info(&ui->pdev->dev, "reset\n");
-
+		dev_dbg(&ui->pdev->dev, "reset\n");
+		spin_lock_irqsave(&ui->lock, flags);
+		ui->gadget.speed = USB_SPEED_UNKNOWN;
+		spin_unlock_irqrestore(&ui->lock, flags);
 #ifdef CONFIG_USB_OTG
 		/* notify otg to clear A_BIDL_ADIS timer */
 		if (ui->gadget.is_a_peripheral)
@@ -1114,8 +1183,6 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 			/* Defer sending offline uevent to userspace */
 			atomic_set(&ui->offline_pending, 1);
 
-			flush_all_endpoints(ui);
-
 			/* XXX: we can't seem to detect going offline,
 			 * XXX:  so deconfigure on reset for the time being
 			 */
@@ -1124,11 +1191,18 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 					"usb: notify offline\n");
 				ui->driver->disconnect(&ui->gadget);
 			}
+			/* cancel pending ep0 transactions */
+			flush_endpoint(&ui->ep0out);
+			flush_endpoint(&ui->ep0in);
+
 		}
+		/* Start phy stuck timer */
+		if (ui->pdata && ui->pdata->is_phy_status_timer_on)
+			mod_timer(&phy_status_timer, PHY_STATUS_CHECK_DELAY);
 	}
 
 	if (n & STS_SLI) {
-		dev_info(&ui->pdev->dev, "suspend\n");
+		dev_dbg(&ui->pdev->dev, "suspend\n");
 
 		spin_lock_irqsave(&ui->lock, flags);
 		ui->usb_state = USB_STATE_SUSPENDED;
@@ -1187,6 +1261,8 @@ static void usb_prepare(struct usb_info *ui)
 	INIT_DELAYED_WORK(&ui->chg_det, usb_chg_detect);
 	INIT_DELAYED_WORK(&ui->chg_stop, usb_chg_stop);
 	INIT_DELAYED_WORK(&ui->rw_work, usb_do_remote_wakeup);
+	if (ui->pdata && ui->pdata->is_phy_status_timer_on)
+		INIT_WORK(&ui->phy_status_check, usb_phy_stuck_recover);
 }
 
 static void usb_reset(struct usb_info *ui)
@@ -1197,8 +1273,14 @@ static void usb_reset(struct usb_info *ui)
 
 	atomic_set(&ui->running, 0);
 
-	/* Reset link and phy */
-	otg->reset(ui->xceiv, 1);
+	/*
+	 * PHY reset takes minimum 100 msec. Hence reset only link
+	 * during HNP. Reset PHY and link in B-peripheral mode.
+	 */
+	if (ui->gadget.is_a_peripheral)
+		otg->reset(ui->xceiv, 0);
+	else
+		otg->reset(ui->xceiv, 1);
 
 	/* set usb controller interrupt threshold to zero*/
 	writel((readl(USB_USBCMD) & ~USBCMD_ITC_MASK) | USBCMD_ITC(0),
@@ -1211,13 +1293,14 @@ static void usb_reset(struct usb_info *ui)
 	/* marking us offline will cause ept queue attempts to fail */
 	atomic_set(&ui->configured, 0);
 
-	/* terminate any pending transactions */
-	flush_all_endpoints(ui);
-
 	if (ui->driver) {
 		dev_dbg(&ui->pdev->dev, "usb: notify offline\n");
 		ui->driver->disconnect(&ui->gadget);
 	}
+
+	/* cancel pending ep0 transactions */
+	flush_endpoint(&ui->ep0out);
+	flush_endpoint(&ui->ep0in);
 
 	/* enable interrupts */
 	writel(STS_URI | STS_SLI | STS_UI | STS_PCI, USB_USBINTR);
@@ -1294,7 +1377,7 @@ static void usb_do_work(struct work_struct *w)
 
 				pm_runtime_get_noresume(&ui->pdev->dev);
 				pm_runtime_resume(&ui->pdev->dev);
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: IDLE -> ONLINE\n");
 				usb_reset(ui);
 				ret = request_irq(otg->irq, usb_interrupt,
@@ -1341,12 +1424,21 @@ static void usb_do_work(struct work_struct *w)
 				if (!ui->gadget.is_a_peripheral)
 					cancel_delayed_work_sync(&ui->chg_det);
 
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: ONLINE -> OFFLINE\n");
 
 				atomic_set(&ui->running, 0);
 				atomic_set(&ui->remote_wakeup, 0);
 				atomic_set(&ui->configured, 0);
+
+				if (ui->driver) {
+					dev_dbg(&ui->pdev->dev,
+						"usb: notify offline\n");
+					ui->driver->disconnect(&ui->gadget);
+				}
+				/* cancel pending ep0 transactions */
+				flush_endpoint(&ui->ep0out);
+				flush_endpoint(&ui->ep0in);
 
 				/* synchronize with irq context */
 				spin_lock_irqsave(&ui->lock, iflags);
@@ -1370,14 +1462,6 @@ static void usb_do_work(struct work_struct *w)
 					ui->irq = 0;
 				}
 
-				/* terminate any transactions, etc */
-				flush_all_endpoints(ui);
-
-				if (ui->driver) {
-					dev_dbg(&ui->pdev->dev,
-						"usb: notify offline\n");
-					ui->driver->disconnect(&ui->gadget);
-				}
 
 				switch_set_state(&ui->sdev, 0);
 
@@ -1423,12 +1507,12 @@ static void usb_do_work(struct work_struct *w)
 				break;
 			}
 			if (flags & USB_FLAG_RESET) {
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: ONLINE -> RESET\n");
 				msm72k_pullup_internal(&ui->gadget, 0);
 				usb_reset(ui);
 				msm72k_pullup_internal(&ui->gadget, 1);
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: RESET -> ONLINE\n");
 				break;
 			}
@@ -1442,7 +1526,7 @@ static void usb_do_work(struct work_struct *w)
 
 				pm_runtime_get_noresume(&ui->pdev->dev);
 				pm_runtime_resume(&ui->pdev->dev);
-				dev_info(&ui->pdev->dev,
+				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: OFFLINE -> ONLINE\n");
 
 				usb_reset(ui);
@@ -1487,8 +1571,7 @@ void msm_hsusb_set_vbus_state(int online)
 	struct usb_info *ui = the_usb_info;
 
 	if (!ui) {
-		dev_err(&ui->pdev->dev, "msm_hsusb_set_vbus_state called"
-			" before driver initialized\n");
+		pr_err("%s called before driver initialized\n", __func__);
 		return;
 	}
 
@@ -1501,6 +1584,7 @@ void msm_hsusb_set_vbus_state(int online)
 		ui->usb_state = USB_STATE_POWERED;
 		ui->flags |= USB_FLAG_VBUS_ONLINE;
 	} else {
+		ui->gadget.speed = USB_SPEED_UNKNOWN;
 		ui->usb_state = USB_STATE_NOTATTACHED;
 		ui->flags |= USB_FLAG_VBUS_OFFLINE;
 	}
@@ -1940,17 +2024,17 @@ static int msm72k_pullup_internal(struct usb_gadget *_gadget, int is_active)
 static int msm72k_pullup(struct usb_gadget *_gadget, int is_active)
 {
 	struct usb_info *ui = container_of(_gadget, struct usb_info, gadget);
+	unsigned long flags;
+
 
 	atomic_set(&ui->softconnect, is_active);
 
-	/* Reset PHY before enabling pull-up to workaround
-	 * PHY stuck issue during mutiple times of function
-	 * enable/disable.
-	 */
-	if (is_active)
-		usb_reset(ui);
-	else
-		atomic_set(&ui->offline_pending, 1);
+	spin_lock_irqsave(&ui->lock, flags);
+	if (ui->usb_state == USB_STATE_NOTATTACHED || ui->driver == NULL) {
+		spin_unlock_irqrestore(&ui->lock, flags);
+		return 0;
+	}
+	spin_unlock_irqrestore(&ui->lock, flags);
 
 	msm72k_pullup_internal(_gadget, is_active);
 
@@ -2010,14 +2094,12 @@ static int msm72k_udc_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 static int msm72k_set_selfpowered(struct usb_gadget *_gadget, int set)
 {
 	struct usb_info *ui = container_of(_gadget, struct usb_info, gadget);
-	struct msm_hsusb_gadget_platform_data *pdata =
-				ui->pdev->dev.platform_data;
 	unsigned long flags;
 	int ret = 0;
 
 	spin_lock_irqsave(&ui->lock, flags);
 	if (set) {
-		if (pdata && pdata->self_powered)
+		if (ui->pdata && ui->pdata->self_powered)
 			atomic_set(&ui->self_powered, 1);
 		else
 			ret = -EOPNOTSUPP;
@@ -2194,7 +2276,6 @@ static struct attribute_group otg_attr_grp = {
 static int msm72k_probe(struct platform_device *pdev)
 {
 	struct usb_info *ui;
-	struct msm_hsusb_gadget_platform_data *pdata;
 	struct msm_otg *otg;
 	int retval;
 
@@ -2204,12 +2285,7 @@ static int msm72k_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ui->pdev = pdev;
-
-	if (pdev->dev.platform_data) {
-		pdata = pdev->dev.platform_data;
-		ui->phy_reset = pdata->phy_reset;
-		ui->phy_init_seq = pdata->phy_init_seq;
-	}
+	ui->pdata = pdev->dev.platform_data;
 
 	ui->buf = dma_alloc_coherent(&pdev->dev, 4096, &ui->dma, GFP_KERNEL);
 	if (!ui->buf)
@@ -2275,6 +2351,9 @@ static int msm72k_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	/* Setup phy stuck timer */
+	if (ui->pdata && ui->pdata->is_phy_status_timer_on)
+		setup_timer(&phy_status_timer, usb_phy_status_check_timer, 0);
 	return 0;
 }
 
@@ -2321,7 +2400,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 
 	retval = driver->bind(&ui->gadget);
 	if (retval) {
-		dev_info(&ui->pdev->dev, "bind to driver %s --> error %d\n",
+		dev_err(&ui->pdev->dev, "bind to driver %s --> error %d\n",
 				driver->driver.name, retval);
 		device_del(&ui->gadget.dev);
 		goto fail;
@@ -2329,20 +2408,17 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_wakeup);
 	if (retval != 0)
-		dev_info(&ui->pdev->dev, "failed to create sysfs entry:"
+		dev_err(&ui->pdev->dev, "failed to create sysfs entry:"
 			"(wakeup) error: (%d)\n", retval);
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_usb_state);
 	if (retval != 0)
-		dev_info(&ui->pdev->dev, "failed to create sysfs entry:"
+		dev_err(&ui->pdev->dev, "failed to create sysfs entry:"
 			" (usb_state) error: (%d)\n", retval);
 
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_usb_speed);
 	if (retval != 0)
-		dev_info(&ui->pdev->dev, "failed to create sysfs entry:"
+		dev_err(&ui->pdev->dev, "failed to create sysfs entry:"
 			" (usb_speed) error: (%d)\n", retval);
-
-	dev_info(&ui->pdev->dev, "registered gadget driver '%s'\n",
-			driver->driver.name);
 
 	retval = device_create_file(&ui->gadget.dev, &dev_attr_chg_type);
 	if (retval != 0)
@@ -2354,6 +2430,9 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		dev_err(&ui->pdev->dev,
 			"failed to create sysfs entry(chg_current):"
 			"err:(%d)\n", retval);
+
+	dev_dbg(&ui->pdev->dev, "registered gadget driver '%s'\n",
+			driver->driver.name);
 	usb_start(ui);
 
 	return 0;

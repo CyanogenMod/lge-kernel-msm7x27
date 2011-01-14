@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,6 +34,6 @@
 void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type);
 void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type);
 void diagmem_init(struct diagchar_dev *driver);
-void diagmem_exit(struct diagchar_dev *driver);
+void diagmem_exit(struct diagchar_dev *driver, int pool_type);
 
 #endif

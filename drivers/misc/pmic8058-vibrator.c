@@ -309,4 +309,4 @@ module_exit(pmic8058_vib_exit);
 
 MODULE_ALIAS("platform:pmic8058_vib");
 MODULE_DESCRIPTION("PMIC8058 vibrator driver");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");

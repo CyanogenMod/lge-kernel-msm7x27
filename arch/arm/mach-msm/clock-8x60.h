@@ -34,6 +34,7 @@
 
 enum {
 	/* Peripheral Clocks */
+	L_CE2_CLK,
 	L_GSBI1_UART_CLK,
 	L_GSBI2_UART_CLK,
 	L_GSBI3_UART_CLK,
@@ -59,6 +60,7 @@ enum {
 	L_GSBI11_QUP_CLK,
 	L_GSBI12_QUP_CLK,
 	L_PDM_CLK,
+	L_PMEM_CLK,
 	L_PRNG_CLK,
 	L_SDC1_CLK,
 	L_SDC2_CLK,
@@ -67,7 +69,7 @@ enum {
 	L_SDC5_CLK,
 	L_TSIF_REF_CLK,
 	L_TSSC_CLK,
-	L_USB_HS_XCVR_CLK,
+	L_USB_HS1_XCVR_CLK,
 	L_USB_PHY0_CLK,
 	L_USB_FS1_SRC_CLK,
 	L_USB_FS1_XCVR_CLK,
@@ -101,11 +103,19 @@ enum {
 	L_GSBI10_P_CLK,
 	L_GSBI11_P_CLK,
 	L_GSBI12_P_CLK,
+	L_PPSS_P_CLK,
 	L_TSIF_P_CLK,
 	L_USB_FS1_P_CLK,
 	L_USB_FS2_P_CLK,
+	L_USB_HS1_P_CLK,
+	L_SDC1_P_CLK,
+	L_SDC2_P_CLK,
+	L_SDC3_P_CLK,
+	L_SDC4_P_CLK,
+	L_SDC5_P_CLK,
 
 	/* Multimedia Clocks */
+	L_AMP_CLK,
 	L_CAM_CLK,
 	L_CSI_SRC_CLK,
 	L_CSI0_CLK,
@@ -116,6 +126,7 @@ enum {
 	L_GFX2D1_CLK,
 	L_GFX3D_CLK,
 	L_IJPEG_CLK,
+	L_IMEM_CLK,
 	L_JPEGD_CLK,
 	L_MDP_CLK,
 	L_MDP_VSYNC_CLK,
@@ -129,7 +140,6 @@ enum {
 	L_VCODEC_CLK,
 	L_MDP_TV_CLK,
 	L_HDMI_TV_CLK,
-	L_DSUB_TV_CLK,
 	L_HDMI_APP_CLK,
 	L_VPE_CLK,
 	L_VFE_CLK,
@@ -137,28 +147,34 @@ enum {
 	L_CSI1_VFE_CLK,
 	L_GMEM_AXI_CLK,
 	L_JPEGD_AXI_CLK,
+	L_VCODEC_AXI_CLK,
 	L_VFE_AXI_CLK,
 	L_IJPEG_AXI_CLK,
 	L_MDP_AXI_CLK,
 	L_ROT_AXI_CLK,
-	L_VCODEC_AXI_CLK,
 	L_VPE_AXI_CLK,
+
+	/* Multimedia Fast Peripheral Bus Clocks */
 	L_AMP_P_CLK,
 	L_CSI0_P_CLK,
 	L_CSI1_P_CLK,
 	L_DSI_M_P_CLK,
-	L_FAB_P_CLK,
-	L_IJPEG_P_CLK,
-	L_JPEGD_P_CLK,
-	L_MDP_P_CLK,
-	L_ROT_P_CLK,
-	L_TV_ENC_P_CLK,
-	L_VFE_P_CLK,
-	L_VPE_P_CLK,
+	L_DSI_S_P_CLK,
 	L_GFX2D0_P_CLK,
 	L_GFX2D1_P_CLK,
 	L_GFX3D_P_CLK,
+	L_HDMI_M_P_CLK,
+	L_HDMI_S_P_CLK,
+	L_IJPEG_P_CLK,
+	L_IMEM_P_CLK,
+	L_JPEGD_P_CLK,
+	L_MDP_P_CLK,
+	L_ROT_P_CLK,
+	L_SMMU_P_CLK,
+	L_TV_ENC_P_CLK,
 	L_VCODEC_P_CLK,
+	L_VFE_P_CLK,
+	L_VPE_P_CLK,
 
 	/* LPA Clocks */
 	L_MI2S_SRC_CLK,
@@ -202,7 +218,9 @@ struct pll_rate {
 	const uint32_t	n_val;
 	const uint32_t	vco;
 	const uint32_t	post_div;
+	const uint32_t	i_bits;
 };
+#define PLL_RATE(l, m, n, v, d, i) { l, m, n, v, (d>>1), i }
 
 extern struct clk_ops soc_clk_ops_8x60;
 #define CLK_8X60(clk_name, clk_id, clk_dev, clk_flags) {	\

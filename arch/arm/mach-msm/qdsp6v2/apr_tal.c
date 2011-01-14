@@ -32,6 +32,7 @@
 #include <mach/msm_smd.h>
 
 #include "apr_tal.h"
+#include "../clock-8x60.h"
 
 static char *svc_names[APR_DEST_MAX][APR_CLIENT_MAX] = {
 	{
@@ -46,36 +47,47 @@ static char *svc_names[APR_DEST_MAX][APR_CLIENT_MAX] = {
 
 struct apr_svc_ch_dev apr_svc_ch[APR_DL_MAX][APR_DEST_MAX][APR_CLIENT_MAX];
 
-int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data, int len)
+int __apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data, int len)
 {
 	int w_len;
-	int rc;
 	unsigned long flags;
 
-	if (!apr_ch->ch)
-		return -EINVAL;
 
-	mutex_lock(&apr_ch->m_lock);
+	spin_lock_irqsave(&apr_ch->w_lock, flags);
 	if (smd_write_avail(apr_ch->ch) < len) {
-		pr_info("apr_tal: Waiting for write buf to available\n");
-		rc = wait_event_timeout(apr_ch->wait,
-			(smd_write_avail(apr_ch->ch) >= len), 5 * HZ);
-		if (rc == 0) {
-			pr_err("apr_tal:TIMEOUT for write\n");
-			return -ETIMEDOUT;
-		}
+		spin_unlock_irqrestore(&apr_ch->w_lock, flags);
+		return -EAGAIN;
 	}
-	spin_lock_irqsave(&apr_ch->lock, flags);
+
 	w_len = smd_write(apr_ch->ch, data, len);
+	spin_unlock_irqrestore(&apr_ch->w_lock, flags);
 	pr_debug("apr_tal:w_len = %d\n", w_len);
-	spin_unlock_irqrestore(&apr_ch->lock, flags);
-	mutex_unlock(&apr_ch->m_lock);
 
 	if (w_len != len) {
 		pr_err("apr_tal: Error in write\n");
 		return -ENETRESET;
 	}
 	return w_len;
+}
+
+int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data, int len)
+{
+	int rc = 0, retries = 0;
+
+	if (!apr_ch->ch)
+		return -EINVAL;
+
+	do {
+		if (rc == -EAGAIN)
+			udelay(50);
+
+		rc = __apr_tal_write(apr_ch, data, len);
+	} while (rc == -EAGAIN && retries++ < 300);
+
+	if (rc == -EAGAIN)
+		pr_err("apr_tal: TIMEOUT for write\n");
+
+	return rc;
 }
 
 static void apr_tal_notify(void *priv, unsigned event)
@@ -221,6 +233,7 @@ static int apr_smd_probe(struct platform_device *pdev)
 		wake_up(&apr_svc_ch[APR_DL_SMD][dest][clnt].dest);
 	} else if (pdev->id == APR_DEST_QDSP6) {
 		pr_info("apr_tal:Q6 Is Up\n");
+		local_src_disable(PLL_4);
 		dest = APR_DEST_QDSP6;
 		clnt = APR_CLIENT_AUDIO;
 		apr_svc_ch[APR_DL_SMD][dest][clnt].dest_state = 1;
@@ -256,6 +269,7 @@ static int __init apr_tal_init(void)
 				init_waitqueue_head(&apr_svc_ch[i][j][k].wait);
 				init_waitqueue_head(&apr_svc_ch[i][j][k].dest);
 				spin_lock_init(&apr_svc_ch[i][j][k].lock);
+				spin_lock_init(&apr_svc_ch[i][j][k].w_lock);
 				mutex_init(&apr_svc_ch[i][j][k].m_lock);
 			}
 	platform_driver_register(&apr_q6_driver);

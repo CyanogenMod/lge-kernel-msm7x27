@@ -31,6 +31,7 @@
 #include "smd_private.h"
 #endif
 #include "timer.h"
+#include "clock-8x60.h"
 
 enum {
 	MSM_TIMER_DEBUG_SYNC = 1U << 0,
@@ -95,8 +96,11 @@ enum {
 
 #if defined(CONFIG_ARCH_QSD8X50)
 #define DGT_HZ 4800000	/* Uses TCXO/4 (19.2 MHz / 4) */
-#elif defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60)
+#elif defined(CONFIG_ARCH_MSM7X30)
 #define DGT_HZ 6144000	/* Uses LPXO/4 (24.576 MHz / 4) */
+#elif defined(CONFIG_ARCH_MSM8X60)
+/* Uses PXO/4 (24.576 MHz / 4) on V1, (27 MHz / 4) on V2 */
+#define DGT_HZ 6750000
 #else
 #define DGT_HZ 19200000	/* Uses TCXO (19.2 MHz) */
 #endif
@@ -966,6 +970,15 @@ unsigned long long sched_clock(void)
 	return clocksource_cyc2ns(ticks, cs->mult, cs->shift);
 }
 
+#ifdef CONFIG_ARCH_MSM_SCORPIONMP
+int read_current_timer(unsigned long *timer_val)
+{
+	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
+	*timer_val = msm_read_timer_count(dgt, GLOBAL_TIMER);
+	return 0;
+}
+#endif
+
 static void __init msm_timer_init(void)
 {
 	int i;
@@ -973,6 +986,9 @@ static void __init msm_timer_init(void)
 
 #ifdef CONFIG_ARCH_MSM8X60
 	writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
+
+	msm_clocks[MSM_CLOCK_DGT].freq =
+	  pxo_is_27mhz() ? 6750000 >> MSM_DGT_SHIFT : 6144000 >> MSM_DGT_SHIFT;
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(msm_clocks); i++) {
@@ -1020,6 +1036,7 @@ static void __init msm_timer_init(void)
 	}
 #ifdef CONFIG_ARCH_MSM_SCORPIONMP
 	writel(1, msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
+	set_delay_fn(read_current_timer_delay_loop);
 #endif
 }
 

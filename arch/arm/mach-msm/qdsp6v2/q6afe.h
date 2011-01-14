@@ -27,17 +27,16 @@
  */
 #ifndef __Q6AFE_H__
 #define __Q6AFE_H__
-#include "apr_audio.h"
+#include <mach/qdsp6v2/apr_audio.h>
 
 #define MSM_AFE_MONO		0
 #define MSM_AFE_MONO_RIGHT	1
 #define MSM_AFE_MONO_LEFT	2
 #define MSM_AFE_STEREO		3
 
-int afe_open_pcmif(struct afe_port_pcm_cfg cfg);
-int afe_open(int port_id, int rate, int channel_mode);
+int afe_open(u16 port_id, union afe_port_config *afe_config, int rate);
 int afe_close(int port_id);
 int afe_loopback(u16 enable, u16 rx_port, u16 tx_port);
-
+int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain);
 
 #endif /* __Q6AFE_H__ */

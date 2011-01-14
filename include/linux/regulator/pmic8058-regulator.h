@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,6 +28,8 @@
 
 #ifndef __PMIC8058_REGULATOR_H__
 #define __PMIC8058_REGULATOR_H__
+
+#include <linux/regulator/machine.h>
 
 /* Low dropout regulator ids */
 #define PM8058_VREG_ID_L0	0
@@ -72,5 +74,24 @@
 #define PM8058_VREG_ID_NCP	33
 
 #define PM8058_VREG_MAX		(PM8058_VREG_ID_NCP + 1)
+
+#define PM8058_VREG_PIN_CTRL_NONE	0x00
+#define PM8058_VREG_PIN_CTRL_A0		0x01
+#define PM8058_VREG_PIN_CTRL_A1		0x02
+#define PM8058_VREG_PIN_CTRL_D0		0x04
+#define PM8058_VREG_PIN_CTRL_D1		0x08
+
+/* Pin ctrl enables/disables or toggles high/low power modes */
+enum pm8058_vreg_pin_fn {
+	PM8058_VREG_PIN_FN_ENABLE = 0,
+	PM8058_VREG_PIN_FN_MODE,
+};
+
+struct pm8058_vreg_pdata {
+	struct regulator_init_data	init_data;
+	unsigned			pull_down_enable;
+	unsigned			pin_ctrl;
+	enum pm8058_vreg_pin_fn		pin_fn;
+};
 
 #endif

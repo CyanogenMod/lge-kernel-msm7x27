@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: siutils.h,v 13.197.4.2.4.3.8.13 2010/03/10 21:34:34 Exp $
+ * $Id: siutils.h,v 13.197.4.2.4.3.8.16 2010/06/23 21:36:05 Exp $
  */
 
 
@@ -225,7 +225,6 @@ extern void si_pci_up(si_t *sih);
 extern void si_pcie_war_ovr_disable(si_t *sih);
 extern void si_pcie_extendL1timer(si_t *sih, bool extend);
 extern int si_pci_fixcfg(si_t *sih);
-void si_pmu_res_4319_swctrl_war(si_t *sih, osl_t *osh, bool enable);
 
 
 

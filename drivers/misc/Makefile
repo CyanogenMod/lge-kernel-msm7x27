@@ -52,3 +52,6 @@ obj-$(CONFIG_MSM_MEMORY_LOW_POWER_MODE_SUSPEND_DEEP_POWER_DOWN) \
 
 obj-$(CONFIG_LGE_AT_CMD_DEVICE) += lge_ats_at_class.o
 obj-$(CONFIG_LGE_AT_CMD_DEVICE) += lge_ats_at.o
+
+obj-$(CONFIG_PMIC8058_XOADC) += pmic8058-xoadc.o
+obj-$(CONFIG_PMIC8058_MISC) += pmic8058-misc.o

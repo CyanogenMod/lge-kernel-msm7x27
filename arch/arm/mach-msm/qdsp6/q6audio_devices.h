@@ -304,6 +304,24 @@ static struct q6_device_info q6_audio_devices[] = {
 		.hw	= Q6_HW_SPEAKER,
 	},
 	{
+		.id	= ADSP_AUDIO_DEVICE_ID_AUXPCM_RX,
+		.cad_id	= CAD_HW_DEVICE_ID_BT_SCO_SPKR,
+		.path	= 0, /* XXX */
+		.rate   = 8000,
+		.dir	= Q6_RX,
+		.codec	= Q6_ECODEC_RX,
+		.hw	= Q6_HW_BT_SCO,
+	},
+	{
+		.id	= ADSP_AUDIO_DEVICE_ID_AUXPCM_TX,
+		.cad_id	= CAD_HW_DEVICE_ID_BT_SCO_MIC,
+		.path	= 0, /* XXX */
+		.rate   = 8000,
+		.dir	= Q6_TX,
+		.codec	= Q6_ECODEC_TX,
+		.hw	= Q6_HW_BT_SCO,
+	},
+	{
 		.id	= 0,
 		.cad_id	= 0,
 		.path	= 0,

@@ -33,6 +33,8 @@
 
 #include "vidc.h"
 
+#define VIDC_1080P_DEC_DPB_RESET_VALUE 0xFFFFFFF8
+
 enum vidc_1080P_pix_cache_port_sel{
 	VIDC_1080P_PIX_CACHE_PORT_A = 0,
 	VIDC_1080P_PIX_CACHE_PORT_B = 1,
@@ -71,6 +73,7 @@ void vidc_pix_cache_sw_reset(void);
 void vidc_pix_cache_init_luma_chroma_base_addr(u32 dpb,
 	u32 *pn_dpb_luma_offset, u32 *pn_dpb_chroma_offset);
 void vidc_pix_cache_set_frame_range(u32 luma_size, u32 chroma_size);
+void vidc_pix_cache_set_frame_size(u32 frame_width, u32 frame_height);
 void vidc_pix_cache_init_config(
 	struct vidc_1080P_pix_cache_config *config);
 void vidc_pix_cache_set_prefetch_page_limit(u32 page_size_limit);

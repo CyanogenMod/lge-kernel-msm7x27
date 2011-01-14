@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,7 +398,7 @@ static void lcdc_toshiba_set_backlight(struct msm_fb_data_type *mfd)
 				__func__);
 }
 
-static int __init toshiba_probe(struct platform_device *pdev)
+static int __devinit toshiba_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		lcdc_toshiba_pdata = pdev->dev.platform_data;
@@ -475,13 +475,14 @@ static int __init lcdc_toshiba_panel_init(void)
 	pinfo = &toshiba_panel_data.panel_info;
 	pinfo->xres = 480;
 	pinfo->yres = 800;
+	MSM_FB_SINGLE_MODE_PANEL(pinfo);
 	pinfo->type = LCDC_PANEL;
 	pinfo->pdest = DISPLAY_1;
 	pinfo->wait_cycle = 0;
 	pinfo->bpp = 18;
 	pinfo->fb_num = 2;
 	/* 30Mhz mdp_lcdc_pclk and mdp_lcdc_pad_pcl */
-	pinfo->clk_rate = 32691360;
+	pinfo->clk_rate = 30720000;
 	pinfo->bl_max = 15;
 	pinfo->bl_min = 1;
 

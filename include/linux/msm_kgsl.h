@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,9 +30,10 @@
 #define _MSM_KGSL_H
 
 /*context flags */
-#define KGSL_CONTEXT_SAVE_GMEM		1
+#define KGSL_CONTEXT_SAVE_GMEM	1
 #define KGSL_CONTEXT_NO_GMEM_ALLOC	2
 #define KGSL_CONTEXT_SUBMIT_IB_LIST	4
+#define KGSL_CONTEXT_CTX_SWITCH	8
 
 /* Memory allocayion flags */
 #define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
@@ -47,12 +48,14 @@
 #define KGSL_FLAGS_RESERVED0   0x00000020
 #define KGSL_FLAGS_RESERVED1   0x00000040
 #define KGSL_FLAGS_RESERVED2   0x00000080
+#define KGSL_FLAGS_SOFT_RESET  0x00000100
 
 /* device id */
 enum kgsl_deviceid {
 	KGSL_DEVICE_YAMATO	= 0x00000000,
-	KGSL_DEVICE_G12		= 0x00000001,
-	KGSL_DEVICE_MAX		= 0x00000002
+	KGSL_DEVICE_2D0		= 0x00000001,
+	KGSL_DEVICE_2D1		= 0x00000002,
+	KGSL_DEVICE_MAX		= 0x00000003
 };
 
 enum kgsl_user_mem_type {
@@ -119,6 +122,9 @@ struct kgsl_shadowprop {
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
+#ifdef __KERNEL__
+#include <mach/msm_bus.h>
+
 struct kgsl_platform_data {
 	unsigned int high_axi_2d;
 	unsigned int high_axi_3d;
@@ -129,12 +135,24 @@ struct kgsl_platform_data {
 	unsigned int min_grp3d_freq;
 	int (*set_grp3d_async)(void);
 	const char *imem_clk_name;
+	const char *imem_pclk_name;
 	const char *grp3d_clk_name;
+	const char *grp3d_pclk_name;
 	const char *grp2d0_clk_name;
+	const char *grp2d0_pclk_name;
 	const char *grp2d1_clk_name;
+	const char *grp2d1_pclk_name;
 	unsigned int idle_timeout_2d;
 	unsigned int idle_timeout_3d;
+	struct msm_bus_scale_pdata *grp3d_bus_scale_table;
+	struct msm_bus_scale_pdata *grp2d0_bus_scale_table;
+	struct msm_bus_scale_pdata *grp2d1_bus_scale_table;
+	unsigned int nap_allowed;
+	unsigned int pt_va_size;
+	unsigned int pt_max_count;
 };
+
+#endif
 
 /* structure holds list of ibs */
 struct kgsl_ibdesc {

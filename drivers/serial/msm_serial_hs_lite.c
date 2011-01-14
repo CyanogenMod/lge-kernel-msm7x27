@@ -773,11 +773,14 @@ static void msm_hsl_config_port(struct uart_port *port, int flags)
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 	if (flags & UART_CONFIG_TYPE) {
 		port->type = PORT_MSM;
-		msm_hsl_request_port(port);
+		if (msm_hsl_request_port(port))
+			return;
 	}
 	if (msm_serial_hsl_has_gsbi())
-		iowrite32(GSBI_PROTOCOL_UART, msm_hsl_port->mapped_gsbi +
-			  GSBI_CONTROL_ADDR);
+		if ((ioread32(msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR) &
+			GSBI_PROTOCOL_I2C_UART) != GSBI_PROTOCOL_I2C_UART)
+			iowrite32(GSBI_PROTOCOL_I2C_UART,
+				msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR);
 }
 
 static int msm_hsl_verify_port(struct uart_port *port,
@@ -867,24 +870,28 @@ static inline struct uart_port *get_port_from_line(unsigned int line)
 /*
  *  Wait for transmitter & holding register to empty
  *  Derived from wait_for_xmitr in 8250 serial driver by Russell King  */
-static inline void wait_for_xmitr(struct uart_port *port, int bits)
+void wait_for_xmitr(struct uart_port *port, int bits)
 {
-	if (!(msm_hsl_read(port, UARTDM_SR_ADDR) & UARTDM_SR_TXEMT_BMSK))
+	if (!(msm_hsl_read(port, UARTDM_SR_ADDR) & UARTDM_SR_TXEMT_BMSK)) {
 		while ((msm_hsl_read(port, UARTDM_ISR_ADDR) & bits) != bits) {
 			udelay(1);
 			touch_nmi_watchdog();
 			cpu_relax();
 		}
+		msm_hsl_write(port, CLEAR_TX_READY, UARTDM_CR_ADDR);
+	}
 }
 
 #ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
 static void msm_hsl_console_putchars(struct uart_port *port,
 				     int num, const char *s)
 {
-	int word_count, word;
+	int word;
 	int i;
 
-	word_count = (num % 4) ? (num / 4 + 1) : (num / 4);
+	if (num == 0)
+		return;
+
 	wait_for_xmitr(port, UARTDM_ISR_TX_READY_BMSK);
 	msm_hsl_write(port, num, UARTDM_NCF_TX_ADDR);
 
@@ -902,7 +909,7 @@ static void msm_hsl_console_putchars(struct uart_port *port,
 			word |= s[i];
 		}
 		while (!(msm_hsl_read(port, UARTDM_SR_ADDR) &
-			 UARTDM_SR_TXRDY_BMSK)) {
+			UARTDM_SR_TXRDY_BMSK)) {
 			udelay(1);
 			touch_nmi_watchdog();
 		}
@@ -1180,7 +1187,6 @@ static struct dev_pm_ops msm_hsl_dev_pm_ops = {
 };
 
 static struct platform_driver msm_hsl_platform_driver = {
-	.probe = msm_serial_hsl_probe,
 	.remove = msm_serial_hsl_remove,
 	.driver = {
 		.name = "msm_serial_hsl",

@@ -42,6 +42,12 @@
 #include "msm_fb.h"
 #include "mipi_dsi.h"
 
+static struct completion dsi_comp;
+
+void mipi_dsi_init_comp(void)
+{
+	init_completion(&dsi_comp);
+}
 
 /*
  * mipi dsi buf mechanism
@@ -91,7 +97,7 @@ int mipi_dsi_buf_alloc(struct dsi_buf *dp, int size)
 
 	dp->start = kmalloc(size, GFP_KERNEL);
 	if (dp->start == NULL) {
-		printk(KERN_ERR "%s:%u\n", __func__, __LINE__);
+		pr_err("%s:%u\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
@@ -99,7 +105,7 @@ int mipi_dsi_buf_alloc(struct dsi_buf *dp, int size)
 	dp->size = size;
 
 	if ((int)dp->start & 0x07)
-		printk(KERN_ERR "%s: buf NOT 8 bytes aligned\n", __func__);
+		pr_err("%s: buf NOT 8 bytes aligned\n", __func__);
 
 	dp->data = dp->start;
 	dp->len = 0;
@@ -156,7 +162,7 @@ static int mipi_dsi_generic_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	int len;
 
 	if (cm->dlen && cm->payload == 0) {
-		printk(KERN_ERR "%s: NO payload error\n", __func__);
+		pr_err("%s: NO payload error\n", __func__);
 		return 0;
 	}
 
@@ -198,7 +204,7 @@ static int mipi_dsi_generic_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	int len;
 
 	if (cm->dlen && cm->payload == 0) {
-		printk(KERN_ERR "%s: NO payload error\n", __func__);
+		pr_err("%s: NO payload error\n", __func__);
 		return 0;
 	}
 
@@ -283,7 +289,7 @@ static int mipi_dsi_dcs_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	int len;
 
 	if (cm->payload == 0) {
-		printk(KERN_ERR "%s: NO payload error\n", __func__);
+		pr_err("%s: NO payload error\n", __func__);
 		return -EINVAL;
 	}
 
@@ -314,7 +320,7 @@ static int mipi_dsi_dcs_swrite1(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	uint32 *hp;
 
 	if (cm->dlen < 2 || cm->payload == 0) {
-		printk(KERN_ERR "%s: NO payload error\n", __func__);
+		pr_err("%s: NO payload error\n", __func__);
 		return -EINVAL;
 	}
 
@@ -344,7 +350,7 @@ static int mipi_dsi_dcs_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	uint32 *hp;
 
 	if (cm->payload == 0) {
-		printk(KERN_ERR "%s: NO payload error\n", __func__);
+		pr_err("%s: NO payload error\n", __func__);
 		return -EINVAL;
 	}
 
@@ -438,7 +444,7 @@ static int mipi_dsi_set_max_pktsize(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	uint32 *hp;
 
 	if (cm->payload == 0) {
-		printk(KERN_ERR "%s: NO payload error\n", __func__);
+		pr_err("%s: NO payload error\n", __func__);
 		return 0;
 	}
 
@@ -499,7 +505,7 @@ static int mipi_dsi_blank_pkt(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 /*
  * prepare cmd buffer to be txed
  */
-int mipi_dsi_dma_cmd_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
+int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
 	int len = 0;
 
@@ -551,13 +557,161 @@ int mipi_dsi_dma_cmd_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 		len = mipi_dsi_peripheral_off(dp, cm);
 		break;
 	default:
-		printk(KERN_INFO "%s: dtype=%x NOT supported\n",
+		pr_info("%s: dtype=%x NOT supported\n",
 					__func__, cm->dtype);
 		break;
 
 	}
 
 	return len;
+}
+
+void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
+{
+	uint32 dsi_ctrl, intr_ctrl;
+	uint32 data;
+
+	if (pinfo->mode == DSI_VIDEO_MODE) {
+		data = 0;
+		if (pinfo->pulse_mode_hsa_he)
+			data |= BIT(28);
+		if (pinfo->hfp_power_stop)
+			data |= BIT(24);
+		if (pinfo->hbp_power_stop)
+			data |= BIT(20);
+		if (pinfo->hsa_power_stop)
+			data |= BIT(16);
+		if (pinfo->eof_bllp_power_stop)
+			data |= BIT(15);
+		if (pinfo->bllp_power_stop)
+			data |= BIT(12);
+		data |= ((pinfo->traffic_mode & 0x03) << 8);
+		data |= ((pinfo->dst_format & 0x03) << 4); /* 2 bits */
+		data |= (pinfo->vc & 0x03);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x000c, data);
+
+		data = 0;
+		data |= ((pinfo->rgb_swap & 0x07) << 12);
+		if (pinfo->b_sel)
+			data |= BIT(8);
+		if (pinfo->g_sel)
+			data |= BIT(4);
+		if (pinfo->r_sel)
+			data |= BIT(0);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x001c, data);
+	} else if (pinfo->mode == DSI_CMD_MODE) {
+		data = 0;
+		data |= ((pinfo->interleave_max & 0x0f) << 20);
+		data |= ((pinfo->rgb_swap & 0x07) << 16);
+		if (pinfo->b_sel)
+			data |= BIT(12);
+		if (pinfo->g_sel)
+			data |= BIT(8);
+		if (pinfo->r_sel)
+			data |= BIT(4);
+		data |= (pinfo->dst_format & 0x0f);	/* 4 bits */
+		MIPI_OUTP(MIPI_DSI_BASE + 0x003c, data);
+
+		/* DSI_COMMAND_MODE_MDP_DCS_CMD_CTRL */
+		data = pinfo->wr_mem_continue & 0x0ff;
+		data <<= 8;
+		data |= (pinfo->wr_mem_start & 0x0ff);
+		if (pinfo->insert_dcs_cmd)
+			data |= BIT(16);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0040, data);
+	} else
+		pr_err("%s: Unknown DSI mode=%d\n", __func__, pinfo->mode);
+
+	dsi_ctrl = BIT(8) | BIT(2);	/* clock enable & cmd mode */
+	intr_ctrl = 0;
+	intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK;
+
+	if (pinfo->crc_check)
+		dsi_ctrl |= BIT(24);
+	if (pinfo->ecc_check)
+		dsi_ctrl |= BIT(20);
+	if (pinfo->data_lane3)
+		dsi_ctrl |= BIT(7);
+	if (pinfo->data_lane2)
+		dsi_ctrl |= BIT(6);
+	if (pinfo->data_lane1)
+		dsi_ctrl |= BIT(5);
+	if (pinfo->data_lane0)
+		dsi_ctrl |= BIT(4);
+
+#ifdef RGB_SWAP
+	/* there has hardware problem
+	 * the color channel between dsi and mdp are swapped
+	 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x1c, 0x2000); /* rGB --> BGR */
+#endif
+
+	/* from frame buffer, low power mode */
+	/* DSI_COMMAND_MODE_DMA_CTRL */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
+
+	data = 0;
+	if (pinfo->te_sel)
+		data |= BIT(31);
+	data |= pinfo->mdp_trigger << 4;/* cmd mdp trigger */
+	data |= pinfo->dma_trigger;	/* cmd dma trigger */
+	data |= (pinfo->stream & 0x01) << 8;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0080, data); /* DSI_TRIG_CTRL */
+
+	/* DSI_LAN_SWAP_CTRL */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, pinfo->dlane_swap);
+
+	/* clock out ctrl */
+	data = pinfo->t_clk_post & 0x3f;	/* 6 bits */
+	data <<= 8;
+	data |= pinfo->t_clk_pre & 0x3f;	/*  6 bits */
+	MIPI_OUTP(MIPI_DSI_BASE + 0xc0, data);	/* DSI_CLKOUT_TIMING_CTRL */
+
+	data = 0;
+	if (pinfo->rx_eot_ignore)
+		data |= BIT(4);
+	if (pinfo->tx_eot_append)
+		data |= BIT(0);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x00c8, data); /* DSI_EOT_PACKET_CTRL */
+
+	intr_ctrl |= DSI_INTR_ERROR_MASK;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, intr_ctrl); /* DSI_INTL_CTRL */
+
+	/* turn esc, byte, dsi, pclk, sclk, hclk on */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0x23f); /* DSI_CLK_CTRL */
+
+	dsi_ctrl |= BIT(0);	/* enable dsi */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl);
+
+	wmb();
+}
+
+void mipi_dsi_op_mode_config(int mode)
+{
+
+	uint32 dsi_ctrl, intr_ctrl;
+
+	dsi_ctrl = MIPI_INP(MIPI_DSI_BASE + 0x0000);
+	dsi_ctrl &= ~0x07;
+	if (mode == DSI_VIDEO_MODE) {
+		dsi_ctrl |= 0x03;
+		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK;
+	} else {		/* command mode */
+		dsi_ctrl |= 0x05;
+		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK | DSI_INTR_ERROR_MASK;
+	}
+
+	pr_info("%s: dsi_ctrl=%x intr=%x\n", __func__, dsi_ctrl, intr_ctrl);
+
+	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, intr_ctrl); /* DSI_INTL_CTRL */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl);
+	wmb();
+}
+
+void mipi_dsi_cmd_mdp_sw_trigger(void)
+{
+	MIPI_OUTP(MIPI_DSI_BASE + 0x090, 0x01);	/* trigger */
+	wmb();
 }
 
 int mipi_dsi_cmd_reg_tx(uint32 data)
@@ -567,11 +721,11 @@ int mipi_dsi_cmd_reg_tx(uint32 data)
 	char *bp;
 
 	bp = (char *)&data;
-	printk(KERN_INFO "%s: ", __func__);
+	pr_debug("%s: ", __func__);
 	for (i = 0; i < 4; i++)
-		printk(KERN_INFO "%x ", *bp++);
+		pr_debug("%x ", *bp++);
 
-	printk(KERN_INFO "\n");
+	pr_debug("\n");
 #endif
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0080, 0x04);/* sw trigger */
@@ -589,25 +743,26 @@ int mipi_dsi_cmd_reg_tx(uint32 data)
 	return 4;
 }
 
-
-static struct completion dsi_comp;
-
-void mipi_dsi_cmd_mode_ctrl(int enable)
+int mipi_dsi_cmds_tx(struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt)
 {
-	uint32 data;
+	struct dsi_cmd_desc *cm;
+	int i;
 
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0080, 0x04);/* sw trigger */
-	data = MIPI_INP(MIPI_DSI_BASE + 0x0);
-	if (enable)
-		data |= 0x04;	/* cmd mode enable */
-	else
-		data &= ~0x04; /* cmd disable */
+	cm = cmds;
+	mipi_dsi_buf_init(dp);
+	for (i = 0; i < cnt; i++) {
+		mipi_dsi_buf_init(dp);
+		mipi_dsi_cmd_dma_add(dp, cm);
+		mipi_dsi_cmd_dma_tx(dp);
+		if (cm->wait)
+			msleep(cm->wait);
+		cm++;
+	}
 
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0, data);
-	wmb();
+	return cnt;
 }
 
-int mipi_dsi_dma_cmd_tx(struct dsi_buf *dp)
+int mipi_dsi_cmd_dma_tx(struct dsi_buf *dp)
 {
 	int len;
 
@@ -617,11 +772,11 @@ int mipi_dsi_dma_cmd_tx(struct dsi_buf *dp)
 
 	bp = dp->data;
 
-	printk(KERN_INFO "%s: ", __func__);
+	pr_debug("%s: ", __func__);
 	for (i = 0; i < dp->len; i++)
-		printk(KERN_INFO "%x ", *bp++);
+		pr_debug("%x ", *bp++);
 
-	printk(KERN_INFO "\n");
+	pr_debug("\n");
 #endif
 
 	len = dp->len;
@@ -630,9 +785,9 @@ int mipi_dsi_dma_cmd_tx(struct dsi_buf *dp)
 
 	dp->dmap = dma_map_single(&dsi_dev, dp->data, len, DMA_TO_DEVICE);
 	if (dma_mapping_error(&dsi_dev, dp->dmap))
-		printk(KERN_ERR "%s: dmap mapp failed\n", __func__);
+		pr_err("%s: dmap mapp failed\n", __func__);
 
-	init_completion(&dsi_comp);
+	INIT_COMPLETION(dsi_comp);
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x044, dp->dmap);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x048, len);
@@ -647,6 +802,16 @@ int mipi_dsi_dma_cmd_tx(struct dsi_buf *dp)
 	return dp->len;
 }
 
+void mipi_dsi_irq_set(uint32 mask, uint32 irq)
+{
+	uint32 data;
+
+	data = MIPI_INP(MIPI_DSI_BASE + 0x010c);/* DSI_INTR_CTRL */
+	data &= ~mask;
+	data |= irq;
+	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, data);
+}
+
 irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 {
 	uint32 isr;
@@ -654,7 +819,25 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 	isr = MIPI_INP(MIPI_DSI_BASE + 0x010c);/* DSI_INTR_CTRL */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, isr);
 
-	if (isr & DSI_ERROR_STAT) {
+	if (isr & DSI_INTR_ERROR) {
+		/*
+		* do something  here
+		*/
+	}
+
+	if (isr & DSI_INTR_VIDEO_DONE) {
+		/*
+		* do something  here
+		*/
+	}
+
+	if (isr & DSI_INTR_CMD_DMA_DONE) {
+		/*
+		* do something  here
+		*/
+	}
+
+	if (isr & DSI_INTR_CMD_MDP_DONE) {
 		/*
 		* do something  here
 		*/
@@ -664,4 +847,3 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 
 	return IRQ_HANDLED;
 }
-

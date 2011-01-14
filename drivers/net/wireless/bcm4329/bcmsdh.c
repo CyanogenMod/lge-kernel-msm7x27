@@ -2,7 +2,7 @@
  *  BCMSDH interface glue
  *  implement bcmsdh API for SDIOH driver
  *
- * Copyright (C) 1999-2009, Broadcom Corporation
+ * Copyright (C) 1999-2010, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh.c,v 1.35.2.1.4.8.6.11 2009/10/20 09:48:20 Exp $
+ * $Id: bcmsdh.c,v 1.35.2.1.4.8.6.13 2010/04/06 03:26:57 Exp $
  */
 /* ****************** BCMSDH Interface Functions *************************** */
 
@@ -40,9 +40,7 @@
 
 #include <sdio.h>	/* sdio spec */
 
-/* Defines number of access retries to configuration registers */
 #define SDIOH_API_ACCESS_RETRY_LIMIT	2
-
 const uint bcmsdh_msglevel = BCMSDH_ERROR_VAL;
 
 
@@ -59,7 +57,6 @@ struct bcmsdh_info
 bcmsdh_info_t * l_bcmsdh = NULL;
 
 #if defined(OOB_INTR_ONLY) && defined(HW_OOB)
-
 extern int
 sdioh_enable_hw_oob_intr(void *sdioh, bool enable);
 
@@ -68,7 +65,6 @@ bcmsdh_enable_hw_oob_intr(bcmsdh_info_t *sdh, bool enable)
 {
 	sdioh_enable_hw_oob_intr(sdh->sdioh, enable);
 }
-
 #endif
 
 bcmsdh_info_t *

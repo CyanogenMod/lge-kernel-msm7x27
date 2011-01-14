@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,10 @@ int afe_enable(u8 path_id, struct msm_afe_config *config)
 	int rc;
 
 	MM_DBG("%s: path %d\n", __func__, path_id);
+	if ((GETDEVICEID(path_id) < 0) || (GETDEVICEID(path_id) > 5)) {
+		MM_ERR("Invalid path_id: %d\n", path_id);
+		return -EINVAL;
+	}
 	mutex_lock(&afe->lock);
 	if (!afe->in_use && !afe->aux_conf_flag) {
 		/* enable afe */
@@ -268,6 +272,44 @@ error_adsp_get:
 }
 EXPORT_SYMBOL(afe_config_fm_volume);
 
+int afe_config_fm_calibration_gain(uint16_t device_id,
+			uint16_t calibration_gain)
+{
+	struct afe_cmd_fm_calibgain_config cmd;
+	struct msm_afe_state *afe = &the_afe_state;
+	int rc = 0;
+
+	MM_INFO("Configure for rx device = 0x%4x, gain = 0x%4x\n", device_id,
+			calibration_gain);
+	mutex_lock(&afe->lock);
+	if (!afe->in_use) {
+		/* enable afe */
+		rc = msm_adsp_get("AFETASK", &afe->mod, &afe->adsp_ops, afe);
+		if (rc < 0) {
+			MM_ERR("%s: failed to get AFETASK module\n", __func__);
+			goto error_adsp_get;
+		}
+		rc = msm_adsp_enable(afe->mod);
+		if (rc < 0)
+			goto error_adsp_enable;
+	}
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd_id = AFE_CMD_FM_CALIBRATION_GAIN_CMD;
+	cmd.device_id = device_id;
+	cmd.calibration_gain = calibration_gain;
+
+	afe_send_queue(afe, &cmd, sizeof(cmd));
+
+	mutex_unlock(&afe->lock);
+	return rc;
+error_adsp_enable:
+	msm_adsp_put(afe->mod);
+error_adsp_get:
+	mutex_unlock(&afe->lock);
+	return rc;
+}
+EXPORT_SYMBOL(afe_config_fm_calibration_gain);
+
 int afe_config_aux_codec(int pcm_ctl_value, int aux_codec_intf_value,
 				int data_format_pad)
 {
@@ -308,6 +350,54 @@ error_adsp_get:
 	return rc;
 }
 EXPORT_SYMBOL(afe_config_aux_codec);
+
+int afe_config_rmc_block(struct acdb_rmc_block *acdb_rmc)
+{
+	struct afe_cmd_cfg_rmc cmd;
+	struct msm_afe_state *afe = &the_afe_state;
+	int rc = 0;
+	int i = 0;
+	unsigned short *ptrmem = (unsigned short *)&cmd;
+
+	MM_DBG(" configure rmc block\n");
+	mutex_lock(&afe->lock);
+	if (!afe->in_use) {
+		/* enable afe */
+		rc = msm_adsp_get("AFETASK", &afe->mod, &afe->adsp_ops, afe);
+		if (rc < 0) {
+			MM_DBG("%s: failed to get AFETASK module\n", __func__);
+			goto error_adsp_get;
+		}
+		rc = msm_adsp_enable(afe->mod);
+		if (rc < 0)
+			goto error_adsp_enable;
+	}
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd_id = AFE_CMD_CFG_RMC_PARAMS;
+
+	cmd.rmc_mode = acdb_rmc->rmc_enable;
+	cmd.rmc_ipw_length_ms =	acdb_rmc->rmc_ipw_length_ms;
+	cmd.rmc_peak_length_ms = acdb_rmc->rmc_peak_length_ms;
+	cmd.rmc_init_pulse_length_ms = acdb_rmc->rmc_init_pulse_length_ms;
+	cmd.rmc_total_int_length_ms = acdb_rmc->rmc_total_int_length_ms;
+	cmd.rmc_rampupdn_length_ms = acdb_rmc->rmc_rampupdn_length_ms;
+	cmd.rmc_delay_length_ms = acdb_rmc->rmc_delay_length_ms;
+	cmd.rmc_detect_start_threshdb = acdb_rmc->rmc_detect_start_threshdb;
+	cmd.rmc_init_pulse_threshdb = acdb_rmc->rmc_init_pulse_threshdb;
+
+	for (i = 0; i < sizeof(cmd)/2; i++, ++ptrmem)
+		MM_DBG("cmd[%d]=0x%04x\n", i, *ptrmem);
+	afe_send_queue(afe, &cmd, sizeof(cmd));
+
+	mutex_unlock(&afe->lock);
+	return rc;
+error_adsp_enable:
+	msm_adsp_put(afe->mod);
+error_adsp_get:
+	mutex_unlock(&afe->lock);
+	return rc;
+}
+EXPORT_SYMBOL(afe_config_rmc_block);
 
 int afe_disable(u8 path_id)
 {

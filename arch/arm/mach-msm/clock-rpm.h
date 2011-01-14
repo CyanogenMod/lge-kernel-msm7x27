@@ -33,14 +33,23 @@
 /* RPM Clock IDs */
 enum {
 	R_AFAB_CLK,
+	R_AFAB_A_CLK,
 	R_CFPB_CLK,
+	R_CFPB_A_CLK,
 	R_DFAB_CLK,
+	R_DFAB_A_CLK,
 	R_EBI1_CLK,
+	R_EBI1_A_CLK,
 	R_MMFAB_CLK,
+	R_MMFAB_A_CLK,
 	R_MMFPB_CLK,
+	R_MMFPB_A_CLK,
 	R_SFAB_CLK,
+	R_SFAB_A_CLK,
 	R_SFPB_CLK,
+	R_SFPB_A_CLK,
 	R_SMI_CLK,
+	R_SMI_A_CLK,
 };
 
 struct clk_ops;

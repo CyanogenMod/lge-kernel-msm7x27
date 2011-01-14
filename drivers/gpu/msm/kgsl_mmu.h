@@ -69,19 +69,6 @@ extern unsigned int kgsl_cache_enable;
 
 struct kgsl_device;
 
-struct kgsl_mmu_debug {
-	unsigned int  config;
-	unsigned int  mpu_base;
-	unsigned int  mpu_end;
-	unsigned int  va_range;
-	unsigned int  pt_base;
-	unsigned int  page_fault;
-	unsigned int  trans_error;
-	unsigned int  axi_error;
-	unsigned int  interrupt_mask;
-	unsigned int  interrupt_status;
-};
-
 struct kgsl_ptstats {
 	int64_t  maps;
 	int64_t  unmaps;
@@ -97,6 +84,7 @@ struct kgsl_tlbflushfilter {
 };
 
 struct kgsl_pagetable {
+	spinlock_t lock;
 	unsigned int   refcnt;
 	struct kgsl_memdesc  base;
 	uint32_t      va_base;
@@ -108,6 +96,7 @@ struct kgsl_pagetable {
 	unsigned int name;
 	/* Maintain filter to manage tlb flushing */
 	struct kgsl_tlbflushfilter tlbflushfilter;
+	unsigned int tlb_flags;
 };
 
 struct kgsl_mmu_reg {
@@ -138,7 +127,6 @@ struct kgsl_mmu {
 	/* current page table object being used by device mmu */
 	struct kgsl_pagetable  *defaultpagetable;
 	struct kgsl_pagetable  *hwpagetable;
-	unsigned int tlb_flags;
 };
 
 
@@ -164,6 +152,20 @@ void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 
 int kgsl_mmu_setstate(struct kgsl_device *device,
 			struct kgsl_pagetable *pagetable);
+
+static inline unsigned int kgsl_pt_get_flags(struct kgsl_pagetable *pt,
+					     enum kgsl_deviceid id)
+{
+	unsigned int result = 0;
+	spin_lock(&pt->lock);
+	if (pt->tlb_flags && (1<<id)) {
+		result = KGSL_MMUFLAGS_TLBFLUSH;
+		pt->tlb_flags &= ~(1<<id);
+	}
+	spin_unlock(&pt->lock);
+	return result;
+}
+
 
 #ifdef CONFIG_MSM_KGSL_MMU
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
@@ -203,15 +205,5 @@ int kgsl_mmu_querystats(struct kgsl_pagetable *pagetable,
 			struct kgsl_ptstats *stats);
 
 void kgsl_mh_intrcallback(struct kgsl_device *device);
-
-#ifdef DEBUG
-void kgsl_mmu_debug(struct kgsl_mmu *, struct kgsl_mmu_debug*);
-#else
-static inline void kgsl_mmu_debug(struct kgsl_mmu *mmu,
-				struct kgsl_mmu_debug *mmu_debug)
-{
-
-}
-#endif /* DEBUG */
 
 #endif /* __GSL_MMU_H */

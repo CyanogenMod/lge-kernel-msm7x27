@@ -679,6 +679,16 @@ config SENSORS_M_ADC
 	  MPP's and the XOTHERM on pmic8058 and provides post processing of the
 	  channel for the ADC Raw Data.
 
+config SENSORS_MSM_ADC
+	tristate "MSM ADC Driver for current measurement"
+	depends on ARCH_MSM7X30
+	default n
+	help
+	  Say yes here to include support for measuring current in real-time
+	  from various power-rails on the Fluid board.  The ADC circuit
+	  internally uses an array of LTC2499 ADCs in a differential
+	  configuration to provide a flat set of channels that can be addressed.
+
 config SENSORS_PC87360
 	tristate "National Semiconductor PC87360 family"
 	select HWMON_VID

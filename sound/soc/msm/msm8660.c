@@ -44,6 +44,9 @@ static struct clk *rx_osr_clk;
 static struct clk *rx_bit_clk;
 static struct clk *tx_osr_clk;
 static struct clk *tx_bit_clk;
+
+static int rx_hw_param_status;
+static int tx_hw_param_status;
 /* Platform specific logic */
 
 static int timpani_rx_route_enable(void)
@@ -145,6 +148,24 @@ static void timpani_poweramp_off(void)
 static int msm8660_hw_params(struct snd_pcm_substream *substream,
 			struct snd_pcm_hw_params *params)
 {
+	int rate = params_rate(params);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (rx_hw_param_status)
+			return 0;
+		clk_set_rate(rx_osr_clk, rate * 256);
+		rx_hw_param_status++;
+	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (tx_hw_param_status)
+			return 0;
+		clk_set_rate(tx_osr_clk, rate * 256);
+		tx_hw_param_status++;
+	}
+	return 0;
+}
+
+static int msm8660_startup(struct snd_pcm_substream *substream)
+{
 	int ret = 0;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		rx_osr_clk = clk_get(NULL, "i2s_spkr_osr_clk");
@@ -153,7 +174,8 @@ static int msm8660_hw_params(struct snd_pcm_substream *substream,
 			return PTR_ERR(rx_osr_clk);
 		}
 		/* Master clock OSR 256 */
-		clk_set_rate(rx_osr_clk, params_rate(params) * 256);
+		/* Initially set to Lowest sample rate Needed */
+		clk_set_rate(rx_osr_clk, 8000 * 256);
 		ret = clk_enable(rx_osr_clk);
 		if (ret != 0) {
 			pr_debug("Unable to enable i2s_spkr_osr_clk\n");
@@ -183,10 +205,10 @@ static int msm8660_hw_params(struct snd_pcm_substream *substream,
 		tx_osr_clk = clk_get(NULL, "i2s_mic_osr_clk");
 		if (IS_ERR(tx_osr_clk)) {
 			pr_debug("Failed to get i2s_mic_osr_clk\n");
-			return PTR_ERR(rx_osr_clk);
+			return PTR_ERR(tx_osr_clk);
 		}
 		/* Master clock OSR 256 */
-		clk_set_rate(tx_osr_clk, params_rate(params) * 256);
+		clk_set_rate(tx_osr_clk, 8000 * 256);
 		ret = clk_enable(tx_osr_clk);
 		if (ret != 0) {
 			pr_debug("Unable to enable i2s_mic_osr_clk\n");
@@ -215,29 +237,48 @@ static int msm8660_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-static int msm8660_hw_free(struct snd_pcm_substream *substream)
+/*
+ * TODO: rx/tx_hw_param_status should be a counter in the below code
+ * when driver starts supporting mutisession else setting it to 0
+ * will stop audio in all sessions.
+ */
+static void msm8660_shutdown(struct snd_pcm_substream *substream)
 {
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		rx_hw_param_status = 0;
 		timpani_poweramp_off();
 		msleep(30);
-		clk_disable(rx_bit_clk);
-		clk_put(rx_bit_clk);
-		clk_disable(rx_osr_clk);
-		clk_put(rx_osr_clk);
+		if (rx_bit_clk) {
+			clk_disable(rx_bit_clk);
+			clk_put(rx_bit_clk);
+			rx_bit_clk = NULL;
+		}
+		if (rx_osr_clk) {
+			clk_disable(rx_osr_clk);
+			clk_put(rx_osr_clk);
+			rx_osr_clk = NULL;
+		}
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		tx_hw_param_status = 0;
 		msm_snddev_disable_dmic_power();
 		msleep(30);
-		clk_disable(tx_bit_clk);
-		clk_put(tx_bit_clk);
-		clk_disable(tx_osr_clk);
-		clk_put(tx_osr_clk);
+		if (tx_bit_clk) {
+			clk_disable(tx_bit_clk);
+			clk_put(tx_bit_clk);
+			tx_bit_clk = NULL;
+		}
+		if (tx_osr_clk) {
+			clk_disable(tx_osr_clk);
+			clk_put(tx_osr_clk);
+			tx_osr_clk = NULL;
+		}
 	}
-	return 0;
 }
 
 static struct snd_soc_ops machine_ops  = {
+	.startup	= msm8660_startup,
+	.shutdown	= msm8660_shutdown,
 	.hw_params	= msm8660_hw_params,
-	.hw_free	= msm8660_hw_free,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */

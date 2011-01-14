@@ -24,6 +24,7 @@
 
 #include "devices.h"
 #include "clock-7x30.h"
+#include "clock-voter.h"
 #include "gpio_hw.h"
 
 #include <asm/mach/flash.h>
@@ -35,6 +36,40 @@
 #endif
 #include <mach/usbdiag.h>
 #include <mach/rpc_hsusb.h>
+
+/* EBI THERMAL DRIVER */
+static struct resource msm_ebi0_thermal_resources[] = {
+	{
+		.start  = 0xA8600000,
+		.end    = 0xA86005FF,
+		.name   = "physbase",
+		.flags  = IORESOURCE_MEM
+	}
+};
+
+struct platform_device msm_ebi0_thermal = {
+	.name           = "msm_popmem-tm",
+	.id             = 0,
+	.num_resources  = 1,
+	.resource       = msm_ebi0_thermal_resources
+};
+
+static struct resource msm_ebi1_thermal_resources[] = {
+	{
+		.start  = 0xA8700000,
+		.end    = 0xA87005FF,
+		.name   = "physbase",
+		.flags  = IORESOURCE_MEM
+	}
+};
+
+struct platform_device msm_ebi1_thermal = {
+	.name           = "msm_popmem-tm",
+	.id             = 1,
+	.num_resources  = 1,
+	.resource       = msm_ebi1_thermal_resources
+};
+
 
 static struct resource resources_uart1[] = {
 	{
@@ -421,6 +456,7 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 
 #ifdef CONFIG_USB_ANDROID_DIAG
 struct usb_diag_platform_data usb_diag_pdata = {
+	.ch_name = DIAG_LEGACY,
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
 
@@ -973,11 +1009,30 @@ struct clk msm_clocks_7x30[] = {
 	CLK_PCOM("uart_clk",	UART3_CLK,	&msm_device_uart3.dev, OFF),
 	CLK_PCOM("usb_phy_clk",	USB_PHY_CLK,	NULL, 0),
 	CLK_PCOM("vdc_clk",	VDC_CLK,	NULL, OFF | CLK_MIN),
-	CLK_PCOM("pbus_clk",	PBUS_CLK,	NULL, CLK_MIN),
+	{
+		.name = "pbus_clk",
+		.id = P_PBUS_CLK,
+		.remote_id = P_PBUS_CLK,
+		.ops = &clk_ops_pcom_div2,
+		.flags = CLK_MIN,
+		.dbg_name = "pbus_clk",
+	},
+
+	CLK_VOTER("ebi1_dtv_clk",	EBI_DTV_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_kgsl_clk",	EBI_KGSL_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_lcdc_clk",	EBI_LCDC_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_mddi_clk",	EBI_MDDI_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_tv_clk",	EBI_TV_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_usb_clk",	EBI_USB_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_vcd_clk",	EBI_VCD_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_vfe_clk",	EBI_VFE_CLK,	"pbus_clk", NULL, 0),
+	CLK_VOTER("ebi1_pm_qos_clk",	EBI_PM_QOS_CLK,	"pbus_clk", NULL, 0),
 
 	CLK_7X30("adm_clk",	ADM_CLK,	NULL, 0),
+	CLK_7X30L("adm_pclk",   ADM_P_CLK,       NULL, 0),
 	CLK_7X30("cam_m_clk",	CAM_M_CLK,	NULL, 0),
 	CLK_7X30("camif_pad_pclk",	CAMIF_PAD_P_CLK,	NULL, OFF),
+	CLK_7X30("ce_clk",	CE_CLK,		NULL, 0),
 	CLK_7X30("emdh_clk",	EMDH_CLK,	NULL, OFF | CLK_MINMAX),
 	CLK_7X30("emdh_pclk",	EMDH_P_CLK,	NULL, OFF),
 	CLK_7X30("grp_2d_clk",	GRP_2D_CLK,	NULL, 0),

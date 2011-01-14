@@ -64,7 +64,7 @@ static void lpa_enable_codec(struct lpa_drv *lpa, bool enable)
 	val = enable ? (val | LPA_OBUF_CODEC_CODEC_INTF_EN_BMSK) :
 		(val & ~LPA_OBUF_CODEC_CODEC_INTF_EN_BMSK);
 	val |= LPA_OBUF_CODEC_LOAD_BMSK;
-	val = LPA_REG_WRITEL(lpa, val, LPA_OBUF_CODEC);
+	LPA_REG_WRITEL(lpa, val, LPA_OBUF_CODEC);
 }
 
 static void lpa_reset(struct lpa_drv *lpa)

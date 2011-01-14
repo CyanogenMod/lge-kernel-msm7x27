@@ -24,7 +24,7 @@
 
 #include <mach/msm_iomap.h>
 
-#include "peripheral-reset.h"
+#include "peripheral-loader.h"
 #include "clock-8x60.h"
 
 #define MSM_MMS_REGS_BASE		0x10200000
@@ -57,30 +57,36 @@
 
 #define PPSS_RESET			(MSM_CLK_CTL_BASE + 0x2594)
 
+#define PIL_MODEM	0
+#define PIL_Q6		1
+#define PIL_DSPS	2
+
 static int modem_start, q6_start, dsps_start;
 static void __iomem *msm_mms_regs_base;
 static void __iomem *msm_lpass_qdsp6ss_base;
 
-int init_image(int id, const u8 *metadata, size_t size)
+static int init_image_modem(const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	switch (id) {
-	case PIL_MODEM:
-		modem_start = ehdr->e_entry;
-		break;
-	case PIL_Q6:
-		q6_start = ehdr->e_entry;
-		break;
-	case PIL_DSPS:
-		dsps_start = ehdr->e_entry;
-		break;
-	default:
-		return -EINVAL;
-	}
+	modem_start = ehdr->e_entry;
 	return 0;
 }
 
-int verify_blob(u32 phy_addr, size_t size)
+static int init_image_q6(const u8 *metadata, size_t size)
+{
+	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
+	q6_start = ehdr->e_entry;
+	return 0;
+}
+
+static int init_image_dsps(const u8 *metadata, size_t size)
+{
+	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
+	dsps_start = ehdr->e_entry;
+	return 0;
+}
+
+static int verify_blob(u32 phy_addr, size_t size)
 {
 	return 0;
 }
@@ -299,46 +305,59 @@ static int shutdown_dsps(void)
 	return 0;
 }
 
-int auth_and_reset(int id)
-{
-	int ret;
-	switch (id) {
-	case PIL_MODEM:
-		ret = reset_modem();
-		break;
-	case PIL_Q6:
-		ret = reset_q6();
-		break;
-	case PIL_DSPS:
-		ret = reset_dsps();
-		break;
-	default:
-		ret = -ENODEV;
-	}
-	return ret;
-}
+struct pil_reset_ops pil_modem_ops = {
+	.init_image = init_image_modem,
+	.verify_blob = verify_blob,
+	.auth_and_reset = reset_modem,
+	.shutdown = shutdown_modem,
+};
 
-int peripheral_shutdown(int id)
-{
-	int ret;
-	switch (id) {
-	case PIL_MODEM:
-		ret = shutdown_modem();
-		break;
-	case PIL_Q6:
-		ret = shutdown_q6();
-		break;
-	case PIL_DSPS:
-		ret = shutdown_dsps();
-		break;
-	default:
-		ret = -ENODEV;
-	}
-	return ret;
-}
+struct pil_reset_ops pil_q6_ops = {
+	.init_image = init_image_q6,
+	.verify_blob = verify_blob,
+	.auth_and_reset = reset_q6,
+	.shutdown = shutdown_q6,
+};
+
+struct pil_reset_ops pil_dsps_ops = {
+	.init_image = init_image_dsps,
+	.verify_blob = verify_blob,
+	.auth_and_reset = reset_dsps,
+	.shutdown = shutdown_dsps,
+};
+
+static struct pil_device peripherals[] = {
+	{
+		.name = "modem",
+		.depends_on = "q6",
+		.pdev = {
+			.name = "pil_modem",
+			.id = -1,
+		},
+		.ops = &pil_modem_ops,
+	},
+	{
+		.name = "q6",
+		.pdev = {
+			.name = "pil_q6",
+			.id = -1,
+		},
+		.ops = &pil_q6_ops,
+	},
+	{
+		.name = "dsps",
+		.pdev = {
+			.name = "pil_dsps",
+			.id = -1,
+		},
+		.ops = &pil_dsps_ops,
+	},
+};
 
 static int __init msm_peripheral_reset_init(void)
 {
+	unsigned i;
+
 	msm_mms_regs_base = ioremap(MSM_MMS_REGS_BASE, SZ_256);
 	if (!msm_mms_regs_base)
 		goto err;
@@ -346,6 +365,9 @@ static int __init msm_peripheral_reset_init(void)
 	msm_lpass_qdsp6ss_base = ioremap(MSM_LPASS_QDSP6SS_BASE, SZ_256);
 	if (!msm_lpass_qdsp6ss_base)
 		goto err_lpass;
+
+	for (i = 0; i < ARRAY_SIZE(peripherals); i++)
+		msm_pil_add_device(&peripherals[i]);
 
 	return 0;
 

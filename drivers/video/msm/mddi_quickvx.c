@@ -266,36 +266,41 @@
 	QL_SPI_CTRL_rCPHA(1) | QL_SPI_CTRL_rCPOL(1) | \
 	QL_SPI_CTRL_rLSB(0) | QL_SPI_CTRL_rSLVSEL(0))
 
-uint32 ql_mddi_write(uint32 address, uint32 value)
+int ql_mddi_write(uint32 address, uint32 value)
 {
 	uint32 regval = 0;
+	int ret = 0;
 
-	mddi_queue_register_write(address, value, TRUE, 0);
-	mddi_queue_register_read(address, &regval, TRUE, 0);
-	if (regval != value) {
-		MDDI_MSG_DEBUG("\nMismatch: ql_mddi_write[0x%x]->0x%x "
-			"r0x%x\n", address, value, regval);
-	} else {
-		MDDI_MSG_DEBUG("\nMatch: ql_mddi_write[0x%x]->0x%x "
-			"r0x%x\n", address, value, regval);
+	ret = mddi_queue_register_write(address, value, TRUE, 0);
+
+	if (!ret) {
+		ret = mddi_queue_register_read(address, &regval, TRUE, 0);
+		if (regval != value) {
+			MDDI_MSG_DEBUG("\nMismatch: ql_mddi_write[0x%x]->0x%x "
+				"r0x%x\n", address, value, regval);
+		} else {
+			MDDI_MSG_DEBUG("\nMatch: ql_mddi_write[0x%x]->0x%x "
+				"r0x%x\n", address, value, regval);
+		}
 	}
 
-	return regval;
+	return ret;
 }
 
-uint32 ql_mddi_read(uint32 address)
+int ql_mddi_read(uint32 address, uint32 *regval)
 {
-	uint32 regval = 0;
+	int ret = 0;
 
-	mddi_queue_register_read(address, &regval, TRUE, 0);
-	MDDI_MSG_DEBUG("\nql_mddi_read[0x%x]=0x%x", address, regval);
-	return regval;
+	ret = mddi_queue_register_read(address, regval, TRUE, 0);
+	MDDI_MSG_DEBUG("\nql_mddi_read[0x%x]=0x%x", address, *regval);
 
+	return ret;
 }
 
 int ql_send_spi_cmd_to_lcd(uint32 index, uint32 cmd)
 {
-	int retry;
+	int retry, ret;
+	uint32 readval;
 
 	MDDI_MSG_DEBUG("\n %s(): index 0x%x, cmd 0x%x", __func__, index, cmd);
 	/* do the index phase */
@@ -309,15 +314,17 @@ int ql_send_spi_cmd_to_lcd(uint32 index, uint32 cmd)
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
 	retry = 0;
-	while ((ql_mddi_read(QUICKVX_SPI_CTRL_REG) &
-		QL_SPI_CTRL_MASK_rTxDone) == 0) {
-		mddi_wait(1);
-		if (++retry > 5) {
+
+	do {
+		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
+
+		if (ret || ++retry > 5) {
 			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
-				"timeout at index phase");
+				"timeout at index phase, ret = %d", ret);
 			return -EIO;
 		}
-	}
+		mddi_wait(1);
+	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
 
 	/* do the command phase */
 	/* send 24 bits in the cmd phase */
@@ -330,51 +337,54 @@ int ql_send_spi_cmd_to_lcd(uint32 index, uint32 cmd)
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
 	retry = 0;
-	while ((ql_mddi_read(QUICKVX_SPI_CTRL_REG) &
-		QL_SPI_CTRL_MASK_rTxDone) == 0) {
-		mddi_wait(1);
-		if (++retry > 5) {
+
+	do {
+		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
+
+		if (ret || ++retry > 5) {
 			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
-				"timeout at cmd phase");
+				"timeout at cmd phase, ret = %d", ret);
 			return -EIO;
 		}
-	}
-
+		mddi_wait(1);
+	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
 
 	return 0;
 }
 
 
-uint32 ql_send_spi_data_from_lcd(uint32 index)
+int ql_send_spi_data_from_lcd(uint32 index, uint32 *value)
 {
-	int retry;
-	int value;
+	int retry, ret;
+	uint32 readval;
 
 	MDDI_MSG_DEBUG("\n %s(): index 0x%x", __func__, index);
 	/* do the index phase */
 	/* send 24 bits in the index phase */
-	ql_mddi_write(QUICKVX_SPI_TLEN_REG, 24);
+	ql_mddi_write(QUICKVX_SPI_TLEN_REG, 23);
 
-	/* send 24 bits in the index phase, starting at bit 31 of TX0 reg */
+	/* send 24 bits in the index phase, starting at bit 23 of TX0 reg */
 	ql_mddi_write(QUICKVX_SPI_TX0_REG,
-		((QL_SPI_LCD_INDEX_START_BYTE << 16) | index) << 8);
+		(QL_SPI_LCD_INDEX_START_BYTE << 16) | index);
 
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
 	retry = 0;
-	while ((ql_mddi_read(QUICKVX_SPI_CTRL_REG) &
-		QL_SPI_CTRL_MASK_rTxDone) == 0) {
-		mddi_wait(1);
-		if (++retry > 5) {
-			MDDI_MSG_DEBUG("\n ql_send_spi_data_from_lcd: retry "
-				"timeout at index phase");
-			return 0;
+
+	do {
+		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
+
+		if (ret || ++retry > 5) {
+			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
+				"timeout at index phase, ret = %d", ret);
+			return -EIO;
 		}
-	}
+		mddi_wait(1);
+	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
 
 	/* do the command phase */
 	/* send 8 bits  and read 24 bits in the cmd phase, so total 32 bits */
-	ql_mddi_write(QUICKVX_SPI_TLEN_REG, 32);
+	ql_mddi_write(QUICKVX_SPI_TLEN_REG, 31);
 
 	/* send 24 bits in the cmd phase, starting at bit 31 of TX0 reg */
 	ql_mddi_write(QUICKVX_SPI_TX0_REG,
@@ -383,18 +393,28 @@ uint32 ql_send_spi_data_from_lcd(uint32 index)
 	/* set start */
 	ql_mddi_write(QUICKVX_SPI_CTRL_REG,  QL_SPI_CTRL_LCD_START);
 	retry = 0;
-	while ((ql_mddi_read(QUICKVX_SPI_CTRL_REG) &
-		QL_SPI_CTRL_MASK_rTxDone) == 0) {
-		mddi_wait(1);
-		if (++retry > 5) {
-			MDDI_MSG_DEBUG("\n ql_send_spi_data_from_lcd: retry "
-				"timeout at cmd phase");
-			return 0;
+
+	do {
+		ret = ql_mddi_read(QUICKVX_SPI_CTRL_REG, &readval);
+
+		if (ret || ++retry > 5) {
+			MDDI_MSG_DEBUG("\n ql_send_spi_cmd_to_lcd: retry "
+				"timeout at cmd phase, ret = %d", ret);
+			return -EIO;
 		}
-	}
+		mddi_wait(1);
+	} while ((readval & QL_SPI_CTRL_MASK_rTxDone) == 0);
+
 	/* value will appear at lower 16 bits */
-	value = ql_mddi_read(QUICKVX_SPI_RX0_REG) & 0xffff;
-	return value;
+	ret = ql_mddi_read(QUICKVX_SPI_RX0_REG, value);
+
+	if (!ret) {
+		*value = *value & 0xffff;
+		MDDI_MSG_DEBUG("\n QUICKVX_SPI_RX0_REG value = 0x%x", *value);
+	} else
+		MDDI_MSG_DEBUG("\n Read QUICKVX_SPI_RX0_REG Failed");
+
+	return ret;
 }
 
 /* Global Variables */
@@ -443,8 +463,10 @@ void mddi_quickvx_configure_registers(void)
 
 void mddi_quickvx_prim_lcd_init(void)
 {
+	uint32 value;
+
 	MDDI_MSG_DEBUG("\n%s(): ", __func__);
-	ql_send_spi_data_from_lcd(0);
+	ql_send_spi_data_from_lcd(0, &value);
 
 	ql_send_spi_cmd_to_lcd(0x0100, 0x3000); /* power control1 */
 	ql_send_spi_cmd_to_lcd(0x0101, 0x4010); /* power control2 */
@@ -535,6 +557,7 @@ static int mddi_quickvx_lcd_on(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	mddi_host_client_cnt_reset();
 	mddi_quickvx_configure_registers();
 	mddi_quickvx_prim_lcd_init();
 
@@ -583,7 +606,7 @@ static void mddi_quickvx_lcd_set_backlight(struct msm_fb_data_type *mfd)
 }
 
 /* Driver Probe function */
-static int __init mddi_quickvx_lcd_probe(struct platform_device *pdev)
+static int __devinit mddi_quickvx_lcd_probe(struct platform_device *pdev)
 {
 	MDDI_MSG_DEBUG("\n%s(): id is %d", __func__, pdev->id);
 	msm_fb_add_device(pdev);
@@ -662,6 +685,7 @@ static int __init mddi_quickvx_lcd_init(void)
 		pinfo = &mddi_quickvx_panel_data0.panel_info;
 		pinfo->xres = 480;
 		pinfo->yres = 864;
+		MSM_FB_SINGLE_MODE_PANEL(pinfo);
 		pinfo->type = MDDI_PANEL;
 		pinfo->pdest = DISPLAY_1;
 		pinfo->mddi.vdopkt = MDDI_DEFAULT_PRIM_PIX_ATTR;
@@ -672,7 +696,7 @@ static int __init mddi_quickvx_lcd_init(void)
 		pinfo->clk_rate = 192000000;
 		pinfo->clk_min = 192000000;
 		pinfo->clk_max = 200000000;
-		pinfo->lcd.rev = 2;
+		pinfo->lcd.rev = 1;
 		pinfo->lcd.vsync_enable = TRUE;
 		pinfo->lcd.refx100 = (mddi_quickvx_rows_per_second \
 			* 100)/mddi_quickvx_rows_per_refresh;

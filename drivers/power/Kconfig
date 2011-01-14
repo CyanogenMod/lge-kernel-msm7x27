@@ -151,7 +151,7 @@ config BATTERY_MSM
 
 config BATTERY_MSM8X60
 	tristate "MSM8X60 battery"
-	depends on (MACH_MSM8X60_SURF|| MACH_MSM8X60_FFA)
+	depends on (MACH_MSM8X60_SURF|| MACH_MSM8X60_FFA || MACH_MSM8X60_CHARM_SURF || MACH_MSM8X60_CHARM_FFA)
 	help
 	  MSM8660 SURF has dual charging paths to charge the battery.
 	  Say Y to enable support for the battery charging in
@@ -166,6 +166,29 @@ config PM8058_CHARGER
 	  pmic8058 provides a linear charging circuit connected to the usb
 	  cable on Qualcomm's msm8x60 surf board.
 
+config ISL9519_CHARGER
+	tristate "isl9519 charger"
+	depends on BATTERY_MSM8X60
+	depends on (MACH_MSM8X60_SURF || MACH_MSM8X60_FFA)
+	default n
+	help
+	  The isl9519q charger chip from intersil is connected to an external
+	  charger cable and is preferred way of charging the battery because
+	  of its high current rating.
+	  Choose Y if you are compiling for Qualcomm's msm8x60 surf/ffa board.
+
+config SMB137B_CHARGER
+	tristate "smb137b charger"
+	default n
+	depends on I2C
+	help
+         The smb137b charger chip from summit is a switching mode based
+	 charging solution.
+
+         Choose Y if you are compiling for Qualcomm's msm8x60 fluid board.
+	 To compile this driver as a module, choose M here: the module will
+	 be called smb137b.
+
 config BATTERY_MSM_FAKE
 	tristate "Fake MSM battery"
 	depends on ARCH_MSM && BATTERY_MSM
@@ -179,5 +202,22 @@ config MAX17040_FUEL_GAUGE
 	default n
 	help
 	  Say Y to enable support for MAX17040 fuel gauge.
+
+config PM8058_FIX_USB
+	tristate "pmic8058 software workaround for usb removal"
+	depends on PMIC8058
+	depends on !PM8058_CHARGER
+	help
+	  Say Y to enable the software workaround to USB Vbus line
+	  staying high even when USB cable is removed. This option
+	  is in lieu of a complete pm8058 charging driver.
+
+config BATTERY_QCIBAT
+	tristate "Quanta Computer Inc. Battery"
+	depends on SENSORS_WPCE775X
+	default n
+	help
+	 Say Y here if you want to use the Quanta battery driver for ST15
+	 platform.
 
 endif # POWER_SUPPLY

@@ -235,7 +235,6 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	 * If OSR is to be changed, need clock API for setting the divider
 	 */
 	adie_codec_setpath(icodec->adie_path, icodec->sample_rate, 256);
-	lpa_cmd_enable_codec(drv->lpa, 1);
 	/* Start AFE */
 	afe_config.sample_rate = icodec->sample_rate / 1000;
 	afe_config.channel_mode = icodec->data->channel_mode;
@@ -243,6 +242,7 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 	trc = afe_enable(AFE_HW_PATH_CODEC_RX, &afe_config);
 	if (IS_ERR_VALUE(trc))
 		goto error_afe;
+	lpa_cmd_enable_codec(drv->lpa, 1);
 	/* Enable ADIE */
 	adie_codec_proceed_stage(icodec->adie_path, ADIE_CODEC_DIGITAL_READY);
 	adie_codec_proceed_stage(icodec->adie_path,
@@ -310,8 +310,11 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 	clk_enable(drv->tx_sclk);
 
 	/* Set MI2S */
-	mi2s_set_codec_input_path((icodec->data->channel_mode == 2 ?
-	MI2S_CHAN_STEREO : MI2S_CHAN_MONO_RAW), WT_16_BIT);
+	mi2s_set_codec_input_path((icodec->data->channel_mode ==
+				REAL_STEREO_CHANNEL_MODE ? MI2S_CHAN_STEREO :
+				(icodec->data->channel_mode == 2 ?
+				 MI2S_CHAN_STEREO : MI2S_CHAN_MONO_RAW)),
+				WT_16_BIT);
 	/* Configure ADIE */
 	trc = adie_codec_open(icodec->data->profile, &icodec->adie_path);
 	if (IS_ERR_VALUE(trc))
@@ -465,7 +468,9 @@ static int snddev_icodec_set_device_volume_impl(
 	if (icodec->data->dev_vol_type & SNDDEV_DEV_VOL_DIGITAL) {
 
 		rc = adie_codec_set_device_digital_volume(icodec->adie_path,
-				icodec->data->channel_mode, volume);
+				icodec->data->channel_mode ==
+						REAL_STEREO_CHANNEL_MODE ?
+					2 : icodec->data->channel_mode, volume);
 		if (rc < 0) {
 			MM_ERR("unable to set_device_digital_volume for"
 				"%s volume in percentage = %u\n",
@@ -475,7 +480,9 @@ static int snddev_icodec_set_device_volume_impl(
 
 	} else if (icodec->data->dev_vol_type & SNDDEV_DEV_VOL_ANALOG) {
 		rc = adie_codec_set_device_analog_volume(icodec->adie_path,
-				icodec->data->channel_mode, volume);
+				icodec->data->channel_mode ==
+						REAL_STEREO_CHANNEL_MODE ?
+					2 : icodec->data->channel_mode, volume);
 		if (rc < 0) {
 			MM_ERR("unable to set_device_analog_volume for"
 				"%s volume in percentage = %u\n",

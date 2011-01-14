@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
  */
 #include <linux/string.h>
 #include <linux/types.h>
+#include <linux/slab.h>
 #include <linux/msm_kgsl.h>
 
 #include "yamato_reg.h"
@@ -27,6 +28,7 @@
 #include "kgsl_pm4types.h"
 #include "kgsl_drawctxt.h"
 #include "kgsl_cmdstream.h"
+#include "kgsl_cffdump.h"
 
 /*
 *
@@ -173,7 +175,8 @@ unsigned int uint2float(unsigned int uintval)
 	}
 
 	/* Calculate fraction */
-	frac = (uintval & (~(1 << exp))) << (23 - exp);
+	if (23 > exp)
+		frac = (uintval & (~(1 << exp))) << (23 - exp);
 
 	/* Exp is biased by 127 and shifted 23 bits */
 	exp = (exp + 127) << 23;
@@ -472,9 +475,6 @@ static void build_regsave_cmds(struct kgsl_device *device,
 {
 	unsigned int *start = ctx->cmd;
 	unsigned int *cmd = start;
-	unsigned int pm_override1;
-
-	kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &pm_override1);
 
 	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
@@ -485,10 +485,6 @@ static void build_regsave_cmds(struct kgsl_device *device,
 	*cmd++ = pm4_type3_packet(PM4_CONTEXT_UPDATE, 1);
 	*cmd++ = 0;
 #endif
-
-	/* Enable clock override for REG_FIFOS_SCLK */
-	*cmd++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmd++ = pm_override1 | (1 << 6);
 
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
 	/* Write HW registers into shadow */
@@ -617,16 +613,12 @@ static void build_regsave_cmds(struct kgsl_device *device,
 	*cmd++ = ctx->reg_values[1];
 
 	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-	*cmd++ = REG_RBBM_PM_OVERRIDE1;
-	*cmd++ = ctx->reg_values[2];
-
-	*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
 	*cmd++ = REG_RBBM_PM_OVERRIDE2;
-	*cmd++ = ctx->reg_values[3];
+	*cmd++ = ctx->reg_values[2];
 
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 		unsigned int i;
-		unsigned int j = 4;
+		unsigned int j = 3;
 		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
 				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
 			*cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
@@ -643,12 +635,6 @@ static void build_regsave_cmds(struct kgsl_device *device,
 	/* Copy Loop constants */
 	cmd = reg_to_mem(cmd, ctx->loop_shadow, REG_SQ_CF_LOOP, LOOP_CONSTANTS);
 
-	/* Restore RBBM_PM_OVERRIDE1 */
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
-	*cmd++ = 0;
-	*cmd++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmd++ = pm_override1;
-
 	/* create indirect buffer command for above command sequence */
 	create_ib1(drawctxt, drawctxt->reg_save, start, cmd);
 
@@ -663,14 +649,11 @@ static unsigned int *build_gmem2sys_cmds(struct kgsl_device *device,
 {
 	unsigned int *cmds = shadow->gmem_save_commands;
 	unsigned int *start = cmds;
-	unsigned int pm_override1;
 	/* Calculate the new offset based on the adjusted base */
 	unsigned int bytesperpixel = format2bytesperpixel[shadow->format];
 	unsigned int addr =
 	    (shadow->gmemshadow.gpuaddr + shadow->offset * bytesperpixel);
 	unsigned int offset = (addr - (addr & 0xfffff000)) / bytesperpixel;
-
-	kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &pm_override1);
 
 	/* Store TP0_CHICKEN register */
 	*cmds++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
@@ -682,10 +665,6 @@ static unsigned int *build_gmem2sys_cmds(struct kgsl_device *device,
 
 	*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0;
-
-	/* Enable clock override for REG_FIFOS_SCLK */
-	*cmds++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmds++ = pm_override1 | (1 << 6);
 
 	/* Set TP0_CHICKEN to zero */
 	*cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
@@ -840,11 +819,6 @@ static unsigned int *build_gmem2sys_cmds(struct kgsl_device *device,
 		*cmds++ = 0x00030088;
 	}
 
-	/* Restore RBBM_PM_OVERRIDE1 */
-	*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
-	*cmds++ = 0;
-	*cmds++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmds++ = pm_override1;
 	/* create indirect buffer command for above command sequence */
 	create_ib1(drawctxt, shadow->gmem_save, start, cmds);
 
@@ -861,9 +835,6 @@ static unsigned int *build_sys2gmem_cmds(struct kgsl_device *device,
 {
 	unsigned int *cmds = shadow->gmem_restore_commands;
 	unsigned int *start = cmds;
-	unsigned int pm_override1;
-
-	kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &pm_override1);
 
 	/* Store TP0_CHICKEN register */
 	*cmds++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
@@ -875,10 +846,6 @@ static unsigned int *build_sys2gmem_cmds(struct kgsl_device *device,
 
 	*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0;
-
-	/* Enable clock override for REG_FIFOS_SCLK */
-	*cmds++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmds++ = pm_override1 | (1 << 6);
 
 	/* Set TP0_CHICKEN to zero */
 	*cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
@@ -1065,12 +1032,6 @@ static unsigned int *build_sys2gmem_cmds(struct kgsl_device *device,
 		*cmds++ = 0x00030088;
 	}
 
-	/* Restore RBBM_PM_OVERRIDE1 */
-	*cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
-	*cmds++ = 0;
-	*cmds++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmds++ = pm_override1;
-
 	/* create indirect buffer command for above command sequence */
 	create_ib1(drawctxt, shadow->gmem_restore, start, cmds);
 
@@ -1092,16 +1053,9 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 {
 	unsigned int *start = ctx->cmd;
 	unsigned int *cmd = start;
-	unsigned int pm_override1;
-
-	kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &pm_override1);
 
 	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
 	*cmd++ = 0;
-
-	/* Enable clock override for REG_FIFOS_SCLK */
-	*cmd++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmd++ = pm_override1 | (1 << 6);
 
 	/* H/W Registers */
 	/* deferred pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, ???); */
@@ -1159,13 +1113,13 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	/* Now we know how many register blocks we have, we can compute command
 	 * length
 	 */
-	start[4] =
-	    pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, (cmd - start) - 5);
+	start[2] =
+	    pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, (cmd - start) - 3);
 	/* Enable shadowing for the entire register block. */
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
-	start[6] |= (0 << 24) | (4 << 16);	/* Disable shadowing. */
+	start[4] |= (0 << 24) | (4 << 16);	/* Disable shadowing. */
 #else
-	start[6] |= (1 << 24) | (4 << 16);
+	start[4] |= (1 << 24) | (4 << 16);
 #endif
 
 	/* Need to handle some of the registers separately */
@@ -1179,20 +1133,16 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	ctx->reg_values[1] = gpuaddr(cmd, &drawctxt->gpustate);
 	*cmd++ = 0x00000000;
 
-	*cmd++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	ctx->reg_values[2] = gpuaddr(cmd, &drawctxt->gpustate);
-	*cmd++ = 0x00000000;
-
 	*cmd++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE2, 1);
-	ctx->reg_values[3] = gpuaddr(cmd, &drawctxt->gpustate);
+	ctx->reg_values[2] = gpuaddr(cmd, &drawctxt->gpustate);
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470)
 		*cmd++ = 0x00000000;
 	else
-		*cmd++ = 0xffffffff;
+		*cmd++ = 0x80;
 
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 		unsigned int i;
-		unsigned int j = 4;
+		unsigned int j = 3;
 		for (i = REG_LEIA_VSC_BIN_SIZE; i <=
 				REG_LEIA_VSC_PIPE_DATA_LENGTH_7; i++) {
 			*cmd++ = pm4_type0_packet(i, 1);
@@ -1242,12 +1192,6 @@ static void build_regrestore_cmds(struct kgsl_device *device,
 	 */
 	ctx->loop_shadow = gpuaddr(cmd, &drawctxt->gpustate);
 	cmd += LOOP_CONSTANTS;
-
-	/* Restore RBBM_PM_OVERRIDE1 */
-	*cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
-	*cmd++ = 0;
-	*cmd++ = pm4_type0_packet(REG_RBBM_PM_OVERRIDE1, 1);
-	*cmd++ = pm_override1;
 
 	/* create indirect buffer command for above command sequence */
 	create_ib1(drawctxt, drawctxt->reg_restore, start, cmd);
@@ -1445,23 +1389,14 @@ static int
 create_gpustate_shadow(struct kgsl_device *device,
 		       struct kgsl_drawctxt *drawctxt, struct tmp_ctx *ctx)
 {
-	uint32_t flags;
+	int result;
 
-	flags = (KGSL_MEMFLAGS_CONPHYS | KGSL_MEMFLAGS_ALIGN8K);
+	/* Allocate vmalloc memory to store the gpustate */
+	result = kgsl_sharedmem_vmalloc(&drawctxt->gpustate,
+					drawctxt->pagetable, CONTEXT_SIZE);
 
-	/* allocate memory to allow HW to save sub-blocks for efficient context
-	 *  save/restore
-	 */
-	if (kgsl_sharedmem_alloc(flags, CONTEXT_SIZE, &drawctxt->gpustate) != 0)
-		return -ENOMEM;
-	if (kgsl_mmu_map(drawctxt->pagetable, drawctxt->gpustate.physaddr,
-			 drawctxt->gpustate.size,
-			 GSL_PT_PAGE_RV | GSL_PT_PAGE_WV,
-			 &drawctxt->gpustate.gpuaddr,
-			 KGSL_MEMFLAGS_CONPHYS | KGSL_MEMFLAGS_ALIGN8K)) {
-		kgsl_sharedmem_free(&drawctxt->gpustate);
-		return -EINVAL;
-	}
+	if (result)
+		return result;
 
 	drawctxt->flags |= CTXT_FLAGS_STATE_SHADOW;
 
@@ -1479,6 +1414,11 @@ create_gpustate_shadow(struct kgsl_device *device,
 
 	build_shader_save_restore_cmds(drawctxt, ctx);
 
+	kgsl_cache_range_op((unsigned int) drawctxt->gpustate.hostptr,
+			    drawctxt->gpustate.size,
+			    KGSL_MEMFLAGS_VMALLOC_MEM
+			    | KGSL_MEMFLAGS_CACHE_FLUSH);
+
 	return 0;
 }
 
@@ -1488,28 +1428,21 @@ create_gmem_shadow(struct kgsl_yamato_device *yamato_device,
 		   struct kgsl_drawctxt *drawctxt,
 		   struct tmp_ctx *ctx)
 {
-	unsigned int flags = KGSL_MEMFLAGS_CONPHYS | KGSL_MEMFLAGS_ALIGN8K, i;
 	struct kgsl_device *device = &yamato_device->dev;
+	int result;
+	int i;
 
 	config_gmemsize(&drawctxt->context_gmem_shadow,
 			yamato_device->gmemspace.sizebytes);
 	ctx->gmem_base = yamato_device->gmemspace.gpu_base;
 
-	/* allocate memory for GMEM shadow */
-	if (kgsl_sharedmem_alloc(flags, drawctxt->context_gmem_shadow.size,
-				 &drawctxt->context_gmem_shadow.gmemshadow) !=
-	    0)
-		return -ENOMEM;
-	if (kgsl_mmu_map(drawctxt->pagetable,
-			 drawctxt->context_gmem_shadow.gmemshadow.physaddr,
-			 drawctxt->context_gmem_shadow.gmemshadow.size,
-			 GSL_PT_PAGE_RV | GSL_PT_PAGE_WV,
-			 &drawctxt->context_gmem_shadow.gmemshadow.gpuaddr,
-			 KGSL_MEMFLAGS_CONPHYS | KGSL_MEMFLAGS_ALIGN8K)) {
-		kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.
-					gmemshadow);
-		return -EINVAL;
-	}
+	result = kgsl_sharedmem_vmalloc(
+				&drawctxt->context_gmem_shadow.gmemshadow,
+			       drawctxt->pagetable,
+			       drawctxt->context_gmem_shadow.size);
+
+	if (result)
+		return result;
 
 	/* we've allocated the shadow, when swapped out, GMEM must be saved. */
 	drawctxt->flags |= CTXT_FLAGS_GMEM_SHADOW | CTXT_FLAGS_GMEM_SAVE;
@@ -1551,6 +1484,12 @@ create_gmem_shadow(struct kgsl_yamato_device *yamato_device,
 					&drawctxt->user_gmem_shadow[i]);
 	}
 
+	kgsl_cache_range_op((unsigned int)
+			    drawctxt->context_gmem_shadow.gmemshadow.hostptr,
+			    drawctxt->context_gmem_shadow.size,
+			    KGSL_MEMFLAGS_VMALLOC_MEM
+			    | KGSL_MEMFLAGS_CACHE_FLUSH);
+
 	return 0;
 }
 
@@ -1564,6 +1503,9 @@ int kgsl_drawctxt_init(struct kgsl_device *device)
 /* close draw context */
 int kgsl_drawctxt_close(struct kgsl_device *device)
 {
+	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
+							device;
+	yamato_device->drawctxt_active = NULL;
 	return 0;
 }
 
@@ -1580,35 +1522,36 @@ kgsl_drawctxt_create(struct kgsl_device_private *dev_priv,
 	struct kgsl_pagetable *pagetable = dev_priv->process_priv->pagetable;
 	int index;
 	struct tmp_ctx ctx;
+	int ret;
 
 	KGSL_CTXT_INFO("pt %p flags %08x\n", pagetable, flags);
 	if (yamato_device->drawctxt_count >= KGSL_CONTEXT_MAX)
 		return -EINVAL;
 
 	/* find a free context slot */
-	index = 0;
-	while (index < KGSL_CONTEXT_MAX) {
-		if (yamato_device->drawctxt[index].flags ==
-							CTXT_FLAGS_NOT_IN_USE)
+	for (index = 0; index < KGSL_CONTEXT_MAX; index++) {
+		if (yamato_device->drawctxt[index] == NULL)
 			break;
-
-		index++;
 	}
 
-	if (index >= KGSL_CONTEXT_MAX)
+	if (index == KGSL_CONTEXT_MAX)
 		return -EINVAL;
 
-	drawctxt = &yamato_device->drawctxt[index];
+	drawctxt = yamato_device->drawctxt[index] =
+		kzalloc(sizeof(struct kgsl_drawctxt), GFP_KERNEL);
+
+	if (drawctxt == NULL)
+		return -ENOMEM;
+
 	drawctxt->pagetable = pagetable;
-	drawctxt->flags = CTXT_FLAGS_IN_USE;
 	drawctxt->bin_base_offset = 0;
 
 	yamato_device->drawctxt_count++;
 
-	if (create_gpustate_shadow(device, drawctxt, &ctx)
-			!= 0) {
+	ret = create_gpustate_shadow(device, drawctxt, &ctx);
+	if (ret) {
 		kgsl_drawctxt_destroy(device, index);
-		return -EINVAL;
+		return ret;
 	}
 
 	/* Save the shader instruction memory on context switching */
@@ -1622,10 +1565,10 @@ kgsl_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	if (!(flags & KGSL_CONTEXT_NO_GMEM_ALLOC)) {
 		/* create gmem shadow */
-		if (create_gmem_shadow(yamato_device, drawctxt, &ctx)
-				!= 0) {
+		ret = create_gmem_shadow(yamato_device, drawctxt, &ctx);
+		if (ret != 0) {
 			kgsl_drawctxt_destroy(device, index);
-			return -EINVAL;
+			return ret;
 		}
 	}
 
@@ -1648,52 +1591,37 @@ int kgsl_drawctxt_destroy(struct kgsl_device *device, unsigned int drawctxt_id)
 	if (drawctxt_id >= KGSL_CONTEXT_MAX)
 		return -EINVAL;
 
-	drawctxt = &yamato_device->drawctxt[drawctxt_id];
+	drawctxt = yamato_device->drawctxt[drawctxt_id];
+
+	if (drawctxt == NULL)
+		return -EINVAL;
 
 	KGSL_CTXT_INFO("drawctxt_id %d ptr %p\n", drawctxt_id, drawctxt);
-	if (drawctxt->flags != CTXT_FLAGS_NOT_IN_USE) {
-		/* deactivate context */
-		if (yamato_device->drawctxt_active == drawctxt) {
-			/* no need to save GMEM or shader, the context is
-			 * being destroyed.
-			 */
-			drawctxt->flags &= ~(CTXT_FLAGS_GMEM_SAVE |
-					     CTXT_FLAGS_SHADER_SAVE |
-					     CTXT_FLAGS_GMEM_SHADOW |
-					     CTXT_FLAGS_STATE_SHADOW);
 
-			kgsl_drawctxt_switch(yamato_device, NULL, 0);
-		}
+	/* deactivate context */
+	if (yamato_device->drawctxt_active == drawctxt) {
+		/* no need to save GMEM or shader, the context is
+		 * being destroyed.
+		 */
+		drawctxt->flags &= ~(CTXT_FLAGS_GMEM_SAVE |
+				     CTXT_FLAGS_SHADER_SAVE |
+				     CTXT_FLAGS_GMEM_SHADOW |
+				     CTXT_FLAGS_STATE_SHADOW);
 
-		kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
-
-		/* destroy state shadow, if allocated */
-		if (drawctxt->gpustate.gpuaddr != 0) {
-			kgsl_mmu_unmap(drawctxt->pagetable,
-				       drawctxt->gpustate.gpuaddr,
-				       drawctxt->gpustate.size);
-			drawctxt->gpustate.gpuaddr = 0;
-		}
-		if (drawctxt->gpustate.physaddr != 0)
-			kgsl_sharedmem_free(&drawctxt->gpustate);
-
-		/* destroy gmem shadow, if allocated */
-		if (drawctxt->context_gmem_shadow.gmemshadow.gpuaddr != 0) {
-			kgsl_mmu_unmap(drawctxt->pagetable,
-			drawctxt->context_gmem_shadow.gmemshadow.gpuaddr,
-			drawctxt->context_gmem_shadow.gmemshadow.size);
-			drawctxt->context_gmem_shadow.gmemshadow.gpuaddr = 0;
-		}
-
-		if (drawctxt->context_gmem_shadow.gmemshadow.physaddr != 0)
-			kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.
-					    gmemshadow);
-
-		drawctxt->flags = CTXT_FLAGS_NOT_IN_USE;
-
-		BUG_ON(yamato_device->drawctxt_count == 0);
-		yamato_device->drawctxt_count--;
+		kgsl_drawctxt_switch(yamato_device, NULL, 0);
 	}
+	yamato_device->drawctxt[drawctxt_id] = NULL;
+
+	kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
+
+	kgsl_sharedmem_free(&drawctxt->gpustate);
+	kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
+
+	kfree(drawctxt);
+
+	BUG_ON(yamato_device->drawctxt_count == 0);
+	yamato_device->drawctxt_count--;
+
 	KGSL_CTXT_INFO("return\n");
 	return 0;
 }
@@ -1719,7 +1647,9 @@ int kgsl_drawctxt_bind_gmem_shadow(struct kgsl_yamato_device *yamato_device,
 		* skips context switch */
 		return 0;
 
-	drawctxt = &yamato_device->drawctxt[drawctxt_id];
+	drawctxt = yamato_device->drawctxt[drawctxt_id];
+	if (drawctxt == NULL)
+		return -EINVAL;
 
 	shadow = &drawctxt->user_gmem_shadow[buffer_id];
 
@@ -1742,12 +1672,10 @@ int kgsl_drawctxt_bind_gmem_shadow(struct kgsl_yamato_device *yamato_device,
 		BUG_ON(shadow_x % 2);  /* Needs to be a multiple of 2 */
 		BUG_ON(shadow_y % 2);  /* Needs to be a multiple of 2 */
 
-		BUG_ON(shadow_buffer->format < COLORX_4_4_4_4);
 		BUG_ON(shadow_buffer->format > COLORX_32_32_32_32_FLOAT);
 		/* Needs to be a multiple of 32 */
 		BUG_ON(shadow_buffer->pitch % 32);
 
-		BUG_ON(buffer_id < 0);
 		BUG_ON(buffer_id > KGSL_MAX_GMEM_SHADOW_BUFFERS);
 
 		width = gmem_desc->width;
@@ -1791,11 +1719,7 @@ int kgsl_drawctxt_bind_gmem_shadow(struct kgsl_yamato_device *yamato_device,
 		build_sys2gmem_cmds(device, drawctxt, NULL, shadow);
 
 		/* Release context GMEM shadow if found */
-		if (drawctxt->context_gmem_shadow.gmemshadow.physaddr != 0) {
-			kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.
-					    gmemshadow);
-			drawctxt->context_gmem_shadow.gmemshadow.physaddr = 0;
-		}
+		kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
 	}
 
 	/* Enable GMEM shadowing if we have any of the user buffers enabled */
@@ -1817,7 +1741,9 @@ int kgsl_drawctxt_set_bin_base_offset(struct kgsl_device *device,
 	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
 								device;
 
-	drawctxt = &yamato_device->drawctxt[drawctxt_id];
+	drawctxt = yamato_device->drawctxt[drawctxt_id];
+	if (drawctxt == NULL)
+		return -EINVAL;
 
 	drawctxt->bin_base_offset = offset;
 
@@ -1917,6 +1843,11 @@ kgsl_drawctxt_switch(struct kgsl_yamato_device *yamato_device,
 		KGSL_CTXT_INFO("drawctxt flags %08x\n", drawctxt->flags);
 		KGSL_CTXT_DBG("restore pagetable");
 		kgsl_mmu_setstate(device, drawctxt->pagetable);
+
+		kgsl_cffdump_syncmem(NULL, &drawctxt->gpustate,
+			drawctxt->gpustate.gpuaddr, LCC_SHADOW_SIZE +
+			REG_SHADOW_SIZE + CMD_BUFFER_SIZE + TEX_SHADOW_SIZE,
+			false);
 
 		/* restore gmem.
 		 *  (note: changes shader. shader must not already be restored.)

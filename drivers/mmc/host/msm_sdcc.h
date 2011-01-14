@@ -193,7 +193,7 @@ struct msmsdcc_dma_data {
 	struct msmsdcc_host		*host;
 	int				busy; /* Set if DM is busy */
 	unsigned int 			result;
-	struct msm_dmov_errdata 	*err;
+	struct msm_dmov_errdata		err;
 };
 
 struct msmsdcc_pio_data {
@@ -268,6 +268,8 @@ struct msmsdcc_host {
 	unsigned int    sdcc_suspending;
 
 	struct timer_list    check_timer;
+	unsigned int sdcc_irq_disabled;
+
 };
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);

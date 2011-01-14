@@ -41,10 +41,13 @@
 #define KGSL_PWRFLAGS_POWER_ON		0x00000002
 #define KGSL_PWRFLAGS_CLK_ON		0x00000004
 #define KGSL_PWRFLAGS_CLK_OFF		0x00000008
-#define KGSL_PWRFLAGS_OVERRIDE_ON	0x00000010
-#define KGSL_PWRFLAGS_OVERRIDE_OFF	0x00000020
+#define KGSL_PWRFLAGS_AXI_ON		0x00000010
+#define KGSL_PWRFLAGS_AXI_OFF		0x00000020
 #define KGSL_PWRFLAGS_IRQ_ON		0x00000040
 #define KGSL_PWRFLAGS_IRQ_OFF		0x00000080
+
+#define BW_INIT 0
+#define BW_MAX  1
 
 enum kgsl_clk_freq {
 	KGSL_AXI_HIGH = 0,
@@ -58,21 +61,27 @@ struct kgsl_pwrctrl {
 	int interrupt_num;
 	int have_irq;
 	unsigned int pwr_rail;
-	struct pm_qos_request_list *pm_qos_req;
+	struct clk *ebi1_clk;
 	struct clk *grp_clk;
 	struct clk *grp_pclk;
 	struct clk *grp_src_clk;
 	struct clk *imem_clk;
+	struct clk *imem_pclk;
 	unsigned int power_flags;
 	unsigned int clk_freq[KGSL_NUM_FREQ];
 	unsigned int interval_timeout;
 	struct regulator *gpu_reg;
+	uint32_t pcl;
+	unsigned int nap_allowed;
+	struct kgsl_drawctxt *suspended_ctxt;
 };
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag);
+int kgsl_pwrctrl_axi(struct kgsl_device *device, unsigned int pwrflag);
 int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, unsigned int pwrflag);
 int kgsl_pwrctrl_irq(struct kgsl_device *device, unsigned int pwrflag);
 void kgsl_pwrctrl_close(struct kgsl_device *device);
 void kgsl_timer(unsigned long data);
 void kgsl_idle_check(struct work_struct *work);
 void kgsl_pre_hwaccess(struct kgsl_device *device);
+void kgsl_check_suspended(struct kgsl_device *device);

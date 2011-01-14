@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,43 @@ struct audio_routing_info {
 
 static struct audio_routing_info routing_info;
 
+int msm_reset_all_device(void)
+{
+	int rc = 0;
+	int dev_id = 0;
+	struct msm_snddev_info *dev_info = NULL;
+
+	for (dev_id = 0; dev_id < audio_dev_ctrl.num_dev; dev_id++) {
+		dev_info = audio_dev_ctrl_find_dev(dev_id);
+		if (IS_ERR(dev_info)) {
+			MM_ERR("pass invalid dev_id %d\n", dev_id);
+			rc = PTR_ERR(dev_info);
+			return rc;
+		}
+		if (!dev_info->opened)
+			continue;
+		MM_DBG("Resetting device %d active on COPP %d"
+			"with  0x%08x as routing\n",
+				dev_id, dev_info->copp_id, dev_info->sessions);
+		broadcast_event(AUDDEV_EVT_REL_PENDING,
+					dev_id,
+					SESSION_IGNORE);
+		rc = dev_info->dev_ops.close(dev_info);
+		if (rc < 0) {
+			MM_ERR("Snd device %d failed close!\n", dev_id);
+			return rc;
+		} else {
+			dev_info->opened = 0;
+			broadcast_event(AUDDEV_EVT_DEV_RLS,
+				dev_id,
+				SESSION_IGNORE);
+		}
+		dev_info->sessions = 0;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(msm_reset_all_device);
+
 int msm_get_voice_state(void)
 {
 	MM_DBG("voice state %d\n", routing_info.voice_state);
@@ -83,6 +120,9 @@ EXPORT_SYMBOL(msm_get_voice_state);
 int msm_set_voice_mute(int dir, int mute)
 {
 	MM_DBG("dir %x mute %x\n", dir, mute);
+	if (!audio_dev_ctrl.voice_rx_dev
+		|| !audio_dev_ctrl.voice_tx_dev)
+		return -EPERM;
 	if (dir == DIR_TX) {
 		routing_info.tx_mute = mute;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
@@ -95,6 +135,9 @@ EXPORT_SYMBOL(msm_set_voice_mute);
 
 int msm_set_voice_vol(int dir, s32 volume)
 {
+	if (!audio_dev_ctrl.voice_rx_dev
+		|| !audio_dev_ctrl.voice_tx_dev)
+		return -EPERM;
 	if (dir == DIR_TX) {
 		routing_info.voice_tx_vol = volume;
 		broadcast_event(AUDDEV_EVT_DEVICE_VOL_MUTE_CHG,
@@ -743,20 +786,30 @@ void broadcast_event(u32 evt_id, u32 dev_id, u32 session_id)
 	if ((evt_id != AUDDEV_EVT_START_VOICE)
 		&& (evt_id != AUDDEV_EVT_END_VOICE)
 		&& (evt_id != AUDDEV_EVT_STREAM_VOL_CHG)
-		&& (evt_id != AUDDEV_EVT_VOICE_STATE_CHG))
+		&& (evt_id != AUDDEV_EVT_VOICE_STATE_CHG)) {
 		dev_info = audio_dev_ctrl_find_dev(dev_id);
+		if (IS_ERR(dev_info)) {
+			MM_ERR("pass invalid dev_id\n");
+			return;
+		}
+	}
 
 	if (event.cb != NULL)
 		callback = event.cb;
 	else
 		return;
+
+	evt_payload = kzalloc(sizeof(union auddev_evt_data),
+			GFP_KERNEL);
+	if (evt_payload == NULL) {
+		MM_ERR("Memory allocation for event payload failed\n");
+		return;
+	}
+
 	mutex_lock(&session_lock);
 
 	if (evt_id == AUDDEV_EVT_VOICE_STATE_CHG)
 		routing_info.voice_state = dev_id;
-
-	evt_payload = kzalloc(sizeof(union auddev_evt_data),
-			GFP_KERNEL);
 
 	for (; ;) {
 		if (!(evt_id & callback->evt_id)) {
@@ -828,6 +881,26 @@ volume_strm:
 					evt_payload->freq_info.acdb_dev_id
 						= dev_info->acdb_id;
 				}
+			/* Propogate device information to client */
+			} else if (evt_id == AUDDEV_EVT_DEVICE_INFO) {
+				evt_payload->devinfo.dev_id
+					= dev_info->copp_id;
+				evt_payload->devinfo.acdb_id
+					= dev_info->acdb_id;
+				evt_payload->devinfo.dev_type =
+					(dev_info->capability & SNDDEV_CAP_TX) ?
+					SNDDEV_CAP_TX : SNDDEV_CAP_RX;
+				evt_payload->devinfo.sample_rate
+					= dev_info->sample_rate;
+				if (session_id == SESSION_IGNORE)
+					evt_payload->devinfo.sessions
+					= dev_info->sessions;
+				else
+					evt_payload->devinfo.sessions
+					= session_id;
+				evt_payload->devinfo.sessions =
+					(evt_payload->devinfo.sessions >>
+						((AUDDEV_CLNT_DEC-1) * 8));
 			} else if (evt_id == AUDDEV_EVT_VOICE_STATE_CHG)
 				evt_payload->voice_state =
 					routing_info.voice_state;
@@ -866,6 +939,26 @@ sent_dec:
 					evt_payload->freq_info.acdb_dev_id
 						= dev_info->acdb_id;
 				}
+			/* Propogate device information to client */
+			} else if (evt_id == AUDDEV_EVT_DEVICE_INFO) {
+				evt_payload->devinfo.dev_id
+					= dev_info->copp_id;
+				evt_payload->devinfo.acdb_id
+					= dev_info->acdb_id;
+				evt_payload->devinfo.dev_type =
+					(dev_info->capability & SNDDEV_CAP_TX) ?
+					SNDDEV_CAP_TX : SNDDEV_CAP_RX;
+				evt_payload->devinfo.sample_rate
+					= dev_info->sample_rate;
+				if (session_id == SESSION_IGNORE)
+					evt_payload->devinfo.sessions
+					= dev_info->sessions;
+				else
+					evt_payload->devinfo.sessions
+					= session_id;
+				evt_payload->devinfo.sessions =
+					(evt_payload->devinfo.sessions >>
+						((AUDDEV_CLNT_ENC-1) * 8));
 			} else if (evt_id == AUDDEV_EVT_VOICE_STATE_CHG)
 				evt_payload->voice_state =
 					routing_info.voice_state;

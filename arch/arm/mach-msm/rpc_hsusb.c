@@ -81,7 +81,7 @@ static int msm_hsusb_init_rpc_ids(unsigned long vers)
 		usb_rpc_ids.disable_pmic_ulpi_data0	= 19;
 		return 0;
 	} else {
-		pr_info("%s: no matches found for version\n",
+		pr_err("%s: no matches found for version\n",
 			__func__);
 		return -ENODATA;
 	}
@@ -111,7 +111,7 @@ int msm_hsusb_rpc_connect(void)
 {
 
 	if (usb_ep && !IS_ERR(usb_ep)) {
-		pr_info("%s: usb_ep already connected\n", __func__);
+		pr_debug("%s: usb_ep already connected\n", __func__);
 		return 0;
 	}
 

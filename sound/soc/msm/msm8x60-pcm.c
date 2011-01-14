@@ -17,7 +17,6 @@
  */
 
 
-#include <mach/debug_mm.h>
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/module.h>
@@ -34,51 +33,30 @@
 #include <sound/control.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
+#include <linux/delay.h>
 #include <linux/android_pmem.h>
+#include <mach/qdsp6v2/audio_dev_ctl.h>
 
 #include "msm8x60-pcm.h"
-#include <mach/qdsp5v2/audio_dev_ctl.h>
-
-#define HOSTPCM_STREAM_ID 5
 
 struct snd_msm {
 	struct snd_card *card;
 	struct snd_pcm *pcm;
 };
 
-int copy_count;
-
-static struct snd_pcm_hardware msm_pcm_playback_hardware = {
-	.info =                 SNDRV_PCM_INFO_MMAP |
-				SNDRV_PCM_INFO_MMAP_VALID |
-				SNDRV_PCM_INFO_INTERLEAVED,
-	.formats =              USE_FORMATS,
-	.rates =                USE_RATE,
-	.rate_min =             USE_RATE_MIN,
-	.rate_max =             48000,
-	.channels_min =         1,
-	.channels_max =         1,
-	.buffer_bytes_max =     MAX_BUFFER_PLAYBACK_SIZE,
-	.period_bytes_min =     BUFSZ,
-	.period_bytes_max =     BUFSZ,
-	.periods_min =          2,
-	.periods_max =          2,
-	.fifo_size =            0,
-};
-
-static struct snd_pcm_hardware msm_pcm_capture_hardware = {
+static struct snd_pcm_hardware msm_pcm_hardware = {
 	.info =                 SNDRV_PCM_INFO_INTERLEAVED,
-	.formats =              USE_FORMATS,
-	.rates =                USE_RATE,
+	.formats =              SNDRV_PCM_FMTBIT_S16_LE,
+	.rates =                SNDRV_PCM_RATE_8000_48000,
 	.rate_min =             8000,
 	.rate_max =             48000,
 	.channels_min =         1,
-	.channels_max =         1,
-	.buffer_bytes_max =     MAX_BUFFER_CAPTURE_SIZE,
-	.period_bytes_min =    	4096,
-	.period_bytes_max =     4096,
-	.periods_min =          4,
-	.periods_max =          4,
+	.channels_max =         2,
+	.buffer_bytes_max =     3840 * 8,
+	.period_bytes_min =	3840,
+	.period_bytes_max =     3840,
+	.periods_min =          8,
+	.periods_max =          8,
 	.fifo_size =            0,
 };
 
@@ -87,71 +65,101 @@ static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
 };
 
+uint32_t in_frame_info[8][2];
+
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 	.count = ARRAY_SIZE(supported_sample_rates),
 	.list = supported_sample_rates,
 	.mask = 0,
 };
-static void pcm_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
+static void alsa_out_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 							void *private_data)
 {
 	struct msm_audio *prtd = (struct msm_audio *) private_data;
-
-	MM_DBG("evt_id = 0x%8x\n", evt_id);
+	pr_debug("evt_id = 0x%8x\n", evt_id);
 	switch (evt_id) {
-	case AUDDEV_EVT_FREQ_CHG: {
-		MM_DBG("Encoder Driver got sample rate change event\n");
-		MM_DBG("sample rate %d\n", evt_payload->freq_info.sample_rate);
-		MM_DBG("dev_type %d\n", evt_payload->freq_info.dev_type);
-		MM_DBG("acdb_dev_id %d\n", evt_payload->freq_info.acdb_dev_id);
-		if (prtd->running == 1) {
-			/* Stop Recording sample rate does not match
-			with device sample rate */
-			if (evt_payload->freq_info.sample_rate !=
-				prtd->samp_rate) {
-				alsa_in_record_config(prtd, 0);
-				prtd->abort = 1;
-				wake_up(&the_locks.read_wait);
-			}
-		}
+	case AUDDEV_EVT_DEV_RDY:
+		pr_debug("AUDDEV_EVT_DEV_RDY\n");
+		prtd->source |= (0x1 << evt_payload->routing_id);
+		break;
+	case AUDDEV_EVT_DEV_RLS:
+		pr_debug("AUDDEV_EVT_DEV_RLS\n");
+		prtd->source &= ~(0x1 << evt_payload->routing_id);
+		break;
+	case AUDDEV_EVT_STREAM_VOL_CHG:
+		pr_debug("AUDDEV_EVT_STREAM_VOL_CHG\n");
+		break;
+	default:
+		pr_debug("Unknown Event\n");
+		break;
+	}
+}
+
+static void alsa_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
+							void *private_data)
+{
+	struct msm_audio *prtd = (struct msm_audio *) private_data;
+	pr_debug("evt_id = 0x%8x\n", evt_id);
+
+	switch (evt_id) {
+	case AUDDEV_EVT_DEV_RDY:
+		pr_debug("AUDDEV_EVT_DEV_RDY\n");
+		prtd->source |= (0x1 << evt_payload->routing_id);
+		break;
+	case AUDDEV_EVT_DEV_RLS:
+		pr_debug("AUDDEV_EVT_DEV_RLS\n");
+		prtd->source &= ~(0x1 << evt_payload->routing_id);
+		break;
+	default:
+		pr_debug("Unknown Event\n");
+		break;
+	}
+}
+
+static void event_handler(uint32_t opcode,
+		uint32_t token, uint32_t *payload, void *priv)
+{
+	struct msm_audio *prtd = priv;
+	uint32_t *ptrmem = (uint32_t *)payload;
+	int i = 0;
+
+	pr_debug("%s\n", __func__);
+	switch (opcode) {
+	case ASM_DATA_EVENT_WRITE_DONE: {
+		pr_debug("ASM_DATA_EVENT_WRITE_DONE\n");
+		pr_debug("Buffer Consumed = 0x%08x\n", *ptrmem);
+		prtd->pcm_irq_pos += prtd->pcm_count;
+		if (atomic_read(&prtd->start))
+			snd_pcm_period_elapsed(prtd->substream);
+		atomic_inc(&prtd->out_count);
+		wake_up(&the_locks.write_wait);
+		break;
+	}
+	case ASM_SESSION_CMDRSP_GET_SESSION_TIME:
+		pr_debug("ASM_SESSION_CMD_GET_SESSION_TIME\n");
+		for (i = 0; i < 8; i++, ++ptrmem)
+			pr_debug("cmd[%d]=0x%08x\n", i, *ptrmem);
+		prtd->cmd_ack++;
+		wake_up(&the_locks.wait);
+		break;
+	case ASM_DATA_EVENT_READ_DONE: {
+		pr_debug("ASM_DATA_EVENT_READ_DONE\n");
+		pr_debug("token = 0x%08x\n", token);
+		for (i = 0; i < 8; i++, ++ptrmem)
+			pr_debug("cmd[%d]=0x%08x\n", i, *ptrmem);
+		in_frame_info[token][0] = payload[7];
+		in_frame_info[token][1] = payload[3];
+		prtd->pcm_irq_pos += prtd->pcm_count;
+		if (atomic_read(&prtd->start))
+			snd_pcm_period_elapsed(prtd->substream);
+		if (atomic_read(&prtd->in_count) <= prtd->periods)
+			atomic_inc(&prtd->in_count);
+		wake_up(&the_locks.read_wait);
 		break;
 	}
 	default:
-		MM_DBG("Unknown Event\n");
+		pr_debug("Not Supported Event opcode[0x%x]\n", opcode);
 		break;
-	}
-}
-
-static void msm_pcm_enqueue_data(struct snd_pcm_substream *substream)
-{
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct msm_audio *prtd = runtime->private_data;
-	unsigned int period_size;
-
-	MM_DBG("prtd->out_tail =%d mmap_flag=%d\n",
-			prtd->out_tail, prtd->mmap_flag);
-	period_size = snd_pcm_lib_period_bytes(substream);
-	alsa_dsp_send_buffer(prtd, prtd->out_tail, period_size);
-	prtd->out_tail ^= 1;
-	++copy_count;
-	prtd->period++;
-	if (unlikely(prtd->period >= runtime->periods))
-		prtd->period = 0;
-
-}
-
-static void event_handler(void *data)
-{
-	struct msm_audio *prtd = data;
-	MM_DBG("\n");
-	snd_pcm_period_elapsed(prtd->substream);
-	if (prtd->mmap_flag) {
-		if (prtd->dir == SNDRV_PCM_STREAM_CAPTURE)
-			return;
-		if (!prtd->stopped)
-			msm_pcm_enqueue_data(prtd->substream);
-		else
-			prtd->out_needed++;
 	}
 }
 
@@ -159,37 +167,32 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
+	int ret;
 
-	MM_DBG("\n");
+	pr_debug("%s\n", __func__);
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
-	prtd->pcm_buf_pos = 0;
 	if (prtd->enabled)
 		return 0;
 
-	MM_DBG("\n");
-	/* rate and channels are sent to audio driver */
-	prtd->out_sample_rate = runtime->rate;
-	prtd->out_channel_mode = runtime->channels;
-	prtd->data = prtd->substream->dma_buffer.area;
-	prtd->phys = prtd->substream->dma_buffer.addr;
-	prtd->out[0].data = prtd->data + 0;
-	prtd->out[0].addr = prtd->phys + 0;
-	prtd->out[0].size = BUFSZ;
-	prtd->out[1].data = prtd->data + BUFSZ;
-	prtd->out[1].addr = prtd->phys + BUFSZ;
-	prtd->out[1].size = BUFSZ;
+	ret = q6asm_audio_client_buf_alloc(IN, prtd->audio_client,
+			prtd->pcm_count, runtime->periods);
+	if (ret < 0) {
+		pr_debug("Audio Start: Buffer Allocation failed \
+					rc = %d\n", ret);
+	}
+	ret = q6asm_media_format_block_pcm(prtd->audio_client, runtime->rate,
+				runtime->channels);
+	if (ret < 0)
+		pr_debug("%s: CMD Format block failed\n", __func__);
 
-	if (prtd->enabled | !(prtd->mmap_flag))
-		return 0;
-
-	prtd->out[0].used = prtd->pcm_count;
-	prtd->out[1].used = prtd->pcm_count;
-
-	mutex_lock(&the_locks.lock);
-	alsa_audio_configure(prtd);
-	mutex_unlock(&the_locks.lock);
+	atomic_set(&prtd->out_count, runtime->periods);
+	atomic_set(&prtd->in_count, 0);
+	ret = msm_snddev_set_dec(prtd->session_id, 0, 1,
+		prtd->samp_rate, prtd->channel_mode);
+	prtd->enabled = 1;
+	q6asm_run(prtd->audio_client, 0, 0, 0);
 
 	return 0;
 }
@@ -199,68 +202,38 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 	int ret = 0;
-	uint32_t freq;
-	MM_DBG("\n");
+	int i = 0;
+	pr_debug("%s\n", __func__);
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
-	prtd->pcm_buf_pos = 0;
 
 	/* rate and channels are sent to audio driver */
-	prtd->type = 0;
-	prtd->source = 0;
 	prtd->samp_rate = runtime->rate;
-	prtd->channel_mode = (runtime->channels - 1);
-	prtd->buffer_size = prtd->channel_mode ? STEREO_DATA_SIZE : \
-							MONO_DATA_SIZE;
+	prtd->channel_mode = runtime->channels;
 
 	if (prtd->enabled)
 		return 0;
 
-	freq = prtd->samp_rate;
-
-	ret = msm_snddev_request_freq(&freq, prtd->session_id,
-					SNDDEV_CAP_TX, AUDDEV_CLNT_ENC);
-	MM_DBG("sample rate configured %d sample rate requested %d\n",
-			freq, prtd->samp_rate);
-
+	ret = q6asm_audio_client_buf_alloc(OUT, prtd->audio_client,
+				prtd->pcm_count, runtime->periods);
 	if (ret < 0) {
-		MM_DBG("sample rate can not be set, return code %d\n", ret);
-		msm_snddev_withdraw_freq(prtd->session_id,
-					SNDDEV_CAP_TX, AUDDEV_CLNT_ENC);
-		MM_DBG("msm_snddev_withdraw_freq\n");
-		return ret;
+		pr_debug("Audio Start: Buffer Allocation failed \
+					rc = %d\n", ret);
 	}
+	pr_debug("Samp_rate = %d\n", prtd->samp_rate);
+	pr_debug("Channel = %d\n", prtd->channel_mode);
+	ret = q6asm_enc_cfg_blk_pcm(prtd->audio_client, prtd->samp_rate,
+					prtd->channel_mode);
+	if (ret < 0)
+		pr_err("%s: cmd cfg pcm was block failed", __func__);
 
-	/* Configured sample rate is not as requested,
-		reject the request */
-	if (freq != prtd->samp_rate) {
-		MM_DBG("sample rate can not be configured to %d\n",
-							prtd->samp_rate);
-		msm_snddev_withdraw_freq(prtd->session_id,
-					SNDDEV_CAP_TX, AUDDEV_CLNT_ENC);
-		MM_DBG("msm_snddev_withdraw_freq\n");
-		return ret;
-	}
-
-	prtd->data = prtd->substream->dma_buffer.area;
-	prtd->phys = prtd->substream->dma_buffer.addr;
-	MM_DBG("prtd->data =%08x\n", (unsigned int)prtd->data);
-	MM_DBG("prtd->phys =%08x\n", (unsigned int)prtd->phys);
-
-	mutex_lock(&the_locks.lock);
-	ret = alsa_audio_configure(prtd);
-	mutex_unlock(&the_locks.lock);
-	if (ret)
-		return ret;
-	ret = wait_event_interruptible(the_locks.enable_wait,
-				prtd->running != 0);
-	MM_DBG("state prtd->running = %d ret = %d\n", prtd->running, ret);
-
-	if (prtd->running == 0)
-		ret = -ENODEV;
-	else
-		ret = 0;
+	for (i = 0; i < runtime->periods; i++)
+		q6asm_read(prtd->audio_client);
+	prtd->periods = runtime->periods;
+	ret = msm_snddev_set_enc(prtd->session_id, 1, 1,
+		48000, 1);
+	q6asm_run(prtd->audio_client, 0, 0, 0);
 	prtd->enabled = 1;
 
 	return ret;
@@ -268,52 +241,20 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 
 static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
+	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
-	unsigned long flag = 0;
-	int ret = 0;
-
-	MM_DBG("\n");
+	pr_debug("%s\n", __func__);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if ((substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-			|| prtd->mmap_flag)
-			break;
-		if (!prtd->out_needed) {
-			prtd->stopped = 0;
-			break;
-		}
-		spin_lock_irqsave(&the_locks.write_dsp_lock, flag);
-		if (prtd->running == 1) {
-			if (prtd->stopped == 1) {
-				prtd->stopped = 0;
-				prtd->period = 0;
-				if (prtd->pcm_irq_pos == 0) {
-					prtd->out_tail = 0;
-					msm_pcm_enqueue_data(prtd->substream);
-					prtd->out_needed--;
-				} else {
-					prtd->out_tail = 1;
-					msm_pcm_enqueue_data(prtd->substream);
-					prtd->out_needed--;
-				}
-				if (prtd->out_needed) {
-					prtd->out_tail ^= 1;
-					msm_pcm_enqueue_data(prtd->substream);
-					prtd->out_needed--;
-				}
-			}
-		}
-		spin_unlock_irqrestore(&the_locks.write_dsp_lock, flag);
+		atomic_set(&prtd->start, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-			break;
-		prtd->stopped = 1;
+		atomic_set(&prtd->start, 0);
 		break;
 	default:
 		ret = -EINVAL;
@@ -323,89 +264,90 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return ret;
 }
 
-struct  msm_audio_event_callbacks snd_msm_audio_ops = {
-	.playback = event_handler,
-	.capture = event_handler,
-};
-
 static int msm_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd;
 	int ret = 0;
-	int i = 0;
-	int session_attrb, sessionid;
 
-	MM_DBG("\n");
+	pr_debug("%s\n", __func__);
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
 	if (prtd == NULL) {
 		ret = -ENOMEM;
 		return ret;
 	}
+	prtd->audio_client = q6asm_audio_client_alloc(
+				(app_cb)event_handler, prtd);
+	if (!prtd->audio_client) {
+		pr_debug("%s: Could not allocate memory\n", __func__);
+		kfree(prtd);
+		return -ENOMEM;
+	}
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		runtime->hw = msm_pcm_playback_hardware;
-		prtd->dir = SNDRV_PCM_STREAM_PLAYBACK;
-		prtd->eos_ack = 0;
-		prtd->session_id = HOSTPCM_STREAM_ID;
-	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		runtime->hw = msm_pcm_capture_hardware;
-		prtd->dir = SNDRV_PCM_STREAM_CAPTURE;
-		session_attrb = 0;
-		sessionid = 0;
-		if (sessionid < 0) {
-			MM_ERR("No free decoder available\n");
+		ret = q6asm_open_write(prtd->audio_client, FORMAT_LINEAR_PCM);
+		if (ret < 0) {
+			pr_err("%s: pcm out open failed\n", __func__);
+			q6asm_audio_client_free(prtd->audio_client);
 			kfree(prtd);
-			return -ENODEV;
+			return -ENOMEM;
 		}
-		prtd->session_id = sessionid;
-		MM_DBG("%s\n", prtd->module_name);
+	}
+	/* Capture path */
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		ret = q6asm_open_read(prtd->audio_client, FORMAT_LINEAR_PCM);
+		if (ret < 0) {
+			pr_err("%s: pcm in open failed\n", __func__);
+			q6asm_audio_client_free(prtd->audio_client);
+			kfree(prtd);
+			return -ENOMEM;
+		}
+	}
 
+	prtd->session_id = prtd->audio_client->session;
+	runtime->hw = msm_pcm_hardware;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		prtd->eos_ack = 0;
+		prtd->cmd_ack = 0;
+		prtd->device_events = AUDDEV_EVT_DEV_RDY |
+				AUDDEV_EVT_STREAM_VOL_CHG |
+				AUDDEV_EVT_DEV_RLS;
+		prtd->source = msm_snddev_route_dec(prtd->session_id);
+		pr_debug("Register device event listener for session %d\n",
+					prtd->session_id);
+		ret = auddev_register_evt_listner(prtd->device_events,
+				AUDDEV_CLNT_DEC, prtd->session_id,
+				alsa_out_listener, (void *) prtd);
+		if (ret)
+			pr_debug("failed to register device event listener\n");
+	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		prtd->abort = 0;
-		prtd->device_events = AUDDEV_EVT_FREQ_CHG;
-		MM_ERR("Register device event listener\n");
+		prtd->device_events = AUDDEV_EVT_DEV_RDY | AUDDEV_EVT_DEV_RLS |
+				AUDDEV_EVT_FREQ_CHG;
+		prtd->source = msm_snddev_route_enc(prtd->session_id);
+		pr_debug("Register device event listener for session %d\n",
+					prtd->session_id);
 		ret = auddev_register_evt_listner(prtd->device_events,
 				AUDDEV_CLNT_ENC, prtd->session_id,
-				pcm_in_listener, (void *) prtd);
-
-		if (ret) {
-			MM_ERR("failed to register device event listener\n");
-			goto evt_error;
-		}
-
+				alsa_in_listener, (void *) prtd);
+		if (ret)
+			pr_debug("failed to register device event listener\n");
 	}
 	prtd->substream = substream;
 	ret = snd_pcm_hw_constraint_list(runtime, 0,
-						SNDRV_PCM_HW_PARAM_RATE,
-						&constraints_sample_rates);
+				SNDRV_PCM_HW_PARAM_RATE,
+				&constraints_sample_rates);
 	if (ret < 0)
-		MM_ERR("snd_pcm_hw_constraint_list failed\n");
+		pr_debug("snd_pcm_hw_constraint_list failed\n");
 	/* Ensure that buffer size is a multiple of period size */
 	ret = snd_pcm_hw_constraint_integer(runtime,
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
-		MM_ERR("snd_pcm_hw_constraint_integer failed\n");
+		pr_debug("snd_pcm_hw_constraint_integer failed\n");
 
-	prtd->ops = &snd_msm_audio_ops;
-	prtd->out[0].used = BUF_INVALID_LEN;
-	prtd->out[1].used = 0;
-	prtd->out_head = 1; /* point to second buffer on startup */
-	prtd->out_tail = 0;
 	prtd->dsp_cnt = 0;
-	prtd->in_head = 0;
-	prtd->in_tail = 0;
-	prtd->in_count = 0;
-	prtd->out_needed = 0;
-	for (i = 0; i < FRAME_NUM; i++) {
-		prtd->in[i].size = 0;
-		prtd->in[i].read = 0;
-	}
 	runtime->private_data = prtd;
 
-	copy_count = 0;
 	return 0;
-evt_error:
-	kfree(prtd);
-	return ret;
 }
 
 static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
@@ -413,20 +355,50 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 {
 	int ret = 0;
 	int fbytes = 0;
+	int xfer;
+	char *bufptr;
+	void *data;
+	uint32_t idx;
+	uint32_t size;
 
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 
-	MM_DBG("%d\n", fbytes);
+	pr_debug("%s\n", __func__);
 	fbytes = frames_to_bytes(runtime, frames);
-	ret = alsa_send_buffer(prtd, buf, fbytes, NULL);
-	++copy_count;
-	prtd->pcm_buf_pos += fbytes;
-	if (copy_count == 1) {
-		mutex_lock(&the_locks.lock);
-		ret = alsa_audio_configure(prtd);
-		mutex_unlock(&the_locks.lock);
+	pr_debug("%d\n", fbytes);
+	ret = wait_event_timeout(the_locks.write_wait,
+			(atomic_read(&prtd->out_count)), 5 * HZ);
+	if (ret < 0) {
+		pr_err("%s: wait_event_timeout failed\n", __func__);
+		goto fail;
 	}
+
+	if (!atomic_read(&prtd->out_count)) {
+		pr_err("%s: pcm stopped out_count 0\n", __func__);
+		return 0;
+	}
+
+	data = q6asm_is_cpu_buf_avail(IN, prtd->audio_client, &size, &idx);
+	bufptr = data;
+	if (bufptr) {
+		xfer = fbytes;
+		if (xfer > size)
+			xfer = size;
+		if (copy_from_user(bufptr, buf, xfer)) {
+			ret = -EFAULT;
+			goto fail;
+		}
+		buf += xfer;
+		fbytes -= xfer;
+		ret = q6asm_write(prtd->audio_client, xfer, 0, 0, NO_TIMESTAMP);
+		if (ret < 0) {
+			ret = -EFAULT;
+			goto fail;
+		}
+	}
+	atomic_dec(&prtd->out_count);
+fail:
 	return  ret;
 }
 
@@ -435,27 +407,14 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 
-	int ret = 0;
 
-	MM_DBG("\n");
-	if ((!prtd->mmap_flag) && prtd->enabled) {
-		ret = wait_event_interruptible(the_locks.eos_wait,
-		(!(prtd->out[0].used) && !(prtd->out[1].used)));
+	pr_debug("%s\n", __func__);
+	msm_snddev_set_dec(prtd->session_id, 0, 0,
+		48000, 1);
+	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 
-		if (ret < 0)
-			goto done;
-	}
-
-	/* PCM DMAMISS message is sent only once in
-	 * hpcm interface. So, wait for buffer complete
-	 * and teos flag.
-	 */
-	if (prtd->enabled)
-		ret = wait_event_interruptible(the_locks.eos_wait,
-					prtd->eos_ack);
-
-done:
-	alsa_audio_disable(prtd);
+	q6asm_audio_client_free(prtd->audio_client);
+	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, prtd->session_id);
 	kfree(prtd);
 
 	return 0;
@@ -465,47 +424,86 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		 int channel, snd_pcm_uframes_t hwoff, void __user *buf,
 						 snd_pcm_uframes_t frames)
 {
-	int ret = 0, rc1 = 0, rc2 = 0;
+	int ret = 0;
 	int fbytes = 0;
+	int xfer;
+	char *bufptr;
+	void *data;
+	uint32_t idx = 0;
+	uint32_t size = 0;
+	uint32_t offset = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = substream->runtime->private_data;
 
-	int monofbytes = 0;
-	char *bufferp = NULL;
 
-	MM_DBG("%d\n", fbytes);
+	pr_debug("%s\n", __func__);
 	fbytes = frames_to_bytes(runtime, frames);
-	monofbytes = fbytes / 2;
-	if (runtime->channels == 2) {
-		ret = alsa_buffer_read(prtd, buf, fbytes, NULL);
-	} else {
-		bufferp = buf;
-		rc1 = alsa_buffer_read(prtd, bufferp, monofbytes, NULL);
-		bufferp = buf + monofbytes ;
-		rc2 = alsa_buffer_read(prtd, bufferp, monofbytes, NULL);
-		ret = rc1 + rc2;
+
+	pr_debug("appl_ptr %d\n", (int)runtime->control->appl_ptr);
+	pr_debug("hw_ptr %d\n", (int)runtime->status->hw_ptr);
+	pr_debug("avail_min %d\n", (int)runtime->control->avail_min);
+
+	ret = wait_event_timeout(the_locks.read_wait,
+			(atomic_read(&prtd->in_count)), 5 * HZ);
+	if (ret < 0) {
+		pr_err("%s: wait_event_timeout failed\n", __func__);
+		goto fail;
 	}
-	prtd->pcm_buf_pos += fbytes;
-	MM_DBG("prtd->pcm_buf_pos =%d, prtd->mmap_flag =%d\n",
-				prtd->pcm_buf_pos, prtd->mmap_flag);
+	if (!atomic_read(&prtd->in_count)) {
+		pr_err("%s: pcm stopped in_count 0\n", __func__);
+		return 0;
+	}
+	pr_debug("Checking if valid buffer is available...\n");
+	data = q6asm_is_cpu_buf_avail(OUT, prtd->audio_client, &size, &idx);
+	bufptr = data;
+	pr_debug("Size = %d\n", size);
+	pr_debug("fbytes = %d\n", fbytes);
+	pr_debug("idx = %d\n", idx);
+	if (bufptr) {
+		xfer = fbytes;
+		if (xfer > size)
+			xfer = size;
+		offset = in_frame_info[idx][1];
+		pr_debug("Offset value = %d\n", offset);
+		if (copy_to_user(buf, bufptr+offset, xfer)) {
+			pr_err("Failed to copy buf to user\n");
+			ret = -EFAULT;
+			goto fail;
+		}
+		memset(&in_frame_info[idx], 0,
+			sizeof(uint32_t) * 2);
+		atomic_dec(&prtd->in_count);
+		buf += xfer;
+		fbytes -= xfer;
+		ret = q6asm_read(prtd->audio_client);
+		if (ret < 0) {
+			pr_err("q6asm read failed\n");
+			ret = -EFAULT;
+			goto fail;
+		}
+	} else
+		pr_debug("No valid buffer\n");
+
+	pr_debug("Returning from capture_copy... %d\n", ret);
+fail:
 	return ret;
 }
 
 static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 {
+	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
-	int ret = 0;
 
-	MM_DBG("\n");
-	ret = msm_snddev_withdraw_freq(prtd->session_id,
-			SNDDEV_CAP_TX, AUDDEV_CLNT_ENC);
-	MM_DBG("msm_snddev_withdraw_freq\n");
+	pr_debug("%s\n", __func__);
+	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+	q6asm_audio_client_free(prtd->audio_client);
+	ret = msm_snddev_set_enc(prtd->session_id, 1, 0,
+		48000, 1);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_ENC, prtd->session_id);
 	prtd->abort = 0;
-	wake_up(&the_locks.enable_wait);
-	alsa_audrec_disable(prtd);
 	kfree(prtd);
+
 	return 0;
 }
 
@@ -548,26 +546,10 @@ static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 
-	MM_DBG("\n");
-	if (prtd->pcm_irq_pos == prtd->pcm_size)
+	if (prtd->pcm_irq_pos >= prtd->pcm_size)
 		prtd->pcm_irq_pos = 0;
+	pr_debug("pcm_irq_pos = %d\n", prtd->pcm_irq_pos);
 	return bytes_to_frames(runtime, (prtd->pcm_irq_pos));
-}
-
-int msm_pcm_mmap(struct snd_pcm_substream *substream,
-				struct vm_area_struct *vma)
-{
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct msm_audio *prtd = runtime->private_data;
-
-	prtd->out_head = 0; /* point to First buffer on startup */
-	prtd->mmap_flag = 1;
-	runtime->dma_bytes = snd_pcm_lib_period_bytes(substream)*2;
-	dma_mmap_coherent(substream->pcm->card->dev, vma,
-				     runtime->dma_area,
-				     runtime->dma_addr,
-				     runtime->dma_bytes);
-	return 0;
 }
 
 int msm_pcm_hw_params(struct snd_pcm_substream *substream,
@@ -586,59 +568,17 @@ static struct snd_pcm_ops msm_pcm_ops = {
 	.prepare        = msm_pcm_prepare,
 	.trigger        = msm_pcm_trigger,
 	.pointer        = msm_pcm_pointer,
-	.mmap           = msm_pcm_mmap,
 };
 
 
 
 static int msm_pcm_remove(struct platform_device *devptr)
 {
-	MM_ERR("DISABLED %s, not 32 compatible!!!!\n", __func__);
-	return -1;
-}
-
-static int pcm_preallocate_buffer(struct snd_pcm *pcm,
-	int stream)
-{
-	struct snd_pcm_substream *substream = pcm->streams[stream].substream;
-	struct snd_dma_buffer *buf = &substream->dma_buffer;
-	size_t size;
-	if (!stream)
-		size = PLAYBACK_DMASZ;
-	else
-		size = CAPTURE_DMASZ;
-
-	buf->dev.type = SNDRV_DMA_TYPE_DEV;
-	buf->dev.dev = pcm->card->dev;
-	buf->private_data = NULL;
-	buf->area = dma_alloc_coherent(pcm->card->dev, size,
-					   &buf->addr, GFP_KERNEL);
-	if (!buf->area)
-		return -ENOMEM;
-
-	buf->bytes = size;
+	struct snd_soc_device *socdev = platform_get_drvdata(devptr);
+	snd_soc_free_pcms(socdev);
+	kfree(socdev->card->codec);
+	platform_set_drvdata(devptr, NULL);
 	return 0;
-}
-
-static void msm_pcm_free_buffers(struct snd_pcm *pcm)
-{
-	struct snd_pcm_substream *substream;
-	struct snd_dma_buffer *buf;
-	int stream;
-
-	for (stream = 0; stream < 2; stream++) {
-		substream = pcm->streams[stream].substream;
-		if (!substream)
-			continue;
-
-		buf = &substream->dma_buffer;
-		if (!buf->area)
-			continue;
-
-		dma_free_coherent(pcm->card->dev, buf->bytes,
-				      buf->area, buf->addr);
-		buf->area = NULL;
-	}
 }
 
 static int msm_pcm_new(struct snd_card *card,
@@ -646,32 +586,27 @@ static int msm_pcm_new(struct snd_card *card,
 			struct snd_pcm *pcm)
 {
 	int ret = 0;
+
+
+	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_PLAYBACK, 1);
+	if (ret)
+		return ret;
+	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_CAPTURE, 1);
+	if (ret)
+		return ret;
+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &msm_pcm_ops);
+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &msm_pcm_ops);
+
 	if (!card->dev->coherent_dma_mask)
-		/* Set to DMA coherent mask */
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
-
-	if (codec_dai->playback.channels_min) {
-		ret = pcm_preallocate_buffer(pcm,
-			SNDRV_PCM_STREAM_PLAYBACK);
-		if (ret)
-			return ret;
-	}
-	if (codec_dai->playback.channels_min) {
-		ret = pcm_preallocate_buffer(pcm,
-			SNDRV_PCM_STREAM_CAPTURE);
-		if (ret)
-			msm_pcm_free_buffers(pcm);
-	}
-
 	return ret;
 }
 
 struct snd_soc_platform msm_soc_platform = {
 	.name		= "msm-audio",
 	.remove         = msm_pcm_remove,
-	.pcm_ops 	= &msm_pcm_ops,
+	.pcm_ops	= &msm_pcm_ops,
 	.pcm_new	= msm_pcm_new,
-	.pcm_free	= msm_pcm_free_buffers,
 };
 EXPORT_SYMBOL(msm_soc_platform);
 

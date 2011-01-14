@@ -200,12 +200,6 @@ static struct resource kgsl_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.name   = "kgsl_phys_memory",
-		.start = 0,
-		.end = 0,
-		.flags = IORESOURCE_MEM,
-	},
-	{
 		.name = "kgsl_yamato_irq",
 		.start = INT_GRAPHICS,
 		.end = INT_GRAPHICS,
@@ -243,9 +237,20 @@ void __init msm_add_kgsl_device(void)
 	kgsl_pdata.set_grp3d_async = NULL;
 	kgsl_pdata.imem_clk_name = "imem_clk";
 	kgsl_pdata.grp3d_clk_name = "grp_clk";
+	kgsl_pdata.grp3d_pclk_name = "grp_pclk";
 	kgsl_pdata.grp2d0_clk_name = NULL;
 	kgsl_pdata.idle_timeout_3d = HZ/5;
 	kgsl_pdata.idle_timeout_2d = 0;
+
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	kgsl_pdata.pt_va_size = SZ_32M;
+	/* Maximum of 32 concurrent processes */
+	kgsl_pdata.pt_max_count = 32;
+#else
+	kgsl_pdata.pt_va_size = SZ_128M;
+	/* We only ever have one pagetable for everybody */
+	kgsl_pdata.pt_max_count = 1;
+#endif
 
 	platform_device_register(&msm_device_kgsl);
 }
@@ -395,14 +400,6 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 		pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
 				" ebi1 pmem arena\n", size, addr, __pa(addr));
 	}
-#ifdef CONFIG_ARCH_MSM7X27
-	size = MSM_GPU_PHYS_SIZE;
-	addr = alloc_bootmem(size);
-	kgsl_resources[1].start = __pa(addr);
-	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
-	pr_info("allocating %lu bytes at %p (at %lx physical) for KGSL\n",
-			size, addr, __pa(addr));
-#endif
 }
 
 void __init msm_add_pmem_devices(void)
@@ -770,7 +767,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 /* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Add rpc USB LDO reset */
 	.phy_reset			= msm_otg_rpc_phy_reset,
 /* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */	
-	.pmic_notif_init    = msm_hsusb_pmic_notif_init,
+	.pmic_id_notif_init    = msm_hsusb_pmic_notif_init,
 	.chg_vbus_draw      = hsusb_chg_vbus_draw,
 	.chg_connected      = hsusb_chg_connected,
 	.chg_init        	= hsusb_chg_init,

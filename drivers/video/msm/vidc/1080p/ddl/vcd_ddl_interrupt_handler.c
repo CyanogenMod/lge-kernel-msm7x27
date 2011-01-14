@@ -16,13 +16,15 @@
  *
  */
 
+
 #include "vcd_ddl.h"
 #include "vcd_ddl_shared_mem.h"
+#include "vcd_ddl_metadata.h"
 #include <linux/delay.h>
 
 static void ddl_decoder_input_done_callback(
 	struct ddl_client_context *ddl, u32 frame_transact_end);
-static u32 ddl_decoder_ouput_done_callback(
+static u32 ddl_decoder_output_done_callback(
 	struct ddl_client_context *ddl, u32 frame_transact_end);
 static u32 ddl_get_decoded_frame(struct vcd_frame_data  *frame,
 	enum vidc_1080p_decode_frame frame_type);
@@ -31,6 +33,7 @@ static u32 ddl_get_encoded_frame(struct vcd_frame_data *frame,
 	enum vidc_1080p_encode_frame frame_type);
 static void ddl_get_dec_profile_level(struct ddl_decoder_data *decoder,
 	u32 profile, u32 level);
+static void ddl_handle_enc_frame_done(struct ddl_client_context *ddl);
 
 static void ddl_fw_status_done_callback(struct ddl_context *ddl_context)
 {
@@ -141,6 +144,9 @@ static u32 ddl_encoder_seq_done_callback(struct ddl_context *ddl_context,
 		ddl_client_fatal_cb(ddl);
 		return true;
 	}
+#ifdef DDL_PROFILE
+	ddl_calc_core_time(1);
+#endif
 	ddl->cmd_state = DDL_CMD_INVALID;
 	DDL_MSG_LOW("ddl_state_transition: %s ~~> DDL_CLIENT_WAIT_FOR_FRAME",
 	ddl_get_state_string(ddl->client_state));
@@ -255,18 +261,20 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 			struct vcd_frame_data *input_vcd_frm =
 				&ddl->input_frame.vcd_frm;
 
-			if ((decoder->frame_size.width ==
+			if ((input_vcd_frm->flags &
+				  VCD_FRAME_FLAG_EOS) ||
+				((decoder->frame_size.width ==
 				decoder->client_frame_size.width) &&
 				(decoder->frame_size.height ==
 				decoder->client_frame_size.height) &&
 				(decoder->actual_output_buf_req.sz <=
 				decoder->client_output_buf_req.sz) &&
-				(decoder->actual_output_buf_req.actual_count <=
+				(decoder->actual_output_buf_req.actual_count ==
 				 decoder->client_output_buf_req.actual_count) &&
 				(decoder->frame_size.scan_lines ==
 				decoder->client_frame_size.scan_lines) &&
 				(decoder->frame_size.stride ==
-				 decoder->client_frame_size.stride))
+				 decoder->client_frame_size.stride)))
 					need_reconfig = false;
 			if (((input_vcd_frm->flags &
 				VCD_FRAME_FLAG_CODECCONFIG) &&
@@ -403,31 +411,38 @@ static void ddl_encoder_frame_run_callback(
 		DDL_MSG_ERROR("STATE-CRITICAL-ENCFRMRUN");
 		ddl_client_fatal_cb(ddl);
 	} else {
+#ifdef DDL_PROFILE
+	   ddl_calc_core_time(1);
+#endif
 		DDL_MSG_LOW("ENC_FRM_RUN_DONE");
 		ddl->cmd_state = DDL_CMD_INVALID;
 		vidc_1080p_get_encode_frame_info(&encoder->enc_frame_info);
 		vidc_sm_get_frame_tags(&ddl->shared_mem
 			[ddl->command_channel],
 			&output_frame->ip_frm_tag, &bottom_frame_tag);
+
+		if (encoder->meta_data_enable_flag)
+			vidc_sm_get_metadata_status(&ddl->shared_mem
+				[ddl->command_channel],
+				&encoder->enc_frame_info.meta_data_exists);
+
 		if (encoder->enc_frame_info.enc_frame_size ||
 			(encoder->enc_frame_info.enc_frame ==
 			VIDC_1080P_ENCODE_FRAMETYPE_SKIPPED) ||
 			DDLCLIENT_STATE_IS(ddl,
 			DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
 			u8 *input_buffer_address = NULL;
-#ifdef DDL_PROFILE
-			ddl_calc_core_time(1);
-#endif
 			output_frame->data_len =
 				encoder->enc_frame_info.enc_frame_size;
 			output_frame->flags |= VCD_FRAME_FLAG_ENDOFFRAME;
 			ddl_get_encoded_frame(output_frame,
 				encoder->codec.codec,
 				encoder->enc_frame_info.enc_frame);
+			ddl_process_encoder_metadata(ddl);
 			ddl_vidc_encode_dynamic_property(ddl, false);
 			ddl->input_frame.frm_trans_end = false;
 			input_buffer_address = ddl_context->dram_base_a.\
-				align_virtual_addr +
+				align_physical_addr +
 				encoder->enc_frame_info.enc_luma_address;
 			ddl_get_input_frame_from_pool(ddl,
 				input_buffer_address);
@@ -442,51 +457,49 @@ static void ddl_encoder_frame_run_callback(
 				VCD_S_SUCCESS, &(ddl->output_frame),
 				sizeof(struct ddl_frame_data_tag),
 				(u32 *)ddl, ddl->client_data);
+
 			if (DDLCLIENT_STATE_IS(ddl,
-				DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
-				struct vidc_1080p_enc_frame_start_param
-					enc_param;
-
-				if (encoder->i_period.b_frames) {
-					if (ddl->extra_output_buf_count >=
-						0) {
-						ddl->output_frame = ddl->\
-						extra_output_frame[ddl->\
-						extra_output_buf_count];
-						ddl->\
-						extra_output_buf_count--;
-						output_frame =
-							&ddl->output_frame.\
-							vcd_frm;
-					} else
-						output_frame = NULL;
-				} else
-					output_frame = NULL;
-
-				memset(&enc_param, 0, sizeof(enc_param));
-				enc_param.cmd_seq_num =
-					++ddl_context->cmd_seq_num;
-				enc_param.inst_id = ddl->instance_id;
-				enc_param.shared_mem_addr_offset =
-					DDL_ADDR_OFFSET(ddl_context->\
+				DDL_CLIENT_WAIT_FOR_EOS_DONE) &&
+				encoder->i_period.b_frames) {
+				if ((ddl->extra_output_buf_count < 0) ||
+					(ddl->extra_output_buf_count >
+					encoder->i_period.b_frames)) {
+					DDL_MSG_ERROR("Invalid B frame output"
+								"buffer index");
+				} else {
+					struct vidc_1080p_enc_frame_start_param
+						enc_param;
+					ddl->output_frame = ddl->\
+					extra_output_frame[ddl->\
+					extra_output_buf_count];
+					ddl->\
+					extra_output_buf_count--;
+					output_frame =
+					&ddl->output_frame.\
+					vcd_frm;
+					memset(&enc_param, 0,
+						sizeof(enc_param));
+					enc_param.cmd_seq_num =
+						++ddl_context->cmd_seq_num;
+					enc_param.inst_id = ddl->instance_id;
+					enc_param.shared_mem_addr_offset =
+					   DDL_ADDR_OFFSET(ddl_context->\
 						dram_base_a, ddl->shared_mem
 						[ddl->command_channel]);
-				if (output_frame) {
 					enc_param.stream_buffer_addr_offset =
 						DDL_OFFSET(ddl_context->\
 						dram_base_a.\
 						align_physical_addr,
 						output_frame->physical);
-				}
-				enc_param.stream_buffer_size =
+					enc_param.stream_buffer_size =
 					encoder->client_output_buf_req.sz;
-				enc_param.encode =
+					enc_param.encode =
 					VIDC_1080P_ENC_TYPE_LAST_FRAME_DATA;
-				ddl->cmd_state = DDL_CMD_ENCODE_FRAME;
-				ddl_context->vidc_encode_frame_start
-				[ddl->command_channel]
-					(&enc_param);
-			} else {
+					ddl->cmd_state = DDL_CMD_ENCODE_FRAME;
+					ddl_context->vidc_encode_frame_start
+						[ddl->command_channel]
+						(&enc_param);
+				} } else {
 				DDL_MSG_LOW("ddl_state_transition: %s ~~>"
 					"DDL_CLIENT_WAIT_FOR_FRAME",
 					ddl_get_state_string(
@@ -511,8 +524,7 @@ static void ddl_encoder_frame_run_callback(
 	}
 }
 
-static u32 ddl_decoder_frame_run_callback(
-	struct ddl_client_context *ddl)
+static u32 ddl_decoder_frame_run_callback(struct ddl_client_context *ddl)
 {
 	struct ddl_context *ddl_context = ddl->ddl_context;
 	struct vidc_1080p_dec_disp_info *dec_disp_info =
@@ -558,7 +570,7 @@ static u32 ddl_decoder_frame_run_callback(
 					display_status ==
 				VIDC_1080P_DISPLAY_STATUS_DECODE_AND_DISPLAY);
 
-				vcd_status = ddl_decoder_ouput_done_callback(
+				vcd_status = ddl_decoder_output_done_callback(
 					ddl, callback_end);
 				if (vcd_status)
 					return true;
@@ -600,11 +612,6 @@ static u32 ddl_eos_frame_done_callback(
 		DDL_MSG_LOW("EOS_FRM_RUN_DONE");
 		ddl->cmd_state = DDL_CMD_INVALID;
 		vidc_1080p_get_display_frame_result(dec_disp_info);
-		if (decoder->flush_eos_case) {
-			dec_disp_info->display_status =
-			VIDC_1080P_DISPLAY_STATUS_DPB_EMPTY;
-			decoder->flush_eos_case = false;
-		}
 		ddl_vidc_decode_dynamic_property(ddl, false);
 		if (dec_disp_info->display_status ==
 			VIDC_1080P_DISPLAY_STATUS_DPB_EMPTY) {
@@ -615,7 +622,7 @@ static u32 ddl_eos_frame_done_callback(
 				VIDC_1080P_DISPLAY_STATUS_DISPLAY_ONLY) {
 				u32 vcd_status;
 
-				vcd_status = ddl_decoder_ouput_done_callback(
+				vcd_status = ddl_decoder_output_done_callback(
 					ddl, false);
 				if (vcd_status)
 					return true;
@@ -659,6 +666,22 @@ static u32 ddl_frame_run_callback(struct ddl_context *ddl_context)
 	ddl = ddl_get_current_ddl_client_for_channel_id(ddl_context,
 			ddl_context->response_cmd_ch_id);
 	if (ddl) {
+		if (ddl_context->pix_cache_enable) {
+			struct vidc_1080P_pix_cache_statistics
+			pixel_cache_stats;
+			vidc_pix_cache_get_statistics(&pixel_cache_stats);
+
+			DDL_MSG_HIGH(" pixel cache hits = %d,"
+				"miss = %d", pixel_cache_stats.access_hit,
+				pixel_cache_stats.access_miss);
+			DDL_MSG_HIGH(" pixel cache core reqs = %d,"
+				"axi reqs = %d", pixel_cache_stats.core_req,
+				pixel_cache_stats.axi_req);
+			DDL_MSG_HIGH(" pixel cache core bus stats = %d,"
+			"axi bus stats = %d", pixel_cache_stats.core_bus,
+				pixel_cache_stats.axi_bus);
+		}
+
 		if (ddl->cmd_state == DDL_CMD_DECODE_FRAME)
 			return_status = ddl_decoder_frame_run_callback(ddl);
 		else if (ddl->cmd_state == DDL_CMD_ENCODE_FRAME)
@@ -723,32 +746,29 @@ static void ddl_encoder_eos_done(struct ddl_context *ddl_context)
 	struct ddl_client_context *ddl;
 	u32 channel_inst_id;
 
-	DDL_MSG_LOW("encoder_eos_done");
 	vidc_1080p_get_returned_channel_inst_id(&channel_inst_id);
 	vidc_1080p_clear_returned_channel_inst_id();
 	ddl = ddl_get_current_ddl_client_for_channel_id(ddl_context,
 			ddl_context->response_cmd_ch_id);
-	if (ddl) {
-		if (DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
-			DDL_MSG_LOW("ENC_EOS_DONE");
-			ddl->cmd_state = DDL_CMD_INVALID;
-			DDL_MSG_LOW("ddl_state_transition: %s ~~>"
+	if (!ddl || (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE))) {
+		DDL_MSG_ERROR("STATE-CRITICAL-EOSFRMDONE");
+		ddl_client_fatal_cb(ddl);
+	} else {
+		struct ddl_encoder_data *encoder = &(ddl->codec_data.encoder);
+		vidc_1080p_get_encode_frame_info(&encoder->enc_frame_info);
+		ddl_handle_enc_frame_done(ddl);
+		DDL_MSG_LOW("encoder_eos_done");
+		ddl->cmd_state = DDL_CMD_INVALID;
+		DDL_MSG_LOW("ddl_state_transition: %s ~~>"
 				"DDL_CLIENT_WAIT_FOR_FRAME",
 				ddl_get_state_string(ddl->client_state));
-			ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
-			DDL_MSG_LOW("EOS_DONE");
-			ddl->output_frame.frm_trans_end = true;
-			ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
-				VCD_S_SUCCESS, &(ddl->output_frame),
-				sizeof(struct ddl_frame_data_tag),
+		ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
+		DDL_MSG_LOW("eos_done");
+		ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
+				VCD_S_SUCCESS, NULL, 0,
 				(u32 *)ddl, ddl->client_data);
-		} else {
-			DDL_MSG_LOW("STATE-CRITICAL-EOSDONE");
-		}
 		ddl_release_command_channel(ddl_context,
 			ddl->command_channel);
-	} else {
-		DDL_MSG_LOW("Invalid Client DDL context");
 	}
 }
 
@@ -856,7 +876,7 @@ static void ddl_decoder_input_done_callback(
 	ddl_get_decoded_frame(input_vcd_frm,
 		dec_disp_info->input_frame);
 	vidc_1080p_get_decode_frame_result(dec_disp_info);
-	input_vcd_frm->interlaced = (dec_disp_info->display_coding !=
+	input_vcd_frm->interlaced = (dec_disp_info->decode_coding !=
 		VIDC_1080P_DISPLAY_CODING_PROGRESSIVE_SCAN);
 	input_vcd_frm->offset += dec_disp_info->input_bytes_consumed;
 	input_vcd_frm->data_len -= dec_disp_info->input_bytes_consumed;
@@ -866,7 +886,7 @@ static void ddl_decoder_input_done_callback(
 		(u32 *)ddl, ddl->client_data);
 }
 
-static u32 ddl_decoder_ouput_done_callback(
+static u32 ddl_decoder_output_done_callback(
 	struct ddl_client_context *ddl, u32 frame_transact_end)
 {
 	struct ddl_context *ddl_context = ddl->ddl_context;
@@ -905,6 +925,9 @@ static u32 ddl_decoder_ouput_done_callback(
 		DDL_MSG_ERROR("CORRUPTED_OUTPUT_BUFFER_ADDRESS");
 		ddl_hw_fatal_cb(ddl);
 	} else {
+		vidc_sm_get_metadata_status(&ddl->shared_mem
+			[ddl->command_channel],
+			&decoder->meta_data_exists);
 		vidc_sm_get_frame_tags(&ddl->shared_mem
 			[ddl->command_channel],
 			&dec_disp_info->tag_top,
@@ -966,6 +989,7 @@ static u32 ddl_decoder_ouput_done_callback(
 #ifdef DDL_PROFILE
 		ddl_calc_core_time(0);
 #endif
+		ddl_process_decoder_metadata(ddl);
 		ddl_context->ddl_callback(VCD_EVT_RESP_OUTPUT_DONE,
 			vcd_status, output_frame,
 			sizeof(struct ddl_frame_data_tag),
@@ -1027,6 +1051,7 @@ static u32 ddl_get_encoded_frame(struct vcd_frame_data *frame,
 		break;
 		case VIDC_1080P_ENCODE_FRAMETYPE_B:
 			frame->frame = VCD_FRAME_B;
+			frame->flags |= VCD_FRAME_FLAG_BFRAME;
 		break;
 		case VIDC_1080P_ENCODE_FRAMETYPE_SKIPPED:
 			frame->frame = VCD_FRAME_NOTCODED;
@@ -1055,6 +1080,7 @@ static u32 ddl_get_encoded_frame(struct vcd_frame_data *frame,
 		break;
 		case VIDC_1080P_ENCODE_FRAMETYPE_B:
 			frame->frame = VCD_FRAME_B;
+			frame->flags |= VCD_FRAME_FLAG_BFRAME;
 		break;
 		case VIDC_1080P_ENCODE_FRAMETYPE_SKIPPED:
 			frame->frame = VCD_FRAME_NOTCODED;
@@ -1096,6 +1122,7 @@ static u32 ddl_get_encoded_frame(struct vcd_frame_data *frame,
 		}
 	} else
 		status = false;
+	DDL_MSG_HIGH("Enc Frame Type %u", (u32)frame->frame);
 	return status;
 }
 
@@ -1360,4 +1387,41 @@ static void ddl_get_dec_profile_level(struct ddl_decoder_data *decoder,
 	}
 	decoder->profile.profile = profile;
 	decoder->level.level = level;
+}
+
+static void ddl_handle_enc_frame_done(struct ddl_client_context *ddl)
+{
+	struct ddl_context       *ddl_context = ddl->ddl_context;
+	struct ddl_encoder_data  *encoder = &(ddl->codec_data.encoder);
+	struct vcd_frame_data    *output_frame = &(ddl->output_frame.vcd_frm);
+	u32 bottom_frame_tag;
+	u8  *input_buffer_address = NULL;
+
+	vidc_sm_get_frame_tags(&ddl->shared_mem[ddl->command_channel],
+		&output_frame->ip_frm_tag, &bottom_frame_tag);
+	output_frame->data_len = encoder->enc_frame_info.enc_frame_size;
+	output_frame->flags |= VCD_FRAME_FLAG_ENDOFFRAME;
+	(void)ddl_get_encoded_frame(output_frame,
+		encoder->codec.codec, encoder->enc_frame_info.enc_frame);
+	ddl_process_encoder_metadata(ddl);
+	ddl_vidc_encode_dynamic_property(ddl, false);
+	ddl->input_frame.frm_trans_end = false;
+	input_buffer_address = ddl_context->dram_base_a.align_physical_addr +
+			encoder->enc_frame_info.enc_luma_address;
+	ddl_get_input_frame_from_pool(ddl, input_buffer_address);
+
+	ddl_context->ddl_callback(VCD_EVT_RESP_INPUT_DONE,
+		VCD_S_SUCCESS, &(ddl->input_frame),
+		sizeof(struct ddl_frame_data_tag),
+		(u32 *) ddl, ddl->client_data);
+
+	ddl->output_frame.frm_trans_end =
+		DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)
+			? false : true;
+
+	ddl_context->ddl_callback(VCD_EVT_RESP_OUTPUT_DONE,
+		VCD_S_SUCCESS, &(ddl->output_frame),
+		sizeof(struct ddl_frame_data_tag),
+		(u32 *) ddl, ddl->client_data);
+
 }

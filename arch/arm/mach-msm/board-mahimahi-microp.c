@@ -21,6 +21,7 @@
 */
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/leds.h>
 #include <linux/workqueue.h>
@@ -1875,8 +1876,9 @@ void microp_early_suspend(struct early_suspend *h)
 
 	disable_irq(client->irq);
 	ret = cancel_work_sync(&cdata->work.work);
-	if (ret != 0)
+	if (ret != 0) {
 		enable_irq(client->irq);
+	}
 
 	if (cdata->auto_backlight_enabled)
 		microp_i2c_auto_backlight_mode(client, 0);
@@ -2169,8 +2171,9 @@ static int __devexit microp_i2c_remove(struct i2c_client *client)
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	if (cdata->enable_early_suspend)
+	if (cdata->enable_early_suspend) {
 		unregister_early_suspend(&cdata->early_suspend);
+	}
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(microp_leds); ++i) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -285,7 +285,7 @@ static void lcdc_sharp_panel_set_backlight(struct msm_fb_data_type *mfd)
 #endif
 }
 
-static int __init sharp_probe(struct platform_device *pdev)
+static int __devinit sharp_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		lcdc_sharp_pdata = pdev->dev.platform_data;
@@ -367,6 +367,7 @@ static int __init lcdc_sharp_panel_init(void)
 	pinfo = &sharp_panel_data.panel_info;
 	pinfo->xres = 480;
 	pinfo->yres = 800;
+	MSM_FB_SINGLE_MODE_PANEL(pinfo);
 	pinfo->type = LCDC_PANEL;
 	pinfo->pdest = DISPLAY_1;
 	pinfo->wait_cycle = 0;

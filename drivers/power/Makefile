@@ -56,3 +56,7 @@ msm_batt-objs := $(BATT_DRIVER)
 obj-$(CONFIG_BATTERY_MSM)	+= msm_batt.o
 
 obj-$(CONFIG_MAX17040_FUEL_GAUGE)	+= max17040.o
+obj-$(CONFIG_ISL9519_CHARGER)	+= isl9519q.o
+obj-$(CONFIG_PM8058_FIX_USB)	+= pm8058_usb_fix.o
+obj-$(CONFIG_BATTERY_QCIBAT)	+= qci_battery.o
+obj-$(CONFIG_SMB137B_CHARGER)   += smb137b.o

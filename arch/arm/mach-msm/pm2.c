@@ -113,6 +113,7 @@ module_param_named(
 				msm_pm_smem_data->pending_irqs); \
 	} while (0)
 
+#define MAX_NR_CLKS 33
 
 /******************************************************************************
  * Sleep Modes and Parameters
@@ -1434,7 +1435,7 @@ void arch_idle(void)
 #ifdef CONFIG_HAS_WAKELOCK
 		has_wake_lock(WAKE_LOCK_IDLE) ||
 #endif
-		!msm_irq_idle_sleep_allowed() || msm_pm_modem_busy()) {
+		!msm_irq_idle_sleep_allowed()) {
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
 		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = false;
 		allow[MSM_PM_SLEEP_MODE_APPS_SLEEP] = false;
@@ -1446,6 +1447,26 @@ void arch_idle(void)
 			mode->latency >= latency_qos ||
 			mode->residency * 1000ULL >= timer_expiration)
 			allow[i] = false;
+	}
+
+	if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] ||
+		allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN]) {
+		uint32_t wait_us = CONFIG_MSM_IDLE_WAIT_ON_MODEM;
+		while (msm_pm_modem_busy() && wait_us) {
+			if (wait_us > 100) {
+				udelay(100);
+				wait_us -= 100;
+			} else {
+				udelay(wait_us);
+				wait_us = 0;
+			}
+		}
+
+		if (msm_pm_modem_busy()) {
+			allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = false;
+			allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN]
+				= false;
+		}
 	}
 
 #ifdef CONFIG_MSM_IDLE_STATS
@@ -1917,4 +1938,4 @@ static int __init msm_pm_init(void)
 	return 0;
 }
 
-late_initcall(msm_pm_init);
+late_initcall_sync(msm_pm_init);

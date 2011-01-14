@@ -2,7 +2,7 @@
  * drivers/serial/msm_serial.c - driver for msm7k serial device and console
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  * Author: Robert Love <rlove@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1014,6 +1014,7 @@ static int __init msm_serial_probe(struct platform_device *pdev)
 	struct msm_port *msm_port;
 	struct resource *resource;
 	struct uart_port *port;
+	int irq;
 #ifdef CONFIG_SERIAL_MSM_RX_WAKEUP
 	struct msm_serial_platform_data *pdata = pdev->dev.platform_data;
 #endif
@@ -1037,9 +1038,10 @@ static int __init msm_serial_probe(struct platform_device *pdev)
 		return -ENXIO;
 	port->mapbase = resource->start;
 
-	port->irq = platform_get_irq(pdev, 0);
-	if (unlikely(port->irq < 0))
+	irq = platform_get_irq(pdev, 0);
+	if (unlikely(irq < 0))
 		return -ENXIO;
+	port->irq = irq;
 
 	platform_set_drvdata(pdev, port);
 
@@ -1088,9 +1090,10 @@ static int __devexit msm_serial_remove(struct platform_device *pdev)
 #define msm_serial_resume NULL
 #else
 #ifdef CONFIG_PM
-static int msm_serial_suspend(struct platform_device *pdev, pm_message_t state)
+static int msm_serial_suspend(struct device *dev)
 {
 	struct uart_port *port;
+	struct platform_device *pdev = to_platform_device(dev);
 	port = get_port_from_line(pdev->id);
 
 	if (port) {
@@ -1102,9 +1105,10 @@ static int msm_serial_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int msm_serial_resume(struct platform_device *pdev)
+static int msm_serial_resume(struct device *dev)
 {
 	struct uart_port *port;
+	struct platform_device *pdev = to_platform_device(dev);
 	port = get_port_from_line(pdev->id);
 
 	if (port) {
@@ -1144,15 +1148,14 @@ static int msm_serial_runtime_resume(struct device *dev)
 }
 
 static struct dev_pm_ops msm_serial_dev_pm_ops = {
+	.suspend = msm_serial_suspend,
+	.resume = msm_serial_resume,
 	.runtime_suspend = msm_serial_runtime_suspend,
 	.runtime_resume = msm_serial_runtime_resume,
 };
 
 static struct platform_driver msm_platform_driver = {
-	.probe = msm_serial_probe,
 	.remove = msm_serial_remove,
-	.suspend = msm_serial_suspend,
-	.resume = msm_serial_resume,
 	.driver = {
 		.name = "msm_serial",
 		.owner = THIS_MODULE,

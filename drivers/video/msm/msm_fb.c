@@ -49,7 +49,7 @@
 #include "mdp4.h"
 
 #ifdef CONFIG_FB_MSM_LOGO
-#define INIT_IMAGE_FILE "/logo.rle"
+#define INIT_IMAGE_FILE "/initlogo.rle"
 extern int load_565rle_image(char *filename);
 #endif
 
@@ -61,6 +61,8 @@ static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
 
 int vsync_mode = 1;
+
+#define MAX_BLIT_REQ 256
 
 #define MAX_FBI_LIST 32
 static struct fb_info *fbi_list[MAX_FBI_LIST];
@@ -203,6 +205,8 @@ static struct led_classdev backlight_led = {
 #endif
 
 static struct msm_fb_platform_data *msm_fb_pdata;
+static char panel_name[128];
+module_param_string(panel_name, panel_name, sizeof(panel_name) , 0);
 
 int msm_fb_detect_client(const char *name)
 {
@@ -210,6 +214,14 @@ int msm_fb_detect_client(const char *name)
 #ifdef CONFIG_FB_MSM_MDDI_AUTO_DETECT
 	u32 id;
 #endif
+
+	MSM_FB_DEBUG("\n name = %s, panel_name = %s", name, panel_name);
+	if (strlen(panel_name)) {
+		if (!strcmp((char *)panel_name, name))
+			return 0;
+		else
+			return -EPERM;
+	}
 
 	if (msm_fb_pdata && msm_fb_pdata->detect_client) {
 		ret = msm_fb_pdata->detect_client(name);
@@ -605,10 +617,6 @@ static void msmfb_early_suspend(struct early_suspend *h)
 {
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
 						    early_suspend);
-	struct fb_info *fbi = mfd->fbi;
-
-	/* set the last frame on suspend as black frame */
-	memset(fbi->screen_base, 0x0, fbi->fix.smem_len);
 	msm_fb_suspend_sub(mfd);
 }
 
@@ -679,9 +687,6 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			if (ret == 0) {
 				mfd->panel_power_on = TRUE;
 
-				msm_fb_set_backlight(mfd,
-						     mfd->bl_level, 0);
-
 /* ToDo: possible conflict with android which doesn't expect sw refresher */
 /*
 	  if (!mfd->hw_refresh)
@@ -713,7 +718,6 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
 
-			msm_fb_set_backlight(mfd, 0, 0);
 			mfd->op_enable = TRUE;
 		}
 		break;
@@ -875,6 +879,19 @@ static struct fb_ops msm_fb_ops = {
 	.fb_mmap = msm_fb_mmap,
 };
 
+static __u32 msm_fb_line_length(__u32 fb_index, __u32 xres, int bpp)
+{
+	/* The adreno GPU hardware requires that the pitch be aligned to
+	   32 pixels for color buffers, so for the cases where the GPU
+	   is writing directly to fb0, the framebuffer pitch
+	   also needs to be 32 pixel aligned */
+
+	if (fb_index == 0)
+		return ALIGN(xres, 32) * bpp;
+	else
+		return xres * bpp;
+}
+
 static int msm_fb_register(struct msm_fb_data_type *mfd)
 {
 	int ret = -ENODEV;
@@ -1017,17 +1034,17 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 
-	/* The adreno GPU hardware requires that the pitch be aligned to
-	   32 pixels for color buffers, so for the cases where the GPU
-	   is writing directly to fb0, the framebuffer pitch
-	   also needs to be 32 pixel aligned */
-
-	if (mfd->index == 0)
-		fix->line_length = ALIGN(panel_info->xres, 32) * bpp;
-	else
-		fix->line_length = panel_info->xres * bpp;
-
-	fix->smem_len = fix->line_length * panel_info->yres * mfd->fb_page;
+	fix->line_length = msm_fb_line_length(mfd->index, panel_info->xres,
+					      bpp);
+	/* calculate smem_len based on max size of two supplied modes */
+	fix->smem_len = roundup(MAX(msm_fb_line_length(mfd->index,
+					       panel_info->xres,
+					       bpp) *
+			    panel_info->yres * mfd->fb_page,
+			    msm_fb_line_length(mfd->index,
+					       panel_info->mode2_xres,
+					       (panel_info->mode2_bpp+7)/8) *
+			    panel_info->mode2_yres * mfd->fb_page), PAGE_SIZE);
 
 
 
@@ -1510,8 +1527,10 @@ static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->xres == 0) || (var->yres == 0))
 		return -EINVAL;
 
-	if ((var->xres > mfd->panel_info.xres) ||
-		(var->yres > mfd->panel_info.yres))
+	if ((var->xres > MAX(mfd->panel_info.xres,
+			     mfd->panel_info.mode2_xres)) ||
+		(var->yres > MAX(mfd->panel_info.yres,
+				 mfd->panel_info.mode2_yres)))
 		return -EINVAL;
 
 	if (var->xoffset > (var->xres_virtual - var->xres))
@@ -1570,6 +1589,8 @@ static int msm_fb_set_par(struct fb_info *info)
 		mfd->var_pixclock = var->pixclock;
 		blank = 1;
 	}
+	mfd->fbi->fix.line_length = msm_fb_line_length(mfd->index, var->xres,
+						       var->bits_per_pixel/8);
 
 	if (blank) {
 		msm_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
@@ -1964,10 +1985,8 @@ int mdp_blit(struct fb_info *info, struct mdp_blit_req *req)
 		d_h_0 = d_h_1 = req->dst_rect.h;
 		d_x_0 = req->dst_rect.x;
 
-		if (remainder == 14)
-			d_w_1 = (req->dst_rect.w - 14) / 2 + 4;
-		else if (remainder == 6)
-			d_w_1 = req->dst_rect.w / 2 - 1;
+		if (remainder == 14 || remainder == 6)
+			d_w_1 = req->dst_rect.w / 2;
 		else
 			d_w_1 = (req->dst_rect.w - 1) / 2 - 1;
 
@@ -2336,6 +2355,8 @@ static int msmfb_blit(struct fb_info *info, void __user *p)
 		return -EFAULT;
 	p += sizeof(req_list_header);
 	count = req_list_header.count;
+	if (count < 0 || count >= MAX_BLIT_REQ)
+		return -EINVAL;
 	while (count > 0) {
 		/*
 		 * Access the requests through a narrow window to decrease copy
@@ -2761,6 +2782,19 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = mfd->do_histogram(info, &hist);
 		mutex_unlock(&msm_fb_ioctl_hist_sem);
 		break;
+
+	case MSMFB_HISTOGRAM_START:
+		if (!mfd->do_histogram)
+			return -ENODEV;
+		ret = mdp_start_histogram(info);
+		break;
+
+	case MSMFB_HISTOGRAM_STOP:
+		if (!mfd->do_histogram)
+			return -ENODEV;
+		ret = mdp_stop_histogram(info);
+		break;
+
 
 	case MSMFB_GET_PAGE_PROTECTION:
 		fb_page_protection.page_protection

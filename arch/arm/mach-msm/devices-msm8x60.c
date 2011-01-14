@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,24 +18,31 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/consumer.h>
 #include <mach/irqs.h>
 #include <mach/dma.h>
 #include <asm/mach/mmc.h>
 #include <linux/msm_kgsl.h>
 #include <linux/msm_rotator.h>
 #include <mach/msm_hsusb.h>
+#include "footswitch.h"
 #include "clock.h"
 #include "clock-8x60.h"
 #include "clock-rpm.h"
 #include "devices-msm8x60.h"
+#include "devices-msm8x60-iommu.h"
 #include "socinfo.h"
 #include <linux/dma-mapping.h>
 #include <linux/irq.h>
+#include <linux/clk.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
 #include <mach/usbdiag.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <linux/gpio.h>
+#include "mdm.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -70,6 +77,8 @@
 #define INT_UART1DM_IRQ     GSBI6_UARTDM_IRQ
 #define INT_UART2DM_IRQ     GSBI12_UARTDM_IRQ
 #define MSM_UART2DM_PHYS    0x19C40000
+#define MSM_UART3DM_PHYS    (MSM_GSBI3_PHYS + 0x40000)
+#define INT_UART3DM_IRQ     GSBI3_UARTDM_IRQ
 #define TCSR_BASE_PHYS      0x16b00000
 
 #ifdef CONFIG_WEBCAM_OV7692
@@ -77,6 +86,48 @@
 #else
 #define WEBCAM_DEV NULL
 #endif
+
+
+static void charm_ap2mdm_kpdpwr_on(void)
+{
+	gpio_request(132, "AP2MDM_KPDPWR_N");
+	if (machine_is_msm8x60_charm_surf())
+		gpio_direction_output(132, 0);
+	else
+		gpio_direction_output(132, 1);
+}
+
+static void charm_ap2mdm_kpdpwr_off(void)
+{
+	if (machine_is_msm8x60_charm_surf())
+		gpio_direction_output(132, 1);
+	else
+		gpio_direction_output(132, 0);
+
+}
+
+static struct resource charm_resources[] = {
+	{
+		.start	= MSM_GPIO_TO_INT(133),
+		.end	= MSM_GPIO_TO_INT(133),
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct charm_platform_data mdm_platform_data = {
+	.charm_modem_on		= charm_ap2mdm_kpdpwr_on,
+	.charm_modem_off	= charm_ap2mdm_kpdpwr_off,
+};
+
+struct platform_device msm_charm_modem = {
+	.name		= "charm_modem",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(charm_resources),
+	.resource	= charm_resources,
+	.dev		= {
+		.platform_data = &mdm_platform_data,
+	},
+};
 
 void __iomem *gic_cpu_base_addr;
 
@@ -156,6 +207,33 @@ struct platform_device msm_device_uart_dm1 = {
 		.dma_mask = &msm_uart_dm1_dma_mask,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
 	},
+};
+
+static struct resource msm_uart3_dm_resources[] = {
+	{
+		.start = MSM_UART3DM_PHYS,
+		.end   = MSM_UART3DM_PHYS + PAGE_SIZE - 1,
+		.name  = "uartdm_resource",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = INT_UART3DM_IRQ,
+		.end   = INT_UART3DM_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = MSM_GSBI3_PHYS,
+		.end   = MSM_GSBI3_PHYS + PAGE_SIZE - 1,
+		.name  = "gsbi_resource",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_device_uart_dm3 = {
+	.name = "msm_serial_hsl",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(msm_uart3_dm_resources),
+	.resource = msm_uart3_dm_resources,
 };
 
 static struct resource msm_uart12_dm_resources[] = {
@@ -291,6 +369,27 @@ static struct resource gsbi9_qup_i2c_resources[] = {
 	},
 };
 
+static struct resource gsbi12_qup_i2c_resources[] = {
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI12_QUP_PHYS,
+		.end	= MSM_GSBI12_QUP_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI12_PHYS,
+		.end	= MSM_GSBI12_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI12_QUP_IRQ,
+		.end	= GSBI12_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 static struct resource kgsl_resources[] = {
 	{
 		.name = "kgsl_reg_memory",
@@ -337,6 +436,113 @@ static struct resource kgsl_resources[] = {
 
 };
 
+#ifdef CONFIG_MSM_BUS_SCALING
+static struct msm_bus_vectors grp3d_init_vectors[] = {
+	{
+		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_3D,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors grp3d_max_vectors[] = {
+	{
+		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_3D,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 2096000000U,
+		.ib = 2096000000U,
+	},
+};
+
+static struct msm_bus_paths grp3d_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(grp3d_init_vectors),
+		grp3d_init_vectors,
+	},
+	{
+		ARRAY_SIZE(grp3d_max_vectors),
+		grp3d_max_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata grp3d_bus_scale_pdata = {
+	grp3d_bus_scale_usecases,
+	ARRAY_SIZE(grp3d_bus_scale_usecases),
+	.name = "grp3d",
+};
+
+static struct msm_bus_vectors grp2d0_init_vectors[] = {
+	{
+		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors grp2d0_max_vectors[] = {
+	{
+		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 248000000,
+		.ib = 248000000,
+	},
+};
+
+static struct msm_bus_paths grp2d0_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(grp2d0_init_vectors),
+		grp2d0_init_vectors,
+	},
+	{
+		ARRAY_SIZE(grp2d0_max_vectors),
+		grp2d0_max_vectors,
+	},
+};
+
+struct msm_bus_scale_pdata grp2d0_bus_scale_pdata = {
+	grp2d0_bus_scale_usecases,
+	ARRAY_SIZE(grp2d0_bus_scale_usecases),
+	.name = "grp2d0",
+};
+
+static struct msm_bus_vectors grp2d1_init_vectors[] = {
+	{
+		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors grp2d1_max_vectors[] = {
+	{
+		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
+		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.ab = 248000000,
+		.ib = 248000000,
+	},
+};
+
+static struct msm_bus_paths grp2d1_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(grp2d1_init_vectors),
+		grp2d1_init_vectors,
+	},
+	{
+		ARRAY_SIZE(grp2d1_max_vectors),
+		grp2d1_max_vectors,
+	},
+};
+
+struct msm_bus_scale_pdata grp2d1_bus_scale_pdata = {
+	grp2d1_bus_scale_usecases,
+	ARRAY_SIZE(grp2d1_bus_scale_usecases),
+	.name = "grp2d1",
+};
+#endif
+
 struct kgsl_platform_data kgsl_pdata = {
 #ifdef CONFIG_MSM_NPA_SYSTEM_BUS
 	/* NPA Flow IDs */
@@ -347,23 +553,42 @@ struct kgsl_platform_data kgsl_pdata = {
 	.high_axi_3d = 200000,
 	.high_axi_2d = 160000,
 #endif
-	.max_grp2d_freq = 0,
-	.min_grp2d_freq = 0,
+	.max_grp2d_freq = 228571000,
+	.min_grp2d_freq = 228571000,
 	.set_grp2d_async = NULL, /* HW workaround, run Z180 SYNC @ 192 MHZ */
 	.max_grp3d_freq = 266667000,
 	.min_grp3d_freq = 266667000,
 	.set_grp3d_async = NULL,
 	.imem_clk_name = NULL,
+	.imem_pclk_name = "imem_pclk",
 	.grp3d_clk_name = "gfx3d_clk",
+	.grp3d_pclk_name = "gfx3d_pclk",
 #ifdef CONFIG_MSM_KGSL_2D
 	.grp2d0_clk_name = "gfx2d0_clk", /* note: 2d clocks disabled on v1 */
+	.grp2d0_pclk_name = "gfx2d0_pclk",
 	.grp2d1_clk_name = "gfx2d1_clk",
+	.grp2d1_pclk_name = "gfx2d1_pclk",
 #else
 	.grp2d0_clk_name = NULL,
 	.grp2d1_clk_name = NULL,
 #endif
 	.idle_timeout_3d = HZ/5,
 	.idle_timeout_2d = HZ/10,
+#ifdef CONFIG_MSM_BUS_SCALING
+	.grp3d_bus_scale_table = &grp3d_bus_scale_pdata,
+	.grp2d0_bus_scale_table = &grp2d0_bus_scale_pdata,
+	.grp2d1_bus_scale_table = &grp2d1_bus_scale_pdata,
+	.nap_allowed = true,
+#endif
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	.pt_va_size = SZ_32M,
+	/* Maximum of 32 concurrent processes */
+	.pt_max_count = 32,
+#else
+	.pt_va_size = SZ_128M,
+	/* We only ever have one pagetable for everybody */
+	.pt_max_count = 1,
+#endif
 };
 
 /*
@@ -430,6 +655,14 @@ struct platform_device msm_gsbi7_qup_i2c_device = {
 	.id		= MSM_GSBI7_QUP_I2C_BUS_ID,
 	.num_resources	= ARRAY_SIZE(gsbi7_qup_i2c_resources),
 	.resource	= gsbi7_qup_i2c_resources,
+};
+
+/* Use GSBI12 QUP for /dev/i2c-5 (Sensors) */
+struct platform_device msm_gsbi12_qup_i2c_device = {
+	.name		= "qup_i2c",
+	.id		= MSM_GSBI12_QUP_I2C_BUS_ID,
+	.num_resources	= ARRAY_SIZE(gsbi12_qup_i2c_resources),
+	.resource	= gsbi12_qup_i2c_resources,
 };
 
 #ifdef CONFIG_I2C_SSBI
@@ -830,6 +1063,13 @@ static struct platform_device msm_tvout_device = {
 };
 #endif
 
+#ifdef CONFIG_MSM_BUS_SCALING
+static struct platform_device msm_dtv_device = {
+	.name   = "dtv",
+	.id     = 0,
+};
+#endif
+
 void __init msm_fb_register_device(char *name, void *data)
 {
 	if (!strncmp(name, "mdp", 3))
@@ -843,6 +1083,10 @@ void __init msm_fb_register_device(char *name, void *data)
 		msm_register_device(&msm_tvenc_device, data);
 	else if (!strncmp(name, "tvout_device", 12))
 		msm_register_device(&msm_tvout_device, data);
+#endif
+#ifdef CONFIG_MSM_BUS_SCALING
+	else if (!strncmp(name, "dtv", 3))
+		msm_register_device(&msm_dtv_device, data);
 #endif
 	else
 		printk(KERN_ERR "%s: unknown device! %s\n", __func__, name);
@@ -941,24 +1185,9 @@ struct dload_struct {
 			magic_struct;
 };
 
-static int update_pid_to_dload;
-static int __init board_update_pid_to_dload(char *update)
-{
-	if (!strcmp("yes", update))
-		update_pid_to_dload = 1;
-	else
-		update_pid_to_dload = 0;
-
-	return 1;
-}
-__setup("usbdiag.update_pid_to_dload=", board_update_pid_to_dload);
-
 static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
 {
 	struct dload_struct __iomem *dload = 0;
-
-	if (!update_pid_to_dload)
-		return 0;
 
 	dload = ioremap(DLOAD_USB_BASE_ADD, sizeof(*dload));
 	if (!dload) {
@@ -988,6 +1217,7 @@ static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
 }
 
 struct usb_diag_platform_data usb_diag_pdata = {
+	.ch_name = DIAG_LEGACY,
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
 
@@ -1054,167 +1284,244 @@ struct platform_device msm_bus_cpss_fpb = {
 };
 #endif
 
+#define FS(_id, _name) (&(struct platform_device){ \
+	.name	= "footswitch-msm8x60", \
+	.id	= (_id), \
+	.dev	= { \
+		.platform_data = &(struct regulator_init_data){ \
+			.constraints = { \
+				.valid_modes_mask = REGULATOR_MODE_NORMAL, \
+				.valid_ops_mask   = REGULATOR_CHANGE_STATUS, \
+			}, \
+			.num_consumer_supplies = 1, \
+			.consumer_supplies = \
+				&(struct regulator_consumer_supply) \
+				REGULATOR_SUPPLY((_name), NULL), \
+		} \
+	}, \
+})
+struct platform_device *msm_footswitch_devices[] = {
+	FS(FS_IJPEG,	"fs_ijpeg"),
+	FS(FS_MDP,	"fs_mdp"),
+	FS(FS_ROT,	"fs_rot"),
+	FS(FS_VED,	"fs_ved"),
+	FS(FS_VFE,	"fs_vfe"),
+	FS(FS_VPE,	"fs_vpe"),
+	FS(FS_GFX3D,	"fs_gfx3d"),
+	FS(FS_GFX2D0,	"fs_gfx2d0"),
+	FS(FS_GFX2D1,	"fs_gfx2d1"),
+};
+unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
+
 struct clk msm_clocks_8x60[] = {
 	CLK_RPM("afab_clk",		AFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("afab_a_clk",		AFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("cfpb_clk",		CFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("cfpb_a_clk",		CFPB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("dfab_clk",		DFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("dfab_a_clk",		DFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("ebi1_clk",		EBI1_CLK,		NULL, CLK_MIN),
+	CLK_RPM("ebi1_a_clk",		EBI1_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("mmfab_clk",		MMFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("mmfab_a_clk",		MMFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("mmfpb_clk",		MMFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("mmfpb_a_clk",		MMFPB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("sfab_clk",		SFAB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("sfab_a_clk",		SFAB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("sfpb_clk",		SFPB_CLK,		NULL, CLK_MIN),
+	CLK_RPM("sfpb_a_clk",		SFPB_A_CLK,		NULL, CLK_MIN),
 	CLK_RPM("smi_clk",		SMI_CLK,		NULL, CLK_MIN),
+	CLK_RPM("smi_a_clk",		SMI_A_CLK,		NULL, CLK_MIN),
 
-	CLK_8X60("gsbi_uart_clk",	GSBI1_UART_CLK,		NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI2_UART_CLK,		NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI3_UART_CLK,		NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI4_UART_CLK,		NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI5_UART_CLK,		NULL, 0),
+	CLK_8X60("ce_clk",		CE2_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI1_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI2_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI3_UART_CLK,
+		 &msm_device_uart_dm3.dev, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI4_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI5_UART_CLK,		NULL, OFF),
 	CLK_8X60("uartdm_clk",	GSBI6_UART_CLK,
-		 &msm_device_uart_dm1.dev, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI7_UART_CLK,		NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI8_UART_CLK,		NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI9_UART_CLK,		NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI10_UART_CLK,	NULL, 0),
-	CLK_8X60("gsbi_uart_clk",	GSBI11_UART_CLK,	NULL, 0),
+		 &msm_device_uart_dm1.dev, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI7_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI8_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI9_UART_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI10_UART_CLK,	NULL, OFF),
+	CLK_8X60("gsbi_uart_clk",	GSBI11_UART_CLK,	NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI12_UART_CLK,
-		 &msm_device_uart_dm12.dev, 0),
+		 &msm_device_uart_dm12.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI1_QUP_CLK,
-					&msm_gsbi1_qup_spi_device.dev, 0),
-	CLK_8X60("gsbi_qup_clk",	GSBI2_QUP_CLK,		NULL, 0),
+					&msm_gsbi1_qup_spi_device.dev, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI2_QUP_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI3_QUP_CLK,
-					&msm_gsbi3_qup_i2c_device.dev, 0),
+					&msm_gsbi3_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI4_QUP_CLK,
-					&msm_gsbi4_qup_i2c_device.dev, 0),
-	CLK_8X60("gsbi_qup_clk",	GSBI5_QUP_CLK,		NULL, 0),
-	CLK_8X60("gsbi_qup_clk",	GSBI6_QUP_CLK,		NULL, 0),
+					&msm_gsbi4_qup_i2c_device.dev, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI5_QUP_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI6_QUP_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI7_QUP_CLK,
-					&msm_gsbi7_qup_i2c_device.dev, 0),
+					&msm_gsbi7_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI8_QUP_CLK,
-					&msm_gsbi8_qup_i2c_device.dev, 0),
+					&msm_gsbi8_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI9_QUP_CLK,
-					&msm_gsbi9_qup_i2c_device.dev, 0),
-	CLK_8X60("gsbi_qup_clk",	GSBI10_QUP_CLK,		NULL, 0),
-	CLK_8X60("gsbi_qup_clk",	GSBI11_QUP_CLK,		NULL, 0),
-	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,		NULL, 0),
-	CLK_8X60("pdm_clk",		PDM_CLK,		NULL, 0),
-	CLK_8X60("prng_clk",		PRNG_CLK,		NULL, 0),
+					&msm_gsbi9_qup_i2c_device.dev, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI10_QUP_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI11_QUP_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,
+					&msm_gsbi12_qup_i2c_device.dev, OFF),
+	CLK_8X60("pdm_clk",		PDM_CLK,		NULL, OFF),
+	CLK_8X60("pmem_clk",		PMEM_CLK,		NULL, OFF),
+	CLK_8X60("prng_clk",		PRNG_CLK,		NULL, OFF),
 	CLK_8X60("sdc_clk",		SDC1_CLK,
-					&msm_device_sdc1.dev, 0),
+					&msm_device_sdc1.dev, OFF),
 	CLK_8X60("sdc_clk",		SDC2_CLK,
-					&msm_device_sdc2.dev, 0),
+					&msm_device_sdc2.dev, OFF),
 	CLK_8X60("sdc_clk",		SDC3_CLK,
-					&msm_device_sdc3.dev, 0),
+					&msm_device_sdc3.dev, OFF),
 	CLK_8X60("sdc_clk",		SDC4_CLK,
-					&msm_device_sdc4.dev, 0),
+					&msm_device_sdc4.dev, OFF),
 	CLK_8X60("sdc_clk",		SDC5_CLK,
-					&msm_device_sdc5.dev, 0),
-	CLK_8X60("tsif_ref_clk",	TSIF_REF_CLK,		NULL, 0),
-	CLK_8X60("tssc_clk",		TSSC_CLK,		NULL, 0),
-	CLK_8X60("usb_hs_clk",		USB_HS_XCVR_CLK,	NULL, 0),
-	CLK_8X60("usb_phy_clk",		USB_PHY0_CLK,		NULL, 0),
-	CLK_8X60("usb_fs_src_clk",	USB_FS1_SRC_CLK,	NULL, 0),
-	CLK_8X60("usb_fs_clk",		USB_FS1_XCVR_CLK,	NULL, 0),
-	CLK_8X60("usb_fs_sys_clk",	USB_FS1_SYS_CLK,	NULL, 0),
-	CLK_8X60("usb_fs_src_clk",	USB_FS2_SRC_CLK,	NULL, 0),
-	CLK_8X60("usb_fs_clk",		USB_FS2_XCVR_CLK,	NULL, 0),
-	CLK_8X60("usb_fs_sys_clk",	USB_FS2_SYS_CLK,	NULL, 0),
+					&msm_device_sdc5.dev, OFF),
+	CLK_8X60("tsif_ref_clk",	TSIF_REF_CLK,		NULL, OFF),
+	CLK_8X60("tssc_clk",		TSSC_CLK,		NULL, OFF),
+	CLK_8X60("usb_hs_clk",		USB_HS1_XCVR_CLK,	NULL, OFF),
+	CLK_8X60("usb_phy_clk",		USB_PHY0_CLK,		NULL, OFF),
+	CLK_8X60("usb_fs_src_clk",	USB_FS1_SRC_CLK,	NULL, OFF),
+	CLK_8X60("usb_fs_clk",		USB_FS1_XCVR_CLK,	NULL, OFF),
+	CLK_8X60("usb_fs_sys_clk",	USB_FS1_SYS_CLK,	NULL, OFF),
+	CLK_8X60("usb_fs_src_clk",	USB_FS2_SRC_CLK,	NULL, OFF),
+	CLK_8X60("usb_fs_clk",		USB_FS2_XCVR_CLK,	NULL, OFF),
+	CLK_8X60("usb_fs_sys_clk",	USB_FS2_SYS_CLK,	NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI1_P_CLK,
-					&msm_gsbi1_qup_spi_device.dev, 0),
-	CLK_8X60("gsbi_pclk",		GSBI2_P_CLK,		NULL, 0),
+					&msm_gsbi1_qup_spi_device.dev, OFF),
+	CLK_8X60("gsbi_pclk",		GSBI2_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI3_P_CLK,
-					&msm_gsbi3_qup_i2c_device.dev, 0),
+		 &msm_device_uart_dm3.dev, 0),
+	CLK_8X60("gsbi_pclk",		GSBI3_P_CLK,
+					&msm_gsbi3_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI4_P_CLK,
-					&msm_gsbi4_qup_i2c_device.dev, 0),
-	CLK_8X60("gsbi_pclk",		GSBI5_P_CLK,		NULL, 0),
+					&msm_gsbi4_qup_i2c_device.dev, OFF),
+	CLK_8X60("gsbi_pclk",		GSBI5_P_CLK,		NULL, OFF),
 	CLK_8X60("uartdm_pclk",		GSBI6_P_CLK,
-		&msm_device_uart_dm1.dev, 0),
+		&msm_device_uart_dm1.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI7_P_CLK,
-					&msm_gsbi7_qup_i2c_device.dev, 0),
+					&msm_gsbi7_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI8_P_CLK,
-					&msm_gsbi8_qup_i2c_device.dev, 0),
+					&msm_gsbi8_qup_i2c_device.dev, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK,
-					&msm_gsbi9_qup_i2c_device.dev, 0),
-	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK,		NULL, 0),
-	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, 0),
+					&msm_gsbi9_qup_i2c_device.dev, OFF),
+	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK,		NULL, OFF),
+	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
 		&msm_device_uart_dm12.dev, 0),
-	CLK_8X60("tsif_pclk",		TSIF_P_CLK,		NULL, 0),
-	CLK_8X60("usb_fs_pclk",		USB_FS1_P_CLK,		NULL, 0),
-	CLK_8X60("usb_fs_pclk",		USB_FS2_P_CLK,		NULL, 0),
-	CLK_8X60("adm_clk",		ADM0_CLK,		NULL, 0),
-	CLK_8X60("adm_pclk",		ADM0_P_CLK,		NULL, 0),
-	CLK_8X60("adm_clk",		ADM1_CLK,		NULL, 0),
-	CLK_8X60("adm_pclk",		ADM1_P_CLK,		NULL, 0),
-	CLK_8X60("modem_ahb1_pclk",	MODEM_AHB1_P_CLK,	NULL, 0),
-	CLK_8X60("modem_ahb2_pclk",	MODEM_AHB2_P_CLK,	NULL, 0),
-	CLK_8X60("pmic_arb_pclk",	PMIC_ARB0_P_CLK,	NULL, 0),
-	CLK_8X60("pmic_arb_pclk",	PMIC_ARB1_P_CLK,	NULL, 0),
-	CLK_8X60("pmic_ssbi2",		PMIC_SSBI2_CLK,		NULL, 0),
-	CLK_8X60("rpm_msg_ram_pclk",	RPM_MSG_RAM_P_CLK,	NULL, 0),
-	CLK_8X60("cam_clk",		CAM_CLK,		NULL, 0),
-	CLK_8X60("csi_src_clk",		CSI_SRC_CLK,		NULL, 0),
-	CLK_8X60("csi_clk",		CSI0_CLK,		NULL, 0),
-	CLK_8X60("csi_clk",		CSI1_CLK,		WEBCAM_DEV, 0),
-	CLK_8X60("dsi_byte_div_clk",	DSI_BYTE_CLK,		NULL, 0),
-	CLK_8X60("dsi_esc_clk",		DSI_ESC_CLK,		NULL, 0),
-	CLK_8X60("gfx2d0_clk",		GFX2D0_CLK,		NULL, 0),
-	CLK_8X60("gfx2d1_clk",		GFX2D1_CLK,		NULL, 0),
-	CLK_8X60("gfx3d_clk",		GFX3D_CLK,		NULL, 0),
-	CLK_8X60("ijpeg_clk",		IJPEG_CLK,		NULL, 0),
-	CLK_8X60("jpegd_clk",		JPEGD_CLK,		NULL, 0),
-	CLK_8X60("mdp_clk",		MDP_CLK,		NULL, 0),
+	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
+					&msm_gsbi12_qup_i2c_device.dev, 0),
+	CLK_8X60("ppss_pclk",		PPSS_P_CLK,		NULL, OFF),
+	CLK_8X60("tsif_pclk",		TSIF_P_CLK,		NULL, OFF),
+	CLK_8X60("usb_fs_pclk",		USB_FS1_P_CLK,		NULL, OFF),
+	CLK_8X60("usb_fs_pclk",		USB_FS2_P_CLK,		NULL, OFF),
+	CLK_8X60("usb_hs_pclk",		USB_HS1_P_CLK,		NULL, OFF),
+	CLK_8X60("sdc_pclk",		SDC1_P_CLK,
+					&msm_device_sdc1.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC2_P_CLK,
+					&msm_device_sdc2.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC3_P_CLK,
+					&msm_device_sdc3.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC4_P_CLK,
+					&msm_device_sdc4.dev, OFF),
+	CLK_8X60("sdc_pclk",		SDC5_P_CLK,
+					&msm_device_sdc5.dev, OFF),
+	CLK_8X60("adm_clk",		ADM0_CLK,		NULL, OFF),
+	CLK_8X60("adm_pclk",		ADM0_P_CLK,		NULL, OFF),
+	CLK_8X60("adm_clk",		ADM1_CLK,		NULL, OFF),
+	CLK_8X60("adm_pclk",		ADM1_P_CLK,		NULL, OFF),
+	CLK_8X60("modem_ahb1_pclk",	MODEM_AHB1_P_CLK,	NULL, OFF),
+	CLK_8X60("modem_ahb2_pclk",	MODEM_AHB2_P_CLK,	NULL, OFF),
+	CLK_8X60("pmic_arb_pclk",	PMIC_ARB0_P_CLK,	NULL, OFF),
+	CLK_8X60("pmic_arb_pclk",	PMIC_ARB1_P_CLK,	NULL, OFF),
+	CLK_8X60("pmic_ssbi2",		PMIC_SSBI2_CLK,		NULL, OFF),
+	CLK_8X60("rpm_msg_ram_pclk",	RPM_MSG_RAM_P_CLK,	NULL, OFF),
+	CLK_8X60("amp_clk",		AMP_CLK,		NULL, OFF),
+	CLK_8X60("cam_clk",		CAM_CLK,		NULL, OFF),
+	CLK_8X60("csi_src_clk",		CSI_SRC_CLK,		NULL, OFF),
+	CLK_8X60("csi_clk",		CSI0_CLK,		NULL, OFF),
+	CLK_8X60("csi_clk",		CSI1_CLK,	  WEBCAM_DEV, OFF),
+	CLK_8X60("dsi_byte_div_clk",	DSI_BYTE_CLK,		NULL, OFF),
+	CLK_8X60("dsi_esc_clk",		DSI_ESC_CLK,		NULL, OFF),
+	CLK_8X60("gfx2d0_clk",		GFX2D0_CLK,		NULL, OFF),
+	CLK_8X60("gfx2d1_clk",		GFX2D1_CLK,		NULL, OFF),
+	CLK_8X60("gfx3d_clk",		GFX3D_CLK,		NULL, OFF),
+	CLK_8X60("ijpeg_clk",		IJPEG_CLK,		NULL, OFF),
+	CLK_8X60("imem_clk",		IMEM_CLK,		NULL, OFF),
+	CLK_8X60("jpegd_clk",		JPEGD_CLK,		NULL, OFF),
+	CLK_8X60("mdp_clk",		MDP_CLK,		NULL, OFF),
 	CLK_8X60("mdp_vsync_clk",	MDP_VSYNC_CLK,		NULL, OFF),
-	CLK_8X60("pixel_mdp_clk",	PIXEL_MDP_CLK,		NULL, 0),
-	CLK_8X60("pixel_lcdc_clk",	PIXEL_LCDC_CLK,		NULL, 0),
-	CLK_8X60("rot_clk",		ROT_CLK,		NULL, 0),
-	CLK_8X60("tv_src_clk",		TV_SRC_CLK,		NULL, 0),
-	CLK_8X60("tv_enc_clk",		TV_ENC_CLK,		NULL, 0),
-	CLK_8X60("tv_dac_clk",		TV_DAC_CLK,		NULL, 0),
-	CLK_8X60("vcodec_clk",		VCODEC_CLK,		NULL, 0),
-	CLK_8X60("mdp_tv_clk",		MDP_TV_CLK,		NULL, 0),
-	CLK_8X60("hdmi_clk",		HDMI_TV_CLK,		NULL, 0),
-	CLK_8X60("dsub_tv_clk",		DSUB_TV_CLK,		NULL, 0),
-	CLK_8X60("hdmi_app_clk",	HDMI_APP_CLK,		NULL, 0),
-	CLK_8X60("vpe_clk",		VPE_CLK,		NULL, 0),
-	CLK_8X60("vfe_clk",		VFE_CLK,		NULL, 0),
-	CLK_8X60("csi_vfe_clk",		CSI0_VFE_CLK,		NULL, 0),
-	CLK_8X60("csi_vfe_clk",		CSI1_VFE_CLK,		WEBCAM_DEV, 0),
-	CLK_8X60("smmu_jpegd_clk", 	JPEGD_AXI_CLK,		NULL, 0),
-	CLK_8X60("smmu_vfe_clk", 	VFE_AXI_CLK,		NULL, 0),
-	CLK_8X60("vfe_axi_clk", 	VFE_AXI_CLK,		NULL, 0),
-	CLK_8X60("ijpeg_axi_clk", 	IJPEG_AXI_CLK,		NULL, 0),
-	CLK_8X60("mdp_axi_clk",		MDP_AXI_CLK,		NULL, 0),
-	CLK_8X60("rot_axi_clk", 	ROT_AXI_CLK,		NULL, 0),
-	CLK_8X60("vcodec_axi_clk",	VCODEC_AXI_CLK,		NULL, 0),
-	CLK_8X60("vpe_axi_clk", 	VPE_AXI_CLK,		NULL, 0),
-	CLK_8X60("amp_pclk",		AMP_P_CLK,		NULL, 0),
-	CLK_8X60("csi_pclk",		CSI0_P_CLK,		NULL, 0),
-	CLK_8X60("csi_pclk",		CSI1_P_CLK,		WEBCAM_DEV, 0),
-	CLK_8X60("dsi_m_pclk",		DSI_M_P_CLK,		NULL, 0),
-	CLK_8X60("fab_pclk",		FAB_P_CLK,		NULL, 0),
-	CLK_8X60("ijpeg_pclk",		IJPEG_P_CLK,		NULL, 0),
-	CLK_8X60("jpegd_pclk",		JPEGD_P_CLK,		NULL, 0),
-	CLK_8X60("mdp_pclk",		MDP_P_CLK,		NULL, 0),
-	CLK_8X60("rotator_pclk",	ROT_P_CLK,		NULL, 0),
-	CLK_8X60("tv_enc_pclk",		TV_ENC_P_CLK,		NULL, 0),
-	CLK_8X60("vfe_pclk",		VFE_P_CLK,		NULL, 0),
-	CLK_8X60("vpe_pclk",		VPE_P_CLK,		NULL, 0),
-	CLK_8X60("gfx2d0_pclk",		GFX2D0_P_CLK,		NULL, 0),
-	CLK_8X60("gfx2d1_pclk",		GFX2D1_P_CLK,		NULL, 0),
-	CLK_8X60("gfx3d_pclk",		GFX3D_P_CLK,		NULL, 0),
-	CLK_8X60("vcodec_pclk",		VCODEC_P_CLK,		NULL, 0),
-	CLK_8X60("mi2s_osr_clk",	MI2S_OSR_CLK,		NULL, 0),
-	CLK_8X60("mi2s_bit_clk",	MI2S_BIT_CLK,		NULL, 0),
-	CLK_8X60("i2s_mic_osr_clk",	CODEC_I2S_MIC_OSR_CLK,	NULL, 0),
-	CLK_8X60("i2s_mic_bit_clk",	CODEC_I2S_MIC_BIT_CLK,	NULL, 0),
-	CLK_8X60("i2s_mic_osr_clk",	SPARE_I2S_MIC_OSR_CLK,	NULL, 0),
-	CLK_8X60("i2s_mic_bit_clk",	SPARE_I2S_MIC_BIT_CLK,	NULL, 0),
-	CLK_8X60("i2s_spkr_osr_clk",	CODEC_I2S_SPKR_OSR_CLK,	NULL, 0),
-	CLK_8X60("i2s_spkr_bit_clk",	CODEC_I2S_SPKR_BIT_CLK,	NULL, 0),
-	CLK_8X60("i2s_spkr_osr_clk",	SPARE_I2S_SPKR_OSR_CLK,	NULL, 0),
-	CLK_8X60("i2s_spkr_bit_clk",	SPARE_I2S_SPKR_BIT_CLK,	NULL, 0),
-	CLK_8X60("pcm_clk",		PCM_CLK,		NULL, 0),
+	CLK_8X60("pixel_mdp_clk",	PIXEL_MDP_CLK,		NULL, OFF),
+	CLK_8X60("pixel_lcdc_clk",	PIXEL_LCDC_CLK,		NULL, OFF),
+	CLK_8X60("rot_clk",		ROT_CLK,		NULL, OFF),
+	CLK_8X60("tv_src_clk",		TV_SRC_CLK,		NULL, OFF),
+	CLK_8X60("tv_enc_clk",		TV_ENC_CLK,		NULL, OFF),
+	CLK_8X60("tv_dac_clk",		TV_DAC_CLK,		NULL, OFF),
+	CLK_8X60("vcodec_clk",		VCODEC_CLK,		NULL, OFF),
+	CLK_8X60("mdp_tv_clk",		MDP_TV_CLK,		NULL, OFF),
+	CLK_8X60("hdmi_clk",		HDMI_TV_CLK,		NULL, OFF),
+	CLK_8X60("hdmi_app_clk",	HDMI_APP_CLK,		NULL, OFF),
+	CLK_8X60("vpe_clk",		VPE_CLK,		NULL, OFF),
+	CLK_8X60("vfe_clk",		VFE_CLK,		NULL, OFF),
+	CLK_8X60("csi_vfe_clk",		CSI0_VFE_CLK,		NULL, OFF),
+	CLK_8X60("csi_vfe_clk",		CSI1_VFE_CLK,	  WEBCAM_DEV, OFF),
+	CLK_8X60("smmu_jpegd_clk",	JPEGD_AXI_CLK,		NULL, OFF),
+	CLK_8X60("smmu_vfe_clk",	VFE_AXI_CLK,		NULL, OFF),
+	CLK_8X60("vfe_axi_clk",		VFE_AXI_CLK,		NULL, OFF),
+	CLK_8X60("ijpeg_axi_clk",	IJPEG_AXI_CLK,		NULL, OFF),
+	CLK_8X60("mdp_axi_clk",		MDP_AXI_CLK,		NULL, OFF),
+	CLK_8X60("rot_axi_clk",		ROT_AXI_CLK,		NULL, OFF),
+	CLK_8X60("vcodec_axi_clk",	VCODEC_AXI_CLK,		NULL, OFF),
+	CLK_8X60("vpe_axi_clk",		VPE_AXI_CLK,		NULL, OFF),
+	CLK_8X60("amp_pclk",		AMP_P_CLK,		NULL, OFF),
+	CLK_8X60("csi_pclk",		CSI0_P_CLK,		NULL, OFF),
+	CLK_8X60("csi_pclk",		CSI1_P_CLK,	  WEBCAM_DEV, OFF),
+	CLK_8X60("dsi_m_pclk",		DSI_M_P_CLK,		NULL, OFF),
+	CLK_8X60("dsi_s_pclk",		DSI_S_P_CLK,		NULL, OFF),
+	CLK_8X60("gfx2d0_pclk",		GFX2D0_P_CLK,		NULL, OFF),
+	CLK_8X60("gfx2d1_pclk",		GFX2D1_P_CLK,		NULL, OFF),
+	CLK_8X60("gfx3d_pclk",		GFX3D_P_CLK,		NULL, OFF),
+	CLK_8X60("hdmi_m_pclk",		HDMI_M_P_CLK,		NULL, OFF),
+	CLK_8X60("hdmi_s_pclk",		HDMI_S_P_CLK,		NULL, OFF),
+	CLK_8X60("ijpeg_pclk",		IJPEG_P_CLK,		NULL, OFF),
+	CLK_8X60("jpegd_pclk",		JPEGD_P_CLK,		NULL, OFF),
+	CLK_8X60("imem_pclk",		IMEM_P_CLK,		NULL, OFF),
+	CLK_8X60("mdp_pclk",		MDP_P_CLK,		NULL, OFF),
+	CLK_8X60("smmu_pclk",		SMMU_P_CLK,		NULL, OFF),
+	CLK_8X60("rotator_pclk",	ROT_P_CLK,		NULL, OFF),
+	CLK_8X60("tv_enc_pclk",		TV_ENC_P_CLK,		NULL, OFF),
+	CLK_8X60("vcodec_pclk",		VCODEC_P_CLK,		NULL, OFF),
+	CLK_8X60("vfe_pclk",		VFE_P_CLK,		NULL, OFF),
+	CLK_8X60("vpe_pclk",		VPE_P_CLK,		NULL, OFF),
+	CLK_8X60("mi2s_osr_clk",	MI2S_OSR_CLK,		NULL, OFF),
+	CLK_8X60("mi2s_bit_clk",	MI2S_BIT_CLK,		NULL, OFF),
+	CLK_8X60("i2s_mic_osr_clk",	CODEC_I2S_MIC_OSR_CLK,	NULL, OFF),
+	CLK_8X60("i2s_mic_bit_clk",	CODEC_I2S_MIC_BIT_CLK,	NULL, OFF),
+	CLK_8X60("i2s_mic_osr_clk",	SPARE_I2S_MIC_OSR_CLK,	NULL, OFF),
+	CLK_8X60("i2s_mic_bit_clk",	SPARE_I2S_MIC_BIT_CLK,	NULL, OFF),
+	CLK_8X60("i2s_spkr_osr_clk",	CODEC_I2S_SPKR_OSR_CLK,	NULL, OFF),
+	CLK_8X60("i2s_spkr_bit_clk",	CODEC_I2S_SPKR_BIT_CLK,	NULL, OFF),
+	CLK_8X60("i2s_spkr_osr_clk",	SPARE_I2S_SPKR_OSR_CLK,	NULL, OFF),
+	CLK_8X60("i2s_spkr_bit_clk",	SPARE_I2S_SPKR_BIT_CLK,	NULL, OFF),
+	CLK_8X60("pcm_clk",		PCM_CLK,		NULL, OFF),
+	CLK_8X60("iommu_clk",           JPEGD_AXI_CLK,
+					&msm_device_iommu_jpegd.dev, 0),
+	CLK_8X60("iommu_clk",           VFE_AXI_CLK,
+					&msm_device_iommu_vfe.dev, 0),
+	CLK_8X60("iommu_clk",           VCODEC_AXI_CLK,
+					&msm_device_iommu_vcodec_a.dev, 0),
+	CLK_8X60("iommu_clk",           VCODEC_AXI_CLK,
+					&msm_device_iommu_vcodec_b.dev, 0),
+	CLK_8X60("iommu_clk",           GFX3D_CLK,
+					&msm_device_iommu_gfx3d.dev, 0),
+	CLK_8X60("iommu_clk",           GFX2D0_CLK,
+					&msm_device_iommu_gfx2d0.dev, 0),
+	CLK_8X60("iommu_clk",           GFX2D1_CLK,
+					&msm_device_iommu_gfx2d1.dev, 0),
 };
 
 unsigned msm_num_clocks_8x60 = ARRAY_SIZE(msm_clocks_8x60);

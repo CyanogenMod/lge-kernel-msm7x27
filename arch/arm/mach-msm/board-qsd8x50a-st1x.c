@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +72,7 @@
 #endif
 #include "smd_private.h"
 
-#define MSM_PMEM_MDP_SIZE	0x204000
+#define MSM_PMEM_MDP_SIZE	0x408000
 
 #define SMEM_SPINLOCK_I2C	"D:I2C02000021"
 
@@ -1084,6 +1084,12 @@ static int st15_hdmi_power(int on)
 	return 0;
 }
 
+static unsigned int msm_fb_lcdc_get_clk(void)
+{
+	/* Return 160MHz(in Hz) as the AXI clock for st1x device */
+	return 192000000;
+}
+
 static int msm_fb_lcdc_gpio_config(int on)
 {
 
@@ -1125,6 +1131,7 @@ static struct msm_gpio msm_fb_st15_gpio_config_data[] = {
 
 static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_gpio_config = msm_fb_lcdc_gpio_config,
+	.lcdc_get_clk = msm_fb_lcdc_get_clk,
 };
 
 static struct msm_panel_common_pdata mdp_pdata = {
@@ -1445,18 +1452,30 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.max_grp2d_freq = 0,
 	.min_grp2d_freq = 0,
 	.set_grp2d_async = NULL,
-	.max_grp3d_freq = 0,
-	.min_grp3d_freq = 0,
+	.max_grp3d_freq = 235*1000*1000,
+	.min_grp3d_freq = 192*1000*1000,
+	/*note: on 8650a async mode is the default */
 	.set_grp3d_async = NULL,
 	.imem_clk_name = "imem_clk",
 	.grp3d_clk_name = "grp_clk",
+	.grp3d_pclk_name = "grp_pclk",
 #ifdef CONFIG_MSM_KGSL_2D
 	.grp2d0_clk_name = "grp_2d_clk",
+	.grp2d0_pclk_name = "grp_2d_pclk",
 #else
 	.grp2d0_clk_name = NULL,
 #endif
 	.idle_timeout_3d = HZ/5,
 	.idle_timeout_2d = HZ/10,
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	.pt_va_size = SZ_32M,
+	/* Maximum of 32 concurrent processes */
+	.pt_max_count = 32,
+#else
+	.pt_va_size = SZ_128M,
+	/* We only ever have one pagetable for everybody */
+	.pt_max_count = 1,
+#endif
 };
 
 static struct platform_device msm_device_kgsl = {
@@ -1854,6 +1873,7 @@ static void __init qsd8x50_init_host(void)
 struct sdcc_gpio {
 	struct msm_gpio *cfg_data;
 	uint32_t size;
+	struct msm_gpio *sleep_cfg_data;
 };
 
 static struct msm_gpio sdc1_cfg_data[] = {
@@ -1863,6 +1883,21 @@ static struct msm_gpio sdc1_cfg_data[] = {
 	{GPIO_CFG(54, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), "sdc1_dat_0"},
 	{GPIO_CFG(55, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), "sdc1_cmd"},
 	{GPIO_CFG(56, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA), "sdc1_clk"},
+};
+
+static struct msm_gpio sdc1_sleep_cfg_data[] = {
+	{GPIO_CFG(51, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_3"},
+	{GPIO_CFG(52, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_2"},
+	{GPIO_CFG(53, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_1"},
+	{GPIO_CFG(54, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_dat_0"},
+	{GPIO_CFG(55, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_cmd"},
+	{GPIO_CFG(56, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"sdc1_clk"},
 };
 
 static struct msm_gpio sdc2_cfg_data[] = {
@@ -1903,6 +1938,7 @@ static struct sdcc_gpio sdcc_cfg_data[] = {
 	{
 		.cfg_data = sdc1_cfg_data,
 		.size = ARRAY_SIZE(sdc1_cfg_data),
+		.sleep_cfg_data = sdc1_sleep_cfg_data,
 	},
 	{
 		.cfg_data = sdc2_cfg_data,
@@ -1939,6 +1975,11 @@ static void msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 				__func__,  dev_id);
 	} else {
 		clear_bit(dev_id, &gpio_sts);
+		if (curr->sleep_cfg_data) {
+			msm_gpios_enable(curr->sleep_cfg_data, curr->size);
+			msm_gpios_free(curr->sleep_cfg_data, curr->size);
+			return;
+		}
 		msm_gpios_disable_free(curr->cfg_data, curr->size);
 	}
 }

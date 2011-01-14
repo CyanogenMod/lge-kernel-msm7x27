@@ -1819,6 +1819,7 @@ static int sn12m0pz_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = sn12m0pz_sensor_open_init;
 	s->s_release = sn12m0pz_sensor_release;
 	s->s_config  = sn12m0pz_sensor_config;
+	s->s_mount_angle  = 0;
 	sn12m0pz_probe_init_done(info);
 
 	return rc;

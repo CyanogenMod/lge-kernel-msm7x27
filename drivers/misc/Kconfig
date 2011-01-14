@@ -345,6 +345,24 @@ config SENSORS_AK8975
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8975.
 
+config SENSORS_AKM8973
+	tristate "AKM8973 Compass Driver"
+	depends on I2C
+	help
+	 AKM8973 Compass Driver implemented by HTC.
+
+config SENSORS_AKM8976
+	tristate "AKM8976 Compass Driver"
+	depends on I2C
+	help
+	  AKM8976 Compass Driver implemented by HTC.
+
+config VP_A1026
+	tristate "A1026 Voice Processor Driver"
+	depends on I2C
+	help
+	  A1026 Voice Processor Driver implemented by HTC.
+
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
@@ -505,9 +523,28 @@ config LGE_AT_CMD_DEVICE
 	help
 	 Choose if use AT_CMD device used for sending uevent to user space
 
+config PMIC8058_XOADC
+	tristate "Qualcomm PM8058 XOADC driver"
+	depends on PMIC8058
+	default n
+	help
+	  Enables User processor ADC reads over the XOADC module of Qualcomm's
+	  PMIC8058. Driver interface to program registers of the ADC over
+	  AMUX channels, devices on programmable MPP's and xotherm.
+
+config PMIC8058_MISC
+	tristate "Qualcomm PM8058 Misc Device driver"
+	depends on PMIC8058
+	default n
+	help
+	  Provides functionality for various small drivers utilizing the
+	  Qualcomm PM8058 chip.  Examples include: signalling when the 32kHz
+	  oscillator malfunctions.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
 source "drivers/misc/iwmc3200top/Kconfig"
+source "drivers/misc/video_core/720p/Kconfig"
 
 endif # MISC_DEVICES

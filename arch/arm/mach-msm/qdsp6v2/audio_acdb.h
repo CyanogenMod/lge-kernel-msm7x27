@@ -30,6 +30,7 @@
 #define _AUDIO_ACDB_H
 
 #include <linux/msm_audio_acdb.h>
+#include "q6adm.h"
 
 #define NUM_AUDPROC_BUFFERS	6
 
@@ -56,5 +57,6 @@ void get_audvol_cal(int32_t path, struct acdb_cal_block *cal_block);
 void get_vocproc_cal(struct acdb_cal_data *cal_data);
 void get_vocstrm_cal(struct acdb_cal_data *cal_data);
 void get_vocvol_cal(struct acdb_cal_data *cal_data);
+void get_sidetone_cal(struct sidetone_cal *cal_data);
 
 #endif

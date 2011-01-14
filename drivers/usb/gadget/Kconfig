@@ -209,17 +209,6 @@ config USB_OMAP
 	default USB_GADGET
 	select USB_GADGET_SELECTED
 
-config USB_OTG
-	boolean "OTG Support"
-	depends on USB_GADGET_OMAP && ARCH_OMAP_OTG && USB_OHCI_HCD
-	help
-	   The most notable feature of USB OTG is support for a
-	   "Dual-Role" device, which can act as either a device
-	   or a host.  The initial role choice can be changed
-	   later, when two dual-role devices talk to each other.
-
-	   Select this only if your OMAP board has a Mini-AB connector.
-
 config USB_GADGET_PXA25X
 	boolean "PXA 25x or IXP 4xx"
 	depends on (ARCH_PXA && PXA25x) || ARCH_IXP4XX
@@ -515,7 +504,6 @@ config USB_GADGET_MSM_72K
 	depends on ARCH_MSM
 	select USB_GADGET_SELECTED
 	select USB_GADGET_DUALSPEED
-	select USB_OTG if USB_EHCI_MSM && PM
 	help
 	   USB gadget driver for Qualcomm MSM 72K architecture.
 
@@ -969,7 +957,7 @@ config USB_F_SERIAL
 config MODEM_SUPPORT
 	boolean "modem support in generic serial function driver"
 	depends on USB_F_SERIAL
-	default n
+	default y
 	help
           This feature enables the modem functionality in the
 	  generic serial.
@@ -1068,6 +1056,41 @@ config USB_G_WEBCAM
 
 	  Say "y" to link the driver statically, or "m" to build a
 	  dynamically linked module called "g_webcam".
+
+config USB_QCOM_MAEMO
+        tristate "Qcom gadget compositon for Maemo"
+        default n
+	select MODEM_SUPPORT
+	select USB_CSW_HACK
+	help
+          Enable USB Composition for Maemo.
+          It supports RNDIS + DIAG + MODEM + NMEA + RMNET + MSC composition.
+
+config USB_MAEMO_RNDIS_WCEIS
+        boolean "Use Windows Internet Sharing Class/SubClass/Protocol"
+	depends on USB_QCOM_MAEMO
+	default y
+        help
+         Causes the driver to look like a Windows-compatible Internet
+         Sharing device, so Windows auto-detects it.
+
+         If you enable this option, the device is no longer CDC ethernet
+         compatible.
+
+config RMNET_SMD_CTL_CHANNEL
+        string "control SMD channel name"
+        depends on USB_QCOM_MAEMO
+        default ""
+        help
+          Control SMD channel for transferring QMI messages
+
+config RMNET_SMD_DATA_CHANNEL
+        string "Data SMD channel name"
+        depends on USB_QCOM_MAEMO
+        default ""
+        help
+          Data SMD channel for transferring network data
+
 
 endchoice
 

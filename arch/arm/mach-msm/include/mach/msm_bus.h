@@ -69,6 +69,7 @@ struct msm_bus_node_info {
 	int tier;
 	int ahb;
 	const char *slaveclk;
+	const char *a_slaveclk;
 	const char *memclk;
 	unsigned int buswidth;
 };
@@ -76,8 +77,8 @@ struct msm_bus_node_info {
 struct msm_bus_vectors {
 	int src; /* Master */
 	int dst; /* Slave */
-	int ab; /* Arbitrated bandwidth */
-	int ib; /* Instantaneous bandwidth */
+	unsigned int ab; /* Arbitrated bandwidth */
+	unsigned int ib; /* Instantaneous bandwidth */
 };
 
 struct msm_bus_paths {
@@ -88,6 +89,14 @@ struct msm_bus_paths {
 struct msm_bus_scale_pdata {
 	struct msm_bus_paths *usecase;
 	int num_usecases;
+	const char *name;
+	/*
+	 * If the active_only flag is set to 1, the BW request is applied
+	 * only when at least one CPU is active (powered on). If the flag
+	 * is set to 0, then the BW request is always applied irrespective
+	 * of the CPU state.
+	 */
+	unsigned int active_only;
 };
 
 /* Scaling APIs */
@@ -97,9 +106,29 @@ struct msm_bus_scale_pdata {
  * call msm_bus_scale_client_update_request.
  * The function returns 0 if bus driver is unable to register a client
  */
+
+#ifdef CONFIG_MSM_BUS_SCALING
 uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata);
 int msm_bus_scale_client_update_request(uint32_t cl, unsigned int index);
 void msm_bus_scale_unregister_client(uint32_t cl);
+#else
+static inline uint32_t
+msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
+{
+	return 1;
+}
+
+static inline int
+msm_bus_scale_client_update_request(uint32_t cl, unsigned int index)
+{
+	return 0;
+}
+
+static inline void
+msm_bus_scale_unregister_client(uint32_t cl)
+{
+}
+#endif
 
 /* AXI Port configuration APIs */
 int msm_bus_axi_porthalt(int master_port);

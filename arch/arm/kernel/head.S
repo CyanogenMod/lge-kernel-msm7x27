@@ -79,13 +79,11 @@
 ENTRY(stext)
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9 @ ensure svc mode
 						@ and irqs disabled
-#ifdef CONFIG_SMP_PARALLEL_START
-	bl	__smp_secondary_spin
-#endif
 	mrc	p15, 0, r9, c0, c0		@ get processor id
 	bl	__lookup_processor_type		@ r5=procinfo r9=cpuid
 	movs	r10, r5				@ invalid processor (r5=0)?
 	beq	__error_p			@ yes, error 'p'
+	bl	__fixup_machine_type
 	bl	__lookup_machine_type		@ r5=machinfo
 	movs	r8, r5				@ invalid machine (r5=0)?
 	beq	__error_a			@ yes, error 'a'
@@ -182,9 +180,9 @@ __enable_mmu:
 		      domain_val(DOMAIN_TABLE, DOMAIN_CLIENT) | \
 		      domain_val(DOMAIN_IO, DOMAIN_CLIENT))
 #else
-	mov	r5, #(domain_val(DOMAIN_USER, DOMAIN_MANAGER) | \
+	mov	r5, #(domain_val(DOMAIN_USER, DOMAIN_CLIENT) | \
 		      domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
-		      domain_val(DOMAIN_TABLE, DOMAIN_MANAGER) | \
+		      domain_val(DOMAIN_TABLE, DOMAIN_CLIENT) | \
 		      domain_val(DOMAIN_IO, DOMAIN_CLIENT))
 #endif
 	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register

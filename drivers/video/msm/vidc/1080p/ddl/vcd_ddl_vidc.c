@@ -17,6 +17,7 @@
  */
 
 #include "vcd_ddl.h"
+#include "vcd_ddl_metadata.h"
 #include "vcd_ddl_shared_mem.h"
 #include "vcd_core.h"
 
@@ -195,6 +196,13 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 	u32 seq_size;
 
 	vidc_1080p_set_decode_mpeg4_pp_filter(decoder->post_filter.post_filter);
+
+	ddl_vidc_metadata_enable(ddl);
+	vidc_sm_set_metadata_start_address(&ddl->shared_mem
+		[ddl->command_channel],
+		DDL_ADDR_OFFSET(ddl_context->dram_base_a,
+		ddl->codec_data.decoder.meta_data_input));
+
 	if ((decoder->codec.codec == VCD_CODEC_DIVX_3))
 		ddl_context->vidc_set_divx3_resolution
 		[ddl->command_channel](decoder->client_frame_size.width,
@@ -562,14 +570,22 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	}
 	vidc_1080p_set_encode_multi_slice_control(m_slice_sel,
 		i_multi_slice_size, i_multi_slice_byte);
+	ddl_vidc_metadata_enable(ddl);
+	if (encoder->meta_data_enable_flag)
+		vidc_sm_set_metadata_start_address(&ddl->shared_mem
+			[ddl->command_channel], DDL_ADDR_OFFSET(
+			ddl_context->dram_base_a,
+			ddl->codec_data.encoder.meta_data_input));
 	luma[0] = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 			enc_buffers->dpb_y[0]);
 	luma[1] = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 			enc_buffers->dpb_y[1]);
-	luma[2] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
+	if (encoder->hw_bufs.dpb_count == DDL_ENC_MAX_DPB_BUFFERS) {
+		luma[2] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
 			enc_buffers->dpb_y[2]);
-	luma[3] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
+		luma[3] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
 			enc_buffers->dpb_y[3]);
+	}
 	for (index = 0; index < recon_bufs; index++)
 		chroma[index] = DDL_ADDR_OFFSET(ddl_context->dram_base_b,
 					enc_buffers->dpb_c[index]);
@@ -658,6 +674,10 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 	u32 dpb_addr_y[4], dpb_addr_c[4];
 	u32 index, y_addr, c_addr;
 
+	ddl_vidc_encode_set_metadata_output_buf(ddl);
+
+	encoder->enc_frame_info.meta_data_exists = false;
+
 	y_addr = DDL_OFFSET(ddl_context->dram_base_b.align_physical_addr,
 			input_vcd_frm->physical);
 	c_addr = (y_addr + encoder->input_buf_size.size_y);
@@ -707,13 +727,20 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 	if (ddl_context->pix_cache_enable) {
 		for (index = 0; index < enc_buffers->dpb_count;
 			index++) {
-			dpb_addr_y[index] = (u32) enc_buffers->dpb_y
-				[index].align_physical_addr;
+			dpb_addr_y[index] =
+			   (u32) VIDC_1080P_DEC_DPB_RESET_VALUE;
 			dpb_addr_c[index] = (u32) enc_buffers->dpb_c
 				[index].align_physical_addr;
 		}
+
+		dpb_addr_y[index] = (u32) input_vcd_frm->physical;
+		dpb_addr_c[index] = (u32) input_vcd_frm->physical +
+		   encoder->input_buf_size.size_y;
+
 		vidc_pix_cache_init_luma_chroma_base_addr(
-			enc_buffers->dpb_count, dpb_addr_y, dpb_addr_c);
+			enc_buffers->dpb_count + 1, dpb_addr_y, dpb_addr_c);
+		vidc_pix_cache_set_frame_size(encoder->frame_size.width,
+			encoder->frame_size.height);
 		vidc_pix_cache_set_frame_range(enc_buffers->sz_dpb_y,
 			enc_buffers->sz_dpb_c);
 		vidc_pix_cache_clear_cache_tags();
@@ -733,11 +760,11 @@ u32 ddl_vidc_decode_set_buffers(struct ddl_client_context *ddl)
 		DDL_MSG_ERROR("STATE-CRITICAL");
 		return VCD_ERR_FAIL;
 	}
+	ddl_vidc_decode_set_metadata_output(decoder);
 	if (decoder->dp_buf.no_of_dec_pic_buf <
 		decoder->client_output_buf_req.actual_count)
 		return VCD_ERR_BAD_STATE;
 	if (decoder->codec.codec == VCD_CODEC_H264) {
-		vcd_status = ddl_allocate_h264_dec_mv_buffer(ddl);
 		vidc_sm_set_allocated_h264_mv_size(
 			&ddl->shared_mem[ddl->command_channel],
 			decoder->hw_bufs.h264_mv[0].buffer_size);
@@ -864,11 +891,8 @@ void ddl_vidc_decode_eos_run(struct ddl_client_context *ddl)
 	if (decoder->flush_pending) {
 		dec_param.dpb_flush = true;
 		decoder->flush_pending = false;
-		decoder->flush_eos_case = true;
-	} else {
+	} else
 		dec_param.dpb_flush = false;
-		decoder->flush_eos_case = false;
-	}
 	vidc_sm_set_frame_tag(&ddl->shared_mem[ddl->command_channel],
 	bit_stream->ip_frm_tag);
 	ddl_context->vidc_decode_frame_start[ddl->command_channel] (

@@ -345,7 +345,7 @@ static void ddl_encode_set_profile_level(struct ddl_client_context *ddl)
 		}
 	case VCD_PROFILE_H264_BASELINE:
 		{
-			profile = VIDC_720P_PROFILE_H264_BASELINE;
+			profile = VIDC_720P_PROFILE_H264_CPB;
 			break;
 		}
 	case VCD_PROFILE_H264_MAIN:
@@ -808,6 +808,8 @@ u32 ddl_decode_set_buffers(struct ddl_client_context *ddl)
 		comv_buf_size *= (comv_buf_no *
 			(decoder->client_frame_size.stride >> 4) *
 			((decoder->client_frame_size.scan_lines >> 4) + 1));
+		if (decoder->dpb_comv_buffer.virtual_base_addr)
+			ddl_pmem_free(decoder->dpb_comv_buffer);
 		ddl_pmem_alloc(&decoder->dpb_comv_buffer, comv_buf_size,
 			       DDL_LINEAR_BUFFER_ALIGN_BYTES);
 		if (!decoder->dpb_comv_buffer.virtual_base_addr) {
@@ -826,6 +828,8 @@ u32 ddl_decode_set_buffers(struct ddl_client_context *ddl)
 		sz = decoder->dp_buf.dec_pic_buffers[0].vcd_frm.alloc_len;
 		sz *= ref_buf_no;
 		align_bytes = decoder->client_output_buf_req.align;
+		if (decoder->ref_buffer.virtual_base_addr)
+			ddl_pmem_free(decoder->ref_buffer);
 		ddl_pmem_alloc(&decoder->ref_buffer, sz, align_bytes);
 		if (!decoder->ref_buffer.virtual_base_addr) {
 			ddl_pmem_free(decoder->dpb_comv_buffer);

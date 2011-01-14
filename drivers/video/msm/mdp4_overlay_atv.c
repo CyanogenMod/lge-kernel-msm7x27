@@ -67,7 +67,7 @@ int mdp4_atv_on(struct platform_device *pdev)
 
 	if (atv_pipe == NULL) {
 		ptype = mdp4_overlay_format2type(mfd->fb_imgType);
-		pipe = mdp4_overlay_pipe_alloc(ptype, FALSE);
+		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER1, 0);
 		if (pipe == NULL)
 			return -EBUSY;
 		pipe->pipe_used++;

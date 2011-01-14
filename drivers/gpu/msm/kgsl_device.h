@@ -33,6 +33,7 @@
 #include <linux/irqreturn.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#include <linux/mutex.h>
 #include <linux/msm_kgsl.h>
 
 #include <asm/atomic.h>
@@ -41,24 +42,32 @@
 #include "kgsl_ringbuffer.h"
 #include "kgsl_pwrctrl.h"
 
-#define KGSL_CONTEXT_MAX        8
+#define KGSL_CONTEXT_MAX (CONFIG_MSM_KGSL_CONTEXTS)
 
 #define KGSL_TIMEOUT_NONE       0
 #define KGSL_TIMEOUT_DEFAULT    0xFFFFFFFF
 
 #define FIRST_TIMEOUT (HZ / 2)
 
-#define KGSL_DEV_FLAGS_INITIALIZED0	0x00000001
-#define KGSL_DEV_FLAGS_INITIALIZED	0x00000002
-#define KGSL_DEV_FLAGS_STARTED		0x00000004
-#define KGSL_DEV_FLAGS_ACTIVE		0x00000008
-
 #define KGSL_CHIPID_YAMATODX_REV21  0x20100
 #define KGSL_CHIPID_YAMATODX_REV211 0x20101
 #define KGSL_CHIPID_LEIA_REV470_TEMP 0x10001
 #define KGSL_CHIPID_LEIA_REV470 0x2010000
 
+/* KGSL device state is initialized to INIT when platform_probe		*
+ * sucessfully initialized the device.  Once a device has been opened	*
+ * (started) it becomes active.  NAP implies that only low latency	*
+ * resources (for now clocks on some platforms) are off.  SLEEP implies	*
+ * that the KGSL module believes a device is idle (has been inactive	*
+ * past its timer) and all system resources are released.  SUSPEND is	*
+ * requested by the kernel and will be enforced upon all open devices.	*/
 
+#define KGSL_STATE_NONE		0x00000000
+#define KGSL_STATE_INIT		0x00000001
+#define KGSL_STATE_ACTIVE	0x00000002
+#define KGSL_STATE_NAP		0x00000004
+#define KGSL_STATE_SLEEP	0x00000008
+#define KGSL_STATE_SUSPEND	0x00000010
 
 #define KGSL_GRAPHICS_MEMORY_LOW_WATERMARK  0x1000000
 
@@ -78,9 +87,10 @@ struct kgsl_functable {
 	int (*device_setstate) (struct kgsl_device *device, uint32_t flags);
 	int (*device_idle) (struct kgsl_device *device, unsigned int timeout);
 	int (*device_suspend) (struct kgsl_device *device);
-	int (*device_sleep) (struct kgsl_device *device, const int idle);
+	int (*device_resume) (struct kgsl_device *device);
+	int (*device_sleep) (struct kgsl_device *device);
 	int (*device_wake) (struct kgsl_device *device);
-	int (*device_start) (struct kgsl_device *device);
+	int (*device_start) (struct kgsl_device *device, unsigned int init_ram);
 	int (*device_stop) (struct kgsl_device *device);
 	int (*device_getproperty) (struct kgsl_device *device,
 					enum kgsl_property_type type,
@@ -122,6 +132,8 @@ struct kgsl_memregion {
 };
 
 struct kgsl_device {
+	struct device *dev;
+	const char *name;
 	uint32_t       flags;
 	enum kgsl_deviceid    id;
 	unsigned int      chip_id;
@@ -130,7 +142,6 @@ struct kgsl_device {
 
 	struct kgsl_mmu 	  mmu;
 	struct kgsl_ringbuffer ringbuffer;
-	unsigned int hwaccess_blocked;
 	struct completion hwaccess_gate;
 	struct kgsl_functable ftbl;
 	struct work_struct idle_check_ws;
@@ -139,21 +150,26 @@ struct kgsl_device {
 	atomic_t open_count;
 
 	struct atomic_notifier_head ts_notifier_list;
+	struct mutex mutex;
+	uint32_t		state;
+	uint32_t		requested_state;
+
+	struct list_head memqueue;
+	unsigned int active_cnt;
+	struct completion suspend_gate;
 };
 
 struct kgsl_process_private {
 	unsigned int refcnt;
 	pid_t pid;
+	spinlock_t mem_lock;
 	struct list_head mem_list;
 	struct kgsl_pagetable *pagetable;
-	unsigned long vmalloc_size;
-	struct list_head preserve_entry_list;
-	int preserve_list_size;
 	struct list_head list;
 };
 
 struct kgsl_device_private {
-	uint32_t ctxt_id_mask;
+	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
 	struct kgsl_device *device;
 	struct kgsl_process_private *process_priv;
 };

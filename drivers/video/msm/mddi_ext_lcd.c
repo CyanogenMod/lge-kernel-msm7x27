@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,9 @@ static struct platform_driver this_driver = {
 static struct msm_fb_panel_data mddi_ext_lcd_panel_data = {
 	.panel_info.xres = 800,
 	.panel_info.yres = 600,
+	.panel_info.mode2_xres = 0;
+	.panel_info.mode2_yres = 0;
+	.panel_info.mode2_bpp = 0;
 	.panel_info.type = EXT_MDDI_PANEL,
 	.panel_info.pdest = DISPLAY_1,
 	.panel_info.wait_cycle = 0,

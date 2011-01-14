@@ -28,10 +28,12 @@
 #include <linux/smp.h>
 #include <linux/cpumask.h>
 #include <linux/io.h>
+#include <linux/sysdev.h>
 
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
+#include <../mach-msm/mpm.h>
 
 static DEFINE_SPINLOCK(irq_controller_lock);
 
@@ -107,6 +109,8 @@ static void gic_mask_irq(unsigned int irq)
 	spin_lock(&irq_controller_lock);
 	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_CLEAR + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
+
+	msm_mpm_enable_irq(irq, 0);
 }
 
 static void gic_unmask_irq(unsigned int irq)
@@ -116,22 +120,22 @@ static void gic_unmask_irq(unsigned int irq)
 	spin_lock(&irq_controller_lock);
 	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
+
+	msm_mpm_enable_irq(irq, 1);
 }
 
 #ifdef CONFIG_SMP
 static int gic_set_cpu(unsigned int irq, const struct cpumask *mask_val)
 {
 	void __iomem *reg = gic_dist_base(irq) + GIC_DIST_TARGET + (gic_irq(irq) & ~3);
-	unsigned int shift = (irq % 4)*8;
+	unsigned int shift = (irq % 4) * 8;
+	unsigned int cpu = cpumask_first(mask_val);
 	u32 val;
-	unsigned int cpu;
 
 	spin_lock(&irq_controller_lock);
-	val = readl(reg);
-	for_each_online_cpu(cpu) {
-		if (cpumask_test_cpu(cpu, mask_val))
-			val |= 1 << (cpu+shift);
-	}
+	irq_desc[irq].node = cpu;
+	val = readl(reg) & ~(0xff << shift);
+	val |= 1 << (cpu + shift);
 	writel(val, reg);
 	spin_unlock(&irq_controller_lock);
 
@@ -169,10 +173,12 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 }
 
 #ifdef CONFIG_PM
-void gic_suspend(unsigned int gic_nr)
+static int gic_suspend(struct sys_device *sysdev, pm_message_t state)
 {
 	unsigned int i;
+	unsigned int gic_nr = sysdev->id;
 	void __iomem *base = gic_data[gic_nr].dist_base;
+
 	/* Dont disable STI's and PPI's. Assume they are quiesced
 	 * by the suspend framework */
 	for (i = 1; i * 32 < gic_data[gic_nr].max_irq; i++) {
@@ -184,12 +190,15 @@ void gic_suspend(unsigned int gic_nr)
 		writel(gic_data[gic_nr].wakeup_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
+	return 0;
 }
 
-void gic_resume(unsigned int gic_nr)
+static int gic_resume(struct sys_device *sysdev)
 {
 	unsigned int i;
+	unsigned int gic_nr = sysdev->id;
 	void __iomem *base = gic_data[gic_nr].dist_base;
+
 	for (i = 1; i * 32 < gic_data[gic_nr].max_irq; i++) {
 		/* disable all of them */
 		writel(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4);
@@ -197,6 +206,7 @@ void gic_resume(unsigned int gic_nr)
 		writel(gic_data[gic_nr].enabled_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
+	return 0;
 }
 
 static int gic_set_wake(unsigned int irq, unsigned int on)
@@ -216,11 +226,41 @@ static int gic_set_wake(unsigned int irq, unsigned int on)
 	else
 		gic_data->wakeup_irqs[reg_offset] &=  ~(1 << bit_offset);
 
+	msm_mpm_set_irq_wake(irq, on);
 	return 0;
 }
+
+static struct sysdev_class gic_sysdev_class = {
+	.name = "gic_irq",
+	.suspend = gic_suspend,
+	.resume = gic_resume,
+};
+
+static struct sys_device gic_sys_device[MAX_GIC_NR] = {
+	[0 ... MAX_GIC_NR-1] = {
+		.cls = &gic_sysdev_class
+	},
+};
+
+static int __init gic_init_sysdev(void)
+{
+	int i;
+	int rc = sysdev_class_register(&gic_sysdev_class);
+
+	if (!rc)
+		for (i = 0; i < MAX_GIC_NR; i++) {
+			gic_sys_device[i].id = i;
+			rc = sysdev_register(&gic_sys_device[i]);
+			if (rc) {
+				printk(KERN_ERR "%s sysdev_register for"
+						" %d failed err = %d\n",
+						__func__, i, rc);
+			}
+		}
+	return 0;
+}
+arch_initcall(gic_init_sysdev);
 #else
-void gic_suspend(unsigned int gic_nr) {}
-void gic_resume(unsigned int gic_nr) {}
 static int gic_set_wake(unsigned int irq, unsigned int on)
 {
 	return 0;
@@ -269,6 +309,11 @@ static int gic_set_type(unsigned int irq, unsigned int type)
 
 	spin_unlock(&irq_controller_lock);
 
+	if ((type & IRQ_TYPE_EDGE_RISING) && gicirq > 31)
+		__set_irq_handler_unlocked(irq, handle_edge_irq);
+
+	msm_mpm_set_irq_type(irq, type);
+
 	return 0;
 }
 
@@ -298,10 +343,7 @@ void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 			  unsigned int irq_start)
 {
 	unsigned int max_irq, i;
-	unsigned long cpumask;
-
-	/* initialize for all cpus */
-	bitmap_fill(&cpumask, nr_cpumask_bits);
+	u32 cpumask = 1 << smp_processor_id();
 
 	if (gic_nr >= MAX_GIC_NR)
 		BUG();
@@ -418,7 +460,7 @@ void gic_clear_spi_pending(unsigned int irq)
 			GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
 	/* warn if the interrupt is enabled */
 	WARN_ON(val & mask);
-	val = writel(mask, gic_dist_base(irq) +
+	writel(mask, gic_dist_base(irq) +
 			GIC_DIST_PENDING_CLEAR + (gic_irq(irq) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
 }

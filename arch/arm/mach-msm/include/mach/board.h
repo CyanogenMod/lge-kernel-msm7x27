@@ -22,6 +22,9 @@
 #include <linux/input.h>
 #include <linux/usb.h>
 #include <linux/leds-pmic8058.h>
+#ifdef CONFIG_MSM_BUS_SCALING
+#include <mach/msm_bus.h>
+#endif
 
 /* platform device data structures */
 struct msm_acpu_clock_platform_data {
@@ -143,7 +146,9 @@ struct msm_camera_sensor_flash_data {
 };
 
 struct msm_camera_sensor_strobe_flash_data {
-	int flash_charge; /* pin for charge */
+	uint8_t flash_trigger;
+	uint8_t flash_charge; /* pin for charge */
+	uint8_t flash_charge_done;
 	uint32_t flash_recharge_duration;
 	uint32_t irq;
 	spinlock_t spin_lock;
@@ -232,6 +237,7 @@ struct msm_adspdec_database {
 };
 
 struct msm_panel_common_pdata {
+	uintptr_t hw_revision_addr;
 	int gpio;
 	int (*backlight_level)(int level, int max, int min);
 	int (*pmic_backlight)(int level);
@@ -240,21 +246,34 @@ struct msm_panel_common_pdata {
 	int (*vga_switch)(int select_vga);
 	int *gpio_num;
 	int mdp_core_clk_rate;
+	unsigned num_mdp_clk;
+	int *mdp_core_clk_table;
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *mdp_bus_scale_table;
+#endif
 };
 
 struct lcdc_platform_data {
 	int (*lcdc_gpio_config)(int on);
 	int (*lcdc_power_save)(int);
+	unsigned int (*lcdc_get_clk)(void);
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *bus_scale_table;
+#endif
 };
 
 struct tvenc_platform_data {
 	int poll;
 	int (*pm_vid_en)(int on);
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *bus_scale_table;
+#endif
 };
 
 struct mddi_platform_data {
 	int (*mddi_power_save)(int on);
 	int (*mddi_sel_clk)(u32 *clk_rate);
+	int (*mddi_client_power)(u32 client_id);
 };
 
 struct mipi_dsi_platform_data {
@@ -289,6 +308,7 @@ struct msm_i2c_platform_data {
 	const char *clk;
 	const char *pclk;
 	int src_clk_rate;
+	int use_gsbi_shared_mode;
 	void (*msm_i2c_config_gpio)(int iface, int config_type);
 };
 
@@ -303,6 +323,12 @@ struct msm_ssbi_platform_data {
 	enum msm_ssbi_controller_type controller_type;
 };
 
+#ifdef CONFIG_USB_PEHCI_HCD
+struct isp1763_platform_data {
+	unsigned reset_gpio;
+	int (*setup_gpio)(int enable);
+};
+#endif
 /* common init routines for use by arch/arm/mach-msm/board-*.c */
 
 void __init msm_add_devices(void);
@@ -333,20 +359,10 @@ void __init msm_snddev_init(void);
 void __init msm_snddev_init_timpani(void);
 void msm_snddev_poweramp_on(void);
 void msm_snddev_poweramp_off(void);
-void msm_snddev_voltage_on(void);
-void msm_snddev_voltage_off(void);
 void msm_snddev_hsed_voltage_on(void);
 void msm_snddev_hsed_voltage_off(void);
 void msm_snddev_tx_route_config(void);
 void msm_snddev_tx_route_deconfig(void);
-void msm_snddev_rx_route_config(void);
-void msm_snddev_rx_route_deconfig(void);
-void msm_snddev_enable_amic_power(void);
-void msm_snddev_disable_amic_power(void);
-void msm_snddev_enable_dmic_power(void);
-void msm_snddev_disable_dmic_power(void);
-void msm_snddev_enable_dmic_sec_power(void);
-void msm_snddev_disable_dmic_sec_power(void);
 
 extern unsigned int msm_shared_ram_phys; /* defined in arch/arm/mach-msm/io.c */
 

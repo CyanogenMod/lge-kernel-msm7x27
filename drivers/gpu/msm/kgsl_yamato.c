@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,12 +26,16 @@
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
 
+#include <mach/msm_bus.h>
+
 #include "kgsl_drawctxt.h"
 #include "kgsl.h"
 #include "kgsl_yamato.h"
 #include "kgsl_log.h"
 #include "kgsl_pm4types.h"
 #include "kgsl_cmdstream.h"
+#include "kgsl_postmortem.h"
+#include "kgsl_cffdump.h"
 
 #include "yamato_reg.h"
 
@@ -77,6 +81,7 @@
 
 static struct kgsl_yamato_device yamato_device = {
 	.dev = {
+		.name = "kgsl-3d0",
 		.id = KGSL_DEVICE_YAMATO,
 		.mmu = {
 			.config = YAMATO_MMU_CONFIG,
@@ -85,88 +90,29 @@ static struct kgsl_yamato_device yamato_device = {
 			   all pages. */
 			.mpu_base = 0x00000000,
 			.mpu_range =  0xFFFFF000,
-			/* These might be better set from the platform
-			   device */
 			.va_base = 0x66000000,
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-			.va_range = SZ_32M,
-#else
-			.va_range = SZ_128M,
-#endif
+			/* va_range is set by the platform file */
 		},
+		.mutex = __MUTEX_INITIALIZER(yamato_device.dev.mutex),
+		.state = KGSL_STATE_INIT,
+		.active_cnt = 0,
 	},
 	.gmemspace = {
 		.gpu_base = 0,
 		.sizebytes = SZ_256K,
 	},
+	.pfp_fw = NULL,
+	.pm4_fw = NULL,
 };
 
-static int kgsl_yamato_start(struct kgsl_device *device);
+/* max msecs to wait for gpu to finish its operation(s) */
+#define MAX_WAITGPU_SECS (HZ + HZ/2)
+
+
+static int kgsl_yamato_start(struct kgsl_device *device,
+						unsigned int init_ram);
 static int kgsl_yamato_stop(struct kgsl_device *device);
-static int kgsl_yamato_sleep(struct kgsl_device *device, const int idle);
-
-
-static void kgsl_register_dump(struct kgsl_device *device)
-{
-	if (kgsl_cmd_log >= 3) {
-		unsigned int reg_value;
-
-		kgsl_yamato_regread(device, REG_RBBM_STATUS, &reg_value);
-		KGSL_CMD_ERR("RBBM_STATUS = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_RB_BASE, &reg_value);
-		KGSL_CMD_ERR("CP_RB_BASE = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_RB_CNTL, &reg_value);
-		KGSL_CMD_ERR("CP_RB_CNTL = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_RB_RPTR_ADDR, &reg_value);
-		KGSL_CMD_ERR("CP_RB_RPTR_ADDR = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_RB_RPTR, &reg_value);
-		KGSL_CMD_ERR("CP_RB_RPTR = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_RB_WPTR, &reg_value);
-		KGSL_CMD_ERR("CP_RB_WPTR = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_RB_RPTR_WR, &reg_value);
-		KGSL_CMD_ERR("CP_RB_RPTR_WR = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_INT_CNTL, &reg_value);
-		KGSL_CMD_ERR("CP_INT_CNTL = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_INT_STATUS, &reg_value);
-		KGSL_CMD_ERR("CP_INT_STATUS = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_ME_CNTL, &reg_value);
-		KGSL_CMD_ERR("CP_ME_CNTL = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_ME_STATUS, &reg_value);
-		KGSL_CMD_ERR("CP_ME_STATUS = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &reg_value);
-		KGSL_CMD_ERR("RBBM_PM_OVERRIDE1 = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE2, &reg_value);
-		KGSL_CMD_ERR("RBBM_PM_OVERRIDE2 = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_RBBM_INT_CNTL, &reg_value);
-		KGSL_CMD_ERR("RBBM_INT_CNTL = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_RBBM_INT_STATUS, &reg_value);
-		KGSL_CMD_ERR("RBBM_INT_STATUS = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_MASTER_INT_SIGNAL, &reg_value);
-		KGSL_CMD_ERR("MASTER_INT_SIGNAL = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_IB1_BASE, &reg_value);
-		KGSL_CMD_ERR("CP_IB1_BASE = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_IB1_BUFSZ, &reg_value);
-		KGSL_CMD_ERR("CP_IB1_BUFSZ = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_IB2_BASE, &reg_value);
-		KGSL_CMD_ERR("CP_IB2_BASE = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_IB2_BUFSZ, &reg_value);
-		KGSL_CMD_ERR("CP_IB2_BUFSZ = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_CP_STAT, &reg_value);
-		KGSL_CMD_ERR("CP_STAT = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_SCRATCH_REG0, &reg_value);
-		KGSL_CMD_ERR("SCRATCH_REG0 = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_COHER_SIZE_PM4, &reg_value);
-		KGSL_CMD_ERR("COHER_SIZE_PM4 = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_COHER_BASE_PM4, &reg_value);
-		KGSL_CMD_ERR("COHER_BASE_PM4 = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_COHER_STATUS_PM4, &reg_value);
-		KGSL_CMD_ERR("COHER_STATUS_PM4 = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_RBBM_READ_ERROR, &reg_value);
-		KGSL_CMD_ERR("RBBM_READ_ERROR = %08x\n", reg_value);
-		kgsl_yamato_regread(device, REG_MH_AXI_ERROR, &reg_value);
-		KGSL_CMD_ERR("MH_AXI_ERROR = %08x\n", reg_value);
-	}
-}
+static int kgsl_yamato_sleep(struct kgsl_device *device);
 
 static int kgsl_yamato_gmeminit(struct kgsl_yamato_device *yamato_device)
 {
@@ -294,6 +240,11 @@ irqreturn_t kgsl_yamato_isr(int irq, void *data)
 	if (status & MASTER_INT_SIGNAL__SQ_INT_STAT) {
 		kgsl_yamato_sq_intrcallback(device);
 		result = IRQ_HANDLED;
+	}
+
+	if (device->pwrctrl.nap_allowed == true) {
+		device->requested_state = KGSL_STATE_NAP;
+		schedule_work(&device->idle_check_ws);
 	}
 	/* Reset the time-out in our idle timer */
 	mod_timer(&device->idle_timer,
@@ -530,10 +481,16 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 
 	/*acquire clocks */
 	BUG_ON(device->pwrctrl.grp_clk != NULL);
-	clk = clk_get(&pdev->dev, "grp_pclk");
-	if (IS_ERR(clk))
-		clk = NULL;
-	device->pwrctrl.grp_pclk = clk;
+	if (pdata->grp3d_pclk_name) {
+		clk = clk_get(&pdev->dev, pdata->grp3d_pclk_name);
+		if (IS_ERR(clk)) {
+			result = PTR_ERR(clk);
+			KGSL_DRV_ERR("clk_get(%s) returned %d\n",
+				pdata->grp3d_pclk_name, result);
+			goto done;
+		}
+		device->pwrctrl.grp_pclk = clk;
+	}
 
 	clk = clk_get(&pdev->dev, pdata->grp3d_clk_name);
 	if (IS_ERR(clk)) {
@@ -571,22 +528,53 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		device->pwrctrl.imem_clk = clk;
 	}
 
+	if (pdata->imem_pclk_name != NULL) {
+		clk = clk_get(&pdev->dev, pdata->imem_pclk_name);
+		if (IS_ERR(clk)) {
+			result = PTR_ERR(clk);
+			KGSL_DRV_ERR("clk_get(%s) returned %d\n",
+						 pdata->imem_pclk_name, result);
+			goto done;
+		}
+		device->pwrctrl.imem_pclk = clk;
+	}
+
 	device->pwrctrl.gpu_reg = regulator_get(NULL, "fs_gfx3d");
 	if (IS_ERR(device->pwrctrl.gpu_reg))
 		device->pwrctrl.gpu_reg = NULL;
 
-	device->pwrctrl.power_flags = 0;
+	device->pwrctrl.power_flags = KGSL_PWRFLAGS_CLK_OFF |
+		KGSL_PWRFLAGS_AXI_OFF | KGSL_PWRFLAGS_POWER_OFF |
+		KGSL_PWRFLAGS_IRQ_OFF;
+	device->pwrctrl.nap_allowed = pdata->nap_allowed;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_3d;
-	device->pwrctrl.pm_qos_req = pm_qos_add_request(
-					PM_QOS_SYSTEM_BUS_FREQ,
-					PM_QOS_DEFAULT_VALUE);
-	if (!device->pwrctrl.pm_qos_req) {
-		KGSL_DRV_ERR("pm_qos_add_request() returned NULL\n");
+	device->pwrctrl.ebi1_clk = clk_get(NULL, "ebi1_kgsl_clk");
+	if (IS_ERR(device->pwrctrl.ebi1_clk))
+		device->pwrctrl.ebi1_clk = NULL;
+	else
+		clk_set_rate(device->pwrctrl.ebi1_clk,
+				device->pwrctrl.clk_freq[KGSL_AXI_HIGH] * 1000);
+	if (pdata->grp3d_bus_scale_table != NULL) {
+		device->pwrctrl.pcl =
+		msm_bus_scale_register_client(pdata->grp3d_bus_scale_table);
+		if (!device->pwrctrl.pcl) {
+			KGSL_DRV_ERR("msm_bus_scale_register_client failed "
+				     "id %d table %p", device->id,
+				     pdata->grp3d_bus_scale_table);
+			result = -EINVAL;
+			goto done;
+		}
+	}
+
+	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_CLK;
+	device->pwrctrl.interval_timeout = pdata->idle_timeout_3d;
+
+	if (internal_pwr_rail_mode(device->pwrctrl.pwr_rail,
+						PWR_RAIL_CTL_MANUAL)) {
+		KGSL_DRV_ERR("call internal_pwr_rail_mode failed\n");
 		result = -EINVAL;
 		goto done;
 	}
-	device->pwrctrl.pwr_rail = PWR_RAIL_GRP_CLK;
-	device->pwrctrl.interval_timeout = pdata->idle_timeout_3d;
 
 	/*acquire yamato interrupt */
 	device->pwrctrl.interrupt_num =
@@ -610,15 +598,10 @@ kgsl_yamato_init(struct kgsl_device *device)
 								device;
 	int status = -EINVAL;
 	struct kgsl_memregion *regspace = &device->regspace;
-	unsigned int memflags = KGSL_MEMFLAGS_ALIGNPAGE | KGSL_MEMFLAGS_CONPHYS;
 	struct resource *res = NULL;
+	struct kgsl_platform_data *pdata = NULL;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
-
-	if (device->flags & KGSL_FLAGS_INITIALIZED) {
-		KGSL_DRV_VDBG("return %d\n", 0);
-		return 0;
-	}
 
 	init_waitqueue_head(&yamato_device->ib1_wq);
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long)device);
@@ -671,11 +654,18 @@ kgsl_yamato_init(struct kgsl_device *device)
 			device->id, regspace->mmio_phys_base,
 			regspace->sizebytes, regspace->mmio_virt_base);
 
+	kgsl_cffdump_open(device->id);
+
 	init_completion(&device->hwaccess_gate);
+	init_completion(&device->suspend_gate);
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
+	INIT_LIST_HEAD(&device->memqueue);
 
 	kgsl_yamato_getfunctable(&device->ftbl);
+
+	pdata = kgsl_driver.pdev->dev.platform_data;
+	device->mmu.va_range = pdata->pt_va_size;
 
 	status = kgsl_mmu_init(device);
 	if (status != 0) {
@@ -689,8 +679,8 @@ kgsl_yamato_init(struct kgsl_device *device)
 		goto error_close_mmu;
 	}
 
-	status = kgsl_sharedmem_alloc(memflags, sizeof(device->memstore),
-				&device->memstore);
+	status = kgsl_sharedmem_alloc_coherent(&device->memstore,
+					       sizeof(device->memstore));
 	if (status != 0)  {
 		status = -ENODEV;
 		goto error_close_cmdstream;
@@ -704,7 +694,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 		goto error_close_rb;
 	}
 
-	device->flags |= KGSL_FLAGS_INITIALIZED;
+	device->flags &= ~KGSL_FLAGS_SOFT_RESET;
 	return 0;
 
 error_close_rb:
@@ -747,13 +737,13 @@ int kgsl_yamato_close(struct kgsl_device *device)
 					regspace->sizebytes);
 	}
 	kgsl_pwrctrl_close(device);
+	kgsl_cffdump_close(device->id);
 
 	KGSL_DRV_VDBG("return %d\n", 0);
-	device->flags &= ~KGSL_FLAGS_INITIALIZED;
 	return 0;
 }
 
-static int kgsl_yamato_start(struct kgsl_device *device)
+static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 {
 	int status = -EINVAL;
 	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
@@ -762,25 +752,11 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
-		KGSL_DRV_ERR("Trying to start uninitialized device.\n");
-		return -EINVAL;
-	}
-
-	if (device->flags & KGSL_FLAGS_STARTED) {
-		KGSL_DRV_VDBG("already started");
-		return 0;
-	}
-
-	device->pwrctrl.power_flags |= KGSL_PWRFLAGS_CLK_OFF |
-		KGSL_PWRFLAGS_POWER_OFF | KGSL_PWRFLAGS_IRQ_OFF;
-
 	/* Turn the clocks on before the power.  Required for some platforms,
 	   has no adverse effect on the others */
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
-
-	kgsl_driver.is_suspended = KGSL_FALSE;
 
 	if (kgsl_mmu_start(device))
 		goto error_clk_off;
@@ -789,12 +765,20 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	*issuing a soft reset.  The overrides will then be turned off (set to 0)
 	*/
 	kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
+	device->chip_id = kgsl_yamato_getchipid(device);
+	KGSL_DRV_INFO("Device chip ID is: %x\n", device->chip_id);
 	if (device->chip_id == CHIP_REV_251)
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x000000ff);
 	else
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
 
-	kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
+	/* Only reset CP block if all blocks have previously been reset */
+	if (!(device->flags & KGSL_FLAGS_SOFT_RESET) ||
+		(device->chip_id != KGSL_CHIPID_LEIA_REV470)) {
+		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
+		device->flags |= KGSL_FLAGS_SOFT_RESET;
+	} else
+		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000001);
 
 	/* The core is in an indeterminate state until the reset completes
 	 * after 50ms.
@@ -821,24 +805,28 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 	kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470)
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
+	else
+		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 
-	kgsl_sharedmem_set(&device->memstore, 0, 0, device->memstore.size);
+	if (init_ram) {
+		kgsl_sharedmem_set(&device->memstore, 0, 0,
+					device->memstore.size);
 
-	kgsl_sharedmem_writel(&device->memstore,
-			     KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
-			     init_reftimestamp);
+		kgsl_sharedmem_writel(&device->memstore,
+				     KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
+				     init_reftimestamp);
+	}
 
 	kgsl_yamato_regwrite(device, REG_RBBM_DEBUG, 0x00080000);
 
 
-	KGSL_DRV_DBG("enabling RBBM interrupts mask 0x%08lx\n",
+	KGSL_DRV_DBG("enabling RBBM interrupts  mask 0x%08lx\n",
 		     GSL_RBBM_INT_MASK);
 	kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, GSL_RBBM_INT_MASK);
 
 	/* make sure SQ interrupts are disabled */
 	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
-	device->chip_id = kgsl_yamato_getchipid(device);
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470)
 		yamato_device->gmemspace.sizebytes = SZ_512K;
 	else
@@ -847,13 +835,12 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 
-	status = kgsl_ringbuffer_start(&device->ringbuffer);
+	status = kgsl_ringbuffer_start(&device->ringbuffer, init_ram);
 	if (status != 0)
 		goto error_irq_off;
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
-	device->flags |= KGSL_FLAGS_STARTED;
-	device->hwaccess_blocked = KGSL_FALSE;
+	status = KGSL_SUCCESS;
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	pr_info("msm_kgsl: initialized dev=%d mmu=%s "
 		"per_process_pagetable=on\n",
@@ -869,7 +856,7 @@ static int kgsl_yamato_start(struct kgsl_device *device)
 error_irq_off:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 error_clk_off:
-	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 
 	kgsl_mmu_stop(device);
@@ -879,28 +866,23 @@ error_clk_off:
 static int kgsl_yamato_stop(struct kgsl_device *device)
 {
 	del_timer(&device->idle_timer);
-	if (device->flags & KGSL_FLAGS_STARTED) {
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
 
-		kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
+	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
-		kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
+	kgsl_drawctxt_close(device);
 
-		kgsl_drawctxt_close(device);
+	kgsl_ringbuffer_stop(&device->ringbuffer);
 
-		kgsl_ringbuffer_stop(&device->ringbuffer);
+	kgsl_yamato_gmemclose(device);
 
-		kgsl_yamato_gmemclose(device);
+	kgsl_mmu_stop(device);
 
-		kgsl_mmu_stop(device);
-
-		/* For some platforms, power needs to go off before clocks */
-		kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
-		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
-		device->hwaccess_blocked = KGSL_TRUE;
-
-		device->flags &= ~KGSL_FLAGS_STARTED;
-	}
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
+	/* For some platforms, power needs to go off before clocks */
+	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_OFF);
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 
 	return 0;
 }
@@ -963,6 +945,8 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 				 */
 				shadowprop.gpuaddr = device->memstore.physaddr;
 				shadowprop.size = device->memstore.size;
+				/* GSL needs this to be set, even if it
+				   appears to be meaningless */
 				shadowprop.flags = KGSL_FLAGS_INITIALIZED;
 			}
 			if (copy_to_user(value, &shadowprop,
@@ -1012,53 +996,42 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 	return status;
 }
 
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
-	int status = -EINVAL;
 	struct kgsl_ringbuffer *rb = &device->ringbuffer;
-	struct kgsl_mmu_debug mmu_dbg;
 	unsigned int rbbm_status;
-	int idle_count = 0;
-#define IDLE_COUNT_MAX 1500000
+	unsigned long wait_time = jiffies + MAX_WAITGPU_SECS;
 
-	KGSL_DRV_VDBG("enter (device=%p, timeout=%d)\n", device, timeout);
+	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	(void)timeout;
-
+	kgsl_cffdump_regpoll(device->id, REG_RBBM_STATUS,
+		0x00000000, 0x80000000);
 	/* first, wait until the CP has consumed all the commands in
 	 * the ring buffer
 	 */
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		do {
-			idle_count++;
 			GSL_RB_GET_READPTR(rb, &rb->rptr);
-
-		} while (rb->rptr != rb->wptr && idle_count < IDLE_COUNT_MAX);
-		if (idle_count == IDLE_COUNT_MAX)
-			goto err;
+			if (time_after(jiffies, wait_time))
+				goto err;
+		} while (rb->rptr != rb->wptr);
 	}
-	/* now, wait for the GPU to finish its operations */
-	for (idle_count = 0; idle_count < IDLE_COUNT_MAX; idle_count++) {
-		kgsl_yamato_regread(device, REG_RBBM_STATUS, &rbbm_status);
 
+	/* now, wait for the GPU to finish its operations */
+	wait_time = jiffies + MAX_WAITGPU_SECS;
+	while (time_before(jiffies, wait_time)) {
+		kgsl_yamato_regread(device, REG_RBBM_STATUS, &rbbm_status);
 		if (rbbm_status == 0x110) {
-			status = 0;
-			goto done;
+			KGSL_DRV_VDBG("return %d\n", 0);
+			return 0;
 		}
 	}
 
 err:
 	KGSL_DRV_ERR("spun too long waiting for RB to idle\n");
-	kgsl_register_dump(device);
-	kgsl_ringbuffer_dump(rb);
-	kgsl_mmu_debug(&device->mmu, &mmu_dbg);
-	BUG();
-
-done:
-	KGSL_DRV_VDBG("return %d\n", status);
-
-	return status;
+	kgsl_postmortem_dump(device);
+	return -ETIMEDOUT;
 }
 
 static unsigned int kgsl_yamato_isidle(struct kgsl_device *device)
@@ -1077,50 +1050,66 @@ static unsigned int kgsl_yamato_isidle(struct kgsl_device *device)
 			if (rbbm_status == 0x110)
 				status = KGSL_TRUE;
 		}
+	} else {
+		KGSL_DRV_ERR("ERROR RB not STARTED\n");
+		BUG();
 	}
-
 	return status;
 }
 
 /******************************************************************/
-/* Caller must hold the driver mutex. */
-static int kgsl_yamato_sleep(struct kgsl_device *device, const int idle)
+/* Caller must hold the device mutex. */
+static int kgsl_yamato_sleep(struct kgsl_device *device)
 {
-	int status = KGSL_SUCCESS;
+	KGSL_DRV_DBG("kgsl_yamato_sleep!!!\n");
 
-	/* Skip this request if we're already sleeping. */
-	if (device->hwaccess_blocked == KGSL_FALSE) {
-		/* See if the device is idle. If it is, we can shut down */
-		/* the core clock until the next attempt to access the HW. */
-		if (idle == KGSL_TRUE || kgsl_yamato_isidle(device)) {
-			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
-			/* Turn off the core clocks */
-			status = kgsl_pwrctrl_clk(device,
-				KGSL_PWRFLAGS_CLK_OFF);
-
-			/* Block further access to this core until it's awake */
-			device->hwaccess_blocked = KGSL_TRUE;
-		} else {
-			status = KGSL_FAILURE;
-		}
+	/* Work through the legal state transitions */
+	if (device->requested_state == KGSL_STATE_NAP) {
+		if (kgsl_yamato_isidle(device))
+			goto nap;
+	} else if (device->requested_state == KGSL_STATE_SLEEP) {
+		if (device->state == KGSL_STATE_NAP ||
+			kgsl_yamato_isidle(device))
+			goto sleep;
 	}
 
-	return status;
+	BUG_ON(device->state == KGSL_STATE_SUSPEND);
+	BUG_ON(device->requested_state == KGSL_STATE_SUSPEND);
+	device->requested_state = KGSL_STATE_NONE;
+	return KGSL_FAILURE;
+
+sleep:
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
+
+nap:
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+
+	device->state = device->requested_state;
+	device->requested_state = KGSL_STATE_NONE;
+
+	return KGSL_SUCCESS;
 }
 
+
 /******************************************************************/
-/* Caller must hold the driver mutex. */
+/* Caller must hold the device mutex. */
 static int kgsl_yamato_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
 
+	if (device->state == KGSL_STATE_SUSPEND)
+		return status;
+
 	/* Turn on the core clocks */
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	if (device->state != KGSL_STATE_NAP) {
+		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	}
 
 	/* Re-enable HW access */
-	device->hwaccess_blocked = KGSL_FALSE;
-	complete_all(&device->hwaccess_gate);
+	device->state = KGSL_STATE_ACTIVE;
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 
 	KGSL_DRV_VDBG("<-- kgsl_yamato_wake(). Return value %d\n", status);
@@ -1128,25 +1117,66 @@ static int kgsl_yamato_wake(struct kgsl_device *device)
 	return status;
 }
 
-
 /******************************************************************/
 /* Caller must hold the driver mutex. */
-static int kgsl_yamato_suspend(struct kgsl_device *device)
+static int kgsl_yamato_resume(struct kgsl_device *device)
 {
-	int status;
+	int status = KGSL_SUCCESS;
+	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
+							device;
 
-	/* Wait for the device to become idle */
-	status = kgsl_yamato_idle(device, IDLE_COUNT_MAX);
-
+	/* Turn on the core. */
+	status = kgsl_yamato_start(device, KGSL_FALSE);
 	if (status == KGSL_SUCCESS) {
-		/* Put the device to sleep. */
-		status = kgsl_yamato_sleep(device, KGSL_TRUE);
-		/* Don't let the timer wake us during suspended sleep. */
-		del_timer(&device->idle_timer);
-		/* Get the completion ready to be waited upon. */
-		INIT_COMPLETION(device->hwaccess_gate);
+		device->state = KGSL_STATE_ACTIVE;
+	} else {
+		device->state = KGSL_STATE_INIT;
+		return status;
 	}
 
+	if (device->pwrctrl.suspended_ctxt != NULL  && status == KGSL_SUCCESS) {
+		kgsl_drawctxt_switch(yamato_device,
+				     device->pwrctrl.suspended_ctxt, 0);
+		kgsl_yamato_idle(device, 0);
+
+	}
+
+	KGSL_DRV_VDBG("<-- kgsl_yamato_resume(). Return value %d\n", status);
+
+	return status;
+}
+
+/******************************************************************/
+/* Caller must hold the device mutex. */
+static int kgsl_yamato_suspend(struct kgsl_device *device)
+{
+	int status = KGSL_SUCCESS;
+	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
+							device;
+
+	/* Check if need to idle core first */
+	if (!(device->state & (KGSL_STATE_SLEEP | KGSL_STATE_NAP))) {
+		/* Wait for the device to become idle */
+		status = kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
+		if (status)
+			goto done;
+	}
+
+	/* save ctxt ptr and switch to NULL ctxt */
+	device->pwrctrl.suspended_ctxt = yamato_device->drawctxt_active;
+	if (device->pwrctrl.suspended_ctxt != NULL) {
+		kgsl_drawctxt_switch(yamato_device, NULL, 0);
+		status = kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
+		if (status)
+			goto done;
+	}
+
+	kgsl_yamato_stop(device);
+
+	device->state = KGSL_STATE_SUSPEND;
+	/* Don't let the timer wake us during suspended sleep. */
+	status = del_timer(&device->idle_timer);
+done:
 	return status;
 }
 
@@ -1172,14 +1202,17 @@ int kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int value)
 {
 	unsigned int *reg;
-	kgsl_pre_hwaccess(device);
+
 	if (offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes) {
 		KGSL_DRV_ERR("invalid offset %d\n", offsetwords);
 		return -ERANGE;
 	}
 
+	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
 	reg = (unsigned int *)(device->regspace.mmio_virt_base
 				+ (offsetwords << 2));
+
+	kgsl_pre_hwaccess(device);
 	writel(value, reg);
 
 	return 0;
@@ -1193,7 +1226,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 
 	status = kgsl_check_timestamp(device, timestamp);
 	if (!status) {
-		mutex_lock(&kgsl_driver.mutex);
+		mutex_lock(&device->mutex);
 		kgsl_sharedmem_readl(&device->memstore, &enableflag,
 			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable));
 		rmb();
@@ -1225,7 +1258,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			cmds[1] = 0;
 			kgsl_ringbuffer_issuecmds(device, 0, &cmds[0], 2);
 		}
-		mutex_unlock(&kgsl_driver.mutex);
+		mutex_unlock(&device->mutex);
 	}
 
 	return status;
@@ -1244,7 +1277,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 	__ret;								\
 })
 
-/* MUST be called with the kgsl_driver.mutex held */
+/* MUST be called with the device mutex held */
 static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
 				unsigned int timestamp,
 				unsigned int msecs)
@@ -1254,21 +1287,21 @@ static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
 								device;
 
 	if (!kgsl_check_timestamp(device, timestamp)) {
-		mutex_unlock(&kgsl_driver.mutex);
+		mutex_unlock(&device->mutex);
 		/* We need to make sure that the process is placed in wait-q
 		 * before its condition is called */
 		status = kgsl_wait_event_interruptible_timeout(
 				yamato_device->ib1_wq,
 				kgsl_check_interrupt_timestamp(device,
 					timestamp), msecs_to_jiffies(msecs));
-		mutex_lock(&kgsl_driver.mutex);
+		mutex_lock(&device->mutex);
 
 		if (status > 0)
 			status = 0;
 		else if (status == 0) {
 			if (!kgsl_check_timestamp(device, timestamp)) {
 				status = -ETIMEDOUT;
-				kgsl_register_dump(device);
+				kgsl_postmortem_dump(device);
 			}
 		}
 	}
@@ -1291,7 +1324,7 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 			break;
 		}
 
-		if (dev_priv->ctxt_id_mask & (1 << binbase.drawctxt_id)) {
+		if (test_bit(binbase.drawctxt_id, dev_priv->ctxt_bitmap)) {
 			result = kgsl_drawctxt_set_bin_base_offset(
 					dev_priv->device,
 					binbase.drawctxt_id,
@@ -1322,8 +1355,9 @@ int kgsl_yamato_getfunctable(struct kgsl_functable *ftbl)
 	ftbl->device_setstate = kgsl_yamato_setstate;
 	ftbl->device_idle = kgsl_yamato_idle;
 	ftbl->device_sleep = kgsl_yamato_sleep;
-	ftbl->device_suspend = kgsl_yamato_suspend;
 	ftbl->device_wake = kgsl_yamato_wake;
+	ftbl->device_suspend = kgsl_yamato_suspend;
+	ftbl->device_resume = kgsl_yamato_resume;
 	ftbl->device_start = kgsl_yamato_start;
 	ftbl->device_stop = kgsl_yamato_stop;
 	ftbl->device_getproperty = kgsl_yamato_getproperty;

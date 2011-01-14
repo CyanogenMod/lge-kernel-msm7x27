@@ -44,6 +44,7 @@
 #define NUM_STAT_OUTPUT_BUFFERS      3
 #define NUM_AF_STAT_OUTPUT_BUFFERS      3
 #define max_control_command_size 150
+#define CROP_LEN 36
 
 enum msm_queue {
 	MSM_CAM_Q_CTRL,     /* control command or control command status */
@@ -82,6 +83,12 @@ enum vpe_resp_msg {
 	VPE_MSG_OUTPUT_T,   /* thumbnail (snapshot mode )*/
 	VPE_MSG_OUTPUT_S,   /* main image (snapshot mode )*/
 	VPE_MSG_OUTPUT_V,   /* video   (continuous mode ) */
+};
+
+enum msm_camera_type {
+	BACK_CAMERA_2D,
+	FRONT_CAMERA_2D,
+	BACK_CAMERA_3D,
 };
 
 struct msm_vpe_phy_info {
@@ -179,6 +186,8 @@ struct msm_sensor_ctrl {
 	int (*s_init)(const struct msm_camera_sensor_info *);
 	int (*s_release)(void);
 	int (*s_config)(void __user *);
+	enum msm_camera_type s_camera_type;
+	uint32_t s_mount_angle;
 };
 struct msm_strobe_flash_ctrl {
 	int (*strobe_flash_init)
@@ -250,6 +259,8 @@ struct msm_sync {
 	void *cropinfo;
 	int  croplen;
 
+	struct fd_roi_info fdroiinfo;
+
 	atomic_t vpe_enable;
 	uint32_t pp_mask;
 	uint8_t pp_frame_avail;
@@ -266,6 +277,7 @@ struct msm_sync {
 
 	spinlock_t pmem_frame_spinlock;
 	spinlock_t pmem_stats_spinlock;
+	spinlock_t abort_pict_lock;
 };
 
 #define MSM_APPS_ID_V4L2 "msm_v4l2"
@@ -314,6 +326,9 @@ struct axidata {
 	uint32_t bufnum3;
 	struct msm_pmem_region *region;
 };
+
+int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
+	struct flash_ctrl_data *flash_info);
 
 #ifdef CONFIG_MSM_CAMERA_FLASH
 	int msm_camera_flash_set_led_state(
@@ -421,6 +436,15 @@ enum msm_s_setting {
 	S_RES_CAPTURE
 };
 
+enum msm_bus_perf_setting {
+	S_INIT,
+	S_PREVIEW,
+	S_VIDEO,
+	S_CAPTURE,
+	S_DEFAULT,
+	S_EXIT
+};
+
 int msm_camio_enable(struct platform_device *dev);
 int msm_camio_jpeg_clk_enable(void);
 int msm_camio_jpeg_clk_disable(void);
@@ -431,6 +455,7 @@ int  msm_camio_clk_enable(enum msm_camio_clk_type clk);
 int  msm_camio_clk_disable(enum msm_camio_clk_type clk);
 int  msm_camio_clk_config(uint32_t freq);
 void msm_camio_clk_rate_set(int rate);
+void msm_camio_vfe_clk_rate_set(int rate);
 void msm_camio_clk_rate_set_2(struct clk *clk, int rate);
 void msm_camio_clk_set_min_rate(struct clk *clk, int rate);
 void msm_camio_clk_axi_rate_set(int rate);
@@ -457,5 +482,5 @@ u32 msm_io_r(void __iomem *addr);
 u32 msm_io_r_mb(void __iomem *addr);
 void msm_io_dump(void __iomem *addr, int size);
 void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len);
-
+void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
 #endif

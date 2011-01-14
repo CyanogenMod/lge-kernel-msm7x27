@@ -55,6 +55,12 @@
 #define VCD_I_POST_FILTER    (VCD_START_BASE + 0x17)
 #define VCD_I_PROGRESSIVE_ONLY (VCD_START_BASE + 0x18)
 #define VCD_I_OUTPUT_ORDER (VCD_START_BASE + 0x19)
+#define VCD_I_RECON_BUFFERS   (VCD_START_BASE + 0x1A)
+#define VCD_I_FREE_RECON_BUFFERS   (VCD_START_BASE + 0x1B)
+#define VCD_I_GET_RECON_BUFFER_SIZE   (VCD_START_BASE + 0x1C)
+#define VCD_I_H264_MV_BUFFER   (VCD_START_BASE + 0x1D)
+#define VCD_I_FREE_H264_MV_BUFFER (VCD_START_BASE + 0x1E)
+#define VCD_I_GET_H264_MV_SIZE (VCD_START_BASE + 0x1F)
 
 #define VCD_START_REQ      (VCD_START_BASE + 0x1000)
 #define VCD_I_REQ_IFRAME   (VCD_START_REQ + 0x1)
@@ -106,11 +112,6 @@ struct vcd_property_frame_size {
 #define VCD_METADATA_VC1            0x040
 #define VCD_METADATA_PASSTHROUGH    0x080
 #define VCD_METADATA_ENC_SLICE      0x100
-
-#define VCD_OMX_DATANONE      0x00000000
-#define VCD_OMX_CONCEALMB     0x7F000006
-#define VCD_OMX_SEI           0x7F000007
-#define VCD_OMX_VUI           0x7F000008
 
 struct vcd_property_meta_data_enable {
 	u32 meta_data_enable_flag;
@@ -324,6 +325,31 @@ struct vcd_property_dec_output_buffer {
 enum vcd_output_order {
    VCD_DEC_ORDER_DISPLAY  = 0x0,
    VCD_DEC_ORDER_DECODE   = 0x1
+};
+
+struct vcd_property_enc_recon_buffer{
+	u8 *kernel_virtual_addr;
+	u8 *physical_addr;
+	u32 buffer_size;
+	u32 ysize;
+	int pmem_fd;
+	u32 offset;
+};
+
+struct vcd_property_h264_mv_buffer{
+	u8 *kernel_virtual_addr;
+	u8 *physical_addr;
+	u32 size;
+	u32 count;
+	int pmem_fd;
+	u32 offset;
+};
+
+struct vcd_property_buffer_size{
+	int width;
+	int height;
+	int size;
+	int alignment;
 };
 
 #endif

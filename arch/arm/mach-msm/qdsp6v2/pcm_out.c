@@ -25,8 +25,9 @@
 #include <linux/slab.h>
 #include <asm/atomic.h>
 #include <mach/debug_mm.h>
-#include "apr_audio.h"
-#include "q6asm.h"
+#include <mach/qdsp6v2/apr_audio.h>
+#include <mach/qdsp6v2/q6asm.h>
+#include <mach/qdsp6v2/audio_dev_ctl.h>
 
 #define MAX_BUF 2
 #define BUFSZ (4800)
@@ -298,7 +299,7 @@ static ssize_t pcm_out_write(struct file *file, const char __user *buf,
 		rc = wait_event_timeout(pcm->write_wait,
 				(atomic_read(&pcm->out_count) ||
 				atomic_read(&pcm->out_stopped)), 5 * HZ);
-		if (rc < 0) {
+		if (!rc) {
 			pr_info("%s: wait_event_timeout failed\n", __func__);
 			goto fail;
 		}
@@ -323,7 +324,7 @@ static ssize_t pcm_out_write(struct file *file, const char __user *buf,
 			}
 			buf += xfer;
 			count -= xfer;
-			rc = q6asm_write(pcm->ac, xfer, 0, 0, 0);
+			rc = q6asm_write(pcm->ac, xfer, 0, 0, NO_TIMESTAMP);
 			wmb();
 			if (rc < 0) {
 				rc = -EFAULT;
@@ -344,6 +345,7 @@ static int pcm_out_release(struct inode *inode, struct file *file)
 	struct pcm *pcm = file->private_data;
 	if (pcm->ac)
 		pcm_out_disable(pcm);
+	msm_clear_session_id(pcm->ac->session);
 	q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
 	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,10 +42,12 @@
 #endif
 
 #include "acpuclock.h"
+#include "avs.h"
 #include "cpuidle.h"
 #include "idle.h"
 #include "pm.h"
 #include "rpm_resources.h"
+#include "scm-boot.h"
 #include "spm.h"
 #include "timer.h"
 
@@ -61,6 +63,7 @@ enum {
 	MSM_PM_DEBUG_RESET_VECTOR = BIT(4),
 	MSM_PM_DEBUG_IDLE = BIT(6),
 	MSM_PM_DEBUG_IDLE_LIMITS = BIT(7),
+	MSM_PM_DEBUG_HOTPLUG = BIT(8),
 };
 
 static int msm_pm_debug_mask = 1;
@@ -536,22 +539,6 @@ static void msm_pm_config_hw_before_swfi(void)
 	return;
 }
 
-/*
- * Configure RPM resources.
- */
-static int msm_pm_config_rpm_resources(
-	uint32_t sclk_count, struct msm_rpmrs_limits *rs_limits)
-{
-	int ret;
-
-	ret = msm_rpmrs_flush_buffer(sclk_count, rs_limits);
-	if (ret)
-		pr_err("%s: msm_rpmrs_flush_buffer failed: %d\n",
-			__func__, ret);
-
-	return ret;
-}
-
 
 /******************************************************************************
  * Suspend Max Sleep Time
@@ -606,7 +593,6 @@ EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
 
 struct msm_pm_device {
 	unsigned int cpu;
-	void __iomem *boot_vector;
 #ifdef CONFIG_HOTPLUG_CPU
 	struct completion cpu_killed;
 	unsigned int warm_boot;
@@ -639,11 +625,11 @@ static void msm_pm_spm_power_collapse(
 
 	entry = (!dev->cpu || from_idle) ?
 		msm_pm_collapse_exit : msm_secondary_startup;
-	writel(virt_to_phys(entry), dev->boot_vector);
+	msm_pm_write_boot_vector(dev->cpu, virt_to_phys(entry));
 
 	if (MSM_PM_DEBUG_RESET_VECTOR & msm_pm_debug_mask)
-		pr_info("CPU%u: %s: program vector %p to %p\n",
-			dev->cpu, __func__, dev->boot_vector, entry);
+		pr_info("CPU%u: %s: program vector to %p\n",
+			dev->cpu, __func__, entry);
 
 #ifdef CONFIG_VFP
 	vfp_flush_context();
@@ -671,13 +657,19 @@ static void msm_pm_spm_power_collapse(
 static void msm_pm_power_collapse_standalone(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
+	unsigned int avsdscr_setting;
+
+	avsdscr_setting = avs_get_avsdscr();
+	avs_disable();
 	msm_pm_spm_power_collapse(dev, from_idle, false);
+	avs_reset_delays(avsdscr_setting);
 }
 
 static void msm_pm_power_collapse(bool from_idle)
 {
 	struct msm_pm_device *dev = &__get_cpu_var(msm_pm_devices);
 	unsigned long saved_acpuclk_rate;
+	unsigned int avsdscr_setting;
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: idle %d\n",
@@ -687,6 +679,8 @@ static void msm_pm_power_collapse(bool from_idle)
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: pre power down\n", dev->cpu, __func__);
 
+	avsdscr_setting = avs_get_avsdscr();
+	avs_disable();
 	saved_acpuclk_rate = acpuclk_power_collapse();
 	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
@@ -701,6 +695,7 @@ static void msm_pm_power_collapse(bool from_idle)
 		pr_err("CPU%u: %s: failed to restore clock rate(%lu)\n",
 			dev->cpu, __func__, saved_acpuclk_rate);
 
+	avs_reset_delays(avsdscr_setting);
 	msm_pm_config_hw_after_power_up();
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: post power up\n", dev->cpu, __func__);
@@ -847,12 +842,15 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		if (sleep_delay == 0) /* 0 would mean infinite time */
 			sleep_delay = 1;
 
-		ret = msm_pm_config_rpm_resources(sleep_delay,
-				msm_pm_idle_rs_limits);
+		ret = msm_rpmrs_enter_sleep(
+				true, sleep_delay, msm_pm_idle_rs_limits);
 		if (!ret) {
 			msm_pm_power_collapse(true);
 			timer_halted = true;
+
+			msm_rpmrs_exit_sleep(true, msm_pm_idle_rs_limits);
 		}
+
 		msm_timer_exit_idle((int) timer_halted);
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_POWER_COLLAPSE;
@@ -895,7 +893,6 @@ static int msm_pm_enter(suspend_state_t state)
 		goto enter_exit;
 	}
 
-	gic_suspend(0);
 
 	for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
 		struct msm_pm_platform_data *mode;
@@ -920,6 +917,9 @@ static int msm_pm_enter(suspend_state_t state)
 		}
 #endif /* CONFIG_MSM_SLEEP_TIME_OVERRIDE */
 
+		if (MSM_PM_DEBUG_SUSPEND_LIMITS & msm_pm_debug_mask)
+			msm_rpmrs_show_resources();
+
 		rs_limits = msm_rpmrs_lowest_limits(
 				MSM_PM_SLEEP_MODE_POWER_COLLAPSE, -1, -1);
 
@@ -932,10 +932,12 @@ static int msm_pm_enter(suspend_state_t state)
 				rs_limits->vdd_mem, rs_limits->vdd_dig);
 
 		if (rs_limits) {
-			ret = msm_pm_config_rpm_resources(
-					msm_pm_max_sleep_time, rs_limits);
-			if (!ret)
+			ret = msm_rpmrs_enter_sleep(
+				false, msm_pm_max_sleep_time, rs_limits);
+			if (!ret) {
 				msm_pm_power_collapse(false);
+				msm_rpmrs_exit_sleep(false, rs_limits);
+			}
 		} else {
 			pr_err("%s: cannot find the lowest power limit\n",
 				__func__);
@@ -964,7 +966,6 @@ static int msm_pm_enter(suspend_state_t state)
 		msm_pm_swfi();
 	}
 
-	gic_resume(0);
 
 enter_exit:
 	if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)
@@ -1008,7 +1009,8 @@ void platform_cpu_die(unsigned int cpu)
 		allow[i] = mode->supported && mode->suspend_enabled;
 	}
 
-	pr_notice("CPU%u: %s: shutting down cpu\n", cpu, __func__);
+	if (MSM_PM_DEBUG_HOTPLUG & msm_pm_debug_mask)
+		pr_notice("CPU%u: %s: shutting down cpu\n", cpu, __func__);
 	complete(&__get_cpu_var(msm_pm_devices).cpu_killed);
 
 	flush_cache_all();
@@ -1058,7 +1060,6 @@ static int __init msm_pm_init(void)
 	pgd_t *pc_pgd;
 	pmd_t *pmd;
 	unsigned int irq;
-	void __iomem *boot_page;
 	unsigned int cpu;
 #ifdef CONFIG_MSM_IDLE_STATS
 	struct proc_dir_entry *d_entry;
@@ -1094,20 +1095,21 @@ static int __init msm_pm_init(void)
 		return ret;
 	}
 
-	boot_page = ioremap(0x2a040000, PAGE_SIZE);
-	if (boot_page == NULL) {
-		pr_err("%s: failed to map boot page\n", __func__);
-		return -ENOMEM;
-	}
-
 	for_each_possible_cpu(cpu) {
 		struct msm_pm_device *dev = &per_cpu(msm_pm_devices, cpu);
 
 		dev->cpu = cpu;
-		dev->boot_vector = boot_page + 0x28 - 0x04 * cpu;
 #ifdef CONFIG_HOTPLUG_CPU
 		init_completion(&dev->cpu_killed);
 #endif
+	}
+
+	ret = scm_set_boot_addr((void *)virt_to_phys(msm_pm_boot_entry),
+			SCM_FLAG_WARMBOOT_CPU0 | SCM_FLAG_WARMBOOT_CPU1);
+	if (ret) {
+		pr_err("%s: failed to set up scm boot addr: %d\n",
+			__func__, ret);
+		return ret;
 	}
 
 #ifdef CONFIG_MSM_IDLE_STATS

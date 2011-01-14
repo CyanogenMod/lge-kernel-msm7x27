@@ -26,8 +26,9 @@
 #include <linux/msm_audio.h>
 #include <asm/atomic.h>
 #include <mach/debug_mm.h>
-#include "apr_audio.h"
-#include "q6asm.h"
+#include <mach/qdsp6v2/audio_dev_ctl.h>
+#include <mach/qdsp6v2/apr_audio.h>
+#include <mach/qdsp6v2/q6asm.h>
 
 #define MAX_BUF 2
 #define BUFSZ (480 * 8)
@@ -145,7 +146,11 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	case AUDIO_START: {
 		int cnt = 0;
-
+		if (atomic_read(&pcm->in_enabled)) {
+			pr_info("%s:AUDIO_START already over\n", __func__);
+			rc = 0;
+			break;
+		}
 		rc = config(pcm);
 		if (rc) {
 			pr_err("%s: IN Configuration failed\n", __func__);
@@ -225,6 +230,24 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EFAULT;
 		break;
 	}
+	case AUDIO_ENABLE_AUDPRE: {
+
+		uint16_t enable_mask;
+
+		if (copy_from_user(&enable_mask, (void *) arg,
+						sizeof(enable_mask))) {
+			rc = -EFAULT;
+			break;
+		}
+		if (enable_mask & FLUENCE_ENABLE)
+			rc = auddev_cfg_tx_copp_topology(pcm->ac->session,
+					VPM_TX_DM_FLUENCE_COPP_TOPOLOGY);
+		else
+			rc = auddev_cfg_tx_copp_topology(pcm->ac->session,
+					DEFAULT_COPP_TOPOLOGY);
+		break;
+	}
+
 	default:
 		rc = -EINVAL;
 		break;
@@ -290,12 +313,14 @@ static ssize_t pcm_in_read(struct file *file, char __user *buf,
 	uint32_t idx;
 	int rc = 0;
 
+	if (!atomic_read(&pcm->in_enabled))
+		return -EFAULT;
 	mutex_lock(&pcm->read_lock);
 	while (count > 0) {
 		rc = wait_event_timeout(pcm->wait,
 				(atomic_read(&pcm->in_count) ||
 				atomic_read(&pcm->in_stopped)), 5 * HZ);
-		if (rc < 0) {
+		if (!rc) {
 			pr_err("%s: wait_event_timeout failed\n", __func__);
 			goto fail;
 		}
@@ -345,8 +370,14 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct pcm *pcm = file->private_data;
 
-	rc = pcm_in_disable(pcm);
+	mutex_lock(&pcm->lock);
+	/* remove this session from topology list */
+	auddev_cfg_tx_copp_topology(pcm->ac->session,
+				DEFAULT_COPP_TOPOLOGY);
+	mutex_unlock(&pcm->lock);
 
+	rc = pcm_in_disable(pcm);
+	 msm_clear_session_id(pcm->ac->session);
 	q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
 	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);

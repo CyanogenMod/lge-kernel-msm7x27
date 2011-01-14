@@ -55,6 +55,9 @@ struct acdb_data {
 	uint32_t		vocstrm_cal_size;
 	uint32_t		vocvol_cal_size;
 
+	/* Sidetone Cal */
+	struct sidetone_cal	sidetone_cal;
+
 	/* PMEM information */
 	int			pmem_fd;
 	unsigned long		paddr;
@@ -258,6 +261,13 @@ void store_vocproc_cal(int32_t len, struct cal_block *cal_blocks)
 	int i;
 	pr_debug("%s\n", __func__);
 
+	if (len > MAX_NETWORKS) {
+		pr_err("%s: Calibration sent for %d networks, only %d are "
+			"supported!\n", __func__, len, MAX_NETWORKS);
+		goto done;
+	}
+
+
 	mutex_lock(&acdb_data.acdb_mutex);
 
 	for (i = 0; i < len; i++) {
@@ -279,6 +289,8 @@ void store_vocproc_cal(int32_t len, struct cal_block *cal_blocks)
 	}
 	acdb_data.vocproc_cal_size = len;
 	mutex_unlock(&acdb_data.acdb_mutex);
+done:
+	return;
 }
 
 void get_vocproc_cal(struct acdb_cal_data *cal_data)
@@ -305,6 +317,12 @@ void store_vocstrm_cal(int32_t len, struct cal_block *cal_blocks)
 	int i;
 	pr_debug("%s\n", __func__);
 
+	if (len > MAX_NETWORKS) {
+		pr_err("%s: Calibration sent for %d networks, only %d are "
+			"supported!\n", __func__, len, MAX_NETWORKS);
+		goto done;
+	}
+
 	mutex_lock(&acdb_data.acdb_mutex);
 
 	for (i = 0; i < len; i++) {
@@ -326,6 +344,8 @@ void store_vocstrm_cal(int32_t len, struct cal_block *cal_blocks)
 	}
 	acdb_data.vocstrm_cal_size = len;
 	mutex_unlock(&acdb_data.acdb_mutex);
+done:
+	return;
 }
 
 void get_vocstrm_cal(struct acdb_cal_data *cal_data)
@@ -352,6 +372,12 @@ void store_vocvol_cal(int32_t len, struct cal_block *cal_blocks)
 	int i;
 	pr_debug("%s\n", __func__);
 
+	if (len > MAX_NETWORKS) {
+		pr_err("%s: Calibration sent for %d networks, only %d are "
+			"supported!\n", __func__, len, MAX_NETWORKS);
+		goto done;
+	}
+
 	mutex_lock(&acdb_data.acdb_mutex);
 
 	for (i = 0; i < len; i++) {
@@ -373,6 +399,8 @@ void store_vocvol_cal(int32_t len, struct cal_block *cal_blocks)
 	}
 	acdb_data.vocvol_cal_size = len;
 	mutex_unlock(&acdb_data.acdb_mutex);
+done:
+	return;
 }
 
 void get_vocvol_cal(struct acdb_cal_data *cal_data)
@@ -394,10 +422,42 @@ done:
 	return;
 }
 
+void store_sidetone_cal(struct sidetone_cal *cal_data)
+{
+	pr_debug("%s\n", __func__);
+
+	mutex_lock(&acdb_data.acdb_mutex);
+
+	acdb_data.sidetone_cal.enable = cal_data->enable;
+	acdb_data.sidetone_cal.gain = cal_data->gain;
+
+	mutex_unlock(&acdb_data.acdb_mutex);
+}
+
+
+void get_sidetone_cal(struct sidetone_cal *cal_data)
+{
+	pr_debug("%s\n", __func__);
+
+	if (cal_data == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		goto done;
+	}
+
+	mutex_lock(&acdb_data.acdb_mutex);
+
+	cal_data->enable = acdb_data.sidetone_cal.enable;
+	cal_data->gain = acdb_data.sidetone_cal.gain;
+
+	mutex_unlock(&acdb_data.acdb_mutex);
+done:
+	return;
+}
+
 static int acdb_open(struct inode *inode, struct file *f)
 {
 	s32 result = 0;
-	pr_debug("%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	if (acdb_data.pmem_fd) {
 		pr_err("%s: ACDB opened but PMEM allocated, freeing PMEM!\n",
@@ -414,13 +474,15 @@ static int acdb_ioctl(struct inode *inode, struct file *f,
 {
 	s32			result = 0;
 	s32			audproc_path;
-	s32			len;
+	s32			size;
 	struct cal_block	data[MAX_NETWORKS];
 	pr_debug("%s\n", __func__);
 
 	switch (cmd) {
 	case AUDIO_REGISTER_PMEM: {
 		struct msm_audio_pmem_info info;
+		struct audproc_buffer_data buffer;
+
 		pr_debug("AUDIO_REGISTER_PMEM\n");
 		if (copy_from_user(&info, (void *)arg, sizeof(info)))
 			return -EFAULT;
@@ -430,36 +492,64 @@ static int acdb_ioctl(struct inode *inode, struct file *f,
 					&acdb_data.file);
 		if (result == 0)
 			acdb_data.pmem_fd = info.fd;
-		else
+		else{
 			pr_err("%s: Could not register PMEM!!!\n", __func__);
+			goto done;
+		}
 
 		pr_debug("AUDIO_REGISTER_PMEM done! paddr = 0x%lx, "
 			"kvaddr = 0x%lx, len = x%lx\n", acdb_data.paddr,
 			acdb_data.kvaddr, acdb_data.pmem_len);
+		get_audproc_buffer_data(&buffer);
+		result = adm_memory_map_regions(buffer.phys_addr, 0,
+				buffer.buf_size,
+				NUM_AUDPROC_BUFFERS);
+		if (result < 0)
+			pr_err("Audcal mmap did not work!\n");
 		goto done;
 	}
-	case AUDIO_DEREGISTER_PMEM:
+	case AUDIO_DEREGISTER_PMEM: {
+
+		struct audproc_buffer_data buffer;
+
+		get_audproc_buffer_data(&buffer);
+
 		pr_debug("AUDIO_DEREGISTER_PMEM\n");
+
+		result = adm_memory_unmap_regions(buffer.phys_addr,
+				buffer.buf_size, NUM_AUDPROC_BUFFERS);
+		if (result < 0)
+			pr_err("Audcal unmap did not work!\n");
 		if (acdb_data.pmem_fd) {
 			put_pmem_file(acdb_data.file);
 			acdb_data.pmem_fd = 0;
 		}
 		goto done;
 	}
+	}
 
-	if (copy_from_user(&len, (void *) arg,
-			sizeof(len)) ||
-			(len > MAX_NETWORKS)) {
+	if (copy_from_user(&size, (void *) arg, sizeof(size))) {
 
 		result = -EFAULT;
 		goto done;
 	}
 
-	if (copy_from_user(data,
-			(void *)(arg + sizeof(len)),
-			len * sizeof(struct cal_block))) {
+	if (size <= 0) {
+		pr_err("%s: Invalid size sent to driver: %d\n",
+			__func__, size);
+		result = -EFAULT;
+		goto done;
+	}
 
-		pr_err("%s: fail to copy table size %d\n", __func__, len);
+	if (copy_from_user(data, (void *)(arg + sizeof(size)), size)) {
+
+		pr_err("%s: fail to copy table size %d\n", __func__, size);
+		result = -EFAULT;
+		goto done;
+	}
+
+	if (data == NULL) {
+		pr_err("%s: NULL pointer sent to driver!\n", __func__);
 		result = -EFAULT;
 		goto done;
 	}
@@ -467,59 +557,59 @@ static int acdb_ioctl(struct inode *inode, struct file *f,
 	switch (cmd) {
 	case AUDIO_SET_AUDPROC_TX_CAL:
 		audproc_path = TX_CAL;
-		if (len > 1)
+		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
-				"# of cal blocks received: %d\n", __func__,
-				len);
+				"size received: %d\n", __func__, size);
 		store_audproc_cal(audproc_path, data);
 		break;
 	case AUDIO_SET_AUDPROC_RX_CAL:
 		audproc_path = RX_CAL;
-		if (len > 1)
+		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
-				"# of cal blocks received: %d\n", __func__,
-				len);
+				"size received: %d\n", __func__, size);
 		store_audproc_cal(audproc_path, data);
 		break;
 	case AUDIO_SET_AUDPROC_TX_STREAM_CAL:
 		audproc_path = TX_CAL;
-		if (len > 1)
+		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
-				"# of cal blocks received: %d\n", __func__,
-				len);
+				"size received: %d\n", __func__, size);
 		store_audstrm_cal(audproc_path, data);
 		break;
 	case AUDIO_SET_AUDPROC_RX_STREAM_CAL:
 		audproc_path = RX_CAL;
-		if (len > 1)
+		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
-				"# of cal blocks received: %d\n", __func__,
-				len);
+				"size received: %d\n", __func__, size);
 		store_audstrm_cal(audproc_path, data);
 		break;
 	case AUDIO_SET_AUDPROC_TX_VOL_CAL:
 		audproc_path = TX_CAL;
-		if (len > 1)
+		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
-				"# of cal blocks received: %d\n", __func__,
-				len);
+				"size received: %d\n", __func__, size);
 		store_audvol_cal(audproc_path, data);
 	case AUDIO_SET_AUDPROC_RX_VOL_CAL:
 		audproc_path = RX_CAL;
-		if (len > 1)
+		if (size > sizeof(struct cal_block))
 			pr_err("%s: More Audproc Cal then expected, "
-				"# of cal blocks received: %d\n", __func__,
-				len);
+				"size received: %d\n", __func__, size);
 		store_audvol_cal(audproc_path, data);
 		break;
 	case AUDIO_SET_VOCPROC_CAL:
-		store_vocproc_cal(len, data);
+		store_vocproc_cal(size / sizeof(struct cal_block), data);
 		break;
 	case AUDIO_SET_VOCPROC_STREAM_CAL:
-		store_vocstrm_cal(len, data);
+		store_vocstrm_cal(size / sizeof(struct cal_block), data);
 		break;
 	case AUDIO_SET_VOCPROC_VOL_CAL:
-		store_vocvol_cal(len, data);
+		store_vocvol_cal(size / sizeof(struct cal_block), data);
+		break;
+	case AUDIO_SET_SIDETONE_CAL:
+		if (size > sizeof(struct sidetone_cal))
+			pr_err("%s: More sidetone cal then expected, "
+				"size received: %d\n", __func__, size);
+		store_sidetone_cal((struct sidetone_cal *)data);
 		break;
 	default:
 		pr_err("ACDB=> ACDB ioctl not found!\n");
@@ -532,7 +622,20 @@ done:
 static int acdb_release(struct inode *inode, struct file *f)
 {
 	s32 result = 0;
-	pr_debug("%s\n", __func__);
+	struct audproc_buffer_data buffer;
+	pr_info("%s\n", __func__);
+
+
+	get_audproc_buffer_data(&buffer);
+
+	result = adm_memory_unmap_regions(buffer.phys_addr,
+			buffer.buf_size, NUM_AUDPROC_BUFFERS);
+	if (result < 0)
+		pr_err("Audcal unmap did not work!\n");
+	if (acdb_data.pmem_fd) {
+		put_pmem_file(acdb_data.file);
+		acdb_data.pmem_fd = 0;
+	}
 	return result;
 }
 
@@ -551,7 +654,7 @@ struct miscdevice acdb_misc = {
 
 static int __init acdb_init(void)
 {
-	pr_debug("%s\n", __func__);
+	pr_info("%s\n", __func__);
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	mutex_init(&acdb_data.acdb_mutex);
 	return misc_register(&acdb_misc);

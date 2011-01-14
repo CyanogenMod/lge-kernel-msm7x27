@@ -1003,7 +1003,7 @@ static ssize_t smem_log_write(struct file *fp, const char __user *buf,
 	int ret;
 	const char delimiters[] = " ,;";
 	char locbuf[256] = {0};
-	uint32_t val[10];
+	uint32_t val[10] = {0};
 	int vals = 0;
 	char *token;
 	char *running;
@@ -1011,12 +1011,6 @@ static ssize_t smem_log_write(struct file *fp, const char __user *buf,
 	unsigned long res;
 
 	inst = fp->private_data;
-
-	if (count < 0) {
-		printk(KERN_ERR "ERROR: %s passed neg count = %i\n",
-		       __func__, count);
-		return -EINVAL;
-	}
 
 	count = count > 255 ? 255 : count;
 

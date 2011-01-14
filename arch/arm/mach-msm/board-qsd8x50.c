@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1227,6 +1227,15 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.grp2d0_clk_name = NULL,
 	.idle_timeout_3d = HZ/5,
 	.idle_timeout_2d = 0,
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	.pt_va_size = SZ_32M,
+	/* Maximum of 32 concurrent processes */
+	.pt_max_count = 32,
+#else
+	.pt_va_size = SZ_128M,
+	/* We only ever have one pagetable for everybody */
+	.pt_max_count = 1,
+#endif
 };
 
 static struct platform_device msm_device_kgsl = {
@@ -1848,7 +1857,7 @@ static int msm_hsusb_ldo_enable(int enable);
 
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.rpc_connect	= hsusb_rpc_connect,
-	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+	.pmic_vbus_notif_init         = msm_hsusb_pmic_notif_init,
 	.pemp_level              = PRE_EMPHASIS_WITH_10_PERCENT,
 	.cdr_autoreset           = CDR_AUTO_RESET_DEFAULT,
 	.drv_ampl                = HS_DRV_AMPLITUDE_5_PERCENT,
@@ -2514,6 +2523,7 @@ static void __init qsd8x50_init(void)
 		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm_device_gadget_peripheral.dev.platform_data = &msm_gadget_pdata;
+	msm_gadget_pdata.is_phy_status_timer_on = 1;
 
 #if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
 	msm_device_tsif.dev.platform_data = &tsif_platform_data;

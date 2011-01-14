@@ -143,6 +143,8 @@ EXPORT_SYMBOL(console_set_on_cmdline);
 /* Flag: console code may call schedule() */
 static int console_may_schedule;
 
+#define MAX_CHARS_PER_RELEASE_LOOP 128
+
 #ifdef CONFIG_PRINTK
 
 static char __log_buf[__LOG_BUF_LEN];
@@ -1145,8 +1147,9 @@ void release_console_sem(void)
 		if (con_start == log_end)
 			break;			/* Nothing to print */
 		_con_start = con_start;
-		_log_end = log_end;
-		con_start = log_end;		/* Flush */
+		_log_end = (con_start + MAX_CHARS_PER_RELEASE_LOOP < log_end) ?
+			con_start + MAX_CHARS_PER_RELEASE_LOOP : log_end;
+		con_start = _log_end;		/* Flush */
 		spin_unlock(&logbuf_lock);
 		stop_critical_timings();	/* don't trace print latency */
 		call_console_drivers(_con_start, _log_end);

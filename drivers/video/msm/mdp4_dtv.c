@@ -35,6 +35,7 @@
 #include <mach/hardware.h>
 #include <mach/msm_reqs.h>
 #include <linux/pm_runtime.h>
+#include <mach/clk.h>
 
 #include "msm_fb.h"
 
@@ -84,7 +85,11 @@ static struct platform_driver dtv_driver = {
 };
 
 static struct lcdc_platform_data *dtv_pdata;
+#ifdef CONFIG_MSM_BUS_SCALING
+static uint32_t dtv_bus_scale_handle;
+#else
 static struct pm_qos_request_list *pm_qos_req = NULL;
+#endif
 
 static int dtv_off(struct platform_device *pdev)
 {
@@ -105,11 +110,15 @@ static int dtv_off(struct platform_device *pdev)
 
 	if (dtv_pdata && dtv_pdata->lcdc_gpio_config)
 		ret = dtv_pdata->lcdc_gpio_config(0);
-
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (dtv_bus_scale_handle > 0)
+		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
+							0);
+#else
 	if(pm_qos_req)
 		pm_qos_update_request(pm_qos_req,
 					PM_QOS_DEFAULT_VALUE);
-
+#endif
 	return ret;
 }
 
@@ -131,10 +140,14 @@ static int dtv_on(struct platform_device *pdev)
 	else
 		pm_qos_rate = 58000;
 #endif
-
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (dtv_bus_scale_handle > 0)
+		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
+							1);
+#else
 	if(pm_qos_req)
 		pm_qos_update_request(pm_qos_req, pm_qos_rate);
-
+#endif
 	mfd = platform_get_drvdata(pdev);
 
 	ret = clk_set_rate(tv_src_clk, mfd->fbi->var.pixclock);
@@ -150,7 +163,12 @@ static int dtv_on(struct platform_device *pdev)
 
 	clk_enable(tv_enc_clk);
 	clk_enable(tv_dac_clk);
+
 	clk_enable(hdmi_clk);
+	clk_reset(hdmi_clk, CLK_RESET_ASSERT);
+	udelay(20);
+	clk_reset(hdmi_clk, CLK_RESET_DEASSERT);
+
 	if (mdp_tv_clk)
 		clk_enable(mdp_tv_clk);
 
@@ -230,6 +248,21 @@ static int dtv_probe(struct platform_device *pdev)
 	fbi->var.hsync_len = mfd->panel_info.lcdc.h_pulse_width;
 	fbi->var.vsync_len = mfd->panel_info.lcdc.v_pulse_width;
 
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (!dtv_bus_scale_handle && dtv_pdata &&
+		dtv_pdata->bus_scale_table) {
+		dtv_bus_scale_handle =
+			msm_bus_scale_register_client(
+					dtv_pdata->bus_scale_table);
+		if (!dtv_bus_scale_handle) {
+			printk(KERN_ERR "%s not able to get bus scale\n",
+				__func__);
+		}
+	}
+#else
+	pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ ,
+				PM_QOS_DEFAULT_VALUE);
+#endif
 	/*
 	 * set driver data
 	 */
@@ -246,18 +279,28 @@ static int dtv_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	pdev_list[pdev_list_cnt++] = pdev;
-		return 0;
+	return 0;
 
 dtv_probe_err:
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (dtv_pdata && dtv_pdata->bus_scale_table &&
+		dtv_bus_scale_handle > 0)
+		msm_bus_scale_unregister_client(dtv_bus_scale_handle);
+#endif
 	platform_device_put(mdp_dev);
 	return rc;
 }
 
 static int dtv_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_MSM_BUS_SCALING
+	if (dtv_pdata && dtv_pdata->bus_scale_table &&
+		dtv_bus_scale_handle > 0)
+		msm_bus_scale_unregister_client(dtv_bus_scale_handle);
+#else
 	if(pm_qos_req)
 		pm_qos_remove_request(pm_qos_req);
-
+#endif
 	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
@@ -297,9 +340,6 @@ static int __init dtv_driver_init(void)
 	mdp_tv_clk = clk_get(NULL, "mdp_tv_clk");
 	if (IS_ERR(mdp_tv_clk))
 		mdp_tv_clk = NULL;
-
-	pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ , 
-				PM_QOS_DEFAULT_VALUE);
 
 	return dtv_register_driver();
 }

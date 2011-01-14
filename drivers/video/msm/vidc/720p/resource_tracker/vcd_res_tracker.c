@@ -28,6 +28,7 @@
 #include "vidc_init.h"
 
 #define MSM_AXI_QOS_NAME "msm_vidc_reg"
+#define AXI_CLK_SCALING
 
 #define QVGA_PERF_LEVEL (300 * 30)
 #define VGA_PERF_LEVEL (1200 * 30)
@@ -290,6 +291,7 @@ static u32 res_trk_enable_pwr_rail(void)
 		rc = clk_reset(resource_context.pclk, CLK_RESET_DEASSERT);
 		if (rc) {
 			VCDRES_MSG_ERROR("\n clk_reset failed %d\n", rc);
+			mutex_unlock(&resource_context.lock);
 			return false;
 		}
 		msleep(20);
@@ -625,4 +627,9 @@ void res_trk_init(struct device *device, u32 irq)
 	mutex_init(&resource_context.lock);
 	resource_context.device = device;
 	resource_context.irq_num = irq;
+	resource_context.core_type = VCD_CORE_720P;
+}
+
+u32 res_trk_get_core_type(void){
+	return resource_context.core_type;
 }

@@ -298,10 +298,9 @@
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 #include <linux/usb/android_composite.h>
 #include <linux/platform_device.h>
-
-#define FUNCTION_NAME		"usb_mass_storage"
 #endif
 
+#define FUNCTION_NAME		"usb_mass_storage"
 /*------------------------------------------------------------------------*/
 
 #define FSG_DRIVER_DESC		"Mass Storage Function"
@@ -317,7 +316,9 @@ static const char fsg_string_interface[] = "Mass Storage";
 
 #include "storage_common.c"
 
-
+#ifdef CONFIG_USB_CSW_HACK
+static int write_error_after_csw_sent;
+#endif
 /*-------------------------------------------------------------------------*/
 
 struct fsg_dev;
@@ -1029,29 +1030,21 @@ static int do_write(struct fsg_common *common)
 
 			/* If an error occurred, report it and its position */
 			if (nwritten < amount) {
-#ifdef CONFIG_USB_CSW_HACK
-				/*
-				 * If csw is already sent & write failure
-				 * occured, then detach the storage media
-				 * from the corresponding lun, and cable must
-				 * be disconnected to recover fom this error.
-				 */
-				if (csw_hack_sent) {
-					if (!fsg_lun_is_open(curlun)) {
-						curlun->sense_data = SS_MEDIUM_NOT_PRESENT;
-						return -EINVAL;
-					}
-					break;
-				}
-#endif
 				curlun->sense_data = SS_WRITE_ERROR;
 				curlun->sense_data_info = file_offset >> 9;
 				curlun->info_valid = 1;
+#ifdef CONFIG_USB_CSW_HACK
+				write_error_after_csw_sent = 1;
+				goto write_error;
+#endif
 				break;
 			}
 
 #ifdef CONFIG_USB_CSW_HACK
+write_error:
 			if ((nwritten == amount) && !csw_hack_sent) {
+				if (write_error_after_csw_sent)
+					break;
 				/*
 				 * Check if any of the buffer is in the
 				 * busy state, if any buffer is in busy state,
@@ -1828,7 +1821,11 @@ static int send_status(struct fsg_common *common)
 	 * writing on to storage media, need to set
 	 * residue to zero,assuming that write will succeed.
 	 */
-	csw->Residue = 0;
+	if (write_error_after_csw_sent) {
+		write_error_after_csw_sent = 0;
+		csw->Residue = cpu_to_le32(common->residue);
+	} else
+		csw->Residue = 0;
 #else
 	csw->Residue = cpu_to_le32(common->residue);
 #endif
@@ -1859,6 +1856,7 @@ static int check_command(struct fsg_common *common, int cmnd_size,
 	static const char	dirletter[4] = {'u', 'o', 'i', 'n'};
 	char			hdlen[20];
 	struct fsg_lun		*curlun;
+	int	lun_value = 0;
 
 	hdlen[0] = 0;
 	if (common->data_dir != DATA_DIR_UNKNOWN)
@@ -1921,7 +1919,8 @@ static int check_command(struct fsg_common *common, int cmnd_size,
 		    common->lun, lun);
 
 	/* Check the LUN */
-	if (common->lun >= 0 && common->lun < common->nluns) {
+	lun_value = common->lun;
+	if (lun_value >= 0 && common->lun < common->nluns) {
 		curlun = &common->luns[common->lun];
 		common->curlun = curlun;
 		if (common->cmnd[0] != SC_REQUEST_SENSE) {
@@ -2375,7 +2374,6 @@ static int alloc_request(struct fsg_common *common, struct usb_ep *ep,
 /* Reset interface setting and re-init endpoint state (toggle etc). */
 static int do_set_interface(struct fsg_common *common, struct fsg_dev *new_fsg)
 {
-	const struct usb_endpoint_descriptor *d;
 	struct fsg_dev *fsg;
 	int i, rc = 0;
 
@@ -2400,15 +2398,6 @@ reset:
 			}
 		}
 
-		/* Disable the endpoints */
-		if (fsg->bulk_in_enabled) {
-			usb_ep_disable(fsg->bulk_in);
-			fsg->bulk_in_enabled = 0;
-		}
-		if (fsg->bulk_out_enabled) {
-			usb_ep_disable(fsg->bulk_out);
-			fsg->bulk_out_enabled = 0;
-		}
 
 		common->fsg = NULL;
 		wake_up(&common->fsg_wait);
@@ -2421,21 +2410,6 @@ reset:
 	common->fsg = new_fsg;
 	fsg = common->fsg;
 
-	/* Enable the endpoints */
-	d = fsg_ep_desc(common->gadget,
-			&fsg_fs_bulk_in_desc, &fsg_hs_bulk_in_desc);
-	rc = enable_endpoint(common, fsg->bulk_in, d);
-	if (rc)
-		goto reset;
-	fsg->bulk_in_enabled = 1;
-
-	d = fsg_ep_desc(common->gadget,
-			&fsg_fs_bulk_out_desc, &fsg_hs_bulk_out_desc);
-	rc = enable_endpoint(common, fsg->bulk_out, d);
-	if (rc)
-		goto reset;
-	fsg->bulk_out_enabled = 1;
-	common->bulk_out_maxpacket = le16_to_cpu(d->wMaxPacketSize);
 	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 
 	/* Allocate the requests */
@@ -2467,6 +2441,28 @@ reset:
 static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+	struct fsg_common *common = fsg->common;
+	const struct usb_endpoint_descriptor *d;
+	int rc;
+
+	/* Enable the endpoints */
+	d = fsg_ep_desc(common->gadget,
+			&fsg_fs_bulk_in_desc, &fsg_hs_bulk_in_desc);
+	rc = enable_endpoint(common, fsg->bulk_in, d);
+	if (rc)
+		return rc;
+	fsg->bulk_in_enabled = 1;
+
+	d = fsg_ep_desc(common->gadget,
+			&fsg_fs_bulk_out_desc, &fsg_hs_bulk_out_desc);
+	rc = enable_endpoint(common, fsg->bulk_out, d);
+	if (rc) {
+		usb_ep_disable(fsg->bulk_in);
+		fsg->bulk_in_enabled = 0;
+		return rc;
+	}
+	fsg->bulk_out_enabled = 1;
+	common->bulk_out_maxpacket = le16_to_cpu(d->wMaxPacketSize);
 	fsg->common->new_fsg = fsg;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
 	return 0;
@@ -2475,6 +2471,18 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 static void fsg_disable(struct usb_function *f)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+
+	/* Disable the endpoints */
+	if (fsg->bulk_in_enabled) {
+		usb_ep_disable(fsg->bulk_in);
+		fsg->bulk_in_enabled = 0;
+		fsg->bulk_in->driver_data = NULL;
+	}
+	if (fsg->bulk_out_enabled) {
+		usb_ep_disable(fsg->bulk_out);
+		fsg->bulk_out_enabled = 0;
+		fsg->bulk_out->driver_data = NULL;
+	}
 	fsg->common->new_fsg = NULL;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
 }
@@ -2675,8 +2683,10 @@ static int fsg_main_thread(void *common_)
 		 * need to skip sending status once again if it is a
 		 * write scsi command.
 		 */
-		if (common->cmnd[0] == SC_WRITE_6  || common->cmnd[0] == SC_WRITE_10
-					|| common->cmnd[0] == SC_WRITE_12)
+		if (!(write_error_after_csw_sent) &&
+			(common->cmnd[0] == SC_WRITE_6
+			|| common->cmnd[0] == SC_WRITE_10
+			|| common->cmnd[0] == SC_WRITE_12))
 			continue;
 #endif
 		if (send_status(common))
@@ -2816,7 +2826,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 
 		rc = device_register(&curlun->dev);
 		if (rc) {
-			INFO(common, "failed to register LUN%d: %d\n", i, rc);
+			ERROR(common, "failed to register LUN%d: %d\n", i, rc);
 			common->nluns = i;
 			goto error_release;
 		}
@@ -2909,8 +2919,8 @@ buffhds_first_it:
 
 
 	/* Information */
-	INFO(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
-	INFO(common, "Number of LUNs=%d\n", common->nluns);
+	DBG(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
+	DBG(common, "Number of LUNs=%d\n", common->nluns);
 
 	pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
 	for (i = 0, nluns = common->nluns, curlun = common->luns;
@@ -2926,7 +2936,7 @@ buffhds_first_it:
 					p = "(error)";
 			}
 		}
-		LINFO(curlun, "LUN: %s%s%sfile: %s\n",
+		LDBG(curlun, "LUN: %s%s%sfile: %s\n",
 		      curlun->removable ? "removable " : "",
 		      curlun->ro ? "read only " : "",
 		      curlun->cdrom ? "CD-ROM " : "",
@@ -3240,7 +3250,7 @@ static int fsg_probe(struct platform_device *pdev)
 	struct usb_mass_storage_platform_data *pdata = pdev->dev.platform_data;
 	int i, nluns;
 
-	printk(KERN_INFO "fsg_probe pdev: %p, pdata: %p\n", pdev, pdata);
+	dev_dbg(&pdev->dev, "%s: pdata: %p\n", __func__, pdata);
 	if (!pdata)
 		return -1;
 
@@ -3281,7 +3291,6 @@ static struct android_usb_function mass_storage_function = {
 static int __init init(void)
 {
 	int		rc;
-	printk(KERN_INFO "f_mass_storage init\n");
 	rc = platform_driver_register(&fsg_platform_driver);
 	if (rc != 0)
 		return rc;

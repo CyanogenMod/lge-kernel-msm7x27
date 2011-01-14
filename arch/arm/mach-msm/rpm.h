@@ -234,10 +234,7 @@ enum {
 	MSM_RPM_ID_MM_FABRIC_CLOCK_MODE_2,
 	MSM_RPM_ID_MM_FABRIC_RESERVED_A,
 	MSM_RPM_ID_MM_FABRIC_ARB_0,
-	MSM_RPM_ID_MM_FABRIC_ARB_14 = MSM_RPM_ID_MM_FABRIC_ARB_0 + 14,
-	MSM_RPM_ID_MM_FABRIC_RESERVED_B_0,
-	MSM_RPM_ID_MM_FABRIC_RESERVED_B_7 =
-		MSM_RPM_ID_MM_FABRIC_RESERVED_B_0 + 7,
+	MSM_RPM_ID_MM_FABRIC_ARB_22 = MSM_RPM_ID_MM_FABRIC_ARB_0 + 22,
 
 	/* pmic 8901 */
 	MSM_RPM_ID_SMPS0B_0,
@@ -511,8 +508,36 @@ int msm_rpm_has_outstanding_request(void);
 int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count);
 int msm_rpm_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpm_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
+
+static inline int msm_rpm_set_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	unsigned long flags;
+	int rc;
+
+	local_irq_save(flags);
+	rc = msm_rpm_set_noirq(ctx, req, count);
+	local_irq_restore(flags);
+
+	return rc;
+}
+
 int msm_rpm_clear(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpm_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
+
+static inline int msm_rpm_clear_nosleep(
+	int ctx, struct msm_rpm_iv_pair *req, int count)
+{
+	unsigned long flags;
+	int rc;
+
+	local_irq_save(flags);
+	rc = msm_rpm_clear_noirq(ctx, req, count);
+	local_irq_restore(flags);
+
+	return rc;
+}
+
 int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	struct msm_rpm_iv_pair *req, int count);
 int msm_rpm_unregister_notification(struct msm_rpm_notification *n);

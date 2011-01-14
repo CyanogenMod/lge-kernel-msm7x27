@@ -362,7 +362,7 @@ enum memtype_t vcm_get_memtype_of_physalloc(struct physmem *physmem);
  * This function returns non-zero if a association is made. It returns 0
  * if any of its parameters are invalid or VCM_ATTR_VALID is not present.
  */
-struct avcm *vcm_assoc(struct vcm *vcm, size_t dev, u32 attr);
+struct avcm *vcm_assoc(struct vcm *vcm, struct device *dev, u32 attr);
 
 
 /**
@@ -562,7 +562,7 @@ struct res *vcm_get_res(unsigned long dev_addr, struct vcm *vcm);
  * error it returns:
  * 1			res_id is invalid.
  */
-size_t vcm_translate(size_t src_dev, struct vcm *src_vcm,
+size_t vcm_translate(struct device *src_dev, struct vcm *src_vcm,
 		     struct vcm *dst_vcm);
 
 
@@ -623,13 +623,13 @@ size_t vcm_get_cont_memtype_len(enum memtype_t memtype);
 
 /**
  * vcm_dev_addr_to_phys_addr() - Perform a device address page-table lookup.
- * @dev:		The device that has the table.
+ * @vcm:		VCM to use for translation.
  * @dev_addr:		The device address to map.
  *
  * This function returns the pa of a va from a device's page-table. It will
  * fault if the dev_addr is not mapped.
  */
-phys_addr_t vcm_dev_addr_to_phys_addr(size_t dev, unsigned long dev_addr);
+phys_addr_t vcm_dev_addr_to_phys_addr(struct vcm *vcm, unsigned long dev_addr);
 
 
 /*
@@ -648,7 +648,7 @@ phys_addr_t vcm_dev_addr_to_phys_addr(size_t dev, unsigned long dev_addr);
  * This function returns 0 for a successful registration or:
  * -EINVAL		The arguments are invalid.
  */
-int vcm_hook(size_t dev, vcm_handler handler, void *data);
+int vcm_hook(struct device *dev, vcm_handler handler, void *data);
 
 
 

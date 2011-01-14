@@ -60,7 +60,32 @@
 #define TRACE(fmt,x...)		do { } while (0)
 #endif
 
+#define YAMATO_COLOR_FORMAT  0x02
+#define MAX_Q6_LOAD        ((720*1280)/256)  /* 720p */
+#define MAX_Q6_LOAD_YAMATO ((736*1280)/256)
+#define MAX_Q6_LOAD_VP6    ((800*480)/256)
+
 #define VDEC_MAX_PORTS 4
+
+/*
+ *why magic number 300?
+
+ *the Maximum size of the DAL payload is 512 bytes according to DAL protocol
+ *Initialize call to QDSP6 from scorpion need to send sequence header as part of
+ *the DAL payload. DAL payload to initialize contains the following
+
+ *1) configuration data- 52 bytes 2) length field of config data - 4 bytes
+ *3) sequence header data ( that is from the bit stream)
+ *4) length field for sequence header - 4 bytes
+ *5) length field for output structure - 4 bytes
+
+ *that left with 512 - 68 = 448 bytes. It is unusual that we get a sequence
+ *header with such a big length unless the bit stream has multiple sequence
+ *headers.We estimated 300 is good enough which gives enough room for rest
+ *of the payload and even reserves some space for future payload.
+ */
+
+#define VDEC_MAX_SEQ_HEADER_SIZE 300
 
 char *Q6Portnames[] = {
 "DAL_AQ_VID_0",
@@ -360,8 +385,27 @@ static int vdec_setproperty(struct vdec_data *vd, void *argp)
 		TRACE("Set Property failed");
 	else
 		TRACE("Set Property succeeded");
+	return res;
+}
+static int vdec_getproperty(struct vdec_data *vd, void *argp)
+{
+	int res;
+	union vdec_property property = {0};
 
-	return 0;
+	res = dal_call_f11(vd->vdec_handle, VDEC_DALRPC_GETPROPERTY,
+		((struct vdec_property_info *)argp)->id, &property,
+		sizeof(union vdec_property));
+
+	if (res)
+		TRACE("get Property failed");
+	else
+		TRACE("get Property succeeded");
+
+	res = copy_to_user(
+		(&((struct vdec_property_info *)argp)->property),
+		&property, sizeof(property));
+
+	return res;
 }
 static int vdec_performance_change_request(struct vdec_data *vd, void* argp)
 {
@@ -550,7 +594,8 @@ static void vdec_freeup_portanddevid(int deviceid)
   * This method validates whether a new instance can be houred or not.
   *
   */
-static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance)
+static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance,
+				unsigned int color_format)
 {
 
 	unsigned int maxQ6load = 0;/* in the units of macro blocks per second */
@@ -587,11 +632,16 @@ static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance)
 		 (streamDetails->fourcc  == FOURCC_H263)
 		){
 
-		maxQ6load = ((720*1280)/256); /* 720p */
+		/* is yamato color format,
+		  Rounds the H & W --> mutiple of 32 */
+		if (color_format == YAMATO_COLOR_FORMAT)
+			maxQ6load = MAX_Q6_LOAD_YAMATO;
+		else
+			maxQ6load = MAX_Q6_LOAD; /* 720p */
 
 	} else if (streamDetails->fourcc  == FOURCC_VP6) {
 
-		maxQ6load = ((800*480)/256); /* FWVGA */
+		maxQ6load = MAX_Q6_LOAD_VP6;    /* FWVGA */
 
 	} else {
 
@@ -605,8 +655,12 @@ static int vdec_rm_checkWithRm(struct vdec_data *vdecInstance)
 	currentq6load = ((currentq6load * 100)/maxQ6load);
 	if ((currentq6load+totalPlaybackQ6load) > 100) {
 		/* reject this instance */
-		pr_err("%s: too much Q6load %d rejecting the instance\n",
-			__func__, (currentq6load+totalPlaybackQ6load));
+		pr_err("%s: too much Q6load [cur+tot] = [%d + %d] = %d",
+		__func__, currentq6load, totalPlaybackQ6load,
+		(currentq6load+totalPlaybackQ6load));
+		pr_err("rejecting the instance,[WxH] = [%d x %d],color_fmt=0x%x\n",
+		streamDetails->width, streamDetails->height, color_format);
+		pr_err("VDEC_fmt=%s\n", (char *)(&streamDetails->fourcc));
 		streamDetails->Q6usage = 0;
 		return -ENOSPC;
 	}
@@ -642,6 +696,12 @@ static int vdec_initialize(struct vdec_data *vd, void *argp)
 	vi_cfg.reuse_frame_evt = VDEC_ASYNCMSG_REUSE_FRAME;
 	memcpy(&vi_cfg.cfg, &vdec_cfg_sps.cfg, sizeof(struct vdec_config));
 
+	/*
+	 * restricting the max value of the seq header
+	 */
+	if (vdec_cfg_sps.seq.len > VDEC_MAX_SEQ_HEADER_SIZE)
+		vdec_cfg_sps.seq.len = VDEC_MAX_SEQ_HEADER_SIZE;
+
 	header = kmalloc(vdec_cfg_sps.seq.len, GFP_KERNEL);
 	if (!header) {
 		pr_err("%s: kmalloc failed\n", __func__);
@@ -675,7 +735,7 @@ static int vdec_initialize(struct vdec_data *vd, void *argp)
 		vd->streamDetails.isThisTnail = FALSE;
 
 	mutex_lock(&vdec_rm_lock);
-	ret = vdec_rm_checkWithRm(vd);
+	ret = vdec_rm_checkWithRm(vd, vi_cfg.cfg.color_format);
 	mutex_unlock(&vdec_rm_lock);
 	if (ret)
 		return ret;
@@ -1022,12 +1082,6 @@ static int vdec_getversion(struct vdec_data *vd, void *argp)
 	return ret;
 
 }
-static int vdec_getproperty(struct vdec_data *vd, void *argp, uint32_t cmd_idx)
-{
-	/*dal_call_f11(vd->vdec_handle, VDEC_DALRPC_GETPROPERTY,);*/
-	return 0;
-}
-
 
 static long vdec_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -1121,13 +1175,13 @@ static long vdec_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case VDEC_IOCTL_GETPROPERTY:
 		TRACE("VDEC_IOCTL_GETPROPERTY (pid=%d tid=%d)\n",
 		      current->group_leader->pid, current->pid);
-		ret = vdec_getproperty(vd, argp,
-				0);
+		ret = vdec_getproperty(vd, argp);
 		break;
 	case VDEC_IOCTL_SETPROPERTY:
 		TRACE("VDEC_IOCTL_SETPROPERTY (pid=%d tid=%d)\n",
 		      current->group_leader->pid, current->pid);
 		ret = vdec_setproperty(vd, argp);
+		break;
 	case VDEC_IOCTL_PERFORMANCE_CHANGE_REQ:
 		ret = vdec_performance_change_request(vd, argp);
 		break;

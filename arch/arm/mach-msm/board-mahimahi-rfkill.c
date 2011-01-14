@@ -29,10 +29,10 @@ static const char bt_name[] = "bcm4329";
 static int bluetooth_set_power(void *data, bool blocked)
 {
 	if (!blocked) {
-		gpio_direction_output(MAHIMAHI_GPIO_BT_RESET_N, 1);
+ 		gpio_direction_output(MAHIMAHI_GPIO_BT_RESET_N, 1);
 		gpio_direction_output(MAHIMAHI_GPIO_BT_SHUTDOWN_N, 1);
 	} else {
-		gpio_direction_output(MAHIMAHI_GPIO_BT_SHUTDOWN_N, 0);
+ 		gpio_direction_output(MAHIMAHI_GPIO_BT_SHUTDOWN_N, 0);
 		gpio_direction_output(MAHIMAHI_GPIO_BT_RESET_N, 0);
 	}
 	return 0;

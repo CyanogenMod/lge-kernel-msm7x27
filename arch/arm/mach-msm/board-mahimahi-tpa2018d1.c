@@ -27,6 +27,7 @@
 #include <asm/uaccess.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/slab.h>
 #include <linux/tpa2018d1.h>
 
 #include "board-mahimahi-tpa2018d1.h"

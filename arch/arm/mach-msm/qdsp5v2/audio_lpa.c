@@ -395,17 +395,16 @@ static void audio_dsp_event(void *private, unsigned id, uint16_t *msg)
 			auddec_dsp_config(audio, 1);
 			audio->out_needed = 0;
 			audio->running = 1;
-			if (audio->enabled == 1) {
-				if (audio->source & AUDPP_MIXER_HLB)
-					audpp_dsp_set_vol_pan(
-						AUDPP_CMD_CFG_DEV_MIXER_ID_4,
-						&audio->vol_pan,
-						COPP);
-				else if (audio->source & AUDPP_MIXER_NONHLB)
-					audpp_dsp_set_vol_pan(
-						audio->dec_id, &audio->vol_pan,
-						POPP);
-			}
+			MM_DBG("source = 0x%x\n", audio->source);
+			if (audio->source & AUDPP_MIXER_HLB)
+				audpp_dsp_set_vol_pan(
+					AUDPP_CMD_CFG_DEV_MIXER_ID_4,
+					&audio->vol_pan,
+					COPP);
+			else if (audio->source & AUDPP_MIXER_NONHLB)
+				audpp_dsp_set_vol_pan(
+					audio->dec_id, &audio->vol_pan,
+					POPP);
 			audpp_dsp_set_eq(audio->dec_id, audio->eq_enable,
 					&audio->eq, POPP);
 		} else if (msg[0] == AUDPP_MSG_ENA_DIS) {

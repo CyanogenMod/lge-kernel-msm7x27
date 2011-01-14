@@ -28,9 +28,7 @@
 #include <asm/page.h>
 #include <asm/sizes.h>
 
-#ifdef CONFIG_SMMU
-#include <mach/smmu_driver.h>
-#endif
+#include <linux/iommu.h>
 
 /* alloc_vm_area */
 #include <linux/pfn.h>
@@ -155,6 +153,7 @@ static int vcm_create_pool(struct vcm *vcm, unsigned long start_addr,
 	vcm->pool = gen_pool_create(PAGE_SHIFT, -1);
 	if (!vcm->pool) {
 		vcm_err("gen_pool_create(%x, -1) ret 0\n", PAGE_SHIFT);
+		ret = -EINVAL;
 		goto fail;
 	}
 
@@ -162,15 +161,21 @@ static int vcm_create_pool(struct vcm *vcm, unsigned long start_addr,
 	if (ret) {
 		vcm_err("gen_pool_add(%p, %p, %i, -1) ret %i\n", vcm->pool,
 			(void *) start_addr, len, ret);
-		goto fail2;
+		goto fail;
 	}
 
-	return 0;
+	vcm->domain = iommu_domain_alloc();
+	if (!vcm->domain) {
+		vcm_err("Could not allocate domain\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
 
-fail2:
-	gen_pool_destroy(vcm->pool);
 fail:
-	return -EINVAL;
+	if (ret && vcm->pool)
+		gen_pool_destroy(vcm->pool);
+
+	return ret;
 }
 
 
@@ -409,7 +414,10 @@ static int __vcm_free(struct vcm *vcm)
 				(void *) vcm, ret);
 			goto fail;
 		}
+		if (vcm->domain)
+			iommu_domain_free(vcm->domain);
 
+		vcm->domain = NULL;
 		ret = vcm_free_pool(vcm);
 		if (ret != 0) {
 			vcm_err("vcm_free_pool(%p) ret %i", (void *) vcm, ret);
@@ -716,18 +724,11 @@ static int vcm_to_smmu_attr(u32 attr)
 }
 
 
-static int vcm_process_chunk(size_t dev, phys_addr_t pa, unsigned long va,
-			     size_t len, u32 attr, int map)
+static int vcm_process_chunk(struct iommu_domain *domain, phys_addr_t pa,
+			     unsigned long va, size_t len, u32 attr, int map)
 {
-	int ret, i;
+	int ret, i, map_order;
 	unsigned long map_len = smmu_map_sizes[ARRAY_SIZE(smmu_map_sizes) - 1];
-
-	ret = smmu_update_start((struct smmu_dev *) dev);
-
-	if (ret) {
-		pr_err("smmu_update_start returned %d\n", ret);
-		goto fail;
-	}
 
 	for (i = 0; i < ARRAY_SIZE(smmu_map_sizes); i++) {
 		if (IS_ALIGNED(va, smmu_map_sizes[i]) && len >=
@@ -744,6 +745,8 @@ static int vcm_process_chunk(size_t dev, phys_addr_t pa, unsigned long va,
 			   "degradation.\n", (void *) va, (void *) len);
 #endif
 
+	map_order = get_order(map_len);
+
 	while (len) {
 		if (va & (SZ_4K - 1)) {
 			vcm_err("Tried to map w/ align < 4k! va = %08lx\n", va);
@@ -757,14 +760,13 @@ static int vcm_process_chunk(size_t dev, phys_addr_t pa, unsigned long va,
 		}
 
 		if (map)
-			ret = smmu_map((struct smmu_dev *) dev, pa, va,
-								map_len, attr);
+			ret = iommu_map(domain, va, pa, map_order, attr);
 		else
-			ret = smmu_unmap((struct smmu_dev *) dev, va,
-								map_len);
+			ret = iommu_unmap(domain, va, map_order);
+
 		if (ret) {
-			vcm_err("smmu_map/unmap(%p, %p, %p, 0x%x, 0x%x) ret %i"
-				"map = %d", (void *) dev, (void *) pa,
+			vcm_err("iommu_map/unmap(%p, %p, %p, 0x%x, 0x%x) ret %i"
+				"map = %d", (void *) domain, (void *) pa,
 				(void *) va, (int) map_len, attr, ret, map);
 			goto fail;
 		}
@@ -772,13 +774,6 @@ static int vcm_process_chunk(size_t dev, phys_addr_t pa, unsigned long va,
 		va += map_len;
 		pa += map_len;
 		len -= map_len;
-	}
-
-	ret = smmu_update_done((struct smmu_dev *) dev);
-
-	if (ret) {
-		vcm_err("smmu_update_done returned %d\n", ret);
-		goto fail;
 	}
 
 	return 0;
@@ -894,30 +889,20 @@ int vcm_back(struct res *res, struct physmem *physmem)
 		switch (vcm->type) {
 		case VCM_DEVICE:
 		{
-#ifdef CONFIG_SMMU
-			struct avcm *avcm;
 			/* map all */
-			list_for_each_entry(avcm, &vcm->assoc_head,
-					    assoc_elm) {
-
-				ret = vcm_process_chunk(avcm->dev, chunk->pa,
-						      va, chunk_size, attr, 1);
-				if (ret != 0) {
-					vcm_err("vcm_back_chunk(%p, %p, %p,"
-						" 0x%x, 0x%x)"
-						" ret %i",
-						(void *) avcm->dev,
-						(void *) chunk->pa,
-						(void *) va,
-						(int) chunk_size, attr, ret);
-					goto fail;
-				}
+			ret = vcm_process_chunk(vcm->domain, chunk->pa,
+						va, chunk_size, attr, 1);
+			if (ret != 0) {
+				vcm_err("vcm_process_chunk(%p, %p, %p,"
+					" 0x%x, 0x%x)"
+					" ret %i",
+					vcm->domain,
+					(void *) chunk->pa,
+					(void *) va,
+					(int) chunk_size, attr, ret);
+				goto fail;
 			}
 			break;
-#else
-			vcm_err("No SMMU support - VCM_DEVICE not supported\n");
-			goto fail;
-#endif
 		}
 
 		case VCM_EXT_KERNEL:
@@ -1074,7 +1059,6 @@ int vcm_unback(struct res *res)
 
 	case VCM_DEVICE:
 	{
-#ifdef CONFIG_SMMU
 		struct phys_chunk *chunk;
 		size_t va = res->dev_addr;
 
@@ -1082,31 +1066,24 @@ int vcm_unback(struct res *res)
 				    allocated) {
 			struct vcm *vcm = res->vcm;
 			size_t chunk_size = chunk->size;
-			struct avcm *avcm;
 
-			/* un map all */
-			list_for_each_entry(avcm, &vcm->assoc_head, assoc_elm) {
-				ret = vcm_process_chunk(avcm->dev, 0, va,
-							chunk_size, 0, 0);
-				if (ret != 0) {
-					vcm_err("vcm_unback_chunk(%p, %p, 0x%x)"
-						" ret %i",
-						(void *) avcm->dev,
-						(void *) va,
-						(int) chunk_size, ret);
-					goto fail;
-					/* TODO handle weird inter-unmap state*/
-				}
+			ret = vcm_process_chunk(vcm->domain, 0, va,
+						chunk_size, 0, 0);
+			if (ret != 0) {
+				vcm_err("vcm_unback_chunk(%p, %p, 0x%x)"
+					" ret %i",
+					(void *) vcm->domain,
+					(void *) va,
+					(int) chunk_size, ret);
+				goto fail;
+				/* TODO handle weird inter-unmap state*/
 			}
+
 			va += chunk_size;
 			/* may to a light unback, depending on the requested
-			 * functionality
+			* functionality
 			 */
 		}
-#else
-		vcm_err("No SMMU support - VCM_DEVICE memory not supported\n");
-		goto fail;
-#endif
 		break;
 	}
 
@@ -1363,7 +1340,7 @@ fail:
 }
 
 
-struct avcm *vcm_assoc(struct vcm *vcm, size_t dev, u32 attr)
+struct avcm *vcm_assoc(struct vcm *vcm, struct device *dev, u32 attr)
 {
 	unsigned long flags;
 	struct avcm *avcm = NULL;
@@ -1489,24 +1466,10 @@ int vcm_activate(struct avcm *avcm)
 
 	if (vcm->type == VCM_DEVICE) {
 #ifdef CONFIG_SMMU
-		int ret = smmu_is_active((struct smmu_dev *) avcm->dev);
-		if (ret == -1) {
-			vcm_err("smmu_is_active(%p) ret -1\n",
-				(void *) avcm->dev);
-			goto fail_dev;
-		}
-
-		if (ret == 1) {
-			vcm_err("SMMU is already active\n");
-			goto fail_busy;
-		}
-
-		/* TODO, pmem check */
-		ret = smmu_activate((struct smmu_dev *) avcm->dev);
+		int ret;
+		ret = iommu_attach_device(vcm->domain, avcm->dev);
 		if (ret != 0) {
-			vcm_err("smmu_activate(%p) ret %i"
-				" SMMU failed to activate\n",
-				(void *) avcm->dev, ret);
+			dev_err(avcm->dev, "failed to attach to domain\n");
 			goto fail_dev;
 		}
 #else
@@ -1564,25 +1527,8 @@ int vcm_deactivate(struct avcm *avcm)
 
 	if (vcm->type == VCM_DEVICE) {
 #ifdef CONFIG_SMMU
-		int ret = smmu_is_active((struct smmu_dev *) avcm->dev);
-		if (ret == -1) {
-			vcm_err("smmu_is_active(%p) ret %i\n",
-				(void *) avcm->dev, ret);
-			goto fail_dev;
-		}
-
-		if (ret == 0) {
-			vcm_err("double SMMU deactivation\n");
-			goto fail_nobusy;
-		}
-
 		/* TODO, pmem check */
-		ret = smmu_deactivate((struct smmu_dev *) avcm->dev);
-		if (ret != 0) {
-			vcm_err("smmu_deactivate(%p) ret %i\n",
-				(void *) avcm->dev, ret);
-			goto fail_dev;
-		}
+		iommu_detach_device(vcm->domain, avcm->dev);
 #else
 		vcm_err("No SMMU support - cannot activate/deactivate\n");
 		goto fail;
@@ -1592,11 +1538,6 @@ int vcm_deactivate(struct avcm *avcm)
 	avcm->is_active = 0;
 	spin_unlock_irqrestore(&vcmlock, flags);
 	return 0;
-#ifdef CONFIG_SMMU
-fail_dev:
-	spin_unlock_irqrestore(&vcmlock, flags);
-	return -ENODEV;
-#endif
 fail_nobusy:
 	spin_unlock_irqrestore(&vcmlock, flags);
 	return -ENOENT;
@@ -1655,7 +1596,7 @@ struct res *vcm_get_res(unsigned long dev_addr, struct vcm *vcm)
 }
 
 
-size_t vcm_translate(size_t src_dev, struct vcm *src_vcm,
+size_t vcm_translate(struct device *src_dev, struct vcm *src_vcm,
 		     struct vcm *dst_vcm)
 {
 	return 0;
@@ -1682,16 +1623,12 @@ phys_addr_t vcm_get_pgtbl_pa(struct vcm *vcm)
 
 
 /* No lock needed, smmu_translate has its own lock */
-phys_addr_t vcm_dev_addr_to_phys_addr(size_t dev, unsigned long dev_addr)
+phys_addr_t vcm_dev_addr_to_phys_addr(struct vcm *vcm, unsigned long dev_addr)
 {
+	if (!vcm)
+		return -EINVAL;
 #ifdef CONFIG_SMMU
-	int ret;
-	ret = smmu_translate((struct smmu_dev *) dev, dev_addr);
-	if (ret == -1)
-		vcm_err("smmu_translate(%p, %p) ret %i\n",
-			(void *) dev, (void *) dev_addr, ret);
-
-	return ret;
+	return iommu_iova_to_phys(vcm->domain, dev_addr);
 #else
 	vcm_err("No support for SMMU - manual translation not supported\n");
 	return -ENODEV;
@@ -1729,17 +1666,11 @@ size_t vcm_get_cont_memtype_len(enum memtype_t memtype)
 	return cont_sz;
 }
 
-int vcm_hook(size_t dev, vcm_handler handler, void *data)
+int vcm_hook(struct device *dev, vcm_handler handler, void *data)
 {
 #ifdef CONFIG_SMMU
-	int ret;
-
-	ret = smmu_hook_irpt((struct smmu_dev *) dev, handler, data);
-	if (ret != 0)
-		vcm_err("smmu_hook_irpt(%p, %p, %p) ret %i\n", (void *) dev,
-			(void *) handler, (void *) data, ret);
-
-	return ret;
+	vcm_err("No interrupts in IOMMU API\n");
+	return -ENODEV;
 #else
 	vcm_err("No support for SMMU - interrupts not supported\n");
 	return -ENODEV;

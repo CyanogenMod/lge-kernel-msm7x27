@@ -422,7 +422,7 @@ static int tvout_off(struct platform_device *pdev)
 	return 0;
 }
 
-static int __init tvout_probe(struct platform_device *pdev)
+static int __devinit tvout_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	uint32 reg;

@@ -13,6 +13,7 @@ obj-$(CONFIG_INPUT_ATI_REMOTE)		+= ati_remote.o
 obj-$(CONFIG_INPUT_ATI_REMOTE2)		+= ati_remote2.o
 obj-$(CONFIG_INPUT_ATLAS_BTNS)		+= atlas_btns.o
 obj-$(CONFIG_INPUT_BFIN_ROTARY)		+= bfin_rotary.o
+obj-$(CONFIG_INPUT_CAPELLA_CM3602)	+= capella_cm3602.o
 obj-$(CONFIG_INPUT_CM109)		+= cm109.o
 obj-$(CONFIG_INPUT_COBALT_BTNS)		+= cobalt_btns.o
 obj-$(CONFIG_INPUT_DM355EVM)		+= dm355evm_keys.o
@@ -41,4 +42,5 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_PMIC8058_PWRKEY)           += pmic8058-pwrkey.o
 obj-$(CONFIG_PMIC8058_OTHC)             += pmic8058-othc.o
+obj-$(CONFIG_INPUT_PMIC8058_VIBRA_MEMLESS) += pmic8058-vib-memless.o
 

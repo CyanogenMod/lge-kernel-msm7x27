@@ -359,6 +359,7 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_gser		 *gser = func_to_gser(f);
 	struct usb_composite_dev *cdev = f->config->cdev;
+	int rc = 0;
 
 	/* we know alt == 0, so this is an activation or a reset */
 
@@ -370,7 +371,12 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	gser->notify_desc = ep_choose(cdev->gadget,
 			gser->hs.notify,
 			gser->fs.notify);
-	usb_ep_enable(gser->notify, gser->notify_desc);
+	rc = usb_ep_enable(gser->notify, gser->notify_desc);
+	if (rc) {
+		ERROR(cdev, "can't enable %s, result %d\n",
+					gser->notify->name, rc);
+		return rc;
+	}
 	gser->notify->driver_data = gser;
 #endif
 
@@ -386,7 +392,7 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			gser->hs.out, gser->fs.out);
 	gserial_connect(&gser->port, gser->port_num);
 	gser->online = 1;
-	return 0;
+	return rc;
 }
 
 static void gser_disable(struct usb_function *f)
@@ -813,8 +819,6 @@ static struct android_usb_function modem_function = {
 
 static int __init init(void)
 {
-	printk(KERN_INFO "f_serial init\n");
-
 	android_register_function(&modem_function);
 	android_register_function(&nmea_function);
 	return 0;

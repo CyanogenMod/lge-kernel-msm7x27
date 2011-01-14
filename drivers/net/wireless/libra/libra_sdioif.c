@@ -28,6 +28,9 @@ static struct sdio_func *libra_sdio_func;
 static struct mmc_host *libra_mmc_host;
 static int libra_mmc_host_index;
 
+/* SDIO Card ID / Device ID */
+static unsigned short  libra_sdio_card_id;
+
 static suspend_handler_t *libra_suspend_hldr;
 static resume_handler_t *libra_resume_hldr;
 
@@ -115,12 +118,39 @@ EXPORT_SYMBOL(libra_sdio_configure_suspend_resume);
  */
 void libra_sdio_deconfigure(struct sdio_func *func)
 {
+	if (NULL == libra_sdio_func)
+		return;
+
 	sdio_claim_host(func);
 	sdio_release_irq(func);
 	sdio_disable_func(func);
 	sdio_release_host(func);
 }
 EXPORT_SYMBOL(libra_sdio_deconfigure);
+
+/*
+ * libra_sdio_release_irq() - Function to release IRQ
+ */
+void libra_sdio_release_irq(struct sdio_func *func)
+{
+	if (NULL == libra_sdio_func)
+		return;
+
+	sdio_release_irq(func);
+}
+EXPORT_SYMBOL(libra_sdio_release_irq);
+
+/*
+ * libra_sdio_disable_func() - Function to disable sdio func
+ */
+void libra_sdio_disable_func(struct sdio_func *func)
+{
+	if (NULL == libra_sdio_func)
+		return;
+
+	sdio_disable_func(func);
+}
+EXPORT_SYMBOL(libra_sdio_disable_func);
 
 /*
  * Return the SDIO Function device
@@ -137,6 +167,9 @@ EXPORT_SYMBOL(libra_getsdio_funcdev);
 void libra_sdio_setprivdata(struct sdio_func *sdio_func_dev,
 		void *padapter)
 {
+	if (NULL == libra_sdio_func)
+		return;
+
 	sdio_set_drvdata(sdio_func_dev, padapter);
 }
 EXPORT_SYMBOL(libra_sdio_setprivdata);
@@ -156,6 +189,9 @@ EXPORT_SYMBOL(libra_sdio_getprivdata);
 void libra_claim_host(struct sdio_func *sdio_func_dev,
 		pid_t *curr_claimed, pid_t current_pid, atomic_t *claim_count)
 {
+	if (NULL == libra_sdio_func)
+		return;
+
 	if (*curr_claimed == current_pid) {
 		atomic_inc(claim_count);
 		return;
@@ -176,6 +212,10 @@ EXPORT_SYMBOL(libra_claim_host);
 void libra_release_host(struct sdio_func *sdio_func_dev,
 		pid_t *curr_claimed, pid_t current_pid, atomic_t *claim_count)
 {
+
+	if (NULL == libra_sdio_func)
+		return;
+
 	if (*curr_claimed != current_pid) {
 		/* Dont release  */
 		return;
@@ -227,6 +267,21 @@ int libra_sdio_memcpy_toio(struct sdio_func *func,
 }
 EXPORT_SYMBOL(libra_sdio_memcpy_toio);
 
+int libra_detect_card_change(void)
+{
+	if (libra_mmc_host) {
+		if (!strcmp(libra_mmc_host->class_dev.class->name, "mmc_host")
+			&& (libra_mmc_host_index == libra_mmc_host->index)) {
+			mmc_detect_change(libra_mmc_host, 0);
+			return 0;
+		}
+	}
+
+	printk(KERN_ERR "%s: Could not trigger card change\n", __func__);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(libra_detect_card_change);
+
 int libra_sdio_enable_polling(void)
 {
 	if (libra_mmc_host) {
@@ -253,6 +308,17 @@ void libra_sdio_set_clock(struct sdio_func *func, unsigned int clk_freq)
 EXPORT_SYMBOL(libra_sdio_set_clock);
 
 /*
+ * API to get SDIO Device Card ID
+ */
+void libra_sdio_get_card_id(struct sdio_func *func, unsigned short *card_id)
+{
+	if (card_id)
+		*card_id = libra_sdio_card_id;
+}
+EXPORT_SYMBOL(libra_sdio_get_card_id);
+
+
+/*
  * SDIO Probe
  */
 static int libra_sdio_probe(struct sdio_func *func,
@@ -261,9 +327,12 @@ static int libra_sdio_probe(struct sdio_func *func,
 	libra_mmc_host = func->card->host;
 	libra_mmc_host_index = libra_mmc_host->index;
 	libra_sdio_func = func;
+	libra_sdio_card_id = sdio_dev_id->device;
 
-	printk(KERN_INFO "%s: success with block size of %d\n",
-		__func__, func->cur_blksize);
+	printk(KERN_INFO "%s: success with block size of %d device_id=0x%x\n",
+		__func__,
+		func->cur_blksize,
+		sdio_dev_id->device);
 
 	/* Turn off SDIO polling from now on */
 	libra_mmc_host->caps &= ~MMC_CAP_NEEDS_POLL;
@@ -289,9 +358,15 @@ static int libra_sdio_suspend(struct device *dev)
 			__func__);
 		return ret;
 	}
+	if (libra_suspend_hldr) {
+		ret = libra_suspend_hldr(func);
+		if (ret) {
+			printk(KERN_ERR
+			"%s: Libra driver is not able to suspend\n" , __func__);
+			return ret;
+		}
+	}
 
-	if (libra_suspend_hldr)
-		libra_suspend_hldr(func);
 
 	return sdio_set_host_pm_flags(func, MMC_PM_WAKE_SDIO_IRQ);
 }
@@ -308,7 +383,8 @@ static int libra_sdio_resume(struct device *dev)
 
 
 static struct sdio_device_id libra_sdioid[] = {
-    {.class = 0, .vendor = LIBRA_MAN_ID, .device = 0},
+    {.class = 0, .vendor = LIBRA_MAN_ID,  .device = LIBRA_REV_1_0_CARD_ID},
+    {.class = 0, .vendor = VOLANS_MAN_ID, .device = VOLANS_REV_2_0_CARD_ID},
     {}
 };
 

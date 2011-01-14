@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -58,22 +58,27 @@
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
 
+#define KGSL_NUM_2D_DEVICES 2
+#define IDX_2D(X) ((X)-KGSL_DEVICE_2D0)
+
+/* The size of each entry in a page table */
+#define KGSL_PAGETABLE_ENTRY_SIZE  4
+
+/* Extra accounting entries needed in the pagetable */
+#define KGSL_PT_EXTRA_ENTRIES      16
+
+#define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> KGSL_PAGESIZE_SHIFT) + \
+				     KGSL_PT_EXTRA_ENTRIES)
+
 struct kgsl_driver {
 	struct cdev cdev;
 	dev_t dev_num;
 	struct class *class;
 	struct kgsl_device *devp[KGSL_DEVICE_MAX];
-	struct device *base_dev[KGSL_DEVICE_MAX];
 	int num_devs;
 	struct platform_device *pdev;
-	struct mutex mutex;
-	unsigned int is_suspended;
-
-	struct kgsl_devconfig g12_config;
 
 	uint32_t flags_debug;
-
-	struct kgsl_sharedmem shmem;
 
 	/* Global lilst of open processes */
 	struct list_head process_list;
@@ -81,8 +86,29 @@ struct kgsl_driver {
 	struct list_head pagetable_list;
 	/* Mutex for accessing the pagetable list */
 	struct mutex pt_mutex;
+	/* Mutex for accessing the process list */
+	struct mutex process_mutex;
 
 	struct kgsl_pagetable *global_pt;
+
+	/* Size (in bytes) for each pagetable */
+	unsigned int ptsize;
+
+	/* The virtual address range for each pagetable as set by the
+	   platform */
+
+	unsigned int pt_va_size;
+
+	/* A structure for information about the pool of
+	   pagetable memory */
+
+	struct {
+		unsigned long *bitmap;
+		int entries;
+		spinlock_t lock;
+		void *hostptr;
+		unsigned int physaddr;
+	} ptpool;
 };
 
 extern struct kgsl_driver kgsl_driver;
@@ -91,7 +117,6 @@ struct kgsl_mem_entry {
 	struct kgsl_memdesc memdesc;
 	struct file *file_ptr;
 	struct list_head list;
-	struct list_head free_list;
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
@@ -112,8 +137,14 @@ enum kgsl_status {
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry, bool preserve);
-
+void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry);
+uint8_t *kgsl_gpuaddr_to_vaddr(const struct kgsl_memdesc *memdesc,
+	unsigned int gpuaddr, unsigned int *size);
+struct kgsl_mem_entry *kgsl_sharedmem_find_region(
+	struct kgsl_process_private *private, unsigned int gpuaddr,
+	size_t size);
+uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);
 int kgsl_setstate(struct kgsl_device *device, uint32_t flags);
 int kgsl_regread(struct kgsl_device *device, unsigned int offsetwords,
@@ -146,5 +177,15 @@ static inline void kgsl_drm_exit(void)
 {
 }
 #endif
+
+static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
+				unsigned int gpuaddr)
+{
+	if (gpuaddr >= memdesc->gpuaddr && (gpuaddr + sizeof(unsigned int)) <=
+		(memdesc->gpuaddr + memdesc->size)) {
+		return 1;
+	}
+	return 0;
+}
 
 #endif /* _GSL_DRIVER_H */

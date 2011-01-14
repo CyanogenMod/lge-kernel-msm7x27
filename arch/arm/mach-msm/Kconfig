@@ -40,6 +40,7 @@ config ARCH_MSM7X30
 	select ARCH_MEMORY_REMOVE
 	select DONT_RESERVE_FROM_MOVABLE_ZONE
 	select MSM_GPIOMUX
+	select RESERVE_FIRST_PAGE
 
 config ARCH_QSD8X50
 	bool "QSD8X50"
@@ -62,6 +63,7 @@ config ARCH_MSM8X60
 	select REGULATOR
 	select MSM_V2_TLMM
 	select MSM_PIL
+	select MSM_SCM
 	select ARCH_HAS_CPU_IDLE_WAIT
 	select MSM_DIRECT_SCLK_ACCESS
 	select MSM_RPM
@@ -332,6 +334,20 @@ config MACH_MSM8X60_FLUID
 	  8x60 target which has a form factor that is much closer to that
 	  of a phone than other targets. It also has a new display and
 	  touchscreen controller.
+
+config MACH_MSM8X60_CHARM_SURF
+	depends on ARCH_MSM8X60
+	default n
+	bool "MSM8x60 CHARM SURF"
+	help
+	  Support for the Qualcomm MSM8x60 Charm SURF device.
+
+config MACH_MSM8X60_CHARM_FFA
+	depends on ARCH_MSM8X60
+	default n
+	bool "MSM8x60 CHARM FFA"
+	help
+	  Support for the Qualcomm MSM8x60 Charm FFA device.
 
 endmenu
 
@@ -668,19 +684,19 @@ config MSM_SMD_DEBUG
 	  between the ARM9 and ARM11
 
 config MSM_SDIO_AL
-	depends on (ARCH_MSM7X30 && HAS_WAKELOCK)
+	depends on ((ARCH_MSM7X30 || ARCH_MSM8X60) && HAS_WAKELOCK)
 	default y
 	tristate "SDIO-Abstraction-Layer"
 	help
 	  Support MSM<->MDM Communication over SDIO bus.
 	  MDM SDIO-Client should have pipes support.
 
-config MSM_SDIO_AL_TEST
+config MSM_SDIO_DMUX
+	bool "SDIO Data Mux Driver"
 	depends on MSM_SDIO_AL
 	default n
-	tristate "SDIO-Abstraction-Layer Test"
 	help
-	  SDIO-AL functionality and performance test.
+	  Support Muxed Data Channels over SDIO interface.
 
 config MSM_N_WAY_SMD
 	depends on (MSM_SMD && (ARCH_MSM_SCORPION || ARCH_MSM_SCORPIONMP || ARCH_MSM7X27 || ARCH_MSM7X25))
@@ -751,12 +767,19 @@ config MSM_SMD_PKT
 
 	  If in doubt, say yes.
 
+config MSM_SDIO_CMUX
+	bool "SDIO CMUX Driver"
+	depends on MSM_SDIO_AL
+	default n
+	help
+	  Provides a Muxed port interface over SDIO QMI
+
 config MSM_SDIO_CTL
 	bool "SDIO CTL Driver"
-	depends on MSM_SDIO_AL
-	default y
+	depends on MSM_SDIO_CMUX
+	default n
 	help
-	  Provides a binay SDIO muxed control port interface.
+	  Provides a binary SDIO control port interface.
 
 config MSM_ONCRPCROUTER
 	depends on MSM_SMD
@@ -849,6 +872,15 @@ config MSM_RMT_STORAGE_CLIENT_STATS
 	  Collects performance statistics and shows this information
 	  through a debugfs file rmt_storage_stats.
 
+config MSM_SDIO_SMEM
+        depends on MSM_SDIO_AL
+        default n
+        bool "SDIO SMEM for remote storage"
+        help
+          Copies data from remote MDM9K memory to local MSM8x60
+	  memory. Used by remote storage client to shadow
+	  MDM9K filesystem.
+
 config MSM_DALRPC
 	bool "DAL RPC support"
 	depends on ARCH_MSM_SCORPION
@@ -885,14 +917,24 @@ config MSM_CPU_FREQ_MIN
 endif # CPU_FREQ_MSM
 
 config MSM_CPU_AVS
-	bool "Enable Adaptive Voltage Scaling (AVS)"
+	bool "Enable software controlled Adaptive Voltage Scaling (AVS)"
 	depends on (ARCH_MSM_SCORPION && QSD_SVS)
 	depends on ARCH_QSD8X50
 	default n
+	select MSM_AVS_HW
 	help
-	  This enables the Adaptive Voltage Scaling feature of
-	  Qualcomm ARMv7 CPUs. It adjusts the voltage for each frequency
+	  This enables the s/w control of Adaptive Voltage Scaling feature
+	  in Qualcomm ARMv7 CPUs. It adjusts the voltage for each frequency
 	  based on feedback from three ring oscillators in the CPU.
+
+config MSM_AVS_HW
+	bool "Enable Adaptive Voltage Scaling (AVS)"
+	default n
+	help
+	  Enable AVS hardware to fine tune voltage at each frequency. The
+	  AVS hardware blocks associated with each Qualcomm ARMv7 cores can
+	  fine tune the voltages based on the feedback from the ring
+	  oscillators.
 
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
@@ -953,7 +995,7 @@ config MSM_QDSP6
 	  Enable support for qdsp6. This provides audio and video functionality.
 
 config MSM8X60_AUDIO
-	tristate "MSM8X60 support"
+	tristate "MSM8X60 audio support"
 	depends on ARCH_MSM8X60 && ANDROID_PMEM
 	default y
 	help
@@ -1088,64 +1130,13 @@ choice
 		bool "Reset the entire chip"
 endchoice
 
-config MSM_NPA
-	bool "Node Power Architecture(NPA) support"
-	default y if ARCH_MSM7X30
+config MSM_IDLE_WAIT_ON_MODEM
+	int "Wait for Modem to become ready for idle power collapse"
+	default 0
 	help
-	  Enable support for Node Power Architecture for aggressive
-	  resource power management. NPA provides an interface for resources
-	  to export their parameters and clients to request a value. The
-	  resources have additional facility to aggreate requests, calculate
-	  the resultant value, apply the value and notify the clients of
-	  change in state.
-
-config MSM_NPA_LOG
-	bool "Node Power Architecture(NPA) logging support"
-	depends on MSM_NPA
-	default y
-	help
-	  Enable logging support for NPA.
-
-config MSM_NPA_DEBUG
-	bool "Node Power Architecture(NPA) debug support"
-	depends on MSM_NPA
-	default n
-	help
-	  Exports functions that can debug or reset NPA internal
-	  data structures.
-
-config MSM_NPA_REMOTE
-	bool "Node Power Architecture(NPA) remoting"
-	depends on MSM_NPA
-	default n
-	help
-	  Enables Linux NPA clients to talk to NPA nodes across
-	  processor boundary.
-
-config MSM_NPA_REMOTE_ONCRPC
-	bool "Enables NPA remoting through ONCRPC protocol."
-	depends on MSM_NPA && MSM_ONCRPCROUTER
-	select MSM_NPA_REMOTE
-	default n
-	help
-	  Enables Linux NPA clients to talk to NPA nodes in the modem
-	  using ONCRPC communication protocol.
-
-config MSM_NPA_PROC_COMM
-	bool "Enables NPA remoting through PROC-COMM to issue requests"
-	depends on MSM_NPA_REMOTE_ONCRPC && MSM_PROC_COMM
-	default n
-	help
-	  Enables the use of PROC-COMM to make requests instead of ONCRPC.
-	  ONCRPC is however still required for NPA setup.
-
-config MSM_NPA_SYSTEM_BUS
-	bool "NPA-managed System Bus (AXI) rates through PM_QOS."
-	depends on MSM_NPA_REMOTE
-	default n
-	help
-	  PM_QOS System Bus rate requests are interpreted as 'Flow IDs' and
-	  are routed through the NPA framework.
+	  If Modem is not ready to handle Application Processor's request
+	  for idle power collapse, wait the number of microseconds in case
+	  Modem becomes ready soon.
 
 config MSM_PIL
 	bool "Peripheral image loading"
@@ -1157,6 +1148,10 @@ config MSM_PIL
 	  brought out of reset.
 
 	  Say yes to support these devices.
+
+config MSM_SCM
+	bool "Secure Channel Manager (SCM) support"
+	default n
 
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
@@ -1188,26 +1183,32 @@ config MSM_RPM_LOG
 config SMMU
 	bool "System MMU support"
 	depends on MMU
-	select VCM_MM
+	select IOMMU_API
 	select SMMU_8X60 if ARCH_MSM8X60
 	depends on ARCH_MSM8X60
 	default n
 	help
 	  This is the System MMU driver for 8x60.
 
-config SMMU_PGTABLES_L2
+config IOMMU_PGTABLES_L2
 	bool "Allow SMMU page tables in the L2 cache (Experimental)"
 	depends on SMMU=y
 	depends on MMU
 	depends on CPU_DCACHE_DISABLE=n
+	depends on SMP
 	default y
 	help
-	 Improves page fault latency at the expense of potential L2 pollution.
+	 Improves TLB miss latency at the expense of potential L2 pollution.
+	 However, with large multimedia buffers, the TLB should mostly contain
+	 section mappings and TLB misses should be quite infrequent.
 	 Most people can probably say Y here.
 
 config MSM_DIRECT_SCLK_ACCESS
 	bool "Direct access to the SCLK timer"
 	default n
+
+config IOMMU_API
+       bool
 
 config MSM_GPIOMUX
 	bool
@@ -1228,15 +1229,23 @@ config MSM_WATCHDOG
 		not run during the bootup process, so it will not catch any early
 		lockups.
 
-config MSM_WATCHDOG_DEBUG
-	bool "Enable download mode on Watchdog reset"
-	depends on MSM_WATCHDOG
+config MSM_DLOAD_MODE
+	bool "Enable download mode on crashes"
+	depends on ARCH_MSM8X60
+	default n
 	help
-		This makes the target enter download mode when it is reset by
-		the watchdog. Provides debugging support with watchdog enabled
+		This makes the SoC enter download mode when it resets
+		due to a kernel panic. Note that this doesn't by itself
+		make the kernel reboot on a kernel panic - that must be
+		enabled via another mechanism.
 
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"
 	depends on CPU_IDLE
 	default n
+
+config MSM_STANDALONE_POWER_COLLAPSE
+       bool "Enable standalone power collapse"
+       default n
+
 endif

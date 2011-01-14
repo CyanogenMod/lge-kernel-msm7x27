@@ -161,7 +161,7 @@ static void bind_functions(struct android_dev *dev)
 		if (f)
 			f->bind_config(dev->config);
 		else
-			printk(KERN_ERR "function %s not found in bind_functions\n", name);
+			pr_err("%s: function %s not found\n", __func__, name);
 	}
 
 	/*
@@ -171,11 +171,11 @@ static void bind_functions(struct android_dev *dev)
 	usb_ep_autoconfig_reset(dev->cdev->gadget);
 }
 
-static int __init android_bind_config(struct usb_configuration *c)
+static int __ref android_bind_config(struct usb_configuration *c)
 {
 	struct android_dev *dev = _android_dev;
 
-	printk(KERN_DEBUG "android_bind_config\n");
+	pr_debug("android_bind_config\n");
 	dev->config = c;
 
 	/* bind our functions if they have all registered */
@@ -254,13 +254,13 @@ static int get_product_id(struct android_dev *dev)
 	return dev->product_id;
 }
 
-static int __init android_bind(struct usb_composite_dev *cdev)
+static int __devinit android_bind(struct usb_composite_dev *cdev)
 {
 	struct android_dev *dev = _android_dev;
 	struct usb_gadget	*gadget = cdev->gadget;
 	int			gcnum, id, product_id, ret;
 
-	printk(KERN_INFO "android_bind\n");
+	pr_debug("android_bind\n");
 
 	/* Allocate string descriptor numbers ... note that string
 	 * contents can be overridden by the composite_dev glue.
@@ -295,7 +295,7 @@ static int __init android_bind(struct usb_composite_dev *cdev)
 	/* register our configuration */
 	ret = usb_add_config(cdev, &android_config_driver);
 	if (ret) {
-		printk(KERN_ERR "usb_add_config failed\n");
+		pr_err("%s: usb_add_config failed\n", __func__);
 		return ret;
 	}
 
@@ -336,7 +336,7 @@ void android_register_function(struct android_usb_function *f)
 {
 	struct android_dev *dev = _android_dev;
 
-	printk(KERN_INFO "android_register_function %s\n", f->name);
+	pr_debug("%s: %s\n", __func__, f->name);
 	list_add_tail(&f->list, &_functions);
 	_registered_function_count++;
 
@@ -592,7 +592,7 @@ static int __init android_probe(struct platform_device *pdev)
 	struct android_dev *dev = _android_dev;
 	int result;
 
-	printk(KERN_INFO "android_probe pdata: %p\n", pdata);
+	dev_dbg(&pdev->dev, "%s: pdata: %p\n", __func__, pdata);
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -632,7 +632,7 @@ static int __init android_probe(struct platform_device *pdev)
 #ifdef CONFIG_DEBUG_FS
 	result = android_debugfs_init(dev);
 	if (result)
-		pr_info("%s: android_debugfs_init failed\n", __func__);
+		pr_debug("%s: android_debugfs_init failed\n", __func__);
 #endif
 	return usb_composite_register(&android_usb_driver);
 }
@@ -656,14 +656,13 @@ static struct dev_pm_ops andr_dev_pm_ops = {
 
 static struct platform_driver android_platform_driver = {
 	.driver = { .name = "android_usb", .pm = &andr_dev_pm_ops},
-	.probe = android_probe,
 };
 
 static int __init init(void)
 {
 	struct android_dev *dev;
 
-	printk(KERN_INFO "android init\n");
+	pr_debug("android init\n");
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -673,7 +672,7 @@ static int __init init(void)
 	dev->product_id = PRODUCT_ID;
 	_android_dev = dev;
 
-	return platform_driver_register(&android_platform_driver);
+	return platform_driver_probe(&android_platform_driver, android_probe);
 }
 module_init(init);
 

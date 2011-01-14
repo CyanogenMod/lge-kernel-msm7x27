@@ -60,6 +60,15 @@
 
 #define MPP_IRQ_BLOCK			1
 
+/* FTS regulator PMR registers */
+#define SSBI_REG_ADDR_S1_PMR		(0xA7)
+#define SSBI_REG_ADDR_S2_PMR		(0xA8)
+#define SSBI_REG_ADDR_S3_PMR		(0xA9)
+#define SSBI_REG_ADDR_S4_PMR		(0xAA)
+
+#define REGULATOR_PMR_STATE_MASK	0x60
+#define REGULATOR_PMR_STATE_OFF		0x20
+
 struct pm8901_chip {
 	struct pm8901_platform_data	pdata;
 
@@ -205,6 +214,47 @@ bail_out:
 	return rc;
 }
 EXPORT_SYMBOL(pm8901_irq_get_rt_status);
+
+int pm8901_reset_pwr_off(int reset)
+{
+	int rc = 0, i;
+	u8 pmr;
+	u8 pmr_addr[4] = {
+		SSBI_REG_ADDR_S2_PMR,
+		SSBI_REG_ADDR_S3_PMR,
+		SSBI_REG_ADDR_S4_PMR,
+		SSBI_REG_ADDR_S1_PMR,
+	};
+
+	if (pmic_chip == NULL)
+		return -ENODEV;
+
+	/* Turn off regulators S1, S2, S3, S4 when shutting down. */
+	if (!reset) {
+		for (i = 0; i < 4; i++) {
+			rc = ssbi_read(pmic_chip->dev, pmr_addr[i], &pmr, 1);
+			if (rc) {
+				pr_err("%s: FAIL ssbi_read(0x%x): rc=%d\n",
+				       __func__, pmr_addr[i], rc);
+				goto get_out;
+			}
+
+			pmr &= ~REGULATOR_PMR_STATE_MASK;
+			pmr |= REGULATOR_PMR_STATE_OFF;
+
+			rc = ssbi_write(pmic_chip->dev, pmr_addr[i], &pmr, 1);
+			if (rc) {
+				pr_err("%s: FAIL ssbi_write(0x%x)=0x%x: rc=%d"
+				       "\n", __func__, pmr_addr[i], pmr, rc);
+				goto get_out;
+			}
+		}
+	}
+
+get_out:
+	return rc;
+}
+EXPORT_SYMBOL(pm8901_reset_pwr_off);
 
 /* Internal functions */
 static inline int

@@ -23,13 +23,11 @@
 
 #include "clock-pcom.h"
 
-/* Maximum number of clocks supported. */
-#define MAX_NR_CLKS	300
-
 #define CLKFLAG_INVERT			0x00000001
 #define CLKFLAG_NOINVERT		0x00000002
 #define CLKFLAG_NONEST			0x00000004
 #define CLKFLAG_NORESET			0x00000008
+#define CLKFLAG_VOTER			0x00000010
 
 #define CLK_FIRST_AVAILABLE_FLAG	0x00000100
 #define CLKFLAG_AUTO_OFF		0x00000200
@@ -39,8 +37,7 @@
 struct clk_ops {
 	int (*enable)(unsigned id);
 	void (*disable)(unsigned id);
-	int (*output_enable)(unsigned id);
-	void (*output_disable)(unsigned id);
+	void (*auto_off)(unsigned id);
 	int (*reset)(unsigned id, enum clk_reset_action action);
 	int (*set_rate)(unsigned id, unsigned rate);
 	int (*set_min_rate)(unsigned id, unsigned rate);
@@ -51,18 +48,20 @@ struct clk_ops {
 	int (*measure_rate)(unsigned id);
 	unsigned (*is_enabled)(unsigned id);
 	long (*round_rate)(unsigned id, unsigned rate);
+	int (*set_parent)(unsigned id, struct clk *parent);
 };
 
 struct clk {
 	uint32_t id;
 	uint32_t remote_id;
-	uint32_t count;
 	uint32_t flags;
 	const char *name;
 	struct clk_ops *ops;
 	const char *dbg_name;
 	struct list_head list;
 	struct device *dev;
+	struct hlist_head voters;
+	const char *aggregator;
 };
 
 #define A11S_CLK_CNTL_ADDR		(MSM_CSR_BASE + 0x100)
@@ -112,12 +111,18 @@ static inline void msm_clk_soc_init(void) { }
 static inline void msm_clk_soc_set_ops(struct clk *clk) { }
 #endif
 
-int msm_clock_require_tcxo(unsigned long *reason, int nbits);
-int msm_clock_get_name(uint32_t id, char *name, uint32_t size);
+static inline int msm_clock_require_tcxo(unsigned long *reason, int nbits)
+{
+	return 0;
+}
+
+static inline int msm_clock_get_name(uint32_t id, char *name, uint32_t size)
+{
+	return 0;
+}
+
 int ebi1_clk_set_min_rate(enum clkvote_client client, unsigned long rate);
 unsigned long clk_get_max_axi_khz(void);
-int clk_output_enable(struct clk *clk);
-void clk_output_disable(struct clk *clk);
 
 #endif
 

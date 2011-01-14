@@ -46,6 +46,11 @@ char *hw_platform[] = {
 	"SLVTE_SURF"
 };
 
+enum {
+	ACCESSORY_CHIP_UNKNOWN = 0,
+	ACCESSORY_CHIP_CHARM = 58,
+};
+
 /* Used to parse shared memory.  Must match the modem. */
 struct socinfo_v1 {
 	uint32_t format;
@@ -76,11 +81,19 @@ struct socinfo_v4 {
 	uint32_t platform_version;
 };
 
+struct socinfo_v5 {
+	struct socinfo_v4 v4;
+
+	/* only valid when format==5 */
+	uint32_t accessory_chip;
+};
+
 static union {
 	struct socinfo_v1 v1;
 	struct socinfo_v2 v2;
 	struct socinfo_v3 v3;
 	struct socinfo_v4 v4;
+	struct socinfo_v5 v5;
 } *socinfo;
 
 static enum msm_cpu cpu_of_id[] = {
@@ -191,6 +204,14 @@ uint32_t socinfo_get_platform_version(void)
 		(socinfo->v1.format >= 4 ? socinfo->v4.platform_version : 0)
 		: 0;
 }
+
+uint32_t socinfo_get_accessory_chip(void)
+{
+	return socinfo ?
+		(socinfo->v1.format >= 5 ? socinfo->v5.accessory_chip : 0)
+		: 0;
+}
+
 
 enum msm_cpu socinfo_get_msm_cpu(void)
 {
@@ -325,6 +346,24 @@ socinfo_show_platform_version(struct sys_device *dev,
 		socinfo_get_platform_version());
 }
 
+static ssize_t
+socinfo_show_accessory_chip(struct sys_device *dev,
+			struct sysdev_attribute *attr,
+			char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+	if (socinfo->v1.format < 5) {
+		pr_err("%s: accessory chip not available!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_accessory_chip());
+}
+
 static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
@@ -343,6 +382,11 @@ static struct sysdev_attribute socinfo_v3_files[] = {
 static struct sysdev_attribute socinfo_v4_files[] = {
 	_SYSDEV_ATTR(platform_version, 0444,
 			socinfo_show_platform_version, NULL),
+};
+
+static struct sysdev_attribute socinfo_v5_files[] = {
+	_SYSDEV_ATTR(accessory_chip, 0444,
+			socinfo_show_accessory_chip, NULL),
 };
 
 static struct sysdev_class soc_sysdev_class = {
@@ -404,11 +448,17 @@ static void __init socinfo_init_sysdev(void)
 	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
 				ARRAY_SIZE(socinfo_v4_files));
 
+	if (socinfo->v1.format < 5)
+		return;
+
+	socinfo_create_files(&soc_sys_device, socinfo_v5_files,
+				ARRAY_SIZE(socinfo_v5_files));
+
 }
 
 int __init socinfo_init(void)
 {
-	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v4));
+	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v5));
 	if (!socinfo)
 		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v3));
@@ -468,6 +518,17 @@ int __init socinfo_init(void)
 			SOCINFO_VERSION_MINOR(socinfo->v1.version),
 			socinfo->v2.raw_id, socinfo->v2.raw_version,
 			socinfo->v3.hw_platform, socinfo->v4.platform_version);
+		break;
+	case 5:
+		pr_info("%s: v%u, id=%u, ver=%u.%u, "
+			 "raw_id=%u, raw_ver=%u, hw_plat=%u,  hw_plat_ver=%u\n"
+			" accessory_chip=%u\n", __func__, socinfo->v1.format,
+			socinfo->v1.id,
+			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
+			SOCINFO_VERSION_MINOR(socinfo->v1.version),
+			socinfo->v2.raw_id, socinfo->v2.raw_version,
+			socinfo->v3.hw_platform, socinfo->v4.platform_version,
+			socinfo->v5.accessory_chip);
 		break;
 	default:
 		pr_err("%s: Unknown format found\n", __func__);

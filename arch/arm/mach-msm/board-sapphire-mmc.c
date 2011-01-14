@@ -35,10 +35,10 @@
 #include "board-sapphire.h"
 #include "proc_comm.h"
 
-#define DEBUG_SDSLOT_VDD 1
+#define DEBUG_SDSLOT_VDD 0
 
-extern int msm_add_sdcc(unsigned int controller,
-			struct mmc_platform_data *plat);
+extern int msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat,
+			unsigned int stat_irq, unsigned long stat_irq_flags);
 
 /* ---- COMMON ---- */
 static void config_gpio_table(uint32_t *table, int len)
@@ -54,21 +54,21 @@ static void config_gpio_table(uint32_t *table, int len)
 /* ---- SDCARD ---- */
 
 static uint32_t sdcard_on_gpio_table[] = {
-	PCOM_GPIO_CFG(62, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA), /* CLK */
-	PCOM_GPIO_CFG(63, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), /* CMD */
-	PCOM_GPIO_CFG(64, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), /* DAT3 */
-	PCOM_GPIO_CFG(65, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), /* DAT2 */
-	PCOM_GPIO_CFG(66, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* DAT1 */
-	PCOM_GPIO_CFG(67, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* DAT0 */
+	PCOM_GPIO_CFG(62, 2, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* CLK */
+	PCOM_GPIO_CFG(63, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* CMD */
+	PCOM_GPIO_CFG(64, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* DAT3 */
+	PCOM_GPIO_CFG(65, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* DAT2 */
+	PCOM_GPIO_CFG(66, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* DAT1 */
+	PCOM_GPIO_CFG(67, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* DAT0 */
 };
 
 static uint32_t sdcard_off_gpio_table[] = {
-	PCOM_GPIO_CFG(62, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* CLK */
-	PCOM_GPIO_CFG(63, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* CMD */
-	PCOM_GPIO_CFG(64, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT3 */
-	PCOM_GPIO_CFG(65, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT2 */
-	PCOM_GPIO_CFG(66, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT1 */
-	PCOM_GPIO_CFG(67, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT0 */
+	PCOM_GPIO_CFG(62, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* CLK */
+	PCOM_GPIO_CFG(63, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* CMD */
+	PCOM_GPIO_CFG(64, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT3 */
+	PCOM_GPIO_CFG(65, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT2 */
+	PCOM_GPIO_CFG(66, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT1 */
+	PCOM_GPIO_CFG(67, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT0 */
 };
 
 static uint opt_disable_sdcard;
@@ -176,7 +176,6 @@ static unsigned int sapphire_sdslot_status(struct device *dev)
 
 static struct mmc_platform_data sapphire_sdslot_data = {
 	.ocr_mask	= SAPPHIRE_MMC_VDD,
-	.status_irq	= SAPPHIRE_GPIO_TO_INT(SAPPHIRE_GPIO_SDMC_CD_N),
 	.status		= sapphire_sdslot_status,
 	.translate_vdd	= sapphire_sdslot_switchvdd,
 };
@@ -184,23 +183,23 @@ static struct mmc_platform_data sapphire_sdslot_data = {
 /* ---- WIFI ---- */
 
 static uint32_t wifi_on_gpio_table[] = {
-	PCOM_GPIO_CFG(51, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* DAT3 */
-	PCOM_GPIO_CFG(52, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* DAT2 */
-	PCOM_GPIO_CFG(53, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* DAT1 */
-	PCOM_GPIO_CFG(54, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA), /* DAT0 */
-	PCOM_GPIO_CFG(55, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA), /* CMD */
-	PCOM_GPIO_CFG(56, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA), /* CLK */
-	PCOM_GPIO_CFG(29, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA),  /* WLAN IRQ */
+	PCOM_GPIO_CFG(51, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* DAT3 */
+	PCOM_GPIO_CFG(52, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* DAT2 */
+	PCOM_GPIO_CFG(53, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* DAT1 */
+	PCOM_GPIO_CFG(54, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* DAT0 */
+	PCOM_GPIO_CFG(55, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* CMD */
+	PCOM_GPIO_CFG(56, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* CLK */
+	PCOM_GPIO_CFG(29, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_4MA),  /* WLAN IRQ */
 };
 
 static uint32_t wifi_off_gpio_table[] = {
-	PCOM_GPIO_CFG(51, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT3 */
-	PCOM_GPIO_CFG(52, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT2 */
-	PCOM_GPIO_CFG(53, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT1 */
-	PCOM_GPIO_CFG(54, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* DAT0 */
-	PCOM_GPIO_CFG(55, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* CMD */
-	PCOM_GPIO_CFG(56, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), /* CLK */
-	PCOM_GPIO_CFG(29, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA),  /* WLAN IRQ */
+	PCOM_GPIO_CFG(51, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT3 */
+	PCOM_GPIO_CFG(52, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT2 */
+	PCOM_GPIO_CFG(53, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT1 */
+	PCOM_GPIO_CFG(54, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* DAT0 */
+	PCOM_GPIO_CFG(55, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* CMD */
+	PCOM_GPIO_CFG(56, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA), /* CLK */
+	PCOM_GPIO_CFG(29, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA),  /* WLAN IRQ */
 };
 
 static struct vreg *vreg_wifi_osc;	/* WIFI 32khz oscilator */
@@ -262,8 +261,8 @@ int sapphire_wifi_set_carddetect(int val)
 EXPORT_SYMBOL(sapphire_wifi_set_carddetect);
 #endif
 
-static int sapphire_wifi_power_state;
-static int sapphire_bt_power_state;
+int sapphire_wifi_power_state=0;
+int sapphire_bt_power_state=0;
 
 int sapphire_wifi_power(int on)
 {
@@ -287,8 +286,15 @@ int sapphire_wifi_power(int on)
 	mdelay(100);
 	gpio_set_value(SAPPHIRE_GPIO_WIFI_EN, on);
 	mdelay(100);
-	if (!on)
+	if (!on) {
+		if(!sapphire_bt_power_state)
+		{
 		vreg_disable(vreg_wifi_osc);
+			printk("WiFi disable vreg_wifi_osc.\n");
+		}
+		else
+			printk("WiFi shouldn't disable vreg_wifi_osc. BT is using it!!\n");
+	}
 	sapphire_wifi_power_state = on;
 	return 0;
 }
@@ -358,10 +364,11 @@ int __init sapphire_init_mmc(unsigned int sys_rev)
 
 	set_irq_wake(SAPPHIRE_GPIO_TO_INT(SAPPHIRE_GPIO_SDMC_CD_N), 1);
 
-	msm_add_sdcc(1, &sapphire_wifi_data);
+	msm_add_sdcc(1, &sapphire_wifi_data, 0, 0);
 
 	if (!opt_disable_sdcard)
-		msm_add_sdcc(2, &sapphire_sdslot_data);
+		msm_add_sdcc(2, &sapphire_sdslot_data,
+			     SAPPHIRE_GPIO_TO_INT(SAPPHIRE_GPIO_SDMC_CD_N), 0);
 	else
 		printk(KERN_INFO "sapphire: SD-Card interface disabled\n");
 	return 0;

@@ -32,6 +32,8 @@
 #include <mach/usbdiag.h>
 #include <mach/rpc_hsusb.h>
 
+#include "clock-voter.h"
+
 static struct resource resources_uart1[] = {
 	{
 		.start	= INT_UART1,
@@ -348,6 +350,7 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 
 #ifdef CONFIG_USB_ANDROID
 struct usb_diag_platform_data usb_diag_pdata = {
+	.ch_name = DIAG_LEGACY,
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
 
@@ -873,6 +876,15 @@ struct clk msm_clocks_8x50[] = {
 	CLK_PCOM("usb_hs3_clk",	USB_HS3_CLK,	NULL, OFF),
 	CLK_PCOM("usb_hs3_pclk",	USB_HS3_P_CLK,	NULL, OFF),
 	CLK_PCOM("usb_phy_clk",	USB_PHY_CLK,	NULL, 0),
+
+	CLK_VOTER("ebi1_acpu_clk",	EBI_ACPU_CLK,	"ebi1_clk", NULL, 0),
+	CLK_VOTER("ebi1_kgsl_clk",	EBI_KGSL_CLK,	"ebi1_clk", NULL, 0),
+	CLK_VOTER("ebi1_lcdc_clk",	EBI_LCDC_CLK,	"ebi1_clk", NULL, 0),
+	CLK_VOTER("ebi1_mddi_clk",	EBI_MDDI_CLK,	"ebi1_clk", NULL, 0),
+	CLK_VOTER("ebi1_tv_clk",	EBI_TV_CLK,	"ebi1_clk", NULL, 0),
+	CLK_VOTER("ebi1_usb_clk",	EBI_USB_CLK,	"ebi1_clk", NULL, 0),
+	CLK_VOTER("ebi1_vfe_clk",	EBI_VFE_CLK,	"ebi1_clk", NULL, 0),
+	CLK_VOTER("ebi1_pm_qos_clk",	EBI_PM_QOS_CLK,	"ebi1_clk", NULL, 0),
 
 #ifdef CONFIG_MSM_SOC_REV_A
 	CLK_PCOM("grp_pclk",	GRP_3D_P_CLK,	NULL, 0),

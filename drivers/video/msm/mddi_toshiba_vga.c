@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,6 +116,7 @@ static int __init mddi_toshiba_vga_init(void)
 
 	pinfo.xres = 176;
 	pinfo.yres = 220;
+	MSM_FB_SINGLE_MODE_PANEL(&pinfo);
 	pinfo.type = MDDI_PANEL;
 	pinfo.pdest = DISPLAY_2;
 	pinfo.mddi.vdopkt = 0x400;

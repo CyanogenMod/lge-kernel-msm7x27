@@ -10,16 +10,6 @@
 #include <linux/linkage.h>
 #include <linux/init.h>
 
-/* Called very early during init. Only allowed to continue if we are the
- * primary CPU, otherwise go to the secondary startup waiting to be brought
- * out of reset.
- */
-ENTRY(__smp_secondary_spin)
-	mrc	p15, 0, r0, c0, c0, 5	@ MPIDR
-	ands	r0, r0, #15		@ What CPU am I
-	moveq	pc,lr			@ if 0 (aka primary), return
-	/* Fall through  */
-
 /*
  * MSM specific entry point for secondary CPUs.  This provides
  * a "holding pen" into which all secondary cores are held until we're

@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/workqueue.h>
@@ -58,7 +59,7 @@ do {									\
 		diag_hdlc_encode(&send, &enc);				\
 		driver->write_ptr_1->buf = driver->buf_in_1;		\
 		driver->write_ptr_1->length = buf_length + 4;		\
-		diag_write(driver->write_ptr_1);			\
+		usb_diag_write(driver->legacy_ch, driver->write_ptr_1);	\
 	}								\
 } while (0)
 #endif
@@ -163,7 +164,8 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			if (driver->write_ptr_svc) {
 				driver->write_ptr_svc->length = driver->used;
 				driver->write_ptr_svc->buf = buf;
-				err = diag_write(driver->write_ptr_svc);
+				err = usb_diag_write(driver->legacy_ch,
+						driver->write_ptr_svc);
 			} else
 				err = -1;
 		} else if (proc_num == MODEM_DATA) {
@@ -175,10 +177,10 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 					   " USB: ", 16, 1, DUMP_PREFIX_ADDRESS,
 					    buf, write_ptr->length, 1);
 #endif /* DIAG DEBUG */
-			err = diag_write(write_ptr);
+			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		} else if (proc_num == QDSP_DATA) {
 			write_ptr->buf = buf;
-			err = diag_write(write_ptr);
+			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		}
 		APPEND_DEBUG('k');
 	}
@@ -330,15 +332,39 @@ static void diag_update_event_mask(uint8_t *buf, int toggle, int num_bits)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-static void diag_update_log_mask(uint8_t *buf, int num_items)
+static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 {
-	uint8_t *ptr = driver->log_masks;
 	uint8_t *temp = buf;
+	struct mask_info {
+		int equip_id;
+		int index;
+	};
+	int i = 0;
+	unsigned char *ptr_data;
+	int offset = 8*MAX_EQUIP_ID;
+	struct mask_info *ptr = (struct mask_info *)driver->log_masks;
 
 	mutex_lock(&driver->diagchar_mutex);
-	if (CHK_OVERFLOW(ptr, ptr, ptr + LOG_MASK_SIZE,
-				  (num_items+7)/8))
-		memcpy(ptr, temp , (num_items+7)/8);
+	/* Check if we already know index of this equipment ID */
+	for (i = 0; i < MAX_EQUIP_ID; i++) {
+		if ((ptr->equip_id == equip_id) && (ptr->index != 0)) {
+			offset = ptr->index;
+			break;
+		}
+		if ((ptr->equip_id == 0) && (ptr->index == 0)) {
+			/*Reached a null entry */
+			ptr->equip_id = equip_id;
+			ptr->index = driver->log_masks_length;
+			offset = driver->log_masks_length;
+			driver->log_masks_length += ((num_items+7)/8);
+			break;
+		}
+		ptr++;
+	}
+	ptr_data = driver->log_masks + offset;
+	if (CHK_OVERFLOW(ptr_data, ptr_data, ptr_data + LOG_MASK_SIZE,
+							(num_items+7)/8))
+		memcpy(ptr_data, temp , (num_items+7)/8);
 	else
 		printk(KERN_CRIT " Not enough buffer space for LOG_MASK\n");
 	mutex_unlock(&driver->diagchar_mutex);
@@ -407,8 +433,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	else if (*buf == 0x73) {
 		buf += 4;
 		if (*(int *)buf == 3) {
-			buf += 8;
-			diag_update_log_mask(buf+4, *(int *)buf);
+			buf += 4;
+			/* Read Equip ID and pass as first param below*/
+			diag_update_log_mask(*(int *)buf, buf+8,
+							 *(int *)(buf+4));
 			diag_update_userspace_clients(LOG_MASKS_TYPE);
 		}
 	}
@@ -577,14 +605,17 @@ void diag_process_hdlc(void *data, unsigned len)
 }
 
 #ifdef CONFIG_DIAG_OVER_USB
+#define N_LEGACY_WRITE	(driver->poolsize + 5) /* 2+1 for modem ; 2 for q6 */
+#define N_LEGACY_READ	1
 int diagfwd_connect(void)
 {
 	int err;
 
 	printk(KERN_DEBUG "diag: USB connected\n");
-	err = diag_open(driver->poolsize + 3); /* 2 for A9 ; 1 for q6*/
+	err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
+			N_LEGACY_READ);
 	if (err)
-		printk(KERN_ERR "diag: USB port open failed");
+		printk(KERN_ERR "diag: unable to allocate USB requests");
 	driver->usb_connected = 1;
 	driver->in_busy_1 = 0;
 	driver->in_busy_2 = 0;
@@ -598,7 +629,7 @@ int diagfwd_connect(void)
 	driver->usb_read_ptr->buf = driver->usb_buf_out;
 	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
 	APPEND_DEBUG('a');
-	diag_read(driver->usb_read_ptr);
+	usb_diag_read(driver->legacy_ch, driver->usb_read_ptr);
 	APPEND_DEBUG('b');
 	return 0;
 }
@@ -612,7 +643,7 @@ int diagfwd_disconnect(void)
 	driver->in_busy_qdsp_1 = 1;
 	driver->in_busy_qdsp_2 = 1;
 	driver->debug_flag = 1;
-	diag_close();
+	usb_diag_free_req(driver->legacy_ch);
 	/* TBD - notify and flow control SMD */
 	return 0;
 }
@@ -650,6 +681,7 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 {
 	int len = diag_read_ptr->actual;
+	int status = diag_read_ptr->status;
 
 	APPEND_DEBUG('c');
 #ifdef DIAG_DEBUG
@@ -660,28 +692,55 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 		       diag_read_ptr->actual, 1);
 #endif /* DIAG DEBUG */
 	driver->read_len = len;
-	if (driver->logging_mode == USB_MODE)
-		queue_work(driver->diag_wq , &(driver->diag_read_work));
+	if (driver->logging_mode == USB_MODE) {
+		if (status != -ECONNRESET && status != -ESHUTDOWN)
+			queue_work(driver->diag_wq,
+					&(driver->diag_proc_hdlc_work));
+		else
+			queue_work(driver->diag_wq, &(driver->diag_read_work));
+	}
 	return 0;
 }
-
-static struct diag_operations diagfwdops = {
-	.diag_connect = diagfwd_connect,
-	.diag_disconnect = diagfwd_disconnect,
-	.diag_char_write_complete = diagfwd_write_complete,
-	.diag_char_read_complete = diagfwd_read_complete
-};
 
 void diag_read_work_fn(struct work_struct *work)
 {
 	APPEND_DEBUG('d');
-	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
 	driver->usb_read_ptr->buf = driver->usb_buf_out;
 	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
+	usb_diag_read(driver->legacy_ch, driver->usb_read_ptr);
 	APPEND_DEBUG('e');
-	diag_read(driver->usb_read_ptr);
-	APPEND_DEBUG('f');
 }
+
+void diag_process_hdlc_fn(struct work_struct *work)
+{
+	APPEND_DEBUG('D');
+	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
+	diag_read_work_fn(work);
+	APPEND_DEBUG('E');
+}
+
+static void diag_usb_legacy_notifier(void *priv, unsigned event,
+			struct diag_request *d_req)
+{
+	switch (event) {
+	case USB_DIAG_CONNECT:
+		diagfwd_connect();
+		break;
+	case USB_DIAG_DISCONNECT:
+		diagfwd_disconnect();
+		break;
+	case USB_DIAG_READ_DONE:
+		diagfwd_read_complete(d_req);
+		break;
+	case USB_DIAG_WRITE_DONE:
+		diagfwd_write_complete(d_req);
+		break;
+	default:
+		printk(KERN_ERR "Unknown event from USB diag\n");
+		break;
+	}
+}
+
 #endif /* DIAG OVER USB */
 
 static void diag_smd_notify(void *ctxt, unsigned event)
@@ -775,6 +834,7 @@ void diagfwd_init(void)
 	if (driver->log_masks == NULL &&
 	    (driver->log_masks = kzalloc(LOG_MASK_SIZE, GFP_KERNEL)) == NULL)
 		goto err;
+	driver->log_masks_length = 8*MAX_EQUIP_ID;
 	if (driver->event_masks == NULL &&
 	    (driver->event_masks = kzalloc(EVENT_MASK_SIZE,
 					    GFP_KERNEL)) == NULL)
@@ -835,8 +895,14 @@ void diagfwd_init(void)
 #endif
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 #ifdef CONFIG_DIAG_OVER_USB
+	INIT_WORK(&(driver->diag_proc_hdlc_work), diag_process_hdlc_fn);
 	INIT_WORK(&(driver->diag_read_work), diag_read_work_fn);
-	diag_usb_register(&diagfwdops);
+	driver->legacy_ch = usb_diag_open(DIAG_LEGACY, driver,
+			diag_usb_legacy_notifier);
+	if (IS_ERR(driver->legacy_ch)) {
+		printk(KERN_ERR "Unable to open USB diag legacy channel\n");
+		goto err;
+	}
 #endif
 
 	platform_driver_register(&msm_smd_ch1_driver);
@@ -866,6 +932,8 @@ err:
 #ifdef CONFIG_DIAG_NO_MODEM
 		kfree(driver->apps_rsp_buf);
 #endif
+		if (driver->diag_wq)
+			destroy_workqueue(driver->diag_wq);
 }
 
 void diagfwd_exit(void)
@@ -876,11 +944,11 @@ void diagfwd_exit(void)
 	driver->chqdsp = 0;
 #ifdef CONFIG_DIAG_OVER_USB
 	if (driver->usb_connected)
-		diag_close();
+		usb_diag_free_req(driver->legacy_ch);
 #endif
 	platform_driver_unregister(&msm_smd_ch1_driver);
 #ifdef CONFIG_DIAG_OVER_USB
-	diag_usb_unregister();
+	usb_diag_close(driver->legacy_ch);
 #endif
 
 	kfree(driver->buf_in_1);
@@ -903,6 +971,7 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_qdsp_2);
 	kfree(driver->usb_read_ptr);
 #ifdef CONFIG_DIAG_NO_MODEM
-		kfree(driver->apps_rsp_buf);
+	kfree(driver->apps_rsp_buf);
 #endif
+	destroy_workqueue(driver->diag_wq);
 }

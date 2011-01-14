@@ -140,6 +140,8 @@ enum {
 #define SMSM_MODEM_WAIT        0x02000000
 #define SMSM_MODEM_BREAK       0x04000000
 #define SMSM_MODEM_CONTINUE    0x08000000
+#define SMSM_SYSTEM_REBOOT_USR 0x20000000
+#define SMSM_SYSTEM_PWRDWN_USR 0x40000000
 #define SMSM_UNKNOWN           0x80000000
 
 #define SMSM_WKUP_REASON_RPC	0x00000001
@@ -313,7 +315,7 @@ struct smd_half_channel {
 	unsigned char fHEAD;
 	unsigned char fTAIL;
 	unsigned char fSTATE;
-	unsigned char fUNUSED;
+	unsigned char fBLOCKREADINTR;
 	unsigned tail;
 	unsigned head;
 };

@@ -30,14 +30,19 @@
 #include <mach/board_lge.h>
 
 static struct bluetooth_platform_data *bt_platform_data = 0;
+static bool previous;
+
 #else /* origin */
+
 static int bluetooth_toggle_radio(void *data, bool blocked)
 {
-	int ret;
+	int ret = 0;
 	int (*power_control)(int enable);
 
 	power_control = data;
-	ret = (*power_control)(!blocked);
+	if (previous != blocked)
+		ret = (*power_control)(!blocked);
+	previous = blocked;
 	return ret;
 }
 #endif 
@@ -70,6 +75,7 @@ static int bluetooth_power_rfkill_probe(struct platform_device *pdev)
 
 	/* force Bluetooth off during init to allow for user control */
 	rfkill_init_sw_state(rfkill, 1);
+	previous = 1;
 
 	ret = rfkill_register(rfkill);
 	if (ret) {
@@ -96,7 +102,7 @@ static void bluetooth_power_rfkill_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 }
 
-static int __init bt_power_probe(struct platform_device *pdev)
+static int __devinit bt_power_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 

@@ -171,18 +171,29 @@ static int msm_volume_put(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 	int session_id = ucontrol->value.integer.value[0];
 	int volume = ucontrol->value.integer.value[1];
-	u32 session_mask = 0;
+	int factor = ucontrol->value.integer.value[2];
+	u64 session_mask = 0;
 
-	if ((volume < 0) || (volume > 100))
+	if (factor > 10000)
+		return -EINVAL;
+
+	if ((volume < 0) || (volume/factor > 100))
 		return -EINVAL;
 
 	volume = (MSM_VOLUME_STEP * volume);
+
+	/* Convert back to original decimal point by removing the 10-base factor
+	* and discard the fractional portion
+	*/
+
+	volume = volume/factor;
 
 	if (volume > MSM_MAX_VOLUME)
 		volume = MSM_MAX_VOLUME;
 
 	/* Only Decoder volume control supported */
-	session_mask = (0x1 << (session_id) << (8 * ((int)AUDDEV_CLNT_DEC-1)));
+	session_mask = (((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+				((int)AUDDEV_CLNT_DEC-1));
 	msm_vol_ctl.volume = volume;
 	MM_DBG("session_id %d, volume %d", session_id, volume);
 	broadcast_event(AUDDEV_EVT_STREAM_VOL_CHG, DEVICE_IGNORE,
@@ -211,7 +222,7 @@ static int msm_voice_put(struct snd_kcontrol *kcontrol,
 	struct msm_snddev_info *rx_dev_info;
 	struct msm_snddev_info *tx_dev_info;
 	int set = ucontrol->value.integer.value[2];
-	u32 session_mask;
+	u64 session_mask;
 
 	if (!set)
 		return -EPERM;
@@ -236,7 +247,8 @@ static int msm_voice_put(struct snd_kcontrol *kcontrol,
 	msm_set_voc_route(rx_dev_info, AUDIO_ROUTE_STREAM_VOICE_RX,
 				rx_dev_id);
 
-	session_mask =	0x1 << (8 * ((int)AUDDEV_CLNT_VOC-1));
+	session_mask =	((u64)0x1) << (MAX_BIT_PER_CLIENT * \
+				((int)AUDDEV_CLNT_VOC-1));
 
 	broadcast_event(AUDDEV_EVT_DEV_CHG_VOICE, rx_dev_id, session_mask);
 
@@ -416,7 +428,7 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 	struct msm_snddev_info *dev_info;
 	int session_id = ucontrol->value.integer.value[0];
 	int set = ucontrol->value.integer.value[2];
-	u32 session_mask = 0;
+	u64 session_mask = 0;
 	route_cfg.dev_id = ucontrol->value.integer.value[1];
 
 	if (ucontrol->id.numid == 2)
@@ -437,7 +449,8 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 		rc = msm_snddev_set_dec(session_id, dev_info->copp_id, set,
 				dev_info->sample_rate, dev_info->channel_mode);
 		session_mask =
-			(0x1 << (session_id) << (8 * ((int)AUDDEV_CLNT_DEC-1)));
+			(((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+				((int)AUDDEV_CLNT_DEC-1));
 		if (!set) {
 			if (dev_info->opened)
 				broadcast_event(AUDDEV_EVT_DEV_RLS,
@@ -456,7 +469,8 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 		rc = msm_snddev_set_enc(session_id, dev_info->copp_id, set,
 				dev_info->sample_rate, dev_info->channel_mode);
 		session_mask =
-			(0x1 << (session_id)) << (8 * ((int)AUDDEV_CLNT_ENC-1));
+			(((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
+			((int)AUDDEV_CLNT_ENC-1));
 		if (!set) {
 			if (dev_info->opened)
 				broadcast_event(AUDDEV_EVT_DEV_RLS,
@@ -557,6 +571,30 @@ static int msm_device_volume_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+static int msm_reset_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0;
+	return 0;
+}
+
+static int msm_reset_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_reset_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	pr_err("%s:Resetting all devices\n", __func__);
+	return msm_reset_all_device();
+}
+
 
 static struct snd_kcontrol_new snd_dev_controls[AUDIO_DEV_CTL_MAX_DEV];
 
@@ -612,6 +650,8 @@ static struct snd_kcontrol_new snd_msm_controls[] = {
 						msm_v_call_put, 0),
 	MSM_EXT("Device_Volume", 9, msm_device_volume_info,
 			msm_device_volume_get, msm_device_volume_put, 0),
+	MSM_EXT("Reset", 10, msm_reset_info,
+			msm_reset_get, msm_reset_put, 0),
 };
 
 static int msm_new_mixer(struct snd_card *card)
@@ -663,7 +703,7 @@ static struct snd_soc_dai_link msm_dai = {
 };
 
 struct snd_soc_card snd_soc_card_msm = {
-	.name 		= "msm-audio",
+	.name = "msm-audio",
 	.dai_link	= &msm_dai,
 	.num_links = 1,
 	.platform = &msm_soc_platform,
@@ -691,12 +731,6 @@ static int __init msm_audio_init(void)
 		platform_device_put(msm_audio_snd_device);
 		return ret;
 	}
-	mutex_init(&the_locks.lock);
-	mutex_init(&the_locks.write_lock);
-	mutex_init(&the_locks.read_lock);
-	spin_lock_init(&the_locks.read_dsp_lock);
-	spin_lock_init(&the_locks.write_dsp_lock);
-	spin_lock_init(&the_locks.mixer_lock);
 	init_waitqueue_head(&the_locks.enable_wait);
 	init_waitqueue_head(&the_locks.eos_wait);
 	init_waitqueue_head(&the_locks.write_wait);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -41,7 +41,7 @@
 #define INT_AVS_SVIC_SW_DONE	6
 #define INT_SC_DBG_RX_FULL	7
 #define INT_SC_DBG_TX_EMPTY	8
-#define INT_ARM11_PM		9
+#define INT_ARMQC_PERFMON	9
 #define INT_AVS_REQ_DOWN	10
 #define INT_AVS_REQ_UP		11
 #define INT_SC_ACG		12
@@ -161,5 +161,7 @@
 #define PMIC8058_IRQ_BASE	(NR_MSM_IRQS + NR_GPIO_IRQS)
 #define NR_PMIC8058_IRQS	256
 #define NR_BOARD_IRQS		NR_PMIC8058_IRQS
+
+#define INT_ADSP_A11_SMSM	INT_ADSP_A11
 
 #endif /* __ASM_ARCH_MSM_IRQS_7X30_H */

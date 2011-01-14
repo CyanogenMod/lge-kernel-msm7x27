@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@
 #include <linux/leds-pmic8058.h>
 #include <linux/input/cy8c_ts.h>
 #include <linux/msm_adc.h>
+#include <linux/dma-mapping.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -86,6 +87,7 @@
 #include <mach/msm_reqs.h>
 #include <mach/qdsp5v2/mi2s.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
+#include <mach/sdio_al.h>
 #include "smd_private.h"
 
 #define MSM_PMEM_SF_SIZE	0x1700000
@@ -99,8 +101,11 @@
 #define PMIC_GPIO_INT		27
 #define PMIC_VREG_WLAN_LEVEL	2900
 #define PMIC_GPIO_SD_DET	36
-#define PMIC_GPIO_SDC4_EN	17  /* PMIC GPIO Number 18 */
-#define PMIC_GPIO_HDMI_5V_EN	39  /* PMIC GPIO Number 40 */
+#define PMIC_GPIO_SDC4_EN_N	17  /* PMIC GPIO Number 18 */
+#define PMIC_GPIO_HDMI_5V_EN_V3 32  /* PMIC GPIO for V3 H/W */
+#define PMIC_GPIO_HDMI_5V_EN_V2 39 /* PMIC GPIO for V2 H/W */
+
+
 
 #define FPGA_SDCC_STATUS       0x8E0001A8
 
@@ -124,6 +129,8 @@
 static int pm8058_gpios_init(void)
 {
 	int rc;
+	int pmic_gpio_hdmi_5v_en;
+
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	struct pm8058_gpio sdcc_det = {
 		.direction      = PM_GPIO_DIR_IN,
@@ -135,10 +142,12 @@ static int pm8058_gpios_init(void)
 #endif
 	struct pm8058_gpio sdc4_en = {
 		.direction      = PM_GPIO_DIR_OUT,
-		.pull           = PM_GPIO_PULL_UP_1P5,
-		.vin_sel        = 2,
+		.pull           = PM_GPIO_PULL_NO,
+		.vin_sel        = PM_GPIO_VIN_L5,
 		.function       = PM_GPIO_FUNC_NORMAL,
 		.inv_int_pol    = 0,
+		.out_strength   = PM_GPIO_STRENGTH_LOW,
+		.output_value   = 0,
 	};
 
 	struct pm8058_gpio haptics_enable = {
@@ -157,6 +166,8 @@ static int pm8058_gpios_init(void)
 		.pull           = PM_GPIO_PULL_NO,
 		.vin_sel        = PM_GPIO_VIN_VPH,
 		.function       = PM_GPIO_FUNC_NORMAL,
+		.out_strength   = PM_GPIO_STRENGTH_LOW,
+		.output_value   = 0,
 	};
 
 	struct pm8058_gpio flash_boost_enable = {
@@ -168,6 +179,13 @@ static int pm8058_gpios_init(void)
 		.out_strength   = PM_GPIO_STRENGTH_HIGH,
 		.function       = PM_GPIO_FUNC_2,
 	};
+
+
+	if (machine_is_msm8x55_svlte_surf() || machine_is_msm8x55_svlte_ffa() ||
+						machine_is_msm7x30_fluid())
+		pmic_gpio_hdmi_5v_en = PMIC_GPIO_HDMI_5V_EN_V2 ;
+	else
+		pmic_gpio_hdmi_5v_en = PMIC_GPIO_HDMI_5V_EN_V3 ;
 
 	if (machine_is_msm7x30_fluid()) {
 		rc = pm8058_gpio_config(PMIC_GPIO_HAP_ENABLE, &haptics_enable);
@@ -196,28 +214,28 @@ static int pm8058_gpios_init(void)
 	}
 #endif
 
-	rc = pm8058_gpio_config(PMIC_GPIO_HDMI_5V_EN, &hdmi_5V_en);
+	rc = pm8058_gpio_config(pmic_gpio_hdmi_5v_en, &hdmi_5V_en);
 	if (rc) {
 		pr_err("%s PMIC_GPIO_HDMI_5V_EN config failed\n", __func__);
 		return rc;
 	}
-	rc = gpio_request(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HDMI_5V_EN),
-		"hdmi_5V_en");
-	if (rc) {
-		pr_err("%s PMIC_GPIO_HDMI_5V_EN gpio_request failed\n",
-			__func__);
-		return rc;
-	}
 
 	if (machine_is_msm7x30_fluid()) {
-		rc = pm8058_gpio_config(PMIC_GPIO_SDC4_EN, &sdc4_en);
+		rc = pm8058_gpio_config(PMIC_GPIO_SDC4_EN_N, &sdc4_en);
 		if (rc) {
-			pr_err("%s PMIC_GPIO_SDC4_EN config failed\n",
+			pr_err("%s PMIC_GPIO_SDC4_EN_N config failed\n",
 								 __func__);
 			return rc;
 		}
+		rc = gpio_request(PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N),
+				  "sdc4_en");
+		if (rc) {
+			pr_err("%s PMIC_GPIO_SDC4_EN_N gpio_request failed\n",
+				__func__);
+			return rc;
+		}
 		gpio_set_value_cansleep(
-			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN), 1);
+			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_SDC4_EN_N), 0);
 	}
 
 	return 0;
@@ -228,9 +246,10 @@ static ssize_t tma300_vkeys_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":80:904:160:210"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":240:904:160:210"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":400:904:160:210"
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":50:842:80:100"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":170:842:80:100"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":290:842:80:100"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":410:842:80:100"
 	"\n");
 }
 
@@ -347,8 +366,12 @@ static int cyttsp_platform_resume(struct i2c_client *client)
 }
 
 static struct cyttsp_platform_data cyttsp_data = {
-	.maxx = 479,
-	.maxy = 799,
+	.panel_maxx = 479,
+	.panel_maxy = 799,
+	.disp_maxx = 469,
+	.disp_maxy = 799,
+	.disp_minx = 10,
+	.disp_miny = 0,
 	.flags = 0,
 	.gen = CY_GEN3,	/* or */
 	.use_st = CY_USE_ST,
@@ -820,6 +843,11 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 		I2C_BOARD_INFO("vx6953", 0x20),
 	},
 #endif
+#ifdef CONFIG_MT9E013
+	{
+		I2C_BOARD_INFO("mt9e013", 0x6C >> 2),
+	},
+#endif
 #ifdef CONFIG_SN12M0PZ
 	{
 		I2C_BOARD_INFO("sn12m0pz", 0x34 >> 1),
@@ -1068,6 +1096,34 @@ static struct platform_device msm_camera_sensor_mt9p012 = {
 	},
 };
 #endif
+
+#ifdef CONFIG_MT9E013
+static struct msm_camera_sensor_flash_data flash_mt9e013 = {
+	.flash_type = MSM_CAMERA_FLASH_LED,
+	.flash_src  = &msm_flash_src_pwm
+};
+
+static struct msm_camera_sensor_info msm_camera_sensor_mt9e013_data = {
+	.sensor_name    = "mt9e013",
+	.sensor_reset   = 0,
+	.sensor_pwd     = 85,
+	.vcm_pwd        = 1,
+	.vcm_enable     = 1,
+	.pdata          = &msm_camera_device_data,
+	.resource       = msm_camera_resources,
+	.num_resources  = ARRAY_SIZE(msm_camera_resources),
+	.flash_data     = &flash_mt9e013,
+	.csi_if         = 1
+};
+
+static struct platform_device msm_camera_sensor_mt9e013 = {
+	.name      = "msm_camera_mt9e013",
+	.dev       = {
+		.platform_data = &msm_camera_sensor_mt9e013_data,
+	},
+};
+#endif
+
 #ifdef CONFIG_VX6953
 static struct msm_camera_sensor_flash_data flash_vx6953 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
@@ -1493,6 +1549,7 @@ static int __init buses_init(void)
 
 static struct vreg *vreg_marimba_1;
 static struct vreg *vreg_marimba_2;
+static struct vreg *vreg_marimba_3;
 
 static struct msm_gpio timpani_reset_gpio_cfg[] = {
 { GPIO_CFG(TIMPANI_RESET_GPIO, 0, GPIO_CFG_OUTPUT,
@@ -1578,6 +1635,54 @@ static void msm_timpani_shutdown_power(void)
 				   ARRAY_SIZE(timpani_reset_gpio_cfg));
 };
 
+static unsigned int msm_bahama_setup_power(void)
+{
+	int rc;
+
+	rc = vreg_enable(vreg_marimba_3);
+	if (rc) {
+		printk(KERN_ERR "%s: vreg_enable() = %d\n",
+				__func__, rc);
+	}
+
+	return rc;
+};
+
+static unsigned int msm_bahama_shutdown_power(int value)
+{
+	int rc = 0;
+
+	if (value != BAHAMA_ID) {
+		rc = vreg_disable(vreg_marimba_3);
+		if (rc) {
+			printk(KERN_ERR "%s: return val: %d\n",
+					__func__, rc);
+		}
+	}
+
+	return rc;
+};
+
+static struct msm_gpio marimba_svlte_config_clock[] = {
+	{ GPIO_CFG(34, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		"MARIMBA_SVLTE_CLOCK_ENABLE" },
+};
+
+static unsigned int msm_marimba_gpio_config_svlte(int gpio_cfg_marimba)
+{
+	if (machine_is_msm8x55_svlte_surf() ||
+		machine_is_msm8x55_svlte_ffa()) {
+		if (gpio_cfg_marimba)
+			gpio_set_value(GPIO_PIN
+				(marimba_svlte_config_clock->gpio_cfg), 1);
+		else
+			gpio_set_value(GPIO_PIN
+				(marimba_svlte_config_clock->gpio_cfg), 0);
+	}
+
+	return 0;
+};
+
 static unsigned int msm_marimba_setup_power(void)
 {
 	int rc;
@@ -1593,6 +1698,26 @@ static unsigned int msm_marimba_setup_power(void)
 		printk(KERN_ERR "%s: vreg_enable() = %d \n",
 					__func__, rc);
 		goto out;
+	}
+
+	if (machine_is_msm8x55_svlte_surf() || machine_is_msm8x55_svlte_ffa()) {
+		rc = msm_gpios_request_enable(marimba_svlte_config_clock,
+				ARRAY_SIZE(marimba_svlte_config_clock));
+		if (rc < 0) {
+			printk(KERN_ERR
+				"%s: msm_gpios_request_enable failed (%d)\n",
+					__func__, rc);
+			return rc;
+		}
+
+		rc = gpio_direction_output(GPIO_PIN
+			(marimba_svlte_config_clock->gpio_cfg), 0);
+		if (rc < 0) {
+			printk(KERN_ERR
+				"%s: gpio_direction_output failed (%d)\n",
+					__func__, rc);
+			return rc;
+		}
 	}
 
 out:
@@ -1615,29 +1740,61 @@ static void msm_marimba_shutdown_power(void)
 	}
 };
 
+static int bahama_present(void)
+{
+	int id;
+	switch (id = adie_get_detected_connectivity_type()) {
+	case BAHAMA_ID:
+		return 1;
+
+	case MARIMBA_ID:
+		return 0;
+
+	case TIMPANI_ID:
+	default:
+	printk(KERN_ERR "%s: unexpected adie connectivity type: %d\n",
+			__func__, id);
+	return -ENODEV;
+	}
+}
+
+struct vreg *fm_regulator;
 static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 {
 	int rc;
 	uint32_t irqcfg;
 	const char *id = "FMPW";
 
-	pdata->vreg_s2 = vreg_get(NULL, "s2");
-	if (IS_ERR(pdata->vreg_s2)) {
+	int bahama_not_marimba = bahama_present();
+
+	if (bahama_not_marimba == -1) {
+		printk(KERN_WARNING "%s: bahama_present: %d\n",
+				__func__, bahama_not_marimba);
+		return -ENODEV;
+	}
+	if (bahama_not_marimba)
+		fm_regulator = vreg_get(NULL, "s3");
+	else
+		fm_regulator = vreg_get(NULL, "s2");
+
+	if (IS_ERR(fm_regulator)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
-			__func__, PTR_ERR(pdata->vreg_s2));
+			__func__, PTR_ERR(fm_regulator));
 		return -1;
 	}
+	if (!bahama_not_marimba) {
 
-	rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 1300);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: voltage level vote failed (%d)\n",
-			__func__, rc);
-		return rc;
+		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 1300);
+
+		if (rc < 0) {
+			printk(KERN_ERR "%s: voltage level vote failed (%d)\n",
+				__func__, rc);
+			return rc;
+		}
 	}
-
-	rc = vreg_enable(pdata->vreg_s2);
+	rc = vreg_enable(fm_regulator);
 	if (rc) {
-		printk(KERN_ERR "%s: vreg_enable() = %d \n",
+		printk(KERN_ERR "%s: vreg_enable() = %d\n",
 					__func__, rc);
 		return rc;
 	}
@@ -1664,7 +1821,7 @@ fm_gpio_config_fail:
 	pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
 				  PMAPP_CLOCK_VOTE_OFF);
 fm_clock_vote_fail:
-	vreg_disable(pdata->vreg_s2);
+	vreg_disable(fm_regulator);
 	return rc;
 
 };
@@ -1675,25 +1832,40 @@ static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
 	const char *id = "FMPW";
 	uint32_t irqcfg = GPIO_CFG(147, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
 					GPIO_CFG_2MA);
+
+	int bahama_not_marimba = bahama_present();
+	if (bahama_not_marimba == -1) {
+		printk(KERN_WARNING "%s: bahama_present: %d\n",
+			__func__, bahama_not_marimba);
+		return;
+	}
+
 	rc = gpio_tlmm_config(irqcfg, GPIO_CFG_ENABLE);
 	if (rc) {
 		printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
 				__func__, irqcfg, rc);
 	}
-	rc = vreg_disable(pdata->vreg_s2);
-	if (rc) {
-		printk(KERN_ERR "%s: return val: %d \n",
+	if (fm_regulator != NULL) {
+		rc = vreg_disable(fm_regulator);
+
+		if (rc) {
+			printk(KERN_ERR "%s: return val: %d\n",
 					__func__, rc);
+		}
+		fm_regulator = NULL;
 	}
 	rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
 					  PMAPP_CLOCK_VOTE_OFF);
 	if (rc < 0)
-		printk(KERN_ERR "%s: clock_vote return val: %d \n",
+		printk(KERN_ERR "%s: clock_vote return val: %d\n",
 						__func__, rc);
-	rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
-	if (rc < 0)
-		printk(KERN_ERR "%s: vreg level vote return val: %d \n",
+	if (!bahama_not_marimba)	{
+		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
+
+		if (rc < 0)
+			printk(KERN_ERR "%s: vreg level vote return val: %d\n",
 						__func__, rc);
+	}
 }
 
 static struct marimba_fm_platform_data marimba_fm_pdata = {
@@ -1713,6 +1885,9 @@ static struct marimba_fm_platform_data marimba_fm_pdata = {
 #define MARIMBA_SLAVE_ID_CDC_ADDR	0x77
 #define MARIMBA_SLAVE_ID_QMEMBIST_ADDR	0X66
 
+#define BAHAMA_SLAVE_ID_FM_ADDR         0x2A
+#define BAHAMA_SLAVE_ID_QMEMBIST_ADDR   0x7B
+
 static const char *tsadc_id = "MADC";
 static const char *vregs_tsadc_name[] = {
 	"gp12",
@@ -1720,33 +1895,79 @@ static const char *vregs_tsadc_name[] = {
 };
 static struct vreg *vregs_tsadc[ARRAY_SIZE(vregs_tsadc_name)];
 
+static const char *vregs_timpani_tsadc_name[] = {
+	"s3",
+	"gp12",
+	"gp16"
+};
+static struct vreg *vregs_timpani_tsadc[ARRAY_SIZE(vregs_timpani_tsadc_name)];
+
 static int marimba_tsadc_power(int vreg_on)
 {
 	int i, rc = 0;
+	int tsadc_adie_type = adie_get_detected_codec_type();
 
-	for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
-		if (!vregs_tsadc[i]) {
-			printk(KERN_ERR "%s: vreg_get %s failed (%d)\n",
-				__func__, vregs_tsadc_name[i], rc);
-			goto vreg_fail;
-		}
+	if (tsadc_adie_type == TIMPANI_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_timpani_tsadc_name); i++) {
+			if (!vregs_timpani_tsadc[i]) {
+				pr_err("%s: vreg_get %s failed(%d)\n",
+				__func__, vregs_timpani_tsadc_name[i], rc);
+				goto vreg_fail;
+			}
 
-		rc = vreg_on ? vreg_enable(vregs_tsadc[i]) :
-			  vreg_disable(vregs_tsadc[i]);
-		if (rc < 0) {
-			printk(KERN_ERR "%s: vreg %s %s failed (%d)\n",
-				__func__, vregs_tsadc_name[i],
-			       vreg_on ? "enable" : "disable", rc);
-			goto vreg_fail;
+			rc = vreg_on ? vreg_enable(vregs_timpani_tsadc[i]) :
+				  vreg_disable(vregs_timpani_tsadc[i]);
+			if (rc < 0) {
+				pr_err("%s: vreg %s %s failed(%d)\n",
+					__func__, vregs_timpani_tsadc_name[i],
+				       vreg_on ? "enable" : "disable", rc);
+				goto vreg_fail;
+			}
 		}
-	}
-	/* vote for D0 buffer */
-	rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_DO,
-		vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
-	if (rc)	{
-		printk(KERN_ERR "%s: unable to %svote for d0 clk\n",
-			__func__, vreg_on ? "" : "de-");
-		goto do_vote_fail;
+		/* Vote for D0 and D1 buffer */
+		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_D1,
+			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
+		if (rc)	{
+			pr_err("%s: unable to %svote for d1 clk\n",
+				__func__, vreg_on ? "" : "de-");
+			goto do_vote_fail;
+		}
+		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_DO,
+			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
+		if (rc)	{
+			pr_err("%s: unable to %svote for d1 clk\n",
+				__func__, vreg_on ? "" : "de-");
+			goto do_vote_fail;
+		}
+	} else if (tsadc_adie_type == MARIMBA_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
+			if (!vregs_tsadc[i]) {
+				pr_err("%s: vreg_get %s failed (%d)\n",
+					__func__, vregs_tsadc_name[i], rc);
+				goto vreg_fail;
+			}
+
+			rc = vreg_on ? vreg_enable(vregs_tsadc[i]) :
+				  vreg_disable(vregs_tsadc[i]);
+			if (rc < 0) {
+				pr_err("%s: vreg %s %s failed (%d)\n",
+					__func__, vregs_tsadc_name[i],
+				       vreg_on ? "enable" : "disable", rc);
+				goto vreg_fail;
+			}
+		}
+		/* If marimba vote for DO buffer */
+		rc = pmapp_clock_vote(tsadc_id, PMAPP_CLOCK_ID_DO,
+			vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
+		if (rc)	{
+			pr_err("%s: unable to %svote for d0 clk\n",
+				__func__, vreg_on ? "" : "de-");
+			goto do_vote_fail;
+		}
+	} else {
+		pr_err("%s:Adie %d not supported\n",
+				__func__, tsadc_adie_type);
+		return -ENODEV;
 	}
 
 	msleep(5); /* ensure power is stable */
@@ -1755,21 +1976,34 @@ static int marimba_tsadc_power(int vreg_on)
 
 do_vote_fail:
 vreg_fail:
-	while (i)
-		vreg_disable(vregs_tsadc[--i]);
+	while (i) {
+		if (vreg_on) {
+			if (tsadc_adie_type == TIMPANI_ID)
+				vreg_disable(vregs_timpani_tsadc[--i]);
+			else if (tsadc_adie_type == MARIMBA_ID)
+				vreg_disable(vregs_tsadc[--i]);
+		} else {
+			if (tsadc_adie_type == TIMPANI_ID)
+				vreg_enable(vregs_timpani_tsadc[--i]);
+			else if (tsadc_adie_type == MARIMBA_ID)
+				vreg_enable(vregs_tsadc[--i]);
+		}
+	}
+
 	return rc;
 }
 
 static int marimba_tsadc_vote(int vote_on)
 {
-	int rc, level;
+	int rc = 0;
 
-	level = vote_on ? 1300 : 0;
-
-	rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, level);
-	if (rc < 0)
-		printk(KERN_ERR "%s: vreg level %s failed (%d)\n",
+	if (adie_get_detected_codec_type() == MARIMBA_ID) {
+		int level = vote_on ? 1300 : 0;
+		rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, level);
+		if (rc < 0)
+			pr_err("%s: vreg level %s failed (%d)\n",
 			__func__, vote_on ? "on" : "off", rc);
+	}
 
 	return rc;
 }
@@ -1777,39 +2011,73 @@ static int marimba_tsadc_vote(int vote_on)
 static int marimba_tsadc_init(void)
 {
 	int i, rc = 0;
+	int tsadc_adie_type = adie_get_detected_codec_type();
 
-	for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
-		vregs_tsadc[i] = vreg_get(NULL, vregs_tsadc_name[i]);
-		if (IS_ERR(vregs_tsadc[i])) {
-			printk(KERN_ERR "%s: vreg get %s failed (%ld)\n",
-			       __func__, vregs_tsadc_name[i],
-			       PTR_ERR(vregs_tsadc[i]));
-			rc = PTR_ERR(vregs_tsadc[i]);
-			goto vreg_get_fail;
+	if (tsadc_adie_type == TIMPANI_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_timpani_tsadc_name); i++) {
+			vregs_timpani_tsadc[i] = vreg_get(NULL,
+						vregs_timpani_tsadc_name[i]);
+			if (IS_ERR(vregs_timpani_tsadc[i])) {
+				pr_err("%s: vreg get %s failed (%ld)\n",
+				       __func__, vregs_timpani_tsadc_name[i],
+				       PTR_ERR(vregs_timpani_tsadc[i]));
+				rc = PTR_ERR(vregs_timpani_tsadc[i]);
+				goto vreg_get_fail;
+			}
 		}
+	} else if (tsadc_adie_type == MARIMBA_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
+			vregs_tsadc[i] = vreg_get(NULL, vregs_tsadc_name[i]);
+			if (IS_ERR(vregs_tsadc[i])) {
+				pr_err("%s: vreg get %s failed (%ld)\n",
+				       __func__, vregs_tsadc_name[i],
+				       PTR_ERR(vregs_tsadc[i]));
+				rc = PTR_ERR(vregs_tsadc[i]);
+				goto vreg_get_fail;
+			}
+		}
+	} else {
+		pr_err("%s:Adie %d not supported\n",
+				__func__, tsadc_adie_type);
+		return -ENODEV;
 	}
 
-	return rc;
+	return 0;
 
 vreg_get_fail:
-	while (i)
-		vreg_put(vregs_tsadc[--i]);
+	while (i) {
+		if (tsadc_adie_type == TIMPANI_ID)
+			vreg_put(vregs_timpani_tsadc[--i]);
+		else if (tsadc_adie_type == MARIMBA_ID)
+			vreg_put(vregs_tsadc[--i]);
+	}
 	return rc;
 }
 
 static int marimba_tsadc_exit(void)
 {
-	int i, rc;
+	int i, rc = 0;
+	int tsadc_adie_type = adie_get_detected_codec_type();
 
-	for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
-		if (vregs_tsadc[i])
-			vreg_put(vregs_tsadc[i]);
+	if (tsadc_adie_type == TIMPANI_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_timpani_tsadc_name); i++) {
+			if (vregs_tsadc[i])
+				vreg_put(vregs_timpani_tsadc[i]);
+		}
+	} else if (tsadc_adie_type == MARIMBA_ID) {
+		for (i = 0; i < ARRAY_SIZE(vregs_tsadc_name); i++) {
+			if (vregs_tsadc[i])
+				vreg_put(vregs_tsadc[i]);
+		}
+		rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, 0);
+		if (rc < 0)
+			pr_err("%s: vreg level off failed (%d)\n",
+						__func__, rc);
+	} else {
+		pr_err("%s:Adie %d not supported\n",
+				__func__, tsadc_adie_type);
+		rc = -ENODEV;
 	}
-
-	rc = pmapp_vreg_level_vote(tsadc_id, PMAPP_VREG_S2, 0);
-	if (rc < 0)
-		printk(KERN_ERR "%s: vreg level off failed (%d)\n",
-			__func__, rc);
 
 	return rc;
 }
@@ -1896,20 +2164,28 @@ static struct marimba_platform_data marimba_pdata = {
 	.slave_id[MARIMBA_SLAVE_ID_FM]       = MARIMBA_SLAVE_ID_FM_ADDR,
 	.slave_id[MARIMBA_SLAVE_ID_CDC]	     = MARIMBA_SLAVE_ID_CDC_ADDR,
 	.slave_id[MARIMBA_SLAVE_ID_QMEMBIST] = MARIMBA_SLAVE_ID_QMEMBIST_ADDR,
+	.slave_id[SLAVE_ID_BAHAMA_FM]        = BAHAMA_SLAVE_ID_FM_ADDR,
+	.slave_id[SLAVE_ID_BAHAMA_QMEMBIST]  = BAHAMA_SLAVE_ID_QMEMBIST_ADDR,
 	.marimba_setup = msm_marimba_setup_power,
 	.marimba_shutdown = msm_marimba_shutdown_power,
+	.bahama_setup = msm_bahama_setup_power,
+	.bahama_shutdown = msm_bahama_shutdown_power,
+	.marimba_gpio_config = msm_marimba_gpio_config_svlte,
 	.fm = &marimba_fm_pdata,
 	.codec = &mariba_codec_pdata,
 };
 
 static void __init msm7x30_init_marimba(void)
 {
+	int rc;
+
 	vreg_marimba_1 = vreg_get(NULL, "s3");
 	if (IS_ERR(vreg_marimba_1)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
 			__func__, PTR_ERR(vreg_marimba_1));
 		return;
 	}
+	rc = vreg_set_level(vreg_marimba_1, 1800);
 
 	vreg_marimba_2 = vreg_get(NULL, "gp16");
 	if (IS_ERR(vreg_marimba_1)) {
@@ -1917,6 +2193,15 @@ static void __init msm7x30_init_marimba(void)
 			__func__, PTR_ERR(vreg_marimba_1));
 		return;
 	}
+	rc = vreg_set_level(vreg_marimba_2, 1200);
+
+	vreg_marimba_3 = vreg_get(NULL, "usb2");
+	if (IS_ERR(vreg_marimba_3)) {
+		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
+			__func__, PTR_ERR(vreg_marimba_3));
+		return;
+	}
+	rc = vreg_set_level(vreg_marimba_3, 1800);
 }
 
 static struct marimba_codec_platform_data timpani_codec_pdata = {
@@ -2772,8 +3057,13 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].residency = 23740,
 
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE].supported = 1,
+#ifdef CONFIG_MSM_STANDALONE_POWER_COLLAPSE
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE].suspend_enabled = 0,
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE].idle_enabled = 1,
+#else /*CONFIG_MSM_STANDALONE_POWER_COLLAPSE*/
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE].suspend_enabled = 0,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE].idle_enabled = 0,
+#endif /*CONFIG_MSM_STANDALONE_POWER_COLLAPSE*/
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE].latency = 500,
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE].residency = 6000,
 
@@ -2954,8 +3244,9 @@ static void msm_hsusb_vbus_power(unsigned phy_info, int on)
                         pr_err("%s PMIC GPIO 36 write failed\n", __func__);
                         return;
                 }
-        } else
-                gpio_set_value(PM8058_GPIO_PM_TO_SYS(36), 0);
+	} else {
+		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(36), 0);
+	}
 
         vbus_is_on = on;
 }
@@ -2981,11 +3272,22 @@ static int hsusb_rpc_connect(int connect)
 static struct vreg *vreg_3p3;
 static int msm_hsusb_ldo_init(int init)
 {
+	uint32_t version = 0;
+	int def_vol = 3400;
+
+	version = socinfo_get_version();
+
+	if (SOCINFO_VERSION_MAJOR(version) >= 2 &&
+			SOCINFO_VERSION_MINOR(version) >= 1) {
+		def_vol = 3075;
+		pr_debug("%s: default voltage:%d\n", __func__, def_vol);
+	}
+
 	if (init) {
 		vreg_3p3 = vreg_get(NULL, "usb");
 		if (IS_ERR(vreg_3p3))
 			return PTR_ERR(vreg_3p3);
-		vreg_set_level(vreg_3p3, 3400);
+		vreg_set_level(vreg_3p3, def_vol);
 	} else
 		vreg_put(vreg_3p3);
 
@@ -3035,7 +3337,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.rpc_connect	= hsusb_rpc_connect,
 
 #ifndef CONFIG_USB_EHCI_MSM
-	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+	.pmic_vbus_notif_init         = msm_hsusb_pmic_notif_init,
 #else
 	.vbus_power = msm_hsusb_vbus_power,
 #endif
@@ -3083,9 +3385,9 @@ static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
 			return -ENODEV;
 		}
 
-		ret = request_irq(vbus_on_irq, pmic_vbus_on_irq,
+		ret = request_any_context_irq(vbus_on_irq, pmic_vbus_on_irq,
 			IRQF_TRIGGER_RISING, "msm_otg_vbus_on", NULL);
-		if (ret) {
+		if (ret < 0) {
 			pr_info("%s: request_irq for vbus_on"
 				"interrupt failed\n", __func__);
 			return ret;
@@ -3261,9 +3563,31 @@ static int hdmi_init_irq(void)
 
 static int hdmi_enable_5v(int on)
 {
+	int pmic_gpio_hdmi_5v_en ;
+
+	if (machine_is_msm8x55_svlte_surf() || machine_is_msm8x55_svlte_ffa() ||
+						machine_is_msm7x30_fluid())
+		pmic_gpio_hdmi_5v_en = PMIC_GPIO_HDMI_5V_EN_V2 ;
+	else
+		pmic_gpio_hdmi_5v_en = PMIC_GPIO_HDMI_5V_EN_V3 ;
+
 	pr_info("%s: %d\n", __func__, on);
-	gpio_set_value_cansleep(
-		PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HDMI_5V_EN), on);
+	if (on) {
+		int rc;
+		rc = gpio_request(PM8058_GPIO_PM_TO_SYS(pmic_gpio_hdmi_5v_en),
+			"hdmi_5V_en");
+		if (rc) {
+			pr_err("%s PMIC_GPIO_HDMI_5V_EN gpio_request failed\n",
+				__func__);
+			return rc;
+		}
+		gpio_set_value_cansleep(
+			PM8058_GPIO_PM_TO_SYS(pmic_gpio_hdmi_5v_en), 1);
+	} else {
+		gpio_set_value_cansleep(
+			PM8058_GPIO_PM_TO_SYS(pmic_gpio_hdmi_5v_en), 0);
+		gpio_free(PM8058_GPIO_PM_TO_SYS(pmic_gpio_hdmi_5v_en));
+	}
 	return 0;
 }
 
@@ -3454,18 +3778,30 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.max_grp2d_freq = 0,
 	.min_grp2d_freq = 0,
 	.set_grp2d_async = NULL, /* HW workaround, run Z180 SYNC @ 192 MHZ */
-	.max_grp3d_freq = 245 * 1000*1000,
+	.max_grp3d_freq = 245760000,
 	.min_grp3d_freq = 192 * 1000*1000,
 	.set_grp3d_async = set_grp3d_async,
 	.imem_clk_name = "imem_clk",
 	.grp3d_clk_name = "grp_clk",
+	.grp3d_pclk_name = "grp_pclk",
 #ifdef CONFIG_MSM_KGSL_2D
 	.grp2d0_clk_name = "grp_2d_clk",
+	.grp2d0_pclk_name = "grp_2d_pclk",
 #else
 	.grp2d0_clk_name = NULL,
 #endif
 	.idle_timeout_3d = HZ/20,
 	.idle_timeout_2d = HZ/10,
+
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	.pt_va_size = SZ_32M,
+	/* Maximum of 32 concurrent processes */
+	.pt_max_count = 32,
+#else
+	.pt_va_size = SZ_128M,
+	/* We only ever have one pagetable for everybody */
+	.pt_max_count = 1,
+#endif
 };
 
 static struct resource kgsl_resources[] = {
@@ -3511,6 +3847,81 @@ static struct platform_device msm_device_kgsl = {
 	},
 };
 
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+
+#define QCE_SIZE		0x10000
+#define QCE_0_BASE		0xA8400000
+
+#define ADM_CHANNEL_CE_0_IN	DMOV_CE_CHAN_IN
+#define ADM_CHANNEL_CE_0_OUT	DMOV_CE_CHAN_OUT
+
+#define ADM_CRCI_0_IN		DMOV_CE_CRCI_IN
+#define ADM_CRCI_0_OUT		DMOV_CE_CRCI_OUT
+#define ADM_CRCI_0_HASH		DMOV_CE_CRCI_HASH
+
+static struct resource qce_resources[] = {
+	[0] = {
+		.start = QCE_0_BASE,
+		.end = QCE_0_BASE + QCE_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name = "crypto_channels",
+		.start = ADM_CHANNEL_CE_0_IN,
+		.end = ADM_CHANNEL_CE_0_OUT,
+		.flags = IORESOURCE_DMA,
+	},
+	[2] = {
+		.name = "crypto_crci_in",
+		.start = ADM_CRCI_0_IN,
+		.end = ADM_CRCI_0_IN,
+		.flags = IORESOURCE_DMA,
+	},
+	[3] = {
+		.name = "crypto_crci_out",
+		.start = ADM_CRCI_0_OUT,
+		.end = ADM_CRCI_0_OUT,
+		.flags = IORESOURCE_DMA,
+	},
+	[4] = {
+		.name = "crypto_crci_hash",
+		.start = ADM_CRCI_0_HASH,
+		.end = ADM_CRCI_0_HASH,
+		.flags = IORESOURCE_DMA,
+	},
+};
+
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+static struct platform_device qcrypto_device = {
+	.name		= "qcrypto",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(qce_resources),
+	.resource	= qce_resources,
+	.dev		= {
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+};
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+static struct platform_device qcedev_device = {
+	.name		= "qce",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(qce_resources),
+	.resource	= qce_resources,
+	.dev		= {
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+};
+#endif
+
 static int mddi_toshiba_pmic_bl(int level)
 {
 	int ret = -EPERM;
@@ -3541,6 +3952,8 @@ static unsigned wega_reset_gpio =
 static struct msm_gpio fluid_vee_reset_gpio[] = {
 	{ GPIO_CFG(20, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), "vee_reset" },
 };
+
+static unsigned char quickvx_mddi_client = 1;
 
 static unsigned quickvx_vlp_gpio =
 	GPIO_CFG(97, 0, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL,	GPIO_CFG_2MA);
@@ -3579,27 +3992,31 @@ static int display_common_power(int on)
 		/* bring reset line low to hold reset*/
 		gpio_set_value(180, 0);
 
-		/* QuickVX chip -- VLP pin -- gpio 97 */
-		rc = gpio_tlmm_config(quickvx_vlp_gpio, GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
-				__func__, quickvx_vlp_gpio, rc);
-			return rc;
+		if (quickvx_mddi_client) {
+			/* QuickVX chip -- VLP pin -- gpio 97 */
+			rc = gpio_tlmm_config(quickvx_vlp_gpio,
+				GPIO_CFG_ENABLE);
+			if (rc) {
+				pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
+					__func__, quickvx_vlp_gpio, rc);
+				return rc;
+			}
+
+			/* bring QuickVX VLP line low */
+			gpio_set_value(97, 0);
+
+			rc = pm8058_gpio_config(PMIC_GPIO_QUICKVX_CLK,
+				&pmic_quickvx_clk_gpio);
+			if (rc) {
+				pr_err("%s: pm8058_gpio_config(%#x)=%d\n",
+					__func__, PMIC_GPIO_QUICKVX_CLK + 1,
+					rc);
+				return rc;
+			}
+
+			gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+				PMIC_GPIO_QUICKVX_CLK), 0);
 		}
-
-		/* bring QuickVX VLP line low */
-		gpio_set_value(97, 0);
-
-		rc = pm8058_gpio_config(PMIC_GPIO_QUICKVX_CLK,
-			&pmic_quickvx_clk_gpio);
-		if (rc) {
-			pr_err("%s: pm8058_gpio_config(%#x)=%d\n",
-				__func__, PMIC_GPIO_QUICKVX_CLK + 1, rc);
-			return rc;
-		}
-
-		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
-			PMIC_GPIO_QUICKVX_CLK), 0);
 	}
 
 	/* Toshiba WeGA power -- has 3 power source */
@@ -3658,7 +4075,10 @@ static int display_common_power(int on)
 
 	/* For QuickLogic chip, LDO20 requires 1.8V */
 	/* Toshiba chip requires 1.5V, but can tolerate 1.8V since max is 3V */
-	rc = vreg_set_level(vreg_ldo20, 1800);
+	if (quickvx_mddi_client)
+		rc = vreg_set_level(vreg_ldo20, 1800);
+	else
+		rc = vreg_set_level(vreg_ldo20, 1500);
 	if (rc) {
 		pr_err("%s: vreg LDO20 set level failed (%d)\n",
 		       __func__, rc);
@@ -3752,11 +4172,15 @@ static int display_common_power(int on)
 
 		gpio_set_value(180, 1); /* bring reset line high */
 		mdelay(10);	/* 10 msec before IO can be accessed */
-		gpio_set_value(97, 1);
-		msleep(2);
-		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
-			PMIC_GPIO_QUICKVX_CLK), 1);
-		msleep(2);
+
+		if (quickvx_mddi_client) {
+			gpio_set_value(97, 1);
+			msleep(2);
+			gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+				PMIC_GPIO_QUICKVX_CLK), 1);
+			msleep(2);
+		}
+
 		rc = pmapp_display_clock_config(1);
 		if (rc) {
 			pr_err("%s pmapp_display_clock_config rc=%d\n",
@@ -3781,9 +4205,12 @@ static int display_common_power(int on)
 		}
 
 		gpio_set_value(180, 0); /* bring reset line low */
-		gpio_set_value(97, 0);
-		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
-			PMIC_GPIO_QUICKVX_CLK), 0);
+
+		if (quickvx_mddi_client) {
+			gpio_set_value(97, 0);
+			gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+				PMIC_GPIO_QUICKVX_CLK), 0);
+		}
 
 		if (machine_is_msm7x30_fluid()) {
 			rc = vreg_disable(vreg_ldo8);
@@ -3832,14 +4259,59 @@ static int msm_fb_mddi_sel_clk(u32 *clk_rate)
 	return 0;
 }
 
+static int msm_fb_mddi_client_power(u32 client_id)
+{
+	struct vreg *vreg_ldo20;
+	int rc;
+
+	printk(KERN_NOTICE "\n client_id = 0x%x", client_id);
+	/* Check if it is Quicklogic client */
+	if (client_id == 0xc5835800)
+		printk(KERN_NOTICE "\n Quicklogic MDDI client");
+	else {
+		printk(KERN_NOTICE "\n Non-Quicklogic MDDI client");
+		quickvx_mddi_client = 0;
+		gpio_set_value(97, 0);
+		gpio_set_value_cansleep(PM8058_GPIO_PM_TO_SYS(
+			PMIC_GPIO_QUICKVX_CLK), 0);
+
+		vreg_ldo20 = vreg_get(NULL, "gp13");
+
+		if (IS_ERR(vreg_ldo20)) {
+			rc = PTR_ERR(vreg_ldo20);
+			pr_err("%s: gp13 vreg get failed (%d)\n",
+				   __func__, rc);
+			return rc;
+		}
+		rc = vreg_set_level(vreg_ldo20, 1500);
+		if (rc) {
+			pr_err("%s: vreg LDO20 set level failed (%d)\n",
+			       __func__, rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 static struct mddi_platform_data mddi_pdata = {
 	.mddi_power_save = display_common_power,
 	.mddi_sel_clk = msm_fb_mddi_sel_clk,
+	.mddi_client_power = msm_fb_mddi_client_power,
+};
+
+int mdp_core_clk_rate_table[] = {
+	122880000,
+	122880000,
+	122880000,
+	192000000,
 };
 
 static struct msm_panel_common_pdata mdp_pdata = {
+	.hw_revision_addr = 0xac001270,
 	.gpio = 30,
 	.mdp_core_clk_rate = 122880000,
+	.mdp_core_clk_table = mdp_core_clk_rate_table,
+	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 };
 
 static int lcd_panel_spi_gpio_num[] = {
@@ -3987,6 +4459,7 @@ static int lcdc_panel_power(int on)
 		return 0;
 
 	lcdc_power_save_on = flag_on;
+	quickvx_mddi_client = 0;
 
 	if (machine_is_msm7x30_fluid())
 		return lcdc_sharp_panel_power(on);
@@ -4111,11 +4584,6 @@ static struct msm_gpio bt_config_power_off[] = {
 		"UART1DM_Rx" },
 	{ GPIO_CFG(137, 0, GPIO_CFG_INPUT,  GPIO_CFG_PULL_DOWN,   GPIO_CFG_2MA),
 		"UART1DM_Tx" }
-};
-
-static struct msm_gpio bt_config_clock[] = {
-	{ GPIO_CFG(34, 0, GPIO_CFG_OUTPUT,  GPIO_CFG_NO_PULL,    GPIO_CFG_2MA),
-		"BT_REF_CLOCK_ENABLE" },
 };
 
 static int marimba_bt(int on)
@@ -4246,23 +4714,177 @@ static int marimba_bt(int on)
 	return 0;
 }
 
-static const char *vregs_bt_name[] = {
+static int bahama_bt(int on)
+{
+	int rc;
+	int i;
+	struct marimba config = { .mod_id = SLAVE_ID_BAHAMA };
+
+	struct bahama_config_register {
+		u8 reg;
+		u8 value;
+		u8 mask;
+	};
+
+	struct bahama_variant_register {
+		const size_t size;
+		const struct bahama_config_register *set;
+	};
+
+	const struct bahama_config_register *p;
+
+	u8 version;
+
+	const struct bahama_config_register v10_bt_on[] = {
+		{ 0xE9, 0x00, 0xFF },
+		{ 0xF4, 0x80, 0xFF },
+		{ 0xF0, 0x06, 0xFF },
+		{ 0xE4, 0x00, 0xFF },
+		{ 0xE5, 0x00, 0x0F },
+#ifdef CONFIG_WLAN
+		{ 0xE6, 0x38, 0x7F },
+		{ 0xE7, 0x06, 0xFF },
+#endif
+		{ 0x11, 0x13, 0xFF },
+		{ 0xE9, 0x21, 0xFF },
+		{ 0x01, 0x0C, 0x1F },
+		{ 0x01, 0x08, 0x1F },
+	};
+
+	const struct bahama_config_register v20_bt_on[] = {
+		{ 0x11, 0x0C, 0xFF },
+		{ 0x13, 0x01, 0xFF },
+		{ 0xF4, 0x80, 0xFF },
+		{ 0xF0, 0x00, 0xFF },
+		{ 0xE9, 0x00, 0xFF },
+#ifdef CONFIG_WLAN
+		{ 0x81, 0x00, 0xFF },
+		{ 0x82, 0x00, 0xFF },
+		{ 0xE6, 0x38, 0x7F },
+		{ 0xE7, 0x06, 0xFF },
+#endif
+		{ 0xE9, 0x21, 0xFF }
+	};
+
+	const struct bahama_config_register v10_bt_off[] = {
+		{ 0xE9, 0x00, 0xFF },
+	};
+
+	const struct bahama_config_register v20_bt_off[] = {
+		{ 0xE9, 0x00, 0xFF },
+	};
+
+	const struct bahama_variant_register bt_bahama[2][2] = {
+		{
+			{ ARRAY_SIZE(v10_bt_off), v10_bt_off },
+			{ ARRAY_SIZE(v20_bt_off), v20_bt_off }
+		},
+		{
+			{ ARRAY_SIZE(v10_bt_on), v10_bt_on },
+			{ ARRAY_SIZE(v20_bt_on), v20_bt_on }
+		}
+	};
+
+	on = on ? 1 : 0;
+
+	rc = marimba_read_bit_mask(&config, 0x00,  &version, 1, 0x1F);
+	if (rc < 0) {
+		dev_err(&msm_bt_power_device.dev,
+			"%s: version read failed: %d\n",
+			__func__, rc);
+		return rc;
+	} else {
+		dev_info(&msm_bt_power_device.dev,
+			"%s: version read got: 0x%x\n",
+			__func__, version);
+	}
+
+	switch (version) {
+	case 0x08: /* varients of bahama v1 */
+	case 0x10:
+	case 0x00:
+		version = 0x00;
+		break;
+	case 0x09: /* variant of bahama v2 */
+		version = 0x01;
+		break;
+	default:
+		version = 0xFF;
+	}
+
+	if ((version >= ARRAY_SIZE(bt_bahama[on])) ||
+	    (bt_bahama[on][version].size == 0)) {
+		dev_err(&msm_bt_power_device.dev,
+			"%s: unsupported version\n",
+			__func__);
+		return -EIO;
+	}
+
+	p = bt_bahama[on][version].set;
+
+	dev_info(&msm_bt_power_device.dev,
+		"%s: found version %d\n", __func__, version);
+
+	for (i = 0; i < bt_bahama[on][version].size; i++) {
+		u8 value = (p+i)->value;
+		rc = marimba_write_bit_mask(&config,
+			(p+i)->reg,
+			&value,
+			sizeof((p+i)->value),
+			(p+i)->mask);
+		if (rc < 0) {
+			dev_err(&msm_bt_power_device.dev,
+				"%s: reg %d write failed: %d\n",
+				__func__, (p+i)->reg, rc);
+			return rc;
+		}
+		dev_info(&msm_bt_power_device.dev,
+			"%s: reg 0x%02x write value 0x%02x mask 0x%02x\n",
+				__func__, (p+i)->reg,
+				value, (p+i)->mask);
+	}
+	return 0;
+}
+
+static const char *vregs_bt_marimba_name[] = {
+	"s3",
+	"s2",
 	"gp16",
+	"wlan"
+};
+static struct vreg *vregs_bt_marimba[ARRAY_SIZE(vregs_bt_marimba_name)];
+
+static const char *vregs_bt_bahama_name[] = {
+	"s3",
+	"usb2",
 	"s2",
 	"wlan"
 };
-static struct vreg *vregs_bt[ARRAY_SIZE(vregs_bt_name)];
+static struct vreg *vregs_bt_bahama[ARRAY_SIZE(vregs_bt_bahama_name)];
 
-static int bluetooth_power_regulators(int on)
+static int bluetooth_power_regulators(int on, int bahama_not_marimba)
 {
 	int i, rc;
+	const char **vregs_name;
+	struct vreg **vregs;
+	int vregs_size;
 
-	for (i = 0; i < ARRAY_SIZE(vregs_bt_name); i++) {
-		rc = on ? vreg_enable(vregs_bt[i]) :
-			  vreg_disable(vregs_bt[i]);
+	if (bahama_not_marimba) {
+		vregs_name = vregs_bt_bahama_name;
+		vregs = vregs_bt_bahama;
+		vregs_size = ARRAY_SIZE(vregs_bt_bahama_name);
+	} else {
+		vregs_name = vregs_bt_marimba_name;
+		vregs = vregs_bt_marimba;
+		vregs_size = ARRAY_SIZE(vregs_bt_marimba_name);
+	}
+
+	for (i = 0; i < vregs_size; i++) {
+		rc = on ? vreg_enable(vregs[i]) :
+			  vreg_disable(vregs[i]);
 		if (rc < 0) {
 			printk(KERN_ERR "%s: vreg %s %s failed (%d)\n",
-				__func__, vregs_bt_name[i],
+				__func__, vregs_name[i],
 			       on ? "enable" : "disable", rc);
 			return -EIO;
 		}
@@ -4275,6 +4897,14 @@ static int bluetooth_power(int on)
 	int rc;
 	const char *id = "BTPW";
 
+	int bahama_not_marimba = bahama_present();
+
+	if (bahama_not_marimba == -1) {
+		printk(KERN_WARNING "%s: bahama_present: %d\n",
+				__func__, bahama_not_marimba);
+		return -ENODEV;
+	}
+
 	if (on) {
 		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 1300);
 		if (rc < 0) {
@@ -4283,7 +4913,7 @@ static int bluetooth_power(int on)
 			return rc;
 		}
 
-		rc = bluetooth_power_regulators(on);
+		rc = bluetooth_power_regulators(on, bahama_not_marimba);
 		if (rc < 0)
 			return -EIO;
 
@@ -4293,13 +4923,17 @@ static int bluetooth_power(int on)
 			return -EIO;
 
 		if (machine_is_msm8x55_svlte_surf() ||
-				machine_is_msm8x55_svlte_ffa())
-			gpio_set_value(
-				GPIO_PIN(bt_config_clock->gpio_cfg), 1);
+				machine_is_msm8x55_svlte_ffa()) {
+					rc = marimba_gpio_config(1);
+					if (rc < 0)
+						return -EIO;
+		}
 
-		rc = marimba_bt(on);
+		rc = (bahama_not_marimba ? bahama_bt(on) : marimba_bt(on));
 		if (rc < 0)
 			return -EIO;
+
+		msleep(10);
 
 		rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
 					  PMAPP_CLOCK_VOTE_PIN_CTRL);
@@ -4307,9 +4941,11 @@ static int bluetooth_power(int on)
 			return -EIO;
 
 		if (machine_is_msm8x55_svlte_surf() ||
-				machine_is_msm8x55_svlte_ffa())
-			gpio_set_value(
-				GPIO_PIN(bt_config_clock->gpio_cfg), 0);
+				machine_is_msm8x55_svlte_ffa()) {
+					rc = marimba_gpio_config(0);
+					if (rc < 0)
+						return -EIO;
+		}
 
 		rc = msm_gpios_enable(bt_config_power_on,
 			ARRAY_SIZE(bt_config_power_on));
@@ -4327,7 +4963,7 @@ static int bluetooth_power(int on)
 		if (platform_get_drvdata(&msm_bt_power_device) == NULL)
 			goto out;
 
-		rc = marimba_bt(on);
+		rc = (bahama_not_marimba ? bahama_bt(on) : marimba_bt(on));
 		if (rc < 0)
 			return -EIO;
 
@@ -4336,7 +4972,7 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			return -EIO;
 
-		rc = bluetooth_power_regulators(on);
+		rc = bluetooth_power_regulators(on, bahama_not_marimba);
 		if (rc < 0)
 			return -EIO;
 
@@ -4355,40 +4991,29 @@ out:
 
 static void __init bt_power_init(void)
 {
-	int i, rc;
+	int i;
 
-	for (i = 0; i < ARRAY_SIZE(vregs_bt_name); i++) {
-		vregs_bt[i] = vreg_get(NULL, vregs_bt_name[i]);
-		if (IS_ERR(vregs_bt[i])) {
+	for (i = 0; i < ARRAY_SIZE(vregs_bt_marimba_name); i++) {
+		vregs_bt_marimba[i] = vreg_get(NULL, vregs_bt_marimba_name[i]);
+		if (IS_ERR(vregs_bt_marimba[i])) {
 			printk(KERN_ERR "%s: vreg get %s failed (%ld)\n",
-			       __func__, vregs_bt_name[i],
-			       PTR_ERR(vregs_bt[i]));
+			       __func__, vregs_bt_marimba_name[i],
+			       PTR_ERR(vregs_bt_marimba[i]));
 			return;
 		}
 	}
 
-	if (machine_is_msm8x55_svlte_surf() || machine_is_msm8x55_svlte_ffa()) {
-		rc = msm_gpios_request_enable(bt_config_clock,
-					ARRAY_SIZE(bt_config_clock));
-		if (rc < 0) {
-			printk(KERN_ERR
-				"%s: msm_gpios_request_enable failed (%d)\n",
-					__func__, rc);
-			return;
-		}
-
-		rc = gpio_direction_output(GPIO_PIN(bt_config_clock->gpio_cfg),
-						0);
-		if (rc < 0) {
-			printk(KERN_ERR
-				"%s: gpio_direction_output failed (%d)\n",
-					__func__, rc);
+	for (i = 0; i < ARRAY_SIZE(vregs_bt_bahama_name); i++) {
+		vregs_bt_bahama[i] = vreg_get(NULL, vregs_bt_bahama_name[i]);
+		if (IS_ERR(vregs_bt_bahama[i])) {
+			printk(KERN_ERR "%s: vreg get %s failed (%ld)\n",
+			       __func__, vregs_bt_bahama_name[i],
+			       PTR_ERR(vregs_bt_bahama[i]));
 			return;
 		}
 	}
 
-
-	msm_bt_power_device.dev.platform_data = &bluetooth_power;
+    msm_bt_power_device.dev.platform_data = &bluetooth_power;
 }
 #else
 #define bt_power_init(x) do {} while (0)
@@ -4433,11 +5058,32 @@ static struct msm_gpio mdm2ap_status = {
 	"mdm2ap_status"
 };
 
+
+static int configure_mdm2ap_status(int on)
+{
+	if (on)
+		return msm_gpios_request_enable(&mdm2ap_status, 1);
+	else {
+		msm_gpios_disable_free(&mdm2ap_status, 1);
+		return 0;
+	}
+}
+
+static int get_mdm2ap_status(void)
+{
+	return gpio_get_value(GPIO_PIN(mdm2ap_status.gpio_cfg));
+}
+
+static struct sdio_al_platform_data sdio_al_pdata = {
+	.config_mdm2ap_status = configure_mdm2ap_status,
+	.get_mdm2ap_status = get_mdm2ap_status,
+};
+
 struct platform_device msm_device_sdio_al = {
 	.name = "msm_sdio_al",
 	.id = -1,
 	.dev		= {
-		.platform_data	= &mdm2ap_status,
+		.platform_data	= &sdio_al_pdata,
 	},
 };
 
@@ -4516,6 +5162,9 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_MT9P012
 	&msm_camera_sensor_mt9p012,
 #endif
+#ifdef CONFIG_MT9E013
+	&msm_camera_sensor_mt9e013,
+#endif
 #ifdef CONFIG_VX6953
 	&msm_camera_sensor_vx6953,
 #endif
@@ -4535,8 +5184,21 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_MSM_SDIO_AL
 	&msm_device_sdio_al,
 #endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+	&qcrypto_device,
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+	&qcedev_device,
+#endif
+
 	&msm_batt_device,
 	&msm_adc_device,
+	&msm_ebi0_thermal,
+	&msm_ebi1_thermal
 };
 
 static struct msm_gpio msm_i2c_gpios_hw[] = {
@@ -6028,19 +6690,30 @@ static int tma300_dev_setup(bool enable)
 		tma300_vkeys_attr.attr.name = "virtualkeys.msm_tma300_ts";
 		properties_kobj = kobject_create_and_add("board_properties",
 					NULL);
-		if (properties_kobj)
-			rc = sysfs_create_group(properties_kobj,
+		if (!properties_kobj) {
+			pr_err("%s: failed to create a kobject"
+					"for board_properites\n", __func__);
+			rc = -ENOMEM;
+			goto vreg_get_fail;
+		}
+		rc = sysfs_create_group(properties_kobj,
 				&tma300_properties_attr_group);
-		if (!properties_kobj || rc)
-			pr_err("%s: failed to create board_properties\n", __func__);
+		if (rc) {
+			pr_err("%s: failed to create a sysfs entry %s\n",
+					__func__, tma300_vkeys_attr.attr.name);
+			kobject_put(properties_kobj);
+			goto vreg_get_fail;
+		}
 	} else {
 		/* put voltage sources */
 		for (i = 0; i < ARRAY_SIZE(vregs_tma300_name); i++)
 			vreg_put(vregs_tma300[i]);
 		/* destroy virtual keys */
-		if (properties_kobj)
+		if (properties_kobj) {
 			sysfs_remove_group(properties_kobj,
 				&tma300_properties_attr_group);
+			kobject_put(properties_kobj);
+		}
 	}
 	return 0;
 
@@ -6066,10 +6739,10 @@ static struct cy8c_ts_platform_data cy8ctma300_pdata = {
 	.max_touch = 255,
 	.min_width = 0,
 	.max_width = 255,
-	.use_polling = 1,
 	.invert_y = 1,
 	.nfingers = 4,
 	.irq_gpio = TS_GPIO_IRQ,
+	.resout_gpio = -1,
 };
 
 static struct i2c_board_info cy8ctma300_board_info[] = {
@@ -6088,10 +6761,14 @@ static void __init msm7x30_init(void)
 						GPIO_CFG_OUTPUT,
 						GPIO_CFG_NO_PULL,
 						GPIO_CFG_2MA);
+	uint32_t soc_version = 0;
 
 	if (socinfo_init() < 0)
 		printk(KERN_ERR "%s: socinfo_init() failed!\n",
 		       __func__);
+
+	soc_version = socinfo_get_version();
+
 	msm_clock_init(msm_clocks_7x30, msm_num_clocks_7x30);
 #ifdef CONFIG_SERIAL_MSM_CONSOLE
 	msm7x30_init_uart2();
@@ -6108,6 +6785,12 @@ static void __init msm7x30_init(void)
 #endif
 
 #ifdef CONFIG_USB_MSM_OTG_72K
+	if (SOCINFO_VERSION_MAJOR(soc_version) >= 2 &&
+			SOCINFO_VERSION_MINOR(soc_version) >= 1) {
+		pr_debug("%s: SOC Version:2.(1 or more)\n", __func__);
+		msm_otg_pdata.ldo_set_voltage = 0;
+	}
+
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 #ifdef CONFIG_USB_GADGET
 	msm_otg_pdata.swfi_latency =
@@ -6212,7 +6895,6 @@ static void __init msm7x30_init(void)
 				socinfo_get_platform_version()) == 2) {
 			cy8ctma300_pdata.res_y = 920;
 			cy8ctma300_pdata.invert_y = 0;
-			cy8ctma300_pdata.use_polling = 0;
 		}
 		i2c_register_board_info(0, cy8ctma300_board_info,
 			ARRAY_SIZE(cy8ctma300_board_info));

@@ -268,6 +268,7 @@ static inline void *mmc_priv(struct mmc_host *host)
 #define mmc_classdev(x)	(&(x)->class_dev)
 #define mmc_hostname(x)	(dev_name(&(x)->class_dev))
 #define mmc_bus_needs_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME)
+#define mmc_bus_manual_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_MANUAL_RESUME)
 
 static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 {
@@ -306,8 +307,13 @@ int mmc_card_can_sleep(struct mmc_host *host);
 int mmc_host_enable(struct mmc_host *host);
 int mmc_host_disable(struct mmc_host *host);
 int mmc_host_lazy_disable(struct mmc_host *host);
-
 int mmc_pm_notify(struct notifier_block *notify_block, unsigned long, void *);
+#ifdef CONFIG_PM
+int mmc_pm_notify(struct notifier_block *notify_block, unsigned long mode,
+		  void *unused);
+#else
+#define mmc_pm_notify NULL
+#endif
 
 static inline void mmc_set_disable_delay(struct mmc_host *host,
 					 unsigned int disable_delay)

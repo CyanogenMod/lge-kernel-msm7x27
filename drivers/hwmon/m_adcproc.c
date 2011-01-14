@@ -37,6 +37,26 @@ static const struct adc_map_pt adcmap_batttherm[] = {
 	{364,	 80}
 };
 
+static const struct adc_map_pt adcmap_msmtherm[] = {
+	{2150,	-30},
+	{2107,	-20},
+	{2037,	-10},
+	{1929,	  0},
+	{1776,	 10},
+	{1579,	 20},
+	{1467,	 25},
+	{1349,	 30},
+	{1108,	 40},
+	{878,	 50},
+	{677,	 60},
+	{513,	 70},
+	{385,	 80},
+	{287,	 90},
+	{215,	100},
+	{186,	110},
+	{107,	120}
+};
+
 static const struct adc_map_pt adcmap_ntcg104ef104fb[] = {
 	{696483,	-40960},
 	{649148,	-39936},
@@ -308,6 +328,21 @@ int32_t scale_batt_therm(int32_t adc_code,
 	return adc_map_linear(
 			adcmap_batttherm,
 			sizeof(adcmap_batttherm)/sizeof(adcmap_batttherm[0]),
+			adc_chan_result->physical,
+			&adc_chan_result->physical);
+}
+
+int32_t scale_msm_therm(int32_t adc_code,
+		const struct adc_properties *adc_properties,
+		const struct chan_properties *chan_properties,
+		struct adc_chan_result *adc_chan_result)
+{
+	scale_default(adc_code, adc_properties, chan_properties,
+			adc_chan_result);
+	/* convert mV ---> degC using the table */
+	return adc_map_linear(
+			adcmap_msmtherm,
+			sizeof(adcmap_msmtherm)/sizeof(adcmap_msmtherm[0]),
 			adc_chan_result->physical,
 			&adc_chan_result->physical);
 }

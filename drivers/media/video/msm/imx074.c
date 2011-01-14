@@ -155,8 +155,8 @@ struct imx074_ctrl_t {
 	enum imx074_test_mode_t set_test;
 	unsigned short imgaddr;
 };
-static uint8_t imx074_delay_msecs_stdby = 20;
-static uint16_t imx074_delay_msecs_stream = 60;
+static uint8_t imx074_delay_msecs_stdby = 5;
+static uint16_t imx074_delay_msecs_stream = 5;
 static int32_t config_csi;
 
 static struct imx074_ctrl_t *imx074_ctrl;
@@ -830,14 +830,8 @@ static int32_t imx074_video_config(int mode)
 	/* change sensor resolution	if needed */
 	if (imx074_ctrl->prev_res == QTR_SIZE) {
 		rt = RES_PREVIEW;
-		imx074_delay_msecs_stdby =
-			((((2 * 1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 	} else {
 		rt = RES_CAPTURE;
-		imx074_delay_msecs_stdby =
-			((((1000 * imx074_ctrl->fps_divider)/
-			imx074_ctrl->fps) * Q8) / Q10) + 1;
 	}
 	if (imx074_sensor_setting(UPDATE_PERIODIC, rt) < 0)
 		return rc;
@@ -854,14 +848,8 @@ static int32_t imx074_snapshot_config(int mode)
 	if (imx074_ctrl->curr_res != imx074_ctrl->pict_res) {
 		if (imx074_ctrl->pict_res == QTR_SIZE) {
 			rt = RES_PREVIEW;
-			imx074_delay_msecs_stdby =
-				((((2*1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 		} else {
 			rt = RES_CAPTURE;
-			imx074_delay_msecs_stdby =
-				((((1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 		}
 	}
 	if (imx074_sensor_setting(UPDATE_PERIODIC, rt) < 0)
@@ -878,14 +866,8 @@ static int32_t imx074_raw_snapshot_config(int mode)
 	if (imx074_ctrl->curr_res != imx074_ctrl->pict_res) {
 		if (imx074_ctrl->pict_res == QTR_SIZE) {
 			rt = RES_PREVIEW;
-			imx074_delay_msecs_stdby =
-				((((2*1000 * imx074_ctrl->fps_divider)/
-				imx074_ctrl->fps) * Q8) / Q10) + 1;
 		} else {
 			rt = RES_CAPTURE;
-				imx074_delay_msecs_stdby =
-					((((1000 * imx074_ctrl->fps_divider)/
-					imx074_ctrl->fps) * Q8) / Q10) + 1;
 		}
 	}
 	if (imx074_sensor_setting(UPDATE_PERIODIC, rt) < 0)
@@ -923,7 +905,6 @@ static int32_t imx074_power_down(void)
 }
 static int imx074_probe_init_done(const struct msm_camera_sensor_info *data)
 {
-	gpio_direction_output(data->sensor_reset, 0);
 	gpio_direction_input(data->sensor_reset);
 	gpio_free(data->sensor_reset);
 	return 0;
@@ -938,24 +919,23 @@ static int imx074_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	if (!rc) {
 		CDBG("sensor_reset = %d\n", rc);
 		gpio_direction_output(data->sensor_reset, 0);
-		msleep(50);
-		gpio_direction_output(data->sensor_reset, 1);
-		msleep(50);
+		msleep(20);
+		gpio_set_value_cansleep(data->sensor_reset, 1);
+		msleep(20);
 	} else {
 		CDBG("gpio reset fail");
 		goto init_probe_done;
 	}
-	msleep(20);
-	CDBG(" imx074_probe_init_sensor is called \n");
+	CDBG("imx074_probe_init_sensor is called\n");
 	/* 3. Read sensor Model ID: */
 	rc = imx074_i2c_read(0x0000, &chipidh, 1);
 	if (rc < 0) {
-		CDBG(" Model read failed \n");
+		CDBG("Model read failed\n");
 		goto init_probe_fail;
 	}
 	rc = imx074_i2c_read(0x0001, &chipidl, 1);
 	if (rc < 0) {
-		CDBG(" Model read failed \n");
+		CDBG("Model read failed\n");
 		goto init_probe_fail;
 	}
 	CDBG("imx074 model_id = 0x%x  0x%x\n", chipidh, chipidl);
@@ -967,7 +947,8 @@ static int imx074_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	}
 	goto init_probe_done;
 init_probe_fail:
-	CDBG(" imx074_probe_init_sensor fails\n");
+	CDBG("imx074_probe_init_sensor fails\n");
+	gpio_set_value_cansleep(data->sensor_reset, 0);
 	imx074_probe_init_done(data);
 init_probe_done:
 	CDBG(" imx074_probe_init_sensor finishes\n");
@@ -1013,15 +994,14 @@ int imx074_sensor_open_init(const struct msm_camera_sensor_info *data)
 	rc1 = imx074_af_init();
 	if (rc1 < 0)
 		CDBG("AF initialisation failed\n");
-	if (rc < 0)
+	if (rc < 0) {
+		gpio_set_value_cansleep(data->sensor_reset, 0);
 		goto init_fail;
-	else
+	} else
 		goto init_done;
 
-
-
 init_fail:
-	CDBG(" imx074_sensor_open_init fail\n");
+	CDBG("imx074_sensor_open_init fail\n");
 	imx074_probe_init_done(data);
 	kfree(imx074_ctrl);
 init_done:
@@ -1204,8 +1184,8 @@ static int imx074_sensor_release(void)
 	int rc = -EBADF;
 	mutex_lock(&imx074_mut);
 	imx074_power_down();
-	gpio_direction_output(imx074_ctrl->sensordata->sensor_reset,
-		0);
+	gpio_set_value_cansleep(imx074_ctrl->sensordata->sensor_reset, 0);
+	msleep(5);
 	gpio_direction_input(imx074_ctrl->sensordata->sensor_reset);
 	gpio_free(imx074_ctrl->sensordata->sensor_reset);
 	kfree(imx074_ctrl);
@@ -1232,6 +1212,7 @@ static int imx074_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = imx074_sensor_open_init;
 	s->s_release = imx074_sensor_release;
 	s->s_config  = imx074_sensor_config;
+	s->s_mount_angle = 90;
 	imx074_probe_init_done(info);
 
 	return rc;

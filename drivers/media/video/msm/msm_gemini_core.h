@@ -45,4 +45,5 @@ int msm_gemini_core_we_buf_update(struct msm_gemini_core_buf *buf);
 int msm_gemini_core_reset(uint8_t op_mode, void *base, int size);
 int msm_gemini_core_fe_start(void);
 
+void msm_gemini_core_release(void);
 #endif /* MSM_GEMINI_CORE_H */

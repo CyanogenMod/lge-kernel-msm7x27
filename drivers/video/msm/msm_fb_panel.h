@@ -97,10 +97,62 @@ struct mddi_panel_info {
 	__u32 vdopkt;
 };
 
+/* DSI PHY configuration */
+struct mipi_dsi_phy_ctrl {
+	uint32 regulator[4];
+	uint32 timing[12];
+	uint32 ctrl[4];
+	uint32 strength[4];
+	uint32 pll[21];
+};
+
+struct mipi_panel_info {
+	char mode;		/* video/cmd */
+	char interleave_mode;
+	char crc_check;
+	char ecc_check;
+	char dst_format;	/* shared by video and command */
+	char data_lane0;
+	char data_lane1;
+	char data_lane2;
+	char data_lane3;
+	char dlane_swap;	/* data lane swap */
+	char rgb_swap;
+	char b_sel;
+	char g_sel;
+	char r_sel;
+	char rx_eot_ignore;
+	char tx_eot_append;
+	char t_clk_post; /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
+	char t_clk_pre;  /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
+	char vc;	/* virtual channel */
+	struct mipi_dsi_phy_ctrl *dsi_phy_db;
+	/* video mode */
+	char pulse_mode_hsa_he;
+	char hfp_power_stop;
+	char hbp_power_stop;
+	char hsa_power_stop;
+	char eof_bllp_power_stop;
+	char bllp_power_stop;
+	char traffic_mode;
+	/* command mode */
+	char interleave_max;
+	char insert_dcs_cmd;
+	char wr_mem_continue;
+	char wr_mem_start;
+	char te_sel;
+	char stream;	/* 0 or 1 */
+	char mdp_trigger;
+	char dma_trigger;
+};
+
 struct msm_panel_info {
 	__u32 xres;
 	__u32 yres;
 	__u32 bpp;
+	__u32 mode2_xres;
+	__u32 mode2_yres;
+	__u32 mode2_bpp;
 	__u32 type;
 	__u32 wait_cycle;
 	DISP_TARGET_PHYS pdest;
@@ -112,6 +164,7 @@ struct msm_panel_info {
 	__u32 clk_max;
 	__u32 frame_count;
 
+
 	union {
 		struct mddi_panel_info mddi;
 	};
@@ -120,7 +173,16 @@ struct msm_panel_info {
 		struct lcd_panel_info lcd;
 		struct lcdc_panel_info lcdc;
 	};
+
+	struct mipi_panel_info mipi;
 };
+
+#define MSM_FB_SINGLE_MODE_PANEL(pinfo)		\
+	do {					\
+		(pinfo)->mode2_xres = 0;	\
+		(pinfo)->mode2_yres = 0;	\
+		(pinfo)->mode2_bpp = 0;		\
+	} while (0)
 
 struct msm_fb_panel_data {
 	struct msm_panel_info panel_info;
@@ -132,6 +194,7 @@ struct msm_fb_panel_data {
 	int (*on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
 	struct platform_device *next;
+	void (*clk_set) (int enable);
 };
 
 /*===========================================================================
