@@ -118,7 +118,8 @@ static void rq_work_fn(struct work_struct *work)
 	do_div(time_diff, (1000 * 1000));
 
 	if (time_diff && rq_info.total_time) {
-		rq_avg = rq_avg + (rq_info.rq_avg * rq_info.total_time);
+		rq_avg = (rq_avg * time_diff) +
+			(rq_info.rq_avg * rq_info.total_time);
 		do_div(rq_avg, rq_info.total_time + time_diff);
 	}
 
