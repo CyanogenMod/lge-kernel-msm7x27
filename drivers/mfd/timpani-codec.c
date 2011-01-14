@@ -1702,6 +1702,12 @@ static void timpani_codec_bring_up(void)
 	adie_codec_write(0xFF, 0xFF, 0x17);
 	adie_codec_write(TIMPANI_A_MREF, 0xFF, 0x22);
 	msleep(15);
+
+	/* Bypass TX HPFs to prevent pops */
+	adie_codec_write(TIMPANI_A_CDC_BYPASS_CTL2, TIMPANI_CDC_BYPASS_CTL2_M,
+		TIMPANI_CDC_BYPASS_CTL2_POR);
+	adie_codec_write(TIMPANI_A_CDC_BYPASS_CTL3, TIMPANI_CDC_BYPASS_CTL3_M,
+		TIMPANI_CDC_BYPASS_CTL3_POR);
 }
 
 static void timpani_codec_bring_down(void)
