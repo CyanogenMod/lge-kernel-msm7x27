@@ -15,6 +15,7 @@ header-y += netfilter_bridge/
 header-y += netfilter_ipv4/
 header-y += netfilter_ipv6/
 header-y += usb/
+header-y += mfd/
 
 header-y += affs_hardblocks.h
 header-y += aio_abi.h
