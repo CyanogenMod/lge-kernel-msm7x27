@@ -2759,7 +2759,7 @@ static struct regulator_consumer_supply rpm_vreg_supply[RPM_VREG_ID_MAX] = {
 		      _sleep_selectable, _always_on)
 
 static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
-	RPM_VREG_INIT_LDO(RPM_VREG_ID_PM8058_L0,  1, 1, 0, 1200000, 1200000, 0),
+	RPM_VREG_INIT_LDO(RPM_VREG_ID_PM8058_L0,  0, 1, 0, 1200000, 1200000, 0),
 	RPM_VREG_INIT_LDO(RPM_VREG_ID_PM8058_L1,  0, 1, 0, 1200000, 1200000, 0),
 	RPM_VREG_INIT_LDO(RPM_VREG_ID_PM8058_L2,  0, 1, 0, 1800000, 2600000, 0),
 	RPM_VREG_INIT_LDO(RPM_VREG_ID_PM8058_L3,  0, 1, 0, 1800000, 1800000, 0),
@@ -6625,6 +6625,8 @@ out:
 #undef _GET_REGULATOR
 #endif
 
+static int mipi_dsi_panel_power(int on);
+
 #define LCDC_NUM_GPIO 28
 #define LCDC_GPIO_START 0
 
@@ -6649,6 +6651,8 @@ static void lcdc_samsung_panel_power(int on)
 		for (n--; n >= 0; n--)
 			gpio_free(LCDC_GPIO_START + n);
 	}
+
+	mipi_dsi_panel_power(0); /* set 8058_ldo0 to LPM */
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
@@ -7033,6 +7037,68 @@ static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_power_save   = lcdc_panel_power,
 };
 
+
+#define MDP_VSYNC_GPIO 28
+
+/*
+ * MIPI_DSI only use 8058_LDO0 which need always on
+ * therefore it need to be put at low power mode if
+ * it was not used instead of turn it off.
+ */
+static int mipi_dsi_panel_power(int on)
+{
+	int flag_on = !!on;
+	static int mipi_dsi_power_save_on;
+	static struct regulator *ldo0;
+	int rc = 0;
+
+	if (mipi_dsi_power_save_on == flag_on)
+		return 0;
+
+	mipi_dsi_power_save_on = flag_on;
+
+	if (ldo0 == NULL) {	/* init */
+		ldo0 = regulator_get(NULL, "8058_l0");
+		if (IS_ERR(ldo0)) {
+			pr_debug("%s: LDO0 failed\n", __func__);
+			rc = PTR_ERR(ldo0);
+			return rc;
+		}
+
+		rc = regulator_set_voltage(ldo0, 3300000, 3300000);
+		if (rc)
+			goto out;
+
+		rc = regulator_enable(ldo0);
+		if (rc)
+			goto out;
+	}
+
+	if (on) {
+		/* set ldo0 to HPM */
+		rc = regulator_set_optimum_mode(ldo0, 100000);
+		if (rc)
+			goto out;
+	} else {
+		/* set ldo0 to LPM */
+		rc = regulator_set_optimum_mode(ldo0, 10000);
+		if (rc)
+			goto out;
+	}
+
+	return 0;
+out:
+	regulator_disable(ldo0);
+	regulator_put(ldo0);
+	ldo0 = NULL;
+	return rc;
+}
+
+static struct mipi_dsi_platform_data mipi_dsi_pdata = {
+	.vsync_gpio = MDP_VSYNC_GPIO,
+	.dsi_power_save   = mipi_dsi_panel_power,
+};
+
 #ifdef CONFIG_FB_MSM_TVOUT
 static struct regulator *reg_8058_l13;
 
@@ -7085,6 +7151,7 @@ int mdp_core_clk_rate_table[] = {
 	200000000,
 };
 static struct msm_panel_common_pdata mdp_pdata = {
+	.gpio = MDP_VSYNC_GPIO,
 	.mdp_core_clk_rate = 200000000,
 	.mdp_core_clk_table = mdp_core_clk_rate_table,
 	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
@@ -7166,7 +7233,7 @@ static void __init msm_fb_add_devices(void)
 		msm_fb_register_device("mdp", &mdp_pdata);
 
 	msm_fb_register_device("lcdc", &lcdc_pdata);
-	msm_fb_register_device("mipi_dsi", 0);
+	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
 #ifdef CONFIG_MSM_BUS_SCALING
 	msm_fb_register_device("dtv", &dtv_pdata);
 #endif
