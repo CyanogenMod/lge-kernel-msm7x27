@@ -46,12 +46,12 @@ int msm_gemini_core_reset(uint8_t op_mode, void *base, int size)
 			reset_done_ack,
 			msecs_to_jiffies(tm));
 
-	if (rc || !reset_done_ack) {
+	if (!reset_done_ack) {
 		GMN_DBG("%s: reset ACK failed %d", __func__, rc);
 		return -EBUSY;
 	}
 
-	GMN_DBG("%s: reset_done_ack %d", __func__, reset_done_ack);
+	GMN_DBG("%s: reset_done_ack rc %d", __func__, rc);
 	spin_lock_irqsave(&reset_lock, flags);
 	reset_done_ack = 0;
 	spin_unlock_irqrestore(&reset_lock, flags);
