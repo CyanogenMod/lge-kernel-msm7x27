@@ -1901,8 +1901,7 @@ static void msm7x27_wlan_init(void)
 
 static void __init msm7x2x_init(void)
 {
-	if (socinfo_init() < 0)
-		BUG();
+
 #ifdef CONFIG_ARCH_MSM7X25
 	msm_clock_init(msm_clocks_7x25, msm_num_clocks_7x25);
 #elif defined(CONFIG_ARCH_MSM7X27)
@@ -2127,13 +2126,22 @@ static void __init msm7x2x_map_io(void)
 	msm_map_common_io();
 	msm_msm7x2x_allocate_memory_regions();
 
+	if (socinfo_init() < 0)
+		BUG();
+
 #ifdef CONFIG_CACHE_L2X0
 	if (machine_is_msm7x27_surf() || machine_is_msm7x27_ffa()) {
 		/* 7x27 has 256KB L2 cache:
 			64Kb/Way and 4-Way Associativity;
-			R/W latency: 3 cycles;
 			evmon/parity/share disabled. */
-		l2x0_init(MSM_L2CC_BASE, 0x00068012, 0xfe000000);
+		if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) > 1)
+			|| ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1)
+			&& (SOCINFO_VERSION_MINOR(socinfo_get_version()) >= 3)))
+			/* R/W latency: 4 cycles; */
+			l2x0_init(MSM_L2CC_BASE, 0x0006801B, 0xfe000000);
+		else
+			/* R/W latency: 3 cycles; */
+			l2x0_init(MSM_L2CC_BASE, 0x00068012, 0xfe000000);
 	}
 #endif
 }
