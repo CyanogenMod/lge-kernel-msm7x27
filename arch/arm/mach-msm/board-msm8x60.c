@@ -3859,6 +3859,17 @@ static struct pmic8058_vibrator_pdata pmic_vib_pdata = {
 
 static struct othc_accessory_info othc_accessories[]  = {
 	{
+		.accessory = OTHC_SVIDEO_OUT,
+		.detect_flags = OTHC_MICBIAS_DETECT | OTHC_SWITCH_DETECT
+							| OTHC_ADC_DETECT,
+		.key_code = SW_VIDEOOUT_INSERT,
+		.enabled = false,
+		.adc_thres = {
+				.min_threshold = 20,
+				.max_threshold = 40,
+			},
+	},
+	{
 		.accessory = OTHC_ANC_HEADPHONE,
 		.detect_flags = OTHC_MICBIAS_DETECT | OTHC_GPIO_DETECT |
 							OTHC_SWITCH_DETECT,
@@ -4012,10 +4023,14 @@ static void __init msm8x60_init_pm8058_othc(void)
 {
 	int i;
 
-	/* 3-switch headset supported only by V2 FFA and FLUID */
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2 ||
-					machine_is_msm8x60_fluid())
+					machine_is_msm8x60_fluid()) {
+		/* 3-switch headset supported only by V2 FFA and FLUID */
+		hsed_config_1.accessories_adc_support = true,
+		/* ADC based accessory detection works only on V2 and FLUID */
+		hsed_config_1.accessories_adc_channel = CHANNEL_ADC_HDSET,
 		hsed_config_1.othc_support_n_switch = true;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(othc_accessories); i++) {
 		if (machine_is_msm8x60_fluid()) {
@@ -4026,6 +4041,10 @@ static void __init msm8x60_init_pm8058_othc(void)
 				break;
 			case OTHC_MICROPHONE:
 				othc_accessories[i].enabled = false;
+				break;
+			case OTHC_SVIDEO_OUT:
+				othc_accessories[i].enabled = true;
+				hsed_config_1.video_out_gpio = GPIO_HS_SW_DIR;
 				break;
 			}
 		}
