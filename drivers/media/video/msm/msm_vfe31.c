@@ -2196,13 +2196,10 @@ static void vfe31_process_reg_update_irq(void)
 	} else {
 		spin_lock_irqsave(&vfe31_ctrl->update_ack_lock, flags);
 		if (vfe31_ctrl->update_ack_pending == TRUE) {
-			spin_unlock_irqrestore(
-				&vfe31_ctrl->update_ack_lock, flags);
-			vfe31_send_msg_no_payload(MSG_ID_UPDATE_ACK);
-			spin_lock_irqsave(&vfe31_ctrl->update_ack_lock, flags);
 			vfe31_ctrl->update_ack_pending = FALSE;
 			spin_unlock_irqrestore(
 				&vfe31_ctrl->update_ack_lock, flags);
+			vfe31_send_msg_no_payload(MSG_ID_UPDATE_ACK);
 		} else {
 			spin_unlock_irqrestore(
 				&vfe31_ctrl->update_ack_lock, flags);
