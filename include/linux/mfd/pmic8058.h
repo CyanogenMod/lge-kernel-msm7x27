@@ -190,3 +190,5 @@ int pm8058_irq_get_rt_status(struct pm8058_chip *pm_chip, int irq);
 int pm8058_misc_control(struct pm8058_chip *pm_chip, int mask, int flag);
 
 int pm8058_reset_pwr_off(int reset);
+
+void pm8058_show_resume_irq(void);
