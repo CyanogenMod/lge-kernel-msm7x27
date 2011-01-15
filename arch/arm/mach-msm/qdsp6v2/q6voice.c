@@ -1211,6 +1211,46 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 		break;
 	}
 
+	case VSS_MEDIA_ID_G729:
+	case VSS_MEDIA_ID_G711_ALAW:
+	case VSS_MEDIA_ID_G711_MULAW: {
+		struct cvs_set_enc_dtx_mode_cmd cvs_set_dtx;
+		/* Disable DTX */
+		pr_info("%s: Disabling DTX\n", __func__);
+
+		cvs_set_dtx.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						      APR_HDR_LEN(APR_HDR_SIZE),
+						      APR_PKT_VER);
+		cvs_set_dtx.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+					    sizeof(cvs_set_dtx) - APR_HDR_SIZE);
+		cvs_set_dtx.hdr.src_port = 0;
+		cvs_set_dtx.hdr.dest_port = cvs_handle;
+		cvs_set_dtx.hdr.token = 0;
+		cvs_set_dtx.hdr.opcode = VSS_ISTREAM_CMD_SET_ENC_DTX_MODE;
+		cvs_set_dtx.dtx_mode.enable = 0;
+
+		v->cvs_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_dtx);
+		if (ret < 0) {
+			pr_err("%s: Error %d sending SET_DTX\n",
+			       __func__, ret);
+
+			goto fail;
+		}
+
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+
+			goto fail;
+		}
+
+		break;
+	}
+
 	default: {
 		/* Do nothing. */
 	}

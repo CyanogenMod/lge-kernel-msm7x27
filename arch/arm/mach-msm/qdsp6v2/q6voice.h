@@ -40,7 +40,8 @@
 #define VOICE_DEV_ENABLED       0x1
 #define VOICE_DEV_DISABLED      0
 
-#define MAX_VOC_PKT_SIZE 320
+#define MAX_VOC_PKT_SIZE 322
+
 struct voice_header {
 	uint32_t id;
 	uint32_t data_len;
@@ -485,6 +486,12 @@ struct cvs_set_enc_dtx_mode_cmd {
 /* 80-VF690-47 UMTS AMR-WB vocoder modem format. */
 #define VSS_MEDIA_ID_PCM_NB		0x00010FCB
 /* Linear PCM (16-bit, little-endian). */
+#define VSS_MEDIA_ID_G711_ALAW		0x00010FCD
+/* G.711 a-law (contains two 10ms vocoder frames). */
+#define VSS_MEDIA_ID_G711_MULAW		0x00010FCE
+/* G.711 mu-law (contains two 10ms vocoder frames). */
+#define VSS_MEDIA_ID_G729		0x00010FD0
+/* G.729AB (contains two 10ms vocoder frames. */
 
 struct vss_ivocproc_cmd_create_full_control_session_t {
 	uint16_t direction;
