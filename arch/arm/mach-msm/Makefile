@@ -181,3 +181,4 @@ else
 obj-y	+= gpio.o
 endif
 obj-$(CONFIG_MSM_SLEEP_STATS) += msm_sleep_stats.o idle_stats.o
+obj-$(CONFIG_MSM_SHOW_RESUME_IRQ) += msm_show_resume_irq.o
