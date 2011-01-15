@@ -17,6 +17,7 @@
  */
 
 /* #define DEBUG */
+/* #define ALIGN_CPU */
 #define APP_DIR		"kgsl-cff"
 
 #include <linux/spinlock.h>
@@ -24,10 +25,12 @@
 #include <linux/relay.h>
 #include <linux/slab.h>
 #include <linux/time.h>
+#include <linux/sched.h>
 
 #include "kgsl.h"
 #include "kgsl_pm4types.h"
 #include "kgsl_cffdump.h"
+
 
 static struct rchan	*chan;
 static struct dentry	*dir;
@@ -157,7 +160,7 @@ static void klog_printk(const char *fmt, ...)
 }
 
 static struct cff_op_write_membuf cff_op_write_membuf;
-static void cffdump_membuf(uint id, unsigned char *out_buf, int out_bufsize)
+static void cffdump_membuf(int id, unsigned char *out_buf, int out_bufsize)
 {
 	void *data;
 	int len, out_size;
@@ -185,7 +188,7 @@ static void cffdump_membuf(uint id, unsigned char *out_buf, int out_bufsize)
 	cff_op_write_membuf.addr = 0;
 }
 
-static void cffdump_printline(uint id, uint opcode, uint op1, uint op2,
+static void cffdump_printline(int id, uint opcode, uint op1, uint op2,
 	uint op3)
 {
 	struct cff_op_write_reg cff_op_write_reg;
@@ -254,14 +257,22 @@ static void cffdump_printline(uint id, uint opcode, uint op1, uint op2,
 
 	cur_secs = get_seconds();
 	if ((cur_secs - last_sec) > 10 || (last_sec - cur_secs) > 10) {
-		pr_info("kgsl: cffdump: total [bytes:%lu kB, syncmem:%lu kB]\n",
-			total_bytes/1024, total_syncmem/1024);
+		pr_info("kgsl: cffdump: total [bytes:%lu kB, syncmem:%lu kB], "
+			"seq#: %lu\n", total_bytes/1024, total_syncmem/1024,
+			serial_nr);
 		last_sec = cur_secs;
 	}
 }
 
 void kgsl_cffdump_init()
 {
+#ifdef ALIGN_CPU
+	cpumask_t mask;
+
+	cpumask_clear(&mask);
+	cpumask_set_cpu(1, &mask);
+	sched_setaffinity(0, &mask);
+#endif
 	kgsl_cff_dump_enable = 1;
 
 	spin_lock_init(&cffdump_lock);
@@ -342,13 +353,13 @@ void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
 	}
 
 	while (sizebytes > 3) {
-		cffdump_printline(0, CFF_OP_WRITE_MEM, addr, *(uint *)src, 0);
+		cffdump_printline(-1, CFF_OP_WRITE_MEM, addr, *(uint *)src, 0);
 		addr += 4;
 		src += 4;
 		sizebytes -= 4;
 	}
 	if (sizebytes > 0)
-		cffdump_printline(0, CFF_OP_WRITE_MEM, addr, *(uint *)src, 0);
+		cffdump_printline(-1, CFF_OP_WRITE_MEM, addr, *(uint *)src, 0);
 }
 
 void kgsl_cffdump_setmem(uint addr, uint value, uint sizebytes)
@@ -359,12 +370,12 @@ void kgsl_cffdump_setmem(uint addr, uint value, uint sizebytes)
 	while (sizebytes > 3) {
 		/* Use 32bit memory writes as long as there's at least
 		 * 4 bytes left */
-		cffdump_printline(0, CFF_OP_WRITE_MEM, addr, value, 0);
+		cffdump_printline(-1, CFF_OP_WRITE_MEM, addr, value, 0);
 		addr += 4;
 		sizebytes -= 4;
 	}
 	if (sizebytes > 0)
-		cffdump_printline(0, CFF_OP_WRITE_MEM, addr, value, 0);
+		cffdump_printline(-1, CFF_OP_WRITE_MEM, addr, value, 0);
 }
 
 void kgsl_cffdump_regwrite(enum kgsl_deviceid device_id, uint addr,
@@ -390,7 +401,7 @@ void kgsl_cffdump_slavewrite(uint addr, uint value)
 	if (!kgsl_cff_dump_enable)
 		return;
 
-	cffdump_printline(0, CFF_OP_WRITE_REG, addr, value, 0);
+	cffdump_printline(-1, CFF_OP_WRITE_REG, addr, value, 0);
 }
 
 int kgsl_cffdump_waitirq(void)
@@ -398,7 +409,7 @@ int kgsl_cffdump_waitirq(void)
 	if (!kgsl_cff_dump_enable)
 		return 0;
 
-	cffdump_printline(0, CFF_OP_WAIT_IRQ, 0, 0, 0);
+	cffdump_printline(-1, CFF_OP_WAIT_IRQ, 0, 0, 0);
 
 	return 1;
 }
@@ -598,8 +609,8 @@ bool kgsl_cffdump_parse_ibs(struct kgsl_device_private *dev_priv,
 static int subbuf_start_handler(struct rchan_buf *buf,
 	void *subbuf, void *prev_subbuf, uint prev_padding)
 {
-	if (prev_subbuf)
-		*((unsigned *)prev_subbuf) = prev_padding;
+	pr_debug("kgsl: cffdump: subbuf_start_handler(subbuf=%p, prev_subbuf"
+		"=%p, prev_padding=%08x)\n", subbuf, prev_subbuf, prev_padding);
 
 	if (relay_buf_full(buf)) {
 		if (!suspended) {

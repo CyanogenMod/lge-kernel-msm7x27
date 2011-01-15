@@ -22,6 +22,14 @@ config MSM_KGSL_CFF_DUMP
 	  via 'echo 0 > /d/kgsl/cff_dump'.  The log can be captured via
 	  /d/kgsl-cff/cpu[0|1].
 
+config MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
+	bool "When selected will disable KGSL CFF Dump for context switches"
+	default n
+	depends on MSM_KGSL_CFF_DUMP
+	---help---
+	  Dumping all the memory for every context switch can produce quite
+	  huge log files, to reduce this, turn this feature on.
+
 config MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
 	bool "Disable human readable CP_STAT fields in post-mortem dump"
 	default n
