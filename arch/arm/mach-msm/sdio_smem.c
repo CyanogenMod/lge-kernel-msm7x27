@@ -108,7 +108,7 @@ int sdio_smem_register_client(void)
 	return err;
 }
 
-static int __devinit sdio_smem_probe(struct platform_device *pdev)
+static int sdio_smem_probe(struct platform_device *pdev)
 {
 	return platform_device_register(&client.plat_dev);
 }
