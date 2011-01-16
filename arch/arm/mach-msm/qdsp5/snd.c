@@ -77,7 +77,7 @@ static struct snd_ctxt the_snd;
 #define SND_SET_VOICE_CLARITY_PROC 73
 #define SND_SET_POWER_OFF_PROC 74
 #define SND_SET_HOOK_MODE_PROC 75
-#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+#if defined (CONFIG_MACH_LGE)
 #define SND_SET_AMP_CONTROL_PROC 76
 #endif
 #endif
@@ -1090,7 +1090,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 /* LGE_CHANGE_E, [junyoub.an] , 2010-02-28, for hook key*/
 #endif
 /* LGE_CHANGE_S, [junyoub.an] , 2010-09-05, To control amp*/
-#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+#if defined (CONFIG_MACH_LGE)
 	case SND_SET_AMP_CONTROL:
 		if (copy_from_user(&hook_param, (void __user *) arg, sizeof(hook_param))) {
 			pr_err("snd_ioctl set_amp_mode: invalid pointer.\n");
