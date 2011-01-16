@@ -89,6 +89,11 @@
 
 #define PIPES_8_15_IRQ_MASK_ADDR	0x0104C
 
+#define FUNC_1_4_MASK_IRQ_ADDR		0x01040
+#define FUNC_5_7_MASK_IRQ_ADDR		0x01044
+#define FUNC_1_4_USER_IRQ_ADDR		0x01050
+#define FUNC_5_7_USER_IRQ_ADDR		0x01054
+
 #define EOT_PIPES_ENABLE		0x00
 
 /** Maximum read/write data available is SDIO-Client limitation */
@@ -159,6 +164,7 @@ struct sdio_al_debug {
  */
 #define SDIO_AL_POLL_TIME_NO_STREAMING 100
 
+#define CHAN_TO_FUNC(x) ((x) + 2 - 1)
 
 /**
  *  Mailbox structure.
@@ -256,11 +262,18 @@ struct peer_sdioc_channel_config {
 
 #define PEER_SDIOC_SW_MAILBOX_SIGNATURE 0xFACECAFE
 #define PEER_SDIOC_SW_MAILBOX_UT_SIGNATURE 0x5D107E57
+#define PEER_SDIOC_SW_MAILBOX_BOOT_SIGNATURE 0xDEADBEEF
 
 /* Identifies if there are new features released */
 #define PEER_SDIOC_VERSION_MINOR	0x0002
 /* Identifies if there is backward compatibility */
 #define PEER_SDIOC_VERSION_MAJOR	0x0002
+
+
+/* Identifies if there are new features released */
+#define PEER_SDIOC_BOOT_VERSION_MINOR	0x0001
+/* Identifies if there is backward compatibility */
+#define PEER_SDIOC_BOOT_VERSION_MAJOR	0x0001
 
 #define PEER_CHANNEL_NAME_SIZE		4
 
@@ -275,6 +288,13 @@ struct peer_sdioc_sw_header {
 	u32 max_channels;
 	char channel_names[SDIO_AL_MAX_CHANNELS][PEER_CHANNEL_NAME_SIZE];
 	u32 reserved[23];
+};
+
+struct peer_sdioc_boot_sw_header {
+	u32 signature;
+	u32 version;
+	u32 boot_ch_num;
+	u32 reserved[29]; /* 32 - previous fields */
 };
 
 /**
@@ -408,6 +428,10 @@ struct sdio_channel {
  *  @pdata -
  *  @debug -
  *  @devices - an array of the the devices claimed by sdio_al
+ *  @unittest_mode - a flag to indicate if sdio_al is in
+ *		   unittest mode
+ *  @bootloader_dev - the device which is used for the
+ *		    bootloader
  *
  */
 struct sdio_al {
@@ -415,6 +439,7 @@ struct sdio_al {
 	struct sdio_al_debug debug;
 	struct sdio_al_device *devices[MAX_NUM_OF_SDIO_DEVICES];
 	int unittest_mode;
+	struct sdio_al_device *bootloader_dev;
 
 };
 
@@ -468,6 +493,9 @@ struct sdio_al_work {
  *  @use_default_conf - A flag to indicate if we need to use the default channels names,
  *    or to use the list of channels given by the 9K
  *
+ *  @flashless_boot_on - flag to indicate if sdio_al is in
+ *    flshless boot mode
+ *
  */
 struct sdio_al_device {
 	struct mmc_card *card;
@@ -475,14 +503,17 @@ struct sdio_al_device {
 	struct sdio_channel channel[SDIO_AL_MAX_CHANNELS];
 
 	struct peer_sdioc_sw_header *sdioc_sw_header;
+	struct peer_sdioc_boot_sw_header *sdioc_boot_sw_header;
 
 	struct workqueue_struct *workqueue;
 	struct sdio_al_work sdio_al_work;
+	struct work_struct boot_work;
 
 	int is_ready;
 
 	wait_queue_head_t   wait_mbox;
 	int ask_mbox;
+	int bootloader_done;
 
 	struct wake_lock wake_lock;
 	int lpm_chan;
@@ -504,6 +535,8 @@ struct sdio_al_device {
 	unsigned int is_suspended;
 
 	int use_default_conf;
+
+	int flashless_boot_on;
 };
 
 /** The driver context */
@@ -523,6 +556,10 @@ static int set_pipe_threshold(struct sdio_al_device *sdio_al_dev,
 			      int pipe_index, int threshold);
 static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 			   u32 enable_wake_up_func);
+static int sdio_al_client_setup(struct sdio_al_device *sdio_al_dev);
+static int enable_mask_irq(struct sdio_al_device *sdio_al_dev,
+			   int func_num, int enable, u8 bit_offset);
+static int sdio_al_enable_func_retry(struct sdio_func *func, const char *name);
 
 #define SDIO_AL_ERR(func)					\
 	do {							\
@@ -637,6 +674,39 @@ static inline void restart_inactive_time(struct sdio_al_device *sdio_al_dev)
 static inline int is_inactive_time_expired(struct sdio_al_device *sdio_al_dev)
 {
 	return time_after(jiffies, sdio_al_dev->inactivity_time);
+}
+
+
+static int is_user_irq_enabled(int func_num)
+{
+	int ret = 0;
+	struct sdio_func *func1 = sdio_al->bootloader_dev->card->sdio_func[0];
+	u32 user_irq = 0;
+	u32 addr = 0;
+	u32 offset = 0;
+	u32 masked_user_irq = 0;
+
+	if (func_num < 4) {
+		addr = FUNC_1_4_USER_IRQ_ADDR;
+		offset = func_num * 8;
+	} else {
+		addr = FUNC_5_7_USER_IRQ_ADDR;
+		offset = (func_num - 4) * 8;
+	}
+
+	user_irq = sdio_readl(func1, addr, &ret);
+	if (ret) {
+		pr_debug(MODULE_NAME ":read_user_irq fail\n");
+		return 0;
+	}
+
+	masked_user_irq = (user_irq >> offset) && 0xFF;
+	if (masked_user_irq == 0x1) {
+		pr_info(MODULE_NAME ":user_irq enabled\n");
+		return 1;
+	}
+
+	return 0;
 }
 
 /**
@@ -962,6 +1032,61 @@ static u32 remove_handled_rx_packet(struct sdio_channel *ch)
 	return ch->read_avail;
 }
 
+
+/**
+ *  Bootloader worker function.
+ *
+ *  @note: clear the bootloader_done flag only after reading the
+ *  mailbox, to ignore more requests while reading the mailbox.
+ */
+static void boot_worker(struct work_struct *work)
+{
+	int ret = 0;
+	int func_num = 0;
+	int i;
+	struct sdio_func *func1 = sdio_al->bootloader_dev->card->sdio_func[0];
+
+	pr_info(MODULE_NAME ":Bootloader Worker Started..\n");
+	if (sdio_al->bootloader_dev->flashless_boot_on) {
+		pr_info(MODULE_NAME ":Wait for bootloader_done event..\n");
+		wait_event(sdio_al->bootloader_dev->wait_mbox,
+			   sdio_al->bootloader_dev->bootloader_done);
+		pr_info(MODULE_NAME ":Got bootloader_done event..\n");
+		/* Do polling until MDM is up */
+		for (i = 0; i < 50 ; ++i) {
+			sdio_claim_host(func1);
+			if (is_user_irq_enabled(func_num)) {
+				sdio_release_host(func1);
+				sdio_al->bootloader_dev->bootloader_done = 0;
+				for (i = 0; i < MAX_NUM_OF_SDIO_DEVICES; ++i) {
+					struct sdio_al_device *dev = NULL;
+					if (sdio_al->devices[i] == NULL)
+						continue;
+					dev = sdio_al->devices[i];
+					ret = sdio_al_client_setup(dev);
+					if (ret) {
+						pr_err(MODULE_NAME ":"
+						"sdio_al_client_setup failed, "
+						"for card %d ret=%d\n",
+						dev->card->host->index,
+						ret);
+						dev->is_err = true;
+					}
+				}
+				goto done;
+			}
+			sdio_release_host(func1);
+			msleep(100);
+		}
+		pr_err(MODULE_NAME "Timeout waiting for user_irq, go to "
+				   "error state\n");
+		sdio_al->bootloader_dev->is_err = true;
+	}
+
+done:
+	pr_info(MODULE_NAME ":Boot Worker Exit!\n");
+}
+
 /**
  *  Worker function.
  *
@@ -1187,6 +1312,131 @@ static void set_default_channels_config(struct sdio_al_device *sdio_al_dev)
 }
 
 
+static int sdio_al_bootloader_completed(void)
+{
+	pr_info(MODULE_NAME ":sdio_al_bootloader_completed was called\n");
+	sdio_al->bootloader_dev->bootloader_done = 1;
+	wake_up(&sdio_al->bootloader_dev->wait_mbox);
+
+	return 0;
+}
+
+static int sdio_al_bootloader_setup(void)
+{
+	int ret = 0;
+	struct mmc_card *card = sdio_al->bootloader_dev->card;
+	struct sdio_func *func1;
+	struct sdio_al_device *bootloader_dev = sdio_al->bootloader_dev;
+
+	if (card == NULL) {
+		pr_err(MODULE_NAME ":No Card detected\n");
+		return -ENODEV;
+	}
+
+	if (bootloader_dev == NULL) {
+		pr_err(MODULE_NAME ":No bootloader_dev\n");
+		return -ENODEV;
+	}
+
+	func1 = card->sdio_func[0];
+
+	bootloader_dev->sdioc_boot_sw_header
+		= kzalloc(sizeof(*bootloader_dev->sdioc_boot_sw_header),
+			  GFP_KERNEL);
+	if (bootloader_dev->sdioc_boot_sw_header == NULL) {
+		pr_err(MODULE_NAME ":fail to allocate sdioc boot sw header.\n");
+		return -ENOMEM;
+	}
+
+	sdio_claim_host(func1);
+
+	ret = sdio_memcpy_fromio(func1,
+				 bootloader_dev->sdioc_boot_sw_header,
+				 SDIOC_SW_HEADER_ADDR,
+				 sizeof(struct peer_sdioc_boot_sw_header));
+	if (ret) {
+		pr_err(MODULE_NAME ":fail to read sdioc boot sw header.\n");
+		sdio_release_host(func1);
+		goto exit_err;
+	}
+
+	if (bootloader_dev->sdioc_boot_sw_header->signature !=
+	    (u32) PEER_SDIOC_SW_MAILBOX_BOOT_SIGNATURE) {
+		pr_err(MODULE_NAME ":invalid mailbox signature 0x%x.\n",
+		       bootloader_dev->sdioc_boot_sw_header->signature);
+		sdio_release_host(func1);
+		ret = -EINVAL;
+		goto exit_err;
+	}
+
+	if (bootloader_dev->flashless_boot_on) {
+		pr_err(MODULE_NAME ":MDM is not up after bootloader "
+				   "completed.\n");
+		sdio_release_host(func1);
+		ret = -EINVAL;
+		goto exit_err;
+	}
+
+	/* Upper byte has to be equal - no backward compatibility for unequal */
+	if ((bootloader_dev->sdioc_boot_sw_header->version >> 16) !=
+	    (PEER_SDIOC_BOOT_VERSION_MAJOR)) {
+		pr_err(MODULE_NAME ":SDIOC BOOT SW older version. 0x%x\n",
+			bootloader_dev->sdioc_boot_sw_header->version);
+		sdio_release_host(func1);
+		ret = -EIO;
+		goto exit_err;
+	}
+
+	pr_info(MODULE_NAME ": SDIOC BOOT SW version 0x%x\n",
+		bootloader_dev->sdioc_boot_sw_header->version);
+
+	bootloader_dev->flashless_boot_on = true;
+
+	/*
+	 * Enable function 0 interrupt mask to allow 9k to raise this interrupt
+	 * in power-up. When sdio_downloader will notify its completion
+	 * we will poll on this interrupt to wait for 9k power-up
+	 */
+	ret = enable_mask_irq(bootloader_dev, 0, 1, 0);
+	if (ret) {
+		pr_err(MODULE_NAME ":Enable_mask_irq failed, ret=%d\n", ret);
+		sdio_release_host(func1);
+		goto exit_err;
+	}
+
+	sdio_release_host(func1);
+
+	/*
+	 * Start bootloader worker that will wait for the bootloader
+	 * completion
+	 */
+	INIT_WORK(&bootloader_dev->boot_work, boot_worker);
+	bootloader_dev->bootloader_done = 0;
+	queue_work(bootloader_dev->workqueue, &bootloader_dev->boot_work);
+
+	ret = sdio_downloader_setup(bootloader_dev->card, 1,
+			bootloader_dev->sdioc_boot_sw_header->boot_ch_num,
+			sdio_al_bootloader_completed);
+
+	if (ret) {
+		pr_err(MODULE_NAME ":sdio_downloader_setup failed, err=%d\n",
+			ret);
+		goto exit_err;
+	}
+
+	pr_info(MODULE_NAME ":In Flashless boot, waiting for its "
+		"completion\n");
+
+
+exit_err:
+	pr_info(MODULE_NAME ":free sdioc_boot_sw_header.\n");
+	kfree(bootloader_dev->sdioc_boot_sw_header);
+	bootloader_dev->sdioc_boot_sw_header = NULL;
+
+	return ret;
+}
+
+
 /**
  *  Read SDIO-Client software header
  *
@@ -1199,8 +1449,6 @@ static int read_sdioc_software_header(struct sdio_al_device *sdio_al_dev,
 	struct sdio_func *func1 = sdio_al_dev->card->sdio_func[0];
 
 	pr_debug(MODULE_NAME ":reading sdioc sw header.\n");
-
-	sdio_al_dev->use_default_conf = 1;
 
 	ret = sdio_memcpy_fromio(func1, header,
 			SDIOC_SW_HEADER_ADDR, sizeof(*header));
@@ -1229,6 +1477,9 @@ static int read_sdioc_software_header(struct sdio_al_device *sdio_al_dev,
 	}
 
 	pr_info(MODULE_NAME ":SDIOC SW version 0x%x\n", header->version);
+
+	sdio_al_dev->flashless_boot_on = false;
+	sdio_al_dev->use_default_conf = 1;
 
 	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
 		struct sdio_channel *ch = &sdio_al_dev->channel[i];
@@ -1405,6 +1656,57 @@ static int enable_eot_interrupt(struct sdio_al_device *sdio_al_dev,
 		mask &= (~pipe_mask); /* 0 = enable */
 	else
 		mask |= (pipe_mask);  /* 1 = disable */
+
+	sdio_writel(func1, mask, addr, &ret);
+
+exit_err:
+	return ret;
+}
+
+
+/**
+ *  Enable/Disable mask interrupt of a function.
+ *
+ */
+static int enable_mask_irq(struct sdio_al_device *sdio_al_dev,
+			   int func_num, int enable, u8 bit_offset)
+{
+	int ret = 0;
+	struct sdio_func *func1 = NULL;
+	u32 mask = 0;
+	u32 func_mask = 0;
+	u32 addr = 0;
+	u32 offset = 0;
+
+	if (!sdio_al_dev) {
+		pr_err("MUDULE_NAME : NULL sdio_al_dev\n");
+		return 0;
+	}
+
+	func1 = sdio_al_dev->card->sdio_func[0];
+
+	if (func_num < 4) {
+		addr = FUNC_1_4_MASK_IRQ_ADDR;
+		offset = func_num * 8 + bit_offset;
+	} else {
+		addr = FUNC_5_7_MASK_IRQ_ADDR;
+		offset = (func_num - 4) * 8 + bit_offset;
+	}
+
+	func_mask = 1<<offset;
+
+	mask = sdio_readl(func1, addr, &ret);
+	if (ret) {
+		pr_err(MODULE_NAME ":enable_mask_irq fail\n");
+		goto exit_err;
+	}
+
+	if (enable)
+		mask &= (~func_mask); /* 0 = enable */
+	else
+		mask |= (func_mask);  /* 1 = disable */
+
+	pr_info(MODULE_NAME ":enable_mask_irq,  writing mask = 0x%x\n", mask);
 
 	sdio_writel(func1, mask, addr, &ret);
 
@@ -1829,12 +2131,7 @@ static int sdio_al_setup(struct sdio_al_device *sdio_al_dev)
 
 	sdio_claim_host(func1);
 
-	sdio_al_dev->workqueue = create_singlethread_workqueue("sdio_al_wq");
-	sdio_al_dev->sdio_al_work.sdio_al_dev = sdio_al_dev;
 	INIT_WORK(&sdio_al_dev->sdio_al_work.work, worker);
-
-	init_waitqueue_head(&sdio_al_dev->wait_mbox);
-
 	/* disable all pipes interrupts before claim irq.
 	   since all are enabled by default. */
 	for (i = 0 ; i < SDIO_AL_MAX_PIPES; i++) {
@@ -2402,32 +2699,70 @@ static int init_channels(struct sdio_al_device *sdio_al_dev)
 {
 	struct sdio_func *func1 = sdio_al_dev->card->sdio_func[0];
 	int ret = 0;
+	int i;
 
 	sdio_claim_host(func1);
-	/* Init Func#1 */
-	ret = sdio_enable_func(func1);
-	if (ret) {
-		pr_info(MODULE_NAME ":Fail to enable Func#%d\n", func1->num);
-		goto exit;
-	}
-
-	/* Patch Func CIS tuple issue */
-	ret = sdio_set_block_size(func1, SDIO_AL_BLOCK_SIZE);
-	if (ret) {
-		pr_info(MODULE_NAME ":Fail to set block size, Func#%d\n",
-			func1->num);
-		goto exit;
-	}
-	func1->max_blksize = SDIO_AL_BLOCK_SIZE;
 
 	ret = read_sdioc_software_header(sdio_al_dev,
 					 sdio_al_dev->sdioc_sw_header);
 	if (ret)
 		goto exit;
 
+	if (sdio_al->unittest_mode)
+		pr_info(MODULE_NAME ":==== SDIO-AL UNIT-TEST ====\n");
+	else
+		/* Allow clients to probe for this driver */
+		for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
+			if (!sdio_al_dev->channel[i].is_valid)
+				continue;
+			sdio_al_dev->channel[i].pdev.name =
+				sdio_al_dev->channel[i].name;
+			sdio_al_dev->channel[i].pdev.dev.release =
+				default_sdio_al_release;
+			platform_device_register(&sdio_al_dev->channel[i].pdev);
+		}
+
 exit:
 	sdio_release_host(func1);
 	return ret;
+}
+
+/**
+ *  Initialize SDIO_AL channels according to the client setup.
+ *  This function also check if the client is in boot mode and
+ *  flashless boot is required to be activated or the client is
+ *  up and running.
+ *
+ */
+static int sdio_al_client_setup(struct sdio_al_device *sdio_al_dev)
+{
+	int ret = 0;
+	struct sdio_func *func1 = sdio_al_dev->card->sdio_func[0];
+	int signature = 0;
+
+	sdio_claim_host(func1);
+
+	/* Read the header signature to determine the status of the MDM
+	 * SDIO Client
+	 */
+	signature = sdio_readl(func1, SDIOC_SW_HEADER_ADDR, &ret);
+	sdio_release_host(func1);
+	if (ret) {
+		pr_err(MODULE_NAME ":fail to read signature from sw header.\n");
+		return ret;
+	}
+
+	switch (signature) {
+	case PEER_SDIOC_SW_MAILBOX_BOOT_SIGNATURE:
+		return sdio_al_bootloader_setup();
+	case PEER_SDIOC_SW_MAILBOX_SIGNATURE:
+		return init_channels(sdio_al_dev);
+	default:
+		pr_err(MODULE_NAME ":Invalid signature 0x%x\n", signature);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /**
@@ -2438,7 +2773,8 @@ static int mmc_probe(struct mmc_card *card)
 {
 	int ret = 0;
 	struct sdio_al_device *sdio_al_dev = NULL;
-
+	struct sdio_func *func1 = NULL;
+	static int first_card = true;
 	int i;
 
 	dev_info(&card->dev, "Probing..\n");
@@ -2471,6 +2807,11 @@ static int mmc_probe(struct mmc_card *card)
 	if (sdio_al_dev == NULL)
 		return -ENOMEM;
 
+	if (first_card) {
+		sdio_al->bootloader_dev = sdio_al_dev;
+		first_card = false;
+	}
+
 	for (i = 0; i < MAX_NUM_OF_SDIO_DEVICES ; ++i)
 		if (sdio_al->devices[i] == NULL) {
 			sdio_al->devices[i] = sdio_al_dev;
@@ -2492,6 +2833,8 @@ static int mmc_probe(struct mmc_card *card)
 	sdio_al_dev->is_timer_initialized = false;
 
 	sdio_al_dev->card = card;
+	func1 = card->sdio_func[0];
+
 	sdio_al_dev->mailbox = kzalloc(sizeof(struct sdio_mailbox), GFP_KERNEL);
 	if (sdio_al_dev->mailbox == NULL)
 		return -ENOMEM;
@@ -2504,29 +2847,37 @@ static int mmc_probe(struct mmc_card *card)
 	sdio_al_dev->timer.data = (unsigned long)sdio_al_dev;
 
 	wake_lock_init(&sdio_al_dev->wake_lock, WAKE_LOCK_SUSPEND, MODULE_NAME);
-
 	/* Don't allow sleep until all required clients register */
 	wake_lock(&sdio_al_dev->wake_lock);
 
-	ret = init_channels(sdio_al_dev);
-	if (ret)
-		return ret;
+	sdio_claim_host(func1);
 
-	if (sdio_al->unittest_mode)
-		pr_info(MODULE_NAME ":==== SDIO-AL UNIT-TEST ====\n");
-	else
-		/* Allow clients to probe for this driver */
-		for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
-			if (!sdio_al_dev->channel[i].is_valid)
-				continue;
-			sdio_al_dev->channel[i].pdev.name =
-				sdio_al_dev->channel[i].name;
-			sdio_al_dev->channel[i].pdev.dev.release =
-				default_sdio_al_release;
-			platform_device_register(&sdio_al_dev->channel[i].pdev);
-		}
+	/* Init Func#1 */
+	ret = sdio_enable_func(func1);
+	if (ret) {
+		pr_info(MODULE_NAME ":Fail to enable Func#%d\n", func1->num);
+		goto exit;
+	}
 
+	/* Patch Func CIS tuple issue */
+	ret = sdio_set_block_size(func1, SDIO_AL_BLOCK_SIZE);
+	if (ret) {
+		pr_info(MODULE_NAME ":Fail to set block size, Func#%d\n",
+			func1->num);
+		goto exit;
+	}
+	func1->max_blksize = SDIO_AL_BLOCK_SIZE;
+
+	sdio_al_dev->workqueue = create_singlethread_workqueue("sdio_al_wq");
+	sdio_al_dev->sdio_al_work.sdio_al_dev = sdio_al_dev;
+	init_waitqueue_head(&sdio_al_dev->wait_mbox);
+
+	ret = sdio_al_client_setup(sdio_al_dev);
+
+exit:
+	sdio_release_host(func1);
 	return ret;
+
 }
 
 /**
