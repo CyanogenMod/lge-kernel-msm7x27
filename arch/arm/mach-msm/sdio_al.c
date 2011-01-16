@@ -50,9 +50,6 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 
-#define MODULE_NAME "sdio_al"
-#define DRV_VERSION "1.20"
-
 /**
  *  Func#0 has SDIO standard registers
  *  Func#1 is for Mailbox.

@@ -34,6 +34,13 @@
 #ifndef __SDIO_AL__
 #define __SDIO_AL__
 
+#include <linux/mmc/card.h>
+
+#define DRV_VERSION "1.30"
+#define MODULE_NAME "sdio_al"
+#define SDIOC_CHAN_TO_FUNC_NUM(x)	((x)+2)
+#define REAL_FUNC_TO_FUNC_IN_ARRAY(x)	((x)-1)
+
 struct sdio_channel; /* Forward Declaration */
 
 /**
@@ -152,5 +159,23 @@ int sdio_set_read_threshold(struct sdio_channel *ch, int threshold);
  * @return new poll time.
  */
 int sdio_set_poll_time(struct sdio_channel *ch, int poll_delay_msec);
+
+/**
+ * sdio_downloader_setup
+ * initializes the TTY driver
+ *
+ * @card: a pointer to mmc_card.
+ * @num_of_devices: number of devices.
+ * @channel_number: channel number.
+ * @return 0 on success or negative value on error.
+ *
+ * The TTY stack needs to know in advance how many devices it should
+ * plan to manage. Use this call to set up the ports that will
+ * be exported through SDIO.
+ */
+int sdio_downloader_setup(struct mmc_card *card,
+			  unsigned int num_of_devices,
+			  int func_number,
+			  int(*func)(void));
 
 #endif /* __SDIO_AL__ */
