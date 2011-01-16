@@ -33,7 +33,7 @@
 #include <mach/sdio_al.h>
 
 /** Module name string */
-#define MODULE_NAME "sdio_al_test"
+#define TEST_MODULE_NAME "sdio_al_test"
 
 /* Force Debug ON
 #undef pr_debug
@@ -87,11 +87,11 @@ static void loopback_test(void)
 	while (1) {
 
 		if (test_ctx->exit_flag) {
-			pr_info(MODULE_NAME ":Exit Test.\n");
+			pr_info(TEST_MODULE_NAME ":Exit Test.\n");
 			return;
 		}
 
-		pr_info(MODULE_NAME "--LOOPBACK WAIT FOR EVENT--.\n");
+		pr_info(TEST_MODULE_NAME "--LOOPBACK WAIT FOR EVENT--.\n");
 		/* wait for data ready event */
 		wait_event(test_ctx->wait_q,
 			   atomic_read(&test_ctx->rx_notify_count));
@@ -104,34 +104,34 @@ static void loopback_test(void)
 
 		write_avail = sdio_write_avail(test_ctx->ch);
 		if (write_avail < read_avail) {
-			pr_info(MODULE_NAME
+			pr_info(TEST_MODULE_NAME
 				":not enough write avail.\n");
 			continue;
 		}
 
 		ret = sdio_read(test_ctx->ch, test_ctx->buf, read_avail);
 		if (ret) {
-			pr_info(MODULE_NAME
+			pr_info(TEST_MODULE_NAME
 			       ":worker, sdio_read err=%d.\n", -ret);
 			continue;
 		}
 		test_ctx->rx_bytes += read_avail;
 
-		pr_debug(MODULE_NAME ":worker total rx bytes = 0x%x.\n",
+		pr_debug(TEST_MODULE_NAME ":worker total rx bytes = 0x%x.\n",
 			 test_ctx->rx_bytes);
 
 
 			ret = sdio_write(test_ctx->ch,
 					 test_ctx->buf, read_avail);
 			if (ret) {
-				pr_info(MODULE_NAME
+				pr_info(TEST_MODULE_NAME
 					":loopback sdio_write err=%d.\n",
 					-ret);
 				continue;
 			}
 			test_ctx->tx_bytes += read_avail;
 
-			pr_debug(MODULE_NAME
+			pr_debug(TEST_MODULE_NAME
 				 ":loopback total tx bytes = 0x%x.\n",
 				 test_ctx->tx_bytes);
 		} /* end of while */
@@ -160,15 +160,15 @@ static void sender_test(void)
 	while (packet_count < 100) {
 
 		if (test_ctx->exit_flag) {
-			pr_info(MODULE_NAME ":Exit Test.\n");
+			pr_info(TEST_MODULE_NAME ":Exit Test.\n");
 			return;
 		}
 
-		pr_info(MODULE_NAME "--SENDER WAIT FOR EVENT--.\n");
+		pr_info(TEST_MODULE_NAME "--SENDER WAIT FOR EVENT--.\n");
 
 		/* wait for data ready event */
 		write_avail = sdio_write_avail(test_ctx->ch);
-		pr_debug(MODULE_NAME ":write_avail=%d\n", write_avail);
+		pr_debug(TEST_MODULE_NAME ":write_avail=%d\n", write_avail);
 		if (write_avail < size) {
 			wait_event(test_ctx->wait_q,
 				   atomic_read(&test_ctx->tx_notify_count));
@@ -176,9 +176,9 @@ static void sender_test(void)
 		}
 
 		write_avail = sdio_write_avail(test_ctx->ch);
-		pr_debug(MODULE_NAME ":write_avail=%d\n", write_avail);
+		pr_debug(TEST_MODULE_NAME ":write_avail=%d\n", write_avail);
 		if (write_avail < size) {
-			pr_info(MODULE_NAME ":not enough write avail.\n");
+			pr_info(TEST_MODULE_NAME ":not enough write avail.\n");
 			continue;
 		}
 
@@ -187,13 +187,13 @@ static void sender_test(void)
 
 		ret = sdio_write(test_ctx->ch, test_ctx->buf, size);
 		if (ret) {
-			pr_info(MODULE_NAME ":sender sdio_write err=%d.\n",
+			pr_info(TEST_MODULE_NAME ":sender sdio_write err=%d.\n",
 				-ret);
 			goto exit_err;
 		}
 
 		/* wait for read data ready event */
-		pr_debug(MODULE_NAME ":sender wait for rx data.\n");
+		pr_debug(TEST_MODULE_NAME ":sender wait for rx data.\n");
 		read_avail = sdio_read_avail(test_ctx->ch);
 		wait_event(test_ctx->wait_q,
 			   atomic_read(&test_ctx->rx_notify_count));
@@ -202,7 +202,7 @@ static void sender_test(void)
 		read_avail = sdio_read_avail(test_ctx->ch);
 
 		if (read_avail != size) {
-			pr_info(MODULE_NAME
+			pr_info(TEST_MODULE_NAME
 				":read_avail size %d not as expected.\n",
 				read_avail);
 			goto exit_err;
@@ -212,7 +212,7 @@ static void sender_test(void)
 
 		ret = sdio_read(test_ctx->ch, test_ctx->buf, size);
 		if (ret) {
-			pr_info(MODULE_NAME ":sender sdio_read err=%d.\n",
+			pr_info(TEST_MODULE_NAME ":sender sdio_read err=%d.\n",
 				-ret);
 			goto exit_err;
 		}
@@ -220,7 +220,8 @@ static void sender_test(void)
 
 		if ((test_ctx->buf[0] != packet_count) ||
 		    (test_ctx->buf[(size/4)-1] != packet_count)) {
-			pr_info(MODULE_NAME ":sender sdio_read WRONG DATA.\n");
+			pr_info(TEST_MODULE_NAME
+				":sender sdio_read WRONG DATA.\n");
 			goto exit_err;
 		}
 
@@ -228,10 +229,10 @@ static void sender_test(void)
 		test_ctx->rx_bytes += size;
 		packet_count++;
 
-		pr_debug(MODULE_NAME
+		pr_debug(TEST_MODULE_NAME
 			 ":sender total rx bytes = 0x%x , packet#=%d.\n",
 			 test_ctx->rx_bytes, packet_count);
-		pr_debug(MODULE_NAME
+		pr_debug(TEST_MODULE_NAME
 			 ":sender total tx bytes = 0x%x , packet#=%d.\n",
 			 test_ctx->tx_bytes, packet_count);
 
@@ -239,13 +240,13 @@ static void sender_test(void)
 
 	sdio_close(test_ctx->ch);
 
-	pr_info(MODULE_NAME ": TEST PASS.\n");
+	pr_info(TEST_MODULE_NAME ": TEST PASS.\n");
 	return;
 
 exit_err:
 	sdio_close(test_ctx->ch);
 
-	pr_info(MODULE_NAME ": TEST FAIL.\n");
+	pr_info(TEST_MODULE_NAME ": TEST FAIL.\n");
 	return;
 }
 
@@ -257,7 +258,7 @@ int wait_any_notify(void)
 
 	test_ctx->wait_counter++;
 
-	pr_debug(MODULE_NAME ":Waiting for event %d ...\n",
+	pr_debug(TEST_MODULE_NAME ":Waiting for event %d ...\n",
 		 test_ctx->wait_counter);
 	while (time_before(jiffies, expire_time)) {
 		if (atomic_read(&test_ctx->tx_notify_count) > 0)
@@ -269,7 +270,7 @@ int wait_any_notify(void)
 		schedule();
 	}
 
-	pr_info(MODULE_NAME ":Wait for event %d sec.\n",
+	pr_info(TEST_MODULE_NAME ":Wait for event %d sec.\n",
 		max_wait_time_msec/1000);
 
 	return -1;
@@ -297,7 +298,7 @@ static void a2_performance_test(void)
 	for (i = 0; i < test_ctx->buf_size / 2; i++)
 		buf16[i] = (u16) (i & 0xFFFF);
 
-	pr_info(MODULE_NAME "--A2 PERFORMANCE TEST START --.\n");
+	pr_info(TEST_MODULE_NAME "--A2 PERFORMANCE TEST START --.\n");
 
 	sdio_set_write_threshold(test_ctx->ch, 2*1024);
 	sdio_set_read_threshold(test_ctx->ch, 14*1024);
@@ -308,7 +309,7 @@ static void a2_performance_test(void)
 	while (tx_packet_count < max_packets) {
 
 		if (test_ctx->exit_flag) {
-			pr_info(MODULE_NAME ":Exit Test.\n");
+			pr_info(TEST_MODULE_NAME ":Exit Test.\n");
 			return;
 		}
 
@@ -325,7 +326,7 @@ static void a2_performance_test(void)
 		write_avail = sdio_write_avail(test_ctx->ch);
 		if (write_avail > 0) {
 			size = min(test_ctx->buf_size, write_avail) ;
-			pr_debug(MODULE_NAME ":tx size = %d.\n", size);
+			pr_debug(TEST_MODULE_NAME ":tx size = %d.\n", size);
 			if (atomic_read(&test_ctx->tx_notify_count) > 0)
 				atomic_dec(&test_ctx->tx_notify_count);
 			test_ctx->buf[0] = tx_packet_count;
@@ -333,7 +334,8 @@ static void a2_performance_test(void)
 
 			ret = sdio_write(test_ctx->ch, test_ctx->buf, size);
 			if (ret) {
-				pr_info(MODULE_NAME ":sdio_write err=%d.\n",
+				pr_info(TEST_MODULE_NAME
+					":sdio_write err=%d.\n",
 					-ret);
 				goto exit_err;
 			}
@@ -344,13 +346,14 @@ static void a2_performance_test(void)
 		read_avail = sdio_read_avail(test_ctx->ch);
 		if (read_avail > 0) {
 			size = min(test_ctx->buf_size, read_avail);
-			pr_debug(MODULE_NAME ":rx size = %d.\n", size);
+			pr_debug(TEST_MODULE_NAME ":rx size = %d.\n", size);
 			if (atomic_read(&test_ctx->rx_notify_count) > 0)
 				atomic_dec(&test_ctx->rx_notify_count);
 
 			ret = sdio_read(test_ctx->ch, test_ctx->buf, size);
 			if (ret) {
-				pr_info(MODULE_NAME ": sdio_read err=%d.\n",
+				pr_info(TEST_MODULE_NAME
+					": sdio_read err=%d.\n",
 					-ret);
 				goto exit_err;
 			}
@@ -358,14 +361,14 @@ static void a2_performance_test(void)
 			test_ctx->rx_bytes += size;
 		}
 
-		pr_debug(MODULE_NAME
+		pr_debug(TEST_MODULE_NAME
 			 ":total rx bytes = %d , rx_packet#=%d.\n",
 			 test_ctx->rx_bytes, rx_packet_count);
-		pr_debug(MODULE_NAME
+		pr_debug(TEST_MODULE_NAME
 			 ":total tx bytes = %d , tx_packet#=%d.\n",
 			 test_ctx->tx_bytes, tx_packet_count);
 
-	   /* pr_info(MODULE_NAME ":packet#=%d.\n", tx_packet_count); */
+	   /* pr_info(TEST_MODULE_NAME ":packet#=%d.\n", tx_packet_count); */
 
 	} /* while (tx_packet_count < max_packets ) */
 
@@ -374,25 +377,25 @@ static void a2_performance_test(void)
 	delta_jiffies = end_jiffy - start_jiffy;
 	time_msec = jiffies_to_msecs(delta_jiffies);
 
-	pr_info(MODULE_NAME ":total rx bytes = 0x%x , rx_packet#=%d.\n",
+	pr_info(TEST_MODULE_NAME ":total rx bytes = 0x%x , rx_packet#=%d.\n",
 		test_ctx->rx_bytes, rx_packet_count);
-	pr_info(MODULE_NAME ":total tx bytes = 0x%x , tx_packet#=%d.\n",
+	pr_info(TEST_MODULE_NAME ":total tx bytes = 0x%x , tx_packet#=%d.\n",
 		test_ctx->tx_bytes, tx_packet_count);
 
 	total_bytes = (test_ctx->tx_bytes + test_ctx->rx_bytes);
-	pr_err(MODULE_NAME ":total bytes = %d, time msec = %d.\n",
+	pr_err(TEST_MODULE_NAME ":total bytes = %d, time msec = %d.\n",
 		   total_bytes , (int) time_msec);
 
-	pr_err(MODULE_NAME ":Performance = %d Mbit/sec.\n",
+	pr_err(TEST_MODULE_NAME ":Performance = %d Mbit/sec.\n",
 	(total_bytes / time_msec) * 8 / 1000) ;
 
-	pr_err(MODULE_NAME "--A2 PERFORMANCE TEST END --.\n");
+	pr_err(TEST_MODULE_NAME "--A2 PERFORMANCE TEST END --.\n");
 
-	pr_err(MODULE_NAME ": TEST PASS.\n");
+	pr_err(TEST_MODULE_NAME ": TEST PASS.\n");
 	return;
 
 exit_err:
-	pr_err(MODULE_NAME ": TEST FAIL.\n");
+	pr_err(TEST_MODULE_NAME ": TEST FAIL.\n");
 	return;
 }
 
@@ -412,7 +415,7 @@ static void worker(struct work_struct *work)
 		a2_performance_test();
 		break;
 	default:
-		pr_info(MODULE_NAME "Bad Test number = %d.\n",
+		pr_info(TEST_MODULE_NAME "Bad Test number = %d.\n",
 			(int) test_ctx->testcase);
 	}
 }
@@ -428,10 +431,10 @@ static void notify(void *priv, unsigned channel_event)
 {
 	struct test_context *test_ctx = (struct test_context *) priv;
 
-	pr_debug(MODULE_NAME ":notify event=%d.\n", channel_event);
+	pr_debug(TEST_MODULE_NAME ":notify event=%d.\n", channel_event);
 
 	if (test_ctx->ch == NULL) {
-		pr_info(MODULE_NAME ":notify before ch ready.\n");
+		pr_info(TEST_MODULE_NAME ":notify before ch ready.\n");
 		return;
 	}
 	BUG_ON(test_ctx->signature != TEST_SIGNATURE);
@@ -439,14 +442,14 @@ static void notify(void *priv, unsigned channel_event)
 	switch (channel_event) {
 	case SDIO_EVENT_DATA_READ_AVAIL:
 		atomic_inc(&test_ctx->rx_notify_count);
-		pr_debug(MODULE_NAME ":rx_notify_count=%d.\n",
+		pr_debug(TEST_MODULE_NAME ":rx_notify_count=%d.\n",
 			 atomic_read(&test_ctx->rx_notify_count));
 		wake_up(&test_ctx->wait_q);
 		break;
 
 	case SDIO_EVENT_DATA_WRITE_AVAIL:
 		atomic_inc(&test_ctx->tx_notify_count);
-		pr_debug(MODULE_NAME ":tx_notify_count=%d.\n",
+		pr_debug(TEST_MODULE_NAME ":tx_notify_count=%d.\n",
 			 atomic_read(&test_ctx->tx_notify_count));
 		wake_up(&test_ctx->wait_q);
 		break;
@@ -464,7 +467,7 @@ static int test_start(void)
 	int ret = -ENOMEM;
 	struct sdio_channel *ch = NULL;
 
-	pr_debug(MODULE_NAME ":Starting Test ....\n");
+	pr_debug(TEST_MODULE_NAME ":Starting Test ....\n");
 
 	test_ctx->buf_size = MAX_XFER_SIZE;
 
@@ -493,7 +496,7 @@ static int test_start(void)
 
 	queue_work(test_ctx->workqueue, &test_ctx->work);
 
-	pr_debug(MODULE_NAME ":Test Start completed OK..\n");
+	pr_debug(TEST_MODULE_NAME ":Test Start completed OK..\n");
 
 	return 0;
 
@@ -501,7 +504,7 @@ err_sdio_open:
 	kfree(test_ctx->buf);
 err_alloc_buf:
 
-	pr_debug(MODULE_NAME ":Test Start Failure..\n");
+	pr_debug(TEST_MODULE_NAME ":Test Start Failure..\n");
 
 	return ret;
 }
@@ -522,19 +525,19 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 
 	switch (test_ctx->testcase) {
 	case 1:
-		pr_debug(MODULE_NAME " --Loopback--.\n");
+		pr_debug(TEST_MODULE_NAME " --Loopback--.\n");
 		test_ctx->name = "SDIO_RPC";
 		break;
 	case 2:
-		pr_debug(MODULE_NAME " --sender--.\n");
+		pr_debug(TEST_MODULE_NAME " --sender--.\n");
 		test_ctx->name = "SDIO_QMI";
 		break;
 	case 3:
-		pr_debug(MODULE_NAME " --A2 Performance--.\n");
+		pr_debug(TEST_MODULE_NAME " --A2 Performance--.\n");
 		test_ctx->name = "SDIO_RMNT";
 		break;
 	default:
-		pr_info(MODULE_NAME "Bad Test number = %d.\n",
+		pr_info(TEST_MODULE_NAME "Bad Test number = %d.\n",
 			(int) test_ctx->testcase);
 		return 0;
 
@@ -559,11 +562,11 @@ static int __init test_init(void)
 {
 	int ret;
 
-	pr_debug(MODULE_NAME ":test_init.\n");
+	pr_debug(TEST_MODULE_NAME ":test_init.\n");
 
 	test_ctx = kzalloc(sizeof(*test_ctx), GFP_KERNEL);
 	if (test_ctx == NULL) {
-		pr_err(MODULE_NAME ":kzalloc err.\n");
+		pr_err(TEST_MODULE_NAME ":kzalloc err.\n");
 		return -ENOMEM;
 	}
 	test_ctx->ch = NULL;
@@ -571,24 +574,24 @@ static int __init test_init(void)
 
 	test_ctx->name = "UNKNOWN";
 
-	test_class = class_create(THIS_MODULE, MODULE_NAME);
+	test_class = class_create(THIS_MODULE, TEST_MODULE_NAME);
 
-	ret = alloc_chrdev_region(&test_ctx->dev_num, 0, 1, MODULE_NAME);
+	ret = alloc_chrdev_region(&test_ctx->dev_num, 0, 1, TEST_MODULE_NAME);
 	if (ret) {
-		pr_err(MODULE_NAME "alloc_chrdev_region err.\n");
+		pr_err(TEST_MODULE_NAME "alloc_chrdev_region err.\n");
 		return -ENODEV;
 	}
 
 	test_ctx->dev = device_create(test_class, NULL, test_ctx->dev_num,
-				      test_ctx, MODULE_NAME);
+				      test_ctx, TEST_MODULE_NAME);
 	if (IS_ERR(test_ctx->dev)) {
-		pr_err(MODULE_NAME ":device_create err.\n");
+		pr_err(TEST_MODULE_NAME ":device_create err.\n");
 		return -ENODEV;
 	}
 
 	test_ctx->cdev = cdev_alloc();
 	if (test_ctx->cdev == NULL) {
-		pr_err(MODULE_NAME ":cdev_alloc err.\n");
+		pr_err(TEST_MODULE_NAME ":cdev_alloc err.\n");
 		return -ENODEV;
 	}
 	cdev_init(test_ctx->cdev, &test_fops);
@@ -596,9 +599,9 @@ static int __init test_init(void)
 
 	ret = cdev_add(test_ctx->cdev, test_ctx->dev_num, 1);
 	if (ret)
-		pr_err(MODULE_NAME ":cdev_add err=%d\n", -ret);
+		pr_err(TEST_MODULE_NAME ":cdev_add err=%d\n", -ret);
 	else
-		pr_debug(MODULE_NAME ":SDIO-AL-Test init OK..\n");
+		pr_debug(TEST_MODULE_NAME ":SDIO-AL-Test init OK..\n");
 
 	return ret;
 }
@@ -608,7 +611,7 @@ static int __init test_init(void)
  */
 static void __exit test_exit(void)
 {
-	pr_debug(MODULE_NAME ":test_exit.\n");
+	pr_debug(TEST_MODULE_NAME ":test_exit.\n");
 
 	test_ctx->exit_flag = true;
 
@@ -623,7 +626,7 @@ static void __exit test_exit(void)
 	kfree(test_ctx->buf);
 	kfree(test_ctx);
 
-	pr_debug(MODULE_NAME ":test_exit complete.\n");
+	pr_debug(TEST_MODULE_NAME ":test_exit complete.\n");
 }
 
 module_init(test_init);
