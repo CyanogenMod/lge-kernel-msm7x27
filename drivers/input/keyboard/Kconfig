@@ -475,6 +475,13 @@ config KEYBOARD_ATCMD_VIRTUAL
 	help
 	  Say Y here if you want to enable the driver for the atcmd virtual
 	  keypad.
+
+config KEYBOARD_PP2106
+	tristate "PP2106 qwerty keypad"
+	default n
+	help
+	  Say Y here if you want to enable the driver for the PP2106 qwerty
+	  keypad.
 endif
 
 config KEYBOARD_PMIC8058
@@ -488,5 +495,4 @@ config KEYBOARD_PMIC8058
 
           To compile this driver as a module, choose M here: the module will
           be called pmic8058-keypad.
-
 
