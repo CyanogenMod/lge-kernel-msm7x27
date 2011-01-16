@@ -26,5 +26,8 @@ obj-$(CONFIG_S5K3E2FX) += s5k3e2fx.o
 obj-$(CONFIG_VX6953) += vx6953.o vx6953_reg.o
 obj-$(CONFIG_VB6801) += vb6801.o
 obj-$(CONFIG_IMX074) += imx074.o imx074_reg.o
+obj-$(CONFIG_MT9T113) += mt9t113.o
+obj-$(CONFIG_S5K5CAGA) += s5k5caga.o
+
 obj-$(CONFIG_WEBCAM_OV7692) += ov7692.o
 obj-$(CONFIG_MSM_GEMINI) += msm_gemini_dev.o msm_gemini_sync.o msm_gemini_core.o msm_gemini_hw.o msm_gemini_platform.o
