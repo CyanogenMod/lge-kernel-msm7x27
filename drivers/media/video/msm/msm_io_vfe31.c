@@ -799,6 +799,8 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 {
 	switch (perf_setting) {
 	case S_INIT:
+		add_axi_qos();
+		break;
 	case S_PREVIEW:
 		update_axi_qos(MSM_AXI_QOS_PREVIEW);
 		break;
