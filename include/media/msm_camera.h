@@ -458,7 +458,7 @@ struct msm_snapshot_pp_status {
 /* 2010-05-02: Add auto-focus values */
 /* 2010-05-05: Add setting iso values */
 /* 2010-05-14: Add setting scene values */
-#if defined (CONFIG_ISX005)
+#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA)
 #define CFG_START_AF_FOCUS	101
 #define CFG_CHECK_AF_DONE	102
 #define CFG_CHECK_AF_CANCEL	103
@@ -467,6 +467,13 @@ struct msm_snapshot_pp_status {
 
 #define CFG_SET_ISO			201
 #define CFG_SET_SCENE		202
+#define CFG_SET_ZOOM_SENSOR 203
+
+#define CFG_SET_FOCUS_RECT 204
+#define CFG_SET_CANCEL_FOCUS 205
+#define CFG_SET_PARM_AF_MODE 206
+#define CFG_GET_CURRENT_ISO 207
+#define CFG_GET_CHECK_SNAPSHOT 208
 #endif
 /* LGE_CHANGE_E [junyeong.han@lge.com] */
 
@@ -495,7 +502,7 @@ struct msm_snapshot_pp_status {
 
 /* LGE_CHANGE_S [junyeong.han@lge.com] Add CAMERA_EFFECT values */
 /* 2010-05-13: Add CAMERA_EFFECT values */
-#if defined (CONFIG_ISX005)
+#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA)
 #define CAMERA_EFFECT_NEGATIVE_SEPIA	9
 #define CAMERA_EFFECT_BLUE				10
 #define CAMERA_EFFECT_PASTEL			11
@@ -534,6 +541,8 @@ struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
 	int rs;
+	int width;
+	int height;
 	uint8_t max_steps;
 
 	union {

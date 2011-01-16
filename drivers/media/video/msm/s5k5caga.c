@@ -24,13 +24,13 @@
 #include <linux/i2c.h>
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
+#include <linux/slab.h>
 #include <media/msm_camera.h>
 #include <mach/gpio.h>
+#include <linux/kthread.h>
+
 #include "s5k5caga.h"
 #include "s5k5caga_reg.h"
-#include <mach/vreg.h>
-#include <linux/byteorder/little_endian.h>
-#include <linux/kthread.h>
 
 /***********************************************************/
 // 값이 set되면 sdcard에서 register값을 읽어서 카메라 초기화작업을 실시한다.
@@ -75,7 +75,6 @@ int s5k5caga_mclk_rate = 27000000;
 int focus_mode = 0;
 static int debug_mask = 1;
 
-static unsigned char* read_buffer_s5k5caga = NULL;
 static int prev_af_mode;
 static int enable_capturemode = 0;
 
@@ -174,93 +173,77 @@ static int32_t s5k5caga_i2c_txdata(unsigned short saddr,
 static int32_t s5k5caga_i2c_write(unsigned short saddr,
 	unsigned short waddr, uint32_t wdata, enum s5k5caga_width width)
 {
-	int i = 0, fail_count = 0;
-	int retry ;
 	int32_t rc = 0;//-EIO;
 	unsigned char buf_dbl[6];
 	unsigned char buf_wrd[4];
 	unsigned char buf_bte[3];
 	static int burst_num = 0;
 	
-	unsigned short read_val = 0;
 	switch (width) {
-		
-	case BURST_LEN: {	
 
-		switch(waddr)
-		{
+		case BURST_LEN: 
+			switch(waddr) {
 
-			case 0xFFFE:
-		//		mutex_lock(&s5k5caga_tuning_mutex);
-				memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
-				burst_num = 3;
-				sensor_burst_buffer[0] = 0x0F;
-				sensor_burst_buffer[1] = 0x12;		
-				sensor_burst_buffer[2] = (wdata & 0xFF00)>>8;		
-				sensor_burst_buffer[3] = (wdata & 0x00FF);						
-				break;
-				
-			case 0x0:
-				burst_num++;
-				sensor_burst_buffer[burst_num] = (wdata & 0xFF00)>>8;		
-				burst_num++;
-				sensor_burst_buffer[burst_num] = (wdata & 0x00FF);		
-				
-				#if 0	//mhlee 0105
-				if((burst_num+1) == 32)
-				{
-					rc = s5k5caga_i2c_txdata(saddr, sensor_burst_buffer, (burst_num+1));	
+				case 0xFFFE:
+					//		mutex_lock(&s5k5caga_tuning_mutex);
 					memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
-					burst_num = 1;
+					burst_num = 3;
 					sensor_burst_buffer[0] = 0x0F;
-					sensor_burst_buffer[1] = 0x12;	
+					sensor_burst_buffer[1] = 0x12;		
+					sensor_burst_buffer[2] = (wdata & 0xFF00)>>8;		
+					sensor_burst_buffer[3] = (wdata & 0x00FF);						
+					break;
 
-				}
-				#endif
-				break;
+				case 0x0:
+					burst_num++;
+					sensor_burst_buffer[burst_num] = (wdata & 0xFF00)>>8;		
+					burst_num++;
+					sensor_burst_buffer[burst_num] = (wdata & 0x00FF);		
+					break;
 
-			case 0xFFFF:
-				burst_num++;
-				sensor_burst_buffer[burst_num] = (wdata & 0xFF00)>>8;		
-				burst_num++;
-				sensor_burst_buffer[burst_num] = (wdata & 0x00FF);	
-				
-				rc = s5k5caga_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, (burst_num+1));	
-		//		mutex_unlock(&s5k5caga_tuning_mutex);		
-				break;
-		}
-	}
-		break;
-	case DOBULE_LEN: {		
-		memset(buf_dbl, 0, sizeof(buf_dbl));
-		buf_dbl[0] = (waddr & 0xFF00)>>8;
-		buf_dbl[1] = (waddr & 0x00FF);
-		buf_dbl[2] = (wdata & 0xFF000000)>>24;
-		buf_dbl[3] = (wdata & 0x00FF0000)>>16;
-		buf_dbl[4] = (wdata & 0x0000FF00)>>8;
-		buf_dbl[5] = (wdata & 0x000000FF);
-		rc = s5k5caga_i2c_txdata(saddr, buf_dbl, 6);
-	}
-		break;
-		
-	case WORD_LEN: {		
-		memset(buf_wrd, 0, sizeof(buf_wrd));
-		buf_wrd[0] = (waddr & 0xFF00)>>8;
-		buf_wrd[1] = (waddr & 0x00FF);
-		buf_wrd[2] = (wdata & 0xFF00)>>8;
-		buf_wrd[3] = (wdata & 0x00FF);
-		rc = s5k5caga_i2c_txdata(saddr, buf_wrd, 4);
-	}
-		break;
+				case 0xFFFF:
+					burst_num++;
+					sensor_burst_buffer[burst_num] = (wdata & 0xFF00)>>8;		
+					burst_num++;
+					sensor_burst_buffer[burst_num] = (wdata & 0x00FF);	
 
-	case BYTE_LEN: {		
-		memset(buf_bte, 0, sizeof(buf_bte));
-		buf_bte[0] = (waddr & 0xFF00)>>8;
-		buf_bte[1] = (waddr & 0x00FF);
-		buf_bte[2] = wdata;
-		rc = s5k5caga_i2c_txdata(saddr, buf_bte, 3);
-	}
-		break;
+					rc = s5k5caga_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, (burst_num+1));	
+					//		mutex_unlock(&s5k5caga_tuning_mutex);		
+					break;
+			}
+			break;
+
+		case DOBULE_LEN:
+			memset(buf_dbl, 0, sizeof(buf_dbl));
+			buf_dbl[0] = (waddr & 0xFF00)>>8;
+			buf_dbl[1] = (waddr & 0x00FF);
+			buf_dbl[2] = (wdata & 0xFF000000)>>24;
+			buf_dbl[3] = (wdata & 0x00FF0000)>>16;
+			buf_dbl[4] = (wdata & 0x0000FF00)>>8;
+			buf_dbl[5] = (wdata & 0x000000FF);
+			rc = s5k5caga_i2c_txdata(saddr, buf_dbl, 6);
+			break;
+
+		case WORD_LEN:
+			memset(buf_wrd, 0, sizeof(buf_wrd));
+			buf_wrd[0] = (waddr & 0xFF00)>>8;
+			buf_wrd[1] = (waddr & 0x00FF);
+			buf_wrd[2] = (wdata & 0xFF00)>>8;
+			buf_wrd[3] = (wdata & 0x00FF);
+			rc = s5k5caga_i2c_txdata(saddr, buf_wrd, 4);
+			break;
+
+		case BYTE_LEN:
+			memset(buf_bte, 0, sizeof(buf_bte));
+			buf_bte[0] = (waddr & 0xFF00)>>8;
+			buf_bte[1] = (waddr & 0x00FF);
+			buf_bte[2] = wdata;
+			rc = s5k5caga_i2c_txdata(saddr, buf_bte, 3);
+			break;
+
+		case ADDRESS_TUNE:
+		default:
+			break;
 	}
 
 // I2C fail발생이 되는 경우가 잇어서 방어추가한다.
@@ -410,29 +393,34 @@ static int32_t s5k5caga_i2c_read(unsigned short   saddr,
 	memset(buf, 0, sizeof(buf));
 
 	switch (width) {
-	case WORD_LEN: {
-		buf[0] = (raddr & 0xFF00)>>8;
-		buf[1] = (raddr & 0x00FF);
+		case WORD_LEN: 
+			buf[0] = (raddr & 0xFF00)>>8;
+			buf[1] = (raddr & 0x00FF);
 
-		rc = s5k5caga_i2c_rxdata(saddr, buf, 2);
-		if (rc < 0)
-			return rc;
+			rc = s5k5caga_i2c_rxdata(saddr, buf, 2);
+			if (rc < 0)
+				return rc;
 
-		*rdata = buf[0] << 8 | buf[1];
-		}
-		break;
-   	
-   case BYTE_LEN:{
-		buf[0] = (raddr & 0xFF00)>>8;
-		buf[1] = (raddr & 0x00FF);
+			*rdata = buf[0] << 8 | buf[1];
+			break;
 
-		rc = s5k5caga_i2c_rxdata(saddr, buf, 2);
-		if (rc < 0)
-			return rc;
-		
-		*rdata = buf[0];
-		}
-		break;           
+		case BYTE_LEN:
+			buf[0] = (raddr & 0xFF00)>>8;
+			buf[1] = (raddr & 0x00FF);
+
+			rc = s5k5caga_i2c_rxdata(saddr, buf, 2);
+			if (rc < 0)
+				return rc;
+
+			*rdata = buf[0];
+			break;           
+
+		case BURST_LEN:
+		case DOBULE_LEN:
+		case ADDRESS_TUNE:
+		default:
+			/* nothing to do */
+			break;
 	}
 
 	if (rc < 0)
@@ -460,6 +448,7 @@ static int s5k5caga_check_thread_run(void)
 	return rc;
 }
 
+#if 0 /* not used, now */
 static int s5k5caga_reset(const struct msm_camera_sensor_info *dev, int value)
 {
 	int rc = 0;
@@ -491,6 +480,7 @@ static int s5k5caga_pwdn(const struct msm_camera_sensor_info *dev, int value)
 	gpio_free(dev->sensor_pwd);
 	return rc;
 }
+#endif
 
 void s5k5caga_sensor_power_enable(void)
 {
@@ -505,7 +495,7 @@ void s5k5caga_sensor_power_disable(void)
 static long s5k5caga_snapshot_config(int mode,int width, int height)
 {
 	int32_t rc;
-	int picture_width, picture_height;
+	//int picture_width, picture_height;
 	
 	if(debug_mask)
 	   printk("s5k5caga_snapshot_config:	Input resolution[%d * %d]\n", width, height);
@@ -519,29 +509,27 @@ static long s5k5caga_snapshot_config(int mode,int width, int height)
 static int32_t s5k5caga_cancel_focus(int mode)
 {
 	int32_t rc = 0;
-	int lense_po_back=0;
-	unsigned short cm_changed_sts, cm_changed_clr, af_pos;
-	int i = 0;	
+
 	if(debug_mask)
 		printk("s5k5caga: cancel focus, mode = %d\n", mode);
 
-	switch(mode){
-	case FOCUS_AUTO:
-	case FOCUS_NORMAL:
-		if(debug_mask)
-	   		printk("back to the infinity\n");
+	switch(mode) {
+		case FOCUS_AUTO:
+		case FOCUS_NORMAL:
+			if(debug_mask)
+				printk("back to the infinity\n");
 
-		break;
-	
-	case FOCUS_MACRO:
-		if(debug_mask)
-	   		printk("back to the macro\n");
+			break;
 
-		break;
+		case FOCUS_MACRO:
+			if(debug_mask)
+				printk("back to the macro\n");
 
-	case FOCUS_MANUAL:
-		return rc;
-		break;
+			break;
+
+		case FOCUS_MANUAL:
+			return rc;
+			break;
 	}
 
 	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x0028, 0x7000, WORD_LEN);
@@ -549,12 +537,10 @@ static int32_t s5k5caga_cancel_focus(int mode)
 		return rc;
 	
 	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x0028, 0x0252, WORD_LEN);
-
 	if (rc < 0)
 		return rc;
 	
 	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x0028, 0x0003, WORD_LEN);
-
 	if (rc < 0)
 		return rc;
 		
@@ -637,6 +623,8 @@ static long s5k5caga_set_sensor_mode(int mode,int width, int height)
    
 	return 0;
 }
+
+#if 0 /* not used, now */
 static int32_t s5k5caga_check_af_lock_and_clear(void)
 {
 	int32_t rc;
@@ -684,6 +672,7 @@ static int32_t s5k5caga_check_af_lock_and_clear(void)
 
 	return rc;
 }
+#endif
 
 #define FOCUS_STEP_GARO 	4
 #define FOCUS_STEP_SERO 	4
@@ -695,20 +684,23 @@ static int32_t s5k5caga_check_af_lock_and_clear(void)
 
 static int32_t s5k5caga_set_focus(void)
 {
+#if 0	//mhlee 0107
 	int32_t rc = 0;
 	int lock = 0;
 
-#if 0	//mhlee 0107
 	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.AF_reg_settings[0], s5k5caga_regs.AF_reg_settings_size);
 	if(rc<0){
 		printk("[s5k5caga.c]%s: fail in writing for focus\n",__func__);
 		return rc;
 	}
-//	msleep(60);  // 1 frame skip
+	msleep(60);  // 1 frame skip
 	
-//	rc = s5k5caga_check_focus(&lock);
-#endif
+	rc = s5k5caga_check_focus(&lock);
+
 	return rc;
+#else
+	return 0;
+#endif
 }
 
 static long s5k5caga_set_focus_rect(int focus_rect)
@@ -821,7 +813,9 @@ static int s5k5caga_check_af_lock(void)
 static int s5k5caga_check_focus(int *lock)
 {
 	int rc;
+#if 0
 	unsigned short af_status;
+#endif
 	unsigned short af_result = 0;
 
 	if(debug_mask)
@@ -949,9 +943,7 @@ static int32_t s5k5caga_set_macro_focus(void)
 
 static int32_t s5k5caga_focus_config(int mode)
 {
-	int i;
 	int32_t rc = 0;
-	unsigned short af_driver_check, af_driver_status;
 
 #if 0	//mhlee 0110
 	if(prev_af_mode == mode)
@@ -993,10 +985,11 @@ static int32_t s5k5caga_focus_config(int mode)
 static int32_t s5k5caga_move_focus(int32_t steps)
 {
 	int32_t rc = 0;
-	unsigned short cm_changed_sts, cm_changed_clr, af_pos, manual_pos;
-	int i, temp;
+	unsigned short manual_pos;
+
 	prev_af_mode = FOCUS_MANUAL;
 	focus_mode = FOCUS_MANUAL;
+
 	if(debug_mask)
 		printk("[s5k5caga.c] move focus: step is %d\n",steps);
 	
@@ -2095,6 +2088,7 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 }
 /* END: 0005280 hyungtae.lee@lge.com 2010-03-22 */
 
+#if 0 /* not used, now */
 static int s5k5caga_sensor_init_probe(const struct msm_camera_sensor_info *data)
 {
 	uint16_t model_id = 0;
@@ -2122,6 +2116,7 @@ static int s5k5caga_sensor_init_probe(const struct msm_camera_sensor_info *data)
 init_probe_fail:
     return rc;
 }
+#endif
 
 #if ALESSI_TUNING_SET
 #define LOOP_INTERVAL		20
@@ -2148,7 +2143,7 @@ static long s5k5caga_read_ext_reg(char *filename)
 		return 0;
 	}
 
-	file_buf_alloc_pages = kmalloc(TO_BE_READ_SIZE, GFP_KERNEL);	
+	file_buf_alloc_pages = kmalloc((int)TO_BE_READ_SIZE, GFP_KERNEL);	
 	
 	if(!file_buf_alloc_pages) {
 		printk("%s : mem alloc error!\n", __func__);
@@ -2527,7 +2522,6 @@ static void enqueue_cfg_wq(int cfgtype, int mode)
 int s5k5caga_reg_tuning(void *data)
 {
 	int rc = 0;
-	int i;
 
 	mutex_lock(&s5k5caga_tuning_mutex);
 	cfg_wq = kmalloc(sizeof(struct config_work_queue) * CFG_WQ_SIZE,
@@ -2561,9 +2555,7 @@ int s5k5caga_reg_tuning(void *data)
 
 int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 {
-	int i=0;
 	int rc;	
-	uint16_t ap_check = 0, ap_check_16 = 0, real_ap_check = 0;	
 
 	if(debug_mask)
 	printk("s5k5caga_init start! mmm\n");
@@ -2660,7 +2652,6 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 #if 1	//0823 //mhlee 0104
 {
 	struct task_struct *p;
-	unsigned short read_val = 0;
 
 	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[0], s5k5caga_regs.pll_size);
 	
@@ -2727,9 +2718,9 @@ int s5k5caga_sensor_config(void __user *argp)
 {
 	struct sensor_cfg_data cfg_data;	
 	long  rc = 0;	
-	int err_info = 0;
-	int errprev_info = 0;
-	int errcap_info = 0;
+	uint16_t err_info = 0;
+	uint16_t errprev_info = 0;
+	uint16_t errcap_info = 0;
 	
 	rc = copy_from_user(&cfg_data,(void *)argp,sizeof(struct sensor_cfg_data));
 	if(rc < 0)
@@ -2774,10 +2765,7 @@ int s5k5caga_sensor_config(void __user *argp)
 		if(debug_mask)
 			printk("Sensor Preview Mode check : start \n");
 		// enable상태가 가능한지 check 
-		for(i = 0; i < 200; i++)
-		{
-			unsigned short changed_status = 0;
-
+		for(i = 0; i < 200; i++) {
 			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002C, 0x7000, WORD_LEN);		
 			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002E, 0x020A, WORD_LEN);		
 			rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x0F12, &err_info, WORD_LEN);	
@@ -2964,7 +2952,7 @@ int s5k5caga_sensor_config(void __user *argp)
 #endif
 	case CFG_GET_CURRENT_ISO:
 	{
-		int iso_value = 0;
+		uint16_t iso_value = 0;
 		if(debug_mask)
 			printk("s5k5caga_sensor_config: command is CFG_GET_CURRENT_ISO\n");
 		rc = s5k5caga_i2c_read(s5k5caga_client->addr,
@@ -3251,7 +3239,7 @@ static void s5k5caga_sysfs_add(struct kobject* kobj)
 int s5k5caga_sensor_release(void)
 {
 	int rc = 0;
-	int i = 0;
+
 	mutex_lock(&s5k5caga_mutex);
 
 	rc = s5k5caga_check_thread_run();
@@ -3330,8 +3318,6 @@ static int s5k5caga_sensor_probe(const struct msm_camera_sensor_info *info,
 {
 	int rc = i2c_add_driver(&s5k5caga_i2c_driver);
 	printk("s5k5caga: s5k5caga_sensor_probe\n");	
-
-	printk("s5k5caga: s5k5caga_client = %d, rc = %d\n",s5k5caga_client,rc);	
 
 	if (rc < 0 || s5k5caga_client == NULL) {
 		rc = -ENOTSUPP;
