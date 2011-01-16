@@ -34,7 +34,7 @@
 /* sdcard related macros */
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 #define GPIO_SD_DETECT_N	49
-/* #define GPIO_MMC_COVER_DETECT 77 */
+#define GPIO_MMC_COVER_DETECT 77
 #define VREG_SD_LEVEL       3000
 
 #define GPIO_SD_DATA_3      51
