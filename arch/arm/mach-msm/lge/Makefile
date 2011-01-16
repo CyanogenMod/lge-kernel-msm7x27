@@ -47,6 +47,16 @@ obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-camera.o
 obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-input.o
 obj-$(CONFIG_MACH_MSM7X27_THUNDERA) += board-thundera-misc.o
 
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-mmc.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-snd.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-panel.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-bt.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-camera.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-input.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-misc.o
+obj-$(CONFIG_MACH_MSM7X27_GELATO) += board-gelato-pm.o
+
 obj-$(CONFIG_MACH_LGE) += devices_lge.o
 
 obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats.o
