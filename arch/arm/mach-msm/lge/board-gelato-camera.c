@@ -54,41 +54,41 @@ struct i2c_board_info i2c_devices[1] = {
 #if defined (CONFIG_MSM_CAMERA)
 static uint32_t camera_off_gpio_table[] = {
 	/* parallel CAMERA interfaces */
-	GPIO_CFG(4,  0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT0 */
-	GPIO_CFG(5,  0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT1 */
-	GPIO_CFG(6,  0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT2 */
-	GPIO_CFG(7,  0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT3 */
-	GPIO_CFG(8,  0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT4 */
-	GPIO_CFG(9,  0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT5 */
-	GPIO_CFG(10, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT6 */
-	GPIO_CFG(11, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT7 */
-	GPIO_CFG(12, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* PCLK */
-	GPIO_CFG(13, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* HSYNC_IN */
-	GPIO_CFG(14, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* VSYNC_IN */
-	GPIO_CFG(GPIO_CAM_MCLK, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), /* MCLK */
+	GPIO_CFG(4,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT0 */
+	GPIO_CFG(5,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT1 */
+	GPIO_CFG(6,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT2 */
+	GPIO_CFG(7,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT3 */
+	GPIO_CFG(8,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT4 */
+	GPIO_CFG(9,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT5 */
+	GPIO_CFG(10, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT6 */
+	GPIO_CFG(11, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT7 */
+	GPIO_CFG(12, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* PCLK */
+	GPIO_CFG(13, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* HSYNC_IN */
+	GPIO_CFG(14, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* VSYNC_IN */
+	GPIO_CFG(GPIO_CAM_MCLK, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), /* MCLK */
 };
 
 static uint32_t camera_on_gpio_table[] = {
 	/* parallel CAMERA interfaces */
-	GPIO_CFG(4,  1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT0 */
-	GPIO_CFG(5,  1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT1 */
-	GPIO_CFG(6,  1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT2 */
-	GPIO_CFG(7,  1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT3 */
-	GPIO_CFG(8,  1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT4 */
-	GPIO_CFG(9,  1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT5 */
-	GPIO_CFG(10, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT6 */
-	GPIO_CFG(11, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT7 */
-	GPIO_CFG(12, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_16MA), /* PCLK */
-	GPIO_CFG(13, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* HSYNC_IN */
-	GPIO_CFG(14, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* VSYNC_IN */
-	GPIO_CFG(GPIO_CAM_MCLK, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_16MA), /* MCLK */
+	GPIO_CFG(4,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT0 */
+	GPIO_CFG(5,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT1 */
+	GPIO_CFG(6,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT2 */
+	GPIO_CFG(7,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT3 */
+	GPIO_CFG(8,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT4 */
+	GPIO_CFG(9,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT5 */
+	GPIO_CFG(10, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT6 */
+	GPIO_CFG(11, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* DAT7 */
+	GPIO_CFG(12, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA), /* PCLK */
+	GPIO_CFG(13, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* HSYNC_IN */
+	GPIO_CFG(14, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* VSYNC_IN */
+	GPIO_CFG(GPIO_CAM_MCLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA), /* MCLK */
 };
 
 static void config_gpio_table(uint32_t *table, int len)
 {
 	int n, rc;
 	for (n = 0; n < len; n++) {
-		rc = gpio_tlmm_config(table[n], GPIO_ENABLE);
+		rc = gpio_tlmm_config(table[n], GPIO_CFG_ENABLE);
 		if (rc) {
 			printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
 				__func__, table[n], rc);
@@ -97,10 +97,11 @@ static void config_gpio_table(uint32_t *table, int len)
 	}
 }
 
-void config_camera_on_gpios(void)
+int config_camera_on_gpios(void)
 {
 	config_gpio_table(camera_on_gpio_table,
 		ARRAY_SIZE(camera_on_gpio_table));
+	return 0;
 }
 
 void config_camera_off_gpios(void)
@@ -113,6 +114,7 @@ int camera_power_on (void)
 {
 	int rc;
 	struct device *dev = gelato_backlight_dev();
+	struct vreg *vreg_mmc = vreg_get(0, "mmc");
 
 	camera_power_mutex_lock();
 	if(lcd_bl_power_state == BL_POWER_SUSPEND)
@@ -127,9 +129,8 @@ int camera_power_on (void)
 	gpio_set_value(GPIO_CAM_PWDN, 0);
 
 	/*AVDD power 2.8V*/
-		struct vreg *vreg_mmc = vreg_get(0, "mmc");
-		vreg_set_level(vreg_mmc, 2800);
-		vreg_enable(vreg_mmc);
+	vreg_set_level(vreg_mmc, 2800);
+	vreg_enable(vreg_mmc);
 
   /* DVDD power 1.2V */
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_DVDD_NO, 1800);
@@ -190,23 +191,19 @@ int camera_power_on (void)
 
 	/*reset high*/
 	gpio_set_value(GPIO_CAM_RESET, 1);
-
 	mdelay(5); 
-
-	
-
 	camera_power_state = CAM_POWER_ON;
 
 power_on_fail:
 	camera_power_mutex_unlock();
 	return rc;
-
 }
 
 int camera_power_off (void)
 {
 	int rc;
 	struct device *dev = gelato_backlight_dev();
+	struct vreg *vreg_mmc = vreg_get(0, "mmc");
 
 	camera_power_mutex_lock();
 
@@ -223,15 +220,10 @@ int camera_power_off (void)
 
 	mdelay(1);
 	gpio_set_value(GPIO_CAM_PWDN, 0);
-	
 
 	/*AVDD power 2.8V*/
-		struct vreg *vreg_mmc = vreg_get(0, "mmc");
-		vreg_set_level(vreg_mmc, 0);
-		vreg_disable(vreg_mmc);
-
-
-
+	vreg_set_level(vreg_mmc, 0);
+	vreg_disable(vreg_mmc);
 
 	/*IOVDD power 2.6V*/
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_IOVDD_NO, 0);
@@ -239,46 +231,47 @@ int camera_power_off (void)
 		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_IOVDD_NO);
 		goto power_off_fail;
 	}
+
 	rc = aat28xx_ldo_enable(dev, LDO_CAM_IOVDD_NO, 0);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_IOVDD_NO);
 		goto power_off_fail;
 	}
 
+	/*AVDD power 2.7V*/
+	rc = aat28xx_ldo_set_level(dev, LDO_CAM_AVDD_NO, 0);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AVDD_NO);
+		goto power_off_fail;
+	}
 
-  /*AVDD power 2.7V*/
-  rc = aat28xx_ldo_set_level(dev, LDO_CAM_AVDD_NO, 0);
-  if (rc < 0) {
-	  printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AVDD_NO);
-	  goto power_off_fail;
-  }
-  rc = aat28xx_ldo_enable(dev, LDO_CAM_AVDD_NO, 0);
-  if (rc < 0) {
-	  printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_AVDD_NO);
-	  goto power_off_fail;
-  }
-  
+	rc = aat28xx_ldo_enable(dev, LDO_CAM_AVDD_NO, 0);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_AVDD_NO);
+		goto power_off_fail;
+	}
 
-  /* DVDD power 1.2V*/
+	/* DVDD power 1.2V*/
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_DVDD_NO, 0);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_DVDD_NO);
 		goto power_off_fail;
 	}
+
 	rc = aat28xx_ldo_enable(dev, LDO_CAM_DVDD_NO, 0);
 	if (rc < 0) {
 		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_DVDD_NO);
 		goto power_off_fail;
 	}
-	camera_power_state = CAM_POWER_OFF;
 
+	camera_power_state = CAM_POWER_OFF;
 
 power_off_fail:
 	camera_power_mutex_unlock();
 	return rc;
-
 }
 
+#if defined (CONFIG_MT9T113) || defined(CONFIG_S5K5CAGA) 
 static struct msm_camera_device_platform_data msm_camera_device_data = {
 	.camera_gpio_on  = config_camera_on_gpios,
 	.camera_gpio_off = config_camera_off_gpios,
@@ -289,6 +282,7 @@ static struct msm_camera_device_platform_data msm_camera_device_data = {
 	.camera_power_on = camera_power_on,
 	.camera_power_off = camera_power_off,
 };
+#endif
 
 #if defined (CONFIG_MT9T113) 
 static struct msm_camera_sensor_flash_data flash_none = {

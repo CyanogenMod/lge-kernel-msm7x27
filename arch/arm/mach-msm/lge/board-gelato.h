@@ -148,8 +148,9 @@ extern struct i2c_board_info i2c_devices[1];
 
 extern int camera_power_state;
 extern int lcd_bl_power_state;
+
 /* interface functions */
-void config_camera_on_gpios(void);
+int config_camera_on_gpios(void);
 void config_camera_off_gpios(void);
 void camera_power_mutex_lock(void);
 void camera_power_mutex_unlock(void);

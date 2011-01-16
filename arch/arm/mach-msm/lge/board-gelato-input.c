@@ -87,14 +87,14 @@ static const unsigned short keypad_keymap_gelato[] = {
 		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 };
 
-int gelato_matrix_info_wrapper(struct input_dev *input_dev,struct gpio_event_info *info, void **data, int func)
+int gelato_matrix_info_wrapper(struct gpio_event_input_devs *input_dev,struct gpio_event_info *info, void **data, int func)
 {
         int ret ;
 		if (func == GPIO_EVENT_FUNC_RESUME) {
 			gpio_tlmm_config(GPIO_CFG(keypad_col_gpios[0], 0,
-						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
+						GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 			gpio_tlmm_config(GPIO_CFG(keypad_col_gpios[1], 0,
-						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
+						GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		}
 
 		ret = gpio_event_matrix_func(input_dev,info, data,func);
@@ -205,14 +205,14 @@ static int ts_config_gpio(int config)
 {
 	if (config)
 	{		/* for wake state */
-		gpio_tlmm_config(GPIO_CFG(TS_GPIO_IRQ, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(TS_GPIO_IRQ, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	}
 	else
 	{		/* for sleep state */
-		gpio_tlmm_config(GPIO_CFG(TS_GPIO_IRQ, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(TS_GPIO_IRQ, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
-		gpio_tlmm_config(GPIO_CFG(TS_GPIO_I2C_SDA, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
-		gpio_tlmm_config(GPIO_CFG(TS_GPIO_I2C_SCL, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(TS_GPIO_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(TS_GPIO_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	}
 
 	return 0;
@@ -236,7 +236,11 @@ static int ts_set_vreg(unsigned char onoff)
 	if (onoff) {
 		ts_config_gpio(1);
 
-		vreg_set_level(vreg_touch, 3050);
+		rc = vreg_set_level(vreg_touch, 3050);
+		if (rc != 0) {
+			printk("[TOUCH] vreg_set_level failed\n");
+			return -1;
+		}
 		vreg_enable(vreg_touch);
 
 		msleep(15);	// wait 15ms
@@ -309,11 +313,11 @@ static void __init gelato_init_i2c_touch(int bus_num)
 static int kr3dh_config_gpio(int config)
 {
 	if (config) {	/* for wake state */
-		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SCL, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
-		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SDA, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SCL, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SDA, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	} else {		/* for sleep state */
-		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SCL, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
-		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SDA, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	}
 
 	return 0;
