@@ -29,6 +29,22 @@ config MACH_MSM7X27_THUNDERA
 	help
 	  Support for the LGE MSM7x27 THUNDER AT&T board.
 
+config MACH_MSM7X27_GELATO
+    depends on ARCH_MSM7X27
+    depends on !MSM_STACKED_MEMORY
+    select MACH_LGE
+    bool "MSM7x27 GELATO Global"
+    help
+      Support for the LGE MSM7x27 GELATO Global board.
+
+config MACH_MSM7X27_MUSCAT
+    depends on ARCH_MSM7X27
+    depends on !MSM_STACKED_MEMORY
+    select MACH_LGE
+    bool "MSM7x27 MUSCAT"
+    help
+      Support for the LGE MSM7x27 MUSCAT board.
+
 endmenu
 
 config LGE_SUPPORT_ERS
