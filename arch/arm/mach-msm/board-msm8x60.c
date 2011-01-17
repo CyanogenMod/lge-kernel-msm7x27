@@ -1265,6 +1265,25 @@ static char *usb_functions_default_adb[] = {
 	"usb_mass_storage",
 };
 
+static char *charm_usb_functions_default[] = {
+	"diag",
+	"diag_mdm",
+	"modem",
+	"nmea",
+	"rmnet",
+	"usb_mass_storage",
+};
+
+static char *charm_usb_functions_default_adb[] = {
+	"diag",
+	"diag_mdm",
+	"adb",
+	"modem",
+	"nmea",
+	"rmnet",
+	"usb_mass_storage",
+};
+
 static char *usb_functions_rndis[] = {
 	"rndis",
 };
@@ -1280,6 +1299,28 @@ static char *usb_functions_all[] = {
 #endif
 #ifdef CONFIG_USB_ANDROID_DIAG
 	"diag",
+#endif
+	"adb",
+#ifdef CONFIG_USB_F_SERIAL
+	"modem",
+	"nmea",
+#endif
+#ifdef CONFIG_USB_ANDROID_RMNET
+	"rmnet",
+#endif
+	"usb_mass_storage",
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
+#endif
+};
+
+static char *charm_usb_functions_all[] = {
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	"rndis",
+#endif
+#ifdef CONFIG_USB_ANDROID_DIAG
+	"diag",
+	"diag_mdm",
 #endif
 	"adb",
 #ifdef CONFIG_USB_F_SERIAL
@@ -1317,6 +1358,30 @@ static struct android_usb_product usb_products[] = {
 		.functions	= usb_functions_rndis_adb,
 	},
 };
+
+static struct android_usb_product charm_usb_products[] = {
+	{
+		.product_id	= 0x9032,
+		.num_functions	= ARRAY_SIZE(charm_usb_functions_default),
+		.functions	= charm_usb_functions_default,
+	},
+	{
+		.product_id	= 0x9031,
+		.num_functions	= ARRAY_SIZE(charm_usb_functions_default_adb),
+		.functions	= charm_usb_functions_default_adb,
+	},
+	{
+		.product_id	= 0xf00e,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis),
+		.functions	= usb_functions_rndis,
+	},
+	{
+		.product_id	= 0x9024,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
+		.functions	= usb_functions_rndis_adb,
+	},
+};
+
 static struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns		= 1,
 	.vendor		= "Qualcomm Incorporated",
@@ -7425,6 +7490,23 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		pm8058_platform_data.sub_devices[PM8058_SUBDEV_KPD].data_size
 			= sizeof(ffa_keypad_data);
 	}
+
+#ifdef CONFIG_USB_ANDROID
+	if (machine_is_msm8x60_charm_surf() ||
+			machine_is_msm8x60_charm_ffa()) {
+		android_usb_pdata.product_id = 0x9032;
+		android_usb_pdata.functions = charm_usb_functions_all,
+		android_usb_pdata.num_functions =
+				ARRAY_SIZE(charm_usb_functions_all),
+		android_usb_pdata.products = charm_usb_products;
+		android_usb_pdata.num_products =
+				ARRAY_SIZE(charm_usb_products);
+
+		/* Add DIAG_MDM channel only for MDM target */
+		platform_device_register(&usb_diag_mdm_device);
+
+	}
+#endif
 
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa() ||
 	    machine_is_msm8x60_fluid() || machine_is_msm8x60_charm_surf() ||

@@ -45,6 +45,7 @@ extern struct platform_device msm_device_hsusb_host2;
 
 extern struct platform_device msm_device_otg;
 extern struct platform_device usb_diag_device;
+extern struct platform_device usb_diag_mdm_device;
 
 extern struct platform_device msm_device_i2c;
 
