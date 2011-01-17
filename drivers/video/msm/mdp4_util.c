@@ -218,10 +218,10 @@ void mdp4_fetch_cfg(uint32 core_clk)
 
 	if (core_clk >= 90000000) { /* 90 Mhz */
 		dmap_data = 0x47; /* 16 bytes-burst x 8 req */
-		vg_data = 0xc7; /* 16 bytes-burs x 8 req */
+		vg_data = 0x47; /* 16 bytes-burs x 8 req */
 	} else {
 		dmap_data = 0x27; /* 8 bytes-burst x 8 req */
-		vg_data = 0xc3; /* 16 bytes-burst x 4 req */
+		vg_data = 0x43; /* 16 bytes-burst x 4 req */
 	}
 
 	printk(KERN_INFO "mdp4_fetch_cfg: dmap=%x vg=%x\n",
