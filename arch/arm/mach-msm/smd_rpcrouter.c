@@ -2298,6 +2298,7 @@ static int __init rpcrouter_init(void)
 	/* Initialize what we need to start processing */
 	INIT_LIST_HEAD(&local_endpoints);
 	INIT_LIST_HEAD(&remote_endpoints);
+	INIT_LIST_HEAD(&xprt_info_list);
 
 	init_waitqueue_head(&newserver_wait);
 
