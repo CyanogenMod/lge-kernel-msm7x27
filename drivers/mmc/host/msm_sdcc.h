@@ -2,7 +2,7 @@
  *  linux/drivers/mmc/host/msmsdcc.h - QCT MSM7K SDC Controller
  *
  *  Copyright (C) 2008 Google, All Rights Reserved.
- *  Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -225,6 +225,7 @@ struct msmsdcc_host {
 	struct mmc_host		*mmc;
 	struct clk		*clk;		/* main MMC bus clock */
 	struct clk		*pclk;		/* SDCC peripheral bus clock */
+	struct clk		*dfab_pclk;	/* Daytona Fabric SDCC clock */
 	unsigned int		clks_on;	/* set if clocks are enabled */
 
 	unsigned int		eject;		/* eject state */
