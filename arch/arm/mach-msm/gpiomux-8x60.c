@@ -30,6 +30,7 @@
 #define GSBI7 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_12MA, 0)
 #define GSBI8 GPIOMUX_CFG(GPIOMUX_FUNC_1, 0, 0)
 #define GSBI9 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, 0)
+#define GSBI10 GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_8MA, 0)
 
 #define PS_HOLD	GPIOMUX_CFG(GPIOMUX_FUNC_1, GPIOMUX_DRV_12MA, 0)
 
@@ -203,6 +204,27 @@ static struct msm_gpiomux_config msm8x60_gsbi_configs[] __initdata = {
 		.gpio      = 65,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = GSBI8,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm8x60_fluid_gsbi_configs[] __initdata = {
+	{
+		.gpio      = 70,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GSBI10,
+		},
+	},
+	{
+		.gpio      = 72,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GSBI10,
+		},
+	},
+	{
+		.gpio      = 73,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = GSBI10,
 		},
 	},
 };
@@ -1340,6 +1362,7 @@ msm8x60_surf_ffa_gpiomux_cfgs[] __initdata = {
 struct msm_gpiomux_configs
 msm8x60_fluid_gpiomux_cfgs[] __initdata = {
 	{msm8x60_gsbi_configs, ARRAY_SIZE(msm8x60_gsbi_configs)},
+	{msm8x60_fluid_gsbi_configs, ARRAY_SIZE(msm8x60_fluid_gsbi_configs)},
 	{msm8x60_ebi2_configs, ARRAY_SIZE(msm8x60_ebi2_configs)},
 	{msm8x60_uart_configs, ARRAY_SIZE(msm8x60_uart_configs)},
 	{msm8x60_ts_configs, ARRAY_SIZE(msm8x60_ts_configs)},
