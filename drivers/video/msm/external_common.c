@@ -1046,10 +1046,11 @@ error:
 }
 EXPORT_SYMBOL(hdmi_common_read_edid);
 
-void hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
+bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 {
 	uint32 format;
 	struct fb_var_screeninfo *var = &mfd->fbi->var;
+	bool changed = TRUE;
 
 	if (var->reserved[3]) {
 		format = var->reserved[3]-1;
@@ -1080,6 +1081,7 @@ void hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 		}
 	}
 
+	changed = external_common_state->video_resolution != format;
 	if (external_common_state->video_resolution != format)
 		DEV_DBG("switching %s => %s", video_format_2string(
 			external_common_state->video_resolution),
@@ -1088,6 +1090,7 @@ void hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 		DEV_DBG("resolution %s", video_format_2string(
 			external_common_state->video_resolution));
 	external_common_state->video_resolution = format;
+	return changed;
 }
 EXPORT_SYMBOL(hdmi_common_get_video_format_from_drv_data);
 

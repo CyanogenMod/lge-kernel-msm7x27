@@ -55,7 +55,6 @@
 struct hdmi_msm_state_type {
 	boolean panel_power_on;
 	boolean hpd_initialized;
-	boolean hpd_on_feature;
 #ifdef CONFIG_SUSPEND
 	boolean pm_suspended;
 #endif
@@ -2616,6 +2615,8 @@ static void hdmi_msm_reset_core(void)
 
 static void hdmi_msm_turn_on(void)
 {
+	uint32 hpd_ctrl;
+
 	hdmi_msm_reset_core();
 	hdmi_msm_init_phy(external_common_state->video_resolution);
 	/* HDMI_USEC_REFTIMER[0x0208] */
@@ -2629,7 +2630,18 @@ static void hdmi_msm_turn_on(void)
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	hdmi_msm_vendor_infoframe_packetsetup();
 #endif
+
+	/* set timeout to 4.1ms (max) for hardware debounce */
+	hpd_ctrl = (HDMI_INP(0x0258) & ~0xFFF) | 0xFFF;
+
+	/* Toggle HPD circuit to trigger HPD sense */
+	HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
+	HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
+
 	hdmi_msm_set_mode(TRUE);
+
+	/* Setup HPD IRQ */
+	HDMI_OUTP(0x0254, 4 | (external_common_state->hpd_state ? 0 : 2));
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	hdmi_msm_hdcp_enable();
@@ -2684,8 +2696,8 @@ static void hdmi_msm_hpd_read_work(struct work_struct *work)
 
 static void hdmi_msm_hpd_off(void)
 {
-	DEV_DBG("%s\n", __func__);
-	mod_timer(&hdmi_msm_state->hpd_state_timer, 0xffffffffL);
+	DEV_DBG("%s: (timer, clk, 5V, core, IRQ off)\n", __func__);
+	del_timer(&hdmi_msm_state->hpd_state_timer);
 	disable_irq(hdmi_msm_state->irq);
 
 	hdmi_msm_set_mode(FALSE);
@@ -2728,6 +2740,9 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 		HDMI_OUTP(0x0258, ~(1 << 28) & hpd_ctrl);
 		HDMI_OUTP(0x0258, (1 << 28) | hpd_ctrl);
 
+		DEV_DBG("%s: (clk, 5V, core, IRQ on) <trigger:%s>\n", __func__,
+			trigger_handler ? "true" : "false");
+
 		if (trigger_handler) {
 			/* Set HPD state machine: ensure at least 2 readouts */
 			mutex_lock(&hdmi_msm_state_mutex);
@@ -2752,6 +2767,7 @@ static int hdmi_msm_hpd_on(bool trigger_handler)
 static int hdmi_msm_power_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
+	bool changed;
 
 	if (!hdmi_msm_state || !hdmi_msm_state->hdmi_app_clk || !HDMI_BASE)
 		return -ENODEV;
@@ -2778,24 +2794,24 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 	mutex_unlock(&hdmi_msm_state_mutex);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
-	if (!hdmi_msm_state->hpd_on_feature) {
-		int rc;
-		rc = hdmi_msm_hpd_on(true);
+	changed = hdmi_common_get_video_format_from_drv_data(mfd);
+	if (!external_common_state->hpd_feature_on) {
+		int rc = hdmi_msm_hpd_on(true);
+		DEV_INFO("HPD: panel power without 'hpd' feature on\n");
 		if (rc) {
 			DEV_WARN("HPD: activation failed: rc=%d\n", rc);
 			return rc;
 		}
 	}
-	hdmi_common_get_video_format_from_drv_data(mfd);
-	mutex_lock(&external_common_state_hpd_mutex);
 
+	mutex_lock(&external_common_state_hpd_mutex);
 	hdmi_msm_state->panel_power_on = TRUE;
-	if (external_common_state->hpd_state && !hdmi_msm_is_power_on()) {
+	if ((external_common_state->hpd_state && !hdmi_msm_is_power_on())
+		|| changed) {
 		mutex_unlock(&external_common_state_hpd_mutex);
 		hdmi_msm_turn_on();
 	} else
 		mutex_unlock(&external_common_state_hpd_mutex);
-
 
 	hdmi_msm_dump_regs("HDMI-ON: ");
 
@@ -2848,12 +2864,8 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	hdmi_msm_dump_regs("HDMI-OFF: ");
 	hdmi_msm_hpd_on(false);
 
-	mutex_lock(&hdmi_msm_state_mutex);
-	if (!hdmi_msm_state->hpd_on_feature) {
-		mutex_unlock(&hdmi_msm_state_mutex);
+	if (!external_common_state->hpd_feature_on)
 		hdmi_msm_hpd_off();
-	} else
-		mutex_unlock(&hdmi_msm_state_mutex);
 
 	hdmi_msm_state->panel_power_on = FALSE;
 	return 0;
@@ -3058,13 +3070,11 @@ static int hdmi_msm_hpd_feature(int on)
 	int rc = 0;
 
 	DEV_INFO("%s: %d\n", __func__, on);
-	if (on) {
-		hdmi_msm_state->hpd_on_feature = 1;
+	if (on)
 		rc = hdmi_msm_hpd_on(true);
-	} else {
+	else
 		hdmi_msm_hpd_off();
-		hdmi_msm_state->hpd_on_feature = 0;
-	}
+
 	return rc;
 }
 
@@ -3080,9 +3090,9 @@ static int hdmi_msm_device_pm_suspend(struct device *dev)
 
 	DEV_DBG("pm_suspend\n");
 
-	mod_timer(&hdmi_msm_state->hpd_state_timer, 0xffffffffL);
+	del_timer(&hdmi_msm_state->hpd_state_timer);
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
-	mod_timer(&hdmi_msm_state->hdcp_timer, 0xffffffffL);
+	del_timer(&hdmi_msm_state->hdcp_timer);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT */
 
 	disable_irq(hdmi_msm_state->irq);
