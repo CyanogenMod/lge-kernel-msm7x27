@@ -71,10 +71,12 @@ struct display_table {
 
 #define REGFLAG_END_OF_TABLE      0xFFFF   // END OF REGISTERS MARKER
 
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_GELATO)
 static struct display_table mddi_hitachi_2c[] = {
 	{0x2c, 4, {0x00, 0x00, 0x00, 0x00}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
+
 static struct display_table mddi_hitachi_position_table[] = {
 	// set column address 
 	{0x2a,  4, {0x00, 0x00, 0x01, 0x3f}},
@@ -83,6 +85,7 @@ static struct display_table mddi_hitachi_position_table[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 extern void display_table(struct display_table *table, unsigned int count);
+#endif
 #endif
 
 /* LGE_CHANGE [dojip.kim@lge.com] 2010-05-20,
@@ -224,19 +227,8 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 	 */
 	display_table(mddi_hitachi_position_table,
 			sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
-#elif defined(CONFIG_FB_MSM_MDDI_HITACHI_HVGA) && defined(CONFIG_MACH_MSM7X27_THUNDERC)
-	if (lge_bd_rev <= LGE_REV_D){
-		/* Use workaround code for 1st cut LCD.
-		 * 2010-04-22, minjong.gong@lge.com
-		 */
-		display_table(mddi_hitachi_2c, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
-	}
-	/* Add code to prevent LCD shift.
-	 * 2010-05-18, minjong.gong@lge.com
-	 */
-	display_table(mddi_hitachi_position_table, sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
-#elif defined(CONFIG_FB_MSM_MDDI_HITACHI_HVGA) && defined(CONFIG_MACH_MSM7X27_THUNDERA)
-	display_table(mddi_hitachi_2c,
+#elif defined(CONFIG_FB_MSM_MDDI_HITACHI_HVGA) && defined(CONFIG_MACH_MSM7X27_GELATO)
+	display_table(mddi_hitachi_position_table,
 			sizeof(mddi_hitachi_2c) / sizeof(struct display_table));
 #endif
 

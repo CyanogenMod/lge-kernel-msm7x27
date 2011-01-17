@@ -81,7 +81,7 @@ static int enable_capturemode = 0;
 #if ALESSI_TUNING_SET
 static struct s5k5caga_register_address_value_pair  ext_reg_settings[4000] = {0,};
 #endif
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
+#ifdef CONFIG_MACH_MSM7X27_THUNDERG
 /* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 extern mdp_load_thunder_lut(int lut_type);
 #endif
@@ -3257,7 +3257,7 @@ int s5k5caga_sensor_release(void)
 
 	s5k5caga_ctrl=NULL;
 	
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
+#ifdef CONFIG_MACH_MSM7X27_THUNDERG
 		/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 		mdp_load_thunder_lut(1);	// Normal LUT
 #endif
@@ -3337,7 +3337,7 @@ static int s5k5caga_sensor_probe(const struct msm_camera_sensor_info *info,
 	}
 	mdelay(10);
 
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
+#ifdef CONFIG_MACH_MSM7X27_THUNDERG
 	/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 	mdp_load_thunder_lut(2);	// Camera LUT
 #endif

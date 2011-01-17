@@ -587,7 +587,7 @@ static void mdp_load_lut_param(void)
 	outpdw(MDP_BASE + 0x40ffc, 0xffffff);
 }
 
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_GELATO)
 /* LGE_CHANGE_S
   * Change code to apply new LUT for display quality. 2010-08-03. minjong.gong@lge.com 
   * Below LUT Table was received from taeyun.kim@lge.com.
@@ -751,7 +751,7 @@ void mdp_hw_init(void)
 	MDP_OUTP(MDP_BASE + 0x9401c, 2);
 #endif
 
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_GELATO)
 	/* LGE_CHANGE_S
 	  * Change code to apply new LUT for display quality. 2010-08-03. minjong.gong@lge.com 
 	  */
