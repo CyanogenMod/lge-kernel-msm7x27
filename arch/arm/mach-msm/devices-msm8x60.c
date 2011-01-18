@@ -242,7 +242,7 @@ static struct resource msm_uart3_dm_resources[] = {
 
 struct platform_device msm_device_uart_dm3 = {
 	.name = "msm_serial_hsl",
-	.id = 0,
+	.id = 2,
 	.num_resources = ARRAY_SIZE(msm_uart3_dm_resources),
 	.resource = msm_uart3_dm_resources,
 };
