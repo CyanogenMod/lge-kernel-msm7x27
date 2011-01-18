@@ -61,8 +61,10 @@ static struct platform_driver ebi2_lcd_driver = {
 	.probe = ebi2_lcd_probe,
 	.remove = ebi2_lcd_remove,
 	.suspend = NULL,
+#if 0 /* FIXME: */
 	.suspend_late = NULL,
 	.resume_early = NULL,
+#endif
 	.resume = NULL,
 	.shutdown = NULL,
 	.driver = {
@@ -231,9 +233,10 @@ static int ebi2_lcd_probe(struct platform_device *pdev)
 		goto ebi2_lcd_probe_err;
 	}
 
+#if 0 /* FIXME: */
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-
+#endif
 
 	pdev_list[pdev_list_cnt++] = pdev;
 	return 0;
@@ -256,7 +259,9 @@ static int ebi2_lcd_remove(struct platform_device *pdev)
 		return 0;
 
 	iounmap(mfd->cmd_port);
+#if 0 /* FIXME: */
 	pm_runtime_disable(&pdev->dev);
+#endif
 	return 0;
 }
 

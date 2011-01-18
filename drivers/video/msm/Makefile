@@ -77,6 +77,7 @@ obj-y += msm_fb_panel.o
 obj-$(CONFIG_FB_MSM_EBI2_TMD_QVGA_EPSON_QCIF) += ebi2_tmd20.o
 obj-$(CONFIG_FB_MSM_EBI2_TMD_QVGA_EPSON_QCIF) += ebi2_l2f.o
 
+obj-$(CONFIG_FB_MSM_EBI2_TOVIS_QVGA) += ebi2_tovis.o
 ifeq ($(CONFIG_FB_MSM_MDDI_AUTO_DETECT),y)
 obj-y += mddi_prism.o
 obj-y += mddi_toshiba.o

@@ -2520,6 +2520,13 @@ config FB_MSM_EBI2_TMD_QVGA_EPSON_QCIF
 	---help---
 	  Support for EBI2 TMD QVGA (240x320) and Epson QCIF (176x220) panel
 
+config FB_MSM_EBI2_TOVIS_QVGA
+	bool "EBI2 Tovis QVGA Panel"
+	select FB_MSM_EBI2
+	---help---
+	  Support for EBI2 TOVIS QVGA (240x320) panel
+
+
 # LGE_CHANGE_S [minjong.gong] 2010-03-24, Google Mass CDMA Hitachi MDDI I/F LCD 
 config FB_MSM_MDDI_HITACHI_HVGA
 	bool "MDDI HITACHI HVGA Panel"
