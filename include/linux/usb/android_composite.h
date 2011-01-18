@@ -88,6 +88,18 @@ struct usb_ether_platform_data {
 	const char *vendorDescr;
 };
 
+#ifdef CONFIG_USB_ANDROID_ACM
+/* LGE_CHANGE
+ * Definition of acm platform data
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+struct acm_platform_data {
+	int	num_inst;
+};
+#endif
+
+extern void android_usb_set_connected(int on);
+
 extern void android_register_function(struct android_usb_function *f);
 
 extern void android_enable_function(struct usb_function *f, int enable);
