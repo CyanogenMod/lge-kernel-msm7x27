@@ -361,6 +361,50 @@ void mdp4_clear_lcdc(void)
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
+void mdp4_block_reset(unsigned char block)
+{
+	switch (block) {
+	case 1: /* mixer0 */
+		mdp4_sw_reset(0x01);
+		mdp4_mixer_blend_init(0);
+		mdp4_vg_qseed_init(0);
+		mdp4_vg_csc_mv_setup(0);
+		mdp4_vg_csc_pre_bv_setup(0);
+		mdp4_vg_csc_post_bv_setup(0);
+		mdp4_vg_csc_pre_lv_setup(0);
+		mdp4_vg_csc_post_lv_setup(0);
+		mdp4_mixer_gc_lut_setup(0);
+		mdp4_vg_igc_lut_setup(0);
+		mdp4_rgb_igc_lut_setup(0);
+		break;
+	case 2: /* mixer1 */
+		mdp4_sw_reset(0x04);
+		mdp4_mixer_blend_init(1);
+		mdp4_vg_qseed_init(1);
+		mdp4_vg_csc_mv_setup(1);
+		mdp4_vg_csc_pre_bv_setup(1);
+		mdp4_vg_csc_post_bv_setup(1);
+		mdp4_vg_csc_pre_lv_setup(1);
+		mdp4_vg_csc_post_lv_setup(1);
+		mdp4_mixer1_csc_mv_setup();
+		mdp4_mixer1_csc_pre_bv_setup();
+		mdp4_mixer1_csc_post_bv_setup();
+		mdp4_mixer1_csc_pre_lv_setup();
+		mdp4_mixer1_csc_post_lv_setup();
+		mdp4_mixer_gc_lut_setup(1);
+		mdp4_vg_igc_lut_setup(1);
+		mdp4_rgb_igc_lut_setup(1);
+		break;
+	case 3: /* DMA_P */
+		break;
+	case 4: /* DMA_S */
+		break;
+	case 5: /* DMA_E */
+		break;
+	default:
+		break;
+	}
+}
 
 irqreturn_t mdp4_isr(int irq, void *ptr)
 {
@@ -399,8 +443,10 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		}
 
 
-		if (isr & INTR_EXTERNAL_INTF_UDERRUN)
+		if (isr & INTR_EXTERNAL_INTF_UDERRUN) {
+			mdp4_block_reset(2);
 			mdp4_stat.intr_underrun_e++;
+		}
 
 		isr &= mask;
 
