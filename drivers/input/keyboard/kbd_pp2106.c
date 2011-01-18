@@ -69,12 +69,12 @@ enum {
 #define KEY_SCL_PIN		(pp2106_pdata->scl_pin)
 #define KEY_SDA_PIN		(pp2106_pdata->sda_pin)
 
-#define QWERTY_SDA_OUTPUT()	{ gpio_configure(KEY_SDA_PIN,GPIOF_DRIVE_OUTPUT); udelay(25);}
+#define QWERTY_SDA_OUTPUT()	{ gpio_direction_output(KEY_SDA_PIN, 1); udelay(25);}
 #define QWERTY_SDA_HIGH()	{ gpio_set_value(KEY_SDA_PIN,GPIO_HIGH_VALUE); udelay(25); }
 #define QWERTY_SDA_LOW()	{ gpio_set_value(KEY_SDA_PIN,GPIO_LOW_VALUE); udelay(25); }
-#define QWERTY_SDA_INPUT()	{ gpio_configure(KEY_SDA_PIN,GPIOF_INPUT); udelay(25);}
+#define QWERTY_SDA_INPUT()	{ gpio_direction_input(KEY_SDA_PIN); udelay(25);}
 #define QWERTY_SDA_READ()	gpio_get_value(KEY_SDA_PIN)
-#define QWERTY_SCL_OUTPUT()	{ gpio_configure(KEY_SCL_PIN,GPIOF_DRIVE_OUTPUT); udelay(25); }
+#define QWERTY_SCL_OUTPUT()	{ gpio_direction_output(KEY_SCL_PIN, 1); udelay(25); }
 #define QWERTY_SCL_HIGH()	{ gpio_set_value(KEY_SCL_PIN,GPIO_HIGH_VALUE); udelay(25); }
 #define QWERTY_SCL_LOW()	{ gpio_set_value(KEY_SCL_PIN,GPIO_LOW_VALUE); udelay(25); }
 
@@ -93,7 +93,7 @@ static __inline void pp2106_send_ack(void)
 	QWERTY_SDA_LOW();
 
 	QWERTY_SCL_LOW();
-	gpio_configure(KEY_SDA_PIN,GPIOF_INPUT);  
+	gpio_direction_input(KEY_SDA_PIN);
 	QWERTY_SCL_HIGH();
 }
 
