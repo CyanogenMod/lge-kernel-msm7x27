@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -548,4 +548,10 @@ void vidc_sm_set_encoder_new_i_period(struct ddl_buf_addr *shared_mem,
 {
 	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_NEW_I_PERIOD_ADDR,
 		new_i_period);
+}
+void vidc_sm_set_encoder_init_rc_value(struct ddl_buf_addr *shared_mem,
+	u32 new_rc_value)
+{
+	DDL_MEM_WRITE_32(shared_mem, 0x011C, new_rc_value);
+
 }

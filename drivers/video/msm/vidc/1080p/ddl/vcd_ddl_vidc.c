@@ -487,6 +487,9 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	vidc_sm_set_extended_encoder_control(&ddl->shared_mem
 		[ddl->command_channel], hdr_ext_control,
 		r_cframe_skip, false, 0);
+	vidc_sm_set_encoder_init_rc_value(&ddl->shared_mem
+		[ddl->command_channel],
+		encoder->target_bit_rate.target_bitrate);
 	vidc_sm_set_encoder_hec_period(&ddl->shared_mem
 		[ddl->command_channel], encoder->hdr_ext_control);
 		vidc_sm_set_encoder_vop_time(&ddl->shared_mem
