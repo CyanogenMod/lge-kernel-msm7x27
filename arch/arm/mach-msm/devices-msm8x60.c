@@ -1302,9 +1302,21 @@ struct usb_diag_platform_data usb_diag_pdata = {
 
 struct platform_device usb_diag_device = {
 	.name	= "usb_diag",
-	.id	= -1,
+	.id	= 0,
 	.dev	= {
 		.platform_data = &usb_diag_pdata,
+	},
+};
+
+struct usb_diag_platform_data usb_diag_mdm_pdata = {
+	.ch_name = DIAG_MDM,
+};
+
+struct platform_device usb_diag_mdm_device = {
+	.name	= "usb_diag",
+	.id	= 1,
+	.dev	= {
+		.platform_data = &usb_diag_mdm_pdata,
 	},
 };
 #endif
