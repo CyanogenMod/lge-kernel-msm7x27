@@ -29,6 +29,14 @@
 
 #include <linux/usb/composite.h>
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+/* LGE_CHANGE
+ * Add lge usb util header
+ * 2011-01-14, hyunhui.park@lge.com
+ */
+#include "u_lgeusb.h"
+#endif
+
 
 /*
  * The code in this file is utility code, used to build a gadget driver
@@ -303,6 +311,13 @@ static int config_buf(struct usb_configuration *config,
 {
 	struct usb_config_descriptor	*c = buf;
 	struct usb_interface_descriptor *intf;
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+	/* LGE_CHANGE
+	 * To handle IAD dynamically.
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	struct usb_interface_assoc_descriptor *iad_intf;
+#endif
 	void				*next = buf + USB_DT_CONFIG_SIZE;
 	int				len = USB_BUFSIZ - USB_DT_CONFIG_SIZE;
 	struct usb_function		*f;
@@ -341,6 +356,17 @@ static int config_buf(struct usb_configuration *config,
 			descriptors = f->descriptors;
 		if (f->disabled || !descriptors || descriptors[0] == NULL)
 			continue;
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+		/* LGE_CHANGE
+		 * when lge manufacturing mode, skip adb interface.
+		 * 2011-01-14, hyunhui.park@lge.com
+		 */
+#if 0
+		if (!strcmp(f->name, "adb") &&
+				(lgeusb_get_current_mode() == LGEUSB_FACTORY_MODE))
+			continue;
+#endif
+#endif
 		status = usb_descriptor_fillbuf(next, len,
 			(const struct usb_descriptor_header **) descriptors);
 		if (status < 0)
@@ -349,6 +375,18 @@ static int config_buf(struct usb_configuration *config,
 		/* set interface numbers dynamically */
 		dest = next;
 		while ((descriptor = *descriptors++) != NULL) {
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+			/* LGE_CHANGE
+			 * To handle IAD dynamically:
+			 * If function has interface association descriptor(IAD),
+			 * bFirstInterface field is adjusted dynamically as well as
+			 * bInterfaceNumber field of interface descriptor.
+			 * 2011-01-12, hyunhui.park@lge.com
+			 */
+			iad_intf = (struct usb_interface_assoc_descriptor *)dest;
+			if (iad_intf->bDescriptorType == USB_DT_INTERFACE_ASSOCIATION)
+				iad_intf->bFirstInterface = interfaceCount;
+#endif
 			intf = (struct usb_interface_descriptor *)dest;
 			if (intf->bDescriptorType == USB_DT_INTERFACE) {
 				/* don't increment bInterfaceNumber for alternate settings */

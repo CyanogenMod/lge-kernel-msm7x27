@@ -43,8 +43,17 @@
 #include <linux/device.h>
 #include <mach/msm_hsusb_hw.h>
 #include <mach/clk.h>
+#include <mach/rpc_hsusb.h>
 #include <linux/uaccess.h>
 #include <linux/wakelock.h>
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+/* LGE_CHANGE
+ * Add Header for LGE USB
+ * 2011-01-14, hyunhui.park@lge.com
+ */
+#include "u_lgeusb.h"
+#endif
 
 static const char driver_name[] = "msm72k_udc";
 
@@ -186,6 +195,13 @@ struct usb_info {
 	struct delayed_work chg_stop;
 	struct msm_hsusb_gadget_platform_data *pdata;
 	struct work_struct phy_status_check;
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
+	/* LGE_CHANGE
+	 * Detection of factory cable using wq
+	 * 2011-01-14, hyunhui.park@lge.com
+	 */
+	struct delayed_work cable_det;
+#endif
 
 	struct work_struct work;
 	unsigned phy_status;
@@ -389,6 +405,18 @@ static void usb_chg_detect(struct work_struct *w)
 
 	temp = usb_get_chg_type(ui);
 	spin_unlock_irqrestore(&ui->lock, flags);
+#ifdef CONFIG_USB_SUPPORT_LGE_GADGET_GSM
+	/* LGE_CHANGE
+	 * Detect TA from CP:
+	 * As charger detection RPC is used, it must not be in spin lock area.
+	 * 2011-01-14, hyunhui.park@lge.com
+	 */
+	if (msm_hsusb_detect_chg_type() == USB_CHG_TYPE__WALLCHARGER) {
+		spin_lock_irqsave(&ui->lock, flags);
+		temp = USB_CHG_TYPE__WALLCHARGER;
+		spin_unlock_irqrestore(&ui->lock, flags);
+	}
+#endif
 
 	atomic_set(&otg->chg_type, temp);
 	maxpower = usb_get_max_power(ui);
@@ -1237,6 +1265,29 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
+/* LGE_CHANGE
+ * Detection of factory cable using wq.
+ * 2011-01-14, hyunhui.park@lge.com
+ */
+static void usb_do_factory_cable_detect(struct work_struct *w)
+{
+	if(lgeusb_detect_factory_cable()) {
+		pr_info("%s: OK, we detect LG factory cable......\n", __func__);
+
+		lgeusb_backup_pid();
+		/* With soft reset */
+		lgeusb_switch_factory_mode(1);
+		return;
+	}
+
+	pr_info("%s: OK, we detect Normal USB cable......\n", __func__);
+	/* With soft reset */
+	lgeusb_switch_android_mode(1);
+}
+#endif
+
 static void usb_prepare(struct usb_info *ui)
 {
 	spin_lock_init(&ui->lock);
@@ -1263,6 +1314,13 @@ static void usb_prepare(struct usb_info *ui)
 	INIT_DELAYED_WORK(&ui->rw_work, usb_do_remote_wakeup);
 	if (ui->pdata && ui->pdata->is_phy_status_timer_on)
 		INIT_WORK(&ui->phy_status_check, usb_phy_stuck_recover);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
+	/* LGE_CHANGE
+	 * Detection of factory cable using wq
+	 * 2011-01-14, hyunhui.park@lge.com
+	 */
+	INIT_DELAYED_WORK(&ui->cable_det, usb_do_factory_cable_detect);
+#endif
 }
 
 static void usb_reset(struct usb_info *ui)
@@ -1424,6 +1482,14 @@ static void usb_do_work(struct work_struct *w)
 				if (!ui->gadget.is_a_peripheral)
 					cancel_delayed_work_sync(&ui->chg_det);
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
+				/* LGE_CHANGE
+				 * Detection of factory cable using wq
+				 * 2011-01-14, hyunhui.park@lge.com
+				 */
+				cancel_delayed_work(&ui->cable_det);
+#endif
+
 				dev_dbg(&ui->pdev->dev,
 					"msm72k_udc: ONLINE -> OFFLINE\n");
 
@@ -1530,6 +1596,19 @@ static void usb_do_work(struct work_struct *w)
 					"msm72k_udc: OFFLINE -> ONLINE\n");
 
 				usb_reset(ui);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
+				/* LGE_CHANGE
+				 * Detection of factory cable using wq
+				 * 2011-01-14, hyunhui.park@lge.com
+				 */
+				schedule_delayed_work(&ui->cable_det, 0);
+/*
+				if(lgeusb_detect_factory_cable()) {
+					ui->state = USB_STATE_IDLE;
+					return;
+				}
+*/
+#endif
 				ui->state = USB_STATE_ONLINE;
 				usb_do_work_check_vbus(ui);
 				ret = request_irq(otg->irq, usb_interrupt,

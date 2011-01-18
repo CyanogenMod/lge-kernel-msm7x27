@@ -31,44 +31,28 @@
 
 #include "u_lgeusb.h"
 
+static struct lgeusb_info *usb_info;
+
 /* FIXME: This length must be same as MAX_SERIAL_LEN in android.c */
 #define MAX_SERIAL_NO_LEN 256
 
-/* -------- CDMA Class Utils -------- */
-
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_CDMA
-
 extern int msm_chg_LG_cable_type(void);
 extern void msm_get_MEID_type(char* sMeid);
 
-static int do_get_usb_serial_number(char *serial_number)
+static void get_serial_number(char *serial_number)
 {
-/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-06-21, Set MEID */
 	memset(serial_number, 0, MAX_SERIAL_NO_LEN);
 
 	msm_get_MEID_type(serial_number);
 
 	if(!strcmp(serial_number,"00000000000000"))
 		serial_number[0] = '\0';
-#if 0
-	if(msm_chg_LG_cable_type() == LT_ADB_CABLE)
-	{
-		sprintf(serial_number,"%s","LGE_ANDROID_DE");
-	}
-#endif
 
 	return 0;
-/* LGE_CHANGES_E [younsuk.song@lge.com] 2010-06-21 */
 }
 
-/*
- * CDMA class model must detect 2 types of factory cable
- * 1. LT CABLE - must be FullSpeed setting
- * 2. 130K CABLE - must be HighSpeed setting
- *
- * In case of normal USB cable, we return 0.
- */
-static int do_detect_factory_cable(void)
+static int get_factory_cable(void)
 {
 	int cable_type =  msm_chg_LG_cable_type();
 	int ret;
@@ -85,14 +69,10 @@ static int do_detect_factory_cable(void)
 
 	return ret;
 }
-
 #endif /* CONFIG_USB_SUPPORT_LGE_GADGET_CDMA */
 
-/* -------- WCDMA(GSM) Class Utils -------- */
-
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_GSM
-
-static int do_get_usb_serial_number(char *serial_number)
+static void get_serial_number(char *serial_number)
 {
 	unsigned char nv_imei_ptr[MAX_IMEI_LEN];
 	int ret = -1;
@@ -116,17 +96,9 @@ static int do_get_usb_serial_number(char *serial_number)
 			serial_number[0] = '\0';
 	} else
 		serial_number[0] = '\0';
-
-	return 0;
 }
 
-/*
- * GSM class model must detect 1 types of factory cable
- * 1. PIF CABLE - support at FullSpeed/HighSpeed setting
- *
- * In case of normal USB cable, we return 0.
- */
-static int do_detect_factory_cable(void)
+static int get_factory_cable(void)
 {
 	int pif_detect = 0;
 
@@ -140,35 +112,145 @@ static int do_detect_factory_cable(void)
 	else
 		return 0;
 }
-
 #endif /* CONFIG_USB_SUPPORT_LGE_GADGET_GSM */
 
+/* LGE_CHANGE
+ * Sending pid and serial number to CP
+ * bootloader for SW downloading.
+ * It is from qct's api.
+ * 2011-01-13, hyunhui.park@lge.com
+ */
+static int update_pid_and_serial_num(uint32_t pid, char *snum)
+{
+	int ret;
 
-/* Common Interface */
+	ret = msm_hsusb_send_productID(pid);
+	if (ret)
+		return ret;
 
-/*
- * lge_detect_factory_cable
- *
+	if (!snum) {
+		ret = msm_hsusb_is_serial_num_null(1);
+		if (ret)
+			return ret;
+	}
+
+	ret = msm_hsusb_is_serial_num_null(0);
+	if (ret)
+		return ret;
+	ret = msm_hsusb_send_serial_number(snum);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static void do_switch_mode(uint32_t pid, uint32_t need_reset)
+{
+	struct lgeusb_info *info = usb_info;
+
+	pr_info("do_switch_mode : pid %x, need_reset %d\n", pid, need_reset);
+	info->switch_func(pid, need_reset);
+}
+
+/* LGE_CHANGE
  * If factory cable (PIF or LT) is connected,
  * return 1, otherwise return 0.
- *
+ * 2011-01-13, hyunhui.park@lge.com
  */
-int lge_detect_factory_cable(void)
+int lgeusb_detect_factory_cable(void)
 {
-	return do_detect_factory_cable();
+	return get_factory_cable();
 }
-EXPORT_SYMBOL(lge_detect_factory_cable);
 
-/*
- * lge_get_usb_serial_number
- *
- * Get USB serial number from ARM9 using RPC or RAPI.
- * return -1 : If any error
- * return 0 : success
- *
+/* LGE_CHANGE
+ * If factory dedicated cable is connected,
+ * switch usb mode to factory mode.
+ * 2011-01-13, hyunhui.park@lge.com
  */
-int lge_get_usb_serial_number(char *serial_number)
+void lgeusb_switch_factory_mode(uint32_t need_reset)
 {
-	return do_get_usb_serial_number(serial_number);
+	struct lgeusb_info *info = usb_info;
+
+	info->current_mode = LGEUSB_FACTORY_MODE;
+	do_switch_mode(LGE_FACTORY_PID, need_reset);
 }
-EXPORT_SYMBOL(lge_get_usb_serial_number);
+
+void lgeusb_switch_android_mode(uint32_t need_reset)
+{
+	struct lgeusb_info *info = usb_info;
+
+	info->current_mode = LGEUSB_ANDROID_MODE;
+	do_switch_mode(info->restore_pid, need_reset);
+}
+
+int lgeusb_get_current_mode(void)
+{
+	struct lgeusb_info *info = usb_info;
+
+	return info->current_mode;
+}
+
+void lgeusb_backup_pid(void)
+{
+	struct lgeusb_info *info = usb_info;
+
+	info->restore_pid = info->get_pid();
+}
+
+/* LGE_CHANGE
+ * 1. If cable is factory cable, switch manufacturing mode.
+ * 2. Get serial number from CP and set product id to CP.
+ * 2011-01-13, hyunhui.park@lge.com
+ */
+int lgeusb_set_config(uint32_t pid, char *serialno)
+{
+	int ret;
+
+	if (!serialno) {
+		pr_info("%s: serial number arg is invalid, skip configuration\n",
+				__func__);
+		return -EINVAL;
+	}
+
+	if (get_factory_cable()) {
+		/* When manufacturing, do not use serial number */
+		/* Without soft usb reset */
+		lgeusb_switch_factory_mode(0);
+		ret = update_pid_and_serial_num(LGE_FACTORY_PID, NULL);
+		serialno[0] = '\0';
+		return LGE_FACTORY_PID;
+	}
+
+	lgeusb_switch_android_mode(0);
+
+	get_serial_number(serialno);
+
+	if (serialno[0] != '\0')
+		ret = update_pid_and_serial_num(pid, serialno);
+	else
+		ret = update_pid_and_serial_num(pid, NULL);
+
+	if(ret)
+		pr_info("%s: lge usb configuration failed\n", __func__);
+
+	return pid;
+}
+
+/* LGE_CHANGE
+ * Register lge usb information(which include callback functions).
+ * 2011-01-14, hyunhui.park@lge.com
+ */
+void lgeusb_register_usbinfo(struct lgeusb_info *info)
+{
+	if (info) {
+		usb_info = info;
+		pr_info("%s: switch_func %p, get_pid %p\n", __func__,
+				usb_info->switch_func,
+				usb_info->get_pid);
+	} else {
+		pr_info("%s : registering usb info failed\n", __func__);
+	}
+}
+
+
+

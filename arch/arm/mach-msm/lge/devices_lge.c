@@ -578,6 +578,44 @@ __WEAK struct platform_device rndis_device = {
 	},
 };
 
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
+/* LGE_CHANGE
+ * To bind LG AndroidNet, add platform data for CDC ACM.
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+__WEAK struct usb_ether_platform_data ecm_pdata = {
+	/* ethaddr is filled by board_serialno_setup */
+	.vendorID   	= 0x1004,
+	.vendorDescr    = "LG Electronics Inc.",
+};
+
+__WEAK struct platform_device ecm_device = {
+	.name   = "ecm",
+	.id 	= -1,
+	.dev    = {
+		.platform_data = &ecm_pdata,
+	},
+};
+#endif
+
+#ifdef CONFIG_USB_ANDROID_ACM
+/* LGE_CHANGE
+ * To bind LG AndroidNet, add platform data for CDC ACM.
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+__WEAK struct acm_platform_data acm_pdata = {
+	.num_inst	    = 1,
+};
+
+__WEAK struct platform_device acm_device = {
+	.name   = "acm",
+	.id 	= -1,
+	.dev    = {
+		.platform_data = &acm_pdata,
+	},
+};
+#endif
+
 __WEAK struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x05C6,
 	.product_id	= 0x9026,
@@ -764,10 +802,14 @@ static int msm_otg_rpc_phy_reset(void __iomem *regs)
 
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.rpc_connect    	= hsusb_rpc_connect,
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-22, Add rpc USB LDO reset */
+#ifdef CONFIG_ARCH_MSM7X27
+	/* LGE_CHANGE
+	 * To reset USB LDO, use RPC(only msm7x27).
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
 	.phy_reset			= msm_otg_rpc_phy_reset,
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-22 */	
-	.pmic_id_notif_init    = msm_hsusb_pmic_notif_init,
+#endif
+	.pmic_vbus_notif_init	= msm_hsusb_pmic_notif_init,
 	.chg_vbus_draw      = hsusb_chg_vbus_draw,
 	.chg_connected      = hsusb_chg_connected,
 	.chg_init        	= hsusb_chg_init,
@@ -799,6 +841,16 @@ static struct platform_device *usb_devices[] __initdata = {
 #ifdef CONFIG_USB_ANDROID
 	&usb_mass_storage_device,
 	&rndis_device,
+	/* LGE_CHANGE
+	 * Add CDC ECM & CDC ACM platform device
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
+	&ecm_device,
+#endif
+#ifdef CONFIG_USB_ANDROID_ACM
+	&acm_device,
+#endif
 #ifdef CONFIG_USB_ANDROID_DIAG
 	&usb_diag_device,
 #endif

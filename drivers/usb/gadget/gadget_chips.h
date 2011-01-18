@@ -162,7 +162,6 @@
 #define gadget_is_s3c_hsotg(g)    0
 #endif
 
-
 /**
  * usb_gadget_controller_number - support bcdDevice id convention
  * @gadget: the controller being driven
