@@ -1,11 +1,7 @@
 /*
  * MELFAS mcs7000 touchscreen driver
  *
- * Copyright (C) 2010 LGE, Inc.
- * Modifier: Sungyoung Lee [sungyoung.lee@lge.com]
- * Modifier: Younchan Kim [younchan.kim@lge.com] [2010 10 12]
- *	- temporary Device Driver for MCS7000
- *	- this driver's  base code is MCS6000_ts.c
+ * Copyright (C) 2011 LGE, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +23,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/slab.h>
 
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -320,12 +317,15 @@ static void mcs7000_ts_work_func(struct work_struct *work)
 	ts->pendown = !gpio_get_value(ts->intr_gpio);
 
 /* read the registers of MCS7000 IC */
-	{
-	int tmp1,tmp2 ;
 	read_buf[0]= MCS7000_TS_INPUT_INFO;
-	tmp1 =i2c_master_send(ts->client,read_buf ,1);
-	tmp2 =i2c_master_recv(ts->client,read_buf ,READ_NUM);
-	printk ("test msg  temp1 =[%d], temp2([%d],\n",tmp1,tmp2);
+	if (i2c_master_send(ts->client,read_buf ,1) < 0) {
+		printk("%s send data failed\n", __func__);
+		goto touch_retry;
+	}
+
+	if (i2c_master_recv(ts->client,read_buf ,READ_NUM) < 0) {
+		printk("%s read data failed\n", __func__);
+		goto touch_retry;
 	}
 
 /* MCS600 IC used function  */  
@@ -604,34 +604,34 @@ int mcs7000_ts_ioctl_down(struct inode *inode, struct file *file, unsigned int c
 				printk(KERN_INFO "mcs7000_ts_ioctl_down: Power down failed\n");
 			break;
 		case MCS6000_TS_DOWN_IOCTL_INTR_HIGH:
-			gpio_configure(ts->intr_gpio, GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_HIGH);
+			gpio_direction_output(ts->intr_gpio, 1);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_INTR_LOW:
-			gpio_configure(ts->intr_gpio, GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_LOW);
+			gpio_direction_output(ts->intr_gpio, 0);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_INTR_OUT:
-			gpio_configure(ts->intr_gpio, GPIOF_DRIVE_OUTPUT);
+			gpio_direction_output(ts->intr_gpio, 1);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_INTR_IN:
-			gpio_configure(ts->intr_gpio, GPIOF_INPUT);
+			gpio_direction_input(ts->intr_gpio);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_SCL_HIGH:
-			gpio_configure(ts->scl_gpio, GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_HIGH);
+			gpio_direction_output(ts->scl_gpio, 1);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_SCL_LOW:
-			gpio_configure(ts->scl_gpio, GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_LOW);
+			gpio_direction_output(ts->scl_gpio, 0);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_SDA_HIGH:
-			gpio_configure(ts->sda_gpio, GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_HIGH);
+			gpio_direction_output(ts->sda_gpio, 1);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_SDA_LOW:
-			gpio_configure(ts->sda_gpio, GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_LOW);
+			gpio_direction_output(ts->sda_gpio, 0);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_SCL_OUT:
-			gpio_configure(ts->scl_gpio, GPIOF_DRIVE_OUTPUT);
+			gpio_direction_output(ts->scl_gpio, 1);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_SDA_OUT:
-			gpio_configure(ts->sda_gpio, GPIOF_DRIVE_OUTPUT);
+			gpio_direction_output(ts->sda_gpio, 1);
 			break;
 		case MCS6000_TS_DOWN_IOCTL_I2C_ENABLE:
 			//mcs6000_ts_down_i2c_block_enable(1);
