@@ -27,6 +27,7 @@
 #include <media/msm_camera.h>
 #include <mach/gpio.h>
 #include <linux/kthread.h>
+#include <linux/slab.h>
 
 //#define MT9T113_TUN
 
@@ -495,66 +496,66 @@ printk(KERN_ERR "snapshot mode\n");
 static int mt9t113_set_effect(int effect)
 {
 	int rc = 0;
+	unsigned short temp;
 
 	switch (effect) {
-	case CAMERA_EFFECT_OFF:
-	 printk(KERN_ERR "Effect Off\n");
+		case CAMERA_EFFECT_OFF:
+			printk(KERN_ERR "Effect Off\n");
 
-	 rc = mt9t113_i2c_write_table(
-		mt9t113_regs.effect_off_reg_settings,
-		mt9t113_regs.effect_off_reg_settings_size);
-  break;
+			rc = mt9t113_i2c_write_table(
+					mt9t113_regs.effect_off_reg_settings,
+					mt9t113_regs.effect_off_reg_settings_size);
+			break;
 
- case CAMERA_EFFECT_MONO:
-  printk(KERN_ERR "Effect Mono\n");
+		case CAMERA_EFFECT_MONO:
+			printk(KERN_ERR "Effect Mono\n");
 
-	 rc = mt9t113_i2c_write_table(
-		mt9t113_regs.effect_mono_reg_settings,
-		mt9t113_regs.effect_mono_reg_settings_size);
-		break;
+			rc = mt9t113_i2c_write_table(
+					mt9t113_regs.effect_mono_reg_settings,
+					mt9t113_regs.effect_mono_reg_settings_size);
+			break;
 
-	case CAMERA_EFFECT_NEGATIVE:
-	 printk(KERN_ERR "Effect Negative\n");
+		case CAMERA_EFFECT_NEGATIVE:
+			printk(KERN_ERR "Effect Negative\n");
 
-	 rc = mt9t113_i2c_write_table(
-		mt9t113_regs.effect_negative_reg_settings,
-		mt9t113_regs.effect_negative_reg_settings_size);
-		break;
+			rc = mt9t113_i2c_write_table(
+					mt9t113_regs.effect_negative_reg_settings,
+					mt9t113_regs.effect_negative_reg_settings_size);
+			break;
 
-	case CAMERA_EFFECT_SOLARIZE:
-	 printk(KERN_ERR "Effect Solarize\n");
+		case CAMERA_EFFECT_SOLARIZE:
+			printk(KERN_ERR "Effect Solarize\n");
 
-	 rc = mt9t113_i2c_write_table(
-		mt9t113_regs.effect_solarize_reg_settings,
-		mt9t113_regs.effect_negative_reg_settings_size);
-		break;
+			rc = mt9t113_i2c_write_table(
+					mt9t113_regs.effect_solarize_reg_settings,
+					mt9t113_regs.effect_negative_reg_settings_size);
+			break;
 
- case CAMERA_EFFECT_SEPIA:
-  printk(KERN_ERR "Effect Sepia\n");
+		case CAMERA_EFFECT_SEPIA:
+			printk(KERN_ERR "Effect Sepia\n");
 
-	 rc = mt9t113_i2c_write_table(
-		mt9t113_regs.effect_sepia_reg_settings,
-		mt9t113_regs.effect_sepia_reg_settings_size);
-		break;
+			rc = mt9t113_i2c_write_table(
+					mt9t113_regs.effect_sepia_reg_settings,
+					mt9t113_regs.effect_sepia_reg_settings_size);
+			break;
 
- case CAMERA_EFFECT_AQUA:
-  printk(KERN_ERR "Effect Aqua\n");
+		case CAMERA_EFFECT_AQUA:
+			printk(KERN_ERR "Effect Aqua\n");
 
-	 rc = mt9t113_i2c_write_table(
-		mt9t113_regs.effect_aqua_reg_settings,
-		mt9t113_regs.effect_aqua_reg_settings_size);
-		break;
+			rc = mt9t113_i2c_write_table(
+					mt9t113_regs.effect_aqua_reg_settings,
+					mt9t113_regs.effect_aqua_reg_settings_size);
+			break;
 
-	default:
-		return -EINVAL;
- }
+		default:
+			return -EINVAL;
+	}
 
- // effect polling
- unsigned short temp;
- do {
-  mt9t113_i2c_write(mt9t113_client->addr, 0x098E, 0x8400, WORD_LEN);
-  mt9t113_i2c_read(mt9t113_client->addr, 0x0990, &temp, WORD_LEN);
- } while( temp & 0x0006 );
+	// effect polling
+	do {
+		mt9t113_i2c_write(mt9t113_client->addr, 0x098E, 0x8400, WORD_LEN);
+		mt9t113_i2c_read(mt9t113_client->addr, 0x0990, &temp, WORD_LEN);
+	} while( temp & 0x0006 );
 
 	return rc;
 }
@@ -691,8 +692,6 @@ static int mt9t113_init_sensor(const struct msm_camera_sensor_info *data)
 
 	int rc;
 	int num = 0;
-	int i;
-	struct task_struct *p;
 	unsigned short temp;
 
 	rc = data->pdata->camera_power_on();
