@@ -2029,7 +2029,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 		}
 
 /* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */
-#if 0
+#ifndef CONFIG_BCM4325_GPIO_WL_RESET
 		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && mmc->card &&
 				mmc->card->type == MMC_TYPE_SDIO) {
 #else
@@ -2069,7 +2069,7 @@ msmsdcc_runtime_resume(struct device *dev)
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
 
 /* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */
-#if 0
+#ifndef CONFIG_BCM4325_GPIO_WL_RESET
 		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
 				!host->sdio_irq_disabled) {
 #else
