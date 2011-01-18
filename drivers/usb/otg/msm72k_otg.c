@@ -41,11 +41,6 @@
 #define USB_LINK_RESET_TIMEOUT	(msecs_to_jiffies(10))
 #define DRIVER_NAME	"msm_otg"
 
-#ifdef CONFIG_MACH_LGE
-#define wake_lock(lock)	do { ;} while(0);
-#define wake_unlock(lock)	do { ;} while(0);
-#endif
-
 static void otg_reset(struct otg_transceiver *xceiv, int phy_reset);
 static void msm_otg_set_vbus_state(int online);
 static void msm_otg_set_id_state(int online);
@@ -2368,6 +2363,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 					PM_QOS_DEFAULT_VALUE);
 
 	if (pclk_requires_voting(&dev->otg) && !dev->pdata->usb_in_sps) {
+		pr_info("%s: clk_get - ebi1_usb_clk\n", __func__);
 		dev->pdata->ebi1_clk = clk_get(NULL, "ebi1_usb_clk");
 		if (IS_ERR(dev->pdata->ebi1_clk)) {
 			ret = PTR_ERR(dev->pdata->ebi1_clk);
@@ -2379,6 +2375,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 
 	if (!dev->pdata->pclk_is_hw_gated) {
+		pr_info("%s: clk_get - usb_hs_clk\n", __func__);
 		dev->hs_pclk = clk_get(&pdev->dev, "usb_hs_pclk");
 		if (IS_ERR(dev->hs_pclk)) {
 			pr_err("%s: failed to get usb_hs_pclk\n", __func__);
@@ -2389,6 +2386,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 
 	if (dev->pdata->core_clk) {
+		pr_info("%s: clk_get - usb_hs_core_clk\n", __func__);
 		dev->hs_cclk = clk_get(&pdev->dev, "usb_hs_core_clk");
 		if (IS_ERR(dev->hs_cclk)) {
 			pr_err("%s: failed to get usb_hs_core_clk\n", __func__);
@@ -2399,6 +2397,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 
 	if (!dev->pdata->phy_reset) {
+		pr_info("%s: clk_get - usb_phy_clk\n", __func__);
 		dev->phy_reset_clk = clk_get(&pdev->dev, "usb_phy_clk");
 		if (IS_ERR(dev->phy_reset_clk)) {
 			pr_err("%s: failed to get usb_phy_clk\n", __func__);

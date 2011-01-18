@@ -18,13 +18,7 @@
 #ifndef __U_LGEUSB_H__
 #define __U_LGEUSB_H__
 
-/* Common Interface */
-int lge_get_usb_serial_number(char *serial_number);
-int lge_detect_factory_cable(void);
 
-/* Per-class definitions */
-
-/* CDMA Class */
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_CDMA
 
 #define LGE_FACTORY_CABLE_TYPE 3
@@ -33,7 +27,6 @@ int lge_detect_factory_cable(void);
 
 #endif /* CDMA */
 
-/* GSM/WCDMA Class */
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_GSM
 
 #define LGE_FACTORY_CABLE_TYPE 1
@@ -42,11 +35,29 @@ int lge_detect_factory_cable(void);
 
 #endif /* GSM/WCDMA */
 
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-19, Detection of factory cable using wq */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
-extern int android_switch_composition_ext(u16 pid);
-extern int android_get_pid_ext(void);
-#endif
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-19 */
+#define LGE_FACTORY_PID 0x6000
+#define LGE_DEFAULT_PID 0x618E
+/* #define LGE_PLATFORM_PID 0x618E */
 
-#endif /* __U_LGE_USB_H__ */
+enum lgeusb_mode {
+	LGEUSB_FACTORY_MODE = 0,
+	LGEUSB_ANDROID_MODE,
+};
+
+struct lgeusb_info {
+	uint32_t restore_pid;
+	enum lgeusb_mode current_mode;
+	void (*switch_func)(uint32_t pid, uint32_t need_reset);
+	uint32_t (*get_pid)(void);
+};
+
+int lgeusb_detect_factory_cable(void);
+int lgeusb_set_config(uint32_t pid, char *serialno);
+void lgeusb_register_usbinfo(struct lgeusb_info *info);
+
+void lgeusb_switch_factory_mode(uint32_t need_reset);
+void lgeusb_switch_android_mode(uint32_t need_reset);
+int lgeusb_get_current_mode(void);
+void lgeusb_backup_pid(void);
+
+#endif /* __U_LGEUSB_H__ */

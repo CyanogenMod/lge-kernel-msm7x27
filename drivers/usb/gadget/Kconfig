@@ -1094,7 +1094,10 @@ config RMNET_SMD_DATA_CHANNEL
 
 endchoice
 
-# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, Porting from froyo
+# LGE_CHANGE
+# Porting from Froyo
+# 2011-01-18, hyunhui.park@lge.com
+#
 config USB_SUPPORT_LGE_ANDROID_GADGET
 	boolean "USB Support LG Driver"
 	depends on USB_ANDROID
@@ -1152,38 +1155,76 @@ config USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI
 
 	default n
 
-# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-11, Autorun Support
 config USB_SUPPORT_LGE_ANDROID_AUTORUN
-	boolean "Autorun support in LGE Android model(common)"
+	boolean "Autorun support in LGE Android(common)"
 	depends on USB_SUPPORT_LGE_ANDROID_GADGET
 	help
-	  It supports Autorun feature in LGE Android model if it is needed.
+	  It supports Autorun feature in LGE Android if it is needed.
 
 	default n
-# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-11 	
 
-# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-11, GPS fix for LG Driver 
+# LGE Fixup Series
+
+config USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+	boolean "Fixup Android Gadget for LGE Android"
+	depends on USB_SUPPORT_LGE_ANDROID_GADGET
+	help
+	  Fixup codes for Android Gadget USB framework for LGE USB driver.
+
+	  1. It is from following android git commit:
+
+	  http://android.git.kernel.org/?p=kernel/common.git;a=commit;h=8da1d5c2542e4adcb45c4e77d876852a6e1d8a47
+	  usb: gadget: Fixed Android gadget function discovery & product matching
+
+	  - Do not bind until all required functions have registered
+	  - Consider multi-instance functions when matching products
+
+	  2. Handle IAD for composite function.
+
+	  Google android gadget cannot handle interface association descriptor
+	  (IAD) properly. By the fixup, android gadget can assign interface number
+	  of IAD dynamically.
+
+	default n
+
+config USB_SUPPORT_LGE_ANDROID_ACM_FIX
+	boolean "CDC ACM interface support in LGE Android model(common)"
+	depends on USB_SUPPORT_LGE_ANDROID_GADGET
+	help
+	  Fixup codes for CDC ACM interface in LGE Android.
+
+	  1. LG host modem driver use 16 bytes as max packet size of notify ep,
+	  but QCT use 10 bytes. Therefore we apply non-public patch for matching
+	  with LG host driver.
+
+	default n
+
 config USB_SUPPORT_LGE_ANDROID_NMEA_FIX
 	boolean "NMEA interface support in LGE Android model(common)"
 	depends on USB_SUPPORT_LGE_ANDROID_GADGET
 	select MODEM_SUPPORT
 	help
-	  It supports LG NMEA interface in LGE Android model.
+	  Fixup codes for NMEA interface in LGE Android.
+
+	  1. To match for LGE NMEA function which is slightly different from 
+	  NMEA descriptors of Android Gadget.
 
 	default n
-# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-11 	
 
-# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-08-31, CDC ECM fix for LG Driver 
 config USB_SUPPORT_LGE_ANDROID_ECM_FIX
 	boolean "CDC ECM interface support in LGE Android model(common)"
 	depends on USB_SUPPORT_LGE_ANDROID_GADGET
 	help
-	  It supports LG CDC ECM interface in LGE Android model.
+	  Fixup codes for CDC ECM interface in LGE Android.
 
+	  1. To match for LGE CDC ECM function which is slightly different from 
+	  CDC ECM descriptors of Android Gadget.
+
+	  2. Add function named "ecm" for CDC ECM binding to android gadget.
 	default n
-# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-31 	
 
-# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-19, Detection of Factory cable
+# LGE misc
+
 config USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
 	boolean "Detection of factory cable using workqueue in LGE Android model(common)"
 	depends on USB_SUPPORT_LGE_ANDROID_GADGET
@@ -1194,7 +1235,6 @@ config USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
 	  together(i.e. USB_SUPPORT_LGE_FACTORY_USB or USB_SUPPORT_LGE_FACTORY_USB_GSM).
 
 	default n
-# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-19
 # LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03
 
 endif # USB_GADGET

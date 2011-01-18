@@ -61,6 +61,11 @@ void msm_fsusb_rpc_deinit(void);
 
 /* wrapper to send pid and serial# info to bootloader */
 int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum);
+
+int msm_hsusb_send_productID(uint32_t product_id);
+int msm_hsusb_send_serial_number(const char *serial_number);
+int msm_hsusb_is_serial_num_null(uint32_t val);
+
 #if defined(CONFIG_MACH_MSM7X27_ALOHAV) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
 /* ADD THUNDER feature TO USE VS740 BATT DRIVER
  * 2010-05-13, taehung.kim@lge.com
