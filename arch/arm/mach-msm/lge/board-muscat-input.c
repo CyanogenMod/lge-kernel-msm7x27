@@ -122,8 +122,6 @@ static unsigned int keypad_col_gpios[] = {32, 33};
 #define KEYMAP_INDEX(col, row) ((col)*ARRAY_SIZE(keypad_row_gpios) + (row))
 
 static const unsigned short keypad_keymap_muscat[] = {
-/* muscat keymap by bongkyu.kim */
-/* rev_c schematic reversed send, end key */
 	[KEYMAP_INDEX(0, 0)] = KEY_END,
 	[KEYMAP_INDEX(0, 1)] = KEY_VOLUMEUP,
 	[KEYMAP_INDEX(1, 0)] = KEY_SEND,
@@ -131,14 +129,14 @@ static const unsigned short keypad_keymap_muscat[] = {
 
 };
 
-int muscat_matrix_info_wrapper(struct input_dev *input_dev,struct gpio_event_info *info, void **data, int func)
+int muscat_matrix_info_wrapper(struct gpio_event_input_devs *input_dev,struct gpio_event_info *info, void **data, int func)
 {
         int ret ;
 		if (func == GPIO_EVENT_FUNC_RESUME) {
 			gpio_tlmm_config(GPIO_CFG(keypad_row_gpios[0], 0,
-						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
+						GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 			gpio_tlmm_config(GPIO_CFG(keypad_row_gpios[1], 0,
-						GPIO_INPUT, GPIO_PULL_UP,GPIO_2MA), GPIO_ENABLE);
+						GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		}
 
 		ret = gpio_event_matrix_func(input_dev,info, data,func);
@@ -301,6 +299,36 @@ static struct i2c_board_info ts_i2c_bdinfo[] = {
 		.platform_data = &ts_pdata,
 	},
 };
+
+/* this routine should be checked for nessarry */
+static int init_gpio_i2c_pin_touch(struct i2c_gpio_platform_data *i2c_adap_pdata,
+		struct gpio_i2c_pin gpio_i2c_pin, struct i2c_board_info *i2c_board_info_data)
+{
+	i2c_adap_pdata->sda_pin = gpio_i2c_pin.sda_pin;
+	i2c_adap_pdata->scl_pin = gpio_i2c_pin.scl_pin;
+
+	gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.sda_pin, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.scl_pin, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_set_value(gpio_i2c_pin.sda_pin, 1);
+	gpio_set_value(gpio_i2c_pin.scl_pin, 1);
+
+	if (gpio_i2c_pin.reset_pin) {
+		gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.reset_pin, 0, GPIO_CFG_OUTPUT,
+					GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_set_value(gpio_i2c_pin.reset_pin, 1);
+	}
+
+	if (gpio_i2c_pin.irq_pin) {
+		gpio_tlmm_config(GPIO_CFG(gpio_i2c_pin.irq_pin, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		i2c_board_info_data->irq =
+			MSM_GPIO_TO_INT(gpio_i2c_pin.irq_pin);
+	}
+
+	return 0;
+}
 
 static void __init muscat_init_i2c_touch(int bus_num)
 {

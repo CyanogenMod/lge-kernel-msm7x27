@@ -43,7 +43,7 @@
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 #define GPIO_SD_DETECT_N	49
 // LGE_CHANGE_S dangwoo.choi@lge.com - MMC Cover Detect is removed
-// #define GPIO_MMC_COVER_DETECT 77
+#define GPIO_MMC_COVER_DETECT 77
 // LGE_CHANGE_E dangwoo.choi@lge.com
 #define VREG_SD_LEVEL       3000
 
@@ -161,7 +161,7 @@ extern struct i2c_board_info i2c_devices[1];
 extern int camera_power_state;
 extern int lcd_bl_power_state;
 /* interface functions */
-void config_camera_on_gpios(void);
+int config_camera_on_gpios(void);
 void config_camera_off_gpios(void);
 void camera_power_mutex_lock(void);
 void camera_power_mutex_unlock(void);

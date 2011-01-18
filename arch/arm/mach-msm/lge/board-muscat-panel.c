@@ -32,35 +32,6 @@ do { \
 				: "vreg_disable", name); \
 } while (0)
 
-static char *msm_fb_vreg[] = {
-	"gp1",
-	"gp2",
-};
-
-static int mddi_power_save_on;
-static void msm_fb_mddi_power_save(int on)
-{
-	struct vreg *vreg;
-	int flag_on = !!on;
-
-	if (mddi_power_save_on == flag_on)
-		return;
-
-	mddi_power_save_on = flag_on;
-
-	if (on) {
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], enable, 1800);
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], enable, 2800);
-	} else{
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], disable, 0);
-	}
-}
-
-static struct mddi_platform_data mddi_pdata = {
-	.mddi_power_save = msm_fb_mddi_power_save,
-};
-
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = 97,
 };
@@ -73,45 +44,15 @@ static void __init msm_fb_add_devices(void)
 	msm_fb_register_device("ebi2", 0); 
 }
 
-static int mddi_hitachi_pmic_backlight(int level)
-{
-	/* TODO: Backlight control here */
-	return 0;
-}
-
 static int ebi2_tovis_pmic_backlight(int level)
 {
 	/* TODO: Backlight control here */
 	return 0;
 }
 
-#if 1//def CONFIG_MACH_MSM7X27_ALOHAG
-		/* LGE_CHANGE
-		  * Define new structure named 'msm_panel_hitachi_pdata' to use LCD initialization Flag (.initialized).
-		  * 2010-04-21, minjong.gong@lge.com
-		  */
-	static struct msm_panel_hitachi_pdata mddi_hitachi_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = mddi_hitachi_pmic_backlight,
-		.initialized = 1,
-#else
-	static struct msm_panel_common_pdata mddi_hitachi_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = mddi_hitachi_pmic_backlight,
-#endif
-};
-
 static struct msm_panel_common_pdata ebi2_tovis_panel_data = {
 		.gpio = 102,				/* lcd reset_n */
 		.pmic_backlight = ebi2_tovis_pmic_backlight,
-};
-
-static struct platform_device mddi_hitachi_panel_device = {
-	.name   = "mddi_hitachi_hvga",
-	.id     = 0,
-	.dev    = {
-		.platform_data = &mddi_hitachi_panel_data,
-	}
 };
 
 static struct platform_device ebi2_tovis_panel_device = {
