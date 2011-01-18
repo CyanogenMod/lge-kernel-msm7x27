@@ -768,6 +768,18 @@ config MSM_SDIO_CMUX
 	help
 	  Provides a Muxed port interface over SDIO QMI
 
+config MSM_DSPS
+	bool "Sensors DSPS driver"
+	depends on (MSM_PIL && ARCH_MSM8X60)
+	default n
+	help
+	  Provides user-space interface to the sensors manager
+	  to turn on/off the Sensors Processor system clocks.
+	  It is the DSPS responsibility to turn on/off the sensors
+	  themself.
+	  The number of clocks and their name may vary between targets.
+	  It also triggers the PIL to load the DSPS firmware.
+
 config MSM_SDIO_CTL
 	bool "SDIO CTL Driver"
 	depends on MSM_SDIO_CMUX
