@@ -70,6 +70,9 @@ int boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 	pr_debug("Starting secondary CPU %d\n", cpu);
 
+	/* Set preset_lpj to avoid subsequent lpj recalculations */
+	preset_lpj = loops_per_jiffy;
+
 	if (cold_boot_done == false) {
 		ret = scm_set_boot_addr((void *)
 					virt_to_phys(msm_secondary_startup),
