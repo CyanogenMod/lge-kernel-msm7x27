@@ -579,7 +579,6 @@ static struct clk_freq_tbl clk_tbl_pdm[] = {
 #define F_PRNG(f, s, d, v) \
 		F_RAW(f, SRC_##s, 0, NS_DIVSRC(6, 3, d, 2, 0, s), 0, 0, v, NULL)
 static struct clk_freq_tbl clk_tbl_prng[] = {
-	F_PRNG(32000000, BB_PLL8, 12, LOW),
 	F_PRNG(64000000, BB_PLL8,  6, NOMINAL),
 	F_END,
 };
@@ -1948,6 +1947,7 @@ void __init msm_clk_soc_init(void)
 	reg_init(use_pxo);
 
 	/* Initialize rates for clocks that only support one. */
+	set_1rate(PRNG);
 	set_1rate(MDP_VSYNC);
 	set_1rate(TSIF_REF);
 	set_1rate(TSSC);
