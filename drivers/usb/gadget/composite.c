@@ -953,6 +953,8 @@ unknown:
 			if (cdev->config == NULL)
 				return value;
 
+			if (w_index >= cdev->config->next_interface_id)
+				return value;
 			/* Find correct function */
 			for (id = 0; id < MAX_CONFIG_INTERFACES; id++) {
 				f = cdev->config->interface[id];
