@@ -159,13 +159,14 @@ static int msm_cpufreq_verify(struct cpufreq_policy *policy)
 
 static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 {
+	int cur_freq;
+	int index;
 	struct cpufreq_frequency_table *table;
 #ifdef CONFIG_SMP
 	struct cpufreq_work_struct *cpu_work = NULL;
 #endif
 
 	table = cpufreq_frequency_get_table(policy->cpu);
-	policy->cur = acpuclk_get_rate(policy->cpu);
 	if (cpufreq_frequency_table_cpuinfo(policy, table)) {
 #ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
 		policy->cpuinfo.min_freq = CONFIG_MSM_CPU_FREQ_MIN;
@@ -176,6 +177,27 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 	policy->min = CONFIG_MSM_CPU_FREQ_MIN;
 	policy->max = CONFIG_MSM_CPU_FREQ_MAX;
 #endif
+
+	cur_freq = acpuclk_get_rate(policy->cpu);
+	if (cpufreq_frequency_table_target(policy, table, cur_freq,
+				CPUFREQ_RELATION_H, &index)) {
+		pr_info("cpufreq: cpu%d at invalid freq: %d\n",
+				policy->cpu, cur_freq);
+		return -EINVAL;
+	}
+
+	if (cur_freq != table[index].frequency) {
+		int ret = 0;
+		ret = acpuclk_set_rate(policy->cpu, table[index].frequency,
+				SETRATE_CPUFREQ);
+		if (ret)
+			return ret;
+		pr_info("cpufreq: cpu%d init at %d switching to %d\n",
+				policy->cpu, cur_freq, table[index].frequency);
+		cur_freq = table[index].frequency;
+	}
+
+	policy->cur = cur_freq;
 
 	policy->cpuinfo.transition_latency =
 		acpuclk_get_switch_time() * NSEC_PER_USEC;
