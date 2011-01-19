@@ -27,11 +27,19 @@
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
+#include <mach/scm-io.h>
 
 #include "clock-local.h"
 #include "clock-8x60.h"
 #include "rpm.h"
 #include "rpm-regulator.h"
+
+#ifdef CONFIG_MSM_SECURE_IO
+#undef readl
+#undef writel
+#define readl secure_readl
+#define writel secure_writel
+#endif
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_MM(off)	(MSM_MMSS_CLK_CTL_BASE + (off))

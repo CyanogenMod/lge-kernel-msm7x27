@@ -30,6 +30,8 @@
 #ifndef MIPI_DSI_H
 #define MIPI_DSI_H
 
+#include <mach/scm-io.h>
+
 #ifdef BIT
 #undef BIT
 #endif
@@ -41,8 +43,13 @@
 
 #define MIPI_DSI_BASE mipi_dsi_base
 
+#ifdef CONFIG_MSM_SECURE_IO
+#define MIPI_OUTP(addr, data) secure_writel(((data), (addr))
+#define MIPI_INP(addr) secure_readl(addr)
+#else
 #define MIPI_OUTP(addr, data) writel((data), (addr))
 #define MIPI_INP(addr) readl(addr)
+#endif
 
 #define MIPI_DSI_PRIM 1
 #define MIPI_DSI_SECD 2
