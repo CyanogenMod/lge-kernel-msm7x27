@@ -71,25 +71,13 @@ struct msm_fb_panel_data tovis_qvga_panel_data;
 */
 static boolean display_on = TRUE; // FALSE;
 
-#define DISP_SET_RECT(csp, cep, psp, pep) \
-	{ \
-		EBI2_WRITE16C(DISP_CMD_PORT, 0x2a);			\
-		EBI2_WRITE16D(DISP_DATA_PORT,csp >> 8);		\
-		EBI2_WRITE16D(DISP_DATA_PORT,csp & 0xFF);	\
-		EBI2_WRITE16D(DISP_DATA_PORT,cep >> 8);		\
-		EBI2_WRITE16D(DISP_DATA_PORT,cep & 0xFF);	\
-		EBI2_WRITE16C(DISP_CMD_PORT, 0x2b);			\
-		EBI2_WRITE16D(DISP_DATA_PORT,psp >> 8);		\
-		EBI2_WRITE16D(DISP_DATA_PORT,psp & 0xFF);	\
-		EBI2_WRITE16D(DISP_DATA_PORT,pep >> 8);		\
-		EBI2_WRITE16D(DISP_DATA_PORT,pep & 0xFF);	\
-	}
-
 static void tovis_qvga_disp_init(struct platform_device *pdev);
+#if 0 /* not defined */
 static void tovis_qvga_disp_set_rect(int x, int y, int xres, int yres);
 
 static int tovis_qvga_disp_off(struct platform_device *pdev);
 static int tovis_qvga_disp_on(struct platform_device *pdev);
+#endif
 
 static unsigned int te_lines = 0xab;
 static unsigned int mactl = 0x98;
@@ -151,21 +139,31 @@ static int ilitek_qvga_disp_off(struct platform_device *pdev)
 	return 0;
 }
 
+static inline void disp_set_rect(uint16_t csp, uint16_t cep, uint16_t psp, uint16_t pep) {
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x2a);
+	EBI2_WRITE16D(DISP_DATA_PORT,(csp >> 8));
+	EBI2_WRITE16D(DISP_DATA_PORT,csp & 0xFF);
+	EBI2_WRITE16D(DISP_DATA_PORT,cep >> 8);
+	EBI2_WRITE16D(DISP_DATA_PORT,cep & 0xFF);
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x2b);
+	EBI2_WRITE16D(DISP_DATA_PORT,psp >> 8);
+	EBI2_WRITE16D(DISP_DATA_PORT,psp & 0xFF);
+	EBI2_WRITE16D(DISP_DATA_PORT,pep >> 8);
+	EBI2_WRITE16D(DISP_DATA_PORT,pep & 0xFF);
+}
+
 static void ilitek_qvga_disp_set_rect(int x, int y, int xres, int yres) // xres = width, yres - height
 {
 	if (!disp_initialized)
 		return;
 
 	/* printk(KERN_INFO "%s: entered.\n", __func__); */
-	DISP_SET_RECT(x, x+xres-1, y, y+yres-1);
+	disp_set_rect(x, x+xres-1, y, y+yres-1);
 	EBI2_WRITE16C(DISP_CMD_PORT,0x2c); // Write memory start
 }
 
 static void do_ilitek_init(struct platform_device *pdev)
 {
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-	struct msm_panel_info *pinfo = &mfd->panel_info;
-
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xc0);
 	EBI2_WRITE16D(DISP_DATA_PORT,0x2f); // 1
 
