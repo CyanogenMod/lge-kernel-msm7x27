@@ -504,10 +504,10 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 			encoder->frame_level_rc.reaction_coeff);
 	if (encoder->rc_level.mb_level_rc)
 		vidc_1080p_encode_set_mb_level_rc_params(
-			encoder->adaptive_rc.dark_region_as_flag,
-			encoder->adaptive_rc.smooth_region_as_flag,
-			encoder->adaptive_rc.static_region_as_flag,
-			encoder->adaptive_rc.activity_region_flag);
+			encoder->adaptive_rc.disable_dark_region_as_flag,
+			encoder->adaptive_rc.disable_smooth_region_as_flag,
+			encoder->adaptive_rc.disable_static_region_as_flag,
+			encoder->adaptive_rc.disable_activity_region_flag);
 	if ((!encoder->rc_level.frame_level_rc) &&
 		(!encoder->rc_level.mb_level_rc))
 		vidc_sm_set_pand_b_frame_qp(
