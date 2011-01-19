@@ -1118,6 +1118,10 @@ static struct dsps_clk_info dsps_clks[] = {
 	{
 		.name = "gsbi_qup_clk",
 		.rate =	24 * MHZ, /* See clk_tbl_gsbi_qup[] */
+	},
+	{
+		.name = "dfab_dsps_clk",
+		.rate =	64 * MHZ, /* Same rate as USB. */
 	}
 };
 
