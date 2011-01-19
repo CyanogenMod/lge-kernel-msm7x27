@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,6 +155,11 @@ static u32 ddl_encoder_seq_done_callback(struct ddl_context *ddl_context,
 	encoder = &ddl->codec_data.encoder;
 	vidc_1080p_get_encoder_sequence_header_size(
 		&encoder->seq_header_length);
+	if ((encoder->codec.codec == VCD_CODEC_H264) &&
+		(encoder->profile.profile == VCD_PROFILE_H264_BASELINE))
+		if ((encoder->seq_header.align_virtual_addr) &&
+			(encoder->seq_header_length > 6))
+			encoder->seq_header.align_virtual_addr[6] = 0xC0;
 	ddl_context->ddl_callback(VCD_EVT_RESP_START, VCD_S_SUCCESS,
 		NULL, 0, (u32 *) ddl, ddl->client_data);
 	ddl_release_command_channel(ddl_context,
