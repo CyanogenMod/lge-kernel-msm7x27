@@ -426,7 +426,7 @@ static uint32_t const chld_vfe[] =	{C(VFE_MDC), C(VFE_CAMIF), C(CSI0_VFE),
 			h_b, br, root, 0, 0, NULL, NULL, NULL, NONE, NULL, tv)
 #define CLK_GLBL(id, glbl, br, h_r, h_c, h_b, tv) \
 		CLK(id, NORATE, NULL, glbl, NULL, NULL, 0, h_r, h_c, \
-			h_b, br, 0, 0, 0, NULL, NULL, NULL, NONE, NULL, tv)
+			h_b, br, 0, 0, 0, NULL, NULL, NULL, GLBL_ROOT, NULL, tv)
 #define CLK_BRIDGE(id, glbl, br, par, h_r, h_c, h_b, tv) \
 		CLK(id, NORATE, NULL, glbl, NULL, NULL, 0, h_r, h_c, \
 			h_b, br, 0, 0, 0, NULL, NULL, NULL, par, NULL, tv)
