@@ -31,6 +31,7 @@
 #include "clock-8x60.h"
 #include "clock-rpm.h"
 #include "clock-voter.h"
+#include "devices.h"
 #include "devices-msm8x60.h"
 #include "devices-msm8x60-iommu.h"
 #include <linux/dma-mapping.h>
@@ -42,6 +43,9 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/socinfo.h>
+#ifdef CONFIG_MSM_DSPS
+#include <mach/msm_dsps.h>
+#endif
 #include <linux/gpio.h>
 #include "mdm.h"
 
@@ -139,6 +143,12 @@ struct platform_device msm_charm_modem = {
 		.platform_data = &mdm_platform_data,
 	},
 };
+
+#ifdef CONFIG_MSM_DSPS
+#define GSBI12_DEV (&msm_dsps_device.dev)
+#else
+#define GSBI12_DEV (&msm_gsbi12_qup_i2c_device.dev)
+#endif
 
 void __iomem *gic_cpu_base_addr;
 
@@ -1089,6 +1099,60 @@ struct platform_device msm_rotator_device = {
 #endif
 
 
+/* Sensors DSPS platform data */
+#ifdef CONFIG_MSM_DSPS
+
+#define PPSS_REG_PHYS_BASE	0x12080000
+
+#define MHZ (1000*1000)
+
+static struct dsps_clk_info dsps_clks[] = {
+	{
+		.name = "ppss_pclk",
+		.rate =	0, /* no rate just on/off */
+	},
+	{
+		.name = "pmem_clk",
+		.rate =	0, /* no rate just on/off */
+	},
+	{
+		.name = "gsbi_qup_clk",
+		.rate =	24 * MHZ, /* See clk_tbl_gsbi_qup[] */
+	}
+};
+
+/*
+ * Note: GPIOs field is	intialized in run-time at the function
+ * msm8x60_init_dsps().
+ */
+
+struct msm_dsps_platform_data msm_dsps_pdata = {
+	.clks = dsps_clks,
+	.clks_num = ARRAY_SIZE(dsps_clks),
+	.gpios = NULL,
+	.gpios_num = 0,
+	.signature = DSPS_SIGNATURE,
+};
+
+static struct resource msm_dsps_resources[] = {
+	{
+		.start = PPSS_REG_PHYS_BASE,
+		.end   = PPSS_REG_PHYS_BASE + SZ_8K - 1,
+		.name  = "ppss_reg",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm_dsps_device = {
+	.name          = "msm_dsps",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(msm_dsps_resources),
+	.resource      = msm_dsps_resources,
+	.dev.platform_data = &msm_dsps_pdata,
+};
+
+#endif /* CONFIG_MSM_DSPS */
+
 #ifdef CONFIG_FB_MSM_TVOUT
 static struct resource msm_tvenc_resources[] = {
 	{
@@ -1472,8 +1536,7 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("gsbi_qup_clk",	GSBI10_QUP_CLK,
 					&msm_gsbi10_qup_spi_device.dev, OFF),
 	CLK_8X60("gsbi_qup_clk",	GSBI11_QUP_CLK,		NULL, OFF),
-	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,
-					&msm_gsbi12_qup_i2c_device.dev, OFF),
+	CLK_8X60("gsbi_qup_clk",	GSBI12_QUP_CLK,	GSBI12_DEV, OFF),
 	CLK_8X60("pdm_clk",		PDM_CLK,		NULL, OFF),
 	CLK_8X60("pmem_clk",		PMEM_CLK,		NULL, OFF),
 	CLK_8X60("prng_clk",		PRNG_CLK,		NULL, OFF),
@@ -1522,8 +1585,7 @@ struct clk msm_clocks_8x60[] = {
 	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
 		&msm_device_uart_dm12.dev, 0),
-	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK,
-					&msm_gsbi12_qup_i2c_device.dev, 0),
+	CLK_8X60("gsbi_pclk",		GSBI12_P_CLK, GSBI12_DEV, 0),
 	CLK_8X60("ppss_pclk",		PPSS_P_CLK,		NULL, OFF),
 	CLK_8X60("tsif_pclk",		TSIF_P_CLK,		NULL, OFF),
 	CLK_8X60("usb_fs_pclk",		USB_FS1_P_CLK,		NULL, OFF),
