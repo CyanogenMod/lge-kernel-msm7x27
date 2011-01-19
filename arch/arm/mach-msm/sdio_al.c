@@ -2756,6 +2756,7 @@ static int sdio_al_client_setup(struct sdio_al_device *sdio_al_dev)
 	case PEER_SDIOC_SW_MAILBOX_BOOT_SIGNATURE:
 		return sdio_al_bootloader_setup();
 	case PEER_SDIOC_SW_MAILBOX_SIGNATURE:
+	case PEER_SDIOC_SW_MAILBOX_UT_SIGNATURE:
 		return init_channels(sdio_al_dev);
 	default:
 		pr_err(MODULE_NAME ":Invalid signature 0x%x\n", signature);
