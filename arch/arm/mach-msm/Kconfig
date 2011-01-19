@@ -1222,6 +1222,9 @@ config MSM_GPIOMUX
 config MSM_V2_TLMM
        bool
 
+config MSM_SECURE_IO
+	bool
+
 config MSM_BUS_SCALING
 	bool "Bus scaling driver"
 	default n
