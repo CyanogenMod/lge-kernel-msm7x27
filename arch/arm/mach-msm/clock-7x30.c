@@ -322,6 +322,7 @@ static struct clk_freq_tbl clk_tbl_vfe_jpeg[] = {
 	F_MND16(122880000, PLL3, 2,   1,   3, NOMINAL),
 	F_MND16(147456000, PLL3, 2,   2,   5, NOMINAL),
 	F_MND16(153600000, PLL1, 2,   2,   5, NOMINAL),
+	F_MND16(192000000, PLL1, 4,   0,   0, HIGH),
 	F_END,
 };
 
