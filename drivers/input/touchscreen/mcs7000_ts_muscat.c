@@ -1,7 +1,7 @@
 /*
  * MELFAS mcs7000 touchscreen driver
  *
- * Copyright (C) 2010 LGE, Inc.
+ * Copyright (C) 2011 LGE, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,18 +52,24 @@ static void mcs7000_early_suspend(struct early_suspend *h);
 static void mcs7000_late_resume(struct early_suspend *h);
 #endif
 
+/* 
+ * Melfas Touch Device Configuration for Touch Key, Polling Time, Debugging Message
+ * do not enable the debugging flag, it reduce the touch performance
+ * 2011-01-19, by jinkyu.choi@lge.com
+ */
+#define SUPPORT_TOUCH_KEY 0
+
+#if SUPPORT_TOUCH_KEY
 #define LG_FW_HARDKEY_BLOCK
-#define LG_FW_MULTI_TOUCH
-//#define LG_FW_TOUCH_SOFT_KEY 1
+
 #define TOUCH_SEARCH    247
 #define TOUCH_BACK      248
-
-/* shoud be checked, what is the difference, TOUCH_SEARCH and KEY_SERACH, TOUCH_BACK  and KEY_BACK */
-//#define LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY
+#endif
 
 #define TS_POLLING_TIME 0 /* msec */
 
-#define DEBUG_TS 1 /* enable or disable debug message */
+#define DEBUG_TS 0 /* enable or disable debug message */
+
 #if DEBUG_TS
 #define DMSG(fmt, args...) printk(KERN_DEBUG fmt, ##args)
 #else
@@ -123,7 +129,7 @@ enum{
 	MAX_TOUCH_TYPE
 };
 
-#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) || defined(CONFIG_MACH_MSM7X27_MUSCAT)
+#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL)
 enum{
 	NO_KEY_TOUCHED = 0,
 	KEY_MENU_TOUCHED = 1, 
@@ -141,11 +147,8 @@ enum{
 };
 #endif
 
-/* LGE_CHANGE_S [kyuhyung.lee@lge.com] 2010.02.23 : to support touch event from UTS*/
-/* [FIXME temporary code] copy form VS740 by younchan.kim 2010-06-11 */
 void Send_Touch( unsigned int x, unsigned int y)
 {
-#ifdef LG_FW_MULTI_TOUCH
 	input_report_abs(mcs7000_ts_dev.input_dev, ABS_MT_TOUCH_MAJOR, 1);
 	input_report_abs(mcs7000_ts_dev.input_dev, ABS_MT_POSITION_X, x);
 	input_report_abs(mcs7000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
@@ -157,73 +160,40 @@ void Send_Touch( unsigned int x, unsigned int y)
 	input_report_abs(mcs7000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
 	input_mt_sync(mcs7000_ts_dev.input_dev);
 	input_sync(mcs7000_ts_dev.input_dev);
-#else
-	mcs7000_ts_event_touch( x, y , &mcs7000_ts_dev) ;
-	input_report_abs(mcs7000_ts_dev.input_dev, ABS_X, x);
-	input_report_abs(mcs7000_ts_dev.input_dev, ABS_Y, y);
-	input_report_key(mcs7000_ts_dev.input_dev, BTN_TOUCH, 0);
-	input_sync(mcs7000_ts_dev.input_dev);
-#endif
 }
 EXPORT_SYMBOL(Send_Touch);
-/* LGE_CHANGE_E [kyuhyung.lee@lge.com] 2010.02.23 */
-/* copy form VS740 by younchan.kim 2010-06-11 */
 
+#if SUPPORT_TOUCH_KEY
 static __inline void mcs7000_key_event_touch(int touch_reg,  int value,  struct mcs7000_ts_device *dev)
 {
 	unsigned int keycode;
 
-#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) || defined(CONFIG_MACH_MSM7X27_MUSCAT)
+#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL)
 	if (touch_reg == KEY_BACK_TOUCHED) {
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
 		keycode = TOUCH_BACK;
-#else
-		keycode = KEY_BACK;
-#endif 
 	} else if (touch_reg == KEY_MENU_TOUCHED) {
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
 		keycode = TOUCH_MENU;
-#else
-		keycode = KEY_MENU;
-#endif 
 	} else if (touch_reg == KEY_HOME_TOUCHED) {
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
 		keycode = TOUCH_HOME;
-#else
-		keycode = KEY_HOME;
-#endif 
 	} else if (touch_reg == KEY_SEARCH_TOUCHED) {
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
 		keycode = TOUCH_SEARCH;
-#else
-		keycode = KEY_SEARCH;
-#endif 
 	}
 	else {
 		printk("%s Not available touch key reg. %d\n", __FUNCTION__, touch_reg);
 		return;
 	} 
-
 #else // Thunder
 	if (touch_reg == KEY1_TOUCHED) {
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
 		keycode = TOUCH_SEARCH;
-#else
-		keycode = KEY_SEARCH;
-#endif
 	} else if (touch_reg == KEY2_TOUCHED) {
 		keycode = -1; /* not used, now */
 	} else if (touch_reg == KEY3_TOUCHED) {
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
 		keycode = TOUCH_BACK;
-#else
-		keycode = KEY_BACK;
-#endif
 	} else {
 		printk(KERN_INFO "%s Not available touch key reg. %d\n", __FUNCTION__, touch_reg);
 		return;
 	}
-#endif // 
+#endif
 	input_report_key(dev->input_dev, keycode, value);
 	input_sync(dev->input_dev);
 
@@ -231,8 +201,8 @@ static __inline void mcs7000_key_event_touch(int touch_reg,  int value,  struct 
 
 	return;
 }
+#endif
 
-#ifdef LG_FW_MULTI_TOUCH
 static __inline void mcs7000_multi_ts_event_touch(int x1, int y1, int x2, int y2, int value,
 		struct mcs7000_ts_device *dev)
 {
@@ -263,37 +233,6 @@ static __inline void mcs7000_multi_ts_event_touch(int x1, int y1, int x2, int y2
 	return;
 }
 
-#else
-
-static __inline void mcs7000_single_ts_event_touch(unsigned int x, unsigned int y, int value,
-				   struct mcs7000_ts_device *dev)
-{
-	int report = 0;
-	if ((x >= 0) && (y >= 0)) {
-		input_report_abs(dev->input_dev, ABS_X, x);
-		input_report_abs(dev->input_dev, ABS_Y, y);
-		report = 1;
-	}
-
-	if (report != 0) {
-		input_report_key(dev->input_dev, BTN_TOUCH, value);
-		input_sync(dev->input_dev);
-	} else {
-		DMSG(KERN_WARNING "%s: Not Available touch data x=%d, y=%d\n", __FUNCTION__, x, y); 
-	}
-
-	return;
-}
-
-static __inline void mcs7000_single_ts_event_release(struct mcs7000_ts_device *dev)
-{
-	input_report_key(dev->input_dev, BTN_TOUCH, 0);
-	input_sync(dev->input_dev);
-
-	return;
-}
-#endif /* end of LG_FW_MULTI_TOUCH */
-
 #define to_delayed_work(_work)  container_of(_work, struct delayed_work, work)
 
 #ifdef LG_FW_HARDKEY_BLOCK
@@ -308,16 +247,15 @@ static void mcs7000_work(struct work_struct *work)
 {
 	char pCommand;
 	int x1=0, y1 = 0;
-#ifdef LG_FW_MULTI_TOUCH
 	int x2=0, y2 = 0;
 	static int pre_x1, pre_x2, pre_y1, pre_y2;
 	static unsigned int s_input_type = NON_TOUCHED_STATE;
-#endif
 	unsigned int input_type;
+#if SUPPORT_TOUCH_KEY
 	unsigned int key_touch;	
-	unsigned char read_buf[READ_NUM];
-
 	static int key_pressed = 0;
+#endif
+	unsigned char read_buf[READ_NUM];
 	static int touch_pressed = 0;
 
 	struct mcs7000_ts_device *dev 
@@ -338,19 +276,19 @@ static void mcs7000_work(struct work_struct *work)
 	}
 
 	input_type = read_buf[0] & 0x0f;
+#if SUPPORT_TOUCH_KEY
 	key_touch = (read_buf[0] & 0xf0) >> 4;
+#endif
 
 	x1 = y1 =0;
-#ifdef LG_FW_MULTI_TOUCH
 	x2 = y2 = 0;
-#endif
+
 	x1 = (read_buf[1] & 0xf0) << 4;
 	y1 = (read_buf[1] & 0x0f) << 8;
 
 	x1 |= read_buf[2];	
 	y1 |= read_buf[3];		
 
-#ifdef LG_FW_MULTI_TOUCH
 	if(input_type == MULTI_POINT_TOUCH) {
 		s_input_type = input_type;
 		x2 = (read_buf[5] & 0xf0) << 4;
@@ -358,23 +296,24 @@ static void mcs7000_work(struct work_struct *work)
 		x2 |= read_buf[6];
 		y2 |= read_buf[7];
 	}
-#endif
 
 	if (dev->pendown) { /* touch pressed case */
 #ifdef LG_FW_HARDKEY_BLOCK
 		if(dev->hardkey_block == 0)
 #endif
+
+#if SUPPORT_TOUCH_KEY
 		if(key_touch && key_pressed != key_touch) {
 			if(key_pressed)
 				mcs7000_key_event_touch(key_pressed, RELEASED, dev);
 			mcs7000_key_event_touch(key_touch, PRESSED, dev);
 			key_pressed = key_touch;
 		}
+#endif
 
 		if(input_type) {
 			touch_pressed = 1;
 
-#ifdef LG_FW_MULTI_TOUCH
 			if(input_type == MULTI_POINT_TOUCH) {
 				mcs7000_multi_ts_event_touch(x1, y1, x2, y2, PRESSED, dev);
 				pre_x1 = x1;
@@ -386,24 +325,20 @@ static void mcs7000_work(struct work_struct *work)
 				mcs7000_multi_ts_event_touch(x1, y1, -1, -1, PRESSED, dev);
 				s_input_type = SINGLE_POINT_TOUCH;				
 			}
-#else
-			if(input_type == SINGLE_POINT_TOUCH) {
-				mcs7000_single_ts_event_touch(x1, y1, PRESSED, dev);
-			}
-#endif
 #ifdef LG_FW_HARDKEY_BLOCK
 			dev->hardkey_block = 1;
 #endif
 		}
 	} 
 	else { /* touch released case */
+#if SUPPORT_TOUCH_KEY
 		if(key_pressed) {
 			mcs7000_key_event_touch(key_pressed, RELEASED, dev);
 			key_pressed = 0;
 		}
+#endif
 
 		if(touch_pressed) {
-#ifdef LG_FW_MULTI_TOUCH
 			if(s_input_type == MULTI_POINT_TOUCH) {
 				DMSG("%s: multi touch release...(%d, %d), (%d, %d)\n", __FUNCTION__,pre_x1,pre_y1,pre_x2,pre_y2);
 				mcs7000_multi_ts_event_touch(pre_x1, pre_y1, pre_x2, pre_y2, RELEASED, dev);
@@ -413,11 +348,6 @@ static void mcs7000_work(struct work_struct *work)
 				DMSG("%s: single touch release... %d, %d\n", __FUNCTION__, x1, y1);
 				mcs7000_multi_ts_event_touch(x1, y1, -1, -1, RELEASED, dev);
 			}
-#else
-			DMSG("%s: single release... %d, %d\n", __FUNCTION__, x1, y1);
-			mcs7000_single_ts_event_touch (x1, y1, RELEASED, dev);
-			touch_pressed = 0;
-#endif
 #ifdef LG_FW_HARDKEY_BLOCK
 			hrtimer_cancel(&dev->touch_timer);
 			hrtimer_start(&dev->touch_timer, ktime_set(0, 800),
@@ -910,13 +840,8 @@ static int mcs7000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 
 	ts_pdata = client->dev.platform_data;
 
-#ifdef LG_FW_MULTI_TOUCH
 	input_set_abs_params(mcs7000_ts_input, ABS_MT_POSITION_X, ts_pdata->ts_x_min, ts_pdata->ts_x_max, 0, 0);
 	input_set_abs_params(mcs7000_ts_input, ABS_MT_POSITION_Y, ts_pdata->ts_y_min, ts_pdata->ts_y_max, 0, 0);
-#else	
-	input_set_abs_params(mcs7000_ts_input, ABS_X, ts_pdata->ts_x_min, ts_pdata->ts_x_max, 0, 0);
-	input_set_abs_params(mcs7000_ts_input, ABS_Y, ts_pdata->ts_y_min, ts_pdata->ts_y_max, 0, 0);
-#endif
 
 	dev = &mcs7000_ts_dev;
 
@@ -1109,19 +1034,10 @@ static int __devinit mcs7000_ts_init(void)
 	set_bit(EV_SYN, 	 mcs7000_ts_input->evbit);
 	set_bit(EV_KEY, 	 mcs7000_ts_input->evbit);
 	set_bit(EV_ABS, 	 mcs7000_ts_input->evbit);
-#ifdef LG_FW_MULTI_TOUCH
 	set_bit(ABS_MT_TOUCH_MAJOR, mcs7000_ts_input->absbit);
-#else
-	set_bit(BTN_TOUCH, mcs7000_ts_input->keybit);
-#endif
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
+#if SUPPORT_TOUCH_KEY
 	set_bit(TOUCH_BACK, mcs7000_ts_input->keybit);
 	set_bit(TOUCH_SEARCH, mcs7000_ts_input->keybit);
-#else
-	set_bit(KEY_MENU, mcs7000_ts_input->keybit);
-	set_bit(KEY_HOME, mcs7000_ts_input->keybit);
-	set_bit(KEY_BACK, mcs7000_ts_input->keybit);
-	set_bit(KEY_SEARCH, mcs7000_ts_input->keybit);
 #endif
 
 	err = input_register_device(mcs7000_ts_input);
