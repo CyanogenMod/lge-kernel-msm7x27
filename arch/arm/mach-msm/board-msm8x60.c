@@ -72,6 +72,9 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_battery.h>
 #include <mach/msm_hsusb.h>
+#ifdef CONFIG_MSM_DSPS
+#include <mach/msm_dsps.h>
+#endif
 #include <mach/msm_xo.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_tsif.h>
@@ -1812,6 +1815,53 @@ static struct platform_device msm_batt_device = {
 #else
 #define MSM_FB_DSUB_PMEM_ADDER (0)
 #endif
+
+/* Sensors DSPS platform data */
+#ifdef CONFIG_MSM_DSPS
+
+static struct dsps_gpio_info dsps_surf_gpios[] = {
+	{
+		.name = "compass_rst_n",
+		.num = GPIO_COMPASS_RST_N,
+		.on_val = 1,	/* device not in reset */
+		.off_val = 0,	/* device in reset */
+	},
+	{
+		.name = "gpio_r_altimeter_reset_n",
+		.num = GPIO_R_ALTIMETER_RESET_N,
+		.on_val = 1,	/* device not in reset */
+		.off_val = 0,	/* device in reset */
+	}
+};
+
+static struct dsps_gpio_info dsps_fluid_gpios[] = {
+	{
+		.name = "gpio_n_altimeter_reset_n",
+		.num = GPIO_N_ALTIMETER_RESET_N,
+		.on_val = 1,	/* device not in reset */
+		.off_val = 0,	/* device in reset */
+	}
+};
+
+static void __init msm8x60_init_dsps(void)
+{
+	struct msm_dsps_platform_data *pdata =
+		msm_dsps_device.dev.platform_data;
+	/*
+	 * On Fluid the Compass sensor Chip-Select (CS) is directly connected
+	 * to the power supply and not controled via GPIOs. Fluid uses a
+	 * different IO-Expender (north) than used on surf/ffa.
+	 */
+	if (machine_is_msm8x60_fluid()) {
+		pdata->gpios = dsps_fluid_gpios;
+		pdata->gpios_num = ARRAY_SIZE(dsps_fluid_gpios);
+	} else {
+		pdata->gpios = dsps_surf_gpios;
+		pdata->gpios_num = ARRAY_SIZE(dsps_surf_gpios);
+	}
+}
+#endif /* CONFIG_MSM_DSPS */
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 /* prim = 1024 x 600 x 4(bpp) x 2(pages)
  * hdmi = 1920 x 1080 x 2(bpp) x 1(page)
@@ -3174,7 +3224,9 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_gsbi7_qup_i2c_device,
 	&msm_gsbi8_qup_i2c_device,
 	&msm_gsbi9_qup_i2c_device,
+#ifndef CONFIG_MSM_DSPS
 	&msm_gsbi12_qup_i2c_device,
+#endif
 #endif
 #if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
 	&msm_gsbi1_qup_spi_device,
@@ -3190,6 +3242,11 @@ static struct platform_device *surf_devices[] __initdata = {
 #ifdef CONFIG_USB_PEHCI_HCD
 	&isp1763_device,
 #endif
+
+#ifdef CONFIG_MSM_DSPS
+	&msm_dsps_device,
+#endif
+
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_HCD)
 	&msm_device_otg,
 #endif
@@ -3470,9 +3527,7 @@ surf_ffa_sx150x_lp_cfgs[] __initdata = {
 	{GPIO_MIPI_DSI_RST_N,      0},
 	{GPIO_DONGLE_PWR_EN,       0},
 	{GPIO_CAP_TS_SLEEP,        1},
-	{GPIO_COMPASS_RST_N,       0},
 	{GPIO_WEB_CAMIF_RESET_N,   0},
-	{GPIO_R_ALTIMETER_RESET_N, 0},
 };
 
 static void __init
@@ -7510,6 +7565,10 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 	if (machine_is_msm8x60_charm_ffa())
 		msm8x60_charm_hub_init();
+
+#ifdef CONFIG_MSM_DSPS
+	msm8x60_init_dsps();
+#endif
 
 #if defined(CONFIG_PMIC8058_OTHC) || defined(CONFIG_PMIC8058_OTHC_MODULE)
 	msm8x60_init_pm8058_othc();

@@ -70,4 +70,8 @@ void __init msm8x60_init_irq(void);
 void __init msm8x60_check_2d_hardware(void);
 void __init msm_clock_dfab_temp_init(void);
 
+#ifdef CONFIG_MSM_DSPS
+extern struct platform_device msm_dsps_device;
+#endif
+
 #endif
