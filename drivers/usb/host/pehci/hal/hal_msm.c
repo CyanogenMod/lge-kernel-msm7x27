@@ -608,7 +608,7 @@ isp1763_probe(struct platform_device *pdev)
 	hal_init(("isp1763_probe(dev=%p)\n", dev));
 
 	loc_dev = &(isp1763_loc_dev[ISP1763_HC]);
-	loc_dev->dev = &pdev->dev;
+	loc_dev->dev = pdev;
 
 	/* Get the Host Controller IO and INT resources */
 	loc_dev->mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
