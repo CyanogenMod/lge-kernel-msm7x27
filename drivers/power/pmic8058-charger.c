@@ -1190,7 +1190,8 @@ static int pm8058_stop_charging(struct msm_hardware_charger *hw_chg)
 	pm8058_chg_disable_irq(CHG_END_IRQ);
 	pm8058_chg_disable_irq(VBATDET_IRQ);
 	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
-	msm_xo_mode_vote(pm8058_chg.voter, MSM_XO_MODE_OFF);
+	if (pm8058_chg.voter)
+		msm_xo_mode_vote(pm8058_chg.voter, MSM_XO_MODE_OFF);
 
 	return 0;
 }
