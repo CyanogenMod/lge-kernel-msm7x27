@@ -165,7 +165,7 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	if (!bl_lvl && value)
 		bl_lvl = 1;
 
-	msm_fb_set_backlight(mfd, bl_lvl, 1);
+	msm_fb_set_backlight(mfd, bl_lvl);
 }
 
 static struct led_classdev backlight_led = {
@@ -322,7 +322,7 @@ static int msm_fb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mfd->panel_info.frame_count = 0;
-	mfd->bl_level = mfd->panel_info.bl_max;
+	mfd->bl_level = 0;
 #ifdef CONFIG_FB_MSM_OVERLAY
 	mfd->overlay_play_enable = 1;
 #endif
@@ -624,7 +624,7 @@ static void msmfb_early_resume(struct early_suspend *h)
 }
 #endif
 
-void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl, u32 save)
+void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 {
 	struct msm_fb_panel_data *pdata;
 
@@ -632,16 +632,8 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl, u32 save)
 
 	if ((pdata) && (pdata->set_backlight)) {
 		down(&mfd->sem);
-		if ((bkl_lvl != mfd->bl_level) || (!save)) {
-			u32 old_lvl;
-
-			old_lvl = mfd->bl_level;
-			mfd->bl_level = bkl_lvl;
-			pdata->set_backlight(mfd);
-
-			if (!save)
-				mfd->bl_level = old_lvl;
-		}
+		mfd->bl_level = bkl_lvl;
+		pdata->set_backlight(mfd);
 		up(&mfd->sem);
 	}
 }
