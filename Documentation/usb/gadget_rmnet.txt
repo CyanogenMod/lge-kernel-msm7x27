@@ -1,0 +1,74 @@
+Introduction
+============
+
+QUALCOMM MSM Interface (QMI) defines the interface between MSM and
+attached Terminal Equipment (TE). RmNet interface is a new logical
+device in QMI framework for data services. RmNet in accordance with
+QMI architecture uses Data I/O channel for IP data transfer and control
+I/O channel for QMI messaging (functionality similar to AT commands).
+RmNet may be used in place of legacy USB modem interface.
+
+RmNet interface is an alternative to standard CDC-ECM and windows
+proprietary RNDIS. On the host-side system, the gadget rmnet device
+looks like a ethernet adapter.
+
+Hardware description
+====================
+
+Though RmNet gadget device is like any other usb gadget having one bulk
+in, one bulk out and one interrupt endpoint, RmNet protocol is specific
+to Qualcomm MSM chipsets and can't be used on other hardware.
+
+Software description
+====================
+
+RmNet gadget driver is completely unaware of QMI/IP protocol. It just
+acts as a bridge between the modem and the PC.
+
+Buffers allocation:
+1. QMI is an asynchronous protocol where host sends a new QMI request
+before receiving the response for the current QMI request. Each QMI
+request/response can at most be 2048 bytes. Eight 2k buffers are
+allocated using kmalloc for storing maximum of 8 requests/responses.
+
+2. Four 2k buffers are allocated using kmalloc for data transfers on
+each bulk endpoint.
+
+
+SMD interaction:
+Two SMD channels (control and data) are used as communication channels
+between modem and apps processor. The driver opens the SMD channels when
+it binds with peripheral controller driver. Data is either read from or
+written to the channels as one complete packet.
+
+SMD provides notifications whenever the modem processor completes
+read/write of a packet.  Based on these SMD notifications all the
+pending read/write requests will be handled. Tasklets are used to get
+the requests done.
+
+Control & Data flow:
+1. Host issues a SEND_ENCAPSULATED command to send a QMI request.  If
+the SMD control channel has enough room to accomodate a QMI request, it
+is written into the SMD buffer. Otherwise, append/add that request to
+qmi_request queue. A tasklet is scheduled to drain all QMI requests in
+qmi_request queue.
+
+2. Append/add QMI response from modem to qmi_response queue.
+A notification on an interrupt end point is used to communicate the QMI
+response to host.
+
+3. Host issues a GET_ENCAPSULATED command to retrieve the QMI response.
+The response from qmi_response queue will be sent to the host.
+
+4. After the connection is fully established data can be sent to
+bulk out endpoint and data can be received from bulk in endpoint.
+
+5. Host can send QMI requests even after the connection is established.
+
+All the request/response queues in the driver can be accessed either
+from tasklet or from interrupt context (either usb or smd interrupt
+handler). Hence a spinlock is used to protect all data/control req
+lists.
+
+This driver doesn't expose any of its interfaces to either kernelspace
+or userspace.
