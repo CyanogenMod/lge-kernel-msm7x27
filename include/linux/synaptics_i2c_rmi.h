@@ -19,6 +19,18 @@
 
 #define SYNAPTICS_I2C_RMI_NAME "synaptics-rmi-ts"
 
+#define SYNAPTICS_FW_REFLASH
+#define SYNAPTICS_CHECK_DEVICE_NAME
+
+#define SYNAPTICS_TOUCH_LOG
+#undef SYNAPTICS_TOUCH_DEBUG
+#define SYNAPTICS_TOUCH_ERR
+
+#define SYNAPTICS_ESD_RECOVERY
+#define SYNAPTICS_MELTINGMODE
+
+#undef TOUCH_TEST      // for touch logging to SD card
+
 enum {
 	SYNAPTICS_FLIP_X = 1UL << 0,
 	SYNAPTICS_FLIP_Y = 1UL << 1,
@@ -30,7 +42,7 @@ struct synaptics_i2c_rmi_platform_data {
 	uint32_t version;	/* Use this entry for panels with */
 				/* (major << 8 | minor) version or above. */
 				/* If non-zero another array entry follows */
-	int (*power)(int on);	/* Only valid in first array entry */
+	int (*power)(unsigned char on);	/* Only valid in first array entry */
 	uint32_t flags;
 	unsigned long irqflags;
 	uint32_t inactive_left; /* 0x10000 = screen width */
@@ -50,6 +62,7 @@ struct synaptics_i2c_rmi_platform_data {
 	int fuzz_p;
 	int fuzz_w;
 	int8_t sensitivity_adjust;
+	int use_irq;
 };
 
 #endif /* _LINUX_SYNAPTICS_I2C_RMI_H */
