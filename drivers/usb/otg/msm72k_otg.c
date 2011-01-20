@@ -1071,11 +1071,11 @@ static int msm_otg_set_host(struct otg_transceiver *xceiv, struct usb_bus *host)
 void msm_otg_set_id_state(int id)
 {
 	struct msm_otg *dev = the_msm_otg;
+	unsigned long flags;
 
 	if (id == dev->pmic_id_status)
 		return;
 
-	wake_lock(&dev->wlock);
 	if (id) {
 		set_bit(ID, &dev->inputs);
 		dev->pmic_id_status = 1;
@@ -1084,7 +1084,12 @@ void msm_otg_set_id_state(int id)
 		set_bit(A_BUS_REQ, &dev->inputs);
 		dev->pmic_id_status = 0;
 	}
-	queue_work(dev->wq, &dev->sm_work);
+	spin_lock_irqsave(&dev->lock, flags);
+	if (dev->otg.state != OTG_STATE_UNDEFINED) {
+		wake_lock(&dev->wlock);
+		queue_work(dev->wq, &dev->sm_work);
+	}
+	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
 void msm_otg_set_vbus_state(int online)
@@ -2305,6 +2310,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
+	the_msm_otg = dev;
 	dev->otg.dev = &pdev->dev;
 	dev->pdata = pdev->dev.platform_data;
 
@@ -2460,17 +2466,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		ret = dev->pdata->pmic_id_notif_init(&msm_otg_set_id_state, 1);
 		if (!ret) {
 			dev->pmic_id_notif_supp = 1;
-			/*
-			 * As a part of usb initialization checks the id
-			 * by that time if pmic doesn't generate ID interrupt,
-			 * then it assumes that micro-A cable is connected
-			 * (as default pmic_id_status is 0, which indicates
-			 * as micro-A cable) and moving to Host mode and
-			 * ignoring the BSession Valid interrupts.
-			 * For now assigning default id_status as 1
-			 * (which indicates as micro-B)
-			 */
-			dev->pmic_id_status = 1;
 		} else if (ret != -ENOTSUPP) {
 			pr_err("%s: pmic_id_ notif_init failed err:%d",
 					__func__, ret);
@@ -2522,7 +2517,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_ldo_enable;
 	}
 
-	the_msm_otg = dev;
 	dev->otg.set_peripheral = msm_otg_set_peripheral;
 #ifdef CONFIG_USB_EHCI_MSM
 	dev->otg.set_host = msm_otg_set_host;

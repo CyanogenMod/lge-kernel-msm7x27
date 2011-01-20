@@ -965,6 +965,8 @@ static int msm_hsusb_pmic_id_notif_init(void (*callback)(int online), int init)
 					__func__);
 			return ret;
 		}
+		/* Notify the initial Id status */
+		pmic_id_detect(&pmic_id_det.work);
 	} else {
 		free_irq(PMICID_INT, 0);
 		cancel_delayed_work_sync(&pmic_id_det);
