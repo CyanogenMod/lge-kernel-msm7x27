@@ -19,6 +19,7 @@
 #include <linux/spinlock.h>
 
 #include <mach/clk.h>
+#include <mach/socinfo.h>
 
 #include "proc_comm.h"
 #include "clock.h"
@@ -124,9 +125,15 @@ int pc_clk_set_rate(unsigned id, unsigned rate)
 
 int pc_clk_set_min_rate(unsigned id, unsigned rate)
 {
-	int rc = msm_proc_comm(PCOM_CLKCTL_RPC_MIN_RATE, &id, &rate);
+	int rc;
+	bool ignore_error = (cpu_is_msm7x27() && id == P_EBI1_CLK &&
+				rate >= INT_MAX);
+
+	rc = msm_proc_comm(PCOM_CLKCTL_RPC_MIN_RATE, &id, &rate);
 	if (rc < 0)
 		return rc;
+	else if (ignore_error)
+		return 0;
 	else
 		return (int)id < 0 ? -EINVAL : 0;
 }
