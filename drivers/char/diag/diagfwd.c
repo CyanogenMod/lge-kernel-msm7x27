@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/workqueue.h>
+#include <linux/pm_runtime.h>
 #include <linux/diagchar.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
@@ -33,7 +34,9 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagchar_hdlc.h"
-#include <linux/pm_runtime.h>
+#ifdef CONFIG_MSM_SDIO_AL
+#include "diagfwd_sdio.h"
+#endif
 
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
@@ -98,7 +101,7 @@ void __diag_smd_send_req(void)
 		}
 		if (r > 0) {
 			if (!buf)
-				printk(KERN_INFO "Out of diagmem for a9\n");
+				pr_info("Out of diagmem for Modem\n");
 			else {
 				APPEND_DEBUG('i');
 				smd_read(driver->ch, buf, r);
@@ -182,7 +185,13 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			write_ptr->buf = buf;
 			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		}
-		APPEND_DEBUG('k');
+#ifdef CONFIG_MSM_SDIO_AL
+		else if (proc_num == SDIO_DATA) {
+			write_ptr->buf = buf;
+			err = usb_diag_write(driver->mdm_ch, write_ptr);
+		}
+#endif
+		APPEND_DEBUG('d');
 	}
 #endif /* DIAG OVER USB */
     return err;
@@ -220,7 +229,7 @@ void __diag_smd_qdsp_send_req(void)
 		}
 		if (r > 0) {
 			if (!buf)
-				printk(KERN_INFO "Out of diagmem for a9\n");
+				printk(KERN_INFO "Out of diagmem for QDSP\n");
 			else {
 				APPEND_DEBUG('i');
 				smd_read(driver->chqdsp, buf, r);
@@ -607,6 +616,7 @@ void diag_process_hdlc(void *data, unsigned len)
 #ifdef CONFIG_DIAG_OVER_USB
 #define N_LEGACY_WRITE	(driver->poolsize + 5) /* 2+1 for modem ; 2 for q6 */
 #define N_LEGACY_READ	1
+
 int diagfwd_connect(void)
 {
 	int err;
@@ -615,7 +625,8 @@ int diagfwd_connect(void)
 	err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
 			N_LEGACY_READ);
 	if (err)
-		printk(KERN_ERR "diag: unable to allocate USB requests");
+		printk(KERN_ERR "diag: unable to alloc USB req on legacy ch");
+
 	driver->usb_connected = 1;
 	driver->in_busy_1 = 0;
 	driver->in_busy_2 = 0;
@@ -625,12 +636,14 @@ int diagfwd_connect(void)
 	/* Poll SMD channels to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
-
-	driver->usb_read_ptr->buf = driver->usb_buf_out;
-	driver->usb_read_ptr->length = USB_MAX_OUT_BUF;
-	APPEND_DEBUG('a');
-	usb_diag_read(driver->legacy_ch, driver->usb_read_ptr);
-	APPEND_DEBUG('b');
+	/* Poll USB channel to check for data*/
+	queue_work(driver->diag_wq, &(driver->diag_read_work));
+#ifdef CONFIG_MSM_SDIO_AL
+	if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
+		diagfwd_connect_sdio();
+	else
+		printk(KERN_INFO "diag:No data from SDIO without  USB MDM ch");
+#endif
 	return 0;
 }
 
@@ -644,6 +657,10 @@ int diagfwd_disconnect(void)
 	driver->in_busy_qdsp_2 = 1;
 	driver->debug_flag = 1;
 	usb_diag_free_req(driver->legacy_ch);
+#ifdef CONFIG_MSM_SDIO_AL
+	if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
+		diagfwd_disconnect_sdio();
+#endif
 	/* TBD - notify and flow control SMD */
 	return 0;
 }
@@ -651,7 +668,7 @@ int diagfwd_disconnect(void)
 int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 {
 	unsigned char *buf = diag_write_ptr->buf;
-	/*Determine if the write complete is for data from arm9/apps/q6 */
+	/*Determine if the write complete is for data from modem/apps/q6 */
 	/* Need a context variable here instead */
 	if (buf == (void *)driver->buf_in_1) {
 		driver->in_busy_1 = 0;
@@ -669,7 +686,12 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		driver->in_busy_qdsp_2 = 0;
 		APPEND_DEBUG('P');
 		queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
-	} else {
+	}
+#ifdef CONFIG_MSM_SDIO_AL
+	else if (buf == (void *)driver->buf_in_sdio)
+		diagfwd_write_complete_sdio();
+#endif
+	else {
 		diagmem_free(driver, (unsigned char *)buf, POOL_TYPE_HDLC);
 		diagmem_free(driver, (unsigned char *)diag_write_ptr,
 						 POOL_TYPE_WRITE_STRUCT);
@@ -680,18 +702,20 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 
 int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 {
-	int len = diag_read_ptr->actual;
 	int status = diag_read_ptr->status;
+	unsigned char *buf = diag_read_ptr->buf;
+	driver->read_len = diag_read_ptr->actual;
 
-	APPEND_DEBUG('c');
+	/* Determine if the read complete is for data on legacy/mdm ch */
+	if (buf == (void *)driver->usb_buf_out) {
+		APPEND_DEBUG('s');
 #ifdef DIAG_DEBUG
-	printk(KERN_INFO "read data from USB, pkt length %d \n",
+		printk(KERN_INFO "read data from USB, pkt length %d",
 		    diag_read_ptr->actual);
 	print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
 		       DUMP_PREFIX_ADDRESS, diag_read_ptr->buf,
 		       diag_read_ptr->actual, 1);
 #endif /* DIAG DEBUG */
-	driver->read_len = len;
 	if (driver->logging_mode == USB_MODE) {
 		if (status != -ECONNRESET && status != -ESHUTDOWN)
 			queue_work(driver->diag_wq,
@@ -699,6 +723,14 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 		else
 			queue_work(driver->diag_wq, &(driver->diag_read_work));
 	}
+	}
+#ifdef CONFIG_MSM_SDIO_AL
+	else if (buf == (void *)driver->usb_buf_mdm_out)
+		diagfwd_read_complete_sdio();
+#endif
+	else
+		printk(KERN_ERR "diag: Unknown buffer ptr from USB");
+
 	return 0;
 }
 
@@ -719,7 +751,7 @@ void diag_process_hdlc_fn(struct work_struct *work)
 	APPEND_DEBUG('E');
 }
 
-static void diag_usb_legacy_notifier(void *priv, unsigned event,
+void diag_usb_legacy_notifier(void *priv, unsigned event,
 			struct diag_request *d_req)
 {
 	switch (event) {
@@ -789,7 +821,6 @@ static const struct dev_pm_ops diagfwd_dev_pm_ops = {
 	.runtime_suspend = diagfwd_runtime_suspend,
 	.runtime_resume = diagfwd_runtime_resume,
 };
-
 
 static struct platform_driver msm_smd_ch1_driver = {
 
@@ -903,8 +934,10 @@ void diagfwd_init(void)
 		printk(KERN_ERR "Unable to open USB diag legacy channel\n");
 		goto err;
 	}
+#ifdef CONFIG_MSM_SDIO_AL
+	diagfwd_sdio_init();
 #endif
-
+#endif
 	platform_driver_register(&msm_smd_ch1_driver);
 
 	return;

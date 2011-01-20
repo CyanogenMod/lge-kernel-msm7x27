@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -53,6 +53,7 @@
 #define MODEM_DATA 		1
 #define QDSP_DATA  		2
 #define APPS_DATA  		3
+#define SDIO_DATA		4
 #define MSG_MASK_SIZE 8000
 #define LOG_MASK_SIZE 2000
 #define EVENT_MASK_SIZE 1000
@@ -179,6 +180,18 @@ struct diagchar_dev {
 	struct diag_request *write_ptr_qdsp_2;
 	int logging_mode;
 	int logging_process_id;
+#ifdef CONFIG_MSM_SDIO_AL
+	unsigned char *buf_in_sdio;
+	unsigned char *usb_buf_mdm_out;
+	struct sdio_channel *sdio_ch;
+	int in_busy_sdio;
+	struct usb_diag_ch *mdm_ch;
+	struct work_struct diag_read_mdm_work;
+	struct workqueue_struct *diag_sdio_wq;
+	struct work_struct diag_read_sdio_work;
+	struct diag_request *usb_read_mdm_ptr;
+	struct diag_request *write_ptr_mdm;
+#endif
 };
 
 extern struct diagchar_dev *driver;
