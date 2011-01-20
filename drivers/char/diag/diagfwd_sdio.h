@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,24 +27,18 @@
  *
  */
 
-#ifndef DIAGFWD_H
-#define DIAGFWD_H
+#ifndef DIAGFWD_SDIO_H
+#define DIAGFWD_SDIO_H
 
-void diagfwd_init(void);
-void diagfwd_exit(void);
-void diag_process_hdlc(void *data, unsigned len);
-void __diag_smd_send_req(void);
-void __diag_smd_qdsp_send_req(void);
-void diag_usb_legacy_notifier(void *, unsigned, struct diag_request *);
-int diag_device_write(void *, int, struct diag_request *);
-int mask_request_validate(unsigned char mask_buf[]);
+#include <mach/sdio_al.h>
+#define N_MDM_WRITE	1 /* Upgrade to 2 with ping pong buffer */
+#define N_MDM_READ	1
 
-/* State for diag forwarding */
-#ifdef CONFIG_DIAG_OVER_USB
-int diagfwd_connect(void);
-int diagfwd_disconnect(void);
-#endif
-extern int diag_debug_buf_idx;
-extern unsigned char diag_debug_buf[1024];
+void diagfwd_sdio_init(void);
+void diagfwd_sdio_exit(void);
+int diagfwd_connect_sdio(void);
+int diagfwd_disconnect_sdio(void);
+int diagfwd_read_complete_sdio(void);
+int diagfwd_write_complete_sdio(void);
 
 #endif
