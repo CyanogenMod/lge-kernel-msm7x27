@@ -41,9 +41,12 @@
 #include <mach/msm_dsps.h>
 
 #define DRV_NAME	"msm_dsps"
-#define DRV_VERSION	"1.00"
+#define DRV_VERSION	"1.01"
 
 #define PPSS_PAUSE_REG	0x1804
+
+#define PPSS_TIMER0_32KHZ_REG	0x1004
+#define PPSS_TIMER0_20MHZ_REG	0x0804
 
 /**
  *  Driver Context
@@ -125,6 +128,34 @@ static void dsps_resume(void)
 	pr_debug("%s.\n", __func__);
 
 	writel(0, drv->ppss_base + PPSS_PAUSE_REG);
+}
+
+/**
+ * Read DSPS slow timer.
+ */
+static u32 dsps_read_slow_timer(void)
+{
+	u32 val;
+
+	val = readl(drv->ppss_base + PPSS_TIMER0_32KHZ_REG);
+
+	pr_debug("%s.count=%d.\n", __func__, val);
+
+	return val;
+}
+
+/**
+ * Read DSPS fast timer.
+ */
+static u32 dsps_read_fast_timer(void)
+{
+	u32 val;
+
+	val = readl(drv->ppss_base + PPSS_TIMER0_20MHZ_REG);
+
+	pr_debug("%s.count=%d.\n", __func__, val);
+
+	return val;
 }
 
 /**
@@ -280,6 +311,7 @@ static int dsps_ioctl(struct inode *inode, struct file *file,
 			unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
+	u32 val = 0;
 
 	pr_debug("%s.\n", __func__);
 
@@ -291,6 +323,14 @@ static int dsps_ioctl(struct inode *inode, struct file *file,
 	case DSPS_IOCTL_OFF:
 		dsps_suspend();
 		ret = dsps_power_off_handler();
+		break;
+	case DSPS_IOCTL_READ_SLOW_TIMER:
+		val = dsps_read_slow_timer();
+		ret = put_user(val, (u32 __user *) arg);
+		break;
+	case DSPS_IOCTL_READ_FAST_TIMER:
+		val = dsps_read_fast_timer();
+		ret = put_user(val, (u32 __user *) arg);
 		break;
 	default:
 		ret = -EINVAL;
@@ -587,7 +627,7 @@ static int __init dsps_init(void)
 {
 	int ret;
 
-	pr_debug("%s driver version %s.\n", DRV_NAME, DRV_VERSION);
+	pr_info("%s driver version %s.\n", DRV_NAME, DRV_VERSION);
 
 	ret = platform_driver_register(&dsps_driver);
 
