@@ -25,11 +25,14 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
+#include <linux/reboot.h>
+#include <linux/interrupt.h>
 #include <linux/diagchar.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
 #endif
 #include <mach/msm_smd.h>
+#include <mach/socinfo.h>
 #include "diagmem.h"
 #include "diagchar.h"
 #include "diagfwd.h"
@@ -458,6 +461,16 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		buf += 4;
 		diag_update_msg_mask((uint32_t)start, (uint32_t)end , buf);
 		diag_update_userspace_clients(MSG_MASKS_TYPE);
+	}
+	/* Check for mode reset command */
+	else if (cpu_is_msm8x60() && (*buf == 0x29) && (*(buf+1) == 0x02)
+						   && (*(buf+2) == 0x00)) {
+		/* call reset API */
+		printk(KERN_CRIT "diag: mode reset, Rebooting SoC..\n");
+		lock_kernel();
+		kernel_restart(NULL);
+		unlock_kernel();
+		return 0;
 	}
 	/* Set all run-time masks
 	if ((*buf == 0x7d) && (*(++buf) == 0x5)) {
