@@ -3796,6 +3796,7 @@ static struct kgsl_platform_data kgsl_pdata = {
 #endif
 	.idle_timeout_3d = HZ/20,
 	.idle_timeout_2d = HZ/10,
+	.nap_allowed = true,
 
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	.pt_va_size = SZ_32M,
