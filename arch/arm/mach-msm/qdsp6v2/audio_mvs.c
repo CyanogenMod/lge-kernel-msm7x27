@@ -27,7 +27,7 @@
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/msm_audio_mvs.h>
-#include "q6voice.h"
+#include <mach/qdsp6v2/q6voice.h>
 
 /* Each buffer is 20 ms, queue holds 200 ms of data. */
 #define MVS_MAX_Q_LEN 10

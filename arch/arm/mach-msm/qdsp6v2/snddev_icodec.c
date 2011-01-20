@@ -31,7 +31,7 @@
 #include <mach/vreg.h>
 #include <mach/pmic.h>
 #include <mach/debug_mm.h>
-#include "q6afe.h"
+#include <mach/qdsp6v2/q6afe.h>
 #include "snddev_icodec.h"
 #include "audio_acdb.h"
 
