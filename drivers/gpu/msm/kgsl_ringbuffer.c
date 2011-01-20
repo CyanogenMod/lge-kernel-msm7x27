@@ -420,13 +420,14 @@ int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb, unsigned int init_ram)
 	if (init_ram) {
 		rb->timestamp = 0;
 		GSL_RB_INIT_TIMESTAMP(rb);
-
-		kgsl_sharedmem_set(&rb->memptrs_desc, 0, 0,
-					sizeof(struct kgsl_rbmemptrs));
-
-		kgsl_sharedmem_set(&rb->buffer_desc, 0, 0xAA,
-					(rb->sizedwords << 2));
 	}
+
+	kgsl_sharedmem_set(&rb->memptrs_desc, 0, 0,
+			   sizeof(struct kgsl_rbmemptrs));
+
+	kgsl_sharedmem_set(&rb->buffer_desc, 0, 0xAA,
+			   (rb->sizedwords << 2));
+
 	kgsl_yamato_regwrite(device, REG_CP_RB_WPTR_BASE,
 			     (rb->memptrs_desc.gpuaddr
 			      + GSL_RB_MEMPTRS_WPTRPOLL_OFFSET));
