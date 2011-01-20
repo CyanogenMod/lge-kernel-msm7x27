@@ -702,7 +702,7 @@ typedef	struct td_ptd_map_buff {
 } td_ptd_map_buff_t;
 
 
-#define     USB_HCD_MAJOR           245
+#define     USB_HCD_MAJOR           0
 #define     USB_HCD_MODULE_NAME     "isp1763hcd"
 static char devpath[] = "/dev/isp1763hcd";
 
