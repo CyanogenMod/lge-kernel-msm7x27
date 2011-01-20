@@ -1273,7 +1273,7 @@ static char *charm_usb_functions_default[] = {
 	"diag_mdm",
 	"modem",
 	"nmea",
-	"rmnet",
+	"rmnet_sdio",
 	"usb_mass_storage",
 };
 
@@ -1283,7 +1283,7 @@ static char *charm_usb_functions_default_adb[] = {
 	"adb",
 	"modem",
 	"nmea",
-	"rmnet",
+	"rmnet_sdio",
 	"usb_mass_storage",
 };
 
@@ -1332,6 +1332,9 @@ static char *charm_usb_functions_all[] = {
 #endif
 #ifdef CONFIG_USB_ANDROID_RMNET
 	"rmnet",
+#endif
+#ifdef CONFIG_USB_ANDROID_RMNET_SDIO
+	"rmnet_sdio",
 #endif
 	"usb_mass_storage",
 #ifdef CONFIG_USB_ANDROID_ACM
