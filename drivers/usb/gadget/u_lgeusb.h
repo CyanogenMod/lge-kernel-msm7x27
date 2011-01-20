@@ -45,18 +45,18 @@ enum lgeusb_mode {
 };
 
 struct lgeusb_info {
-	uint32_t restore_pid;
-	enum lgeusb_mode current_mode;
-	void (*switch_func)(uint32_t pid, uint32_t need_reset);
-	uint32_t (*get_pid)(void);
+	int restore_pid;
+	int current_mode;
+	void (*switch_func)(int pid, int need_reset);
+	int (*get_pid)(void);
 };
 
 int lgeusb_detect_factory_cable(void);
-int lgeusb_set_config(uint32_t pid, char *serialno);
+int lgeusb_set_config(int pid, char *serialno, const char *defaultno);
 void lgeusb_register_usbinfo(struct lgeusb_info *info);
 
-void lgeusb_switch_factory_mode(uint32_t need_reset);
-void lgeusb_switch_android_mode(uint32_t need_reset);
+void lgeusb_switch_factory_mode(int need_reset);
+void lgeusb_switch_android_mode(int need_reset);
 int lgeusb_get_current_mode(void);
 void lgeusb_backup_pid(void);
 

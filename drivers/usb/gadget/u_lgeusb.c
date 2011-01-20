@@ -33,14 +33,14 @@
 
 static struct lgeusb_info *usb_info;
 
-/* FIXME: This length must be same as MAX_SERIAL_LEN in android.c */
-#define MAX_SERIAL_NO_LEN 256
+/* FIXME: This length must be same as MAX_STR_LEN in android.c */
+#define MAX_SERIAL_NO_LEN 20
 
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_CDMA
 extern int msm_chg_LG_cable_type(void);
 extern void msm_get_MEID_type(char* sMeid);
 
-static void get_serial_number(char *serial_number)
+static int get_serial_number(char *serial_number)
 {
 	memset(serial_number, 0, MAX_SERIAL_NO_LEN);
 
@@ -72,12 +72,10 @@ static int get_factory_cable(void)
 #endif /* CONFIG_USB_SUPPORT_LGE_GADGET_CDMA */
 
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_GSM
-static void get_serial_number(char *serial_number)
+static int get_serial_number(char *serial_number)
 {
 	unsigned char nv_imei_ptr[MAX_IMEI_LEN];
 	int ret = -1;
-
-	memset(serial_number, 0, MAX_SERIAL_NO_LEN);
 
 	ret = msm_nv_imei_get(nv_imei_ptr);
 	if (ret < 0) {
@@ -89,13 +87,19 @@ static void get_serial_number(char *serial_number)
 
 	if (nv_imei_ptr[0] != '\0') {
 		if ((nv_imei_ptr[0] == '8') && (nv_imei_ptr[1] == '0') &&
-				(nv_imei_ptr[2] == 'A'))
+				(nv_imei_ptr[2] == 'A')) {
+			memset(serial_number, 0, MAX_SERIAL_NO_LEN);
 			/* We set serialno include header "80A" */
 			memcpy(serial_number, nv_imei_ptr, MAX_IMEI_LEN);
-		else
+			return 0;
+		} else {
 			serial_number[0] = '\0';
-	} else
+		}
+	} else {
 		serial_number[0] = '\0';
+	}
+
+	return ret;
 }
 
 static int get_factory_cable(void)
@@ -114,37 +118,7 @@ static int get_factory_cable(void)
 }
 #endif /* CONFIG_USB_SUPPORT_LGE_GADGET_GSM */
 
-/* LGE_CHANGE
- * Sending pid and serial number to CP
- * bootloader for SW downloading.
- * It is from qct's api.
- * 2011-01-13, hyunhui.park@lge.com
- */
-static int update_pid_and_serial_num(uint32_t pid, char *snum)
-{
-	int ret;
-
-	ret = msm_hsusb_send_productID(pid);
-	if (ret)
-		return ret;
-
-	if (!snum) {
-		ret = msm_hsusb_is_serial_num_null(1);
-		if (ret)
-			return ret;
-	}
-
-	ret = msm_hsusb_is_serial_num_null(0);
-	if (ret)
-		return ret;
-	ret = msm_hsusb_send_serial_number(snum);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static void do_switch_mode(uint32_t pid, uint32_t need_reset)
+static void do_switch_mode(int pid, int need_reset)
 {
 	struct lgeusb_info *info = usb_info;
 
@@ -167,7 +141,7 @@ int lgeusb_detect_factory_cable(void)
  * switch usb mode to factory mode.
  * 2011-01-13, hyunhui.park@lge.com
  */
-void lgeusb_switch_factory_mode(uint32_t need_reset)
+void lgeusb_switch_factory_mode(int need_reset)
 {
 	struct lgeusb_info *info = usb_info;
 
@@ -175,7 +149,7 @@ void lgeusb_switch_factory_mode(uint32_t need_reset)
 	do_switch_mode(LGE_FACTORY_PID, need_reset);
 }
 
-void lgeusb_switch_android_mode(uint32_t need_reset)
+void lgeusb_switch_android_mode(int need_reset)
 {
 	struct lgeusb_info *info = usb_info;
 
@@ -202,12 +176,12 @@ void lgeusb_backup_pid(void)
  * 2. Get serial number from CP and set product id to CP.
  * 2011-01-13, hyunhui.park@lge.com
  */
-int lgeusb_set_config(uint32_t pid, char *serialno)
+int lgeusb_set_config(int pid, char *serialno, const char *defaultno)
 {
 	int ret;
 
-	if (!serialno) {
-		pr_info("%s: serial number arg is invalid, skip configuration\n",
+	if (!serialno || !defaultno) {
+		pr_info("%s: serial number args are invalid, skip configuration\n",
 				__func__);
 		return -EINVAL;
 	}
@@ -216,22 +190,26 @@ int lgeusb_set_config(uint32_t pid, char *serialno)
 		/* When manufacturing, do not use serial number */
 		/* Without soft usb reset */
 		lgeusb_switch_factory_mode(0);
-		ret = update_pid_and_serial_num(LGE_FACTORY_PID, NULL);
+		msm_hsusb_send_productID(LGE_FACTORY_PID);
+		msm_hsusb_is_serial_num_null(1);
 		serialno[0] = '\0';
 		return LGE_FACTORY_PID;
 	}
 
 	lgeusb_switch_android_mode(0);
 
-	get_serial_number(serialno);
+	ret = get_serial_number(serialno);
 
-	if (serialno[0] != '\0')
-		ret = update_pid_and_serial_num(pid, serialno);
+	msm_hsusb_send_productID(pid);
+	msm_hsusb_is_serial_num_null(0);
+
+	if (!ret && (serialno[0] != '\0'))
+		msm_hsusb_send_serial_number(serialno);
 	else
-		ret = update_pid_and_serial_num(pid, NULL);
+		msm_hsusb_send_serial_number(defaultno);
 
-	if(ret)
-		pr_info("%s: lge usb configuration failed\n", __func__);
+	if(ret < 0)
+		pr_info("lge usb configuration: fail to get serial number, set to default serial number\n");
 
 	return pid;
 }

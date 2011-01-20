@@ -78,7 +78,16 @@ struct android_dev {
 
 static struct android_dev *_android_dev;
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+/* LGE_CHANGE
+ * LGE Android use IMEI as serial number.
+ * 2011-01-20, hyunhui.park@lge.com
+ */
+#define MAX_STR_LEN		20
+#else
 #define MAX_STR_LEN		16
+#endif
+
 /* string IDs are assigned dynamically */
 
 #define STRING_MANUFACTURER_IDX		0
@@ -436,6 +445,7 @@ static int __devinit android_bind(struct usb_composite_dev *cdev)
 		device_desc.bDeviceSubClass      = 0x02;
 		device_desc.bDeviceProtocol      = 0x01;
 	}
+
 #endif
 
 	return 0;
@@ -457,15 +467,17 @@ void android_register_function(struct android_usb_function *f)
 	 * Apply bug fix from google git(refer to Kconfig).
 	 * 2011-01-12, hyunhui.park@lge.com
 	 */
-/*	int lge_pid; */
+	int lge_pid;
 
 	list_add_tail(&f->list, &_functions);
 	if (dev && should_bind_functions(dev)) {
 		bind_functions(dev);
 		android_set_default_product(dev->product_id);
 
-#if 0 /* temporary comment out */
-		lge_pid = lgeusb_set_config(dev->product_id, serial_number);
+		/* Default serial number must be set in platform data */
+		lge_pid = lgeusb_set_config(dev->product_id, serial_number,
+				strings_dev[STRING_SERIAL_IDX].s);
+
 		if (serial_number[0] != '\0')
 			strings_dev[STRING_SERIAL_IDX].s = serial_number;
 
@@ -475,9 +487,9 @@ void android_register_function(struct android_usb_function *f)
 			device_desc.iSerialNumber = strings_dev[STRING_SERIAL_IDX].id;
 
 		pr_info("LGE Android Gadget global configuration:\n\t"
-				 "product_id -- %x, serial no. -- %s\n", lge_pid,
-				 ((serial_number[0] != '\0') ? serial_number : "NOT SET"));
-#endif
+				"product_id -- %x, serial no. -- %s\n", lge_pid,
+				((serial_number[0] != '\0') ? serial_number : strings_dev[STRING_SERIAL_IDX].s));
+
 	}
 #else /* below is original */
 	list_add_tail(&f->list, &_functions);
@@ -749,14 +761,9 @@ static void android_debugfs_cleanup(void)
  * For switching into LG manufacturing USB mode
  * 2011-01-14, hyunhui.park@lge.com
  */
-static void android_lgeusb_switch_function(uint32_t pid, uint32_t need_reset)
+static void android_lgeusb_switch_function(int pid, int need_reset)
 {
 	struct android_dev *dev = _android_dev;
-	uint32_t product_id = get_product_id(dev);
-
-	/* If already in manufacturing mode, skip it */
-	if (product_id == pid)
-		return;
 
 	pr_info("%s: product id %x, reset %d\n", __func__, pid, need_reset);
 	android_set_default_product(pid);
@@ -773,11 +780,11 @@ static void android_lgeusb_switch_function(uint32_t pid, uint32_t need_reset)
  * Get current product id(for external).
  * 2011-01-14, hyunhui.park@lge.com
  */
-static uint32_t android_lgeusb_get_current_pid(void)
+static int android_lgeusb_get_current_pid(void)
 {
 	struct android_dev *dev = _android_dev;
 
-	return (uint32_t)get_product_id(dev);
+	return get_product_id(dev);
 }
 
 static struct lgeusb_info android_lgeusb_info = {
@@ -829,6 +836,7 @@ static int __init android_probe(struct platform_device *pdev)
 					pdata->manufacturer_name;
 		if (pdata->serial_number)
 			strings_dev[STRING_SERIAL_IDX].s = pdata->serial_number;
+
 	}
 #ifdef CONFIG_DEBUG_FS
 	result = android_debugfs_init(dev);
