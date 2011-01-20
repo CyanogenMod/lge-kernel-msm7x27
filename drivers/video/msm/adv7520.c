@@ -21,6 +21,7 @@
 #include <linux/adv7520.h>
 #include <linux/time.h>
 #include <linux/completion.h>
+#include <linux/wakelock.h>
 #include "msm_fb.h"
 
 #include "external_common.h"
@@ -51,6 +52,8 @@ static DEFINE_MUTEX(hdcp_state_mutex);
 
 static struct timer_list hpd_timer;
 static unsigned int monitor_sense;
+
+struct wake_lock wlock;
 
 /* Change HDMI state */
 static void change_hdmi_state(int online)
@@ -323,6 +326,7 @@ static int adv7520_power_on(struct platform_device *pdev)
 		monitor_sense = adv7520_read_reg(hclient, 0xC6);
 		schedule_work(&handle_work);
 	}
+	wake_lock(&wlock);
 	return request_irq(dd->pd->irq, &adv7520_interrupt,
 		IRQF_TRIGGER_FALLING, "adv7520_cable", dd);
 }
@@ -332,7 +336,7 @@ static int adv7520_power_off(struct platform_device *pdev)
 	DEV_INFO("%s: 'disable_irq', chip off, I2C off\n", __func__);
 	free_irq(dd->pd->irq, dd);
 	adv7520_chip_off();
-
+	wake_unlock(&wlock);
 	gpio_power_on = FALSE;
 	return 0;
 }
@@ -667,6 +671,7 @@ static int __devexit adv7520_remove(struct i2c_client *client)
 		DEV_ERR("%s: No HDMI Device\n", __func__);
 		return -ENODEV;
 	}
+	wake_lock_destroy(&wlock);
 	return err;
 }
 
@@ -703,6 +708,8 @@ static int __init adv7520_init(void)
 		*hdtv_mux = 0x8000;
 		iounmap(hdtv_mux);
 	}
+	wake_lock_init(&wlock, WAKE_LOCK_IDLE, "hdmi_active");
+
 	return 0;
 
 init_exit:
