@@ -374,8 +374,8 @@ static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 		ptr++;
 	}
 	ptr_data = driver->log_masks + offset;
-	if (CHK_OVERFLOW(ptr_data, ptr_data, ptr_data + LOG_MASK_SIZE,
-							(num_items+7)/8))
+	if (CHK_OVERFLOW(driver->log_masks, ptr_data, driver->log_masks
+					 + LOG_MASK_SIZE, (num_items+7)/8))
 		memcpy(ptr_data, temp , (num_items+7)/8);
 	else
 		printk(KERN_CRIT " Not enough buffer space for LOG_MASK\n");
