@@ -219,7 +219,7 @@ void kgsl_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 	if (device->state & (KGSL_STATE_ACTIVE | KGSL_STATE_NAP)) {
-		if (device->ftbl.device_sleep(device) == KGSL_FAILURE)
+		if (kgsl_pwrctrl_sleep(device) == KGSL_FAILURE)
 			mod_timer(&device->idle_timer,
 					jiffies +
 					device->pwrctrl.interval_timeout);
@@ -241,7 +241,7 @@ void kgsl_timer(unsigned long data)
 void kgsl_pre_hwaccess(struct kgsl_device *device)
 {
 	if (device->state & (KGSL_STATE_SLEEP | KGSL_STATE_NAP))
-		device->ftbl.device_wake(device);
+		kgsl_pwrctrl_wake(device);
 }
 
 void kgsl_check_suspended(struct kgsl_device *device)
@@ -253,3 +253,63 @@ void kgsl_check_suspended(struct kgsl_device *device)
 		mutex_lock(&device->mutex);
 	}
  }
+
+
+/******************************************************************/
+/* Caller must hold the device mutex. */
+int kgsl_pwrctrl_sleep(struct kgsl_device *device)
+{
+	KGSL_DRV_DBG("kgsl_pwrctrl_sleep device %d!!!\n", device->id);
+
+	/* Work through the legal state transitions */
+	if (device->requested_state == KGSL_STATE_NAP) {
+		if (device->ftbl.device_isidle(device))
+			goto nap;
+	} else if (device->requested_state == KGSL_STATE_SLEEP) {
+		if (device->state == KGSL_STATE_NAP ||
+			device->ftbl.device_isidle(device))
+			goto sleep;
+	}
+
+	device->requested_state = KGSL_STATE_NONE;
+	return KGSL_FAILURE;
+
+sleep:
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
+
+nap:
+	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
+
+	device->state = device->requested_state;
+	device->requested_state = KGSL_STATE_NONE;
+
+	return KGSL_SUCCESS;
+}
+
+
+/******************************************************************/
+/* Caller must hold the device mutex. */
+int kgsl_pwrctrl_wake(struct kgsl_device *device)
+{
+	int status = KGSL_SUCCESS;
+
+	if (device->state == KGSL_STATE_SUSPEND)
+		return status;
+
+	/* Turn on the core clocks */
+	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	if (device->state != KGSL_STATE_NAP) {
+		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
+	}
+
+	/* Re-enable HW access */
+	device->state = KGSL_STATE_ACTIVE;
+	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
+
+	KGSL_DRV_VDBG("<-- kgsl_yamato_wake(). Return value %d\n", status);
+
+	return status;
+}
+
