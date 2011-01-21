@@ -146,7 +146,7 @@ void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs)
 	for (c = 0; c < nconfigs; ++c) {
 		for (s = 0; s < GPIOMUX_NSETTINGS; ++s) {
 			rc = msm_gpiomux_write(configs[c].gpio, s,
-				&configs[c].settings[s], NULL);
+				configs[c].settings[s], NULL);
 			if (rc)
 				pr_err("%s: write failure: %d\n", __func__, rc);
 		}
