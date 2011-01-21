@@ -876,10 +876,66 @@ static int __devexit adv7520_remove(struct i2c_client *client)
 	return 0;
 }
 
+#ifdef CONFIG_SUSPEND
+static int adv7520_i2c_suspend(struct device *dev)
+{
+	DEV_INFO("%s\n", __func__);
+
+	++suspend_count;
+
+	if (external_common_state->hpd_feature_on) {
+		DEV_DBG("%s: stop duty timer\n", __func__);
+		del_timer(&hpd_duty_timer);
+		del_timer(&hpd_timer);
+	}
+
+	/* Turn off LDO8 and go into low-power state */
+	if (chip_power_on) {
+		DEV_DBG("%s: turn off power\n", __func__);
+		adv7520_comm_power(1, 1);
+		adv7520_write_reg(hclient, 0x41, 0x50);
+		adv7520_comm_power(0, 1);
+		dd->pd->core_power(0, 1);
+	}
+
+	return 0;
+}
+
+static int adv7520_i2c_resume(struct device *dev)
+{
+	DEV_INFO("%s\n", __func__);
+
+	/* Turn on LDO8 and go into normal-power state */
+	if (chip_power_on) {
+		DEV_DBG("%s: turn on power\n", __func__);
+		dd->pd->core_power(1, 1);
+		adv7520_comm_power(1, 1);
+		adv7520_write_reg(hclient, 0x41, 0x10);
+		adv7520_comm_power(0, 1);
+	}
+
+	if (external_common_state->hpd_feature_on) {
+		DEV_DBG("%s: start duty timer\n", __func__);
+		mod_timer(&hpd_duty_timer, jiffies + HPD_DUTY_CYCLE*HZ);
+	}
+
+	return 0;
+}
+#else
+#define adv7520_i2c_suspend	NULL
+#define adv7520_i2c_resume	NULL
+#endif
+
+static const struct dev_pm_ops adv7520_device_pm_ops = {
+	.suspend = adv7520_i2c_suspend,
+	.resume = adv7520_i2c_resume,
+};
 
 static struct i2c_driver hdmi_i2c_driver = {
 	.driver		= {
 		.name   = ADV7520_DRV_NAME,
+		.owner  = THIS_MODULE,
+		.pm     = &adv7520_device_pm_ops,
 	},
 	.probe		= adv7520_probe,
 	.id_table	= adv7520_id,
