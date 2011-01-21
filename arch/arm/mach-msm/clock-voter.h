@@ -61,13 +61,15 @@ struct clk_ops;
 extern struct clk_ops clk_ops_voter;
 
 #define CLK_VOTER(clk_name, clk_id, agg_name, clk_dev, clk_flags) {	\
-	.name = clk_name, \
-	.id = V_##clk_id, \
-	.flags = clk_flags | CLKFLAG_VOTER, \
-	.dev = clk_dev, \
-	.aggregator = agg_name, \
-	.dbg_name = #clk_id, \
-	.ops = &clk_ops_voter, \
+	.con_id = clk_name, \
+	.dev_id = clk_dev, \
+	.clk = &(struct clk){ \
+		.id = V_##clk_id, \
+		.flags = clk_flags | CLKFLAG_VOTER, \
+		.aggregator = agg_name, \
+		.dbg_name = #clk_id, \
+		.ops = &clk_ops_voter, \
+	}, \
 	}
 
 #endif

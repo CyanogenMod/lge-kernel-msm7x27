@@ -1666,7 +1666,8 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov7692_data = {
 	.flash_data		= &flash_ov7692,
 	.csi_if			= 1
 };
-struct platform_device msm_camera_sensor_webcam = {
+
+static struct platform_device msm_camera_sensor_webcam = {
 	.name	= "msm_camera_ov7692",
 	.dev	= {
 		.platform_data = &msm_camera_sensor_ov7692_data,

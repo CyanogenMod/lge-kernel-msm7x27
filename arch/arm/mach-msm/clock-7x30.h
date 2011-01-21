@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -153,31 +153,38 @@ enum clk_sources {
 extern int internal_pwr_rail_ctl_auto(unsigned rail_id, bool enable);
 
 extern struct clk_ops soc_clk_ops_7x30;
+
 #define CLK_7X30(clk_name, clk_id, clk_dev, clk_flags) {	\
-	.name = clk_name, \
-	.id = L_##clk_id, \
-	.remote_id = P_##clk_id, \
-	.flags = clk_flags, \
-	.dev = clk_dev, \
-	.dbg_name = #clk_id, \
+	.con_id = clk_name, \
+	.dev_id = clk_dev, \
+	.clk = &(struct clk){ \
+		.id = L_##clk_id, \
+		.remote_id = P_##clk_id, \
+		.flags = clk_flags, \
+		.dbg_name = #clk_id, \
+	}, \
 	}
 
 #define CLK_7X30S(clk_name, l_id, r_id, clk_dev, clk_flags) {	\
-	.name = clk_name, \
-	.id = L_##l_id, \
-	.remote_id = P_##r_id, \
-	.flags = clk_flags, \
-	.dev = clk_dev, \
-	.dbg_name = #l_id, \
+	.con_id = clk_name, \
+	.dev_id = clk_dev, \
+	.clk = &(struct clk){ \
+		.id = L_##l_id, \
+		.remote_id = P_##r_id, \
+		.flags = clk_flags, \
+		.dbg_name = #l_id, \
+	}, \
 	}
 
 #define CLK_7X30L(clk_name, l_id, clk_dev, clk_flags) {	\
-	.name = clk_name, \
-	.id = L_##l_id, \
-	.flags = clk_flags, \
-	.dev = clk_dev, \
-	.dbg_name = #l_id, \
-	.ops = &soc_clk_ops_7x30, \
+	.con_id = clk_name, \
+	.dev_id = clk_dev, \
+	.clk = &(struct clk){ \
+		.id = L_##l_id, \
+		.flags = clk_flags, \
+		.dbg_name = #l_id, \
+		.ops = &soc_clk_ops_7x30, \
+	}, \
 	}
 
 #endif
