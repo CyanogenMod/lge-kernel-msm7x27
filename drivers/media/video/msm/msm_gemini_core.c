@@ -39,8 +39,8 @@ int msm_gemini_core_reset(uint8_t op_mode, void *base, int size)
 	memset(&we_pingpong_buf, 0, sizeof(we_pingpong_buf));
 	spin_lock_irqsave(&reset_lock, flags);
 	reset_done_ack = 0;
-	spin_unlock_irqrestore(&reset_lock, flags);
 	msm_gemini_hw_reset(base, size);
+	spin_unlock_irqrestore(&reset_lock, flags);
 	rc = wait_event_interruptible_timeout(
 			reset_wait,
 			reset_done_ack,
@@ -161,6 +161,9 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 
 	GMN_DBG("%s:%d] irq_num = %d\n", __func__, __LINE__, irq_num);
 
+	spin_lock_irqsave(&reset_lock, flags);
+	reset_done_ack = 1;
+	spin_unlock_irqrestore(&reset_lock, flags);
 	gemini_irq_status = msm_gemini_hw_irq_get_status();
 
 	GMN_DBG("%s:%d] gemini_irq_status = %0x\n", __func__, __LINE__,
@@ -168,9 +171,6 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 
 	/*For reset and framedone IRQs, clear all bits*/
 	if (gemini_irq_status & 0x400) {
-		spin_lock_irqsave(&reset_lock, flags);
-		reset_done_ack = 1;
-		spin_unlock_irqrestore(&reset_lock, flags);
 		wake_up(&reset_wait);
 		msm_gemini_hw_irq_clear(HWIO_JPEG_IRQ_CLEAR_RMSK,
 			JPEG_IRQ_CLEAR_ALL);
