@@ -5903,6 +5903,15 @@ struct sdcc_reg {
 	unsigned int level;
 	/* VDD/VCC/VCCQ voltage regulator handle */
 	struct regulator *reg;
+	/* is this regulator enabled? */
+	bool enabled;
+	/* is this regulator needs to be always on? */
+	bool always_on;
+	/* is operating power mode setting required for this regulator? */
+	bool op_pwr_mode_sup;
+	/* Load values for low power and high power mode */
+	unsigned int lpm_uA;
+	unsigned int hpm_uA;
 };
 /* all 5 SDCC controllers requires VDD/VCC voltage  */
 static struct sdcc_reg sdcc_vdd_reg_data[5];
@@ -5994,6 +6003,74 @@ out:
 	return rc;
 }
 
+static int msm_sdcc_vreg_enable(struct sdcc_reg *vreg)
+{
+	int rc;
+
+	if (!vreg->enabled) {
+		rc = regulator_enable(vreg->reg);
+		if (rc) {
+			pr_err("%s: regulator_enable(%s) failed. rc=%d\n",
+				__func__, vreg->reg_name, rc);
+			goto out;
+		}
+		vreg->enabled = 1;
+	}
+
+	/* Put always_on regulator in HPM (high power mode) */
+	if (vreg->always_on && vreg->op_pwr_mode_sup) {
+		rc = regulator_set_optimum_mode(vreg->reg, vreg->hpm_uA);
+		if (rc < 0) {
+			pr_err("%s: reg=%s: HPM setting failed"
+				" hpm_uA=%d, rc=%d\n",
+				__func__, vreg->reg_name,
+				vreg->hpm_uA, rc);
+			goto vreg_disable;
+		}
+		rc = 0;
+	}
+	goto out;
+
+vreg_disable:
+	regulator_disable(vreg->reg);
+	vreg->enabled = 0;
+out:
+	return rc;
+}
+
+static int msm_sdcc_vreg_disable(struct sdcc_reg *vreg)
+{
+	int rc;
+
+	/* Never disable always_on regulator */
+	if (!vreg->always_on) {
+		rc = regulator_disable(vreg->reg);
+		if (rc) {
+			pr_err("%s: regulator_disable(%s) failed. rc=%d\n",
+				__func__, vreg->reg_name, rc);
+			goto out;
+		}
+		vreg->enabled = 0;
+	}
+
+	/* Put always_on regulator in LPM (low power mode) */
+	if (vreg->always_on && vreg->op_pwr_mode_sup) {
+		rc = regulator_set_optimum_mode(vreg->reg, vreg->lpm_uA);
+		if (rc < 0) {
+			pr_err("%s: reg=%s: LPM setting failed"
+				" lpm_uA=%d, rc=%d\n",
+				__func__,
+				vreg->reg_name,
+				vreg->lpm_uA, rc);
+			goto out;
+		}
+		rc = 0;
+	}
+
+out:
+	return rc;
+}
+
 static int msm_sdcc_setup_vreg(int dev_id, unsigned char enable)
 {
 	int rc = 0;
@@ -6022,22 +6099,14 @@ static int msm_sdcc_setup_vreg(int dev_id, unsigned char enable)
 
 	if (enable) {
 		if (curr_vdd_reg) {
-			rc = regulator_enable(curr_vdd_reg->reg);
-			if (rc) {
-				pr_err("%s: regulator_enable(%s) failed"
-					" = %d\n", __func__,
-					curr_vdd_reg->reg_name, rc);
+			rc = msm_sdcc_vreg_enable(curr_vdd_reg);
+			if (rc)
 				goto out;
-			}
 		}
 		if (curr_vccq_reg) {
-			rc = regulator_enable(curr_vccq_reg->reg);
-			if (rc) {
-				pr_err("%s: regulator_enable(%s) failed"
-					" = %d\n", __func__,
-					curr_vccq_reg->reg_name, rc);
-				goto vdd_reg_disable;
-			}
+			rc = msm_sdcc_vreg_enable(curr_vccq_reg);
+			if (rc)
+				goto out;
 		}
 		/*
 		 * now we can safely say that all required regulators
@@ -6046,21 +6115,14 @@ static int msm_sdcc_setup_vreg(int dev_id, unsigned char enable)
 		curr->sts = enable;
 	} else {
 		if (curr_vdd_reg) {
-			rc = regulator_disable(curr_vdd_reg->reg);
-			if (rc) {
-				pr_err("%s: regulator_disable(%s) = %d\n",
-					__func__, curr_vdd_reg->reg_name, rc);
+			rc = msm_sdcc_vreg_disable(curr_vdd_reg);
+			if (rc)
 				goto out;
-			}
 		}
-
 		if (curr_vccq_reg) {
-			rc = regulator_disable(curr_vccq_reg->reg);
-			if (rc) {
-				pr_err("%s: regulator_disable(%s) = %d\n",
-					__func__, curr_vccq_reg->reg_name, rc);
+			rc = msm_sdcc_vreg_disable(curr_vccq_reg);
+			if (rc)
 				goto out;
-			}
 		}
 		/*
 		 * now we can safely say that all required
@@ -6068,11 +6130,6 @@ static int msm_sdcc_setup_vreg(int dev_id, unsigned char enable)
 		 */
 		curr->sts = enable;
 	}
-	goto out;
-
-vdd_reg_disable:
-	if (curr_vdd_reg)
-		regulator_disable(curr_vdd_reg->reg);
 out:
 	return rc;
 }
@@ -6343,6 +6400,10 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[2].vdd_data->reg_name = "8058_l14";
 	sdcc_vreg_data[2].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[2].vdd_data->level = 2850000;
+	sdcc_vreg_data[2].vdd_data->always_on = 1;
+	sdcc_vreg_data[2].vdd_data->op_pwr_mode_sup = 1;
+	sdcc_vreg_data[2].vdd_data->lpm_uA = 10000;
+	sdcc_vreg_data[2].vdd_data->hpm_uA = 200000;
 	sdcc_vreg_data[2].vccq_data = NULL;
 	if (machine_is_msm8x60_fluid())
 		msm8x60_sdc3_data.wpswitch = NULL;
