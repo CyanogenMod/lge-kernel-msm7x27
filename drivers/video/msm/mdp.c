@@ -908,25 +908,15 @@ static int mdp_off(struct platform_device *pdev)
 {
 	int ret = 0;
 
-#ifdef MDP_HW_VSYNC
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-#endif
-
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	ret = panel_next_off(pdev);
-
-#ifdef MDP_HW_VSYNC
-	mdp_hw_vsync_clk_disable(mfd);
-#endif
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	return ret;
 }
 
 static int mdp_on(struct platform_device *pdev)
 {
-#ifdef MDP_HW_VSYNC
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-#endif
-
 	int ret = 0;
 #ifdef CONFIG_FB_MSM_MDP40
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
@@ -937,12 +927,9 @@ static int mdp_on(struct platform_device *pdev)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 #endif
 
-#ifdef MDP_HW_VSYNC
-	mdp_hw_vsync_clk_enable(mfd);
-#endif
-
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	ret = panel_next_on(pdev);
-
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	return ret;
 }
 

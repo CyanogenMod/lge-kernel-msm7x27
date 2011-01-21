@@ -209,6 +209,7 @@ static int mddi_on(struct platform_device *pdev)
 	if (mddi_pdata && mddi_pdata->mddi_power_save)
 		mddi_pdata->mddi_power_save(1);
 
+	pmdh_clk_enable();
 #ifdef ENABLE_FWD_LINK_SKEW_CALIBRATION
 	if (mddi_client_type < 2) {
 		/* For skew calibration, clock should be less than 50MHz */
