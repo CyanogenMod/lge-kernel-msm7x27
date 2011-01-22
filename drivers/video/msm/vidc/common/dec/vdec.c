@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -363,6 +363,7 @@ static void vid_dec_lean_event(struct video_client_ctx *client_ctx,
 	   (event == VCD_EVT_RESP_STOP || event == VCD_EVT_IND_HWERRFATAL)) {
 		client_ctx->stop_sync_cb = false;
 		complete(&client_ctx->event);
+		kfree(vdec_msg);
 		return;
 	}
 	mutex_lock(&client_ctx->msg_queue_lock);
