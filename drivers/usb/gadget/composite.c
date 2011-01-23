@@ -29,15 +29,6 @@
 
 #include <linux/usb/composite.h>
 
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
-/* LGE_CHANGE
- * Add lge usb util header
- * 2011-01-14, hyunhui.park@lge.com
- */
-#include "u_lgeusb.h"
-#endif
-
-
 /*
  * The code in this file is utility code, used to build a gadget driver
  * from one or more "function" drivers, one or more "configuration"
@@ -356,17 +347,6 @@ static int config_buf(struct usb_configuration *config,
 			descriptors = f->descriptors;
 		if (f->disabled || !descriptors || descriptors[0] == NULL)
 			continue;
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
-		/* LGE_CHANGE
-		 * when lge manufacturing mode, skip adb interface.
-		 * 2011-01-14, hyunhui.park@lge.com
-		 */
-#if 0
-		if (!strcmp(f->name, "adb") &&
-				(lgeusb_get_current_mode() == LGEUSB_FACTORY_MODE))
-			continue;
-#endif
-#endif
 		status = usb_descriptor_fillbuf(next, len,
 			(const struct usb_descriptor_header **) descriptors);
 		if (status < 0)

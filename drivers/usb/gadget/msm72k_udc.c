@@ -53,6 +53,8 @@
  * 2011-01-14, hyunhui.park@lge.com
  */
 #include "u_lgeusb.h"
+
+static int lgeusb_cable_type = -1;
 #endif
 
 static const char driver_name[] = "msm72k_udc";
@@ -273,6 +275,17 @@ static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 
 static inline enum chg_type usb_get_chg_type(struct usb_info *ui)
 {
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	struct msm_otg *otg = to_msm_otg(ui->xceiv);
+
+	/* LGE_CHANGE
+	 * Check if PIF Cable is connected.
+	 * 2011-01-21, hyunhui.park@lge.com
+	 */
+	lgeusb_cable_type = lgeusb_detect_factory_cable();
+	atomic_set(&otg->lgeusb_cable_type, lgeusb_cable_type);
+#endif
+
 	if ((readl(USB_PORTSC) & PORTSC_LS) == PORTSC_LS)
 		return USB_CHG_TYPE__WALLCHARGER;
 	else
@@ -423,6 +436,17 @@ static void usb_chg_detect(struct work_struct *w)
 	if (maxpower > 0)
 		otg_set_power(ui->xceiv, maxpower);
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	/* LGE_CHANGE
+	 * If cable is factory cable,
+	 * we avoid to enter into lpm for manufacturing process
+	 * 2011-01-21, hyunhui.park@lge.com
+	 */
+	if(lgeusb_cable_type)
+		goto skip;
+#endif
+
+
 	/* USB driver prevents idle and suspend power collapse(pc)
 	 * while USB cable is connected. But when dedicated charger is
 	 * connected, driver can vote for idle and suspend pc.
@@ -434,6 +458,12 @@ static void usb_chg_detect(struct work_struct *w)
 		pm_runtime_put_sync(&ui->pdev->dev);
 		wake_unlock(&ui->wlock);
 	}
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+skip:
+	return;
+#endif
+
 }
 
 static int usb_ep_get_stall(struct msm_endpoint *ept)

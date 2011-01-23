@@ -1059,7 +1059,6 @@ config USB_G_WEBCAM
 
 config USB_QCOM_MAEMO
         tristate "Qcom gadget compositon for Maemo"
-        default n
 	select MODEM_SUPPORT
 	select USB_CSW_HACK
 	help

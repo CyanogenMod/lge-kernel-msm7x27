@@ -172,6 +172,13 @@ struct msm_otg {
 	struct timer_list	id_timer;	/* drives id_status polling */
 	unsigned		b_max_power;	/* ACA: max power of accessory*/
 #endif
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	/* LGE_CHANGE
+	 * Cable type about factory cable
+	 * 2011-01-23, hyunhui.park@lge.com
+	 */
+	atomic_t		lgeusb_cable_type;
+#endif
 };
 
 static inline int pclk_requires_voting(struct otg_transceiver *xceiv)

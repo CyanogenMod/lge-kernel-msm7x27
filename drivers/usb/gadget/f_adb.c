@@ -32,6 +32,14 @@
 
 #include <linux/usb/android_composite.h>
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+/* LGE_CHANGE
+ * Add header for LGE android usb
+ * 2011-01-21, hyunhui.park@lge.com
+ */
+#include "u_lgeusb.h"
+#endif
+
 #define BULK_BUFFER_SIZE           4096
 
 /* number of tx requests to allocate */
@@ -447,20 +455,41 @@ static struct miscdevice adb_device = {
 
 static int adb_enable_open(struct inode *ip, struct file *fp)
 {
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	/* LGE_CHANGE
+	 * If manufacturing mode, skip enable adb.
+	 * 2011-01-21, hyunhui.park@lge.com
+	 */
+	if (lgeusb_get_current_mode() == LGEUSB_FACTORY_MODE) {
+		pr_info("%s: In LGE manufacturing mode, skip enable adb\n", __func__);
+		return -EINVAL;
+	}
+#endif
+
 	if (atomic_inc_return(&adb_enable_excl) != 1) {
 		atomic_dec(&adb_enable_excl);
 		return -EBUSY;
 	}
 
-	pr_debug("%s: Enabling adb\n", __func__);
+	pr_info("%s: Enabling adb\n", __func__);
 	android_enable_function(&_adb_dev->function, 1);
-
 	return 0;
 }
 
 static int adb_enable_release(struct inode *ip, struct file *fp)
 {
-	pr_debug("%s: Disabling adb\n", __func__);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	/* LGE_CHANGE
+	 * If manufacturing mode, skip enable adb.
+	 * 2011-01-21, hyunhui.park@lge.com
+	 */
+	if (lgeusb_get_current_mode() == LGEUSB_FACTORY_MODE) {
+		pr_info("%s: In LGE manufacturing mode, skip disable adb\n", __func__);
+		return -EINVAL;
+	}
+#endif
+
+	pr_info("%s: Disabling adb\n", __func__);
 	android_enable_function(&_adb_dev->function, 0);
 	atomic_dec(&adb_enable_excl);
 	return 0;

@@ -38,6 +38,10 @@
 #include "gadget_chips.h"
 
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+/* LGE_CHANGE
+ * Add header for LGE android usb
+ * 2011-01-21, hyunhui.park@lge.com
+ */
 #include "u_lgeusb.h"
 #endif
 
@@ -436,7 +440,7 @@ static int __devinit android_bind(struct usb_composite_dev *cdev)
 	 * Set default device class
 	 * 2011-01-12, hyunhui.park@lge.com
 	 */
-	if (product_id == LGE_DEFAULT_PID) {
+	if ((product_id == LGE_DEFAULT_PID) || (product_id == LGE_FACTORY_PID)) {
 		device_desc.bDeviceClass = USB_CLASS_COMM;
 		device_desc.bDeviceSubClass      = 0x00;
 		device_desc.bDeviceProtocol      = 0x00;
@@ -445,7 +449,6 @@ static int __devinit android_bind(struct usb_composite_dev *cdev)
 		device_desc.bDeviceSubClass      = 0x02;
 		device_desc.bDeviceProtocol      = 0x01;
 	}
-
 #endif
 
 	return 0;
