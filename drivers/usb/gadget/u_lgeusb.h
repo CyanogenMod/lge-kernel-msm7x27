@@ -60,4 +60,37 @@ void lgeusb_switch_android_mode(int need_reset);
 int lgeusb_get_current_mode(void);
 void lgeusb_backup_pid(void);
 
+/* LGE usb dynamic debugging & logging.
+ * It is simplified from earlier version of
+ * lge usb debugging code stuff.
+ *
+ * Usage(for dynamic debugging) :
+ * ON - echo 1 > /sys/module/u_lgeusb/parameters/debug
+ * OFF - echo 0 > /sys/module/u_lgeusb/parameters/debug
+ */
+#if defined(LGEUSB_DYNAMIC_DEBUG)
+static int lgeusb_debug_mask;
+
+module_param_named(debug, lgeusb_debug_mask, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+
+#define lgeusb_debug(fmt, args...) \
+	do { \
+		if (lgeusb_debug_mask) \
+		printk(KERN_INFO "lgeusb[%-18s:%5d] - " \
+				fmt, __func__, __LINE__, ## args); \
+	} while (0)
+#elif defined(LGEUSB_DEBUG)
+#define lgeusb_debug(fmt, args...) \
+		printk(KERN_INFO "lgeusb[%-18s:%5d] - " \
+				fmt, __func__, __LINE__, ## args); \
+
+#else
+#define lgeusb_debug(fmt, args...) do {} while (0)
+#endif /* LGEUSB_DYNAMIC_DEBUG */
+
+#define lgeusb_info(fmt, args...) \
+	printk(KERN_INFO "lgeusb[%-18s:%5d] - " \
+				fmt, __func__, __LINE__, ## args); \
+
 #endif /* __U_LGEUSB_H__ */

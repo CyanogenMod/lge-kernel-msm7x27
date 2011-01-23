@@ -29,6 +29,9 @@
 #include <mach/board_lge.h>
 #endif
 
+/* #define LGEUSB_DEBUG */
+/* #define LGEUSB_DYNAMIC_DEBUG */
+
 #include "u_lgeusb.h"
 
 static struct lgeusb_info *usb_info;
@@ -80,9 +83,9 @@ static int get_serial_number(char *serial_number)
 	ret = msm_nv_imei_get(nv_imei_ptr);
 	if (ret < 0) {
 		nv_imei_ptr[0] = '\0';
-		pr_info("%s : IMEI is NULL\n", __func__);
+		lgeusb_info("IMEI is NULL\n");
 	} else {
-		pr_info("%s : IMEI %s\n", __func__, nv_imei_ptr);
+		lgeusb_info("IMEI %s\n", nv_imei_ptr);
 	}
 
 	if (nv_imei_ptr[0] != '\0') {
@@ -109,7 +112,7 @@ static int get_factory_cable(void)
 #ifdef CONFIG_LGE_DETECT_PIF_PATCH
 	pif_detect = lge_get_pif_info();
 #endif
-	pr_info("%s : Using PIF ZIG (%d)\n", __func__, pif_detect);
+	lgeusb_info("Using PIF ZIG (%d)\n", pif_detect);
 
 	if (pif_detect == LGE_PIF_CABLE)
 		return LGE_FACTORY_CABLE_TYPE;
@@ -122,7 +125,7 @@ static void do_switch_mode(int pid, int need_reset)
 {
 	struct lgeusb_info *info = usb_info;
 
-	pr_info("do_switch_mode : pid %x, need_reset %d\n", pid, need_reset);
+	lgeusb_info("do_switch_mode : pid %x, need_reset %d\n", pid, need_reset);
 	info->switch_func(pid, need_reset);
 }
 
@@ -181,8 +184,7 @@ int lgeusb_set_config(int pid, char *serialno, const char *defaultno)
 	int ret;
 
 	if (!serialno || !defaultno) {
-		pr_info("%s: serial number args are invalid, skip configuration\n",
-				__func__);
+		lgeusb_info("serial numbers are invalid, skip configuration.\n");
 		return -EINVAL;
 	}
 
@@ -209,7 +211,7 @@ int lgeusb_set_config(int pid, char *serialno, const char *defaultno)
 		msm_hsusb_send_serial_number(defaultno);
 
 	if(ret < 0)
-		pr_info("lge usb configuration: fail to get serial number, set to default serial number\n");
+		lgeusb_info("fail to get serial number, set to default.\n");
 
 	return pid;
 }
@@ -222,11 +224,13 @@ void lgeusb_register_usbinfo(struct lgeusb_info *info)
 {
 	if (info) {
 		usb_info = info;
-		pr_info("%s: switch_func %p, get_pid %p\n", __func__,
+		lgeusb_info("Registering infomation for lgeusb is success\n");
+
+		lgeusb_debug("switch_func %p, get_pid %p\n",
 				usb_info->switch_func,
 				usb_info->get_pid);
 	} else {
-		pr_info("%s : registering usb info failed\n", __func__);
+		lgeusb_info("Registering infomation for lgwusb is failed\n");
 	}
 }
 

@@ -235,7 +235,9 @@ static void bind_functions(struct android_dev *dev)
 		char *name = *functions++;
 		f = get_function(name);
 		if (f) {
-			pr_debug("%s : binding function %s\n", __func__, name);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+			lgeusb_debug("binding function %s\n", name);
+#endif
 			f->bind_config(dev->config);
 		} else {
 			printk(KERN_ERR "function %s not found in bind_functions\n", name);
@@ -269,7 +271,7 @@ static int __ref android_bind_config(struct usb_configuration *c)
 	 * 2011-01-12, hyunhui.park@lge.com
 	 */
 	if (should_bind_functions(dev)) {
-		pr_debug("%s : bind_functions INVOKED\n", __func__);
+		lgeusb_debug("bind_functions() is called\n");
 		bind_functions(dev);
 	}
 #else /* below is original */
@@ -331,8 +333,6 @@ static int product_has_function(struct android_usb_product *p,
 		 * core name (ex: acm). So, only compare up to the length of
 		 * android_usb_product.functions[i].
 		 */
-		pr_debug("\t%s: name(%s), functions[%d](%s)\n", __func__, name,
-				i, functions[i]);
 		if (!strncmp(name, functions[i], strlen(functions[i])))
 #else /* below is original */
 		if (!strcmp(name, *functions++))
@@ -474,6 +474,7 @@ void android_register_function(struct android_usb_function *f)
 
 	list_add_tail(&f->list, &_functions);
 	if (dev && should_bind_functions(dev)) {
+		lgeusb_debug("bind_functions() is called\n");
 		bind_functions(dev);
 		android_set_default_product(dev->product_id);
 
@@ -489,7 +490,7 @@ void android_register_function(struct android_usb_function *f)
 		else
 			device_desc.iSerialNumber = strings_dev[STRING_SERIAL_IDX].id;
 
-		pr_info("LGE Android Gadget global configuration:\n\t"
+		lgeusb_info("LGE Android Gadget global configuration:\n\t"
 				"product_id -- %x, serial no. -- %s\n", lge_pid,
 				((serial_number[0] != '\0') ? serial_number : strings_dev[STRING_SERIAL_IDX].s));
 
@@ -768,7 +769,6 @@ static void android_lgeusb_switch_function(int pid, int need_reset)
 {
 	struct android_dev *dev = _android_dev;
 
-	pr_info("%s: product id %x, reset %d\n", __func__, pid, need_reset);
 	android_set_default_product(pid);
 
 	device_desc.idProduct = __constant_cpu_to_le16(pid);
@@ -853,11 +853,6 @@ static int __init android_probe(struct platform_device *pdev)
 	 * 2011-01-14, hyunhui.park@lge.com
 	 */
 	android_lgeusb_info.restore_pid = dev->product_id;
-
-	pr_info("%s: switch_func %p, get_pid %p\n", __func__,
-			android_lgeusb_switch_function,
-			android_lgeusb_get_current_pid);
-
 	lgeusb_register_usbinfo(&android_lgeusb_info);
 #endif
 

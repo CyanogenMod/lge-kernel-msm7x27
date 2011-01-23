@@ -1304,7 +1304,7 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 static void usb_do_factory_cable_detect(struct work_struct *w)
 {
 	if(lgeusb_detect_factory_cable()) {
-		pr_info("%s: OK, we detect LG factory cable......\n", __func__);
+		lgeusb_info("OK, we detect LG factory cable......\n");
 
 		lgeusb_backup_pid();
 		/* With soft reset */
@@ -1312,7 +1312,7 @@ static void usb_do_factory_cable_detect(struct work_struct *w)
 		return;
 	}
 
-	pr_info("%s: OK, we detect Normal USB cable......\n", __func__);
+	lgeusb_info("OK, we detect Normal USB cable......\n");
 	/* With soft reset */
 	lgeusb_switch_android_mode(1);
 }
@@ -1632,12 +1632,11 @@ static void usb_do_work(struct work_struct *w)
 				 * 2011-01-14, hyunhui.park@lge.com
 				 */
 				schedule_delayed_work(&ui->cable_det, 0);
-/*
+
 				if(lgeusb_detect_factory_cable()) {
 					ui->state = USB_STATE_IDLE;
 					return;
 				}
-*/
 #endif
 				ui->state = USB_STATE_ONLINE;
 				usb_do_work_check_vbus(ui);

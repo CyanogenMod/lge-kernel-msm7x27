@@ -812,7 +812,14 @@ static inline bool can_support_cdc(struct usb_configuration *c)
 	return true;
 }
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+/* LGE_CHANGE
+ * To bind LG AndroidNet, another ACM instance
+ * named "acm2" is used.
+ * 2011-01-12, hyunhui.park@lge.com
+ */
 static int acm_count;
+#endif
 
 /**
  * acm_bind_config - add a CDC ACM function to a configuration
@@ -853,18 +860,13 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 		acm_string_defs[ACM_DATA_IDX].id = status;
 
 		acm_data_interface_desc.iInterface = status;
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
-		/* LGE_CHANGE
-		 * We don't use ACM string.
-		 * 2011-01-12, hyunhui.park@lge.com
-		 */
+
 		status = usb_string_id(c->cdev);
 		if (status < 0)
 			return status;
 		acm_string_defs[ACM_IAD_IDX].id = status;
 
 		acm_iad_descriptor.iFunction = status;
-#endif
 	}
 
 	/* allocate and initialize one new instance */
