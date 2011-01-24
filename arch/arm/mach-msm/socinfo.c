@@ -154,6 +154,11 @@ static enum msm_cpu cpu_of_id[] = {
 	[75] = MSM_CPU_8X55,
 	[85] = MSM_CPU_8X55,
 
+	/* 8x60 IDs */
+	[70] = MSM_CPU_8X60,
+	[71] = MSM_CPU_8X60,
+	[86] = MSM_CPU_8X60,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -215,12 +220,7 @@ uint32_t socinfo_get_accessory_chip(void)
 
 enum msm_cpu socinfo_get_msm_cpu(void)
 {
-#ifdef CONFIG_ARCH_MSM8X60
-	/* Hardcode CPU for 8x60, which doesn't support socinfo yet. */
-	return MSM_CPU_8X60;
-#else
 	return cur_cpu;
-#endif
 }
 EXPORT_SYMBOL_GPL(socinfo_get_msm_cpu);
 
