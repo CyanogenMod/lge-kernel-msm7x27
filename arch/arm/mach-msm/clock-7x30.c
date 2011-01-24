@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -379,16 +379,16 @@ static struct clk_freq_tbl clk_tbl_lpa_codec[] = {
 /*
  * Clock children lists
  */
-static const uint32_t chld_grp_3d_src[] = 	{C(IMEM), C(GRP_3D), C(NONE)};
-static const uint32_t chld_mdp_lcdc_p[] = 	{C(MDP_LCDC_PAD_PCLK), C(NONE)};
-static const uint32_t chld_mfc[] = 		{C(MFC_DIV2), C(NONE)};
+static const uint32_t chld_grp_3d_src[] =	{C(IMEM), C(GRP_3D), C(NONE)};
+static const uint32_t chld_mdp_lcdc_p[] =	{C(MDP_LCDC_PAD_PCLK), C(NONE)};
+static const uint32_t chld_mfc[] =		{C(MFC_DIV2), C(NONE)};
 static const uint32_t chld_mi2s_codec_rx[] =	{C(MI2S_CODEC_RX_S), C(NONE)};
 static const uint32_t chld_mi2s_codec_tx[] =	{C(MI2S_CODEC_TX_S), C(NONE)};
-static const uint32_t chld_mi2s[] = 		{C(MI2S_S), C(NONE)};
-static const uint32_t chld_sdac[] = 		{C(SDAC_M), C(NONE)};
-static const uint32_t chld_tv[] = 		{C(TV_DAC), C(TV_ENC), C(HDMI),
+static const uint32_t chld_mi2s[] =		{C(MI2S_S), C(NONE)};
+static const uint32_t chld_sdac[] =		{C(SDAC_M), C(NONE)};
+static const uint32_t chld_tv[] =		{C(TV_DAC), C(TV_ENC), C(HDMI),
 						 C(TSIF_REF), C(NONE)};
-static const uint32_t chld_usb_src[] = 	{C(USB_HS), C(USB_HS_CORE),
+static const uint32_t chld_usb_src[] =	{C(USB_HS), C(USB_HS_CORE),
 					 C(USB_HS2), C(USB_HS2_CORE),
 					 C(USB_HS3), C(USB_HS3_CORE),
 					 C(NONE)};
@@ -976,7 +976,7 @@ static void __init print_ownership(void)
  * hardware block. We determine the ownership for all the clocks on a block by
  * checking the ownership bit of one register (usually the ns register).
  */
-#define O(x) &ownership_regs[x]
+#define O(x) (&ownership_regs[(x)])
 static const struct clk_local_ownership {
 	const uint32_t *reg;
 	const uint32_t bit;
@@ -1101,7 +1101,7 @@ void __init msm_clk_soc_set_ops(struct clk *clk)
  * Miscellaneous clock register initializations
  */
 static const struct reg_init {
-	const void *reg;
+	const void __iomem *reg;
 	uint32_t mask;
 	uint32_t val;
 } ri_list[] __initconst = {

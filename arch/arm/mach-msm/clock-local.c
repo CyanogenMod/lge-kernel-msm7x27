@@ -701,4 +701,3 @@ int local_clk_list_rate(unsigned id, unsigned n)
 
 	return (clk->freq_tbl + n)->freq_hz;
 }
-
