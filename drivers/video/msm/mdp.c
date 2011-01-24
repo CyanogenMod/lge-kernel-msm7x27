@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1229,6 +1229,8 @@ static int mdp_probe(struct platform_device *pdev)
 			mfd->dma = &dma_s_data;
 		}
 		mdp4_display_intf_sel(if_no, DSI_CMD_INTF);
+
+		mdp_config_vsync(mfd);
 		break;
 #endif
 

@@ -104,11 +104,6 @@ static int mipi_toshiba_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	/* change to DSI_CMD_MODE since it needed to
-	 * tx DCS dsiplay off comamnd to toshiba panel
-	 */
-	mipi_dsi_op_mode_config(DSI_CMD_MODE);
-
 	mipi_dsi_cmds_tx(&toshiba_tx_buf, toshiba_display_off_cmds,
 			ARRAY_SIZE(toshiba_display_off_cmds));
 

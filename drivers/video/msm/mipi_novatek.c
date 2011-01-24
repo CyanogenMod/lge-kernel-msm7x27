@@ -188,11 +188,8 @@ static uint32 mipi_novatek_manufacture_id(void)
 
 	cmd = &novatek_manufacture_id_cmd;
 	mipi_dsi_cmds_rx(tp, rp, cmd, 3);
-
 	lp = (uint32 *)rp->data;
-
 	pr_info("%s: manufacture_id=%x", __func__, *lp);
-
 	return *lp;
 }
 
@@ -234,11 +231,6 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 		return -ENODEV;
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
-
-	/* change to DSI_CMD_MODE since it needed to
-	 * tx DCS dsiplay off comamnd to toshiba panel
-	 */
-	mipi_dsi_op_mode_config(DSI_CMD_MODE);
 
 	mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_display_off_cmds,
 			ARRAY_SIZE(novatek_display_off_cmds));

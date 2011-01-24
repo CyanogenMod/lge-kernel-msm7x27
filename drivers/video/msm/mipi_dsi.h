@@ -98,6 +98,7 @@ enum {		/* mipi dsi panel */
 #define DSI_INTR_CMD_DMA_DONE_MASK	BIT(1)
 #define DSI_INTR_CMD_DMA_DONE		BIT(0)
 
+#define DSI_CMD_TRIGGER_NONE		0x0	/* mdp trigger */
 #define DSI_CMD_TRIGGER_TE		0x02
 #define DSI_CMD_TRIGGER_SW		0x04
 #define DSI_CMD_TRIGGER_SW_SEOF		0x05	/* cmd dma only */
@@ -152,6 +153,7 @@ struct dsi_buf {
 #define DTYPE_GEN_READ1		0x14	/* long read, 1 parameter */
 #define DTYPE_GEN_READ2		0x24	/* long read, 2 parameter */
 
+#define DTYPE_TEAR_ON		0x35	/* set tear on */
 #define DTYPE_MAX_PKTSIZE	0x37	/* set max packet size */
 #define DTYPE_NULL_PKT		0x09	/* null packet, no data */
 #define DTYPE_BLANK_PKT		0x19	/* blankiing packet, no data */
@@ -178,7 +180,7 @@ extern char max_pktsize[2]; /* defined at mipi_dsi.c */
 
 char *mipi_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mipi_dsi_buf_init(struct dsi_buf *dp);
-void mipi_dsi_init_comp(void);
+void mipi_dsi_init(void);
 int mipi_dsi_buf_alloc(struct dsi_buf *, int size);
 int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm);
 int mipi_dsi_cmds_tx(struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt);
@@ -194,6 +196,8 @@ void mdp4_dsi_cmd_trigger(void);
 void mipi_dsi_cmd_mdp_sw_trigger(void);
 void mipi_dsi_cmd_bta_sw_trigger(void);
 void mipi_dsi_ack_err_status(void);
+void mipi_dsi_set_tear_on(void);
+void mipi_dsi_set_tear_off(void);
 
 irqreturn_t mipi_dsi_isr(int irq, void *ptr);
 

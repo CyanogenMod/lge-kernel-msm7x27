@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,11 +42,15 @@
 #include "msm_fb.h"
 #include "mipi_dsi.h"
 
+static struct mutex dsi_mutex;
 static struct completion dsi_dma_comp;
+static struct dsi_buf dsi_tx_buf;
 
-void mipi_dsi_init_comp(void)
+void mipi_dsi_init(void)
 {
 	init_completion(&dsi_dma_comp);
+	mutex_init(&dsi_mutex);
+	mipi_dsi_buf_alloc(&dsi_tx_buf, DSI_BUF_SIZE);
 }
 
 /*
@@ -737,6 +741,32 @@ void mipi_dsi_cmd_bta_sw_trigger(void)
 	mipi_dsi_ack_err_status();
 
 	pr_debug("%s: BTA done, cnt=%d\n", __func__, cnt);
+}
+
+static char set_tear_on[2] = {0x35, 0x00};
+static struct dsi_cmd_desc dsi_tear_on_cmd = {
+	DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_tear_on), set_tear_on};
+
+static char set_tear_off[2] = {0x34, 0x00};
+static struct dsi_cmd_desc dsi_tear_off_cmd = {
+	DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(set_tear_off), set_tear_off};
+
+void mipi_dsi_set_tear_on(void)
+{
+	mutex_lock(&dsi_mutex);
+
+	mipi_dsi_buf_init(&dsi_tx_buf);
+	mipi_dsi_cmds_tx(&dsi_tx_buf, &dsi_tear_on_cmd, 1);
+	mutex_unlock(&dsi_mutex);
+}
+
+void mipi_dsi_set_tear_off(void)
+{
+	mutex_lock(&dsi_mutex);
+
+	mipi_dsi_buf_init(&dsi_tx_buf);
+	mipi_dsi_cmds_tx(&dsi_tx_buf, &dsi_tear_off_cmd, 1);
+	mutex_unlock(&dsi_mutex);
 }
 
 int mipi_dsi_cmd_reg_tx(uint32 data)
