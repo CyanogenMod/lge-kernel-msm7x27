@@ -147,6 +147,7 @@ struct aat28xx_driver_data {
 	unsigned char reg_ldo_enable;
 	unsigned char reg_ldo_vout[2];
 	int version;
+	int initialized;
 	struct aat28xx_cmds cmds;
 	struct aat28xx_reg_addrs reg_addrs;
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -162,19 +163,9 @@ module_param(debug, uint, 0644);
 
 /* Set to Normal mode */
 static struct aat28xx_ctrl_tbl aat2862bl_normal_tbl[] = {
-#ifdef CONFIG_MACH_MSM7X27_THUNDERA /* for P505 */
-	/* 2010-07-23, hosung8009.kim@lge.com 
-	 * MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled),
-	 * LCD_ON(5)=high(On),  Brightness=Default(0x09) 
-	 */
-	 { 0x03, 0xE9 },  
-#else
-	/* LGE_CHANGE. 
-	 * Change register value to do not turn on the bakclight at operatoin mode setting. (0xF2 -> 0xD2)
-	 * 2010-07-31. minjong.gong@lge.com 
-	 */
-	{ 0x03, 0xD2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
-#endif
+/* LGE_UPDATE_S kideok.kim@lge.com 20101020*/
+	 { 0x03, 0xD2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),	Brightness=Default (0x12, 13th setp)*/
+//	 { 0x03, 0xF2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),	Brightness=Default (0x12, 13th setp)*/
 	{ 0xFF, 0xFE }	 /* end of command */
 };
 
@@ -503,7 +494,7 @@ static void aat28xx_device_init(struct aat28xx_driver_data *drvdata)
   * Do not initialize aat28xx when system booting. The aat28xx is already initialized in oemsbl or LK !!
   * 2010-08-16, minjong.gong@lge.com
   */
-	if (system_state == SYSTEM_BOOTING) {
+	if (drvdata->initialized && system_state == SYSTEM_BOOTING) {
 		aat28xx_go_opmode(drvdata);
 		return;
 	}
@@ -908,6 +899,7 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 	drvdata->mode = NORMAL_MODE;
 	drvdata->state = UNINIT_STATE;
 	drvdata->version = pdata->version;
+	drvdata->initialized = pdata->initialized;
 
 	if(aat28xx_setup_version(drvdata) != 0) {
 		eprintk("Error while requesting gpio %d\n", drvdata->gpio);

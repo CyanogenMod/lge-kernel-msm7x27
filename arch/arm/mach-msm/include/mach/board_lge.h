@@ -244,7 +244,7 @@ struct aat28xx_platform_data {
 	int gpio;
 	unsigned int mode;		     /* initial mode */
 	int max_current;			 /* led max current(0-7F) */
-	int init_on_boot;			 /* flag which initialize on system boot */
+	int initialized;			 /* flag which initialize on system boot */
 	int version;				 /* Chip version number */
 };
 int aat28xx_ldo_enable(struct device *dev, unsigned num, unsigned enable);
