@@ -145,6 +145,8 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 		sizeof(exit_sleep), exit_sleep},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
 		sizeof(display_on), display_on},
+	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
+		sizeof(max_pktsize), max_pktsize},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 50,
 		sizeof(novatek_f4), novatek_f4},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 50,
@@ -167,6 +169,33 @@ static struct dsi_cmd_desc novatek_display_off_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
 		sizeof(enter_sleep), enter_sleep}
 };
+
+static char manufacture_id[2] = {0x04, 0x00}; /* DTYPE_DCS_READ */
+
+static struct dsi_cmd_desc novatek_manufacture_id_cmd = {
+	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id), manufacture_id};
+
+static uint32 mipi_novatek_manufacture_id(void)
+{
+	struct dsi_buf *rp, *tp;
+	struct dsi_cmd_desc *cmd;
+	uint32 *lp;
+
+	tp = &novatek_tx_buf;
+	rp = &novatek_rx_buf;
+	mipi_dsi_buf_init(rp);
+	mipi_dsi_buf_init(tp);
+
+	cmd = &novatek_manufacture_id_cmd;
+	mipi_dsi_cmds_rx(tp, rp, cmd, 3);
+
+	lp = (uint32 *)rp->data;
+
+	pr_info("%s: manufacture_id=%x", __func__, *lp);
+
+	return *lp;
+}
+
 static int mipi_novatek_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -186,6 +215,10 @@ static int mipi_novatek_lcd_on(struct platform_device *pdev)
 	} else {
 		mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_cmd_on_cmds,
 			ARRAY_SIZE(novatek_cmd_on_cmds));
+
+		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
+
+		mipi_novatek_manufacture_id();
 	}
 
 	return 0;

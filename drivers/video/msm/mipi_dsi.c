@@ -68,6 +68,8 @@ static struct platform_driver mipi_dsi_driver = {
 
 struct device dsi_dev;
 
+/* MIPI_DSI_MRPS, Maximum Return Packet Size */
+char max_pktsize[2] = {MIPI_DSI_MRPS, 0x00}; /* LSB tx first, 16 bytes */
 
 /*
  * mipi_dsi_mxo_selected() -
@@ -470,6 +472,8 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	}
 
 	mipi_dsi_host_init(mipi);
+
+	mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
 
 	ret = panel_next_on(pdev);
 

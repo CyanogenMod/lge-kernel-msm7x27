@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,7 +44,7 @@
 #define MIPI_DSI_BASE mipi_dsi_base
 
 #ifdef CONFIG_MSM_SECURE_IO
-#define MIPI_OUTP(addr, data) secure_writel(((data), (addr))
+#define MIPI_OUTP(addr, data) secure_writel((data), (addr))
 #define MIPI_INP(addr) secure_readl(addr)
 #else
 #define MIPI_OUTP(addr, data) writel((data), (addr))
@@ -122,7 +122,10 @@ struct dsi_clk_desc {
 #define DSI_HDR_DATA1(data)	((data) & 0x0ff)
 #define DSI_HDR_WC(wc)		((wc) & 0x0ffff)
 
-#define DSI_BUF_SIZE	2048
+#define DSI_BUF_SIZE	1024
+#define MIPI_DSI_MRPS	0x04  /* Maximum Return Packet Size */
+
+#define MIPI_DSI_REG_LEN 16 /* 4 x 4 bytes register */
 
 struct dsi_buf {
 	uint32 *hdr;	/* dsi host header */
@@ -169,6 +172,10 @@ struct dsi_cmd_desc {
 	char *payload;
 };
 
+
+/* MIPI_DSI_MRPS, Maximum Return Packet Size */
+extern char max_pktsize[2]; /* defined at mipi_dsi.c */
+
 char *mipi_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mipi_dsi_buf_init(struct dsi_buf *dp);
 void mipi_dsi_init_comp(void);
@@ -177,11 +184,16 @@ int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm);
 int mipi_dsi_cmds_tx(struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt);
 int mipi_dsi_cmd_dma_tx(struct dsi_buf *dp);
 int mipi_dsi_cmd_reg_tx(uint32 data);
+int mipi_dsi_cmds_rx(struct dsi_buf *tp, struct dsi_buf *rp,
+				struct dsi_cmd_desc *cmds, int len);
+int mipi_dsi_cmd_dma_rx(struct dsi_buf *tp, int rlen);
 void mipi_dsi_host_init(struct mipi_panel_info *pinfo);
 void mipi_dsi_op_mode_config(int mode);
 void mipi_dsi_cmd_mode_ctrl(int enable);
 void mdp4_dsi_cmd_trigger(void);
 void mipi_dsi_cmd_mdp_sw_trigger(void);
+void mipi_dsi_cmd_bta_sw_trigger(void);
+void mipi_dsi_ack_err_status(void);
 
 irqreturn_t mipi_dsi_isr(int irq, void *ptr);
 

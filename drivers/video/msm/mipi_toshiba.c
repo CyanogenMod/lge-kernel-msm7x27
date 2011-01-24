@@ -48,7 +48,6 @@ static char if_sel_video[2] = {0x53, 0x01};
 static char exit_sleep[2] = {0x11, 0x00};
 static char display_on[2] = {0x29, 0x00};
 static char display_off[2] = {0x28, 0x00};
-static char max_pktsize[2] = {0x00, 0x04};	/* LSB tx first */
 static char enter_sleep[2] = {0x10, 0x00};
 
 static struct dsi_cmd_desc toshiba_display_off_cmds[] = {
