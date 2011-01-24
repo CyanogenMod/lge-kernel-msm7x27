@@ -1663,6 +1663,7 @@ CONFIG_USB_GSPCA=m
 #
 CONFIG_MSM_CAMERA=y
 # CONFIG_MSM_CAMERA_DEBUG is not set
+# CONFIG_MSM_CAMERA_V4L2 is not set
 
 #
 # Camera Sensor Selection
