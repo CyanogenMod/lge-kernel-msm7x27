@@ -37,6 +37,7 @@
 #include <asm/io.h>
 #include <mach/vreg.h>
 #include <mach/board_lge.h>
+#include <linux/pm_qos_params.h>
 
 #define QVGA_WIDTH        240
 #define QVGA_HEIGHT       320
@@ -51,6 +52,7 @@ static void *DISP_DATA_PORT;
 static boolean disp_initialized = FALSE;
 struct msm_fb_panel_data tovis_qvga_panel_data;
 struct msm_panel_common_pdata *tovis_qvga_panel_pdata;
+struct pm_qos_request_list *tovis_pm_qos_req;
 
 /* For some reason the contrast set at init time is not good. Need to do
 * it again
@@ -108,6 +110,7 @@ static int ilitek_qvga_disp_off(struct platform_device *pdev)
 		tovis_qvga_disp_init(pdev);
 
 	if (display_on) {
+		pm_qos_update_request(tovis_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 		// perform lcd deep sleep instead of power off
 		EBI2_WRITE16C(DISP_CMD_PORT, 0x28);
 		mdelay(50);
@@ -300,6 +303,7 @@ static int ilitek_qvga_disp_on(struct platform_device *pdev)
 		display_on = TRUE;
 
 		do_ilitek_init(pdev);
+		pm_qos_update_request(tovis_pm_qos_req, 65000);
 	}
 	return 0;
 }
@@ -343,6 +347,8 @@ static int __init tovis_qvga_probe(struct platform_device *pdev)
 	if (ret) {
 		printk("tovis_qvga_probe device_creat_file failed!!!\n");
 	}
+
+	tovis_pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ, PM_QOS_DEFAULT_VALUE);
 
 	return 0;
 }
