@@ -3618,7 +3618,6 @@ static int dtv_panel_power(int on)
 
 	dtv_power_save_on = flag_on;
 	pr_info("%s: %d\n", __func__, on);
-	hdmi_enable_5v(on);
 
 #ifdef HDMI_RESET
 	if (on) {
@@ -3652,16 +3651,6 @@ static int dtv_panel_power(int on)
 			return rc;
 		}
 	}
-
-	rc = hdmi_comm_power(on, 1);
-	if (rc)
-		return rc;
-
-	mdelay(5);		/* ensure power is stable */
-
-	rc = hdmi_cec_power(on);
-	if (rc)
-		return rc;
 
 	mdelay(5);		/* ensure power is stable */
 
