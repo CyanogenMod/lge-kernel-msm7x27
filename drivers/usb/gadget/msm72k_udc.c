@@ -2,7 +2,7 @@
  * Driver for HighSpeed USB Client Controller in MSM7K
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Brian Swetland <swetland@google.com>
  *
@@ -1942,6 +1942,12 @@ msm72k_set_halt(struct usb_ep *_ep, int value)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ui->lock, flags);
+
+	if (value && in && ept->req) {
+		spin_unlock_irqrestore(&ui->lock, flags);
+		return -EAGAIN;
+	}
+
 	n = readl(USB_ENDPTCTRL(ept->num));
 
 	if (in) {
