@@ -2049,9 +2049,16 @@ static int msm_pp_grab(struct msm_sync *sync, void __user *arg)
 			return -EINVAL;
 		}
 		if (sync->pp_mask) {
-			pr_err("%s: postproc %x is already enabled\n",
-				__func__, sync->pp_mask & enable);
-			return -EINVAL;
+			if (enable) {
+				pr_err("%s: postproc %x is already enabled\n",
+					__func__, sync->pp_mask & enable);
+				return -EINVAL;
+			} else {
+				sync->pp_mask &= enable;
+				CDBG("%s: sync->pp_mask %d enable %d\n",
+					__func__, sync->pp_mask, enable);
+				return 0;
+			}
 		}
 
 		CDBG("%s: sync->pp_mask %d enable %d\n", __func__,
@@ -2112,6 +2119,7 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 		CDBG("%s: delivering pp_snap\n", __func__);
 		msm_enqueue(&sync->pict_q, &sync->pp_snap->list_pict);
 		sync->pp_snap = NULL;
+		sync->pp_thumb = NULL;
 		spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 	}
 
@@ -2629,12 +2637,11 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 	case VFE_MSG_OUTPUT_T:
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_thumb_spinlock, flags);
-			if (sync->pp_thumb)
-				pr_warning("%s: overwriting pp_thumb!\n",
+			if (!sync->pp_thumb) {
+				CDBG("%s: pp sending thumbnail to config\n",
 					__func__);
-			CDBG("%s: pp sending thumbnail to config\n",
-				__func__);
-			sync->pp_thumb = qcmd;
+				sync->pp_thumb = qcmd;
+			}
 			spin_unlock_irqrestore(&pp_thumb_spinlock, flags);
 			break;
 		} else {
@@ -2649,15 +2656,16 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 	case VFE_MSG_OUTPUT_S:
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_snap_spinlock, flags);
-			if (sync->pp_snap)
-				pr_warning("%s: overwriting pp_snap!\n",
+			if (!sync->pp_snap) {
+				CDBG("%s: pp sending main image to config\n",
 					__func__);
-			CDBG("%s: pp sending main image to config\n",
-				__func__);
-			sync->pp_snap = qcmd;
+				sync->pp_snap = qcmd;
+				spin_unlock_irqrestore(&pp_snap_spinlock,
+					flags);
+				if (atomic_read(&qcmd->on_heap))
+					atomic_add(1, &qcmd->on_heap);
+			}
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
-			if (atomic_read(&qcmd->on_heap))
-				atomic_add(1, &qcmd->on_heap);
 			break;
 		} else {
 		/* this is for normal snapshot case. right now we only have
@@ -2747,7 +2755,6 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 					__func__);
 			CDBG("%s: sending snapshot to config\n",
 				__func__);
-			sync->pp_snap = qcmd;
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 		} else {
 			if (atomic_read(&qcmd->on_heap))
