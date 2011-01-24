@@ -671,6 +671,11 @@ static int aat28xx_get_intensity(struct aat28xx_driver_data *drvdata)
 	return drvdata->intensity;
 }
 
+static int aat28xx_change_max_current(struct aat28xx_driver_data *drvdata, int max_current)
+{
+	drvdata->max_intensity = max_current;
+	return aat28xx_send_intensity(drvdata, drvdata->max_intensity);
+}
 
 #ifdef CONFIG_PM
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -817,9 +822,34 @@ ssize_t aat28xx_show_drvstat(struct device *dev, struct device_attribute *attr, 
 	return len;
 }
 
+ssize_t aat28xx_store_max_current(struct device *dev, struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct aat28xx_driver_data *drvdata = dev_get_drvdata(dev->parent);
+	int max_current;
+
+	if (!count)	return -EINVAL;
+
+	sscanf(buf, "%d", &max_current);
+	aat28xx_change_max_current(drvdata, max_current);
+
+	return count;
+}
+
+ssize_t aat28xx_show_max_current(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct aat28xx_driver_data *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t len;
+
+	len = sprintf(buf, "%d\n", drvdata->max_intensity);
+
+	return len;
+}
+
 DEVICE_ATTR(alc, 0664, aat28xx_show_alc, aat28xx_store_alc);
 DEVICE_ATTR(reg, 0444, aat28xx_show_reg, NULL);
 DEVICE_ATTR(drvstat, 0444, aat28xx_show_drvstat, NULL);
+DEVICE_ATTR(max_current, 0664, aat28xx_show_max_current, aat28xx_store_max_current);
 
 static int aat28xx_set_brightness(struct backlight_device *bd)
 {
@@ -932,6 +962,7 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 		err = device_create_file(drvdata->led->dev, &dev_attr_alc);
 		err = device_create_file(drvdata->led->dev, &dev_attr_reg);
 		err = device_create_file(drvdata->led->dev, &dev_attr_drvstat);
+		err = device_create_file(drvdata->led->dev, &dev_attr_max_current);
 	}
 #endif
 
