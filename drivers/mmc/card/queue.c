@@ -46,6 +46,7 @@ static int mmc_queue_thread(void *d)
 {
 	struct mmc_queue *mq = d;
 	struct request_queue *q = mq->queue;
+	struct request *req;
 
 #ifdef CONFIG_MMC_PERF_PROFILING
 	ktime_t start, diff;
@@ -58,7 +59,7 @@ static int mmc_queue_thread(void *d)
 
 	down(&mq->thread_sem);
 	do {
-		struct request *req = NULL;
+		req = NULL;	/* Must be set to NULL at each iteration */
 
 		spin_lock_irq(q->queue_lock);
 		set_current_state(TASK_INTERRUPTIBLE);
