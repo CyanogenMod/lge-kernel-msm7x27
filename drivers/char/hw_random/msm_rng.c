@@ -22,9 +22,11 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/hw_random.h>
+#include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/types.h>
 
 #define DRIVER_NAME "msm_rng"
 
@@ -44,18 +46,25 @@
 #define MAX_HW_FIFO_SIZE (MAX_HW_FIFO_DEPTH * 4) /* FIFO is 32 bits wide  */
 
 struct msm_rng_device {
+	struct platform_device *pdev;
 	void __iomem *base;
+	struct clk *prng_clk;
 };
-
-static struct msm_rng_device *msm_rng_dev;
 
 static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 {
-	void __iomem *base = (void __iomem *)rng->priv;
+	struct msm_rng_device *msm_rng_dev;
+	struct platform_device *pdev;
+	void __iomem *base;
 	size_t maxsize;
 	size_t currsize = 0;
 	unsigned long val;
 	unsigned long *retdata = data;
+	int ret;
+
+	msm_rng_dev = (struct msm_rng_device *)rng->priv;
+	pdev = msm_rng_dev->pdev;
+	base = msm_rng_dev->base;
 
 	/* calculate max size bytes to transfer back to caller */
 	maxsize = min_t(size_t, MAX_HW_FIFO_SIZE, max);
@@ -63,6 +72,13 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 	/* no room for word data */
 	if (maxsize < 4)
 		return 0;
+
+	/* enable PRNG clock */
+	ret = clk_enable(msm_rng_dev->prng_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable clock in callback\n");
+		return 0;
+	}
 
 	/* read random data from h/w */
 	do {
@@ -84,6 +100,9 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 			break;
 	} while (currsize < maxsize);
 
+	/* vote to turn off clock */
+	clk_disable(msm_rng_dev->prng_clk);
+
 	return currsize;
 }
 
@@ -95,45 +114,64 @@ static struct hwrng msm_rng = {
 static int __devinit msm_rng_probe(struct platform_device *pdev)
 {
 	struct resource *res;
+	struct msm_rng_device *msm_rng_dev = NULL;
 	void __iomem *base = NULL;
 	int error = 0;
 	unsigned long val;
+	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "invalid address\n");
 		error = -EFAULT;
-		goto exit;
+		goto err_exit;
 	}
 
 	msm_rng_dev = kzalloc(sizeof(msm_rng_dev), GFP_KERNEL);
 	if (!msm_rng_dev) {
 		dev_err(&pdev->dev, "cannot allocate memory\n");
 		error = -ENOMEM;
-		goto exit;
+		goto err_exit;
 	}
 
 	base = ioremap(res->start, resource_size(res));
 	if (!base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		error = -ENOMEM;
-		goto exit;
+		goto err_iomap;
 	}
 	msm_rng_dev->base = base;
 
-	/* register with hwrng framework */
-	msm_rng.priv = (unsigned long) base;
-	error = hwrng_register(&msm_rng);
-	if (error) {
-		dev_err(&pdev->dev, "failed to register hwrng\n");
-		goto exit;
+	/* create a handle for clock control */
+	msm_rng_dev->prng_clk = clk_get(NULL, "prng_clk");
+	if (IS_ERR(msm_rng_dev->prng_clk)) {
+		dev_err(&pdev->dev, "failed to register clock source\n");
+		error = -EPERM;
+		goto err_clk_get;
 	}
 
+	/* set clock rate */
+	ret = clk_set_rate(msm_rng_dev->prng_clk, 64000000);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to set clock frequency\n");
+		error = -EPERM;
+		goto err_clk_rate;
+	}
+
+	/* save away pdev and register driver data */
+	msm_rng_dev->pdev = pdev;
 	platform_set_drvdata(pdev, msm_rng_dev);
 
+	ret = clk_enable(msm_rng_dev->prng_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable clock in probe\n");
+		error = -EPERM;
+		goto err_clk_enable;
+	}
+
 	/* enable PRNG h/w (this may not work since XPU protect may be enabled
-	 * which case then the hardware should already have been setup
-	 * within the bootloader)
+	 * elsewhere which case then the hardware should have already been set
+	 * up)
 	 */
 	val = readl(base + PRNG_LFSR_CFG_OFFSET) & PRNG_LFSR_CFG_MASK;
 	val |= PRNG_LFSR_CFG_CLOCKS;
@@ -143,12 +181,28 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	val |= PRNG_CONFIG_ENABLE;
 	writel(val, base + PRNG_CONFIG_OFFSET);
 
+	clk_disable(msm_rng_dev->prng_clk);
+
+	/* register with hwrng framework */
+	msm_rng.priv = (unsigned long) msm_rng_dev;
+	error = hwrng_register(&msm_rng);
+	if (error) {
+		dev_err(&pdev->dev, "failed to register hwrng\n");
+		error = -EPERM;
+		goto err_hw_register;
+	}
+
 	return 0;
 
-exit:
-	if (base)
-		iounmap(base);
+err_hw_register:
+err_clk_enable:
+err_clk_rate:
+	clk_put(msm_rng_dev->prng_clk);
+err_clk_get:
+	iounmap(msm_rng_dev->base);
+err_iomap:
 	kfree(msm_rng_dev);
+err_exit:
 	return error;
 }
 
@@ -156,9 +210,10 @@ static int __devexit msm_rng_remove(struct platform_device *pdev)
 {
 	struct msm_rng_device *msm_rng_dev = platform_get_drvdata(pdev);
 
-	platform_set_drvdata(pdev, NULL);
 	hwrng_unregister(&msm_rng);
+	clk_put(msm_rng_dev->prng_clk);
 	iounmap(msm_rng_dev->base);
+	platform_set_drvdata(pdev, NULL);
 	kfree(msm_rng_dev);
 	return 0;
 }
