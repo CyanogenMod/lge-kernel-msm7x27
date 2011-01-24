@@ -55,7 +55,7 @@
 #define APPS_DATA  		3
 #define SDIO_DATA		4
 #define MSG_MASK_SIZE 8000
-#define LOG_MASK_SIZE 2000
+#define LOG_MASK_SIZE 8000
 #define EVENT_MASK_SIZE 1000
 #define PKT_SIZE 4096
 #define MAX_EQUIP_ID 12
