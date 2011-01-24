@@ -1024,8 +1024,19 @@ static int msm_hsusb_config_vddcx(int high)
 	return ret;
 }
 
+#define USB_PHY_3P3_VOL_MIN	3050000 /* uV */
+#define USB_PHY_3P3_VOL_MAX	3050000 /* uV */
+#define USB_PHY_3P3_HPM_LOAD	50000	/* uA */
+#define USB_PHY_3P3_LPM_LOAD	4000	/* uA */
+
+#define USB_PHY_1P8_VOL_MIN	1800000 /* uV */
+#define USB_PHY_1P8_VOL_MAX	1800000 /* uV */
+#define USB_PHY_1P8_HPM_LOAD	50000	/* uA */
+#define USB_PHY_1P8_LPM_LOAD	4000	/* uA */
 static int msm_hsusb_ldo_init(int init)
 {
+	int rc = 0;
+
 	if (init) {
 		ldo6_3p3 = regulator_get(NULL, "8058_l6");
 		if (IS_ERR(ldo6_3p3))
@@ -1033,22 +1044,52 @@ static int msm_hsusb_ldo_init(int init)
 
 		ldo7_1p8 = regulator_get(NULL, "8058_l7");
 		if (IS_ERR(ldo7_1p8)) {
-			regulator_put(ldo6_3p3);
-			return PTR_ERR(ldo7_1p8);
+			rc = PTR_ERR(ldo7_1p8);
+			goto put_3p3;
 		}
 
-		regulator_set_voltage(ldo7_1p8, 1800000, 1800000);
-		regulator_set_voltage(ldo6_3p3, 3050000, 3050000);
-	} else {
-		regulator_put(ldo6_3p3);
-		regulator_put(ldo7_1p8);
+		rc = regulator_set_voltage(ldo6_3p3, USB_PHY_3P3_VOL_MIN,
+				USB_PHY_3P3_VOL_MAX);
+		if (rc) {
+			pr_err("%s: Unable to set voltage level for"
+				"ldo6_3p3 regulator\n", __func__);
+			goto put_1p8;
+		}
+		rc = regulator_enable(ldo6_3p3);
+		if (rc) {
+			pr_err("%s: Unable to enable the regulator:"
+				"ldo6_3p3\n", __func__);
+			goto put_1p8;
+		}
+		rc = regulator_set_voltage(ldo7_1p8, USB_PHY_1P8_VOL_MIN,
+				USB_PHY_1P8_VOL_MAX);
+		if (rc) {
+			pr_err("%s: Unable to set voltage level for"
+				"ldo7_1p8 regulator\n", __func__);
+			goto disable_3p3;
+		}
+		rc = regulator_enable(ldo7_1p8);
+		if (rc) {
+			pr_err("%s: Unable to enable the regulator:"
+				"ldo7_1p8\n", __func__);
+			goto disable_3p3;
+		}
+
+		return 0;
 	}
-	return 0;
+
+	regulator_disable(ldo7_1p8);
+disable_3p3:
+	regulator_disable(ldo6_3p3);
+put_1p8:
+	regulator_put(ldo7_1p8);
+put_3p3:
+	regulator_put(ldo6_3p3);
+	return rc;
 }
 
 static int msm_hsusb_ldo_enable(int on)
 {
-	static int ldo_status;
 	int ret = 0;
 
 	if (!ldo7_1p8 || IS_ERR(ldo7_1p8)) {
@@ -1061,55 +1102,38 @@ static int msm_hsusb_ldo_enable(int on)
 		return -ENODEV;
 	}
 
-	if (ldo_status == on)
-		return 0;
-
-	ldo_status = on;
-
 	if (on) {
-		ret = regulator_enable(ldo7_1p8);
-		if (ret) {
-			pr_err("%s: Unable to enable the regulator:"
+		ret = regulator_set_optimum_mode(ldo7_1p8,
+				USB_PHY_1P8_HPM_LOAD);
+		if (ret < 0) {
+			pr_err("%s: Unable to set HPM of the regulator:"
 				"ldo7_1p8\n", __func__);
-			ldo_status = !on;
 			return ret;
 		}
-		ret = regulator_enable(ldo6_3p3);
-		if (ret) {
-			pr_err("%s: Unable to enable the regulator:"
+		ret = regulator_set_optimum_mode(ldo6_3p3,
+				USB_PHY_3P3_HPM_LOAD);
+		if (ret < 0) {
+			pr_err("%s: Unable to set HPM of the regulator:"
 				"ldo6_3p3\n", __func__);
-			regulator_disable(ldo7_1p8);
-			ldo_status = !on;
+			regulator_set_optimum_mode(ldo7_1p8,
+				USB_PHY_1P8_LPM_LOAD);
 			return ret;
 		}
 	} else {
-		/* calling regulator_disable when its already disabled might
-		 * * print WARN_ON. Trying to avoid it by regulator_is_enable
-		 * * */
-		if (regulator_is_enabled(ldo6_3p3)) {
-			ret = regulator_disable(ldo6_3p3);
-			if (ret) {
-				pr_err("%s: Unable to disable the regulator:"
-					"ldo6_3p3\n", __func__);
-				ldo_status = !on;
-				return ret;
-			}
-		}
-
-		if (regulator_is_enabled(ldo7_1p8)) {
-			ret = regulator_disable(ldo7_1p8);
-			if (ret) {
-				pr_err("%s: Unable to enable the regulator:"
-					" ldo7_1p8\n", __func__);
-				ldo_status = !on;
-				return ret;
-			}
-		}
-
+		ret = regulator_set_optimum_mode(ldo7_1p8,
+				USB_PHY_1P8_LPM_LOAD);
+		if (ret < 0)
+			pr_err("%s: Unable to set LPM of the regulator:"
+				"ldo7_1p8\n", __func__);
+		ret = regulator_set_optimum_mode(ldo6_3p3,
+				USB_PHY_3P3_LPM_LOAD);
+		if (ret < 0)
+			pr_err("%s: Unable to set LPM of the regulator:"
+				"ldo6_3p3\n", __func__);
 	}
 
-	pr_debug("reg (%s)\n", on ? "ENABLED" : "DISABLED");
-	return 0;
+	pr_debug("reg (%s)\n", on ? "HPM" : "LPM");
+	return ret < 0 ? ret : 0;
  }
 #endif
 #ifdef CONFIG_USB_EHCI_MSM
@@ -5500,6 +5524,17 @@ static void __init msm8x60_init_buses(void)
 	}
 
 #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_HCD)
+	/*
+	 * We can not put USB regulators (8058_l6 and 8058_l7) in LPM
+	 * when we depend on USB PHY for VBUS/ID notifications. VBUS
+	 * and ID notifications are available only on V2 surf and FFA
+	 * with a hardware workaround.
+	 */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2 &&
+			(machine_is_msm8x60_surf() ||
+			(machine_is_msm8x60_ffa() &&
+			pmic_id_notif_supported)))
+		msm_otg_pdata.phy_can_powercollapse = 1;
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 #endif
 #ifdef CONFIG_SERIAL_MSM_HS

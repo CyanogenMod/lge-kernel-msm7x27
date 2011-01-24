@@ -620,7 +620,7 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 static int msm_otg_suspend(struct msm_otg *dev)
 {
 	unsigned long timeout;
-	int vbus = 0;
+	bool host_bus_suspend;
 	unsigned ret;
 	enum chg_type chg_type = atomic_read(&dev->chg_type);
 	unsigned long flags;
@@ -666,8 +666,9 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	 * 3. host is supported, but, id is not routed to pmic
 	 * 4. peripheral is supported, but, vbus is not routed to pmic
 	 */
+	host_bus_suspend = dev->otg.host && is_host();
 	if ((dev->otg.gadget && chg_type == USB_CHG_TYPE__WALLCHARGER) ||
-		(dev->otg.host && is_host()) ||
+		host_bus_suspend ||
 		(dev->otg.host && !dev->pmic_id_notif_supp) ||
 		(dev->otg.gadget && !dev->pmic_vbus_notif_supp)) {
 		ulpi_write(dev, 0x01, 0x30);
@@ -719,7 +720,7 @@ static int msm_otg_suspend(struct msm_otg *dev)
 
 	atomic_set(&dev->in_lpm, 1);
 
-	if (!vbus && dev->pmic_vbus_notif_supp) {
+	if (!host_bus_suspend && dev->pmic_vbus_notif_supp) {
 		pr_debug("phy can power collapse: (%d)\n",
 			can_phy_power_collapse(dev));
 		if (can_phy_power_collapse(dev) && dev->pdata->ldo_enable) {
