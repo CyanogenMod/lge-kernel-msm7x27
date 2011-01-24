@@ -263,6 +263,7 @@ struct mddi_platform_data {
 };
 
 struct mipi_dsi_platform_data {
+	int vsync_gpio;
 	int (*dsi_power_save)(int on);
 };
 

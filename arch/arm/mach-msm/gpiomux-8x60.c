@@ -313,6 +313,12 @@ static struct gpiomux_setting lcdc_suspend_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting mdp_vsync_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting hdmi_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -365,6 +371,12 @@ static struct gpiomux_setting ts_suspended = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mdp_vsync_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting hdmi_active_1_cfg = {
@@ -1444,6 +1456,16 @@ static struct msm_gpiomux_config msm8x60_lcdc_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm8x60_mdp_vsync_configs[] __initdata = {
+	{
+		.gpio = 28,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mdp_vsync_active_cfg,
+			[GPIOMUX_SUSPENDED] = &mdp_vsync_suspend_cfg,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm8x60_hdmi_configs[] __initdata = {
 	{
 		.gpio = 169,
@@ -1641,6 +1663,7 @@ msm8x60_surf_ffa_gpiomux_cfgs[] __initdata = {
 	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
 	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
 	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
+	{msm8x60_mdp_vsync_configs, ARRAY_SIZE(msm8x60_mdp_vsync_configs)},
 	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
 	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
 	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
@@ -1661,6 +1684,7 @@ msm8x60_fluid_gpiomux_cfgs[] __initdata = {
 	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
 	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
 	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
+	{msm8x60_mdp_vsync_configs, ARRAY_SIZE(msm8x60_mdp_vsync_configs)},
 	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
 	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
 	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
@@ -1680,6 +1704,7 @@ msm8x60_qrdc_gpiomux_cfgs[] __initdata = {
 	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
 	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
 	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
+	{msm8x60_mdp_vsync_configs, ARRAY_SIZE(msm8x60_mdp_vsync_configs)},
 	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
 	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
 	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
@@ -1702,6 +1727,7 @@ msm8x60_charm_gpiomux_cfgs[] __initdata = {
 	{msm8x60_snd_configs, ARRAY_SIZE(msm8x60_snd_configs)},
 	{msm8x60_mi2s_configs, ARRAY_SIZE(msm8x60_mi2s_configs)},
 	{msm8x60_lcdc_configs, ARRAY_SIZE(msm8x60_lcdc_configs)},
+	{msm8x60_mdp_vsync_configs, ARRAY_SIZE(msm8x60_mdp_vsync_configs)},
 	{msm8x60_hdmi_configs, ARRAY_SIZE(msm8x60_hdmi_configs)},
 	{msm8x60_pmic_configs, ARRAY_SIZE(msm8x60_pmic_configs)},
 	{msm8x60_common_configs, ARRAY_SIZE(msm8x60_common_configs)},
