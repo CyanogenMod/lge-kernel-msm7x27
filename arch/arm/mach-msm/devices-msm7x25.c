@@ -33,6 +33,8 @@
 #include <mach/usbdiag.h>
 #include <mach/rpc_hsusb.h>
 
+#include "clock-pcom.h"
+
 static struct resource resources_uart1[] = {
 	{
 		.start	= INT_UART1,

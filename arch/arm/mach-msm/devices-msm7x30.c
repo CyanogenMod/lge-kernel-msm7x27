@@ -26,6 +26,7 @@
 
 #include "devices.h"
 #include "clock-7x30.h"
+#include "clock-pcom.h"
 #include "clock-voter.h"
 #include "gpio_hw.h"
 

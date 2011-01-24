@@ -29,8 +29,10 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 
-#include "clock.h"
 #include <mach/mmc.h>
+
+#include "clock.h"
+#include "clock-pcom.h"
 
 static struct resource resources_uart1[] = {
 	{

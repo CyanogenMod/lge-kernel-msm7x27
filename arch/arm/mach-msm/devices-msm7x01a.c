@@ -30,6 +30,8 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_hsusb.h>
 
+#include "clock-pcom.h"
+
 static struct resource resources_uart1[] = {
 	{
 		.start	= INT_UART1,
