@@ -22,15 +22,20 @@
 #include "devices.h"
 #include "board-muscat.h"
 
-#define MSM_FB_LCDC_VREG_OP(name, op, level)			\
-do { \
-	vreg = vreg_get(0, name); \
-	vreg_set_level(vreg, level); \
-	if (vreg_##op(vreg)) \
-		printk(KERN_ERR "%s: %s vreg operation failed \n", \
-			(vreg_##op == vreg_enable) ? "vreg_enable" \
-				: "vreg_disable", name); \
-} while (0)
+#define MSM_FB_LCDC_VREG_OP(name, op, level)	\
+	do {														\
+		vreg = vreg_get(0, name);								\
+		vreg_set_level(vreg, level);							\
+		if (vreg_##op(vreg))									\
+			printk(KERN_ERR "%s: %s vreg operation failed \n",	\
+				   (vreg_##op == vreg_enable) ? "vreg_enable"	\
+				   : "vreg_disable", name);						\
+	} while (0)
+
+static char *msm_fb_vreg[] = {
+	"gp1",
+	"gp2",
+};
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = 97,
@@ -39,20 +44,36 @@ static struct msm_panel_common_pdata mdp_pdata = {
 static void __init msm_fb_add_devices(void)
 {
 	msm_fb_register_device("mdp", &mdp_pdata);
-	msm_fb_register_device("pmdh", 0);
-//	msm_fb_register_device("lcdc",  0); //	msm_fb_register_device("lcdc", &lcdc_pdata);
 	msm_fb_register_device("ebi2", 0); 
 }
 
-static int ebi2_tovis_pmic_backlight(int level)
+/* Use pmic_backlight function as power save function, munyoung.hwang@lge.com */
+static int mddi_power_save_on;
+static int ebi2_tovis_power_save(int on)
 {
-	/* TODO: Backlight control here */
+	struct vreg *vreg;
+	int flag_on = !!on;
+
+	printk(KERN_INFO"%s: on=%d\n", __func__, flag_on);
+
+	if (mddi_power_save_on == flag_on)
+		return 0;
+
+	mddi_power_save_on = flag_on;
+
+	if (on) {
+		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], enable, 1800);
+		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], enable, 2800);
+	} else{
+		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
+		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], disable, 0);
+	}
 	return 0;
 }
 
 static struct msm_panel_common_pdata ebi2_tovis_panel_data = {
-		.gpio = 102,				/* lcd reset_n */
-		.pmic_backlight = ebi2_tovis_pmic_backlight,
+	.gpio = 102,				/* lcd reset_n */
+	.pmic_backlight = ebi2_tovis_power_save,
 };
 
 static struct platform_device ebi2_tovis_panel_device = {
@@ -115,10 +136,7 @@ void __init muscat_init_i2c_backlight(int bus_num)
 /* common functions */
 void __init lge_add_lcd_devices(void)
 {
-//	platform_device_register(&mddi_hitachi_panel_device);
 	platform_device_register(&ebi2_tovis_panel_device);
-
 	msm_fb_add_devices();
-
 	lge_add_gpio_i2c_device(muscat_init_i2c_backlight);
 }

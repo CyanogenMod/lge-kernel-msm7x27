@@ -38,21 +38,6 @@
 #include <mach/vreg.h>
 #include <mach/board_lge.h>
 
-#define MSM_FB_LCDC_VREG_OP(name, op, level)			\
-do { \
-	vreg = vreg_get(0, name); \
-	vreg_set_level(vreg, level); \
-	if (vreg_##op(vreg)) \
-		printk(KERN_ERR "%s: %s vreg operation failed \n", \
-			(vreg_##op == vreg_enable) ? "vreg_enable" \
-				: "vreg_disable", name); \
-} while (0)
-
-static char *msm_fb_vreg[] = {
-	"gp1",
-	"gp2",
-};
-
 #define QVGA_WIDTH        240
 #define QVGA_HEIGHT       320
 
@@ -65,19 +50,26 @@ static void *DISP_DATA_PORT;
 
 static boolean disp_initialized = FALSE;
 struct msm_fb_panel_data tovis_qvga_panel_data;
+struct msm_panel_common_pdata *tovis_qvga_panel_pdata;
 
 /* For some reason the contrast set at init time is not good. Need to do
 * it again
 */
 static boolean display_on = TRUE; // FALSE;
 
-static void tovis_qvga_disp_init(struct platform_device *pdev);
-#if 0 /* not defined */
-static void tovis_qvga_disp_set_rect(int x, int y, int xres, int yres);
-
-static int tovis_qvga_disp_off(struct platform_device *pdev);
-static int tovis_qvga_disp_on(struct platform_device *pdev);
-#endif
+#define DISP_SET_RECT(csp, cep, psp, pep) \
+	{ \
+		EBI2_WRITE16C(DISP_CMD_PORT, 0x2a);			\
+		EBI2_WRITE16D(DISP_DATA_PORT,(csp)>>8);		\
+		EBI2_WRITE16D(DISP_DATA_PORT,(csp)&0xFF);	\
+		EBI2_WRITE16D(DISP_DATA_PORT,(cep)>>8);		\
+		EBI2_WRITE16D(DISP_DATA_PORT,(cep)&0xFF);	\
+		EBI2_WRITE16C(DISP_CMD_PORT, 0x2b);			\
+		EBI2_WRITE16D(DISP_DATA_PORT,(psp)>>8);		\
+		EBI2_WRITE16D(DISP_DATA_PORT,(psp)&0xFF);	\
+		EBI2_WRITE16D(DISP_DATA_PORT,(pep)>>8);		\
+		EBI2_WRITE16D(DISP_DATA_PORT,(pep)&0xFF);	\
+	}
 
 static unsigned int te_lines = 0xab;
 static unsigned int mactl = 0x98;
@@ -101,24 +93,13 @@ static void tovis_qvga_disp_init(struct platform_device *pdev)
 	disp_initialized = TRUE;
 }
 
-static int ebi2_power_save_on = 1;
 static void msm_fb_ebi2_power_save(int on)
 {
-	struct vreg *vreg;
-	int flag_on = !!on;
+	struct msm_panel_common_pdata *pdata = tovis_qvga_panel_pdata;
 
-	if (ebi2_power_save_on == flag_on)
-		return;
-
- 	ebi2_power_save_on = flag_on;
-
-	if (on) {
-//		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], enable, 1800);
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], enable, 2800);
-	} else {
-//		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], disable, 0);
-	}
+	/* Use pmic_backlight as power_save function, munyoung.hwang@lge.com */
+	if(pdata && pdata->pmic_backlight)
+		pdata->pmic_backlight(on);
 }
 
 static int ilitek_qvga_disp_off(struct platform_device *pdev)
@@ -139,26 +120,12 @@ static int ilitek_qvga_disp_off(struct platform_device *pdev)
 	return 0;
 }
 
-static inline void disp_set_rect(uint16_t csp, uint16_t cep, uint16_t psp, uint16_t pep) {
-	EBI2_WRITE16C(DISP_CMD_PORT, 0x2a);
-	EBI2_WRITE16D(DISP_DATA_PORT,(csp >> 8));
-	EBI2_WRITE16D(DISP_DATA_PORT,csp & 0xFF);
-	EBI2_WRITE16D(DISP_DATA_PORT,cep >> 8);
-	EBI2_WRITE16D(DISP_DATA_PORT,cep & 0xFF);
-	EBI2_WRITE16C(DISP_CMD_PORT, 0x2b);
-	EBI2_WRITE16D(DISP_DATA_PORT,psp >> 8);
-	EBI2_WRITE16D(DISP_DATA_PORT,psp & 0xFF);
-	EBI2_WRITE16D(DISP_DATA_PORT,pep >> 8);
-	EBI2_WRITE16D(DISP_DATA_PORT,pep & 0xFF);
-}
-
 static void ilitek_qvga_disp_set_rect(int x, int y, int xres, int yres) // xres = width, yres - height
 {
 	if (!disp_initialized)
 		return;
 
-	/* printk(KERN_INFO "%s: entered.\n", __func__); */
-	disp_set_rect(x, x+xres-1, y, y+yres-1);
+	DISP_SET_RECT(x, x+xres-1, y, y+yres-1);
 	EBI2_WRITE16C(DISP_CMD_PORT,0x2c); // Write memory start
 }
 
@@ -316,17 +283,19 @@ static void do_ilitek_init(struct platform_device *pdev)
 
 static int ilitek_qvga_disp_on(struct platform_device *pdev)
 {
+	struct msm_panel_common_pdata *pdata = tovis_qvga_panel_pdata;
+
 	if (!disp_initialized)
 		tovis_qvga_disp_init(pdev);
 
 	if (!display_on) {
 		msm_fb_ebi2_power_save(1);
 		mdelay(10);
-		gpio_set_value(102, 1);
+		gpio_set_value(pdata->gpio, 1);
 		mdelay(1);
-		gpio_set_value(102, 0);
+		gpio_set_value(pdata->gpio, 0);
 		mdelay(1);
-		gpio_set_value(102, 1);
+		gpio_set_value(pdata->gpio, 1);
 		mdelay(120);
 		display_on = TRUE;
 
@@ -364,6 +333,7 @@ static int __init tovis_qvga_probe(struct platform_device *pdev)
 	int ret;
 
 	if (pdev->id == 0) {
+		tovis_qvga_panel_pdata = pdev->dev.platform_data;
 		return 0;
 	}
 
@@ -411,7 +381,7 @@ static int __init tovis_qvga_init(void)
 		pinfo->yres = 320;
 		pinfo->type = EBI2_PANEL;
 		pinfo->pdest = DISPLAY_1;
-		pinfo->wait_cycle = 0x808000;  // ebi2 write timing reduced by bongkyu.kim
+		pinfo->wait_cycle = 0x808000;
 
 		pinfo->bpp = 16;
 		pinfo->fb_num = 2;
