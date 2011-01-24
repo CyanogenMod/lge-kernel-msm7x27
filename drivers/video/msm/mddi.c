@@ -214,7 +214,7 @@ static int mddi_on(struct platform_device *pdev)
 #ifdef ENABLE_FWD_LINK_SKEW_CALIBRATION
 	if (mddi_client_type < 2) {
 		/* For skew calibration, clock should be less than 50MHz */
-		if (!clk_set_rate(mddi_clk, 49150000)) {
+		if (!clk_set_min_rate(mddi_clk, 49000000)) {
 			stat_reg = mddi_host_reg_in(STAT);
 			printk(KERN_DEBUG "\n stat_reg = 0x%x", stat_reg);
 			mddi_host_reg_out(CMD, MDDI_CMD_HIBERNATE);
@@ -252,6 +252,7 @@ static int mddi_on(struct platform_device *pdev)
 	pm_qos_update_request(mfd->pm_qos_req, 65000);
 #endif
 	ret = panel_next_on(pdev);
+
 	return ret;
 }
 
@@ -508,7 +509,12 @@ static int __init mddi_driver_init(void)
 		printk(KERN_ERR "can't find mddi_clk\n");
 		return PTR_ERR(mddi_clk);
 	}
+	ret = clk_set_min_rate(mddi_clk, 49000000);
+	if (ret)
+		printk(KERN_ERR "Can't set mddi_clk min rate to 49000000\n");
 
+	printk(KERN_INFO "mddi_clk init rate is %lu\n",
+		clk_get_rate(mddi_clk));
 	mddi_pclk = clk_get(NULL, "mddi_pclk");
 	if (IS_ERR(mddi_pclk))
 		mddi_pclk = NULL;
