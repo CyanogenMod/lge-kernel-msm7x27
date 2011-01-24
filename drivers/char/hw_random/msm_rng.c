@@ -150,14 +150,6 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 		goto err_clk_get;
 	}
 
-	/* set clock rate */
-	ret = clk_set_rate(msm_rng_dev->prng_clk, 64000000);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to set clock frequency\n");
-		error = -EPERM;
-		goto err_clk_rate;
-	}
-
 	/* save away pdev and register driver data */
 	msm_rng_dev->pdev = pdev;
 	platform_set_drvdata(pdev, msm_rng_dev);
@@ -196,7 +188,6 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 
 err_hw_register:
 err_clk_enable:
-err_clk_rate:
 	clk_put(msm_rng_dev->prng_clk);
 err_clk_get:
 	iounmap(msm_rng_dev->base);
