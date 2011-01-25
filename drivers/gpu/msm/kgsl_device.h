@@ -39,7 +39,6 @@
 #include <asm/atomic.h>
 
 #include "kgsl_mmu.h"
-#include "kgsl_ringbuffer.h"
 #include "kgsl_pwrctrl.h"
 
 #define KGSL_CONTEXT_MAX (CONFIG_MSM_KGSL_CONTEXTS)

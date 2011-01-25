@@ -22,6 +22,7 @@
 #include <mach/msm_bus.h>
 
 #include "kgsl.h"
+#include "kgsl_log.h"
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 {

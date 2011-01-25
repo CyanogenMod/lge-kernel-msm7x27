@@ -30,6 +30,7 @@
 #define _KGSL_YAMATO_H
 
 #include "kgsl_drawctxt.h"
+#include "kgsl_ringbuffer.h"
 
 struct kgsl_yamato_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
