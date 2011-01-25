@@ -162,6 +162,8 @@ static void ddl_input_failed_cb(struct ddl_client_context *ddl,
 			ddl_get_state_string(ddl->client_state));
 		ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
 	}
+	if (vcd_status == VCD_ERR_IFRAME_EXPECTED)
+		vcd_status = VCD_S_SUCCESS;
 	ddl_context->ddl_callback(vcd_event, vcd_status, &ddl->input_frame,
 		payload_size, (u32 *)ddl, ddl->client_data);
 }
