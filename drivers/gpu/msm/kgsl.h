@@ -70,6 +70,14 @@
 #define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> KGSL_PAGESIZE_SHIFT) + \
 				     KGSL_PT_EXTRA_ENTRIES)
 
+/* Casting using container_of() for structures that kgsl owns. */
+#define KGSL_CONTAINER_OF(ptr, type, member) \
+		container_of(ptr, type, member)
+#define KGSL_YAMATO_DEVICE(device) \
+		KGSL_CONTAINER_OF(device, struct kgsl_yamato_device, dev)
+#define KGSL_G12_DEVICE(device) \
+		KGSL_CONTAINER_OF(device, struct kgsl_g12_device, dev)
+
 struct kgsl_driver {
 	struct cdev cdev;
 	dev_t dev_num;

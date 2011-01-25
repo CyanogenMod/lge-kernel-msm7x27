@@ -35,7 +35,7 @@ kgsl_g12_drawctxt_create(struct kgsl_device_private *dev_priv,
 {
 	unsigned int ctx_id;
 	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 
 	if (g12_device->ringbuffer.numcontext >= KGSL_CONTEXT_MAX) {
 		*drawctxt_id = 0;
@@ -56,7 +56,7 @@ int
 kgsl_g12_drawctxt_destroy(struct kgsl_device *device,
 			unsigned int drawctxt_id)
 {
-	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	if (drawctxt_id >= KGSL_CONTEXT_MAX)
 		return KGSL_FAILURE;
 

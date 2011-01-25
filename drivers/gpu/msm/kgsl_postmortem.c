@@ -396,8 +396,7 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 
 	static struct ib_list ib_list;
 
-	struct kgsl_yamato_device *yamato_device = container_of(device,
-					struct kgsl_yamato_device, dev);
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 
 	mb();
 
