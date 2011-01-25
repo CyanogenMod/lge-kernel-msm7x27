@@ -2318,10 +2318,10 @@ static ssize_t tma300_vkeys_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":60:875:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":180:875:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":300:875:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":420:875:90:90"
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":60:875:90:120"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":180:875:90:120"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":300:875:90:120"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":420:875:90:120"
 	"\n");
 }
 
