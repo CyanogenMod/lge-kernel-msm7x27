@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@
 #include <crypto/authenc.h>
 #include <crypto/scatterwalk.h>
 
+#include <mach/board.h>
 #include "inc/qce.h"
 
 #define MAX_CRYPTO_DEVICE 3
@@ -68,6 +69,9 @@ static struct dentry *_debug_dent;
 static char _debug_read_buf[DEBUG_MAX_RW_BUF];
 
 struct crypto_priv {
+
+	struct msm_ce_hw_support ce_hw_support;
+
 	/* the lock protects queue and req*/
 	spinlock_t lock;
 
@@ -464,7 +468,12 @@ again:
 		qreq.ivsize = crypto_ablkcipher_ivsize(tfm);
 		qreq.cryptlen = req->nbytes;
 		qreq.use_pmem = 0;
-		ret =  qce_ablk_cipher_req(cp->qce, &qreq);
+
+		if ((ctx->enc_key_len == 0) &&
+				(cp->ce_hw_support.hw_key_support == 0))
+			ret = -EINVAL;
+		else
+			ret =  qce_ablk_cipher_req(cp->qce, &qreq);
 
 	} else {
 		struct aead_request *req;
@@ -1413,6 +1422,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	void *handle;
 	struct crypto_priv *cp;
 	int i;
+	struct msm_ce_hw_support *ce_hw_support;
 
 	if (pdev->id >= MAX_CRYPTO_DEVICE) {
 		printk(KERN_ERR "%s: device id %d  exceeds allowed %d\n",
@@ -1439,6 +1449,13 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	crypto_init_queue(&cp->queue, 50);
 	cp->qce = handle;
 	cp->pdev = pdev;
+
+	ce_hw_support = (struct msm_ce_hw_support *)pdev->dev.platform_data;
+	cp->ce_hw_support.ce_shared = ce_hw_support->ce_shared;
+	cp->ce_hw_support.shared_ce_resource =
+				ce_hw_support->shared_ce_resource;
+	cp->ce_hw_support.hw_key_support =
+				ce_hw_support->hw_key_support;
 
 	/* register crypto algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(_qcrypto_algos); i++) {

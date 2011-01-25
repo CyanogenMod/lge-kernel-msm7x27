@@ -33,6 +33,7 @@
 #include <linux/debugfs.h>
 #include <linux/scatterlist.h>
 #include <linux/crypto.h>
+#include <mach/board.h>
 #include "inc/qcedev.h"
 
 #include "inc/qce.h"
@@ -90,6 +91,8 @@ struct qcedev_async_req {
 #define QCEDEV_DEV	"qcedev"
 
 struct qcedev_control{
+
+	struct msm_ce_hw_support ce_hw_support;
 
 	/* misc device */
 	struct miscdevice miscdevice;
@@ -310,16 +313,34 @@ static int start_cipher_req(struct qcedev_control *podev)
 
 	creq.cryptlen = qcedev_areq->cipher_op_req.data_len;
 
-	if (qcedev_areq->cipher_op_req.encklen == 0)
-		creq.op = QCE_REQ_ABLK_CIPHER_NO_KEY;
-	else
-		creq.op = QCE_REQ_ABLK_CIPHER;
+	if (qcedev_areq->cipher_op_req.encklen == 0) {
+		if ((qcedev_areq->cipher_op_req.op == QCEDEV_OPER_ENC_NO_KEY)
+			|| (qcedev_areq->cipher_op_req.op ==
+				QCEDEV_OPER_DEC_NO_KEY))
+			creq.op = QCE_REQ_ABLK_CIPHER_NO_KEY;
+		else {
+			int i;
+
+			for (i = 0; i < QCEDEV_MAX_KEY_SIZE; i++) {
+				if (qcedev_areq->cipher_op_req.enckey[i] != 0)
+					break;
+			}
+
+			if ((podev->ce_hw_support.hw_key_support == 1) &&
+						(i == QCEDEV_MAX_KEY_SIZE))
+				creq.op = QCE_REQ_ABLK_CIPHER;
+			else {
+				ret = -EINVAL;
+				goto unsupported;
+			}
+		}
+	}
 
 	creq.qce_cb = qcedev_cipher_req_cb;
 	creq.areq = (void *)&qcedev_areq->cipher_req;
 
 	ret = qce_ablk_cipher_req(podev->qce, &creq);
-
+unsupported:
 	if (ret)
 		qcedev_areq->err = -ENXIO;
 	else
@@ -1297,6 +1318,7 @@ static int qcedev_probe(struct platform_device *pdev)
 	void *handle = NULL;
 	int rc = 0;
 	struct qcedev_control *podev;
+	struct msm_ce_hw_support *ce_hw_support;
 
 	if (pdev->id >= MAX_QCE_DEVICE) {
 		printk(KERN_ERR "%s: device id %d  exceeds allowed %d\n",
@@ -1304,6 +1326,13 @@ static int qcedev_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 	podev = &qce_dev[pdev->id];
+
+	ce_hw_support = (struct msm_ce_hw_support *)pdev->dev.platform_data;
+	podev->ce_hw_support.ce_shared = ce_hw_support->ce_shared;
+	podev->ce_hw_support.shared_ce_resource =
+				ce_hw_support->shared_ce_resource;
+	podev->ce_hw_support.hw_key_support =
+				ce_hw_support->hw_key_support;
 
 	INIT_LIST_HEAD(&podev->ready_commands);
 	podev->active_command = NULL;
@@ -1476,7 +1505,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.04");
+MODULE_VERSION("1.05");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);

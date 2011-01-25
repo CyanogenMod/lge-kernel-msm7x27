@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver QCEDEV API
  *
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -179,7 +179,7 @@ struct	qcedev_pmem_info{
 * @op (IN):		Type of operation: QCEDEV_OPER_DEC/QCEDEV_OPER_ENC or
 *			QCEDEV_OPER_ENC_NO_KEY/QCEDEV_OPER_DEC_NO_KEY
 *
-* If use_pmem is set to 0, the driver assumes that  memory was not allocated
+*If use_pmem is set to 0, the driver assumes that memory was not allocated
 * via PMEM, and kernel will need to allocate memory and copy data from user
 * space buffer (data_src/dta_dst) and process accordingly and copy data back
 * to the user space buffer
@@ -190,7 +190,12 @@ struct	qcedev_pmem_info{
 * base that maps to the user space virtual address base for the  buffer
 * allocated in user space.
 * The final input/src and output/dst buffer pointer will be determined
-* by adding the  offsets to the kernel virtual addr.
+* by adding the offsets to the kernel virtual addr.
+*
+* If use of hardware key is supported in the target, user can configure the
+* key paramters (encklen, enckey) to use the hardware key.
+* In order to use the hardware key, set encklen to 0 and set the enckey
+* data array to 0.
 */
 struct	qcedev_cipher_op_req {
 	uint8_t				use_pmem;
