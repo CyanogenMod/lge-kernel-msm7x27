@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,10 +56,30 @@ static int msm_cpu_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	return 0;
 }
 
+static int msm_cpu_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+{
+	uint32_t dma_ch = dai->id;
+
+	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
+	case SND_SOC_DAIFMT_CBS_CFS:
+		dai_set_master_mode(dma_ch, 1); /* CPU is master */
+		break;
+	case SND_SOC_DAIFMT_CBM_CFM:
+		dai_set_master_mode(dma_ch, 0); /* CPU is slave */
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static struct snd_soc_dai_ops msm_cpu_dai_ops = {
 	.startup	= msm_cpu_dai_startup,
 	.shutdown	= msm_cpu_dai_shutdown,
 	.trigger	= msm_cpu_dai_trigger,
+	.set_fmt	= msm_cpu_dai_fmt,
+
 };
 
 

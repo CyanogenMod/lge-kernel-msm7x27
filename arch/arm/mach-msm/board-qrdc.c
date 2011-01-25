@@ -42,6 +42,8 @@
 #include <linux/input/tdisc_shinetsu.h>
 #include <linux/input/cy8c_ts.h>
 #include <linux/input/qci_kbd.h>
+#include <linux/mfd/wm8994/core.h>
+#include <linux/mfd/wm8994/pdata.h>
 
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -2532,6 +2534,23 @@ static struct i2c_board_info msm_i2c_gsbi3_qci_input_info[] = {
 	},
 };
 
+#ifdef CONFIG_MFD_WM8994
+
+#define WM8994_I2C_SLAVE_ADDR 0x1A
+
+struct wm8994_pdata wm8994_platform_data = {
+	.gpio_defaults[0] = 0xA101,
+};
+
+static struct i2c_board_info msm_i2c_gsbi7_wm8994_info[] = {
+  {
+	I2C_BOARD_INFO("wm8994", WM8994_I2C_SLAVE_ADDR),
+	.platform_data = &wm8994_platform_data,
+  },
+};
+
+#endif /*CONFIG_MFD_WM8994 */
+
 #ifdef CONFIG_I2C
 
 struct i2c_registry {
@@ -2578,6 +2597,13 @@ static struct i2c_registry msm8x60_i2c_devices[] __initdata = {
 		msm_i2c_gsbi3_tpm_info,
 		ARRAY_SIZE(msm_i2c_gsbi3_tpm_info),
 	},
+#ifdef CONFIG_MFD_WM8994
+	{
+		MSM_GSBI7_QUP_I2C_BUS_ID,
+		msm_i2c_gsbi7_wm8994_info,
+		ARRAY_SIZE(msm_i2c_gsbi7_wm8994_info),
+	},
+#endif
 };
 #endif /* CONFIG_I2C */
 
