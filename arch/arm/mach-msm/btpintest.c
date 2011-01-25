@@ -48,75 +48,76 @@ enum auxpcmpins {
 	AUX_PCM_DIN  = 112,
 	AUX_PCM_DOUT = 111
 };
-/*Number of UART or PCM pins */
-#define PIN_COUNT 4
-#define PIN_TEST_CONFIG {.func = GPIOMUX_FUNC_GPIO, .drv = GPIOMUX_DRV_2MA, \
-						.pull = GPIOMUX_PULL_NONE }
+/*Number of UART and PCM pins */
+#define PIN_COUNT 8
 
-static struct msm_gpiomux_config pcm_test_config[]  = {
+static struct gpiomux_setting pin_test_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+/* Static array to intialise the return config */
+static struct gpiomux_setting currentconfig[2*PIN_COUNT];
+
+static struct msm_gpiomux_config pin_test_configs[]  = {
 	{
 		.gpio = AUX_PCM_DOUT,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
 	{
 		.gpio = AUX_PCM_DIN,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
 	{
 		.gpio = AUX_PCM_SYNC,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
 	{
 		.gpio = AUX_PCM_CLK,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
-};
-
-static struct msm_gpiomux_config uart_test_config[] = {
 	{
 		.gpio = UARTDM_TX,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
 	{
 		.gpio = UARTDM_RX,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
 	{
 		.gpio = UARTDM_CTS,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
 	{
 		.gpio = UARTDM_RFR,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = PIN_TEST_CONFIG,
-			[GPIOMUX_SUSPENDED] = PIN_TEST_CONFIG,
+			[GPIOMUX_ACTIVE]    = &pin_test_config,
+			[GPIOMUX_SUSPENDED] = &pin_test_config,
 		},
 	},
 };
-
-static struct msm_gpiomux_config aux_pcm_config[PIN_COUNT];
-static struct msm_gpiomux_config uart_config[PIN_COUNT];
+static struct msm_gpiomux_config pin_config[PIN_COUNT];
 
 static int pintest_open(struct inode *inode, struct file *file)
 {
@@ -140,14 +141,28 @@ static int configure_pins(struct msm_gpiomux_config *config,
 			(oldconfig + i)->gpio = (config + i)->gpio;
 			rc = msm_gpiomux_write((config + i)->gpio,
 				j,
-				&(config + i)->settings[j],
-				&(oldconfig + i)->settings[j]);
+				(config + i)->settings[j],
+				(oldconfig + i)->settings[j]);
 			if (rc < 0)
 				break;
 		}
 
 	}
 	return rc;
+}
+
+static void init_current_config_pointers(void)
+{
+	int i = 0, j = 0;
+	/* The current config variables will hold the current configuration
+	 * which is getting overwritten during a msm_gpiomux_write call
+	 */
+	for (i = 0, j = 0; i < PIN_COUNT; i += 1, j += 2) {
+		pin_config[i].settings[GPIOMUX_ACTIVE] = &currentconfig[j];
+		pin_config[i].settings[GPIOMUX_SUSPENDED] =
+							&currentconfig[j + 1];
+	}
+
 }
 
 static ssize_t pintest_write(
@@ -169,26 +184,20 @@ static ssize_t pintest_write(
 		return -EFAULT;
 	mode = mode - '0';
 
+	init_current_config_pointers();
+
 	if (mode) {
-		/* Configure all AuX PCM gpios for the custom settings */
-		rc = configure_pins(pcm_test_config, aux_pcm_config,
-					ARRAY_SIZE(pcm_test_config));
+		/* Configure all pin test gpios for the custom settings */
+		rc = configure_pins(pin_test_configs, pin_config,
+					ARRAY_SIZE(pin_test_configs));
 		if (rc < 0)
 			return rc;
-
-		/* Configure all UART gpios for the custom settings */
-		rc = configure_pins(uart_test_config, uart_config,
-					ARRAY_SIZE(uart_test_config));
 	} else {
-		/* Configure all AuX PCM gpios for the original settings */
-		rc = configure_pins(aux_pcm_config, pcm_test_config,
-					ARRAY_SIZE(pcm_test_config));
+		/* Configure all pin test gpios for the original settings */
+		rc = configure_pins(pin_config, pin_test_configs,
+					ARRAY_SIZE(pin_test_configs));
 		if (rc < 0)
 			return rc;
-
-		/* Configure all UART gpios for the original settings */
-		rc = configure_pins(uart_config, uart_test_config,
-					ARRAY_SIZE(uart_test_config));
 	}
 	return rc;
 }
