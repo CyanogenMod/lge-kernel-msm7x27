@@ -49,7 +49,7 @@
 #include <mach/msm_dsps.h>
 #endif
 #include <linux/gpio.h>
-#include "mdm.h"
+#include <mach/mdm.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -112,9 +112,16 @@ static void charm_ap2mdm_kpdpwr_off(void)
 }
 
 static struct resource charm_resources[] = {
+	/* MDM2AP_ERRFATAL */
 	{
 		.start	= MSM_GPIO_TO_INT(133),
 		.end	= MSM_GPIO_TO_INT(133),
+		.flags = IORESOURCE_IRQ,
+	},
+	/* MDM2AP_STATUS */
+	{
+		.start	= MSM_GPIO_TO_INT(134),
+		.end	= MSM_GPIO_TO_INT(134),
 		.flags = IORESOURCE_IRQ,
 	}
 };
