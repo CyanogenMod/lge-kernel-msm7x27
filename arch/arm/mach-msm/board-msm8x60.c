@@ -5639,6 +5639,10 @@ static void __init msm8x60_init_tlmm(void)
 	|| defined(CONFIG_MMC_MSM_SDC3_SUPPORT)\
 	|| defined(CONFIG_MMC_MSM_SDC4_SUPPORT)\
 	|| defined(CONFIG_MMC_MSM_SDC5_SUPPORT))
+
+/* 8x60 is having 5 SDCC controllers */
+#define MAX_SDCC_CONTROLLER	5
+
 struct msm_sdcc_gpio {
 	/* maximum 10 GPIOs per SDCC controller */
 	s16 no;
@@ -5767,7 +5771,7 @@ struct msm_sdcc_pin_cfg {
 };
 
 
-static struct msm_sdcc_pin_cfg sdcc_pin_cfg_data[5] = {
+static struct msm_sdcc_pin_cfg sdcc_pin_cfg_data[MAX_SDCC_CONTROLLER] = {
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
 	[0] = {
 		.is_gpio = 1,
@@ -5921,30 +5925,69 @@ struct sdcc_reg {
 	unsigned int lpm_uA;
 	unsigned int hpm_uA;
 };
-/* all 5 SDCC controllers requires VDD/VCC voltage  */
-static struct sdcc_reg sdcc_vdd_reg_data[5];
+/* all SDCC controllers requires VDD/VCC voltage */
+static struct sdcc_reg sdcc_vdd_reg_data[MAX_SDCC_CONTROLLER];
 /* only SDCC1 requires VCCQ voltage */
 static struct sdcc_reg sdcc_vccq_reg_data[1];
+/* all SDCC controllers may require voting for VDD PAD voltage */
+static struct sdcc_reg sdcc_vddp_reg_data[MAX_SDCC_CONTROLLER];
 
 struct sdcc_reg_data {
 	struct sdcc_reg *vdd_data; /* keeps VDD/VCC regulator info */
 	struct sdcc_reg *vccq_data; /* keeps VCCQ regulator info */
+	struct sdcc_reg *vddp_data; /* keeps VDD Pad regulator info */
 	unsigned char sts; /* regulator enable/disable status */
 };
 /* msm8x60 have 5 SDCC controllers */
-static struct sdcc_reg_data sdcc_vreg_data[5];
+static struct sdcc_reg_data sdcc_vreg_data[MAX_SDCC_CONTROLLER];
+
+static int msm_sdcc_vreg_init_reg(struct sdcc_reg *vreg)
+{
+	int rc = 0;
+
+	/* Get the regulator handle */
+	vreg->reg = regulator_get(NULL, vreg->reg_name);
+	if (IS_ERR(vreg->reg)) {
+		rc = PTR_ERR(vreg->reg);
+		pr_err("%s: regulator_get(%s) failed. rc=%d\n",
+			__func__, vreg->reg_name, rc);
+		goto out;
+	}
+
+	/* Set the voltage level if required */
+	if (vreg->set_voltage_sup) {
+		rc = regulator_set_voltage(vreg->reg, vreg->level,
+					vreg->level);
+		if (rc) {
+			pr_err("%s: regulator_set_voltage(%s) failed rc=%d\n",
+				__func__, vreg->reg_name, rc);
+			goto vreg_put;
+		}
+	}
+	goto out;
+
+vreg_put:
+	regulator_put(vreg->reg);
+out:
+	return rc;
+}
+
+static inline void msm_sdcc_vreg_deinit_reg(struct sdcc_reg *vreg)
+{
+	regulator_put(vreg->reg);
+}
 
 /* this init function should be called only once for each SDCC */
 static int msm_sdcc_vreg_init(int dev_id, unsigned char init)
 {
 	int rc = 0;
-	struct sdcc_reg *curr_vdd_reg;
-	struct sdcc_reg *curr_vccq_reg;
+	struct sdcc_reg *curr_vdd_reg, *curr_vccq_reg, *curr_vddp_reg;
 	struct sdcc_reg_data *curr;
 
 	curr = &sdcc_vreg_data[dev_id - 1];
 	curr_vdd_reg = curr->vdd_data;
 	curr_vccq_reg = curr->vccq_data;
+	curr_vddp_reg = curr->vddp_data;
 
 	if (init) {
 		/*
@@ -5952,61 +5995,34 @@ static int msm_sdcc_vreg_init(int dev_id, unsigned char init)
 		 * and then try to set the voltage level for the regulator
 		 */
 		if (curr_vdd_reg) {
-			curr_vdd_reg->reg =
-				regulator_get(NULL, curr_vdd_reg->reg_name);
-			if (IS_ERR(curr_vdd_reg->reg)) {
-				rc = PTR_ERR(curr_vdd_reg->reg);
-				pr_err("%s: regulator_get(%s) failed = %d\n",
-					__func__, curr_vdd_reg->reg_name, rc);
+			rc = msm_sdcc_vreg_init_reg(curr_vdd_reg);
+			if (rc)
 				goto out;
-			}
-
-			if (curr_vdd_reg->set_voltage_sup) {
-				rc = regulator_set_voltage(curr_vdd_reg->reg,
-					curr_vdd_reg->level,
-					curr_vdd_reg->level);
-				if (rc) {
-					pr_err("%s: regulator_set_voltage(%s)"
-						" = %d\n", __func__,
-						curr_vdd_reg->reg_name, rc);
-					goto vdd_reg_put;
-				}
-			}
 		}
-
 		if (curr_vccq_reg) {
-			curr_vccq_reg->reg =
-				regulator_get(NULL, curr_vccq_reg->reg_name);
-			if (IS_ERR(curr_vccq_reg->reg)) {
-				rc = PTR_ERR(curr_vccq_reg->reg);
-				pr_err("%s: regulator get of %s failed (%d)\n",
-					__func__, curr_vccq_reg->reg_name, rc);
-				goto vdd_reg_put;
-			}
-			if (curr_vccq_reg->set_voltage_sup) {
-				rc = regulator_set_voltage(curr_vccq_reg->reg,
-					curr_vccq_reg->level,
-					curr_vccq_reg->level);
-				if (rc) {
-					pr_err("%s: regulator_set_voltage()"
-						"= %d\n", __func__, rc);
-					goto vccq_reg_put;
-				}
-			}
+			rc = msm_sdcc_vreg_init_reg(curr_vccq_reg);
+			if (rc)
+				goto vdd_reg_deinit;
 		}
-	} else {
-		/* deregister with voltage regulator framework */
-		rc = 0;
-		goto vccq_reg_put;
-	}
-	goto out;
+		if (curr_vddp_reg) {
+			rc = msm_sdcc_vreg_init_reg(curr_vddp_reg);
+			if (rc)
+				goto vccq_reg_deinit;
+		}
+		goto out;
+	} else
+		/* deregister with all regulators from regulator framework */
+		goto vddp_reg_deinit;
 
-vccq_reg_put:
+vddp_reg_deinit:
+	if (curr_vddp_reg)
+		msm_sdcc_vreg_deinit_reg(curr_vddp_reg);
+vccq_reg_deinit:
 	if (curr_vccq_reg)
-		regulator_put(curr_vccq_reg->reg);
-vdd_reg_put:
+		msm_sdcc_vreg_deinit_reg(curr_vccq_reg);
+vdd_reg_deinit:
 	if (curr_vdd_reg)
-		regulator_put(curr_vdd_reg->reg);
+		msm_sdcc_vreg_deinit_reg(curr_vdd_reg);
 out:
 	return rc;
 }
@@ -6082,22 +6098,23 @@ out:
 static int msm_sdcc_setup_vreg(int dev_id, unsigned char enable)
 {
 	int rc = 0;
-	struct sdcc_reg *curr_vdd_reg;
-	struct sdcc_reg *curr_vccq_reg;
+	struct sdcc_reg *curr_vdd_reg, *curr_vccq_reg, *curr_vddp_reg;
 	struct sdcc_reg_data *curr;
 
 	curr = &sdcc_vreg_data[dev_id - 1];
 	curr_vdd_reg = curr->vdd_data;
 	curr_vccq_reg = curr->vccq_data;
+	curr_vddp_reg = curr->vddp_data;
 
 	/* check if regulators are initialized or not? */
 	if ((curr_vdd_reg && !curr_vdd_reg->reg) ||
-		(curr_vccq_reg && !curr_vccq_reg->reg)) {
+		(curr_vccq_reg && !curr_vccq_reg->reg) ||
+		(curr_vddp_reg && !curr_vddp_reg->reg)) {
 		/* initialize voltage regulators required for this SDCC */
 		rc = msm_sdcc_vreg_init(dev_id, 1);
 		if (rc) {
 			pr_err("%s: regulator init failed = %d\n",
-					__func__, rc);
+				__func__, rc);
 			goto out;
 		}
 	}
@@ -6105,39 +6122,34 @@ static int msm_sdcc_setup_vreg(int dev_id, unsigned char enable)
 	if (curr->sts == enable)
 		goto out;
 
-	if (enable) {
-		if (curr_vdd_reg) {
+	if (curr_vdd_reg) {
+		if (enable)
 			rc = msm_sdcc_vreg_enable(curr_vdd_reg);
-			if (rc)
-				goto out;
-		}
-		if (curr_vccq_reg) {
-			rc = msm_sdcc_vreg_enable(curr_vccq_reg);
-			if (rc)
-				goto out;
-		}
-		/*
-		 * now we can safely say that all required regulators
-		 * are enabled for this SDCC
-		 */
-		curr->sts = enable;
-	} else {
-		if (curr_vdd_reg) {
+		else
 			rc = msm_sdcc_vreg_disable(curr_vdd_reg);
-			if (rc)
-				goto out;
-		}
-		if (curr_vccq_reg) {
-			rc = msm_sdcc_vreg_disable(curr_vccq_reg);
-			if (rc)
-				goto out;
-		}
-		/*
-		 * now we can safely say that all required
-		 * regulators are disabled for this SDCC
-		 */
-		curr->sts = enable;
+		if (rc)
+			goto out;
 	}
+
+	if (curr_vccq_reg) {
+		if (enable)
+			rc = msm_sdcc_vreg_enable(curr_vccq_reg);
+		else
+			rc = msm_sdcc_vreg_disable(curr_vccq_reg);
+		if (rc)
+			goto out;
+	}
+
+	if (curr_vddp_reg) {
+		if (enable)
+			rc = msm_sdcc_vreg_enable(curr_vddp_reg);
+		else
+			rc = msm_sdcc_vreg_disable(curr_vddp_reg);
+		if (rc)
+			goto out;
+	}
+	curr->sts = enable;
+
 out:
 	return rc;
 }
@@ -6387,9 +6399,11 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[0].vdd_data->reg_name = "8901_l5";
 	sdcc_vreg_data[0].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[0].vdd_data->level = 2850000;
+
 	sdcc_vreg_data[0].vccq_data = &sdcc_vccq_reg_data[0];
 	sdcc_vreg_data[0].vccq_data->reg_name = "8901_lvs0";
 	sdcc_vreg_data[0].vccq_data->set_voltage_sup = 0;
+
 	msm_add_sdcc(1, &msm8x60_sdc1_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
@@ -6401,7 +6415,9 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[1].vdd_data->reg_name = "8058_s3";
 	sdcc_vreg_data[1].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[1].vdd_data->level = 1800000;
+
 	sdcc_vreg_data[1].vccq_data = NULL;
+
 	if (machine_is_msm8x60_charm_surf())
 		msm8x60_sdc2_data.msmsdcc_fmax = 24000000;
 	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
@@ -6417,7 +6433,23 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[2].vdd_data->op_pwr_mode_sup = 1;
 	sdcc_vreg_data[2].vdd_data->lpm_uA = 9000;
 	sdcc_vreg_data[2].vdd_data->hpm_uA = 200000;
+
 	sdcc_vreg_data[2].vccq_data = NULL;
+
+	sdcc_vreg_data[2].vddp_data = &sdcc_vddp_reg_data[2];
+	sdcc_vreg_data[2].vddp_data->reg_name = "8058_l5";
+	sdcc_vreg_data[2].vddp_data->set_voltage_sup = 1;
+	sdcc_vreg_data[2].vddp_data->level = 2850000;
+	sdcc_vreg_data[2].vddp_data->always_on = 1;
+	sdcc_vreg_data[2].vddp_data->op_pwr_mode_sup = 1;
+	/* Sleep current required is ~300 uA. But min. RPM
+	 * vote can be in terms of mA (min. 1 mA).
+	 * So let's vote for 2 mA during sleep.
+	 */
+	sdcc_vreg_data[2].vddp_data->lpm_uA = 2000;
+	/* Max. Active current required is 16 mA */
+	sdcc_vreg_data[2].vddp_data->hpm_uA = 16000;
+
 	if (machine_is_msm8x60_fluid())
 		msm8x60_sdc3_data.wpswitch = NULL;
 	msm_add_sdcc(3, &msm8x60_sdc3_data);
@@ -6428,7 +6460,9 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[3].vdd_data->reg_name = "8058_s3";
 	sdcc_vreg_data[3].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[3].vdd_data->level = 1800000;
+
 	sdcc_vreg_data[3].vccq_data = NULL;
+
 	msm_add_sdcc(4, &msm8x60_sdc4_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC5_SUPPORT
@@ -6440,7 +6474,9 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[4].vdd_data->reg_name = "8058_s3";
 	sdcc_vreg_data[4].vdd_data->set_voltage_sup = 1;
 	sdcc_vreg_data[4].vdd_data->level = 1800000;
+
 	sdcc_vreg_data[4].vccq_data = NULL;
+
 	if (machine_is_msm8x60_charm_surf())
 		msm8x60_sdc5_data.msmsdcc_fmax = 24000000;
 	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
