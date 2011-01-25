@@ -55,6 +55,8 @@ static void snddev_hsed_config_restore_setting(void);
 /* GPIO_CLASS_D1_EN */
 #define SNDDEV_GPIO_CLASS_D1_EN 229
 
+#define SNDDEV_GPIO_MIC2_ANCR_SEL 294
+
 static struct resource msm_cdcclk_ctl_resources[] = {
 	{
 		.name   = "msm_snddev_tx_mclk",
@@ -328,9 +330,27 @@ static void msm_snddev_enable_amic_power(void)
 #ifdef CONFIG_PMIC8058_OTHC
 	int ret;
 
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_ALWAYS_ON);
-	if (ret)
-		pr_err("%s: Enabling amic power failed\n", __func__);
+	if (machine_is_msm8x60_fluid()) {
+
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_0,
+				OTHC_SIGNAL_ALWAYS_ON);
+		if (ret)
+			pr_err("%s: Enabling amic power failed\n", __func__);
+
+		ret = gpio_request(SNDDEV_GPIO_MIC2_ANCR_SEL, "MIC2_ANCR_SEL");
+		if (ret) {
+			pr_err("%s: spkr pamp gpio %d request failed\n",
+				__func__, SNDDEV_GPIO_MIC2_ANCR_SEL);
+			return;
+		}
+		gpio_direction_output(SNDDEV_GPIO_MIC2_ANCR_SEL, 0);
+
+	} else {
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_2,
+				OTHC_SIGNAL_ALWAYS_ON);
+		if (ret)
+			pr_err("%s: Enabling amic power failed\n", __func__);
+	}
 #endif
 }
 
@@ -338,8 +358,13 @@ static void msm_snddev_disable_amic_power(void)
 {
 #ifdef CONFIG_PMIC8058_OTHC
 	int ret;
+	if (machine_is_msm8x60_fluid()) {
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_0,
+				OTHC_SIGNAL_OFF);
+		gpio_free(SNDDEV_GPIO_MIC2_ANCR_SEL);
+	} else
+		ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
 
-	ret = pm8058_micbias_enable(OTHC_MICBIAS_2, OTHC_SIGNAL_OFF);
 	if (ret)
 		pr_err("%s: Disabling amic power failed\n", __func__);
 #endif
