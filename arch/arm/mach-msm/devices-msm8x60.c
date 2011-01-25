@@ -1547,7 +1547,7 @@ struct clk_lookup msm_clocks_8x60[] = {
 	CLK_8X60("uartdm_pclk",		GSBI6_P_CLK, "msm_serial_hs.0", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI7_P_CLK, "qup_i2c.4", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI8_P_CLK, "qup_i2c.3", OFF),
-	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK, "msm_seraial_hsl.1", OFF),
+	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK, "msm_serial_hsl.1", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK, "qup_i2c.2", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK, "spi_qsd.1", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, OFF),
