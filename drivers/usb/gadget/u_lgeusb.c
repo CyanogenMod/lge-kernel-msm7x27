@@ -1,9 +1,8 @@
 /* linux/drivers/usb/gadget/u_lgeusb.c
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (C) 2010 LGE.
+ * Copyright (C) 2011 LGE.
  * Author : Hyeon H. Park <hyunhui.park@lge.com>
- *			Youn Suk Song <younsuk.song@lge.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -141,7 +140,7 @@ int lgeusb_detect_factory_cable(void)
 
 /* LGE_CHANGE
  * If factory dedicated cable is connected,
- * switch usb mode to factory mode.
+ * switch to LGE usb factory mode.
  * 2011-01-13, hyunhui.park@lge.com
  */
 void lgeusb_switch_factory_mode(int need_reset)
@@ -149,17 +148,29 @@ void lgeusb_switch_factory_mode(int need_reset)
 	struct lgeusb_info *info = usb_info;
 
 	info->current_mode = LGEUSB_FACTORY_MODE;
+	info->current_pid = info->get_pid();
+
 	do_switch_mode(LGE_FACTORY_PID, need_reset);
 }
 
+/* LGE_CHANGE
+ * If a normal cable is connected,
+ * switch to android mode back.
+ * 2011-01-13, hyunhui.park@lge.com
+ */
 void lgeusb_switch_android_mode(int need_reset)
 {
 	struct lgeusb_info *info = usb_info;
+	int restore_pid = info->current_pid;
 
 	info->current_mode = LGEUSB_ANDROID_MODE;
-	do_switch_mode(info->restore_pid, need_reset);
+	do_switch_mode(restore_pid, need_reset);
 }
 
+/* LGE_CHANGE
+ * Get current mode(factory or android).
+ * 2011-01-24, hyunhui.park@lge.com
+ */
 int lgeusb_get_current_mode(void)
 {
 	struct lgeusb_info *info = usb_info;
@@ -167,53 +178,56 @@ int lgeusb_get_current_mode(void)
 	return info->current_mode;
 }
 
-void lgeusb_backup_pid(void)
-{
-	struct lgeusb_info *info = usb_info;
-
-	info->restore_pid = info->get_pid();
-}
-
 /* LGE_CHANGE
  * 1. If cable is factory cable, switch manufacturing mode.
  * 2. Get serial number from CP and set product id to CP.
  * 2011-01-13, hyunhui.park@lge.com
  */
-int lgeusb_set_config(int pid, char *serialno, const char *defaultno)
+int lgeusb_set_current_mode(int need_reset)
 {
+	struct lgeusb_info *info = usb_info;
 	int ret;
 
-	if (!serialno || !defaultno) {
+	if (!info->serialno || !info->defaultno) {
 		lgeusb_info("serial numbers are invalid, skip configuration.\n");
 		return -EINVAL;
 	}
 
 	if (get_factory_cable()) {
+		/* We already are in factory mode, skip it. */
+		if (info->current_mode == LGEUSB_FACTORY_MODE)
+			return LGE_FACTORY_PID;
+
 		/* When manufacturing, do not use serial number */
-		/* Without soft usb reset */
-		lgeusb_switch_factory_mode(0);
+		lgeusb_info("We detect LGE factory cable......\n");
+		lgeusb_switch_factory_mode(need_reset);
 		msm_hsusb_send_productID(LGE_FACTORY_PID);
 		msm_hsusb_is_serial_num_null(1);
-		serialno[0] = '\0';
+		info->serialno[0] = '\0';
 		return LGE_FACTORY_PID;
 	}
 
-	lgeusb_switch_android_mode(0);
+	/* We already are in android mode, skip it. */
+	if (info->current_mode == LGEUSB_ANDROID_MODE)
+		return info->current_pid;
 
-	ret = get_serial_number(serialno);
+	lgeusb_info("We detect Normal USB cable......\n");
+	lgeusb_switch_android_mode(need_reset);
 
-	msm_hsusb_send_productID(pid);
+	ret = get_serial_number(info->serialno);
+
+	msm_hsusb_send_productID(info->current_pid);
 	msm_hsusb_is_serial_num_null(0);
 
-	if (!ret && (serialno[0] != '\0'))
-		msm_hsusb_send_serial_number(serialno);
+	if (!ret && (info->serialno[0] != '\0'))
+		msm_hsusb_send_serial_number(info->serialno);
 	else
-		msm_hsusb_send_serial_number(defaultno);
+		msm_hsusb_send_serial_number(info->defaultno);
 
 	if(ret < 0)
 		lgeusb_info("fail to get serial number, set to default.\n");
 
-	return pid;
+	return info->current_pid;
 }
 
 /* LGE_CHANGE
@@ -233,6 +247,4 @@ void lgeusb_register_usbinfo(struct lgeusb_info *info)
 		lgeusb_info("Registering infomation for lgwusb is failed\n");
 	}
 }
-
-
 

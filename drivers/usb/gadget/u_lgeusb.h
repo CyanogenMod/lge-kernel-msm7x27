@@ -1,9 +1,8 @@
 /* linux/drivers/usb/gadget/u_lgeusb.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (C) 2010 LGE.
+ * Copyright (C) 2011 LGE.
  * Author : Hyeon H. Park <hyunhui.park@lge.com>
- *			Youn Suk Song <younsuk.song@lge.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -42,23 +41,26 @@
 enum lgeusb_mode {
 	LGEUSB_FACTORY_MODE = 0,
 	LGEUSB_ANDROID_MODE,
+	LGEUSB_DEFAULT_MODE,
 };
 
 struct lgeusb_info {
-	int restore_pid;
+	int current_pid;
 	int current_mode;
+	char *serialno;
+	const char *defaultno;
 	void (*switch_func)(int pid, int need_reset);
 	int (*get_pid)(void);
 };
 
 int lgeusb_detect_factory_cable(void);
-int lgeusb_set_config(int pid, char *serialno, const char *defaultno);
-void lgeusb_register_usbinfo(struct lgeusb_info *info);
+int lgeusb_set_current_mode(int need_reset);
+int lgeusb_get_current_mode(void);
 
 void lgeusb_switch_factory_mode(int need_reset);
 void lgeusb_switch_android_mode(int need_reset);
-int lgeusb_get_current_mode(void);
-void lgeusb_backup_pid(void);
+
+void lgeusb_register_usbinfo(struct lgeusb_info *info);
 
 /* LGE usb dynamic debugging & logging.
  * It is simplified from earlier version of

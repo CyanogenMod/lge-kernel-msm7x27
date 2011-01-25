@@ -478,9 +478,8 @@ void android_register_function(struct android_usb_function *f)
 		bind_functions(dev);
 		android_set_default_product(dev->product_id);
 
-		/* Default serial number must be set in platform data */
-		lge_pid = lgeusb_set_config(dev->product_id, serial_number,
-				strings_dev[STRING_SERIAL_IDX].s);
+		/* Without USB S/W reset */
+		lge_pid = lgeusb_set_current_mode(0);
 
 		if (serial_number[0] != '\0')
 			strings_dev[STRING_SERIAL_IDX].s = serial_number;
@@ -791,7 +790,7 @@ static int android_lgeusb_get_current_pid(void)
 }
 
 static struct lgeusb_info android_lgeusb_info = {
-	.current_mode = LGEUSB_ANDROID_MODE,
+	.current_mode = LGEUSB_DEFAULT_MODE,
 	.switch_func = android_lgeusb_switch_function,
 	.get_pid = android_lgeusb_get_current_pid,
 };
@@ -852,7 +851,10 @@ static int __init android_probe(struct platform_device *pdev)
 	 * Registering usb information for LG Android USB
 	 * 2011-01-14, hyunhui.park@lge.com
 	 */
-	android_lgeusb_info.restore_pid = dev->product_id;
+	android_lgeusb_info.current_pid = dev->product_id;
+	android_lgeusb_info.serialno = serial_number;
+	android_lgeusb_info.defaultno = pdata->serial_number;
+
 	lgeusb_register_usbinfo(&android_lgeusb_info);
 #endif
 

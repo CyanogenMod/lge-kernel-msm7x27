@@ -202,7 +202,7 @@ struct usb_info {
 	 * Detection of factory cable using wq
 	 * 2011-01-14, hyunhui.park@lge.com
 	 */
-	struct delayed_work cable_det;
+	struct delayed_work lgeusb_cable_det;
 #endif
 
 	struct work_struct work;
@@ -1301,20 +1301,10 @@ static irqreturn_t usb_interrupt(int irq, void *data)
  * Detection of factory cable using wq.
  * 2011-01-14, hyunhui.park@lge.com
  */
-static void usb_do_factory_cable_detect(struct work_struct *w)
+static void lgeusb_cable_detect_work(struct work_struct *w)
 {
-	if(lgeusb_detect_factory_cable()) {
-		lgeusb_info("OK, we detect LG factory cable......\n");
-
-		lgeusb_backup_pid();
-		/* With soft reset */
-		lgeusb_switch_factory_mode(1);
-		return;
-	}
-
-	lgeusb_info("OK, we detect Normal USB cable......\n");
-	/* With soft reset */
-	lgeusb_switch_android_mode(1);
+	/* With USB S/W reset */
+	lgeusb_set_current_mode(1);
 }
 #endif
 
@@ -1349,7 +1339,7 @@ static void usb_prepare(struct usb_info *ui)
 	 * Detection of factory cable using wq
 	 * 2011-01-14, hyunhui.park@lge.com
 	 */
-	INIT_DELAYED_WORK(&ui->cable_det, usb_do_factory_cable_detect);
+	INIT_DELAYED_WORK(&ui->lgeusb_cable_det, lgeusb_cable_detect_work);
 #endif
 }
 
@@ -1465,7 +1455,7 @@ static void usb_do_work(struct work_struct *w)
 
 				pm_runtime_get_noresume(&ui->pdev->dev);
 				pm_runtime_resume(&ui->pdev->dev);
-				dev_dbg(&ui->pdev->dev,
+				dev_info(&ui->pdev->dev,
 					"msm72k_udc: IDLE -> ONLINE\n");
 				usb_reset(ui);
 				ret = request_irq(otg->irq, usb_interrupt,
@@ -1517,10 +1507,10 @@ static void usb_do_work(struct work_struct *w)
 				 * Detection of factory cable using wq
 				 * 2011-01-14, hyunhui.park@lge.com
 				 */
-				cancel_delayed_work(&ui->cable_det);
+				cancel_delayed_work(&ui->lgeusb_cable_det);
 #endif
 
-				dev_dbg(&ui->pdev->dev,
+				dev_info(&ui->pdev->dev,
 					"msm72k_udc: ONLINE -> OFFLINE\n");
 
 				atomic_set(&ui->running, 0);
@@ -1603,12 +1593,12 @@ static void usb_do_work(struct work_struct *w)
 				break;
 			}
 			if (flags & USB_FLAG_RESET) {
-				dev_dbg(&ui->pdev->dev,
+				dev_info(&ui->pdev->dev,
 					"msm72k_udc: ONLINE -> RESET\n");
 				msm72k_pullup_internal(&ui->gadget, 0);
 				usb_reset(ui);
 				msm72k_pullup_internal(&ui->gadget, 1);
-				dev_dbg(&ui->pdev->dev,
+				dev_info(&ui->pdev->dev,
 					"msm72k_udc: RESET -> ONLINE\n");
 				break;
 			}
@@ -1622,7 +1612,7 @@ static void usb_do_work(struct work_struct *w)
 
 				pm_runtime_get_noresume(&ui->pdev->dev);
 				pm_runtime_resume(&ui->pdev->dev);
-				dev_dbg(&ui->pdev->dev,
+				dev_info(&ui->pdev->dev,
 					"msm72k_udc: OFFLINE -> ONLINE\n");
 
 				usb_reset(ui);
@@ -1631,12 +1621,13 @@ static void usb_do_work(struct work_struct *w)
 				 * Detection of factory cable using wq
 				 * 2011-01-14, hyunhui.park@lge.com
 				 */
-				schedule_delayed_work(&ui->cable_det, 0);
-
+				schedule_delayed_work(&ui->lgeusb_cable_det, 0);
+/*
 				if(lgeusb_detect_factory_cable()) {
 					ui->state = USB_STATE_IDLE;
 					return;
 				}
+*/
 #endif
 				ui->state = USB_STATE_ONLINE;
 				usb_do_work_check_vbus(ui);
