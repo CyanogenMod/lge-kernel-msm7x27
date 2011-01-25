@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,6 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#include <linux/pm_qos_params.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
@@ -88,7 +87,7 @@ static struct lcdc_platform_data *dtv_pdata;
 #ifdef CONFIG_MSM_BUS_SCALING
 static uint32_t dtv_bus_scale_handle;
 #else
-static struct pm_qos_request_list *pm_qos_req = NULL;
+static struct clk *ebi1_clk;
 #endif
 
 static int dtv_off(struct platform_device *pdev)
@@ -115,9 +114,8 @@ static int dtv_off(struct platform_device *pdev)
 		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
 							0);
 #else
-	if(pm_qos_req)
-		pm_qos_update_request(pm_qos_req,
-					PM_QOS_DEFAULT_VALUE);
+	if (ebi1_clk)
+		clk_disable(ebi1_clk);
 #endif
 	return ret;
 }
@@ -145,8 +143,10 @@ static int dtv_on(struct platform_device *pdev)
 		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
 							1);
 #else
-	if(pm_qos_req)
-		pm_qos_update_request(pm_qos_req, pm_qos_rate);
+	if (ebi1_clk) {
+		clk_set_rate(ebi1_clk, pm_qos_rate * 1000);
+		clk_enable(ebi1_clk);
+	}
 #endif
 	mfd = platform_get_drvdata(pdev);
 
@@ -260,8 +260,11 @@ static int dtv_probe(struct platform_device *pdev)
 		}
 	}
 #else
-	pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ ,
-				PM_QOS_DEFAULT_VALUE);
+	ebi1_clk = clk_get(NULL, "ebi1_dtv_clk");
+	if (IS_ERR(ebi1_clk)) {
+		ebi1_clk = NULL;
+		pr_warning("%s: Couldn't get ebi1 clock\n", __func__);
+	}
 #endif
 	/*
 	 * set driver data
@@ -298,8 +301,8 @@ static int dtv_remove(struct platform_device *pdev)
 		dtv_bus_scale_handle > 0)
 		msm_bus_scale_unregister_client(dtv_bus_scale_handle);
 #else
-	if(pm_qos_req)
-		pm_qos_remove_request(pm_qos_req);
+	if (ebi1_clk)
+		clk_put(ebi1_clk);
 #endif
 	pm_runtime_disable(&pdev->dev);
 	return 0;

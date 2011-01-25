@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,9 +34,6 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
-#ifndef CONFIG_MSM_BUS_SCALING
-#include <linux/pm_qos_params.h>
-#endif
 #include "msm_fb.h"
 #include "mddihosti.h"
 #include "mddihost.h"
@@ -190,7 +187,8 @@ static int mddi_off(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+	if (mfd->ebi1_clk)
+		clk_disable(mfd->ebi1_clk);
 #endif
 	pm_runtime_put(&pdev->dev);
 	return ret;
@@ -249,7 +247,8 @@ static int mddi_on(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, 65000);
+	if (mfd->ebi1_clk)
+		clk_enable(mfd->ebi1_clk);
 #endif
 	ret = panel_next_on(pdev);
 
@@ -368,10 +367,10 @@ static int mddi_probe(struct platform_device *pdev)
 	rc = 0;
 	pm_runtime_enable(&pdev->dev);
 #ifndef CONFIG_MSM_BUS_SCALING
-	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					       PM_QOS_DEFAULT_VALUE);
-	if (!mfd->pm_qos_req)
-		return -ENOMEM;
+	mfd->ebi1_clk = clk_get(NULL, "ebi1_mddi_clk");
+	if (IS_ERR(mfd->ebi1_clk))
+		return PTR_ERR(mfd->ebi1_clk);
+	clk_set_rate(mfd->ebi1_clk, 65000000);
 #endif
 	/*
 	 * register in mdp driver
