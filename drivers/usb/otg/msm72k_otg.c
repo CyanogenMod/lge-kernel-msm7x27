@@ -344,18 +344,10 @@ static void msm_otg_vote_for_pclk_source(struct msm_otg *dev, int vote)
 	if (!pclk_requires_voting(&dev->otg))
 		return;
 
-	if (dev->pdata->usb_in_sps) {
-		if (vote)
-			clk_set_min_rate(dev->dfab_clk, 64000000);
-		else
-			clk_set_min_rate(dev->dfab_clk, 0);
-		return;
-	}
-
 	if (vote)
-		clk_enable(dev->pdata->ebi1_clk);
+		clk_enable(dev->pclk_src);
 	else
-		clk_disable(dev->pdata->ebi1_clk);
+		clk_disable(dev->pclk_src);
 }
 
 /* Controller gives interrupt for every 1 mesc if 1MSIE is set in OTGSC.
@@ -2346,40 +2338,29 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 	clk_set_rate(dev->hs_clk, 60000000);
 
-	if (dev->pdata->usb_in_sps) {
-		dev->dfab_clk = clk_get(0, "dfab_clk");
-		if (IS_ERR(dev->dfab_clk)) {
-			pr_err("%s: failed to get dfab clk\n", __func__);
-			ret = PTR_ERR(dev->dfab_clk);
-			goto put_hs_clk;
-		}
-	}
+	/* pm qos request to prevent apps idle power collapse */
+	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
+					PM_QOS_DEFAULT_VALUE);
 
 	/* If USB Core is running its protocol engine based on PCLK,
 	 * PCLK must be running at >60Mhz for correct HSUSB operation and
 	 * USB core cannot tolerate frequency changes on PCLK. For such
 	 * USB cores, vote for maximum clk frequency on pclk source
 	 */
-	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
-					PM_QOS_DEFAULT_VALUE);
-
-	if (pclk_requires_voting(&dev->otg) && !dev->pdata->usb_in_sps) {
-		dev->pdata->ebi1_clk = clk_get(NULL, "ebi1_usb_clk");
-		if (IS_ERR(dev->pdata->ebi1_clk)) {
-			ret = PTR_ERR(dev->pdata->ebi1_clk);
-			goto put_dfab_clk;
-		}
-		clk_set_rate(dev->pdata->ebi1_clk, INT_MAX);
+	if (dev->pdata->pclk_src_name) {
+		dev->pclk_src = clk_get(0, dev->pdata->pclk_src_name);
+		if (IS_ERR(dev->pclk_src))
+			goto put_hs_clk;
+		clk_set_rate(dev->pclk_src, INT_MAX);
 		msm_otg_vote_for_pclk_source(dev, 1);
 	}
-
 
 	if (!dev->pdata->pclk_is_hw_gated) {
 		dev->hs_pclk = clk_get(&pdev->dev, "usb_hs_pclk");
 		if (IS_ERR(dev->hs_pclk)) {
 			pr_err("%s: failed to get usb_hs_pclk\n", __func__);
 			ret = PTR_ERR(dev->hs_pclk);
-			goto put_ebi_clk;
+			goto put_pclk_src;
 		}
 		clk_enable(dev->hs_pclk);
 	}
@@ -2644,12 +2625,10 @@ put_hs_pclk:
 		clk_disable(dev->hs_pclk);
 		clk_put(dev->hs_pclk);
 	}
-put_ebi_clk:
-	clk_put(dev->pdata->ebi1_clk);
-put_dfab_clk:
-	if (dev->dfab_clk) {
-		clk_set_min_rate(dev->dfab_clk, 0);
-		clk_put(dev->dfab_clk);
+put_pclk_src:
+	if (dev->pclk_src) {
+		msm_otg_vote_for_pclk_source(dev, 0);
+		clk_put(dev->pclk_src);
 	}
 put_hs_clk:
 	if (dev->hs_clk)
@@ -2717,7 +2696,7 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	kfree(dev);
 	pm_qos_remove_request(dev->pdata->pm_qos_req_dma);
-	clk_put(dev->pdata->ebi1_clk);
+	clk_put(dev->pclk_src);
 	return 0;
 }
 
