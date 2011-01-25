@@ -28,6 +28,7 @@
 #include <linux/reboot.h>
 #include <linux/interrupt.h>
 #include <linux/diagchar.h>
+#include <linux/delay.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
 #endif
@@ -49,7 +50,7 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 
-#ifdef CONFIG_DIAG_NO_MODEM
+#ifdef CONFIG_DIAG_OVER_USB
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 
@@ -462,16 +463,24 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		diag_update_msg_mask((uint32_t)start, (uint32_t)end , buf);
 		diag_update_userspace_clients(MSG_MASKS_TYPE);
 	}
+#ifdef CONFIG_DIAG_OVER_USB
 	/* Check for mode reset command */
 	else if (cpu_is_msm8x60() && (*buf == 0x29) && (*(buf+1) == 0x02)
-						   && (*(buf+2) == 0x00)) {
+							&& (*(buf+2) == 0x00)) {
+		/* send response back */
+		for (i = 0; i < 3; i++)
+			driver->apps_rsp_buf[i] = *(buf+i);
+		ENCODE_RSP_AND_SEND(2);
+		msleep(10000);
 		/* call reset API */
 		printk(KERN_CRIT "diag: mode reset, Rebooting SoC..\n");
 		lock_kernel();
 		kernel_restart(NULL);
 		unlock_kernel();
+		/* Not required, represents that command isnt sent to modem */
 		return 0;
 	}
+#endif
 	/* Set all run-time masks
 	if ((*buf == 0x7d) && (*(++buf) == 0x5)) {
 		TO DO
@@ -931,7 +940,7 @@ void diagfwd_init(void)
 	     (driver->pkt_buf = kzalloc(PKT_SIZE,
 			 GFP_KERNEL)) == NULL)
 		goto err;
-#ifdef CONFIG_DIAG_NO_MODEM
+#ifdef CONFIG_DIAG_OVER_USB
 	if (driver->apps_rsp_buf == NULL)
 			driver->apps_rsp_buf = kzalloc(150, GFP_KERNEL);
 		if (driver->apps_rsp_buf == NULL)
@@ -975,7 +984,7 @@ err:
 		kfree(driver->write_ptr_qdsp_1);
 		kfree(driver->write_ptr_qdsp_2);
 		kfree(driver->usb_read_ptr);
-#ifdef CONFIG_DIAG_NO_MODEM
+#ifdef CONFIG_DIAG_OVER_USB
 		kfree(driver->apps_rsp_buf);
 #endif
 		if (driver->diag_wq)
@@ -1016,7 +1025,7 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_qdsp_1);
 	kfree(driver->write_ptr_qdsp_2);
 	kfree(driver->usb_read_ptr);
-#ifdef CONFIG_DIAG_NO_MODEM
+#ifdef CONFIG_DIAG_OVER_USB
 	kfree(driver->apps_rsp_buf);
 #endif
 	destroy_workqueue(driver->diag_wq);
