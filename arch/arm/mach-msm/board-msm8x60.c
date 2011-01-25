@@ -7271,6 +7271,28 @@ static void __init msm_fb_add_devices(void)
 
 #if (defined(CONFIG_MARIMBA_CORE)) && \
 	(defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
+
+static const struct {
+	char *name;
+	int vmin;
+	int vmax;
+} bt_regs_info[] = {
+	{ "8058_s3", 1800000, 1800000 },
+	{ "8058_s2", 1300000, 1300000 },
+	{ "8058_l2", 1800000, 1800000 },
+	{ "8058_l8", 2900000, 3050000 },
+};
+
+static struct {
+	bool enabled;
+} bt_regs_status[] = {
+	{ false },
+	{ false },
+	{ false },
+	{ false },
+};
+static struct regulator *bt_regs[ARRAY_SIZE(bt_regs_info)];
+
 static int bahama_bt(int on)
 {
 	int rc;
@@ -7392,6 +7414,21 @@ static int bahama_bt(int on)
 		break;
 	}
 
+	/* Voting off 1.3V S2 Regulator,BahamaV2 used in Normal mode */
+	if (on && ((version == 0x02) || (version == 0x01)))  {
+		for (i = 0; i < ARRAY_SIZE(bt_regs_info); i++) {
+			if ((!strcmp(bt_regs_info[i].name, "8058_s2"))
+				&& (bt_regs_status[i].enabled == true)) {
+				if (regulator_disable(bt_regs[i])) {
+					dev_err(&msm_bt_power_device.dev,
+						"%s: regulator disable failed",
+						__func__);
+				}
+				bt_regs_status[i].enabled = false;
+				break;
+			}
+		}
+	}
 	if ((version >= ARRAY_SIZE(bt_bahama[on])) ||
 	    (bt_bahama[on][version].size == 0)) {
 		dev_err(&msm_bt_power_device.dev,
@@ -7434,19 +7471,6 @@ static int bahama_bt(int on)
 
 	return 0;
 }
-
-static const struct {
-	char *name;
-	int vmin;
-	int vmax;
-} bt_regs_info[] = {
-	{ "8058_s3", 1800000, 1800000 },
-	{ "8058_s2", 1300000, 1300000 },
-	{ "8058_l2", 1800000, 1800000 },
-	{ "8058_l8", 2900000, 3050000 },
-};
-
-static struct regulator *bt_regs[ARRAY_SIZE(bt_regs_info)];
 
 static int bluetooth_use_regulators(int on)
 {
@@ -7495,19 +7519,33 @@ static int bluetooth_switch_regulators(int on)
 	int i, rc = 0;
 
 	for (i = 0; i < ARRAY_SIZE(bt_regs_info); i++) {
-		rc = on ? regulator_enable(bt_regs[i]) :
-			  regulator_disable(bt_regs[i]);
-		if (rc < 0) {
-			dev_err(&msm_bt_power_device.dev,
-				"regulator %s %s failed (%d)\n",
-				bt_regs_info[i].name,
-				on ? "enable" : "disable", rc);
-			if (on && (i > 0)) {
-				while (--i)
-					regulator_disable(bt_regs[i]);
+		if (on && (bt_regs_status[i].enabled == false)) {
+			rc = regulator_enable(bt_regs[i]);
+			if (rc < 0) {
+				dev_err(&msm_bt_power_device.dev,
+					"regulator %s %s failed (%d)\n",
+					bt_regs_info[i].name,
+					"enable", rc);
+				if (i > 0) {
+					while (--i) {
+						regulator_disable(bt_regs[i]);
+						bt_regs_status[i].enabled
+								 = false;
+					}
+					break;
+				}
+			}
+			bt_regs_status[i].enabled = true;
+		} else if (!on && (bt_regs_status[i].enabled == true)) {
+			rc = regulator_disable(bt_regs[i]);
+			if (rc < 0) {
+				dev_err(&msm_bt_power_device.dev,
+					"regulator %s %s failed (%d)\n",
+					bt_regs_info[i].name,
+					"disable", rc);
 				break;
 			}
-			break;
+			bt_regs_status[i].enabled = false;
 		}
 	}
 	return rc;
