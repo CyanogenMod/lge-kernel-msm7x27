@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google, Inc.
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -187,7 +187,7 @@ static long pcm_out_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case AUDIO_SET_CONFIG: {
 		struct msm_audio_config config;
-		pr_info("AUDIO_SET_CONFIG\n");
+		pr_debug("%s: AUDIO_SET_CONFIG\n", __func__);
 		if (copy_from_user(&config, (void *) arg, sizeof(config))) {
 			rc = -EFAULT;
 			break;
@@ -208,11 +208,15 @@ static long pcm_out_ioctl(struct file *file, unsigned int cmd,
 		pcm->channel_count = config.channel_count;
 		pcm->buffer_size = config.buffer_size;
 		pcm->buffer_count = config.buffer_count;
+		pr_debug("%s:buffer_size:%d buffer_count:%d sample_rate:%d \
+			channel_count:%d\n",  __func__, pcm->buffer_size,
+			pcm->buffer_count, pcm->sample_rate,
+			pcm->channel_count);
 		break;
 	}
 	case AUDIO_GET_CONFIG: {
 		struct msm_audio_config config;
-		pr_info("AUDIO_GET_CONFIG\n");
+		pr_debug("%s: AUDIO_GET_CONFIG\n", __func__);
 		config.buffer_size = pcm->buffer_size;
 		config.buffer_count = pcm->buffer_count;
 		config.sample_rate = pcm->sample_rate;
@@ -252,7 +256,7 @@ static int pcm_out_open(struct inode *inode, struct file *file)
 	pr_info("[%s:%s] open\n", __MM_FILE__, __func__);
 	pcm = kzalloc(sizeof(struct pcm), GFP_KERNEL);
 	if (!pcm) {
-		pr_info("%s: Failed to allocated memory\n", __func__);
+		pr_err("%s: Failed to allocated memory\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -270,7 +274,8 @@ static int pcm_out_open(struct inode *inode, struct file *file)
 
 	rc = q6asm_open_write(pcm->ac, FORMAT_LINEAR_PCM);
 	if (rc < 0) {
-		pr_info("%s: pcm out open failed\n", __func__);
+		pr_err("%s: pcm out open failed for session %d\n", __func__,
+			pcm->ac->session);
 		rc = -EINVAL;
 		goto fail;
 	}
@@ -290,6 +295,8 @@ static int pcm_out_open(struct inode *inode, struct file *file)
 	wake_lock_init(&pcm->idlelock, WAKE_LOCK_IDLE, name);
 
 	file->private_data = pcm;
+	pr_info("[%s:%s] open session id[%d]\n", __MM_FILE__,
+				__func__, pcm->ac->session);
 	return 0;
 fail:
 	if (pcm->ac)
@@ -325,7 +332,8 @@ static ssize_t pcm_out_write(struct file *file, const char __user *buf,
 				(atomic_read(&pcm->out_count) ||
 				atomic_read(&pcm->out_stopped)), 5 * HZ);
 		if (!rc) {
-			pr_info("%s: wait_event_timeout failed\n", __func__);
+			pr_err("%s: wait_event_timeout failed for session %d\n",
+				__func__, pcm->ac->session);
 			goto fail;
 		}
 
@@ -378,7 +386,8 @@ static int pcm_out_release(struct inode *inode, struct file *file)
 	mutex_destroy(&pcm->lock);
 	mutex_destroy(&pcm->write_lock);
 	kfree(pcm);
-	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);
+	pr_info("[%s:%s] release session id[%d]\n", __MM_FILE__,
+				__func__, pcm->ac->session);
 	return 0;
 }
 
