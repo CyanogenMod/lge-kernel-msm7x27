@@ -142,7 +142,7 @@ struct diagchar_dev {
 	unsigned char *buf_in_qdsp_1;
 	unsigned char *buf_in_qdsp_2;
 	unsigned char *usb_buf_out;
-#ifdef CONFIG_DIAG_NO_MODEM
+#ifdef CONFIG_DIAG_OVER_USB
        unsigned char *apps_rsp_buf;
 #endif
 	smd_channel_t *ch;
