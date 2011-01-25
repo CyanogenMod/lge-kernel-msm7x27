@@ -103,22 +103,21 @@ static void fm_listner(u32 evt_id, union auddev_evt_data *evt_payload,
 			audio->fm_dest &&
 			audio->fm_source) {
 
-			afe_loopback(FM_ENABLE, audio->fm_dest,
-						audio->fm_source);
+			afe_loopback(FM_ENABLE, audio->fm_dst_copp_id,
+						audio->fm_src_copp_id);
 			audio->running = 1;
 		}
 		break;
 	case AUDDEV_EVT_DEV_RLS:
 		pr_info(":AUDDEV_EVT_DEV_RLS\n");
-		if (evt_payload->routing_id == audio->fm_source)
+		if (evt_payload->routing_id == audio->fm_src_copp_id)
 			audio->fm_source = 0;
-		if (evt_payload->routing_id == audio->fm_dest)
+		else
 			audio->fm_dest = 0;
-
 		if (audio->running
 			&& (!audio->fm_dest || !audio->fm_source)) {
-			afe_loopback(FM_DISABLE, audio->fm_dest,
-						audio->fm_source);
+			afe_loopback(FM_DISABLE, audio->fm_dst_copp_id,
+						audio->fm_src_copp_id);
 			audio->running = 0;
 		}
 		break;
@@ -132,7 +131,7 @@ static int audio_disable(struct audio *audio)
 {
 
 	/* break the AFE loopback here */
-	afe_loopback(FM_DISABLE, audio->fm_dest, audio->fm_source);
+	afe_loopback(FM_DISABLE, audio->fm_dst_copp_id, audio->fm_src_copp_id);
 	return 0;
 }
 
