@@ -7022,15 +7022,15 @@ static struct msm_bus_vectors dtv_bus_def_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_MMSS_SLAVE_SMI,
-		.ab = 435456000,
-		.ib = 544320000,
+		.ab = 566092800,
+		.ib = 707616000,
 	},
 	/* Master and slaves can be from different fabrics */
 	{
 		.src = MSM_BUS_MMSS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
-		.ab = 435456000,
-		.ib = 544320000,
+		.ab = 566092800,
+		.ib = 707616000,
 	},
 };
 static struct msm_bus_paths dtv_bus_scale_usecases[] = {
