@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -16,7 +16,6 @@
  * along with this program; if not, you can find it at http://www.fsf.org.
  */
 
-#include <mach/debug_mm.h>
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/module.h>
@@ -24,6 +23,8 @@
 #include <linux/time.h>
 #include <linux/wait.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
+#include <linux/msm_audio.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -32,12 +33,10 @@
 #include <sound/initval.h>
 #include <sound/control.h>
 #include <asm/dma.h>
-#include <linux/dma-mapping.h>
-#include <linux/msm_audio.h>
-
-#include "msm8x60-pcm.h"
 #include <asm/mach-types.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
+
+#include "msm8x60-pcm.h"
 
 static struct platform_device *msm_audio_snd_device;
 struct audio_locks the_locks;
@@ -195,7 +194,7 @@ static int msm_volume_put(struct snd_kcontrol *kcontrol,
 	session_mask = (((u64)0x1) << session_id) << (MAX_BIT_PER_CLIENT * \
 				((int)AUDDEV_CLNT_DEC-1));
 	msm_vol_ctl.volume = volume;
-	MM_DBG("session_id %d, volume %d", session_id, volume);
+	pr_debug("%s:session_id %d, volume %d", __func__, session_id, volume);
 	broadcast_event(AUDDEV_EVT_STREAM_VOL_CHG, DEVICE_IGNORE,
 							session_mask);
 
@@ -208,7 +207,7 @@ static int msm_voice_info(struct snd_kcontrol *kcontrol,
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 3; /* Device */
 
-	uinfo->value.integer.min = 1;
+	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = msm_snddev_devcount();
 	return 0;
 }
@@ -231,18 +230,18 @@ static int msm_voice_put(struct snd_kcontrol *kcontrol,
 	rx_dev_info = audio_dev_ctrl_find_dev(rx_dev_id);
 
 	if (IS_ERR(rx_dev_info)) {
-		MM_ERR("pass invalid dev_id\n");
+		pr_err("%s:pass invalid dev_id\n", __func__);
 		rc = PTR_ERR(rx_dev_info);
 		return rc;
 	}
 
 	if (!(rx_dev_info->capability & SNDDEV_CAP_RX)) {
-		MM_ERR("First Dev is supposed to be RX\n");
+		pr_err("%s:First Dev is supposed to be RX\n", __func__);
 		return -EFAULT;
 	}
 
-	MM_DBG("route cfg %d STREAM_VOICE_RX type\n",
-		rx_dev_id);
+	pr_debug("%s:route cfg %d STREAM_VOICE_RX type\n",
+		__func__, rx_dev_id);
 
 	msm_set_voc_route(rx_dev_info, AUDIO_ROUTE_STREAM_VOICE_RX,
 				rx_dev_id);
@@ -258,18 +257,18 @@ static int msm_voice_put(struct snd_kcontrol *kcontrol,
 	tx_dev_info = audio_dev_ctrl_find_dev(tx_dev_id);
 
 	if (IS_ERR(tx_dev_info)) {
-		MM_ERR("pass invalid dev_id\n");
+		pr_err("%s:pass invalid dev_id\n", __func__);
 		rc = PTR_ERR(tx_dev_info);
 		return rc;
 	}
 
 	if (!(tx_dev_info->capability & SNDDEV_CAP_TX)) {
-		MM_ERR("Second Dev is supposed to be Tx\n");
+		pr_err("%s:Second Dev is supposed to be Tx\n", __func__);
 		return -EFAULT;
 	}
 
-	MM_DBG("route cfg %d %d type\n",
-		tx_dev_id, AUDIO_ROUTE_STREAM_VOICE_TX);
+	pr_debug("%s:route cfg %d %d type\n",
+		__func__, tx_dev_id, AUDIO_ROUTE_STREAM_VOICE_TX);
 
 	msm_set_voc_route(tx_dev_info, AUDIO_ROUTE_STREAM_VOICE_TX,
 				tx_dev_id);
@@ -319,11 +318,11 @@ static int msm_device_put(struct snd_kcontrol *kcontrol,
 	route_cfg.dev_id = ucontrol->id.numid - device_index;
 	dev_info = audio_dev_ctrl_find_dev(route_cfg.dev_id);
 	if (IS_ERR(dev_info)) {
-		MM_ERR("pass invalid dev_id\n");
+		pr_err("%s:pass invalid dev_id\n", __func__);
 		rc = PTR_ERR(dev_info);
 		return rc;
 	}
-	MM_INFO("device %s set %d\n", dev_info->name, set);
+	pr_info("%s:device %s set %d\n", __func__, dev_info->name, set);
 
 	if (set) {
 		if (!dev_info->opened) {
@@ -339,17 +338,18 @@ static int msm_device_put(struct snd_kcontrol *kcontrol,
 				set_freq = dev_info->sample_rate;
 
 
-			MM_ERR("device freq =%d\n", set_freq);
+			pr_err("%s:device freq =%d\n", __func__, set_freq);
 			rc = dev_info->dev_ops.set_freq(dev_info, set_freq);
 			if (rc < 0) {
-				MM_ERR("device freq failed!\n");
+				pr_err("%s:device freq failed!\n", __func__);
 				return rc;
 			}
 			dev_info->set_sample_rate = rc;
 			rc = 0;
 			rc = dev_info->dev_ops.open(dev_info);
 			if (rc < 0) {
-				MM_ERR("Enabling %s failed", dev_info->name);
+				pr_err("%s:Enabling %s failed\n",
+					__func__, dev_info->name);
 				return rc;
 			}
 			dev_info->opened = 1;
@@ -363,7 +363,8 @@ static int msm_device_put(struct snd_kcontrol *kcontrol,
 						SESSION_IGNORE);
 			rc = dev_info->dev_ops.close(dev_info);
 			if (rc < 0) {
-				MM_ERR("Snd device failed close!\n");
+				pr_err("%s:Snd device failed close!\n",
+					__func__);
 				return rc;
 			} else {
 				dev_info->opened = 0;
@@ -388,7 +389,7 @@ static int msm_device_get(struct snd_kcontrol *kcontrol,
 	dev_info = audio_dev_ctrl_find_dev(route_cfg.dev_id);
 
 	if (IS_ERR(dev_info)) {
-		MM_ERR("pass invalid dev_id\n");
+		pr_err("%s:pass invalid dev_id\n", __func__);
 		rc = PTR_ERR(dev_info);
 		return rc;
 	}
@@ -436,12 +437,12 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 	else
 		route_cfg.stream_type =	AUDIO_ROUTE_STREAM_REC;
 
-	MM_DBG("route cfg %d %d type for popp %d\n",
-		route_cfg.dev_id, route_cfg.stream_type, session_id);
+	pr_debug("%s:route cfg %d %d type for popp %d\n",
+		__func__, route_cfg.dev_id, route_cfg.stream_type, session_id);
 	dev_info = audio_dev_ctrl_find_dev(route_cfg.dev_id);
 
 	if (IS_ERR(dev_info)) {
-		MM_ERR("pass invalid dev_id\n");
+		pr_err("%s:pass invalid dev_id\n", __func__);
 		rc = PTR_ERR(dev_info);
 		return rc;
 	}
@@ -486,11 +487,12 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 						session_id,
 						SNDDEV_CAP_TX,
 						AUDDEV_CLNT_ENC);
-				MM_DBG("sample rate configured %d"
-					"sample rate requested %d \n",
-					enc_freq, requested_freq);
+				pr_debug("%s:sample rate configured %d\
+					sample rate requested %d \n",
+					__func__, enc_freq, requested_freq);
 				if ((rc <= 0) || (enc_freq != requested_freq)) {
-					MM_DBG("msm_snddev_withdraw_freq\n");
+					pr_debug("%s:msm_snddev_withdraw_freq\n",
+						__func__);
 					rc = msm_snddev_withdraw_freq
 						(session_id,
 						SNDDEV_CAP_TX, AUDDEV_CLNT_ENC);
@@ -507,7 +509,7 @@ static int msm_route_put(struct snd_kcontrol *kcontrol,
 	}
 
 	if (rc < 0) {
-		MM_ERR("device could not be assigned!\n");
+		pr_err("%s:device could not be assigned!\n", __func__);
 		return -EFAULT;
 	}
 
@@ -546,7 +548,7 @@ static int msm_device_volume_put(struct snd_kcontrol *kcontrol,
 	int dev_id = ucontrol->value.integer.value[0];
 	int volume = ucontrol->value.integer.value[1];
 
-	MM_DBG("dev_id = %d, volume = %d\n", dev_id, volume);
+	pr_debug("%s:dev_id = %d, volume = %d\n", __func__, dev_id, volume);
 
 	dev_info = audio_dev_ctrl_find_dev(dev_id);
 
@@ -557,8 +559,8 @@ static int msm_device_volume_put(struct snd_kcontrol *kcontrol,
 		return rc;
 	}
 
-	MM_DBG("dev_name = %s dev_id = %d, volume = %d\n",
-				dev_info->name, dev_id, volume);
+	pr_debug("%s:dev_name = %s dev_id = %d, volume = %d\n",
+			__func__, dev_info->name, dev_id, volume);
 
 	if (dev_info->dev_ops.set_device_volume)
 		rc = dev_info->dev_ops.set_device_volume(dev_info, volume);
@@ -594,6 +596,7 @@ static int msm_reset_put(struct snd_kcontrol *kcontrol,
 	pr_err("%s:Resetting all devices\n", __func__);
 	return msm_reset_all_device();
 }
+
 static int msm_anc_info(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_info *uinfo)
 {
@@ -641,6 +644,7 @@ static int msm_anc_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+
 static struct snd_kcontrol_new snd_dev_controls[AUDIO_DEV_CTL_MAX_DEV];
 
 static int snd_dev_ctl_index(int idx)
@@ -649,7 +653,7 @@ static int snd_dev_ctl_index(int idx)
 
 	dev_info = audio_dev_ctrl_find_dev(idx + 0);
 	if (IS_ERR(dev_info)) {
-		MM_ERR("pass invalid dev_id\n");
+		pr_err("%s:pass invalid dev_id\n", __func__);
 		return PTR_ERR(dev_info);
 	}
 	if (sizeof(dev_info->name) <= 44)
@@ -711,7 +715,7 @@ static int msm_new_mixer(struct snd_card *card)
 		err = snd_ctl_add(card,	snd_ctl_new1(&snd_msm_controls[idx],
 					NULL));
 		if (err < 0)
-			MM_ERR("ERR adding ctl\n");
+			pr_err("%s:ERR adding ctl\n", __func__);
 	}
 	dev_cnt = msm_snddev_devcount();
 
@@ -720,7 +724,7 @@ static int msm_new_mixer(struct snd_card *card)
 			err = snd_ctl_add(card, snd_ctl_new1(
 				&snd_dev_controls[idx], NULL));
 			if (err < 0)
-				MM_ERR("ERR adding ctl\n");
+				pr_err("%s:ERR adding ctl\n", __func__);
 		} else
 			return 0;
 	}
@@ -735,7 +739,7 @@ static int msm_soc_dai_init(struct snd_soc_codec *codec)
 	int ret = 0;
 	ret = msm_new_mixer(codec->card);
 	if (ret < 0)
-		MM_ERR("msm_soc: ALSA MSM Mixer Fail\n");
+		pr_err("%s: ALSA MSM Mixer Fail\n", __func__);
 
 	return ret;
 }
@@ -766,7 +770,7 @@ static int __init msm_audio_init(void)
 {
 	int ret;
 
-	msm_audio_snd_device = platform_device_alloc("soc-audio", -1);
+	msm_audio_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!msm_audio_snd_device)
 		return -ENOMEM;
 

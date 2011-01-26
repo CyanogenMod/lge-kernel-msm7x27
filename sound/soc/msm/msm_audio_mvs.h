@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -77,6 +77,7 @@
 /* Max voc packet size */
 #define MVS_MAX_VOC_PKT_SIZE 320
 
+#define VOIP_MAX_Q_LEN 20
 #define MVS_MAX_Q_LEN  8
 #define RPC_TYPE_REQUEST 0
 #define RPC_TYPE_REPLY 1
@@ -317,6 +318,43 @@ struct audio_mvs_info_type {
 
 };
 
+struct audio_voip_info_type {
+	enum audio_mvs_state_type state;
+
+	unsigned int pcm_playback_size;
+	unsigned int pcm_count;
+	unsigned int pcm_playback_irq_pos;	/* IRQ position */
+	unsigned int pcm_playback_buf_pos;	/* position in buffer */
+
+	unsigned int pcm_capture_size;
+	unsigned int pcm_capture_count;
+	unsigned int pcm_capture_irq_pos;	/* IRQ position */
+	unsigned int pcm_capture_buf_pos;	/* position in buffer */
+
+	struct snd_pcm_substream *playback_substream;
+	struct snd_pcm_substream *capture_substream;
+
+	struct audio_mvs_buffer in[VOIP_MAX_Q_LEN];
+	uint32_t in_read;
+	uint32_t in_write;
+
+	struct audio_mvs_buffer out[VOIP_MAX_Q_LEN];
+	uint32_t out_read;
+	uint32_t out_write;
+
+	wait_queue_head_t out_wait;
+	wait_queue_head_t in_wait;
+
+	struct mutex lock;
+	struct mutex prepare_lock;
+
+	struct wake_lock suspend_lock;
+	struct wake_lock idle_lock;
+	int playback_start;
+	int capture_start;
+	int instance;
+};
+
 enum msm_audio_pcm_frame_type {
 	MVS_AMR_SPEECH_GOOD,	/* Good speech frame              */
 	MVS_AMR_SPEECH_DEGRADED,	/* Speech degraded                */
@@ -339,4 +377,5 @@ struct msm_audio_mvs_config {
 extern struct snd_soc_dai msm_mvs_dais[2];
 extern struct snd_soc_codec_device soc_codec_dev_msm_mvs;
 extern struct snd_soc_platform msm_mvs_soc_platform;
+extern struct snd_soc_platform msm_voip_soc_platform;
 #endif /* __MSM_AUDIO_MVS_H */
