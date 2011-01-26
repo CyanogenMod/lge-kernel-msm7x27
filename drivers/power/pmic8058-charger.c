@@ -963,6 +963,7 @@ static int __devinit request_irqs(struct platform_device *pdev)
 		} else {
 			pm8058_chg.pmic_chg_irq[CHGVAL_IRQ] = res->start;
 			pm8058_chg_disable_irq(CHGVAL_IRQ);
+			enable_irq_wake(pm8058_chg.pmic_chg_irq[CHGVAL_IRQ]);
 		}
 	}
 
