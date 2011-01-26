@@ -85,11 +85,13 @@ struct rmnet_dev {
 	atomic_t                notify_count;
 
 	struct workqueue_struct *wq;
-	struct work_struct connect_work;
 	struct work_struct disconnect_work;
 
 	struct work_struct ctl_rx_work;
 	struct work_struct data_rx_work;
+
+	struct delayed_work sdio_open_work;
+	atomic_t sdio_open;
 };
 
 static struct usb_interface_descriptor rmnet_interface_desc = {
@@ -416,6 +418,9 @@ rmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	u16                     w_length = le16_to_cpu(ctrl->wLength);
 	struct rmnet_sdio_qmi_buf *resp;
 
+	if (!atomic_read(&dev->sdio_open))
+		return -ENOTSUPP;
+
 	if (!atomic_read(&dev->online))
 		return -ENOTCONN;
 
@@ -716,14 +721,7 @@ static void rmnet_free_buf(struct rmnet_dev *dev)
 
 static void rmnet_disconnect_work(struct work_struct *w)
 {
-	struct rmnet_dev *dev = container_of(w, struct rmnet_dev,
-						disconnect_work);
-
-	flush_workqueue(dev->wq);
-	msm_sdio_dmux_close(rmnet_sdio_data_ch);
-	sdio_cmux_close(rmnet_sdio_ctl_ch);
-	atomic_set(&dev->notify_count, 0);
-	rmnet_free_buf(dev);
+	/* REVISIT: Push all the data to sdio if anythign is pending */
 }
 
 static void rmnet_disable(struct usb_function *f)
@@ -739,21 +737,37 @@ static void rmnet_disable(struct usb_function *f)
 
 	atomic_set(&dev->online, 0);
 
+	atomic_set(&dev->notify_count, 0);
+	rmnet_free_buf(dev);
+
 	/* cleanup work */
 	queue_work(dev->wq, &dev->disconnect_work);
 }
 
-static void rmnet_connect_work(struct work_struct *w)
+#define SDIO_OPEN_RETRY_DELAY	msecs_to_jiffies(2000)
+#define SDIO_OPEN_MAX_RETRY	90
+static void rmnet_open_sdio_work(struct work_struct *w)
 {
-	struct rmnet_dev *dev = container_of(w, struct rmnet_dev, connect_work);
+	struct rmnet_dev *dev =
+			container_of(w, struct rmnet_dev, sdio_open_work.work);
 	struct usb_composite_dev *cdev = dev->cdev;
 	int ret;
+	static int retry_cnt;
 
 	/* Control channel for QMI messages */
 	ret = sdio_cmux_open(rmnet_sdio_ctl_ch, rmnet_ctl_receive_cb,
 				rmnet_ctl_write_done, rmnet_sts_callback, dev);
 	if (ret) {
-		ERROR(cdev, "Unable to open control SDIO channel\n");
+		retry_cnt++;
+		pr_debug("%s: usb rmnet sdio open retry_cnt:%d\n",
+				__func__, retry_cnt);
+
+		if (retry_cnt > SDIO_OPEN_MAX_RETRY) {
+			ERROR(cdev, "Unable to open control SDIO channel\n");
+			return;
+		}
+		queue_delayed_work(dev->wq, &dev->sdio_open_work,
+					SDIO_OPEN_RETRY_DELAY);
 		return;
 	}
 	/* Data channel for network packets */
@@ -765,8 +779,10 @@ static void rmnet_connect_work(struct work_struct *w)
 		goto ctl_close;
 	}
 
-	/* Queue Rx data requests */
-	rmnet_start_rx(dev);
+	atomic_set(&dev->sdio_open, 1);
+	pr_info("%s: usb rmnet sdio channels are open retry_cnt:%d\n",
+				__func__, retry_cnt);
+	retry_cnt = 0;
 	return;
 
 ctl_close:
@@ -826,7 +842,9 @@ static int rmnet_set_alt(struct usb_function *f,
 
 
 	atomic_set(&dev->online, 1);
-	queue_work(dev->wq, &dev->connect_work);
+
+	/* Queue Rx data requests */
+	rmnet_start_rx(dev);
 
 	return 0;
 
@@ -882,6 +900,9 @@ static int rmnet_bind(struct usb_configuration *c, struct usb_function *f)
 		rmnet_hs_notify_desc.bEndpointAddress =
 			rmnet_fs_notify_desc.bEndpointAddress;
 	}
+
+	queue_delayed_work(dev->wq, &dev->sdio_open_work, 0);
+
 	return 0;
 
 out:
@@ -905,6 +926,11 @@ rmnet_unbind(struct usb_configuration *c, struct usb_function *f)
        rmnet_free_buf(dev);
        dev->epout = dev->epin = dev->epnotify = NULL; /* release endpoints */
 
+	msm_sdio_dmux_close(rmnet_sdio_data_ch);
+	sdio_cmux_close(rmnet_sdio_ctl_ch);
+
+	atomic_set(&dev->sdio_open, 0);
+
        kfree(dev);
 }
 
@@ -927,11 +953,12 @@ int rmnet_sdio_function_add(struct usb_configuration *c)
 	atomic_set(&dev->notify_count, 0);
 	atomic_set(&dev->online, 0);
 
-	INIT_WORK(&dev->connect_work, rmnet_connect_work);
 	INIT_WORK(&dev->disconnect_work, rmnet_disconnect_work);
 
 	INIT_WORK(&dev->ctl_rx_work, rmnet_control_rx_work);
 	INIT_WORK(&dev->data_rx_work, rmnet_data_rx_work);
+
+	INIT_DELAYED_WORK(&dev->sdio_open_work, rmnet_open_sdio_work);
 
 	INIT_LIST_HEAD(&dev->qmi_req_q);
 	INIT_LIST_HEAD(&dev->qmi_resp_q);
