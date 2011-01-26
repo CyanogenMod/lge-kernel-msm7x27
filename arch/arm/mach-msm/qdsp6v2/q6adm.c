@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,7 +60,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				wake_up(&this_adm.wait);
 				break;
 			default:
-				pr_err("Unknown Cmd: 0x%x\n", payload[0]);
+				pr_err("%s: Unknown Cmd: 0x%x\n", __func__,
+								payload[0]);
 				break;
 			}
 			return 0;
@@ -78,7 +79,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			}
 			break;
 		default:
-			pr_err("Unknown cmd:0x%x\n", data->opcode);
+			pr_err("%s: Unknown cmd:0x%x\n", __func__,
+							data->opcode);
 			break;
 		}
 	}
@@ -89,9 +91,9 @@ void send_cal(int port_id, struct acdb_cal_block *aud_cal)
 {
 	s32				result;
 	struct adm_set_params_command	adm_params;
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: Port id %d\n", __func__, port_id);
 
-	if (aud_cal->cal_size == 0) {
+	if (!aud_cal || aud_cal->cal_size == 0) {
 		pr_err("%s: No calibration data to send!\n", __func__);
 		goto done;
 	}
@@ -112,9 +114,8 @@ void send_cal(int port_id, struct acdb_cal_block *aud_cal)
 	adm_params.payload_size = aud_cal->cal_size;
 
 	atomic_set(&this_adm.copp_stat[port_id], 0);
-
-	pr_debug("Sending SET_PARAMS payload = 0x%x, size = %d\n",
-		adm_params.payload, adm_params.payload_size);
+	pr_debug("%s: Sending SET_PARAMS payload = 0x%x, size = %d\n",
+		__func__, adm_params.payload, adm_params.payload_size);
 	result = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_params);
 	if (result < 0) {
 		pr_err("%s: Set params failed port = %d payload = 0x%x\n",
@@ -170,14 +171,17 @@ int adm_open(int port_id, int session_id , int path,
 	pr_info("%s: port %d session 0x%x path:%d rate:%d mode:%d\n", __func__,
 				port_id, session_id, path, rate, channel_mode);
 
-	if (port_id >= AFE_MAX_PORTS)
+	if (port_id >= AFE_MAX_PORTS) {
+		pr_err("%s port idi[%d] out of limit[%d]\n", __func__,
+						port_id, AFE_MAX_PORTS);
 		return -ENODEV;
+	}
 
 	if (this_adm.apr == NULL) {
 		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
 						0xFFFFFFFF, &this_adm);
 		if (this_adm.apr == NULL) {
-			pr_err("Unable to register ADM\n");
+			pr_err("%s: Unable to register ADM\n", __func__);
 			ret = -ENODEV;
 			return ret;
 		}
@@ -207,8 +211,8 @@ int adm_open(int port_id, int session_id , int path,
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
 
-		pr_debug("channel_config=%d port_id=%d rate=%d\
-			topology_id=0x%X\n", open.channel_config,\
+		pr_debug("%s: channel_config=%d port_id=%d rate=%d\
+			topology_id=0x%X\n", __func__, open.channel_config,\
 			open.endpoint_id1, open.rate,\
 			open.topology_id);
 
@@ -216,7 +220,8 @@ int adm_open(int port_id, int session_id , int path,
 
 		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&open);
 		if (ret < 0) {
-			pr_err("ADM enable for port %d failed\n", port_id);
+			pr_err("%s:ADM enable for port %d failed\n",
+						__func__, port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
 		}
@@ -225,7 +230,8 @@ int adm_open(int port_id, int session_id , int path,
 			atomic_read(&this_adm.copp_stat[port_id]),
 			msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
-			pr_err("ADM open failed for port %d\n", port_id);
+			pr_err("%s ADM open failed for port %d\n", __func__,
+								port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
 		}
@@ -257,14 +263,15 @@ int adm_open(int port_id, int session_id , int path,
 		route.path = AUDIO_TX;
 		break;
 	default:
-		pr_err("Wrong path set\n");
+		pr_err("%s: Wrong path set[%d]\n", __func__, path);
 		break;
 	}
 	atomic_set(&this_adm.copp_stat[port_id], 0);
 
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&route);
 	if (ret < 0) {
-		pr_err("ADM routing for port %d failed\n", port_id);
+		pr_err("%s: ADM routing for port %d failed\n",
+					__func__, port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -272,7 +279,8 @@ int adm_open(int port_id, int session_id , int path,
 				atomic_read(&this_adm.copp_stat[port_id]),
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
-		pr_err("ADM cmd Route failed for port %d\n", port_id);
+		pr_err("%s: ADM cmd Route failed for port %d\n",
+					__func__, port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -300,7 +308,7 @@ int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
 						0xFFFFFFFF, &this_adm);
 		if (this_adm.apr == NULL) {
-			pr_err("Unable to register ADM\n");
+			pr_err("%s: Unable to register ADM\n", __func__);
 			ret = -ENODEV;
 			return ret;
 		}
@@ -321,7 +329,7 @@ int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 	mmap_regions->hdr.opcode = ADM_CMD_MEMORY_MAP_REGIONS;
 	mmap_regions->mempool_id = mempool_id & 0x00ff;
 	mmap_regions->nregions = bufcnt & 0x00ff;
-	pr_debug("map_regions->nregions = %d\n",
+	pr_debug("%s: map_regions->nregions = %d\n", __func__,
 				mmap_regions->nregions);
 	payload = ((u8 *) mmap_region_cmd +
 				sizeof(struct adm_cmd_memory_map_regions));
@@ -336,8 +344,8 @@ int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 	atomic_set(&this_adm.copp_stat[0], 0);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *) mmap_region_cmd);
 	if (ret < 0) {
-		pr_err("mmap_regions op[0x%x]rc[%d]\n",
-				mmap_regions->hdr.opcode, ret);
+		pr_err("%s: mmap_regions op[0x%x]rc[%d]\n", __func__,
+					mmap_regions->hdr.opcode, ret);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -345,7 +353,7 @@ int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 	ret = wait_event_timeout(this_adm.wait,
 			atomic_read(&this_adm.copp_stat[0]), 5 * HZ);
 	if (!ret) {
-		pr_err("timeout. waited for memory_map\n");
+		pr_err("%s: timeout. waited for memory_map\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -368,7 +376,7 @@ int adm_memory_unmap_regions(uint32_t *buf_add, uint32_t *bufsz,
 	pr_info("%s\n", __func__);
 
 	if (this_adm.apr == NULL) {
-		pr_err("APR handle NULL\n");
+		pr_err("%s APR handle NULL\n", __func__);
 		return -EINVAL;
 	}
 
@@ -388,7 +396,7 @@ int adm_memory_unmap_regions(uint32_t *buf_add, uint32_t *bufsz,
 	unmap_regions->hdr.opcode = ADM_CMD_MEMORY_UNMAP_REGIONS;
 	unmap_regions->nregions = bufcnt & 0x00ff;
 	unmap_regions->reserved = 0;
-	pr_debug("unmap_regions->nregions = %d\n",
+	pr_debug("%s: unmap_regions->nregions = %d\n", __func__,
 				unmap_regions->nregions);
 	payload = ((u8 *) unmap_region_cmd +
 			sizeof(struct adm_cmd_memory_unmap_regions));
@@ -401,8 +409,8 @@ int adm_memory_unmap_regions(uint32_t *buf_add, uint32_t *bufsz,
 	atomic_set(&this_adm.copp_stat[0], 0);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *) unmap_region_cmd);
 	if (ret < 0) {
-		pr_err("mmap_regions op[0x%x]rc[%d]\n",
-					unmap_regions->hdr.opcode, ret);
+		pr_err("%s: mmap_regions op[0x%x]rc[%d]\n", __func__,
+				unmap_regions->hdr.opcode, ret);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -410,7 +418,7 @@ int adm_memory_unmap_regions(uint32_t *buf_add, uint32_t *bufsz,
 	ret = wait_event_timeout(this_adm.wait,
 			atomic_read(&this_adm.copp_stat[0]), 5 * HZ);
 	if (!ret) {
-		pr_err("timeout. waited for memory_unmap\n");
+		pr_err("%s: timeout. waited for memory_unmap\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -459,7 +467,7 @@ int adm_close(int port_id)
 
 		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&close);
 		if (ret < 0) {
-			pr_err("ADM close failed\n");
+			pr_err("%s ADM close failed\n", __func__);
 			ret = -EINVAL;
 			goto fail_cmd;
 		}
@@ -468,8 +476,8 @@ int adm_close(int port_id)
 				atomic_read(&this_adm.copp_stat[port_id]),
 				msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
-			pr_info("%s: ADM cmd Route failed for port %d\n",
-							__func__, port_id);
+			pr_err("%s: ADM cmd Route failed for port %d\n",
+						__func__, port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
 		}
@@ -482,7 +490,6 @@ fail_cmd:
 static int __init adm_init(void)
 {
 	int i = 0;
-	pr_info("%s\n", __func__);
 	init_waitqueue_head(&this_adm.wait);
 	this_adm.apr = NULL;
 

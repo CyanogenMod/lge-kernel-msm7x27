@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,8 +145,6 @@ static int mi2s_get_gpios(struct platform_device *pdev)
 static int mi2s_fm_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-
-	pr_info("%s:\n", __func__);
 
 	rc = mi2s_get_gpios(pdev);
 	if (rc < 0) {
@@ -415,7 +413,6 @@ static int snddev_mi2s_probe(struct platform_device *pdev)
 	dev_info->sample_rate = pdata->sample_rate;
 	msm_snddev_register(dev_info);
 
-	pr_info("%s: probe done for %s\n", __func__, pdata->name);
 	return rc;
 }
 
@@ -441,8 +438,6 @@ static int __init snddev_mi2s_init(void)
 		pr_err("%s: platform_driver_register failed\n", __func__);
 		goto error_platform_driver;
 	}
-
-	pr_info("snddev_mi2s_init : done\n");
 
 	return rc;
 

@@ -2240,7 +2240,6 @@ static int __init voice_init(void)
 {
 	int rc = 0;
 	struct voice_data *v = &voice;
-	pr_info("%s\n", __func__); /* Macro prints the file name and function */
 
 	/* set default value */
 	v->default_mute_val = 1;  /* default is mute */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,18 +146,12 @@ static int get_aux_pcm_gpios(struct platform_device *pdev)
 
 	the_aux_pcm_state.clkin_a = res->start;
 
-	pr_info("%s: dout = %u, din = %u , syncout = %u, clkin_a =%u\n",
-		__func__, the_aux_pcm_state.dout, the_aux_pcm_state.din,
-		the_aux_pcm_state.syncout, the_aux_pcm_state.clkin_a);
-
 	return rc;
 }
 
 static int aux_pcm_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-
-	pr_info("%s:\n", __func__);
 
 	rc = get_aux_pcm_gpios(pdev);
 	if (rc < 0) {
@@ -304,8 +298,6 @@ static int snddev_ecodec_probe(struct platform_device *pdev)
 	struct msm_snddev_info *dev_info;
 	struct snddev_ecodec_state *ecodec;
 
-	pr_info("%s:\n", __func__);
-
 	if (!pdev || !pdev->dev.platform_data) {
 		printk(KERN_ALERT "Invalid caller\n");
 		rc = -1;
@@ -354,8 +346,6 @@ int __init snddev_ecodec_init(void)
 	int rc = 0;
 	struct snddev_ecodec_drv_state *drv = &snddev_ecodec_drv;
 
-	pr_info("%s:\n", __func__);
-
 	mutex_init(&drv->dev_lock);
 	drv->ref_cnt = 0;
 
@@ -378,7 +368,6 @@ int __init snddev_ecodec_init(void)
 				__func__);
 		goto error_ecodec_platform_driver;
 	}
-	pr_info("%s: done\n", __func__);
 
 	return 0;
 

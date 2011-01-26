@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -518,7 +518,6 @@ static int __init apr_init(void)
 {
 	int i, j, k;
 
-	pr_info("apr_probe\n");
 	for (i = 0; i < APR_DEST_MAX; i++)
 		for (j = 0; j < APR_CLIENT_MAX; j++)
 			for (k = 0; k < APR_SVC_MAX; k++) {
