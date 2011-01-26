@@ -154,6 +154,7 @@ static struct map_desc msm8x60_io_desc[] __initdata = {
 		.length =   MSM_SHARED_RAM_SIZE,
 		.type =     MT_DEVICE,
 	},
+	MSM_DEVICE(QFPROM),
 };
 
 void __init msm_map_msm8x60_io(void)
