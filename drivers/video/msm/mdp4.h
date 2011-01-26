@@ -243,6 +243,7 @@ struct mdp4_overlay_pipe {
 	uint32 dst_h;		/* roi */
 	uint32 dst_x;		/* roi */
 	uint32 dst_y;		/* roi */
+	uint32 flags;
 	uint32 op_mode;
 	uint32 transp;
 	uint32 blend_op;
@@ -412,7 +413,11 @@ void mdp4_dma_s_done_mddi(void);
 void mdp4_dma_p_done_mddi(void);
 void mdp4_overlay1_done_dtv(void);
 void mdp4_overlay1_done_atv(void);
+void mdp4_primary_vsync_lcdc(void);
 void mdp4_mddi_overlay_restore(void);
+void mdp4_overlay_lcdc_wait4vsync(struct msm_fb_data_type *mfd);
+void mdp4_overlay_vsync_push(struct msm_fb_data_type *mfd,
+				struct mdp4_overlay_pipe *pipe);
 void mdp4_mddi_overlay_dmas_restore(void);
 void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
