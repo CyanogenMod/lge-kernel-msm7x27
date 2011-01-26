@@ -74,6 +74,18 @@ struct msm_camera_csi_params {
 	uint8_t dpcm_scheme;
 };
 
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+	defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
+	defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+	defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+
+struct msm_ce_hw_support {
+	uint32_t ce_shared;
+	uint32_t shared_ce_resource;
+	uint32_t hw_key_support;
+};
+#endif
+
 #ifdef CONFIG_SENSORS_MT9T013
 struct msm_camera_legacy_device_platform_data {
 	int sensor_reset;

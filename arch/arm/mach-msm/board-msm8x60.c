@@ -528,6 +528,11 @@ static struct platform_device smsc911x_device = {
 #define QCE_SIZE		0x10000
 #define QCE_0_BASE		0x18500000
 
+#define QCE_HW_KEY_SUPPORT	0
+
+#define QCE_SHARE_CE_RESOURCE	2
+#define QCE_CE_SHARED		1
+
 #define ADM_CHANNEL_CE_0_IN	DMOV_CE_CHAN_IN
 #define ADM_CHANNEL_CE_0_OUT	DMOV_CE_CHAN_OUT
 
@@ -571,6 +576,13 @@ static struct resource qce_resources[] = {
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+
+static struct msm_ce_hw_support qcrypto_ce_hw_suppport = {
+	.ce_shared = QCE_CE_SHARED,
+	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
+	.hw_key_support = QCE_HW_KEY_SUPPORT,
+};
+
 static struct platform_device qcrypto_device = {
 	.name		= "qcrypto",
 	.id		= 0,
@@ -578,12 +590,20 @@ static struct platform_device qcrypto_device = {
 	.resource	= qce_resources,
 	.dev		= {
 		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &qcrypto_ce_hw_suppport,
 	},
 };
 #endif
 
 #if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
 		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+
+static struct msm_ce_hw_support qcedev_ce_hw_suppport = {
+	.ce_shared = QCE_CE_SHARED,
+	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
+	.hw_key_support = QCE_HW_KEY_SUPPORT,
+};
+
 static struct platform_device qcedev_device = {
 	.name		= "qce",
 	.id		= 0,
@@ -591,6 +611,7 @@ static struct platform_device qcedev_device = {
 	.resource	= qce_resources,
 	.dev		= {
 		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &qcedev_ce_hw_suppport,
 	},
 };
 #endif
