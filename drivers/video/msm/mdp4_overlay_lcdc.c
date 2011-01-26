@@ -236,6 +236,9 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	mdp4_vg_qseed_init(1);
 #endif
 	mdp4_overlay_reg_flush(pipe, 1);
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(2);
+#endif
 
 	mdp_intr_mask &= ~(INTR_OVERLAY0_DONE | INTR_DMA_P_DONE);
 	mdp_intr_mask |= INTR_PRIMARY_VSYNC; /* listen on vsycn only */
@@ -276,6 +279,9 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	/* dis-engage rgb0 from mixer0 */
 	if (lcdc_pipe)
 		mdp4_mixer_stage_down(lcdc_pipe);
+#endif
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(0);
 #endif
 
 	return ret;
