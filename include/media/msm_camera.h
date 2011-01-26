@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,12 +188,28 @@ struct msm_vfe_evt_msg {
 	void *data;
 };
 
+struct msm_isp_evt_msg {
+	unsigned short type;	/* 1 == event (RPC), 0 == message (adsp) */
+	unsigned short msg_id;
+	unsigned int len;	/* size in, number of bytes out */
+	/* maximum possible data size that can be
+i	  sent to user space as v4l2 data structure
+	  is only of 64 bytes */
+	uint8_t data[48];
+};
 struct msm_vpe_evt_msg {
 	unsigned short type; /* 1 == event (RPC), 0 == message (adsp) */
 	unsigned short msg_id;
 	unsigned int len; /* size in, number of bytes out */
 	uint32_t frame_id;
 	void *data;
+};
+struct msm_isp_stats_event_ctrl {
+	unsigned short resptype;
+	union {
+		struct msm_isp_evt_msg isp_msg;
+		struct msm_ctrl_cmd ctrl;
+	} isp_data;
 };
 
 #define MSM_CAM_RESP_CTRL         0
