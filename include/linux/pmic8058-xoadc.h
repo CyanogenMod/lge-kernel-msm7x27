@@ -67,6 +67,8 @@ struct xoadc_conv_state {
 
 #define XOADC_PMIC_0		0x0
 
+#define CHANNEL_ADC_625_MV      625
+
 struct xoadc_platform_data {
 	struct adc_properties *xoadc_prop;
 	u32 (*xoadc_setup) (void);
@@ -91,4 +93,6 @@ struct adc_properties *pm8058_xoadc_get_properties(uint32_t);
 int32_t pm8058_xoadc_calibrate(uint32_t, struct adc_conv_slot *, int *);
 
 int32_t pm8058_xoadc_registered(void);
+
+int32_t pm8058_xoadc_calib_device(uint32_t adc_instance);
 #endif
