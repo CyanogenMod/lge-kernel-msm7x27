@@ -766,12 +766,53 @@ struct vcd_buffer_entry *vcd_buffer_pool_entry_de_q
 	return entry;
 }
 
+void vcd_flush_bframe_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
+{
+	int i;
+	struct vcd_buffer_pool *buf_pool;
+
+	if (!cctxt->decoding && cctxt->bframe) {
+		buf_pool = (mode == VCD_FLUSH_INPUT) ?
+			&cctxt->in_buf_pool : &cctxt->out_buf_pool;
+		if (buf_pool->entries != NULL) {
+			for (i = 1; i <= buf_pool->count; i++) {
+				if ((buf_pool->entries[i].in_use) &&
+					(buf_pool->entries[i].frame.virtual
+					 != NULL)) {
+					if (mode == VCD_FLUSH_INPUT) {
+						cctxt->callback(
+						VCD_EVT_RESP_INPUT_FLUSHED,
+						VCD_S_SUCCESS,
+						&(buf_pool->entries[i].frame),
+						sizeof(struct vcd_frame_data),
+						cctxt, cctxt->client_data);
+					} else {
+						buf_pool->entries[i].
+							frame.data_len = 0;
+						cctxt->callback(
+						VCD_EVT_RESP_OUTPUT_FLUSHED,
+						VCD_S_SUCCESS,
+						&(buf_pool->entries[i].frame),
+						sizeof(struct vcd_frame_data),
+						cctxt,
+						cctxt->client_data);
+					}
+				VCD_BUFFERPOOL_INUSE_DECREMENT(
+					buf_pool->in_use);
+				buf_pool->entries[i].in_use = false;
+				}
+			}
+		}
+	}
+}
+
 void vcd_flush_output_buffers(struct vcd_clnt_ctxt *cctxt)
 {
 	struct vcd_buffer_pool *buf_pool;
 	struct vcd_buffer_entry *buf_entry;
 	u32 count = 0;
 	struct vcd_property_hdr prop_hdr;
+
 	VCD_MSG_LOW("vcd_flush_output_buffers:");
 	buf_pool = &cctxt->out_buf_pool;
 	buf_entry = vcd_buffer_pool_entry_de_q(buf_pool);
@@ -779,10 +820,10 @@ void vcd_flush_output_buffers(struct vcd_clnt_ctxt *cctxt)
 		if (!cctxt->decoding || buf_entry->in_use) {
 			buf_entry->frame.data_len = 0;
 			cctxt->callback(VCD_EVT_RESP_OUTPUT_FLUSHED,
-					  VCD_S_SUCCESS,
-					  &buf_entry->frame,
-					  sizeof(struct vcd_frame_data),
-					  cctxt, cctxt->client_data);
+					VCD_S_SUCCESS,
+					&buf_entry->frame,
+					sizeof(struct vcd_frame_data),
+					cctxt, cctxt->client_data);
 			if (buf_entry->in_use) {
 				VCD_BUFFERPOOL_INUSE_DECREMENT(
 					buf_pool->in_use);
@@ -792,11 +833,12 @@ void vcd_flush_output_buffers(struct vcd_clnt_ctxt *cctxt)
 		}
 		buf_entry = vcd_buffer_pool_entry_de_q(buf_pool);
 	}
+	vcd_flush_bframe_buffers(cctxt, VCD_FLUSH_OUTPUT);
 	if (buf_pool->in_use || buf_pool->q_len) {
 		VCD_MSG_ERROR("%s(): WARNING in_use(%u) or q_len(%u) not zero!",
 			__func__, buf_pool->in_use, buf_pool->q_len);
 		buf_pool->in_use = buf_pool->q_len = 0;
-  }
+		}
 	if (cctxt->sched_clnt_hdl) {
 		if (count > cctxt->sched_clnt_hdl->tkns)
 			cctxt->sched_clnt_hdl->tkns = 0;
@@ -810,7 +852,7 @@ void vcd_flush_output_buffers(struct vcd_clnt_ctxt *cctxt)
 		count = 0x1;
 
 		(void)ddl_set_property(cctxt->ddl_handle, &prop_hdr,
-					   &count);
+					&count);
 	}
 	vcd_release_all_clnt_frm_transc(cctxt);
 	cctxt->status.mask &= ~VCD_IN_RECONFIG;
@@ -825,7 +867,6 @@ u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
 
 	if (mode > VCD_FLUSH_ALL || !(mode & VCD_FLUSH_ALL)) {
 		VCD_MSG_ERROR("Invalid flush mode %d", mode);
-
 		return VCD_ERR_ILLEGAL_PARM;
 	}
 
@@ -838,14 +879,13 @@ u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
 		while (!VCD_FAILED(rc) && buf_entry) {
 			if (buf_entry->virtual) {
 				cctxt->callback(VCD_EVT_RESP_INPUT_FLUSHED,
-						  VCD_S_SUCCESS,
-						  &buf_entry->frame,
-						  sizeof(struct
+						VCD_S_SUCCESS,
+						&buf_entry->frame,
+						sizeof(struct
 							 vcd_frame_data),
-						  cctxt,
-						  cctxt->client_data);
-
-			}
+						cctxt,
+						cctxt->client_data);
+				}
 
 			buf_entry->in_use = false;
 			VCD_BUFFERPOOL_INUSE_DECREMENT(
@@ -854,14 +894,17 @@ u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
 			rc = vcd_sched_dequeue_buffer(
 				cctxt->sched_clnt_hdl, &buf_entry);
 		}
-
 	}
 	if (rc != VCD_ERR_QEMPTY)
 		VCD_FAILED_RETURN(rc, "Failed: vcd_sched_dequeue_buffer");
 	if (cctxt->status.frame_submitted > 0)
 		cctxt->status.mask |= mode;
-	else if (mode & VCD_FLUSH_OUTPUT)
-		vcd_flush_output_buffers(cctxt);
+	else {
+		if (mode & VCD_FLUSH_INPUT)
+			vcd_flush_bframe_buffers(cctxt, VCD_FLUSH_INPUT);
+		if (mode & VCD_FLUSH_OUTPUT)
+			vcd_flush_output_buffers(cctxt);
+	}
 	return VCD_S_SUCCESS;
 }
 
@@ -889,6 +932,7 @@ u32 vcd_init_client_context(struct vcd_clnt_ctxt *cctxt)
 		vcd_get_client_state_table(VCD_CLIENT_STATE_OPEN);
 	cctxt->signature = VCD_SIGNATURE;
 	cctxt->live = true;
+	cctxt->bframe = 0;
 	cctxt->cmd_q.pending_cmd = VCD_CMD_NONE;
 	cctxt->status.last_evt = VCD_EVT_RESP_BASE;
 	return rc;
@@ -1681,10 +1725,10 @@ u32 vcd_handle_input_done(
 	transc->frame = frame->vcd_frm.frame;
 
 	cctxt->callback(event,
-			  status,
-			  &frame->vcd_frm,
-			  sizeof(struct vcd_frame_data),
-			  cctxt, cctxt->client_data);
+			status,
+			&frame->vcd_frm,
+			sizeof(struct vcd_frame_data),
+			cctxt, cctxt->client_data);
 
 	transc->ip_buf_entry->in_use = false;
 	VCD_BUFFERPOOL_INUSE_DECREMENT(cctxt->in_buf_pool.in_use);
