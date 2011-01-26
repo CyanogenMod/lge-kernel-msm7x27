@@ -1432,19 +1432,6 @@ struct platform_device msm_bus_cpss_fpb = {
 };
 #endif
 
-/* XXX: TEMPORARY FUNCTION: Should not be present in final code. */
-void __init msm_clock_dfab_temp_init(void)
-{
-	struct clk *dfab_temp_clk;
-
-	/* Until all other DFAB voters are used, add a fake vote for the max
-	 * DFAB rate so nothing breaks when the actual voters are added
-	 * one-at-a-time. */
-	dfab_temp_clk = clk_get(NULL, "dfab_temp_clk");
-	clk_set_rate(dfab_temp_clk, 64000000);
-	clk_enable(dfab_temp_clk);
-}
-
 #define FS(_id, _name) (&(struct platform_device){ \
 	.name	= "footswitch-msm8x60", \
 	.id	= (_id), \
@@ -1667,8 +1654,6 @@ struct clk_lookup msm_clocks_8x60[] = {
 					"dfab_clk",    "msm_sdcc.4", 0),
 	CLK_VOTER("dfab_sdc_clk",      DFAB_SDC5_CLK,
 					"dfab_clk",    "msm_sdcc.5", 0),
-	CLK_VOTER("dfab_temp_clk",    DFAB_TEMP_CLK,
-					"dfab_clk", NULL, 0),
 };
 
 unsigned msm_num_clocks_8x60 = ARRAY_SIZE(msm_clocks_8x60);
