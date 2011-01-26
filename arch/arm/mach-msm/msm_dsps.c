@@ -168,7 +168,7 @@ static u32 dsps_read_fast_timer(void)
 static int dsps_power_on_handler(void)
 {
 	int ret = 0;
-	int i, ci, gi;
+	int i, ci, gi, ri;
 
 	pr_debug("%s.\n", __func__);
 
@@ -222,9 +222,50 @@ static int dsps_power_on_handler(void)
 		}
 	}
 
+	for (ri = 0; ri < drv->pdata->regs_num; ri++) {
+		const char *name = drv->pdata->regs[ri].name;
+		struct regulator *reg = drv->pdata->regs[ri].reg;
+		int volt = drv->pdata->regs[ri].volt;
+
+		if (reg == NULL)
+			continue;
+
+		pr_debug("%s: set regulator %s.", __func__, name);
+
+		ret = regulator_set_voltage(reg, volt, volt);
+
+		if (ret) {
+			pr_err("%s: set regulator %s voltage %d err = %d.\n",
+				__func__, name, volt, ret);
+			goto reg_err;
+		}
+
+		ret = regulator_enable(reg);
+		if (ret) {
+			pr_err("%s: enable regulator %s err = %d.\n",
+				__func__, name, ret);
+			goto reg_err;
+		}
+	}
+
 	drv->is_on = true;
 
 	return 0;
+
+	/*
+	 * If failling to set ANY clock/gpio/regulator to ON then we set
+	 * them back to OFF to avoid consuming power for unused
+	 * clocks/gpios/regulators.
+	 */
+reg_err:
+	for (i = 0; i < ri; i++) {
+		struct regulator *reg = drv->pdata->regs[ri].reg;
+
+		if (reg == NULL)
+			continue;
+
+		regulator_disable(reg);
+	}
 
 gpio_err:
 	for (i = 0; i < gi; i++) {
@@ -239,10 +280,6 @@ gpio_err:
 	}
 
 clk_err:
-	/*
-	 * If failling to set ANY clock/gpio to ON then we set them back to
-	 * OFF to avoid consuming power for unused clocks/gpios.
-	 */
 	for (i = 0; i < ci; i++) {
 		struct clk *clock = drv->pdata->clks[i].clock;
 
@@ -282,6 +319,13 @@ static int dsps_power_off_handler(void)
 			clk_disable(drv->pdata->clks[i].clock);
 		}
 
+	for (i = 0; i < drv->pdata->regs_num; i++)
+		if (drv->pdata->regs[i].reg) {
+			const char *name = drv->pdata->regs[i].name;
+
+			pr_debug("%s: set regulator %s off.", __func__, name);
+			regulator_disable(drv->pdata->regs[i].reg);
+		}
 
 	/* Clocks on/off has reference count but GPIOs don't. */
 	drv->is_on = false;
@@ -399,10 +443,33 @@ static int dsps_alloc_resources(struct platform_device *pdev)
 
 	}
 
+	for (i = 0; i < drv->pdata->regs_num; i++) {
+		const char *name = drv->pdata->regs[i].name;
+
+		drv->pdata->regs[i].reg = NULL;
+
+		pr_debug("%s: get regulator %s.", __func__, name);
+
+		drv->pdata->regs[i].reg = regulator_get(drv->dev, name);
+		if (IS_ERR(drv->pdata->regs[i].reg)) {
+			pr_err("%s: get regulator %s failed.",
+			       __func__, name);
+			goto reg_err;
+		}
+	}
+
 	drv->ppss_base = ioremap(ppss_res->start,
 				 resource_size(ppss_res));
 
 	return 0;
+
+reg_err:
+	for (i = 0; i < drv->pdata->regs_num; i++) {
+		if (drv->pdata->regs[i].reg) {
+			regulator_put(drv->pdata->regs[i].reg);
+			drv->pdata->regs[i].reg = NULL;
+		}
+	}
 
 gpio_err:
 	for (i = 0; i < drv->pdata->gpios_num; i++)
@@ -473,8 +540,14 @@ static void dsps_free_resources(void)
 			drv->pdata->gpios[i].is_owner = false;
 		}
 
-	iounmap(drv->ppss_base);
+	for (i = 0; i < drv->pdata->regs_num; i++) {
+		if (drv->pdata->regs[i].reg) {
+			regulator_put(drv->pdata->regs[i].reg);
+			drv->pdata->regs[i].reg = NULL;
+		}
+	}
 
+	iounmap(drv->ppss_base);
 }
 
 /**

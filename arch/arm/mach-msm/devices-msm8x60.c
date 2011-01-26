@@ -1115,6 +1115,17 @@ static struct dsps_clk_info dsps_clks[] = {
 	}
 };
 
+static struct dsps_regulator_info dsps_regs[] = {
+	{
+		.name = "8058_l5",
+		.volt = 2850000, /* in uV */
+	},
+	{
+		.name = "8058_s3",
+		.volt = 1800000, /* in uV */
+	}
+};
+
 /*
  * Note: GPIOs field is	intialized in run-time at the function
  * msm8x60_init_dsps().
@@ -1125,6 +1136,8 @@ struct msm_dsps_platform_data msm_dsps_pdata = {
 	.clks_num = ARRAY_SIZE(dsps_clks),
 	.gpios = NULL,
 	.gpios_num = 0,
+	.regs = dsps_regs,
+	.regs_num = ARRAY_SIZE(dsps_regs),
 	.signature = DSPS_SIGNATURE,
 };
 
