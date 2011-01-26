@@ -4694,17 +4694,18 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.id		= -1,
 	},
 	{
-		.name = "pm8058-charger",
-		.id = -1,
-		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
-		.resources = resources_pm8058_charger,
-	},
-	{
 		.name = "pm8058-misc",
 		.id = -1,
 		.num_resources  = ARRAY_SIZE(resources_pm8058_misc),
 		.resources      = resources_pm8058_misc,
 	},
+};
+
+static struct mfd_cell pm8058_charger_sub_dev = {
+		.name = "pm8058-charger",
+		.id = -1,
+		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
+		.resources = resources_pm8058_charger,
 };
 
 static struct pm8058_platform_data pm8058_platform_data = {
@@ -8164,15 +8165,14 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
 		platform_add_devices(charm_devices, ARRAY_SIZE(charm_devices));
 
-	if (machine_is_msm8x60_fluid()) {
-#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
-		/* we dont want to register the pmic charger driver*/
-		pm8058_platform_data.num_subdevs--;
-#endif
+	if (!machine_is_msm8x60_fluid())
+		pm8058_platform_data.charger_sub_device
+			= &pm8058_charger_sub_dev;
+
 #if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
+	if (machine_is_msm8x60_fluid())
 		platform_device_register(&msm_gsbi10_qup_spi_device);
 #endif
-	}
 
 	if (!machine_is_msm8x60_sim())
 		msm_fb_add_devices();
