@@ -100,16 +100,9 @@ module_param_named(
 #define NCP_STATE				0x1000
 #define NCP_STATE_SHIFT				12
 
-/* Max low power mode loads in uA */
-#define LDO_50_LPM_MAX_LOAD			50000
-#define LDO_150_LPM_MAX_LOAD			50000
-#define LDO_300_LPM_MAX_LOAD			50000
-#define SMPS_LPM_MAX_LOAD			50000
-#define FTSMPS_LPM_MAX_LOAD			50000
-
 /*
  * This is used when voting for LPM or HPM by subtracting or adding to the
- * lpm_max_load of a regulator.  It has units of uA.
+ * hpm_min_load of a regulator.  It has units of uA.
  */
 #define LOAD_THRESHOLD_STEP			1000
 
@@ -138,7 +131,7 @@ struct vreg {
 	struct msm_rpm_iv_pair	prev_sleep_req[2];
 	struct rpm_vreg_pdata	*pdata;
 	int			save_uV;
-	const int		lpm_max_load;
+	const int		hpm_min_load;
 	unsigned		pc_vote;
 	unsigned		optimum;
 	unsigned		mode_initialized;
@@ -147,13 +140,15 @@ struct vreg {
 	enum rpm_vreg_id	id;
 };
 
-#define VREG_2(_vreg_id, _rpm_id, _lpm_max_load) \
+#define RPM_VREG_NCP_HPM_MIN_LOAD	0
+
+#define VREG_2(_vreg_id, _rpm_id, _hpm_min_load) \
 	[RPM_VREG_ID_##_vreg_id] = { \
 		.req = { \
 			[0] = { .id = MSM_RPM_ID_##_rpm_id##_0, }, \
 			[1] = { .id = MSM_RPM_ID_##_rpm_id##_1, }, \
 		}, \
-		.lpm_max_load = _lpm_max_load, \
+		.hpm_min_load = RPM_VREG_##_hpm_min_load, \
 	}
 
 #define VREG_1(_vreg_id, _rpm_id) \
@@ -165,57 +160,57 @@ struct vreg {
 	}
 
 static struct vreg vregs[RPM_VREG_ID_MAX] = {
-	VREG_2(PM8058_L0, LDO0, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L1, LDO1, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L2, LDO2, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L3, LDO3, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L4, LDO4, LDO_50_LPM_MAX_LOAD),
-	VREG_2(PM8058_L5, LDO5, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L6, LDO6, LDO_50_LPM_MAX_LOAD),
-	VREG_2(PM8058_L7, LDO7, LDO_50_LPM_MAX_LOAD),
-	VREG_2(PM8058_L8, LDO8, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L9, LDO9, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L10, LDO10, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L11, LDO11, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L12, LDO12, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L13, LDO13, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L14, LDO14, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L15, LDO15, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L16, LDO16, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L17, LDO17, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L18, LDO18, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L19, LDO19, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L20, LDO20, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L21, LDO21, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L22, LDO22, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L23, LDO23, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8058_L24, LDO24, LDO_150_LPM_MAX_LOAD),
-	VREG_2(PM8058_L25, LDO25, LDO_150_LPM_MAX_LOAD),
+	VREG_2(PM8058_L0, LDO0, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L1, LDO1, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L2, LDO2, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L3, LDO3, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L4, LDO4, LDO_50_HPM_MIN_LOAD),
+	VREG_2(PM8058_L5, LDO5, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L6, LDO6, LDO_50_HPM_MIN_LOAD),
+	VREG_2(PM8058_L7, LDO7, LDO_50_HPM_MIN_LOAD),
+	VREG_2(PM8058_L8, LDO8, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L9, LDO9, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L10, LDO10, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L11, LDO11, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L12, LDO12, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L13, LDO13, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L14, LDO14, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L15, LDO15, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L16, LDO16, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L17, LDO17, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L18, LDO18, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L19, LDO19, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L20, LDO20, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L21, LDO21, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L22, LDO22, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L23, LDO23, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8058_L24, LDO24, LDO_150_HPM_MIN_LOAD),
+	VREG_2(PM8058_L25, LDO25, LDO_150_HPM_MIN_LOAD),
 
-	VREG_2(PM8058_S0, SMPS0, SMPS_LPM_MAX_LOAD),
-	VREG_2(PM8058_S1, SMPS1, SMPS_LPM_MAX_LOAD),
-	VREG_2(PM8058_S2, SMPS2, SMPS_LPM_MAX_LOAD),
-	VREG_2(PM8058_S3, SMPS3, SMPS_LPM_MAX_LOAD),
-	VREG_2(PM8058_S4, SMPS4, SMPS_LPM_MAX_LOAD),
+	VREG_2(PM8058_S0, SMPS0, SMPS_HPM_MIN_LOAD),
+	VREG_2(PM8058_S1, SMPS1, SMPS_HPM_MIN_LOAD),
+	VREG_2(PM8058_S2, SMPS2, SMPS_HPM_MIN_LOAD),
+	VREG_2(PM8058_S3, SMPS3, SMPS_HPM_MIN_LOAD),
+	VREG_2(PM8058_S4, SMPS4, SMPS_HPM_MIN_LOAD),
 
 	VREG_1(PM8058_LVS0, LVS0),
 	VREG_1(PM8058_LVS1, LVS1),
 
-	VREG_2(PM8058_NCP, NCP, 0),
+	VREG_2(PM8058_NCP, NCP, NCP_HPM_MIN_LOAD),
 
-	VREG_2(PM8901_L0, LDO0B, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8901_L1, LDO1B, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8901_L2, LDO2B, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8901_L3, LDO3B, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8901_L4, LDO4B, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8901_L5, LDO5B, LDO_300_LPM_MAX_LOAD),
-	VREG_2(PM8901_L6, LDO6B, LDO_300_LPM_MAX_LOAD),
+	VREG_2(PM8901_L0, LDO0B, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8901_L1, LDO1B, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8901_L2, LDO2B, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8901_L3, LDO3B, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8901_L4, LDO4B, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8901_L5, LDO5B, LDO_300_HPM_MIN_LOAD),
+	VREG_2(PM8901_L6, LDO6B, LDO_300_HPM_MIN_LOAD),
 
-	VREG_2(PM8901_S0, SMPS0B, FTSMPS_LPM_MAX_LOAD),
-	VREG_2(PM8901_S1, SMPS1B, FTSMPS_LPM_MAX_LOAD),
-	VREG_2(PM8901_S2, SMPS2B, FTSMPS_LPM_MAX_LOAD),
-	VREG_2(PM8901_S3, SMPS3B, FTSMPS_LPM_MAX_LOAD),
-	VREG_2(PM8901_S4, SMPS4B, FTSMPS_LPM_MAX_LOAD),
+	VREG_2(PM8901_S0, SMPS0B, FTSMPS_HPM_MIN_LOAD),
+	VREG_2(PM8901_S1, SMPS1B, FTSMPS_HPM_MIN_LOAD),
+	VREG_2(PM8901_S2, SMPS2B, FTSMPS_HPM_MIN_LOAD),
+	VREG_2(PM8901_S3, SMPS3B, FTSMPS_HPM_MIN_LOAD),
+	VREG_2(PM8901_S4, SMPS4B, FTSMPS_HPM_MIN_LOAD),
 
 	VREG_1(PM8901_LVS0, LVS0B),
 	VREG_1(PM8901_LVS1, LVS1B),
@@ -456,12 +451,12 @@ EXPORT_SYMBOL_GPL(rpm_vreg_set_voltage);
 
 static inline int vreg_hpm_min_uA(struct vreg *vreg)
 {
-	return vreg->lpm_max_load + LOAD_THRESHOLD_STEP;
+	return vreg->hpm_min_load;
 }
 
 static inline int vreg_lpm_max_uA(struct vreg *vreg)
 {
-	return vreg->lpm_max_load - LOAD_THRESHOLD_STEP;
+	return vreg->hpm_min_load - LOAD_THRESHOLD_STEP;
 }
 
 static inline unsigned saturate_load(unsigned load_uA)
@@ -762,7 +757,7 @@ unsigned int smps_get_optimum_mode(struct regulator_dev *dev, int input_uV,
 		return smps_get_mode(dev);
 	}
 
-	if (load_uA > vreg->lpm_max_load)
+	if (load_uA >= vreg->hpm_min_load)
 		return REGULATOR_MODE_FAST;
 	return REGULATOR_MODE_STANDBY;
 }
@@ -975,7 +970,7 @@ unsigned int ldo_get_optimum_mode(struct regulator_dev *dev, int input_uV,
 		return ldo_get_mode(dev);
 	}
 
-	if (load_uA > vreg->lpm_max_load)
+	if (load_uA >= vreg->hpm_min_load)
 		return REGULATOR_MODE_FAST;
 	return REGULATOR_MODE_STANDBY;
 }
@@ -1259,7 +1254,7 @@ static int vreg_init(enum rpm_vreg_id id, struct vreg *vreg)
 {
 	vreg->save_uV = vreg->pdata->default_uV;
 
-	if (vreg->pdata->peak_uA > vreg->lpm_max_load)
+	if (vreg->pdata->peak_uA >= vreg->hpm_min_load)
 		vreg->optimum = REGULATOR_MODE_FAST;
 	else
 		vreg->optimum = REGULATOR_MODE_STANDBY;
