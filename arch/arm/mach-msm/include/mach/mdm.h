@@ -35,4 +35,16 @@ struct charm_platform_data {
 	void (*charm_modem_off)(void);
 };
 
+#define AP2MDM_STATUS   136
+#define MDM2AP_STATUS   134
+#define MDM2AP_WAKEUP   40
+#define MDM2AP_ERRFATAL 133
+#define AP2MDM_ERRFATAL 93
+
+#define AP2MDM_PMIC_RESET_N     131
+#define AP2MDM_KPDPWR_N 132
+#define AP2PMIC_TMPNI_CKEN      141
+
+extern void (*charm_intentional_reset)(void);
+
 #endif

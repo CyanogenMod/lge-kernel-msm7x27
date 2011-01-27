@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -439,6 +439,12 @@ static struct gpiomux_setting ap2mdm_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mdm2ap_status_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting mdm2ap_vfr_active_cfg = {
@@ -1616,7 +1622,7 @@ static struct msm_gpiomux_config msm8x60_charm_configs[] __initdata = {
 	{
 		.gpio = 134,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &ap2mdm_cfg,
+			[GPIOMUX_SUSPENDED] = &mdm2ap_status_cfg,
 		}
 	},
 	/* MDM2AP_WAKEUP */
@@ -1643,6 +1649,13 @@ static struct msm_gpiomux_config msm8x60_charm_configs[] __initdata = {
 	/* AP2MDM_KPDPWR_N */
 	{
 		.gpio = 132,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
+		}
+	},
+	/* AP2MDM_PMIC_RESET_N */
+	{
+		.gpio = 131,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_kpdpwr_n_cfg,
 		}
