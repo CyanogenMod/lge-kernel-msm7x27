@@ -533,13 +533,6 @@ static struct platform_device smsc911x_device = {
 #define QCE_SHARE_CE_RESOURCE	2
 #define QCE_CE_SHARED		1
 
-#define ADM_CHANNEL_CE_0_IN	DMOV_CE_CHAN_IN
-#define ADM_CHANNEL_CE_0_OUT	DMOV_CE_CHAN_OUT
-
-#define ADM_CRCI_0_IN		DMOV_CE_CRCI_IN
-#define ADM_CRCI_0_OUT		DMOV_CE_CRCI_OUT
-#define ADM_CRCI_0_HASH		DMOV_CE_CRCI_HASH
-
 static struct resource qce_resources[] = {
 	[0] = {
 		.start = QCE_0_BASE,
@@ -548,26 +541,26 @@ static struct resource qce_resources[] = {
 	},
 	[1] = {
 		.name = "crypto_channels",
-		.start = ADM_CHANNEL_CE_0_IN,
-		.end = ADM_CHANNEL_CE_0_OUT,
+		.start = DMOV_CE_IN_CHAN,
+		.end = DMOV_CE_OUT_CHAN,
 		.flags = IORESOURCE_DMA,
 	},
 	[2] = {
 		.name = "crypto_crci_in",
-		.start = ADM_CRCI_0_IN,
-		.end = ADM_CRCI_0_IN,
+		.start = DMOV_CE_IN_CRCI,
+		.end = DMOV_CE_IN_CRCI,
 		.flags = IORESOURCE_DMA,
 	},
 	[3] = {
 		.name = "crypto_crci_out",
-		.start = ADM_CRCI_0_OUT,
-		.end = ADM_CRCI_0_OUT,
+		.start = DMOV_CE_OUT_CRCI,
+		.end = DMOV_CE_OUT_CRCI,
 		.flags = IORESOURCE_DMA,
 	},
 	[4] = {
 		.name = "crypto_crci_hash",
-		.start = ADM_CRCI_0_HASH,
-		.end = ADM_CRCI_0_HASH,
+		.start = DMOV_CE_HASH_CRCI,
+		.end = DMOV_CE_HASH_CRCI,
 		.flags = IORESOURCE_DMA,
 	},
 };
