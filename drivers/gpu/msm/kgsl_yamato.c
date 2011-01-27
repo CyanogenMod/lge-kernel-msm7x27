@@ -605,6 +605,9 @@ kgsl_yamato_init(struct kgsl_device *device)
 
 	init_waitqueue_head(&yamato_device->ib1_wq);
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long)device);
+	status = kgsl_create_device_workqueue(device);
+	if (status)
+		goto error;
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
 	res = platform_get_resource_byname(kgsl_driver.pdev,
@@ -613,12 +616,12 @@ kgsl_yamato_init(struct kgsl_device *device)
 
 	if (res == NULL) {
 		KGSL_DRV_ERR("platform_get_resource_byname failed\n");
-		goto error;
+		goto error_dest_work_q;
 	}
 
 	if (res->start == 0 || resource_size(res) == 0) {
 		KGSL_DRV_ERR("dev %d invalid regspace\n", device->id);
-		goto error;
+		goto error_dest_work_q;
 	}
 
 	regspace->mmio_phys_base = res->start;
@@ -628,7 +631,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 				regspace->sizebytes, DRIVER_NAME)) {
 		KGSL_DRV_ERR("request_mem_region failed for register memory\n");
 		status = -ENODEV;
-		goto error;
+		goto error_dest_work_q;
 	}
 
 	regspace->mmio_virt_base = ioremap(regspace->mmio_phys_base,
@@ -713,6 +716,9 @@ error_iounmap:
 	regspace->mmio_virt_base = NULL;
 error_release_mem:
 	release_mem_region(regspace->mmio_phys_base, regspace->sizebytes);
+error_dest_work_q:
+	destroy_workqueue(device->work_queue);
+	device->work_queue = NULL;
 error:
 	return status;
 }
@@ -740,6 +746,11 @@ int kgsl_yamato_close(struct kgsl_device *device)
 	kgsl_pwrctrl_close(device);
 	kgsl_cffdump_close(device->id);
 
+	if (device->work_queue) {
+		destroy_workqueue(device->work_queue);
+		device->work_queue = NULL;
+	}
+
 	KGSL_DRV_VDBG("return %d\n", 0);
 	return 0;
 }
@@ -752,6 +763,8 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
+	device->state = KGSL_STATE_INIT;
+	device->requested_state = KGSL_STATE_NONE;
 	/* Turn the clocks on before the power.  Required for some platforms,
 	   has no adverse effect on the others */
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,6 +40,7 @@
 
 #include "kgsl_mmu.h"
 #include "kgsl_pwrctrl.h"
+#include "kgsl_log.h"
 
 #define KGSL_CONTEXT_MAX (CONFIG_MSM_KGSL_CONTEXTS)
 
@@ -67,6 +68,7 @@
 #define KGSL_STATE_NAP		0x00000004
 #define KGSL_STATE_SLEEP	0x00000008
 #define KGSL_STATE_SUSPEND	0x00000010
+#define KGSL_STATE_HUNG		0x00000020
 
 #define KGSL_GRAPHICS_MEMORY_LOW_WATERMARK  0x1000000
 
@@ -154,6 +156,8 @@ struct kgsl_device {
 	struct list_head memqueue;
 	unsigned int active_cnt;
 	struct completion suspend_gate;
+
+	struct workqueue_struct *work_queue;
 };
 
 struct kgsl_process_private {
@@ -189,6 +193,21 @@ static inline struct kgsl_mmu *
 kgsl_get_mmu(struct kgsl_device *device)
 {
 	return (struct kgsl_mmu *) (device ? &device->mmu : NULL);
+}
+
+static inline int kgsl_create_device_workqueue(struct kgsl_device *device)
+{
+	char str[128];
+	strcpy(str, "workqueue_");
+	strcat(str, device->name);
+	KGSL_DRV_INFO("creating workqueue: %s\n", str);
+	device->work_queue = create_workqueue(str);
+	if (!device->work_queue) {
+		KGSL_DRV_ERR("Failed to create workqueue %s\n",
+				str);
+		return -EINVAL;
+	}
+	return 0;
 }
 
 #endif  /* _KGSL_DEVICE_H */
