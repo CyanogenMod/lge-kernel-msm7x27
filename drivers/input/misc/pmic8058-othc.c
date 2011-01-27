@@ -56,6 +56,7 @@ struct pm8058_othc {
 	bool othc_support_n_switch;
 	bool accessory_support;
 	bool accessories_adc_support;
+	bool micbias_enabled;
 	int othc_base;
 	int othc_irq_sw;
 	int othc_irq_ir;
@@ -123,6 +124,11 @@ int pm8058_micbias_enable(enum othc_micbias micbias,
 		return rc;
 	}
 
+	if (enable == OTHC_SIGNAL_OFF)
+		dd->micbias_enabled = false;
+	else
+		dd->micbias_enabled = true;
+
 	return rc;
 }
 EXPORT_SYMBOL(pm8058_micbias_enable);
@@ -166,6 +172,7 @@ EXPORT_SYMBOL(pm8058_othc_svideo_enable);
 #ifdef CONFIG_PM
 static int pm8058_othc_suspend(struct device *dev)
 {
+	int rc = 0;
 	struct pm8058_othc *dd = dev_get_drvdata(dev);
 
 	if (dd->othc_pdata->micbias_capability == OTHC_MICBIAS_HSED) {
@@ -175,11 +182,19 @@ static int pm8058_othc_suspend(struct device *dev)
 		}
 	}
 
-	return 0;
+	if (!device_may_wakeup(dev) && dd->micbias_enabled == false) {
+		if (dd->othc_pdata->micbias_power != NULL)
+			rc = dd->othc_pdata->micbias_power(false);
+			if (rc)
+				pr_err("micbasis power off failed\n");
+	}
+
+	return rc;
 }
 
 static int pm8058_othc_resume(struct device *dev)
 {
+	int rc = 0;
 	struct pm8058_othc *dd = dev_get_drvdata(dev);
 
 	if (dd->othc_pdata->micbias_capability == OTHC_MICBIAS_HSED) {
@@ -189,7 +204,14 @@ static int pm8058_othc_resume(struct device *dev)
 		}
 	}
 
-	return 0;
+	if (!device_may_wakeup(dev) && dd->micbias_enabled == false) {
+		if (dd->othc_pdata->micbias_power != NULL)
+			rc = dd->othc_pdata->micbias_power(true);
+			if (rc)
+				pr_err("micbasis power on failed\n");
+	}
+
+	return rc;
 }
 
 static struct dev_pm_ops pm8058_othc_pm_ops = {
@@ -225,6 +247,10 @@ static int __devexit pm8058_othc_remove(struct platform_device *pd)
 		free_irq(dd->othc_irq_ir, dd);
 		input_unregister_device(dd->othc_ipd);
 	}
+	if (dd->othc_pdata->micbias_power != NULL)
+		dd->othc_pdata->micbias_power(false);
+	if (dd->othc_pdata->micbias_exit != NULL)
+		dd->othc_pdata->micbias_exit();
 	kfree(dd);
 
 	return 0;
@@ -978,6 +1004,25 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	dd->othc_pdata = pdata;
 	dd->pm_chip = chip;
 	dd->othc_base = res->start;
+	dd->micbias_enabled = false;
+	if (pdata->micbias_init != NULL) {
+		rc = pdata->micbias_init();
+		if (rc) {
+			pr_err("Init failed\n");
+			goto fail_othc_init;
+		}
+	}
+
+	if (dd->othc_pdata->micbias_enable != OTHC_SIGNAL_OFF) {
+		if (pdata->micbias_power != NULL) {
+			rc = pdata->micbias_power(true);
+			if (rc) {
+				pr_err("power on failed\n");
+				goto fail_othc_power;
+			}
+		}
+		dd->micbias_enabled = true;
+	}
 
 	platform_set_drvdata(pd, dd);
 
@@ -986,11 +1031,11 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 		if (pdata->hsed_config != NULL) {
 			rc = othc_configure_hsed(dd, pd);
 			if (rc < 0)
-				goto fail_get_res;
+				goto fail_othc_hsed;
 		} else {
 			pr_err("HSED config data not present\n");
 			rc = -EINVAL;
-			goto fail_get_res;
+			goto fail_othc_hsed;
 		}
 	}
 
@@ -1002,6 +1047,13 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 					pd->name, pd->id);
 	return 0;
 
+fail_othc_hsed:
+	if (pdata->micbias_power != NULL)
+		rc = pdata->micbias_power(false);
+fail_othc_power:
+	if (pdata->micbias_exit != NULL)
+		pdata->micbias_exit();
+fail_othc_init:
 fail_get_res:
 	pm_runtime_set_suspended(&pd->dev);
 	pm_runtime_disable(&pd->dev);
