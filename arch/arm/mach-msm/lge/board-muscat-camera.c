@@ -312,7 +312,7 @@ static struct msm_camera_sensor_flash_data flash_none = {
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9t113_data = {
-	.sensor_name    = "isx005",  //temp, for matching camera hal layer sensor name
+	.sensor_name    = "mt9t113",
 	.sensor_reset   = GPIO_CAM_RESET,
 	.sensor_pwd     = GPIO_CAM_PWDN,
 	.vcm_pwd        = 0,
@@ -333,7 +333,7 @@ static struct msm_camera_sensor_flash_data flash_none = {
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_s5k5caga_data = {
-	.sensor_name    = "isx005", //temp, for matching camera hal layer sensor name
+	.sensor_name    = "s5k5caga",
 	.sensor_reset   = GPIO_CAM_RESET,
 	.sensor_pwd     = GPIO_CAM_PWDN,
 	.vcm_pwd        = 0,
