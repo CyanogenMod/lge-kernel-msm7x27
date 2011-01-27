@@ -111,9 +111,7 @@ void mdp_vsync_clk_enable(void)
 void mdp_vsync_clk_disable(void)
 {
 	if (vsync_mfd) {
-		if (vsync_mfd->vsync_resync_timer.function)
-			del_timer(&vsync_mfd->vsync_resync_timer);
-
+		del_timer(&vsync_mfd->vsync_resync_timer);
 		mdp_hw_vsync_clk_disable(vsync_mfd);
 	}
 }
@@ -126,12 +124,11 @@ static void mdp_set_vsync(unsigned long data)
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
-	vsync_mfd = mfd;
-	init_timer(&mfd->vsync_resync_timer);
-
 	if ((pdata) && (pdata->set_vsync_notifier == NULL))
 		return;
 
+	vsync_mfd = mfd;
+	init_timer(&mfd->vsync_resync_timer);
 	mfd->vsync_resync_timer.function = mdp_set_vsync;
 	mfd->vsync_resync_timer.data = data;
 	mfd->vsync_resync_timer.expires =
@@ -226,6 +223,7 @@ static void mdp_set_sync_cfg_1(struct msm_fb_data_type *mfd, int vsync_cnt)
 
 void mdp_config_vsync(struct msm_fb_data_type *mfd)
 {
+
 	/* vsync on primary lcd only for now */
 	if ((mfd->dest != DISPLAY_LCD) || (mfd->panel_info.pdest != DISPLAY_1)
 	    || (!vsync_mode)) {
@@ -375,7 +373,6 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 		}
 
 		mdp_set_vsync((unsigned long)mfd);
-		mdp_hw_vsync_clk_enable(mfd);
 	}
 
 	return;
