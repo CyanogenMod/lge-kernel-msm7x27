@@ -195,12 +195,6 @@ static struct resource msm_uart1_dm_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = TCSR_BASE_PHYS,
-		.end   = TCSR_BASE_PHYS + 0x80 - 1,
-		.name  = "tcsr_resource",
-		.flags = IORESOURCE_MEM,
-	},
-	{
 		.start = DMOV_HSUART1_TX_CHAN,
 		.end   = DMOV_HSUART1_RX_CHAN,
 		.name  = "uartdm_channels",
