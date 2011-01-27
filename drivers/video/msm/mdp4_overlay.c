@@ -1606,22 +1606,35 @@ int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
 #define OVERLAY_PERF_LEVEL4	4
 
 #ifdef CONFIG_MSM_BUS_SCALING
-#define OVERLAY_BUS_SCALE_TABLE_BASE	6
+#define OVERLAY_BUS_SCALE_TABLE_BASE	7
 #endif
 
 static uint32 mdp4_overlay_get_perf_level(uint32 width, uint32 height,
 					  uint32 format)
 {
 	uint32 size_720p = OVERLAY_720P_SIZE;
+
+	switch (format) {
+	case MDP_RGB_565:
+	case MDP_RGB_888:
+	case MDP_BGR_565:
+	case MDP_XRGB_8888:
+	case MDP_ARGB_8888:
+	case MDP_RGBA_8888:
+	case MDP_BGRA_8888:
+	case MDP_RGBX_8888:
+		return OVERLAY_PERF_LEVEL1;
+	}
+
 	if (format == MDP_Y_CRCB_H2V2_TILE ||
 		format == MDP_Y_CBCR_H2V2_TILE)
 		size_720p = OVERLAY_720P_TILE_SIZE;
 	if (width*height <= OVERLAY_VGA_SIZE)
-		return OVERLAY_PERF_LEVEL3;
+		return OVERLAY_PERF_LEVEL4;
 	else if (width*height <= size_720p)
-		return OVERLAY_PERF_LEVEL2;
+		return OVERLAY_PERF_LEVEL3;
 	else
-		return OVERLAY_PERF_LEVEL1;
+		return OVERLAY_PERF_LEVEL2;
 }
 
 int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)

@@ -7276,6 +7276,7 @@ int mdp_core_clk_rate_table[] = {
 	59080000,
 	85330000,
 	200000000,
+	200000000,
 };
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
