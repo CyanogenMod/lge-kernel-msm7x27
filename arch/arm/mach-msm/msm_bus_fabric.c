@@ -211,7 +211,7 @@ error:
  * @fabric: Fabric for which the data should be committed
  * */
 static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
-	int active_only)
+	int active_ctx)
 
 {
 	int i, j, offset = 0, status = 0, count, index = 0;
@@ -234,7 +234,7 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
 
 	offset = fabric->pdata->offset;
 
-	cdata = SELECT_CDATA(active_only, fabric);
+	cdata = SELECT_CDATA(active_ctx, fabric);
 	/*
 	 * Copy bwsum to rpm data
 	 * Since bwsum is uint16, the values need to be adjusted to
@@ -286,7 +286,7 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
 		nmasters, fabric->pdata->nslaves, fabric->pdata->ntieredslaves,
 		MSM_BUS_DBG_OP);
 	if (fabric->pdata->rpm_enabled) {
-		if (active_only)
+		if (active_ctx)
 			status = msm_rpm_set(MSM_RPM_CTX_SET_0, rpm_data,
 				count);
 	}
@@ -310,7 +310,8 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
 static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		struct msm_bus_inode_info *slave, int index,
 		unsigned long curr_clk, unsigned long req_clk,
-		unsigned long bwsum, int clk_flag, int context)
+		unsigned long bwsum, int clk_flag, int context,
+		unsigned int cl_active_flag)
 {
 	int i, status = 0;
 	unsigned long max_pclk = 0;
@@ -391,22 +392,30 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		goto skip_set_clks;
 
 	if (clk_flag) {
-		MSM_FAB_DBG("AXI_clks: id: %d set-clk: %lu bwsum:%lu\n",
-			fabric->fabdev.id, pclk_freq, bwsum);
 		select_clk = SELECT_CLK(context, fabric->info);
-		if (select_clk)
+		/**
+		 * Send a clock request only when the client requests in active
+		 * context and the a_clock rate is selected  OR the
+		 * client request is in normal context and normal clock rate
+		 * is selected.
+		 */
+		if (select_clk && (!(context ^ cl_active_flag))) {
+			MSM_FAB_DBG("clks: id: %d set-clk: %lu bwsum:%lu\n",
+			fabric->fabdev.id, pclk_freq, bwsum);
 			status = clk_set_min_rate(select_clk, pclk_freq);
+		}
 	} else {
 		MSM_FAB_DBG("AXI_clks: id: %d set-clk: %lu  bwsum:%lu\n" ,
 			slave->node_info->priv_id, pclk_freq, bwsum);
 		select_clk = SELECT_CLK_PTR(context, slave);
-		if (select_clk) {
+		if (select_clk && (!(context ^ cl_active_flag))) {
 			status = clk_set_min_rate(select_clk, pclk_freq);
 			MSM_BUS_DBG("Trying to set clk, node id: %d val: %lu "
 				"status %d\n", slave->node_info->priv_id,
 				pclk_freq, status);
 		}
-		if (!status && slave->memclk)
+		if (!status && slave->memclk &&
+			(!(context ^ cl_active_flag)))
 			status = clk_set_min_rate(slave->memclk,
 			*slave->link_info.sel_clk);
 	}
@@ -427,6 +436,10 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	/* If it's an ahb fabric, don't calculate arb values */
 	if (fabric->ahb) {
 		MSM_FAB_DBG("AHB fabric, skipping bw calculation\n");
+		return;
+	}
+	if (!add_bw) {
+		MSM_BUS_DBG("No bandwidth delta. Skipping commit\n");
 		return;
 	}
 
