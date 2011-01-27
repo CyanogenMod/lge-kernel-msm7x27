@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,6 +127,29 @@ void libra_sdio_deconfigure(struct sdio_func *func)
 	sdio_release_host(func);
 }
 EXPORT_SYMBOL(libra_sdio_deconfigure);
+
+int libra_enable_sdio_irq(struct sdio_func *func, u8 enable)
+{
+	if (libra_mmc_host) {
+		if (!enable) {
+			/*Disable SDIO IRQ */
+			libra_mmc_host->ops->enable_sdio_irq(libra_mmc_host, 0);
+
+			/*SDIO IRQ thread can re-enable the interrupt if card
+			capability is set as MMC_CAP_SDIO_IRQ. So disable that
+			as well */
+			libra_mmc_host->caps &= ~MMC_CAP_SDIO_IRQ;
+		} else {
+			libra_mmc_host->ops->enable_sdio_irq(libra_mmc_host, 1);
+			libra_mmc_host->caps |= MMC_CAP_SDIO_IRQ;
+		}
+		return 0;
+	}
+
+	printk(KERN_ERR "%s: Could not enable disable irq\n", __func__);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(libra_enable_sdio_irq);
 
 /*
  * libra_sdio_release_irq() - Function to release IRQ

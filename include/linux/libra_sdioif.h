@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -86,6 +86,7 @@ int libra_detect_card_change(void);
 void libra_sdio_set_clock(struct sdio_func *func, unsigned int clk_freq);
 void libra_sdio_get_card_id(struct sdio_func *func, unsigned short *card_id);
 void libra_sdio_release_irq(struct sdio_func *func);
+int libra_enable_sdio_irq(struct sdio_func *func, u8 enable);
 void libra_sdio_disable_func(struct sdio_func *func);
 
 #endif /* __LIBRA_SDIOIF_H__ */
