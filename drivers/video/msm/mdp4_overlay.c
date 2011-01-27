@@ -1053,8 +1053,8 @@ void mdp4_mixer_stage_down(struct mdp4_overlay_pipe *pipe)
 void mdp4_mixer_blend_setup(struct mdp4_overlay_pipe *pipe)
 {
 	struct mdp4_overlay_pipe *bg_pipe;
-	unsigned char *overlay_base;
-	uint32 c0, c1, c2, blend_op;
+	unsigned char *overlay_base, *rgb_base;
+	uint32 c0, c1, c2, blend_op, constant_color = 0, rgb_src_format;
 	int off;
 
 	if (pipe->mixer_num) 	/* mixer number, /dev/fb0, /dev/fb1 */
@@ -1081,6 +1081,14 @@ void mdp4_mixer_blend_setup(struct mdp4_overlay_pipe *pipe)
 				MDP4_BLEND_BG_ALPHA_BG_CONST);
 		outpdw(overlay_base + off + 0x108, pipe->alpha);
 		outpdw(overlay_base + off + 0x10c, 0xff - pipe->alpha);
+		if (pipe->alpha == 0xff) {
+			rgb_base = MDP_BASE + MDP4_RGB_BASE;
+			rgb_base += MDP4_RGB_OFF * bg_pipe->pipe_num;
+			rgb_src_format = inpdw(rgb_base + 0x50);
+			rgb_src_format |= MDP4_FORMAT_SOLID_FILL;
+			outpdw(rgb_base + 0x50, rgb_src_format);
+			outpdw(rgb_base + 0x1008, constant_color);
+		}
 	} else {
 		if (bg_pipe->alpha_enable && pipe->alpha_enable) {
 			/* both pipe have alpha */
