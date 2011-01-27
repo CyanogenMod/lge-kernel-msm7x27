@@ -146,19 +146,10 @@ void __init gelato_init_i2c_backlight(int bus_num)
 
 static void gelato_panel_set_maker_id(void)
 {
-	int id;
-
-#if 0
-	id = gpio_get_value(101);
-	printk(KERN_INFO "%s: panel maker id = %d\n", __func__, id);
-#else
-	id = 1;
-#endif
-
-	if(id == 0)
-		mddi_hitachi_panel_data.maker_id = PANEL_ID_AUO;
-	else if(id == 1)
+	if(lge_bd_rev == LGE_REV_B)
 		mddi_hitachi_panel_data.maker_id = PANEL_ID_HITACHI;
+	else
+		mddi_hitachi_panel_data.maker_id = PANEL_ID_AUO;
 }
 
 /* common functions */
