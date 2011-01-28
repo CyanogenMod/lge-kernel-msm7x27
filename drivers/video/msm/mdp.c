@@ -43,6 +43,7 @@
 #include "mdp4.h"
 #endif
 
+uint32 mdp4_extn_disp;
 static struct clk *mdp_clk;
 static struct clk *mdp_pclk;
 struct regulator *footswitch;
@@ -1013,6 +1014,8 @@ int mdp_set_core_clk(uint16 perf_level)
 			printk(KERN_ERR "%s invalid perf level\n", __func__);
 		else {
 			mutex_lock(&mdp_clk_lock);
+			if (mdp4_extn_disp)
+				perf_level = 1;
 			ret = clk_set_rate(mdp_clk,
 				mdp_pdata->
 				mdp_core_clk_table[mdp_pdata->num_mdp_clk
@@ -1342,6 +1345,7 @@ static int mdp_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	pdev_list[pdev_list_cnt++] = pdev;
+	mdp4_extn_disp = 0;
 	return 0;
 
       mdp_probe_err:

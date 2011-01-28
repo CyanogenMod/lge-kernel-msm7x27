@@ -40,6 +40,7 @@ extern boolean mdp_is_in_isr;
 extern uint32 mdp_intr_mask;
 extern spinlock_t mdp_spin_lock;
 extern struct mdp4_statistic mdp4_stat;
+extern uint32 mdp4_extn_disp;
 
 #define MDP4_OVERLAYPROC0_BASE	0x10000
 #define MDP4_OVERLAYPROC1_BASE	0x18000
@@ -463,5 +464,5 @@ void mdp_hw_cursor_done(void);
 void mdp_hw_cursor_init(void);
 
 int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req);
-
+void mdp4_overlay_resource_release(void);
 #endif /* MDP_H */

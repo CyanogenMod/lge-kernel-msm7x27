@@ -37,6 +37,7 @@
 #include <mach/clk.h>
 
 #include "msm_fb.h"
+#include "mdp4.h"
 
 static int dtv_probe(struct platform_device *pdev);
 static int dtv_remove(struct platform_device *pdev);
@@ -117,6 +118,7 @@ static int dtv_off(struct platform_device *pdev)
 	if (ebi1_clk)
 		clk_disable(ebi1_clk);
 #endif
+	mdp4_extn_disp = 0;
 	return ret;
 }
 
@@ -138,6 +140,8 @@ static int dtv_on(struct platform_device *pdev)
 	else
 		pm_qos_rate = 58000;
 #endif
+	mdp_set_core_clk(1);
+	mdp4_extn_disp = 1;
 #ifdef CONFIG_MSM_BUS_SCALING
 	if (dtv_bus_scale_handle > 0)
 		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
