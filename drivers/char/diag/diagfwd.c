@@ -30,6 +30,7 @@
 #include <mach/usbdiag.h>
 #endif
 #include <mach/msm_smd.h>
+#include <mach/socinfo.h>
 #include "diagmem.h"
 #include "diagchar.h"
 #include "diagfwd.h"
@@ -46,7 +47,6 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 
-#ifdef CONFIG_DIAG_NO_MODEM
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 
@@ -65,9 +65,12 @@ do {									\
 		usb_diag_write(driver->legacy_ch, driver->write_ptr_1);	\
 	}								\
 } while (0)
-#endif
+
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 ((bufStart <= start) && (end - start >= length)) ? 1 : 0
+
+#define CHK_APQ_GET_ID() \
+(socinfo_get_id() == 86) ? 4062 : 0
 
 void __diag_smd_send_req(void)
 {
@@ -463,38 +466,41 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	if ((*buf == 0x7d) && (*(++buf) == 0x5)) {
 		TO DO
 	} */
-#if defined(CONFIG_DIAG_NO_MODEM) && defined(CONFIG_DIAG_OVER_USB)
-	/* Respond to polling for Apps only DIAG */
-	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) && (*(buf+2) == 0x03)) {
-		for (i = 0; i < 3; i++)
-			driver->apps_rsp_buf[i] = *(buf+i);
-		for (i = 0; i < 13; i++)
-			driver->apps_rsp_buf[i+3] = 0;
+#if defined(CONFIG_DIAG_OVER_USB)
+	else if (CHK_APQ_GET_ID()) { /* Check for ID for APQ8060 */
+		/* Respond to polling for Apps only DIAG */
+		if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
+							 (*(buf+2) == 0x03)) {
+			for (i = 0; i < 3; i++)
+				driver->apps_rsp_buf[i] = *(buf+i);
+			for (i = 0; i < 13; i++)
+				driver->apps_rsp_buf[i+3] = 0;
 
-		ENCODE_RSP_AND_SEND(15);
-		return 0;
-	}
-	/* respond to 0x0 command */
-	else if (*buf == 0x00) {
-		for (i = 0; i < 55; i++)
-			driver->apps_rsp_buf[i] = 0;
+			ENCODE_RSP_AND_SEND(15);
+			return 0;
+		}
+		/* respond to 0x0 command */
+		else if (*buf == 0x00) {
+			for (i = 0; i < 55; i++)
+				driver->apps_rsp_buf[i] = 0;
 
-		ENCODE_RSP_AND_SEND(54);
-		return 0;
+			ENCODE_RSP_AND_SEND(54);
+			return 0;
+		}
+		/* respond to 0x7c command */
+		else if (*buf == 0x7c) {
+			driver->apps_rsp_buf[0] = 0x7c;
+			for (i = 1; i < 8; i++)
+				driver->apps_rsp_buf[i] = 0;
+			/* Tools ID for APQ 8060 */
+			*(int *)(driver->apps_rsp_buf + 8) = CHK_APQ_GET_ID();
+			*(unsigned char *)(driver->apps_rsp_buf + 12) = '\0';
+			*(unsigned char *)(driver->apps_rsp_buf + 13) = '\0';
+			ENCODE_RSP_AND_SEND(13);
+			return 0;
+		}
 	}
-	/* respond to 0x7c command */
-	else if (*buf == 0x7c) {
-		driver->apps_rsp_buf[0] = 0x7c;
-		for (i = 1; i < 8; i++)
-			driver->apps_rsp_buf[i] = 0;
-
-		*(int *)(driver->apps_rsp_buf + 8) = 4062; /* ID for APQ 8060 */
-		*(unsigned char *)(driver->apps_rsp_buf + 12) = '\0';
-		*(unsigned char *)(driver->apps_rsp_buf + 13) = '\0';
-		ENCODE_RSP_AND_SEND(13);
-		return 0;
-	}
-#endif /* DIAG over USB & NO MODEM present */
+#endif
 	/* Check for registered clients and forward packet to user-space */
 	else{
 		cmd_code = (int)(*(char *)buf);
@@ -584,14 +590,13 @@ void diag_process_hdlc(void *data, unsigned len)
 					   DUMP_PREFIX_ADDRESS, data, len, 1);
 		driver->debug_flag = 0;
 	}
-#ifdef CONFIG_DIAG_NO_MODEM
-	if (type == 1) { /* implies this packet is NOT meant for apps */
+	/* implies this packet is NOT meant for apps */
+	if (type == 1 && CHK_APQ_GET_ID()) {
 		if (driver->chqdsp)
 			smd_write(driver->chqdsp, driver->hdlc_buf,
 							 hdlc.dest_idx - 3);
 		type = 0;
 	}
-#endif /* NO MODEM present */
 
 #ifdef DIAG_DEBUG
 	printk(KERN_INFO "\n hdlc.dest_idx = %d", hdlc.dest_idx);
@@ -922,12 +927,10 @@ void diagfwd_init(void)
 	     (driver->pkt_buf = kzalloc(PKT_SIZE,
 			 GFP_KERNEL)) == NULL)
 		goto err;
-#ifdef CONFIG_DIAG_NO_MODEM
 	if (driver->apps_rsp_buf == NULL)
 			driver->apps_rsp_buf = kzalloc(150, GFP_KERNEL);
 		if (driver->apps_rsp_buf == NULL)
 			goto err;
-#endif
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 #ifdef CONFIG_DIAG_OVER_USB
 	INIT_WORK(&(driver->diag_proc_hdlc_work), diag_process_hdlc_fn);
@@ -966,9 +969,7 @@ err:
 		kfree(driver->write_ptr_qdsp_1);
 		kfree(driver->write_ptr_qdsp_2);
 		kfree(driver->usb_read_ptr);
-#ifdef CONFIG_DIAG_NO_MODEM
 		kfree(driver->apps_rsp_buf);
-#endif
 		if (driver->diag_wq)
 			destroy_workqueue(driver->diag_wq);
 }
@@ -1007,8 +1008,6 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_qdsp_1);
 	kfree(driver->write_ptr_qdsp_2);
 	kfree(driver->usb_read_ptr);
-#ifdef CONFIG_DIAG_NO_MODEM
 	kfree(driver->apps_rsp_buf);
-#endif
 	destroy_workqueue(driver->diag_wq);
 }

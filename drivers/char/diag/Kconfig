@@ -19,14 +19,3 @@ config DIAG_OVER_USB
 	help
 	 This feature helps segregate code required for DIAG traffic to go over USB.
 endmenu
-
-menu "Modem less Diag Support"
-
-config DIAG_NO_MODEM
-	bool "Enable DIAG even when no modem is present"
-	depends on USB_ANDROID_DIAG || USB_FUNCTION_DIAG
-	depends on ARCH_MSM
-	default n
-	help
-	 This enables DIAG support even when no modem is present.
-endmenu
