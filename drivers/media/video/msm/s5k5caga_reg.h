@@ -5633,7 +5633,7 @@ WORD_LEN},
 
 {0x0,  0x0000, BURST_LEN},  // #REG_0TC_PCFG_usFrTimeType
 
-{0x0,  0x0000, BURST_LEN},  // #REG_0TC_PCFG_FrRateQualityType
+{0x0,  0x0001, BURST_LEN},  // #REG_0TC_PCFG_FrRateQualityType
 
 {0x0,  0x03E8, BURST_LEN},  // #REG_0TC_PCFG_usMaxFrTimeMsecMult10, BURST_LEN},  //10fps
 //{0x0,  0x014D, BURST_LEN},  // #REG_0TC_PCFG_usMaxFrTimeMsecMult10, BURST_LEN},  //fixed 30fps
