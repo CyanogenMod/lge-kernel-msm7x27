@@ -38,7 +38,16 @@
 #define MAX_QUEUE_SLOT		0x1
 
 /* User Processor */
-#define ADC_ARB_USRP_CNRTL                      0x197
+#define ADC_ARB_USRP_CNTRL                      0x197
+	#define ADC_ARB_USRP_CNTRL_EN_ARB	BIT(0)
+	#define ADC_ARB_USRP_CNTRL_RSV1		BIT(1)
+	#define ADC_ARB_USRP_CNTRL_RSV2		BIT(2)
+	#define ADC_ARB_USRP_CNTRL_RSV3		BIT(3)
+	#define ADC_ARB_USRP_CNTRL_RSV4		BIT(4)
+	#define ADC_ARB_USRP_CNTRL_RSV5		BIT(5)
+	#define ADC_ARB_USRP_CNTRL_EOC		BIT(6)
+	#define ADC_ARB_USRP_CNTRL_REQ		BIT(7)
+
 #define ADC_ARB_USRP_AMUX_CNTRL         0x198
 #define ADC_ARB_USRP_ANA_PARAM          0x199
 #define ADC_ARB_USRP_DIG_PARAM          0x19A
@@ -110,28 +119,47 @@ void pm8058_xoadc_slot_request(uint32_t adc_instance,
 }
 EXPORT_SYMBOL(pm8058_xoadc_slot_request);
 
+static int32_t pm8058_xoadc_arb_cntrl(uint32_t arb_cntrl,
+					uint32_t adc_instance)
+{
+	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
+	int i, rc;
+	u8 data_arb_cntrl;
+
+	data_arb_cntrl = ADC_ARB_USRP_CNTRL_EOC |
+			ADC_ARB_USRP_CNTRL_RSV5 |
+			ADC_ARB_USRP_CNTRL_RSV4;
+
+	if (data_arb_cntrl)
+		data_arb_cntrl |= ADC_ARB_USRP_CNTRL_EN_ARB;
+
+	/* Write twice to the CNTRL register for the arbiter settings
+	   to take into effect */
+	for (i = 0; i < 2; i++) {
+		rc = pm8058_write(adc_pmic->pm_chip, ADC_ARB_USRP_CNTRL,
+					&data_arb_cntrl, 1);
+		if (rc < 0) {
+			pr_debug("%s: PM8058 write failed\n", __func__);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 					struct adc_conv_slot *slot)
 {
 
 	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
-	u8 data_arb_cnrtl, data_amux_chan, data_arb_rsv, data_ana_param;
+	u8 data_arb_cntrl, data_amux_chan, data_arb_rsv, data_ana_param;
 	u8 data_dig_param, data_ana_param2;
 	int rc;
 
-	/* Write Twice to EN_ARB sig */
-	data_arb_cnrtl = 0x71;
-	rc = pm8058_write(adc_pmic->pm_chip, ADC_ARB_USRP_CNRTL,
-					&data_arb_cnrtl, 1);
+	rc = pm8058_xoadc_arb_cntrl(1, adc_instance);
 	if (rc < 0) {
-		pr_debug("%s: PM8058 write failed\n", __func__);
-		return rc;
-	}
-
-	rc = pm8058_write(adc_pmic->pm_chip, ADC_ARB_USRP_CNRTL,
-					&data_arb_cnrtl, 1);
-	if (rc < 0) {
-		pr_debug("%s: PM8058 write failed\n", __func__);
+		pr_debug("%s: Configuring ADC Arbiter"
+				"enable failed\n", __func__);
 		return rc;
 	}
 
@@ -288,7 +316,7 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		data_dig_param = 0x23;
 		data_ana_param2 = 0xFF;
 		/* AMUX register data to start the ADC conversion */
-		data_arb_cnrtl = 0xF1;
+		data_arb_cntrl = 0xF1;
 		break;
 
 	case ADC_CONFIG_TYPE2:
@@ -296,7 +324,7 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		data_dig_param = 0x03;
 		data_ana_param2 = 0xFF;
 		/* AMUX register data to start the ADC conversion */
-		data_arb_cnrtl = 0xF1;
+		data_arb_cntrl = 0xF1;
 		break;
 	}
 
@@ -324,7 +352,7 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 	enable_irq(adc_pmic->adc_irq);
 
 	rc = pm8058_write(adc_pmic->pm_chip,
-				ADC_ARB_USRP_CNRTL, &data_arb_cnrtl, 1);
+				ADC_ARB_USRP_CNTRL, &data_arb_cntrl, 1);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
@@ -420,6 +448,19 @@ int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance, int32_t *data)
 		slot = list_first_entry(&slot_state->slots,
 				struct adc_conv_slot, list);
 		pm8058_xoadc_configure(adc_instance, slot);
+	}
+	mutex_unlock(&slot_state->list_lock);
+
+	mutex_lock(&slot_state->list_lock);
+	/* Default value for switching off the arbiter after reading
+	   the ADC value. Bit 0 set to 0. */
+	if (adc_pmic->xoadc_queue_count == 0) {
+		rc = pm8058_xoadc_arb_cntrl(0, adc_instance);
+		if (rc < 0) {
+			pr_debug("%s: Configuring ADC Arbiter disable"
+						"failed\n", __func__);
+			return rc;
+		}
 	}
 	mutex_unlock(&slot_state->list_lock);
 
