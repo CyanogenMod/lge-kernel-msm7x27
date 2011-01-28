@@ -6415,7 +6415,7 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[2].vdd_data->level = 2850000;
 	sdcc_vreg_data[2].vdd_data->always_on = 1;
 	sdcc_vreg_data[2].vdd_data->op_pwr_mode_sup = 1;
-	sdcc_vreg_data[2].vdd_data->lpm_uA = 10000;
+	sdcc_vreg_data[2].vdd_data->lpm_uA = 9000;
 	sdcc_vreg_data[2].vdd_data->hpm_uA = 200000;
 	sdcc_vreg_data[2].vccq_data = NULL;
 	if (machine_is_msm8x60_fluid())
@@ -7094,7 +7094,7 @@ static int mipi_dsi_panel_power(int on)
 			goto out;
 	} else {
 		/* set ldo0 to LPM */
-		rc = regulator_set_optimum_mode(ldo0, 10000);
+		rc = regulator_set_optimum_mode(ldo0, 9000);
 		if (rc)
 			goto out;
 	}
