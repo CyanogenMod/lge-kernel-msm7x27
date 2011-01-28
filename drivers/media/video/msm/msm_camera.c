@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2386,9 +2386,6 @@ static int __msm_release(struct msm_sync *sync)
 	mutex_lock(&sync->lock);
 	if (sync->opencnt)
 		sync->opencnt--;
-	pr_info("%s, stop vfe if active\n", __func__);
-	if (sync->core_powered_on && sync->vfefn.vfe_stop)
-		sync->vfefn.vfe_stop();
 	pr_info("%s, open count =%d\n", __func__, sync->opencnt);
 	if (!sync->opencnt) {
 		/* need to clean up system resource */
@@ -2457,6 +2454,12 @@ static int msm_release_control(struct inode *node, struct file *filep)
 	struct msm_cam_device *pmsm = ctrl_pmsm->pmsm;
 	pr_info("%s: %s\n", __func__, filep->f_path.dentry->d_name.name);
 	g_v4l2_opencnt--;
+	mutex_lock(&pmsm->sync->lock);
+	if (pmsm->sync->core_powered_on && pmsm->sync->vfefn.vfe_stop) {
+		pr_info("%s, stop vfe if active\n", __func__);
+		pmsm->sync->vfefn.vfe_stop();
+	}
+	mutex_unlock(&pmsm->sync->lock);
 	rc = __msm_release(pmsm->sync);
 	if (!rc) {
 		msm_queue_drain(&ctrl_pmsm->ctrl_q, list_control);
