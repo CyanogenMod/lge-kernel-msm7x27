@@ -26,6 +26,7 @@
 
 #include "msm_gemini_platform.h"
 #include "msm_gemini_common.h"
+#include "msm_gemini_hw.h"
 
 #ifdef CONFIG_MSM_NPA_SYSTEM_BUS
 /* NPA Flow ID */
@@ -108,6 +109,7 @@ int msm_gemini_platform_init(struct platform_device *pdev,
 		goto fail2;
 	}
 
+	msm_gemini_hw_init(gemini_base, resource_size(gemini_mem));
 	rc = request_irq(gemini_irq, handler, IRQF_TRIGGER_RISING, "gemini",
 		context);
 	if (rc) {
