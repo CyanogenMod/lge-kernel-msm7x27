@@ -129,7 +129,7 @@ int camera_power_on (void)
 	gpio_set_value(GPIO_CAM_PWDN, 0);
 
 	/*AVDD power 2.8V*/
-	if (lge_bd_rev >= LGE_REV_A) {
+	if (lge_bd_rev == LGE_REV_A) {
 		rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 2800);
 		if (rc < 0) {
 			printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AF_NO);
@@ -236,7 +236,7 @@ int camera_power_off (void)
 	gpio_set_value(GPIO_CAM_PWDN, 0);
 
 	/*AVDD power 2.8V*/
-	if (lge_bd_rev >= LGE_REV_A) {
+	if (lge_bd_rev == LGE_REV_A) {
 		rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 0);
 		if (rc < 0) {
 			printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AF_NO);
