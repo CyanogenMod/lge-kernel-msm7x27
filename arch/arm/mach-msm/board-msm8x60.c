@@ -5069,13 +5069,13 @@ static struct pm8901_platform_data pm8901_platform_data = {
 	.irq_base = PM8901_IRQ_BASE,
 	.num_subdevs = ARRAY_SIZE(pm8901_subdevs),
 	.sub_devices = pm8901_subdevs,
-	.irq_trigger_flags = IRQF_TRIGGER_HIGH,
+	.irq_trigger_flags = IRQF_TRIGGER_LOW,
 };
 
 static struct i2c_board_info pm8901_boardinfo[] __initdata = {
 	{
 		I2C_BOARD_INFO("pm8901-core", 0x55),
-		.irq = TLMM_SCSS_DIR_CONN_IRQ_2,
+		.irq = MSM_GPIO_TO_INT(PM8901_GPIO_INT),
 		.platform_data = &pm8901_platform_data,
 	},
 };
@@ -5701,10 +5701,6 @@ static void __init msm8x60_init_tlmm(void)
 	msm_gpio_install_direct_irq(PM8058_GPIO_INT, 1, 0);
 	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_1,
 				MSM_GPIO_TO_INT(PM8058_GPIO_INT), 1);
-
-	msm_gpio_install_direct_irq(PM8901_GPIO_INT, 2, 0);
-	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_2,
-				MSM_GPIO_TO_INT(PM8901_GPIO_INT), 1);
 
 }
 
