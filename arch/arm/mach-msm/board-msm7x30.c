@@ -2643,8 +2643,8 @@ static char *usb_functions_rndis_diag[] = {
 
 static char *usb_functions_rndis_adb_diag[] = {
 	"rndis",
-	"adb",
 	"diag",
+	"adb",
 };
 
 static char *usb_functions_all[] = {
