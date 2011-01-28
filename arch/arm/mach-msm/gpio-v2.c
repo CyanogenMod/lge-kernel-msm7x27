@@ -382,8 +382,6 @@ static int msm_gpio_irq_set_wake(unsigned int irq, unsigned int on)
 {
 	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, irq);
 
-	WARN(on, "TLMM summary wont wakeup in XO shutdown, use a direct line");
-
 	if (on) {
 		if (bitmap_empty(msm_gpio.wake_irqs, NR_MSM_GPIOS))
 			set_irq_wake(TLMM_SCSS_SUMMARY_IRQ, 1);
