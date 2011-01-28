@@ -758,7 +758,7 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 			device, g12_device->timestamp);
 
 	mutex_unlock(&device->mutex);
-	timeout = wait_event_interruptible_timeout(
+	timeout = wait_io_event_interruptible_timeout(
 			g12_device->wait_timestamp_wq,
 			kgsl_check_timestamp(device, timestamp),
 			msecs_to_jiffies(msecs));
