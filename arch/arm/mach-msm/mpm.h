@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -48,6 +48,5 @@ int msm_mpm_set_pin_type(enum msm_mpm_pin pin, unsigned int flow_type);
 bool msm_mpm_irqs_detectable(bool from_idle);
 void msm_mpm_enter_sleep(bool from_idle);
 void msm_mpm_exit_sleep(bool from_idle);
-void msm_set_direct_connect(int apps_irq, int gpio_irq, int reverse_polarity);
 
 #endif /* __ARCH_ARM_MACH_MSM_MPM_H */
