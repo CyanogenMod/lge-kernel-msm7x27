@@ -984,9 +984,6 @@ static void __init msm_timer_init(void)
 
 #ifdef CONFIG_ARCH_MSM8X60
 	writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
-
-	msm_clocks[MSM_CLOCK_DGT].freq =
-	  pxo_is_27mhz() ? 6750000 >> MSM_DGT_SHIFT : 6144000 >> MSM_DGT_SHIFT;
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(msm_clocks); i++) {
