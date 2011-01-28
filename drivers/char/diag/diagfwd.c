@@ -704,29 +704,32 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 {
 	int status = diag_read_ptr->status;
 	unsigned char *buf = diag_read_ptr->buf;
-	driver->read_len = diag_read_ptr->actual;
 
 	/* Determine if the read complete is for data on legacy/mdm ch */
 	if (buf == (void *)driver->usb_buf_out) {
+		driver->read_len_legacy = diag_read_ptr->actual;
 		APPEND_DEBUG('s');
 #ifdef DIAG_DEBUG
 		printk(KERN_INFO "read data from USB, pkt length %d",
 		    diag_read_ptr->actual);
-	print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
+		print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
 		       DUMP_PREFIX_ADDRESS, diag_read_ptr->buf,
 		       diag_read_ptr->actual, 1);
 #endif /* DIAG DEBUG */
-	if (driver->logging_mode == USB_MODE) {
-		if (status != -ECONNRESET && status != -ESHUTDOWN)
-			queue_work(driver->diag_wq,
+		if (driver->logging_mode == USB_MODE) {
+			if (status != -ECONNRESET && status != -ESHUTDOWN)
+				queue_work(driver->diag_wq,
 					&(driver->diag_proc_hdlc_work));
-		else
-			queue_work(driver->diag_wq, &(driver->diag_read_work));
-	}
+			else
+				queue_work(driver->diag_wq,
+						 &(driver->diag_read_work));
+		}
 	}
 #ifdef CONFIG_MSM_SDIO_AL
-	else if (buf == (void *)driver->usb_buf_mdm_out)
+	else if (buf == (void *)driver->usb_buf_mdm_out) {
+		driver->read_len_mdm = diag_read_ptr->actual;
 		diagfwd_read_complete_sdio();
+	}
 #endif
 	else
 		printk(KERN_ERR "diag: Unknown buffer ptr from USB");
@@ -746,7 +749,7 @@ void diag_read_work_fn(struct work_struct *work)
 void diag_process_hdlc_fn(struct work_struct *work)
 {
 	APPEND_DEBUG('D');
-	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
+	diag_process_hdlc(driver->usb_buf_out, driver->read_len_legacy);
 	diag_read_work_fn(work);
 	APPEND_DEBUG('E');
 }
@@ -835,6 +838,7 @@ static struct platform_driver msm_smd_ch1_driver = {
 void diagfwd_init(void)
 {
 	diag_debug_buf_idx = 0;
+	driver->read_len_legacy = 0;
 	if (driver->buf_in_1 == NULL)
 		driver->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_1 == NULL)

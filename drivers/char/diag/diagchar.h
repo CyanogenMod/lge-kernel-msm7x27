@@ -151,7 +151,7 @@ struct diagchar_dev {
 	int in_busy_2;
 	int in_busy_qdsp_1;
 	int in_busy_qdsp_2;
-	int read_len;
+	int read_len_legacy;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
@@ -184,6 +184,7 @@ struct diagchar_dev {
 	unsigned char *buf_in_sdio;
 	unsigned char *usb_buf_mdm_out;
 	struct sdio_channel *sdio_ch;
+	int read_len_mdm;
 	int in_busy_sdio;
 	struct usb_diag_ch *mdm_ch;
 	struct work_struct diag_read_mdm_work;
