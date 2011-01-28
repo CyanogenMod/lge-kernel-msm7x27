@@ -373,16 +373,19 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 		q6.state = APR_Q6_LOADED;
 	}
 	mutex_unlock(&q6.lock);
-	mutex_lock(&client[dest_id][client_id].svc[svc_idx].m_lock);
+	mutex_lock(&client[dest_id][client_id].m_lock);
 	if (!client[dest_id][client_id].handle) {
 		client[dest_id][client_id].handle = apr_tal_open(client_id,
 				dest_id, APR_DL_SMD, apr_cb_func, NULL);
 		if (!client[dest_id][client_id].handle) {
 			svc = NULL;
 			pr_err("APR: Unable to open handle\n");
-			goto unlock;
+			mutex_unlock(&client[dest_id][client_id].m_lock);
+			goto done;
 		}
 	}
+	mutex_unlock(&client[dest_id][client_id].m_lock);
+	mutex_lock(&client[dest_id][client_id].svc[svc_idx].m_lock);
 	client[dest_id][client_id].id = client_id;
 	client[dest_id][client_id].svc[svc_idx].priv = priv;
 	client[dest_id][client_id].svc[svc_idx].id = svc_id;
@@ -407,7 +410,6 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 		}
 	}
 
-unlock:
 	mutex_unlock(&client[dest_id][client_id].svc[svc_idx].m_lock);
 done:
 	return svc;
@@ -519,11 +521,13 @@ static int __init apr_init(void)
 	int i, j, k;
 
 	for (i = 0; i < APR_DEST_MAX; i++)
-		for (j = 0; j < APR_CLIENT_MAX; j++)
+		for (j = 0; j < APR_CLIENT_MAX; j++) {
+			mutex_init(&client[i][j].m_lock);
 			for (k = 0; k < APR_SVC_MAX; k++) {
 				mutex_init(&client[i][j].svc[k].m_lock);
 				spin_lock_init(&client[i][j].svc[k].w_lock);
 			}
+		}
 	mutex_init(&q6.lock);
 	dsp_debug_register(adsp_state);
 	return 0;
