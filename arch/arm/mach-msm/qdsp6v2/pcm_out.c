@@ -376,6 +376,9 @@ fail:
 static int pcm_out_release(struct inode *inode, struct file *file)
 {
 	struct pcm *pcm = file->private_data;
+
+	pr_info("[%s:%s] release session id[%d]\n", __MM_FILE__,
+				__func__, pcm->ac->session);
 	if (pcm->ac)
 		pcm_out_disable(pcm);
 	msm_clear_session_id(pcm->ac->session);
@@ -386,8 +389,6 @@ static int pcm_out_release(struct inode *inode, struct file *file)
 	mutex_destroy(&pcm->lock);
 	mutex_destroy(&pcm->write_lock);
 	kfree(pcm);
-	pr_info("[%s:%s] release session id[%d]\n", __MM_FILE__,
-				__func__, pcm->ac->session);
 	return 0;
 }
 
