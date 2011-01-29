@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,9 +53,15 @@ struct sleep_data {
 struct rq_data {
 	unsigned int rq_avg;
 	unsigned int rq_poll_ms;
+	unsigned int def_timer_ms;
+	unsigned int def_interval;
 	int64_t last_time;
 	int64_t total_time;
+	int64_t def_start_time;
 	struct delayed_work rq_work;
+	struct attribute_group *attr_group;
+	struct kobject *kobj;
+	struct delayed_work def_timer_work;
 };
 
 DEFINE_PER_CPU(struct sleep_data, core_sleep_info);
@@ -134,6 +140,18 @@ static void rq_work_fn(struct work_struct *work)
 	rq_info.last_time = ktime_to_ns(ktime_get());
 
 	spin_unlock_irqrestore(&rq_lock, flags);
+}
+
+static void def_work_fn(struct work_struct *work)
+{
+	int64_t diff;
+
+	diff = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
+	do_div(diff, 1000 * 1000);
+	rq_info.def_interval = (unsigned int) diff;
+
+	/* Notify polling threads on change of value */
+	sysfs_notify(rq_info.kobj, NULL, "def_timer_ms");
 }
 
 static enum hrtimer_restart timer_func(struct hrtimer *handle)
@@ -302,6 +320,31 @@ static ssize_t store_run_queue_poll_ms(struct kobject *kobj,
 	return count;
 }
 
+static ssize_t show_def_timer_ms(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", rq_info.def_interval);
+}
+
+static ssize_t store_def_timer_ms(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int val = 0;
+
+	sscanf(buf, "%u", &val);
+	rq_info.def_timer_ms = val;
+
+	if (val <= 0)
+		cancel_delayed_work(&rq_info.def_timer_work);
+	else {
+		rq_info.def_start_time = ktime_to_ns(ktime_get());
+		schedule_delayed_work(&rq_info.def_timer_work,
+				msecs_to_jiffies(val));
+	}
+
+	return count;
+}
+
 static int policy_change_notifier(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
@@ -335,7 +378,7 @@ static int policy_change_notifier(struct notifier_block *nb,
 		ptr = kzalloc(sizeof(struct kobj_attribute), GFP_KERNEL); \
 		if (ptr) { \
 			ptr->attr.name = #att; \
-			ptr->attr.mode = S_IWUSR; \
+			ptr->attr.mode = S_IWUSR|S_IRUSR; \
 			ptr->show = show_##att; \
 			ptr->store = store_##att; \
 			attrib = &ptr->attr; \
@@ -347,7 +390,7 @@ static int add_sysfs_objects(struct sleep_data *sleep_info)
 {
 	int err = 0;
 	int i = 0;
-	const int attr_count = 8;
+	const int attr_count = 6;
 
 	struct attribute **attribs =
 		kzalloc(sizeof(struct attribute *) * attr_count, GFP_KERNEL);
@@ -360,17 +403,13 @@ static int add_sysfs_objects(struct sleep_data *sleep_info)
 	atomic_set(&sleep_info->timer_expired, 0);
 	atomic_set(&sleep_info->policy_changed, 0);
 	atomic_set(&sleep_info->timer_val_ms, INT_MAX);
-	rq_info.rq_avg = 0;
-	rq_info.rq_poll_ms = 0;
 
 	attribs[0] = MSM_SLEEP_RO_ATTRIB(idle_ms);
 	attribs[1] = MSM_SLEEP_RO_ATTRIB(busy_ms);
 	attribs[2] = MSM_SLEEP_RW_ATTRIB(timer_val_ms);
 	attribs[3] = MSM_SLEEP_RO_ATTRIB(timer_expired);
 	attribs[4] = MSM_SLEEP_RO_ATTRIB(policy_changed);
-	attribs[5] = MSM_SLEEP_RO_ATTRIB(run_queue_avg);
-	attribs[6] = MSM_SLEEP_RW_ATTRIB(run_queue_poll_ms);
-	attribs[7] = NULL;
+	attribs[5] = NULL;
 
 	for (i = 0; i < attr_count - 1 ; i++) {
 		if (!attribs[i])
@@ -417,6 +456,62 @@ static void remove_sysfs_objects(struct sleep_data *sleep_info)
 	kfree(sleep_info->kobj);
 }
 
+static int init_rq_attribs(void)
+{
+	int i;
+	int err = 0;
+	const int attr_count = 4;
+
+	struct attribute **attribs =
+		kzalloc(sizeof(struct attribute *) * attr_count, GFP_KERNEL);
+
+	if (!attribs)
+		goto rel;
+
+	rq_info.rq_avg = 0;
+	rq_info.rq_poll_ms = 0;
+
+	attribs[0] = MSM_SLEEP_RW_ATTRIB(def_timer_ms);
+	attribs[1] = MSM_SLEEP_RO_ATTRIB(run_queue_avg);
+	attribs[2] = MSM_SLEEP_RW_ATTRIB(run_queue_poll_ms);
+	attribs[3] = NULL;
+
+	for (i = 0; i < attr_count - 1 ; i++) {
+		if (!attribs[i])
+			goto rel;
+	}
+
+	rq_info.attr_group = kzalloc(sizeof(struct attribute_group),
+						GFP_KERNEL);
+	if (!rq_info.attr_group)
+		goto rel;
+	rq_info.attr_group->attrs = attribs;
+
+	/* Create /sys/devices/system/cpu/cpu0/rq-stats/... */
+	rq_info.kobj = kobject_create_and_add("rq-stats",
+			&get_cpu_sysdev(0)->kobj);
+	if (!rq_info.kobj)
+		goto rel;
+
+	err = sysfs_create_group(rq_info.kobj, rq_info.attr_group);
+	if (err)
+		kobject_put(rq_info.kobj);
+	else
+		kobject_uevent(rq_info.kobj, KOBJ_ADD);
+
+	if (!err)
+		return err;
+
+rel:
+	for (i = 0; i < attr_count - 1 ; i++)
+		kfree(attribs[i]);
+	kfree(attribs);
+	kfree(rq_info.attr_group);
+	kfree(rq_info.kobj);
+
+	return -ENOMEM;
+}
+
 static int __init msm_sleep_info_init(void)
 {
 	int err = 0;
@@ -426,6 +521,8 @@ static int __init msm_sleep_info_init(void)
 	/* Register callback from idle for all cpus */
 	msm_idle_register_cb(idle_enter, idle_exit);
 	INIT_DELAYED_WORK_DEFERRABLE(&rq_info.rq_work, rq_work_fn);
+	INIT_DELAYED_WORK_DEFERRABLE(&rq_info.def_timer_work, def_work_fn);
+	init_rq_attribs();
 
 	for_each_possible_cpu(cpu) {
 		printk(KERN_INFO "msm_sleep_stats: Initializing sleep stats "
