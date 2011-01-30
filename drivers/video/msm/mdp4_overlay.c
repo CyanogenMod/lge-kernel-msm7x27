@@ -1662,6 +1662,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 	perf_level = mdp4_overlay_get_perf_level(req->src.width,
 						req->src.height,
 						req->src.format);
+	mdp4_del_res_rel = 0;
 	mutex_unlock(&mfd->dma->ov_mutex);
 	mdp_set_core_clk(perf_level);
 
