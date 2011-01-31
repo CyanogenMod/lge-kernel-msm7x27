@@ -191,7 +191,7 @@ struct clk_source {
 /*
  * Variables from SoC-specific clock drivers
  */
-extern struct clk_local		*soc_clk_local_tbl;
+extern struct clk_local		soc_clk_local_tbl[];
 extern struct clk_source	soc_clk_sources[];
 
 /*

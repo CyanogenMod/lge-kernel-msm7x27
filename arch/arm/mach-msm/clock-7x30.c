@@ -434,7 +434,7 @@ static uint32_t const chld_vfe[] =	{C(VFE_MDC), C(VFE_CAMIF), C(CSI0_VFE),
 /*
  * Clock table
  */
-static struct clk_local soc_clk_local_tbl_7x30[] = {
+struct clk_local soc_clk_local_tbl[] = {
 	CLK_NORATE(MDC,	MDC_NS_REG, B(9), B(11),
 			CLK_HALT_STATEA_REG, HALT, 10, 0x4D56),
 	CLK_NORATE(LPA_CORE, LPA_NS_REG, B(5), 0,
@@ -661,7 +661,6 @@ static struct clk_local soc_clk_local_tbl_7x30[] = {
 	CLK_BRIDGE(AXI_VPE,	GLBL_CLK_ENA_2_SC_REG,	B(21),	AXI_LI_VG,
 			GLBL_CLK_STATE_2_REG, HALT_VOTED, 21, 0x6700),
 };
-struct clk_local *soc_clk_local_tbl = soc_clk_local_tbl_7x30;
 
 /*
  * SoC-specific functions required by clock-local driver
