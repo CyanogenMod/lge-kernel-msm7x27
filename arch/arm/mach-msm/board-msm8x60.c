@@ -326,10 +326,10 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
 
 		.awake_vlevel = 0xA0,
-		.retention_vlevel = 0x8D,
+		.retention_vlevel = 0x89,
 		.collapse_vlevel = 0x20,
-		.retention_mid_vlevel = 0xA0,
-		.collapse_mid_vlevel = 0x98,
+		.retention_mid_vlevel = 0x89,
+		.collapse_mid_vlevel = 0x89,
 
 		.vctl_timeout_us = 50,
 	},
@@ -354,10 +354,10 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_MPM_CFG] = 0x00,
 
 		.awake_vlevel = 0xA0,
-		.retention_vlevel = 0x8D,
+		.retention_vlevel = 0x89,
 		.collapse_vlevel = 0x20,
-		.retention_mid_vlevel = 0xA0,
-		.collapse_mid_vlevel = 0x98,
+		.retention_mid_vlevel = 0x89,
+		.collapse_mid_vlevel = 0x89,
 
 		.vctl_timeout_us = 50,
 	},
