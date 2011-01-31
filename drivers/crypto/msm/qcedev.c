@@ -473,12 +473,41 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 
 	uint32_t sha_pad_len = 0;
 	uint32_t trailing_buf_len = 0;
+	uint32_t t_buf = podev->sha_ctxt->trailing_buf_len;
+	uint32_t sha_block_size;
 
-	total = qcedev_areq->sha_op_req.data_len;
+	total = qcedev_areq->sha_op_req.data_len + t_buf;
 
-	/* check for trailing buffer from previous updates and append it */
-	if (podev->sha_ctxt->trailing_buf_len > 0)
-		total += podev->sha_ctxt->trailing_buf_len;
+	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA1)
+		sha_block_size = SHA1_BLOCK_SIZE;
+	else
+		sha_block_size = SHA256_BLOCK_SIZE;
+
+	if (total <= sha_block_size) {
+		uint32_t len =  qcedev_areq->sha_op_req.data_len;
+
+		i = 0;
+
+		k_src = &podev->sha_ctxt->trailing_buf[t_buf];
+
+		/* Copy data from user src(s) */
+		while (len > 0) {
+			user_src =
+			(void __user *)qcedev_areq->sha_op_req.data[i].vaddr;
+			if (user_src && __copy_from_user(k_src,
+				(void __user *)user_src,
+				qcedev_areq->sha_op_req.data[i].len))
+				return -EFAULT;
+
+			len -= qcedev_areq->sha_op_req.data[i].len;
+			k_src += qcedev_areq->sha_op_req.data[i].len;
+			i++;
+		}
+		podev->sha_ctxt->trailing_buf_len = total;
+
+		return 0;
+	}
+
 
 	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
 				GFP_KERNEL);
@@ -488,10 +517,11 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
 							CACHE_LINE_SIZE);
 	k_src = k_align_src;
-	if (podev->sha_ctxt->trailing_buf_len > 0) {
-		memcpy(k_src, &podev->sha_ctxt->trailing_buf[0],
-			podev->sha_ctxt->trailing_buf_len);
-		k_src += podev->sha_ctxt->trailing_buf_len;
+
+	/* check for trailing buffer from previous updates and append it */
+	if (t_buf > 0) {
+		memcpy(k_src, &podev->sha_ctxt->trailing_buf[0], t_buf);
+		k_src += t_buf;
 	}
 
 	/* Copy data from user src(s) */
@@ -536,19 +566,10 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	}
 	podev->sha_ctxt->trailing_buf_len = trailing_buf_len;
 
-	if (qcedev_areq->sha_req.size < 64) {
-		memset(&podev->sha_ctxt->trailing_buf[0], 0, 64);
-		memcpy(&podev->sha_ctxt->trailing_buf[0],
-			k_align_src, total);
-		podev->sha_ctxt->trailing_buf_len = total;
-	} else {
+	err = submit_req(qcedev_areq, podev);
+	podev->sha_ctxt->auth_data[0] = qcedev_areq->sha_req.auth_data[0];
+	podev->sha_ctxt->auth_data[1] =	qcedev_areq->sha_req.auth_data[1];
 
-		err = submit_req(qcedev_areq, podev);
-		podev->sha_ctxt->auth_data[0] =
-					qcedev_areq->sha_req.auth_data[0];
-		podev->sha_ctxt->auth_data[1] =
-					qcedev_areq->sha_req.auth_data[1];
-	}
 	podev->sha_ctxt->last_blk = 0;
 	podev->sha_ctxt->first_blk = 0;
 
@@ -1505,7 +1526,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.05");
+MODULE_VERSION("1.06");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
