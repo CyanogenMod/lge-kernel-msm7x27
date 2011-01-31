@@ -82,6 +82,7 @@ void msm_gemini_core_release(void)
 void msm_gemini_core_init(void)
 {
 	init_waitqueue_head(&reset_wait);
+	spin_lock_init(&reset_lock);
 }
 
 int msm_gemini_core_fe_start(void)
