@@ -371,6 +371,8 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct pcm *pcm = file->private_data;
 
+	pr_info("[%s:%s] release session id[%d]\n", __MM_FILE__,
+		__func__, pcm->ac->session);
 	mutex_lock(&pcm->lock);
 	/* remove this session from topology list */
 	auddev_cfg_tx_copp_topology(pcm->ac->session,
@@ -381,8 +383,6 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	 msm_clear_session_id(pcm->ac->session);
 	q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
-	pr_info("[%s:%s] release session id[%d]\n", __MM_FILE__,
-				__func__, pcm->ac->session);
 	return rc;
 }
 
