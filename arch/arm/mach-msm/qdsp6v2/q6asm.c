@@ -848,6 +848,32 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_run_nowait(struct audio_client *ac, uint32_t flags,
+		uint32_t msw_ts, uint32_t lsw_ts)
+{
+	struct asm_stream_cmd_run run;
+	int rc;
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s:APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("session[%d]", ac->session);
+	q6asm_add_hdr(ac, &run.hdr, sizeof(run), TRUE);
+
+	run.hdr.opcode = ASM_SESSION_CMD_RUN;
+	run.flags    = flags;
+	run.msw_ts   = msw_ts;
+	run.lsw_ts   = lsw_ts;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &run);
+	if (rc < 0) {
+		pr_err("%s:Commmand run failed[%d]", __func__, rc);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+
 int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 			 uint32_t frames_per_buf,
 			uint32_t sample_rate, uint32_t channels,
@@ -1921,6 +1947,42 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 				}
 			}
 		}
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_cmd_nowait(struct audio_client *ac, int cmd)
+{
+	struct apr_hdr hdr;
+	int rc;
+
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s:APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
+	switch (cmd) {
+	case CMD_PAUSE:
+		pr_debug("%s:CMD_PAUSE\n", __func__);
+		hdr.opcode = ASM_SESSION_CMD_PAUSE;
+		break;
+	case CMD_EOS:
+		pr_debug("%s:CMD_EOS\n", __func__);
+		hdr.opcode = ASM_DATA_CMD_EOS;
+		break;
+	default:
+		pr_err("%s:Invalid format[%d]\n", __func__, cmd);
+		goto fail_cmd;
+	}
+	pr_debug("%s:session[%d]opcode[0x%x] ", __func__,
+						ac->session,
+						hdr.opcode);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &hdr);
+	if (rc < 0) {
+		pr_err("%s:Commmand 0x%x failed\n", __func__, hdr.opcode);
+		goto fail_cmd;
 	}
 	return 0;
 fail_cmd:
