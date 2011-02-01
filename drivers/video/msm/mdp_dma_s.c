@@ -47,8 +47,9 @@ static void mdp_dma_s_update_lcd(struct msm_fb_data_type *mfd)
 	struct msm_fb_panel_data *pdata =
 	    (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
+	/* LGE_CHANGE, Enable dithering, munyoung.hwang@lge.com */
 	dma_s_cfg_reg = DMA_PACK_TIGHT | DMA_PACK_ALIGN_LSB |
-	    DMA_OUT_SEL_AHB | DMA_IBUF_NONCONTIGUOUS;
+	    DMA_OUT_SEL_AHB | DMA_IBUF_NONCONTIGUOUS | DMA_DITHER_EN;
 
 	if (mfd->fb_imgType == MDP_BGR_565)
 		dma_s_cfg_reg |= DMA_PACK_PATTERN_BGR;
