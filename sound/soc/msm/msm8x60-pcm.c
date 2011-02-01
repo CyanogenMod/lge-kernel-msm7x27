@@ -45,7 +45,8 @@ struct snd_msm {
 };
 
 static struct snd_pcm_hardware msm_pcm_hardware = {
-	.info =                 SNDRV_PCM_INFO_INTERLEAVED,
+	.info =                 (SNDRV_PCM_INFO_INTERLEAVED |
+				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              SNDRV_PCM_FMTBIT_S16_LE,
 	.rates =                SNDRV_PCM_RATE_8000_48000,
 	.rate_min =             8000,
@@ -161,12 +162,13 @@ static void event_handler(uint32_t opcode,
 		wake_up(&the_locks.write_wait);
 		break;
 	}
-	case ASM_SESSION_CMDRSP_GET_SESSION_TIME:
-		pr_debug("ASM_SESSION_CMD_GET_SESSION_TIME\n");
+	case ASM_DATA_CMDRSP_EOS:
+	case ASM_DATA_EVENT_EOS:
+		pr_debug("ASM_DATA_CMDRSP_EOS\n");
 		for (i = 0; i < 8; i++, ++ptrmem)
 			pr_debug("cmd[%d]=0x%08x\n", i, *ptrmem);
 		prtd->cmd_ack++;
-		wake_up(&the_locks.wait);
+		wake_up(&the_locks.eos_wait);
 		break;
 	case ASM_DATA_EVENT_READ_DONE: {
 		pr_debug("ASM_DATA_EVENT_READ_DONE\n");
@@ -232,7 +234,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 			1, dev_rate, runtime->channels);
 	}
 	prtd->enabled = 1;
-	q6asm_run(prtd->audio_client, 0, 0, 0);
+	prtd->cmd_ack = 0;
 	return 0;
 }
 
@@ -283,7 +285,6 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 			session_route.capture_session[substream->number],
 			1, dev_rate, 1);
 	}
-	q6asm_run(prtd->audio_client, 0, 0, 0);
 	prtd->enabled = 1;
 
 	return ret;
@@ -299,11 +300,21 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		pr_debug("SNDRV_PCM_TRIGGER_START\n");
+		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 		atomic_set(&prtd->start, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
+		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
+		prtd->cmd_ack = 0;
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+		atomic_set(&prtd->start, 0);
+		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		pr_debug("SNDRV_PCM_TRIGGER_PAUSE\n");
+		q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
 		atomic_set(&prtd->start, 0);
 		break;
 	default:
@@ -365,8 +376,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->session_id = prtd->audio_client->session;
 	runtime->hw = msm_pcm_hardware;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		prtd->eos_ack = 0;
-		prtd->cmd_ack = 0;
+		prtd->cmd_ack = 1;
 		prtd->device_events = AUDDEV_EVT_DEV_RDY |
 				AUDDEV_EVT_STREAM_VOL_CHG |
 				AUDDEV_EVT_DEV_RLS;
@@ -380,7 +390,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		if (ret)
 			pr_debug("failed to register device event listener\n");
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		prtd->abort = 0;
 		prtd->device_events = AUDDEV_EVT_DEV_RDY | AUDDEV_EVT_DEV_RLS |
 				AUDDEV_EVT_FREQ_CHG;
 		prtd->source = msm_snddev_route_enc(prtd->session_id);
@@ -467,13 +476,17 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
-
+	int ret = 0;
 
 	pr_debug("%s\n", __func__);
-	msm_snddev_set_dec(prtd->session_id, prtd->copp_id, 0,
-		prtd->samp_rate, prtd->channel_mode);
+	ret = wait_event_timeout(the_locks.eos_wait,
+			prtd->cmd_ack, 5 * HZ);
+	if (ret < 0)
+		pr_err("%s: CMD_EOS failed\n", __func__);
+	 if (prtd->enabled)
+		ret = msm_snddev_set_dec(prtd->session_id, prtd->copp_id, 0,
+			prtd->samp_rate, prtd->channel_mode);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
-
 	q6asm_audio_client_free(prtd->audio_client);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC,
 		substream->number);
@@ -558,13 +571,13 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = runtime->private_data;
 
 	pr_debug("%s\n", __func__);
-	ret = msm_snddev_set_enc(prtd->session_id, prtd->copp_id, 0,
-		prtd->samp_rate, prtd->channel_mode);
+	 if (prtd->enabled)
+		ret = msm_snddev_set_enc(prtd->session_id, prtd->copp_id, 0,
+			prtd->samp_rate, prtd->channel_mode);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+	q6asm_audio_client_free(prtd->audio_client);
 	auddev_unregister_evt_listner(AUDDEV_CLNT_ENC,
 		substream->number);
-	q6asm_audio_client_free(prtd->audio_client);
-	prtd->abort = 0;
 	kfree(prtd);
 
 	return 0;
