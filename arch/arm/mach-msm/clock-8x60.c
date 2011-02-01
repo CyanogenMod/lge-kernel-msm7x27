@@ -1780,24 +1780,6 @@ int soc_clk_reset(unsigned id, enum clk_reset_action action)
  * Miscellaneous clock register initializations
  */
 
-/* Return true if PXO is 27MHz. */
-int __init pxo_is_27mhz(void)
-{
-	uint32_t xo_sel;
-	int pll8_ref_is_27mhz = 0;
-
-	/* PLL8 is assumed to be at 384MHz. Check if the 384/(L+M/N) == 27. */
-	if (readl(BB_PLL8_L_VAL_REG) == 14 && readl(BB_PLL8_M_VAL_REG) == 2
-	 && readl(BB_PLL8_N_VAL_REG) == 9)
-		pll8_ref_is_27mhz = 1;
-
-	/* Check which source is used with above L, M, N vals.
-	 * xo_sel: 0=PXO, else MXO */
-	xo_sel = readl(BB_PLL8_MODE_REG) & B(4);
-
-	return (xo_sel == 0 && pll8_ref_is_27mhz);
-}
-
 /* Read, modify, then write-back a register. */
 static void rmwreg(uint32_t val, void *reg, uint32_t mask)
 {

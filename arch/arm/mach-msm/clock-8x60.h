@@ -209,7 +209,6 @@ enum clk_sources {
 	NUM_SRC
 };
 
-int __init pxo_is_27mhz(void);
 extern struct clk_local soc_clk_local_tbl_mxo[];
 
 struct pll_rate {
