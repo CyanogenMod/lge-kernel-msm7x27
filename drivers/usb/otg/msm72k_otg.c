@@ -1610,10 +1610,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 
 			/* Workaround: Reset phy after session */
 			otg_reset(&dev->otg, 1);
+			if (is_b_sess_vld())
+				set_bit(B_SESS_VLD, &dev->inputs);
 
-			/* come back later to put hardware in
-			 * lpm. This removes addition checks in
-			 * suspend routine for missing BSV
+			/* If BSV is set gadget will be started. Otherwise
+			 * low power mode is initiated.
 			 */
 			work = 1;
 		} else if (test_bit(B_BUS_REQ, &dev->inputs) &&
