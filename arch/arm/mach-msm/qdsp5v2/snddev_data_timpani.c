@@ -809,7 +809,7 @@ static struct platform_device msm_spk_idual_mic_broadside_device = {
 };
 
 static struct adie_codec_action_unit idual_mic_bs_8KHz_osr256_actions[] =
-	MIC1_LEFT_AUX_IN_RIGHT_8000_OSR_256;
+	HS_DMIC2_STEREO_8000_OSR_256;
 
 static struct adie_codec_hwsetting_entry idual_mic_broadside_settings[] = {
 	{
