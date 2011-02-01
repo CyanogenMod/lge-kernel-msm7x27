@@ -179,51 +179,8 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
 
 static uint32_t bus_perf_client;
 
-/* CPU and L2 frequency tables that apply to 8660 v1 SoCs. */
 /* L2 frequencies = 2 * 27 MHz * L_VAL */
-static struct clkctl_l2_speed l2_freq_tbl_v1[] = {
-	[0] = {MAX_AXI, 0, 0,    1000000, 1100000, 4},
-	[1] = {432000,  1, 0x08, 1000000, 1100000, 4},
-	[2] = {432000,  1, 0x08, 1100000, 1200000, 6},
-	[3] = {432000,  1, 0x08, 1100000, 1200000, 6},
-	[4] = {432000,  1, 0x08, 1100000, 1200000, 6},
-	[5] = {432000,  1, 0x08, 1200000, 1200000, 8},
-	[6] = {432000,  1, 0x08, 1200000, 1200000, 8},
-	[7] = {432000,  1, 0x08, 1200000, 1200000, 8},
-	[8] = {432000,  1, 0x08, 1200000, 1200000, 8},
-	[9] = {432000,  1, 0x08, 1200000, 1200000, 8},
-};
-
-#define L2(x) (&l2_freq_tbl_v1[(x)])
- /* SCPLL frequencies = 2 * 27 MHz * L_VAL */
-static struct clkctl_acpu_speed acpu_freq_tbl_v1[] = {
-  { {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    L2(1),  900000, 0x03006000},
-  /* MAX_AXI row is used to source CPU cores and L2 from the AFAB clock. */
-  { {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    L2(0),  925000, 0x03006000},
-  { {1, 1},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    L2(1),  925000, 0x03006000},
-  { {0, 0},  432000,  ACPU_SCPLL, 0, 0, 1, 0x08, L2(4),  975000, 0x03006000},
-  { {0, 0},  486000,  ACPU_SCPLL, 0, 0, 1, 0x09, L2(4),  975000, 0x03006000},
-  { {1, 1},  540000,  ACPU_SCPLL, 0, 0, 1, 0x0A, L2(4),  975000, 0x03006000},
-  { {0, 0},  594000,  ACPU_SCPLL, 0, 0, 1, 0x0B, L2(9), 1025000, 0x03006000},
-  { {1, 1},  648000,  ACPU_SCPLL, 0, 0, 1, 0x0C, L2(9), 1025000, 0x03006000},
-  { {0, 0},  702000,  ACPU_SCPLL, 0, 0, 1, 0x0D, L2(9), 1100000, 0x03006000},
-  { {1, 1},  756000,  ACPU_SCPLL, 0, 0, 1, 0x0E, L2(9), 1100000, 0x03006000},
-  { {0, 0},  810000,  ACPU_SCPLL, 0, 0, 1, 0x0F, L2(9), 1175000, 0x03006000},
-  { {0, 0},  864000,  ACPU_SCPLL, 0, 0, 1, 0x10, L2(9), 1175000, 0x03006000},
-  { {1, 1},  918000,  ACPU_SCPLL, 0, 0, 1, 0x11, L2(9), 1175000, 0x03006000},
-  { {0, 0},  972000,  ACPU_SCPLL, 0, 0, 1, 0x12, L2(9), 1200000, 0x03006000},
-  { {0, 0}, 1026000,  ACPU_SCPLL, 0, 0, 1, 0x13, L2(9), 1200000, 0x03006000},
-  { {0, 0}, 1080000,  ACPU_SCPLL, 0, 0, 1, 0x14, L2(9), 1200000, 0x03006000},
-  { {0, 0}, 1134000,  ACPU_SCPLL, 0, 0, 1, 0x15, L2(9), 1200000, 0x03006000},
-  { {0, 0}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, L2(9), 1200000, 0x03006000},
-  { {0, 0}, 0 },
-};
-
-#undef L2
-
-/* CPU and L2 frequency tables that apply to 8660 v2 SoCs. */
-/* L2 frequencies = 2 * 27 MHz * L_VAL */
-static struct clkctl_l2_speed l2_freq_tbl_v2[] = {
+static struct clkctl_l2_speed l2_freq_tbl_1188[] = {
 	[0]  = { MAX_AXI, 0, 0,    1000000, 1100000, 4},
 	[1]  = { 432000,  1, 0x08, 1000000, 1100000, 4},
 	[2]  = { 486000,  1, 0x09, 1000000, 1100000, 4},
@@ -242,9 +199,9 @@ static struct clkctl_l2_speed l2_freq_tbl_v2[] = {
 	[15] = {1188000,  1, 0x16, 1200000, 1200000, 8},
 };
 
-#define L2(x) (&l2_freq_tbl_v2[(x)])
- /* SCPLL frequencies = 2 * 27 MHz * L_VAL */
-static struct clkctl_acpu_speed acpu_freq_tbl_v2[] = {
+#define L2(x) (&l2_freq_tbl_1188[(x)])
+/* SCPLL frequencies = 2 * 27 MHz * L_VAL */
+static struct clkctl_acpu_speed acpu_freq_tbl_1188[] = {
   { {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    L2(1),   812500, 0x03006000},
   /* MAX_AXI row is used to source CPU cores and L2 from the AFAB clock. */
   { {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    L2(0),   875000, 0x03006000},
@@ -266,9 +223,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl_v2[] = {
   { {1, 1}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, L2(15), 1187500, 0x03006000},
   { {0, 0}, 0 },
 };
-
-/* acpu_freq_tbl row to use when reconfiguring SC/L2 PLLs. Should be the same
- * for both v1 and v2 tables. */
+/* acpu_freq_tbl row to use when reconfiguring SC/L2 PLLs. */
 #define CAL_IDX 1
 
 static struct clkctl_acpu_speed *acpu_freq_tbl;
@@ -792,15 +747,9 @@ static void __init cpufreq_table_init(void) {}
 
 static void __init select_freq_tables(void)
 {
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
-		acpu_freq_tbl = acpu_freq_tbl_v2;
-		l2_freq_tbl = l2_freq_tbl_v2;
-		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_v2);
-	} else {
-		acpu_freq_tbl = acpu_freq_tbl_v1;
-		l2_freq_tbl = l2_freq_tbl_v1;
-		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_v1);
-	}
+	acpu_freq_tbl = acpu_freq_tbl_1188;
+	l2_freq_tbl = l2_freq_tbl_1188;
+	l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_1188);
 }
 
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
