@@ -699,27 +699,20 @@ static void __init unselect_scplls(void)
 	drv_state.current_l2_speed = acpu_freq_tbl[CAL_IDX].l2_level;
 }
 
-/* Ensure SCPLLs use the 27MHz XO. */
+/* Ensure SCPLLs use the 27MHz PXO. */
 static void __init scpll_set_refs(void)
 {
 	int cpu;
 	uint32_t regval;
-	int use_pxo = pxo_is_27mhz();
 
 	/* Bit 4 = 0:PXO, 1:MXO. */
 	for_each_possible_cpu(cpu) {
 		regval = readl(sc_pll_base[cpu] + SCPLL_CFG_OFFSET);
-		if (use_pxo)
-			regval &= ~BIT(4);
-		else
-			regval |= BIT(4);
+		regval &= ~BIT(4);
 		writel(regval, sc_pll_base[cpu] + SCPLL_CFG_OFFSET);
 	}
 	regval = readl(sc_pll_base[L2] + SCPLL_CFG_OFFSET);
-	if (use_pxo)
-		regval &= ~BIT(4);
-	else
-		regval |= BIT(4);
+	regval &= ~BIT(4);
 	writel(regval, sc_pll_base[L2] + SCPLL_CFG_OFFSET);
 }
 
