@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,10 +21,8 @@
 #include <mach/qdsp6v2/apr_audio.h>
 #include <mach/qdsp6v2/q6asm.h>
 
-
-/* Support unconventional sample rates 12000, 24000 as well */
-#define USE_RATE                \
-			(SNDRV_PCM_RATE_8000_48000 | SNDRV_PCM_RATE_KNOT)
+#define MAX_PLAYBACK_SESSIONS	2
+#define MAX_CAPTURE_SESSIONS	1
 
 extern int copy_count;
 
@@ -62,6 +60,7 @@ struct msm_audio {
 	struct audio_client *audio_client;
 
 	uint16_t session_id;
+	int copp_id;
 
 	uint32_t samp_rate;
 	uint32_t channel_mode;
@@ -79,11 +78,15 @@ struct msm_audio {
 	int periods;
 };
 
-
+struct pcm_session {
+	unsigned char playback_session[MAX_PLAYBACK_SESSIONS];
+	unsigned char capture_session[MAX_CAPTURE_SESSIONS];
+};
 
 /* platform data */
 extern struct snd_soc_platform msm_soc_platform;
 extern struct snd_soc_dai msm_dais[2];
 extern struct snd_soc_codec_device soc_codec_dev_msm;
+extern struct pcm_session session_route;
 
 #endif /*_MSM_PCM_H*/

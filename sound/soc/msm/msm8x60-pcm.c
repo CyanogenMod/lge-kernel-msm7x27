@@ -75,16 +75,32 @@ static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 static void alsa_out_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 							void *private_data)
 {
+	int ret = 0;
 	struct msm_audio *prtd = (struct msm_audio *) private_data;
+	int dev_rate = 48000;
 	pr_debug("evt_id = 0x%8x\n", evt_id);
 	switch (evt_id) {
 	case AUDDEV_EVT_DEV_RDY:
 		pr_debug("AUDDEV_EVT_DEV_RDY\n");
-		prtd->source |= (0x1 << evt_payload->routing_id);
+		prtd->copp_id = evt_payload->routing_id;
+		pr_debug("prtd->session_id = %d, copp_id= %d",
+			prtd->session_id, prtd->copp_id);
+		if (prtd->copp_id == PCM_RX)
+			dev_rate = 8000;
+
+		ret = msm_snddev_set_dec(prtd->session_id, prtd->copp_id, 1,
+			dev_rate, 1);
 		break;
 	case AUDDEV_EVT_DEV_RLS:
 		pr_debug("AUDDEV_EVT_DEV_RLS\n");
-		prtd->source &= ~(0x1 << evt_payload->routing_id);
+		prtd->copp_id = evt_payload->routing_id;
+		pr_debug("prtd->session_id = %d, copp_id= %d",
+			prtd->session_id, prtd->copp_id);
+		if (prtd->copp_id == PCM_RX)
+			dev_rate = 8000;
+
+		ret = msm_snddev_set_dec(prtd->session_id, prtd->copp_id, 0,
+			dev_rate, 1);
 		break;
 	case AUDDEV_EVT_STREAM_VOL_CHG:
 		pr_debug("AUDDEV_EVT_STREAM_VOL_CHG\n");
@@ -98,17 +114,27 @@ static void alsa_out_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 static void alsa_in_listener(u32 evt_id, union auddev_evt_data *evt_payload,
 							void *private_data)
 {
+	int ret = 0;
 	struct msm_audio *prtd = (struct msm_audio *) private_data;
+	int dev_rate = 48000;
 	pr_debug("evt_id = 0x%8x\n", evt_id);
 
 	switch (evt_id) {
 	case AUDDEV_EVT_DEV_RDY:
-		pr_debug("AUDDEV_EVT_DEV_RDY\n");
-		prtd->source |= (0x1 << evt_payload->routing_id);
+		prtd->copp_id = evt_payload->routing_id;
+		if (prtd->copp_id == PCM_TX)
+			dev_rate = 8000;
+
+		ret = msm_snddev_set_enc(prtd->session_id, prtd->copp_id, 1,
+			dev_rate, 1);
 		break;
 	case AUDDEV_EVT_DEV_RLS:
-		pr_debug("AUDDEV_EVT_DEV_RLS\n");
-		prtd->source &= ~(0x1 << evt_payload->routing_id);
+		prtd->copp_id = evt_payload->routing_id;
+		if (prtd->copp_id == PCM_TX)
+			dev_rate = 8000;
+
+		ret = msm_snddev_set_enc(prtd->session_id, prtd->copp_id, 0,
+			dev_rate, 1);
 		break;
 	default:
 		pr_debug("Unknown Event\n");
@@ -168,11 +194,15 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 	int ret;
+	int dev_rate = 48000;
 
 	pr_debug("%s\n", __func__);
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
+	/* rate and channels are sent to audio driver */
+	prtd->samp_rate = runtime->rate;
+	prtd->channel_mode = runtime->channels;
 	if (prtd->enabled)
 		return 0;
 
@@ -189,11 +219,20 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 
 	atomic_set(&prtd->out_count, runtime->periods);
 	atomic_set(&prtd->in_count, 0);
-	ret = msm_snddev_set_dec(prtd->session_id, 0, 1,
-		prtd->samp_rate, prtd->channel_mode);
+	pr_debug("prtd->session_id = %d, copp_id= %d",
+			prtd->session_id,
+			session_route.playback_session[substream->number]);
+	if (session_route.playback_session[substream->number]
+			!= DEVICE_IGNORE) {
+		if (session_route.playback_session[substream->number]
+				== PCM_RX)
+			dev_rate = 8000;
+		msm_snddev_set_dec(prtd->session_id,
+			session_route.playback_session[substream->number],
+			1, dev_rate, runtime->channels);
+	}
 	prtd->enabled = 1;
 	q6asm_run(prtd->audio_client, 0, 0, 0);
-
 	return 0;
 }
 
@@ -203,6 +242,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = runtime->private_data;
 	int ret = 0;
 	int i = 0;
+	int dev_rate = 48000;
 	pr_debug("%s\n", __func__);
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
@@ -231,8 +271,18 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	for (i = 0; i < runtime->periods; i++)
 		q6asm_read(prtd->audio_client);
 	prtd->periods = runtime->periods;
-	ret = msm_snddev_set_enc(prtd->session_id, 1, 1,
-		48000, 1);
+	pr_debug("prtd->session_id = %d, copp_id= %d",
+			prtd->session_id,
+			session_route.capture_session[substream->number]);
+	if (session_route.capture_session[substream->number]
+			!= DEVICE_IGNORE) {
+		if (session_route.capture_session[substream->number]
+				== PCM_TX)
+			dev_rate = 8000;
+		msm_snddev_set_enc(prtd->session_id,
+			session_route.capture_session[substream->number],
+			1, dev_rate, 1);
+	}
 	q6asm_run(prtd->audio_client, 0, 0, 0);
 	prtd->enabled = 1;
 
@@ -302,6 +352,15 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			return -ENOMEM;
 		}
 	}
+	/* The session id returned by q6asm_open_read above is random and
+	 * hence we cannot use the session id to route from user space.
+	 * This results in need of a hardcoded session id for both playback
+	 * and capture sessions. we can use the subdevice id to identify
+	 * the session and use that for routing. Hence using
+	 * substream->number as the session id for routing purpose. However
+	 * DSP understands the session based on the allocated session id,
+	 * hence using the variable prtd->session_id for all dsp commands.
+	 */
 
 	prtd->session_id = prtd->audio_client->session;
 	runtime->hw = msm_pcm_hardware;
@@ -312,10 +371,11 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 				AUDDEV_EVT_STREAM_VOL_CHG |
 				AUDDEV_EVT_DEV_RLS;
 		prtd->source = msm_snddev_route_dec(prtd->session_id);
-		pr_debug("Register device event listener for session %d\n",
-					prtd->session_id);
+		pr_debug("Register device event listener for"
+				"SNDRV_PCM_STREAM_PLAYBACK session %d\n",
+				substream->number);
 		ret = auddev_register_evt_listner(prtd->device_events,
-				AUDDEV_CLNT_DEC, prtd->session_id,
+				AUDDEV_CLNT_DEC, substream->number,
 				alsa_out_listener, (void *) prtd);
 		if (ret)
 			pr_debug("failed to register device event listener\n");
@@ -324,10 +384,11 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		prtd->device_events = AUDDEV_EVT_DEV_RDY | AUDDEV_EVT_DEV_RLS |
 				AUDDEV_EVT_FREQ_CHG;
 		prtd->source = msm_snddev_route_enc(prtd->session_id);
-		pr_debug("Register device event listener for session %d\n",
-					prtd->session_id);
+		pr_debug("Register device event listener for"
+				"SNDRV_PCM_STREAM_CAPTURE session %d\n",
+				substream->number);
 		ret = auddev_register_evt_listner(prtd->device_events,
-				AUDDEV_CLNT_ENC, prtd->session_id,
+				AUDDEV_CLNT_ENC, substream->number,
 				alsa_in_listener, (void *) prtd);
 		if (ret)
 			pr_debug("failed to register device event listener\n");
@@ -409,12 +470,13 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 
 
 	pr_debug("%s\n", __func__);
-	msm_snddev_set_dec(prtd->session_id, 0, 0,
-		48000, 1);
+	msm_snddev_set_dec(prtd->session_id, prtd->copp_id, 0,
+		prtd->samp_rate, prtd->channel_mode);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 
 	q6asm_audio_client_free(prtd->audio_client);
-	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, prtd->session_id);
+	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC,
+		substream->number);
 	kfree(prtd);
 
 	return 0;
@@ -496,11 +558,12 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = runtime->private_data;
 
 	pr_debug("%s\n", __func__);
+	ret = msm_snddev_set_enc(prtd->session_id, prtd->copp_id, 0,
+		prtd->samp_rate, prtd->channel_mode);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+	auddev_unregister_evt_listner(AUDDEV_CLNT_ENC,
+		substream->number);
 	q6asm_audio_client_free(prtd->audio_client);
-	ret = msm_snddev_set_enc(prtd->session_id, 1, 0,
-		48000, 1);
-	auddev_unregister_evt_listner(AUDDEV_CLNT_ENC, prtd->session_id);
 	prtd->abort = 0;
 	kfree(prtd);
 
@@ -588,7 +651,7 @@ static int msm_pcm_new(struct snd_card *card,
 	int ret = 0;
 
 
-	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_PLAYBACK, 1);
+	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_PLAYBACK, 2);
 	if (ret)
 		return ret;
 	ret = snd_pcm_new_stream(pcm, SNDRV_PCM_STREAM_CAPTURE, 1);
