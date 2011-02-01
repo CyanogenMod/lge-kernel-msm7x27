@@ -811,9 +811,10 @@ static int mt9d112_sensor_probe(const struct msm_camera_sensor_info *info,
 	mdelay(5);
 
 	rc = mt9d112_sensor_init_probe(info);
-	if (rc < 0)
+	if (rc < 0) {
+		gpio_free(info->sensor_reset);
 		goto probe_done;
-
+	}
 	s->s_init = mt9d112_sensor_init;
 	s->s_release = mt9d112_sensor_release;
 	s->s_config  = mt9d112_sensor_config;
