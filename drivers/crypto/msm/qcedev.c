@@ -34,9 +34,10 @@
 #include <linux/scatterlist.h>
 #include <linux/crypto.h>
 #include <mach/board.h>
+#include <mach/scm.h>
 #include "inc/qcedev.h"
-
 #include "inc/qce.h"
+
 
 #define CACHE_LINE_SIZE 32
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
@@ -112,6 +113,75 @@ struct qcedev_control{
 	spinlock_t lock;
 	struct tasklet_struct done_tasklet;
 };
+
+/*-------------------------------------------------------------------------
+* Resource Locking Service
+* ------------------------------------------------------------------------*/
+#define QCEDEV_CMD_ID				1
+#define QCEDEV_CE_LOCK_CMD			1
+#define QCEDEV_CE_UNLOCK_CMD			0
+#define NUM_RETRY				1000
+#define CE_BUSY					55
+
+static int qcedev_scm_cmd(int resource, int cmd, int *response)
+{
+#ifdef CONFIG_MSM_SCM
+
+	struct {
+		int resource;
+		int cmd;
+	} cmd_buf;
+
+	cmd_buf.resource = resource;
+	cmd_buf.cmd = cmd;
+
+	return scm_call(SCM_SVC_TZ, QCEDEV_CMD_ID, &cmd_buf,
+		sizeof(cmd_buf), response, sizeof(*response));
+
+#else
+	return 0;
+#endif
+}
+
+static int qcedev_unlock_ce(struct qcedev_control *podev)
+{
+	if (podev->ce_hw_support.ce_shared) {
+		int response = 0;
+
+		if (qcedev_scm_cmd(podev->ce_hw_support.shared_ce_resource,
+					QCEDEV_CE_UNLOCK_CMD, &response)) {
+			printk(KERN_ERR "%s Failed to release CE lock\n",
+				__func__);
+			return -EUSERS;
+		}
+	}
+	return 0;
+}
+
+static int qcedev_lock_ce(struct qcedev_control *podev)
+{
+	if (podev->ce_hw_support.ce_shared) {
+		int response = -CE_BUSY;
+		int i = 0;
+
+		do {
+			if (qcedev_scm_cmd(
+				podev->ce_hw_support.shared_ce_resource,
+				QCEDEV_CE_LOCK_CMD, &response)) {
+				response = -EINVAL;
+				break;
+			}
+		} while ((response == -CE_BUSY) && (i++ < NUM_RETRY));
+
+		if ((response == -CE_BUSY) && (i >= NUM_RETRY))
+			return -EUSERS;
+
+		if (response < 0)
+			return -EINVAL;
+	}
+
+	return 0;
+}
 
 #define QCEDEV_MAGIC 0x56434544 /* "qced" */
 
@@ -413,6 +483,10 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 
 	qcedev_areq->err = 0;
 
+	ret = qcedev_lock_ce(podev);
+	if (ret)
+		return ret;
+
 	spin_lock_irqsave(&podev->lock, flags);
 
 	if (podev->active_command == NULL) {
@@ -432,6 +506,10 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 
 	if (ret == 0)
 		wait_for_completion(&qcedev_areq->complete);
+
+	ret = qcedev_unlock_ce(podev);
+	if (ret)
+		qcedev_areq->err = -EIO;
 
 	pstat = &_qcedev_stat[podev->pdev->id];
 	if (qcedev_areq->op_type == QCEDEV_CRYPTO_OPER_CIPHER) {
@@ -1254,10 +1332,11 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_CIPHER;
 
 		if (qcedev_areq.cipher_op_req.use_pmem == QCEDEV_USE_PMEM)
-			qcedev_pmem_ablk_cipher(&qcedev_areq, podev);
+			err = qcedev_pmem_ablk_cipher(&qcedev_areq, podev);
 		else
-			qcedev_vbuf_ablk_cipher(&qcedev_areq, podev);
-
+			err = qcedev_vbuf_ablk_cipher(&qcedev_areq, podev);
+		if (err)
+			return err;
 		if (__copy_to_user((void __user *)arg,
 					&qcedev_areq.cipher_op_req,
 					sizeof(struct qcedev_cipher_op_req)))
@@ -1277,7 +1356,7 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
-		qcedev_sha_init(&qcedev_areq, podev);
+		err = qcedev_sha_init(&qcedev_areq, podev);
 		if (__copy_to_user((void __user *)arg, &qcedev_areq.sha_op_req,
 					sizeof(struct qcedev_sha_op_req)))
 				return -EFAULT;
@@ -1295,7 +1374,9 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
-		qcedev_sha_update(&qcedev_areq, podev);
+		err = qcedev_sha_update(&qcedev_areq, podev);
+		if (err)
+			return err;
 		memcpy(&qcedev_areq.sha_op_req.digest[0],
 				&podev->sha_ctxt->digest[0],
 				podev->sha_ctxt->diglen);
@@ -1317,7 +1398,9 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
-		qcedev_sha_final(&qcedev_areq, podev);
+		err = qcedev_sha_final(&qcedev_areq, podev);
+		if (err)
+			return err;
 		qcedev_areq.sha_op_req.diglen = podev->sha_ctxt->diglen;
 		memcpy(&qcedev_areq.sha_op_req.digest[0],
 				&podev->sha_ctxt->digest[0],
@@ -1341,8 +1424,12 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
 		qcedev_sha_init(&qcedev_areq, podev);
-		qcedev_sha_update(&qcedev_areq, podev);
-		qcedev_sha_final(&qcedev_areq, podev);
+		err = qcedev_sha_update(&qcedev_areq, podev);
+		if (err)
+			return err;
+		err = qcedev_sha_final(&qcedev_areq, podev);
+		if (err)
+			return err;
 		qcedev_areq.sha_op_req.diglen = podev->sha_ctxt->diglen;
 		memcpy(&qcedev_areq.sha_op_req.digest[0],
 				&podev->sha_ctxt->digest[0],
@@ -1551,7 +1638,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.06");
+MODULE_VERSION("1.07");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
