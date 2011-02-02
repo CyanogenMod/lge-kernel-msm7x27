@@ -434,7 +434,7 @@ static u32 ddl_handle_dec_seq_hdr_fail_error(struct ddl_client_context *ddl)
 				DDL_MSG_HIGH("EOS_DONE-fromDDL");
 				ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
 				VCD_S_SUCCESS, NULL, 0, (u32 *) ddl,
-				ddl_context->client_data);
+				ddl->client_data);
 			}
 		}
 		DDL_MSG_LOW("ddl_state_transition: %s ~~> "
