@@ -18,7 +18,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
-#include "scm.h"
+#include <mach/scm.h>
 #include "scm-boot.h"
 
 /*

@@ -24,7 +24,7 @@
 
 #include <asm/cacheflush.h>
 
-#include "scm.h"
+#include <mach/scm.h>
 
 #define SCM_ENOMEM		-5
 #define SCM_EOPNOTSUPP		-4
