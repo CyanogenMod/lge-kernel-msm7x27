@@ -292,11 +292,36 @@ static int start_cipher_req(struct qcedev_control *podev)
 	else
 		creq.pmem = NULL;
 
-	creq.alg = qcedev_areq->cipher_op_req.alg;
-	creq.mode = qcedev_areq->cipher_op_req.mode;
+	switch (qcedev_areq->cipher_op_req.alg) {
+	case QCEDEV_ALG_DES:
+		creq.alg = CIPHER_ALG_DES;
+		break;
+	case QCEDEV_ALG_3DES:
+		creq.alg = CIPHER_ALG_3DES;
+		break;
+	case QCEDEV_ALG_AES:
+		creq.alg = CIPHER_ALG_AES;
+		break;
+	default:
+		break;
+	};
 
-	if ((creq.alg == QCEDEV_ALG_AES) &&
-		(creq.mode == QCEDEV_AES_MODE_CTR)) {
+	switch (qcedev_areq->cipher_op_req.mode) {
+	case QCEDEV_AES_MODE_CBC:
+		creq.mode = QCE_MODE_CBC;
+		break;
+	case QCEDEV_AES_MODE_ECB:
+		creq.mode = QCE_MODE_ECB;
+		break;
+	case QCEDEV_AES_MODE_CTR:
+		creq.mode = QCE_MODE_CTR;
+		break;
+	default:
+		break;
+	};
+
+	if ((creq.alg == CIPHER_ALG_AES) &&
+		(creq.mode == QCE_MODE_CTR)) {
 		creq.dir = QCE_ENCRYPT;
 	} else {
 		if (QCEDEV_OPER_ENC == qcedev_areq->cipher_op_req.op)
