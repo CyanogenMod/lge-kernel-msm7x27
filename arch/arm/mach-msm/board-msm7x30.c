@@ -4577,6 +4577,24 @@ static struct msm_gpio bt_config_power_off[] = {
 		"UART1DM_Tx" }
 };
 
+static const char *vregs_bt_marimba_name[] = {
+	"s3",
+	"s2",
+	"gp16",
+	"wlan"
+};
+static struct vreg *vregs_bt_marimba[ARRAY_SIZE(vregs_bt_marimba_name)];
+
+static const char *vregs_bt_bahama_name[] = {
+	"s3",
+	"usb2",
+	"s2",
+	"wlan"
+};
+static struct vreg *vregs_bt_bahama[ARRAY_SIZE(vregs_bt_bahama_name)];
+
+static u8 bha_version;
+
 static int marimba_bt(int on)
 {
 	int rc;
@@ -4724,7 +4742,6 @@ static int bahama_bt(int on)
 
 	const struct bahama_config_register *p;
 
-	u8 version;
 
 	const struct bahama_config_register v10_bt_on[] = {
 		{ 0xE9, 0x00, 0xFF },
@@ -4806,7 +4823,10 @@ static int bahama_bt(int on)
 
 	on = on ? 1 : 0;
 
-	rc = marimba_read_bit_mask(&config, 0x00,  &version, 1, 0x1F);
+	/* Reset version */
+	bha_version = 0xFF;
+
+	rc = marimba_read_bit_mask(&config, 0x00,  &bha_version, 1, 0x1F);
 	if (rc < 0) {
 		dev_err(&msm_bt_power_device.dev,
 			"%s: version read failed: %d\n",
@@ -4815,38 +4835,38 @@ static int bahama_bt(int on)
 	} else {
 		dev_info(&msm_bt_power_device.dev,
 			"%s: version read got: 0x%x\n",
-			__func__, version);
+			__func__, bha_version);
 	}
 
-	switch (version) {
+	switch (bha_version) {
 	case 0x08: /* varients of bahama v1 */
 	case 0x10:
 	case 0x00:
-		version = 0x00;
+		bha_version = 0x00;
 		break;
 	case 0x09: /* variant of bahama v2 */
 		/* bahama v2 has different bring-up & shutdown sequence */
 		/* based on FM status */
-		version = marimba_get_fm_status(&config) ? 0x02 : 0x01;
+		bha_version = marimba_get_fm_status(&config) ? 0x02 : 0x01;
 		break;
 	default:
-		version = 0xFF;
+		bha_version = 0xFF;
 	}
 
-	if ((version >= ARRAY_SIZE(bt_bahama[on])) ||
-	    (bt_bahama[on][version].size == 0)) {
+	if ((bha_version >= ARRAY_SIZE(bt_bahama[on])) ||
+	    (bt_bahama[on][bha_version].size == 0)) {
 		dev_err(&msm_bt_power_device.dev,
 			"%s: unsupported version\n",
 			__func__);
 		return -EIO;
 	}
 
-	p = bt_bahama[on][version].set;
+	p = bt_bahama[on][bha_version].set;
 
 	dev_info(&msm_bt_power_device.dev,
-		"%s: found version %d\n", __func__, version);
+		"%s: found version %d\n", __func__, bha_version);
 
-	for (i = 0; i < bt_bahama[on][version].size; i++) {
+	for (i = 0; i < bt_bahama[on][bha_version].size; i++) {
 		u8 value = (p+i)->value;
 		rc = marimba_write_bit_mask(&config,
 			(p+i)->reg,
@@ -4870,28 +4890,41 @@ static int bahama_bt(int on)
 	else
 		marimba_set_bt_status(&config, false);
 
-
 	/* Destory mutex */
 	mutex_destroy(&config.xfer_lock);
 
+	if ((bha_version == 0x01 || bha_version == 0x02)
+		&& on) { /*variant of bahama v2 */
+		/* Disable s2 as bahama v2 uses internal LDO regulator */
+		for (i = 0; i < ARRAY_SIZE(vregs_bt_bahama_name); i++) {
+			if (!strcmp(vregs_bt_bahama_name[i], "s2")) {
+				vreg_disable(vregs_bt_bahama[i]);
+				if (rc < 0) {
+					printk(KERN_ERR
+						"%s: vreg %s disable "
+						"failed (%d)\n",
+						__func__,
+						vregs_bt_bahama_name[i], rc);
+					return -EIO;
+				}
+				rc = pmapp_vreg_level_vote("BTPW",
+								PMAPP_VREG_S2,
+								0);
+				if (rc < 0) {
+					printk(KERN_ERR "%s: vreg "
+						"level off failed (%d)\n",
+						__func__, rc);
+					return -EIO;
+				}
+				printk(KERN_INFO "%s: vreg disable & "
+					"level off successful (%d)\n",
+					__func__, rc);
+			}
+		}
+	}
+
 	return 0;
 }
-
-static const char *vregs_bt_marimba_name[] = {
-	"s3",
-	"s2",
-	"gp16",
-	"wlan"
-};
-static struct vreg *vregs_bt_marimba[ARRAY_SIZE(vregs_bt_marimba_name)];
-
-static const char *vregs_bt_bahama_name[] = {
-	"s3",
-	"usb2",
-	"s2",
-	"wlan"
-};
-static struct vreg *vregs_bt_bahama[ARRAY_SIZE(vregs_bt_bahama_name)];
 
 static int bluetooth_power_regulators(int on, int bahama_not_marimba)
 {
@@ -4911,6 +4944,10 @@ static int bluetooth_power_regulators(int on, int bahama_not_marimba)
 	}
 
 	for (i = 0; i < vregs_size; i++) {
+		if (bahama_not_marimba &&
+			(bha_version == 0x01 || bha_version == 0x02) &&
+			!on && !strcmp(vregs_bt_bahama_name[i], "s2"))
+			continue;
 		rc = on ? vreg_enable(vregs[i]) :
 			  vreg_disable(vregs[i]);
 		if (rc < 0) {
@@ -5007,10 +5044,15 @@ static int bluetooth_power(int on)
 		if (rc < 0)
 			return -EIO;
 
-		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
-		if (rc < 0) {
-			printk(KERN_INFO "%s: vreg level off failed (%d)\n",
-				__func__, rc);
+		if (bha_version != 0x01 && bha_version != 0x02) {
+			rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
+			if (rc < 0) {
+				printk(KERN_ERR "%s: vreg level off failed "
+				"(%d)\n", __func__, rc);
+				return -EIO;
+			}
+			/* Reset version */
+			bha_version = 0xFF;
 		}
 	}
 
