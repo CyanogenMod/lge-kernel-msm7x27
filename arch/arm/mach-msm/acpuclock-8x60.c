@@ -57,6 +57,9 @@
 #define MAX_VDD_MEM		1200000 /* uV */
 #define MAX_VDD_DIG		1200000 /* uV */
 #define MAX_AXI			 310500 /* KHz */
+#define SCPLL_LOW_VDD_FMAX	 594000 /* KHz */
+#define SCPLL_LOW_VDD		1000000 /* uV */
+#define SCPLL_NOMINAL_VDD	1100000 /* uV */
 
 /* SCPLL Modes. */
 #define SCPLL_POWER_DOWN	0
@@ -541,7 +544,7 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 {
 	struct clkctl_acpu_speed *tgt_s, *strt_s;
 	struct clkctl_l2_speed *tgt_l2;
-	unsigned int vdd_mem, vdd_dig;
+	unsigned int vdd_mem, vdd_dig, pll_vdd_dig;
 	int freq_index = 0;
 	int rc = 0;
 
@@ -579,7 +582,14 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	/* Calculate vdd_mem and vdd_dig requirements.
 	 * vdd_mem must be >= vdd_sc */
 	vdd_mem = max(tgt_s->vdd_sc, tgt_s->l2_level->vdd_mem);
-	vdd_dig = tgt_s->l2_level->vdd_dig;
+	/* Factor-in PLL vdd_dig requirements. */
+	if ((tgt_s->l2_level->khz > SCPLL_LOW_VDD_FMAX) ||
+	    (tgt_s->pll == ACPU_SCPLL
+	     && tgt_s->acpuclk_khz > SCPLL_LOW_VDD_FMAX))
+		pll_vdd_dig = SCPLL_NOMINAL_VDD;
+	else
+		pll_vdd_dig = SCPLL_LOW_VDD;
+	vdd_dig = max(tgt_s->l2_level->vdd_dig, pll_vdd_dig);
 
 	/* Increase VDD levels if needed. */
 	if ((reason == SETRATE_CPUFREQ || reason == SETRATE_INIT)
