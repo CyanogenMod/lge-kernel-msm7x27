@@ -1143,6 +1143,8 @@ static struct platform_device *snd_devices_fluid[] __initdata = {
 	&msm_imic_device,
 	&msm_ispkr_stereo_device,
 	&msm_snddev_hdmi_stereo_rx_device,
+	&msm_headset_stereo_device,
+	&msm_headset_mic_device,
 	&msm_bt_sco_earpiece_device,
 	&msm_bt_sco_mic_device,
 	&msm_mi2s_fm_tx_device,
