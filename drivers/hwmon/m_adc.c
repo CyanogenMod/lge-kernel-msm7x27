@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,8 @@ struct msm_adc_drv {
 
 /* Needed to support file_op interfaces */
 static struct msm_adc_drv *msm_adc_drv;
+
+static int conv_first_request;
 
 static ssize_t msm_adc_show_curr(struct device *dev,
 				struct device_attribute *devattr, char *buf);
@@ -410,6 +412,16 @@ static int msm_adc_blocking_conversion(struct msm_adc_drv *msm_adc,
 	struct msm_adc_platform_data *pdata =
 					msm_adc_drv->pdev->dev.platform_data;
 	struct msm_adc_channels *channel = &pdata->channel[hwmon_chan];
+	int ret;
+
+	if (!conv_first_request) {
+		ret = pm8058_xoadc_calib_device(channel->adc_dev_instance);
+		if (ret) {
+			pr_err("pmic8058 xoadc calibration failed, retry\n");
+			return ret;
+		}
+		conv_first_request = 1;
+	}
 
 	channel->adc_access_fn->adc_slot_request(channel->adc_dev_instance,
 									&slot);
@@ -801,6 +813,16 @@ int32_t adc_channel_request_conv(void *h, struct completion *conv_complete_evt)
 					msm_adc_drv->pdev->dev.platform_data;
 	struct msm_adc_channels *channel = &pdata->channel[client->adc_chan];
 	struct adc_conv_slot *slot;
+	int ret;
+
+	if (!conv_first_request) {
+		ret = pm8058_xoadc_calib_device(channel->adc_dev_instance);
+		if (ret) {
+			pr_err("pm8058 xoadc calibration failed, retry\n");
+			return ret;
+		}
+		conv_first_request = 1;
+	}
 
 	channel->adc_access_fn->adc_slot_request(channel->adc_dev_instance,
 									&slot);
