@@ -755,7 +755,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 			if (!allow)
 				break;
 
-			rs_limits = msm_rpmrs_lowest_limits(
+			rs_limits = msm_rpmrs_lowest_limits(true,
 						mode, latency_us, sleep_us);
 
 			if (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask)
@@ -921,7 +921,7 @@ static int msm_pm_enter(suspend_state_t state)
 		if (MSM_PM_DEBUG_SUSPEND_LIMITS & msm_pm_debug_mask)
 			msm_rpmrs_show_resources();
 
-		rs_limits = msm_rpmrs_lowest_limits(
+		rs_limits = msm_rpmrs_lowest_limits(false,
 				MSM_PM_SLEEP_MODE_POWER_COLLAPSE, -1, -1);
 
 		if ((MSM_PM_DEBUG_SUSPEND_LIMITS & msm_pm_debug_mask) &&

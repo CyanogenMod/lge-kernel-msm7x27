@@ -177,16 +177,6 @@ struct msm_rpmrs_resource_sysfs {
  * Power Level Definitions
  *****************************************************************************/
 
-static int msm_rpmrs_enter_level_default(
-	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_exit_level_default(
-	bool from_idle, struct msm_rpmrs_limits *limits);
-
-static int msm_rpmrs_enter_level_mpm(
-	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_exit_level_mpm(
-	bool from_idle, struct msm_rpmrs_limits *limits);
-
 #define MSM_RPMRS_LIMITS(_pxo, _l2, _vdd_upper_b, _vdd) { \
 	MSM_RPMRS_PXO_##_pxo, \
 	MSM_RPMRS_L2_CACHE_##_l2, \
@@ -201,15 +191,13 @@ struct msm_rpmrs_level {
 	enum msm_pm_sleep_mode sleep_mode;
 	struct msm_rpmrs_limits rs_limits;
 	bool available;
+	/* true when PXO is off or Vdd is below active level */
+	bool use_mpm;
 
 	uint32_t latency_us;
 	uint32_t steady_state_power;
 	uint32_t energy_overhead;
 	uint32_t time_overhead_us;
-
-	int (*enter)(bool from_idle, uint32_t sclk_count,
-			struct msm_rpmrs_limits *limits);
-	void (*exit)(bool from_idle, struct msm_rpmrs_limits *limits);
 };
 
 static struct msm_rpmrs_level msm_rpmrs_levels[] = {
@@ -217,71 +205,63 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
+		false,
 		1, 8000, 100000, 1,
-		NULL,
-		NULL,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
+		false,
 		1500, 5000, 60100000, 3000,
-		NULL,
-		NULL,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
-		true,
+		false,
+		false,
 		1800, 5000, 60350000, 3500,
-		msm_rpmrs_enter_level_default,
-		msm_rpmrs_exit_level_default,
 	},
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, ACTIVE, MAX, ACTIVE),
+		false,
 		true,
 		3800, 4500, 65350000, 5500,
-		msm_rpmrs_enter_level_default,
-		msm_rpmrs_exit_level_default,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, MAX, ACTIVE),
 		false,
+		false,
 		2800, 2500, 66850000, 4800,
-		msm_rpmrs_enter_level_default,
-		msm_rpmrs_exit_level_default,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MAX, ACTIVE),
 		false,
+		true,
 		4800, 2000, 71850000, 6800,
-		msm_rpmrs_enter_level_default,
-		msm_rpmrs_exit_level_default,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
+		true,
 		6800, 500, 75850000, 8800,
-		msm_rpmrs_enter_level_default,
-		msm_rpmrs_exit_level_default,
 	},
 
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, RET_HIGH, RET_LOW),
 		false,
+		true,
 		7800, 0, 76350000, 9800,
-		msm_rpmrs_enter_level_mpm,
-		msm_rpmrs_exit_level_mpm,
 	},
 };
 
@@ -817,55 +797,6 @@ resource_sysfs_add_exit:
 }
 
 /******************************************************************************
- * Power Level Functions
- *****************************************************************************/
-
-static int msm_rpmrs_enter_level_default(
-	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits)
-{
-	return msm_rpmrs_flush_buffer(sclk_count, limits);
-}
-
-static void msm_rpmrs_exit_level_default(
-	bool from_idle, struct msm_rpmrs_limits *limits)
-{
-	return;
-}
-
-static int msm_rpmrs_enter_level_mpm(
-	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits)
-{
-	int rc;
-
-	if (msm_mpm_irqs_detectable(from_idle)) {
-		rc = msm_rpmrs_flush_buffer(sclk_count, limits);
-		if (rc)
-			return rc;
-
-		msm_mpm_enter_sleep(from_idle);
-		return 0;
-	} else {
-		uint32_t vdd_mem_saved = limits->vdd_mem;
-		uint32_t vdd_dig_saved = limits->vdd_dig;
-
-		limits->vdd_mem = MSM_RPMRS_VDD_MEM_RET_HIGH;
-		limits->vdd_dig = MSM_RPMRS_VDD_DIG_RET_HIGH;
-		rc = msm_rpmrs_flush_buffer(sclk_count, limits);
-		limits->vdd_mem = vdd_mem_saved;
-		limits->vdd_dig = vdd_dig_saved;
-
-		return rc;
-	}
-}
-
-static void msm_rpmrs_exit_level_mpm(
-	bool from_idle, struct msm_rpmrs_limits *limits)
-{
-	if (msm_mpm_irqs_detectable(from_idle))
-		msm_mpm_exit_sleep(from_idle);
-}
-
-/******************************************************************************
  * Public Functions
  *****************************************************************************/
 
@@ -910,12 +841,16 @@ void msm_rpmrs_show_resources(void)
 }
 
 struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
-	enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
+	bool from_idle, enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
 	uint32_t sleep_us)
 {
 	unsigned int cpu = smp_processor_id();
 	struct msm_rpmrs_level *best_level = NULL;
+	bool irqs_detectable = false;
 	int i;
+
+	if (sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
+		irqs_detectable = msm_mpm_irqs_detectable(from_idle);
 
 	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_levels); i++) {
 		struct msm_rpmrs_level *level = &msm_rpmrs_levels[i];
@@ -925,6 +860,9 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 			continue;
 
 		if (sleep_mode != level->sleep_mode)
+			continue;
+
+		if (level->use_mpm && !irqs_detectable)
 			continue;
 
 		if (latency_us < level->latency_us)
@@ -957,18 +895,22 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 int msm_rpmrs_enter_sleep(
 	bool from_idle, uint32_t sclk_count, struct msm_rpmrs_limits *limits)
 {
-	struct msm_rpmrs_level *level;
+	int rc;
 
-	level = container_of(limits, struct msm_rpmrs_level, rs_limits);
-	return level->enter(from_idle, sclk_count, limits);
+	rc = msm_rpmrs_flush_buffer(sclk_count, limits);
+	if (rc)
+		return rc;
+
+	if (container_of(limits, struct msm_rpmrs_level, rs_limits)->use_mpm)
+		msm_mpm_enter_sleep(from_idle);
+
+	return 0;
 }
 
 void msm_rpmrs_exit_sleep(bool from_idle, struct msm_rpmrs_limits *limits)
 {
-	struct msm_rpmrs_level *level;
-
-	level = container_of(limits, struct msm_rpmrs_level, rs_limits);
-	level->exit(from_idle, limits);
+	if (container_of(limits, struct msm_rpmrs_level, rs_limits)->use_mpm)
+		msm_mpm_exit_sleep(from_idle);
 }
 
 static int __init msm_rpmrs_init(void)

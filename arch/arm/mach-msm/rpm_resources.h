@@ -80,7 +80,7 @@ static inline int msm_rpmrs_clear_nosleep(
 void msm_rpmrs_show_resources(void);
 
 struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
-	enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
+	bool from_idle, enum msm_pm_sleep_mode sleep_mode, uint32_t latency_us,
 	uint32_t sleep_us);
 
 int msm_rpmrs_enter_sleep(
