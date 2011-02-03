@@ -19,6 +19,7 @@
 
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/list.h>
 #include <mach/clk.h>
 
 #define CLKFLAG_INVERT			0x00000001
