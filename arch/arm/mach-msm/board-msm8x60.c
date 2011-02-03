@@ -4803,6 +4803,14 @@ static unsigned int msm_timpani_setup_power(void)
 		goto fail;
 	}
 
+	/* The settings for LDO0 should be set such that
+	*  it doesn't require to reset the timpani. */
+	rc = regulator_set_optimum_mode(vreg_timpani_1, 5000);
+	if (rc < 0) {
+		pr_err("Timpani regulator optimum mode setting failed\n");
+		goto fail;
+	}
+
 	rc = regulator_enable(vreg_timpani_2);
 	if (rc) {
 		pr_err("%s: Enable regulator 8058_s3 failed\n", __func__);
