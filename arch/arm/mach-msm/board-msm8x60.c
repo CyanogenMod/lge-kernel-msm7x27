@@ -1223,7 +1223,8 @@ static int msm_hsusb_pmic_vbus_notif_init(void (*callback)(int online),
 	 * vbus notifications
 	 */
 	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2)
-			&& (machine_is_msm8x60_surf())) {
+			&& (machine_is_msm8x60_surf() ||
+				pmic_id_notif_supported)) {
 		if (init)
 			ret = msm_charger_register_vbus_sn(callback);
 		else {
