@@ -369,9 +369,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	}
 	payload = data->payload;
 
-	pr_debug("%s: session[%d]ptr0[0x%x]ptr1[0x%x]opcode[0x%x] \
+	pr_debug("%s: session[%d]opcode[0x%x] \
 		token[0x%x]payload_s[%d] src[%d] dest[%d]\n", __func__,
-		ac->session, payload[0], payload[1], data->opcode,
+		ac->session, data->opcode,
 		data->token, data->payload_size, data->src_port,
 		data->dest_port);
 
@@ -395,8 +395,6 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_DATA_CMD_MEDIA_FORMAT_UPDATE:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 		case ASM_STREAM_CMD_SET_PP_PARAMS:
-			pr_debug("%s:command[0x%x]success [0x%x]",
-				__func__, payload[0], payload[1]);
 			if (atomic_read(&ac->cmd_state)) {
 				atomic_set(&ac->cmd_state, 0);
 				wake_up(&ac->cmd_wait);
