@@ -1330,6 +1330,17 @@ static struct regulator_consumer_supply rpm_vreg_supply[RPM_VREG_ID_MAX] = {
 		      RPM_VREG_PIN_FN_ENABLE, RPM_VREG_MODE_NONE, \
 		      RPM_VREG_STATE_OFF, _sleep_selectable, _always_on)
 
+#define RPM_VREG_INIT_LDO_PF(_id, _always_on, _pd, _sleep_selectable, _min_uV, \
+			  _max_uV, _init_peak_uA, _pin_ctrl, _pin_fn) \
+	RPM_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_FAST | \
+		      REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE | \
+		      REGULATOR_MODE_STANDBY, REGULATOR_CHANGE_VOLTAGE | \
+		      REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
+		      REGULATOR_CHANGE_DRMS, 0, _min_uV, _init_peak_uA, \
+		      _init_peak_uA, _pd, _pin_ctrl, RPM_VREG_FREQ_NONE, \
+		      _pin_fn, RPM_VREG_MODE_NONE, RPM_VREG_STATE_OFF, \
+		      _sleep_selectable, _always_on)
+
 #define RPM_VREG_INIT_SMPS(_id, _always_on, _pd, _sleep_selectable, _min_uV, \
 			   _max_uV, _init_peak_uA, _pin_ctrl, _freq) \
 	RPM_VREG_INIT(_id, _min_uV, _max_uV, REGULATOR_MODE_FAST | \
@@ -1363,7 +1374,8 @@ static struct regulator_consumer_supply rpm_vreg_supply[RPM_VREG_ID_MAX] = {
 #define FTS_HMIN	RPM_VREG_FTSMPS_HPM_MIN_LOAD
 
 static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
-	RPM_VREG_INIT_LDO(PM8058_L0,  0, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
+	RPM_VREG_INIT_LDO_PF(PM8058_L0,  0, 1, 0, 1200000, 1200000, LDO150HMIN,
+		RPM_VREG_PIN_CTRL_NONE, RPM_VREG_PIN_FN_SLEEP_B),
 	RPM_VREG_INIT_LDO(PM8058_L1,  0, 1, 0, 1200000, 1200000, LDO300HMIN, 0),
 	RPM_VREG_INIT_LDO(PM8058_L2,  0, 1, 0, 1800000, 2600000, LDO300HMIN, 0),
 	RPM_VREG_INIT_LDO(PM8058_L3,  0, 1, 0, 1800000, 1800000, LDO150HMIN, 0),
@@ -1384,7 +1396,8 @@ static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
 	RPM_VREG_INIT_LDO(PM8058_L18, 0, 1, 1, 2200000, 2200000, LDO150HMIN, 0),
 	RPM_VREG_INIT_LDO(PM8058_L19, 0, 1, 0, 2500000, 2500000, LDO150HMIN, 0),
 	RPM_VREG_INIT_LDO(PM8058_L20, 0, 1, 0, 1800000, 1800000, LDO150HMIN, 0),
-	RPM_VREG_INIT_LDO(PM8058_L21, 1, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
+	RPM_VREG_INIT_LDO_PF(PM8058_L21, 1, 1, 0, 1200000, 1200000, LDO150HMIN,
+		RPM_VREG_PIN_CTRL_NONE, RPM_VREG_PIN_FN_SLEEP_B),
 	RPM_VREG_INIT_LDO(PM8058_L22, 0, 1, 0, 1200000, 1200000, LDO300HMIN, 0),
 	RPM_VREG_INIT_LDO(PM8058_L23, 0, 1, 0, 1200000, 1200000, LDO300HMIN, 0),
 	RPM_VREG_INIT_LDO(PM8058_L24, 0, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
