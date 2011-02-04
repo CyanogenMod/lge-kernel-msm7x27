@@ -137,17 +137,9 @@
 #define PIXEL_CC_REG				REG_MM(0x00D4)
 #define PIXEL_CC2_REG				REG_MM(0x0120)
 #define PIXEL_NS_REG				REG_MM(0x00DC)
-#define MM_PLL0_CONFIG_REG			REG_MM(0x0310)
-#define MM_PLL0_L_VAL_REG			REG_MM(0x0304)
-#define MM_PLL0_M_VAL_REG			REG_MM(0x0308)
 #define MM_PLL0_MODE_REG			REG_MM(0x0300)
-#define MM_PLL0_N_VAL_REG			REG_MM(0x030C)
 #define MM_PLL0_STATUS_REG			REG_MM(0x0318)
-#define MM_PLL1_CONFIG_REG			REG_MM(0x032C)
-#define MM_PLL1_L_VAL_REG			REG_MM(0x0320)
-#define MM_PLL1_M_VAL_REG			REG_MM(0x0324)
 #define MM_PLL1_MODE_REG			REG_MM(0x031C)
-#define MM_PLL1_N_VAL_REG			REG_MM(0x0328)
 #define MM_PLL1_STATUS_REG			REG_MM(0x0334)
 #define MM_PLL2_CONFIG_REG			REG_MM(0x0348)
 #define MM_PLL2_L_VAL_REG			REG_MM(0x033C)
@@ -1815,15 +1807,6 @@ static void rmwreg(uint32_t val, void *reg, uint32_t mask)
 
 static void reg_init(void)
 {
-	/* Set MM_PLL1 (PLL2) @ 800 MHz but leave it off. */
-	rmwreg(0,  MM_PLL1_MODE_REG, B(0)); /* Disable output */
-	writel(29, MM_PLL1_L_VAL_REG);
-	writel(17, MM_PLL1_M_VAL_REG);
-	writel(27, MM_PLL1_N_VAL_REG);
-	/* Set ref, bypass, assert reset, disable output, disable test mode. */
-	writel(0,    MM_PLL1_MODE_REG); /* PXO */
-	writel(0x00C22080, MM_PLL1_CONFIG_REG); /* Enable MN, set VCO, misc */
-
 	/* Setup MM_PLL2 (PLL3), but turn it off. Rate set by set_rate_tv(). */
 	rmwreg(0, MM_PLL2_MODE_REG, B(0)); /* Disable output */
 	/* Set ref, bypass, assert reset, disable output, disable test mode */
