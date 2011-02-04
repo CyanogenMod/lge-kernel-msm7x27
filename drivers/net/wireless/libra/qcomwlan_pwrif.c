@@ -52,7 +52,7 @@ int vos_chip_power_qrf8615(int on)
 		0,
 		1200000,
 		1300000,
-		1200000,
+		1250000,
 	};
 	static const bool vregs_is_pin_controlled[] = {
 		0,
