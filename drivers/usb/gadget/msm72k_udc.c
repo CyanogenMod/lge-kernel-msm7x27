@@ -224,6 +224,7 @@ static int msm72k_pullup_internal(struct usb_gadget *_gadget, int is_active);
 static int msm72k_set_halt(struct usb_ep *_ep, int value);
 static void flush_endpoint(struct msm_endpoint *ept);
 static void usb_reset(struct usb_info *ui);
+static int usb_ept_set_halt(struct usb_ep *_ep, int value);
 
 static void msm_hsusb_set_speed(struct usb_info *ui)
 {
@@ -921,9 +922,9 @@ static void handle_setup(struct usb_info *ui)
 					if (ept->wedged)
 						goto ack;
 					if (ctl.bRequest == USB_REQ_SET_FEATURE)
-						msm72k_set_halt(&ept->ep, 1);
+						usb_ept_set_halt(&ept->ep, 1);
 					else
-						msm72k_set_halt(&ept->ep, 0);
+						usb_ept_set_halt(&ept->ep, 0);
 				}
 				goto ack;
 			}
@@ -1933,7 +1934,7 @@ static int msm72k_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 }
 
 static int
-msm72k_set_halt(struct usb_ep *_ep, int value)
+usb_ept_set_halt(struct usb_ep *_ep, int value)
 {
 	struct msm_endpoint *ept = to_msm_endpoint(_ep);
 	struct usb_info *ui = ept->ui;
@@ -1942,11 +1943,6 @@ msm72k_set_halt(struct usb_ep *_ep, int value)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ui->lock, flags);
-
-	if (value && in && ept->req) {
-		spin_unlock_irqrestore(&ui->lock, flags);
-		return -EAGAIN;
-	}
 
 	n = readl(USB_ENDPTCTRL(ept->num));
 
@@ -1969,6 +1965,20 @@ msm72k_set_halt(struct usb_ep *_ep, int value)
 	if (!value)
 		ept->wedged = 0;
 	spin_unlock_irqrestore(&ui->lock, flags);
+
+	return 0;
+}
+
+static int
+msm72k_set_halt(struct usb_ep *_ep, int value)
+{
+	struct msm_endpoint *ept = to_msm_endpoint(_ep);
+	unsigned int in = ept->flags & EPT_FLAG_IN;
+
+	if (value && in && ept->req)
+		return -EAGAIN;
+
+	usb_ept_set_halt(_ep, value);
 
 	return 0;
 }
