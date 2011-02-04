@@ -435,11 +435,25 @@ static int mddi_is_in_suspend;
 
 static int mddi_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	mddi_host_type host_idx = MDDI_HOST_PRIM;
 	if (mddi_is_in_suspend)
 		return 0;
 
 	mddi_is_in_suspend = 1;
-	mddi_disable(0);
+
+	if (mddi_power_locked)
+		return 0;
+
+	pmdh_clk_enable();
+
+	mddi_pad_ctrl = mddi_host_reg_in(PAD_CTL);
+	mddi_host_reg_out(PAD_CTL, 0x0);
+
+	if (clk_set_min_rate(mddi_clk, 0) < 0)
+		printk(KERN_ERR "%s: clk_set_min_rate failed\n", __func__);
+
+	pmdh_clk_disable();
+
 	return 0;
 }
 

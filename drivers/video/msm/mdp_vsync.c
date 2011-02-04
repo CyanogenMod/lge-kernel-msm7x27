@@ -104,15 +104,19 @@ void mdp_vsync_clk_enable(void)
 {
 	if (vsync_mfd) {
 		mdp_hw_vsync_clk_enable(vsync_mfd);
-		mdp_set_vsync((unsigned long) vsync_mfd);
+		if (!vsync_mfd->vsync_resync_timer.function) {
+			mdp_set_vsync((unsigned long) vsync_mfd);
+		}
 	}
 }
 
 void mdp_vsync_clk_disable(void)
 {
 	if (vsync_mfd) {
-		if (vsync_mfd->vsync_resync_timer.function)
-			del_timer(&vsync_mfd->vsync_resync_timer);
+		if (vsync_mfd->vsync_resync_timer.function) {
+			del_timer_sync(&vsync_mfd->vsync_resync_timer);
+			vsync_mfd->vsync_resync_timer.function = NULL;
+		}
 
 		mdp_hw_vsync_clk_disable(vsync_mfd);
 	}
@@ -159,6 +163,7 @@ static void mdp_vsync_handler(void *data)
 
 	if (vsync_clk_status == 0) {
 		printk(KERN_ERR "Warning: vsync clk is disabled\n");
+		mfd->vsync_handler_pending = FALSE;
 		return;
 	}
 
@@ -373,9 +378,8 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 				}
 			}
 		}
-
-		mdp_set_vsync((unsigned long)mfd);
 		mdp_hw_vsync_clk_enable(mfd);
+		mdp_set_vsync((unsigned long)mfd);
 	}
 
 	return;
