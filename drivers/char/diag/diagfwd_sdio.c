@@ -15,7 +15,6 @@
  * 02110-1301, USA.
  *
  */
-#ifdef CONFIG_MSM_SDIO_AL
 
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -251,5 +250,3 @@ void diagfwd_sdio_exit(void)
 	kfree(driver->usb_read_mdm_ptr);
 	destroy_workqueue(driver->diag_sdio_wq);
 }
-
-#endif /* CONFIG_MSM_SDIO_AL */

@@ -37,7 +37,7 @@
 #include <linux/workqueue.h>
 #include <mach/msm_smd.h>
 #include <asm/atomic.h>
-
+#include <asm/mach-types.h>
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096
 #define IN_BUF_SIZE		8192
@@ -178,7 +178,7 @@ struct diagchar_dev {
 	struct diag_request *write_ptr_qdsp_2;
 	int logging_mode;
 	int logging_process_id;
-#ifdef CONFIG_MSM_SDIO_AL
+#ifdef CONFIG_DIAG_SDIO_PIPE
 	unsigned char *buf_in_sdio;
 	unsigned char *usb_buf_mdm_out;
 	struct sdio_channel *sdio_ch;
