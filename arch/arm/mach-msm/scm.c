@@ -174,10 +174,12 @@ static u32 smc(u32 cmd_addr)
 		__asmeq("%1", "r0")
 		__asmeq("%2", "r1")
 		__asmeq("%3", "r2")
-		"smc	#0	@ switch to secure world\n"
+		"1:smc	#0	@ switch to secure world\n"
+		"cmp	r0, #1				\n"
+		"beq	1b				\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2)
-		: "r3");
+		: "r3", "cc");
 	return r0;
 }
 
@@ -264,10 +266,12 @@ u32 scm_get_version(void)
 		__asmeq("%0", "r1")
 		__asmeq("%1", "r0")
 		__asmeq("%2", "r1")
-		"smc	#0	@ switch to secure world\n"
+		"1:smc	#0	@ switch to secure world\n"
+		"cmp	r0, #1				\n"
+		"beq	1b				\n"
 		: "=r" (r1)
 		: "r" (r0), "r" (r1)
-		: "r2", "r3");
+		: "r2", "r3", "cc");
 	version = r1;
 	mutex_unlock(&scm_lock);
 
