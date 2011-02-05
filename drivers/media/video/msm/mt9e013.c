@@ -312,7 +312,7 @@ static int32_t mt9e013_set_fps(struct fps_cfg   *fps)
 	} else {
 		total_lines_per_frame = (uint16_t)
 		((mt9e013_regs.reg_snap[E013_FRAME_LENGTH_LINES].wdata)
-		 * mt9e013_ctrl->fps_divider/0x400);
+		 * mt9e013_ctrl->pict_fps_divider/0x400);
 	}
 	mt9e013_ctrl->fps_divider = fps->fps_div;
 	mt9e013_ctrl->pict_fps_divider = fps->pict_fps_div;
@@ -339,7 +339,7 @@ static int32_t mt9e013_write_exp_gain(uint16_t gain, uint32_t line)
 		line = (uint32_t) (line * mt9e013_ctrl->fps_divider /
 						   0x00000400);
 	} else {
-		line = (uint32_t) (line * mt9e013_ctrl->pict_fps_divider /
+		line = (uint32_t) (line * 2 * mt9e013_ctrl->pict_fps_divider /
 						   0x00000400);
 	}
 
@@ -506,7 +506,7 @@ static int32_t mt9e013_sensor_setting(int update_type, int rt)
 			mt9e013_csi_params.lane_cnt = 2;
 			mt9e013_csi_params.lane_assign = 0xe4;
 			mt9e013_csi_params.dpcm_scheme = 0;
-			mt9e013_csi_params.settle_cnt = 7;
+			mt9e013_csi_params.settle_cnt = 0x18;
 			rc = msm_camio_csi_config(&mt9e013_csi_params);
 			msleep(10);
 			CSI_CONFIG = 1;
