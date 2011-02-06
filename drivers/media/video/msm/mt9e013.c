@@ -481,7 +481,7 @@ static int32_t mt9e013_sensor_setting(int update_type, int rt)
 	stored_af_step = mt9e013_ctrl->curr_step_pos;
 	mt9e013_set_default_focus(0);
 	mt9e013_stop_stream();
-	msleep(150);
+	msleep(15);
 	if (update_type == REG_INIT) {
 		mt9e013_i2c_write_w_table(mt9e013_regs.reg_mipi,
 			mt9e013_regs.reg_mipi_size);
@@ -492,6 +492,7 @@ static int32_t mt9e013_sensor_setting(int update_type, int rt)
 		cam_debug_init();
 		CSI_CONFIG = 0;
 	} else if (update_type == UPDATE_PERIODIC) {
+			msleep(100);
 		if (rt == RES_PREVIEW) {
 			mt9e013_i2c_write_w_table(mt9e013_regs.reg_prev,
 				mt9e013_regs.reg_prev_size);
@@ -499,7 +500,6 @@ static int32_t mt9e013_sensor_setting(int update_type, int rt)
 			mt9e013_i2c_write_w_table(mt9e013_regs.reg_snap,
 				mt9e013_regs.reg_snap_size);
 		}
-		msleep(10);
 		if (!CSI_CONFIG) {
 			msm_camio_vfe_clk_rate_set(192000000);
 			mt9e013_csi_params.data_format = CSI_10BIT;
@@ -621,14 +621,13 @@ static int mt9e013_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	if (!rc) {
 		CDBG("sensor_reset = %d\n", rc);
 		gpio_direction_output(data->sensor_reset, 0);
-		msleep(50);
+		msleep(10);
 		gpio_set_value_cansleep(data->sensor_reset, 1);
-		msleep(13);
+		msleep(10);
 	} else {
 		goto init_probe_done;
 	}
 
-	msleep(20);
 	CDBG(" mt9e013_probe_init_sensor is called\n");
 	rc = mt9e013_i2c_read(0x0000, &chipid, 2);
 	CDBG("ID: %d\n", chipid);
@@ -750,7 +749,6 @@ static int mt9e013_i2c_probe(struct i2c_client *client,
 	mt9e013_init_client(client);
 	mt9e013_client = client;
 
-	msleep(50);
 
 	CDBG("mt9e013_probe successed! rc = %d\n", rc);
 	return 0;
