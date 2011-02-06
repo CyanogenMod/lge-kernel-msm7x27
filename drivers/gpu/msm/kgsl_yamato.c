@@ -799,6 +799,13 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 			 REG_MH_CLNT_INTF_CTRL_CONFIG2, 0x00472747);
 	}
 
+	/* Remove 1k boundary check in z470 to avoid GPU hang.
+	   Notice that, this solution won't work if both EBI and SMI are used */
+	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
+		kgsl_yamato_regwrite(device, REG_MH_CLNT_INTF_CTRL_CONFIG1,
+				 0x00032f07);
+	}
+
 	kgsl_yamato_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	kgsl_yamato_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
