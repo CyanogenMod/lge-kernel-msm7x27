@@ -849,6 +849,7 @@ static struct i2c_board_info msm_camera_boardinfo[] __initdata = {
 };
 
 #ifdef CONFIG_MSM_CAMERA
+#define	CAM_STNDBY	143
 static uint32_t camera_off_vcm_gpio_table[] = {
 GPIO_CFG(1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), /* VCM */
 };
@@ -898,15 +899,15 @@ static uint32_t camera_on_gpio_table[] = {
 static uint32_t camera_off_gpio_fluid_table[] = {
 	/* FLUID: CAM_VGA_RST_N */
 	GPIO_CFG(31, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	/* FLUID: Disable CAMIF_STANDBY */
-	GPIO_CFG(143, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+	/* FLUID: CAMIF_STANDBY */
+	GPIO_CFG(CAM_STNDBY, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
 };
 
 static uint32_t camera_on_gpio_fluid_table[] = {
 	/* FLUID: CAM_VGA_RST_N */
 	GPIO_CFG(31, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	/* FLUID: Disable CAMIF_STANDBY */
-	GPIO_CFG(143, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA)
+	/* FLUID: CAMIF_STANDBY */
+	GPIO_CFG(CAM_STNDBY, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
 };
 
 static void config_gpio_table(uint32_t *table, int len)
@@ -938,6 +939,8 @@ static int config_camera_on_gpios(void)
 		/* FLUID: turn on 5V booster */
 		gpio_set_value(
 			PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_FLASH_BOOST_ENABLE), 1);
+		/* FLUID: drive high to put secondary sensor to STANDBY */
+		gpio_set_value(CAM_STNDBY, 1);
 	}
 	return 0;
 }
