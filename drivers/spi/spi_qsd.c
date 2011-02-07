@@ -321,6 +321,7 @@ struct msm_spi {
 	uint32_t                 pm_lat;
 	/* When set indicates a write followed by read transfer */
 	bool                     multi_xfr;
+	bool                     done;
 };
 
 /* Forward declaration */
@@ -492,6 +493,10 @@ static irqreturn_t msm_spi_qup_irq(int irq, void *dev_id)
 		ret |= msm_spi_output_irq(irq, dev_id);
 	}
 
+	if (dd->done) {
+		complete(&dd->transfer_complete);
+		dd->done = 0;
+	}
 	return ret;
 }
 
@@ -993,7 +998,7 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 				if (atomic_inc_return(&dd->rx_irq_called) == 1)
 					return IRQ_HANDLED;
 			}
-			complete(&dd->transfer_complete);
+			dd->done = 1;
 			return IRQ_HANDLED;
 		}
 		return IRQ_NONE;
@@ -1006,7 +1011,7 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 			msm_spi_read_word_from_fifo(dd);
 		}
 		if (dd->rx_bytes_remaining == 0)
-			complete(&dd->transfer_complete);
+			dd->done = 1;
 	}
 
 	return IRQ_HANDLED;
@@ -1075,7 +1080,7 @@ static irqreturn_t msm_spi_output_irq(int irq, void *dev_id)
 		if (dd->read_buf == NULL && readl(dd->base + SPI_OPERATIONAL) &
 					    SPI_OP_MAX_OUTPUT_DONE_FLAG) {
 			msm_spi_ack_transfer(dd);
-			complete(&dd->transfer_complete);
+			dd->done = 1;
 			return IRQ_HANDLED;
 		}
 		return IRQ_NONE;
