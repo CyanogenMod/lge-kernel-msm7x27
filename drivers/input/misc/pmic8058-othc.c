@@ -387,6 +387,7 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 		 * If the current accessory is video cable, reject the removal
 		 * interrupt.
 		 */
+		pr_info("Accessory [%d] removed\n", dd->curr_accessory);
 		if (dd->curr_accessory == OTHC_SVIDEO_OUT)
 			return 0;
 
@@ -463,7 +464,7 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 						dd->curr_accessory_code, 1);
 			input_sync(dd->othc_ipd);
 		}
-
+		pr_info("Accessory [%d] inserted\n", dd->curr_accessory);
 	} else
 		pr_info("Unable to detect accessory. False interrupt!\n");
 
@@ -509,6 +510,7 @@ static irqreturn_t pm8058_no_sw(int irq, void *dev_id)
 
 	spin_lock_irqsave(&dd->lock, flags);
 	if (dd->switch_reject == true) {
+		pr_debug("Rejected switch interrupt\n");
 		spin_unlock_irqrestore(&dd->lock, flags);
 		return IRQ_HANDLED;
 	}
