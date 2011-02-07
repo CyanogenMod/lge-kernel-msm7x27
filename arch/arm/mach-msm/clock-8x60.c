@@ -77,6 +77,9 @@
 #define RINGOSC_STATUS_REG			REG(0x2DCC)
 #define RINGOSC_TCXO_CTL_REG			REG(0x2DC4)
 #define SC0_U_CLK_BRANCH_ENA_VOTE_REG		REG(0x3080)
+#define SC1_U_CLK_BRANCH_ENA_VOTE_REG		REG(0x30A0)
+#define SC0_U_CLK_SLEEP_ENA_VOTE_REG		REG(0x3084)
+#define SC1_U_CLK_SLEEP_ENA_VOTE_REG		REG(0x30A4)
 #define SDCn_APPS_CLK_MD_REG(n)			REG(0x2828+(0x20*((n)-1)))
 #define SDCn_APPS_CLK_NS_REG(n)			REG(0x282C+(0x20*((n)-1)))
 #define SDCn_HCLK_CTL_REG(n)			REG(0x2820+(0x20*((n)-1)))
@@ -2325,6 +2328,19 @@ static void reg_init(void)
 	/* Set ref, bypass, assert reset, disable output, disable test mode */
 	writel(0, MM_PLL2_MODE_REG); /* PXO */
 	writel(0x00800000, MM_PLL2_CONFIG_REG); /* Enable main out. */
+
+	/* TODO:
+	 * The ADM clock votes below should removed once all users of the ADMs
+	 * begin voting for the clocks appropriately. Similarly, sc_aclk and
+	 * sc_hclk's sleep vote bits should be set once other subsystems begin
+	 * voting for them.
+	 */
+	/* The clock driver doesn't use SC1's voting register to control
+	 * HW-voteable clocks.  Clear its bits so that disabling bits in the
+	 * SC0 register will cause the corresponding clocks to be disabled. */
+	writel(0, SC0_U_CLK_SLEEP_ENA_VOTE_REG);
+	writel(0, SC1_U_CLK_SLEEP_ENA_VOTE_REG);
+	writel(BIT(12)|BIT(11)|BM(5, 2), SC1_U_CLK_BRANCH_ENA_VOTE_REG);
 
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel(0, SW_RESET_ALL_REG);
