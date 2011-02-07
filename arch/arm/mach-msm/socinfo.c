@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 
 #include <linux/types.h>
 #include <linux/sysdev.h>
-#include "socinfo.h"
+#include <mach/socinfo.h>
 #include "smd_private.h"
 
 #define BUILD_ID_LENGTH 32
@@ -154,6 +154,11 @@ static enum msm_cpu cpu_of_id[] = {
 	[75] = MSM_CPU_8X55,
 	[85] = MSM_CPU_8X55,
 
+	/* 8x60 IDs */
+	[70] = MSM_CPU_8X60,
+	[71] = MSM_CPU_8X60,
+	[86] = MSM_CPU_8X60,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -215,13 +220,9 @@ uint32_t socinfo_get_accessory_chip(void)
 
 enum msm_cpu socinfo_get_msm_cpu(void)
 {
-#ifdef CONFIG_ARCH_MSM8X60
-	/* Hardcode CPU for 8x60, which doesn't support socinfo yet. */
-	return MSM_CPU_8X60;
-#else
 	return cur_cpu;
-#endif
 }
+EXPORT_SYMBOL_GPL(socinfo_get_msm_cpu);
 
 static ssize_t
 socinfo_show_id(struct sys_device *dev,
@@ -398,7 +399,7 @@ static struct sys_device soc_sys_device = {
 	.cls = &soc_sysdev_class,
 };
 
-static void __init socinfo_create_files(struct sys_device *dev,
+static int __init socinfo_create_files(struct sys_device *dev,
 					struct sysdev_attribute files[],
 					int size)
 {
@@ -408,12 +409,13 @@ static void __init socinfo_create_files(struct sys_device *dev,
 		if (err) {
 			pr_err("%s: sysdev_create_file(%s)=%d\n",
 			       __func__, files[i].attr.name, err);
-			return;
+			return err;
 		}
 	}
+	return 0;
 }
 
-static void __init socinfo_init_sysdev(void)
+static int __init socinfo_init_sysdev(void)
 {
 	int err;
 
@@ -421,40 +423,42 @@ static void __init socinfo_init_sysdev(void)
 	if (err) {
 		pr_err("%s: sysdev_class_register fail (%d)\n",
 		       __func__, err);
-		return;
+		return err;
 	}
 	err = sysdev_register(&soc_sys_device);
 	if (err) {
 		pr_err("%s: sysdev_register fail (%d)\n",
 		       __func__, err);
-		return;
+		return err;
 	}
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)
-		return;
+		return err;
 	socinfo_create_files(&soc_sys_device, socinfo_v2_files,
 				ARRAY_SIZE(socinfo_v2_files));
 
 	if (socinfo->v1.format < 3)
-		return;
+		return err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v3_files,
 				ARRAY_SIZE(socinfo_v3_files));
 
 	if (socinfo->v1.format < 4)
-		return;
+		return err;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
 				ARRAY_SIZE(socinfo_v4_files));
 
 	if (socinfo->v1.format < 5)
-		return;
+		return err;
 
-	socinfo_create_files(&soc_sys_device, socinfo_v5_files,
+	return socinfo_create_files(&soc_sys_device, socinfo_v5_files,
 				ARRAY_SIZE(socinfo_v5_files));
 
 }
+
+arch_initcall(socinfo_init_sysdev);
 
 int __init socinfo_init(void)
 {
@@ -483,8 +487,6 @@ int __init socinfo_init(void)
 
 	if (socinfo->v1.id < ARRAY_SIZE(cpu_of_id))
 		cur_cpu = cpu_of_id[socinfo->v1.id];
-
-	socinfo_init_sysdev();
 
 	switch (socinfo->v1.format) {
 	case 1:

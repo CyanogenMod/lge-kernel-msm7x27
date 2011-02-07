@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -372,6 +372,8 @@ static int msm_gpio_irq_set_wake(unsigned int irq, unsigned int on)
 {
 	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, irq);
 
+	WARN(on, "TLMM summary wont wakeup in XO shutdown, use a direct line");
+
 	if (on) {
 		if (bitmap_empty(msm_gpio.wake_irqs, NR_MSM_GPIOS))
 			set_irq_wake(TLMM_SCSS_SUMMARY_IRQ, 1);
@@ -445,6 +447,23 @@ static int msm_gpio_suspend_noirq(struct device *dev)
 	}
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 	return 0;
+}
+
+void msm_gpio_show_resume_irq(void)
+{
+	unsigned long irq_flags;
+	int i, irq, intstat;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	for_each_set_bit(i, msm_gpio.wake_irqs, NR_MSM_GPIOS) {
+		intstat = readl(GPIO_INTR_STATUS(i)) & BIT(INTR_STATUS_BIT);
+		if (intstat) {
+			irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
+			pr_warning("%s: %d triggered\n",
+				__func__, irq);
+		}
+	}
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 }
 
 static int msm_gpio_resume_noirq(struct device *dev)
@@ -553,9 +572,11 @@ int gpio_tlmm_config(unsigned config, unsigned disable)
 }
 EXPORT_SYMBOL(gpio_tlmm_config);
 
-int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq)
+int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
+					unsigned int input_polarity)
 {
 	unsigned long irq_flags;
+	uint32_t bits;
 
 	if (gpio >= NR_MSM_GPIOS || irq >= NR_TLMM_SCSS_DIR_CONN_IRQ)
 		return -EINVAL;
@@ -569,8 +590,11 @@ int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq)
 		GPIO_INTR_CFG(gpio));
 	writel(DC_IRQ_ENABLE | TARGET_PROC_NONE,
 		GPIO_INTR_CFG_SU(gpio));
-	writel(DC_POLARITY_HI |	TARGET_PROC_SCORPION | (gpio << 3),
-		DIR_CONN_INTR_CFG_SU(irq));
+
+	bits = TARGET_PROC_SCORPION | (gpio << 3);
+	if (input_polarity)
+		bits |= DC_POLARITY_HI;
+	writel(bits, DIR_CONN_INTR_CFG_SU(irq));
 
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 

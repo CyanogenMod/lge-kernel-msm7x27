@@ -26,7 +26,7 @@
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/qdsp6v2/apr_audio.h>
 #include <mach/debug_mm.h>
-#include "q6afe.h"
+#include <mach/qdsp6v2/q6afe.h>
 #include "snddev_hdmi.h"
 
 static DEFINE_MUTEX(snddev_hdmi_lock);

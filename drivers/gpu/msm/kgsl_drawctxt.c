@@ -1844,10 +1844,12 @@ kgsl_drawctxt_switch(struct kgsl_yamato_device *yamato_device,
 		KGSL_CTXT_DBG("restore pagetable");
 		kgsl_mmu_setstate(device, drawctxt->pagetable);
 
+#ifndef CONFIG_MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
 		kgsl_cffdump_syncmem(NULL, &drawctxt->gpustate,
 			drawctxt->gpustate.gpuaddr, LCC_SHADOW_SIZE +
 			REG_SHADOW_SIZE + CMD_BUFFER_SIZE + TEX_SHADOW_SIZE,
 			false);
+#endif
 
 		/* restore gmem.
 		 *  (note: changes shader. shader must not already be restored.)

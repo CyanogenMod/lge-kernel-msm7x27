@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/mfd/pmic8058.h>
@@ -189,6 +190,8 @@ struct pm8058_charger {
 
 	struct msm_xo_voter *voter;
 	struct dentry *dent;
+
+	int inited;
 };
 
 static struct pm8058_charger pm8058_chg;
@@ -1187,7 +1190,8 @@ static int pm8058_stop_charging(struct msm_hardware_charger *hw_chg)
 	pm8058_chg_disable_irq(CHG_END_IRQ);
 	pm8058_chg_disable_irq(VBATDET_IRQ);
 	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
-	msm_xo_mode_vote(pm8058_chg.voter, MSM_XO_MODE_OFF);
+	if (pm8058_chg.voter)
+		msm_xo_mode_vote(pm8058_chg.voter, MSM_XO_MODE_OFF);
 
 	return 0;
 }
@@ -1212,17 +1216,15 @@ static int set_status(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(chg_fops, get_status, set_status, "%llu\n");
 
-static int get_disable_status(void *data, u64 * val)
+static int set_disable_status_param(const char *val, struct kernel_param *kp)
 {
-	*val = pm8058_chg.disabled;
-	return 0;
-}
+	int ret;
 
-static int set_disable_status(void *data, u64 val)
-{
+	ret = param_set_int(val, kp);
+	if (ret)
+		return ret;
 
-	pm8058_chg.disabled = val;
-	if (val) {
+	if (pm8058_chg.inited && pm8058_chg.disabled) {
 		/*
 		 * stop_charging is called during usb suspend
 		 * act as the usb is removed by disabling auto and enum
@@ -1233,8 +1235,8 @@ static int set_disable_status(void *data, u64 val)
 	}
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(disable_fops, get_disable_status,
-					set_disable_status, "%llu\n");
+module_param_call(disabled, set_disable_status_param, param_get_uint,
+					&(pm8058_chg.disabled), 0644);
 
 static int pm8058_charging_switched(struct msm_hardware_charger *hw_chg)
 {
@@ -1317,9 +1319,6 @@ static void create_debugfs_entries(void)
 
 	debugfs_create_file("stop", 0644, pm8058_chg.dent, NULL,
 			    &chg_fops);
-
-	debugfs_create_file("disable", 0644, pm8058_chg.dent, NULL,
-			    &disable_fops);
 
 	if (pm8058_chg.pmic_chg_irq[CHGVAL_IRQ])
 		debugfs_create_file("CHGVAL", 0444, pm8058_chg.dent,
@@ -1626,6 +1625,9 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 
 	pm8058_chg_enable_irq(BATTTEMP_IRQ);
 	pm8058_chg_enable_irq(BATTCONNECT_IRQ);
+
+	pm8058_chg.inited = 1;
+
 	return 0;
 
 free_irq:

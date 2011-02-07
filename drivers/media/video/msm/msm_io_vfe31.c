@@ -799,7 +799,8 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 {
 	switch (perf_setting) {
 	case S_INIT:
-	case S_EXIT:
+		add_axi_qos();
+		break;
 	case S_PREVIEW:
 		update_axi_qos(MSM_AXI_QOS_PREVIEW);
 		break;
@@ -811,6 +812,9 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 		break;
 	case S_DEFAULT:
 		update_axi_qos(PM_QOS_DEFAULT_VALUE);
+		break;
+	case S_EXIT:
+		release_axi_qos();
 		break;
 	default:
 		CDBG("%s: INVALID CASE\n", __func__);

@@ -43,6 +43,7 @@
 #define PLL2_806_MHZ		42
 #define PLL2_1024_MHZ		53
 #define PLL2_1200_MHZ		125
+#define PLL2_1400_MHZ		73
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -402,6 +403,12 @@ void __init pll2_fixup(void)
 		speed->vdd_mv = 1200;
 		speed->vdd_raw = VDD_RAW(1200);
 		cpu_freq->frequency = 1200000;
+		break;
+	case PLL2_1400_MHZ:
+		speed->acpu_clk_khz = 1400000;
+		speed->vdd_mv = 1250;
+		speed->vdd_raw = VDD_RAW(1250);
+		cpu_freq->frequency = 1400000;
 		break;
 	case PLL2_806_MHZ:
 		/* No fixup necessary */

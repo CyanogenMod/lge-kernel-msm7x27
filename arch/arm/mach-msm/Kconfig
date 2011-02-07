@@ -776,6 +776,18 @@ config MSM_SDIO_CMUX
 	help
 	  Provides a Muxed port interface over SDIO QMI
 
+config MSM_DSPS
+	bool "Sensors DSPS driver"
+	depends on (MSM_PIL && ARCH_MSM8X60)
+	default n
+	help
+	  Provides user-space interface to the sensors manager
+	  to turn on/off the Sensors Processor system clocks.
+	  It is the DSPS responsibility to turn on/off the sensors
+	  themself.
+	  The number of clocks and their name may vary between targets.
+	  It also triggers the PIL to load the DSPS firmware.
+
 config MSM_SDIO_CTL
 	bool "SDIO CTL Driver"
 	depends on MSM_SDIO_CMUX
@@ -1151,6 +1163,11 @@ config MSM_PIL
 
 	  Say yes to support these devices.
 
+config MSM_SECURE_PIL
+	bool "Secure Peripheral image loading"
+	depends on MSM_PIL
+	default n
+
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
@@ -1218,6 +1235,9 @@ config MSM_GPIOMUX
 config MSM_V2_TLMM
        bool
 
+config MSM_SECURE_IO
+	bool
+
 config MSM_BUS_SCALING
 	bool "Bus scaling driver"
 	default n
@@ -1250,4 +1270,27 @@ config MSM_STANDALONE_POWER_COLLAPSE
        bool "Enable standalone power collapse"
        default n
 
+config MSM_GSBI9_UART
+	bool "Enable GSBI9 UART device"
+	default n
+	help
+	  This enables GSBI9 configured into UART.
+
+config MSM_SHOW_RESUME_IRQ
+	bool "Enable logging of interrupts that could have caused resume"
+	depends on ARCH_MSM8X60
+	default n
+	help
+		This option logs wake up interrupts that have triggered just before
+		the resume loop unrolls. Say Y if you want to debug why the system
+		resumed.
+
+config BT_MSM_PINTEST
+	tristate "MSM Bluetooth Pin Connectivity Test"
+	depends on (ARCH_MSM8X60 && DEBUG_FS)
+        default n
+	help
+	  Bluetooth MSM Pin Connectivity test module.
+	  This driver provides support for verifying the MSM to BT pin
+	  connectivity.
 endif

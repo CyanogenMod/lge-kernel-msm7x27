@@ -579,7 +579,6 @@ static struct clk_freq_tbl clk_tbl_pdm[] = {
 #define F_PRNG(f, s, d, v) \
 		F_RAW(f, SRC_##s, 0, NS_DIVSRC(6, 3, d, 2, 0, s), 0, 0, v, NULL)
 static struct clk_freq_tbl clk_tbl_prng[] = {
-	F_PRNG(32000000, BB_PLL8, 12, LOW),
 	F_PRNG(64000000, BB_PLL8,  6, NOMINAL),
 	F_END,
 };
@@ -936,12 +935,14 @@ static struct clk_freq_tbl clk_tbl_mdp_vsync[] = {
 			NS_MM(31, 16, n, m, 15, 14, d, 2, 0, s), \
 			CC(6, n), MND_EN(B(5), n), v, NULL)
 static struct clk_freq_tbl clk_tbl_pixel_mdp[] = {
-	F_PIXEL_MDP(25600000, MM_GPERF, 3,   1,   5, LOW),
-	F_PIXEL_MDP(42667000, MM_GPERF, 1,   1,   9, LOW),
-	F_PIXEL_MDP(43192000, MM_GPERF, 1,  64, 569, LOW),
-	F_PIXEL_MDP(48000000, MM_GPERF, 4,   1,   2, LOW),
-	F_PIXEL_MDP(53990000, MM_GPERF, 2, 169, 601, LOW),
-	F_PIXEL_MDP(76800000, MM_GPERF, 1,   1,   5, LOW),
+	F_PIXEL_MDP( 25600000, MM_GPERF, 3,   1,   5, LOW),
+	F_PIXEL_MDP( 42667000, MM_GPERF, 1,   1,   9, LOW),
+	F_PIXEL_MDP( 43192000, MM_GPERF, 1,  64, 569, LOW),
+	F_PIXEL_MDP( 48000000, MM_GPERF, 4,   1,   2, LOW),
+	F_PIXEL_MDP( 53990000, MM_GPERF, 2, 169, 601, LOW),
+	F_PIXEL_MDP( 64000000, MM_GPERF, 2,   1,   3, LOW),
+	F_PIXEL_MDP( 76800000, MM_GPERF, 1,   1,   5, LOW),
+	F_PIXEL_MDP(109714000, MM_GPERF, 1,   2,   7, NOMINAL),
 	F_END,
 };
 
@@ -1634,7 +1635,7 @@ struct clk_source soc_clk_sources[NUM_SRC] = {
 int soc_update_sys_vdd(enum sys_vdd_level level)
 {
 	static const int vdd_uv[] = {
-		[NONE]    =  750000,
+		[NONE]    =  500000,
 		[LOW]     = 1000000,
 		[NOMINAL] = 1100000,
 		[HIGH]    = 1200000,
@@ -1946,6 +1947,7 @@ void __init msm_clk_soc_init(void)
 	reg_init(use_pxo);
 
 	/* Initialize rates for clocks that only support one. */
+	set_1rate(PRNG);
 	set_1rate(MDP_VSYNC);
 	set_1rate(TSIF_REF);
 	set_1rate(TSSC);

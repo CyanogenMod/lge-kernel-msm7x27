@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -192,6 +192,8 @@ enum register_t {
 #define	BAHAMA_FM_CTL1_REG      0xFE
 #define	BAHAMA_FM_CTL0_REG      0xFF
 #define BAHAMA_FM_MODE_NORMAL   0x00
+#define BAHAMA_LDO_DREG_CTL0    0xF0
+#define BAHAMA_LDO_AREG_CTL0    0xF4
 
 /* Radio Control */
 #define RDCTRL_STATE_OFFSET	0

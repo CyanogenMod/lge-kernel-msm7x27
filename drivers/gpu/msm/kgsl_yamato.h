@@ -42,6 +42,7 @@ struct kgsl_yamato_device {
 	size_t pfp_fw_size;
 	unsigned int *pm4_fw;
 	size_t pm4_fw_size;
+	struct kgsl_ringbuffer ringbuffer;
 };
 
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,9 @@
 #include "diagmem.h"
 #include "diagchar.h"
 #include "diagfwd.h"
+#ifdef CONFIG_MSM_SDIO_AL
+#include "diagfwd_sdio.h"
+#endif
 #include <linux/timer.h>
 /* LGE_CHANGES_S [woonghee@lge.com] 2009-12-29, [VS740] kernel diag service */
 #if defined (CONFIG_LGE_DIAGTEST)
@@ -960,6 +963,9 @@ static void __exit diagchar_exit(void)
 	 ensure no memory leaks */
 	diagmem_exit(driver, POOL_TYPE_ALL);
 	diagfwd_exit();
+#ifdef CONFIG_MSM_SDIO_AL
+	diagfwd_sdio_exit();
+#endif
 	diagchar_cleanup();
 	printk(KERN_INFO "done diagchar exit\n");
 }

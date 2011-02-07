@@ -22,6 +22,7 @@
 
 #include "proc_comm.h"
 #include "clock.h"
+#include "clock-pcom.h"
 
 struct clk_pcom {
 	unsigned count;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,7 @@
 #include <linux/mutex.h>
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/dal.h>
-#include "q6voice.h"
+#include <mach/qdsp6v2/q6voice.h>
 #include "audio_acdb.h"
 
 #define TIMEOUT_MS 3000
@@ -1211,6 +1211,46 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 		break;
 	}
 
+	case VSS_MEDIA_ID_G729:
+	case VSS_MEDIA_ID_G711_ALAW:
+	case VSS_MEDIA_ID_G711_MULAW: {
+		struct cvs_set_enc_dtx_mode_cmd cvs_set_dtx;
+		/* Disable DTX */
+		pr_info("%s: Disabling DTX\n", __func__);
+
+		cvs_set_dtx.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						      APR_HDR_LEN(APR_HDR_SIZE),
+						      APR_PKT_VER);
+		cvs_set_dtx.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+					    sizeof(cvs_set_dtx) - APR_HDR_SIZE);
+		cvs_set_dtx.hdr.src_port = 0;
+		cvs_set_dtx.hdr.dest_port = cvs_handle;
+		cvs_set_dtx.hdr.token = 0;
+		cvs_set_dtx.hdr.opcode = VSS_ISTREAM_CMD_SET_ENC_DTX_MODE;
+		cvs_set_dtx.dtx_mode.enable = 0;
+
+		v->cvs_state = CMD_STATUS_FAIL;
+
+		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_dtx);
+		if (ret < 0) {
+			pr_err("%s: Error %d sending SET_DTX\n",
+			       __func__, ret);
+
+			goto fail;
+		}
+
+		ret = wait_event_timeout(v->cvs_wait,
+					 (v->cvs_state == CMD_STATUS_SUCCESS),
+					 msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s: wait_event timeout\n", __func__);
+
+			goto fail;
+		}
+
+		break;
+	}
+
 	default: {
 		/* Do nothing. */
 	}
@@ -1818,12 +1858,9 @@ static void voice_auddev_cb_function(u32 evt_id,
 
 		mutex_lock(&v->lock);
 
-		/* recover the tx mute and rx volume to the default values */
 		if (v->voc_state == VOC_RUN) {
-			/* send stop voice to modem */
-			voice_send_stop_voice_cmd(v);
 			voice_destroy_modem_voice(v);
-			v->voc_state = VOC_RELEASE;
+			v->voc_state = VOC_CHANGE;
 		}
 
 		mutex_unlock(&v->lock);
@@ -1831,7 +1868,7 @@ static void voice_auddev_cb_function(u32 evt_id,
 		if (evt_payload->voc_devinfo.dev_type == DIR_RX)
 			v->dev_rx.enabled = VOICE_DEV_DISABLED;
 		else
-				v->dev_tx.enabled = VOICE_DEV_DISABLED;
+			v->dev_tx.enabled = VOICE_DEV_DISABLED;
 
 		break;
 	case AUDDEV_EVT_END_VOICE:
@@ -1849,11 +1886,15 @@ static void voice_auddev_cb_function(u32 evt_id,
 			voice_destroy_modem_voice(v);
 			voice_destroy_mvm_cvs_session(v);
 			v->voc_state = VOC_RELEASE;
+		} else if (v->voc_state == VOC_CHANGE) {
+			voice_send_stop_voice_cmd(v);
+			voice_destroy_mvm_cvs_session(v);
+			v->voc_state = VOC_RELEASE;
 		}
 
 		mutex_unlock(&v->lock);
 
-			v->v_call_status = VOICE_CALL_END;
+		v->v_call_status = VOICE_CALL_END;
 
 		break;
 	default:
@@ -1887,6 +1928,7 @@ int voice_set_voc_path_full(uint32_t set)
 
 	return rc;
 }
+EXPORT_SYMBOL(voice_set_voc_path_full);
 
 void voice_register_mvs_cb(ul_cb_fn ul_cb,
 			   dl_cb_fn dl_cb,

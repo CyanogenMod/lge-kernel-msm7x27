@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -116,6 +116,12 @@ int msm_gpios_enable(const struct msm_gpio *table, int size);
  */
 int msm_gpios_disable(const struct msm_gpio *table, int size);
 
+/**
+ * msm_gpios_show_resume_irq() - show the interrupts that could have triggered
+ * resume
+ */
+void msm_gpio_show_resume_irq(void);
+
 /* GPIO TLMM (Top Level Multiplexing) Definitions */
 
 /* GPIO TLMM: Function -- GPIO specific */
@@ -204,13 +210,20 @@ void msm_tlmm_set_pull(enum msm_tlmm_pull_tgt tgt, int pull);
  * irq number seen by the scorpion when the interrupt triggers.  For example,
  * if 0 is specified, then when DC IRQ 0 triggers, the scorpion will see
  * interrupt TLMM_SCSS_DIR_CONN_IRQ_0.
+ *
+ * input_polarity parameter specifies when the gpio should raise the direct
+ * interrupt. A value of 0 means that it is active low, anything else means
+ * active high
+ *
  */
-int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq);
+int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
+						unsigned int input_polarity);
 #else
 static inline void msm_tlmm_set_hdrive(enum msm_tlmm_hdrive_tgt tgt,
 				       int drv_str) {}
 static inline void msm_tlmm_set_pull(enum msm_tlmm_pull_tgt tgt, int pull) {}
-static inline int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq)
+static inline int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
+						unsigned int input_polarity)
 {
 	return -ENOSYS;
 }

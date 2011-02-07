@@ -21,27 +21,38 @@
 #include <linux/adv7520.h>
 #include <linux/time.h>
 #include <linux/completion.h>
+#include <linux/wakelock.h>
+#include <asm/atomic.h>
 #include "msm_fb.h"
+
+#define DEBUG
+#define DEV_DBG_PREFIX "HDMI: "
 
 #include "external_common.h"
 
 /* #define PORT_DEBUG */
+/* #define TESTING_FORCE_480p */
+
+#define HPD_DUTY_CYCLE	4 /*secs*/
 
 static struct external_common_state_type hdmi_common;
 
 static struct i2c_client *hclient;
 
 static bool chip_power_on = FALSE;	/* For chip power on/off */
-static bool gpio_power_on = FALSE;	/* For dtv power on/off (I2C) */
+static bool enable_5v_on = FALSE;
+static bool hpd_power_on = FALSE;
+static atomic_t comm_power_on;	/* For dtv power on/off (I2C) */
+static int suspend_count;
 
 static u8 reg[256];	/* HDMI panel registers */
 
 struct hdmi_data {
 	struct msm_hdmi_platform_data *pd;
-	struct work_struct work;
+	struct work_struct isr_work;
 };
 static struct hdmi_data *dd;
-static struct work_struct handle_work;
+static struct work_struct hpd_timer_work;
 
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
 static struct work_struct hdcp_handle_work;
@@ -50,7 +61,12 @@ static DEFINE_MUTEX(hdcp_state_mutex);
 #endif
 
 static struct timer_list hpd_timer;
+static struct timer_list hpd_duty_timer;
+static struct work_struct hpd_duty_work;
 static unsigned int monitor_sense;
+static boolean hpd_cable_chg_detected;
+
+struct wake_lock wlock;
 
 /* Change HDMI state */
 static void change_hdmi_state(int online)
@@ -71,7 +87,7 @@ static void change_hdmi_state(int online)
 	else
 		kobject_uevent(external_common_state->uevent_kobj,
 			KOBJ_OFFLINE);
-	DEV_DBG("adv7520_uevent: %d\n", online);
+	DEV_INFO("adv7520_uevent: %d [suspend# %d]\n", online, suspend_count);
 }
 
 
@@ -88,7 +104,7 @@ static u8 adv7520_read_reg(struct i2c_client *client, u8 reg)
 
 	if (!client->adapter)
 		return -ENODEV;
-	if (!gpio_power_on) {
+	if (!atomic_read(&comm_power_on)) {
 		DEV_WARN("%s: WARN: missing GPIO power\n", __func__);
 		return -ENODEV;
 	}
@@ -128,7 +144,7 @@ static int adv7520_write_reg(struct i2c_client *client, u8 reg, u8 val)
 
 	if (!client->adapter)
 		return -ENODEV;
-	if (!gpio_power_on) {
+	if (!atomic_read(&comm_power_on)) {
 		DEV_WARN("%s: WARN: missing GPIO power\n", __func__);
 		return -ENODEV;
 	}
@@ -152,7 +168,10 @@ static int adv7520_write_reg(struct i2c_client *client, u8 reg, u8 val)
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
 static void adv7520_close_hdcp_link(void)
 {
-	DEV_INFO("HDCP ERROR Close HDMI link\n");
+	if (!external_common_state->hdcp_active && !hdcp_activating)
+		return;
+
+	DEV_INFO("HDCP: Close link\n");
 
 	reg[0xD5] = adv7520_read_reg(hclient, 0xD5);
 	reg[0xD5] &= 0xFE;
@@ -171,10 +190,12 @@ static void adv7520_close_hdcp_link(void)
 	mutex_unlock(&hdcp_state_mutex);
 }
 
+static void adv7520_comm_power(int on, int show);
 static void adv7520_hdcp_enable(struct work_struct *work)
 {
-	DEV_INFO("%s: Start reg[0xaf]=%02x (mute audio)\n",
-		__func__, reg[0xaf]);
+	DEV_INFO("HDCP: Start reg[0xaf]=%02x (mute audio)\n", reg[0xaf]);
+
+	adv7520_comm_power(1, 1);
 
 	/* Mute Audio */
 	adv7520_write_reg(hclient, 0x0C, (u8)0xC3);
@@ -188,13 +209,11 @@ static void adv7520_hdcp_enable(struct work_struct *work)
 	reg[0xC2] = adv7520_read_reg(hclient, 0xC2);
 	reg[0xc3] = adv7520_read_reg(hclient, 0xC3);
 
-	DEV_INFO("BKSV={%02x,%02x,%02x,%02x,%02x}\n", reg[0xbf], reg[0xc0],
+	DEV_DBG("HDCP: BKSV={%02x,%02x,%02x,%02x,%02x}\n", reg[0xbf], reg[0xc0],
 		reg[0xc1], reg[0xc2], reg[0xc3]);
 
 	/* Is SINK repeater */
 	reg[0xBE] = adv7520_read_reg(hclient, 0xBE);
-	DEV_INFO("Sink Repeater reg is %x\n", reg[0xbe]);
-
 	if (~(reg[0xBE] & 0x40)) {
 		; /* compare with revocation list */
 		/* Check 20 1's and 20 zero's */
@@ -204,20 +223,23 @@ static void adv7520_hdcp_enable(struct work_struct *work)
 		mutex_lock(&hdcp_state_mutex);
 		hdcp_activating = FALSE;
 		mutex_unlock(&hdcp_state_mutex);
-		DEV_INFO("%s Sink Repeater, (UnMute Audio)\n", __func__);
+		DEV_WARN("HDCP: Sink Repeater (%02x), (unmute audio)\n",
+			reg[0xbe]);
+
+		adv7520_comm_power(0, 1);
 		return;
 	}
 
 	msleep(200);
 	reg[0xB8] = adv7520_read_reg(hclient, 0xB8);
-	DEV_INFO("%s HDCP Status: reg[0xB8] is %x\n",
-						__func__, reg[0xb8]);
+	DEV_INFO("HDCP: Status reg[0xB8] is %02x\n", reg[0xb8]);
 	if (reg[0xb8] & 0x40) {
 		/* UnMute Audio */
 		adv7520_write_reg(hclient, 0x0C, (u8)0x84);
-		DEV_INFO("%s A/V content Encrypted (UnMute Audio)\n", __func__);
+		DEV_INFO("HDCP: A/V content Encrypted (unmute audio)\n");
 		external_common_state->hdcp_active = TRUE;
 	}
+	adv7520_comm_power(0, 1);
 
 	mutex_lock(&hdcp_state_mutex);
 	hdcp_activating = FALSE;
@@ -249,25 +271,30 @@ static int adv7520_read_edid_block(int block, uint8 *edid_buf)
 static void adv7520_read_edid(void)
 {
 	external_common_state->read_edid_block = adv7520_read_edid_block;
-	hdmi_common_read_edid();
+	if (hdmi_common_read_edid()) {
+		u8 timeout;
+		DEV_INFO("%s: retry\n", __func__);
+		adv7520_write_reg(hclient, 0xc9, 0x13);
+		msleep(500);
+		timeout = (adv7520_read_reg(hclient, 0x96) & (1 << 2));
+		if (timeout) {
+			hdmi_common_read_edid();
+		}
+	}
 }
 
 static void adv7520_chip_on(void)
 {
 	if (!chip_power_on) {
 		/* Get the current register holding the power bit. */
-		unsigned long reg0x41 = adv7520_read_reg(hclient, 0x41);
 		unsigned long reg0xaf = adv7520_read_reg(hclient, 0xaf);
 
-		DEV_INFO("%s: turn on chip power\n", __func__);
+		dd->pd->core_power(1, 1);
 
-		/* Enable power */
-		/* Clear the power down bit to enable power. */
-		clear_bit(6, &reg0x41);
 		/* Set the HDMI select bit. */
 		set_bit(1, &reg0xaf);
-
-		adv7520_write_reg(hclient, 0x41, (u8)reg0x41);
+		DEV_INFO("%s: turn on chip power\n", __func__);
+		adv7520_write_reg(hclient, 0x41, 0x10);
 		adv7520_write_reg(hclient, 0xaf, (u8)reg0xaf);
 		chip_power_on = TRUE;
 	} else
@@ -277,26 +304,42 @@ static void adv7520_chip_on(void)
 static void adv7520_chip_off(void)
 {
 	if (chip_power_on) {
-		unsigned long reg0x41;
+#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+		adv7520_close_hdcp_link();
+#endif
 
 		DEV_INFO("%s: turn off chip power\n", __func__);
-
-		/* Power down the whole chip,except I2C,HPD interrupt */
-		reg0x41 = adv7520_read_reg(hclient, 0x41);
-		set_bit(6, &reg0x41);
-		adv7520_write_reg(hclient, 0x41, (u8)reg0x41);
+		adv7520_write_reg(hclient, 0x41, 0x50);
+		dd->pd->core_power(0, 1);
 		chip_power_on = FALSE;
 	} else
 		DEV_INFO("%s: chip is already off\n", __func__);
+
+	monitor_sense = 0;
+	hpd_cable_chg_detected = FALSE;
+
+	if (enable_5v_on) {
+		dd->pd->enable_5v(0);
+		enable_5v_on = FALSE;
+	}
 }
 
-/* Power ON/OFF  ADV7520 chip */
-static void adb7520_chip_init(void);
-static irqreturn_t adv7520_interrupt(int irq, void *dev_id);
-static void adv7520_isr(struct work_struct *work);
+/*  Power ON/OFF  ADV7520 chip */
+static void adv7520_isr_w(struct work_struct *work);
+static void adv7520_comm_power(int on, int show)
+{
+	if (!on)
+		atomic_dec(&comm_power_on);
+	dd->pd->comm_power(on, 0/*show*/);
+	if (on)
+		atomic_inc(&comm_power_on);
+}
+
+#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+static void adv7520_start_hdcp(void);
+#endif
 static int adv7520_power_on(struct platform_device *pdev)
 {
-	static bool init_done;
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
 	external_common_state->dev = &pdev->dev;
@@ -306,64 +349,37 @@ static int adv7520_power_on(struct platform_device *pdev)
 		hdmi_common_get_video_format_from_drv_data(mfd);
 	}
 
-	gpio_power_on = TRUE;
-	if (!init_done) {
-		int rc;
-		adb7520_chip_init();
-		rc = dd->pd->init_irq();
-		if (rc) {
-			DEV_ERR("adv7520_init: init_irq: %d\n", rc);
-			return rc;
-		}
-		init_done = TRUE;
-	}
-
-	DEV_INFO("%s: 'enable_irq'\n", __func__);
+	adv7520_comm_power(1, 1);
+	/* Check if HPD is signaled */
 	if (adv7520_read_reg(hclient, 0x42) & (1 << 6)) {
+		DEV_INFO("power_on: cable detected\n");
 		monitor_sense = adv7520_read_reg(hclient, 0xC6);
-		schedule_work(&handle_work);
-	}
-	return request_irq(dd->pd->irq, &adv7520_interrupt,
-		IRQF_TRIGGER_FALLING, "adv7520_cable", dd);
+#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+		if (!hdcp_activating)
+			adv7520_start_hdcp();
+#endif
+	} else
+		DEV_INFO("power_on: cable NOT detected\n");
+	adv7520_comm_power(0, 1);
+	wake_lock(&wlock);
+
+	return 0;
 }
 
 static int adv7520_power_off(struct platform_device *pdev)
 {
-	DEV_INFO("%s: 'disable_irq', chip off, I2C off\n", __func__);
-	free_irq(dd->pd->irq, dd);
+	DEV_INFO("power_off\n");
+	adv7520_comm_power(1, 1);
 	adv7520_chip_off();
+	wake_unlock(&wlock);
+	adv7520_comm_power(0, 1);
 
-	gpio_power_on = FALSE;
 	return 0;
 }
 
-#if DEBUG
-/* Read status registers for debugging */
-static void adv7520_read_status(void)
-{
-	adv7520_read_reg(hclient, 0x94);
-	adv7520_read_reg(hclient, 0x95);
-	adv7520_read_reg(hclient, 0x97);
-	adv7520_read_reg(hclient, 0xb8);
-	adv7520_read_reg(hclient, 0xc8);
-	adv7520_read_reg(hclient, 0x41);
-	adv7520_read_reg(hclient, 0x42);
-	adv7520_read_reg(hclient, 0xa1);
-	adv7520_read_reg(hclient, 0xb4);
-	adv7520_read_reg(hclient, 0xc5);
-	adv7520_read_reg(hclient, 0x3e);
-	adv7520_read_reg(hclient, 0x3d);
-	adv7520_read_reg(hclient, 0xaf);
-	adv7520_read_reg(hclient, 0xc6);
-
-}
-#else
-#define adv7520_read_status() do {} while (0)
-#endif
-
 
 /* AV7520 chip specific initialization */
-static void adb7520_chip_init(void)
+static void adv7520_chip_init(void)
 {
 	/* Initialize the variables used to read/write the ADV7520 chip. */
 	memset(&reg, 0xff, sizeof(reg));
@@ -467,129 +483,228 @@ static void adb7520_chip_init(void)
 	/* Set Packet Memory address to avoid conflict
 	with Bosch Accelerometer */
 	adv7520_write_reg(hclient, 0x45, reg[0x45]);
+
+	/* Ensure chip is in low-power state */
+	adv7520_write_reg(hclient, 0x41, 0x50);
 }
 
-static void adv7520_handle_cable_work(struct work_struct *work)
+#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+static void adv7520_start_hdcp(void)
 {
-	if (!gpio_power_on) {
-		DEV_WARN("adv7520_timer: WARN GPIO power off, skipping\n");
+	mutex_lock(&hdcp_state_mutex);
+	if (hdcp_activating) {
+		DEV_WARN("adv7520_timer: HDCP already"
+			" activating, skipping\n");
+		mutex_unlock(&hdcp_state_mutex);
+		return;
+	}
+	hdcp_activating = TRUE;
+	mutex_unlock(&hdcp_state_mutex);
+
+	del_timer(&hpd_duty_timer);
+
+	adv7520_comm_power(1, 1);
+
+	if (!enable_5v_on) {
+		dd->pd->enable_5v(1);
+		enable_5v_on = TRUE;
+		adv7520_chip_on();
+	}
+
+	/* request for HDCP */
+	reg[0xaf] = adv7520_read_reg(hclient, 0xaf);
+	reg[0xaf] |= 0x90;
+	adv7520_write_reg(hclient, 0xaf, reg[0xaf]);
+	reg[0xaf] = adv7520_read_reg(hclient, 0xaf);
+
+	reg[0xba] = adv7520_read_reg(hclient, 0xba);
+	reg[0xba] |= 0x10;
+	adv7520_write_reg(hclient, 0xba, reg[0xba]);
+	reg[0xba] = adv7520_read_reg(hclient, 0xba);
+	adv7520_comm_power(0, 1);
+
+	DEV_INFO("HDCP: reg[0xaf]=0x%02x, reg[0xba]=0x%02x, waiting for BKSV\n",
+				reg[0xaf], reg[0xba]);
+
+	/* will check for HDCP Error or BKSV ready */
+	mod_timer(&hpd_duty_timer, jiffies + HZ/2);
+}
+#endif
+
+static void adv7520_hpd_timer_w(struct work_struct *work)
+{
+	if (!external_common_state->hpd_feature_on) {
+		DEV_INFO("adv7520_timer: skipping, feature off\n");
 		return;
 	}
 
-	if (monitor_sense & 0x4) {
+	if ((monitor_sense & 0x4) && !external_common_state->hpd_state) {
 		int timeout;
-		DEV_DBG("adv7520_timer: Power ON\n");
+		DEV_DBG("adv7520_timer: Cable Detected\n");
+		adv7520_comm_power(1, 1);
 		adv7520_chip_on();
-		msleep(500);
-		timeout = (adv7520_read_reg(hclient, 0x96) & (1 << 2));
-		if (timeout) {
-			DEV_DBG("adv7520_timer: EDID-Ready..\n");
-			adv7520_read_edid();
 
-#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
-			mutex_lock(&hdcp_state_mutex);
-			if (hdcp_activating) {
-				DEV_WARN("adv7520_timer: HDCP already"
-					" activating, skipping\n");
-				mutex_unlock(&hdcp_state_mutex);
-				return;
+		if (hpd_cable_chg_detected) {
+			hpd_cable_chg_detected = FALSE;
+			/* Ensure 5V to read EDID */
+			if (!enable_5v_on) {
+				dd->pd->enable_5v(1);
+				enable_5v_on = TRUE;
 			}
-			hdcp_activating = TRUE;
-			mutex_unlock(&hdcp_state_mutex);
-
 			msleep(500);
-			/* request for HDCP after EDID is read */
-			reg[0xaf] = adv7520_read_reg(hclient, 0xaf);
-			reg[0xaf] |= 0x90;
-			adv7520_write_reg(hclient, 0xaf, reg[0xaf]);
-			reg[0xaf] = adv7520_read_reg(hclient, 0xaf);
-			DEV_INFO("adv7520_timer: Start HDCP reg[0xaf]=0x%02x\n",
-						reg[0xaf]);
-
-			reg[0xba] = adv7520_read_reg(hclient, 0xba);
-			reg[0xba] |= 0x10;
-			adv7520_write_reg(hclient, 0xba, reg[0xba]);
-			reg[0xba] = adv7520_read_reg(hclient, 0xba);
-			DEV_INFO("adv7520_timer: reg[0xba]=0x%02x\n",
-						reg[0xba]);
-			msleep(500);
+			timeout = (adv7520_read_reg(hclient, 0x96) & (1 << 2));
+			if (timeout) {
+				DEV_DBG("adv7520_timer: EDID-Ready..\n");
+				adv7520_read_edid();
+			} else
+				DEV_DBG("adv7520_timer: EDID TIMEOUT (C9=%02x)"
+					"\n", adv7520_read_reg(hclient, 0xC9));
+		}
+#ifdef TESTING_FORCE_480p
+		external_common_state->disp_mode_list.num_of_elements = 1;
+		external_common_state->disp_mode_list.disp_mode_list[0] =
+			HDMI_VFRMT_720x480p60_16_9;
 #endif
-		} else
-			DEV_DBG("adv7520_timer: EDID TIMEOUT\n");
+		adv7520_comm_power(0, 1);
+#ifndef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+		/* HDMI_5V_EN not needed anymore */
+		if (enable_5v_on) {
+			DEV_DBG("adv7520_timer: EDID done, no HDCP, 5V not "
+				"needed anymore\n");
+			dd->pd->enable_5v(0);
+			enable_5v_on = FALSE;
+		}
+#endif
 		change_hdmi_state(1);
-	} else {
-		change_hdmi_state(0);
+	} else if (external_common_state->hpd_state) {
+		adv7520_comm_power(1, 1);
 		adv7520_chip_off();
-		DEV_DBG("adv7520_timer: Power OFF\n");
+		adv7520_comm_power(0, 1);
+		DEV_DBG("adv7520_timer: Cable Removed\n");
+		change_hdmi_state(0);
 	}
 }
-static void adv7520_handle_cable(unsigned long data)
+
+static void adv7520_hpd_timer_f(unsigned long data)
 {
-	schedule_work(&handle_work);
+	schedule_work(&hpd_timer_work);
 }
 
-static void adv7520_isr(struct work_struct *work)
+static void adv7520_isr_w(struct work_struct *work)
 {
+	static int state_count;
+	static u8 last_reg0x96;
 	u8 reg0xc8;
-	u8 reg0x96 = adv7520_read_reg(hclient, 0x96);
+	u8 reg0x96;
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
-	u8 reg0x97 = adv7520_read_reg(hclient, 0x97);
-	DEV_INFO("adv7520_irq: reg[0x96]=%x reg[0x97]=%x\n", reg0x96, reg0x97);
+	static u8 last_reg0x97;
+	u8 reg0x97;
+#endif
+
+	if (!external_common_state->hpd_feature_on) {
+		DEV_DBG("adv7520_irq: skipping, hpd off\n");
+		return;
+	}
+
+	adv7520_comm_power(1, 1);
+	reg0x96 = adv7520_read_reg(hclient, 0x96);
+#ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
+	reg0x97 = adv7520_read_reg(hclient, 0x97);
 	/* Clearing the Interrupts */
 	adv7520_write_reg(hclient, 0x97, reg0x97);
-#else
-	DEV_INFO("adv7520_irq: reg[0x96]=%x\n", reg0x96);
 #endif
 	/* Clearing the Interrupts */
 	adv7520_write_reg(hclient, 0x96, reg0x96);
 
 	if ((reg0x96 == 0xC0) || (reg0x96 & 0x40)) {
+#ifdef DEBUG
 		unsigned int hpd_state = adv7520_read_reg(hclient, 0x42);
+#endif
 		monitor_sense = adv7520_read_reg(hclient, 0xC6);
-		DEV_DBG("adv7520_irq: reg[0x42]=%x && reg[0xC6]=%x\n",
+		DEV_DBG("adv7520_irq: reg[0x42]=%02x && reg[0xC6]=%02x\n",
 			hpd_state, monitor_sense);
 
-		/* Timer for catching interrupt debouning */
-		if (!timer_pending(&hpd_timer)) {
-			init_timer(&hpd_timer);
-			DEV_DBG("adv7520_irq: Add Timer\n");
-			hpd_timer.function = adv7520_handle_cable;
-			hpd_timer.data = (unsigned long)NULL;
-			hpd_timer.expires = jiffies + 1*HZ;
-			add_timer(&hpd_timer);
-		} else {
-			DEV_DBG("adv7520_irq: MOD Timer pending\n");
-			mod_timer(&hpd_timer, jiffies + 1*HZ);
+		if (!enable_5v_on) {
+			dd->pd->enable_5v(1);
+			enable_5v_on = TRUE;
 		}
+		if (!hpd_power_on) {
+			dd->pd->core_power(1, 1);
+			hpd_power_on = TRUE;
+		}
+
+		/* Timer for catching interrupt debouning */
+		DEV_DBG("adv7520_irq: Timer in .5sec\n");
+		hpd_cable_chg_detected = TRUE;
+		mod_timer(&hpd_timer, jiffies + HZ/2);
 	}
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
 	if (hdcp_activating) {
 		/* HDCP controller error Interrupt */
 		if (reg0x97 & 0x80) {
 			DEV_ERR("adv7520_irq: HDCP_ERROR\n");
+			state_count = 0;
 			adv7520_close_hdcp_link();
 		/* BKSV Ready interrupts */
 		} else if (reg0x97 & 0x40) {
 			DEV_INFO("adv7520_irq: BKSV keys ready, Begin"
 				" HDCP encryption\n");
+			state_count = 0;
 			schedule_work(&hdcp_handle_work);
+		} else if (++state_count > 2 && (monitor_sense & 0x4)) {
+			DEV_INFO("adv7520_irq: Still waiting for BKSV, restart"
+				" HDCP\n");
+			hdcp_activating = FALSE;
+			state_count = 0;
+			adv7520_chip_off();
+			adv7520_start_hdcp();
 		}
 		reg0xc8 = adv7520_read_reg(hclient, 0xc8);
-		DEV_INFO("DDC controller reg[0xC8]=0x%02x\n", reg0xc8);
+		DEV_INFO("adv7520_irq: DDC controller reg[0xC8]=0x%02x, "
+			"state_count=%d, monitor_sense=%x\n",
+			reg0xc8, state_count, monitor_sense);
+	} else if (!external_common_state->hdcp_active
+		&& (monitor_sense & 0x4)) {
+		DEV_INFO("adv7520_irq: start HDCP with monitor sense\n");
+		state_count = 0;
+		adv7520_start_hdcp();
 	} else
-		DEV_INFO("adv7520_irq: final reg[0x96]=%02x reg[0x97]=%02x\n",
-			reg0x96, reg0x97);
+		state_count = 0;
+	if (last_reg0x97 != reg0x97 || last_reg0x96 != reg0x96)
+		DEV_DBG("adv7520_irq: reg[0x96]=%02x "
+			"reg[0x97]=%02x: HDCP: %d\n", reg0x96, reg0x97,
+			external_common_state->hdcp_active);
+	last_reg0x97 = reg0x97;
+#else
+	if (last_reg0x96 != reg0x96)
+		DEV_DBG("adv7520_irq: reg[0x96]=%02x\n", reg0x96);
 #endif
+	last_reg0x96 = reg0x96;
+	adv7520_comm_power(0, 1);
 }
 
-static irqreturn_t adv7520_interrupt(int irq, void *dev_id)
+static void adv7520_hpd_duty_work(struct work_struct *work)
 {
-	if (!gpio_power_on) {
-		DEV_WARN("adv7520_irq: WARN: GPIO power off, skipping\n");
-		return IRQ_HANDLED;
+	if (!external_common_state->hpd_feature_on) {
+		DEV_WARN("%s: hpd feature is off, skipping\n", __func__);
+		return;
 	}
-	schedule_work(&dd->work);
-	return IRQ_HANDLED;
+
+	dd->pd->core_power(1, 0);
+	msleep(10);
+	adv7520_isr_w(NULL);
+	dd->pd->core_power(0, 0);
+}
+
+static void adv7520_hpd_duty_timer_f(unsigned long data)
+{
+	if (!external_common_state->hpd_feature_on) {
+		DEV_WARN("%s: hpd feature is off, skipping\n", __func__);
+		return;
+	}
+
+	mod_timer(&hpd_duty_timer, jiffies + HPD_DUTY_CYCLE*HZ);
+	schedule_work(&hpd_duty_work);
 }
 
 static const struct i2c_device_id adv7520_id[] = {
@@ -610,8 +725,79 @@ static struct platform_device hdmi_device = {
 		}
 };
 
+static void adv7520_ensure_init(void)
+{
+	static boolean init_done;
+
+	if (!init_done) {
+		int rc = dd->pd->init_irq();
+		if (rc) {
+			DEV_ERR("adv7520_init: init_irq: %d\n", rc);
+			return;
+		}
+
+		init_done = TRUE;
+	}
+	DEV_INFO("adv7520_init: chip init\n");
+	adv7520_comm_power(1, 1);
+	adv7520_chip_init();
+	adv7520_comm_power(0, 1);
+}
+
+static int adv7520_hpd_feature(int on)
+{
+	int rc = 0;
+
+	if (!on) {
+		if (enable_5v_on) {
+			dd->pd->enable_5v(0);
+			enable_5v_on = FALSE;
+		}
+		if (hpd_power_on) {
+			dd->pd->core_power(0, 1);
+			hpd_power_on = FALSE;
+		}
+
+		DEV_DBG("adv7520_hpd: %d: stop duty timer\n", on);
+		del_timer(&hpd_timer);
+		del_timer(&hpd_duty_timer);
+		external_common_state->hpd_state = 0;
+	}
+
+	if (on) {
+		dd->pd->core_power(1, 0);
+		adv7520_ensure_init();
+
+		adv7520_comm_power(1, 1);
+		monitor_sense = adv7520_read_reg(hclient, 0xC6);
+		DEV_DBG("adv7520_irq: reg[0xC6]=%02x\n", monitor_sense);
+		adv7520_comm_power(0, 1);
+		dd->pd->core_power(0, 0);
+
+		if (monitor_sense & 0x4) {
+			if (!enable_5v_on) {
+				dd->pd->enable_5v(1);
+				enable_5v_on = TRUE;
+			}
+			if (!hpd_power_on) {
+				dd->pd->core_power(1, 1);
+				hpd_power_on = TRUE;
+			}
+
+			hpd_cable_chg_detected = TRUE;
+			mod_timer(&hpd_timer, jiffies + HZ/2);
+		}
+
+		DEV_DBG("adv7520_hpd: %d start duty timer\n", on);
+		mod_timer(&hpd_duty_timer, jiffies + HZ/100);
+	}
+
+	DEV_INFO("adv7520_hpd: %d\n", on);
+	return rc;
+}
+
 static int __devinit
-adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
+	adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int rc;
 	struct platform_device *fb_dev;
@@ -637,12 +823,30 @@ adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto probe_free;
 	}
 
-	INIT_WORK(&dd->work, adv7520_isr);
-	INIT_WORK(&handle_work, adv7520_handle_cable_work);
+	INIT_WORK(&dd->isr_work, adv7520_isr_w);
+	INIT_WORK(&hpd_timer_work, adv7520_hpd_timer_w);
 #ifdef CONFIG_FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
 	INIT_WORK(&hdcp_handle_work, adv7520_hdcp_enable);
 #endif
+
+	init_timer(&hpd_timer);
+	hpd_timer.function = adv7520_hpd_timer_f;
+	hpd_timer.data = (unsigned long)NULL;
+	hpd_timer.expires = 0xffffffff;
+	add_timer(&hpd_timer);
+
+	external_common_state->hpd_feature = adv7520_hpd_feature;
+	DEV_INFO("adv7520_probe: HPD detection on request\n");
+	init_timer(&hpd_duty_timer);
+	hpd_duty_timer.function = adv7520_hpd_duty_timer_f;
+	hpd_duty_timer.data = (unsigned long)NULL;
+	hpd_duty_timer.expires = 0xffffffff;
+	add_timer(&hpd_duty_timer);
+	INIT_WORK(&hpd_duty_work, adv7520_hpd_duty_work);
+	DEV_INFO("adv7520_probe: HPD detection ON (duty)\n");
+
 	fb_dev = msm_fb_add_device(&hdmi_device);
+
 	if (fb_dev) {
 		rc = external_common_state_create(fb_dev);
 		if (rc)
@@ -653,8 +857,8 @@ adv7520_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	return 0;
 
 probe_free:
-	i2c_set_clientdata(client, NULL);
 	kfree(dd);
+	dd = NULL;
 probe_exit:
 	return rc;
 
@@ -662,17 +866,76 @@ probe_exit:
 
 static int __devexit adv7520_remove(struct i2c_client *client)
 {
-	int err = 0;
 	if (!client->adapter) {
 		DEV_ERR("%s: No HDMI Device\n", __func__);
 		return -ENODEV;
 	}
-	return err;
+	wake_lock_destroy(&wlock);
+	kfree(dd);
+	dd = NULL;
+	return 0;
 }
+
+#ifdef CONFIG_SUSPEND
+static int adv7520_i2c_suspend(struct device *dev)
+{
+	DEV_INFO("%s\n", __func__);
+
+	++suspend_count;
+
+	if (external_common_state->hpd_feature_on) {
+		DEV_DBG("%s: stop duty timer\n", __func__);
+		del_timer(&hpd_duty_timer);
+		del_timer(&hpd_timer);
+	}
+
+	/* Turn off LDO8 and go into low-power state */
+	if (chip_power_on) {
+		DEV_DBG("%s: turn off power\n", __func__);
+		adv7520_comm_power(1, 1);
+		adv7520_write_reg(hclient, 0x41, 0x50);
+		adv7520_comm_power(0, 1);
+		dd->pd->core_power(0, 1);
+	}
+
+	return 0;
+}
+
+static int adv7520_i2c_resume(struct device *dev)
+{
+	DEV_INFO("%s\n", __func__);
+
+	/* Turn on LDO8 and go into normal-power state */
+	if (chip_power_on) {
+		DEV_DBG("%s: turn on power\n", __func__);
+		dd->pd->core_power(1, 1);
+		adv7520_comm_power(1, 1);
+		adv7520_write_reg(hclient, 0x41, 0x10);
+		adv7520_comm_power(0, 1);
+	}
+
+	if (external_common_state->hpd_feature_on) {
+		DEV_DBG("%s: start duty timer\n", __func__);
+		mod_timer(&hpd_duty_timer, jiffies + HPD_DUTY_CYCLE*HZ);
+	}
+
+	return 0;
+}
+#else
+#define adv7520_i2c_suspend	NULL
+#define adv7520_i2c_resume	NULL
+#endif
+
+static const struct dev_pm_ops adv7520_device_pm_ops = {
+	.suspend = adv7520_i2c_suspend,
+	.resume = adv7520_i2c_resume,
+};
 
 static struct i2c_driver hdmi_i2c_driver = {
 	.driver		= {
 		.name   = ADV7520_DRV_NAME,
+		.owner  = THIS_MODULE,
+		.pm     = &adv7520_device_pm_ops,
 	},
 	.probe		= adv7520_probe,
 	.id_table	= adv7520_id,
@@ -683,11 +946,15 @@ static int __init adv7520_init(void)
 {
 	int rc;
 
+	pr_info("%s\n", __func__);
 	external_common_state = &hdmi_common;
 	external_common_state->video_resolution = HDMI_VFRMT_1280x720p60_16_9;
-	HDMI_SETUP_LUT(640x480p60_4_3);
-	HDMI_SETUP_LUT(720x480p60_16_9);
-	HDMI_SETUP_LUT(1280x720p60_16_9);
+	HDMI_SETUP_LUT(640x480p60_4_3);		/* 25.20MHz */
+	HDMI_SETUP_LUT(720x480p60_16_9);	/* 27.03MHz */
+	HDMI_SETUP_LUT(1280x720p60_16_9);	/* 74.25MHz */
+
+	HDMI_SETUP_LUT(720x576p50_16_9);	/* 27.00MHz */
+	HDMI_SETUP_LUT(1280x720p50_16_9);	/* 74.25MHz */
 
 	hdmi_common_init_panel_info(&hdmi_panel_data.panel_info);
 
@@ -703,6 +970,8 @@ static int __init adv7520_init(void)
 		*hdtv_mux = 0x8000;
 		iounmap(hdtv_mux);
 	}
+	wake_lock_init(&wlock, WAKE_LOCK_IDLE, "hdmi_active");
+
 	return 0;
 
 init_exit:

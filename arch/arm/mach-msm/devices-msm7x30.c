@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -17,13 +17,16 @@
 #include <linux/platform_device.h>
 #include <linux/msm_rotator.h>
 #include <linux/dma-mapping.h>
+#include <asm/clkdev.h>
 #include <mach/irqs.h>
 #include <mach/msm_iomap.h>
 #include <mach/dma.h>
 #include <mach/board.h>
+#include <asm/clkdev.h>
 
 #include "devices.h"
 #include "clock-7x30.h"
+#include "clock-pcom.h"
 #include "clock-voter.h"
 #include "gpio_hw.h"
 
@@ -1000,22 +1003,24 @@ void __init msm_camera_register_device(void *res, uint32_t num,
 	msm_register_device(&msm_camera_device, data);
 }
 
-struct clk msm_clocks_7x30[] = {
+struct clk_lookup msm_clocks_7x30[] = {
 	CLK_PCOM("adsp_clk",	ADSP_CLK,	NULL, 0),
 	CLK_PCOM("codec_ssbi_clk",	CODEC_SSBI_CLK,	NULL, 0),
 	CLK_PCOM("ebi1_clk",	EBI1_CLK,	NULL, CLK_MIN),
 	CLK_PCOM("ecodec_clk",	ECODEC_CLK,	NULL, 0),
 	CLK_PCOM("gp_clk",	GP_CLK,		NULL, 0),
-	CLK_PCOM("uart_clk",	UART3_CLK,	&msm_device_uart3.dev, OFF),
+	CLK_PCOM("uart_clk",	UART3_CLK,	"msm_serial.2", OFF),
 	CLK_PCOM("usb_phy_clk",	USB_PHY_CLK,	NULL, 0),
 	CLK_PCOM("vdc_clk",	VDC_CLK,	NULL, OFF | CLK_MIN),
 	{
-		.name = "pbus_clk",
-		.id = P_PBUS_CLK,
-		.remote_id = P_PBUS_CLK,
-		.ops = &clk_ops_pcom_div2,
-		.flags = CLK_MIN,
-		.dbg_name = "pbus_clk",
+		.con_id = "pbus_clk",
+		.clk = &(struct clk){
+			.id = P_PBUS_CLK,
+			.remote_id = P_PBUS_CLK,
+			.ops = &clk_ops_pcom_div2,
+			.flags = CLK_MIN,
+			.dbg_name = "pbus_clk",
+		}
 	},
 
 	CLK_VOTER("ebi1_dtv_clk",	EBI_DTV_CLK,	"pbus_clk", NULL, 0),
@@ -1033,16 +1038,16 @@ struct clk msm_clocks_7x30[] = {
 	CLK_7X30("cam_m_clk",	CAM_M_CLK,	NULL, 0),
 	CLK_7X30("camif_pad_pclk",	CAMIF_PAD_P_CLK,	NULL, OFF),
 	CLK_7X30("ce_clk",	CE_CLK,		NULL, 0),
-	CLK_7X30("emdh_clk",	EMDH_CLK,	NULL, OFF | CLK_MINMAX),
-	CLK_7X30("emdh_pclk",	EMDH_P_CLK,	NULL, OFF),
+	CLK_7X30("emdh_clk",	EMDH_CLK,	"msm_mddi.1", OFF | CLK_MINMAX),
+	CLK_7X30("emdh_pclk",	EMDH_P_CLK,	"msm_mddi.1", OFF),
 	CLK_7X30("grp_2d_clk",	GRP_2D_CLK,	NULL, 0),
 	CLK_7X30("grp_2d_pclk",	GRP_2D_P_CLK,	NULL, 0),
 	CLK_7X30("grp_clk",	GRP_3D_CLK,	NULL, 0),
 	CLK_7X30("grp_pclk",	GRP_3D_P_CLK,	NULL, 0),
 	CLK_7X30S("grp_src_clk", GRP_3D_SRC_CLK, GRP_3D_CLK,	NULL, 0),
 	CLK_7X30("hdmi_clk",	HDMI_CLK,	NULL, 0),
-	CLK_7X30("i2c_clk",	I2C_CLK,	&msm_device_i2c.dev, 0),
-	CLK_7X30("i2c_clk",	I2C_2_CLK,	&msm_device_i2c_2.dev, 0),
+	CLK_7X30("i2c_clk",	I2C_CLK,	"msm_i2c.0", 0),
+	CLK_7X30("i2c_clk",	I2C_2_CLK,	"msm_i2c.2", 0),
 	CLK_7X30("imem_clk",	IMEM_CLK,	NULL, OFF),
 	CLK_7X30("jpeg_clk",	JPEG_CLK,	NULL, OFF),
 	CLK_7X30("jpeg_pclk",	JPEG_P_CLK,	NULL, OFF),
@@ -1066,19 +1071,19 @@ struct clk msm_clocks_7x30[] = {
 	CLK_7X30("mi2s_codec_tx_s_clk",	MI2S_CODEC_TX_S_CLK,  NULL, 0),
 	CLK_7X30("mi2s_m_clk",		MI2S_M_CLK,  		NULL, 0),
 	CLK_7X30("mi2s_s_clk",		MI2S_S_CLK,  		NULL, 0),
-	CLK_7X30("qup_clk",	QUP_I2C_CLK,	&qup_device_i2c.dev, 0),
+	CLK_7X30("qup_clk",	QUP_I2C_CLK,	"qup_i2c.4", 0),
 	CLK_7X30("rotator_clk",	AXI_ROTATOR_CLK,		NULL, 0),
 	CLK_7X30("rotator_imem_clk",	ROTATOR_IMEM_CLK,	NULL, OFF),
 	CLK_7X30("rotator_pclk",	ROTATOR_P_CLK,		NULL, OFF),
 	CLK_7X30("sdac_clk",	SDAC_CLK,	NULL, OFF),
-	CLK_7X30("sdc_clk",	SDC1_CLK,	&msm_device_sdc1.dev, OFF),
-	CLK_7X30("sdc_pclk",	SDC1_P_CLK,	&msm_device_sdc1.dev, OFF),
-	CLK_7X30("sdc_clk",	SDC2_CLK,	&msm_device_sdc2.dev, OFF),
-	CLK_7X30("sdc_pclk",	SDC2_P_CLK,	&msm_device_sdc2.dev, OFF),
-	CLK_7X30("sdc_clk",	SDC3_CLK,	&msm_device_sdc3.dev, OFF),
-	CLK_7X30("sdc_pclk",	SDC3_P_CLK,	&msm_device_sdc3.dev, OFF),
-	CLK_7X30("sdc_clk",	SDC4_CLK,	&msm_device_sdc4.dev, OFF),
-	CLK_7X30("sdc_pclk",	SDC4_P_CLK,	&msm_device_sdc4.dev, OFF),
+	CLK_7X30("sdc_clk",	SDC1_CLK,	"msm_sdcc.1", OFF),
+	CLK_7X30("sdc_pclk",	SDC1_P_CLK,	"msm_sdcc.1", OFF),
+	CLK_7X30("sdc_clk",	SDC2_CLK,	"msm_sdcc.2", OFF),
+	CLK_7X30("sdc_pclk",	SDC2_P_CLK,	"msm_sdcc.2", OFF),
+	CLK_7X30("sdc_clk",	SDC3_CLK,	"msm_sdcc.3", OFF),
+	CLK_7X30("sdc_pclk",	SDC3_P_CLK,	"msm_sdcc.3", OFF),
+	CLK_7X30("sdc_clk",	SDC4_CLK,	"msm_sdcc.4", OFF),
+	CLK_7X30("sdc_pclk",	SDC4_P_CLK,	"msm_sdcc.4", OFF),
 	CLK_7X30("spi_clk",	SPI_CLK,	NULL, 0),
 	CLK_7X30("spi_pclk",	SPI_P_CLK,	NULL, 0),
 	CLK_7X30("tsif_ref_clk", TSIF_REF_CLK,	NULL, 0),
@@ -1086,12 +1091,12 @@ struct clk msm_clocks_7x30[] = {
 	CLK_7X30("tv_dac_clk",	TV_DAC_CLK,	NULL, 0),
 	CLK_7X30("tv_enc_clk",	TV_ENC_CLK,	NULL, 0),
 	CLK_7X30S("tv_src_clk",	TV_CLK, 	TV_ENC_CLK,	NULL, 0),
-	CLK_7X30("uart_clk",	UART1_CLK,	&msm_device_uart1.dev, OFF),
-	CLK_7X30("uart_clk",	UART2_CLK,	&msm_device_uart2.dev, 0),
-	CLK_7X30("uartdm_clk",	UART1DM_CLK,	&msm_device_uart_dm1.dev, OFF),
-	CLK_7X30L("uartdm_pclk", UART1DM_P_CLK,	&msm_device_uart_dm1.dev, 0),
-	CLK_7X30("uartdm_clk",	UART2DM_CLK,	&msm_device_uart_dm2.dev, 0),
-	CLK_7X30L("uartdm_pclk", UART2DM_P_CLK,	&msm_device_uart_dm2.dev, 0),
+	CLK_7X30("uart_clk",	UART1_CLK,	"msm_serial.0", OFF),
+	CLK_7X30("uart_clk",	UART2_CLK,	"msm_serial.1", 0),
+	CLK_7X30("uartdm_clk",	UART1DM_CLK,	"msm_serial_hs.0", OFF),
+	CLK_7X30L("uartdm_pclk", UART1DM_P_CLK,	"msm_serial_hs.0", 0),
+	CLK_7X30("uartdm_clk",	UART2DM_CLK,	"msm_serial_hs.1", 0),
+	CLK_7X30L("uartdm_pclk", UART2DM_P_CLK,	"msm_serial_hs.1", 0),
 	CLK_7X30("usb_hs_clk",		USB_HS_CLK,		NULL, OFF),
 	CLK_7X30("usb_hs_pclk",		USB_HS_P_CLK,		NULL, OFF),
 	CLK_7X30("usb_hs_core_clk",	USB_HS_CORE_CLK,	NULL, OFF),

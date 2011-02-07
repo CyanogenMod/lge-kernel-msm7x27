@@ -97,7 +97,7 @@ struct gpiomux_setting {
  */
 struct msm_gpiomux_config {
 	unsigned gpio;
-	struct gpiomux_setting settings[GPIOMUX_NSETTINGS];
+	struct gpiomux_setting *settings[GPIOMUX_NSETTINGS];
 };
 
 /**

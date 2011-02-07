@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -145,4 +145,7 @@ void vidc_sm_set_encoder_new_frame_rate(struct ddl_buf_addr *shared_mem,
 	u32 new_frame_rate);
 void vidc_sm_set_encoder_new_i_period(struct ddl_buf_addr *shared_mem,
 	u32 new_i_period);
+void vidc_sm_set_encoder_init_rc_value(struct ddl_buf_addr *shared_mem,
+	u32 new_rc_value);
+
 #endif

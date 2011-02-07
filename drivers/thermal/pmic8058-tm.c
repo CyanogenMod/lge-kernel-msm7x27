@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -396,6 +396,7 @@ static int __devinit pmic8058_tm_probe(struct platform_device *pdev)
 	if (adc_calib_request(tmdev->adc_handle, &wait) == CALIB_STARTED)
 		wait_for_completion_interruptible(&wait);
 
+	tmdev->pm_chip = pm_chip;
 	tmdev->tz_dev = thermal_zone_device_register("pm8058_tz",
 						     PM8058_TRIP_NUM, tmdev,
 						     &pm8058_thermal_zone_ops,
@@ -408,7 +409,6 @@ static int __devinit pmic8058_tm_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	tmdev->pm_chip = pm_chip;
 	rc = pm8058_tm_init_reg(tmdev);
 	pm8058_tm_shutdown_override(tmdev->pm_chip, SOFTWARE_OVERRIDE_DISABLED);
 	if (rc < 0) {

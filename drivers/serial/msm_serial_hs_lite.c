@@ -2,7 +2,7 @@
  * drivers/serial/msm_serial.c - driver for msm7k serial device and console
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -38,7 +38,9 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/gpio.h>
 #include <mach/board.h>
+#include <mach/msm_serial_hs_lite.h>
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
 
@@ -553,8 +555,8 @@ static int msm_hsl_startup(struct uart_port *port)
 	msm_hsl_write(port, UARTDM_IPR_STALE_LSB_BMSK, UARTDM_IPR_ADDR);
 	data = 0;
 
-	if ((!port->cons) ||
-	    (port->cons && (!(port->cons->flags & CON_ENABLED)))) {
+	if (!(is_console(port)) || (!port->cons) ||
+		(port->cons && (!(port->cons->flags & CON_ENABLED)))) {
 		msm_hsl_write(port, CR_PROTECTION_EN, UARTDM_CR_ADDR);
 		msm_hsl_write(port, UARTDM_MR2_BITS_PER_CHAR_8 | STOP_BIT_ONE,
 			      UARTDM_MR2_ADDR);	/* 8N1 */
@@ -620,6 +622,14 @@ static void msm_hsl_set_termios(struct uart_port *port,
 
 	/* calculate and set baud rate */
 	baud = uart_get_baud_rate(port, termios, old, 300, 115200);
+
+	/* Workaround required for UART download feature.
+	   set_termios is getting called while opening port and while
+	   setting required baud rate using Ioctl. Adding delay allows
+	   this feature to work. Reason is still unknown.
+	*/
+	udelay(1000);
+
 	msm_hsl_set_baud_rate(port, baud);
 
 	/* calculate parity */
@@ -731,13 +741,17 @@ static int msm_hsl_request_port(struct uart_port *port)
 
 	uart_resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						     "uartdm_resource");
-	if (unlikely(!uart_resource))
+	if (unlikely(!uart_resource)) {
+		pr_err("%s: can't get uartdm resource\n", __func__);
 		return -ENXIO;
+	}
 	size = uart_resource->end - uart_resource->start + 1;
 
 	if (unlikely(!request_mem_region(port->mapbase, size,
-					 "msm_serial_hs")))
+					 "msm_serial_hsl"))) {
+		pr_err("%s: can't get mem region for uartdm\n", __func__);
 		return -EBUSY;
+	}
 
 	port->membase = ioremap(port->mapbase, size);
 	if (!port->membase) {
@@ -749,13 +763,17 @@ static int msm_hsl_request_port(struct uart_port *port)
 		gsbi_resource = platform_get_resource_byname(pdev,
 							     IORESOURCE_MEM,
 							     "gsbi_resource");
-		if (unlikely(!gsbi_resource))
+		if (unlikely(!gsbi_resource)) {
+			pr_err("%s: can't get gsbi resource\n", __func__);
 			return -ENXIO;
+		}
 
 		size = gsbi_resource->end - gsbi_resource->start + 1;
 		if (unlikely(!request_mem_region(gsbi_resource->start, size,
-						 "msm_serial_hs")))
+						 "msm_serial_hsl"))) {
+			pr_err("%s: can't get mem region for gsbi\n", __func__);
 			return -EBUSY;
+		}
 
 		msm_hsl_port->mapped_gsbi = ioremap(gsbi_resource->start,
 						    size);
@@ -1042,6 +1060,7 @@ static int __init msm_serial_hsl_probe(struct platform_device *pdev)
 	struct resource *uart_resource;
 	struct resource *gsbi_resource;
 	struct uart_port *port;
+	struct msm_serial_hslite_platform_data *pdata = pdev->dev.platform_data;
 	int ret;
 
 	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR))
@@ -1052,6 +1071,23 @@ static int __init msm_serial_hsl_probe(struct platform_device *pdev)
 	port = get_port_from_line(pdev->id);
 	port->dev = &pdev->dev;
 	msm_hsl_port = UART_TO_MSM(port);
+
+	if (pdata && pdata->config_gpio) {
+		ret = gpio_request(pdata->uart_tx_gpio, "UART_TX_GPIO");
+		if (unlikely(ret)) {
+			printk(KERN_ERR "%s: gpio request failed for:"
+					"%d\n", __func__, pdata->uart_tx_gpio);
+			return ret;
+		}
+
+		ret = gpio_request(pdata->uart_rx_gpio, "UART_RX_GPIO");
+		if (unlikely(ret)) {
+			printk(KERN_ERR "%s: gpio request failed for:"
+					"%d\n", __func__, pdata->uart_rx_gpio);
+			gpio_free(pdata->uart_tx_gpio);
+			return ret;
+		}
+	}
 
 	if (msm_serial_hsl_has_gsbi()) {
 		gsbi_resource =
@@ -1097,13 +1133,9 @@ static int __init msm_serial_hsl_probe(struct platform_device *pdev)
 		printk(KERN_ERR "%s: getting irq failed\n", __func__);
 		return -ENXIO;
 	}
+
+	device_set_wakeup_capable(&pdev->dev, 1);
 	platform_set_drvdata(pdev, port);
-
-	if (unlikely(set_irq_wake(port->irq, 1))) {
-		printk(KERN_ERR "%s: set_irq_wake failed\n", __func__);
-		/* return -ENXIO; */
-	}
-
 	pm_runtime_enable(port->dev);
 	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
 
@@ -1113,6 +1145,12 @@ static int __init msm_serial_hsl_probe(struct platform_device *pdev)
 static int __devexit msm_serial_hsl_remove(struct platform_device *pdev)
 {
 	struct msm_hsl_port *msm_hsl_port = platform_get_drvdata(pdev);
+	struct msm_serial_hslite_platform_data *pdata = pdev->dev.platform_data;
+
+	if (pdata && pdata->config_gpio) {
+		gpio_free(pdata->uart_tx_gpio);
+		gpio_free(pdata->uart_rx_gpio);
+	}
 
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
@@ -1131,6 +1169,9 @@ static int msm_serial_hsl_suspend(struct device *dev)
 
 	if (port) {
 		uart_suspend_port(&msm_hsl_uart_driver, port);
+		if (device_may_wakeup(dev))
+			enable_irq_wake(port->irq);
+
 		if (is_console(port))
 			msm_hsl_deinit_clock(port);
 	}
@@ -1148,6 +1189,9 @@ static int msm_serial_hsl_resume(struct device *dev)
 		if (is_console(port))
 			msm_hsl_init_clock(port);
 		uart_resume_port(&msm_hsl_uart_driver, port);
+
+		if (device_may_wakeup(dev))
+			disable_irq_wake(port->irq);
 	}
 
 	return 0;

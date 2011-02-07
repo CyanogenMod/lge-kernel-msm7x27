@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,7 +217,7 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
-		1, 20000, 100000, 1,
+		1, 8000, 100000, 1,
 		NULL,
 		NULL,
 	},
@@ -971,4 +971,24 @@ void msm_rpmrs_exit_sleep(bool from_idle, struct msm_rpmrs_limits *limits)
 	level->exit(from_idle, limits);
 }
 
-device_initcall(msm_rpmrs_resource_sysfs_add);
+static int __init msm_rpmrs_init(void)
+{
+	struct msm_rpm_iv_pair req;
+	int rc;
+
+	req.id = MSM_RPM_ID_APPS_L2_CACHE_CTL;
+	req.value = 1;
+
+	rc = msm_rpm_set(MSM_RPM_CTX_SET_0, &req, 1);
+	if (rc) {
+		pr_err("%s: failed to request L2 cache: %d\n", __func__, rc);
+		goto init_exit;
+	}
+
+	rc = msm_rpmrs_resource_sysfs_add();
+
+init_exit:
+	return rc;
+}
+
+device_initcall(msm_rpmrs_init);

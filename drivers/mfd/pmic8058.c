@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -959,7 +959,7 @@ static int pm8058_probe(struct i2c_client *client,
 	}
 
 	rc = request_threaded_irq(chip->dev->irq, NULL, pm8058_isr_thread,
-			IRQF_ONESHOT | IRQF_DISABLED | IRQF_TRIGGER_LOW,
+			IRQF_ONESHOT | IRQF_DISABLED | pdata->irq_trigger_flags,
 			"pm8058-irq", chip);
 	if (rc < 0)
 		pr_err("%s: could not request irq %d: %d\n", __func__,
@@ -1019,6 +1019,24 @@ static int pm8058_suspend(struct device *dev)
 		disable_irq(chip->dev->irq);
 
 	return 0;
+}
+
+void pm8058_show_resume_irq(void)
+{
+	u8	block, bits;
+	int i;
+	struct pm8058_chip *chip = pmic_chip;
+
+	for (i = 0; i < MAX_PM_IRQ; i++) {
+		if (chip->wake_enable[i]) {
+			block = i / 8;
+			if (!pm8058_read_block(chip, &block, &bits)) {
+				if (bits & (1 << (i & 0x7)))
+					pr_warning("%s:%d triggered\n",
+					__func__, i + chip->pdata.irq_base);
+			}
+		}
+	}
 }
 
 static int pm8058_resume(struct device *dev)

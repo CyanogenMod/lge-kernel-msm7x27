@@ -113,14 +113,12 @@ static void rq_work_fn(struct work_struct *work)
 	if (!rq_info.rq_avg)
 		rq_info.total_time = 0;
 
-	rq_avg = nr_running();
+	rq_avg = nr_running() * 10;
 	time_diff = ktime_to_ns(ktime_get()) - rq_info.last_time;
 	do_div(time_diff, (1000 * 1000));
 
 	if (time_diff && rq_info.total_time) {
-		do_div(rq_avg, time_diff);
-		rq_avg = (rq_avg * time_diff) +
-			(rq_info.rq_avg * rq_info.total_time);
+		rq_avg = rq_avg + (rq_info.rq_avg * rq_info.total_time);
 		do_div(rq_avg, rq_info.total_time + time_diff);
 	}
 
@@ -254,7 +252,7 @@ static ssize_t show_policy_changed(struct kobject *kobj,
 static ssize_t show_run_queue_avg(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	int val = 0;
+	unsigned int val = 0;
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(&rq_lock, flags);
@@ -263,7 +261,7 @@ static ssize_t show_run_queue_avg(struct kobject *kobj,
 	rq_info.rq_avg = 0;
 	spin_unlock_irqrestore(&rq_lock, flags);
 
-	return sprintf(buf, "%d.%d\n", val, val % 10);
+	return sprintf(buf, "%d.%d\n", val/10, val%10);
 }
 
 static ssize_t show_run_queue_poll_ms(struct kobject *kobj,

@@ -68,6 +68,7 @@
 #include <mach/msm_battery.h>
 #include <mach/rpc_server_handset.h>
 #include <mach/msm_tsif.h>
+#include <mach/socinfo.h>
 #include <linux/cyttsp.h>
 
 #include <asm/mach/mmc.h>
@@ -75,7 +76,6 @@
 #include <mach/vreg.h>
 #include "devices.h"
 #include "timer.h"
-#include "socinfo.h"
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
 #endif
@@ -92,7 +92,6 @@
 
 #define MSM_PMEM_SF_SIZE	0x1700000
 #define MSM_FB_SIZE		0x500000
-#define MSM_GPU_PHYS_SIZE       SZ_2M
 #define MSM_PMEM_ADSP_SIZE      0x1800000
 #define MSM_FLUID_PMEM_ADSP_SIZE	0x2800000
 #define PMEM_KERNEL_EBI1_SIZE   0x600000
@@ -492,34 +491,16 @@ static int pm8058_pwm_enable(struct pwm_device *pwm, int ch, int on)
 
 static const unsigned int fluid_keymap[] = {
 	KEY(0, 0, KEY_7),
-	KEY(0, 1, KEY_DOWN),
+	KEY(0, 1, KEY_ENTER),
 	KEY(0, 2, KEY_UP),
-	KEY(0, 3, KEY_RIGHT),
-	KEY(0, 4, KEY_ENTER),
+	/* drop (0,3) as it always shows up in pair with(0,2) */
+	KEY(0, 4, KEY_DOWN),
 
-	KEY(1, 0, KEY_LEFT),
-	KEY(1, 1, KEY_SEND),
+	KEY(1, 0, KEY_CAMERA_SNAPSHOT),
+	KEY(1, 1, KEY_SELECT),
 	KEY(1, 2, KEY_1),
-	KEY(1, 3, KEY_4),
-	KEY(1, 4, KEY_CLEAR),
-
-	KEY(2, 0, KEY_6),
-	KEY(2, 1, KEY_5),
-	KEY(2, 2, KEY_8),
-	KEY(2, 3, KEY_3),
-	KEY(2, 4, KEY_NUMERIC_STAR),
-
-	KEY(3, 0, KEY_9),
-	KEY(3, 1, KEY_NUMERIC_POUND),
-	KEY(3, 2, KEY_0),
-	KEY(3, 3, KEY_2),
-	KEY(3, 4, KEY_END),
-
-	KEY(4, 0, KEY_BACK),
-	KEY(4, 1, KEY_HOME),
-	KEY(4, 2, KEY_MENU),
-	KEY(4, 3, KEY_VOLUMEUP),
-	KEY(4, 4, KEY_VOLUMEDOWN),
+	KEY(1, 3, KEY_VOLUMEUP),
+	KEY(1, 4, KEY_VOLUMEDOWN),
 };
 
 static const unsigned int surf_keymap[] = {
@@ -802,6 +783,7 @@ static struct pm8058_platform_data pm8058_7x30_data = {
 
 	.num_subdevs = ARRAY_SIZE(pm8058_subdevs),
 	.sub_devices = pm8058_subdevs,
+	.irq_trigger_flags = IRQF_TRIGGER_LOW,
 };
 
 static struct i2c_board_info pm8058_boardinfo[] __initdata = {
@@ -1009,13 +991,6 @@ static struct msm_camera_sensor_flash_src msm_flash_src_pwm = {
 	._fsrc.pwm_src.channel = 7,
 };
 
-static struct msm_camera_sensor_flash_src msm_flash_src_current_driver = {
-	.flash_sr_type = MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
-	._fsrc.current_driver_src.low_current = 210,
-	._fsrc.current_driver_src.high_current = 700,
-	._fsrc.current_driver_src.driver_channel = &pm8058_fluid_leds_data,
-};
-
 #ifdef CONFIG_MT9D112
 static struct msm_camera_sensor_flash_data flash_mt9d112 = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
@@ -1150,6 +1125,13 @@ static struct platform_device msm_camera_sensor_vx6953 = {
 #endif
 
 #ifdef CONFIG_SN12M0PZ
+static struct msm_camera_sensor_flash_src msm_flash_src_current_driver = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
+	._fsrc.current_driver_src.low_current = 210,
+	._fsrc.current_driver_src.high_current = 700,
+	._fsrc.current_driver_src.driver_channel = &pm8058_fluid_leds_data,
+};
+
 static struct msm_camera_sensor_flash_data flash_sn12m0pz = {
 	.flash_type = MSM_CAMERA_FLASH_LED,
 	.flash_src  = &msm_flash_src_current_driver
@@ -1806,6 +1788,15 @@ static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
 			__func__, rc);
 		goto fm_clock_vote_fail;
 	}
+	/*Request the Clock Using GPIO34/AP2MDM_MRMBCK_EN in case
+	of svlte*/
+	if (machine_is_msm8x55_svlte_surf() ||
+			machine_is_msm8x55_svlte_ffa())	{
+		rc = marimba_gpio_config(1);
+		if (rc < 0)
+			printk(KERN_ERR "%s: clock enable for svlte : %d\n",
+						__func__, rc);
+	}
 	irqcfg = GPIO_CFG(147, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
 					GPIO_CFG_2MA);
 	rc = gpio_tlmm_config(irqcfg, GPIO_CFG_ENABLE);
@@ -1859,6 +1850,18 @@ static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
 	if (rc < 0)
 		printk(KERN_ERR "%s: clock_vote return val: %d\n",
 						__func__, rc);
+
+	/*Disable the Clock Using GPIO34/AP2MDM_MRMBCK_EN in case
+	of svlte*/
+	if (machine_is_msm8x55_svlte_surf() ||
+			machine_is_msm8x55_svlte_ffa())	{
+		rc = marimba_gpio_config(0);
+		if (rc < 0)
+			printk(KERN_ERR "%s: clock disable for svlte : %d\n",
+						__func__, rc);
+	}
+
+
 	if (!bahama_not_marimba)	{
 		rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
 
@@ -2930,7 +2933,7 @@ static struct ofn_atlab_platform_data optnav_data = {
 static int hdmi_comm_power(int on, int show);
 static int hdmi_init_irq(void);
 static int hdmi_enable_5v(int on);
-static int hdmi_core_power(int on);
+static int hdmi_core_power(int on, int show);
 static int hdmi_cec_power(int on);
 
 static struct msm_hdmi_platform_data adv7520_hdmi_data = {
@@ -3591,9 +3594,10 @@ static int hdmi_enable_5v(int on)
 	return 0;
 }
 
-static int hdmi_core_power(int on)
+static int hdmi_core_power(int on, int show)
 {
-	pr_info("%s: %d <LDO8>\n", __func__, on);
+	if (show)
+		pr_info("%s: %d <LDO8>\n", __func__, on);
 	return gpio_set("gp7", "LDO8", 1800, on);
 }
 
@@ -3614,7 +3618,6 @@ static int dtv_panel_power(int on)
 
 	dtv_power_save_on = flag_on;
 	pr_info("%s: %d\n", __func__, on);
-	hdmi_enable_5v(on);
 
 #ifdef HDMI_RESET
 	if (on) {
@@ -3648,16 +3651,6 @@ static int dtv_panel_power(int on)
 			return rc;
 		}
 	}
-
-	rc = hdmi_comm_power(on, 1);
-	if (rc)
-		return rc;
-
-	mdelay(5);		/* ensure power is stable */
-
-	rc = hdmi_cec_power(on);
-	if (rc)
-		return rc;
 
 	mdelay(5);		/* ensure power is stable */
 
@@ -3792,6 +3785,7 @@ static struct kgsl_platform_data kgsl_pdata = {
 #endif
 	.idle_timeout_3d = HZ/20,
 	.idle_timeout_2d = HZ/10,
+	.nap_allowed = true,
 
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	.pt_va_size = SZ_32M,
@@ -3809,12 +3803,6 @@ static struct resource kgsl_resources[] = {
 		.name = "kgsl_reg_memory",
 		.start = 0xA3500000, /* 3D GRP address */
 		.end = 0xA351ffff,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name   = "kgsl_phys_memory",
-		.start = 0,
-		.end = 0,
 		.flags = IORESOURCE_MEM,
 	},
 	{
@@ -4751,7 +4739,7 @@ static int bahama_bt(int on)
 		{ 0x01, 0x08, 0x1F },
 	};
 
-	const struct bahama_config_register v20_bt_on[] = {
+	const struct bahama_config_register v20_bt_on_fm_off[] = {
 		{ 0x11, 0x0C, 0xFF },
 		{ 0x13, 0x01, 0xFF },
 		{ 0xF4, 0x80, 0xFF },
@@ -4766,24 +4754,52 @@ static int bahama_bt(int on)
 		{ 0xE9, 0x21, 0xFF }
 	};
 
+	const struct bahama_config_register v20_bt_on_fm_on[] = {
+		{ 0x11, 0x0C, 0xFF },
+		{ 0x13, 0x01, 0xFF },
+		{ 0xF4, 0x86, 0xFF },
+		{ 0xF0, 0x06, 0xFF },
+		{ 0xE9, 0x00, 0xFF },
+#ifdef CONFIG_WLAN
+		{ 0x81, 0x00, 0xFF },
+		{ 0x82, 0x00, 0xFF },
+		{ 0xE6, 0x38, 0x7F },
+		{ 0xE7, 0x06, 0xFF },
+#endif
+		{ 0xE9, 0x21, 0xFF }
+	};
+
 	const struct bahama_config_register v10_bt_off[] = {
 		{ 0xE9, 0x00, 0xFF },
 	};
 
-	const struct bahama_config_register v20_bt_off[] = {
-		{ 0xE9, 0x00, 0xFF },
+	const struct bahama_config_register v20_bt_off_fm_off[] = {
+		{ 0xF4, 0x84, 0xFF },
+		{ 0xF0, 0x04, 0xFF },
+		{ 0xE9, 0x00, 0xFF }
 	};
 
-	const struct bahama_variant_register bt_bahama[2][2] = {
+	const struct bahama_config_register v20_bt_off_fm_on[] = {
+		{ 0xF4, 0x86, 0xFF },
+		{ 0xF0, 0x06, 0xFF },
+		{ 0xE9, 0x00, 0xFF }
+	};
+
+	const struct bahama_variant_register bt_bahama[2][3] = {
 		{
 			{ ARRAY_SIZE(v10_bt_off), v10_bt_off },
-			{ ARRAY_SIZE(v20_bt_off), v20_bt_off }
+			{ ARRAY_SIZE(v20_bt_off_fm_off), v20_bt_off_fm_off },
+			{ ARRAY_SIZE(v20_bt_off_fm_on), v20_bt_off_fm_on }
 		},
 		{
 			{ ARRAY_SIZE(v10_bt_on), v10_bt_on },
-			{ ARRAY_SIZE(v20_bt_on), v20_bt_on }
+			{ ARRAY_SIZE(v20_bt_on_fm_off), v20_bt_on_fm_off },
+			{ ARRAY_SIZE(v20_bt_on_fm_on), v20_bt_on_fm_on }
 		}
 	};
+
+	/* Init mutex to get/set FM/BT status respectively */
+	mutex_init(&config.xfer_lock);
 
 	on = on ? 1 : 0;
 
@@ -4806,7 +4822,9 @@ static int bahama_bt(int on)
 		version = 0x00;
 		break;
 	case 0x09: /* variant of bahama v2 */
-		version = 0x01;
+		/* bahama v2 has different bring-up & shutdown sequence */
+		/* based on FM status */
+		version = marimba_get_fm_status(&config) ? 0x02 : 0x01;
 		break;
 	default:
 		version = 0xFF;
@@ -4843,6 +4861,16 @@ static int bahama_bt(int on)
 				__func__, (p+i)->reg,
 				value, (p+i)->mask);
 	}
+	/* Update BT status */
+	if (on)
+		marimba_set_bt_status(&config, true);
+	else
+		marimba_set_bt_status(&config, false);
+
+
+	/* Destory mutex */
+	mutex_destroy(&config.xfer_lock);
+
 	return 0;
 }
 
@@ -6928,14 +6956,6 @@ static int __init fb_size_setup(char *p)
 }
 early_param("fb_size", fb_size_setup);
 
-static unsigned gpu_phys_size = MSM_GPU_PHYS_SIZE;
-static int __init gpu_phys_size_setup(char *p)
-{
-	gpu_phys_size = memparse(p, NULL);
-	return 0;
-}
-early_param("gpu_phys_size", gpu_phys_size_setup);
-
 static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
 static int __init pmem_adsp_size_setup(char *p)
 {
@@ -6999,15 +7019,6 @@ static void __init msm7x30_allocate_memory_regions(void)
 		android_pmem_audio_pdata.size = size;
 		pr_info("allocating %lu bytes at %p (%lx physical) for audio "
 			"pmem arena\n", size, addr, __pa(addr));
-	}
-
-	size = gpu_phys_size;
-	if (size) {
-		addr = alloc_bootmem(size);
-		kgsl_resources[1].start = __pa(addr);
-		kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
-		pr_info("allocating %lu bytes at %p (%lx physical) for "
-			"KGSL\n", size, addr, __pa(addr));
 	}
 
 	size = pmem_kernel_ebi1_size;

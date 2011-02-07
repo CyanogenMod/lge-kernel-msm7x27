@@ -52,6 +52,8 @@
 			(AUDIO_MAX_COMMON_IOCTL_NUM+8), unsigned)
 #define AUDIO_SET_SIDETONE_CAL		_IOW(AUDIO_IOCTL_MAGIC, \
 			(AUDIO_MAX_COMMON_IOCTL_NUM+9), unsigned)
+#define AUDIO_SET_ANC_CAL		_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+10), unsigned)
 
 /* ACDB structures */
 struct cal_block {

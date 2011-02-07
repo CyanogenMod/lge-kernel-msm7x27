@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,14 @@
 		TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_R_M)
 #define TIMPANI_RX1_ST_ENABLE ((1 << TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_L_S) |\
 		(1 << TIMPANI_CDC_RX1_CTL_SIDETONE_EN1_R_S))
+#define TIMPANI_CDC_ST_MIXING_TX1_MASK (TIMPANI_CDC_ST_MIXING_TX1_L_M |\
+		TIMPANI_CDC_ST_MIXING_TX1_R_M)
+#define TIMPANI_CDC_ST_MIXING_TX1_ENABLE ((1 << TIMPANI_CDC_ST_MIXING_TX1_L_S)\
+		| (1 << TIMPANI_CDC_ST_MIXING_TX1_R_S))
+#define TIMPANI_CDC_ST_MIXING_TX2_MASK (TIMPANI_CDC_ST_MIXING_TX2_L_M |\
+		TIMPANI_CDC_ST_MIXING_TX2_R_M)
+#define TIMPANI_CDC_ST_MIXING_TX2_ENABLE ((1 << TIMPANI_CDC_ST_MIXING_TX2_L_S)\
+		| (1 << TIMPANI_CDC_ST_MIXING_TX2_R_S))
 
 struct adie_codec_path {
 	struct adie_codec_dev_profile *profile;
@@ -1543,11 +1551,75 @@ int timpani_adie_codec_enable_sidetone(struct adie_codec_path *rx_path_ptr,
 
 	if (enable) {
 		rc = adie_codec_write(TIMPANI_A_CDC_RX1_CTL,
-		TIMPANI_RX1_ST_MASK, TIMPANI_RX1_ST_ENABLE);
+			TIMPANI_RX1_ST_MASK, TIMPANI_RX1_ST_ENABLE);
+
+		if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX1)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX1_MASK,
+				TIMPANI_CDC_ST_MIXING_TX1_ENABLE);
+		else if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX2)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX2_MASK,
+				TIMPANI_CDC_ST_MIXING_TX2_ENABLE);
 	 } else {
 		rc = adie_codec_write(TIMPANI_A_CDC_RX1_CTL,
-		TIMPANI_RX1_ST_MASK, 0);
+			TIMPANI_RX1_ST_MASK, 0);
+
+		if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX1)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX1_MASK, 0);
+		else if (rx_path_ptr->reg_owner == RA_OWNER_PATH_RX2)
+			adie_codec_write(TIMPANI_A_CDC_ST_MIXING,
+				TIMPANI_CDC_ST_MIXING_TX2_MASK, 0);
 	 }
+
+error:
+	mutex_unlock(&adie_codec.lock);
+	return rc;
+}
+static int timpani_adie_codec_enable_anc(struct adie_codec_path *rx_path_ptr,
+	u32 enable, struct adie_codec_anc_data *calibration_writes)
+{
+	int index = 0;
+	int rc = 0;
+	u8 reg, mask, val;
+	pr_debug("%s: enable = %d\n", __func__, enable);
+
+	mutex_lock(&adie_codec.lock);
+
+	if (!rx_path_ptr || &adie_codec.path[ADIE_CODEC_RX] != rx_path_ptr) {
+		pr_err("%s: invalid path pointer\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	} else if (rx_path_ptr->curr_stage !=
+		ADIE_CODEC_DIGITAL_ANALOG_READY) {
+		pr_err("%s: bad state\n", __func__);
+		rc = -EPERM;
+		goto error;
+	}
+	if (enable) {
+		if (!calibration_writes | !calibration_writes->writes) {
+			pr_err("%s: No ANC calibration data\n", __func__);
+			rc = -EPERM;
+			goto error;
+		}
+		while (index < calibration_writes->size) {
+			ADIE_CODEC_UNPACK_ENTRY(calibration_writes->
+				writes[index], reg, mask, val);
+			adie_codec_write(reg, mask, val);
+			index++;
+		}
+	} else {
+		adie_codec_write(TIMPANI_A_CDC_ANC1_CTL1,
+		TIMPANI_CDC_ANC1_CTL1_ANC1_EN_M,
+		TIMPANI_CDC_ANC1_CTL1_ANC1_EN_ANC_DIS <<
+		TIMPANI_CDC_ANC1_CTL1_ANC1_EN_S);
+
+		adie_codec_write(TIMPANI_A_CDC_ANC2_CTL1,
+		TIMPANI_CDC_ANC2_CTL1_ANC2_EN_M,
+		TIMPANI_CDC_ANC2_CTL1_ANC2_EN_ANC_DIS <<
+		TIMPANI_CDC_ANC2_CTL1_ANC2_EN_S);
+	}
 
 error:
 	mutex_unlock(&adie_codec.lock);
@@ -1654,6 +1726,12 @@ static void timpani_codec_bring_up(void)
 	adie_codec_write(0xFF, 0xFF, 0x17);
 	adie_codec_write(TIMPANI_A_MREF, 0xFF, 0x22);
 	msleep(15);
+
+	/* Bypass TX HPFs to prevent pops */
+	adie_codec_write(TIMPANI_A_CDC_BYPASS_CTL2, TIMPANI_CDC_BYPASS_CTL2_M,
+		TIMPANI_CDC_BYPASS_CTL2_POR);
+	adie_codec_write(TIMPANI_A_CDC_BYPASS_CTL3, TIMPANI_CDC_BYPASS_CTL3_M,
+		TIMPANI_CDC_BYPASS_CTL3_POR);
 }
 
 static void timpani_codec_bring_down(void)
@@ -1781,6 +1859,7 @@ static const struct adie_codec_operations timpani_adie_ops = {
 	.codec_freq_supported = timpani_adie_codec_freq_supported,
 	.codec_enable_sidetone = timpani_adie_codec_enable_sidetone,
 	.codec_set_master_mode = timpani_adie_codec_set_master_mode,
+	.codec_enable_anc = timpani_adie_codec_enable_anc,
 };
 
 #ifdef CONFIG_DEBUG_FS
