@@ -4135,9 +4135,16 @@ static struct hsed_bias_config hsed_bias_config = {
 
 static struct othc_hsed_config hsed_config_1 = {
 	.hsed_bias_config = &hsed_bias_config,
-	.detection_delay_ms = 200,
+	/*
+	 * The detection delay and switch reporting delay are
+	 * required to encounter a hardware bug (spurious switch
+	 * interrupts on slow insertion/removal of the headset).
+	 * This will introduce a delay in reporting the accessory
+	 * insertion and removal to the userspace.
+	 */
+	.detection_delay_ms = 1500,
 	/* Switch info */
-	.switch_debounce_ms = 1000,
+	.switch_debounce_ms = 1500,
 	.othc_support_n_switch = false,
 	.switch_config = &switch_config,
 	/* Accessory info */
