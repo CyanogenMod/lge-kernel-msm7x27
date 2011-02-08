@@ -1978,6 +1978,8 @@ static int msm_error_config(struct msm_sync *sync, void __user *arg)
 	struct msm_queue_cmd *qcmd =
 		kmalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
 
+	qcmd->command = NULL;
+
 	if (qcmd)
 		atomic_set(&(qcmd->on_heap), 1);
 
