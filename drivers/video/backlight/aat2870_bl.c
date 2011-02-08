@@ -1005,7 +1005,7 @@ static struct i2c_device_id aat28xx_idtable[] = {
 
 MODULE_DEVICE_TABLE(i2c, aat28xx_idtable);
 
-static struct i2c_driver aat28xx_driver = {
+static struct i2c_driver __refdata aat28xx_driver = {
 	.probe 		= aat28xx_probe,
 	.remove 	= aat28xx_remove,
 #ifndef CONFIG_HAS_EARLYSUSPEND

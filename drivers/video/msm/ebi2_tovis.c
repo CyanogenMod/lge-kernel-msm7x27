@@ -368,7 +368,7 @@ static struct platform_device this_device = {
 	}
 };
 
-static struct platform_driver this_driver = {
+static struct platform_driver __refdata this_driver = {
 	.probe  = tovis_qvga_probe,
 	.driver = {
 		.name   = "ebi2_tovis_qvga",

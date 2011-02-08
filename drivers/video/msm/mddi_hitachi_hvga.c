@@ -495,7 +495,7 @@ static int __init mddi_hitachi_lcd_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver this_driver = {
+static struct platform_driver __refdata this_driver = {
 	.probe  = mddi_hitachi_lcd_probe,
 	.driver = {
 		.name   = "mddi_hitachi_hvga",
