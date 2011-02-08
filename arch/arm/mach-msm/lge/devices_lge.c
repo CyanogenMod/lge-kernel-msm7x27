@@ -50,7 +50,7 @@
 #include <mach/board_lge.h>
 #include "../devices.h"
 #include "../pm.h"
-#include "../socinfo.h"
+#include <mach/socinfo.h>
 
 /* setting board revision information */
 int lge_bd_rev;
