@@ -176,6 +176,7 @@ struct reg_addr_val_pair_struct ov7692_init_settings_array[] = {
     {0xa2, 0x0e},
 };
 
+static bool OV7692_CSI_CONFIG;
 /* 816x612, 24MHz MCLK 96MHz PCLK */
 uint32_t OV7692_FULL_SIZE_WIDTH        = 640;
 uint32_t OV7692_FULL_SIZE_HEIGHT       = 480;
@@ -297,11 +298,12 @@ static int32_t ov7692_sensor_setting(int update_type, int rt)
 	struct msm_camera_csi_params ov7692_csi_params;
 	switch (update_type) {
 	case REG_INIT:
+		OV7692_CSI_CONFIG = 0;
 		ov7692_i2c_write_b_sensor(0x0e, 0x08);
 		return rc;
 		break;
 	case UPDATE_PERIODIC:
-		if (rt == RES_PREVIEW || rt == RES_CAPTURE) {
+		if (!OV7692_CSI_CONFIG) {
 			ov7692_csi_params.lane_cnt = 1;
 			ov7692_csi_params.data_format = CSI_8BIT;
 			ov7692_csi_params.lane_assign = 0xe4;
@@ -319,6 +321,7 @@ static int32_t ov7692_sensor_setting(int update_type, int rt)
 				if (rc < 0)
 					return rc;
 			}
+			OV7692_CSI_CONFIG = 1;
 			msleep(20);
 			return rc;
 		}
