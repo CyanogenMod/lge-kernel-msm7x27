@@ -90,7 +90,7 @@ static int  __init atcmd_virtual_probe(struct platform_device *pdev)
 	printk("[YJ] %s, end!", __FUNCTION__);
 }
 
-static struct platform_driver atcmd_virtual_kbd_driver = {
+static struct platform_driver __refdata atcmd_virtual_kbd_driver = {
 	.driver = {
 		.name = KEY_DRIVER_NAME,
 		.owner = THIS_MODULE,

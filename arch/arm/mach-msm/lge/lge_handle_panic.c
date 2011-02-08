@@ -363,7 +363,7 @@ static int __devexit lge_panic_handler_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver panic_handler_driver = {
+static struct platform_driver __refdata panic_handler_driver = {
 	.probe = lge_panic_handler_probe,
 	.remove = __devexit_p(lge_panic_handler_remove),
 	.driver = {

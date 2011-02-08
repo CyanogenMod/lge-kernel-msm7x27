@@ -68,7 +68,7 @@ static int ats_input_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver ats_input_driver = {
+static struct platform_driver __refdata ats_input_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
