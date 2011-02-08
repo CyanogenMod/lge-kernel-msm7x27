@@ -927,7 +927,7 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 
 static struct acm_platform_data *acm_pdata;
 
-static int acm_probe(struct platform_device *pdev)
+static int __init acm_probe(struct platform_device *pdev)
 {
 	if (pdev)
 		acm_pdata = pdev->dev.platform_data;
@@ -935,9 +935,8 @@ static int acm_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver acm_platform_driver = {
+static struct platform_driver acm_platform_driver __refdata = {
 	.driver = { .name = "acm", },
-	.probe = acm_probe,
 };
 
 int acm_function_bind_config(struct usb_configuration *c)
@@ -998,7 +997,7 @@ static struct android_usb_function acm2_function = {
 static int __init init(void)
 {
 	printk(KERN_INFO "f_acm init\n");
-	platform_driver_register(&acm_platform_driver);
+	platform_driver_probe(&acm_platform_driver, acm_probe);
 	android_register_function(&acm_function);
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
 	/* LGE_CHANGE

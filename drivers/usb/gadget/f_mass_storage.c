@@ -3249,7 +3249,7 @@ fsg_common_from_params(struct fsg_common *common,
 
 static struct fsg_config fsg_cfg;
 
-static int fsg_probe(struct platform_device *pdev)
+static int __init fsg_probe(struct platform_device *pdev)
 {
 	struct usb_mass_storage_platform_data *pdata = pdev->dev.platform_data;
 	int i, nluns;
@@ -3274,9 +3274,8 @@ static int fsg_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver fsg_platform_driver = {
+static struct platform_driver fsg_platform_driver __refdata = {
 	.driver = { .name = FUNCTION_NAME, },
-	.probe = fsg_probe,
 };
 
 int mass_storage_bind_config(struct usb_configuration *c)
@@ -3295,7 +3294,7 @@ static struct android_usb_function mass_storage_function = {
 static int __init init(void)
 {
 	int		rc;
-	rc = platform_driver_register(&fsg_platform_driver);
+	rc = platform_driver_probe(&fsg_platform_driver, fsg_probe);
 	if (rc != 0)
 		return rc;
 	android_register_function(&mass_storage_function);
