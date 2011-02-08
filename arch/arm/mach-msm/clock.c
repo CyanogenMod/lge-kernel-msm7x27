@@ -226,7 +226,7 @@ static int __init clock_late_init(void)
 {
 	struct clk *clk;
 
-	clock_debug_init();
+	clock_debug_init(&clocks);
 	mutex_lock(&clocks_mutex);
 	list_for_each_entry(clk, &clocks, list) {
 		clock_debug_add(clk);
