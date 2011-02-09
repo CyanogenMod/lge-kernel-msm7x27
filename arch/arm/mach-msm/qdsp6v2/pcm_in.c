@@ -32,6 +32,8 @@
 
 #define MAX_BUF 2
 #define BUFSZ (480 * 8)
+#define BUFFER_SIZE_MULTIPLE 4
+#define MIN_BUFFER_SIZE 160
 
 struct pcm {
 	struct mutex lock;
@@ -109,7 +111,8 @@ static int config(struct pcm *pcm)
 {
 	int rc = 0;
 
-	pr_debug("%s: pcm prefill\n", __func__);
+	pr_debug("%s: pcm prefill, buffer_size = %d\n", __func__,
+		pcm->buffer_size);
 	rc = q6asm_audio_client_buf_alloc(OUT, pcm->ac,
 				pcm->buffer_size, pcm->buffer_count);
 	if (rc < 0) {
@@ -190,10 +193,10 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EFAULT;
 			break;
 		}
-		pr_debug("%s: buffer_size:%d channel_count:%d sample_rate:%d \
-			buffer_count:%d\n", __func__, config.buffer_size,
-			config.channel_count, config.sample_rate,
-			config.buffer_count);
+		pr_debug("%s: SET_CONFIG: buffer_size:%d channel_count:%d"
+			"sample_rate:%d, buffer_count:%d\n", __func__,
+			config.buffer_size, config.channel_count,
+			config.sample_rate, config.buffer_count);
 
 		if (!config.channel_count || config.channel_count > 2) {
 			rc = -EINVAL;
@@ -205,9 +208,12 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
-		if (config.buffer_size % (config.channel_count * 480)) {
-			pr_err("%s: Buffer Size should be multiple of \
-					[480 * no. of channels]\n", __func__);
+		if ((config.buffer_size % (config.channel_count *
+			BUFFER_SIZE_MULTIPLE)) ||
+			(config.buffer_size < MIN_BUFFER_SIZE)) {
+			pr_err("%s: Buffer Size should be multiple of "
+				"[4 * no. of channels] and greater than 160\n",
+				__func__);
 			rc = -EINVAL;
 			break;
 		}
