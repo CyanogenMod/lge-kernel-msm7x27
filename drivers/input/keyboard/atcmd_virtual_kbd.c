@@ -95,14 +95,13 @@ static struct platform_driver __refdata atcmd_virtual_kbd_driver = {
 		.name = KEY_DRIVER_NAME,
 		.owner = THIS_MODULE,
 	},
-	.probe	 = atcmd_virtual_probe,
 	.suspend = atcmd_virtual_suspend,
 	.resume  = atcmd_virtual_resume,
 };
 
 static int __init atcmd_virtual_init(void)
 {
-	return platform_driver_register(&atcmd_virtual_kbd_driver);
+	return platform_driver_probe(&atcmd_virtual_kbd_driver, atcmd_virtual_probe);
 }
 
 
