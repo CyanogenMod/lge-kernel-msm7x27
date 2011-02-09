@@ -26,8 +26,16 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
+#include <mach/scm-io.h>
 #include "clock.h"
 #include "footswitch.h"
+
+#ifdef CONFIG_MSM_SECURE_IO
+#undef readl
+#undef writel
+#define readl secure_readl
+#define writel secure_writel
+#endif
 
 #define REG(off) (MSM_MMSS_CLK_CTL_BASE + (off))
 #define GEMINI_GFS_CTL_REG	REG(0x01A0)
