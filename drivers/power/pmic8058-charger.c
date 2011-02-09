@@ -117,6 +117,8 @@
 #define AUTO_CHARGING_VEOC_VBAT_LOW_CHECK_TIME_MS	60000
 #define AUTO_CHARGING_RESUME_CHARGE_DETECTION_COUNTER	5
 
+#define AUTO_CHARGING_DONE_CHECK_TIME_MS		1000
+
 #define PM8058_CHG_I_STEP_MA 50
 #define PM8058_CHG_I_MIN_MA 50
 #define PM8058_CHG_T_TCHG_SHIFT 2
@@ -180,6 +182,7 @@ struct pm8058_charger {
 	int pmic_chg_irq[PMIC_CHG_MAX_INTS];
 	DECLARE_BITMAP(enabled_irqs, PMIC_CHG_MAX_INTS);
 
+	struct delayed_work chg_done_check_work;
 	struct delayed_work check_vbat_low_work;
 	struct delayed_work veoc_begin_work;
 	int waiting_for_topoff;
@@ -667,6 +670,27 @@ static void vbat_low_work(struct work_struct *work)
 				AUTO_CHARGING_VEOC_TCHG_FINAL_CYCLE);
 }
 
+static void chg_done_check_work(struct work_struct *work)
+{
+	dev_info(pm8058_chg.dev, "%s notify pm8058 charging completion"
+		"\n", __func__);
+
+	pm8058_chg_disable_irq(AUTO_CHGDONE_IRQ);
+	cancel_delayed_work_sync(&pm8058_chg.veoc_begin_work);
+	cancel_delayed_work_sync(&pm8058_chg.check_vbat_low_work);
+
+	pm8058_chg_disable_irq(CHG_END_IRQ);
+
+	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
+	pm8058_chg_disable_irq(VBATDET_IRQ);
+	pm8058_chg.waiting_for_veoc = 0;
+	pm8058_chg.waiting_for_topoff = 0;
+
+	pm_chg_auto_disable(1);
+
+	msm_charger_notify_event(&usb_hw_chg, CHG_DONE_EVENT);
+}
+
 static irqreturn_t pm8058_chg_chgval_handler(int irq, void *dev_id)
 {
 	u8 old, temp;
@@ -731,20 +755,13 @@ static irqreturn_t pm8058_chg_chginval_handler(int irq, void *dev_id)
 
 static irqreturn_t pm8058_chg_auto_chgdone_handler(int irq, void *dev_id)
 {
-	pm8058_chg_disable_irq(AUTO_CHGDONE_IRQ);
-	cancel_delayed_work_sync(&pm8058_chg.veoc_begin_work);
-	cancel_delayed_work_sync(&pm8058_chg.check_vbat_low_work);
-
-	pm8058_chg_disable_irq(CHG_END_IRQ);
-
-	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
-	pm8058_chg_disable_irq(VBATDET_IRQ);
-	pm8058_chg.waiting_for_veoc = 0;
-	pm8058_chg.waiting_for_topoff = 0;
-
-	pm_chg_auto_disable(1);
-
-	msm_charger_notify_event(&usb_hw_chg, CHG_DONE_EVENT);
+	dev_info(pm8058_chg.dev, "%s waiting a sec to confirm\n",
+		__func__);
+	if (!delayed_work_pending(&pm8058_chg.chg_done_check_work)) {
+		schedule_delayed_work(&pm8058_chg.chg_done_check_work,
+				      round_jiffies_relative(msecs_to_jiffies
+			     (AUTO_CHARGING_DONE_CHECK_TIME_MS)));
+	}
 	return IRQ_HANDLED;
 }
 
@@ -1170,6 +1187,7 @@ static int pm8058_stop_charging(struct msm_hardware_charger *hw_chg)
 	dev_info(pm8058_chg.dev, "%s stopping charging\n", __func__);
 	cancel_delayed_work_sync(&pm8058_chg.veoc_begin_work);
 	cancel_delayed_work_sync(&pm8058_chg.check_vbat_low_work);
+	cancel_delayed_work_sync(&pm8058_chg.chg_done_check_work);
 
 	ret = pm_chg_get_rt_status(pm8058_chg.pmic_chg_irq[FASTCHG_IRQ]);
 	if (ret == 1)
@@ -1620,6 +1638,7 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 	create_debugfs_entries();
 	INIT_DELAYED_WORK(&pm8058_chg.veoc_begin_work, veoc_begin_work);
 	INIT_DELAYED_WORK(&pm8058_chg.check_vbat_low_work, vbat_low_work);
+	INIT_DELAYED_WORK(&pm8058_chg.chg_done_check_work, chg_done_check_work);
 
 	/* determine what state the charger is in */
 	pm8058_chg_determine_initial_state();
