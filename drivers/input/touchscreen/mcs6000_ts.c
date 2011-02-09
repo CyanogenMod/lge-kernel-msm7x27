@@ -52,12 +52,15 @@ static void mcs6000_early_suspend(struct early_suspend *h);
 static void mcs6000_late_resume(struct early_suspend *h);
 #endif
 
-//#define LG_FW_MULTI_TOUCH
-#define LG_FW_TOUCH_SOFT_KEY 1
-#define TOUCH_SEARCH    247
-#define TOUCH_BACK      248
-
-#define LG_FW_PINCH_TOUCH
+#define LG_FW_MULTI_TOUCH
+#define LG_FW_TOUCH_SOFT_KEY		1
+#define TOUCH_SEARCH			247
+#define TOUCH_BACK  			248
+#define MCS6000_I2C_TS_NAME		"touch_mcs6000"
+#define ON 				1
+#define OFF 				0
+#define PRESSED 			1
+#define RELEASED			0
 
 /* shoud be checked, what is the difference, TOUCH_SEARCH and KEY_SERACH, TOUCH_BACK  and KEY_BACK */
 //#define LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY
@@ -156,31 +159,17 @@ void Send_Touch( unsigned int x, unsigned int y)
 	}
 
 #ifdef LG_FW_MULTI_TOUCH
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_TOUCH_MAJOR, 1);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_X, x);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
-	input_mt_sync(mcs6000_ts_dev.input_dev);
-	input_sync(mcs6000_ts_dev.input_dev);
-	
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_TOUCH_MAJOR, 0);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_X, x);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
-	input_mt_sync(mcs6000_ts_dev.input_dev);
-	input_sync(mcs6000_ts_dev.input_dev);
-#elif defined(LG_FW_PINCH_TOUCH)
-	DMSG("%s x:%d, y:%d\n", __FUNCTION__, x,y);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_TOUCH_MAJOR, 1);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_X, x);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_Y, y);
+	input_mt_sync(mcs6000_ext_ts->input_dev);
+	input_sync(mcs6000_ext_ts->input_dev);
 
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_TOUCH_MAJOR, 1);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_X, x);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
-	input_mt_sync(mcs6000_ts_dev.input_dev);
-	input_sync(mcs6000_ts_dev.input_dev);
-
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_TOUCH_MAJOR, 0);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_X, x);
-	input_report_abs(mcs6000_ts_dev.input_dev, ABS_MT_POSITION_Y, y);
-	input_mt_sync(mcs6000_ts_dev.input_dev);
-	input_sync(mcs6000_ts_dev.input_dev);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_X, x);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_Y, y);
+	input_mt_sync(mcs6000_ext_ts->input_dev);
+	input_sync(mcs6000_ext_ts->input_dev);
 #else
 	mcs6000_ts_event_touch( x, y , mcs6000_ext_ts) ;
 	input_report_abs(mcs6000_ext_ts->input_dev, ABS_X, x);
@@ -261,41 +250,6 @@ static __inline void mcs6000_multi_ts_event_touch(int x1, int y1, int x2, int y2
 	return;
 }
 
-#elif defined(LG_FW_PINCH_TOUCH)
-
-
-static __inline void mcs6000_multi_ts_event_touch(int x1, int y1, int x2, int y2, int value,
-		struct mcs6000_ts_device *dev)
-{
-	int report = 0;
-	DMSG("%s x:%d, y:%d, x2:%d, y2:%d, value:%d\n", __FUNCTION__, x1,y1, x2, y2, value);
-
-	if ((x1 >= 0) && (y1 >= 0)) {
-		input_report_abs(dev->input_dev, ABS_MT_TOUCH_MAJOR, value);
-		input_report_abs(dev->input_dev, ABS_MT_POSITION_X, x1);
-		input_report_abs(dev->input_dev, ABS_MT_POSITION_Y, y1);
-		input_mt_sync(dev->input_dev);
-		report = 1;
-	}
-
-	if ((x2 >= 0) && (y2 >= 0)) {
-		input_report_abs(dev->input_dev, ABS_MT_TOUCH_MAJOR, value);
-		input_report_abs(dev->input_dev, ABS_MT_POSITION_X, x2);
-		input_report_abs(dev->input_dev, ABS_MT_POSITION_Y, y2);
-		input_mt_sync(dev->input_dev);
-		report = 1;
-	}
-
-	if (report != 0) {
-		input_sync(dev->input_dev);
-	} else {
-		printk(KERN_WARNING "%s: Not Available touch data x1=%d, y1=%d, x2=%d, y2=%d\n", 
-				__FUNCTION__,  x1, y1, x2, y2);
-	}
-	return;
-}
-
-
 #else
 
 static __inline void mcs6000_single_ts_event_touch(unsigned int x, unsigned int y, int value,
@@ -343,11 +297,6 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 	int x2 = 0, y2 = 0;
 	static int pre_x1, pre_x2, pre_y1, pre_y2;
 	static unsigned int s_input_type = NON_TOUCHED_STATE;
-#elif defined(LG_FW_PINCH_TOUCH)
-
-	int x2=0, y2 = 0;
-	static int pre_x1, pre_x2, pre_y1, pre_y2;
-	static unsigned int s_input_type = NON_TOUCHED_STATE;
 #endif
 	unsigned int input_type;
 	/* touch key function disable by younchan.kim,2010-09-24 */
@@ -369,21 +318,12 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 	if (i2c_smbus_read_i2c_block_data(ts->client, MCS6000_TS_INPUT_INFO, READ_NUM, read_buf) < 0) {
 		printk(KERN_ERR "%s touch ic read error\n", __FUNCTION__);
 		goto touch_retry;
-	} 
+	}
 
 	input_type = read_buf[0] & 0x0f;
 	/* touch key function disable by younchan.kim,2010-09-24 */
 	//key_touch = (read_buf[0] & 0xf0) >> 4;
 
-	x1 = y1 =0;
-#ifdef LG_FW_MULTI_TOUCH
-	x2 = y2 = 0;
-#elif defined(LG_FW_PINCH_TOUCH)
-
-
-	x2 = y2 = 0;
-
-#endif
 	x1 = (read_buf[1] & 0xf0) << 4;
 	y1 = (read_buf[1] & 0x0f) << 8;
 
@@ -398,23 +338,9 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 		x2 |= read_buf[6];
 		y2 |= read_buf[7];
 	}
-#elif defined(LG_FW_PINCH_TOUCH)
-	
-	x2 = (read_buf[5] & 0xf0) << 4;
-	y2 = (read_buf[5] & 0x0f) << 8;
-	x2 |= read_buf[6];
-	y2 |= read_buf[7];
-
-	x2 = read_buf[5];
-	y2 = read_buf[6];
-	
-	s_input_type = x2;
-
-	DMSG("T%d X:%d Y:%d P:%d D:%d\n", input_type, x1, y1,x2, y2);
-	
 #endif
 
-	
+	//printk(KERN_ERR "T%d X:%d Y:%d\n", input_type, x1, y1);
 		
 
 	if (dev->pendown) { /* touch pressed case */
@@ -446,21 +372,6 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, PRESSED, ts);
 				s_input_type = SINGLE_POINT_TOUCH;				
 			}
-#elif defined(LG_FW_PINCH_TOUCH)
-
-
-			if(s_input_type == 1) {
-				mcs6000_multi_ts_event_touch(x1, y1, x2, y2, PRESSED, dev);
-				pre_x1 = x1;
-				pre_y1 = y1;
-				pre_x2 = x1;
-				pre_y2 = y2;
-			}
-			else if(s_input_type == 0) {
-				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, PRESSED, dev);
-				s_input_type = 0;				
-			}
-
 #else
 			if (input_type == SINGLE_POINT_TOUCH) {
 				mcs6000_single_ts_event_touch(x1, y1, PRESSED, ts);
@@ -492,22 +403,11 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 
 				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, RELEASED, ts);
 			}
-#elif defined(LG_FW_PINCH_TOUCH)
-
-			if(s_input_type == 1) {
-				DMSG("%s: multi touch release...(%d, %d), (%d, %d)\n", __FUNCTION__,pre_x1,pre_y1,pre_x2,pre_y2);
-				mcs6000_multi_ts_event_touch(pre_x1, pre_y1, pre_x2, pre_y2, RELEASED, dev);
-				s_input_type = 0; 
-				pre_x1 = -1; pre_y1 = -1; pre_x2 = -1; pre_y2 = -1;
-			} else {
-				DMSG("%s: single touch release... %d, %d\n", __FUNCTION__, x1, y1);
-				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, RELEASED, dev);
-			}
-
-
 #else
-			DMSG("%s: single release... %d, %d\n", __FUNCTION__, x1, y1);
-			mcs6000_single_ts_event_touch (x1, y1, RELEASED, dev);
+			if (MCS6000_DM_TRACE_YES & mcs6000_debug_mask)
+				DMSG("single release... %d, %d\n", x1, y1);
+
+			mcs6000_single_ts_event_touch (x1, y1, RELEASED, ts);
 			touch_pressed = 0;
 #endif
 		}
@@ -1061,22 +961,27 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 		goto err_check_functionality_failed;
 	}
 
-#ifdef LG_FW_MULTI_TOUCH
-	input_set_abs_params(mcs6000_ts_input, ABS_MT_POSITION_X, ts_pdata->ts_x_min, ts_pdata->ts_x_max, 0, 0);
-	input_set_abs_params(mcs6000_ts_input, ABS_MT_POSITION_Y, ts_pdata->ts_y_min, ts_pdata->ts_y_max, 0, 0);
+	ts = kzalloc(sizeof(*ts), GFP_KERNEL);
+	if (ts == NULL) {
+		ret = -ENODEV;
+		goto err_alloc_data_failed;
+	}	
 
-#elif defined(LG_FW_PINCH_TOUCH)
-	DMSG("%s ABS_MT_POSITION_X:%d, ABS_MT_POSITION_Y:%d\n", __FUNCTION__, ABS_MT_POSITION_X,ABS_MT_POSITION_Y);
-	DMSG("%s x_min:%d, y_min:%d\n", __FUNCTION__, ts_pdata->ts_x_min,ts_pdata->ts_y_min);
-	DMSG("%s x_max:%d, y_max:%d\n", __FUNCTION__, ts_pdata->ts_x_max,ts_pdata->ts_y_max);
+	INIT_WORK(&ts->work, mcs6000_ts_work_func);
+	ts->client = client;
+	i2c_set_clientdata(client, ts);
+	pdata = client->dev.platform_data;
 
-	input_set_abs_params(mcs6000_ts_input, ABS_MT_POSITION_X, ts_pdata->ts_x_min, ts_pdata->ts_x_max, 0, 0);
-	input_set_abs_params(mcs6000_ts_input, ABS_MT_POSITION_Y, ts_pdata->ts_y_min, ts_pdata->ts_y_max, 0, 0);
-
-#else	
-	input_set_abs_params(mcs6000_ts_input, ABS_X, ts_pdata->ts_x_min, ts_pdata->ts_x_max, 0, 0);
-	input_set_abs_params(mcs6000_ts_input, ABS_Y, ts_pdata->ts_y_min, ts_pdata->ts_y_max, 0, 0);
-#endif
+	if (pdata)
+		ts->power = pdata->power;
+	if (ts->power) {
+		ret = ts->power(ON);
+		if (ret < 0) {
+			printk(KERN_ERR "mcs6000_ts_probe: power on failed\n");
+			goto err_power_failed;
+		}
+		msleep(120);
+	}
 
 	ret = i2c_smbus_write_byte_data(ts->client, 0x1e, 0x01);	/* device reset */
 	if (ret < 0) {
@@ -1359,7 +1264,10 @@ static void mcs6000_early_suspend(struct early_suspend * h)
     	gpio_set_value(28, 0);
 #endif
 
-		dev->power(OFF);		
+		dev->power(OFF);
+
+		
+		dev->power(OFF);
 	}
 
 	if (ts->status == MCS6000_DEV_NORMAL)
@@ -1440,13 +1348,9 @@ static int __devinit mcs6000_ts_init(void)
 	set_bit(EV_ABS, 	 mcs6000_ts_input->evbit);
 #ifdef LG_FW_MULTI_TOUCH
 	set_bit(ABS_MT_TOUCH_MAJOR, mcs6000_ts_input->absbit);
-#elif defined(LG_FW_PINCH_TOUCH)
-	DMSG("%s ABS_MT_TOUCH_MAJOR:%d\n", __FUNCTION__, ABS_MT_TOUCH_MAJOR);
-	set_bit(ABS_MT_TOUCH_MAJOR, mcs6000_ts_input->absbit);
 #else
 	set_bit(BTN_TOUCH, mcs6000_ts_input->keybit);
 #endif
-
 #if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
 	set_bit(TOUCH_BACK, mcs6000_ts_input->keybit);
 	set_bit(TOUCH_SEARCH, mcs6000_ts_input->keybit);
