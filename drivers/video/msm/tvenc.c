@@ -442,8 +442,10 @@ static int tvenc_probe(struct platform_device *pdev)
 tvenc_probe_err:
 #ifdef CONFIG_MSM_BUS_SCALING
 	if (tvenc_pdata && tvenc_pdata->bus_scale_table &&
-		tvenc_bus_scale_handle > 0)
+		tvenc_bus_scale_handle > 0) {
 		msm_bus_scale_unregister_client(tvenc_bus_scale_handle);
+		tvenc_bus_scale_handle = 0;
+	}
 #endif
 	platform_device_put(mdp_dev);
 	return rc;
@@ -451,14 +453,16 @@ tvenc_probe_err:
 
 static int tvenc_remove(struct platform_device *pdev)
 {
-	struct msm_fb_data_type *mfd;	
+	struct msm_fb_data_type *mfd;
 
 	mfd = platform_get_drvdata(pdev);
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	if (tvenc_pdata && tvenc_pdata->bus_scale_table &&
-		tvenc_bus_scale_handle > 0)
+		tvenc_bus_scale_handle > 0) {
 		msm_bus_scale_unregister_client(tvenc_bus_scale_handle);
+		tvenc_bus_scale_handle = 0;
+	}
 #else
 	clk_put(mfd->ebi1_clk);
 #endif
