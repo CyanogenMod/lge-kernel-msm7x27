@@ -109,18 +109,17 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 /* board-specific usb data definitions */
 /* QCT originals are in device_lge.c, not here */
 #ifdef CONFIG_USB_ANDROID
-
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, LG Android USB composition */
-/* Currently, LG Android host driver has 2 function orders as following;
- *
+/* LGE_CHANGE
+ * Currently, LG Android host driver has 2 USB bind orders as following;
  * - Android Platform : MDM + DIAG + GPS + UMS + ADB
- * - Android Net	  : DIAG + NDIS + MDM + GPS + UMS
+ * - Android Net      : DIAG + NDIS + MDM + GPS + UMS
  *
- * In order to meet with order of LG host driver's compositions and
- * Android Gadget for ginger, we need to add another same ACM driver.
- * "acm2" is used for matching with Android Net driver(refer to f_acm.c).
+ * To bind LG AndroidNet, we add ACM function named "acm2".
+ * Please refer to drivers/usb/gadget/f_acm.c.
+ * 2011-01-12, hyunhui.park@lge.com
  */
 
+/* The binding list for LGE Android USB */
 char *usb_functions_lge_all[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
@@ -133,41 +132,37 @@ char *usb_functions_lge_all[] = {
 #endif
 #ifdef CONFIG_USB_ANDROID_CDC_ECM
 	"ecm",
-#endif
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
 	"acm2",
 #endif
 #ifdef CONFIG_USB_F_SERIAL
-	"modem",
 	"nmea",
 #endif
 	"usb_mass_storage",
 	"adb",
-#ifdef CONFIG_USB_ANDROID_RMNET
-	"rmnet",
-#endif
 };
 
+
 /* LG Android Platform */
-char *usb_functions_lge_android_platform[] = {
+char *usb_functions_lge_android_plat[] = {
 	"acm", "diag", "nmea", "usb_mass_storage",
 };
 
-char *usb_functions_lge_android_platform_adb[] = {
+char *usb_functions_lge_android_plat_adb[] = {
 	"acm", "diag", "nmea", "usb_mass_storage", "adb",
 };
 
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
 /* LG AndroidNet */
-char *usb_functions_lge_android_network[] = {
+char *usb_functions_lge_android_net[] = {
 	"diag", "ecm", "acm2", "nmea", "usb_mass_storage",
 };
 
-char *usb_functions_lge_android_network_adb[] = {
+char *usb_functions_lge_android_net_adb[] = {
 	"diag", "ecm", "acm2", "nmea", "usb_mass_storage", "adb",
 };
 #endif
 
+#ifdef CONFIG_USB_ANDROID_RNDIS
 /* LG AndroidNet RNDIS ver */
 char *usb_functions_lge_android_rndis[] = {
 	"rndis",
@@ -176,44 +171,49 @@ char *usb_functions_lge_android_rndis[] = {
 char *usb_functions_lge_android_rndis_adb[] = {
 	"rndis", "adb",
 };
+#endif
 
 /* LG Manufacturing mode */
 char *usb_functions_lge_manufacturing[] = {
-	"acm", "nmea",
+	"acm", "diag",
 };
 
-/* QCT original's composition array is existed at device_lge.c */
+/* QCT original's composition array is existed in device_lge.c */
 struct android_usb_product usb_products[] = {
 	{
 		.product_id = 0x618E,
-		.num_functions  = ARRAY_SIZE(usb_functions_lge_android_platform),
-		.functions  = usb_functions_lge_android_platform,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_plat),
+		.functions = usb_functions_lge_android_plat,
 	},
 	{
 		.product_id = 0x618E,
-		.num_functions  = ARRAY_SIZE(usb_functions_lge_android_platform_adb),
-		.functions  = usb_functions_lge_android_platform_adb,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_plat_adb),
+		.functions = usb_functions_lge_android_plat_adb,
 	},
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
 	{
 		.product_id = 0x61A2,
-		.num_functions  = ARRAY_SIZE(usb_functions_lge_android_network),
-		.functions  = usb_functions_lge_android_network,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_net),
+		.functions = usb_functions_lge_android_net,
 	},
 	{
 		.product_id = 0x61A1,
-		.num_functions  = ARRAY_SIZE(usb_functions_lge_android_network_adb),
-		.functions  = usb_functions_lge_android_network_adb,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_net_adb),
+		.functions = usb_functions_lge_android_net_adb,
 	},
+#endif
+#ifdef CONFIG_USB_ANDROID_RNDIS
 	{
 		.product_id = 0x61DA,
-		.num_functions  = ARRAY_SIZE(usb_functions_lge_android_rndis),
-		.functions  = usb_functions_lge_android_rndis,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_rndis),
+		.functions = usb_functions_lge_android_rndis,
 	},
 	{
 		.product_id = 0x61D9,
-		.num_functions  = ARRAY_SIZE(usb_functions_lge_android_rndis_adb),
-		.functions  = usb_functions_lge_android_rndis_adb,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_rndis_adb),
+		.functions = usb_functions_lge_android_rndis_adb,
 	},
+#endif
 	{
 		.product_id = 0x6000,
 		.num_functions  = ARRAY_SIZE(usb_functions_lge_manufacturing),
@@ -250,7 +250,12 @@ struct platform_device rndis_device = {
 	},
 };
 
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-12-03, CDC ECM for LG AndroidNet */
+
+#ifdef CONFIG_USB_ANDROID_CDC_ECM
+/* LGE_CHANGE
+ * To bind LG AndroidNet, add platform data for CDC ECM.
+ * 2011-01-12, hyunhui.park@lge.com
+ */
 struct usb_ether_platform_data ecm_pdata = {
 	/* ethaddr is filled by board_serialno_setup */
 	.vendorID   	= 0x1004,
@@ -264,7 +269,25 @@ struct platform_device ecm_device = {
 		.platform_data = &ecm_pdata,
 	},
 };
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
+#endif
+
+#ifdef CONFIG_USB_ANDROID_ACM
+/* LGE_CHANGE
+ * To bind LG AndroidNet, add platform data for CDC ACM.
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+struct acm_platform_data acm_pdata = {
+	.num_inst	    = 1,
+};
+
+struct platform_device acm_device = {
+	.name   = "acm",
+	.id 	= -1,
+	.dev    = {
+		.platform_data = &acm_pdata,
+	},
+};
+#endif
 
 struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id  = 0x1004,
@@ -274,16 +297,10 @@ struct android_usb_platform_data android_usb_pdata = {
 	.manufacturer_name  = "LG Electronics Inc.",
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
-#if 1
 	.num_functions = ARRAY_SIZE(usb_functions_lge_all),
 	.functions = usb_functions_lge_all,
-#else /* below is original */
-	.num_functions = ARRAY_SIZE(usb_functions_all),
-	.functions = usb_functions_all,
-#endif
-	.serial_number = "LG_ANDROID_P500****",
+	.serial_number = "LG_ANDROID_C660_GB_",
 };
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-12-03 */
 
 #endif /* CONFIG_USB_ANDROID */
 
