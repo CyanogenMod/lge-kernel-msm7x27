@@ -30,6 +30,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/hrtimer.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
 
 #include <linux/mfd/pmic8058.h>
 #include <linux/pmic8058-othc.h>
@@ -56,7 +57,6 @@ struct pm8058_othc {
 	bool othc_support_n_switch;
 	bool accessory_support;
 	bool accessories_adc_support;
-	bool micbias_enabled;
 	int othc_base;
 	int othc_irq_sw;
 	int othc_irq_ir;
@@ -72,6 +72,7 @@ struct pm8058_othc {
 	void *adc_handle;
 	void *accessory_adc_handle;
 	spinlock_t lock;
+	struct regulator *othc_vreg;
 	struct input_dev *othc_ipd;
 	struct switch_dev othc_sdev;
 	struct pmic8058_othc_config_pdata *othc_pdata;
@@ -123,11 +124,6 @@ int pm8058_micbias_enable(enum othc_micbias micbias,
 		pr_err("PM8058 write failed\n");
 		return rc;
 	}
-
-	if (enable == OTHC_SIGNAL_OFF)
-		dd->micbias_enabled = false;
-	else
-		dd->micbias_enabled = true;
 
 	return rc;
 }
@@ -182,11 +178,10 @@ static int pm8058_othc_suspend(struct device *dev)
 		}
 	}
 
-	if (!device_may_wakeup(dev) && dd->micbias_enabled == false) {
-		if (dd->othc_pdata->micbias_power != NULL)
-			rc = dd->othc_pdata->micbias_power(false);
-			if (rc)
-				pr_err("micbasis power off failed\n");
+	if (!device_may_wakeup(dev)) {
+		rc = regulator_disable(dd->othc_vreg);
+		if (rc)
+			pr_err("othc micbais power off failed\n");
 	}
 
 	return rc;
@@ -204,11 +199,10 @@ static int pm8058_othc_resume(struct device *dev)
 		}
 	}
 
-	if (!device_may_wakeup(dev) && dd->micbias_enabled == false) {
-		if (dd->othc_pdata->micbias_power != NULL)
-			rc = dd->othc_pdata->micbias_power(true);
-			if (rc)
-				pr_err("micbasis power on failed\n");
+	if (!device_may_wakeup(dev)) {
+		rc = regulator_enable(dd->othc_vreg);
+		if (rc)
+			pr_err("othc micbais power on failed\n");
 	}
 
 	return rc;
@@ -247,10 +241,9 @@ static int __devexit pm8058_othc_remove(struct platform_device *pd)
 		free_irq(dd->othc_irq_ir, dd);
 		input_unregister_device(dd->othc_ipd);
 	}
-	if (dd->othc_pdata->micbias_power != NULL)
-		dd->othc_pdata->micbias_power(false);
-	if (dd->othc_pdata->micbias_exit != NULL)
-		dd->othc_pdata->micbias_exit();
+	regulator_disable(dd->othc_vreg);
+	regulator_put(dd->othc_vreg);
+
 	kfree(dd);
 
 	return 0;
@@ -1006,24 +999,31 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	dd->othc_pdata = pdata;
 	dd->pm_chip = chip;
 	dd->othc_base = res->start;
-	dd->micbias_enabled = false;
-	if (pdata->micbias_init != NULL) {
-		rc = pdata->micbias_init();
-		if (rc) {
-			pr_err("Init failed\n");
-			goto fail_othc_init;
-		}
+	if (pdata->micbias_regulator == NULL) {
+		pr_err("OTHC regulator not specified\n");
+		goto fail_get_res;
 	}
 
-	if (dd->othc_pdata->micbias_enable != OTHC_SIGNAL_OFF) {
-		if (pdata->micbias_power != NULL) {
-			rc = pdata->micbias_power(true);
-			if (rc) {
-				pr_err("power on failed\n");
-				goto fail_othc_power;
-			}
-		}
-		dd->micbias_enabled = true;
+	dd->othc_vreg = regulator_get(NULL,
+				pdata->micbias_regulator->regulator);
+	if (IS_ERR(dd->othc_vreg)) {
+		pr_err("regulator get failed\n");
+		rc = PTR_ERR(dd->othc_vreg);
+		goto fail_get_res;
+	}
+
+	rc = regulator_set_voltage(dd->othc_vreg,
+				pdata->micbias_regulator->min_uV,
+				pdata->micbias_regulator->max_uV);
+	if (rc) {
+		pr_err("othc regulator set voltage failed\n");
+		goto fail_reg_enable;
+	}
+
+	rc = regulator_enable(dd->othc_vreg);
+	if (rc) {
+		pr_err("othc regulator enable failed\n");
+		goto fail_reg_enable;
 	}
 
 	platform_set_drvdata(pd, dd);
@@ -1050,12 +1050,9 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	return 0;
 
 fail_othc_hsed:
-	if (pdata->micbias_power != NULL)
-		rc = pdata->micbias_power(false);
-fail_othc_power:
-	if (pdata->micbias_exit != NULL)
-		pdata->micbias_exit();
-fail_othc_init:
+	regulator_disable(dd->othc_vreg);
+fail_reg_enable:
+	regulator_put(dd->othc_vreg);
 fail_get_res:
 	pm_runtime_set_suspended(&pd->dev);
 	pm_runtime_disable(&pd->dev);
