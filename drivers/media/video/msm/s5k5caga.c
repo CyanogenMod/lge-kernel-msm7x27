@@ -53,10 +53,10 @@
 #endif
 /***********************************************************/	
 
-#define s5k5caga_ENABLE											0	//mhlee
+#define LGCAM_REAR_SENSOR_ENABLE											0	//mhlee
 /* Sensor Core Registers */
-#define  REG_s5k5caga_MODEL_ID 0x0000
-#define  s5k5caga_MODEL_ID     0x0520
+#define  REG_LGCAM_REAR_SENSOR_MODEL_ID 0x0000
+#define  LGCAM_REAR_SENSOR_MODEL_ID     0x0520
 
 /* BEGIN: 0004743 hyungtae.lee@lge.com 2010-03-08 */
 /* MOD: 0004743: [camera] modification of capture mode on night mode */ 
@@ -65,6 +65,7 @@
 
 #define NOT_NIGHT_MODE 0
 #define NIGHT_MODE 1
+//#define LGCAM_REAR_SENSOR_THREAD_ENABLE //not defined for s5k5caga
 
 int current_scene = 0;
 int previous_mode = 0;
@@ -76,7 +77,7 @@ int focus_mode = 0;
 static int debug_mask = 1;
 
 static int prev_af_mode;
-static int enable_capturemode = 0;
+//#define TOUCH_FOCUS_TEST
 
 #if ALESSI_TUNING_SET
 static struct s5k5caga_register_address_value_pair  ext_reg_settings[4000] = {0,};
@@ -116,8 +117,10 @@ static struct s5k5caga_ctrl *s5k5caga_ctrl;
 static DECLARE_WAIT_QUEUE_HEAD(s5k5caga_wait_queue);
 DECLARE_MUTEX(s5k5caga_sem);
 
-static long s5k5caga_set_capture_zoom(int zoom);
-DEFINE_MUTEX(s5k5caga_tuning_mutex);
+static long lgcam_rear_sensor_set_capture_zoom(int zoom);
+DEFINE_MUTEX(lgcam_rear_sensor_tuning_mutex);
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
+static int enable_capturemode = 0;
 static int tuning_thread_run = 0;
 static int statuscheck = 0;
 #define CFG_WQ_SIZE		64
@@ -129,6 +132,7 @@ struct config_work_queue {
 
 static struct config_work_queue *cfg_wq;
 static int cfg_wq_num;
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
 
 struct current_pict_size{
 	int width;
@@ -173,6 +177,10 @@ static int32_t s5k5caga_i2c_txdata(unsigned short saddr,
 static int32_t s5k5caga_i2c_write(unsigned short saddr,
 	unsigned short waddr, uint32_t wdata, enum s5k5caga_width width)
 {
+#if ALESSI_TUNING_SET
+	int fail_count = 0;
+	int retry ;
+#endif
 	int32_t rc = 0;//-EIO;
 	unsigned char buf_dbl[6];
 	unsigned char buf_wrd[4];
@@ -181,37 +189,33 @@ static int32_t s5k5caga_i2c_write(unsigned short saddr,
 	
 	switch (width) {
 
-		case BURST_LEN: 
+		case BURST_LEN:
 			switch(waddr) {
 
-				case 0xFFFE:
-					//		mutex_lock(&s5k5caga_tuning_mutex);
-					memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
-					burst_num = 3;
-					sensor_burst_buffer[0] = 0x0F;
-					sensor_burst_buffer[1] = 0x12;		
-					sensor_burst_buffer[2] = (wdata & 0xFF00)>>8;		
-					sensor_burst_buffer[3] = (wdata & 0x00FF);						
-					break;
+			case 0xFFFE:
+		//		mutex_lock(&lgcam_rear_sensor_tuning_mutex);
+				memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
+					burst_num = 0; // initialize
+					sensor_burst_buffer[burst_num++] = 0x0F;
+					sensor_burst_buffer[burst_num++] = 0x12;
+					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;
+					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
+				break;
 
-				case 0x0:
-					burst_num++;
-					sensor_burst_buffer[burst_num] = (wdata & 0xFF00)>>8;		
-					burst_num++;
-					sensor_burst_buffer[burst_num] = (wdata & 0x00FF);		
-					break;
+			case 0x0:
+					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;
+					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
+				break;
 
-				case 0xFFFF:
-					burst_num++;
-					sensor_burst_buffer[burst_num] = (wdata & 0xFF00)>>8;		
-					burst_num++;
-					sensor_burst_buffer[burst_num] = (wdata & 0x00FF);	
+			case 0xFFFF:
+					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;
+					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
 
-					rc = s5k5caga_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, (burst_num+1));	
-					//		mutex_unlock(&s5k5caga_tuning_mutex);		
-					break;
-			}
-			break;
+				rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, burst_num+1);
+		//		mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
+				break;
+		}
+		break;
 
 		case DOBULE_LEN:
 			memset(buf_dbl, 0, sizeof(buf_dbl));
@@ -253,8 +257,15 @@ static int32_t s5k5caga_i2c_write(unsigned short saddr,
 			printk("s5k5caga_i2c_write first error!!!\n");
 		
 		for(retry = 0; retry < 3; retry++){
+<<<<<<< HEAD
 			if(width == DOBULE_LEN)
 				rc = s5k5caga_i2c_txdata(saddr, buf_dbl, 6);
+=======
+			if((width == BURST_LEN) && (waddr == 0xFFFF))
+				rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, (burst_num+1));
+			else if(width == DOBULE_LEN)
+				rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_dbl, 6);
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 			else if(width == WORD_LEN)
 				rc = s5k5caga_i2c_txdata(saddr, buf_wrd, 4);
 			else if(width == BYTE_LEN)
@@ -428,8 +439,13 @@ static int32_t s5k5caga_i2c_read(unsigned short   saddr,
    
 	return rc;
 }
+<<<<<<< HEAD
 
 static int s5k5caga_check_thread_run(void)
+=======
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
+static int lgcam_rear_sensor_check_thread_run(void)
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 {
 	int32_t rc = -1;		
 	int i = 0;
@@ -447,6 +463,7 @@ static int s5k5caga_check_thread_run(void)
 	}
 	return rc;
 }
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
 
 #if 0 /* not used, now */
 static int s5k5caga_reset(const struct msm_camera_sensor_info *dev, int value)
@@ -509,7 +526,12 @@ static long s5k5caga_snapshot_config(int mode,int width, int height)
 static int32_t s5k5caga_cancel_focus(int mode)
 {
 	int32_t rc = 0;
+<<<<<<< HEAD
 
+=======
+	int32_t i = 0;
+	unsigned short af_pos = 0;
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if(debug_mask)
 		printk("s5k5caga: cancel focus, mode = %d\n", mode);
 
@@ -587,7 +609,12 @@ static long s5k5caga_set_sensor_mode(int mode,int width, int height)
 	case SENSOR_SNAPSHOT_MODE:
 	case SENSOR_RAW_SNAPSHOT_MODE:
 		if(debug_mask)
+<<<<<<< HEAD
 			printk("s5k5caga_set_sensor_mode: sensor mode is SNAPSHOT\n");
+=======
+			printk("lgcam_rear_sensor_set_sensor_mode: sensor mode is SNAPSHOT\n");
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		if(tuning_thread_run)
 		{
 			rc = s5k5caga_check_thread_run();
@@ -597,6 +624,7 @@ static long s5k5caga_set_sensor_mode(int mode,int width, int height)
 			}
 			mdelay(500);
 		}
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 	
 		rc = s5k5caga_snapshot_config(mode, width, height);
 		
@@ -677,10 +705,14 @@ static int32_t s5k5caga_check_af_lock_and_clear(void)
 #define FOCUS_STEP_GARO 	4
 #define FOCUS_STEP_SERO 	4
 #define FOCUS_STEP_MAX 		(FOCUS_STEP_GARO * FOCUS_STEP_SERO)
-#define FOCUS_FULLSIZE_X 	2592
-#define FOCUS_FULLSIZE_Y 	1944
+#define FOCUS_FULLSIZE_X 	2048	//s5k5caga
+#define FOCUS_FULLSIZE_Y 	1546 //s5k5caga
 #define FOCUS_PREVIEW_X 	640
 #define FOCUS_PREVIEW_Y 	480
+#define FOCUS_FRSTWINSIZE_X 	320
+#define FOCUS_FRSTWINSIZE_Y 	266
+#define FOCUS_SCNDWINSIZE_X 	143
+#define FOCUS_SCNDWINSIZE_Y 	143
 
 static int32_t s5k5caga_set_focus(void)
 {
@@ -710,44 +742,30 @@ static long s5k5caga_set_focus_rect(int focus_rect)
 	int temp_x_position = 0, temp_y_position = 0;	
 	int x_position = 0, y_position = 0;	
 	int real_x_position = 0, real_y_position = 0;	
-	int rect_W = 0, rect_H = 0;	
-	int real_rect_W = 0, real_rect_H = 0;	
+//	int real_rect_W = 0, real_rect_H = 0;	
 
 	if(debug_mask)
+<<<<<<< HEAD
 		printk("s5k5caga_set_focus_rect : called, new focus_rect: %d\n", focus_rect);
 
 	if((focus_rect <= 0) || (focus_rect > 25))
 		return 0;
 	s5k5caga_set_focus();
+=======
+		printk("lgcam_rear_sensor_set_focus_rect : called, new focus_rect: %d\n", focus_rect);
+#if defined (TOUCH_FOCUS_TEST)
+	focus_rect = 16;
+#endif
 
-	if(focus_rect <= FOCUS_STEP_MAX)
-	{
-		temp_x_position = focus_rect / FOCUS_STEP_GARO;
-		temp_y_position = (focus_rect - 1) % FOCUS_STEP_SERO;
-		x_position = (int)(temp_x_position * 160 * FOCUS_FULLSIZE_X / FOCUS_PREVIEW_X + 8 + 41);	// 8 + 41은 sony의 연산방법 참조.
-		real_x_position = cpu_to_be16(x_position);
-		
-		y_position = (int)(temp_y_position * 120 * FOCUS_FULLSIZE_Y / FOCUS_PREVIEW_Y + 4); 		// 4는 sony의 연산방법 참조.
-		real_y_position = cpu_to_be16(y_position);		
-	}
-	else
-	{
-		temp_x_position = (focus_rect / FOCUS_STEP_GARO) - (FOCUS_STEP_MAX / FOCUS_STEP_GARO);
-		temp_y_position = (focus_rect - 1) % (FOCUS_STEP_SERO - 1) - 1;
-		x_position = (int)((80 + temp_x_position * 160) * FOCUS_FULLSIZE_X / FOCUS_PREVIEW_X + 8 + 41);	// 8 + 41은 sony의 연산방법 참조.
-		real_x_position = cpu_to_be16(x_position);
-		
-		y_position = (int)((60 + temp_y_position * 120) * FOCUS_FULLSIZE_Y / FOCUS_PREVIEW_Y + 4); 		// 4는 sony의 연산방법 참조.
-		real_y_position = cpu_to_be16(y_position);		
-	}
+	if((focus_rect <= 0) || (focus_rect > 25))
+		return 0;
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 
-	rect_W = (FOCUS_PREVIEW_X / FOCUS_STEP_GARO) * (FOCUS_FULLSIZE_X / FOCUS_PREVIEW_X);
-	real_rect_W = cpu_to_be16(rect_W);
-	rect_H = (FOCUS_PREVIEW_Y / FOCUS_STEP_SERO) * (FOCUS_FULLSIZE_Y / FOCUS_PREVIEW_Y);
-	real_rect_H = cpu_to_be16(rect_H);
+
 
 	if(debug_mask)
 	{
+<<<<<<< HEAD
 		printk("s5k5caga_set_focus_rect : called, x_position = %d, y_position = %d\n", x_position, y_position);
 		printk("s5k5caga_set_focus_rect : called, rect_W = %d, rect_H = %d\n", rect_W, rect_H);
 	}	
@@ -765,8 +783,71 @@ static long s5k5caga_set_focus_rect(int focus_rect)
 		return rc;
 
 	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x4C52, real_rect_H, WORD_LEN);
+=======
+		printk("lgcam_rear_sensor_set_focus_rect : called, x_position = %d, y_position = %d\n", x_position, y_position);
+	}	
+
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x7000, WORD_LEN);
 	if (rc < 0)
 		return rc;
+
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002A, 0x025A, WORD_LEN);
+	if (rc < 0)
+		return rc;
+
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x100, WORD_LEN);
+	if (rc < 0)
+		return rc;
+
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x00E3, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0200, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0238, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	if(focus_rect <= FOCUS_STEP_MAX)
+	{
+		temp_x_position = focus_rect / FOCUS_STEP_GARO;
+		temp_y_position = (focus_rect - 1) % FOCUS_STEP_SERO;
+		x_position = (int)(temp_x_position * 1024 / FOCUS_PREVIEW_X) ;
+		real_x_position = cpu_to_be16(x_position);
+		
+		y_position = (int)(temp_y_position * 1024 / FOCUS_PREVIEW_Y);
+		real_y_position = cpu_to_be16(y_position);		
+#if defined (TOUCH_FOCUS_TEST)
+		x_position = 0x003C ;
+		y_position = 0x0266;
+#endif
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, x_position, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, y_position, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	}
+	else
+	{
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x018C, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0166, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	}
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x00E6, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0132, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0001, WORD_LEN);
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
+	if (rc < 0)
+		return rc;
+//	prev_af_mode = FOCUS_RECT;
 	
 	return rc;	
 }
@@ -945,14 +1026,15 @@ static int32_t s5k5caga_focus_config(int mode)
 {
 	int32_t rc = 0;
 
-#if 0	//mhlee 0110
-	if(prev_af_mode == mode)
+	if(prev_af_mode == FOCUS_RECT)
 	{		
+<<<<<<< HEAD
 		rc = s5k5caga_set_focus();
+=======
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.focus_rect_reg_settings[0], lgcam_rear_sensor_regs.focus_rect_reg_settings_size);
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	}
 
-	else
-#endif
 	{
 		switch(mode){
 			case FOCUS_AUTO:
@@ -1814,7 +1896,15 @@ static long s5k5caga_set_scene_mode(int8_t mode)
 	
 	case CAMERA_SCENE_PORTRAIT:
 		if(debug_mask)
+<<<<<<< HEAD
 			printk("s5k5caga_set_scene_mode: mode is portrait\n");
+=======
+			printk("lgcam_rear_sensor_set_scene_mode: mode is portrait\n");
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
+		if (rc < 0)
+			return rc;
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		
 		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_portrait_reg_settings[0],
                 s5k5caga_regs.scene_portrait_reg_settings_size);
@@ -1822,7 +1912,15 @@ static long s5k5caga_set_scene_mode(int8_t mode)
 	
 	case CAMERA_SCENE_LANDSCAPE:
 		if(debug_mask)
+<<<<<<< HEAD
 			printk("s5k5caga_set_scene_mode: mode is landscape\n");
+=======
+			printk("lgcam_rear_sensor_set_scene_mode: mode is landscape\n");
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
+		if (rc < 0)
+			return rc;
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
 		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_landscape_reg_settings[0],
                 s5k5caga_regs.scene_landscape_reg_settings_size);
@@ -1830,7 +1928,15 @@ static long s5k5caga_set_scene_mode(int8_t mode)
 	
 	case CAMERA_SCENE_SPORTS:
 		if(debug_mask)
+<<<<<<< HEAD
 			printk("s5k5caga_set_scene_mode: mode is sport\n");
+=======
+			printk("lgcam_rear_sensor_set_scene_mode: mode is sport\n");
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
+		if (rc < 0)
+			return rc;
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
 		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_sport_reg_settings[0],
                 s5k5caga_regs.scene_sport_reg_settings_size);
@@ -1838,7 +1944,15 @@ static long s5k5caga_set_scene_mode(int8_t mode)
 	
 	case CAMERA_SCENE_SUNSET:
 		if(debug_mask)
+<<<<<<< HEAD
 			printk("s5k5caga_set_scene_mode: mode is sunset\n");
+=======
+			printk("lgcam_rear_sensor_set_scene_mode: mode is sunset\n");
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
+		if (rc < 0)
+			return rc;
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
 		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_sunset_reg_settings[0],
                 s5k5caga_regs.scene_sunset_reg_settings_size);
@@ -1846,7 +1960,15 @@ static long s5k5caga_set_scene_mode(int8_t mode)
 	
 	case CAMERA_SCENE_NIGHT:
 		if(debug_mask)
+<<<<<<< HEAD
 			printk("s5k5caga_set_scene_mode: mode is night\n");
+=======
+			printk("lgcam_rear_sensor_set_scene_mode: mode is night\n");
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
+		if (rc < 0)
+			return rc;
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
 		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_night_reg_settings[0],
                 s5k5caga_regs.scene_night_reg_settings_size);
@@ -2098,15 +2220,24 @@ static int s5k5caga_sensor_init_probe(const struct msm_camera_sensor_info *data)
 
 
 	/* Read the Model ID of the sensor */
+<<<<<<< HEAD
 	rc = s5k5caga_i2c_read(s5k5caga_client->addr,
 		REG_s5k5caga_MODEL_ID, &model_id, WORD_LEN);
+=======
+	rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
+		REG_LGCAM_REAR_SENSOR_MODEL_ID, &model_id, WORD_LEN);
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if (rc < 0)
 		goto init_probe_fail;
 	
 	if(debug_mask)
 		printk("s5k5caga model_id = 0x%x\n", model_id);
 	/* Check if it matches it with the value in Datasheet */
+<<<<<<< HEAD
 	if (model_id != s5k5caga_MODEL_ID) {
+=======
+	if (model_id != LGCAM_REAR_SENSOR_MODEL_ID) {
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		rc = -EINVAL;
 		goto init_probe_fail;
 	}
@@ -2125,9 +2256,10 @@ init_probe_fail:
 #define IS_CHAR_S(c)		((0x61<=c)&&(c<=0x66))						// Small Letter
 #define IS_VALID(c)			(IS_NUM(c)||IS_CHAR_C(c)||IS_CHAR_S(c))		// NUM or CHAR
 #define TO_BE_NUM_OFFSET(c)	(IS_NUM(c) ? 0x30 : (IS_CHAR_C(c) ? 0x37 : 0x57))	
-#define TO_BE_READ_SIZE		 4000*40									// 8pages (4000x8)
+#define TO_BE_READ_SIZE		 5000*40									// 8pages (4000x8)
 
 char *file_buf_alloc_pages=NULL;
+char file_buf_alloc_pages_temp[4]= {0,};
 
 static long s5k5caga_read_ext_reg(char *filename)
 {	
@@ -2159,27 +2291,78 @@ static long s5k5caga_read_ext_reg(char *filename)
 		if (file_buf_alloc_pages[read_idx]=='0' && file_buf_alloc_pages[read_idx+1]=='x' 
 			&& file_buf_alloc_pages[read_idx + 2] != ' ') {	// skip : 0x
 			read_idx += 2;			
+				if(file_buf_alloc_pages[read_idx-5]=='/' && file_buf_alloc_pages[read_idx-4]=='/')
+				{ // comment skip routine
+					read_idx += 20;
+				}
+				else
+				{
+					if(file_buf_alloc_pages[read_idx] == ',' || file_buf_alloc_pages[read_idx+1] == ',' ||
+						file_buf_alloc_pages[read_idx+2] == ',') {// burst mode check (only address)
 
 			if(length == ADDRESS_TUNE)
 			{
+							file_buf_alloc_pages_temp[0] = '0';
+							file_buf_alloc_pages_temp[1] = 'F';
+							file_buf_alloc_pages_temp[2] = '1';
+							file_buf_alloc_pages_temp[3] = '2';
+								
+							value = (file_buf_alloc_pages_temp[0]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[0]))*0x1000 \
+									+ (file_buf_alloc_pages_temp[1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[1]))*0x100\
+									+ (file_buf_alloc_pages_temp[2]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[2]))*0x10 \
+										+ (file_buf_alloc_pages_temp[3]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[3]));
+
+							read_idx += 2;
+
+							ext_reg_settings[i++].register_address = value;
+#if ALESSI_TUNING_LOG
+							printk("%s : length == ADDRESS_TUNE, i = %d , burst mode\n", __func__, i);
+#endif
+						}				
+					}
+					else
+					{
+						if(length == ADDRESS_TUNE)
+						{
+							if((file_buf_alloc_pages[read_idx] == 'F' && file_buf_alloc_pages[read_idx+1] == 'F' &&
+								file_buf_alloc_pages[read_idx+2] == 'F' && file_buf_alloc_pages[read_idx+3] == 'E') ||
+								(file_buf_alloc_pages[read_idx] == 'F' && file_buf_alloc_pages[read_idx+1] == 'F' &&
+								file_buf_alloc_pages[read_idx+2] == 'F' && file_buf_alloc_pages[read_idx+3] == 'F'))
+							{
+								file_buf_alloc_pages_temp[0] = '0';
+								file_buf_alloc_pages_temp[1] = 'F';
+								file_buf_alloc_pages_temp[2] = '1';
+								file_buf_alloc_pages_temp[3] = '2';
+
+								value = (file_buf_alloc_pages_temp[0]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[0]))*0x1000 \
+									+ (file_buf_alloc_pages_temp[1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[1]))*0x100\
+									+ (file_buf_alloc_pages_temp[2]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[2]))*0x10 \
+										+ (file_buf_alloc_pages_temp[3]-TO_BE_NUM_OFFSET(file_buf_alloc_pages_temp[3]));
+
+								read_idx += 2;
+								
+							}
+							else
+							{
 				value = (file_buf_alloc_pages[read_idx]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx]))*0x1000 \
 						+ (file_buf_alloc_pages[read_idx+1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+1]))*0x100\
 						+ (file_buf_alloc_pages[read_idx+2]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+2]))*0x10 \
 							+ (file_buf_alloc_pages[read_idx+3]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+3]));
 
-				read_idx = read_idx + 4;
-
-				ext_reg_settings[i++].register_address = value;
+								read_idx += 4;
+							}
+							
+							ext_reg_settings[i++].register_address = value;
 #if ALESSI_TUNING_LOG
-				printk("%s : length == ADDRESS_TUNE, i = %d\n", __func__, i);
+							printk("%s : length == ADDRESS_TUNE, i = %d\n", __func__, i);
 #endif
-			}
-			else if(length == BYTE_LEN)
-			{
-				value = (file_buf_alloc_pages[read_idx]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx]))*0x10 \
-							+ (file_buf_alloc_pages[read_idx+1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+1]));
+						}
+						else if(length == BYTE_LEN)
+						{
+							value = (file_buf_alloc_pages[read_idx]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx]))*0x10 \
+										+ (file_buf_alloc_pages[read_idx+1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+1]));
 
-				read_idx = read_idx + 2;
+							read_idx += 2;
 
 				ext_reg_settings[j].register_value = value;
 				ext_reg_settings[j++].register_length = length;
@@ -2187,22 +2370,25 @@ static long s5k5caga_read_ext_reg(char *filename)
 				printk("%s : length == BYTE_LEN, j = %d\n", __func__, j);
 #endif
 			}
-			else if(length == WORD_LEN)
-			{
-				value = (file_buf_alloc_pages[read_idx]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx]))*0x1000 \
-						+ (file_buf_alloc_pages[read_idx+1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+1]))*0x100\
-						+ (file_buf_alloc_pages[read_idx+2]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+2]))*0x10 \
-							+ (file_buf_alloc_pages[read_idx+3]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+3]));
+						else if((length == WORD_LEN) || (length == BURST_LEN))
+						{
+							value = (file_buf_alloc_pages[read_idx]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx]))*0x1000 \
+									+ (file_buf_alloc_pages[read_idx+1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+1]))*0x100\
+									+ (file_buf_alloc_pages[read_idx+2]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+2]))*0x10 \
+										+ (file_buf_alloc_pages[read_idx+3]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+3]));
 
-				read_idx = read_idx + 4;
+							read_idx += 4;
 
-				ext_reg_settings[j].register_value = value;
-				ext_reg_settings[j++].register_length = length;
+							ext_reg_settings[j].register_value = value;
+							ext_reg_settings[j++].register_length = WORD_LEN;
 #if ALESSI_TUNING_LOG
-				printk("%s : length == WORD_LEN, j = %d\n", __func__, j);
+							if(length == BURST_LEN)
+								printk("%s : length == BURST_LEN, j = %d\n", __func__, j);
+							else
+								printk("%s : length == WORD_LEN, j = %d\n", __func__, j);
 #endif
-			}
-			else
+						}
+						else if(length == DOBULE_LEN)
 			{				
 				value = (file_buf_alloc_pages[read_idx]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx]))*0x10000000 \
 						+ (file_buf_alloc_pages[read_idx+1]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+1]))*0x1000000\
@@ -2213,15 +2399,17 @@ static long s5k5caga_read_ext_reg(char *filename)
 						+ (file_buf_alloc_pages[read_idx+6]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+6]))*0x10 \
 							+ (file_buf_alloc_pages[read_idx+7]-TO_BE_NUM_OFFSET(file_buf_alloc_pages[read_idx+7]));
 
-				read_idx = read_idx + 8;
+							read_idx += 8;
 
-				ext_reg_settings[j].register_value = value;
-				ext_reg_settings[j++].register_length = length;
+							ext_reg_settings[j].register_value = value;
+							ext_reg_settings[j++].register_length = length;
 #if ALESSI_TUNING_LOG
-				printk("%s : length == DOBULE_LEN, j = %d\n", __func__, j);
+							printk("%s : length == DOBULE_LEN, j = %d\n", __func__, j);
 #endif
-			}
-
+						}				
+						else{}
+					}
+					
 			if(length == ADDRESS_TUNE)
 			{			
 				for(k=0; k < LOOP_INTERVAL; k++)
@@ -2236,10 +2424,15 @@ static long s5k5caga_read_ext_reg(char *filename)
 						length = BYTE_LEN;
 						break;
 					}			
-					else if(file_buf_alloc_pages[read_idx + k] == 'U')
-					{
-						length = DOBULE_LEN;
-						break;
+							else if(file_buf_alloc_pages[read_idx + k] == 'L')
+							{
+								length = DOBULE_LEN;
+								break;
+							}
+							else if(file_buf_alloc_pages[read_idx + k] == 'U')
+							{
+								length = BURST_LEN;
+								break;
 					}
 				}
 			}	
@@ -2248,12 +2441,13 @@ static long s5k5caga_read_ext_reg(char *filename)
 				length = ADDRESS_TUNE;
 			}
 		}
+			}
 		else
 		{
 			++read_idx;
 		}	
 
-#if ALESSI_TUNING_LOG		
+#if 0 //ALESSI_TUNING_LOG		
 		printk("%s : read external file! position : %d\n", __func__, read_idx);
 #endif
 	}while(file_buf_alloc_pages[read_idx] != '$');
@@ -2301,7 +2495,7 @@ static long s5k5caga_reg_pll_ext(void)
 	length = s5k5caga_read_ext_reg("/sdcard/pll_settings_array.txt");
 	printk("%s : length = %d!\n", __func__, length);	
 
-#if 0
+#if 1
 	if (!length)
 		return 0;
 	else	
@@ -2340,8 +2534,14 @@ static long s5k5caga_reg_init_ext(void)
 {	
 	uint16_t length = 0;
 
+<<<<<<< HEAD
 	printk("%s : s5k5caga_reg_init_ext enter!!\n", __func__);
 	length = s5k5caga_read_ext_reg("/sdcard/init_settings_array.txt");
+=======
+	printk("%s : lgcam_rear_sensor_reg_init_ext enter!!\n", __func__);
+	//length = isx005_read_ext_reg("/data/local/init_settings_array.txt");
+	length = lgcam_rear_sensor_read_ext_reg("/sdcard/init_settings_array.txt");
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	printk("%s : length = %d!\n", __func__, length);	
 
 	if (!length)
@@ -2351,6 +2551,7 @@ static long s5k5caga_reg_init_ext(void)
 }
 #endif
 
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 static int dequeue_sensor_config(int cfgtype, int mode)
 {
 	int rc = 1;
@@ -2403,7 +2604,7 @@ static int dequeue_sensor_config(int cfgtype, int mode)
 					printk("s5k5caga_sensor_config: command is CFG_START_AF_FOCUS = %d\n", focus_mode);
 				   
 				focus_mode = mode;
-
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 				if(tuning_thread_run)
 				{
 					rc = s5k5caga_check_thread_run();
@@ -2413,6 +2614,7 @@ static int dequeue_sensor_config(int cfgtype, int mode)
 					}
 					mdelay(500);
 				}
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 				
 				rc = s5k5caga_focus_config(mode);		
 				break;
@@ -2517,9 +2719,15 @@ static void enqueue_cfg_wq(int cfgtype, int mode)
 
 	++cfg_wq_num;
 }
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 
 
+<<<<<<< HEAD
 int s5k5caga_reg_tuning(void *data)
+=======
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
+int lgcam_rear_sensor_reg_tuning(void *data)
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 {
 	int rc = 0;
 
@@ -2552,15 +2760,19 @@ int s5k5caga_reg_tuning(void *data)
 
 	return rc;
 }
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
 
 int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 {
 	int rc;	
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
+	struct task_struct *p;
+	enable_capturemode = 0;
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 
 	if(debug_mask)
 	printk("s5k5caga_init start! mmm\n");
 
-	enable_capturemode = 0;
 	prev_af_mode = -1;
 	//prev_scene_mode = -1;
 	previous_mode = 0;
@@ -2594,7 +2806,11 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 #if ALESSI_TUNING_SET
 	s5k5caga_reg_pll_ext();
 #else
+<<<<<<< HEAD
 #if s5k5caga_ENABLE	//mhlee
+=======
+#if LGCAM_REAR_SENSOR_ENABLE	//mhlee
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 #if 1 //--> 20100702 : HongMiJi D요청으로 0x0009전에 해당 ap값 setting후 0x0009값 setting
       //--> preview 결함 보정 addition code
 
@@ -2649,13 +2865,11 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 	}	
 #else	
 
-#if 1	//0823 //mhlee 0104
-{
-	struct task_struct *p;
 
 	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[0], s5k5caga_regs.pll_size);
 	
 	mdelay(10);
+<<<<<<< HEAD
 	#if 0	//mhlee 0105
 	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.init[0], s5k5caga_regs.init_size);
 
@@ -2670,15 +2884,25 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 
 	#if 1	//0105 //mhlee
 	p = kthread_run(s5k5caga_reg_tuning, 0, "reg_tunning");
+=======
+#if !ALESSI_TUNING_SET	//0105 //mhlee
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
+
+
+	p = kthread_run(lgcam_rear_sensor_reg_tuning, 0, "reg_tunning");
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if(IS_ERR(p))
 	{
 		printk("s5k5caga: init writing failed\n");
 		goto init_fail; 
 	}
-	#endif
-	
-}
+	printk("lgcam_rear_sensor: init writing done\n");	
+	cfg_wq = 0;
+	tuning_thread_run = 0;
+	statuscheck = 1;	
+
 #else
+<<<<<<< HEAD
 	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[0], s5k5caga_regs.pll_size);
 	
 	mdelay(100);
@@ -2693,6 +2917,20 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 	cfg_wq = 0;
 	tuning_thread_run = 0;
 	statuscheck = 1;	
+=======
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.init[0], lgcam_rear_sensor_regs.init_size);
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
+#else
+	rc = lgcam_rear_sensor_reg_init_ext();
+
+	printk("isx005_reg_init_ext write table rc = %d\n",rc);
+	if(rc<0){
+		printk("isx005: init writing_ext failed\n");
+		goto init_fail;
+	}
+#endif
+	
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 
 #endif
 	return rc;
@@ -2718,9 +2956,11 @@ int s5k5caga_sensor_config(void __user *argp)
 {
 	struct sensor_cfg_data cfg_data;	
 	long  rc = 0;	
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 	uint16_t err_info = 0;
 	uint16_t errprev_info = 0;
 	uint16_t errcap_info = 0;
+#endif
 	
 	rc = copy_from_user(&cfg_data,(void *)argp,sizeof(struct sensor_cfg_data));
 	if(rc < 0)
@@ -2733,6 +2973,7 @@ int s5k5caga_sensor_config(void __user *argp)
 		printk("s5k5caga_ioctl m, cfgtype = %d, mode = %d\n",
 			cfg_data.cfgtype, cfg_data.mode);
 
+<<<<<<< HEAD
 	#if 0	//mhlee 0104	
 	mutex_lock(&s5k5caga_tuning_mutex);
 	if (statuscheck == 1) {		
@@ -2760,6 +3001,10 @@ int s5k5caga_sensor_config(void __user *argp)
 	mutex_unlock(&s5k5caga_tuning_mutex);
 	#else
 	mutex_lock(&s5k5caga_tuning_mutex);
+=======
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
+	mutex_lock(&lgcam_rear_sensor_tuning_mutex);
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if (statuscheck == 1) {		
 		int i=0;	
 		if(debug_mask)
@@ -2798,12 +3043,18 @@ int s5k5caga_sensor_config(void __user *argp)
 	}
 	mutex_unlock(&s5k5caga_tuning_mutex);
 
-	#endif	//mhlee
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
+
 
 	//if(cfg_data.cfgtype != CFG_SET_MODE)
 	//	return 0;	//mhlee 0105	
+<<<<<<< HEAD
 	#if 1
 	mutex_lock(&s5k5caga_tuning_mutex);
+=======
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
+	mutex_lock(&lgcam_rear_sensor_tuning_mutex);
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if ((tuning_thread_run) && (cfg_data.cfgtype != CFG_GET_CHECK_SNAPSHOT)) {
 		if (cfg_data.cfgtype == CFG_MOVE_FOCUS)
 			cfg_data.mode = cfg_data.cfg.focus.steps;
@@ -2819,10 +3070,21 @@ int s5k5caga_sensor_config(void __user *argp)
 		mutex_unlock(&s5k5caga_tuning_mutex);
 		return 0;
 	}
+<<<<<<< HEAD
 	mutex_unlock(&s5k5caga_tuning_mutex);
 	#endif
 
 	mutex_lock(&s5k5caga_mutex);
+=======
+	mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
+
+	mutex_lock(&lgcam_rear_sensor_mutex);
+#if defined (TOUCH_FOCUS_TEST)
+if(cfg_data.cfgtype == CFG_SET_PARM_AF_MODE)
+cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
+#endif
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	switch (cfg_data.cfgtype) {
 	case CFG_SET_MODE:
 		if(debug_mask)
@@ -2968,13 +3230,25 @@ int s5k5caga_sensor_config(void __user *argp)
 	case CFG_GET_CHECK_SNAPSHOT:
 	{		
 		if(debug_mask)
+<<<<<<< HEAD
 			printk("s5k5caga_sensor_config: command is CFG_GET_CHECK_SNAPSHOT\n");		
 		cfg_data.mode = enable_capturemode;
 		if(debug_mask)
 		printk("s5k5caga_sensor_config: enable_capturemode = %d\n", enable_capturemode);
+=======
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_GET_CHECK_SNAPSHOT\n");		
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
+		cfg_data.mode = enable_capturemode;
+		if(debug_mask)
+		printk("lgcam_rear_sensor_sensor_config: enable_capturemode = %d\n", enable_capturemode);
+#else
+		cfg_data.mode = 1;
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		if (copy_to_user((void *)argp,&cfg_data, sizeof(struct sensor_cfg_data)))
 			rc = -EFAULT;
 	}
+		break;
 		break;
 
 #if !ALESSI_TUNING_SET  
@@ -3239,14 +3513,21 @@ static void s5k5caga_sysfs_add(struct kobject* kobj)
 int s5k5caga_sensor_release(void)
 {
 	int rc = 0;
+<<<<<<< HEAD
 
 	mutex_lock(&s5k5caga_mutex);
 
 	rc = s5k5caga_check_thread_run();
+=======
+	mutex_lock(&lgcam_rear_sensor_mutex);
+#if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
+	rc = lgcam_rear_sensor_check_thread_run();
+>>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if (rc < 0)
 	{
 		printk("s5k5caga_check_thread_run error\n");
 	}
+#endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 
 	rc = s5k5caga_ctrl->sensordata->pdata->camera_power_off();
 

@@ -103,6 +103,8 @@ struct s5k5caga_reg {
 	uint16_t zoom_mode_capture_203_reg_settings_size;
 	const struct s5k5caga_i2c_reg_conf *zoom_mode_capture_405_reg_settings;
 	uint16_t zoom_mode_capture_405_reg_settings_size;
+	const struct lgcam_rear_sensor_i2c_reg_conf *focus_rect_reg_settings;
+	uint16_t focus_rect_reg_settings_size;	
 };
 
 /* this value is defined in Android native camera */
@@ -111,6 +113,7 @@ enum s5k5caga_focus_mode {
 	FOCUS_MACRO,
 	FOCUS_AUTO,
 	FOCUS_MANUAL,
+	FOCUS_RECT,
 };
 
 /* this value is defined in Android native camera */
