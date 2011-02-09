@@ -71,7 +71,6 @@ static int __devexit atcmd_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver atcmd_driver = {
-	.probe		= atcmd_probe,
 	.remove		= __devexit_p(atcmd_remove),
 	.driver		= {
 		.name	= "alohag_atcmd",
@@ -81,7 +80,7 @@ static struct platform_driver atcmd_driver = {
 
 static int __init atcmd_init(void)
 {
-	return platform_driver_register(&atcmd_driver);
+	return platform_driver_probe(&atcmd_driver, atcmd_probe);
 }
 
 static void __exit atcmd_exit(void)

@@ -72,7 +72,6 @@ static int ats_uevent_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver ats_uevent_driver = {
-	.probe = ats_uevent_probe,
 	.remove = ats_uevent_remove,
 	.driver = {
 		.name = "ats_uevent",
@@ -82,7 +81,7 @@ static struct platform_driver ats_uevent_driver = {
 static int __init ats_uevent_init(void)
 {
 	printk(KERN_INFO "%s: ats uevent driver\n", __func__);
-	return platform_driver_register(&ats_uevent_driver);
+	return platform_driver_probe(&ats_uevent_driver, ats_uevent_probe);
 }
 
 static void __exit ats_uevent_exit(void)
