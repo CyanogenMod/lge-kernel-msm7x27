@@ -79,8 +79,10 @@ static int gelato_bluetooth_power(int on)
 			}
 		}
         //Turn Bluetooth Power On if and only if not turned on by WLAN yet.
-        if (!gpio_get_value(CONFIG_BCM4325_GPIO_WL_REGON)) //#23
-		    gpio_set_value(CONFIG_BCM4325_GPIO_WL_REGON, 1); //#23
+/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
+        if (!gpio_get_value(CONFIG_BCM4330_GPIO_WL_REGON)) //#23
+		    gpio_set_value(CONFIG_BCM4330_GPIO_WL_REGON, 1); //#23
+/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
 		mdelay(100);
 		gpio_set_value(BT_RESET_N, 0);
 		mdelay(100);
@@ -89,8 +91,10 @@ static int gelato_bluetooth_power(int on)
 
 	} else {
         //Turn Bluetooth Power Off if and only if not used by WLAN anymore.
-        if (!gpio_get_value(CONFIG_BCM4325_GPIO_WL_RESET)) //#93
-         gpio_set_value(CONFIG_BCM4325_GPIO_WL_REGON, 0); //#23
+/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
+        if (!gpio_get_value(CONFIG_BCM4330_GPIO_WL_RESET)) //#93
+         gpio_set_value(CONFIG_BCM4330_GPIO_WL_REGON, 0); //#23
+/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
 
 		gpio_set_value(BT_RESET_N, 0);
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_off); pin++) {
