@@ -7497,14 +7497,12 @@ static const struct {
 } bt_regs_info[] = {
 	{ "8058_s3", 1800000, 1800000 },
 	{ "8058_s2", 1300000, 1300000 },
-	{ "8058_l2", 1800000, 1800000 },
 	{ "8058_l8", 2900000, 3050000 },
 };
 
 static struct {
 	bool enabled;
 } bt_regs_status[] = {
-	{ false },
 	{ false },
 	{ false },
 	{ false },
