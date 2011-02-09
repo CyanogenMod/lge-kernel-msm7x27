@@ -71,20 +71,20 @@ static struct platform_device hs_device = {
 };
 
 static unsigned int keypad_row_gpios[] = {
-	32, 33, 34	
+	38, 37
 };
 
-static unsigned int keypad_col_gpios[] = {37, 38};
+static unsigned int keypad_col_gpios[] = { 35, 34, 33 };
 
 #define KEYMAP_INDEX(row, col) ((row)*ARRAY_SIZE(keypad_col_gpios) + (col))
 
 static const unsigned short keypad_keymap_gelato[] = {
-		[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-		[KEYMAP_INDEX(0, 1)] = KEY_SEARCH,
-		[KEYMAP_INDEX(1, 0)] = KEY_BACK,
-		[KEYMAP_INDEX(1, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
-		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(0, 0)] = KEY_SEARCH,
+		[KEYMAP_INDEX(0, 1)] = KEY_MENU,
+		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(1, 0)] = KEY_HOME,
+		[KEYMAP_INDEX(1, 1)] = KEY_BACK,
+		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEDOWN,
 };
 
 int gelato_matrix_info_wrapper(struct gpio_event_input_devs *input_dev,struct gpio_event_info *info, void **data, int func)
@@ -116,10 +116,10 @@ static int gelato_gpio_matrix_power(
 static struct gpio_event_matrix_info gelato_keypad_matrix_info = {
 	.info.func	= gelato_matrix_info_wrapper,
 	.keymap		= NULL,
-	.output_gpios	= keypad_row_gpios,
-	.input_gpios	= keypad_col_gpios,
-	.noutputs	= ARRAY_SIZE(keypad_row_gpios),
-	.ninputs	= ARRAY_SIZE(keypad_col_gpios),
+	.output_gpios	= keypad_col_gpios,
+	.input_gpios	= keypad_row_gpios,
+	.noutputs	= ARRAY_SIZE(keypad_col_gpios),
+	.ninputs	= ARRAY_SIZE(keypad_row_gpios),
 	.settle_time.tv.nsec = 40 * NSEC_PER_USEC,
 	.poll_time.tv.nsec = 20 * NSEC_PER_MSEC,
 	.flags		= GPIOKPF_LEVEL_TRIGGERED_IRQ | GPIOKPF_PRINT_UNMAPPED_KEYS | GPIOKPF_DRIVE_INACTIVE
@@ -219,16 +219,16 @@ static int ts_config_gpio(int config)
 }
 static int ts_set_vreg(unsigned char onoff)
 {
-	struct vreg *vreg_touch;
-	struct vreg *vreg_pullup;
+	struct vreg *vreg_synt;
+	struct vreg *vreg_mmc;
 	int rc;
 
 	printk("[Touch] %s() onoff:%d\n",__FUNCTION__, onoff);
 
-	vreg_touch = vreg_get(0, "synt");
-	vreg_pullup = vreg_get(0, "gp1");
+	vreg_synt = vreg_get(0, "synt");
+	vreg_mmc = vreg_get(0, "mmc");
 
-	if((IS_ERR(vreg_touch)) || (IS_ERR(vreg_pullup))) {
+	if((IS_ERR(vreg_synt)) || (IS_ERR(vreg_mmc))) {
 		printk("[Touch] vreg_get fail : touch\n");
 		return -1;
 	}
@@ -236,26 +236,22 @@ static int ts_set_vreg(unsigned char onoff)
 	if (onoff) {
 		ts_config_gpio(1);
 
-		rc = vreg_set_level(vreg_touch, 3050);
-		if (rc != 0) {
-			printk("[TOUCH] vreg_set_level failed\n");
-			return -1;
-		}
-		vreg_enable(vreg_touch);
+		vreg_set_level(vreg_synt, 3000);
+		vreg_enable(vreg_synt);
 
 		msleep(15);	// wait 15ms
 		
-		vreg_set_level(vreg_pullup, 2600);
-		vreg_enable(vreg_pullup);
+		vreg_set_level(vreg_mmc, 2600);
+		vreg_enable(vreg_mmc);
 
 		//ts_config_gpio(1);
 	} else {
 		ts_config_gpio(0);
 
-		vreg_set_level(vreg_pullup, 0);
-
-		vreg_disable(vreg_pullup);
-		vreg_disable(vreg_touch);
+		vreg_set_level(vreg_mmc, 0);
+		vreg_set_level(vreg_synt, 0);
+		vreg_disable(vreg_mmc);
+		vreg_disable(vreg_synt);
 		
 		//ts_config_gpio(0);
 	}

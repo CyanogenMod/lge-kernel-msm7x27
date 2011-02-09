@@ -181,7 +181,7 @@ int gelato_vibrator_power_set(int enable)
 	/* for Gelato, 2010-12-27, jinkyu.choi@lge.com */
 #if 1
 	if (enable) {
-		if (pmic_vib_mot_set_volt(2800) < 0)
+		if (pmic_vib_mot_set_volt(3100) < 0)
 			printk("LGE: motor power on fail\n");
 	} else {
 		if (pmic_vib_mot_set_volt(0) < 0)
