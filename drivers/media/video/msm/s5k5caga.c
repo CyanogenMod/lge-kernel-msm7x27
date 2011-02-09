@@ -35,23 +35,11 @@
 /***********************************************************/
 // 값이 set되면 sdcard에서 register값을 읽어서 카메라 초기화작업을 실시한다.
 // 파일의 마지막은 항상 $ 로 마무리 해야 한다..( 조건문에 걸려잇다.)
-#define ALESSI_TUNING_SET										0 // (0 : 일반적인 버젼 1: 튜닝을 위해서 setting)
+#define SENSOR_TUNING_SET										0 // (0 : 일반적인 버젼 1: 튜닝을 위해서 setting)
 
-//ALESSI_TUNING_SET == 1이어야만 의미가 잇다.
-#define ALESSI_TUNING_LOG										0 // (0 : log를 생성안한다. 1: debugging을 위해 log set)
+//SENSOR_TUNING_SET == 1이어야만 의미가 잇다.
+#define SENSOR_TUNING_LOG										0 // (0 : log를 생성안한다. 1: debugging을 위해 log set)
 /***********************************************************/
-
-/***********************************************************/
-/** s5k5cagareg.c , Qualcommhardware.cpp 도 같이 change해라..*/
-#define ALESSI_JPEG_IF_SET										0 // (0 : YUV mode , 1 : Jpeg mode )
-
-/** s5k5cagareg.c , s5k5caga.c(vendor), QualcommHardware.cpp 도 같이 change해라..*/
-#if ALESSI_JPEG_IF_SET
-#define ALESSI_JPEG_USE_ADDRESS									1 // (0 : normal parsing , 1 : parsing to use address )
-#else
-#define ALESSI_JPEG_USE_ADDRESS									0
-#endif
-/***********************************************************/	
 
 #define LGCAM_REAR_SENSOR_ENABLE											0	//mhlee
 /* Sensor Core Registers */
@@ -71,31 +59,31 @@ int current_scene = 0;
 int previous_mode = 0;
 /* END: 0004743 hyungtae.lee@lge.com 2010-03-08 */
 
-int s5k5caga_mclk_rate = 27000000;
-
 int focus_mode = 0;
 static int debug_mask = 1;
 
 static int prev_af_mode;
 //#define TOUCH_FOCUS_TEST
 
-#if ALESSI_TUNING_SET
-static struct s5k5caga_register_address_value_pair  ext_reg_settings[4000] = {0,};
+#if SENSOR_TUNING_SET
+static struct lgcam_rear_sensor_register_address_value_pair  ext_reg_settings[4000];
+#else
+static long lgcam_rear_sensor_set_capture_zoom(int zoom);
 #endif
-#ifdef CONFIG_MACH_MSM7X27_THUNDERG
+#ifdef CONFIG_MACH_MSM7X27_THUNDERG //muscat/gelato???
 /* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 extern mdp_load_thunder_lut(int lut_type);
 #endif
 
 module_param_named(debug_mask, debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
-struct s5k5caga_work {
+struct lgcam_rear_sensor_work {
 	struct work_struct work;
 };
 
-static struct  s5k5caga_work *s5k5caga_sensorw;
-static struct  i2c_client *s5k5caga_client;
+static struct  lgcam_rear_sensor_work *lgcam_rear_sensor_sensorw;
+static struct  i2c_client *lgcam_rear_sensor_client;
 
-struct s5k5caga_ctrl {
+struct lgcam_rear_sensor_ctrl {
 	const struct msm_camera_sensor_info *sensordata;
 	int8_t sensormode;
 	unsigned char qfactor;
@@ -112,12 +100,11 @@ struct s5k5caga_ctrl {
 	int16_t write_word;
 };
 
-static struct s5k5caga_ctrl *s5k5caga_ctrl;
+static struct lgcam_rear_sensor_ctrl *lgcam_rear_sensor_ctrl;
 
-static DECLARE_WAIT_QUEUE_HEAD(s5k5caga_wait_queue);
-DECLARE_MUTEX(s5k5caga_sem);
+static DECLARE_WAIT_QUEUE_HEAD(lgcam_rear_sensor_wait_queue);
+DECLARE_MUTEX(lgcam_rear_sensor_sem);
 
-static long lgcam_rear_sensor_set_capture_zoom(int zoom);
 DEFINE_MUTEX(lgcam_rear_sensor_tuning_mutex);
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
 static int enable_capturemode = 0;
@@ -141,20 +128,19 @@ struct current_pict_size{
 static struct current_pict_size pict_size;
 static unsigned char *sensor_burst_buffer;		//mhlee 0105
 #define sensor_burst_size	750					//mhlee 0105
-static int32_t s5k5caga_i2c_read(unsigned short   saddr,
-	unsigned short raddr, unsigned short *rdata, enum s5k5caga_width width);
+static int32_t lgcam_rear_sensor_i2c_read(unsigned short   saddr,
+	unsigned short raddr, unsigned short *rdata, enum lgcam_rear_sensor_width width);
 
-DEFINE_MUTEX(s5k5caga_mutex);
+DEFINE_MUTEX(lgcam_rear_sensor_mutex);
 
 /*=============================================================
 	EXTERNAL DECLARATIONS
 ==============================================================*/
-extern struct s5k5caga_reg s5k5caga_regs;
-
+extern struct lgcam_rear_sensor_reg lgcam_rear_sensor_regs;
 
 /*=============================================================*/
 
-static int32_t s5k5caga_i2c_txdata(unsigned short saddr,
+static int32_t lgcam_rear_sensor_i2c_txdata(unsigned short saddr,
 	unsigned char *txdata, int length)
 {
 	struct i2c_msg msg[] = {
@@ -166,18 +152,18 @@ static int32_t s5k5caga_i2c_txdata(unsigned short saddr,
 		},
 	};
 
-	if (i2c_transfer(s5k5caga_client->adapter, msg, 1) < 0 ) {
-		printk("s5k5caga_i2c_txdata failed\n");
+	if (i2c_transfer(lgcam_rear_sensor_client->adapter, msg, 1) < 0 ) {
+		printk("lgcam_rear_sensor_i2c_txdata failed\n");
 		return -EIO;
 	}
 
 	return 0;
 }
 
-static int32_t s5k5caga_i2c_write(unsigned short saddr,
-	unsigned short waddr, uint32_t wdata, enum s5k5caga_width width)
+static int32_t lgcam_rear_sensor_i2c_write(unsigned short saddr,
+	unsigned short waddr, uint32_t wdata, enum lgcam_rear_sensor_width width)
 {
-#if ALESSI_TUNING_SET
+#if SENSOR_TUNING_SET
 	int fail_count = 0;
 	int retry ;
 #endif
@@ -188,8 +174,9 @@ static int32_t s5k5caga_i2c_write(unsigned short saddr,
 	static int burst_num = 0;
 	
 	switch (width) {
+		
+		case BURST_LEN: 
 
-		case BURST_LEN:
 			switch(waddr) {
 
 			case 0xFFFE:
@@ -197,52 +184,52 @@ static int32_t s5k5caga_i2c_write(unsigned short saddr,
 				memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
 					burst_num = 0; // initialize
 					sensor_burst_buffer[burst_num++] = 0x0F;
-					sensor_burst_buffer[burst_num++] = 0x12;
-					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;
-					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
+					sensor_burst_buffer[burst_num++] = 0x12;		
+					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;		
+					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);						
 				break;
-
+				
 			case 0x0:
-					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;
-					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
+					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;				
+					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);		
+				
 				break;
 
 			case 0xFFFF:
-					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;
-					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
-
-				rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, burst_num+1);
-		//		mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
+					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;				
+					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);	
+				
+				rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, burst_num+1);	
+		//		mutex_unlock(&lgcam_rear_sensor_tuning_mutex);		
 				break;
-		}
+		} 
+		break;
+		case DOBULE_LEN:
+		memset(buf_dbl, 0, sizeof(buf_dbl));
+		buf_dbl[0] = (waddr & 0xFF00)>>8;
+		buf_dbl[1] = (waddr & 0x00FF);
+		buf_dbl[2] = (wdata & 0xFF000000)>>24;
+		buf_dbl[3] = (wdata & 0x00FF0000)>>16;
+		buf_dbl[4] = (wdata & 0x0000FF00)>>8;
+		buf_dbl[5] = (wdata & 0x000000FF);
+		rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_dbl, 6);
+		break;
+		
+		case WORD_LEN:
+		memset(buf_wrd, 0, sizeof(buf_wrd));
+		buf_wrd[0] = (waddr & 0xFF00)>>8;
+		buf_wrd[1] = (waddr & 0x00FF);
+		buf_wrd[2] = (wdata & 0xFF00)>>8;
+		buf_wrd[3] = (wdata & 0x00FF);
+		rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_wrd, 4);
 		break;
 
-		case DOBULE_LEN:
-			memset(buf_dbl, 0, sizeof(buf_dbl));
-			buf_dbl[0] = (waddr & 0xFF00)>>8;
-			buf_dbl[1] = (waddr & 0x00FF);
-			buf_dbl[2] = (wdata & 0xFF000000)>>24;
-			buf_dbl[3] = (wdata & 0x00FF0000)>>16;
-			buf_dbl[4] = (wdata & 0x0000FF00)>>8;
-			buf_dbl[5] = (wdata & 0x000000FF);
-			rc = s5k5caga_i2c_txdata(saddr, buf_dbl, 6);
-			break;
-
-		case WORD_LEN:
-			memset(buf_wrd, 0, sizeof(buf_wrd));
-			buf_wrd[0] = (waddr & 0xFF00)>>8;
-			buf_wrd[1] = (waddr & 0x00FF);
-			buf_wrd[2] = (wdata & 0xFF00)>>8;
-			buf_wrd[3] = (wdata & 0x00FF);
-			rc = s5k5caga_i2c_txdata(saddr, buf_wrd, 4);
-			break;
-
 		case BYTE_LEN:
-			memset(buf_bte, 0, sizeof(buf_bte));
-			buf_bte[0] = (waddr & 0xFF00)>>8;
-			buf_bte[1] = (waddr & 0x00FF);
-			buf_bte[2] = wdata;
-			rc = s5k5caga_i2c_txdata(saddr, buf_bte, 3);
+		memset(buf_bte, 0, sizeof(buf_bte));
+		buf_bte[0] = (waddr & 0xFF00)>>8;
+		buf_bte[1] = (waddr & 0x00FF);
+		buf_bte[2] = wdata;
+		rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_bte, 3);
 			break;
 
 		case ADDRESS_TUNE:
@@ -251,25 +238,20 @@ static int32_t s5k5caga_i2c_write(unsigned short saddr,
 	}
 
 // I2C fail발생이 되는 경우가 잇어서 방어추가한다.
-#if ALESSI_TUNING_SET
+#if SENSOR_TUNING_SET
 	if(rc < 0){
 		if(debug_mask)   
-			printk("s5k5caga_i2c_write first error!!!\n");
+			printk("lgcam_rear_sensor_i2c_write first error!!!\n");
 		
 		for(retry = 0; retry < 3; retry++){
-<<<<<<< HEAD
-			if(width == DOBULE_LEN)
-				rc = s5k5caga_i2c_txdata(saddr, buf_dbl, 6);
-=======
 			if((width == BURST_LEN) && (waddr == 0xFFFF))
 				rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, (burst_num+1));
 			else if(width == DOBULE_LEN)
 				rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_dbl, 6);
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 			else if(width == WORD_LEN)
-				rc = s5k5caga_i2c_txdata(saddr, buf_wrd, 4);
+				rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_wrd, 4);
 			else if(width == BYTE_LEN)
-				rc = s5k5caga_i2c_txdata(saddr, buf_bte, 3);   				
+				rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_bte, 3);   				
 
 			if(rc >= 0)
 			{
@@ -280,7 +262,7 @@ static int32_t s5k5caga_i2c_write(unsigned short saddr,
 			{				
 				fail_count = fail_count + 1;
 					if(debug_mask)   
-						printk("s5k5caga_i2c_write #%d\n", fail_count);
+						printk("lgcam_rear_sensor_i2c_write #%d\n", fail_count);
 			}
 		}
 	}
@@ -292,8 +274,8 @@ static int32_t s5k5caga_i2c_write(unsigned short saddr,
 	return rc;	
 }
 
-static int32_t s5k5caga_i2c_write_table(
-	struct s5k5caga_i2c_reg_conf const *reg_conf_tbl,
+static int32_t lgcam_rear_sensor_i2c_write_table(
+	struct lgcam_rear_sensor_i2c_reg_conf const *reg_conf_tbl,
 	int num_of_items_in_table)
 {
 	int i = 0, fail_count = 0;
@@ -301,7 +283,7 @@ static int32_t s5k5caga_i2c_write_table(
 	int32_t rc = -EIO;
 	
 	for (i = 0; i < num_of_items_in_table; i++) {
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 		reg_conf_tbl->waddr, reg_conf_tbl->wdata,
 		reg_conf_tbl->width);
 		
@@ -310,7 +292,7 @@ static int32_t s5k5caga_i2c_write_table(
      
 		if(rc < 0){
     		for(retry = 0; retry < 3; retry++){
-   				rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+   				rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 		    			reg_conf_tbl->waddr, reg_conf_tbl->wdata,
 		    			reg_conf_tbl->width);
            
@@ -319,7 +301,7 @@ static int32_t s5k5caga_i2c_write_table(
             
             	fail_count = fail_count + 1;
 				if(debug_mask)   
-					printk("s5k5caga: i2c fail #%d\n", fail_count);
+					printk("lgcam_rear_sensor: i2c fail #%d\n", fail_count);
 	
          	}
          	reg_conf_tbl++;
@@ -328,9 +310,9 @@ static int32_t s5k5caga_i2c_write_table(
 	}
 	return rc;
 }
-
-static int32_t s5k5caga_i2c_write_table_one(
-	struct s5k5caga_i2c_reg_conf const *reg_conf_tbl,	int selected)
+#if !SENSOR_TUNING_SET
+static int32_t lgcam_rear_sensor_i2c_write_table_one(
+	struct lgcam_rear_sensor_i2c_reg_conf const *reg_conf_tbl,	int selected)
 {
 	int i = 0, fail_count = 0;
 	int retry ;
@@ -342,7 +324,7 @@ static int32_t s5k5caga_i2c_write_table_one(
 		}
 	}
 	
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 	reg_conf_tbl->waddr, reg_conf_tbl->wdata,
 	reg_conf_tbl->width);
 	
@@ -351,7 +333,7 @@ static int32_t s5k5caga_i2c_write_table_one(
  
 	if(rc < 0){
 		for(retry = 0; retry < 3; retry++){
-				rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+				rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 	    			reg_conf_tbl->waddr, reg_conf_tbl->wdata,
 	    			reg_conf_tbl->width);
        
@@ -360,13 +342,14 @@ static int32_t s5k5caga_i2c_write_table_one(
         
         	fail_count = fail_count + 1;
 			if(debug_mask)   
-				printk("s5k5caga: s5k5caga_i2c_write_table_one :: i2c fail #%d\n", fail_count);
+				printk("lgcam_rear_sensor: lgcam_rear_sensor_i2c_write_table_one :: i2c fail #%d\n", fail_count);
      	}     	
 	}	
 	return rc;
 }
+#endif //!SENSOR_TUNING_SET
 
-static int s5k5caga_i2c_rxdata(unsigned short saddr,
+static int lgcam_rear_sensor_i2c_rxdata(unsigned short saddr,
 	unsigned char *rxdata, int length)
 {
 	struct i2c_msg msgs[] = {
@@ -384,16 +367,16 @@ static int s5k5caga_i2c_rxdata(unsigned short saddr,
 	},
 	};
 
-	if (i2c_transfer(s5k5caga_client->adapter, msgs, 2) < 0) {
-		printk("s5k5caga_i2c_rxdata failed!\n");
+	if (i2c_transfer(lgcam_rear_sensor_client->adapter, msgs, 2) < 0) {
+		printk("lgcam_rear_sensor_i2c_rxdata failed!\n");
 		return -EIO;
 	}
 
 	return 0;
 }
 
-static int32_t s5k5caga_i2c_read(unsigned short   saddr,
-	unsigned short raddr, unsigned short *rdata, enum s5k5caga_width width)
+static int32_t lgcam_rear_sensor_i2c_read(unsigned short   saddr,
+	unsigned short raddr, unsigned short *rdata, enum lgcam_rear_sensor_width width)
 {
 	int32_t rc = 0;
 	unsigned char buf[4];
@@ -405,25 +388,25 @@ static int32_t s5k5caga_i2c_read(unsigned short   saddr,
 
 	switch (width) {
 		case WORD_LEN: 
-			buf[0] = (raddr & 0xFF00)>>8;
-			buf[1] = (raddr & 0x00FF);
+		buf[0] = (raddr & 0xFF00)>>8;
+		buf[1] = (raddr & 0x00FF);
 
-			rc = s5k5caga_i2c_rxdata(saddr, buf, 2);
-			if (rc < 0)
-				return rc;
+		rc = lgcam_rear_sensor_i2c_rxdata(saddr, buf, 2);
+		if (rc < 0)
+			return rc;
 
-			*rdata = buf[0] << 8 | buf[1];
-			break;
-
+		*rdata = buf[0] << 8 | buf[1];
+		break;
+   	
 		case BYTE_LEN:
-			buf[0] = (raddr & 0xFF00)>>8;
-			buf[1] = (raddr & 0x00FF);
+		buf[0] = (raddr & 0xFF00)>>8;
+		buf[1] = (raddr & 0x00FF);
 
-			rc = s5k5caga_i2c_rxdata(saddr, buf, 2);
-			if (rc < 0)
-				return rc;
-
-			*rdata = buf[0];
+		rc = lgcam_rear_sensor_i2c_rxdata(saddr, buf, 2);
+		if (rc < 0)
+			return rc;
+		
+		*rdata = buf[0];
 			break;           
 
 		case BURST_LEN:
@@ -431,21 +414,16 @@ static int32_t s5k5caga_i2c_read(unsigned short   saddr,
 		case ADDRESS_TUNE:
 		default:
 			/* nothing to do */
-			break;
+		break;           
 	}
 
 	if (rc < 0)
-		printk("s5k5caga_i2c_read failed!\n");
+		printk("lgcam_rear_sensor_i2c_read failed!\n");
    
 	return rc;
 }
-<<<<<<< HEAD
-
-static int s5k5caga_check_thread_run(void)
-=======
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 static int lgcam_rear_sensor_check_thread_run(void)
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 {
 	int32_t rc = -1;		
 	int i = 0;
@@ -466,15 +444,15 @@ static int lgcam_rear_sensor_check_thread_run(void)
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
 
 #if 0 /* not used, now */
-static int s5k5caga_reset(const struct msm_camera_sensor_info *dev, int value)
+static int lgcam_rear_sensor_reset(const struct msm_camera_sensor_info *dev, int value)
 {
 	int rc = 0;
 	
-	rc = gpio_request(dev->sensor_reset, "s5k5caga");
+	rc = gpio_request(dev->sensor_reset, "lgcam_rear_sensor");
 	if (!rc) 
 		rc = gpio_direction_output(dev->sensor_reset, value);
 	else{
-		printk("s5k5caga_reset: reset gpio_direction_output fail\n");
+		printk("lgcam_rear_sensor_reset: reset gpio_direction_output fail\n");
 		return rc;
 	}
 
@@ -482,15 +460,15 @@ static int s5k5caga_reset(const struct msm_camera_sensor_info *dev, int value)
 	return rc;
 }
 
-static int s5k5caga_pwdn(const struct msm_camera_sensor_info *dev, int value)
+static int lgcam_rear_sensor_pwdn(const struct msm_camera_sensor_info *dev, int value)
 {
 	int rc = 0;
 	
-	rc = gpio_request(dev->sensor_pwd, "s5k5caga");
+	rc = gpio_request(dev->sensor_pwd, "lgcam_rear_sensor");
 	if (!rc) 
 		rc = gpio_direction_output(dev->sensor_pwd, value);
 	else{
-		printk("s5k5caga_pwdn: pwdn gpio_direction_output fail\n");
+		printk("lgcam_rear_sensor_pwdn: pwdn gpio_direction_output fail\n");
 		return rc;
 	}
 
@@ -499,95 +477,139 @@ static int s5k5caga_pwdn(const struct msm_camera_sensor_info *dev, int value)
 }
 #endif
 
-void s5k5caga_sensor_power_enable(void)
+void lgcam_rear_sensor_sensor_power_enable(void)
 {
-	s5k5caga_ctrl->sensordata->pdata->camera_power_on();
+	lgcam_rear_sensor_ctrl->sensordata->pdata->camera_power_on();
 }
 
-void s5k5caga_sensor_power_disable(void)
+void lgcam_rear_sensor_sensor_power_disable(void)
 {
-	s5k5caga_ctrl->sensordata->pdata->camera_power_off();
+	lgcam_rear_sensor_ctrl->sensordata->pdata->camera_power_off();
 }
 
-static long s5k5caga_snapshot_config(int mode,int width, int height)
+static long lgcam_rear_sensor_snapshot_config(int mode,int width, int height)
 {
 	int32_t rc;
-	//int picture_width, picture_height;
+//	uint16_t picture_width = 0;
+//	uint16_t picture_height = 0;
 	
+//	picture_width  = width & 0xFFFF;
+//	picture_height = height & 0xFFFF;	
 	if(debug_mask)
-	   printk("s5k5caga_snapshot_config:	Input resolution[%d * %d]\n", width, height);
+	   printk("lgcam_rear_sensor_snapshot_config:	Input resolution[%d * %d]\n", width, height);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x7000, WORD_LEN);
+	if (rc < 0)
+		return rc;
 
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.snap_reg_settings[0], s5k5caga_regs.snap_reg_settings_size);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002A, 0x035E, WORD_LEN);
+	if (rc < 0)
+		return rc;
 	
-	s5k5caga_ctrl->sensormode = mode;
+	
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, width, WORD_LEN);
+	if (rc < 0)
+		return rc;
+	
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, height, WORD_LEN);
+	if (rc < 0)
+		return rc;
+
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.snap_reg_settings[0], lgcam_rear_sensor_regs.snap_reg_settings_size);
+	if (rc < 0)
+		return rc;
+	lgcam_rear_sensor_ctrl->sensormode = mode;
 	return 0;
 }
 
-static int32_t s5k5caga_cancel_focus(int mode)
+static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 {
 	int32_t rc = 0;
-<<<<<<< HEAD
-
-=======
 	int32_t i = 0;
 	unsigned short af_pos = 0;
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if(debug_mask)
-		printk("s5k5caga: cancel focus, mode = %d\n", mode);
+		printk("lgcam_rear_sensor: cancel focus, mode = %d\n", mode);
 
-	switch(mode) {
-		case FOCUS_AUTO:
-		case FOCUS_NORMAL:
-			if(debug_mask)
-				printk("back to the infinity\n");
+	switch(mode){
+	case FOCUS_AUTO:
+	case FOCUS_NORMAL:
+		if(debug_mask)
+	   		printk("back to the infinity\n");
 
-			break;
+		break;
+	
+	case FOCUS_MACRO:
+		if(debug_mask)
+	   		printk("back to the macro\n");
 
-		case FOCUS_MACRO:
-			if(debug_mask)
-				printk("back to the macro\n");
+		break;
 
-			break;
-
-		case FOCUS_MANUAL:
-			return rc;
-			break;
+	case FOCUS_MANUAL:
+		return rc;
+		break;
 	}
 
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x0028, 0x7000, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x7000, WORD_LEN);
 	if (rc < 0)
 		return rc;
 	
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x0028, 0x0252, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x0252, WORD_LEN);
+
 	if (rc < 0)
 		return rc;
 	
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x0028, 0x0003, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x0003, WORD_LEN);
+
 	if (rc < 0)
 		return rc;
+	for (i = 0; i < 10; ++i) {
+		/*INT state read to confirm INT release state*/
+
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+			0x002C, 0x7000, WORD_LEN);		
+
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+			0x002E, 0x26FE, WORD_LEN);
 		
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
+				0x0F12, &af_pos, WORD_LEN);
+		
+		if (rc < 0) {
+			printk("lgcam_rear_sensor: reading af_lock fail\n");
+			return rc;
+		}
+		if(af_pos == 0x0){
+            if(debug_mask)
+                printk("af_lenspos is equal with af_manual_pos\n");
+			break;
+		}
+		
+		if(debug_mask)
+			printk("lens position(0x%x) is not ready yet\n",af_pos);
+		
+		mdelay(60); // 1 frame skip
+}
 	return rc;
 }
 
-static long s5k5caga_set_sensor_mode(int mode,int width, int height)
+static long lgcam_rear_sensor_set_sensor_mode(int mode,int width, int height)
 {
 	int32_t rc = 0;   
 	
 	switch (mode) {
 	case SENSOR_PREVIEW_MODE:
 			if(debug_mask)
-				printk("s5k5caga_set_sensor_mode: sensor mode is PREVIEW\n");			
+				printk("lgcam_rear_sensor_set_sensor_mode: sensor mode is PREVIEW, previous mode = %d\n", previous_mode);			
 		
 		if(previous_mode == CAPTURE_MODE){
 			mdelay(60); // 1 frame skip ==> total 2 frames skip
-			rc = s5k5caga_i2c_write_table(&s5k5caga_regs.prev_reg_settings[0], s5k5caga_regs.prev_reg_settings_size);
+			rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.prev_reg_settings[0], lgcam_rear_sensor_regs.prev_reg_settings_size);
 			if(rc<0){
-				printk("s5k5caga: preview writing fail!\n");
+				printk("lgcam_rear_sensor: preview writing fail!\n");
 				return rc;
 			}
 
-			mdelay(200);  // 2 frames skip
-			rc = s5k5caga_cancel_focus(focus_mode);
+	//		mdelay(200);  // 2 frames skip
+			rc = lgcam_rear_sensor_cancel_focus(focus_mode);
 			if(rc<0)
 				return rc;
 			/* BEGIN: 0005153 hyungtae.lee@lge.com 2010-03-18 */
@@ -596,7 +618,7 @@ static long s5k5caga_set_sensor_mode(int mode,int width, int height)
 
 			if(current_scene == NIGHT_MODE){
 				if(debug_mask)
-					printk("[s5k5caga.c] current scene is NIGHT\n");
+					printk("[lgcam_rear_sensor.c] current scene is NIGHT\n");
 				
 				mdelay(800);
 		   }
@@ -609,24 +631,20 @@ static long s5k5caga_set_sensor_mode(int mode,int width, int height)
 	case SENSOR_SNAPSHOT_MODE:
 	case SENSOR_RAW_SNAPSHOT_MODE:
 		if(debug_mask)
-<<<<<<< HEAD
-			printk("s5k5caga_set_sensor_mode: sensor mode is SNAPSHOT\n");
-=======
 			printk("lgcam_rear_sensor_set_sensor_mode: sensor mode is SNAPSHOT\n");
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		if(tuning_thread_run)
 		{
-			rc = s5k5caga_check_thread_run();
+			rc = lgcam_rear_sensor_check_thread_run();
 			if (rc < 0)
 			{
-				printk("s5k5caga_check_thread_run error\n");
+				printk("lgcam_rear_sensor_check_thread_run error\n");
 			}
 			mdelay(500);
 		}
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 	
-		rc = s5k5caga_snapshot_config(mode, width, height);
+		rc = lgcam_rear_sensor_snapshot_config(mode, width, height);
 		
 		/* BEGIN: 0005118 hyungtae.lee@lge.com 2010-03-17 */
 		/* MOD: 0005118: [camera] reduce power-off time and capture time */
@@ -635,7 +653,7 @@ static long s5k5caga_set_sensor_mode(int mode,int width, int height)
 #if 0
 		if(current_scene == NIGHT_MODE){
 			if(debug_mask)
-				printk("[s5k5caga.c] current scene is NIGHT\n");
+				printk("[lgcam_rear_sensor.c] current scene is NIGHT\n");
 
 			mdelay(500);
 		}
@@ -651,9 +669,8 @@ static long s5k5caga_set_sensor_mode(int mode,int width, int height)
    
 	return 0;
 }
-
 #if 0 /* not used, now */
-static int32_t s5k5caga_check_af_lock_and_clear(void)
+static int32_t lgcam_rear_sensor_check_af_lock_and_clear(void)
 {
 	int32_t rc;
 	int i;
@@ -661,9 +678,9 @@ static int32_t s5k5caga_check_af_lock_and_clear(void)
 	
 	/* check AF lock status */
 	for(i=0; i<5; i++){
-		rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x00F8, &af_lock, BYTE_LEN);
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x00F8, &af_lock, BYTE_LEN);
 		if (rc < 0){
-			printk("s5k5caga: reading af_lock fail\n");
+			printk("lgcam_rear_sensor: reading af_lock fail\n");
 			return rc;
 		}
 	
@@ -673,19 +690,19 @@ static int32_t s5k5caga_check_af_lock_and_clear(void)
 			break;
 		}
 		if(debug_mask)
-			printk("s5k5caga: af_lock( 0x%x ) is not ready yet\n", af_lock);
+			printk("lgcam_rear_sensor: af_lock( 0x%x ) is not ready yet\n", af_lock);
 		mdelay(70);
 	}	
 	
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x00FC, 0x10, BYTE_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x00FC, 0x10, BYTE_LEN);
 	if (rc < 0)
 		return rc;
 	
 	/* check AF lock status */
 	for(i=0; i<5; i++){
-		rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x00F8, &af_lock, BYTE_LEN);
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x00F8, &af_lock, BYTE_LEN);
 		if (rc < 0){
-			printk("s5k5caga: reading af_lock fail\n");
+			printk("lgcam_rear_sensor: reading af_lock fail\n");
 			return rc;
 		}
 	
@@ -694,7 +711,7 @@ static int32_t s5k5caga_check_af_lock_and_clear(void)
 			break;
 		}
 		if(debug_mask)
-			printk("s5k5caga: af_lock( 0x%x ) is not clear yet\n", af_lock);
+			printk("lgcam_rear_sensor: af_lock( 0x%x ) is not clear yet\n", af_lock);
 		mdelay(70);
 	}	
 
@@ -714,7 +731,7 @@ static int32_t s5k5caga_check_af_lock_and_clear(void)
 #define FOCUS_SCNDWINSIZE_X 	143
 #define FOCUS_SCNDWINSIZE_Y 	143
 
-static int32_t s5k5caga_set_focus(void)
+static int32_t lgcam_rear_sensor_set_focus(void)
 {
 #if 0	//mhlee 0107
 	int32_t rc = 0;
@@ -735,7 +752,8 @@ static int32_t s5k5caga_set_focus(void)
 #endif
 }
 
-static long s5k5caga_set_focus_rect(int focus_rect)
+#if !SENSOR_TUNING_SET
+static long lgcam_rear_sensor_set_focus_rect(int focus_rect)
 {	
 	// focus_rect --> focus window값이 내려온다. (16step이다.)
 	int32_t rc;	
@@ -745,13 +763,6 @@ static long s5k5caga_set_focus_rect(int focus_rect)
 //	int real_rect_W = 0, real_rect_H = 0;	
 
 	if(debug_mask)
-<<<<<<< HEAD
-		printk("s5k5caga_set_focus_rect : called, new focus_rect: %d\n", focus_rect);
-
-	if((focus_rect <= 0) || (focus_rect > 25))
-		return 0;
-	s5k5caga_set_focus();
-=======
 		printk("lgcam_rear_sensor_set_focus_rect : called, new focus_rect: %d\n", focus_rect);
 #if defined (TOUCH_FOCUS_TEST)
 	focus_rect = 16;
@@ -759,31 +770,11 @@ static long s5k5caga_set_focus_rect(int focus_rect)
 
 	if((focus_rect <= 0) || (focus_rect > 25))
 		return 0;
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 
 
 
 	if(debug_mask)
 	{
-<<<<<<< HEAD
-		printk("s5k5caga_set_focus_rect : called, x_position = %d, y_position = %d\n", x_position, y_position);
-		printk("s5k5caga_set_focus_rect : called, rect_W = %d, rect_H = %d\n", rect_W, rect_H);
-	}	
-
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x4C4C, real_x_position, WORD_LEN);
-	if (rc < 0)
-		return rc;
-
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x4C4E, real_y_position, WORD_LEN);
-	if (rc < 0)
-		return rc;
-
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x4C50, real_rect_W, WORD_LEN);
-	if (rc < 0)
-		return rc;
-
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x4C52, real_rect_H, WORD_LEN);
-=======
 		printk("lgcam_rear_sensor_set_focus_rect : called, x_position = %d, y_position = %d\n", x_position, y_position);
 	}	
 
@@ -844,15 +835,15 @@ static long s5k5caga_set_focus_rect(int focus_rect)
 	if (rc < 0)
 		return rc;
 	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0001, WORD_LEN);
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if (rc < 0)
 		return rc;
 //	prev_af_mode = FOCUS_RECT;
 	
 	return rc;	
 }
+#endif //!SENSOR_TUNING_SET
 
-static int s5k5caga_check_af_lock(void)
+static int lgcam_rear_sensor_check_af_lock(void)
 {
 	int rc;
 	int i;
@@ -862,17 +853,17 @@ static int s5k5caga_check_af_lock(void)
 	for (i = 0; i < 10; ++i) {
 		/*INT state read to confirm INT release state*/
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002C, 0x7000, WORD_LEN);		
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002E, 0x26FE, WORD_LEN);
 		
-		rc = s5k5caga_i2c_read(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
 				0x0F12, &af_lock, WORD_LEN);
 		
 		if (rc < 0) {
-			printk("s5k5caga: reading af_lock fail\n");
+			printk("lgcam_rear_sensor: reading af_lock fail\n");
 			return rc;
 		}
 
@@ -891,7 +882,7 @@ static int s5k5caga_check_af_lock(void)
 	return af_lock;
 }
 
-static int s5k5caga_check_focus(int *lock)
+static int lgcam_rear_sensor_check_focus(int *lock)
 {
 	int rc;
 #if 0
@@ -900,11 +891,11 @@ static int s5k5caga_check_focus(int *lock)
 	unsigned short af_result = 0;
 
 	if(debug_mask)
-	printk("s5k5caga_check_focus\n");
+	printk("lgcam_rear_sensor_check_focus\n");
 
 #if 0	//mhlee 0107
 	/*af status check  0:load, 1: init,  8: af_lock */
-	rc = s5k5caga_i2c_read(s5k5caga_client->addr,
+	rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
 		0x6D76, &af_status, BYTE_LEN);
 
 	if (af_status != 0x8)
@@ -912,7 +903,7 @@ static int s5k5caga_check_focus(int *lock)
 
 #endif
 
-	af_result = s5k5caga_check_af_lock();
+	af_result = lgcam_rear_sensor_check_af_lock();
 
 	
 	if (af_result == 2) {
@@ -927,317 +918,312 @@ static int s5k5caga_check_focus(int *lock)
 	return -ETIME;
 }
 #if 0
-static int32_t s5k5caga_check_focus(int *lock)
+static int32_t lgcam_rear_sensor_check_focus(int *lock)
 {
 	int32_t rc;
 	int num = 0;
 	unsigned short af_status, af_result, af_result_ex;
 	
 	while(num < 200){
-		rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x6D76, &af_status, BYTE_LEN);
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x6D76, &af_status, BYTE_LEN);
 		if (rc < 0){
-			printk("s5k5caga: reading af_status fail\n");
+			printk("lgcam_rear_sensor: reading af_status fail\n");
 			return rc;
 		}
 
 		if(af_status == 8){
 			if(debug_mask)
-				printk("s5k5caga: af_status is lock done\n");
+				printk("lgcam_rear_sensor: af_status is lock done\n");
 			break;
 		}
 		
 		if(af_status != 8){
-			printk("s5k5caga: af_status = %d, waiting untill af_status changes to lock done \n", af_status);
+			printk("lgcam_rear_sensor: af_status = %d, waiting untill af_status changes to lock done \n", af_status);
 		}
 		mdelay(30);
 		num = num + 1;
 	}
 	
-	s5k5caga_check_af_lock_and_clear();
+	lgcam_rear_sensor_check_af_lock_and_clear();
 	
-	rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x6D3A, &af_result, BYTE_LEN);
+	rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x6D3A, &af_result, BYTE_LEN);
 	if (rc < 0){
-		printk("s5k5caga: reading af_result fail\n");
+		printk("lgcam_rear_sensor: reading af_result fail\n");
 		return rc;
 	}
 
-	rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x6D52, &af_result_ex, BYTE_LEN);
+	rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x6D52, &af_result_ex, BYTE_LEN);
 	if (rc < 0){
-		printk("s5k5caga: reading af_result fail_ex\n");
+		printk("lgcam_rear_sensor: reading af_result fail_ex\n");
 		return rc;
 	}	
 
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002E, 0x03, BYTE_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002E, 0x03, BYTE_LEN);
 	if (rc < 0)
 		return rc;
 
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x0012, 0x01, BYTE_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0012, 0x01, BYTE_LEN);
 	if (rc < 0)
 		return rc;
 				
 	if((af_result == 0x01) || (af_result_ex == 0x01)){
 		if(debug_mask)
-			printk("s5k5caga: Now is good focus\n");
+			printk("lgcam_rear_sensor: Now is good focus\n");
 		return 0;
 	}
 
 	if(debug_mask)
-		printk("s5k5caga: af is time out af_res = %d, af_res1 = %d\n",af_result, af_result_ex);
+		printk("lgcam_rear_sensor: af is time out af_res = %d, af_res1 = %d\n",af_result, af_result_ex);
 
 	return -ETIME;
 }
 #endif
 
-static int32_t s5k5caga_set_auto_focus(void)
+static int32_t lgcam_rear_sensor_set_auto_focus(void)
 {
 	int32_t rc;
 
 	if(debug_mask)
-		printk("s5k5caga: auto focus\n");
+		printk("lgcam_rear_sensor: auto focus\n");
 
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.AF_nomal_reg_settings[0], s5k5caga_regs.AF_nomal_reg_settings_size);
-	mdelay(200);
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.AF_nomal_reg_settings[0], lgcam_rear_sensor_regs.AF_nomal_reg_settings_size);
+	// mhlee 0118 mdelay(200);
 	if(rc<0){
 		if(debug_mask)
-			printk("s5k5caga: AF auto focus writing fail!\n");
+			printk("lgcam_rear_sensor: AF auto focus writing fail!\n");
 		return rc;
 	}	
 	return rc;
 }
 
-static int32_t s5k5caga_set_macro_focus(void)
+static int32_t lgcam_rear_sensor_set_macro_focus(void)
 {
 	int32_t rc;
 	
 	if(debug_mask)
-		printk("s5k5caga: macro focus\n");
+		printk("lgcam_rear_sensor: macro focus\n");
 
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.AF_macro_reg_settings[0], s5k5caga_regs.AF_macro_reg_settings_size);
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.AF_macro_reg_settings[0], lgcam_rear_sensor_regs.AF_macro_reg_settings_size);
 	if(rc<0){
 		if(debug_mask)
-			printk("s5k5caga: AF macro focus writing fail!\n");
+			printk("lgcam_rear_sensor: AF macro focus writing fail!\n");
 		return rc;
 	}	
 	return rc;
 }
 
 
-static int32_t s5k5caga_focus_config(int mode)
+static int32_t lgcam_rear_sensor_focus_config(int mode)
 {
 	int32_t rc = 0;
 
 	if(prev_af_mode == FOCUS_RECT)
 	{		
-<<<<<<< HEAD
-		rc = s5k5caga_set_focus();
-=======
 		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.focus_rect_reg_settings[0], lgcam_rear_sensor_regs.focus_rect_reg_settings_size);
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	}
 
 	{
 		switch(mode){
 			case FOCUS_AUTO:
 			case FOCUS_NORMAL:
-				rc = s5k5caga_set_auto_focus();
+				rc = lgcam_rear_sensor_set_auto_focus();
 				break;
 			
 			case FOCUS_MACRO:				
-				rc = s5k5caga_set_macro_focus();
+				rc = lgcam_rear_sensor_set_macro_focus();
 				break;
 
 			case FOCUS_MANUAL:
-				//rc = s5k5caga_i2c_write_table(&s5k5caga_regs.manual_focus_reg_settings[0],
-				//		s5k5caga_regs.manual_focus_reg_settings_size);
+				//rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.manual_focus_reg_settings[0],
+				//		lgcam_rear_sensor_regs.manual_focus_reg_settings_size);
 				break;
 				
 			default:
 				if(debug_mask)
-				printk("[s5k5caga.c] s5k5caga_focus_config: invalid af %d\n",mode);
+				printk("[lgcam_rear_sensor.c] lgcam_rear_sensor_focus_config: invalid af %d\n",mode);
 				return -EINVAL;
 		}
 
-		rc = s5k5caga_set_focus();
+		rc = lgcam_rear_sensor_set_focus();
 	}
 
 	prev_af_mode = mode;	
 	return rc;		
 }
 
-static int32_t s5k5caga_move_focus(int32_t steps)
+static int32_t lgcam_rear_sensor_move_focus(int32_t steps)
 {
 	int32_t rc = 0;
 	unsigned short manual_pos;
 
 	prev_af_mode = FOCUS_MANUAL;
 	focus_mode = FOCUS_MANUAL;
-
 	if(debug_mask)
-		printk("[s5k5caga.c] move focus: step is %d\n",steps);
+		printk("[lgcam_rear_sensor.c] move focus: step is %d\n",steps);
 	
 	/* MF ON */
 	/* BEGIN: 0004908 hyungtae.lee@lge.com 2010-03-12 */
   	/* MOD: 0004908: [camera] change brightness on night mode when snap */ 
 
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.manual_focus_reg_settings[0],
-			s5k5caga_regs.manual_focus_reg_settings_size);
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.manual_focus_reg_settings[0],
+			lgcam_rear_sensor_regs.manual_focus_reg_settings_size);
 	if(rc<0){
-		printk("[s5k5caga.c]%s: fail in writing for move focus\n",__func__);
+		printk("[lgcam_rear_sensor.c]%s: fail in writing for move focus\n",__func__);
 		return rc;
 	}
 	/* END: 0004908 hyungtae.lee@lge.com 2010-03-12 */
 
 	if(debug_mask)	
-	printk("s5k5caga: move focus steps = %d\n", steps);
+	printk("lgcam_rear_sensor: move focus steps = %d\n", steps);
 
 //	steps++;
 	switch(steps)
 	{
 		case 1:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x007C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);
 
 			break;
 		case 2:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0072, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);
 
 			break;	
 		case 3:			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x006C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);
 
 			break;
 		case 4:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0064, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);		
 			break;	
 		case 5:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x005E, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);				
 			break;
 		case 6:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0057, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);				
 			break;	
 		case 7:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0051, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);		
 			break;
 		case 8:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x004B, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);			
 			break;	
 		case 9:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0048, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);				
 			break;
 		case 10:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0042, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);				
 			break;	
 		case 11:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x003C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);					
 			break;
 		case 12:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x003C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);				
 			break;	
 		case 13:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x003C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);			
 			break;
 		case 14:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x003C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);					
 			break;	
 		case 15:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x003C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);				
 			break;
 		case 16:
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x003C, WORD_LEN);
 			mdelay(40);
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x002A, 0x0252, WORD_LEN);			
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 					0x0F12, 0x0004, WORD_LEN);	
 
 			break;
@@ -1248,30 +1234,30 @@ static int32_t s5k5caga_move_focus(int32_t steps)
 
 	
 	if(debug_mask)
-		printk("[s5k5caga.c] manual position is 0x%x\n", manual_pos);
+		printk("[lgcam_rear_sensor.c] manual position is 0x%x\n", manual_pos);
 
 	
 	return rc;
 }
 
-static long s5k5caga_set_effect(int effect)
+static long lgcam_rear_sensor_set_effect(int effect)
 {
 	int32_t rc;
 
    switch (effect) {
 	case CAMERA_EFFECT_OFF: 
 		if(debug_mask)
-			printk("s5k5caga_set_effect: effect is OFF\n");
+			printk("lgcam_rear_sensor_set_effect: effect is OFF\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x021E, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0000, WORD_LEN);
 		if (rc < 0)
 			return rc;	
@@ -1280,17 +1266,17 @@ static long s5k5caga_set_effect(int effect)
 
 	case CAMERA_EFFECT_MONO: 
 		if(debug_mask)
-			printk("s5k5caga_set_effect: effect is MONO\n");
+			printk("lgcam_rear_sensor_set_effect: effect is MONO\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x021E, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
@@ -1299,17 +1285,17 @@ static long s5k5caga_set_effect(int effect)
 
    case CAMERA_EFFECT_SEPIA: 
 		if(debug_mask)
-			printk("s5k5caga_set_effect: effect is SEPIA\n");
+			printk("lgcam_rear_sensor_set_effect: effect is SEPIA\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x021E, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0004, WORD_LEN);
 		if (rc < 0)
 			return rc;	
@@ -1318,17 +1304,17 @@ static long s5k5caga_set_effect(int effect)
 
 	case CAMERA_EFFECT_NEGATIVE: 
 		if(debug_mask)
-			printk("s5k5caga_set_effect: effect is NAGATIVE\n");
+			printk("lgcam_rear_sensor_set_effect: effect is NAGATIVE\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x021E, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0003, WORD_LEN);
 		if (rc < 0)
 			return rc;	
@@ -1336,15 +1322,15 @@ static long s5k5caga_set_effect(int effect)
 		break;
 
    case CAMERA_EFFECT_NEGATIVE_SEPIA:
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0028, 0x7000, WORD_LEN);
 	   if (rc < 0)
 		   return rc;
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x002A, 0x021E, WORD_LEN);
 	   if (rc < 0)
 		   return rc;  
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0F12, 0x0000, WORD_LEN);
 	   if (rc < 0)
 		   return rc;  
@@ -1352,15 +1338,15 @@ static long s5k5caga_set_effect(int effect)
 		break;
 
    case CAMERA_EFFECT_BLUE:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0028, 0x7000, WORD_LEN);
 	   if (rc < 0)
 		   return rc;
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x002A, 0x021E, WORD_LEN);
 	   if (rc < 0)
 		   return rc;  
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0F12, 0x0005, WORD_LEN);
 	   if (rc < 0)
 		   return rc;  
@@ -1368,15 +1354,15 @@ static long s5k5caga_set_effect(int effect)
 		break;
 
    case CAMERA_EFFECT_SOLARIZE: 
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0028, 0x7000, WORD_LEN);
 	   if (rc < 0)
 		   return rc;
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x002A, 0x021E, WORD_LEN);
 	   if (rc < 0)
 		   return rc;  
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0F12, 0x0000, WORD_LEN);
 	   if (rc < 0)
 		   return rc;  
@@ -1384,230 +1370,232 @@ static long s5k5caga_set_effect(int effect)
 		break;
 
    case CAMERA_EFFECT_PASTEL: 
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0028, 0x7000, WORD_LEN);
 	   if (rc < 0)
 		   return rc;
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x002A, 0x021E, WORD_LEN);
 	   if (rc < 0)
 		   return rc;  
-	   rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+	   rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0F12, 0x0000, WORD_LEN);
 	   if (rc < 0)
 			return rc;
 		break;
 
    default: 
-		printk("s5k5caga_set_effect: wrong effect mode\n");
+		printk("lgcam_rear_sensor_set_effect: wrong effect mode\n");
 		return -EINVAL;	
 	}
 	
 	return 0;
 }
 
-static long s5k5caga_set_zoom(int8_t zoom)
+static long lgcam_rear_sensor_set_zoom(int8_t zoom)
 {
 	int32_t rc;	
 	
 	if(debug_mask)
-		printk("s5k5caga_set_zoom : called, new zoom: %d\n", zoom);
+		printk("lgcam_rear_sensor_set_zoom : called, new zoom: %d\n", zoom);
 		
 	switch (zoom){
 	case 0:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 1.0\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 1.0\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x0001, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x0001, WORD_LEN);
 		break;
 
 	case 1:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 1.15\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 1.15\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x2601, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x2601, WORD_LEN);
 		break;		
 	
 	case 2:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 1.3\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 1.3\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x4C01, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x4C01, WORD_LEN);
 		break;	
 		
 	case 3:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 1.45\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 1.45\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x7301, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x7301, WORD_LEN);
 		break;
 		
 	case 4:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 1.6\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 1.6\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x9901, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x9901, WORD_LEN);
 		break;
 		
 	case 5:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 1.75\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 1.75\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0xC001, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xC001, WORD_LEN);
 		break;
 		
 	case 6:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 1.9\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 1.9\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0xE601, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xE601, WORD_LEN);
 		break;
 		
 	case 7:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 2.05\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 2.05\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x0C02, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x0C02, WORD_LEN);
 		break;
 		
 	case 8:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 2.2\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 2.2\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x3302, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x3302, WORD_LEN);
 		break;
 		
 	case 9:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 2.35\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 2.35\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x5902, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x5902, WORD_LEN);
 		break;
 		
 	case 10:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 2.5\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 2.5\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x8002, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x8002, WORD_LEN);
 		break;
 		
 	case 11:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 2.65\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 2.65\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0xA602, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xA602, WORD_LEN);
 		break;
 		
 	case 12:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 2.8\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 2.8\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0xCC02, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xCC02, WORD_LEN);
 		break;
 		
 	case 13:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 2.95\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 2.95\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0xF302, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xF302, WORD_LEN);
 		break;
 	
 	case 14:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 3.1\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 3.1\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x1903, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x1903, WORD_LEN);
 		break;	
 		
 	case 15:
 		if(debug_mask)
-			printk("s5k5caga_set_zoom: zoom is 3.2\n");
+			printk("lgcam_rear_sensor_set_zoom: zoom is 3.2\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x0032, 0x3303, WORD_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x3303, WORD_LEN);
 		break;		
 	
 	default:
-		printk("s5k5caga: wrong zoom value\n");
+		printk("lgcam_rear_sensor: wrong zoom value\n");
 		return -EFAULT;
 	}
 	if (rc < 0)
 		return rc;
 	
-	s5k5caga_ctrl->zoom = zoom;
+	lgcam_rear_sensor_ctrl->zoom = zoom;
 	return rc;
 }
 
-static long s5k5caga_set_zoom_sensor(int zoom)
+#if !SENSOR_TUNING_SET
+static long lgcam_rear_sensor_set_zoom_sensor(int zoom)
 {
 	int32_t rc;	
 	
 	if(debug_mask)
-		printk("s5k5caga_set_zoom_sensor : called, new zoom: %d\n", zoom);
+		printk("lgcam_rear_sensor_set_zoom_sensor : called, new zoom: %d\n", zoom);
 		
-	rc = s5k5caga_set_capture_zoom(zoom);
+	rc = lgcam_rear_sensor_set_capture_zoom(zoom);
 	if(rc < 0){
-		printk("s5k5caga: s5k5caga_set_zoom_sensor setting fail!\n");
+		printk("lgcam_rear_sensor: lgcam_rear_sensor_set_zoom_sensor setting fail!\n");
 		return rc;
 	}
 	
-	s5k5caga_ctrl->zoom = zoom;
+	lgcam_rear_sensor_ctrl->zoom = zoom;
 	return rc;
 }
 
-static long s5k5caga_set_capture_zoom(int zoom)
+static long lgcam_rear_sensor_set_capture_zoom(int zoom)
 {
 	int32_t rc;
 	int zoom_depth = 16;
 	
 	if(debug_mask)
-		printk("s5k5caga_set_capture_zoom : called, new zoom: %d\n", zoom);
+		printk("lgcam_rear_sensor_set_capture_zoom : called, new zoom: %d\n", zoom);
 
-	if((s5k5caga_ctrl->zoom % zoom_depth) != 0)
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x034F, 0x01, BYTE_LEN);
+	if((lgcam_rear_sensor_ctrl->zoom % zoom_depth) != 0)
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x034F, 0x01, BYTE_LEN);
 	else
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,0x034F, 0x00, BYTE_LEN);
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x034F, 0x00, BYTE_LEN);
 	
 	if(zoom >= 0 && zoom < zoom_depth)
-		rc = s5k5caga_i2c_write_table_one(&s5k5caga_regs.zoom_mode_capture_405_reg_settings[0], zoom);
+		rc = lgcam_rear_sensor_i2c_write_table_one(&lgcam_rear_sensor_regs.zoom_mode_capture_405_reg_settings[0], zoom);
 	else if(zoom >= zoom_depth && zoom < (zoom_depth * 2))
-		rc = s5k5caga_i2c_write_table_one(&s5k5caga_regs.zoom_mode_capture_203_reg_settings[0], zoom - zoom_depth);
+		rc = lgcam_rear_sensor_i2c_write_table_one(&lgcam_rear_sensor_regs.zoom_mode_capture_203_reg_settings[0], zoom - zoom_depth);
 	else if(zoom >= (zoom_depth * 2) && zoom < (zoom_depth * 3))
-		rc = s5k5caga_i2c_write_table_one(&s5k5caga_regs.zoom_mode_capture_162_reg_settings[0], zoom - (zoom_depth * 2));
+		rc = lgcam_rear_sensor_i2c_write_table_one(&lgcam_rear_sensor_regs.zoom_mode_capture_162_reg_settings[0], zoom - (zoom_depth * 2));
 	else if(zoom >= (zoom_depth * 3) && zoom < (zoom_depth * 4))
-		rc = s5k5caga_i2c_write_table_one(&s5k5caga_regs.zoom_mode_capture_127_reg_settings[0], zoom - (zoom_depth * 3));
+		rc = lgcam_rear_sensor_i2c_write_table_one(&lgcam_rear_sensor_regs.zoom_mode_capture_127_reg_settings[0], zoom - (zoom_depth * 3));
 	else
-		printk("s5k5caga: s5k5caga_set_capture_zoom wrong value\n");	
+		printk("lgcam_rear_sensor: lgcam_rear_sensor_set_capture_zoom wrong value\n");	
 
 	if(rc<0){
-		printk("s5k5caga: s5k5caga_set_capture_zoom setting fail!\n");
+		printk("lgcam_rear_sensor: lgcam_rear_sensor_set_capture_zoom setting fail!\n");
 		return rc;
 	}	
 	return rc;
 }
+#endif //!SENSOR_TUNING_SET
 
-static long s5k5caga_set_wb(int8_t wb)
+static long lgcam_rear_sensor_set_wb(int8_t wb)
 {
 	int32_t rc = 0;
    
 	if(debug_mask)
-		printk("s5k5caga_set_wb : called, new wb: %d\n", wb);
+		printk("lgcam_rear_sensor_set_wb : called, new wb: %d\n", wb);
 
 	switch (wb) {
 	case CAMERA_WB_AUTO:
 		if(debug_mask)
-			printk("s5k5caga_set_wb: wb is AUTO\n");
+			printk("lgcam_rear_sensor_set_wb: wb is AUTO\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04D2, WORD_LEN);
 		if (rc < 0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x067F, WORD_LEN);
 		if (rc < 0)
 			return rc;		
@@ -1615,49 +1603,49 @@ static long s5k5caga_set_wb(int8_t wb)
 
 	case CAMERA_WB_INCANDESCENT:
 		if(debug_mask)
-			printk("s5k5caga_set_wb: wb is INCANDESCENT\n");
+			printk("lgcam_rear_sensor_set_wb: wb is INCANDESCENT\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04D2, WORD_LEN);
 		if (rc < 0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0677, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04A0, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0400, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x040d, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0888, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
@@ -1665,49 +1653,49 @@ static long s5k5caga_set_wb(int8_t wb)
 	
 	case CAMERA_WB_DAYLIGHT:
 		if(debug_mask)
-			printk("s5k5caga_set_wb: wb is SUNNY\n");
+			printk("lgcam_rear_sensor_set_wb: wb is SUNNY\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04D2, WORD_LEN);
 		if (rc < 0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0677, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04A0, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0530, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0400, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0590, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
@@ -1716,49 +1704,49 @@ static long s5k5caga_set_wb(int8_t wb)
 
 	case CAMERA_WB_FLUORESCENT:
 		if(debug_mask)
-			printk("s5k5caga_set_wb: wb is FLUORESCENT\n");
+			printk("lgcam_rear_sensor_set_wb: wb is FLUORESCENT\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04D2, WORD_LEN);
 		if (rc < 0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0677, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04A0, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0460, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0400, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0730, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
@@ -1767,120 +1755,122 @@ static long s5k5caga_set_wb(int8_t wb)
 
 	case CAMERA_WB_CLOUDY_DAYLIGHT:
 		if(debug_mask)
-			printk("s5k5caga_set_wb: wb is CLOUDY\n");
+			printk("lgcam_rear_sensor_set_wb: wb is CLOUDY\n");
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0028, 0x7000, WORD_LEN);
 		if (rc < 0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04D2, WORD_LEN);
 		if (rc < 0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0677, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x002A, 0x04A0, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x05B0, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0400, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0590, WORD_LEN);
 		if (rc < 0)
 			return rc;	
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			0x0F12, 0x0001, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 		break;
 
 	default:
-		printk("s5k5caga: wrong white balance value\n");
+		printk("lgcam_rear_sensor: wrong white balance value\n");
 		return -EFAULT;
 	}
-	s5k5caga_ctrl->wb = wb;
+	lgcam_rear_sensor_ctrl->wb = wb;
 
 	return 0;
 }
 
-static int32_t s5k5caga_set_iso(int8_t iso)
+#if !SENSOR_TUNING_SET
+static int32_t lgcam_rear_sensor_set_iso(int8_t iso)
 {
 	int32_t rc = 0;	
 
 	if(debug_mask)
-		printk("s5k5caga_set_iso : called, new iso: %d\n", iso);
+		printk("lgcam_rear_sensor_set_iso : called, new iso: %d\n", iso);
 	
 	switch (iso){
 	case CAMERA_ISO_AUTO:
 		if(debug_mask)
-			printk("[s5k5caga.c] iso is AUTO\n");
+			printk("[lgcam_rear_sensor.c] iso is AUTO\n");
 	
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.iso_auto_reg_settings[0],
-            s5k5caga_regs.iso_auto_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.iso_auto_reg_settings[0],
+            lgcam_rear_sensor_regs.iso_auto_reg_settings_size);
 		break;                                                    
                                                         
 	case CAMERA_ISO_100:
 		if(debug_mask)
-			printk("[s5k5caga.c] iso is 100\n");
+			printk("[lgcam_rear_sensor.c] iso is 100\n");
 		
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.iso_100_reg_settings[0],
-            s5k5caga_regs.iso_100_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.iso_100_reg_settings[0],
+            lgcam_rear_sensor_regs.iso_100_reg_settings_size);
 		break;
 
 	case CAMERA_ISO_200:
 		if(debug_mask)
-			printk("[s5k5caga.c] iso is 200\n");
+			printk("[lgcam_rear_sensor.c] iso is 200\n");
 		
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.iso_200_reg_settings[0],
-            s5k5caga_regs.iso_200_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.iso_200_reg_settings[0],
+            lgcam_rear_sensor_regs.iso_200_reg_settings_size);
 		break;
 
 	case CAMERA_ISO_400:
 		if(debug_mask)
-			printk("[s5k5caga.c] iso is 400\n");
+			printk("[lgcam_rear_sensor.c] iso is 400\n");
 		
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.iso_400_reg_settings[0],
-            s5k5caga_regs.iso_400_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.iso_400_reg_settings[0],
+            lgcam_rear_sensor_regs.iso_400_reg_settings_size);
 		break;
 		
 	case CAMERA_ISO_800:
 		if(debug_mask)
-			printk("[s5k5caga.c] iso is 800\n");
+			printk("[lgcam_rear_sensor.c] iso is 800\n");
 		
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.iso_800_reg_settings[0],
-            s5k5caga_regs.iso_800_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.iso_800_reg_settings[0],
+            lgcam_rear_sensor_regs.iso_800_reg_settings_size);
 		break;
 
 	default:
-		printk("[s5k5caga.c] incorrect iso value\n");
+		printk("[lgcam_rear_sensor.c] incorrect iso value\n");
 		rc = -EINVAL;
 	}	
 	
 	return rc;
 }
+#endif //!SENSOR_TUNING_SET
 
-static long s5k5caga_set_scene_mode(int8_t mode)
+static long lgcam_rear_sensor_set_scene_mode(int8_t mode)
 {
 	int32_t rc = 0;
 
@@ -1888,142 +1878,122 @@ static long s5k5caga_set_scene_mode(int8_t mode)
 	switch (mode) {
 	case CAMERA_SCENE_AUTO:
 		if(debug_mask)
-			printk("s5k5caga_set_scene_mode: mode is normal\n");
+			printk("lgcam_rear_sensor_set_scene_mode: mode is normal\n");
 			
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_normal_reg_settings[0],
-                s5k5caga_regs.scene_normal_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
 		break;
 	
 	case CAMERA_SCENE_PORTRAIT:
 		if(debug_mask)
-<<<<<<< HEAD
-			printk("s5k5caga_set_scene_mode: mode is portrait\n");
-=======
 			printk("lgcam_rear_sensor_set_scene_mode: mode is portrait\n");
 		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
                 lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
 		if (rc < 0)
 			return rc;
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_portrait_reg_settings[0],
-                s5k5caga_regs.scene_portrait_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_portrait_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_portrait_reg_settings_size);
      	break;
 	
 	case CAMERA_SCENE_LANDSCAPE:
 		if(debug_mask)
-<<<<<<< HEAD
-			printk("s5k5caga_set_scene_mode: mode is landscape\n");
-=======
 			printk("lgcam_rear_sensor_set_scene_mode: mode is landscape\n");
 		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
                 lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
 		if (rc < 0)
 			return rc;
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_landscape_reg_settings[0],
-                s5k5caga_regs.scene_landscape_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_landscape_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_landscape_reg_settings_size);
 		break;
 	
 	case CAMERA_SCENE_SPORTS:
 		if(debug_mask)
-<<<<<<< HEAD
-			printk("s5k5caga_set_scene_mode: mode is sport\n");
-=======
 			printk("lgcam_rear_sensor_set_scene_mode: mode is sport\n");
 		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
                 lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
 		if (rc < 0)
 			return rc;
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_sport_reg_settings[0],
-                s5k5caga_regs.scene_sport_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_sport_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_sport_reg_settings_size);
 		break;
 	
 	case CAMERA_SCENE_SUNSET:
 		if(debug_mask)
-<<<<<<< HEAD
-			printk("s5k5caga_set_scene_mode: mode is sunset\n");
-=======
 			printk("lgcam_rear_sensor_set_scene_mode: mode is sunset\n");
 		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
                 lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
 		if (rc < 0)
 			return rc;
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_sunset_reg_settings[0],
-                s5k5caga_regs.scene_sunset_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_sunset_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_sunset_reg_settings_size);
 		break;
 	
 	case CAMERA_SCENE_NIGHT:
 		if(debug_mask)
-<<<<<<< HEAD
-			printk("s5k5caga_set_scene_mode: mode is night\n");
-=======
 			printk("lgcam_rear_sensor_set_scene_mode: mode is night\n");
 		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_normal_reg_settings[0],
                 lgcam_rear_sensor_regs.scene_normal_reg_settings_size);
 		if (rc < 0)
 			return rc;
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.scene_night_reg_settings[0],
-                s5k5caga_regs.scene_night_reg_settings_size);
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.scene_night_reg_settings[0],
+                lgcam_rear_sensor_regs.scene_night_reg_settings_size);
 		current_scene = NIGHT_MODE;
 		break;
 	
 	default:
-		printk("s5k5caga: wrong scene mode value, set to the normal\n");
+		printk("lgcam_rear_sensor: wrong scene mode value, set to the normal\n");
 	}   
 	if (rc < 0)
 		return rc;
 
-	s5k5caga_ctrl->scene = mode;
+	lgcam_rear_sensor_ctrl->scene = mode;
 
 	return rc;
    
 }
 /* BEGIN: 0005280 hyungtae.lee@lge.com 2010-03-22 */
 /* MOD: 0005280: [camera] modification for brightness */ 
-static int32_t s5k5caga_set_brightness(int8_t ev)
+static int32_t lgcam_rear_sensor_set_brightness(int8_t ev)
 {
 	int32_t rc=0;
 	ev++;	
 	if(debug_mask)
-		printk("s5k5caga_set_brightness: ev is %d\n",ev);	
+		printk("lgcam_rear_sensor_set_brightness: ev is %d\n",ev);	
 	switch (ev) {
 	case 1:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0xFF60, WORD_LEN);
 		if(rc<0)
 			return rc;		
 		break;
 
 	case 2:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0xFF80, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2032,17 +2002,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 3:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0xFFA0, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2051,17 +2021,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 4:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0xFFC0, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2070,17 +2040,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 5:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0xFFE0, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2089,17 +2059,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 6:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0000, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2108,17 +2078,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 7:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0020, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2127,17 +2097,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 8:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0040, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2146,17 +2116,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 9:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0060, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2165,17 +2135,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 10:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x0080, WORD_LEN);
 		if(rc<0)
 			return rc;
@@ -2184,17 +2154,17 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 
 	case 11:
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0028, 0x7000, WORD_LEN);
 		if(rc<0)
 			return rc;
 		
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x002A, 0x020C, WORD_LEN);
 		if(rc<0)
 			return rc;
 
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 				0x0F12, 0x00A0, WORD_LEN);
 		if(rc<0)
 			return rc;	
@@ -2202,42 +2172,33 @@ static int32_t s5k5caga_set_brightness(int8_t ev)
 		break;
 	
 	default:
-		printk("[s5k5caga.c] incoreect brightness value\n");
+		printk("[lgcam_rear_sensor.c] incoreect brightness value\n");
 	}
 	
-	s5k5caga_ctrl->brightness = ev;
+	lgcam_rear_sensor_ctrl->brightness = ev;
 	return rc;
 }
 /* END: 0005280 hyungtae.lee@lge.com 2010-03-22 */
 
 #if 0 /* not used, now */
-static int s5k5caga_sensor_init_probe(const struct msm_camera_sensor_info *data)
+static int lgcam_rear_sensor_sensor_init_probe(const struct msm_camera_sensor_info *data)
 {
 	uint16_t model_id = 0;
 	int32_t  rc;
 	if(debug_mask)
-		printk("s5k5caga_sensor_init_probe\n");
+		printk("lgcam_rear_sensor_sensor_init_probe\n");
 
 
 	/* Read the Model ID of the sensor */
-<<<<<<< HEAD
-	rc = s5k5caga_i2c_read(s5k5caga_client->addr,
-		REG_s5k5caga_MODEL_ID, &model_id, WORD_LEN);
-=======
 	rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
 		REG_LGCAM_REAR_SENSOR_MODEL_ID, &model_id, WORD_LEN);
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if (rc < 0)
 		goto init_probe_fail;
 	
 	if(debug_mask)
-		printk("s5k5caga model_id = 0x%x\n", model_id);
+		printk("lgcam_rear_sensor model_id = 0x%x\n", model_id);
 	/* Check if it matches it with the value in Datasheet */
-<<<<<<< HEAD
-	if (model_id != s5k5caga_MODEL_ID) {
-=======
 	if (model_id != LGCAM_REAR_SENSOR_MODEL_ID) {
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		rc = -EINVAL;
 		goto init_probe_fail;
 	}
@@ -2249,7 +2210,7 @@ init_probe_fail:
 }
 #endif
 
-#if ALESSI_TUNING_SET
+#if SENSOR_TUNING_SET
 #define LOOP_INTERVAL		20
 #define IS_NUM(c)			((0x30<=c)&&(c<=0x39))
 #define IS_CHAR_C(c)		((0x41<=c)&&(c<=0x46))						// Capital Letter
@@ -2261,7 +2222,7 @@ init_probe_fail:
 char *file_buf_alloc_pages=NULL;
 char file_buf_alloc_pages_temp[4]= {0,};
 
-static long s5k5caga_read_ext_reg(char *filename)
+static long lgcam_rear_sensor_read_ext_reg(char *filename)
 {	
 	long value=0, length=ADDRESS_TUNE, read_idx=0, i=0, j=0, k=0;
 	struct file *phMscd_Filp = NULL;
@@ -2315,8 +2276,8 @@ static long s5k5caga_read_ext_reg(char *filename)
 							read_idx += 2;
 
 							ext_reg_settings[i++].register_address = value;
-#if ALESSI_TUNING_LOG
-							printk("%s : length == ADDRESS_TUNE, i = %d , burst mode\n", __func__, i);
+#if SENSOR_TUNING_LOG
+							printk("%s : length == ADDRESS_TUNE, i = %ld , burst mode\n", __func__, i);
 #endif
 						}				
 					}
@@ -2353,8 +2314,8 @@ static long s5k5caga_read_ext_reg(char *filename)
 							}
 							
 							ext_reg_settings[i++].register_address = value;
-#if ALESSI_TUNING_LOG
-							printk("%s : length == ADDRESS_TUNE, i = %d\n", __func__, i);
+#if SENSOR_TUNING_LOG
+							printk("%s : length == ADDRESS_TUNE, i = %ld\n", __func__, i);
 #endif
 						}
 						else if(length == BYTE_LEN)
@@ -2366,8 +2327,8 @@ static long s5k5caga_read_ext_reg(char *filename)
 
 				ext_reg_settings[j].register_value = value;
 				ext_reg_settings[j++].register_length = length;
-#if ALESSI_TUNING_LOG
-				printk("%s : length == BYTE_LEN, j = %d\n", __func__, j);
+#if SENSOR_TUNING_LOG
+				printk("%s : length == BYTE_LEN, j = %ld\n", __func__, j);
 #endif
 			}
 						else if((length == WORD_LEN) || (length == BURST_LEN))
@@ -2381,11 +2342,11 @@ static long s5k5caga_read_ext_reg(char *filename)
 
 							ext_reg_settings[j].register_value = value;
 							ext_reg_settings[j++].register_length = WORD_LEN;
-#if ALESSI_TUNING_LOG
+#if SENSOR_TUNING_LOG
 							if(length == BURST_LEN)
-								printk("%s : length == BURST_LEN, j = %d\n", __func__, j);
+								printk("%s : length == BURST_LEN, j = %ld\n", __func__, j);
 							else
-								printk("%s : length == WORD_LEN, j = %d\n", __func__, j);
+								printk("%s : length == WORD_LEN, j = %ld\n", __func__, j);
 #endif
 						}
 						else if(length == DOBULE_LEN)
@@ -2403,8 +2364,8 @@ static long s5k5caga_read_ext_reg(char *filename)
 
 							ext_reg_settings[j].register_value = value;
 							ext_reg_settings[j++].register_length = length;
-#if ALESSI_TUNING_LOG
-							printk("%s : length == DOBULE_LEN, j = %d\n", __func__, j);
+#if SENSOR_TUNING_LOG
+							printk("%s : length == DOBULE_LEN, j = %ld\n", __func__, j);
 #endif
 						}				
 						else{}
@@ -2447,7 +2408,7 @@ static long s5k5caga_read_ext_reg(char *filename)
 			++read_idx;
 		}	
 
-#if 0 //ALESSI_TUNING_LOG		
+#if 0 //SENSOR_TUNING_LOG		
 		printk("%s : read external file! position : %d\n", __func__, read_idx);
 #endif
 	}while(file_buf_alloc_pages[read_idx] != '$');
@@ -2459,22 +2420,22 @@ static long s5k5caga_read_ext_reg(char *filename)
 	return i;
 }
 
-static long s5k5caga_reg_write_ext_table(uint16_t array_length)
+static long lgcam_rear_sensor_reg_write_ext_table(uint16_t array_length)
 {
 	int i = 0, rc = 0;	
 
-#if ALESSI_TUNING_LOG
+#if SENSOR_TUNING_LOG
 	printk("%s : write registers from external file!\n", __func__);
 #endif
 
 	for (i = 0; i < array_length; i++) {
-		rc = s5k5caga_i2c_write(s5k5caga_client->addr,
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 		  ext_reg_settings[i].register_address,
 		  ext_reg_settings[i].register_value,
 		  ext_reg_settings[i].register_length);		 
 
-#if ALESSI_TUNING_LOG
-		printk("s5k5caga_reg_write_ext_table, addr = 0x%x, val = 0x%x, width = %d\n",
+#if SENSOR_TUNING_LOG
+		printk("lgcam_rear_sensor_reg_write_ext_table, addr = 0x%x, val = 0x%x, width = %d\n",
 			    ext_reg_settings[i].register_address, ext_reg_settings[i].register_value, ext_reg_settings[i].register_length);
 #endif
 		if (rc < 0) {
@@ -2486,68 +2447,35 @@ static long s5k5caga_reg_write_ext_table(uint16_t array_length)
 	return 1;
 }
 
-static long s5k5caga_reg_pll_ext(void)
+static long lgcam_rear_sensor_reg_pll_ext(void)
 {
 	uint16_t length = 0;	
-	uint16_t ap_check = 0, ap_check_16 = 0, real_ap_check = 0;
+	
 
-	printk("%s : s5k5caga_reg_pll_ext enter!!\n", __func__);
-	length = s5k5caga_read_ext_reg("/sdcard/pll_settings_array.txt");
-	printk("%s : length = %d!\n", __func__, length);	
+	printk("%s : lgcam_rear_sensor_reg_pll_ext enter!!\n", __func__);
+	//length = lgcam_rear_sensor_read_ext_reg("/data/local/pll_settings_array.txt");
+	length = lgcam_rear_sensor_read_ext_reg("/sdcard/pll_settings_array.txt");
+	printk("%s : length = %d!\n", __func__, length);
 
-#if 1
 	if (!length)
 		return 0;
 	else	
-		return s5k5caga_reg_write_ext_table(length);
-#else
-	if (!length)
-	{
-		return 0;
-	}
-	else
-	{
-		s5k5caga_reg_write_ext_table(length - 1);		
-		s5k5caga_i2c_read(s5k5caga_client->addr, 0x0368, &ap_check, WORD_LEN); // OTP_CHIPID_L		
-
-		ap_check_16 = ap_check * 0x1111; // 16진수로 change
-
-		printk("s5k5caga: ap_check_16 value = 0x%x\n", ap_check_16);
-		real_ap_check = ((ap_check_16 & 0x000000FF) >> 2) & 0x000F; // OTP_CHIPID_L[29:26]
-		printk("s5k5caga: real_ap_check value = 0x%x\n", real_ap_check);
-
-		if(real_ap_check == 0x01) //OTP_CHIPID_L[29:26]
-			s5k5caga_i2c_write_table(&s5k5caga_regs.ap003_16bit_settings[0], s5k5caga_regs.ap003_16bit_settings);
-		else if(real_ap_check == 0x04) //OTP_CHIPID_L[29:26]
-			s5k5caga_i2c_write_table(&s5k5caga_regs.ap001_16bit_settings[0], s5k5caga_regs.ap001_16bit_settings);
-		else
-			printk("s5k5caga: real_ap_check error\n");
-
-		//마지막 0x0009 setting을 해준다.
-		return s5k5caga_i2c_write(s5k5caga_client->addr, ext_reg_settings[length - 1].register_address,
-		                 ext_reg_settings[length - 1].register_value, ext_reg_settings[length - 1].register_length);		
-	}
-#endif
+		return lgcam_rear_sensor_reg_write_ext_table(length);
 }
 
-static long s5k5caga_reg_init_ext(void)
+static long lgcam_rear_sensor_reg_init_ext(void)
 {	
 	uint16_t length = 0;
 
-<<<<<<< HEAD
-	printk("%s : s5k5caga_reg_init_ext enter!!\n", __func__);
-	length = s5k5caga_read_ext_reg("/sdcard/init_settings_array.txt");
-=======
 	printk("%s : lgcam_rear_sensor_reg_init_ext enter!!\n", __func__);
-	//length = isx005_read_ext_reg("/data/local/init_settings_array.txt");
+	//length = lgcam_rear_sensor_read_ext_reg("/data/local/init_settings_array.txt");
 	length = lgcam_rear_sensor_read_ext_reg("/sdcard/init_settings_array.txt");
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	printk("%s : length = %d!\n", __func__, length);	
 
 	if (!length)
 		return 0;
 	else
-		return s5k5caga_reg_write_ext_table(length);
+		return lgcam_rear_sensor_reg_write_ext_table(length);
 }
 #endif
 
@@ -2559,122 +2487,122 @@ static int dequeue_sensor_config(int cfgtype, int mode)
 	switch (cfgtype) {
 			case CFG_SET_MODE:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_MODE\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_MODE\n");
 					
-				rc = s5k5caga_set_sensor_mode(mode, pict_size.width, pict_size.height);
+				rc = lgcam_rear_sensor_set_sensor_mode(mode, pict_size.width, pict_size.height);
 				break;
 		
-#if !ALESSI_TUNING_SET
+#if !SENSOR_TUNING_SET
 			case CFG_SET_EFFECT:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_EFFECT\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_EFFECT\n");
 					
-				rc = s5k5caga_set_effect(mode);
+				rc = lgcam_rear_sensor_set_effect(mode);
 				break;
 #endif
 #if 0 
 			case CFG_SET_ZOOM_VIDEO:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_ZOOM\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_ZOOM\n");
 					
-				rc = s5k5caga_set_zoom(cfg_data.cfg.zoom);
+				rc = lgcam_rear_sensor_set_zoom(cfg_data.cfg.zoom);
 				break;
 #endif
 
 
 #if 1
-#if !ALESSI_TUNING_SET
+#if !SENSOR_TUNING_SET
 			case CFG_SET_ZOOM_SENSOR:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_ZOOM_SENSOR\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_ZOOM_SENSOR\n");
 					
-				rc = s5k5caga_set_zoom_sensor(mode);
+				rc = lgcam_rear_sensor_set_zoom_sensor(mode);
 				break;
 		
 			case CFG_SET_FOCUS_RECT:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_FOCUS_RECT\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_FOCUS_RECT\n");
 					
-				rc = s5k5caga_set_focus_rect(mode);
+				rc = lgcam_rear_sensor_set_focus_rect(mode);
 				break;
 #endif
 				
 			case CFG_START_AF_FOCUS:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_START_AF_FOCUS = %d\n", focus_mode);
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_START_AF_FOCUS = %d\n", focus_mode);
 				   
 				focus_mode = mode;
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 				if(tuning_thread_run)
 				{
-					rc = s5k5caga_check_thread_run();
+					rc = lgcam_rear_sensor_check_thread_run();
 					if(rc < 0)
 					{
-						printk("s5k5caga_check_thread_run error\n");					
+						printk("lgcam_rear_sensor_check_thread_run error\n");					
 					}
 					mdelay(500);
 				}
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 				
-				rc = s5k5caga_focus_config(mode);		
+				rc = lgcam_rear_sensor_focus_config(mode);		
 				break;
 		
 			case CFG_SET_PARM_AF_MODE:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_PARM_AF_MODE = %d\n", focus_mode);
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_PARM_AF_MODE = %d\n", focus_mode);
 				   
 				focus_mode = mode;
-				rc = s5k5caga_cancel_focus(focus_mode);
+				rc = lgcam_rear_sensor_cancel_focus(focus_mode);
 				break;
 		
 			case CFG_SET_DEFAULT_FOCUS:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_DEFAULT_FOCUS\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_DEFAULT_FOCUS\n");
 				   
-				rc = s5k5caga_set_focus();
+				rc = lgcam_rear_sensor_set_focus();
 				break;
 		
 			case CFG_MOVE_FOCUS:
 				
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_MOVE_FOCUS: steps=%d\n",
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_MOVE_FOCUS: steps=%d\n",
 								mode);
-				rc = s5k5caga_move_focus(mode);
+				rc = lgcam_rear_sensor_move_focus(mode);
 				break;	
 		
 			case CFG_SET_CANCEL_FOCUS:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_CANCEL_FOCUS\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_CANCEL_FOCUS\n");
 				   
-				rc = s5k5caga_cancel_focus(focus_mode);
+				rc = lgcam_rear_sensor_cancel_focus(focus_mode);
 				break;
 					
 #endif
 		
-#if !ALESSI_TUNING_SET		
+#if !SENSOR_TUNING_SET		
 			case CFG_SET_WB:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_WB\n");
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_WB\n");
 					
-				rc = s5k5caga_set_wb(mode);
+				rc = lgcam_rear_sensor_set_wb(mode);
 				break;
 		
 			case CFG_SET_ISO:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_ISO\n");
-				rc = s5k5caga_set_iso(mode);
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_ISO\n");
+				rc = lgcam_rear_sensor_set_iso(mode);
 				break;
 		
 			case CFG_SET_SCENE:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_SCENE_MODE\n");
-				rc = s5k5caga_set_scene_mode(mode);
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_SCENE_MODE\n");
+				rc = lgcam_rear_sensor_set_scene_mode(mode);
 				break;
 		
 			case CFG_SET_BRIGHTNESS:
 				if(debug_mask)
-					printk("s5k5caga_sensor_config: command is CFG_SET_EXPOSURE_VALUE\n");
-				rc = s5k5caga_set_brightness(mode);
+					printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_EXPOSURE_VALUE\n");
+				rc = lgcam_rear_sensor_set_brightness(mode);
 				break;
 #endif	  
 			//default:
@@ -2722,65 +2650,64 @@ static void enqueue_cfg_wq(int cfgtype, int mode)
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 
 
-<<<<<<< HEAD
-int s5k5caga_reg_tuning(void *data)
-=======
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 int lgcam_rear_sensor_reg_tuning(void *data)
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 {
 	int rc = 0;
 
-	mutex_lock(&s5k5caga_tuning_mutex);
+	mutex_lock(&lgcam_rear_sensor_tuning_mutex);
 	cfg_wq = kmalloc(sizeof(struct config_work_queue) * CFG_WQ_SIZE,
 		GFP_KERNEL);
 	cfg_wq_num = 0;
 	tuning_thread_run = 1;
-	mutex_unlock(&s5k5caga_tuning_mutex);
+	mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
 
-	printk("s5k5caga_reg_tuning write table start s5k5caga_regs.init_size = %d\n",s5k5caga_regs.init_size);	//mhlee
+	printk("lgcam_rear_sensor_reg_tuning write table start lgcam_rear_sensor_regs.init_size = %d\n",lgcam_rear_sensor_regs.init_size);	//mhlee
 
-#if ALESSI_TUNING_SET
-	rc = s5k5caga_reg_init_ext();
+#if SENSOR_TUNING_SET
+	rc = lgcam_rear_sensor_reg_init_ext();
 #else
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.init[0], s5k5caga_regs.init_size);	
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.init[0], lgcam_rear_sensor_regs.init_size);	
 
 #endif
-	printk("s5k5caga_reg_tuning write table rc = %d\n",rc);	//mhlee
+	printk("lgcam_rear_sensor_reg_tuning write table rc = %d\n",rc);	//mhlee
 	if(rc<0){
-		printk("s5k5caga: init writing failed\n");
+		printk("lgcam_rear_sensor: init writing failed\n");
 		return rc; 
 	}
 
-	mutex_lock(&s5k5caga_tuning_mutex);
+	mutex_lock(&lgcam_rear_sensor_tuning_mutex);
 	dequeue_cfg_wq(cfg_wq);
 	kfree(cfg_wq);
 	tuning_thread_run = 0;
-	mutex_unlock(&s5k5caga_tuning_mutex);
+	mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
 
 	return rc;
 }
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
 
-int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
+int lgcam_rear_sensor_sensor_init(const struct msm_camera_sensor_info *data)
 {
 	int rc;	
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 	struct task_struct *p;
 	enable_capturemode = 0;
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
+#if SENSOR_TUNING_SET
+memset(ext_reg_settings, 0x00, sizeof(ext_reg_settings));
+#endif
 
 	if(debug_mask)
-	printk("s5k5caga_init start! mmm\n");
+	printk("lgcam_rear_sensor_init start! mmm\n");
 
 	prev_af_mode = -1;
 	//prev_scene_mode = -1;
 	previous_mode = 0;
 	memset(&pict_size,0x0, sizeof(pict_size));
 	
-	s5k5caga_ctrl = kzalloc(sizeof(struct s5k5caga_ctrl), GFP_KERNEL);
-	if (!s5k5caga_ctrl) {
-		printk("s5k5caga_init failed!\n");
+	lgcam_rear_sensor_ctrl = kzalloc(sizeof(struct lgcam_rear_sensor_ctrl), GFP_KERNEL);
+	if (!lgcam_rear_sensor_ctrl) {
+		printk("lgcam_rear_sensor_init failed!\n");
 		rc = -ENOMEM;
 		goto init_done;
 	}
@@ -2794,106 +2721,29 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 	
 
 	if (data)
-		s5k5caga_ctrl->sensordata = data;
+		lgcam_rear_sensor_ctrl->sensordata = data;
 	
-	rc = s5k5caga_ctrl->sensordata->pdata->camera_power_on();
+	rc = lgcam_rear_sensor_ctrl->sensordata->pdata->camera_power_on();
 	if(rc<0){
-	   printk("s5k5caga: pll writing fail\n");
+	   printk("lgcam_rear_sensor: pll writing fail\n");
 	   goto init_fail;
 	}
 
 
-#if ALESSI_TUNING_SET
-	s5k5caga_reg_pll_ext();
-#else
-<<<<<<< HEAD
-#if s5k5caga_ENABLE	//mhlee
-=======
-#if LGCAM_REAR_SENSOR_ENABLE	//mhlee
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
-#if 1 //--> 20100702 : HongMiJi D요청으로 0x0009전에 해당 ap값 setting후 0x0009값 setting
-      //--> preview 결함 보정 addition code
-
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[0], (s5k5caga_regs.pll_size - 1));
-	if(rc<0){
-	   printk("s5k5caga: pll writing fail\n");
-	   goto init_fail;
-	}
-	rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x0368, &ap_check, WORD_LEN); // OTP_CHIPID_L
-	if(rc<0){
-	   printk("s5k5caga: ap writing fail\n");
-	   goto init_fail;
-	}
-
-	ap_check_16 = ap_check * 0x1111; // 16진수로 change
-
-	if(debug_mask)
-		printk("s5k5caga: ap_check_16 value = 0x%x\n", ap_check_16);
-	real_ap_check = ((ap_check_16 & 0x000000FF) >> 2) & 0x000F; // OTP_CHIPID_L[29:26]
-	if(debug_mask)	
-	printk("s5k5caga: real_ap_check value = 0x%x\n", real_ap_check);
-
-	if(real_ap_check == 0x01) //OTP_CHIPID_L[29:26]
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.ap003_16bit_settings[0], s5k5caga_regs.ap003_16bit_settings);
-	else if(real_ap_check == 0x04) //OTP_CHIPID_L[29:26]
-		rc = s5k5caga_i2c_write_table(&s5k5caga_regs.ap001_16bit_settings[0], s5k5caga_regs.ap001_16bit_settings);
-	else
-		printk("s5k5caga: real_ap_check error\n");
-
-	//마지막 0x0009 setting을 해준다.
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[s5k5caga_regs.pll_size - 1], 1);
-	if(rc<0){
-	   printk("s5k5caga: pll writing fail\n");
-	   goto init_fail;
-	}	
-#else
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[0], s5k5caga_regs.pll_size);
-	if(rc<0){
-	   printk("s5k5caga: pll writing fail\n");
-	   goto init_fail; 
-	}
-#endif	
-#endif //mhlee
+#if SENSOR_TUNING_SET
+	lgcam_rear_sensor_reg_pll_ext();
 #endif
 	mdelay(16);  // T3+T4
 
-#if 0 //ALESSI_TUNING_SET	
-	rc = s5k5caga_reg_init_ext();
-	if(rc<0){
-		printk("s5k5caga: init writing failed\n");
-		goto init_fail; 
-	}	
-#else	
-
-
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[0], s5k5caga_regs.pll_size);
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.pll[0], lgcam_rear_sensor_regs.pll_size);
 	
 	mdelay(10);
-<<<<<<< HEAD
-	#if 0	//mhlee 0105
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.init[0], s5k5caga_regs.init_size);
-
-
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002C, 0x7000, WORD_LEN);	
-	printk("read data mhlee1 rc= %d\n",rc);	
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002E, 0x2CF8, WORD_LEN);	
-	printk("read data mhlee2 rc= %d\n",rc);	
-	rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x0F12, &read_val, WORD_LEN);		
-	printk("read data mhlee222 read_val= 0x%x\n",read_val);
-	#endif
-
-	#if 1	//0105 //mhlee
-	p = kthread_run(s5k5caga_reg_tuning, 0, "reg_tunning");
-=======
-#if !ALESSI_TUNING_SET	//0105 //mhlee
+#if !SENSOR_TUNING_SET	//0105 //mhlee
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
-
-
 	p = kthread_run(lgcam_rear_sensor_reg_tuning, 0, "reg_tunning");
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if(IS_ERR(p))
 	{
-		printk("s5k5caga: init writing failed\n");
+		printk("lgcam_rear_sensor: init writing failed\n");
 		goto init_fail; 
 	}
 	printk("lgcam_rear_sensor: init writing done\n");	
@@ -2902,22 +2752,6 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 	statuscheck = 1;	
 
 #else
-<<<<<<< HEAD
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.pll[0], s5k5caga_regs.pll_size);
-	
-	mdelay(100);
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.init[0], s5k5caga_regs.init_size);
-//mhlee 0104	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.init[0], s5k5caga_regs.init_size);
-	if(rc<0){
-		printk("s5k5caga: init writing failed\n");
-		goto init_fail; 
-	}
-#endif
-	printk("s5k5caga: init writing done\n");	
-	cfg_wq = 0;
-	tuning_thread_run = 0;
-	statuscheck = 1;	
-=======
 	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.init[0], lgcam_rear_sensor_regs.init_size);
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
 #else
@@ -2929,30 +2763,27 @@ int s5k5caga_sensor_init(const struct msm_camera_sensor_info *data)
 		goto init_fail;
 	}
 #endif
-	
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 
-#endif
 	return rc;
 
 init_done:
 	return rc;
 
 init_fail:
-	printk("s5k5caga: s5k5caga_sensor_init failed\n");
-	kfree(s5k5caga_ctrl);
+	printk("lgcam_rear_sensor: lgcam_rear_sensor_sensor_init failed\n");
+	kfree(lgcam_rear_sensor_ctrl);
 	kfree(sensor_burst_buffer);
 	return rc;
 }
 
-static int s5k5caga_init_client(struct i2c_client *client)
+static int lgcam_rear_sensor_init_client(struct i2c_client *client)
 {
 	/* Initialize the MSM_CAMI2C Chip */
-	init_waitqueue_head(&s5k5caga_wait_queue);
+	init_waitqueue_head(&lgcam_rear_sensor_wait_queue);
 	return 0;
 }
 
-int s5k5caga_sensor_config(void __user *argp)
+int lgcam_rear_sensor_sensor_config(void __user *argp)
 {
 	struct sensor_cfg_data cfg_data;	
 	long  rc = 0;	
@@ -2965,68 +2796,39 @@ int s5k5caga_sensor_config(void __user *argp)
 	rc = copy_from_user(&cfg_data,(void *)argp,sizeof(struct sensor_cfg_data));
 	if(rc < 0)
 	{
-		printk("s5k5caga_ioctl mhlee cfgtype = %d, mode = %d\n",
+		printk("lgcam_rear_sensor_ioctl mhlee cfgtype = %d, mode = %d\n",
 			cfg_data.cfgtype, cfg_data.mode);
 		return -EFAULT;
 	}
 	if(debug_mask)
-		printk("s5k5caga_ioctl m, cfgtype = %d, mode = %d\n",
+		printk("lgcam_rear_sensor_ioctl m, cfgtype = %d, mode = %d\n",
 			cfg_data.cfgtype, cfg_data.mode);
 
-<<<<<<< HEAD
-	#if 0	//mhlee 0104	
-	mutex_lock(&s5k5caga_tuning_mutex);
-	if (statuscheck == 1) {		
-		int i=0;	
-		if(debug_mask)
-			printk("Sensor Preview Mode check : start \n");
-		// enable상태가 가능한지 check 
-		for(i = 0; i < 200; i++)
-		{
-			unsigned short changed_status = 0;
-			rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x0004, &changed_status, BYTE_LEN);	
-			if(debug_mask)
-				printk("Sensor Preview Mode check : %d-> success \n", changed_status);
-			if(changed_status == 4)
-			{		
-				break;
-			}
-			else
-			{
-				msleep(5);
-			}
-		}
-		statuscheck = 0;
-	}
-	mutex_unlock(&s5k5caga_tuning_mutex);
-	#else
-	mutex_lock(&s5k5caga_tuning_mutex);
-=======
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 	mutex_lock(&lgcam_rear_sensor_tuning_mutex);
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if (statuscheck == 1) {		
 		int i=0;	
 		if(debug_mask)
 			printk("Sensor Preview Mode check : start \n");
 		// enable상태가 가능한지 check 
 		for(i = 0; i < 200; i++) {
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002C, 0x7000, WORD_LEN);		
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002E, 0x020A, WORD_LEN);		
-			rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x0F12, &err_info, WORD_LEN);	
+
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002C, 0x7000, WORD_LEN);		
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002E, 0x020A, WORD_LEN);		
+			rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x0F12, &err_info, WORD_LEN);	
 			if(debug_mask)
 				printk("Sensor Preview Mode check : %d-> success \n", err_info);
 
 
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002C, 0x7000, WORD_LEN);		
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002E, 0x0242, WORD_LEN);		
-			rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x0F12, &errprev_info, WORD_LEN);	
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002C, 0x7000, WORD_LEN);		
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002E, 0x0242, WORD_LEN);		
+			rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x0F12, &errprev_info, WORD_LEN);	
 			if(debug_mask)
 				printk("Sensor Preview Mode check : %d-> success \n", errprev_info);
 
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002C, 0x7000, WORD_LEN);		
-			rc = s5k5caga_i2c_write(s5k5caga_client->addr, 0x002E, 0x0248, WORD_LEN);		
-			rc = s5k5caga_i2c_read(s5k5caga_client->addr, 0x0F12, &errcap_info, WORD_LEN);	
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002C, 0x7000, WORD_LEN);		
+			rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002E, 0x0248, WORD_LEN);		
+			rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr, 0x0F12, &errcap_info, WORD_LEN);	
 			if(debug_mask)
 				printk("Sensor Preview Mode check : %d-> success \n", errcap_info);
 			
@@ -3041,20 +2843,13 @@ int s5k5caga_sensor_config(void __user *argp)
 		}
 		statuscheck = 0;
 	}
-	mutex_unlock(&s5k5caga_tuning_mutex);
-
+	mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
-
 
 	//if(cfg_data.cfgtype != CFG_SET_MODE)
 	//	return 0;	//mhlee 0105	
-<<<<<<< HEAD
-	#if 1
-	mutex_lock(&s5k5caga_tuning_mutex);
-=======
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE	
 	mutex_lock(&lgcam_rear_sensor_tuning_mutex);
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if ((tuning_thread_run) && (cfg_data.cfgtype != CFG_GET_CHECK_SNAPSHOT)) {
 		if (cfg_data.cfgtype == CFG_MOVE_FOCUS)
 			cfg_data.mode = cfg_data.cfg.focus.steps;
@@ -3067,15 +2862,9 @@ int s5k5caga_sensor_config(void __user *argp)
 		}
 			
 		enqueue_cfg_wq(cfg_data.cfgtype, cfg_data.mode);		 
-		mutex_unlock(&s5k5caga_tuning_mutex);
+		mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
 		return 0;
 	}
-<<<<<<< HEAD
-	mutex_unlock(&s5k5caga_tuning_mutex);
-	#endif
-
-	mutex_lock(&s5k5caga_mutex);
-=======
 	mutex_unlock(&lgcam_rear_sensor_tuning_mutex);
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 
@@ -3084,87 +2873,86 @@ int s5k5caga_sensor_config(void __user *argp)
 if(cfg_data.cfgtype == CFG_SET_PARM_AF_MODE)
 cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 #endif
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	switch (cfg_data.cfgtype) {
 	case CFG_SET_MODE:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_MODE\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_MODE\n");
 
 		pict_size.width = cfg_data.width;
 		pict_size.height = cfg_data.height;		
-		rc = s5k5caga_set_sensor_mode(cfg_data.mode,cfg_data.width,cfg_data.height);
+		rc = lgcam_rear_sensor_set_sensor_mode(cfg_data.mode,cfg_data.width,cfg_data.height);
 		break;
 
-#if !ALESSI_TUNING_SET
+#if !SENSOR_TUNING_SET
 	case CFG_SET_EFFECT:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_EFFECT\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_EFFECT\n");
 			
-		rc = s5k5caga_set_effect(cfg_data.cfg.effect);
+		rc = lgcam_rear_sensor_set_effect(cfg_data.cfg.effect);
 		break;
 #endif
 #if 0 
     case CFG_SET_ZOOM_VIDEO:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_ZOOM\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_ZOOM\n");
 			
-		rc = s5k5caga_set_zoom(cfg_data.cfg.zoom);
+		rc = lgcam_rear_sensor_set_zoom(cfg_data.cfg.zoom);
 		break;
 #endif
 
-#if !ALESSI_TUNING_SET
+#if !SENSOR_TUNING_SET
 	case CFG_SET_ZOOM_SENSOR:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_ZOOM_SENSOR\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_ZOOM_SENSOR\n");
 			
-		rc = s5k5caga_set_zoom_sensor(cfg_data.mode);
+		rc = lgcam_rear_sensor_set_zoom_sensor(cfg_data.mode);
 		break;
 
 	case CFG_SET_FOCUS_RECT:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_FOCUS_RECT\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_FOCUS_RECT\n");
 			
-		rc = s5k5caga_set_focus_rect(cfg_data.mode);
+		rc = lgcam_rear_sensor_set_focus_rect(cfg_data.mode);
 		break;
 #endif
 		
 	case CFG_START_AF_FOCUS:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_START_AF_FOCUS = %d\n", focus_mode);
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_START_AF_FOCUS = %d\n", focus_mode);
 		   
 		focus_mode = cfg_data.mode;
 		
-		rc = s5k5caga_focus_config(cfg_data.mode);		
+		rc = lgcam_rear_sensor_focus_config(cfg_data.mode);		
 		break;
 
 	case CFG_SET_PARM_AF_MODE:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_PARM_AF_MODE = %d\n", focus_mode);
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_PARM_AF_MODE = %d\n", focus_mode);
 		   
 		focus_mode = cfg_data.mode;
-		rc = s5k5caga_cancel_focus(focus_mode);
+		rc = lgcam_rear_sensor_cancel_focus(focus_mode);
 		break;
 
 	case CFG_SET_DEFAULT_FOCUS:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_DEFAULT_FOCUS\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_DEFAULT_FOCUS\n");
 		   
-		rc = s5k5caga_set_focus();
+		rc = lgcam_rear_sensor_set_focus();
 		break;
 
 	case CFG_MOVE_FOCUS:
 		
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_MOVE_FOCUS: steps=%d\n",
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_MOVE_FOCUS: steps=%d\n",
 		    			cfg_data.cfg.focus.steps);
-		rc = s5k5caga_move_focus(cfg_data.cfg.focus.steps);
+		rc = lgcam_rear_sensor_move_focus(cfg_data.cfg.focus.steps);
 		break;	
 
 	case CFG_SET_CANCEL_FOCUS:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_CANCEL_FOCUS\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_CANCEL_FOCUS\n");
 		   
-        rc = s5k5caga_cancel_focus(focus_mode);
+        rc = lgcam_rear_sensor_cancel_focus(focus_mode);
 		break;
 		 	
     case CFG_GET_AF_MAX_STEPS:
@@ -3173,55 +2961,55 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 			rc = -EFAULT;
 		break;
 	case CFG_CHECK_AF_DONE:
-		rc = s5k5caga_check_focus(&cfg_data.mode);
+		rc = lgcam_rear_sensor_check_focus(&cfg_data.mode);
 		if (copy_to_user((void *)argp,
 				&cfg_data,
 				sizeof(struct sensor_cfg_data)))
 			rc = -EFAULT;
 
 		if (debug_mask)
-			printk("s5k5caga: CFG_CHECK_AF_DONE, %ld\n", rc);
+			printk("lgcam_rear_sensor: CFG_CHECK_AF_DONE, %ld\n", rc);
 
-		mutex_unlock(&s5k5caga_mutex);
+		mutex_unlock(&lgcam_rear_sensor_mutex);
 		return rc;
 		break;
 
-#if !ALESSI_TUNING_SET		
+#if !SENSOR_TUNING_SET		
 	case CFG_SET_WB:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_WB\n");
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_WB\n");
 			
-		rc = s5k5caga_set_wb(cfg_data.mode);
+		rc = lgcam_rear_sensor_set_wb(cfg_data.mode);
 		break;
 
 	case CFG_SET_ISO:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_ISO\n");
-		rc = s5k5caga_set_iso(cfg_data.mode);
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_ISO\n");
+		rc = lgcam_rear_sensor_set_iso(cfg_data.mode);
 		break;
 
 	case CFG_SET_SCENE:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_SCENE_MODE\n");
-		rc = s5k5caga_set_scene_mode(cfg_data.mode);
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_SCENE_MODE\n");
+		rc = lgcam_rear_sensor_set_scene_mode(cfg_data.mode);
 		break;
 
 	case CFG_SET_BRIGHTNESS:
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_SET_EXPOSURE_VALUE\n");
-		rc = s5k5caga_set_brightness(cfg_data.mode);
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_EXPOSURE_VALUE\n");
+		rc = lgcam_rear_sensor_set_brightness(cfg_data.mode);
 		break;
 #endif
 	case CFG_GET_CURRENT_ISO:
 	{
 		uint16_t iso_value = 0;
 		if(debug_mask)
-			printk("s5k5caga_sensor_config: command is CFG_GET_CURRENT_ISO\n");
-		rc = s5k5caga_i2c_read(s5k5caga_client->addr,
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_GET_CURRENT_ISO\n");
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
 		0x00F0, &iso_value, BYTE_LEN);
 		cfg_data.mode = iso_value;
 		if(debug_mask)
-		printk("s5k5caga_sensor_config: iso current value = %d\n", iso_value);
+		printk("lgcam_rear_sensor_sensor_config: iso current value = %d\n", iso_value);
 		if (copy_to_user((void *)argp,&cfg_data, sizeof(struct sensor_cfg_data)))
 			rc = -EFAULT;
 	}
@@ -3230,12 +3018,6 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 	case CFG_GET_CHECK_SNAPSHOT:
 	{		
 		if(debug_mask)
-<<<<<<< HEAD
-			printk("s5k5caga_sensor_config: command is CFG_GET_CHECK_SNAPSHOT\n");		
-		cfg_data.mode = enable_capturemode;
-		if(debug_mask)
-		printk("s5k5caga_sensor_config: enable_capturemode = %d\n", enable_capturemode);
-=======
 			printk("lgcam_rear_sensor_sensor_config: command is CFG_GET_CHECK_SNAPSHOT\n");		
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 		cfg_data.mode = enable_capturemode;
@@ -3244,242 +3026,241 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 #else
 		cfg_data.mode = 1;
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 		if (copy_to_user((void *)argp,&cfg_data, sizeof(struct sensor_cfg_data)))
 			rc = -EFAULT;
 	}
 		break;
 		break;
 
-#if !ALESSI_TUNING_SET  
+#if !SENSOR_TUNING_SET  
 	default:
 		rc = -EFAULT;
 #endif
 	}
 	
-	mutex_unlock(&s5k5caga_mutex);
+	mutex_unlock(&lgcam_rear_sensor_mutex);
 	if (rc < 0)
-		printk("s5k5caga: ERROR in sensor_config, %ld\n", rc);
+		printk("lgcam_rear_sensor: ERROR in sensor_config, %ld\n", rc);
 
 	if(debug_mask)
-	    printk("s5k5caga_sensor_config: end [%lu]\n", jiffies);
+	    printk("lgcam_rear_sensor_sensor_config: end [%lu]\n", jiffies);
 	
 	return rc;
  	
 }
 
 /* =====================================================================================*/
-/* s5k5caga sysf                                                                          */
+/* lgcam_rear_sensor sysf                                                                          */
 /* =====================================================================================*/
 
-static ssize_t s5k5caga_write_byte_store(struct device* dev, struct device_attribute* attr,const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_write_byte_store(struct device* dev, struct device_attribute* attr,const char* buf, size_t n)
 {
 	unsigned int val;
 	unsigned short waddr, wdata;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%x",&val);
 	waddr=(val & 0xffff00)>>8;
 	wdata=(val & 0x0000ff);
 
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, waddr, wdata, BYTE_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, waddr, wdata, BYTE_LEN);
 	if (rc < 0)
-		printk("s5k5caga: failed to write register\n");
+		printk("lgcam_rear_sensor: failed to write register\n");
 
 	return n;
 }
 
-static DEVICE_ATTR(write_byte, S_IRUGO|S_IWUGO, NULL, s5k5caga_write_byte_store);
+static DEVICE_ATTR(write_byte, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_write_byte_store);
 
-static ssize_t s5k5caga_write_word_store(struct device* dev, struct device_attribute* attr,const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_write_word_store(struct device* dev, struct device_attribute* attr,const char* buf, size_t n)
 {
 	unsigned int val;
 	unsigned short waddr, wdata;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%x",&val);
 	waddr=(val & 0xffff0000)>>16;
 	wdata=(val & 0x0000ffff);
 
-	rc = s5k5caga_i2c_write(s5k5caga_client->addr, waddr, wdata, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, waddr, wdata, WORD_LEN);
 	if (rc < 0)
-		printk("s5k5caga: failed to write register\n");
+		printk("lgcam_rear_sensor: failed to write register\n");
 
 	return n;
 }
 
-static DEVICE_ATTR(write_word, S_IRUGO|S_IWUGO, NULL, s5k5caga_write_word_store);
+static DEVICE_ATTR(write_word, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_write_word_store);
 
-static ssize_t s5k5caga_af_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_af_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%d",&val);
 
-	rc = s5k5caga_focus_config(val);
+	rc = lgcam_rear_sensor_focus_config(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set autofocus\n");
+		printk("lgcam_rear_sensor: failed to set autofocus\n");
 
 	return n;
 }
 
-static DEVICE_ATTR(af, S_IRUGO|S_IWUGO, NULL, s5k5caga_af_store);
+static DEVICE_ATTR(af, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_af_store);
 
-static ssize_t s5k5caga_move_focus_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_move_focus_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%d",&val);
 
-	rc = s5k5caga_move_focus(val);
+	rc = lgcam_rear_sensor_move_focus(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set autofocus\n");
+		printk("lgcam_rear_sensor: failed to set autofocus\n");
 
 	return n;
 }
 
-static DEVICE_ATTR(mf, S_IRUGO|S_IWUGO, NULL, s5k5caga_move_focus_store);
+static DEVICE_ATTR(mf, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_move_focus_store);
 
-static ssize_t s5k5caga_cancel_focus_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_cancel_focus_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%d",&val);
 
-	rc = s5k5caga_cancel_focus(val);
+	rc = lgcam_rear_sensor_cancel_focus(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set cancel_focus\n");
+		printk("lgcam_rear_sensor: failed to set cancel_focus\n");
 
 	return n;
 }
 
-static DEVICE_ATTR(cf, S_IRUGO|S_IWUGO, NULL, s5k5caga_cancel_focus_store);
+static DEVICE_ATTR(cf, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_cancel_focus_store);
 
-static ssize_t s5k5caga_zoom_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_zoom_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%d",&val);
 
-	rc = s5k5caga_set_zoom(val);
+	rc = lgcam_rear_sensor_set_zoom(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set zoom\n");
+		printk("lgcam_rear_sensor: failed to set zoom\n");
 
 	return n;
 }
 
-static DEVICE_ATTR(zoom, S_IRUGO|S_IWUGO, NULL, s5k5caga_zoom_store);
+static DEVICE_ATTR(zoom, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_zoom_store);
 
-static ssize_t s5k5caga_brightness_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_brightness_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%d",&val);
 
-	rc = s5k5caga_set_brightness(val);
+	rc = lgcam_rear_sensor_set_brightness(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set brightness\n");
+		printk("lgcam_rear_sensor: failed to set brightness\n");
 
 	return n;
 }
 
-static DEVICE_ATTR(brightness, S_IRUGO|S_IWUGO, NULL, s5k5caga_brightness_store);
+static DEVICE_ATTR(brightness, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_brightness_store);
 
-static ssize_t s5k5caga_scene_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_scene_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%x",&val);
 
 	if(val < CAMERA_SCENE_AUTO || val > CAMERA_SCENE_SUNSET) {
-		printk("[s5k5caga.c] invalid scene mode input\n");
+		printk("[lgcam_rear_sensor.c] invalid scene mode input\n");
 		return 0;
 	}
-	rc = s5k5caga_set_scene_mode(val);
+	rc = lgcam_rear_sensor_set_scene_mode(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set scene\n");
+		printk("lgcam_rear_sensor: failed to set scene\n");
 
 	return n;
 }
-static DEVICE_ATTR(scene, S_IRUGO|S_IWUGO, NULL, s5k5caga_scene_store);
+static DEVICE_ATTR(scene, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_scene_store);
 
-static ssize_t s5k5caga_wb_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_wb_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%x",&val);
 
 	if(val < CAMERA_WB_MIN_MINUS_1 || val > CAMERA_WB_MAX_PLUS_1) {
-		printk("s5k5caga: invalid white balance input\n");
+		printk("lgcam_rear_sensor: invalid white balance input\n");
 		return 0;
 	}
 
-	rc = s5k5caga_set_wb(val);
+	rc = lgcam_rear_sensor_set_wb(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set white balance\n");
+		printk("lgcam_rear_sensor: failed to set white balance\n");
 
 	return n;
 }
-static DEVICE_ATTR(wb, S_IRUGO|S_IWUGO, NULL, s5k5caga_wb_store);
+static DEVICE_ATTR(wb, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_wb_store);
 
-static ssize_t s5k5caga_effect_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
+static ssize_t lgcam_rear_sensor_effect_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
 {
 	int val;
 	long rc;
 
-	if (s5k5caga_ctrl == NULL)
+	if (lgcam_rear_sensor_ctrl == NULL)
 		return 0;
 
 	sscanf(buf,"%x",&val);
 
 	if(val < CAMERA_EFFECT_OFF || val > CAMERA_EFFECT_MAX) {
-		printk("s5k5caga: invalid effect input\n");
+		printk("lgcam_rear_sensor: invalid effect input\n");
 		return 0;
 	}
 
-	rc = s5k5caga_set_effect(val);
+	rc = lgcam_rear_sensor_set_effect(val);
 	if (rc < 0)
-		printk("s5k5caga: failed to set effect\n");
+		printk("lgcam_rear_sensor: failed to set effect\n");
 
 	return n;
 }
-static DEVICE_ATTR(effect, S_IRUGO|S_IWUGO, NULL, s5k5caga_effect_store);
+static DEVICE_ATTR(effect, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_effect_store);
 
-static struct attribute* s5k5caga_sysfs_attrs[] = {
+static struct attribute* lgcam_rear_sensor_sysfs_attrs[] = {
 	&dev_attr_write_byte.attr,
 	&dev_attr_write_word.attr,
 	&dev_attr_af.attr,
@@ -3493,15 +3274,15 @@ static struct attribute* s5k5caga_sysfs_attrs[] = {
 	NULL
 };
 
-static void s5k5caga_sysfs_add(struct kobject* kobj)
+static void lgcam_rear_sensor_sysfs_add(struct kobject* kobj)
 {
 	int i, n, ret;
-	n = ARRAY_SIZE(s5k5caga_sysfs_attrs);
+	n = ARRAY_SIZE(lgcam_rear_sensor_sysfs_attrs);
 	for(i = 0; i < n; i++){
-		if(s5k5caga_sysfs_attrs[i]){
-			ret = sysfs_create_file(kobj, s5k5caga_sysfs_attrs[i]);
+		if(lgcam_rear_sensor_sysfs_attrs[i]){
+			ret = sysfs_create_file(kobj, lgcam_rear_sensor_sysfs_attrs[i]);
 			if(ret < 0)
-				printk("s5k5caga sysfs is not created\n");
+				printk("lgcam_rear_sensor sysfs is not created\n");
 		}
 	}
 }
@@ -3510,42 +3291,35 @@ static void s5k5caga_sysfs_add(struct kobject* kobj)
 /*  end :  sysf                                                                         */
 /*======================================================================================*/
 
-int s5k5caga_sensor_release(void)
+int lgcam_rear_sensor_sensor_release(void)
 {
 	int rc = 0;
-<<<<<<< HEAD
-
-	mutex_lock(&s5k5caga_mutex);
-
-	rc = s5k5caga_check_thread_run();
-=======
 	mutex_lock(&lgcam_rear_sensor_mutex);
 #if defined LGCAM_REAR_SENSOR_THREAD_ENABLE
 	rc = lgcam_rear_sensor_check_thread_run();
->>>>>>> fbac8cf... gelato camera scene mode modification & muscat camera tun file add
 	if (rc < 0)
 	{
-		printk("s5k5caga_check_thread_run error\n");
+		printk("lgcam_rear_sensor_check_thread_run error\n");
 	}
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 
-	rc = s5k5caga_ctrl->sensordata->pdata->camera_power_off();
+	rc = lgcam_rear_sensor_ctrl->sensordata->pdata->camera_power_off();
 
-	kfree(s5k5caga_ctrl);
+	kfree(lgcam_rear_sensor_ctrl);
 	kfree(sensor_burst_buffer);
 
-	mutex_unlock(&s5k5caga_mutex);
+	mutex_unlock(&lgcam_rear_sensor_mutex);
 
-	s5k5caga_ctrl=NULL;
+	lgcam_rear_sensor_ctrl=NULL;
 	
-#ifdef CONFIG_MACH_MSM7X27_THUNDERG
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 		/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 		mdp_load_thunder_lut(1);	// Normal LUT
 #endif
 	return rc;
 }
 
-static int s5k5caga_i2c_probe(struct i2c_client *client,
+static int lgcam_rear_sensor_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	int rc = 0;
@@ -3555,125 +3329,126 @@ static int s5k5caga_i2c_probe(struct i2c_client *client,
 		goto probe_failure;
 	}
 
-	s5k5caga_sensorw = kzalloc(sizeof(struct s5k5caga_work), GFP_KERNEL);
+	lgcam_rear_sensor_sensorw = kzalloc(sizeof(struct lgcam_rear_sensor_work), GFP_KERNEL);
 
-	if (!s5k5caga_sensorw) {
+	if (!lgcam_rear_sensor_sensorw) {
 		rc = -ENOMEM;
 		goto probe_failure;
 	}
 
-	i2c_set_clientdata(client, s5k5caga_sensorw);
-	s5k5caga_init_client(client);
-	s5k5caga_client = client;
+	i2c_set_clientdata(client, lgcam_rear_sensor_sensorw);
+	lgcam_rear_sensor_init_client(client);
+	lgcam_rear_sensor_client = client;
 	
-	s5k5caga_sysfs_add(&client->dev.kobj);
+	lgcam_rear_sensor_sysfs_add(&client->dev.kobj);
 
 	if(debug_mask)
-		printk("s5k5caga: s5k5caga_probe succeeded!\n");
+		printk("lgcam_rear_sensor: lgcam_rear_sensor_probe succeeded!\n");
 
 	return 0;
 	
 probe_failure:
-	kfree(s5k5caga_sensorw);
-	s5k5caga_sensorw = NULL;
-	printk("s5k5caga_probe failed!\n");
+	kfree(lgcam_rear_sensor_sensorw);
+	lgcam_rear_sensor_sensorw = NULL;
+	printk("lgcam_rear_sensor_probe failed!\n");
 	return rc;
 }
 
-static const struct i2c_device_id s5k5caga_i2c_id[] = {
+static const struct i2c_device_id lgcam_rear_sensor_i2c_id[] = {
 	{ "s5k5caga", 0},
 	{ },
 };
 
-static struct i2c_driver s5k5caga_i2c_driver = {
-	.id_table = s5k5caga_i2c_id,
-	.probe  = s5k5caga_i2c_probe,
-	.remove = __exit_p(s5k5caga_i2c_remove),
+static struct i2c_driver lgcam_rear_sensor_i2c_driver = {
+	.id_table = lgcam_rear_sensor_i2c_id,
+	.probe  = lgcam_rear_sensor_i2c_probe,
+	.remove = __exit_p(lgcam_rear_sensor_i2c_remove),
 	.driver = {
 		.name = "s5k5caga",
 	},
 };
 
-static int s5k5caga_sensor_probe(const struct msm_camera_sensor_info *info,
+static int lgcam_rear_sensor_sensor_probe(const struct msm_camera_sensor_info *info,
 				struct msm_sensor_ctrl *s)
 {
-	int rc = i2c_add_driver(&s5k5caga_i2c_driver);
-	printk("s5k5caga: s5k5caga_sensor_probe\n");	
+	int rc = i2c_add_driver(&lgcam_rear_sensor_i2c_driver);
+	printk("lgcam_rear_sensor: lgcam_rear_sensor_sensor_probe\n");	
 
-	if (rc < 0 || s5k5caga_client == NULL) {
+
+	if (rc < 0 || lgcam_rear_sensor_client == NULL) {
 		rc = -ENOTSUPP;
 		goto probe_done;
 
 	}
 
 #if 0	
-	s5k5caga_sensor_power_enable();
+	lgcam_rear_sensor_sensor_power_enable();
 	mdelay(1);
 #endif	
 
 #if 0
-	rc = s5k5caga_reset(info,1);
+	rc = lgcam_rear_sensor_reset(info,1);
 	if (rc < 0) {
-		printk("s5k5caga: reset failed!\n");
+		printk("lgcam_rear_sensor: reset failed!\n");
 	}
 	mdelay(10);
 
-#ifdef CONFIG_MACH_MSM7X27_THUNDERG
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 	/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 	mdp_load_thunder_lut(2);	// Camera LUT
 #endif
-	rc = s5k5caga_sensor_init_probe(info);
+	rc = lgcam_rear_sensor_sensor_init_probe(info);
 	if (rc < 0)
 		goto probe_done;
 	
 	mdelay(10);
 
-	rc = s5k5caga_pwdn(info,1);
+	rc = lgcam_rear_sensor_pwdn(info,1);
 	if (rc < 0) {
-		printk("s5k5caga: pwdn failed!\n");
+		printk("lgcam_rear_sensor: pwdn failed!\n");
 	}
 	mdelay(10);
 	
-	rc = s5k5caga_pwdn(info,0);
+	rc = lgcam_rear_sensor_pwdn(info,0);
 	if (rc < 0) {
-		printk("s5k5caga: pwdn failed!\n");
+		printk("lgcam_rear_sensor: pwdn failed!\n");
 	}
 	mdelay(1);
 	
-	rc = s5k5caga_reset(info,0);
+	rc = lgcam_rear_sensor_reset(info,0);
 	if (rc < 0) {
-		printk("s5k5caga: reset failed!\n");
+		printk("lgcam_rear_sensor: reset failed!\n");
 	}
 	mdelay(1);
-	s5k5caga_sensor_power_disable();
+	lgcam_rear_sensor_sensor_power_disable();
 #endif
-	s->s_init = s5k5caga_sensor_init;
-	s->s_release = s5k5caga_sensor_release;
-	s->s_config  = s5k5caga_sensor_config;
+	s->s_init = lgcam_rear_sensor_sensor_init;
+	s->s_release = lgcam_rear_sensor_sensor_release;
+	s->s_config  = lgcam_rear_sensor_sensor_config;
 
 probe_done:
 	printk("%s %s:%d\n", __FILE__, __func__, __LINE__);
 	return rc;
 }
 
-static int __s5k5caga_probe(struct platform_device *pdev)
+static int __lgcam_rear_sensor_probe(struct platform_device *pdev)
 {
-	printk("s5k5caga: __s5k5caga_probe\n");
+	printk("lgcam_rear_sensor: __lgcam_rear_sensor_probe\n");
 
-	return msm_camera_drv_start(pdev, s5k5caga_sensor_probe);	
+	return msm_camera_drv_start(pdev, lgcam_rear_sensor_sensor_probe);	
 }
 
 static struct platform_driver msm_camera_driver = {
-	.probe = __s5k5caga_probe,
+	.probe = __lgcam_rear_sensor_probe,
 	.driver = {
-		.name = "msm_camera_s5k5caga",
+		.name = "msm_camera_s5k5caga", //board-gelato-camera.c(platform_device name)
 		.owner = THIS_MODULE,
 	},
 };
 
-static int __init s5k5caga_init(void)
+static int __init lgcam_rear_sensor_init(void)
 {
 	return platform_driver_register(&msm_camera_driver);  
 }
 
-late_initcall(s5k5caga_init);
+late_initcall(lgcam_rear_sensor_init);
