@@ -756,7 +756,7 @@ static int kr3dh_probe(struct i2c_client *client,
 		goto err2;
 
 	err = kr3dh_i2c_read(kr, &id_check, 1);
-	if(id_check != KR3DH_DEVICE_ID)
+	if(id_check != kr->pdata->device_id())
 	{
 		dev_err(&client->dev, "Device ID not matched\n");
 		err = -ENODEV;

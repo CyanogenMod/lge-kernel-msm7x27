@@ -306,6 +306,14 @@ static void __init gelato_init_i2c_touch(int bus_num)
 }
 
 /* acceleration */
+static int kr3dh_device_id(void)
+{
+	if(lge_bd_rev == LGE_REV_A)
+		return 0x33;
+	else
+		return 0x32;
+}
+
 static int kr3dh_config_gpio(int config)
 {
 	if (config) {	/* for wake state */
@@ -370,6 +378,7 @@ struct kr3dh_platform_data kr3dh_data = {
 	.kr_init = kr_init,
 	.kr_exit = kr_exit,
 	.gpio_config = kr3dh_config_gpio,
+	.device_id = kr3dh_device_id,
 };
 
 static struct gpio_i2c_pin accel_i2c_pin[] = {
