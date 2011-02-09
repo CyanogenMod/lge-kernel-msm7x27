@@ -221,7 +221,6 @@ static int ts_set_vreg(unsigned char onoff)
 {
 	struct vreg *vreg_synt;
 	struct vreg *vreg_mmc;
-	int rc;
 
 	printk("[Touch] %s() onoff:%d\n",__FUNCTION__, onoff);
 
@@ -240,7 +239,7 @@ static int ts_set_vreg(unsigned char onoff)
 		vreg_enable(vreg_synt);
 
 		msleep(15);	// wait 15ms
-		
+
 		vreg_set_level(vreg_mmc, 2600);
 		vreg_enable(vreg_mmc);
 
@@ -252,7 +251,7 @@ static int ts_set_vreg(unsigned char onoff)
 		vreg_set_level(vreg_synt, 0);
 		vreg_disable(vreg_mmc);
 		vreg_disable(vreg_synt);
-		
+
 		//ts_config_gpio(0);
 	}
 	return 0;
