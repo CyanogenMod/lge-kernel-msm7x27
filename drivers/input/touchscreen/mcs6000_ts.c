@@ -340,15 +340,14 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 	}
 #endif
 
-	//printk(KERN_ERR "T%d X:%d Y:%d\n", input_type, x1, y1);
-		
-
-	if (dev->pendown) { /* touch pressed case */
-		if(key_touch) {
-			mcs6000_key_event_touch(key_touch, PRESSED, dev);
+	if (ts->pendown) { /* touch pressed case */
+	/* touch key function disable by younchan.kim,2010-09-24 */
+	/*
+		if (key_touch) {
+			mcs6000_key_event_touch(key_touch, PRESSED, ts);
 			key_pressed = key_touch;
 		}
-
+	*/
 		if (input_type) {
 			touch_pressed = 1;
 
@@ -1252,22 +1251,12 @@ static void mcs6000_early_suspend(struct early_suspend * h)
 {	
 	struct mcs6000_ts_data *ts = container_of(h, struct mcs6000_ts_data, early_suspend);
 
-	if(is_downloading == 0)
-	{
-		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-		disable_irq(dev->num_irq);
-		DMSG("%s: irq disable\n", __FUNCTION__);
+	if (MCS6000_DM_TRACE_FUNC & mcs6000_debug_mask)
+		DMSG("\n");
 
-#if defined(CONFIG_MACH_MSM7X27_MUSCAT)
-
-		/* touch disable */
-    	gpio_set_value(28, 0);
-#endif
-
-		dev->power(OFF);
-
-		
-		dev->power(OFF);
+	if (ts == (void *)NULL) {
+		printk(KERN_ERR "mcs6000_early_suspend: ts is null\n");
+		return;
 	}
 
 	if (ts->status == MCS6000_DEV_NORMAL)
@@ -1278,20 +1267,12 @@ static void mcs6000_late_resume(struct early_suspend * h)
 {	
 	struct mcs6000_ts_data *ts = container_of(h, struct mcs6000_ts_data, early_suspend);
 
-	if(is_downloading == 0)
-	{
-		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
-		mcs6000_ts_on();
+	if (MCS6000_DM_TRACE_FUNC & mcs6000_debug_mask)
+		DMSG("\n");
 
-#if defined(CONFIG_MACH_MSM7X27_MUSCAT)
-
-		/* touch enable */
-    	gpio_set_value(28, 1);
-#endif
-
-				
-		enable_irq(dev->num_irq);
-		DMSG("%s: irq enable\n", __FUNCTION__);
+	if (ts == (void *)NULL) {
+		printk(KERN_ERR "mcs6000_early_resume: ts is null\n");
+		return;
 	}
 
 	if (ts->status == MCS6000_DEV_SUSPEND)
@@ -1319,57 +1300,9 @@ static struct i2c_driver mcs6000_ts_driver = {
 
 static int __devinit mcs6000_ts_init(void)
 {
-	int err = 0;
-	struct mcs6000_ts_device *dev;
-	dev = &mcs6000_ts_dev;
-
-
-#if defined(CONFIG_MACH_MSM7X27_MUSCAT)	
-	/* LGE_CHANGE [james.jang@lge.com] 2010-12-21, set gpio 28 config for touch enable */
-	gpio_tlmm_config(GPIO_CFG(28, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
-	/* touch enable */
-	gpio_set_value(28, 1);
-#endif
-
-	memset(&mcs6000_ts_dev, 0, sizeof(struct mcs6000_ts_device));
-
-	mcs6000_ts_input = input_allocate_device();
-	if (mcs6000_ts_input == NULL) {
-		printk(KERN_ERR "%s: input_allocate: not enough memory\n",
-				__FUNCTION__);
-		err = -ENOMEM;
-		goto err_input_allocate;
-	}
-
-	mcs6000_ts_input->name = "touch_mcs6000";
-
-	set_bit(EV_SYN, 	 mcs6000_ts_input->evbit);
-	set_bit(EV_KEY, 	 mcs6000_ts_input->evbit);
-	set_bit(EV_ABS, 	 mcs6000_ts_input->evbit);
-#ifdef LG_FW_MULTI_TOUCH
-	set_bit(ABS_MT_TOUCH_MAJOR, mcs6000_ts_input->absbit);
-#else
-	set_bit(BTN_TOUCH, mcs6000_ts_input->keybit);
-#endif
-#if defined(LG_FW_TOUCH_SOFT_KEY) || defined(LG_FW_AUDIO_HAPTIC_TOUCH_SOFT_KEY)
-	set_bit(TOUCH_BACK, mcs6000_ts_input->keybit);
-	set_bit(TOUCH_SEARCH, mcs6000_ts_input->keybit);
-#else
-	set_bit(KEY_BACK, mcs6000_ts_input->keybit);
-	set_bit(KEY_SEARCH, mcs6000_ts_input->keybit);
-#endif
-
-	err = input_register_device(mcs6000_ts_input);
-	if (err < 0) {
-		printk(KERN_ERR "%s: Fail to register device\n", __FUNCTION__);
-		goto err_input_register;
-	}
-
-	err = i2c_add_driver(&mcs6000_i2c_ts_driver);
-	if (err < 0) {
-		printk(KERN_ERR "%s: failed to probe i2c \n", __FUNCTION__);
-		goto err_i2c_add_driver;
-	}
+	mcs6000_wq = create_singlethread_workqueue("mcs6000_wq");
+	if (!mcs6000_wq)
+		return -ENOMEM;
 
 	return i2c_add_driver(&mcs6000_ts_driver);
 }

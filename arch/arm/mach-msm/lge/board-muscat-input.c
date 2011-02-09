@@ -231,7 +231,7 @@ static struct gpio_i2c_pin ts_i2c_pin[] = {
 static struct i2c_gpio_platform_data ts_i2c_pdata = {
 	.sda_is_open_drain	= 0,
 	.scl_is_open_drain	= 0,
-	.udelay			= 0,
+	.udelay			= 2,
 };
 
 static struct platform_device ts_i2c_device = {
@@ -289,8 +289,8 @@ static struct touch_platform_data ts_pdata = {
 
 static struct i2c_board_info ts_i2c_bdinfo[] = {
 	[0] = {
-		I2C_BOARD_INFO("touch_mcs6000", TS_I2C_SLAVE_ADDR),
-		.type = "touch_mcs6000",
+		I2C_BOARD_INFO("touch_mcs7000", TS_I2C_SLAVE_ADDR),
+		.type = "touch_mcs7000",
 		.platform_data = &ts_pdata,
 	},
 };
