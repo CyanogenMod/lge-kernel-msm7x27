@@ -641,7 +641,6 @@ static int vfe31_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 			return -EINVAL;
 		/* at least one frame for snapshot.  */
 		*p++ = 0x1;    /* xbar cfg0 */
-		*p = 0x203;    /* xbar cfg1 */
 		vfe31_ctrl->outpath.out0.ch0 = 0; /* thumbnail luma   */
 		vfe31_ctrl->outpath.out0.ch1 = 4; /* thumbnail chroma */
 		vfe31_ctrl->outpath.out1.ch0 = 1; /* main image luma   */
