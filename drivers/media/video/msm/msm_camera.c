@@ -808,11 +808,13 @@ static struct msm_queue_cmd *__msm_control(struct msm_sync *sync,
 			queue->wait,
 			!list_empty_careful(&queue->list),
 			timeout);
-	CDBG("Waiting over for config status \n");
+	CDBG("Waiting over for config status\n");
 	if (list_empty_careful(&queue->list)) {
-		if (!rc)
+		if (!rc) {
 			rc = -ETIMEDOUT;
-		if (rc < 0) {
+			pr_err("%s: wait_event error %d\n", __func__, rc);
+			return ERR_PTR(rc);
+		} else if (rc < 0) {
 			pr_err("%s: wait_event error %d\n", __func__, rc);
 			msm_delete_entry(&sync->event_q, list_config, qcmd);
 			return ERR_PTR(rc);
@@ -908,7 +910,7 @@ static int msm_control(struct msm_control_device *ctrl_pmsm,
 
 	qcmd_resp = __msm_control(sync,
 				  &ctrl_pmsm->ctrl_q,
-				  qcmd, MAX_SCHEDULE_TIMEOUT);
+				  qcmd, msecs_to_jiffies(10000));
 
 	if (!qcmd_resp || IS_ERR(qcmd_resp)) {
 		/* Do not free qcmd_resp here.  If the config thread read it,
