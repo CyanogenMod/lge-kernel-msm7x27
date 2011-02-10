@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@ struct voice_data {
 	int dev_state;/*READY, CHANGE, REL_DONE,INIT*/
 	int voc_state;/*INIT, CHANGE, RELEASE, ACQUIRE */
 	struct mutex voc_lock;
+	struct mutex vol_lock;
 	int voc_event;
 	int dev_event;
 	atomic_t rel_start_flag;
@@ -473,6 +474,8 @@ static int voice_cmd_device_info(struct voice_data *v)
 			v->dev_tx.dev_acdb_id, v->dev_rx.dev_acdb_id,
 			v->dev_tx.sample, v->dev_tx.mute);
 
+	mutex_lock(&voice.vol_lock);
+
 	cmd.hdr.id = CMD_DEVICE_INFO;
 	cmd.hdr.data_len = sizeof(struct voice_device) -
 			sizeof(struct voice_header);
@@ -496,6 +499,8 @@ static int voice_cmd_device_info(struct voice_data *v)
 
 	err = dalrpc_fcn_5(VOICE_DALRPC_CMD, v->handle, &cmd,
 			 sizeof(struct voice_device));
+
+	mutex_unlock(&voice.vol_lock);
 
 	if (err)
 		MM_ERR("Voice device command failed\n");
@@ -665,6 +670,7 @@ static int __init voice_init(void)
 	MM_INFO("\n"); /* Macro prints the file name and function */
 
 	mutex_init(&voice.voc_lock);
+	mutex_init(&voice.vol_lock);
 	v->handle = NULL;
 	v->cb_handle = NULL;
 
