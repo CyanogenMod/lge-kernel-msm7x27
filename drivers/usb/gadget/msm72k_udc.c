@@ -365,6 +365,9 @@ static void usb_phy_stuck_recover(struct work_struct *w)
 
 	disable_irq(otg->irq);
 	if (usb_phy_stuck_check(ui)) {
+#ifdef CONFIG_USB_MSM_ACA
+		del_timer_sync(&otg->id_timer);
+#endif
 		ui->phy_fail_count++;
 		dev_err(&ui->pdev->dev,
 				"%s():PHY stuck, resetting HW\n", __func__);
@@ -373,6 +376,10 @@ static void usb_phy_stuck_recover(struct work_struct *w)
 		 * reset the PHY and HW link to recover the PHY
 		 */
 		usb_reset(ui);
+#ifdef CONFIG_USB_MSM_ACA
+		mod_timer(&otg->id_timer, jiffies +
+				 msecs_to_jiffies(OTG_ID_POLL_MS));
+#endif
 		msm72k_pullup_internal(&ui->gadget, 1);
 	}
 	enable_irq(otg->irq);

@@ -203,6 +203,8 @@ static void set_aca_id_inputs(struct msm_otg *dev)
 	u8		phy_ints;
 
 	phy_ints = ulpi_read(dev, 0x13);
+	if (phy_ints == -ETIMEDOUT)
+		return;
 
 	pr_debug("phy_ints = %x\n", phy_ints);
 	clear_bit(ID_A, &dev->inputs);
@@ -2115,6 +2117,14 @@ static void msm_otg_id_func(unsigned long _dev)
 		msm_otg_set_suspend(&dev->otg, 0);
 
 	phy_ints = ulpi_read(dev, 0x13);
+
+	/*
+	 * ACA timer will be kicked again after the PHY
+	 * state is recovered.
+	 */
+	if (phy_ints == -ETIMEDOUT)
+		return;
+
 
 	/* If id_gnd happened then stop and let isr take care of this */
 	if (phy_id_state_gnd(phy_ints))
