@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include <linux/spinlock.h>
 #include <linux/delay.h>
 #include <linux/crypto.h>
+#include <crypto/hash.h>
 #include <crypto/sha.h>
 
 #include <mach/dma.h>
@@ -837,21 +838,17 @@ static int _aead_complete(struct qce_device *pce_dev)
 
 static void _sha_complete(struct qce_device *pce_dev)
 {
-	struct qce_sha_req *sreq;
+
+	struct ahash_request *areq;
 	uint32_t auth_data[2];
 
-	sreq = (struct qce_sha_req *) pce_dev->areq;
-
-	dma_unmap_sg(pce_dev->pdev, sreq->src, pce_dev->src_nents,
+	areq = (struct ahash_request *) pce_dev->areq;
+	dma_unmap_sg(pce_dev->pdev, areq->src, pce_dev->src_nents,
 				DMA_TO_DEVICE);
 
 	auth_data[0] = readl(pce_dev->iobase + CRYPTO_AUTH_BYTECNT0_REG);
 	auth_data[1] = readl(pce_dev->iobase + CRYPTO_AUTH_BYTECNT1_REG);
-
-	sreq->auth_data[0] = auth_data[0];
-	sreq->auth_data[1] = auth_data[1];
-
-	pce_dev->qce_cb(sreq->cookie,  pce_dev->dig_result, NULL,
+	pce_dev->qce_cb(areq,  pce_dev->dig_result, (unsigned char *)auth_data,
 				pce_dev->chan_ce_in_status);
 };
 
@@ -1869,6 +1866,7 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	int rc;
 	uint32_t pad_len = ALIGN(sreq->size, ADM_CE_BLOCK_SIZE) - sreq->size;
+	struct ahash_request *areq = (struct ahash_request *)sreq->areq;
 
 	_chain_buffer_in_init(pce_dev);
 	pce_dev->src_nents = count_sg(sreq->src, sreq->size);
@@ -1898,7 +1896,7 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 	if (rc < 0)
 		goto bad;
 
-	pce_dev->areq = sreq;
+	pce_dev->areq = areq;
 	pce_dev->qce_cb = sreq->qce_cb;
 	pce_dev->chan_ce_in_cmd->complete_func = _sha_ce_in_call_back;
 
@@ -1949,7 +1947,7 @@ static void __exit _qce_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("1.01");
+MODULE_VERSION("1.02");
 
 module_init(_qce_init);
 module_exit(_qce_exit);
