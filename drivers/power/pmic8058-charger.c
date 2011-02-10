@@ -187,6 +187,7 @@ struct pm8058_charger {
 	struct delayed_work veoc_begin_work;
 	int waiting_for_topoff;
 	int waiting_for_veoc;
+	int vbatdet;
 	struct msm_hardware_charger hw_chg;
 	int current_charger_current;
 	int disabled;
@@ -617,9 +618,13 @@ static int pm8058_start_charging(struct msm_hardware_charger *hw_chg,
 	ret = pm_chg_vbatdet_set(AUTO_CHARGING_VBATDET);
 	if (ret)
 		goto out;
+
+	pm8058_chg.vbatdet = AUTO_CHARGING_VBATDET;
 	/*
 	 * get the state of vbat and if it is higher than
 	 * AUTO_CHARGING_VBATDET we start the veoc start timer
+	 * else wait for the voltage to go to AUTO_CHARGING_VBATDET
+	 * and then start the 90 min timer
 	 */
 	vbat_higher_than_vbatdet =
 	    pm_chg_get_rt_status(pm8058_chg.pmic_chg_irq[VBATDET_IRQ]);
@@ -633,8 +638,8 @@ static int pm8058_start_charging(struct msm_hardware_charger *hw_chg,
 		schedule_delayed_work(&pm8058_chg.veoc_begin_work,
 				      round_jiffies_relative(msecs_to_jiffies
 				     (AUTO_CHARGING_VEOC_BEGIN_TIME_MS)));
-	}
-	pm8058_chg_enable_irq(VBATDET_IRQ);
+	} else
+		pm8058_chg_enable_irq(VBATDET_IRQ);
 
 	ret = __pm8058_start_charging(chg_current, AUTO_CHARGING_IEOC_ITERM,
 				AUTO_CHARGING_FAST_TIME_MAX_MINUTES);
@@ -649,6 +654,11 @@ static void veoc_begin_work(struct work_struct *work)
 	 * start checking for VEOC in addition with 16min charges*/
 	dev_info(pm8058_chg.dev, "%s begin veoc detection\n", __func__);
 	pm8058_chg.waiting_for_veoc = 1;
+	/*
+	 * disable VBATDET irq we dont need it unless we are at the end of
+	 * charge cycle
+	 */
+	pm8058_chg_disable_irq(VBATDET_IRQ);
 	__pm8058_start_charging(pm8058_chg.current_charger_current,
 				AUTO_CHARGING_VEOC_ITERM,
 				AUTO_CHARGING_VEOC_TCHG);
@@ -665,6 +675,7 @@ static void vbat_low_work(struct work_struct *work)
 	pm8058_chg.waiting_for_veoc = 0;
 	pm8058_chg.waiting_for_topoff = 1;
 	pm8058_chg_disable_irq(VBATDET_LOW_IRQ);
+	pm8058_chg_disable_irq(VBATDET_IRQ);
 	__pm8058_start_charging(pm8058_chg.current_charger_current,
 				AUTO_CHARGING_VEOC_ITERM,
 				AUTO_CHARGING_VEOC_TCHG_FINAL_CYCLE);
@@ -757,6 +768,7 @@ static irqreturn_t pm8058_chg_auto_chgdone_handler(int irq, void *dev_id)
 {
 	dev_info(pm8058_chg.dev, "%s waiting a sec to confirm\n",
 		__func__);
+	pm8058_chg_disable_irq(VBATDET_IRQ);
 	if (!delayed_work_pending(&pm8058_chg.chg_done_check_work)) {
 		schedule_delayed_work(&pm8058_chg.chg_done_check_work,
 				      round_jiffies_relative(msecs_to_jiffies
@@ -790,6 +802,7 @@ static irqreturn_t pm8058_chg_auto_chgfail_handler(int irq, void *dev_id)
 		pm8058_chg.waiting_for_veoc = 1;
 
 		pm_chg_vbatdet_set(AUTO_CHARGING_VEOC_VBATDET);
+		pm8058_chg.vbatdet = AUTO_CHARGING_VEOC_VBATDET;
 		pm8058_chg_enable_irq(VBATDET_LOW_IRQ);
 	}
 	return IRQ_HANDLED;
@@ -852,7 +865,8 @@ static irqreturn_t pm8058_chg_vbatdet_handler(int irq, void *dev_id)
 	ret = pm_chg_get_rt_status(pm8058_chg.pmic_chg_irq[VBATDET_IRQ]);
 
 	if (ret) {
-		if (!delayed_work_pending(&pm8058_chg.veoc_begin_work)) {
+		if (pm8058_chg.vbatdet == AUTO_CHARGING_VBATDET
+			&& !delayed_work_pending(&pm8058_chg.veoc_begin_work)) {
 			/*
 			 * we are in constant voltage phase of charging
 			 * IEOC should happen withing 90 mins of this instant
@@ -866,23 +880,27 @@ static irqreturn_t pm8058_chg_vbatdet_handler(int irq, void *dev_id)
 				      (AUTO_CHARGING_VEOC_BEGIN_TIME_MS)));
 		}
 	} else {
-		cancel_delayed_work_sync(&pm8058_chg.check_vbat_low_work);
+		if (pm8058_chg.vbatdet == AUTO_CHARGING_VEOC_VBATDET) {
+			cancel_delayed_work_sync(
+				&pm8058_chg.check_vbat_low_work);
 
-		if (pm8058_chg.waiting_for_topoff
-		    || pm8058_chg.waiting_for_veoc) {
-			/*
-			 * the battery dropped its voltage below 4100 around
-			 * a minute charge the battery for 16 mins and check
-			 * vbat again for a minute
-			 */
-			dev_info(pm8058_chg.dev, "%s battery dropped voltage"
-				"within a minute\n", __func__);
-			pm8058_chg.waiting_for_topoff = 0;
-			pm8058_chg.waiting_for_veoc = 1;
-			__pm8058_start_charging(pm8058_chg.
+			if (pm8058_chg.waiting_for_topoff
+			    || pm8058_chg.waiting_for_veoc) {
+				/*
+				 * the battery dropped its voltage below 4100
+				 * around a minute charge the battery for 16
+				 * mins and check vbat again for a minute
+				 */
+				dev_info(pm8058_chg.dev, "%s batt dropped vlt"
+					"within a minute\n", __func__);
+				pm8058_chg.waiting_for_topoff = 0;
+				pm8058_chg.waiting_for_veoc = 1;
+				pm8058_chg_disable_irq(VBATDET_IRQ);
+				__pm8058_start_charging(pm8058_chg.
 						current_charger_current,
 						AUTO_CHARGING_VEOC_ITERM,
 						AUTO_CHARGING_VEOC_TCHG);
+			}
 		}
 	}
 	return IRQ_HANDLED;
