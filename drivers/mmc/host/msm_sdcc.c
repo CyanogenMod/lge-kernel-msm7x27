@@ -1204,11 +1204,6 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 	int rc;
 	struct device *dev = mmc->parent;
 
-	if (atomic_read(&dev->power.usage_count) > 0) {
-		pm_runtime_get_noresume(dev);
-		goto out;
-	}
-
 	rc = pm_runtime_get_sync(dev);
 
 	if (rc < 0) {
@@ -1216,7 +1211,6 @@ static int msmsdcc_enable(struct mmc_host *mmc)
 				__func__, rc);
 		return rc;
 	}
-out:
 	return 0;
 }
 
@@ -1844,24 +1838,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 	if (mmc) {
 		host->sdcc_suspending = 1;
 
-		/*
-		 * MMC core thinks that host is disabled by now since
-		 * runtime suspend is scheduled after msmsdcc_disable()
-		 * is called. Thus, MMC core will try to enable the host
-		 * while suspending it. This results in a synchronous
-		 * runtime resume request while in runtime suspending
-		 * context and hence inorder to complete this resume
-		 * requet, it will wait for suspend to be complete,
-		 * but runtime suspend also can not proceed further
-		 * until the host is resumed. Thus, it leads to a hang.
-		 * Hence, increase the pm usage count before suspending
-		 * the host so that any resume requests after this will
-		 * simple become pm usage counter increment operations.
-		 */
-		pm_runtime_get_noresume(dev);
 		rc = mmc_suspend_host(mmc);
-		pm_runtime_put_noidle(dev);
-
 		if (!rc) {
 			/*
 			 * If MMC core level suspend is not supported, turn
