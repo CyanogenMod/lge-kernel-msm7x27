@@ -80,16 +80,6 @@ struct clkctl_acpu_speed {
 
 static struct clock_state drv_state = { 0 };
 
-static struct cpufreq_frequency_table freq_table[] = {
-	{ 0, 122880 },
-	{ 1, 245760 },
-	{ 2, 368640 },
-	{ 3, 768000 },
-	/* 806.4MHz is updated to 1024MHz at runtime for MSM8x55. */
-	{ 4, 806400 },
-	{ 5, CPUFREQ_TABLE_END },
-};
-
 /* Use negative numbers for sources that can't be enabled/disabled */
 #define SRC_LPXO (-2)
 #define SRC_AXI  (-1)
@@ -375,18 +365,36 @@ static void __init lpj_init(void)
 	}
 }
 
+#ifdef CONFIG_CPU_FREQ_MSM
+static struct cpufreq_frequency_table cpufreq_tbl[ARRAY_SIZE(acpu_freq_tbl)];
+
+static void setup_cpufreq_table(void)
+{
+	unsigned i;
+	const struct clkctl_acpu_speed *speed;
+
+	for (i = 0, speed = acpu_freq_tbl; speed->acpu_clk_khz; i++, speed++) {
+		cpufreq_tbl[i].index = i;
+		cpufreq_tbl[i].frequency = speed->acpu_clk_khz;
+	}
+	cpufreq_tbl[i].frequency = CPUFREQ_TABLE_END;
+
+	cpufreq_frequency_table_get_attr(cpufreq_tbl, smp_processor_id());
+}
+#else
+static inline void setup_cpufreq_table(void) { }
+#endif
+
 /* Update frequency tables for PLL2. */
 void __init pll2_fixup(void)
 {
 	struct clkctl_acpu_speed *speed;
-	struct cpufreq_frequency_table *cpu_freq;
 	u8 pll2_l;
 
 	pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
 	speed = &acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2];
-	cpu_freq = &freq_table[ARRAY_SIZE(freq_table)-2];
 
-	if (speed->acpu_clk_khz != 806400 || cpu_freq->frequency != 806400) {
+	if (speed->acpu_clk_khz != 806400) {
 		pr_err("Frequency table fixups for PLL2 rate failed.\n");
 		BUG();
 	}
@@ -396,19 +404,16 @@ void __init pll2_fixup(void)
 		speed->acpu_clk_khz = 1024000;
 		speed->vdd_mv = 1200;
 		speed->vdd_raw = VDD_RAW(1200);
-		cpu_freq->frequency = 1024000;
 		break;
 	case PLL2_1200_MHZ:
 		speed->acpu_clk_khz = 1200000;
 		speed->vdd_mv = 1200;
 		speed->vdd_raw = VDD_RAW(1200);
-		cpu_freq->frequency = 1200000;
 		break;
 	case PLL2_1400_MHZ:
 		speed->acpu_clk_khz = 1400000;
 		speed->vdd_mv = 1250;
 		speed->vdd_raw = VDD_RAW(1250);
-		cpu_freq->frequency = 1400000;
 		break;
 	case PLL2_806_MHZ:
 		/* No fixup necessary */
@@ -432,7 +437,5 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	pll2_fixup();
 	acpuclk_init();
 	lpj_init();
-#ifdef CONFIG_CPU_FREQ_MSM
-	cpufreq_frequency_table_get_attr(freq_table, smp_processor_id());
-#endif
+	setup_cpufreq_table();
 }
