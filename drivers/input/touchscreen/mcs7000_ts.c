@@ -323,8 +323,10 @@ static void mcs7000_ts_work_func(struct work_struct *work)
 		goto touch_retry;
 	}
 
-	if (i2c_master_recv(ts->client,read_buf ,READ_NUM) < 0) {
-		printk("%s read data failed\n", __func__);
+	udelay(50);
+
+	if (i2c_master_recv(dev->client, read_buf, READ_NUM) < 0) {	
+		printk(KERN_ERR "%s touch ic read error\n", __FUNCTION__);
 		goto touch_retry;
 	}
 

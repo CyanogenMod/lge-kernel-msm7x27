@@ -420,8 +420,9 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 		clock_state->stopped_tick =
 			msm_read_timer_count(clock, LOCAL_TIMER) +
 			clock_state->sleep_offset;
+		writel(0, clock->regbase + TIMER_MATCH_VAL);
 #ifdef CONFIG_ARCH_MSM_SCORPIONMP
-		if (clock != &msm_clocks[MSM_CLOCK_DGT])
+		if (clock != &msm_clocks[MSM_CLOCK_DGT] || smp_processor_id())
 #endif
 			writel(0, clock->regbase + TIMER_ENABLE);
 		if (clock != &msm_clocks[MSM_CLOCK_GPT]) {
@@ -946,6 +947,7 @@ int __init msm_timer_init_time_sync(void (*timeout)(void))
 unsigned long long sched_clock(void)
 {
 	static cycle_t last_ticks;
+	static unsigned long long last_ns;
 	static DEFINE_SPINLOCK(msm_timer_sched_clock_lock);
 
 	struct msm_clock *clock;
@@ -961,13 +963,15 @@ unsigned long long sched_clock(void)
 	spin_lock_irqsave(&msm_timer_sched_clock_lock, irq_flags);
 	delta = (ticks - last_ticks) & cs->mask;
 
-	if (delta < cs->mask/2)
+	if (delta < cs->mask/2) {
 		last_ticks += delta;
+		last_ns += clocksource_cyc2ns(delta, cs->mult, cs->shift);
+	}
 
 	ticks = last_ticks;
 	spin_unlock_irqrestore(&msm_timer_sched_clock_lock, irq_flags);
 
-	return clocksource_cyc2ns(ticks, cs->mult, cs->shift);
+	return last_ns;
 }
 
 #ifdef CONFIG_ARCH_MSM_SCORPIONMP

@@ -1,7 +1,7 @@
 /* 
 * Copyright (C) ST-Ericsson AP Pte Ltd 2010 
 *
-* ISP1763 Linux HCD Controller driver : pehcd
+* ISP1763 Linux OTG Controller driver : host
 * 
 * This program is free software; you can redistribute it and/or modify it under the terms of 
 * the GNU General Public License as published by the Free Software Foundation; version 

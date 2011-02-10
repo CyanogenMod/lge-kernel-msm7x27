@@ -996,15 +996,14 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
  * LG Android CDC ECM function fixup for LG AndroidNet
  * 2011-01-12, hyunhui.park@lge.com
  */
-static int ecm_probe(struct platform_device *pdev)
+static int __init ecm_probe(struct platform_device *pdev)
 {
 	ecm_pdata = pdev->dev.platform_data;
 	return 0;
 }
 
-static struct platform_driver ecm_platform_driver = {
+static struct platform_driver ecm_platform_driver __refdata = {
 	.driver = { .name = "ecm", },
-	.probe = ecm_probe,
 };
 
 int ecm_function_bind_config(struct usb_configuration *c)
@@ -1036,7 +1035,7 @@ static struct android_usb_function ecm_function = {
 static int __init f_ecm_init(void)
 {
 	printk(KERN_INFO "f_ecm init\n");
-	platform_driver_register(&ecm_platform_driver);
+	platform_driver_probe(&ecm_platform_driver, ecm_probe);
 	android_register_function(&ecm_function);
 	return 0;
 }

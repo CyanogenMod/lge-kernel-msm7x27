@@ -93,7 +93,7 @@ module_param_named(debug_mask, kr3dh_debug_mask, int,
 #define CTRL_REG2		0x21	/* filter setting */
 #define CTRL_REG3		0x22	/* interrupt control reg */
 #define CTRL_REG4		0x23
-#define CTRL_REG5		0x23	/* scale selection */
+#define CTRL_REG5		0x24	/* scale selection */
 
 #define PM_OFF          	0x00
 #define PM_NORMAL       	0x20
@@ -132,7 +132,7 @@ module_param_named(debug_mask, kr3dh_debug_mask, int,
 #define KR3DH_G_8G 0x30
 
 #define WHO_AM_I		0x0f
-#define KR3DH_DEVICE_ID	0x32
+#define KR3DH_DEVICE_ID	0x33
 
 struct {
 	unsigned int cutoff;
@@ -756,7 +756,7 @@ static int kr3dh_probe(struct i2c_client *client,
 		goto err2;
 
 	err = kr3dh_i2c_read(kr, &id_check, 1);
-	if(id_check != KR3DH_DEVICE_ID)
+	if(id_check != kr->pdata->device_id())
 	{
 		dev_err(&client->dev, "Device ID not matched\n");
 		err = -ENODEV;

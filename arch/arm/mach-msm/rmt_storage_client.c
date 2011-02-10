@@ -1330,14 +1330,14 @@ static int rmt_storage_init_ramfs(void)
 		return 0;
 	}
 
-	ramfs_table->magic_id = RAMFS_INFO_MAGICNUMBER;
-	ramfs_table->version  = RAMFS_INFO_VERSION;
-	ramfs_table->entries  = 1;
-
 	ramfs_table->ramfs_entry[0].client_id  = RAMFS_MODEMSTORAGE_ID;
 	ramfs_table->ramfs_entry[0].base_addr  = RAMFS_SHARED_EFS_RAM_BASE;
 	ramfs_table->ramfs_entry[0].size       = RAMFS_SHARED_EFS_RAM_SIZE;
 	ramfs_table->ramfs_entry[0].client_sts = RAMFS_DEFAULT;
+
+	ramfs_table->entries  = 1;
+	ramfs_table->version  = RAMFS_INFO_VERSION;
+	ramfs_table->magic_id = RAMFS_INFO_MAGICNUMBER;
 
 	return 0;
 }
@@ -1548,7 +1548,8 @@ static uint32_t rmt_storage_get_sid(const char *path)
 		return RAMFS_MDM_STORAGE_ID;
 	if (!strncmp(path, "/q6_fs2_parti_id_0x5A", MAX_PATH_NAME))
 		return RAMFS_MDM_STORAGE_ID;
-
+	if (!strncmp(path, "/q6_fsg_parti_id_0x5B", MAX_PATH_NAME))
+		return RAMFS_MDM_STORAGE_ID;
 	return 0;
 }
 

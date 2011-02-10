@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,11 +21,13 @@
 #include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 
 #include <mach/msm_iomap.h>
 
 #include "peripheral-loader.h"
 #include "clock-8x60.h"
+#include "scm.h"
 
 #define MSM_MMS_REGS_BASE		0x10200000
 #define MSM_LPASS_QDSP6SS_BASE		0x28800000
@@ -57,29 +59,98 @@
 
 #define PPSS_RESET			(MSM_CLK_CTL_BASE + 0x2594)
 
-#define PIL_MODEM	0
-#define PIL_Q6		1
-#define PIL_DSPS	2
+#define PAS_MODEM	0
+#define PAS_Q6		1
+#define PAS_DSPS	2
+
+#define PAS_INIT_IMAGE_CMD	1
+#define PAS_MEM_CMD		2
+#define PAS_AUTH_AND_RESET_CMD	5
+#define PAS_SHUTDOWN_CMD	6
+
+struct pas_init_image_req {
+	u32	proc;
+	u32	image_addr;
+};
+
+struct pas_init_image_resp {
+	u32	image_valid;
+};
+
+struct pas_auth_image_req {
+	u32	proc;
+};
+
+struct pas_auth_image_resp {
+	u32	reset_initiated;
+};
+
+struct pas_shutdown_req {
+	u32	proc;
+};
+
+struct pas_shutdown_resp {
+	u32	success;
+};
 
 static int modem_start, q6_start, dsps_start;
 static void __iomem *msm_mms_regs_base;
 static void __iomem *msm_lpass_qdsp6ss_base;
 
-static int init_image_modem(const u8 *metadata, size_t size)
+static int init_image_trusted(int id, const u8 *metadata, size_t size)
+{
+	int ret;
+	struct pas_init_image_req request;
+	struct pas_init_image_resp resp = {0};
+	void *mdata_buf;
+
+	/* Make memory physically contiguous */
+	mdata_buf = kmemdup(metadata, size, GFP_KERNEL);
+	if (!mdata_buf)
+		return -ENOMEM;
+
+	request.proc = id;
+	request.image_addr = virt_to_phys(mdata_buf);
+
+	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
+			sizeof(request), &resp, sizeof(resp));
+	kfree(mdata_buf);
+
+	if (ret)
+		return ret;
+	return resp.image_valid;
+}
+
+static int init_image_modem_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_MODEM, metadata, size);
+}
+
+static int init_image_modem_untrusted(const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	modem_start = ehdr->e_entry;
 	return 0;
 }
 
-static int init_image_q6(const u8 *metadata, size_t size)
+static int init_image_q6_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_Q6, metadata, size);
+}
+
+static int init_image_q6_untrusted(const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	q6_start = ehdr->e_entry;
 	return 0;
 }
 
-static int init_image_dsps(const u8 *metadata, size_t size)
+static int init_image_dsps_trusted(const u8 *metadata, size_t size)
+{
+	return init_image_trusted(PAS_DSPS, metadata, size);
+}
+
+static int init_image_dsps_untrusted(const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	dsps_start = ehdr->e_entry;
@@ -91,12 +162,24 @@ static int verify_blob(u32 phy_addr, size_t size)
 	return 0;
 }
 
-static int reset_modem(void)
+static int auth_and_reset_trusted(int id)
+{
+	int ret;
+	struct pas_auth_image_req request;
+	struct pas_auth_image_resp resp = {0};
+
+	request.proc = id;
+	ret = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &request,
+			sizeof(request), &resp, sizeof(resp));
+	if (ret)
+		return ret;
+
+	return resp.reset_initiated;
+}
+
+static int reset_modem_untrusted(void)
 {
 	u32 reg;
-
-	/* Put modem into reset */
-	writel(0x1, MARM_RESET);
 
 	/* Put modem AHB0,1,2 clocks into reset */
 	writel(BIT(0) | BIT(1), MAHB0_SFAB_PORT_RESET);
@@ -160,12 +243,34 @@ static int reset_modem(void)
 
 	/* Bring modem out of reset */
 	writel(0x0, MARM_RESET);
+
 	return 0;
 }
 
-static int shutdown_modem(void)
+static int reset_modem_trusted(void)
+{
+	return auth_and_reset_trusted(PAS_MODEM);
+}
+
+static int shutdown_trusted(int id)
+{
+	int ret;
+	struct pas_shutdown_req request;
+	struct pas_shutdown_resp resp = {0};
+
+	request.proc = id;
+	ret = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &request, sizeof(request),
+			&resp, sizeof(resp));
+	if (ret)
+		return ret;
+
+	return resp.success;
+}
+
+static int shutdown_modem_untrusted(void)
 {
 	u32 reg;
+
 	/* Put modem into reset */
 	writel(0x1, MARM_RESET);
 
@@ -195,8 +300,12 @@ static int shutdown_modem(void)
 
 	/* Clear modem's votes for PLLs */
 	writel(0x0, PLL_ENA_MARM);
-
 	return 0;
+}
+
+static int shutdown_modem_trusted(void)
+{
+	return shutdown_trusted(PAS_MODEM);
 }
 
 #define LV_EN 			BIT(27)
@@ -229,7 +338,7 @@ static int shutdown_modem(void)
 #define Q6_STRAP_TCM_BASE	(0x28C << 15)
 #define Q6_STRAP_TCM_CONFIG	0x28B
 
-static int reset_q6(void)
+static int reset_q6_untrusted(void)
 {
 	int ret;
 	u32 reg;
@@ -279,7 +388,18 @@ err:
 	return ret;
 }
 
-static int shutdown_q6(void)
+static int reset_q6_trusted(void)
+{
+	int ret;
+
+	ret = local_src_enable(PLL_4);
+	if (ret)
+		return ret;
+
+	return auth_and_reset_trusted(PAS_Q6);
+}
+
+static int shutdown_q6_untrusted(void)
 {
 	u32 reg;
 
@@ -289,41 +409,56 @@ static int shutdown_q6(void)
 		CORE_TCM_MEM_PERPH_EN);
 	reg |= CLAMP_IO | CORE_GFM4_CLK_EN;
 	writel(reg, LCC_Q6_FUNC);
-
 	return 0;
 }
 
-static int reset_dsps(void)
+static int shutdown_q6_trusted(void)
+{
+	return shutdown_trusted(PAS_Q6);
+}
+
+static int reset_dsps_untrusted(void)
 {
 	/* Bring DSPS out of reset */
 	writel(0x0, PPSS_RESET);
 	return 0;
 }
 
-static int shutdown_dsps(void)
+static int reset_dsps_trusted(void)
 {
+	return auth_and_reset_trusted(PAS_DSPS);
+}
+
+static int shutdown_dsps_trusted(void)
+{
+	return shutdown_trusted(PAS_DSPS);
+}
+
+static int shutdown_dsps_untrusted(void)
+{
+	writel(0x3, PPSS_RESET);
 	return 0;
 }
 
 struct pil_reset_ops pil_modem_ops = {
-	.init_image = init_image_modem,
+	.init_image = init_image_modem_untrusted,
 	.verify_blob = verify_blob,
-	.auth_and_reset = reset_modem,
-	.shutdown = shutdown_modem,
+	.auth_and_reset = reset_modem_untrusted,
+	.shutdown = shutdown_modem_untrusted,
 };
 
 struct pil_reset_ops pil_q6_ops = {
-	.init_image = init_image_q6,
+	.init_image = init_image_q6_untrusted,
 	.verify_blob = verify_blob,
-	.auth_and_reset = reset_q6,
-	.shutdown = shutdown_q6,
+	.auth_and_reset = reset_q6_untrusted,
+	.shutdown = shutdown_q6_untrusted,
 };
 
 struct pil_reset_ops pil_dsps_ops = {
-	.init_image = init_image_dsps,
+	.init_image = init_image_dsps_untrusted,
 	.verify_blob = verify_blob,
-	.auth_and_reset = reset_dsps,
-	.shutdown = shutdown_dsps,
+	.auth_and_reset = reset_dsps_untrusted,
+	.shutdown = shutdown_dsps_untrusted,
 };
 
 static struct pil_device peripherals[] = {
@@ -354,6 +489,13 @@ static struct pil_device peripherals[] = {
 	},
 };
 
+
+#ifdef CONFIG_MSM_SECURE_PIL
+#define SECURE_PIL 1
+#else
+#define SECURE_PIL 0
+#endif
+
 static int __init msm_peripheral_reset_init(void)
 {
 	unsigned i;
@@ -365,6 +507,20 @@ static int __init msm_peripheral_reset_init(void)
 	msm_lpass_qdsp6ss_base = ioremap(MSM_LPASS_QDSP6SS_BASE, SZ_256);
 	if (!msm_lpass_qdsp6ss_base)
 		goto err_lpass;
+
+	if (SECURE_PIL) {
+		pil_modem_ops.init_image = init_image_modem_trusted;
+		pil_modem_ops.auth_and_reset = reset_modem_trusted;
+		pil_modem_ops.shutdown = shutdown_modem_trusted;
+
+		pil_q6_ops.init_image = init_image_q6_trusted;
+		pil_q6_ops.auth_and_reset = reset_q6_trusted;
+		pil_q6_ops.shutdown = shutdown_q6_trusted;
+
+		pil_dsps_ops.init_image = init_image_dsps_trusted;
+		pil_dsps_ops.auth_and_reset = reset_dsps_trusted;
+		pil_dsps_ops.shutdown = shutdown_dsps_trusted;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(peripherals); i++)
 		msm_pil_add_device(&peripherals[i]);

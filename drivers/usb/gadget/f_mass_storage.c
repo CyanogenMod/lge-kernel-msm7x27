@@ -616,7 +616,7 @@ static int fsg_setup(struct usb_function *f,
 		if (ctrl->bRequestType !=
 		    (USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE))
 			break;
-		if (w_index != fsg->interface_number || w_value != 0)
+		if (w_value != 0)
 			return -EDOM;
 
 		/* Raise an exception to stop the current operation
@@ -629,7 +629,7 @@ static int fsg_setup(struct usb_function *f,
 		if (ctrl->bRequestType !=
 		    (USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE))
 			break;
-		if (w_index != fsg->interface_number || w_value != 0)
+		if (w_value != 0)
 			return -EDOM;
 		VDBG(fsg, "get max LUN\n");
 		*(u8 *) req->buf = fsg->common->nluns - 1;
@@ -2410,7 +2410,6 @@ reset:
 	common->fsg = new_fsg;
 	fsg = common->fsg;
 
-	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 
 	/* Allocate the requests */
 	for (i = 0; i < FSG_NUM_BUFFERS; ++i) {
@@ -2463,6 +2462,7 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 	fsg->bulk_out_enabled = 1;
 	common->bulk_out_maxpacket = le16_to_cpu(d->wMaxPacketSize);
+	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 	fsg->common->new_fsg = fsg;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
 	return 0;
@@ -2590,6 +2590,7 @@ static void handle_exception(struct fsg_common *common)
 		 * requires this.) */
 		if (!fsg_is_set(common))
 			break;
+		common->ep0req->length = 0;
 		if (test_and_clear_bit(IGNORE_BULK_OUT,
 				       &common->fsg->atomic_bitflags))
 			usb_ep_clear_halt(common->fsg->bulk_in);
@@ -2867,6 +2868,9 @@ buffhds_first_it:
 	} while (--i);
 	bh->next = common->buffhds;
 
+	/* enabling the stall support by default, since our USB
+	 * device supports stall in the hardware */
+	cfg->can_stall = 1;
 
 	/* Prepare inquiryString */
 	if (cfg->release != 0xffff) {
@@ -3245,7 +3249,7 @@ fsg_common_from_params(struct fsg_common *common,
 
 static struct fsg_config fsg_cfg;
 
-static int fsg_probe(struct platform_device *pdev)
+static int __init fsg_probe(struct platform_device *pdev)
 {
 	struct usb_mass_storage_platform_data *pdata = pdev->dev.platform_data;
 	int i, nluns;
@@ -3270,9 +3274,8 @@ static int fsg_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver fsg_platform_driver = {
+static struct platform_driver fsg_platform_driver __refdata = {
 	.driver = { .name = FUNCTION_NAME, },
-	.probe = fsg_probe,
 };
 
 int mass_storage_bind_config(struct usb_configuration *c)
@@ -3291,7 +3294,7 @@ static struct android_usb_function mass_storage_function = {
 static int __init init(void)
 {
 	int		rc;
-	rc = platform_driver_register(&fsg_platform_driver);
+	rc = platform_driver_probe(&fsg_platform_driver, fsg_probe);
 	if (rc != 0)
 		return rc;
 	android_register_function(&mass_storage_function);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -224,12 +224,14 @@ struct pll_rate {
 
 extern struct clk_ops soc_clk_ops_8x60;
 #define CLK_8X60(clk_name, clk_id, clk_dev, clk_flags) {	\
-	.name = clk_name, \
-	.id = L_##clk_id, \
-	.ops = &soc_clk_ops_8x60, \
-	.flags = clk_flags, \
-	.dev = clk_dev, \
-	.dbg_name = #clk_id, \
+	.con_id = clk_name, \
+	.dev_id = clk_dev, \
+	.clk = &(struct clk){ \
+		.id = L_##clk_id, \
+		.ops = &soc_clk_ops_8x60, \
+		.flags = clk_flags, \
+		.dbg_name = #clk_id, \
+	}, \
 	}
 
 #endif

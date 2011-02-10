@@ -511,12 +511,16 @@ static int vfe31_enable(struct camera_enable_cmd *enable)
 	return 0;
 }
 
-void vfe_stop(void)
+void vfe31_stop(void)
 {
 	uint8_t  axiBusyFlag = true;
 	unsigned long flags;
 
 	spin_lock_irqsave(&vfe31_ctrl->state_lock, flags);
+	if (vfe31_ctrl->vstate == VFE_STATE_IDLE) {
+		spin_unlock_irqrestore(&vfe31_ctrl->state_lock, flags);
+		return;
+	}
 	vfe31_ctrl->vstate = VFE_STATE_IDLE;
 	spin_unlock_irqrestore(&vfe31_ctrl->state_lock, flags);
 
@@ -576,7 +580,6 @@ void vfe_stop(void)
 static int vfe31_disable(struct camera_enable_cmd *enable,
 	struct platform_device *dev)
 {
-	vfe_stop();
 	msm_camio_set_perf_lvl(S_EXIT);
 	msm_camio_disable(dev);
 	return 0;
@@ -1002,7 +1005,6 @@ static void vfe31_start_common(void){
 
 static int vfe31_start_recording(void){
 	vfe31_ctrl->req_start_video_rec = TRUE;
-	msm_camio_set_perf_lvl(S_VIDEO);
 	/* Mask with 0x7 to extract the pixel pattern*/
 	switch (msm_io_r(vfe31_ctrl->vfebase + VFE_CFG_OFF) & 0x7) {
 	case VFE_YUV_YCbYCr:
@@ -1034,7 +1036,6 @@ static int vfe31_stop_recording(void){
 		break;
 	}
 
-	msm_camio_set_perf_lvl(S_PREVIEW);
 	return 0;
 }
 
@@ -1102,7 +1103,6 @@ static int vfe31_capture(uint32_t num_frames_capture)
 	}
 	msm_io_w(irq_comp_mask, vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
-	msm_camio_set_perf_lvl(S_CAPTURE);
 	vfe31_start_common();
 	msm_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	/* for debug */
@@ -1144,7 +1144,6 @@ static int vfe31_start(void)
 		temp = msm_io_r(vfe31_ctrl->vfebase + V31_AXI_OUT_OFF + 20 +
 			24 * (vfe31_ctrl->outpath.out0.ch1));
 	}
-	msm_camio_set_perf_lvl(S_PREVIEW);
 	vfe31_start_common();
 	return 0;
 }
@@ -1735,7 +1734,7 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 	case V31_STOP:
 		pr_info("vfe31_proc_general: cmdID = %s\n",
 			vfe31_general_cmd[cmd->id]);
-		vfe_stop();
+		vfe31_stop();
 		break;
 
 	case V31_SYNC_TIMER_SETTING:
@@ -2196,13 +2195,10 @@ static void vfe31_process_reg_update_irq(void)
 	} else {
 		spin_lock_irqsave(&vfe31_ctrl->update_ack_lock, flags);
 		if (vfe31_ctrl->update_ack_pending == TRUE) {
-			spin_unlock_irqrestore(
-				&vfe31_ctrl->update_ack_lock, flags);
-			vfe31_send_msg_no_payload(MSG_ID_UPDATE_ACK);
-			spin_lock_irqsave(&vfe31_ctrl->update_ack_lock, flags);
 			vfe31_ctrl->update_ack_pending = FALSE;
 			spin_unlock_irqrestore(
 				&vfe31_ctrl->update_ack_lock, flags);
+			vfe31_send_msg_no_payload(MSG_ID_UPDATE_ACK);
 		} else {
 			spin_unlock_irqrestore(
 				&vfe31_ctrl->update_ack_lock, flags);
@@ -2348,8 +2344,14 @@ static void vfe31_process_camif_sof_irq(void)
 
 static void vfe31_process_error_irq(uint32_t errStatus)
 {
+	uint32_t camifStatus;
+	uint32_t *temp;
+
 	if (errStatus & VFE31_IMASK_CAMIF_ERROR) {
 		pr_err("vfe31_irq: camif errors\n");
+		temp = (uint32_t *)(vfe31_ctrl->vfebase + VFE_CAMIF_STATUS);
+		camifStatus = msm_io_r(temp);
+		pr_info("camifStatus  = 0x%x\n", camifStatus);
 		vfe31_send_msg_no_payload(MSG_ID_CAMIF_ERROR);
 	}
 
@@ -3136,6 +3138,7 @@ void msm_camvfe_fn_init(struct msm_camvfe_fn *fptr, void *data)
 	fptr->vfe_config  = vfe31_config;
 	fptr->vfe_disable = vfe31_disable;
 	fptr->vfe_release = vfe31_release;
+	fptr->vfe_stop = vfe31_stop;
 	vfe_syncdata = data;
 }
 

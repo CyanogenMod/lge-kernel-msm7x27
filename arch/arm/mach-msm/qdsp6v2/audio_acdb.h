@@ -58,5 +58,6 @@ void get_vocproc_cal(struct acdb_cal_data *cal_data);
 void get_vocstrm_cal(struct acdb_cal_data *cal_data);
 void get_vocvol_cal(struct acdb_cal_data *cal_data);
 void get_sidetone_cal(struct sidetone_cal *cal_data);
+void get_anc_cal(struct acdb_cal_block *cal_block);
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,7 +215,9 @@ int local_src_enable(int src)
 	unsigned long flags;
 
 	if (src == SRC_NONE)
-		return rc;
+		return 0;
+	if (src < 0 || src >= MAX_SOURCES)
+		return -EINVAL;
 
 	spin_lock_irqsave(&src_vote_lock, flags);
 	rc = local_src_enable_nolock(src);
@@ -266,7 +268,9 @@ int local_src_disable(int src)
 	unsigned long flags;
 
 	if (src == SRC_NONE)
-		return rc;
+		return 0;
+	if (src < 0 || src >= MAX_SOURCES)
+		return -EINVAL;
 
 	spin_lock_irqsave(&src_vote_lock, flags);
 	rc = local_src_disable_nolock(src);
@@ -697,4 +701,3 @@ int local_clk_list_rate(unsigned id, unsigned n)
 
 	return (clk->freq_tbl + n)->freq_hz;
 }
-

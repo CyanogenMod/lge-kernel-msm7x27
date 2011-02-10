@@ -213,7 +213,7 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
-static int __init mipi_novatek_lcd_probe(struct platform_device *pdev)
+static int __devinit mipi_novatek_lcd_probe(struct platform_device *pdev)
 {
 	if (pdev->id == 0) {
 		mipi_novatek_pdata = pdev->dev.platform_data;

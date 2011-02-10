@@ -24,6 +24,7 @@
 #include <media/msm_camera.h>
 #include <mach/gpio.h>
 #include <mach/camera.h>
+#include <asm/mach-types.h>
 #include "imx074.h"
 
 /*SENSOR REGISTER DEFINES*/
@@ -954,11 +955,32 @@ init_probe_done:
 	CDBG(" imx074_probe_init_sensor finishes\n");
 	return rc;
 	}
+static int32_t imx074_poweron_af(void)
+{
+	int32_t rc = 0;
+	CDBG("imx074 enable AF actuator, gpio = %d\n",
+			imx074_ctrl->sensordata->vcm_pwd);
+	rc = gpio_request(imx074_ctrl->sensordata->vcm_pwd, "imx074");
+	if (!rc) {
+		gpio_direction_output(imx074_ctrl->sensordata->vcm_pwd, 1);
+		msleep(20);
+		rc = imx074_af_init();
+		if (rc < 0)
+			CDBG("imx074 AF initialisation failed\n");
+	} else {
+		CDBG("%s: AF PowerON gpio_request failed %d\n", __func__, rc);
+	 }
+	return rc;
+}
+static void imx074_poweroff_af(void)
+{
+	gpio_set_value_cansleep(imx074_ctrl->sensordata->vcm_pwd, 0);
+	gpio_free(imx074_ctrl->sensordata->vcm_pwd);
+}
 /* camsensor_iu060f_imx074_reset */
 int imx074_sensor_open_init(const struct msm_camera_sensor_info *data)
 {
 	int32_t rc = 0;
-	int32_t rc1 = 0;
 	CDBG("%s: %d\n", __func__, __LINE__);
 	CDBG("Calling imx074_sensor_open_init\n");
 	imx074_ctrl = kzalloc(sizeof(struct imx074_ctrl_t), GFP_KERNEL);
@@ -990,18 +1012,22 @@ int imx074_sensor_open_init(const struct msm_camera_sensor_info *data)
 	}
 
 	rc = imx074_sensor_setting(REG_INIT, RES_PREVIEW);
-
-	rc1 = imx074_af_init();
-	if (rc1 < 0)
-		CDBG("AF initialisation failed\n");
 	if (rc < 0) {
-		gpio_set_value_cansleep(data->sensor_reset, 0);
+		CDBG("imx074_sensor_setting failed\n");
+		goto init_fail;
+	}
+	if (machine_is_msm8x60_fluid())
+		rc = imx074_poweron_af();
+	else
+		rc = imx074_af_init();
+	if (rc < 0) {
+		CDBG("AF initialisation failed\n");
 		goto init_fail;
 	} else
 		goto init_done;
 
 init_fail:
-	CDBG("imx074_sensor_open_init fail\n");
+	CDBG(" imx074_sensor_open_init fail\n");
 	imx074_probe_init_done(data);
 	kfree(imx074_ctrl);
 init_done:
@@ -1183,6 +1209,8 @@ static int imx074_sensor_release(void)
 {
 	int rc = -EBADF;
 	mutex_lock(&imx074_mut);
+	if (machine_is_msm8x60_fluid())
+		imx074_poweroff_af();
 	imx074_power_down();
 	gpio_set_value_cansleep(imx074_ctrl->sensordata->sensor_reset, 0);
 	msleep(5);

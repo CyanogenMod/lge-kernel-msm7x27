@@ -31,8 +31,9 @@
 #include <mach/vreg.h>
 #include <mach/pmic.h>
 #include <mach/debug_mm.h>
-#include "q6afe.h"
+#include <mach/qdsp6v2/q6afe.h>
 #include "snddev_icodec.h"
+#include "audio_acdb.h"
 
 #define SNDDEV_ICODEC_PCM_SZ 32 /* 16 bit / sample stereo mode */
 #define SNDDEV_ICODEC_MUL_FACTOR 3 /* Multi by 8 Shift by 3  */
@@ -721,6 +722,62 @@ error:
 	return rc;
 
 }
+static int snddev_icodec_enable_anc(struct msm_snddev_info *dev_info,
+	u32 enable)
+{
+	int rc = 0;
+	struct adie_codec_anc_data *reg_writes;
+	struct acdb_cal_block cal_block;
+	struct snddev_icodec_state *icodec;
+	struct snddev_icodec_drv_state *drv = &snddev_icodec_drv;
+
+	pr_info("%s: enable=%d\n", __func__, enable);
+
+	if (!dev_info) {
+		pr_err("invalid dev_info\n");
+		rc = -EINVAL;
+		goto error;
+	}
+	icodec = dev_info->private_data;
+
+	if ((icodec->data->capability & SNDDEV_CAP_RX) &&
+		(icodec->data->capability & SNDDEV_CAP_ANC)) {
+		mutex_lock(&drv->rx_lock);
+
+		if (!drv->rx_active || !dev_info->opened) {
+			pr_err("dev not active\n");
+			rc = -EPERM;
+			mutex_unlock(&drv->rx_lock);
+			goto error;
+		}
+		if (enable) {
+			get_anc_cal(&cal_block);
+			reg_writes = (struct adie_codec_anc_data *)
+				cal_block.cal_kvaddr;
+
+			if (reg_writes == NULL) {
+				pr_err("error, no calibration data\n");
+				rc = -1;
+				mutex_unlock(&drv->rx_lock);
+				goto error;
+			}
+
+			rc = adie_codec_enable_anc(icodec->adie_path,
+			1, reg_writes);
+		} else {
+			rc = adie_codec_enable_anc(icodec->adie_path,
+			0, NULL);
+		}
+		mutex_unlock(&drv->rx_lock);
+	} else {
+		rc = -EINVAL;
+		pr_err("rx and ANC device only\n");
+	}
+
+error:
+	return rc;
+
+}
 
 int snddev_icodec_set_device_volume(struct msm_snddev_info *dev_info,
 		u32 volume)
@@ -809,6 +866,12 @@ static int snddev_icodec_probe(struct platform_device *pdev)
 	else
 		dev_info->dev_ops.enable_sidetone = NULL;
 
+	if (pdata->capability & SNDDEV_CAP_ANC) {
+		dev_info->dev_ops.enable_anc =
+		snddev_icodec_enable_anc;
+	} else {
+		dev_info->dev_ops.enable_anc = NULL;
+	}
 error:
 	return rc;
 }

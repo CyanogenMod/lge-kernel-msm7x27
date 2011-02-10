@@ -434,7 +434,10 @@ isp1763_register_driver(struct isp1763_driver *drv)
 	if (!drv) {
 		return -EINVAL;
 	}
+
 	dev = &isp1763_loc_dev[drv->index];
+	if (!dev->baseaddress)
+		return -EINVAL;
 
 	dev->active = 1;	/* set the driver as active*/
 
@@ -608,7 +611,7 @@ isp1763_probe(struct platform_device *pdev)
 	hal_init(("isp1763_probe(dev=%p)\n", dev));
 
 	loc_dev = &(isp1763_loc_dev[ISP1763_HC]);
-	loc_dev->dev = &pdev->dev;
+	loc_dev->dev = pdev;
 
 	/* Get the Host Controller IO and INT resources */
 	loc_dev->mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -700,32 +703,10 @@ isp1763_probe(struct platform_device *pdev)
 	reg_data = isp1763_reg_read16(loc_dev, HC_SCRATCH_REG, reg_data);
 	pr_debug("After write, Scratch register is 0x%x\n", reg_data);
 
-	/* TODO: Following test might not be needed, to be removed later */
-
-	/* Try to check whether we can access Scratch Register of
-	 * Host Controller or not. The initial PCI access is retried until
-	 * local init for the PCI bridge is completed
-	 */
-
-	loc_dev = &(isp1763_loc_dev[ISP1763_HC]);
-	retry_count = PCI_ACCESS_RETRY_COUNT;
-
-	reg_data = 0;
-
-	while (reg_data < 0xFFFF) {
-		isp1763_reg_write16(loc_dev, HC_SCRATCH_REG, reg_data);	
-		udelay(1);
-		chipid = isp1763_reg_read16(loc_dev, DC_CHIPID, chipid);
-		if (chipid != 0x6310){
-			hal_init(("CHIP ID WRONG:%x \n", chipid));
-		}
-		ureadVal =
-			isp1763_reg_read16(loc_dev, HC_SCRATCH_REG, ureadVal);
-		if (reg_data != ureadVal){
-			hal_init(("MisMatch Scratch Value %x ActVal %x\n",
-				  ureadVal, reg_data));
-		}
-		reg_data++;
+	if (reg_data != 0xABCD) {
+		pr_err("%s: Scratch register write mismatch!!\n", __func__);
+		status = -ENODEV;
+		goto free_gpios;
 	}
 
 	memcpy(loc_dev->name, ISP1763_DRIVER_NAME, sizeof(ISP1763_DRIVER_NAME));
@@ -735,6 +716,9 @@ isp1763_probe(struct platform_device *pdev)
 	hal_entry("%s: Exit\n", __FUNCTION__);
 	return 0;
 
+free_gpios:
+	if (pdata->setup_gpio)
+		pdata->setup_gpio(0);
 free_regs:
 	iounmap(loc_dev->baseaddress);
 put_mem_res:

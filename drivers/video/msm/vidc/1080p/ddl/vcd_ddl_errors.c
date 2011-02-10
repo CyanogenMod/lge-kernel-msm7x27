@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,7 +133,8 @@ static u32 ddl_handle_client_fatal_errors(
 	break;
 	}
 	if (!status)
-		DDL_MSG_ERROR("VIDC_UNKNOWN_OP_FAILED");
+		DDL_MSG_ERROR("VIDC_UNKNOWN_OP_FAILED %d",
+				ddl_context->cmd_err_status);
 	ddl_client_fatal_cb(ddl);
 	return true;
 }

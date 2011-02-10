@@ -404,7 +404,7 @@ static int ov7692_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	}
 	goto init_probe_done;
 init_probe_fail:
-	printk(KERN_INFO " ov7692_probe_init_sensor fails_kalyani\n");
+	printk(KERN_INFO " ov7692_probe_init_sensor fails\n");
 	gpio_set_value_cansleep(data->sensor_reset, 0);
 init_probe_done:
 	printk(KERN_INFO " ov7692_probe_init_sensor finishes\n");

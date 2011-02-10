@@ -688,7 +688,7 @@ static int diag_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver usb_diag_driver = {
+static struct platform_driver usb_diag_driver __refdata = {
 	.remove		= diag_remove,
 	.driver = {
 		.name = "usb_diag",

@@ -2,7 +2,7 @@
  * Driver for HighSpeed USB Client Controller in MSM7K
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Brian Swetland <swetland@google.com>
  *
@@ -128,6 +128,7 @@ struct msm_endpoint {
 	unsigned char bit;
 	unsigned char num;
 
+	unsigned wedged:1;
 	/* pointers to DMA transfer list area */
 	/* these are allocated from the usb_info dma space */
 	struct ept_queue_head *head;
@@ -241,6 +242,28 @@ static int msm72k_pullup_internal(struct usb_gadget *_gadget, int is_active);
 static int msm72k_set_halt(struct usb_ep *_ep, int value);
 static void flush_endpoint(struct msm_endpoint *ept);
 static void usb_reset(struct usb_info *ui);
+
+static void msm_hsusb_set_speed(struct usb_info *ui)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ui->lock, flags);
+	switch (readl(USB_PORTSC) & PORTSC_PSPD_MASK) {
+	case PORTSC_PSPD_FS:
+		dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_FULL\n");
+		ui->gadget.speed = USB_SPEED_FULL;
+		break;
+	case PORTSC_PSPD_LS:
+		dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_LOW\n");
+		ui->gadget.speed = USB_SPEED_LOW;
+		break;
+	case PORTSC_PSPD_HS:
+		dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_HIGH\n");
+		ui->gadget.speed = USB_SPEED_HIGH;
+		break;
+	}
+	spin_unlock_irqrestore(&ui->lock, flags);
+}
 
 static void msm_hsusb_set_state(enum usb_device_state state)
 {
@@ -953,6 +976,8 @@ static void handle_setup(struct usb_info *ui)
 						num += 16;
 					ept = &ui->ep0out + num;
 
+					if (ept->wedged)
+						goto ack;
 					if (ctl.bRequest == USB_REQ_SET_FEATURE)
 						msm72k_set_halt(&ept->ep, 1);
 					else
@@ -967,6 +992,18 @@ static void handle_setup(struct usb_info *ui)
 			atomic_set(&ui->configured, !!ctl.wValue);
 			msm_hsusb_set_state(USB_STATE_CONFIGURED);
 		} else if (ctl.bRequest == USB_REQ_SET_ADDRESS) {
+			/*
+			 * Gadget speed should be set when PCI interrupt
+			 * occurs. But sometimes, PCI interrupt is not
+			 * occuring after reset. Hence update the gadget
+			 * speed here.
+			 */
+			if (ui->gadget.speed == USB_SPEED_UNKNOWN) {
+				dev_info(&ui->pdev->dev,
+					"PCI intr missed"
+					"set speed explictly\n");
+				msm_hsusb_set_speed(ui);
+			}
 			msm_hsusb_set_state(USB_STATE_ADDRESS);
 
 			/* write address delayed (will take effect
@@ -1166,26 +1203,7 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 		return IRQ_HANDLED;
 
 	if (n & STS_PCI) {
-		switch (readl(USB_PORTSC) & PORTSC_PSPD_MASK) {
-		case PORTSC_PSPD_FS:
-			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_FULL\n");
-			spin_lock_irqsave(&ui->lock, flags);
-			ui->gadget.speed = USB_SPEED_FULL;
-			spin_unlock_irqrestore(&ui->lock, flags);
-			break;
-		case PORTSC_PSPD_LS:
-			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_LOW\n");
-			spin_lock_irqsave(&ui->lock, flags);
-			ui->gadget.speed = USB_SPEED_LOW;
-			spin_unlock_irqrestore(&ui->lock, flags);
-			break;
-		case PORTSC_PSPD_HS:
-			dev_dbg(&ui->pdev->dev, "portchange USB_SPEED_HIGH\n");
-			spin_lock_irqsave(&ui->lock, flags);
-			ui->gadget.speed = USB_SPEED_HIGH;
-			spin_unlock_irqrestore(&ui->lock, flags);
-			break;
-		}
+		msm_hsusb_set_speed(ui);
 		if (atomic_read(&ui->configured)) {
 			wake_lock(&ui->wlock);
 
@@ -1885,6 +1903,7 @@ msm72k_enable(struct usb_ep *_ep, const struct usb_endpoint_descriptor *desc)
 
 	_ep->maxpacket = le16_to_cpu(desc->wMaxPacketSize);
 	config_ept(ept);
+	ept->wedged = 0;
 	usb_ept_enable(ept, 1, ep_type);
 	return 0;
 }
@@ -2022,6 +2041,12 @@ msm72k_set_halt(struct usb_ep *_ep, int value)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ui->lock, flags);
+
+	if (value && in && ept->req) {
+		spin_unlock_irqrestore(&ui->lock, flags);
+		return -EAGAIN;
+	}
+
 	n = readl(USB_ENDPTCTRL(ept->num));
 
 	if (in) {
@@ -2040,6 +2065,8 @@ msm72k_set_halt(struct usb_ep *_ep, int value)
 		}
 	}
 	writel(n, USB_ENDPTCTRL(ept->num));
+	if (!value)
+		ept->wedged = 0;
 	spin_unlock_irqrestore(&ui->lock, flags);
 
 	return 0;
@@ -2056,6 +2083,17 @@ msm72k_fifo_flush(struct usb_ep *_ep)
 {
 	flush_endpoint(to_msm_endpoint(_ep));
 }
+static int msm72k_set_wedge(struct usb_ep *_ep)
+{
+	struct msm_endpoint *ept = to_msm_endpoint(_ep);
+
+	if (ept->num == 0)
+		return -EINVAL;
+
+	ept->wedged = 1;
+
+	return msm72k_set_halt(_ep, 1);
+}
 
 static const struct usb_ep_ops msm72k_ep_ops = {
 	.enable		= msm72k_enable,
@@ -2068,6 +2106,7 @@ static const struct usb_ep_ops msm72k_ep_ops = {
 	.dequeue	= msm72k_dequeue,
 
 	.set_halt	= msm72k_set_halt,
+	.set_wedge	= msm72k_set_wedge,
 	.fifo_status	= msm72k_fifo_status,
 	.fifo_flush	= msm72k_fifo_flush,
 };

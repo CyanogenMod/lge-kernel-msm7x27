@@ -1,8 +1,19 @@
+config MSM_CAMERA_V4L2
+        bool "MSM Camera V4L2 Interface"
+        depends on MSM_CAMERA
+        default n
+        ---help---
+          This flag enables V4L2 interface of MSM
+          camera driver. If enabled, application interacts
+          with /dev/video0 through V4L2 APIs. Otherwise,
+          native APIs are used through /dev/config0, /dev/frame0,
+          and /dev/control0.
+
 comment "Camera Sensor Selection"
 config MT9T013
 	bool "Sensor mt9t013 (BAYER 3M)"
-	depends on MSM_CAMERA && !ARCH_MSM8X60
-	default n
+	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
+	default y
 	---help---
 	  MICRON 3M Bayer Sensor with AutoFocus
 
@@ -37,22 +48,22 @@ config S5K5CAGA
 
 config MT9D112
 	bool "Sensor mt9d112 (YUV 2M)"
-	depends on MSM_CAMERA && !ARCH_MSM8X60
-	default n
+	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
+	default y
 	---help---
 	  MICRON 2M YUV Sensor
 
 config IMX074
 	bool "Sensor IMX074 (BAYER 13.5M)"
-	depends on MSM_CAMERA && ARCH_MSM8X60
-	default n
+	depends on MSM_CAMERA && ARCH_MSM8X60 && !MSM_CAMERA_V4L2
+	default y
 	---help---
 	SONY 13.5 MP Bayer Sensor
 
 config WEBCAM_OV7692
 	bool "Sensor OV7692 (VGA YUV)"
-	depends on MSM_CAMERA && ARCH_MSM8X60
-	default n
+	depends on MSM_CAMERA && ARCH_MSM8X60 && !MSM_CAMERA_V4L2
+	default y
 	---help---
 	  Omni Vision VGA YUV Sensor.
 #	This Senosr is used as a webcam.
@@ -68,21 +79,21 @@ config VX6953
 
 config SN12M0PZ
 	bool "Sensor sn12m0pz (Bayer 12 MP)"
-	depends on MSM_CAMERA && ARCH_MSM7X30
-	default n
+	depends on MSM_CAMERA && ARCH_MSM7X30 && !MSM_CAMERA_V4L2
+	default y
 	---help---
 	  Sony 12 MP Bayer Sensor
 
 config MT9P012
 	bool "Sensor mt9p012 (BAYER 5M)"
-	depends on MSM_CAMERA && !ARCH_MSM8X60
-	default n
+	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
+	default y
 	---help---
 	  MICRON 5M Bayer Sensor with Autofocus
 
 choice
 	prompt "AF module"
-	depends on MT9P012 && !ARCH_MSM8X60
+	depends on MT9P012 && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
 	default MSM_CAMERA_AF_FOXCONN
 
 config MSM_CAMERA_AF_FOXCONN
@@ -99,28 +110,28 @@ endchoice
 
 config MT9P012_KM
 	bool "Sensor mt9p012 KM module (BAYER 5M)"
-	depends on MSM_CAMERA && !ARCH_MSM8X60
+	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
 	default y
 	---help---
 	  MICRON 5M Bayer Sensor KM modules with Autofocus
 
 config MT9E013
 	bool "Sensor mt9e013 module (BAYER 8M)"
-	depends on MSM_CAMERA && ARCH_MSM7X30
+	depends on MSM_CAMERA && ARCH_MSM7X30 && !MSM_CAMERA_V4L2
 	default y
 	---help---
 	  Aptina 8M Bayer Sensor modules with Autofocus
 
 config S5K3E2FX
 	bool "Sensor s5k3e2fx (Samsung 5M)"
-	depends on MSM_CAMERA && !ARCH_MSM8X60
+	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
 	default y
 	---help---
 	  Samsung 5M with Autofocus
 
 config VB6801
 	bool "Sensor vb6801"
-	depends on MSM_CAMERA && !ARCH_MSM8X60
+	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
 	---help---
 	  5M with flash
 

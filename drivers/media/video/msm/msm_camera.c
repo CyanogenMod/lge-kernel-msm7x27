@@ -2049,9 +2049,16 @@ static int msm_pp_grab(struct msm_sync *sync, void __user *arg)
 			return -EINVAL;
 		}
 		if (sync->pp_mask) {
-			pr_err("%s: postproc %x is already enabled\n",
-				__func__, sync->pp_mask & enable);
-			return -EINVAL;
+			if (enable) {
+				pr_err("%s: postproc %x is already enabled\n",
+					__func__, sync->pp_mask & enable);
+				return -EINVAL;
+			} else {
+				sync->pp_mask &= enable;
+				CDBG("%s: sync->pp_mask %d enable %d\n",
+					__func__, sync->pp_mask, enable);
+				return 0;
+			}
 		}
 
 		CDBG("%s: sync->pp_mask %d enable %d\n", __func__,
@@ -2112,6 +2119,7 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 		CDBG("%s: delivering pp_snap\n", __func__);
 		msm_enqueue(&sync->pict_q, &sync->pp_snap->list_pict);
 		sync->pp_snap = NULL;
+		sync->pp_thumb = NULL;
 		spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 	}
 
@@ -2389,21 +2397,26 @@ static int __msm_release(struct msm_sync *sync)
 #endif
 	if (sync->opencnt)
 		sync->opencnt--;
+	pr_info("%s, stop vfe if active\n", __func__);
+	if (sync->core_powered_on && sync->vfefn.vfe_stop)
+		sync->vfefn.vfe_stop();
 	pr_info("%s, open count =%d\n", __func__, sync->opencnt);
 	if (!sync->opencnt) {
 		/* need to clean up system resource */
 		pr_info("%s, vfe_release\n", __func__);
-		if (sync->vfefn.vfe_release)
-			sync->vfefn.vfe_release(sync->pdev);
-		/*sensor release */
-		pr_info("%s, s_release\n", __func__);
-		sync->sctrl.s_release();
-		pr_info("%s, msm_camio_sensor_clk_off\n", __func__);
-		msm_camio_sensor_clk_off(sync->pdev);
-		if (sync->sfctrl.strobe_flash_release) {
-			pr_info("%s, strobe_flash_release\n", __func__);
-			sync->sfctrl.strobe_flash_release(
+		if (sync->core_powered_on) {
+			if (sync->vfefn.vfe_release)
+				sync->vfefn.vfe_release(sync->pdev);
+			/*sensor release */
+			pr_info("%s, s_release\n", __func__);
+			sync->sctrl.s_release();
+			pr_info("%s, msm_camio_sensor_clk_off\n", __func__);
+			msm_camio_sensor_clk_off(sync->pdev);
+			if (sync->sfctrl.strobe_flash_release) {
+				pr_info("%s, strobe_flash_release\n", __func__);
+				sync->sfctrl.strobe_flash_release(
 				sync->sdata->strobe_flash_data, 1);
+			}
 		}
 		kfree(sync->cropinfo);
 		sync->cropinfo = NULL;
@@ -2427,6 +2440,7 @@ static int __msm_release(struct msm_sync *sync)
 		wake_unlock(&sync->wake_lock);
 		sync->apps_id = NULL;
 		pr_info("%s: completed\n", __func__);
+		sync->core_powered_on = 0;
 	}
 	mutex_unlock(&sync->lock);
 
@@ -2634,12 +2648,11 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 	case VFE_MSG_OUTPUT_T:
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_thumb_spinlock, flags);
-			if (sync->pp_thumb)
-				pr_warning("%s: overwriting pp_thumb!\n",
+			if (!sync->pp_thumb) {
+				CDBG("%s: pp sending thumbnail to config\n",
 					__func__);
-			CDBG("%s: pp sending thumbnail to config\n",
-				__func__);
-			sync->pp_thumb = qcmd;
+				sync->pp_thumb = qcmd;
+			}
 			spin_unlock_irqrestore(&pp_thumb_spinlock, flags);
 			break;
 		} else {
@@ -2654,15 +2667,16 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 	case VFE_MSG_OUTPUT_S:
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_snap_spinlock, flags);
-			if (sync->pp_snap)
-				pr_warning("%s: overwriting pp_snap!\n",
+			if (!sync->pp_snap) {
+				CDBG("%s: pp sending main image to config\n",
 					__func__);
-			CDBG("%s: pp sending main image to config\n",
-				__func__);
-			sync->pp_snap = qcmd;
+				sync->pp_snap = qcmd;
+				spin_unlock_irqrestore(&pp_snap_spinlock,
+					flags);
+				if (atomic_read(&qcmd->on_heap))
+					atomic_add(1, &qcmd->on_heap);
+			}
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
-			if (atomic_read(&qcmd->on_heap))
-				atomic_add(1, &qcmd->on_heap);
 			break;
 		} else {
 		/* this is for normal snapshot case. right now we only have
@@ -2752,7 +2766,6 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 					__func__);
 			CDBG("%s: sending snapshot to config\n",
 				__func__);
-			sync->pp_snap = qcmd;
 			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 		} else {
 			if (atomic_read(&qcmd->on_heap))
@@ -2879,7 +2892,8 @@ static struct msm_vfe_callback msm_vfe_s = {
 	.vfe_free = msm_vfe_sync_free,
 };
 
-static int __msm_open(struct msm_sync *sync, const char *const apps_id)
+static int __msm_open(struct msm_sync *sync, const char *const apps_id,
+			int is_controlnode)
 {
 	int rc = 0;
 
@@ -2897,7 +2911,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id)
 
 	sync->apps_id = apps_id;
 
-	if (!sync->opencnt) {
+	if (!sync->core_powered_on && !is_controlnode) {
 		wake_lock(&sync->wake_lock);
 
 		msm_camvfe_fn_init(&sync->vfefn, sync);
@@ -2937,6 +2951,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id)
 				sync->vpefn.vpe_reg(&msm_vpe_s);
 			sync->unblock_poll_frame = 0;
 		}
+		sync->core_powered_on = 1;
 	}
 	sync->opencnt++;
 
@@ -2946,7 +2961,7 @@ msm_open_done:
 }
 
 static int msm_open_common(struct inode *inode, struct file *filep,
-			int once)
+			int once, int is_controlnode)
 {
 	int rc;
 	struct msm_cam_device *pmsm =
@@ -2967,7 +2982,7 @@ static int msm_open_common(struct inode *inode, struct file *filep,
 		return rc;
 	}
 
-	rc = __msm_open(pmsm->sync, MSM_APPS_ID_PROP);
+	rc = __msm_open(pmsm->sync, MSM_APPS_ID_PROP, is_controlnode);
 	if (rc < 0)
 		return rc;
 	filep->private_data = pmsm;
@@ -2977,7 +2992,7 @@ static int msm_open_common(struct inode *inode, struct file *filep,
 
 static int msm_open(struct inode *inode, struct file *filep)
 {
-	return msm_open_common(inode, filep, 1);
+	return msm_open_common(inode, filep, 1, 0);
 }
 
 static int msm_open_control(struct inode *inode, struct file *filep)
@@ -2989,7 +3004,7 @@ static int msm_open_control(struct inode *inode, struct file *filep)
 	if (!ctrl_pmsm)
 		return -ENOMEM;
 
-	rc = msm_open_common(inode, filep, 0);
+	rc = msm_open_common(inode, filep, 0, 1);
 	if (rc < 0) {
 		kfree(ctrl_pmsm);
 		return rc;
@@ -3176,6 +3191,7 @@ static int msm_sync_init(struct msm_sync *sync,
 	}
 
 	sync->opencnt = 0;
+	sync->core_powered_on = 0;
 	mutex_init(&sync->lock);
 	if (sync->sdata->strobe_flash_data) {
 		sync->sdata->strobe_flash_data->state = 0;
@@ -3293,14 +3309,6 @@ int msm_camera_drv_start(struct platform_device *dev,
 	camera_type[camera_node] = sync->sctrl.s_camera_type;
 	sensor_mount_angle[camera_node] = sync->sctrl.s_mount_angle;
 	camera_node++;
-	if (camera_node == 1) {
-		rc = add_axi_qos();
-		if (rc < 0) {
-			msm_sync_destroy(sync);
-			kfree(pmsm);
-			return rc;
-		}
-	}
 
 	list_add(&sync->list, &msm_sensors);
 	return rc;

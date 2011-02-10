@@ -921,6 +921,7 @@ static int msm_rotator_start(unsigned long arg)
 	case MDP_ARGB_8888:
 	case MDP_RGBA_8888:
 	case MDP_XRGB_8888:
+	case MDP_RGBX_8888:
 	case MDP_BGRA_8888:
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CRCB_H2V2:

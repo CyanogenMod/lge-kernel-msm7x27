@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,6 +43,14 @@ enum {
 	V_EBI_USB_CLK,
 	V_EBI_VCD_CLK,
 	V_EBI_VFE_CLK,
+	V_DFAB_DSPS_CLK,
+	V_DFAB_USB_HS_CLK,
+	V_DFAB_SDC1_CLK,
+	V_DFAB_SDC2_CLK,
+	V_DFAB_SDC3_CLK,
+	V_DFAB_SDC4_CLK,
+	V_DFAB_SDC5_CLK,
+	V_DFAB_TEMP_CLK,
 
 	V_EBI_PM_QOS_CLK,
 
@@ -53,13 +61,15 @@ struct clk_ops;
 extern struct clk_ops clk_ops_voter;
 
 #define CLK_VOTER(clk_name, clk_id, agg_name, clk_dev, clk_flags) {	\
-	.name = clk_name, \
-	.id = V_##clk_id, \
-	.flags = clk_flags | CLKFLAG_VOTER, \
-	.dev = clk_dev, \
-	.aggregator = agg_name, \
-	.dbg_name = #clk_id, \
-	.ops = &clk_ops_voter, \
+	.con_id = clk_name, \
+	.dev_id = clk_dev, \
+	.clk = &(struct clk){ \
+		.id = V_##clk_id, \
+		.flags = clk_flags | CLKFLAG_VOTER, \
+		.aggregator = agg_name, \
+		.dbg_name = #clk_id, \
+		.ops = &clk_ops_voter, \
+	}, \
 	}
 
 #endif

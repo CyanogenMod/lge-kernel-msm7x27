@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,21 +38,30 @@ int vos_chip_power_qrf8615(int on)
 	};
 	static const int vregs_qwlan_val_min[] = {
 		1800000,
-		2900000,
+		3050000,
 		1225000,
 		0,
 		1200000,
 		1300000,
-		880000,
+		500000,
 	};
 	static const int vregs_qwlan_val_max[] = {
 		1800000,
-		2900000,
+		3050000,
 		1225000,
 		0,
 		1200000,
 		1300000,
 		1200000,
+	};
+	static const bool vregs_is_pin_controlled[] = {
+		0,
+		0,
+		0,
+		0,
+		1,
+		1,
+		0,
 	};
 	static struct regulator *vregs_qwlan[ARRAY_SIZE(vregs_qwlan_name)];
 	static struct msm_xo_voter *wlan_clock;
@@ -115,10 +124,20 @@ int vos_chip_power_qrf8615(int on)
 			}
 			if (vregs_qwlan_val_min[i] || vregs_qwlan_val_max[i]) {
 				rc = regulator_set_voltage(vregs_qwlan[i],
-					vregs_qwlan_val_min[i],
-					vregs_qwlan_val_max[i]);
+						vregs_qwlan_val_min[i],
+						vregs_qwlan_val_max[i]);
 				if (rc) {
 					pr_err("regulator_set_voltage(%s) failed\n",
+							vregs_qwlan_name[i]);
+					goto vreg_fail;
+				}
+			}
+			/* vote for pin control (if needed) */
+			if (vregs_is_pin_controlled[i]) {
+				rc = regulator_set_mode(vregs_qwlan[i],
+						REGULATOR_MODE_IDLE);
+				if (rc) {
+					pr_err("regulator_set_mode(%s) failed\n",
 							vregs_qwlan_name[i]);
 					goto vreg_fail;
 				}
@@ -128,14 +147,14 @@ int vos_chip_power_qrf8615(int on)
 			rc = regulator_enable(vregs_qwlan[i]);
 			if (rc < 0) {
 				pr_err("vreg %s enable failed (%d)\n",
-					vregs_qwlan_name[i], rc);
+						vregs_qwlan_name[i], rc);
 				goto vreg_fail;
 			}
 		} else if (!on && wlan_on) {
 			rc = regulator_disable(vregs_qwlan[i]);
 			if (rc < 0) {
 				pr_err("vreg %s disable failed (%d)\n",
-					vregs_qwlan_name[i], rc);
+						vregs_qwlan_name[i], rc);
 				goto vreg_fail;
 			}
 		}

@@ -171,6 +171,7 @@ struct msm_camvfe_fn {
 	int (*vfe_disable)(struct camera_enable_cmd *,
 		struct platform_device *dev);
 	void (*vfe_release)(struct platform_device *);
+	void (*vfe_stop)(void);
 };
 
 struct msm_camvpe_fn {
@@ -258,6 +259,7 @@ struct msm_sync {
 	uint8_t opencnt;
 	void *cropinfo;
 	int  croplen;
+	int  core_powered_on;
 
 	struct fd_roi_info fdroiinfo;
 
@@ -352,7 +354,7 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 /* Below functions are added for V4L2 kernel APIs */
 struct msm_v4l2_driver {
 	struct msm_sync *sync;
-	int (*open)(struct msm_sync *, const char *apps_id);
+	int (*open)(struct msm_sync *, const char *apps_id, int);
 	int (*release)(struct msm_sync *);
 	int (*ctrl)(struct msm_sync *, struct msm_ctrl_cmd *);
 	int (*reg_pmem)(struct msm_sync *, struct msm_pmem_info *);

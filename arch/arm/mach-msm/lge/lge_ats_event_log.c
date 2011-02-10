@@ -256,18 +256,17 @@ static int ats_event_log_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver ats_input_driver = {
+static struct platform_driver __refdata ats_input_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 	},
-	.probe	 = ats_event_log_probe,
 	.remove = ats_event_log_remove,
 };
 
 static int __init ats_input_init(void)
 {
-	return platform_driver_register(&ats_input_driver);
+	return platform_driver_probe(&ats_input_driver, ats_event_log_probe);
 }
 
 

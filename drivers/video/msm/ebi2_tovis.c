@@ -73,7 +73,7 @@ static boolean display_on = TRUE; // FALSE;
 		EBI2_WRITE16D(DISP_DATA_PORT,(pep)&0xFF);	\
 	}
 
-static unsigned int te_lines = 0xab;
+static unsigned int te_lines = 0xef;
 static unsigned int mactl = 0x98;
 #ifdef TUNING_INITCODE
 module_param(te_lines, uint, 0644);
@@ -138,7 +138,7 @@ static void do_ilitek_init(struct platform_device *pdev)
 	EBI2_WRITE16D(DISP_DATA_PORT,0x2f); // 1
 
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xc1);
-	EBI2_WRITE16D(DISP_DATA_PORT,0x11); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x10); // 1
 
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xc5);
 	EBI2_WRITE16D(DISP_DATA_PORT,0x38); // 1
@@ -156,15 +156,14 @@ static void do_ilitek_init(struct platform_device *pdev)
 	EBI2_WRITE16D(DISP_DATA_PORT,0xaa); // 2
 	EBI2_WRITE16D(DISP_DATA_PORT,0xb0); // 3
 
-	/* Driver timing control */
-	EBI2_WRITE16C(DISP_CMD_PORT, 0xe8);
-	EBI2_WRITE16D(DISP_DATA_PORT,0x8a); // 1
-	EBI2_WRITE16D(DISP_DATA_PORT,0x01); // 2
-	EBI2_WRITE16D(DISP_DATA_PORT,0x78); // 3
-
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xea);
 	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 1
 	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 2
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xef);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x03); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x80); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 3
 
 	/* Power on sequence control */
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xed);
@@ -216,37 +215,37 @@ static void do_ilitek_init(struct platform_device *pdev)
   /* Positive Gamma Correction */
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xe0);
 	EBI2_WRITE16D(DISP_DATA_PORT,0x0d); // 1
-	EBI2_WRITE16D(DISP_DATA_PORT,0x32); // 2
-	EBI2_WRITE16D(DISP_DATA_PORT,0x2d); // 3
+	EBI2_WRITE16D(DISP_DATA_PORT,0x34); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x30); // 3
 	EBI2_WRITE16D(DISP_DATA_PORT,0x0c); // 4
-	EBI2_WRITE16D(DISP_DATA_PORT,0x0e); // 5
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0d); // 5
 	EBI2_WRITE16D(DISP_DATA_PORT,0x05); // 6
-	EBI2_WRITE16D(DISP_DATA_PORT,0x4d); // 6
-	EBI2_WRITE16D(DISP_DATA_PORT,0x55); // 8
-	EBI2_WRITE16D(DISP_DATA_PORT,0x34); // 9
+	EBI2_WRITE16D(DISP_DATA_PORT,0x4e); // 6
+	EBI2_WRITE16D(DISP_DATA_PORT,0x75); // 8
+	EBI2_WRITE16D(DISP_DATA_PORT,0x37); // 9
 	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 10
-	EBI2_WRITE16D(DISP_DATA_PORT,0x0d); // 11
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0c); // 11
 	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 12
-	EBI2_WRITE16D(DISP_DATA_PORT,0x12); // 13
-	EBI2_WRITE16D(DISP_DATA_PORT,0x12); // 14
+	EBI2_WRITE16D(DISP_DATA_PORT,0x16); // 13
+	EBI2_WRITE16D(DISP_DATA_PORT,0x13); // 14
 	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 15
 
   /* Negative Gamma Correction */
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xe1);
 	EBI2_WRITE16D(DISP_DATA_PORT,0x0a); // 1
-	EBI2_WRITE16D(DISP_DATA_PORT,0x0f); // 2
-	EBI2_WRITE16D(DISP_DATA_PORT,0x14); // 3
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0d); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x11); // 3
 	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 4
-	EBI2_WRITE16D(DISP_DATA_PORT,0x0f); // 5
+	EBI2_WRITE16D(DISP_DATA_PORT,0x10); // 5
 	EBI2_WRITE16D(DISP_DATA_PORT,0x05); // 6
-	EBI2_WRITE16D(DISP_DATA_PORT,0x34); // 6
-	EBI2_WRITE16D(DISP_DATA_PORT,0x44); // 8
-	EBI2_WRITE16D(DISP_DATA_PORT,0x4d); // 9
+	EBI2_WRITE16D(DISP_DATA_PORT,0x33); // 6
+	EBI2_WRITE16D(DISP_DATA_PORT,0x24); // 8
+	EBI2_WRITE16D(DISP_DATA_PORT,0x4a); // 9
 	EBI2_WRITE16D(DISP_DATA_PORT,0x08); // 10
-	EBI2_WRITE16D(DISP_DATA_PORT,0x10); // 11
+	EBI2_WRITE16D(DISP_DATA_PORT,0x11); // 11
 	EBI2_WRITE16D(DISP_DATA_PORT,0x0c); // 12
-	EBI2_WRITE16D(DISP_DATA_PORT,0x2f); // 13
-	EBI2_WRITE16D(DISP_DATA_PORT,0x2f); // 14
+	EBI2_WRITE16D(DISP_DATA_PORT,0x2b); // 13
+	EBI2_WRITE16D(DISP_DATA_PORT,0x2e); // 14
 	EBI2_WRITE16D(DISP_DATA_PORT,0x17); // 15
 
 	EBI2_WRITE16C(DISP_CMD_PORT,0x2a); // Set_column_address
@@ -368,7 +367,7 @@ static struct platform_device this_device = {
 	}
 };
 
-static struct platform_driver this_driver = {
+static struct platform_driver __refdata this_driver = {
 	.probe  = tovis_qvga_probe,
 	.driver = {
 		.name   = "ebi2_tovis_qvga",
@@ -387,7 +386,7 @@ static int __init tovis_qvga_init(void)
 		pinfo->yres = 320;
 		pinfo->type = EBI2_PANEL;
 		pinfo->pdest = DISPLAY_1;
-		pinfo->wait_cycle = 0x808000;
+		pinfo->wait_cycle = 0x908000;
 
 		pinfo->bpp = 16;
 		pinfo->fb_num = 2;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -932,7 +932,8 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 	irq = msm_rpm_platform->irq_ack;
 
 	rc = request_irq(irq, msm_rpm_ack_interrupt,
-			IRQF_TRIGGER_RISING, "rpm_drv", msm_rpm_ack_interrupt);
+			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
+			"rpm_drv", msm_rpm_ack_interrupt);
 	if (rc) {
 		pr_err("%s: failed to request irq %d: %d\n",
 			__func__, irq, rc);

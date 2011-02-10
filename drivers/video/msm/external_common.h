@@ -240,7 +240,7 @@ extern struct mutex external_common_state_hpd_mutex;
 
 int hdmi_common_read_edid(void);
 const char *video_format_2string(uint32 format);
-void hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd);
+bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd);
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_mode(uint32 mode);
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_supported_mode(
 	uint32 mode);

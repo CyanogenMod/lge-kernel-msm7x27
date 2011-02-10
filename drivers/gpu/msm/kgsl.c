@@ -199,6 +199,8 @@ static int kgsl_suspend(struct platform_device *dev, pm_message_t state)
 	struct kgsl_device *device;
 	unsigned int nap_allowed_saved;
 
+	KGSL_DRV_DBG("suspend start\n");
+
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
 		device = kgsl_driver.devp[i];
 		if (!device)
@@ -208,37 +210,49 @@ static int kgsl_suspend(struct platform_device *dev, pm_message_t state)
 		nap_allowed_saved = device->pwrctrl.nap_allowed;
 		device->pwrctrl.nap_allowed = false;
 		device->requested_state = KGSL_STATE_SUSPEND;
+		/* Make sure no user process is waiting for a timestamp *
+		 * before supending */
 		if (device->active_cnt != 0) {
 			mutex_unlock(&device->mutex);
 			wait_for_completion(&device->suspend_gate);
 			mutex_lock(&device->mutex);
 		}
+		/* Don't let the timer wake us during suspended sleep. */
+		del_timer(&device->idle_timer);
 		switch (device->state) {
 		case KGSL_STATE_INIT:
 			break;
 		case KGSL_STATE_ACTIVE:
+			/* Wait for the device to become idle */
+			device->ftbl.device_idle(device, KGSL_TIMEOUT_DEFAULT);
 		case KGSL_STATE_NAP:
 		case KGSL_STATE_SLEEP:
 			/* Get the completion ready to be waited upon. */
 			INIT_COMPLETION(device->hwaccess_gate);
-			device->ftbl.device_suspend(device);
+			device->ftbl.device_suspend_context(device);
+			device->ftbl.device_stop(device);
 			break;
 		default:
 			mutex_unlock(&device->mutex);
 			return KGSL_FAILURE;
 		}
+		device->state = KGSL_STATE_SUSPEND;
 		device->requested_state = KGSL_STATE_NONE;
 		device->pwrctrl.nap_allowed = nap_allowed_saved;
+
 		mutex_unlock(&device->mutex);
 	}
+	KGSL_DRV_DBG("suspend end\n");
 	return KGSL_SUCCESS;
 }
 
 /*Resume function*/
 static int kgsl_resume(struct platform_device *dev)
 {
-	int i;
+	int i, status = KGSL_SUCCESS;
 	struct kgsl_device *device;
+
+	KGSL_DRV_DBG("resume start\n");
 
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
 		device = kgsl_driver.devp[i];
@@ -248,14 +262,24 @@ static int kgsl_resume(struct platform_device *dev)
 		mutex_lock(&device->mutex);
 		if (device->state == KGSL_STATE_SUSPEND) {
 			device->requested_state = KGSL_STATE_ACTIVE;
-			device->ftbl.device_resume(device);
+			status = device->ftbl.device_start(device, 0);
+			if (status == KGSL_SUCCESS) {
+				device->state = KGSL_STATE_ACTIVE;
+			} else {
+				KGSL_DRV_ERR("resume failed for dev->id=%d\n",
+					device->id);
+				device->state = KGSL_STATE_INIT;
+				mutex_unlock(&device->mutex);
+				return status;
+			}
+			status = device->ftbl.device_resume_context(device);
 			complete_all(&device->hwaccess_gate);
 		}
 		device->requested_state = KGSL_STATE_NONE;
 		mutex_unlock(&device->mutex);
 	}
-
-	return KGSL_SUCCESS;
+	KGSL_DRV_DBG("resume end\n");
+	return status;
 }
 
 /* file operations */
@@ -523,15 +547,17 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 	uint8_t *result = NULL;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_process_private *priv;
+	struct kgsl_yamato_device *yamato_device = container_of(device,
+					struct kgsl_yamato_device, dev);
+	struct kgsl_ringbuffer *ringbuffer = &yamato_device->ringbuffer;
 
-	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.buffer_desc, gpuaddr)) {
-		return kgsl_gpuaddr_to_vaddr(&device->ringbuffer.buffer_desc,
+	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->buffer_desc, gpuaddr)) {
+		return kgsl_gpuaddr_to_vaddr(&ringbuffer->buffer_desc,
 					gpuaddr, size);
 	}
 
-	if (kgsl_gpuaddr_in_memdesc(&device->ringbuffer.memptrs_desc,
-			gpuaddr)) {
-		return kgsl_gpuaddr_to_vaddr(&device->ringbuffer.memptrs_desc,
+	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->memptrs_desc, gpuaddr)) {
+		return kgsl_gpuaddr_to_vaddr(&ringbuffer->memptrs_desc,
 					gpuaddr, size);
 	}
 
@@ -1344,6 +1370,19 @@ done:
 }
 #endif /*CONFIG_MSM_KGSL_MMU*/
 
+static void kgsl_ioctl_idle_check(struct kgsl_device *device)
+{
+
+	if (device->state & KGSL_STATE_ACTIVE) {
+		device->requested_state = KGSL_STATE_NAP;
+		if (kgsl_pwrctrl_sleep(device) == KGSL_FAILURE)
+			mod_timer(&device->idle_timer,
+					jiffies +
+					device->pwrctrl.interval_timeout);
+	}
+}
+
+
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	int result = 0;
@@ -1458,6 +1497,8 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	if (device->active_cnt == 0)
 		complete(&device->suspend_gate);
 
+	if (device->pwrctrl.nap_allowed == true)
+		kgsl_ioctl_idle_check(device);
 	mutex_unlock(&device->mutex);
 	KGSL_DRV_VDBG("result %d\n", result);
 	return result;

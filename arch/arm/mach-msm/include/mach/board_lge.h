@@ -172,6 +172,7 @@ struct kr3dh_platform_data {
 	int (*power_on)(void);
 	int (*power_off)(void);
 	int (*gpio_config)(int config);
+	int (*device_id) (void);
 };
 
 /* ecompass platform data */

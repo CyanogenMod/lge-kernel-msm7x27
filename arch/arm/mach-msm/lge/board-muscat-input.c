@@ -100,20 +100,25 @@ static struct platform_device hs_device = {
 	},
 };
 
+/*
+ * 2011-02-05, jinkyu.choi@lge.com
+ * GPIO key map for muscat Rev.B
+ */
 static unsigned int keypad_row_gpios[] = {
-	38, 37
+	37, 38
 };
 
-static unsigned int keypad_col_gpios[] = {32, 33};
+static unsigned int keypad_col_gpios[] = {26, 32, 58};
 
 #define KEYMAP_INDEX(col, row) ((col)*ARRAY_SIZE(keypad_row_gpios) + (row))
 
 static const unsigned short keypad_keymap_muscat[] = {
-	[KEYMAP_INDEX(0, 0)] = KEY_END,
-	[KEYMAP_INDEX(0, 1)] = KEY_VOLUMEUP,
-	[KEYMAP_INDEX(1, 0)] = KEY_SEND,
-	[KEYMAP_INDEX(1, 1)] = KEY_VOLUMEDOWN,
-
+	[KEYMAP_INDEX(0, 0)] = KEY_MENU,
+	[KEYMAP_INDEX(0, 1)] = KEY_BACK,
+	[KEYMAP_INDEX(1, 0)] = KEY_HOME,
+	[KEYMAP_INDEX(1, 1)] = KEY_SEARCH,
+	[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEDOWN,
+	[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEUP,
 };
 
 int muscat_matrix_info_wrapper(struct gpio_event_input_devs *input_dev,struct gpio_event_info *info, void **data, int func)
@@ -204,10 +209,13 @@ struct platform_device muscat_reset_keys_device = {
 /* input platform device */
 static struct platform_device *muscat_input_devices[] __initdata = {
 	&hs_device,
-	//&keypad_device_muscat,/* rev.A muscat does not use the gpio keypad */
 	//&muscat_reset_keys_device,
 	&qwerty_device,
 	&atcmd_virtual_device,
+};
+
+static struct platform_device *muscat_gpio_input_devices[] __initdata = {
+	&keypad_device_muscat,/* the gpio keypad for muscat Rev.B */
 };
 
 /* MCS6000 Touch */
@@ -246,10 +254,10 @@ static int ts_set_vreg(unsigned char onoff)
 		return -1;
 	}
 
-	if (onoff) {		
+	if (onoff) {
 		on_off = 0;
 		id = PM_VREG_PDOWN_SYNT_ID;
-		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);		
+		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);
 		vreg_disable(vreg_touch);
 
 		rc = vreg_set_level(vreg_touch, 3050);
@@ -258,11 +266,11 @@ static int ts_set_vreg(unsigned char onoff)
 			return -1;
 		}
 		vreg_enable(vreg_touch);
-	} else {		
+	} else {
 		vreg_disable(vreg_touch);
 		on_off = 1;
 		id = PM_VREG_PDOWN_SYNT_ID;
-		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);		
+		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);
 	}
 
 	return 0;
@@ -460,6 +468,9 @@ void __init lge_add_input_devices(void)
 {
 	muscat_select_keymap();
 	platform_add_devices(muscat_input_devices, ARRAY_SIZE(muscat_input_devices));
+
+	if (lge_bd_rev >= LGE_REV_B)
+		platform_add_devices(muscat_gpio_input_devices, ARRAY_SIZE(muscat_gpio_input_devices));
 
 	lge_add_gpio_i2c_device(muscat_init_i2c_touch);
 	lge_add_gpio_i2c_device(muscat_init_i2c_ecom);

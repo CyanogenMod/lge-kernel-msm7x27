@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,21 @@
 #include <mach/msm_iomap.h>
 
 #include "mpm.h"
+
+/******************************************************************************
+ * Debug Definitions
+ *****************************************************************************/
+
+enum {
+	MSM_MPM_DEBUG_NON_DETECTABLE_IRQ = BIT(0),
+	MSM_MPM_DEBUG_PENDING_IRQ = BIT(1),
+	MSM_MPM_DEBUG_WRITE = BIT(2),
+};
+
+static int msm_mpm_debug_mask;
+module_param_named(
+	debug_mask, msm_mpm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
+);
 
 /******************************************************************************
  * Request and Status Definitions
@@ -126,8 +141,29 @@ static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] = {
 };
 
 static uint16_t msm_mpm_bypassed_apps_irqs[] = {
-	RPM_SCSS_CPU0_WAKE_UP_IRQ,
+	TLMM_SCSS_SUMMARY_IRQ,
+	RPM_SCSS_CPU0_GP_HIGH_IRQ,
 	RPM_SCSS_CPU0_GP_MEDIUM_IRQ,
+	RPM_SCSS_CPU0_GP_LOW_IRQ,
+	RPM_SCSS_CPU0_WAKE_UP_IRQ,
+	RPM_SCSS_CPU1_GP_HIGH_IRQ,
+	RPM_SCSS_CPU1_GP_MEDIUM_IRQ,
+	RPM_SCSS_CPU1_GP_LOW_IRQ,
+	RPM_SCSS_CPU1_WAKE_UP_IRQ,
+	MARM_SCSS_GP_IRQ_0,
+	MARM_SCSS_GP_IRQ_1,
+	MARM_SCSS_GP_IRQ_2,
+	MARM_SCSS_GP_IRQ_3,
+	MARM_SCSS_GP_IRQ_4,
+	MARM_SCSS_GP_IRQ_5,
+	MARM_SCSS_GP_IRQ_6,
+	MARM_SCSS_GP_IRQ_7,
+	MARM_SCSS_GP_IRQ_8,
+	MARM_SCSS_GP_IRQ_9,
+	LPASS_SCSS_GP_LOW_IRQ,
+	LPASS_SCSS_GP_MEDIUM_IRQ,
+	LPASS_SCSS_GP_HIGH_IRQ,
+	SPS_MTI_31,
 };
 
 static DEFINE_SPINLOCK(msm_mpm_lock);
@@ -144,6 +180,12 @@ static uint32_t msm_mpm_wake_irq[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_detect_ctl[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_polarity[MSM_MPM_REG_WIDTH];
 
+struct gpio_direct_connect {
+	int gpio_irq;
+	int reverse_polarity;
+};
+
+static struct gpio_direct_connect direct_connect[NR_TLMM_SCSS_DIR_CONN_IRQ];
 
 /******************************************************************************
  * Low Level Functions for Accessing MPM
@@ -161,6 +203,10 @@ static inline void msm_mpm_write(
 {
 	unsigned int offset = reg * MSM_MPM_REG_WIDTH + subreg_index;
 	writel(value, MSM_MPM_REQUEST_BASE + offset * 4);
+
+	if (MSM_MPM_DEBUG_WRITE & msm_mpm_debug_mask)
+		pr_info("%s: reg %u.%u: 0x%08x\n",
+			__func__, reg, subreg_index, value);
 }
 
 static inline void msm_mpm_write_barrier(void)
@@ -231,6 +277,12 @@ static inline void msm_mpm_set_irq_a2m(unsigned int apps_irq,
 	msm_mpm_irqs_a2m[apps_irq] = (uint8_t) mpm_irq;
 }
 
+static inline void msm_mpm_set_irq_m2a(unsigned int mpm_irq,
+	unsigned int apps_irq)
+{
+	msm_mpm_irqs_m2a[mpm_irq] = (uint8_t) apps_irq;
+}
+
 static inline bool msm_mpm_is_valid_mpm_irq(unsigned int irq)
 {
 	return irq < ARRAY_SIZE(msm_mpm_irqs_m2a);
@@ -239,6 +291,15 @@ static inline bool msm_mpm_is_valid_mpm_irq(unsigned int irq)
 static inline uint16_t msm_mpm_get_irq_m2a(unsigned int irq)
 {
 	return msm_mpm_irqs_m2a[irq];
+}
+
+static inline uint16_t msm_mpm_is_direct_connect_and_reversed(unsigned int irq)
+{
+	int index = irq - TLMM_SCSS_DIR_CONN_IRQ_0;
+
+	if (index < 0 || index > NR_TLMM_SCSS_DIR_CONN_IRQ-1)
+		return 0;
+	return direct_connect[index].reverse_polarity;
 }
 
 static bool msm_mpm_bypass_apps_irq(unsigned int irq)
@@ -312,6 +373,14 @@ static int msm_mpm_set_irq_type_exclusive(
 			msm_mpm_polarity[index] |= mask;
 		else
 			msm_mpm_polarity[index] &= ~mask;
+
+		if (msm_mpm_is_direct_connect_and_reversed(irq)) {
+				if (flow_type & (IRQ_TYPE_EDGE_RISING
+						| IRQ_TYPE_LEVEL_HIGH))
+					msm_mpm_polarity[index] &= ~mask;
+				else
+					msm_mpm_polarity[index] |= mask;
+		}
 	}
 
 	return 0;
@@ -357,10 +426,59 @@ int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type)
 	return rc;
 }
 
+int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
+{
+	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
+	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_mpm_lock, flags);
+
+	if (on)
+		msm_mpm_wake_irq[index] |= mask;
+	else
+		msm_mpm_wake_irq[index] &= ~mask;
+
+	spin_unlock_irqrestore(&msm_mpm_lock, flags);
+	return 0;
+}
+
+int msm_mpm_set_pin_type(enum msm_mpm_pin pin, unsigned int flow_type)
+{
+	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
+	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_mpm_lock, flags);
+
+	if (flow_type & IRQ_TYPE_EDGE_BOTH)
+		msm_mpm_detect_ctl[index] |= mask;
+	else
+		msm_mpm_detect_ctl[index] &= ~mask;
+
+	if (flow_type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
+		msm_mpm_polarity[index] |= mask;
+	else
+		msm_mpm_polarity[index] &= ~mask;
+
+	spin_unlock_irqrestore(&msm_mpm_lock, flags);
+	return 0;
+}
+
 bool msm_mpm_irqs_detectable(bool from_idle)
 {
 	unsigned long *apps_irq_bitmap = from_idle ?
 			msm_mpm_enabled_apps_irqs : msm_mpm_wake_apps_irqs;
+
+	if (MSM_MPM_DEBUG_NON_DETECTABLE_IRQ & msm_mpm_debug_mask) {
+		static char buf[DIV_ROUND_UP(MSM_MPM_NR_APPS_IRQS, 32)*9+1];
+
+		bitmap_scnprintf(buf, sizeof(buf), apps_irq_bitmap,
+				MSM_MPM_NR_APPS_IRQS);
+		buf[sizeof(buf) - 1] = '\0';
+
+		pr_info("%s: cannot monitor %s", __func__, buf);
+	}
 
 	return (bool)__bitmap_empty(apps_irq_bitmap, MSM_MPM_NR_APPS_IRQS);
 }
@@ -377,20 +495,25 @@ void msm_mpm_exit_sleep(bool from_idle)
 	int k;
 
 	for (i = 0; i < MSM_MPM_REG_WIDTH; i++) {
-		pending = msm_mpm_read(MSM_MPM_STATUS_REG_PENDING, i),
+		pending = msm_mpm_read(MSM_MPM_STATUS_REG_PENDING, i);
+
+		if (MSM_MPM_DEBUG_PENDING_IRQ & msm_mpm_debug_mask)
+			pr_info("%s: pending.%d: 0x%08lu", __func__,
+				i, pending);
 
 		k = find_first_bit(&pending, 32);
 		while (k < 32) {
 			unsigned int mpm_irq = 32 * i + k;
 			unsigned int apps_irq = msm_mpm_get_irq_m2a(mpm_irq);
-			struct irq_desc *desc = irq_to_desc(apps_irq);
+			struct irq_desc *desc = apps_irq ?
+						irq_to_desc(apps_irq) : NULL;
 
 			/*
 			 * This function is called when only CPU 0 is
 			 * running and when both preemption and irqs
 			 * are disabled.  There is no need to lock desc.
 			 */
-			if (desc->status & IRQ_TYPE_EDGE_BOTH) {
+			if (desc && (desc->status & IRQ_TYPE_EDGE_BOTH)) {
 				desc->status |= IRQ_PENDING;
 				if (from_idle)
 					check_irq_resend(desc, apps_irq);
@@ -401,6 +524,24 @@ void msm_mpm_exit_sleep(bool from_idle)
 	}
 
 	msm_mpm_set(!from_idle);
+}
+
+void msm_set_direct_connect(int apps_irq, int gpio_irq, int reverse_polarity)
+{
+	int mpm_irq;
+	int index = apps_irq - TLMM_SCSS_DIR_CONN_IRQ_0;
+
+	BUG_ON(index < 0
+			|| index > NR_TLMM_SCSS_DIR_CONN_IRQ-1);
+
+	direct_connect[index].reverse_polarity = reverse_polarity;
+
+	mpm_irq = msm_mpm_get_irq_a2m(gpio_irq);
+	if (mpm_irq) {
+		msm_mpm_set_irq_a2m(gpio_irq, 0);
+		msm_mpm_set_irq_a2m(apps_irq, mpm_irq);
+		msm_mpm_set_irq_m2a(mpm_irq, apps_irq);
+	}
 }
 
 static int __init msm_mpm_early_init(void)

@@ -41,6 +41,8 @@
 #define MVS_MODE_LINEAR_PCM 9
 #define MVS_MODE_PCM 12
 #define MVS_MODE_AMR_WB 13
+#define MVS_MODE_G729A 14
+#define MVS_MODE_G711A 15
 
 enum msm_audio_amr_mode {
 	MVS_AMR_MODE_0475, /* AMR 4.75 kbps */
@@ -81,6 +83,25 @@ enum msm_audio_amr_frame_type {
 	MVS_AMR_SID_BAD,	      /* Corrupt SID frame (bad CRC)    */
 	MVS_AMR_NO_DATA,	      /* Nothing to transmit            */
 	MVS_AMR_SPEECH_LOST	      /* Downlink speech lost           */
+};
+
+enum msm_audio_g711a_mode {
+	MVS_G711A_MODE_MULAW,
+	MVS_G711A_MODE_ALAW
+};
+
+enum msm_audio_g711a_frame_type {
+	MVS_G711A_SPEECH_GOOD,
+	MVS_G711A_SID,
+	MVS_G711A_NO_DATA,
+	MVS_G711A_ERASURE
+};
+
+enum msm_audio_g729a_frame_type {
+	MVS_G729A_NO_DATA,
+	MVS_G729A_SPEECH_GOOD,
+	MVS_G729A_SID,
+	MVS_G729A_ERASURE
 };
 
 struct msm_audio_mvs_config {

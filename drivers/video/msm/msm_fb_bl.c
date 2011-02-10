@@ -39,7 +39,7 @@ static int msm_fb_bl_update_status(struct backlight_device *pbd)
 
 	bl_lvl = pbd->props.brightness;
 	bl_lvl = mfd->fbi->bl_curve[bl_lvl];
-	msm_fb_set_backlight(mfd, bl_lvl, 1);
+	msm_fb_set_backlight(mfd, bl_lvl);
 	return 0;
 }
 

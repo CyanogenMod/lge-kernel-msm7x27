@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -518,9 +518,9 @@ void vidc_1080p_encode_set_rc_config(u32 enable_frame_level_rc,
 void vidc_1080p_encode_set_frame_level_rc_params(u32 rc_frame_rate,
 	u32 target_bitrate, u32 reaction_coeff);
 void vidc_1080p_encode_set_qp_params(u32 max_qp, u32 min_qp);
-void vidc_1080p_encode_set_mb_level_rc_params(u32 dark_region_as_flag,
-	u32 smooth_region_as_flag, u32 static_region_as_flag,
-	u32 activity_region_flag);
+void vidc_1080p_encode_set_mb_level_rc_params(u32 disable_dark_region_as_flag,
+	u32 disable_smooth_region_as_flag , u32 disable_static_region_as_flag,
+	u32 disable_activity_region_flag);
 void vidc_1080p_get_qp(u32 *pn_frame_qp);
 void vidc_1080p_set_h264_encode_entropy(
 	enum vidc_1080p_entropy_sel entropy_sel);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -179,5 +179,9 @@ int timpani_write(struct marimba*, u8 reg, u8 *value,
 int adie_get_detected_codec_type(void);
 int adie_get_detected_connectivity_type(void);
 int marimba_gpio_config(int gpio_value);
+bool marimba_get_fm_status(struct marimba *);
+bool marimba_get_bt_status(struct marimba *);
+void marimba_set_fm_status(struct marimba *, bool);
+void marimba_set_bt_status(struct marimba *, bool);
 
 #endif

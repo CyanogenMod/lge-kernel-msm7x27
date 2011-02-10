@@ -19,10 +19,10 @@
 #ifndef S5K5CAGA_REG_H
 #define S5K5CAGA_REG_H
 /*************************************************************************/
-/** s5k5caga.c , 0xQualcommhardware.cpp 도 같이 change해라..*/
+/** lgcam_rear_sensor.c , 0xQualcommhardware.cpp 도 같이 change해라..*/
 #define ALESSI_JPEG_IF_SET										0 // (0 : YUV mode , 0x1 : Jpeg mode )
 
-/** s5k5caga.c , 0xs5k5caga.c(vendor), 0xQualcommHardware.cpp 도 같이 change해라..*/
+/** lgcam_rear_sensor.c , 0xlgcam_rear_sensor.c(vendor), 0xQualcommHardware.cpp 도 같이 change해라..*/
 #if ALESSI_JPEG_IF_SET
 #define ALESSI_JPEG_USE_ADDRESS									1 // (0 : normal parsing , 0x1 : parsing to use address )
 #else
@@ -32,13 +32,13 @@
 
 #include "s5k5caga.h"
 
-static const struct s5k5caga_i2c_reg_conf const pll_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const pll_settings_array[] = {
 	{0xFCFC, 0xD000,WORD_LEN},
 	{0x0010, 0x0001,WORD_LEN},
 	{0x1030, 0x0000,WORD_LEN},
 	{0x0014, 0x0001,WORD_LEN},
 };
-static const struct s5k5caga_i2c_reg_conf const init_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] = {
 
 // #Start T&P part
 
@@ -1683,9 +1683,9 @@ static const struct s5k5caga_i2c_reg_conf const init_settings_array[] = {
 
 {0x002A, 0x1060, WORD_LEN},
 
-{0x0F12, 0x003C, WORD_LEN},  //#af_pos_usHomePos
+{0x0F12, 0x0028, WORD_LEN},  //3C//#af_pos_usHomePos
 
-{0x0F12, 0x783C, WORD_LEN},  //#af_pos_usLowConfPos
+{0x0F12, 0x6428, WORD_LEN},  //#af_pos_usLowConfPos
 
 
 
@@ -1734,41 +1734,24 @@ static const struct s5k5caga_i2c_reg_conf const init_settings_array[] = {
 {0x002A, 0x1074, WORD_LEN},
 //mhlee
 
-{0xFFFE, 0x0010, BURST_LEN}, //#af_pos_usTableLastInd, BURST_LEN}, // 16 Steps 091222
-
-{0x0, 0x003C, BURST_LEN}, //#af_pos_usTable_0_, BURST_LEN}, // af_pos_usTable
-
-{0x0, 0x003F, BURST_LEN}, //#af_pos_usTable_1_
-
-{0x0, 0x0042, BURST_LEN}, //#af_pos_usTable_2_
-
-{0x0, 0x0045, BURST_LEN}, //#af_pos_usTable_3_
-
-{0x0, 0x0048, BURST_LEN}, //#af_pos_usTable_4_
-
-{0x0, 0x004B, BURST_LEN}, //#af_pos_usTable_5_
-
-{0x0, 0x004E, BURST_LEN}, //#af_pos_usTable_6_
-
-{0x0, 0x0051, BURST_LEN}, //#af_pos_usTable_7_
-
-{0x0, 0x0054, BURST_LEN}, //#af_pos_usTable_8_
-
-{0x0, 0x0057, BURST_LEN}, //#af_pos_usTable_9_
-
-{0x0, 0x005A, BURST_LEN}, //#af_pos_usTable_10_
-
-{0x0, 0x005E, BURST_LEN}, //#af_pos_usTable_11_
-
-{0x0, 0x0061, BURST_LEN}, //#af_pos_usTable_12_
-
-{0x0, 0x0064, BURST_LEN}, //#af_pos_usTable_13_
-
-{0x0, 0x0068, BURST_LEN}, //#af_pos_usTable_14_
-
-{0x0, 0x006C, BURST_LEN}, //#af_pos_usTable_15_
-
-{0xFFFF, 0x0078, BURST_LEN}, //#af_pos_usTable_16_
+{0xFFFE, 0x0010, BURST_LEN}, //0010 //#af_pos_usTableLastInd// 16 Steps 091222
+{0x0, 0x0028, BURST_LEN}, //003C //#af_pos_usTable_0_// af_pos_usTable
+{0x0, 0x002B, BURST_LEN}, //003F //#af_pos_usTable_1_
+{0x0, 0x002E, BURST_LEN}, //0042 //#af_pos_usTable_2_
+{0x0, 0x0031, BURST_LEN}, //0045 //#af_pos_usTable_3_
+{0x0, 0x0034, BURST_LEN}, //0048 //#af_pos_usTable_4_
+{0x0, 0x0037, BURST_LEN}, //004B //#af_pos_usTable_5_
+{0x0, 0x003A, BURST_LEN}, //004E //#af_pos_usTable_6_
+{0x0, 0x003D, BURST_LEN}, //0051 //#af_pos_usTable_7_
+{0x0, 0x0040, BURST_LEN}, //0054 //#af_pos_usTable_8_
+{0x0, 0x0043, BURST_LEN}, //0057 //#af_pos_usTable_9_
+{0x0, 0x0046, BURST_LEN}, //005A //#af_pos_usTable_10_
+{0x0, 0x004A, BURST_LEN}, //005E //#af_pos_usTable_11_
+{0x0, 0x004D, BURST_LEN}, //0061 //#af_pos_usTable_12_
+{0x0, 0x0050, BURST_LEN}, //0064 //#af_pos_usTable_13_
+{0x0, 0x0054, BURST_LEN}, //0068 //#af_pos_usTable_14_
+{0x0, 0x0058, BURST_LEN}, //006C //#af_pos_usTable_15_
+{0xFFFF, 0x0064, BURST_LEN}, //0078 //#af_pos_usTable_16_
 
 
 
@@ -5633,10 +5616,10 @@ WORD_LEN},
 
 {0x0,  0x0000, BURST_LEN},  // #REG_0TC_PCFG_usFrTimeType
 
-{0x0,  0x0000, BURST_LEN},  // #REG_0TC_PCFG_FrRateQualityType
+{0x0,  0x0001, BURST_LEN},  // #REG_0TC_PCFG_FrRateQualityType
 
-//{0x0,  0x03E8, BURST_LEN},  // #REG_0TC_PCFG_usMaxFrTimeMsecMult10, BURST_LEN},  //10fps
-{0x0,  0x014D, BURST_LEN},  // #REG_0TC_PCFG_usMaxFrTimeMsecMult10, BURST_LEN},  //fixed 30fps
+{0x0,  0x03E8, BURST_LEN},  // #REG_0TC_PCFG_usMaxFrTimeMsecMult10, BURST_LEN},  //10fps
+//{0x0,  0x014D, BURST_LEN},  // #REG_0TC_PCFG_usMaxFrTimeMsecMult10, BURST_LEN},  //fixed 30fps
 
 {0x0,  0x014D, BURST_LEN},  // #REG_0TC_PCFG_usMinFrTimeMsecMult10, BURST_LEN},  //30fps
 
@@ -5810,7 +5793,7 @@ WORD_LEN},
 };
 
 
-static const struct s5k5caga_i2c_reg_conf const preview_mode_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const preview_mode_reg_settings_array[] = {
 {0x0028,0x7000,WORD_LEN},
 {0x002A,0x023C,WORD_LEN},
 {0x0F12,0x0000,WORD_LEN},	//#REG_TC_GP_ActivePrevConfig     //preview config0
@@ -5825,7 +5808,7 @@ static const struct s5k5caga_i2c_reg_conf const preview_mode_reg_settings_array[
 {0x0F12,0x0001,WORD_LEN},	//#REG_TC_GP_EnablePreviewChfanged
 };
 
-static const struct s5k5caga_i2c_reg_conf const snapshot_mode_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const snapshot_mode_reg_settings_array[] = {
 {0x0028, 0x7000, WORD_LEN},
 {0x002a, 0x0244, WORD_LEN},	
 {0x0f12, 0x0000, WORD_LEN}, //#REG_TC_GP_ActiveCapConfig    //capture config0:moto 1:TN 
@@ -5837,13 +5820,13 @@ static const struct s5k5caga_i2c_reg_conf const snapshot_mode_reg_settings_array
 {0x0f12, 0x0001, WORD_LEN}, //#REG_TC_GP_EnableCapture 
 {0x0f12, 0x0001, WORD_LEN}, //#REG_TC_GP_EnableCaptureChanged
 };
-static const struct s5k5caga_i2c_reg_conf const preview_mode_ap001_16bit_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const preview_mode_ap001_16bit_settings_array[] = {
 };
 
-static const struct s5k5caga_i2c_reg_conf const preview_mode_ap003_16bit_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const preview_mode_ap003_16bit_settings_array[] = {
 };
 
-static const struct s5k5caga_i2c_reg_conf const scene_mode_normal_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_normal_reg_settings_array[] = {
 	//Auto(all off) 
 	{0x0028, 0x7000, WORD_LEN}, 
 	{0x002A, 0x246E, WORD_LEN}, //sunset_return
@@ -5901,8 +5884,8 @@ static const struct s5k5caga_i2c_reg_conf const scene_mode_normal_reg_settings_a
 	{0x0F12, 0x0A00, WORD_LEN}, // #lt_uMaxTotGain
 		
 	{0x002A, 0x0288, WORD_LEN}, 	
-//	{0x0F12, 0x03E8, WORD_LEN},  //#REG_0TC_PCFG_usMaxFrTimeMsecMult10 //10fps	
-	{0x0F12, 0x014D, WORD_LEN},  //#REG_0TC_PCFG_usMaxFrTimeMsecMult10 //mhlee 0112 30fps	
+	{0x0F12, 0x03E8, WORD_LEN},  //#REG_0TC_PCFG_usMaxFrTimeMsecMult10 //10fps	
+//	{0x0F12, 0x014D, WORD_LEN},  //#REG_0TC_PCFG_usMaxFrTimeMsecMult10 //mhlee 0112 30fps	
 	{0x002A, 0x037a, WORD_LEN}, 	
 	{0x0F12, 0x0535, WORD_LEN},  //#REG_0TC_CCFG_usMaxFrTimeMsecMult10 //7.5fps 
 		
@@ -5960,7 +5943,7 @@ static const struct s5k5caga_i2c_reg_conf const scene_mode_normal_reg_settings_a
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const scene_mode_portrait_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_portrait_reg_settings_array[] = {
 
 //Portrait	
 {0xFCFC, 0xD000, WORD_LEN},	
@@ -5974,7 +5957,7 @@ static const struct s5k5caga_i2c_reg_conf const scene_mode_portrait_reg_settings
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const scene_mode_landscape_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_landscape_reg_settings_array[] = {
 
 {0xFCFC, 0xD000, WORD_LEN},
 {0x0028, 0x7000, WORD_LEN},
@@ -6001,7 +5984,7 @@ static const struct s5k5caga_i2c_reg_conf const scene_mode_landscape_reg_setting
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const scene_mode_sport_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_sport_reg_settings_array[] = {
 	
 
 //Sports	
@@ -6032,7 +6015,7 @@ static const struct s5k5caga_i2c_reg_conf const scene_mode_sport_reg_settings_ar
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const scene_mode_sunset_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_sunset_reg_settings_array[] = {
 //Sunset	
 {0x0028, 0x7000, WORD_LEN},	
 {0x002A, 0x246E, WORD_LEN},	
@@ -6047,56 +6030,51 @@ static const struct s5k5caga_i2c_reg_conf const scene_mode_sunset_reg_settings_a
   
 };
 
-static const struct s5k5caga_i2c_reg_conf const scene_mode_night_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_night_reg_settings_array[] = {
 
-//Night portrait	
-{0xFCFC, 0xD000	, WORD_LEN},
-{0x0028, 0x7000	, WORD_LEN},
-{0x002A, 0x020C	, WORD_LEN},
-{0x0F12, 0x0000	, WORD_LEN},
-{0x002A, 0x0210	, WORD_LEN},
-{0x0F12, 0x0000	, WORD_LEN},
-{0x0F12, 0xFFCC	, WORD_LEN},
-{0x0028, 0x7000	, WORD_LEN},
-{0x002A, 0x1680	, WORD_LEN},
-{0x0F12, 0x86A0	, WORD_LEN},//#evt1_lt_uMaxExp4 //200ms, WORD_LEN},
-{0x0F12, 0x0001	, WORD_LEN},
-{0x002A, 0x1688	, WORD_LEN},
-{0x0F12, 0x86A0	, WORD_LEN},//#evt1_lt_uCapMaxExp //200ms, WORD_LEN},
-{0x0F12, 0x0001	, WORD_LEN},
-{0x002A, 0x168E	, WORD_LEN},
-{0x0F12, 0x0780	, WORD_LEN},//#evt1_lt_uMaxAnGain4 X7.5, WORD_LEN},
-{0x002A, 0x0546	, WORD_LEN},
-{0x0F12, 0x1000	, WORD_LEN},//#lt_uMaxTotGain  16X
-{0x002A, 0x0288	, WORD_LEN},
-{0x0F12, 0x07D0	, WORD_LEN},//#REG_0TC_PCFG_usMaxFrTimeMsecMult10 //5fps, WORD_LEN},
-{0x002A, 0x037a	, WORD_LEN},
-{0x0F12, 0x07D0	, WORD_LEN},//#REG_0TC_CCFG_usMaxFrTimeMsecMult10 //5fps
-{0x002A, 0x023C	, WORD_LEN},
-{0x0F12, 0x0000	, WORD_LEN},//#REG_TC_GP_ActivePrevConfig , WORD_LEN},
-{0x002A, 0x0240	, WORD_LEN},
-{0x0F12, 0x0001	, WORD_LEN},//#REG_TC_GP_PrevOpenAfterChange, WORD_LEN},
-{0x002A, 0x0230	, WORD_LEN},
-{0x0F12, 0x0001	, WORD_LEN},//#REG_TC_GP_NewConfigSync , WORD_LEN},
-{0x002A, 0x023e	, WORD_LEN},
-{0x0F12, 0x0001	, WORD_LEN},//#REG_TC_GP_PrevConfigChanged
+//Night	
+{0x0028, 0x7000, WORD_LEN},	
+{0x002A, 0x1680, WORD_LEN},	
+{0x0F12, 0x86A0, WORD_LEN},	//#evt1_lt_uMaxExp4 //200ms                            
+{0x0F12, 0x0001, WORD_LEN},	                                                       
+{0x002A, 0x1688, WORD_LEN},	                                                        
+{0x0F12, 0x86A0, WORD_LEN},	//#evt1_lt_uCapMaxExp //200ms                            
+{0x0F12, 0x0001, WORD_LEN},	                           
+{0x002A, 0x168E, WORD_LEN},	                                     
+{0x0F12, 0x0780, WORD_LEN},	//#evt1_lt_uMaxAnGain4 X7.5                             
+{0x002A, 0x0546, WORD_LEN},	
+{0x0F12, 0x1000, WORD_LEN},	//#lt_uMaxTotGain  16X
+	
+{0x002A, 0x0288, WORD_LEN},	
+{0x0F12, 0x07D0, WORD_LEN},	//#REG_0TC_PCFG_usMaxFrTimeMsecMult10 //5fps
+{0x002A, 0x037a, WORD_LEN},	
+{0x0F12, 0x07D0, WORD_LEN},	//#REG_0TC_CCFG_usMaxFrTimeMsecMult10 //5fps
+	
+{0x002A, 0x023C, WORD_LEN},	
+{0x0F12, 0x0000, WORD_LEN},	//#REG_TC_GP_ActivePrevConfig 
+{0x002A, 0x0240, WORD_LEN},	
+{0x0F12, 0x0001, WORD_LEN},	//#REG_TC_GP_PrevOpenAfterChange
+{0x002A, 0x0230, WORD_LEN},	
+{0x0F12, 0x0001, WORD_LEN},	//#REG_TC_GP_NewConfigSync 
+{0x002A, 0x023e, WORD_LEN},	 
+{0x0F12, 0x0001, WORD_LEN},	//#REG_TC_GP_PrevConfigChanged
 
 
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const af_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const af_reg_settings_array[] = {
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const af_nomal_mode_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const af_nomal_mode_reg_settings_array[] = {
 	{0x0028, 0x7000, WORD_LEN},
 	{0x002A, 0x0252, WORD_LEN},
 	{0x0F12, 0x0005, WORD_LEN},
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const af_macro_mode_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const af_macro_mode_reg_settings_array[] = {
 	{0x0028, 0x7000, WORD_LEN},
 	{0x002A, 0x1074, WORD_LEN},
 	{0xFFFE, 0x0010, BURST_LEN},	// #af_pos_usTableLastInd// 17 Steps
@@ -6124,13 +6102,13 @@ static const struct s5k5caga_i2c_reg_conf const af_macro_mode_reg_settings_array
 	{0x002A, 0x0252, WORD_LEN},
 	{0x0F12, 0x0005, WORD_LEN},	
 };
-static const struct s5k5caga_i2c_reg_conf const manual_focus_mode_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const manual_focus_mode_reg_settings_array[] = {
 	{0x0028, 0x7000, WORD_LEN},
 	{0x002A, 0x0254, WORD_LEN},
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const iso_mode_auto_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const iso_mode_auto_reg_settings_array[] = {
 	// CAMTUNING_ISO_AUTO
 	{0xfcfc, 0xd000, WORD_LEN},  
 	{0x0028, 0x7000, WORD_LEN}, 
@@ -6184,7 +6162,7 @@ static const struct s5k5caga_i2c_reg_conf const iso_mode_auto_reg_settings_array
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const iso_mode_100_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const iso_mode_100_reg_settings_array[] = {
 // CAMTUNING_ISO_AUTO
 {0xfcfc, 0xd000, WORD_LEN}, 
 {0x0028, 0x7000, WORD_LEN}, 
@@ -6237,7 +6215,7 @@ static const struct s5k5caga_i2c_reg_conf const iso_mode_100_reg_settings_array[
 {0x0F12, 0x0001, WORD_LEN}, // #REG_SF_USER_IsoChanged	
 };
 
-static const struct s5k5caga_i2c_reg_conf const iso_mode_200_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const iso_mode_200_reg_settings_array[] = {
 	// CAMTUNING_ISO_AUTO
 	{0xfcfc, 0xd000, WORD_LEN}, 
 	{0x0028, 0x7000, WORD_LEN}, 
@@ -6291,7 +6269,7 @@ static const struct s5k5caga_i2c_reg_conf const iso_mode_200_reg_settings_array[
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const iso_mode_400_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const iso_mode_400_reg_settings_array[] = {
 	// CAMTUNING_ISO_AUTO
 	{0xfcfc, 0xd000, WORD_LEN}, 
 	{0x0028, 0x7000, WORD_LEN}, 
@@ -6345,7 +6323,7 @@ static const struct s5k5caga_i2c_reg_conf const iso_mode_400_reg_settings_array[
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const iso_mode_800_reg_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const iso_mode_800_reg_settings_array[] = {
 	// CAMTUNING_ISO_AUTO
 	{0xfcfc, 0xd000, WORD_LEN}, 
 	{0x0028, 0x7000, WORD_LEN}, 
@@ -6399,23 +6377,38 @@ static const struct s5k5caga_i2c_reg_conf const iso_mode_800_reg_settings_array[
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const zoom_mode_capture_127_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const zoom_mode_capture_127_settings_array[] = {
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const zoom_mode_capture_162_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const zoom_mode_capture_162_settings_array[] = {
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const zoom_mode_capture_203_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const zoom_mode_capture_203_settings_array[] = {
 
 };
 
-static const struct s5k5caga_i2c_reg_conf const zoom_mode_capture_405_settings_array[] = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const zoom_mode_capture_405_settings_array[] = {
 
 };
 
-struct s5k5caga_reg s5k5caga_regs = {
+static const struct lgcam_rear_sensor_i2c_reg_conf const focus_rect_reg_settings_array[] = {
+// AF Window Settings(default)
+{0x0028, 0x7000, WORD_LEN},
+{0x002A, 0x025A, WORD_LEN},
+{0xFFFE, 0x0100, BURST_LEN}, //#REG_TC_AF_FstWinStartX
+{0x0, 0x00E3, BURST_LEN}, //#REG_TC_AF_FstWinStartY
+{0x0, 0x0200, BURST_LEN}, //#REG_TC_AF_FstWinSizeX
+{0x0, 0x0238, BURST_LEN}, //#REG_TC_AF_FstWinSizeY
+{0x0, 0x018C, BURST_LEN}, //#REG_TC_AF_ScndWinStartX
+{0x0, 0x0166, BURST_LEN}, //#REG_TC_AF_ScndWinStartY
+{0x0, 0x00E6, BURST_LEN}, //#REG_TC_AF_ScndWinSizeX
+{0x0, 0x0132, BURST_LEN}, //#REG_TC_AF_ScndWinSizeY
+{0xFFFF, 0x0001, BURST_LEN}, //#REG_TC_AF_WinSizesUpdated
+};
+
+struct lgcam_rear_sensor_reg lgcam_rear_sensor_regs = {
 
 	.pll = pll_settings_array,
 	.pll_size= ARRAY_SIZE(pll_settings_array),
@@ -6491,6 +6484,8 @@ struct s5k5caga_reg s5k5caga_regs = {
 
 	.zoom_mode_capture_405_reg_settings = zoom_mode_capture_405_settings_array,
 	.zoom_mode_capture_405_reg_settings_size = ARRAY_SIZE(zoom_mode_capture_405_settings_array),
+	.focus_rect_reg_settings = focus_rect_reg_settings_array,
+	.focus_rect_reg_settings_size = ARRAY_SIZE(focus_rect_reg_settings_array),	
 };
-#endif /* #define s5k5caga_REG_H */
+#endif /* #define lgcam_rear_sensor_REG_H */
 

@@ -96,8 +96,10 @@ kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
 	size = ALIGN(size, KGSL_PAGESIZE * 2);
 
 	memdesc->hostptr = vmalloc(size);
-	if (memdesc->hostptr == NULL)
+	if (memdesc->hostptr == NULL) {
+		KGSL_MEM_ERR("vmalloc failed: %x\n", size);
 		return -ENOMEM;
+	}
 
 	memdesc->size = size;
 	memdesc->pagetable = pagetable;

@@ -387,19 +387,18 @@ static int  __init pp2106_probe(struct platform_device *pdev)
 	return rc;
 }
 
-static struct platform_driver qwerty_kbd_driver = {
+static struct platform_driver __refdata qwerty_kbd_driver = {
 	.driver = {
 		.name = KEY_DRIVER_NAME,
 		.owner = THIS_MODULE,
 	},
-	.probe	 = pp2106_probe,
 	.suspend = pp2106_suspend,
 	.resume  = pp2106_resume,
 };
 
 static int __init pp2106_init(void)
 {
-	return platform_driver_register(&qwerty_kbd_driver);
+	return platform_driver_probe(&qwerty_kbd_driver, pp2106_probe);
 }
 
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,7 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_bus_board.h>
 #include <mach/tpm_st_i2c.h>
+#include <mach/socinfo.h>
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
 #endif
@@ -74,11 +75,11 @@
 #include "cpuidle.h"
 #include "pm.h"
 #include "rpm.h"
+#include "mpm.h"
 #include "spm.h"
 #include "rpm_log.h"
 #include "timer.h"
 #include "saw-regulator.h"
-#include "socinfo.h"
 #include "rpm-regulator.h"
 #include "gpiomux.h"
 #include "gpiomux-8x60.h"
@@ -882,7 +883,6 @@ static struct platform_device msm_batt_device = {
 #define MSM_FB_SIZE 0x811000
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 #define MSM_PMEM_SF_SIZE 0x1700000
-#define MSM_GPU_PHYS_SIZE       SZ_2M
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x600000
 #define MSM_PMEM_ADSP_SIZE         0x2000000
@@ -907,14 +907,6 @@ static int __init fb_size_setup(char *p)
 	return 0;
 }
 early_param("fb_size", fb_size_setup);
-
-static unsigned gpu_phys_size = MSM_GPU_PHYS_SIZE;
-static int __init gpu_phys_size_setup(char *p)
-{
-	gpu_phys_size = memparse(p, NULL);
-	return 0;
-}
-early_param("gpu_phys_size", gpu_phys_size_setup);
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 static unsigned pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE;
@@ -1110,7 +1102,7 @@ static struct resource hdmi_msm_resources[] = {
 };
 
 static int hdmi_enable_5v(int on);
-static int hdmi_core_power(int on);
+static int hdmi_core_power(int on, int show);
 static int hdmi_cec_power(int on);
 
 static struct msm_hdmi_platform_data hdmi_msm_data = {
@@ -1145,16 +1137,6 @@ static void __init msm8x60_allocate_memory_regions(void)
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n",
 		size, addr, __pa(addr));
-
-	size = gpu_phys_size;
-	if (size) {
-		addr = alloc_bootmem(size);
-		msm_device_kgsl.resource[1].start = __pa(addr);
-		msm_device_kgsl.resource[1].end =
-			msm_device_kgsl.resource[1].start + size - 1;
-		pr_info("allocating %lu bytes at %p (%lx physical) for "
-		"KGSL\n", size, addr, __pa(addr));
-	}
 
 #ifdef CONFIG_KERNEL_PMEM_EBI_REGION
 	size = pmem_kernel_ebi1_size;
@@ -1402,7 +1384,7 @@ static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
 		RPM_VREG_FREQ_1p75),
 	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S1, 0, 1, 1,  500000, 1200000, 0,
 		RPM_VREG_FREQ_1p75),
-	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S2, 1, 1, 0, 1200000, 1400000,
+	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S2, 0, 1, 0, 1200000, 1400000,
 		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p75),
 	RPM_VREG_INIT_SMPS(RPM_VREG_ID_PM8058_S3, 1, 1, 0, 1800000, 1800000, 0,
 		RPM_VREG_FREQ_1p75),
@@ -2026,6 +2008,7 @@ static struct pm8058_platform_data pm8058_platform_data = {
 
 	.num_subdevs = ARRAY_SIZE(pm8058_subdevs),
 	.sub_devices = pm8058_subdevs,
+	.irq_trigger_flags = IRQF_TRIGGER_LOW,
 };
 
 static struct i2c_board_info pm8058_boardinfo[] __initdata = {
@@ -2513,12 +2496,13 @@ static struct pm8901_platform_data pm8901_platform_data = {
 	.irq_base = PM8901_IRQ_BASE,
 	.num_subdevs = ARRAY_SIZE(pm8901_subdevs),
 	.sub_devices = pm8901_subdevs,
+	.irq_trigger_flags = IRQF_TRIGGER_HIGH,
 };
 
 static struct i2c_board_info pm8901_boardinfo[] __initdata = {
 	{
 		I2C_BOARD_INFO("pm8901-core", 0x55),
-		.irq = MSM_GPIO_TO_INT(PM8901_GPIO_INT),
+		.irq = TLMM_SCSS_DIR_CONN_IRQ_2,
 		.platform_data = &pm8901_platform_data,
 	},
 };
@@ -2767,6 +2751,14 @@ static void __init msm8x60_init_tlmm(void)
 
 	for (n = 0; n < ARRAY_SIZE(msm8x60_tlmm_cfgs); ++n)
 		gpio_tlmm_config(msm8x60_tlmm_cfgs[n], 0);
+
+	msm_gpio_install_direct_irq(PM8058_GPIO_INT, 1, 0);
+	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_1,
+			MSM_GPIO_TO_INT(PM8058_GPIO_INT), 1);
+	msm_gpio_install_direct_irq(PM8901_GPIO_INT, 2, 0);
+	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_2,
+			MSM_GPIO_TO_INT(PM8901_GPIO_INT), 1);
+
 }
 
 #define GPIO_SDC3_WP_SWITCH (GPIO_EXPANDER_GPIO_BASE + (16 * 1) + 6)
@@ -3638,7 +3630,7 @@ static int hdmi_enable_5v(int on)
 	return 0;
 }
 
-static int hdmi_core_power(int on)
+static int hdmi_core_power(int on, int show)
 {
 	static struct regulator *reg_8058_l16;		/* VDD_HDMI */
 	static int prev_on;
