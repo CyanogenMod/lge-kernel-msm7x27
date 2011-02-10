@@ -1489,12 +1489,7 @@ static int batt_read_adc(int channel, int *mv_reading)
 						__func__, channel, ret);
 		goto out;
 	}
-	ret = wait_for_completion_interruptible(&conv_complete_evt);
-	if (ret) {
-		pr_err("%s: wait interrupted channel %d ret=%d\n",
-						__func__, channel, ret);
-		goto out;
-	}
+	wait_for_completion(&conv_complete_evt);
 	ret = adc_channel_read_result(h, &adc_chan_result);
 	if (ret) {
 		pr_err("%s: couldnt read result channel %d ret=%d\n",
