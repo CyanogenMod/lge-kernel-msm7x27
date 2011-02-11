@@ -33,6 +33,17 @@
 
 #include "u_lgeusb.h"
 
+/* LGE_CHANGE
+ * To check factory mode in user space.
+ * 2011-02-10, hyunhui.park@lge.com
+ */
+static struct mutex lock;
+
+static int lgeusb_get_mode(char *buffer, struct kernel_param *kp);
+/* Read only */
+module_param_call(mode, NULL, lgeusb_get_mode, NULL, S_IRUGO);
+MODULE_PARM_DESC(mode, "LGE USB Specific mode");
+
 static struct lgeusb_info *usb_info;
 
 /* FIXME: This length must be same as MAX_STR_LEN in android.c */
@@ -119,6 +130,20 @@ static int get_factory_cable(void)
 		return 0;
 }
 #endif /* CONFIG_USB_SUPPORT_LGE_GADGET_GSM */
+
+static int lgeusb_get_mode(char *buffer, struct kernel_param *kp)
+{
+	int ret;
+	struct lgeusb_info *info = usb_info;
+
+	mutex_lock(&lock);
+	ret = sprintf(buffer, "%s",
+			(info->current_mode == LGEUSB_FACTORY_MODE
+			 ? "factory" : "normal"));
+	mutex_unlock(&lock);
+
+	return ret;
+}
 
 static void do_switch_mode(int pid, int need_reset)
 {
@@ -248,3 +273,11 @@ void lgeusb_register_usbinfo(struct lgeusb_info *info)
 	}
 }
 
+static int __init lgeusb_init(void)
+{
+	lgeusb_info("u_lgeusb init\n");
+	mutex_init(&lock);
+
+	return 0;
+}
+module_init(lgeusb_init);
