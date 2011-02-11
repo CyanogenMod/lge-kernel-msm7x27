@@ -99,7 +99,7 @@ DECLARE_DELAYED_WORK(sleep_workqueue, bluesleep_sleep_work);
 #endif
 
 //Un-comment for root permission
-#define BTLA_ROOT_PERMISSION
+//#define BTLA_ROOT_PERMISSION
 
 /* global pointer to a single hci device. */
 static struct hci_dev *bluesleep_hdev;
