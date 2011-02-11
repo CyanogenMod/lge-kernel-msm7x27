@@ -791,7 +791,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 		if (allow) {
 			state->flags &= ~CPUIDLE_FLAG_IGNORE;
 			state->target_residency = 0;
-			state->exit_latency = rs_limits->latency_us[dev->cpu];
+			state->exit_latency = 0;
 			state->power_usage = rs_limits->power[dev->cpu];
 
 			if (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode)
