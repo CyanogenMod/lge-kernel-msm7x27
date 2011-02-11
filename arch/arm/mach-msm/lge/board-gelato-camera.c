@@ -114,7 +114,6 @@ int camera_power_on (void)
 {
 	int rc;
 	struct device *dev = gelato_backlight_dev();
-	struct vreg *vreg_mmc = vreg_get(0, "mmc");
 
 	camera_power_mutex_lock();
 	if(lcd_bl_power_state == BL_POWER_SUSPEND)
@@ -217,7 +216,6 @@ int camera_power_off (void)
 {
 	int rc;
 	struct device *dev = gelato_backlight_dev();
-	struct vreg *vreg_mmc = vreg_get(0, "mmc");
 
 	camera_power_mutex_lock();
 

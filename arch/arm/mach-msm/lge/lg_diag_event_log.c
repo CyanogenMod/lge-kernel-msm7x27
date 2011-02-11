@@ -157,13 +157,12 @@ static struct platform_driver diag_input_driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 	},
-	.probe	 = diag_event_log_probe,
 	.remove = diag_event_log_remove,
 };
 
 static int __init diag_input_init(void)
 {
-	return platform_driver_register(&diag_input_driver);
+	return platform_driver_probe(&diag_input_driver, diag_event_log_probe);
 }
 
 

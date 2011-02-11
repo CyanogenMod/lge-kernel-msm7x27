@@ -12,11 +12,16 @@
 
 
 
-/*! \file BMA250_driver.c
+/**! \file BMA250_driver.c
     \brief This file contains all function implementations for the BMA250 in linux
     
     Details.
 */
+//#define BMA250_DEBUG
+//#define ADWARDK_DEBUG
+//#define ADWARDK_ACCEL
+//#define ADWARDK_DEBUG_FROM_ORGIN
+#define BMA250_HAS_EARLYSUSPEND
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -135,7 +140,12 @@ unsigned char bma250_set_mode(unsigned char Mode)
             case bma250_MODE_NORMAL:
                data1  = bma250_SET_BITSLICE(data1, bma250_EN_LOW_POWER, C_Zero_U8X);
                data1  = bma250_SET_BITSLICE(data1, bma250_EN_SUSPEND, C_Zero_U8X);
-			   bma250_pdata->power(1);
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "bma250_MODE_NORMAL\n");
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */ 
+			 bma250_pdata->power(1);
                break;
             case bma250_MODE_LOWPOWER:
                data1  = bma250_SET_BITSLICE(data1, bma250_EN_LOW_POWER, C_One_U8X);
@@ -144,8 +154,14 @@ unsigned char bma250_set_mode(unsigned char Mode)
             case bma250_MODE_SUSPEND:
                data1  = bma250_SET_BITSLICE(data1, bma250_EN_LOW_POWER, C_Zero_U8X);
                data1  = bma250_SET_BITSLICE(data1, bma250_EN_SUSPEND, C_One_U8X);
-			   bma250_pdata->power(0);
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "bma250_MODE_SUSPEND\n");
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */  
+			 bma250_pdata->power(0);
                break;
+                        
             default:
                break;
             }
@@ -350,14 +366,23 @@ int bma250_read_accel_xyz(bma250acc_t * acc)
       acc->x = bma250_GET_BITSLICE(data[0],bma250_ACC_X_LSB) | (bma250_GET_BITSLICE(data[1],bma250_ACC_X_MSB)<<bma250_ACC_X_LSB__LEN);
       acc->x = acc->x << (sizeof(short)*8-(bma250_ACC_X_LSB__LEN + bma250_ACC_X_MSB__LEN));
       acc->x = acc->x >> (sizeof(short)*8-(bma250_ACC_X_LSB__LEN + bma250_ACC_X_MSB__LEN));
-      
+    
       acc->y = bma250_GET_BITSLICE(data[2],bma250_ACC_Y_LSB) | (bma250_GET_BITSLICE(data[3],bma250_ACC_Y_MSB)<<bma250_ACC_Y_LSB__LEN);
       acc->y = acc->y << (sizeof(short)*8-(bma250_ACC_Y_LSB__LEN + bma250_ACC_Y_MSB__LEN));
       acc->y = acc->y >> (sizeof(short)*8-(bma250_ACC_Y_LSB__LEN + bma250_ACC_Y_MSB__LEN));
-      
+      //  acc->y = -(acc->y);  
       acc->z = bma250_GET_BITSLICE(data[4],bma250_ACC_Z_LSB) | (bma250_GET_BITSLICE(data[5],bma250_ACC_Z_MSB)<<bma250_ACC_Z_LSB__LEN);
       acc->z = acc->z << (sizeof(short)*8-(bma250_ACC_Z_LSB__LEN + bma250_ACC_Z_MSB__LEN));
       acc->z = acc->z >> (sizeof(short)*8-(bma250_ACC_Z_LSB__LEN + bma250_ACC_Z_MSB__LEN));
+      //  acc->z = -(acc->z);
+
+
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_ACCEL
+		//	printk(KERN_INFO "x=%d, y=%d, z=%d \n",acc->x, acc->y, acc->z);
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */   
+   
       }
    return comres;
    }
@@ -784,6 +809,11 @@ int bma250_get_orient_flat_status(unsigned char *intstatus )
       comres = p_bma250->bma250_BUS_READ_FUNC(p_bma250->dev_addr, bma250_STATUS_ORIENT_HIGH_REG, &data, C_One_U8X );
       data = bma250_GET_BITSLICE(data, bma250_FLAT_S);
       *intstatus = data;
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_DEBUG_FROM_ORGIN
+ 	  printk(KERN_INFO "bma250_get_orient_flat_status : 0x%x\n",data);
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */        
       }
    return comres;
    }
@@ -2151,6 +2181,12 @@ int bma250_set_orient_mode(unsigned char mode)
       }
    else
       {
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_DEBUG_FROM_ORGIN
+		   printk(KERN_INFO "bma250_set_orient_mode = 0x%x \n",mode);
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */        
+      
       comres = p_bma250->bma250_BUS_READ_FUNC(p_bma250->dev_addr, bma250_ORIENT_MODE__REG, &data, C_One_U8X );
       data = bma250_SET_BITSLICE(data, bma250_ORIENT_MODE, mode );
       comres = p_bma250->bma250_BUS_WRITE_FUNC(p_bma250->dev_addr, bma250_ORIENT_MODE__REG, &data, C_One_U8X);
@@ -2171,6 +2207,11 @@ int bma250_get_orient_mode(unsigned char *status )
       comres = p_bma250->bma250_BUS_READ_FUNC(p_bma250->dev_addr, bma250_ORIENT_PARAM_REG, &data, C_One_U8X );
       data = bma250_GET_BITSLICE(data, bma250_ORIENT_MODE);
       *status = data;
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_DEBUG_FROM_ORGIN
+		  printk(KERN_INFO "bma250_get_orient_mode = 0x%x \n",data);
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */     	
       }
    return comres;
    }
@@ -3372,7 +3413,12 @@ static irqreturn_t bma250_irq_handler(int irq, void *_id)
 		return IRQ_HANDLED;
 	}
 	if(bma250_client == NULL)
+	{
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+		printk("bma250 irq handler bma250_client == NULL return\n");
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */  	
 		return IRQ_HANDLED;
+    	}
     printk("bma250 irq handler\n");
    
     data = i2c_get_clientdata(bma250_client);
@@ -3511,6 +3557,7 @@ static unsigned int bma250_poll(struct file *file, poll_table *wait)
 #ifdef BMA250_DEBUG
 	printk(KERN_INFO "%s\n",__FUNCTION__);	
 #endif
+
     return mask;
 }
 
@@ -3521,7 +3568,6 @@ static int bma250_open(struct inode *inode, struct file *file)
 #ifdef BMA250_DEBUG
 		printk(KERN_INFO "%s\n",__FUNCTION__); 
 #endif
-
 	if( bma250_client == NULL)
 	{
 #ifdef BMA250_DEBUG
@@ -3545,18 +3591,22 @@ static int bma250_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-
 /*	ioctl command for BMA250 device file	*/
 static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
 	unsigned char data[6];
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-25 */	
+#ifdef ADWARDK_ACCEL
+	unsigned int cmd_ad=0;
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-25 */
 	struct bma250_data* pdata;
 	pdata = i2c_get_clientdata(bma250_client);
-
+	
 
 #ifdef BMA250_DEBUG
-	printk(KERN_INFO "%s\n",__FUNCTION__);	
+//	printk(KERN_INFO "%s\n",__FUNCTION__);	
 #endif
 
 	/* check cmd */
@@ -3595,8 +3645,25 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		return -EFAULT;
 	}
 
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-24 */
+/* ------ explan by ad --------
+ioctl 32bit data
+----------------------------------------------
+2bit    14bit          8bit        8bit     
+R/W   data size    magic number  cmd number
+-----------------------------------------------
+ex) BMA250_READ_ACCEL_XYZ => c002 420d
+ c0          02          42(B)      0d
+---------------------------------------------
+1010 0000   0000 0010   0100 0010  0000 1101
+*/
+#ifdef ADWARDK_ACCEL
+	cmd_ad=cmd&0x000000ff;
+	printk(KERN_INFO "bma250 cmd_num = %d\n",cmd_ad);
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-24 */
+	
 	/* cmd mapping */
-
 	switch(cmd)
 	{
 	case BMA250_SOFT_RESET:
@@ -3762,8 +3829,14 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		return err;
 
     case BMA250_READ_ACCEL_XYZ:
+#ifdef ADWARDK_ACCEL
+//	printk(KERN_INFO "bma250 bma250_read_accel_xyz in IOCTL\n");
+#endif		
 		err = bma250_read_accel_xyz((bma250acc_t*)data);
-		if(copy_to_user((bma250acc_t*)arg,(bma250acc_t*)data,6)!=0)
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-02-08 */
+		//if(copy_to_user((bma250acc_t*)arg,(bma250acc_t*)data,6)!=0)
+		if(copy_to_user((bma250acc_t*)arg,(bma250acc_t*)data,sizeof(int)*3)!=0)
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-02-08 */
 		{
 #ifdef BMA250_DEBUG
 			printk(KERN_INFO "copy_to error\n");
@@ -3995,6 +4068,12 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		return err;
 
     case BMA250_SET_SUSPEND:
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "========BMA250_SET_SUSPEND========\n");
+
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */  		
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
@@ -4018,6 +4097,12 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 
 
     case BMA250_SET_LOWPOWER:
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "========BMA250_SET_LOWPOWER========\n");
+
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */  		
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
@@ -5297,6 +5382,11 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		return err;
 
 	default:
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-24 */
+#ifdef ADWARDK_DEBUG
+	printk(KERN_INFO "BMA250_ioctl_switch_default\n");
+#endif
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-24 */		
 		return 0;
 	}
 }
@@ -5461,7 +5551,9 @@ static void bma250_early_suspend(struct early_suspend *h)
 #ifdef BMA250_DEBUG
     printk(KERN_INFO "%s\n",__FUNCTION__);
 #endif	
+ 
     bma250_set_mode(bma250_MODE_SUSPEND);
+   
 }
 
 
@@ -5473,6 +5565,7 @@ static void bma250_late_resume(struct early_suspend *h)
     bma250_set_mode(bma250_MODE_NORMAL);
 }
 #endif
+
 static int bma250_suspend(struct i2c_client *client,pm_message_t mesg)
 {
 #ifdef BMA250_DEBUG

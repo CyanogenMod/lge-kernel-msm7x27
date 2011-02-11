@@ -10,6 +10,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#define ADWARDK_DEBUG
+
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/err.h>
@@ -289,8 +292,8 @@ static struct touch_platform_data ts_pdata = {
 
 static struct i2c_board_info ts_i2c_bdinfo[] = {
 	[0] = {
-		I2C_BOARD_INFO("touch_mcs7000", TS_I2C_SLAVE_ADDR),
-		.type = "touch_mcs7000",
+		I2C_BOARD_INFO("touch_mcs6000", TS_I2C_SLAVE_ADDR),
+		.type = "touch_mcs6000",
 		.platform_data = &ts_pdata,
 	},
 };
@@ -334,23 +337,42 @@ static void __init muscat_init_i2c_touch(int bus_num)
 	platform_device_register(&ts_i2c_device);
 }
 
-/* accelerometer */
+/** accelerometer x**/
 static int accel_power(unsigned char onoff)
 {
 	int ret = 0;
 	struct vreg *gp3_vreg = vreg_get(0, "gp3");
-	struct vreg *msmp_vreg = vreg_get(0, "msmp");
-
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-02-07 */
+//	struct vreg *msmp_vreg = vreg_get(0, "msmp");
+	int rc;
+	unsigned on_off=0, id;
+	
 	if (onoff) {
-		vreg_set_level(gp3_vreg, 3000);
-		vreg_enable(gp3_vreg);
-		vreg_set_level(msmp_vreg, 2600);
-		vreg_enable(msmp_vreg);
-	} else {
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "accel_power_on\n");
+#endif
+		on_off = 0;
+		id = PM_VREG_PDOWN_GP3_ID;
+		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);
 		vreg_disable(gp3_vreg);
-		vreg_disable(msmp_vreg);
+		
+		rc = vreg_set_level(gp3_vreg, 3000);
+		if (rc != 0) {
+			printk("[Accel] vreg_set_level failed\n");
+			return -1;
+		}
+		vreg_enable(gp3_vreg);
+	} 
+	else {
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "accel_power_off\n");
+#endif
+		vreg_disable(gp3_vreg);
+		on_off = 1;
+		id = PM_VREG_PDOWN_GP3_ID;
+		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);
 	}
-
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-02-07 */
 	return ret;
 }
 
@@ -403,18 +425,20 @@ static int ecom_power_set(unsigned char onoff)
 {
 	int ret = 0;
 	struct vreg *gp3_vreg = vreg_get(0, "gp3");
-	struct vreg *msmp_vreg = vreg_get(0, "msmp");
 
 	if (onoff) {
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "ecom_power_on\n");
+#endif
 		vreg_set_level(gp3_vreg, 3000);
 		vreg_enable(gp3_vreg);
-		vreg_set_level(msmp_vreg, 2600);
-		vreg_enable(msmp_vreg);
 	} else {
+#ifdef ADWARDK_DEBUG
+		printk(KERN_INFO "ecom_power_off\n");
+#endif
 		vreg_disable(gp3_vreg);
-		vreg_disable(msmp_vreg);
 	}
-
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-02-07 */
 	return ret;
 }
 

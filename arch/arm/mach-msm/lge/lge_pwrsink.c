@@ -65,7 +65,6 @@ static struct dev_pm_ops lge_pwrsink_pm_ops = {
 };
 
 static struct platform_driver lge_pwrsink_driver = {
-	.probe = lge_pwrsink_probe,
 	.remove = lge_pwrsink_remove,
 	.driver = {
 		.name = "lge-pwrsink",
@@ -76,7 +75,7 @@ static struct platform_driver lge_pwrsink_driver = {
 static int __init lge_pwrsink_init(void)
 {
 	printk(KERN_INFO "LGE Power Sink Driver Init\n");
-	return platform_driver_register(&lge_pwrsink_driver);
+	return platform_driver_probe(&lge_pwrsink_driver, lge_pwrsink_probe);
 }
 
 static void __exit lge_pwrsink_exit(void)

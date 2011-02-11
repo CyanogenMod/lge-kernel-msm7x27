@@ -226,7 +226,6 @@ static int __devexit lge_gpio_switch_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver lge_gpio_switch_driver = {
-	.probe		= lge_gpio_switch_probe,
 	.remove		= __devexit_p(lge_gpio_switch_remove),
 	.driver		= {
 		.name	= "lge-switch-gpio",
@@ -236,7 +235,7 @@ static struct platform_driver lge_gpio_switch_driver = {
 
 static int __init lge_gpio_switch_init(void)
 {
-	return platform_driver_register(&lge_gpio_switch_driver);
+	return platform_driver_probe(&lge_gpio_switch_driver, lge_gpio_switch_probe);
 }
 
 static void __exit lge_gpio_switch_exit(void)
