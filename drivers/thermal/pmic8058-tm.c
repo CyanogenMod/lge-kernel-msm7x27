@@ -162,12 +162,7 @@ static int pm8058_tz_get_temp(struct thermal_zone_device *thermal,
 		return rc;
 	}
 
-	rc = wait_for_completion_interruptible(&wait);
-	if (rc < 0) {
-		pr_err("%s: wait_for_completion_interruptible() failed, "
-			"rc = %d\n", __func__, rc);
-		return rc;
-	}
+	wait_for_completion(&wait);
 
 	rc = adc_channel_read_result(tm->adc_handle, &adc_result);
 	if (rc < 0) {
@@ -394,7 +389,7 @@ static int __devinit pmic8058_tm_probe(struct platform_device *pdev)
 
 	/* calibrate the die temperature sensor */
 	if (adc_calib_request(tmdev->adc_handle, &wait) == CALIB_STARTED)
-		wait_for_completion_interruptible(&wait);
+		wait_for_completion(&wait);
 
 	tmdev->pm_chip = pm_chip;
 	tmdev->tz_dev = thermal_zone_device_register("pm8058_tz",
