@@ -121,7 +121,7 @@ static struct gpio_event_matrix_info gelato_keypad_matrix_info = {
 	.keymap		= NULL,
 	.output_gpios	= NULL,
 	.input_gpios	= keypad_row_gpios,
-	.noutputs	= NULL,
+	.noutputs	= 0,
 	.ninputs	= ARRAY_SIZE(keypad_row_gpios),
 	.settle_time.tv.nsec = 40 * NSEC_PER_USEC,
 	.poll_time.tv.nsec = 20 * NSEC_PER_MSEC,
@@ -228,8 +228,8 @@ static int ts_config_gpio(int config)
 }
 static int ts_set_vreg(unsigned char onoff)
 {
-	struct vreg *vreg_touch;
-	struct vreg *vreg_pullup;
+	struct vreg *vreg_touch = NULL;
+	struct vreg *vreg_pullup = NULL;
 	int rc;
 
 	printk("[Touch] %s() onoff:%d\n",__FUNCTION__, onoff);
