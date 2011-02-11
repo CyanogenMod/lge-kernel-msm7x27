@@ -74,26 +74,29 @@ static unsigned int keypad_row_gpios[] = {
 	38, 37
 };
 
-static unsigned int keypad_col_gpios[] = { 35, 34, 33 };
+static unsigned int keypad_col_gpios[][3] = {
+	[0] = { 32, 33, 34 },
+	[1] = { 35, 34, 33 },
+};
 
-#define KEYMAP_INDEX(row, col) ((row)*ARRAY_SIZE(keypad_col_gpios) + (col))
+#define KEYMAP_INDEX(col, row) ((col)*ARRAY_SIZE(keypad_row_gpios) + (row))
 
 static const unsigned short keypad_keymap_gelato[] = {
 		[KEYMAP_INDEX(0, 0)] = KEY_SEARCH,
-		[KEYMAP_INDEX(0, 1)] = KEY_MENU,
-		[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEUP,
-		[KEYMAP_INDEX(1, 0)] = KEY_HOME,
+		[KEYMAP_INDEX(0, 1)] = KEY_HOME,
+		[KEYMAP_INDEX(1, 0)] = KEY_MENU,
 		[KEYMAP_INDEX(1, 1)] = KEY_BACK,
-		[KEYMAP_INDEX(1, 2)] = KEY_VOLUMEDOWN,
-};
+		[KEYMAP_INDEX(2, 0)] = KEY_VOLUMEUP,
+		[KEYMAP_INDEX(2, 1)] = KEY_VOLUMEDOWN,
+ };
 
 int gelato_matrix_info_wrapper(struct gpio_event_input_devs *input_dev,struct gpio_event_info *info, void **data, int func)
 {
         int ret ;
 		if (func == GPIO_EVENT_FUNC_RESUME) {
-			gpio_tlmm_config(GPIO_CFG(keypad_col_gpios[0], 0,
+			gpio_tlmm_config(GPIO_CFG(keypad_row_gpios[0], 0,
 						GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-			gpio_tlmm_config(GPIO_CFG(keypad_col_gpios[1], 0,
+			gpio_tlmm_config(GPIO_CFG(keypad_row_gpios[1], 0,
 						GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		}
 
@@ -116,9 +119,9 @@ static int gelato_gpio_matrix_power(
 static struct gpio_event_matrix_info gelato_keypad_matrix_info = {
 	.info.func	= gelato_matrix_info_wrapper,
 	.keymap		= NULL,
-	.output_gpios	= keypad_col_gpios,
+	.output_gpios	= NULL,
 	.input_gpios	= keypad_row_gpios,
-	.noutputs	= ARRAY_SIZE(keypad_col_gpios),
+	.noutputs	= NULL,
 	.ninputs	= ARRAY_SIZE(keypad_row_gpios),
 	.settle_time.tv.nsec = 40 * NSEC_PER_USEC,
 	.poll_time.tv.nsec = 20 * NSEC_PER_MSEC,
@@ -128,19 +131,25 @@ static struct gpio_event_matrix_info gelato_keypad_matrix_info = {
 static void __init gelato_select_keymap(void)
 {
 	gelato_keypad_matrix_info.keymap = keypad_keymap_gelato;
-
+	if (lge_bd_rev == LGE_REV_B) {
+		gelato_keypad_matrix_info.output_gpios = keypad_col_gpios[0];
+		gelato_keypad_matrix_info.noutputs = ARRAY_SIZE(keypad_col_gpios[0]);
+	} else {
+		gelato_keypad_matrix_info.output_gpios = keypad_col_gpios[1];
+		gelato_keypad_matrix_info.noutputs = ARRAY_SIZE(keypad_col_gpios[1]);
+	}
 	return;
 }
 
 static struct gpio_event_info *gelato_keypad_info[] = {
-	&gelato_keypad_matrix_info.info
+	&gelato_keypad_matrix_info.info,
 };
 
 static struct gpio_event_platform_data gelato_keypad_data = {
 	.name		= "gelato_keypad",
 	.info		= gelato_keypad_info,
 	.info_count	= ARRAY_SIZE(gelato_keypad_info),
-	.power          = gelato_gpio_matrix_power,
+	.power      = gelato_gpio_matrix_power,
 };
 
 struct platform_device keypad_device_gelato = {
@@ -219,15 +228,21 @@ static int ts_config_gpio(int config)
 }
 static int ts_set_vreg(unsigned char onoff)
 {
-	struct vreg *vreg_synt;
-	struct vreg *vreg_mmc;
+	struct vreg *vreg_touch;
+	struct vreg *vreg_pullup;
+	int rc;
 
 	printk("[Touch] %s() onoff:%d\n",__FUNCTION__, onoff);
 
-	vreg_synt = vreg_get(0, "synt");
-	vreg_mmc = vreg_get(0, "mmc");
+	vreg_touch = vreg_get(0, "synt");
+	if (IS_ERR(vreg_touch)) {
+		printk("[Touch] vreg_get fail : touch\n");
+		return -1;
+	}
 
-	if((IS_ERR(vreg_synt)) || (IS_ERR(vreg_mmc))) {
+	if (lge_bd_rev != LGE_REV_B)
+		vreg_pullup = vreg_get(0, "mmc");
+	if (IS_ERR(vreg_pullup)) {
 		printk("[Touch] vreg_get fail : touch\n");
 		return -1;
 	}
@@ -235,37 +250,48 @@ static int ts_set_vreg(unsigned char onoff)
 	if (onoff) {
 		ts_config_gpio(1);
 
-		vreg_set_level(vreg_synt, 3000);
-		vreg_enable(vreg_synt);
+		rc = vreg_set_level(vreg_touch, 3000);
+		if (rc != 0) {
+			printk("[TOUCH] vreg_set_level failed\n");
+			return -1;
+		}
+		vreg_enable(vreg_touch);
+
+		if (lge_bd_rev != LGE_REV_B) {
+			rc = vreg_set_level(vreg_pullup, 2600);
+			if (rc != 0) {
+				printk("[TOUCH] vreg_set_level failed\n");
+				return -1;
+			}
+			vreg_enable(vreg_pullup);
+		}
 
 		msleep(15);	// wait 15ms
-
-		vreg_set_level(vreg_mmc, 2600);
-		vreg_enable(vreg_mmc);
 
 		//ts_config_gpio(1);
 	} else {
 		ts_config_gpio(0);
 
-		vreg_set_level(vreg_mmc, 0);
-		vreg_set_level(vreg_synt, 0);
-		vreg_disable(vreg_mmc);
-		vreg_disable(vreg_synt);
+		if (lge_bd_rev != LGE_REV_B) {
+			vreg_set_level(vreg_pullup, 0);
+			vreg_disable(vreg_pullup);
+		}
 
+		vreg_set_level(vreg_touch, 0);
+		vreg_disable(vreg_touch);
 		//ts_config_gpio(0);
 	}
 	return 0;
 }
 
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI
-static struct synaptics_i2c_rmi_platform_data ts_pdata = {
+static struct synaptics_i2c_rmi_platform_data ts_pdata_synaptics = {
 	.version = 0x0,
 	.irqflags = IRQF_TRIGGER_FALLING,
 	.use_irq = true,
 	.power = ts_set_vreg,
 };
-#else
-static struct touch_platform_data ts_pdata = {
+
+static struct touch_platform_data ts_pdata_mcs6000 = {
 	.ts_x_min = TS_X_MIN,
 	.ts_x_max = TS_X_MAX,
 	.ts_y_min = TS_Y_MIN,
@@ -275,32 +301,34 @@ static struct touch_platform_data ts_pdata = {
 	.scl      = TS_GPIO_I2C_SCL,
 	.sda      = TS_GPIO_I2C_SDA,
 };
-#endif
 
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI
-static struct i2c_board_info ts_i2c_bdinfo[] = {
+static struct i2c_board_info ts_i2c_bdinfo_synaptics[] = {
 	[0] = {
 		I2C_BOARD_INFO("synaptics-rmi-ts", TS_I2C_SLAVE_ADDR),
 		.type = "synaptics-rmi-ts",
-		.platform_data = &ts_pdata,
+		.platform_data = &ts_pdata_synaptics,
 	},
 };
-#else
-static struct i2c_board_info ts_i2c_bdinfo[] = {
+
+static struct i2c_board_info ts_i2c_bdinfo_mcs6000[] = {
 	[0] = {
 		I2C_BOARD_INFO("touch_mcs6000", TS_I2C_SLAVE_ADDR),
 		.type = "touch_mcs6000",
-		.platform_data = &ts_pdata,
+		.platform_data = &ts_pdata_mcs6000,
 	},
 };
-#endif
 
 static void __init gelato_init_i2c_touch(int bus_num)
 {
 	ts_i2c_device.id = bus_num;
 
-	init_gpio_i2c_pin(&ts_i2c_pdata, ts_i2c_pin[0],	&ts_i2c_bdinfo[0]);
-	i2c_register_board_info(bus_num, &ts_i2c_bdinfo[0], 1);
+	if (lge_bd_rev != LGE_REV_B) {
+		init_gpio_i2c_pin(&ts_i2c_pdata, ts_i2c_pin[0],	&ts_i2c_bdinfo_synaptics[0]);
+		i2c_register_board_info(bus_num, &ts_i2c_bdinfo_synaptics[0], 1);
+	} else {
+		init_gpio_i2c_pin(&ts_i2c_pdata, ts_i2c_pin[0],	&ts_i2c_bdinfo_mcs6000[0]);
+		i2c_register_board_info(bus_num, &ts_i2c_bdinfo_mcs6000[0], 1);
+	}
 	platform_device_register(&ts_i2c_device);
 }
 
