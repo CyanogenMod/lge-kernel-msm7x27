@@ -184,6 +184,16 @@ static int pm8058_gpios_init(void)
 		.function       = PM_GPIO_FUNC_2,
 	};
 
+	struct pm8058_gpio gpio23 = {
+			.direction      = PM_GPIO_DIR_OUT,
+			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+			.output_value   = 0,
+			.pull           = PM_GPIO_PULL_NO,
+			.vin_sel        = 2,
+			.out_strength   = PM_GPIO_STRENGTH_LOW,
+			.function       = PM_GPIO_FUNC_NORMAL,
+	};
+
 
 	if (machine_is_msm8x55_svlte_surf() || machine_is_msm8x55_svlte_ffa() ||
 						machine_is_msm7x30_fluid())
@@ -221,6 +231,13 @@ static int pm8058_gpios_init(void)
 	rc = pm8058_gpio_config(pmic_gpio_hdmi_5v_en, &hdmi_5V_en);
 	if (rc) {
 		pr_err("%s PMIC_GPIO_HDMI_5V_EN config failed\n", __func__);
+		return rc;
+	}
+
+	/* Deassert GPIO#23 (source for Ext_POR on WLAN-Volans) */
+	rc = pm8058_gpio_config(PMIC_GPIO_WLAN_EXT_POR, &gpio23);
+	if (rc) {
+		pr_err("%s PMIC_GPIO_WLAN_EXT_POR config failed\n", __func__);
 		return rc;
 	}
 
