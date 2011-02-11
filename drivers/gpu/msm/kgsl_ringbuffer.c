@@ -171,6 +171,7 @@ static void kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb)
 	* memory.  Adding a memory fence ensures ordering during ringbuffer
 	* submits.*/
 	mb();
+	outer_sync();
 
 	kgsl_yamato_regwrite(rb->device, REG_CP_RB_WPTR, rb->wptr);
 
