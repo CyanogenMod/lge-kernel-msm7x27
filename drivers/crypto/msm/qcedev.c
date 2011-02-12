@@ -101,6 +101,8 @@ struct qcedev_control{
 
 	struct msm_ce_hw_support ce_hw_support;
 
+	bool ce_locked;
+
 	/* misc device */
 	struct miscdevice miscdevice;
 
@@ -151,7 +153,7 @@ static int qcedev_scm_cmd(int resource, int cmd, int *response)
 
 static int qcedev_unlock_ce(struct qcedev_control *podev)
 {
-	if (podev->ce_hw_support.ce_shared) {
+	if ((podev->ce_hw_support.ce_shared) && (podev->ce_locked == true)) {
 		int response = 0;
 
 		if (qcedev_scm_cmd(podev->ce_hw_support.shared_ce_resource,
@@ -160,13 +162,14 @@ static int qcedev_unlock_ce(struct qcedev_control *podev)
 				__func__);
 			return -EUSERS;
 		}
+		podev->ce_locked = false;
 	}
 	return 0;
 }
 
 static int qcedev_lock_ce(struct qcedev_control *podev)
 {
-	if (podev->ce_hw_support.ce_shared) {
+	if ((podev->ce_hw_support.ce_shared) && (podev->ce_locked == false)) {
 		int response = -CE_BUSY;
 		int i = 0;
 
@@ -183,6 +186,8 @@ static int qcedev_lock_ce(struct qcedev_control *podev)
 			return -EUSERS;
 		if (response < 0)
 			return -EINVAL;
+
+		podev->ce_locked = true;
 	}
 
 	return 0;
@@ -1328,6 +1333,12 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 	pstat = &_qcedev_stat[podev->pdev->id];
 
 	switch (cmd) {
+	case QCEDEV_IOCTL_LOCK_CE:
+		err = qcedev_lock_ce(podev);
+		break;
+	case QCEDEV_IOCTL_UNLOCK_CE:
+		err = qcedev_unlock_ce(podev);
+		break;
 	case QCEDEV_IOCTL_ENC_REQ:
 	case QCEDEV_IOCTL_DEC_REQ:
 		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
@@ -1475,6 +1486,7 @@ static int qcedev_probe(struct platform_device *pdev)
 				ce_hw_support->shared_ce_resource;
 	podev->ce_hw_support.hw_key_support =
 				ce_hw_support->hw_key_support;
+	podev->ce_locked = false;
 
 	INIT_LIST_HEAD(&podev->ready_commands);
 	podev->active_command = NULL;
@@ -1647,7 +1659,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.08");
+MODULE_VERSION("1.09");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);

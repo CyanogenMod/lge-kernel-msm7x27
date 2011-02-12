@@ -251,5 +251,8 @@ struct	qcedev_sha_op_req {
 	_IOWR(QCEDEV_IOC_MAGIC, 5, struct qcedev_sha_op_req)
 #define QCEDEV_IOCTL_GET_SHA_REQ	\
 	_IOWR(QCEDEV_IOC_MAGIC, 6, struct qcedev_sha_op_req)
-
+#define QCEDEV_IOCTL_LOCK_CE	\
+	_IO(QCEDEV_IOC_MAGIC, 7)
+#define QCEDEV_IOCTL_UNLOCK_CE	\
+	_IO(QCEDEV_IOC_MAGIC, 8)
 #endif /* _QCEDEV__H */
