@@ -818,6 +818,7 @@ static int mt9d112_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = mt9d112_sensor_init;
 	s->s_release = mt9d112_sensor_release;
 	s->s_config  = mt9d112_sensor_config;
+	s->s_camera_type = FRONT_CAMERA_2D;
 	s->s_mount_angle  = 0;
 	gpio_set_value_cansleep(info->sensor_reset, 0);
 	msleep(20);
