@@ -53,8 +53,8 @@ obj-$(CONFIG_WL12XX)	+= wl12xx/
 
 obj-$(CONFIG_IWM)	+= iwmc3200wifi/
 
-#LGE_CHANGES_S, [jaehun.lee@lge.com], 2010-08-03, <Add BCM4329>
 obj-$(CONFIG_BCM4329)	+= bcm4329/
-obj-$(CONFIG_BRCM4329_USE_STATIC_BUF)	+= bcm4329/
-#LGE_CHANGES_E, [jaehun.lee@lge.com], 2010-08-03, <Add BCM4329>
+
+obj-$(CONFIG_BCM4325)	+= bcm4325/
+obj-$(CONFIG_BRCM_USE_STATIC_BUF)	+= bcm4325/
 obj-$(CONFIG_LIBRA_SDIOIF)	+= libra/
