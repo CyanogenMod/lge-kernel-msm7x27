@@ -333,8 +333,8 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 	x1 = (read_buf[1] & 0xf0) << 4;
 	y1 = (read_buf[1] & 0x0f) << 8;
 
-	x1 |= read_buf[2];	
-	y1 |= read_buf[3];		
+	x1 |= read_buf[2];
+	y1 |= read_buf[3];
 
 #if defined(LG_FW_MULTI_TOUCH)
 	if (input_type == MULTI_POINT_TOUCH) {
@@ -344,9 +344,8 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 		x2 |= read_buf[6];
 		y2 |= read_buf[7];
 	}
-	
 #elif defined(LG_FW_PINCH_TOUCH)
-	
+
 	x2 = (read_buf[5] & 0xf0) << 4;
 	y2 = (read_buf[5] & 0x0f) << 8;
 	x2 |= read_buf[6];
@@ -354,11 +353,11 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 
 	x2 = read_buf[5];
 	y2 = read_buf[6];
-	
+
 	s_input_type = x2;
 
-	DMSG("T%d X:%d Y:%d P:%d D:%d\n", input_type, x1, y1,x2, y2);
-	
+	if (MCS6000_DM_TRACE_YES & mcs6000_debug_mask)
+		DMSG("T%d X:%d Y:%d P:%d D:%d\n", input_type, x1, y1,x2, y2);
 #endif
 
 	if (ts->pendown) { /* touch pressed case */
@@ -438,18 +437,19 @@ static void mcs6000_ts_work_func(struct work_struct *work)
 
 				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, RELEASED, ts);
 			}
-			
 #elif defined(LG_FW_PINCH_TOUCH)
 
 			if(s_input_type == 1) {
-				DMSG("%s: multi touch release...(%d, %d), (%d, %d)\n", __FUNCTION__,pre_x1,pre_y1,pre_x2,pre_y2);
+				if (MCS6000_DM_TRACE_YES & mcs6000_debug_mask)
+					DMSG("multi touch release...(%d, %d), (%d, %d)\n", pre_x1,pre_y1,pre_x2,pre_y2);
 				mcs6000_multi_ts_event_touch(pre_x1, pre_y1, pre_x2, pre_y2, RELEASED, ts);
-				s_input_type = 0; 
+				s_input_type = 0;
 				pre_x1 = -1; pre_y1 = -1; pre_x2 = -1; pre_y2 = -1;
 			} else {
-				DMSG("%s: single touch release... %d, %d\n", __FUNCTION__, x1, y1);
+				if (MCS6000_DM_TRACE_YES & mcs6000_debug_mask)
+					DMSG("single touch release... %d, %d\n", x1, y1);
 				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, RELEASED, ts);
-			}			
+			}
 #else
 
 			if (MCS6000_DM_TRACE_YES & mcs6000_debug_mask)
@@ -787,7 +787,7 @@ static int mcs6000_release(struct inode *inode, struct file *file)
 		ts->power(OFF);
 		if (MCS6000_DM_TRACE_YES & mcs6000_debug_mask)
 			DMSG("touch download done: power off by ioctl\n");
-	} 
+	}
 	else {
 		enable_irq(ts->num_irq);
 		ts->irq_sync++;
