@@ -1967,40 +1967,6 @@ msmsdcc_runtime_suspend(struct device *dev)
 	if (mmc) {
 		host->sdcc_suspending = 1;
 
-		if (!mmc->card || (host->plat->sdiowakeup_irq &&
-				mmc->card->type == MMC_TYPE_SDIO) ||
-				mmc->card->type != MMC_TYPE_SDIO) {
-			/*
-			 * MMC core thinks that host is disabled by now since
-			 * runtime suspend is scheduled after msmsdcc_disable()
-			 * is called. Thus, MMC core will try to enable the host
-			 * while suspending it. This results in a synchronous
-			 * runtime resume request while in runtime suspending
-			 * context and hence inorder to complete this resume
-			 * requet, it will wait for suspend to be complete,
-			 * but runtime suspend also can not proceed further
-			 * until the host is resumed. Thus, it leads to a hang.
-			 * Hence, increase the pm usage count before suspending
-			 * the host so that any resume requests after this will
-			 * simple become pm usage counter increment operations.
-			 */
-			pm_runtime_get_noresume(dev);
-			rc = mmc_suspend_host(mmc);
-			pm_runtime_put_noidle(dev);
-		}
-#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
-		/* LGE_CHANGE_S [dongp.kim@lge.com] 2009-12-22, Support Host Wakeup */
-		/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
-		//else if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
-		else if (host->plat->status_irq == gpio_to_irq(CONFIG_BCM4325_GPIO_WL_RESET)) {
-			if(dhdpm.suspend != NULL) {
-				//rc = dhdpm.suspend(NULL);
-				dhdpm.suspend(NULL);
-			}
-			else
-				printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
-		}
-#endif
 		/*
 		 * MMC core thinks that host is disabled by now since
 		 * runtime suspend is scheduled after msmsdcc_disable()
@@ -2019,6 +1985,19 @@ msmsdcc_runtime_suspend(struct device *dev)
 		rc = mmc_suspend_host(mmc);
 		pm_runtime_put_noidle(dev);
 
+#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
+		/* LGE_CHANGE_S [dongp.kim@lge.com] 2009-12-22, Support Host Wakeup */
+		/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
+		//else if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
+		if (host->plat->status_irq == gpio_to_irq(CONFIG_BCM4325_GPIO_WL_RESET)) {
+			if(dhdpm.suspend != NULL) {
+				//rc = dhdpm.suspend(NULL);
+				dhdpm.suspend(NULL);
+			}
+			else
+				printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
+		}
+#endif
 		if (!rc) {
 			/*
 			 * If MMC core level suspend is not supported, turn
