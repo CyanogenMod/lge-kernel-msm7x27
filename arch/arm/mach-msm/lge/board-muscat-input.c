@@ -292,8 +292,8 @@ static struct touch_platform_data ts_pdata = {
 
 static struct i2c_board_info ts_i2c_bdinfo[] = {
 	[0] = {
-		I2C_BOARD_INFO("touch_mcs7000", TS_I2C_SLAVE_ADDR),
-		.type = "touch_mcs7000",
+		I2C_BOARD_INFO("touch_mcs6000", TS_I2C_SLAVE_ADDR),
+		.type = "touch_mcs6000",
 		.platform_data = &ts_pdata,
 	},
 };

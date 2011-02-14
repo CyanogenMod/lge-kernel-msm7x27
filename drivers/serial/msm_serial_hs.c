@@ -1951,6 +1951,14 @@ static struct uart_ops msm_hs_ops = {
 	.request_port = msm_hs_request_port,
 };
 
+#if defined(CONFIG_MACH_LGE)
+struct uart_port* msm_hs_get_bt_uport(unsigned int line)
+{
+	return &q_uart_port[line].uport;
+}
+EXPORT_SYMBOL(msm_hs_get_bt_uport);
+#endif
+
 module_init(msm_serial_hs_init);
 module_exit(msm_serial_hs_exit);
 MODULE_DESCRIPTION("High Speed UART Driver for the MSM chipset");

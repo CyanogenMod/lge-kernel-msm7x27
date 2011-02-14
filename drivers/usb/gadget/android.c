@@ -45,6 +45,17 @@
 #include "u_lgeusb.h"
 #endif
 
+/* LGE_CHANGE
+ * USB dev class set define.
+ * 2011-02-10, hyunhui.park@lge.com
+ */
+#define set_device_class(desc, class, subclass, protocol)	\
+	do {													\
+		desc.bDeviceClass = class;						\
+		desc.bDeviceSubClass = subclass;					\
+		desc.bDeviceProtocol = protocol;					\
+	} while (0)
+
 /*
  * Kbuild is not very cooperative with respect to linking separately
  * compiled library objects into one module.  So for now we won't use
@@ -441,13 +452,9 @@ static int __devinit android_bind(struct usb_composite_dev *cdev)
 	 * 2011-01-12, hyunhui.park@lge.com
 	 */
 	if ((product_id == LGE_DEFAULT_PID) || (product_id == LGE_FACTORY_PID)) {
-		device_desc.bDeviceClass = USB_CLASS_COMM;
-		device_desc.bDeviceSubClass      = 0x00;
-		device_desc.bDeviceProtocol      = 0x00;
+		set_device_class(device_desc, USB_CLASS_COMM, 0x00, 0x00);
 	} else {
-		device_desc.bDeviceClass = USB_CLASS_MISC;
-		device_desc.bDeviceSubClass      = 0x02;
-		device_desc.bDeviceProtocol      = 0x01;
+		set_device_class(device_desc, USB_CLASS_MISC, 0x02, 0x01);
 	}
 #endif
 
@@ -620,6 +627,36 @@ void android_enable_function(struct usb_function *f, int enable)
 	int disable = !enable;
 	int product_id;
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	/* LGE_CHANGE
+	 * For LGE usb mass storage only mode,
+	 * enabling of ums is seperated from other function handling.
+	 * 2011-02-11, hyunhui.park@lge.com
+	 */
+	if (!strcmp(f->name, "usb_mass_storage")) {
+		/* We force to change mode even if mass storage is already enabled */
+		f->disabled = disable;
+		if (enable) {
+			/* switch to mass storage only */
+			set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
+					0x00, 0x00);
+			android_set_default_product(LGE_UMSONLY_PID);
+			lgeusb_info("Switch to UMS only %x\n", LGE_UMSONLY_PID);
+		} else {
+			set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
+			android_set_default_product(dev->product_id);
+		}
+
+		product_id = get_product_id(dev);
+		device_desc.idProduct = __constant_cpu_to_le16(product_id);
+		if (dev->cdev)
+			dev->cdev->desc.idProduct = device_desc.idProduct;
+
+		usb_composite_force_reset(dev->cdev);
+
+		return;
+	}
+#endif
 
 	if (!!f->disabled != disable) {
 		f->disabled = disable;
@@ -631,9 +668,7 @@ void android_enable_function(struct usb_function *f, int enable)
 			 */
 			if (enable) {
 #ifdef CONFIG_USB_ANDROID_RNDIS_WCEIS
-				dev->cdev->desc.bDeviceClass = USB_CLASS_MISC;
-				dev->cdev->desc.bDeviceSubClass      = 0x02;
-				dev->cdev->desc.bDeviceProtocol      = 0x01;
+				set_device_class(dev->cdev->desc, USB_CLASS_MISC, 0x02, 0x01);
 #else
 				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
 #endif
@@ -643,13 +678,10 @@ void android_enable_function(struct usb_function *f, int enable)
 				 * LG Android USB driver use COMM device class.
 				 * 2011-01-12, hyunhui.park@lge.com
 				 */
-				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
-				dev->cdev->desc.bDeviceSubClass      = 0x00;
-				dev->cdev->desc.bDeviceProtocol      = 0x00;
+				set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
 #else /* below is original */
-				dev->cdev->desc.bDeviceClass = USB_CLASS_PER_INTERFACE;
-				dev->cdev->desc.bDeviceSubClass      = 0;
-				dev->cdev->desc.bDeviceProtocol      = 0;
+				set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
+						0x00, 0x00);
 #endif
 			}
 
@@ -668,23 +700,31 @@ void android_enable_function(struct usb_function *f, int enable)
 			 * descriptor if we are using CDC ECM.
 			 */
 			if (enable) {
-				dev->cdev->desc.bDeviceClass = USB_CLASS_MISC;
-				dev->cdev->desc.bDeviceSubClass      = 0x02;
-				dev->cdev->desc.bDeviceProtocol      = 0x01;
+				set_device_class(dev->cdev->desc, USB_CLASS_MISC, 0x02, 0x01);
 			} else {
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-				/* LGE_CHANGE
-				 * LG Android USB driver use COMM device class.
-				 * 2011-01-12, hyunhui.park@lge.com
-				 */
-				dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
-				dev->cdev->desc.bDeviceSubClass      = 0x00;
-				dev->cdev->desc.bDeviceProtocol      = 0x00;
+				set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
 #else /* below is original */
-				dev->cdev->desc.bDeviceClass = USB_CLASS_PER_INTERFACE;
-				dev->cdev->desc.bDeviceSubClass      = 0;
-				dev->cdev->desc.bDeviceProtocol      = 0;
+				set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
+						0x00, 0x00);
 #endif
+			}
+
+			android_config_functions(f, enable);
+		}
+#endif
+
+#ifdef CONFIG_USB_ANDROID_MTP
+		/* LGE_CHANGE
+		 * Enable/disable MTP.
+		 * 2011-02-11, hyunhui.park@lge.com
+		 */
+		if (!strcmp(f->name, "mtp")) {
+			if (enable) {
+				set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
+						0x00, 0x00);
+			} else {
+				set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
 			}
 
 			android_config_functions(f, enable);

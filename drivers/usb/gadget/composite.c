@@ -96,7 +96,7 @@ static ssize_t enable_store(
 	return size;
 }
 
-static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR | S_IWGRP, enable_show, enable_store);
 
 void usb_function_set_enabled(struct usb_function *f, int enabled)
 {
@@ -302,13 +302,7 @@ static int config_buf(struct usb_configuration *config,
 {
 	struct usb_config_descriptor	*c = buf;
 	struct usb_interface_descriptor *intf;
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
-	/* LGE_CHANGE
-	 * To handle IAD dynamically.
-	 * 2011-01-12, hyunhui.park@lge.com
-	 */
-	struct usb_interface_assoc_descriptor *iad_intf;
-#endif
+	struct usb_interface_assoc_descriptor *iad = NULL;
 	void				*next = buf + USB_DT_CONFIG_SIZE;
 	int				len = USB_BUFSIZ - USB_DT_CONFIG_SIZE;
 	struct usb_function		*f;
@@ -355,18 +349,6 @@ static int config_buf(struct usb_configuration *config,
 		/* set interface numbers dynamically */
 		dest = next;
 		while ((descriptor = *descriptors++) != NULL) {
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
-			/* LGE_CHANGE
-			 * To handle IAD dynamically:
-			 * If function has interface association descriptor(IAD),
-			 * bFirstInterface field is adjusted dynamically as well as
-			 * bInterfaceNumber field of interface descriptor.
-			 * 2011-01-12, hyunhui.park@lge.com
-			 */
-			iad_intf = (struct usb_interface_assoc_descriptor *)dest;
-			if (iad_intf->bDescriptorType == USB_DT_INTERFACE_ASSOCIATION)
-				iad_intf->bFirstInterface = interfaceCount;
-#endif
 			intf = (struct usb_interface_descriptor *)dest;
 			if (intf->bDescriptorType == USB_DT_INTERFACE) {
 				/* don't increment bInterfaceNumber for alternate settings */
@@ -374,6 +356,20 @@ static int config_buf(struct usb_configuration *config,
 					intf->bInterfaceNumber = interfaceCount++;
 				else
 					intf->bInterfaceNumber = interfaceCount - 1;
+				if (iad) {
+					iad->bFirstInterface =
+							intf->bInterfaceNumber;
+					iad = NULL;
+				}
+			} else if (intf->bDescriptorType ==
+					USB_DT_INTERFACE_ASSOCIATION) {
+				/* This will be first if it exists. Save
+				 * a pointer to it so we can properly set
+				 * bFirstInterface when we process the first
+				 * interface.
+				 */
+				iad = (struct usb_interface_assoc_descriptor *)
+						dest;
 			}
 			dest += intf->bLength;
 		}

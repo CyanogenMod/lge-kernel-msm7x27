@@ -121,6 +121,9 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 
 /* The binding list for LGE Android USB */
 char *usb_functions_lge_all[] = {
+#ifdef CONFIG_USB_ANDROID_MTP
+	"mtp",
+#endif
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
 #endif
@@ -173,9 +176,25 @@ char *usb_functions_lge_android_rndis_adb[] = {
 };
 #endif
 
+#ifdef CONFIG_USB_ANDROID_MTP
+/* LG AndroidNet MTP (in future use) */
+char *usb_functions_lge_android_mtp[] = {
+	"mtp",
+};
+
+char *usb_functions_lge_android_mtp_adb[] = {
+	"mtp", "adb",
+};
+#endif
+
 /* LG Manufacturing mode */
 char *usb_functions_lge_manufacturing[] = {
 	"acm", "diag",
+};
+
+/* Mass storage only mode */
+char *usb_functions_lge_mass_stroage_only[] = {
+	"usb_mass_storage",
 };
 
 /* QCT original's composition array is existed in device_lge.c */
@@ -214,10 +233,30 @@ struct android_usb_product usb_products[] = {
 		.functions = usb_functions_lge_android_rndis_adb,
 	},
 #endif
+#ifdef CONFIG_USB_ANDROID_MTP
+	/* FIXME: These pids are experimental.
+	 * Don't use them in official version.
+	 */
+	{
+		.product_id = 0x61C7,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_mtp),
+		.functions = usb_functions_lge_android_mtp,
+	},
+	{
+		.product_id = 0x61F9,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_android_mtp_adb),
+		.functions = usb_functions_lge_android_mtp_adb,
+	},
+#endif
 	{
 		.product_id = 0x6000,
 		.num_functions = ARRAY_SIZE(usb_functions_lge_manufacturing),
 		.functions = usb_functions_lge_manufacturing,
+	},
+	{
+		.product_id = 0x61C5,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_mass_stroage_only),
+		.functions = usb_functions_lge_mass_stroage_only,
 	},
 };
 
