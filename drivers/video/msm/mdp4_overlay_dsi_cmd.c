@@ -43,6 +43,8 @@ static struct msm_fb_data_type *dsi_mfd;
 static struct completion dsi_delay_comp;
 static atomic_t dsi_delay_kickoff_cnt;
 
+static int vsync_start_y_adjust = 4;
+
 struct timer_list dsi_timer;
 
 void dsi_delay_tout(unsigned long data)
@@ -51,6 +53,36 @@ void dsi_delay_tout(unsigned long data)
 		atomic_dec(&dsi_delay_kickoff_cnt);
 		if (atomic_read(&dsi_delay_kickoff_cnt) == 0)
 			complete(&dsi_delay_comp);
+	}
+}
+
+void mdp4_mipi_vsync_enable(struct msm_fb_data_type *mfd,
+		struct mdp4_overlay_pipe *pipe, int which)
+{
+	uint32 start_y, data, tear_en;
+
+	tear_en = (1 << which);
+
+	if ((mfd->use_mdp_vsync) && (mfd->ibuf.vsync_enable) &&
+		(mfd->panel_info.lcd.vsync_enable)) {
+
+		if (vsync_start_y_adjust <= pipe->dst_y)
+			start_y = pipe->dst_y - vsync_start_y_adjust;
+		else
+			start_y = (mfd->total_lcd_lines - 1) -
+				(vsync_start_y_adjust - pipe->dst_y);
+		if (which == 0)
+			MDP_OUTP(MDP_BASE + 0x210, start_y);	/* primary */
+		else
+			MDP_OUTP(MDP_BASE + 0x214, start_y);	/* secondary */
+
+		data = inpdw(MDP_BASE + 0x20c);
+		data |= tear_en;
+		MDP_OUTP(MDP_BASE + 0x20c, data);
+	} else {
+		data = inpdw(MDP_BASE + 0x20c);
+		data &= ~tear_en;
+		MDP_OUTP(MDP_BASE + 0x20c, data);
 	}
 }
 
@@ -133,6 +165,8 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 	mdp4_overlay_dmap_xy(pipe);
 
 	mdp4_overlay_dmap_cfg(mfd, 0);
+
+	mdp4_mipi_vsync_enable(mfd, pipe, 0);
 
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
