@@ -298,16 +298,24 @@ static int gelato_gpio_earsense_work_func(void)
 {
 	int state;
 	int gpio_value;
+	struct vreg *gp4_vreg = vreg_get(0, "gp4");
 	
 	gpio_value = gpio_get_value(GPIO_EAR_SENSE);
 	printk(KERN_INFO"%s: ear sense detected : %s\n", __func__, 
 			gpio_value?"injected":"ejected");
 	if (gpio_value == EAR_EJECT) {
 		state = EAR_STATE_EJECT;
-		gpio_set_value(GPIO_HS_MIC_BIAS_EN, 0);
+
+		vreg_disable(gp4_vreg);
+
+		//gpio_set_value(GPIO_HS_MIC_BIAS_EN, 0);
 	} else {
 		state = EAR_STATE_INJECT;
-		gpio_set_value(GPIO_HS_MIC_BIAS_EN, 1);
+
+		vreg_set_level(gp4_vreg, 1800);
+		vreg_enable(gp4_vreg);
+		
+		//gpio_set_value(GPIO_HS_MIC_BIAS_EN, 1);
 	}
 
 	return state;
