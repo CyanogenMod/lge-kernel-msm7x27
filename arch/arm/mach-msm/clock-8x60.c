@@ -1115,7 +1115,7 @@ static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 /* IJPEG */
 #define NS_MASK_IJPEG (BM(23, 16) | BM(15, 12) | BM(2, 0))
 #define CC_MASK_IJPEG (BM(7, 6))
-#define CLK_IJPEG(id, ns, r_r, r_m, h_r, h_c, h_b, tv) \
+#define CLK_IJPEG(id, ns, r_r, r_m, h_r, h_c, h_b, par, tv) \
 	[L_##id##_CLK] = { \
 		.type = MND, \
 		.ns_reg = ns, \
@@ -1132,7 +1132,7 @@ static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 		.cc_mask = CC_MASK_IJPEG, \
 		.set_rate = set_rate_mnd, \
 		.freq_tbl = clk_tbl_ijpeg, \
-		.parent = L_NONE_CLK, \
+		.parent = L_##par##_CLK, \
 		.test_vector = tv, \
 		.current_freq = &local_dummy_freq, \
 	}
@@ -1931,9 +1931,7 @@ struct clk_local soc_clk_local_tbl[] = {
 		DBG_BUS_VEC_A_REG, HALT, 4,  GMEM_AXI, TEST_MM_HS(0x09)),
 
 	CLK_IJPEG(IJPEG, IJPEG_NS_REG, SW_RESET_CORE_REG, BIT(9),
-		DBG_BUS_VEC_A_REG, HALT, 24, TEST_MM_HS(0x05)),
-
-	CLK_RESET(IMEM, SW_RESET_CORE_REG, BIT(10)),
+		DBG_BUS_VEC_A_REG, HALT, 24, IJPEG_AXI, TEST_MM_HS(0x05)),
 
 	CLK_JPEGD(JPEGD, JPEGD_NS_REG, SW_RESET_CORE_REG, BIT(19),
 		DBG_BUS_VEC_A_REG, HALT, 19, JPEGD_AXI, TEST_MM_HS(0x0A)),
@@ -1980,13 +1978,16 @@ struct clk_local soc_clk_local_tbl[] = {
 	/* AXI Interfaces */
 	CLK_NORATE(GMEM_AXI,  MAXI_EN_REG, BIT(24), NULL, 0,
 		DBG_BUS_VEC_E_REG, HALT, 6, TEST_MM_HS(0x11)),
+	CLK_NORATE(IJPEG_AXI, MAXI_EN_REG, BIT(21), SW_RESET_AXI_REG, BIT(14),
+		DBG_BUS_VEC_E_REG, HALT, 4, TEST_MM_HS(0x12)),
+	CLK_NORATE(IMEM_AXI,  MAXI_EN_REG, BIT(22), SW_RESET_CORE_REG, BIT(10),
+		DBG_BUS_VEC_E_REG, HALT, 7, TEST_MM_HS(0x13)),
 	CLK_NORATE(JPEGD_AXI, MAXI_EN_REG, BIT(25), NULL, 0,
 		DBG_BUS_VEC_E_REG, HALT, 5, TEST_MM_HS(0x14)),
 	CLK_NORATE(VCODEC_AXI,   MAXI_EN_REG, BIT(19), SW_RESET_AXI_REG,
 		BIT(4)|BIT(5), DBG_BUS_VEC_E_REG, HALT, 3, TEST_MM_HS(0x17)),
 	CLK_NORATE(VFE_AXI,   MAXI_EN_REG, BIT(18), SW_RESET_AXI_REG, BIT(9),
 		DBG_BUS_VEC_E_REG, HALT, 0, TEST_MM_HS(0x18)),
-	CLK_RESET(IJPEG_AXI,  SW_RESET_AXI_REG, BIT(14)),
 	CLK_RESET(MDP_AXI,    SW_RESET_AXI_REG, BIT(13)),
 	CLK_RESET(ROT_AXI,    SW_RESET_AXI_REG, BIT(6)),
 	CLK_RESET(VPE_AXI,    SW_RESET_AXI_REG, BIT(15)),
@@ -2376,7 +2377,7 @@ static void reg_init(void)
 	/* Initialize MM AXI registers: Enable HW gating for all clocks that
 	 * support it. Also set FORCE_CORE_ON bits, and any sleep and wake-up
 	 * delays to safe values. */
-	rmwreg(0x00038FF9, MAXI_EN_REG,  0x0FFFFFFF);
+	rmwreg(0x000307F9, MAXI_EN_REG,  0x0FFFFFFF);
 	rmwreg(0x1A27FCFF, MAXI_EN2_REG, 0x1FFFFFFF);
 	writel(0x3FE7FCFF, MAXI_EN3_REG);
 	writel(0x000001D8, SAXI_EN_REG);
