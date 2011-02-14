@@ -71,9 +71,11 @@ int vsync_start_th = 1;
 int vsync_load_cnt;
 int vsync_clk_status;
 DEFINE_MUTEX(vsync_clk_lock);
+DEFINE_MUTEX(vsync_timer_lock);
 
 static struct clk *mdp_vsync_clk;
 static struct msm_fb_data_type *vsync_mfd;
+static unsigned char timer_shutdown_flag;
 
 void mdp_hw_vsync_clk_enable(struct msm_fb_data_type *mfd)
 {
@@ -114,7 +116,13 @@ void mdp_vsync_clk_disable(void)
 {
 	if (vsync_mfd) {
 		if (vsync_mfd->vsync_resync_timer.function) {
+			mutex_lock(&vsync_timer_lock);
+			timer_shutdown_flag = 1;
+			mutex_unlock(&vsync_timer_lock);
 			del_timer_sync(&vsync_mfd->vsync_resync_timer);
+			mutex_lock(&vsync_timer_lock);
+			timer_shutdown_flag = 0;
+			mutex_unlock(&vsync_timer_lock);
 			vsync_mfd->vsync_resync_timer.function = NULL;
 		}
 
@@ -136,12 +144,6 @@ static void mdp_set_vsync(unsigned long data)
 	if ((pdata) && (pdata->set_vsync_notifier == NULL))
 		return;
 
-	mfd->vsync_resync_timer.function = mdp_set_vsync;
-	mfd->vsync_resync_timer.data = data;
-	mfd->vsync_resync_timer.expires =
-	    jiffies + mfd->panel_info.lcd.vsync_notifier_period;
-	add_timer(&mfd->vsync_resync_timer);
-
 	if ((mfd->panel_info.lcd.vsync_enable) && (mfd->panel_power_on)
 	    && (!mfd->vsync_handler_pending)) {
 		mfd->vsync_handler_pending = TRUE;
@@ -155,6 +157,16 @@ static void mdp_set_vsync(unsigned long data)
 		     mfd->panel_info.lcd.vsync_enable, mfd->panel_power_on,
 		     mfd->vsync_handler_pending);
 	}
+
+	mutex_lock(&vsync_timer_lock);
+	if (!timer_shutdown_flag) {
+		mfd->vsync_resync_timer.function = mdp_set_vsync;
+		mfd->vsync_resync_timer.data = data;
+		mfd->vsync_resync_timer.expires =
+			jiffies + mfd->panel_info.lcd.vsync_notifier_period;
+		add_timer(&mfd->vsync_resync_timer);
+	}
+	mutex_unlock(&vsync_timer_lock);
 }
 
 static void mdp_vsync_handler(void *data)
@@ -162,7 +174,7 @@ static void mdp_vsync_handler(void *data)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
 
 	if (vsync_clk_status == 0) {
-		printk(KERN_ERR "Warning: vsync clk is disabled\n");
+		pr_debug("Warning: vsync clk is disabled\n");
 		mfd->vsync_handler_pending = FALSE;
 		return;
 	}

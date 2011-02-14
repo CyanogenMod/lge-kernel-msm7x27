@@ -64,6 +64,8 @@ static struct clk *mddi_clk;
 static struct clk *mddi_pclk;
 static struct mddi_platform_data *mddi_pdata;
 
+DEFINE_MUTEX(mddi_timer_lock);
+
 static int mddi_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "pm_runtime: suspending...\n");
@@ -90,6 +92,7 @@ static struct dev_pm_ops mddi_dev_pm_ops = {
 
 static int pmdh_clk_status;
 int irq_enabled;
+unsigned char mddi_timer_shutdown_flag;
 
 static struct platform_driver mddi_driver = {
 	.probe = mddi_probe,
@@ -122,8 +125,15 @@ static void pmdh_clk_disable()
 	if (pmdh_clk_status == 0)
 		return;
 	mutex_lock(&pmdh_clk_lock);
-	if (mddi_host_timer.function)
+	if (mddi_host_timer.function) {
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 1;
+		mutex_unlock(&mddi_timer_lock);
 		del_timer_sync(&mddi_host_timer);
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 0;
+		mutex_unlock(&mddi_timer_lock);
+	}
 	if (int_mddi_pri_flag && irq_enabled) {
 		disable_irq(INT_MDDI_PRI);
 		irq_enabled = 0;
@@ -500,8 +510,15 @@ static void mddi_early_resume(struct early_suspend *h)
 static int mddi_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-	if (mddi_host_timer.function)
+	if (mddi_host_timer.function) {
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 1;
+		mutex_unlock(&mddi_timer_lock);
 		del_timer_sync(&mddi_host_timer);
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 0;
+		mutex_unlock(&mddi_timer_lock);
+	}
 
 	iounmap(msm_pmdh_base);
 
