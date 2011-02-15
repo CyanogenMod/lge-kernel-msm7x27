@@ -494,6 +494,10 @@ static void marimba_init_reg(struct i2c_client *client, u8 driver_data)
 		marimba->mod_id = MARIMBA_SLAVE_ID_MARIMBA + adie_arry_idx;
 		marimba_write(marimba, BAHAMA_SLAVE_ID_FM_ID,
 				&pdata->slave_id[SLAVE_ID_BAHAMA_FM], 1);
+		/* Configure Bahama core registers (AREG & DREG) */
+		/* with optimal values to eliminate power leakage */
+		if (pdata->bahama_core_config != NULL)
+			pdata->bahama_core_config(cur_adie_type);
 	}
 }
 
