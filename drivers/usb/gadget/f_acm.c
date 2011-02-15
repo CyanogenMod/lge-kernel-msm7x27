@@ -118,7 +118,8 @@ static struct usb_interface_assoc_descriptor acm_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 
 	/* .bFirstInterface =	DYNAMIC, */
-	.bInterfaceCount = 	2,	// control + data
+	/* control + data */
+	.bInterfaceCount = 	2,
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ACM,
 	.bFunctionProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
@@ -266,7 +267,7 @@ static struct usb_descriptor_header *acm_hs_function[] = {
 static struct usb_string acm_string_defs[] = {
 	[ACM_CTRL_IDX].s = "CDC Abstract Control Model (ACM)",
 	[ACM_DATA_IDX].s = "CDC ACM Data",
-	[ACM_IAD_IDX ].s = "CDC Serial",
+	[ACM_IAD_IDX].s = "CDC Serial",
 	{  /* ZEROES END LIST */ },
 };
 
@@ -616,7 +617,7 @@ unsigned int acm_send_carrier_detect(struct gserial *port, unsigned int yes)
 	struct f_acm		*acm = port_to_acm(port);
 	u16			state;
 
-	pr_info("%s : ACM_CTRL_DCD is %s\n", __func__, (yes ? "yes": "no"));
+	pr_info("%s : ACM_CTRL_DCD is %s\n", __func__, (yes ? "yes" : "no"));
 	state = acm->serial_state;
 	state &= ~ACM_CTRL_DCD;
 	if (yes)
@@ -799,7 +800,7 @@ acm_unbind(struct usb_configuration *c, struct usb_function *f)
 	 * 2011-01-12, hyunhui.park@lge.com
 	 */
 	if (acm->notify_req)
-	         gs_free_req(acm->notify, acm->notify_req);
+		gs_free_req(acm->notify, acm->notify_req);
 #endif
 
 	kfree(acm);
