@@ -1290,6 +1290,12 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 };
 #endif
 
+#ifdef CONFIG_USB_GADGET_MSM_72K
+static struct msm_hsusb_gadget_platform_data msm_gadget_pdata = {
+	.is_phy_status_timer_on = 1,
+};
+#endif
+
 
 #ifdef CONFIG_USB_ANDROID
 static char *usb_functions_default[] = {
@@ -5514,6 +5520,20 @@ static void __init msm8x60_init_buses(void)
 		msm_otg_pdata.phy_can_powercollapse = 1;
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 #endif
+
+#ifdef CONFIG_USB_GADGET_MSM_72K
+	msm_device_gadget_peripheral.dev.platform_data = &msm_gadget_pdata;
+#endif
+
+#ifdef CONFIG_USB_F_SERIAL_SDIO
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa()) {
+		struct usb_gadget_fserial_platform_data *fserial_pdata =
+			usb_gadget_fserial_device.dev.platform_data;
+
+		fserial_pdata->transport = USB_GADGET_FSERIAL_TRANSPORT_SDIO;
+	}
+#endif
+
 #ifdef CONFIG_SERIAL_MSM_HS
 	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(54); /* GSBI6(2) */
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
