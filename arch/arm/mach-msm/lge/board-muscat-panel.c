@@ -65,7 +65,9 @@ static int ebi2_tovis_power_save(int on)
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], enable, 1800);
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], enable, 2800);
 	} else{
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
+/* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+		//MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
+/* LGE_CHANGE_E, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], disable, 0);
 	}
 	return 0;
