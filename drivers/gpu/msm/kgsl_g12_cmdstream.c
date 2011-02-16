@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -167,10 +167,6 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	unsigned int sizedwords;
 
-	if (device->state & KGSL_STATE_HUNG) {
-		return -EINVAL;
-		goto error;
-	}
 	if (numibs != 1) {
 		KGSL_DRV_ERR("Invalid number of ib's passed for z180,"
 				" numibs: %d\n", numibs);
