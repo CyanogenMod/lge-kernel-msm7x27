@@ -38,7 +38,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 	if (data->payload_size) {
 		uint32_t *payload;
 		payload = data->payload;
-		pr_info("%s: cmd = 0x%x status = 0x%x\n", __func__,
+		pr_debug("%s: cmd = 0x%x status = 0x%x\n", __func__,
 					payload[0], payload[1]);
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
 			switch (payload[0]) {
