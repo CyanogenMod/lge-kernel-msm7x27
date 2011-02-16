@@ -793,9 +793,9 @@ struct clk_lookup msm_clocks_7x27[] = {
 	CLK_PCOM("uart_clk",	UART1_CLK,	"msm_serial.0", OFF),
 	CLK_PCOM("uart_clk",	UART2_CLK,	"msm_serial.1", 0),
 #if defined(CONFIG_MACH_LGE)
-	CLK_PCOM("uart_clk",	UART2_CLK,	"msm_serial.2", 0),
+	CLK_PCOM("uart_clk",	UART3_CLK,	"msm_serial.2", 0),
 #else
-	CLK_PCOM("uart_clk",	UART2_CLK,	"msm_serial.2", OFF),
+	CLK_PCOM("uart_clk",	UART3_CLK,	"msm_serial.2", OFF),
 #endif
 	CLK_PCOM("uartdm_clk",	UART1DM_CLK,	"msm_serial_hs.0", OFF),
 	CLK_PCOM("uartdm_clk",	UART2DM_CLK,	"msm_serial_hs.1", 0),

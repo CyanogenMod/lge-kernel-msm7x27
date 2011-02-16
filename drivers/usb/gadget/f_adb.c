@@ -439,7 +439,7 @@ static int adb_release(struct inode *ip, struct file *fp)
 }
 
 /* file operations for ADB device /dev/android_adb */
-static struct file_operations adb_fops = {
+static const struct file_operations adb_fops = {
 	.owner = THIS_MODULE,
 	.read = adb_read,
 	.write = adb_write,

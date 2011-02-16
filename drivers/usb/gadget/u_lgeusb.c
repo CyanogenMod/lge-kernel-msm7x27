@@ -33,45 +33,21 @@
 
 #include "u_lgeusb.h"
 
+/* LGE_CHANGE
+ * To check factory mode in user space.
+ * 2011-02-10, hyunhui.park@lge.com
+ */
+static struct mutex lock;
+
+static int lgeusb_get_mode(char *buffer, struct kernel_param *kp);
+/* Read only */
+module_param_call(mode, NULL, lgeusb_get_mode, NULL, S_IRUGO);
+MODULE_PARM_DESC(mode, "LGE USB Specific mode");
+
 static struct lgeusb_info *usb_info;
 
 /* FIXME: This length must be same as MAX_STR_LEN in android.c */
 #define MAX_SERIAL_NO_LEN 20
-
-#ifdef CONFIG_USB_SUPPORT_LGE_GADGET_CDMA
-extern int msm_chg_LG_cable_type(void);
-extern void msm_get_MEID_type(char* sMeid);
-
-static int get_serial_number(char *serial_number)
-{
-	memset(serial_number, 0, MAX_SERIAL_NO_LEN);
-
-	msm_get_MEID_type(serial_number);
-
-	if(!strcmp(serial_number,"00000000000000"))
-		serial_number[0] = '\0';
-
-	return 0;
-}
-
-static int get_factory_cable(void)
-{
-	int cable_type =  msm_chg_LG_cable_type();
-	int ret;
-
-	switch(cable_type) {
-		case LGE_FACTORY_CABLE_TYPE :
-		case LGE_FACTORY_CABLE_130K_TYPE :
-			ret = cable_type;
-			break;
-		default:
-			ret = 0;
-			break;
-	}
-
-	return ret;
-}
-#endif /* CONFIG_USB_SUPPORT_LGE_GADGET_CDMA */
 
 #ifdef CONFIG_USB_SUPPORT_LGE_GADGET_GSM
 static int get_serial_number(char *serial_number)
@@ -119,6 +95,20 @@ static int get_factory_cable(void)
 		return 0;
 }
 #endif /* CONFIG_USB_SUPPORT_LGE_GADGET_GSM */
+
+static int lgeusb_get_mode(char *buffer, struct kernel_param *kp)
+{
+	int ret;
+	struct lgeusb_info *info = usb_info;
+
+	mutex_lock(&lock);
+	ret = sprintf(buffer, "%s",
+			(info->current_mode == LGEUSB_FACTORY_MODE
+			 ? "factory" : "normal"));
+	mutex_unlock(&lock);
+
+	return ret;
+}
 
 static void do_switch_mode(int pid, int need_reset)
 {
@@ -224,7 +214,7 @@ int lgeusb_set_current_mode(int need_reset)
 	else
 		msm_hsusb_send_serial_number(info->defaultno);
 
-	if(ret < 0)
+	if (ret < 0)
 		lgeusb_info("fail to get serial number, set to default.\n");
 
 	return info->current_pid;
@@ -248,3 +238,11 @@ void lgeusb_register_usbinfo(struct lgeusb_info *info)
 	}
 }
 
+static int __init lgeusb_init(void)
+{
+	lgeusb_info("u_lgeusb init\n");
+	mutex_init(&lock);
+
+	return 0;
+}
+module_init(lgeusb_init);

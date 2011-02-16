@@ -62,15 +62,15 @@ PARTICULAR PURPOSE.  See the * GNU General Public License for more details. * */
 
 #define INT_STATUS_REG				0x14
 
-#define SYNAPTICS_INT_REG			0x21
-#define SYNAPTICS_CONTROL_REG		0x20
-#define REPORT_MODE_2D				0x22
-#define MAX_X_POS_LOW_REG			0x28
-#define MAX_X_POS_HIGH_REG			0x29
-#define MAX_Y_POS_LOW_REG			0x2A
-#define MAX_Y_POS_HIGH_REG			0x2B
+#define SYNAPTICS_INT_REG			0x26
+#define SYNAPTICS_CONTROL_REG		0x25
+#define REPORT_MODE_2D				0x27
+#define MAX_X_POS_LOW_REG			0x2D
+#define MAX_X_POS_HIGH_REG			0x2E
+#define MAX_Y_POS_LOW_REG			0x2F
+#define MAX_Y_POS_HIGH_REG			0x30
 
-#define QUERY_BASE_REG				0xE3
+#define QUERY_BASE_REG				0xE9
 
 #ifdef SYNAPTICS_MELTINGMODE
 #define SYNAPTICS_MELTING_REG	0xF0
@@ -92,7 +92,7 @@ PARTICULAR PURPOSE.  See the * GNU General Public License for more details. * */
 #define FINGER_MAX 2
 #define START_ADDR      0x13
 #define PRODUCT_ID_STRING_NUM	11
-#define CMD_REG_BLOCK_NUM		38
+#define CMD_REG_BLOCK_NUM		41
 /************************************/
 /******* enum ***********************/
 enum {
@@ -131,7 +131,7 @@ struct synaptics_ts_data {
 	int fw_revision;
 };
 
-typedef struct									// synaptics 2000	// synaptics 21000
+typedef struct									// synaptics 2000	// synaptics 2100
 {
 	unsigned char device_status_reg;            //0x13
 	unsigned char interrupt_status_reg;			//0x14
@@ -151,46 +151,46 @@ typedef struct									// synaptics 2000	// synaptics 21000
 	unsigned char Z_finger1_reg;				//0x1F
  } ts_sensor_data;
 
-typedef struct 									// synaptics 2000	// synaptics 21000
+typedef struct 									// synaptics 2000 // 2100 //3000
 {
-	unsigned char device_command;				//0x58				//0x5C
-	unsigned char command_2d;					//0x59				//0x5D
-	unsigned char bootloader_id0;				//0x5A				//0x5E
-	unsigned char bootloader_id1;				//0x5B				//0x5F
-	unsigned char flash_properties;				//0x5C				//0x60
-	unsigned char block_size0;					//0x5D				//0x61
-	unsigned char block_size1;					//0x5E				//0x62
-	unsigned char firmware_block_cnt0;			//0x5F				//0x63
-	unsigned char firmware_block_cnt1;			//0x60				//0x64
-	unsigned char config_block_cnt0;			//0x61				//0x65
-	unsigned char config_block_cnt1;			//0x62				//0x66
-	unsigned char manufact_id_query;			//0x63				//0x67
-	unsigned char product_properties_query;		//0x64				//0x68
-	unsigned char customer_family_query;		//0x65				//0x69
-	unsigned char firmware_revision_query;		//0x66				//0x6A
-	unsigned char device_serialization_query0;	//0x67				//0x6B
-	unsigned char device_serialization_query1;	//0x68				//0x6C
-	unsigned char device_serialization_query2;	//0x69				//0x6D
-	unsigned char device_serialization_query3;	//0x6A				//0x6E
-	unsigned char device_serialization_query4;	//0x6B				//0x6F
-	unsigned char device_serialization_query5;	//0x6C				//0x70
-	unsigned char device_serialization_query6;	//0x6D				//0x71
-	unsigned char product_id_query0;			//0x6E				//0x72
-	unsigned char product_id_query1;			//0x6F				//0x73
-	unsigned char product_id_query2;			//0x70				//0x74
-	unsigned char product_id_query3;			//0x71				//0x75
-	unsigned char product_id_query4;			//0x72				//0x76
-	unsigned char product_id_query5;			//0x73				//0x77
-	unsigned char product_id_query6;			//0x74				//0x78
-	unsigned char product_id_query7;			//0x75				//0x79
-	unsigned char product_id_query8;			//0x76				//0x7A
-	unsigned char product_id_query9;			//0x77				//0x7B
-	unsigned char per_device_query;				//0x78				//0x7C
-	unsigned char reporting_mode_2d;			//0x79				//0x7D
-	unsigned char number_x_electrode_2d;		//0x7A				//0x7E
-	unsigned char number_y_electrode_2d;		//0x7B				//0x7F
-	unsigned char maximum_electorde_2d;			//0x7C				//0x80
-	unsigned char absolute_query_2d;			//0x7D				//0x81
+	unsigned char device_command;				//0x58			  //0x5C  //0x70
+	unsigned char command_2d;					//0x59			  //0x5D  //0x71
+	unsigned char bootloader_id0;				//0x5A			  //0x5E  //0x72
+	unsigned char bootloader_id1;				//0x5B			  //0x5F  //0x73
+	unsigned char flash_properties;				//0x5C			  //0x60  //0x74
+	unsigned char block_size0;					//0x5D			  //0x61  //0x75
+	unsigned char block_size1;					//0x5E			  //0x62  //0x76
+	unsigned char firmware_block_cnt0;			//0x5F			  //0x63  //0x77
+	unsigned char firmware_block_cnt1;			//0x60			  //0x64  //0x78
+	unsigned char config_block_cnt0;			//0x61			  //0x65  //0x79
+	unsigned char config_block_cnt1;			//0x62			  //0x66  //0x7A
+	unsigned char manufact_id_query;			//0x63			  //0x67  //0x7B
+	unsigned char product_properties_query;		//0x64			  //0x68  //0x7C
+	unsigned char customer_family_query;		//0x65			  //0x69  //0x7D
+	unsigned char firmware_revision_query;		//0x66			  //0x6A  //0x7E
+	unsigned char device_serialization_query0;	//0x67			  //0x6B  //0x7F
+	unsigned char device_serialization_query1;	//0x68			  //0x6C  //0x80
+	unsigned char device_serialization_query2;	//0x69			  //0x6D  //0x81
+	unsigned char device_serialization_query3;	//0x6A			  //0x6E  //0x82
+	unsigned char device_serialization_query4;	//0x6B			  //0x6F  //0x83
+	unsigned char device_serialization_query5;	//0x6C			  //0x70  //0x84
+	unsigned char device_serialization_query6;	//0x6D			  //0x71  //0x85
+	unsigned char product_id_query0;			//0x6E			  //0x72  //0x86
+	unsigned char product_id_query1;			//0x6F			  //0x73  //0x87
+	unsigned char product_id_query2;			//0x70			  //0x74  //0x88
+	unsigned char product_id_query3;			//0x71			  //0x75  //0x89
+	unsigned char product_id_query4;			//0x72			  //0x76  //0x8A
+	unsigned char product_id_query5;			//0x73			  //0x77  //0x8B
+	unsigned char product_id_query6;			//0x74			  //0x78  //0x8C
+	unsigned char product_id_query7;			//0x75			  //0x79  //0x8D
+	unsigned char product_id_query8;			//0x76			  //0x7A  //0x8E
+	unsigned char product_id_query9;			//0x77			  //0x7B  //0x8F
+	unsigned char per_device_query;				//0x78			  //0x7C  //0x90
+	unsigned char reporting_mode_2d;			//0x79			  //0x7D  //0x91
+	unsigned char number_x_electrode_2d;		//0x7A			  //0x7E  //0x92
+	unsigned char number_y_electrode_2d;		//0x7B			  //0x7F  //0x93
+	unsigned char maximum_electorde_2d;			//0x7C			  //0x80  //0x94
+	unsigned char absolute_query_2d;			//0x7D			  //0x81  //0x95
 }ts_sensor_command;
 
 typedef struct {
@@ -275,7 +275,7 @@ static void synaptics_ts_fw_reflash_work_func(struct work_struct *work)
 
 	DEBUG_MSG("start F/W reflash for synaptics touch IC!!\n");
 
-	if(kind_of_product != SYNAPTICS_2100)
+	if(kind_of_product != SYNAPTICS_3000)
 	{
 		DEBUG_MSG("synaptics_ts_fw_reflash_work_func : F/W update is not supported!\n");
 		return;
@@ -870,6 +870,9 @@ static void synaptics_ts_get_device_inform(int product_num)
 				reg_block_num[i]=i+0x5C;
 			break;
 		case SYNAPTICS_3000:
+			for(i=0;i<CMD_REG_BLOCK_NUM;i++)
+				reg_block_num[i]= i+0x70;
+			break;
 		default:
 			for(i=0;i<CMD_REG_BLOCK_NUM;i++)
 				reg_block_num[i]=0x00;
@@ -986,7 +989,7 @@ static int synaptics_ts_probe(
 	{
 		kind_of_product = SYNAPTICS_2100;
 	}
-	else
+	else if(strcmp(product_name, "TM1818-001")==0)
 	{
 		kind_of_product = SYNAPTICS_3000;
 	}
@@ -1090,7 +1093,7 @@ static int synaptics_ts_probe(
 	SHOW_MSG("synaptics_ts_probe : max_y = 0x%x\n",max_y);
 
 #ifdef SYNAPTICS_FW_REFLASH
-	if(kind_of_product == SYNAPTICS_2100)
+	if(kind_of_product == SYNAPTICS_3000)
 	{
 		if((max_x == 0x00) || (max_y == 0x00))
 		{

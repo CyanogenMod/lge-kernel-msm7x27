@@ -144,7 +144,7 @@ static inline unsigned ecm_bitrate(struct usb_gadget *g)
  * 2011-01-12, hyunhui.park@lge.com
  */
 #define USB_DT_IAD_SIZE     8
-struct usb_interface_assoc_descriptor ecm_IAD = {
+struct usb_interface_assoc_descriptor ecm_iad = {
 	.bLength           = USB_DT_IAD_SIZE,
 	.bDescriptorType   = USB_DT_INTERFACE_ASSOCIATION,
 	.bInterfaceCount   = 2,
@@ -285,7 +285,7 @@ static struct usb_endpoint_descriptor fs_ecm_out_desc = {
  * 2011-01-12, hyunhui.park@lge.com
  */
 static struct usb_descriptor_header *ecm_fs_function[] = {
-	(struct usb_descriptor_header *) &ecm_IAD,
+	(struct usb_descriptor_header *) &ecm_iad,
 	/* CDC ECM control descriptors */
 	(struct usb_descriptor_header *) &ecm_control_intf,
 	(struct usb_descriptor_header *) &ecm_header_desc,
@@ -361,7 +361,7 @@ static struct usb_endpoint_descriptor hs_ecm_out_desc = {
  * 2011-01-12, hyunhui.park@lge.com
  */
 static struct usb_descriptor_header *ecm_hs_function[] = {
-	(struct usb_descriptor_header *) &ecm_IAD,
+	(struct usb_descriptor_header *) &ecm_iad,
 	/* CDC ECM control descriptors */
 	(struct usb_descriptor_header *) &ecm_control_intf,
 	(struct usb_descriptor_header *) &ecm_header_desc,
@@ -740,7 +740,7 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	 * LG Android CDC ECM function fixup for LG AndroidNet
 	 * 2011-01-12, hyunhui.park@lge.com
 	 */
-	ecm_IAD.bFirstInterface = status;
+	ecm_iad.bFirstInterface = status;
 #endif
 	ecm_union_desc.bMasterInterface0 = status;
 

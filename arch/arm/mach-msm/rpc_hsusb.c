@@ -704,7 +704,7 @@ EXPORT_SYMBOL(msm_hsusb_get_charger_type);
 /* NOTE: version of RPC depends on AMSS's setting(below is alohag's). */
 #define NV_IMEI_GET_VER             0x00060001
 #define NV_UE_IMEI_SIZE             9
-#define MAX_IMEI_SIZE               (NV_UE_IMEI_SIZE -1) * 2
+#define MAX_IMEI_SIZE               ((NV_UE_IMEI_SIZE - 1) * 2)
 
 int msm_nv_imei_get(unsigned char *nv_imei_ptr)
 {
@@ -712,24 +712,24 @@ int msm_nv_imei_get(unsigned char *nv_imei_ptr)
 	int rc = 0;
 	uint32_t nv_result;
 	uint32_t dummy1, dummy2;
-	nv_ue_imei_type imea_data;
+	struct nv_ue_imei_type imea_data;
 	int i;
 
 	struct msm_nv_imem_get_req {
 		struct rpc_request_hdr hdr;
-		nv_func_enum_type cmd;
-		nv_items_enum_type item;
+		enum nv_func_enum_type cmd;
+		enum nv_items_enum_type item;
 		uint32_t more_data;
-		nv_items_enum_type disc;
-		nv_ue_imei_type imea_data;;
+		enum nv_items_enum_type disc;
+		struct nv_ue_imei_type imea_data;;
 	} req;
 
 	struct hsusb_rpc_rep {
 		struct rpc_reply_hdr hdr;
-		nv_stat_enum_type result_item;
+		enum nv_stat_enum_type result_item;
 		uint32_t rep_more_data;
-		nv_items_enum_type rep_disc;
-		nv_ue_imei_type imea_data;;
+		enum nv_items_enum_type rep_disc;
+		struct nv_ue_imei_type imea_data;;
 	} rep;
 
 	nv_imei_get_ep = msm_rpc_connect_compatible(NV_IMEI_GET_PROG,
@@ -765,18 +765,17 @@ int msm_nv_imei_get(unsigned char *nv_imei_ptr)
 	dummy1 = be32_to_cpu(rep.rep_more_data);
 	dummy2 = be32_to_cpu(rep.rep_disc);
 
-	for(i = 0 ; i<NV_UE_IMEI_SIZE; i++)
-	{
+	for (i = 0; i < NV_UE_IMEI_SIZE; i++) {
 		if ((rep.imea_data.ue_imei[i] & 0x0F) >= 0xA)
-			*(nv_imei_ptr +i*2) = (rep.imea_data.ue_imei[i] & 0x0F) + 55;
+			*(nv_imei_ptr + i*2) = (rep.imea_data.ue_imei[i] & 0x0F) + 55;
 		else
-			*(nv_imei_ptr +i*2) = (rep.imea_data.ue_imei[i] & 0x0F) + 48;
-		if (((rep.imea_data.ue_imei[i] & 0xF0) >> 4) >=0xA)
-			*(nv_imei_ptr +i*2 + 1) = ((rep.imea_data.ue_imei[i] & 0xF0) >> 4) + 55;
+			*(nv_imei_ptr + i*2) = (rep.imea_data.ue_imei[i] & 0x0F) + 48;
+		if (((rep.imea_data.ue_imei[i] & 0xF0) >> 4) >= 0xA)
+			*(nv_imei_ptr + i*2 + 1) = ((rep.imea_data.ue_imei[i] & 0xF0) >> 4) + 55;
 		else
-			*(nv_imei_ptr +i*2 + 1) = ((rep.imea_data.ue_imei[i] & 0xF0) >> 4) + 48;
+			*(nv_imei_ptr + i*2 + 1) = ((rep.imea_data.ue_imei[i] & 0xF0) >> 4) + 48;
 	}
-	*(nv_imei_ptr +MAX_IMEI_SIZE + 2) = '\0';
+	*(nv_imei_ptr + MAX_IMEI_SIZE + 2) = '\0';
 	msm_rpc_close(nv_imei_get_ep);
 
 	pr_info("%s: msm_rpc_call success. ver = 0x%x\n",
@@ -825,7 +824,7 @@ int msm_hsusb_detect_chg_type(void)
 
 	if (!chg_ep || IS_ERR(chg_ep)) {
 		pr_err("%s: hsusb rpc connection not initialized, rc = %ld\n",
-			__func__, PTR_ERR(chg_ep));
+				__func__, PTR_ERR(chg_ep));
 		return -EAGAIN;
 	}
 
@@ -840,34 +839,34 @@ int msm_hsusb_detect_chg_type(void)
 
 	if (rc < 0) {
 		printk(KERN_ERR "%s: rpc call failed !  rc = %d\n",
-			__func__, rc);
+				__func__, rc);
 		return rc;
 	}
 
 	rep.charger_type = be32_to_cpu(rep.charger_type);
 
 	/* ret value is matched to charger type in msm_hsusb.c */
-	switch(rep.charger_type) {
-		case USB_CHARGER_TYPE_WALL :
-		case USB_CHARGER_TYPE_USB_WALL :
-		case USB_CHARGER_TYPE_USB_CARKIT :
-			ret = 2; /* WALL CHARGER */
-			break;
-		case USB_CHARGER_TYPE_USB_PC :
-			ret = 0; /* HOST PC */
-			break;
-		case USB_CHARGER_TYPE_NONE :
-		case USB_CHARGER_TYPE_INVALID :
-		default :
-			ret = 3; /* INVALID */	
-			break;
+	switch (rep.charger_type) {
+	case USB_CHARGER_TYPE_WALL:
+	case USB_CHARGER_TYPE_USB_WALL:
+	case USB_CHARGER_TYPE_USB_CARKIT:
+		ret = 2; /* WALL CHARGER */
+		break;
+	case USB_CHARGER_TYPE_USB_PC:
+		ret = 0; /* HOST PC */
+		break;
+	case USB_CHARGER_TYPE_NONE:
+	case USB_CHARGER_TYPE_INVALID:
+	default:
+		ret = 3; /* INVALID */
+		break;
 	}
-	
+
 	return ret;
 }
-
 EXPORT_SYMBOL(msm_hsusb_detect_chg_type);
-#endif 
+
+#endif
 /* LGE_CHANGE_E [hyunhui.park@lge.com] 2009-04-21 */
 
 #endif

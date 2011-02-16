@@ -83,14 +83,14 @@ int msm_hsusb_detect_chg_type(void);
 
 #if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI)
 /* Type to hold UE IMEI */
-typedef struct {
+struct nv_ue_imei_type {
 	/* International Mobile Equipment Identity */
 	u8 ue_imei[9];
-} __attribute__((packed)) nv_ue_imei_type;
+} __attribute__((packed));
 
-int msm_nv_imei_get(unsigned char* nv_imei_ptr);
+int msm_nv_imei_get(unsigned char *nv_imei_ptr);
 
-typedef enum {
+enum nv_func_enum_type {
 	NV_READ_F,          /* Read item */
 	NV_WRITE_F,         /* Write item */
 	NV_PEEK_F,          /* Peek at a location */
@@ -105,17 +105,17 @@ typedef enum {
 #ifdef FEATURE_RPC
 	, NV_FUNC_ENUM_MAX = 0x7fffffff /* Pad to 32 bits */
 #endif
-} nv_func_enum_type;
+};
 
-typedef enum {
+enum nv_items_enum_type {
 	NV_ESN_I                          = 0,
 	NV_UE_IMEI_I                      = 550,
 #ifdef FEATURE_NV_RPC_SUPPORT
 	NV_ITEMS_ENUM_MAX           = 0x7fffffff
 #endif
-} nv_items_enum_type;
+};
 
-typedef enum {
+enum nv_stat_enum_type {
 	NV_DONE_S,          /* Request completed okay */
 	NV_BUSY_S,          /* Request is queued */
 	NV_BADCMD_S,        /* Unrecognizable command field */
@@ -127,11 +127,11 @@ typedef enum {
 	NV_BADTG_S,         /* Item not valid for Target */
 	NV_NOMEM_S,         /* free memory exhausted */
 	NV_NOTALLOC_S,      /* address is not a valid allocation */
-	NV_STAT_ENUM_PAD = 0x7FFF     /* Pad to 16 bits on ARM */
+	NV_STAT_ENUM_PAD = 0x7FFF,     /* Pad to 16 bits on ARM */
 #ifdef FEATURE_RPC
-	,NV_STAT_ENUM_MAX = 0x7FFFFFFF     /* Pad to 16 bits on ARM */
+	NV_STAT_ENUM_MAX = 0x7FFFFFFF,     /* Pad to 16 bits on ARM */
 #endif /* FEATURE_RPC */
-} nv_stat_enum_type;
+};
 
 #endif  /* CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_IMEI */
 

@@ -465,7 +465,7 @@ static void usb_chg_detect(struct work_struct *w)
 	 * we avoid to enter into lpm for manufacturing process
 	 * 2011-01-21, hyunhui.park@lge.com
 	 */
-	if(lgeusb_cable_type)
+	if (lgeusb_cable_type)
 		goto skip;
 #endif
 

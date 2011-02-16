@@ -37,6 +37,7 @@
 #define LGE_FACTORY_PID 0x6000
 #define LGE_DEFAULT_PID 0x618E
 /* #define LGE_PLATFORM_PID 0x618E */
+#define LGE_UMSONLY_PID 0x61C5 /* For LGP500, It will be fixed */
 
 enum lgeusb_mode {
 	LGEUSB_FACTORY_MODE = 0,

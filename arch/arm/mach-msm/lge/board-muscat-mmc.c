@@ -131,16 +131,38 @@ static void sdcc_gpio_init(void)
 #endif
 }
 
+/* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+static unsigned sdcc_no_mmc_sleep_cfg_data[6] = {
+	GPIO_CFG(GPIO_SD_DATA_3, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_DATA_2, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_DATA_1, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_DATA_0, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_CMD, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_CLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),
+};
+/* LGE_CHANGE_E, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+
 static unsigned sdcc_cfg_data[][6] = {
 	/* SDC1 configs */
 #ifdef  CONFIG_MMC_MSM_CARD_HW_DETECTION
 	{
+/* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+#if 0	// Original Code
 	GPIO_CFG(GPIO_SD_DATA_3, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_DATA_2, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_DATA_1, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_DATA_0, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_CMD, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_CLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+#else
+	GPIO_CFG(GPIO_SD_DATA_3, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_DATA_2, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_DATA_1, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_DATA_0, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_CMD, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_SD_CLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),
+#endif
+/* LGE_CHANGE_E, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
 	},
 #else	
 	{
@@ -185,6 +207,29 @@ static unsigned long vreg_sts, gpio_sts;
 static unsigned mpp_mmc = 2;
 static struct vreg *vreg_mmc;
 
+/* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+static void msm_sdcc_setup_gpio_no_mmc(int dev_id, unsigned int enable)
+{
+	int i, rc;
+
+	if (!(test_bit(dev_id, &gpio_sts)^enable))
+		return;
+
+	if (enable)
+		set_bit(dev_id, &gpio_sts);
+	else
+		clear_bit(dev_id, &gpio_sts);
+
+	for (i = 0; i < ARRAY_SIZE(sdcc_no_mmc_sleep_cfg_data); i++) {
+		rc = gpio_tlmm_config(sdcc_no_mmc_sleep_cfg_data[i],
+			enable ? GPIO_CFG_ENABLE : GPIO_CFG_DISABLE);
+		if (rc)
+			printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
+				__func__, sdcc_no_mmc_sleep_cfg_data[i], rc);
+	}
+}
+/* LGE_CHANGE_E, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+
 static void msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 {
 	int i, rc;
@@ -217,6 +262,13 @@ static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 	if (vdd == 0) {
 		if (!vreg_sts)
 			return 0;
+
+/* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+		if (pdev->id == 1)
+		{
+			msm_sdcc_setup_gpio_no_mmc(pdev->id, !!vdd);
+		}
+/* LGE_CHANGE_E, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
 
 		clear_bit(pdev->id, &vreg_sts);
 
