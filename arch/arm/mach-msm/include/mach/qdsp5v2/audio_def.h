@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009,2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,5 +44,7 @@
 /* Device volume types . In Current deisgn only one of these are supported. */
 #define SNDDEV_DEV_VOL_DIGITAL  0x1  /* Codec Digital volume control */
 #define SNDDEV_DEV_VOL_ANALOG   0x2  /* Codec Analog volume control */
+
+#define SIDE_TONE_MASK	0x01
 
 #endif /* _MACH_QDSP5_V2_AUDIO_DEF_H */
