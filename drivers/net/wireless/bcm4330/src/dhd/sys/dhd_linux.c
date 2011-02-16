@@ -2817,7 +2817,11 @@ dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 		/* Don't call for SOFTAP Interface in SOFTAP MODE */
 		wl_iw_iscan_set_scan_broadcast_prep(net, 1);
 #else
+/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-02-14, <Prevent scan after turning on wifi> */
+#if 0
 		wl_iw_iscan_set_scan_broadcast_prep(net, 1);
+#endif
+/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-02-14, <Prevent scan after turning on wifi> */
 #endif /* SOFTAP */
 #endif /* CONFIG_WIRELESS_EXT */
 
