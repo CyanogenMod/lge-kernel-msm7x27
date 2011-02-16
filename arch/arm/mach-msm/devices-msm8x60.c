@@ -1495,7 +1495,6 @@ struct clk_lookup msm_clocks_8x60[] = {
 	CLK_RPM("smi_clk",		SMI_CLK,		NULL, CLK_MIN),
 	CLK_RPM("smi_a_clk",		SMI_A_CLK,		NULL, CLK_MIN),
 
-	CLK_8X60("ce_clk",		CE2_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI1_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI2_UART_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_uart_clk",	GSBI3_UART_CLK, "msm_serial_hsl.2",
@@ -1541,6 +1540,7 @@ struct clk_lookup msm_clocks_8x60[] = {
 	CLK_8X60("usb_fs_clk",		USB_FS2_XCVR_CLK,	NULL, OFF),
 	CLK_8X60("usb_fs_sys_clk",	USB_FS2_SYS_CLK,	NULL, OFF),
 	CLK_8X60("usb_fs_src_clk",	USB_FS2_SRC_CLK,	NULL, OFF),
+	CLK_8X60("ce_clk",		CE2_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI1_P_CLK, "spi_qsd.0", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI2_P_CLK,		NULL, OFF),
 	CLK_8X60("gsbi_pclk",		GSBI3_P_CLK, "msm_serial_hsl.2", 0),

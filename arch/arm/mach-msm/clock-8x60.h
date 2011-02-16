@@ -34,7 +34,6 @@
 
 enum {
 	/* Peripheral Clocks */
-	L_CE2_CLK,
 	L_GSBI1_UART_CLK,
 	L_GSBI2_UART_CLK,
 	L_GSBI3_UART_CLK,
@@ -91,6 +90,7 @@ enum {
 	L_RPM_MSG_RAM_P_CLK,
 
 	/* Fast Peripheral Bus Clocks */
+	L_CE2_P_CLK,
 	L_GSBI1_P_CLK,
 	L_GSBI2_P_CLK,
 	L_GSBI3_P_CLK,
