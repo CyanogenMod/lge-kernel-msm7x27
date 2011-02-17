@@ -1843,6 +1843,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 
 	if (mmc) {
 		host->sdcc_suspending = 1;
+		mmc->suspend_task = current;
 
 		/*
 		 * MMC core thinks that host is disabled by now since
@@ -1878,6 +1879,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 			enable_irq(host->plat->sdiowakeup_irq);
 		}
 		host->sdcc_suspending = 0;
+		mmc->suspend_task = NULL;
 	}
 	return rc;
 }
