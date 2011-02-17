@@ -12,7 +12,7 @@
 
 
 
-/**! \file BMA250_driver.c
+/*  \file BMA250_driver.c
     \brief This file contains all function implementations for the BMA250 in linux
     
     Details.
@@ -379,7 +379,7 @@ int bma250_read_accel_xyz(bma250acc_t * acc)
 
 /* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-27 */
 #ifdef ADWARDK_ACCEL
-		//	printk(KERN_INFO "x=%d, y=%d, z=%d \n",acc->x, acc->y, acc->z);
+			printk(KERN_INFO "x=%d, y=%d, z=%d \n",acc->x, acc->y, acc->z);
 #endif
 /* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */   
    
@@ -3503,7 +3503,8 @@ static ssize_t bma250_read(struct file *file, char __user *buf, size_t count, lo
 	if( bma250_client == NULL )
 	{
 #ifdef BMA250_DEBUG
-		printk(KERN_INFO "I2C driver not install\n");
+		//printk(KERN_INFO "I2C driver not install\n");
+		printk(KERN_INFO "%s : I2c drvier fail\n",__FUNCTION__);
 #endif
 		return -1;
 	}
@@ -3548,7 +3549,8 @@ static unsigned int bma250_poll(struct file *file, poll_table *wait)
     if( bma250_client == NULL)
 	{
 #ifdef BMA250_DEBUG
-		printk(KERN_INFO "I2C driver not install\n"); 
+		//printk(KERN_INFO "I2C driver not install\n"); 
+		printk(KERN_INFO "%s : I2c drvier fail\n",__FUNCTION__);
 #endif
 		return -1;
 	}
@@ -3571,13 +3573,14 @@ static int bma250_open(struct inode *inode, struct file *file)
 	if( bma250_client == NULL)
 	{
 #ifdef BMA250_DEBUG
-		printk(KERN_INFO "I2C driver not install\n"); 
+		//printk(KERN_INFO "I2C driver not install\n"); 
+		printk(KERN_INFO "%s : I2c drvier fail\n",__FUNCTION__);
 #endif
 		return -1;
 	}
 
 #ifdef BMA250_DEBUG
-	printk(KERN_INFO "BMA250 has been opened\n");
+//	printk(KERN_INFO "BMA250 has been opened\n");
 #endif
 	return 0;
 }
@@ -3606,21 +3609,21 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 	
 
 #ifdef BMA250_DEBUG
-//	printk(KERN_INFO "%s\n",__FUNCTION__);	
+	printk(KERN_INFO "%s\n",__FUNCTION__);	
 #endif
 
 	/* check cmd */
 	if(_IOC_TYPE(cmd) != BMA250_IOC_MAGIC)	
 	{
 #ifdef BMA250_DEBUG		
-		printk(KERN_INFO "cmd magic type error\n");
+		printk(KERN_INFO "%s : cmd magic type error\n",__FUNCTION__);
 #endif
 		return -ENOTTY;
 	}
 	if(_IOC_NR(cmd) > BMA250_IOC_MAXNR)
 	{
 #ifdef BMA250_DEBUG
-		printk(KERN_INFO "cmd number error\n");
+		printk(KERN_INFO "%s : cmd number error\n",__FUNCTION__);
 #endif
 		return -ENOTTY;
 	}
@@ -3632,7 +3635,7 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 	if(err)
 	{
 #ifdef BMA250_DEBUG
-		printk(KERN_INFO "cmd access_ok error\n");
+		printk(KERN_INFO "%s : cmd access_ok error\n",__FUNCTION__);
 #endif
 		return -EFAULT;
 	}
@@ -3640,11 +3643,11 @@ static int bma250_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 	if( bma250_client == NULL)
 	{
 #ifdef BMA250_DEBUG
-		printk(KERN_INFO "I2C driver not install\n"); 
+		//printk(KERN_INFO "I2C driver not install\n"); 
+		printk(KERN_INFO "%s : I2c drvier fail\n",__FUNCTION__);
 #endif
 		return -EFAULT;
 	}
-
 /* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-01-24 */
 /* ------ explan by ad --------
 ioctl 32bit data
@@ -3674,7 +3677,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_1 : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3686,7 +3689,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_2 : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3696,7 +3699,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_3 : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3708,7 +3711,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_4 : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3719,7 +3722,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3731,7 +3734,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3742,7 +3745,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,3)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3750,7 +3753,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,3)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3760,7 +3763,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,3)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3778,7 +3781,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((short*)arg,(short*)data,2)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3789,7 +3792,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((short*)arg,(short*)data,2)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3800,7 +3803,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((short*)arg,(short*)data,2)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3811,7 +3814,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3822,7 +3825,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3839,7 +3842,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 /* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-02-08 */
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3853,7 +3856,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3864,7 +3867,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3875,7 +3878,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3886,7 +3889,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3897,7 +3900,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3908,7 +3911,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3919,7 +3922,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3930,7 +3933,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3940,7 +3943,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3948,7 +3951,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3959,7 +3962,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3969,7 +3972,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3977,7 +3980,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3988,7 +3991,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -3998,7 +4001,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4006,7 +4009,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4017,7 +4020,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4028,7 +4031,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4039,7 +4042,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4050,7 +4053,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4060,7 +4063,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4077,7 +4080,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4089,7 +4092,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4106,7 +4109,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4118,7 +4121,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4128,7 +4131,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4140,7 +4143,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4150,7 +4153,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4162,7 +4165,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4172,7 +4175,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4184,7 +4187,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4194,7 +4197,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4205,7 +4208,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4213,7 +4216,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4225,7 +4228,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4236,7 +4239,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4244,7 +4247,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4255,7 +4258,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4266,7 +4269,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4274,7 +4277,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4290,7 +4293,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4306,7 +4309,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4318,7 +4321,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4329,7 +4332,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4337,7 +4340,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4347,7 +4350,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4358,7 +4361,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4366,7 +4369,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4376,7 +4379,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4387,7 +4390,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4395,7 +4398,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4406,7 +4409,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4417,7 +4420,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4425,7 +4428,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4435,7 +4438,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4443,7 +4446,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4453,7 +4456,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4465,7 +4468,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4475,7 +4478,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4487,7 +4490,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4497,7 +4500,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4509,7 +4512,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4519,7 +4522,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4531,7 +4534,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4541,7 +4544,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4553,7 +4556,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4563,7 +4566,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4575,7 +4578,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4585,7 +4588,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4597,7 +4600,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4607,7 +4610,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4619,7 +4622,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4629,7 +4632,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4641,7 +4644,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4651,7 +4654,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4663,7 +4666,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4673,7 +4676,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4685,7 +4688,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4695,7 +4698,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4707,7 +4710,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4717,7 +4720,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4729,7 +4732,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4739,7 +4742,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4751,7 +4754,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4760,7 +4763,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4772,7 +4775,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4781,7 +4784,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4793,7 +4796,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4803,7 +4806,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4815,7 +4818,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4825,7 +4828,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4837,7 +4840,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4846,7 +4849,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4858,7 +4861,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4869,7 +4872,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4880,7 +4883,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4892,7 +4895,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4903,7 +4906,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4915,7 +4918,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4925,7 +4928,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4937,7 +4940,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4947,7 +4950,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4959,7 +4962,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4970,7 +4973,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4982,7 +4985,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -4996,7 +4999,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5008,7 +5011,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5022,7 +5025,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5030,7 +5033,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5040,7 +5043,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5051,7 +5054,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5063,7 +5066,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5077,7 +5080,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5089,7 +5092,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5099,7 +5102,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5111,7 +5114,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5121,7 +5124,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5133,7 +5136,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5143,7 +5146,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5155,7 +5158,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5165,7 +5168,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5177,7 +5180,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5187,7 +5190,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5199,7 +5202,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5209,7 +5212,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5221,7 +5224,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5231,7 +5234,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5243,7 +5246,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5253,7 +5256,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5265,7 +5268,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5275,7 +5278,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5287,7 +5290,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5297,7 +5300,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5309,7 +5312,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5319,7 +5322,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5330,7 +5333,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,2)!=0)
 		{
 #ifdef BMA250_DEBUG			
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5341,7 +5344,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5352,7 +5355,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5363,7 +5366,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_from_user(data,(unsigned char*)arg,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_from_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_from_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5375,7 +5378,7 @@ ex) BMA250_READ_ACCEL_XYZ => c002 420d
 		if(copy_to_user((unsigned char*)arg,data,1)!=0)
 		{
 #ifdef BMA250_DEBUG
-			printk(KERN_INFO "copy_to_user error\n");
+			printk(KERN_INFO "bma250_ioctl_ : copy_to_user error\n");
 #endif
 			return -EFAULT;
 		}
@@ -5603,13 +5606,15 @@ static int bma250_remove(struct i2c_client *client)
 	return 0;
 }
 
-#if 0 /* not used */
+#if 1 /* not used */
 static unsigned short normal_i2c[] = { I2C_CLIENT_END};
 #endif
 
 #ifdef BMA250_MODULES 
 I2C_CLIENT_INSMOD_1(bma250);
 #endif
+
+
 
 static const struct i2c_device_id bma250_id[] = {
 	{ "bma250", 0 },
@@ -5628,10 +5633,11 @@ static struct i2c_driver bma250_driver = {
 #if 0 /* FIXME: */
 	.address_data	= &addr_data,
 #endif
+	.address_list   = normal_i2c,
 	.probe		= bma250_probe,
 	.remove		= bma250_remove,
 	.detect		= bma250_detect,
-    .suspend    = bma250_suspend,
+  .suspend    = bma250_suspend,
     .resume     = bma250_resume,
 };
 
