@@ -469,7 +469,7 @@ void msm_mpm_exit_sleep(bool from_idle)
 		pending = msm_mpm_read(MSM_MPM_STATUS_REG_PENDING, i);
 
 		if (MSM_MPM_DEBUG_PENDING_IRQ & msm_mpm_debug_mask)
-			pr_info("%s: pending.%d: 0x%08lu", __func__,
+			pr_info("%s: pending.%d: 0x%08lx", __func__,
 				i, pending);
 
 		k = find_first_bit(&pending, 32);
