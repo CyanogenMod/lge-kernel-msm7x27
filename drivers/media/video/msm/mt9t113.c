@@ -1079,6 +1079,9 @@ static int mt9t113_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_init = mt9t113_sensor_init;
 	s->s_release = mt9t113_sensor_release;
 	s->s_config  = mt9t113_sensor_config;
+//LGE_DEV_PORTING
+	s->s_mount_angle  = 0;
+//LGE_DEV_END
 
 	cfg_wq = 0;
 	cfg_wq_num = 0;
