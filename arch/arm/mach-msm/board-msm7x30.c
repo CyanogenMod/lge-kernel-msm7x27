@@ -3361,7 +3361,9 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 };
 
 #ifdef CONFIG_USB_GADGET
-static struct msm_hsusb_gadget_platform_data msm_gadget_pdata;
+static struct msm_hsusb_gadget_platform_data msm_gadget_pdata = {
+	.is_phy_status_timer_on = 1,
+};
 #endif
 #ifndef CONFIG_USB_EHCI_MSM
 typedef void (*notify_vbus_state) (int);
