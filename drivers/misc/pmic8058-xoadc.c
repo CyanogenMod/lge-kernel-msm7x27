@@ -372,8 +372,11 @@ int32_t pm8058_xoadc_select_chan_and_start_conv(uint32_t adc_instance,
 
 	mutex_lock(&slot_state->list_lock);
 	list_add_tail(&slot->list, &slot_state->slots);
-	if (adc_pmic->xoadc_queue_count == 0)
+	if (adc_pmic->xoadc_queue_count == 0) {
+		if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+			adc_pmic->pdata->xoadc_vreg_set(1);
 		pm8058_xoadc_configure(adc_instance, slot);
+	}
 	adc_pmic->xoadc_queue_count++;
 	mutex_unlock(&slot_state->list_lock);
 
@@ -461,6 +464,8 @@ int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance, int32_t *data)
 						"failed\n", __func__);
 			return rc;
 		}
+		if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+			adc_pmic->pdata->xoadc_vreg_set(0);
 	}
 	mutex_unlock(&slot_state->list_lock);
 
@@ -504,6 +509,9 @@ int32_t pm8058_xoadc_calib_device(uint32_t adc_instance)
 	struct adc_conv_slot *slot;
 	int rc, offset_xoadc, slope_xoadc, calib_read_1, calib_read_2;
 
+	if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+		adc_pmic->pdata->xoadc_vreg_set(1);
+
 	pm8058_xoadc_slot_request(adc_instance, &slot);
 	if (slot) {
 		slot->chan_path = CHAN_PATH_TYPE13;
@@ -513,10 +521,12 @@ int32_t pm8058_xoadc_calib_device(uint32_t adc_instance)
 		rc = pm8058_xoadc_configure(adc_instance, slot);
 		if (rc) {
 			pr_err("pm8058_xoadc configure failed\n");
-			return rc;
+			goto fail;
 		}
-	} else
-		return -EINVAL;
+	} else {
+		rc = -EINVAL;
+		goto fail;
+	}
 
 	msleep(3);
 
@@ -524,7 +534,7 @@ int32_t pm8058_xoadc_calib_device(uint32_t adc_instance)
 	if (rc) {
 		pr_err("pm8058_xoadc read adc failed\n");
 		xoadc_calib_first_adc = false;
-		return rc;
+		goto fail;
 	}
 	xoadc_calib_first_adc = false;
 
@@ -537,10 +547,12 @@ int32_t pm8058_xoadc_calib_device(uint32_t adc_instance)
 		rc = pm8058_xoadc_configure(adc_instance, slot);
 		if (rc) {
 			pr_err("pm8058_xoadc configure failed\n");
-			return rc;
+			goto fail;
 		}
-	} else
-		return -EINVAL;
+	} else {
+		rc = -EINVAL;
+		goto fail;
+	}
 
 	msleep(3);
 
@@ -548,7 +560,7 @@ int32_t pm8058_xoadc_calib_device(uint32_t adc_instance)
 	if (rc) {
 		pr_err("pm8058_xoadc read adc failed\n");
 		xoadc_calib_first_adc = false;
-		return rc;
+		goto fail;
 	}
 	xoadc_calib_first_adc = false;
 
@@ -571,7 +583,15 @@ int32_t pm8058_xoadc_calib_device(uint32_t adc_instance)
 	adc_pmic->adc_graph[1].dy = (1 << 15) - 1;
 	adc_pmic->adc_graph[1].dx = 2200;
 
+	if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+		adc_pmic->pdata->xoadc_vreg_set(0);
+
 	return 0;
+fail:
+	if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+		adc_pmic->pdata->xoadc_vreg_set(0);
+
+	return rc;
 }
 EXPORT_SYMBOL(pm8058_xoadc_calib_device);
 
@@ -587,6 +607,9 @@ EXPORT_SYMBOL(pm8058_xoadc_calibrate);
 static int __devexit pm8058_xoadc_teardown(struct platform_device *pdev)
 {
 	struct pmic8058_adc *adc_pmic = platform_get_drvdata(pdev);
+
+	if (adc_pmic->pdata->xoadc_vreg_shutdown != NULL)
+		adc_pmic->pdata->xoadc_vreg_shutdown();
 
 	platform_set_drvdata(pdev, adc_pmic->pm_chip);
 	device_init_wakeup(&pdev->dev, 0);
@@ -694,18 +717,8 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 
 	pmic_adc[adc_pmic->xoadc_num] = adc_pmic;
 
-	if (pdata->xoadc_setup != NULL)
-		pdata->xoadc_setup();
-
-	if (pdata->xoadc_vreg_set != NULL) {
-		rc = pdata->xoadc_vreg_set(1);
-		if (rc) {
-			pr_err("%s: adc vreg sleep set failed (%d)\n",
-				__func__, rc);
-			goto err_cleanup;
-		}
-	}
-	pr_debug("pm8058 xoadc successfully registered\n");
+	if (pdata->xoadc_vreg_setup != NULL)
+		pdata->xoadc_vreg_setup();
 
 	xoadc_initialized = true;
 	xoadc_calib_first_adc = false;
