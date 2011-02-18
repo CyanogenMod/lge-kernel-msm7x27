@@ -280,6 +280,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 
 	atomic_inc(&this_mmap.ref_cnt);
 	init_waitqueue_head(&ac->cmd_wait);
+	init_waitqueue_head(&ac->time_wait);
+	atomic_set(&ac->time_flag, 1);
 	mutex_init(&ac->cmd_lock);
 	for (lcnt = 0; lcnt <= OUT; lcnt++) {
 		mutex_init(&ac->port[lcnt].lock);
@@ -617,6 +619,18 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		break;
 	case ASM_SESSION_EVENT_TX_OVERFLOW:
 		pr_err("ASM_SESSION_EVENT_TX_OVERFLOW\n");
+		break;
+	case ASM_SESSION_CMDRSP_GET_SESSION_TIME:
+		pr_debug("%s: ASM_SESSION_CMDRSP_GET_SESSION_TIME, "
+				"payload[0] = %d, payload[1] = %d, "
+				"payload[2] = %d\n", __func__,
+				 payload[0], payload[1], payload[2]);
+		ac->time_stamp = (uint32_t)(((uint64_t)payload[1] << 32) |
+				payload[2]);
+		if (atomic_read(&ac->time_flag)) {
+			atomic_set(&ac->time_flag, 0);
+			wake_up(&ac->time_wait);
+		}
 		break;
 	}
 	if (ac->cb)
@@ -1995,6 +2009,40 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 		pr_debug("%s: WRITE SUCCESS\n", __func__);
 		return 0;
 	}
+fail_cmd:
+	return -EINVAL;
+}
+
+uint32_t q6asm_get_session_time(struct audio_client *ac)
+{
+	struct apr_hdr hdr;
+	int rc;
+
+	if (!ac || ac->apr == NULL) {
+		pr_err("APR handle NULL\n");
+		return -EINVAL;
+	}
+	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
+	hdr.opcode = ASM_SESSION_CMD_GET_SESSION_TIME;
+	atomic_set(&ac->time_flag, 1);
+
+	pr_debug("%s: session[%d]opcode[0x%x]\n", __func__,
+						ac->session,
+						hdr.opcode);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &hdr);
+	if (rc < 0) {
+		pr_err("Commmand 0x%x failed\n", hdr.opcode);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->time_wait,
+			(atomic_read(&ac->time_flag) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout in getting session time from DSP\n",
+			__func__);
+		goto fail_cmd;
+	}
+	return ac->time_stamp;
+
 fail_cmd:
 	return -EINVAL;
 }
