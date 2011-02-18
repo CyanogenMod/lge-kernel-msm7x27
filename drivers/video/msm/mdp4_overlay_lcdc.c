@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -236,11 +236,6 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	mdp_bus_scale_update_request(2);
 #endif
 
-	mdp_intr_mask &= ~(INTR_OVERLAY0_DONE | INTR_DMA_P_DONE);
-	mdp_intr_mask |= INTR_PRIMARY_VSYNC; /* listen on vsycn only */
-	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-	mdp_enable_irq(MDP_DMA2_TERM);	/* enable intr */
-
 	ret = panel_next_on(pdev);
 	if (ret == 0) {
 		/* enable LCDC block */
@@ -316,12 +311,17 @@ void mdp4_overlay_lcdc_wait4vsync(struct msm_fb_data_type *mfd)
 {
 	unsigned long flag;
 
-	INIT_COMPLETION(lcdc_comp);
+	 /* enable irq */
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (mfd->dma->waiting == FALSE)
-		mfd->dma->waiting = TRUE;
+	mdp_enable_irq(MDP_DMA2_TERM);	/* enable intr */
+	INIT_COMPLETION(lcdc_comp);
+	mfd->dma->waiting = TRUE;
+	outp32(MDP_INTR_CLEAR, INTR_PRIMARY_VSYNC);
+	mdp_intr_mask |= INTR_PRIMARY_VSYNC;
+	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	wait_for_completion_killable(&lcdc_comp);
+	mdp_disable_irq(MDP_DMA2_TERM);
 }
 
 void mdp4_overlay_vsync_push(struct msm_fb_data_type *mfd,
