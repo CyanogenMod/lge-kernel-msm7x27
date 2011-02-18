@@ -111,20 +111,37 @@ static struct platform_driver mddi_driver = {
 };
 
 extern int int_mddi_pri_flag;
-
-void pmdh_clk_set(int enable)
-{
-	if (enable)
-		pmdh_clk_enable();
-	else
-		pmdh_clk_disable();
-}
 DEFINE_MUTEX(pmdh_clk_lock);
+
+int pmdh_clk_func(int value)
+{
+	int ret = 0;
+
+	switch (value) {
+	case 0:
+		pmdh_clk_disable();
+		break;
+	case 1:
+		pmdh_clk_enable();
+		break;
+	case 2:
+	default:
+		mutex_lock(&pmdh_clk_lock);
+		ret = pmdh_clk_status;
+		mutex_unlock(&pmdh_clk_lock);
+		break;
+	}
+	return ret;
+}
+
 static void pmdh_clk_disable()
 {
-	if (pmdh_clk_status == 0)
-		return;
 	mutex_lock(&pmdh_clk_lock);
+	if (pmdh_clk_status == 0) {
+		mutex_unlock(&pmdh_clk_lock);
+		return;
+	}
+
 	if (mddi_host_timer.function) {
 		mutex_lock(&mddi_timer_lock);
 		mddi_timer_shutdown_flag = 1;
@@ -150,10 +167,12 @@ static void pmdh_clk_disable()
 
 static void pmdh_clk_enable()
 {
-	if (pmdh_clk_status == 1)
-		return;
-
 	mutex_lock(&pmdh_clk_lock);
+	if (pmdh_clk_status == 1) {
+		mutex_unlock(&pmdh_clk_lock);
+		return;
+	}
+
 	if (mddi_clk) {
 		clk_enable(mddi_clk);
 		pmdh_clk_status = 1;
@@ -337,7 +356,7 @@ static int mddi_probe(struct platform_device *pdev)
 	pdata->on = mddi_on;
 	pdata->off = mddi_off;
 	pdata->next = pdev;
-	pdata->clk_set = pmdh_clk_set;
+	pdata->clk_func = pmdh_clk_func;
 	/*
 	 * get/set panel specific fb info
 	 */

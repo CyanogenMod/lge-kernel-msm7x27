@@ -426,9 +426,15 @@ void mdp_vsync_resync_workqueue_handler(struct work_struct *work)
 			    platform_data;
 
 			if (pdata->set_vsync_notifier != NULL) {
+				if (pdata->clk_func && !pdata->clk_func(2)) {
+					mfd->vsync_handler_pending = FALSE;
+					return;
+				}
+
+				pdata->set_vsync_notifier(
+						mdp_vsync_handler,
+						(void *)mfd);
 				vsync_fnc_enabled = TRUE;
-				pdata->set_vsync_notifier(mdp_vsync_handler,
-							  (void *)mfd);
 			}
 		}
 	}

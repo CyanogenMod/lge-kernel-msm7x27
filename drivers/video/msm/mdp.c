@@ -591,8 +591,8 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 				for (i = 0; i < pdev_list_cnt; i++) {
 					pdata = (struct msm_fb_panel_data *)
 						pdev_list[i]->dev.platform_data;
-					if (pdata && pdata->clk_set)
-						pdata->clk_set(0);
+					if (pdata && pdata->clk_func)
+						pdata->clk_func(0);
 				}
 				if (mdp_clk != NULL) {
 					clk_disable(mdp_clk);
@@ -614,8 +614,8 @@ void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 			for (i = 0; i < pdev_list_cnt; i++) {
 				pdata = (struct msm_fb_panel_data *)
 					pdev_list[i]->dev.platform_data;
-				if (pdata && pdata->clk_set)
-					pdata->clk_set(1);
+				if (pdata && pdata->clk_func)
+					pdata->clk_func(1);
 			}
 			if (mdp_clk != NULL) {
 				clk_enable(mdp_clk);
