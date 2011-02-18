@@ -366,7 +366,11 @@ static void kr_exit(void)
 static int accel_power_on(void)
 {
 	int ret = 0;
-	struct vreg *gp3_vreg = vreg_get(0, "rfrx2");
+	struct vreg *gp3_vreg;
+	if(lge_bd_rev == LGE_REV_A)
+		gp3_vreg = vreg_get(0, "gp3");
+	else
+		gp3_vreg = vreg_get(0, "rfrx2");
 
 	printk("[Accelerometer] %s() : Power On\n",__FUNCTION__);
 
@@ -379,7 +383,11 @@ static int accel_power_on(void)
 static int accel_power_off(void)
 {
 	int ret = 0;
-	struct vreg *gp3_vreg = vreg_get(0, "rfrx2");
+	struct vreg *gp3_vreg;
+	if(lge_bd_rev == LGE_REV_A)
+		gp3_vreg = vreg_get(0, "gp3");
+	else
+		gp3_vreg = vreg_get(0, "rfrx2");
 
 	printk("[Accelerometer] %s() : Power Off\n",__FUNCTION__);
 

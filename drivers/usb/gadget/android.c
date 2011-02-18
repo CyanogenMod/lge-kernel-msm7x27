@@ -652,7 +652,6 @@ void android_enable_function(struct usb_function *f, int enable)
 			dev->cdev->desc.idProduct = device_desc.idProduct;
 
 		usb_composite_force_reset(dev->cdev);
-
 		return;
 	}
 #endif
@@ -736,6 +735,10 @@ void android_enable_function(struct usb_function *f, int enable)
 			dev->cdev->desc.idProduct = device_desc.idProduct;
 
 		usb_composite_force_reset(dev->cdev);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+		/* Trigger uevent for enabling/disabling function */
+		usb_function_set_enabled(f, enable);
+#endif
 	}
 }
 
