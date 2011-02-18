@@ -5102,9 +5102,50 @@ static struct i2c_board_info pm8901_boardinfo[] __initdata = {
 	|| defined(CONFIG_GPIO_SX150X_MODULE))
 
 static struct regulator *vreg_bahama;
+
+struct bahama_config_register{
+	u8 reg;
+	u8 value;
+	u8 mask;
+};
+
+enum version{
+	VER_1_0,
+	VER_2_0,
+	VER_UNSUPPORTED = 0xFF
+};
+
+static u8 read_bahama_ver(void)
+{
+	int rc;
+	struct marimba config = { .mod_id = SLAVE_ID_BAHAMA };
+	u8 bahama_version;
+
+	rc = marimba_read_bit_mask(&config, 0x00,  &bahama_version, 1, 0x1F);
+	if (rc < 0) {
+		printk(KERN_ERR
+			 "%s: version read failed: %d\n",
+			__func__, rc);
+			return rc;
+	} else {
+		printk(KERN_INFO
+		"%s: version read got: 0x%x\n",
+		__func__, bahama_version);
+	}
+
+	switch (bahama_version) {
+	case 0x08: /* varient of bahama v1 */
+	case 0x10:
+	case 0x00:
+		return VER_1_0;
+	case 0x09: /* variant of bahama v2 */
+		return VER_2_0;
+	default:
+		return VER_UNSUPPORTED;
+	}
+}
+
 static unsigned int msm_bahama_setup_power(void)
-
-
 {
 	int rc = 0;
 	const char *msm_bahama_regulator = "8058_s3";
@@ -5172,6 +5213,48 @@ static unsigned int msm_bahama_shutdown_power(int value)
 
 	return 0;
 };
+
+static unsigned int msm_bahama_core_config(int type)
+{
+	int rc = 0;
+
+	if (type == BAHAMA_ID) {
+
+		int i;
+		struct marimba config = { .mod_id = SLAVE_ID_BAHAMA };
+
+		const struct bahama_config_register v20_init[] = {
+			/* reg, value, mask */
+			{ 0xF4, 0x84, 0xFF }, /* AREG */
+			{ 0xF0, 0x04, 0xFF } /* DREG */
+		};
+
+		if (read_bahama_ver() == VER_2_0) {
+			for (i = 0; i < ARRAY_SIZE(v20_init); i++) {
+				u8 value = v20_init[i].value;
+				rc = marimba_write_bit_mask(&config,
+					v20_init[i].reg,
+					&value,
+					sizeof(v20_init[i].value),
+					v20_init[i].mask);
+				if (rc < 0) {
+					printk(KERN_ERR
+						"%s: reg %d write failed: %d\n",
+						__func__, v20_init[i].reg, rc);
+					return rc;
+				}
+				printk(KERN_INFO "%s: reg 0x%02x value 0x%02x"
+					" mask 0x%02x\n",
+					__func__, v20_init[i].reg,
+					v20_init[i].value, v20_init[i].mask);
+			}
+		}
+	}
+	printk(KERN_INFO "core type: %d\n", type);
+
+	return rc;
+}
+
 static struct regulator *fm_regulator_s3;
 static struct msm_xo_voter *fm_clock;
 
@@ -5295,6 +5378,7 @@ static struct marimba_platform_data marimba_pdata = {
 	.slave_id[SLAVE_ID_BAHAMA_QMEMBIST]  = BAHAMA_SLAVE_ID_QMEMBIST_ADDR,
 	.bahama_setup = msm_bahama_setup_power,
 	.bahama_shutdown = msm_bahama_shutdown_power,
+	.bahama_core_config = msm_bahama_core_config,
 	.fm = &marimba_fm_pdata,
 };
 
@@ -7433,12 +7517,6 @@ static int bahama_bt(int on)
 	int i;
 	struct marimba config = { .mod_id =  SLAVE_ID_BAHAMA};
 
-	struct bahama_config_register {
-		u8 reg;
-		u8 value;
-		u8 mask;
-	};
-
 	struct bahama_variant_register {
 		const size_t size;
 		const struct bahama_config_register *set;
@@ -7520,36 +7598,28 @@ static int bahama_bt(int on)
 		}
 	};
 
+	u8 offset = 0; /* index into bahama configs */
+
 	/* Init mutex to get/set FM/BT status respectively */
 	mutex_init(&config.xfer_lock);
 
 	on = on ? 1 : 0;
-	rc = marimba_read_bit_mask(&config, 0x00,  &version, 1, 0x1F);
+	version = read_bahama_ver();
 
-	if (rc < 0) {
+	if (version ==  VER_UNSUPPORTED) {
 		dev_err(&msm_bt_power_device.dev,
-			"%s: version read failed: %d\n",
-			__func__, rc);
-		return rc;
+			"%s: unsupported version\n",
+			__func__);
+		return -EIO;
 	}
-	switch (version) {
-	case 0x00: /* varients of bahama v1 */
-	case 0x08:
-	case 0X10:
-		version = 0x00;
-		break;
-	case 0x09: /* variant of bahama v2 */
-		version = marimba_get_fm_status(&config) ? 0x02 : 0x01;
-		break;
-	default:
-		version = 0xFF;
-		dev_err(&msm_bt_power_device.dev,
-		 "%s: unsupported version\n", __func__);
-		break;
+
+	if (version == VER_2_0) {
+		if (marimba_get_fm_status(&config))
+			offset = 0x01;
 	}
 
 	/* Voting off 1.3V S2 Regulator,BahamaV2 used in Normal mode */
-	if (on && ((version == 0x02) || (version == 0x01)))  {
+	if (on && (version == VER_2_0)) {
 		for (i = 0; i < ARRAY_SIZE(bt_regs_info); i++) {
 			if ((!strcmp(bt_regs_info[i].name, "8058_s2"))
 				&& (bt_regs_status[i].enabled == true)) {
@@ -7563,20 +7633,13 @@ static int bahama_bt(int on)
 			}
 		}
 	}
-	if ((version >= ARRAY_SIZE(bt_bahama[on])) ||
-	    (bt_bahama[on][version].size == 0)) {
-		dev_err(&msm_bt_power_device.dev,
-			"%s: unsupported version\n",
-			__func__);
-		return -EIO;
-	}
 
-	p = bt_bahama[on][version].set;
+	p = bt_bahama[on][version + offset].set;
 
 	dev_info(&msm_bt_power_device.dev,
 		"%s: found version %d\n", __func__, version);
 
-	for (i = 0; i < bt_bahama[on][version].size; i++) {
+	for (i = 0; i < bt_bahama[on][version + offset].size; i++) {
 		u8 value = (p+i)->value;
 		rc = marimba_write_bit_mask(&config,
 			(p+i)->reg,
