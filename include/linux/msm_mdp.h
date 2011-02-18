@@ -1,7 +1,7 @@
 /* include/linux/msm_mdp.h
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -46,6 +46,9 @@
 #define MSMFB_OVERLAY_BLT_OFFSET     _IOW(MSMFB_IOCTL_MAGIC, 143, unsigned int)
 #define MSMFB_HISTOGRAM_START	_IO(MSMFB_IOCTL_MAGIC, 144)
 #define MSMFB_HISTOGRAM_STOP	_IO(MSMFB_IOCTL_MAGIC, 145)
+
+#define MSMFB_OVERLAY_3D       _IOWR(MSMFB_IOCTL_MAGIC, 146, \
+						struct msmfb_overlay_3d)
 
 #define MDP_IMGTYPE2_START 0x10000
 
@@ -206,14 +209,17 @@ struct mdp_overlay {
 	uint32_t user_data[8];
 };
 
+struct msmfb_overlay_3d {
+	uint32_t is_3d;
+	uint32_t width;
+	uint32_t height;
+};
+
 
 struct msmfb_overlay_blt {
 	uint32_t enable;
 	struct msmfb_data data;
 };
-
-
-
 
 struct mdp_histogram {
 	uint32_t frame_cnt;

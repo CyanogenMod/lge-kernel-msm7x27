@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -442,17 +442,14 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			mdp4_stat.intr_dma_s++;
 #if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
 			dma = &dma2_data;
-			dma->busy = FALSE;
-			mdp_pipe_ctrl(MDP_DMA_S_BLOCK,
-					MDP_BLOCK_POWER_OFF, TRUE);
-			mdp4_dma_s_done_mddi();
 #else
 			dma = &dma_s_data;
+#endif
+
 			dma->busy = FALSE;
 			mdp_pipe_ctrl(MDP_DMA_S_BLOCK,
 					MDP_BLOCK_POWER_OFF, TRUE);
 			complete(&dma->comp);
-#endif
 		}
 		if (isr & INTR_DMA_E_DONE) {
 			mdp4_stat.intr_dma_e++;
@@ -468,6 +465,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			}
 			spin_unlock(&mdp_spin_lock);
 		}
+#ifdef CONFIG_FB_MSM_OVERLAY
 		if (isr & INTR_OVERLAY0_DONE) {
 			mdp4_stat.intr_overlay0++;
 			dma = &dma2_data;
@@ -478,36 +476,28 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 				dma->waiting = FALSE;
 				spin_unlock(&mdp_spin_lock);
-#ifdef CONFIG_FB_MSM_OVERLAY
 				if (panel & MDP4_PANEL_LCDC)
 					mdp4_overlay0_done_lcdc();
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 				else if (panel & MDP4_PANEL_DSI_VIDEO)
 					mdp4_overlay0_done_dsi_video();
 #endif
-#endif
-			}
-#ifdef CONFIG_FB_MSM_MIPI_DSI
-			else if (panel & MDP4_PANEL_DSI_CMD) {
+			} else {	/* MDDI, DSI_CMD  */
 				dma->busy = FALSE;
-				mdp4_overlay0_done_dsi_cmd();
-			}
-#endif
-#ifdef CONFIG_FB_MSM_MDDI
-			else {	/* MDDI */
-				dma->busy = FALSE;
+				complete(&dma->comp);
 				mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK,
 					MDP_BLOCK_POWER_OFF, TRUE);
-#ifdef CONFIG_FB_MSM_OVERLAY
-				mdp4_overlay0_done_mddi();
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+				if (panel & MDP4_PANEL_DSI_CMD)
+					mdp4_overlay0_done_dsi_cmd();
+#else
+				if (panel & MDP4_PANEL_MDDI)
+					mdp4_overlay0_done_mddi();
 #endif
 			}
-#endif
 
 
-#ifdef CONFIG_FB_MSM_OVERLAY
 			mdp_hw_cursor_done();
-#endif
 		}
 		if (isr & INTR_OVERLAY1_DONE) {
 			mdp4_stat.intr_overlay1++;
@@ -518,16 +508,16 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 			dma->waiting = FALSE;
 			spin_unlock(&mdp_spin_lock);
-#ifdef CONFIG_FB_MSM_OVERLAY
 #if defined(CONFIG_FB_MSM_DTV)
 			if (panel & MDP4_PANEL_DTV)
 				mdp4_overlay1_done_dtv();
-#elif defined(CONFIG_FB_MSM_TVOUT)
+#endif
+#if defined(CONFIG_FB_MSM_TVOUT)
 			if (panel & MDP4_PANEL_ATV)
 				mdp4_overlay1_done_atv();
 #endif
-#endif
 		}
+#endif	/* OVERLAY */
 		if (isr & INTR_DMA_P_HISTOGRAM) {
 			isr = inpdw(MDP_DMA_P_HIST_INTR_STATUS);
 			mask = inpdw(MDP_DMA_P_HIST_INTR_ENABLE);
