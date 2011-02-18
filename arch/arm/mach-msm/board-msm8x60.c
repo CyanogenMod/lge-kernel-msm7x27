@@ -3151,14 +3151,54 @@ static void pmic8058_xoadc_mpp_config(void)
 		pr_err("%s: Config mpp10 on pmic 8058 failed\n", __func__);
 }
 
-static int pmic8058_xoadc_rpm_vreg_config(int on)
+static struct regulator *vreg_ldo18_adc;
+
+static int pmic8058_xoadc_vreg_config(int on)
 {
 	int rc;
 
-	rc = rpm_vreg_set_voltage(RPM_VREG_ID_PM8058_L18,
-				RPM_VREG_VOTER3, (on ? 2200000 : 0), 0);
+	if (on) {
+		rc = regulator_enable(vreg_ldo18_adc);
+		if (rc)
+			pr_err("%s: Enable of regulator ldo18_adc "
+						"failed\n", __func__);
+	} else {
+		rc = regulator_disable(vreg_ldo18_adc);
+		if (rc)
+			pr_err("%s: Disable of regulator ldo18_adc "
+						"failed\n", __func__);
+	}
 
 	return rc;
+}
+
+static int pmic8058_xoadc_vreg_setup(void)
+{
+	int rc;
+
+	vreg_ldo18_adc = regulator_get(NULL, "8058_l18");
+	if (IS_ERR(vreg_ldo18_adc)) {
+		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
+			__func__, PTR_ERR(vreg_ldo18_adc));
+		rc = PTR_ERR(vreg_ldo18_adc);
+		goto fail;
+	}
+
+	rc = regulator_set_voltage(vreg_ldo18_adc, 2200000, 2200000);
+	if (rc) {
+		pr_err("%s: unable to set ldo18 voltage to 2.2V\n", __func__);
+		goto fail;
+	}
+
+	return rc;
+fail:
+	regulator_put(vreg_ldo18_adc);
+	return rc;
+}
+
+static void pmic8058_xoadc_vreg_shutdown(void)
+{
+	regulator_put(vreg_ldo18_adc);
 }
 
 /* usec. For this ADC,
@@ -3176,8 +3216,10 @@ static struct adc_properties pm8058_xoadc_data = {
 static struct xoadc_platform_data xoadc_pdata = {
 	.xoadc_prop = &pm8058_xoadc_data,
 	.xoadc_mpp_config = pmic8058_xoadc_mpp_config,
-	.xoadc_vreg_set = pmic8058_xoadc_rpm_vreg_config,
+	.xoadc_vreg_set = pmic8058_xoadc_vreg_config,
 	.xoadc_num = XOADC_PMIC_0,
+	.xoadc_vreg_setup = pmic8058_xoadc_vreg_setup,
+	.xoadc_vreg_shutdown = pmic8058_xoadc_vreg_shutdown,
 };
 #endif
 
