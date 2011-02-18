@@ -1530,10 +1530,6 @@ static int msm_hs_startup(struct uart_port *uport)
 			return ret;
 	}
 
-	ret = set_irq_wake(uport->irq, 1);
-	if (unlikely(ret))
-		return ret;
-
 	ret = request_irq(uport->irq, msm_hs_isr, IRQF_TRIGGER_HIGH,
 			  "msm_hs_uart", msm_uport);
 	if (unlikely(ret))
@@ -1874,8 +1870,6 @@ static void msm_hs_shutdown(struct uart_port *uport)
 
 	if (use_low_power_wakeup(msm_uport))
 		set_irq_wake(msm_uport->wakeup.irq, 0);
-
-	set_irq_wake(uport->irq, 0);
 
 	/* Free the interrupt */
 	free_irq(uport->irq, msm_uport);
