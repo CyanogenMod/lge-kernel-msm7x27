@@ -471,7 +471,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		TO DO
 	} */
 #if defined(CONFIG_DIAG_OVER_USB)
-	else if (CHK_APQ_GET_ID()) { /* Check for ID for APQ8060 */
+	 /* Check for ID for APQ8060 AND NO MODEM present */
+	else if (!(driver->ch) && CHK_APQ_GET_ID()) {
 		/* Respond to polling for Apps only DIAG */
 		if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
 							 (*(buf+2) == 0x03)) {
@@ -595,7 +596,7 @@ void diag_process_hdlc(void *data, unsigned len)
 		driver->debug_flag = 0;
 	}
 	/* implies this packet is NOT meant for apps */
-	if (type == 1 && CHK_APQ_GET_ID()) {
+	if (!(driver->ch) && type == 1 && CHK_APQ_GET_ID()) {
 		if (driver->chqdsp)
 			smd_write(driver->chqdsp, driver->hdlc_buf,
 							 hdlc.dest_idx - 3);
