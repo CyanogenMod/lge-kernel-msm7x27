@@ -70,7 +70,7 @@ PARTICULAR PURPOSE.  See the * GNU General Public License for more details. * */
 #define MAX_Y_POS_LOW_REG			0x2F
 #define MAX_Y_POS_HIGH_REG			0x30
 
-#define QUERY_BASE_REG				0xE9
+#define QUERY_BASE_REG				0xE3
 
 #ifdef SYNAPTICS_MELTINGMODE
 #define SYNAPTICS_MELTING_REG	0xF0
@@ -989,7 +989,7 @@ static int synaptics_ts_probe(
 	{
 		kind_of_product = SYNAPTICS_2100;
 	}
-	else if(strcmp(product_name, "TM1818-001")==0)
+	else
 	{
 		kind_of_product = SYNAPTICS_3000;
 	}

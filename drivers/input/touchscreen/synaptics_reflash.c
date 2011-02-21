@@ -773,7 +773,7 @@ void synaptics_test_write_block_data(void)
 unsigned int SynaDoReflash(struct i2c_client *syn_touch, int fw_revision)
 {
 #if 1
-  if((fw_revision >= SynaFirmware[0x1F]) && (is_need_forced_update == 0))
+  if((fw_revision == SynaFirmware[0x1F]) && (is_need_forced_update == 0))
   {
     printk(KERN_INFO "synaptics_ts_fw_angent : F/W version is up-to-date\n");
   	return -1;

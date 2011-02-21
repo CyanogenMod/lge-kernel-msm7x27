@@ -61,9 +61,8 @@ int SynaWriteRegister(unsigned short   uRmiAddress, unsigned char  *data, unsign
 
 	switch(length)
 	{
-
 		case 1:
-			smbus_ret=i2c_smbus_write_byte_data(syn_touch_client,(u8)uRmiAddress, *data);
+			smbus_ret=i2c_smbus_write_byte_data(syn_touch_client,(u8)uRmiAddress,*data);
 			break;
 		case 2:
 			data_word=data[1]*0x100+data[0];
@@ -124,5 +123,6 @@ int SynaReadRegister(unsigned short  uRmiAddress, unsigned char * data, unsigned
 
 void SynaI2CClientInit(struct i2c_client *syn_touch)
 {
+	syn_touch_client = syn_touch;
 	printk(KERN_INFO "SynaI2CClientInit = 0x%x\n", syn_touch->addr);
 }
