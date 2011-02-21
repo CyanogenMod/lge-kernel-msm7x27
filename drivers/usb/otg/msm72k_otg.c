@@ -221,6 +221,10 @@ static void set_aca_id_inputs(struct msm_otg *dev)
 		pr_debug("ID_C set\n");
 		set_bit(ID_C, &dev->inputs);
 	}
+	if (is_b_sess_vld())
+		set_bit(B_SESS_VLD, &dev->inputs);
+	else
+		clear_bit(B_SESS_VLD, &dev->inputs);
 }
 #define get_aca_bmaxpower(dev)		(dev->b_max_power)
 #define set_aca_bmaxpower(dev, power)	(dev->b_max_power = power)
@@ -2161,6 +2165,12 @@ static void msm_otg_id_func(unsigned long _dev)
 	wake_lock(&dev->wlock);
 	queue_work(dev->wq, &dev->sm_work);
 out:
+	/* OOPS: runing while !BSV, schedule work to initiate LPM */
+	if (!is_b_sess_vld()) {
+		clear_bit(B_SESS_VLD, &dev->inputs);
+		wake_lock(&dev->wlock);
+		queue_work(dev->wq, &dev->sm_work);
+	}
 	return;
 }
 #endif
