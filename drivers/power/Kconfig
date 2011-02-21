@@ -219,4 +219,11 @@ config BATTERY_QCIBAT
 	 Say Y here if you want to use the Quanta battery driver for ST15
 	 platform.
 
+config LGE_FUEL_SPG
+	tristate "LGE FUEL SPG"
+	depends on ARCH_MSM && BATTERY_MSM
+	default n
+	help
+	  Say Y to enable LGE Fuel Gauge
+
 endif # POWER_SUPPLY

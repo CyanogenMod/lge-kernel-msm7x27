@@ -160,7 +160,7 @@ static struct list_head _functions = LIST_HEAD_INIT(_functions);
  */
 static bool _are_functions_bound;
 #else /* below is original */
-static int _registered_function_count = 0;
+static int _registered_function_count;
 #endif
 
 
@@ -451,11 +451,10 @@ static int __devinit android_bind(struct usb_composite_dev *cdev)
 	 * Set default device class
 	 * 2011-01-12, hyunhui.park@lge.com
 	 */
-	if ((product_id == LGE_DEFAULT_PID) || (product_id == LGE_FACTORY_PID)) {
+	if ((product_id == LGE_DEFAULT_PID) || (product_id == LGE_FACTORY_PID))
 		set_device_class(device_desc, USB_CLASS_COMM, 0x00, 0x00);
-	} else {
+	else
 		set_device_class(device_desc, USB_CLASS_MISC, 0x02, 0x01);
-	}
 #endif
 
 	return 0;
@@ -653,7 +652,6 @@ void android_enable_function(struct usb_function *f, int enable)
 			dev->cdev->desc.idProduct = device_desc.idProduct;
 
 		usb_composite_force_reset(dev->cdev);
-
 		return;
 	}
 #endif
@@ -737,6 +735,10 @@ void android_enable_function(struct usb_function *f, int enable)
 			dev->cdev->desc.idProduct = device_desc.idProduct;
 
 		usb_composite_force_reset(dev->cdev);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+		/* Trigger uevent for enabling/disabling function */
+		usb_function_set_enabled(f, enable);
+#endif
 	}
 }
 

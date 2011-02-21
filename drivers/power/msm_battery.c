@@ -198,7 +198,7 @@ struct rpc_reply_batt_chg_v1 {
 	u32	battery_level;
 	u32     battery_voltage;
 	u32	battery_temp;
-#ifdef CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	u32	battery_soc;
 #endif
 };
@@ -455,7 +455,7 @@ static int msm_batt_get_batt_chg_status(void)
 		be32_to_cpu_self(v1p->battery_level);
 		be32_to_cpu_self(v1p->battery_voltage);
 		be32_to_cpu_self(v1p->battery_temp);
-#ifdef CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 		be32_to_cpu_self(v1p->battery_soc);
 #endif
 
@@ -488,7 +488,7 @@ static void msm_batt_update_psy_status(void)
 	u32	battery_level;
 	u32     battery_voltage;
 	u32	battery_temp;
-#ifdef CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	u32	battery_soc;
 #endif
 	struct	power_supply	*supp;
@@ -502,7 +502,7 @@ static void msm_batt_update_psy_status(void)
 	battery_level = rep_batt_chg.v1.battery_level;
 	battery_voltage = rep_batt_chg.v1.battery_voltage;
 	battery_temp = rep_batt_chg.v1.battery_temp;
-#ifdef CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	battery_soc = rep_batt_chg.v1.battery_soc;
 #endif
 	/* Make correction for battery status */
@@ -516,7 +516,7 @@ static void msm_batt_update_psy_status(void)
 	    battery_status == msm_batt_info.battery_status &&
 	    battery_level == msm_batt_info.battery_level &&
 	    battery_voltage == msm_batt_info.battery_voltage &&
-#ifdef CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	    battery_soc == msm_batt_info.batt_capacity &&
 #endif
 	    battery_temp == msm_batt_info.battery_temp) {
@@ -532,7 +532,8 @@ static void msm_batt_update_psy_status(void)
 
 	unnecessary_event_count = 0;
 
-#ifdef CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
+
 	DBG_LIMIT("BATT: rcvd: %d, %d, %d, %d, %d, %d, %d\n",
 		 charger_status, charger_type, battery_status,
 		 battery_level, battery_voltage, battery_temp, battery_soc);
@@ -678,16 +679,31 @@ static void msm_batt_update_psy_status(void)
 			/* Use previous */
 			battery_voltage = msm_batt_info.battery_voltage;
 	}
+	
+#ifdef CONFIG_LGE_FUEL_SPG
+	// LGE_CHANGE_S dangwoo.choi@lge.com
+	if (battery_status >= BATTERY_STATUS_INVALID_v1) {
+	// LGE_CHANGE_E dangwoo.choi@lge.com
+#else
 	if (battery_status == BATTERY_STATUS_INVALID) {
-#ifdef CONFIG_MACH_LGE
-		if (battery_level != BATTERY_LEVEL_INVALID) 
 #endif
-		if (battery_voltage >= msm_batt_info.voltage_min_design &&
-		    battery_voltage <= msm_batt_info.voltage_max_design) {
-			DBG_LIMIT("BATT: Battery valid\n");
-			msm_batt_info.batt_valid = 1;
-			battery_status = BATTERY_STATUS_GOOD;
+#ifdef CONFIG_MACH_LGE
+		if (battery_level != BATTERY_LEVEL_INVALID) {
+#endif
+			if (battery_voltage >= msm_batt_info.voltage_min_design &&
+			    battery_voltage <= msm_batt_info.voltage_max_design) {
+				DBG_LIMIT("BATT: Battery valid\n");
+				msm_batt_info.batt_valid = 1;
+				battery_status = BATTERY_STATUS_GOOD;
+			}
+			// LGE_CHANGE_S dangwoo.choi@lge.com
+			else {
+				battery_voltage = 0;
+			}
+			// LGE_CHANGE_E dangwoo.choi@lge.com
+#ifdef CONFIG_MACH_LGE
 		}
+#endif
 	}
 
 	if (msm_batt_info.battery_status != battery_status) {
@@ -748,7 +764,7 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_level 	= battery_level;
 	msm_batt_info.battery_temp 	= battery_temp;
 
-#ifdef CONFIG_LGE_FUEL_GAUGE
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	if(msm_batt_info.battery_voltage != battery_voltage) {
 		msm_batt_info.battery_voltage = battery_voltage;
 		msm_batt_info.batt_capacity = msm_batt_info.calculate_capacity(battery_soc);
@@ -1363,6 +1379,16 @@ static int msm_batt_cleanup(void)
 
 static u32 msm_batt_capacity(u32 current_voltage)
 {
+#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
+// LGE_CHANGE_S dangwoo.choi@lge.com
+	if(msm_batt_info.batt_status == POWER_SUPPLY_STATUS_UNKNOWN)
+		return 0;
+// LGE_CHANGE_E dangwoo.choi@lge.com
+	if(current_voltage > 100)
+		return 100;
+
+	return current_voltage; 
+#else
 	u32 low_voltage = msm_batt_info.voltage_min_design;
 	u32 high_voltage = msm_batt_info.voltage_max_design;
 
@@ -1373,6 +1399,7 @@ static u32 msm_batt_capacity(u32 current_voltage)
 	else
 		return (current_voltage - low_voltage) * 100
 			/ (high_voltage - low_voltage);
+#endif
 }
 
 #ifndef CONFIG_BATTERY_MSM_FAKE

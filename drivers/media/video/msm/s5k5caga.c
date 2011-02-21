@@ -909,9 +909,15 @@ static int lgcam_rear_sensor_check_focus(int *lock)
 	if (af_result == 2) {
 		//mdelay(60);
 		*lock = CFG_AF_LOCKED;  // success
+//LGE_DEV_PORTING GELATO
+rc = 1;
+//LGE_DEV_END
 		return rc;
 	} else {
 		*lock = CFG_AF_UNLOCKED; //0: focus fail or 2: during focus
+//LGE_DEV_PORTING GELATO
+rc = 0;
+//LGE_DEV_END
 		return rc;
 	}
 
@@ -1338,6 +1344,7 @@ static long lgcam_rear_sensor_set_effect(int effect)
 		break;
 
    case CAMERA_EFFECT_BLUE:
+   case CAMERA_EFFECT_AQUA:
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
 			   0x0028, 0x7000, WORD_LEN);
 	   if (rc < 0)
@@ -2545,6 +2552,10 @@ static int dequeue_sensor_config(int cfgtype, int mode)
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE
 				
 				rc = lgcam_rear_sensor_focus_config(mode);		
+//LGE_DEV_PORTING GELATO
+				rc = lgcam_rear_sensor_check_focus(&cfg_data.mode);
+				return rc;
+//LGE_DEV_END
 				break;
 		
 			case CFG_SET_PARM_AF_MODE:
@@ -3425,6 +3436,9 @@ static int lgcam_rear_sensor_sensor_probe(const struct msm_camera_sensor_info *i
 	s->s_init = lgcam_rear_sensor_sensor_init;
 	s->s_release = lgcam_rear_sensor_sensor_release;
 	s->s_config  = lgcam_rear_sensor_sensor_config;
+//LGE_DEV_PORTING
+	s->s_mount_angle  = 0;
+//LGE_DEV_END
 
 probe_done:
 	printk("%s %s:%d\n", __FILE__, __func__, __LINE__);
