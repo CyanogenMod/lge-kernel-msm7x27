@@ -346,7 +346,6 @@ static void __init msm7x2x_init_mmc(void)
     msm_add_sdcc(2, &msm7x2x_sdc1_data);
 #endif /* CONFIG_LGE_BCM432X_PATCH */
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, BCM4325 control */
-#endif
 }
 #else
 #define msm7x2x_init_mmc() do {} while (0)
