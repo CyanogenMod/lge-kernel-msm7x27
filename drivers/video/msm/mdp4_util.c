@@ -551,10 +551,6 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				}
 			}
 		}
-#ifdef CONFIG_FB_MSM_MDDI
-		if (isr & INTR_PRIMARY_READ_PTR)
-			mdp4_mddi_read_ptr_intr();
-#endif
 	}
 
 	mdp_is_in_isr = FALSE;
