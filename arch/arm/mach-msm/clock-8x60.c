@@ -397,6 +397,9 @@ static void set_rate_mnd_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 	if (clk->count) {
 		cc_reg_val ^= banks->bank_sel_mask;
 		writel(cc_reg_val, clk->cc_reg);
+		/* Wait at least 6 cycles of slowest bank's clock
+		 * for the glitch-free MUX to fully switch sources. */
+		udelay(1);
 
 		/* Disable previous MN counter. */
 		cc_reg_val &= ~(old_bank_masks->mnd_en_mask);
