@@ -190,17 +190,7 @@ static inline int pclk_requires_voting(struct otg_transceiver *xceiv)
 
 	dev = container_of(xceiv, struct msm_otg, otg);
 
-#ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	 * NOTE: It need to check that LGE 7x27 does
-	 * not require voting about pclk.
-	 * For avoiding WARN_ON(), we unconditionally returns 0.
-	 * 2011-01-17, hyunhui.park@lge.com
-	 */
-	return 0;
-#else
 	return !dev->pdata->core_clk;
-#endif
 }
 
 static inline int can_phy_power_collapse(struct msm_otg *dev)

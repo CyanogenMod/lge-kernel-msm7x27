@@ -532,8 +532,27 @@ static int msm_otg_set_power(struct otg_transceiver *xceiv, unsigned mA)
 		pdata->chg_vbus_draw(charge);
 
 	if (new_chg == USB_CHG_TYPE__WALLCHARGER) {
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+		/* LGE_CHANGE
+		 * When factory cable is connected, skip lpm.
+		 * 2011-01-23, hyunhui.park@lge.com
+		 */
+		int is_factory_cable = atomic_read(&dev->lgeusb_cable_type);
+#endif
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+		/* LGE_CHANGE
+		 * When factory cable is connected, skip lpm.
+		 * 2011-01-23, hyunhui.park@lge.com
+		 */
+		if (!is_factory_cable) {
+			wake_lock(&dev->wlock);
+			queue_work(dev->wq, &dev->sm_work);
+		}
+#else
 		wake_lock(&dev->wlock);
 		queue_work(dev->wq, &dev->sm_work);
+#endif
 	}
 
 	return 0;
@@ -1638,13 +1657,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 			atomic_set(&dev->chg_type, USB_CHG_TYPE__SDP);
 			msm_otg_set_power(&dev->otg, USB_IDCHG_MAX);
 		} else if (chg_type == USB_CHG_TYPE__WALLCHARGER) {
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-			/* LGE_CHANGE
-			 * When factory cable is connected, skip lpm.
-			 * 2011-01-23, hyunhui.park@lge.com
-			 */
-			int is_factory_cable = atomic_read(&dev->lgeusb_cable_type);
-#endif
 #ifdef CONFIG_USB_MSM_ACA
 			del_timer_sync(&dev->id_timer);
 #endif
@@ -1655,25 +1667,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 				work = 1;
 				break;
 			}
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-			/* LGE_CHANGE
-			 * When factory cable is connected, skip lpm.
-			 * 2011-01-23, hyunhui.park@lge.com
-			 */
-			if (is_factory_cable) {
-				pr_info("%s: avoiding lpm with factory cable\n", __func__);
-			} else {
-				pr_info("%s: entering into lpm with wall-charger\n", __func__);
-				msm_otg_put_suspend(dev);
-				/* Allow idle power collapse */
-				otg_pm_qos_update_latency(dev, 0);
-			}
-#else
+
 			pr_info("%s: entering into lpm with wall-charger\n", __func__);
 			msm_otg_put_suspend(dev);
 			/* Allow idle power collapse */
 			otg_pm_qos_update_latency(dev, 0);
-#endif
 		}
 		break;
 	case OTG_STATE_B_WAIT_ACON:

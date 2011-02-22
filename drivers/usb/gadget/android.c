@@ -417,6 +417,15 @@ static int __devinit android_bind(struct usb_composite_dev *cdev)
 	if (gadget->ops->wakeup)
 		android_config_driver.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	/* LGE_CHANGE
+	 * Set serial number to 0 with factory cable.
+	 * 2011-02-22, hyunhui.park@lge.com
+	 */
+	if (lgeusb_detect_factory_cable())
+		device_desc.iSerialNumber = 0;
+#endif
+
 	/* register our configuration */
 	ret = usb_add_config(cdev, &android_config_driver);
 	if (ret) {
@@ -490,14 +499,9 @@ void android_register_function(struct android_usb_function *f)
 		if (serial_number[0] != '\0')
 			strings_dev[STRING_SERIAL_IDX].s = serial_number;
 
-		if (lge_pid == LGE_FACTORY_PID)
-			device_desc.iSerialNumber = 0;
-		else
-			device_desc.iSerialNumber = strings_dev[STRING_SERIAL_IDX].id;
-
 		lgeusb_info("LGE Android Gadget global configuration:\n\t"
 				"product_id -- %x, serial no. -- %s\n", lge_pid,
-				((serial_number[0] != '\0') ? serial_number : strings_dev[STRING_SERIAL_IDX].s));
+				((serial_number[0] != '\0') ? serial_number : "NULL"));
 
 	}
 #else /* below is original */
