@@ -2334,16 +2334,16 @@ static void reg_init(void)
 
 	/* TODO:
 	 * The ADM clock votes below should removed once all users of the ADMs
-	 * begin voting for the clocks appropriately. Similarly, sc_aclk and
-	 * sc_hclk's sleep vote bits should be set once other subsystems begin
-	 * voting for them.
+	 * begin voting for the clocks appropriately.
 	 */
 	/* The clock driver doesn't use SC1's voting register to control
 	 * HW-voteable clocks.  Clear its bits so that disabling bits in the
 	 * SC0 register will cause the corresponding clocks to be disabled. */
-	writel(0, SC0_U_CLK_SLEEP_ENA_VOTE_REG);
-	writel(0, SC1_U_CLK_SLEEP_ENA_VOTE_REG);
+	rmwreg(BIT(12)|BIT(11), SC0_U_CLK_BRANCH_ENA_VOTE_REG, BM(12, 11));
 	writel(BIT(12)|BIT(11)|BM(5, 2), SC1_U_CLK_BRANCH_ENA_VOTE_REG);
+	/* Let sc_aclk and sc_clk halt when both Scorpions are collapsed. */
+	writel(BIT(12)|BIT(11), SC0_U_CLK_SLEEP_ENA_VOTE_REG);
+	writel(BIT(12)|BIT(11), SC1_U_CLK_SLEEP_ENA_VOTE_REG);
 
 	/* Deassert MM SW_RESET_ALL signal. */
 	writel(0, SW_RESET_ALL_REG);
