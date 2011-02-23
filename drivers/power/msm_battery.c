@@ -20,8 +20,7 @@
  * this needs to be before <linux/kernel.h> is loaded,
  * and <linux/sched.h> loads <linux/kernel.h>
  */
-#define DEBUG  1
-#undef  CONFIG_LGE_FUEL_GAUGE
+#define DEBUG  0
 
 #include <linux/slab.h>
 #include <linux/earlysuspend.h>
@@ -468,7 +467,7 @@ static int msm_batt_get_batt_chg_status(void)
 		DBG_LIMIT("\t battery_level=%d\n", v1p->battery_level);
 		DBG_LIMIT("\t battery_voltage=%d\n", v1p->battery_voltage);
 		DBG_LIMIT("\t battery_temp=%d\n", v1p->battery_temp);
-	#ifdef CONFIG_LGE_FUEL_GAUGE
+	#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 		DBG_LIMIT("\t battery_soc=%d\n", v1p->battery_soc);
 	#endif
 #endif
@@ -506,6 +505,7 @@ static void msm_batt_update_psy_status(void)
 #if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	battery_soc = rep_batt_chg.v1.battery_soc;
 #endif
+
 	/* Make correction for battery status */
 	if (battery_status == BATTERY_STATUS_INVALID_v1) {
 		if (msm_batt_info.chg_api_version < CHG_RPC_VER_3_1)
@@ -1722,10 +1722,8 @@ static int __devinit msm_batt_init_rpc(void)
 #else
 
 	msm_batt_info.chg_ep =
-	//	msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_4_1, 0);
-	//msm_batt_info.chg_api_version =  CHG_RPC_VER_4_1;
-	msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_1_3, 0);
-	msm_batt_info.chg_api_version =  CHG_RPC_VER_1_3;
+		msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_4_1, 0);
+	    msm_batt_info.chg_api_version =  CHG_RPC_VER_4_1;
 	if (msm_batt_info.chg_ep == NULL) {
 		pr_err("%s: rpc connect CHG_RPC_PROG = NULL\n", __func__);
 		return -ENODEV;
