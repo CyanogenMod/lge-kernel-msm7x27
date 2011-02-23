@@ -335,22 +335,22 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 	struct flash_ctrl_data *flash_info);
 
 #ifdef CONFIG_MSM_CAMERA_FLASH
-	int msm_camera_flash_set_led_state(
-		struct msm_camera_sensor_flash_data *fdata,
-		unsigned led_state);
-	int msm_strobe_flash_init(struct msm_sync *sync, uint32_t sftype);
+int msm_camera_flash_set_led_state(
+	struct msm_camera_sensor_flash_data *fdata,
+	unsigned led_state);
+int msm_strobe_flash_init(struct msm_sync *sync, uint32_t sftype);
 #else
-	static inline int msm_camera_flash_set_led_state(
-		struct msm_camera_sensor_flash_data *fdata,
-		unsigned led_state)
-	{
-		return -ENOTSUPP;
-	}
-	static inline int msm_strobe_flash_init(
-		struct msm_sync *sync, uint32_t sftype)
-	{
-		return -ENOTSUPP;
-	}
+static inline int msm_camera_flash_set_led_state(
+	struct msm_camera_sensor_flash_data *fdata,
+	unsigned led_state)
+{
+	return -ENOTSUPP;
+}
+static inline int msm_strobe_flash_init(
+	struct msm_sync *sync, uint32_t sftype)
+{
+	return -ENOTSUPP;
+}
 #endif
 
 /* Below functions are added for V4L2 kernel APIs */
