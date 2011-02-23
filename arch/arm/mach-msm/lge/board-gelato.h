@@ -101,11 +101,11 @@
 #define ACCEL_I2C_ADDRESS_H		0x18 /*KR3DH slave address 7bit*/
 
 /*Ecompass*/
-#define ECOM_GPIO_I2C_SCL	19  /*107 in p500*/
-#define ECOM_GPIO_I2C_SDA	20	/*108 in p500*/
+#define ECOM_GPIO_I2C_SCL	107  /*107 in p500*/
+#define ECOM_GPIO_I2C_SDA	108	/*108 in p500*/
 #define ECOM_GPIO_RST
 #define ECOM_GPIO_INT		31
-#define ECOM_I2C_ADDRESS		0x0F /* slave address 7bit */
+#define ECOM_I2C_ADDRESS		0x0E /* slave address 7bit */
 
 /* lcd & backlight */
 #define GPIO_LCD_BL_EN		82
