@@ -41,6 +41,9 @@
 #include "mdp.h"
 #include "mdp4.h"
 
+
+int mipi_dsi_clk_on;
+
 static int mipi_dsi_probe(struct platform_device *pdev);
 static int mipi_dsi_remove(struct platform_device *pdev);
 
@@ -136,26 +139,53 @@ static void mipi_dsi_clk(int on, struct dsi_clk_desc *clk)
 
 static void mipi_dsi_clk(int on)
 {
-	char	*cc, *ns, *md;
+	char	*cc, *ns, *md, *vec;
+	unsigned long data;
 
 	cc = mmss_cc_base + 0x004c;
 	md = mmss_cc_base + 0x0050;
 	ns = mmss_cc_base + 0x0054;
+	vec = mmss_cc_base + 0x01d0;
+
+	if (mipi_dsi_mxo_selected())
+		data = 0x180;	/* mxo, dual edge mode */
+	else
+		data = 0x80;	/* pxo, dual edge mode */
 
 	if (on) {
-		if (mipi_dsi_mxo_selected())
-			MIPI_OUTP(cc, 0x125);	/* mxo */
-		else
-			MIPI_OUTP(cc, 0x25);	/* pxo */
-
 		MIPI_OUTP(md, 0x1fd);
 		MIPI_OUTP(ns, 0xff000003);
-	} else
-		MIPI_OUTP(cc, 0);
 
-	wmb();
+		data |= 0x20;	/* MND_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data |= 0x04;	/* ROOT_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data |= 0x01;	/* CLK_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		/* spin until clk is on */
+		data = MIPI_INP(vec);
+		while (data & 0x04)	/* DSI_CLK_OFF */
+			data = MIPI_INP(vec);
+	} else {
+		data |=  0x24;	/* ~CLK_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data &= ~0x04;	/* ~ROOT_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data &= ~0x20;	/* ~MND_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		/* spin until clk is off */
+		data = MIPI_INP(vec);
+		while ((data & 0x04) == 0) /* DSI_CLK_OFF */
+			data = MIPI_INP(vec);
+	}
+
 }
-
 #endif
 
 static void mipi_dsi_sfpb_cfg(void)
@@ -174,20 +204,47 @@ static void mipi_dsi_sfpb_cfg(void)
 
 static void mipi_dsi_pclk(int on)
 {
-	char	*cc, *ns, *md;
+	char	*cc, *ns, *md, *vec;
+	unsigned long data;
 
 	cc = mmss_cc_base + 0x0130;
 	md = mmss_cc_base + 0x0134;
 	ns = mmss_cc_base + 0x0138;
+	vec = mmss_cc_base + 0x01d0;
 
+	data = 0x80;	/* dual edge mode */
 	if (on) {
-		MIPI_OUTP(cc, 0x2a5);
 		MIPI_OUTP(md, 0x1fb);
 		MIPI_OUTP(ns, 0xfd0003);
-	} else
-		MIPI_OUTP(cc, 0);
 
-	wmb();
+		data |= 0x20;	/* MND_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data |= 0x04;	/* ROOT_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data |= 0x01;	/* CLK_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		/* spin until clk is on */
+		data = MIPI_INP(vec);
+		while (data & 0x40)	/* DSI_PIXEL_CLK_OFF */
+			data = MIPI_INP(vec);
+	} else {
+		data |=  0x24;	/* ~CLK_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data &= ~0x04;	/* ~ROOT_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		data &= ~0x20;	/* ~MND_EN */
+		MIPI_OUTP(cc, data);
+		wmb();
+		/* spin until clk is off */
+		data = MIPI_INP(vec);
+		while ((data & 0x40) == 0) /* DSI_PIXEL_CLK_OFF */
+			data = MIPI_INP(vec);
+	}
 }
 
 static void mipi_dsi_ahb_en(void)
@@ -398,6 +455,8 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	clk_disable(dsi_s_pclk);
 	clk_disable(amp_pclk); /* clock for AHB-master to AXI */
 
+	mipi_dsi_clk_on = 0;
+
 	/* disbale dsi engine */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
 
@@ -457,6 +516,8 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	mipi_dsi_sfpb_cfg();
 	mipi_dsi_clk(1);
 	mipi_dsi_pclk(1);
+
+	mipi_dsi_clk_on = 1;
 
 	mipi_dsi_phy_init(0, &(mfd->panel_info));
 
@@ -530,6 +591,37 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	pr_debug("%s:\n", __func__);
 
 	return ret;
+}
+
+void mipi_dsi_clk_enable(void)
+{
+
+	clk_enable(amp_pclk); /* clock for AHB-master to AXI */
+	clk_enable(dsi_m_pclk);
+	clk_enable(dsi_s_pclk);
+	clk_enable(dsi_byte_div_clk);
+	clk_enable(dsi_esc_clk);
+	mipi_dsi_pclk(1);
+	mipi_dsi_clk(1);
+
+	MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0x23f); /* DSI_CLK_CTRL */
+
+	mipi_dsi_clk_on = 1;
+}
+
+void mipi_dsi_clk_disable(void)
+{
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0118, 0);
+
+	mipi_dsi_pclk(0);
+	mipi_dsi_clk(0);
+	clk_disable(dsi_esc_clk);
+	clk_disable(dsi_byte_div_clk);
+	clk_disable(dsi_m_pclk);
+	clk_disable(dsi_s_pclk);
+	clk_disable(amp_pclk); /* clock for AHB-master to AXI */
+
+	mipi_dsi_clk_on = 0;
 }
 
 static int mipi_dsi_resource_initialized;
