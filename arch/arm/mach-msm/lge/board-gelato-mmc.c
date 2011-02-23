@@ -26,26 +26,31 @@
 #include <mach/vreg.h>
 #include <mach/mpp.h>
 #include <mach/board.h>
+#include <mach/board_lge.h>
 #include "board-gelato.h"
+
+#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
+static unsigned sd_detect_gpio = 41;
+#endif
 
 static void sdcc_gpio_init(void)
 {
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	int rc = 0;
-	if (gpio_request(GPIO_SD_DETECT_N, "sdc1_status_pin_irq"))
+	if (gpio_request(sd_detect_gpio, "sdc1_status_pin_irq"))
 		pr_err("failed to request gpio sdc1_status_irq\n");
-	rc = gpio_tlmm_config(GPIO_CFG(GPIO_SD_DETECT_N, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
+	rc = gpio_tlmm_config(GPIO_CFG(sd_detect_gpio, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
 									GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	if (rc)
 		printk(KERN_ERR "%s: Failed to configure GPIO %d\n",
 					__func__, rc);
-	if (gpio_request(GPIO_MMC_COVER_DETECT, "sdc1_status_socket_irq"))
-		pr_err("failed to request gpio sdc1_status_irq\n");
-	rc = gpio_tlmm_config(GPIO_CFG(GPIO_MMC_COVER_DETECT, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
-								   GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	if (rc)
-		printk(KERN_ERR "%s: Failed to configure GPIO %d\n",
-					__func__, rc);
+	/* if (gpio_request(GPIO_MMC_COVER_DETECT, "sdc1_status_socket_irq")) */
+	/* 	pr_err("failed to request gpio sdc1_status_irq\n"); */
+	/* rc = gpio_tlmm_config(GPIO_CFG(GPIO_MMC_COVER_DETECT, 0, GPIO_INPUT, GPIO_PULL_UP, */
+	/* 							   GPIO_2MA), GPIO_ENABLE); */
+	/* if (rc) */
+	/* 	printk(KERN_ERR "%s: Failed to configure GPIO %d\n", */
+	/* 				__func__, rc); */
 #endif
 	/* SDC1 GPIOs */
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
@@ -257,7 +262,7 @@ static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 static unsigned int gelato_sdcc_slot_status(struct device *dev)
 {
-	return !(gpio_get_value(GPIO_MMC_COVER_DETECT)||gpio_get_value(GPIO_SD_DETECT_N));
+	return !gpio_get_value(sd_detect_gpio);
 }
 #endif
 
@@ -289,7 +294,7 @@ static struct mmc_platform_data msm7x2x_sdc1_data = {
 	.ocr_mask		= MMC_VDD_30_31,
 	.translate_vdd	= msm_sdcc_setup_power,
 	.status 		= gelato_sdcc_slot_status,
-	.status_irq 	= MSM_GPIO_TO_INT(GPIO_MMC_COVER_DETECT),
+	.status_irq 	= MSM_GPIO_TO_INT(GPIO_SD_DETECT_N),
 	.irq_flags		= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 	.mmc_bus_width	= MMC_CAP_4_BIT_DATA,
 #else
@@ -345,5 +350,16 @@ static void __init msm7x2x_init_mmc(void)
 
 void __init lge_add_mmc_devices(void)
 {
+#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
+	/*
+	 * by jinkyu.choi@lge.com
+	 * temporal code for Gelato EVB, PCB version Rev.B
+	 * this routine should be removed, later.
+	 */
+	if (lge_bd_rev == LGE_REV_B) {
+		sd_detect_gpio = 49;
+		msm7x2x_sdc1_data.status_irq = MSM_GPIO_TO_INT(49);
+	}
+#endif
 	msm7x2x_init_mmc();
 }

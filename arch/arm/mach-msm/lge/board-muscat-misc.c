@@ -47,7 +47,7 @@ static struct platform_device msm_batt_device = {
 
 
 /* muscat Board Vibrator Functions for Android Vibrator Driver */
-#define VIBE_IC_VOLTAGE 3100
+#define VIBE_IC_VOLTAGE 3300
 static uint motor_voltage = 3100;
 
 extern int aat2870bl_ldo_set_level(struct device * dev, unsigned num, unsigned vol);

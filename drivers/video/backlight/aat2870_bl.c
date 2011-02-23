@@ -603,6 +603,7 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 				 */
 				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x00);	/* Floor current : 0.48mA */
 				aat28xx_intensity = (~(drvdata->intensity)& 0x1F);	/* Invert BL control bits and Clear upper 3bits */
+				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, 0x9F);
 				aat28xx_intensity |= 0xA0;							/* MEQS(7)=1, Disable Fade(6)=0, LCD_ON(5)=1*/
 				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat28xx_intensity);
 				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x08);	/* Fade in to intensity brightness in 1000ms. */
