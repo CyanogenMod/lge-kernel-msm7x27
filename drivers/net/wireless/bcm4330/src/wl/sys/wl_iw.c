@@ -23,6 +23,7 @@
  *
  * $Id: wl_iw.c,v 1.132.2.17 2010/12/23 01:13:23 Exp $
  */
+
 #include <wlioctl.h>
 
 #include <typedefs.h>
@@ -49,7 +50,7 @@ typedef const struct si_pub  si_t;
 #include <dngl_stats.h>
 #include <dhd.h>
 #define WL_ERROR(x) printf x
-#define WL_TRACE(x) printf x // by jiyeon
+#define WL_TRACE(x) printf x //yhcha @ 110218
 #define WL_ASSOC(x)
 #define WL_INFORM(x)
 #define WL_WSEC(x)
@@ -269,6 +270,7 @@ wl_iw_set_scan(
 	char *extra
 );
 
+#if !defined(CSCAN) // yhcha @ 110218
 static int
 wl_iw_get_scan(
 	struct net_device *dev,
@@ -284,7 +286,7 @@ wl_iw_get_scan_prep(
 	char *extra,
 	short max_size
 );
-
+#endif /*!defined(CSCAN)*/ // yhcha @ 110218
 
 static void
 swap_key_from_BE(
@@ -418,8 +420,7 @@ dev_wlc_intvar_set_reg(
 
 	return (dev_wlc_bufvar_set(dev, name,  (char *)&reg_addr[0], sizeof(reg_addr)));
 }
-#endif
-
+#endif	/* !defined(CONFIG_LGE_BCM432X_PATCH) */
 /*
 set named driver variable to int value and return error indication
 calling example: dev_wlc_intvar_set(dev, "arate", rate)
@@ -742,7 +743,7 @@ wl_iw_set_power_mode(
 
 	return error;
 }
-#endif /*  CONFIG_MACH_MAHIMAHI */
+#endif 
 
 #ifdef CONFIG_MACH_MAHIMAHI
 static int
@@ -775,7 +776,7 @@ wl_iw_get_power_mode(
 }
 #endif /* CONFIG_MACH_MAHIMAHI */
 
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
+#if !defined(CONFIG_LGE_BCM432X_PATCH) // yhcha@110218
 static int
 wl_iw_set_btcoex_dhcp(
 	struct net_device *dev,
@@ -922,7 +923,7 @@ wl_iw_set_btcoex_dhcp(
 
 	return error;
 }
-#endif
+#endif // yhcha @ 110218
 
 static int
 wl_iw_set_suspend(
@@ -979,7 +980,7 @@ wl_format_ssid(char* ssid_buf, uint8* ssid, int ssid_len)
 
 	return p - ssid_buf;
 }
-#endif
+#endif	/* !defined(CONFIG_LGE_BCM432X_PATCH) */
 
 static int
 wl_iw_get_link_speed(
@@ -1455,7 +1456,7 @@ wl_iw_send_priv_event(
 	return 0;
 }
 
-
+#if defined(CONFIG_LGE_BCM432X_PATCH) && defined(SOFTAP)
 int
 wl_control_wl_start(struct net_device *dev)
 {
@@ -1468,7 +1469,7 @@ wl_control_wl_start(struct net_device *dev)
 		return -1;
 	}
 	/* wl_start_lock is initialized in wl_iw_attach[wl_iw.c] */
-	DHD_OS_MUTEX_LOCK(&wl_start_lock); // jiyeon
+	DHD_OS_MUTEX_LOCK(&wl_start_lock);
 
 	if (g_onoff == G_WLAN_SET_OFF) {
 		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_ON);
@@ -1489,11 +1490,14 @@ wl_control_wl_start(struct net_device *dev)
 	}
 	WL_ERROR(("Exited %s \n", __FUNCTION__));
 
-	DHD_OS_MUTEX_UNLOCK(&wl_start_lock); // jiyeon
+	DHD_OS_MUTEX_UNLOCK(&wl_start_lock);
 	return ret;
 }
+#endif /* defined(CONFIG_LGE_BCM432X_PATCH) && defined(SOFTAP) */
 
-
+//ADD: 0015047: [Wi-Fi] when in suspend/resume, wi-fi does not suspend/resume
+/* LGE_CHANGE_S, [dongp.kim@lge.com], 2011-01-29, when wifi suspend/resume, firmware is not reloaded each time*/
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 static int
 wl_iw_control_wl_off(
 	struct net_device *dev,
@@ -1501,9 +1505,6 @@ wl_iw_control_wl_off(
 )
 {
 	int ret = 0;
-#if defined(CONFIG_LGE_BCM432X_PATCH) 
-	scb_val_t scbval;
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 
 	WL_ERROR(("Enter %s\n", __FUNCTION__));
 
@@ -1521,7 +1522,6 @@ wl_iw_control_wl_off(
 	if (g_onoff == G_WLAN_SET_ON) {
 		g_onoff = G_WLAN_SET_OFF;
 
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 #if defined(WL_IW_USE_ISCAN)
 		g_iscan->iscan_state = ISCAN_STATE_IDLE;
 #endif /* (WL_IW_USE_ISCAN) */
@@ -1553,12 +1553,6 @@ wl_iw_control_wl_off(
 		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_OFF);
 
 		wl_iw_send_priv_event(dev, "STOP");
-#else /* CONFIG_LGE_BCM432X_PATCH */
-		bzero(&scbval, sizeof(scb_val_t));
-		(void) dev_wlc_ioctl(dev, WLC_DISASSOC, &scbval, sizeof(scb_val_t));
-		wl_iw_send_priv_event(dev, "STOP");
-		printk("Exited %s \n", __FUNCTION__);
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 	}
 
 	DHD_OS_MUTEX_UNLOCK(&wl_start_lock);
@@ -1578,7 +1572,6 @@ wl_iw_control_wl_on(
 
 	WL_TRACE(("Enter %s \n", __FUNCTION__));
 
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	ret = wl_control_wl_start(dev);
 
 	wl_iw_send_priv_event(dev, "START");
@@ -1591,25 +1584,24 @@ wl_iw_control_wl_on(
 	wl_iw_iscan_set_scan_broadcast_prep(dev, 0);
 #endif
 
-#else /* CONFIG_LGE_BCM432X_PATCH */
-	g_onoff = G_WLAN_SET_ON;
-	wl_iw_send_priv_event(dev, "START");
-	printk("Exited %s \n", __FUNCTION__);
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 	WL_TRACE(("Exited %s \n", __FUNCTION__));
 
 	return ret;
 }
+#else	/* !defined(CONFIG_LGE_BCM432X_PATCH) */
 
-#if defined(CONFIG_LGE_BCM432X_PATCH) && defined(SOFTAP)
+#if defined(CONFIG_BRCM_USE_DEEPSLEEP)
+extern int dhd_deep_sleep(struct net_device *dev, int flag);
+#endif /* defined(CONFIG_BRCM_USE_DEEPSLEEP) */
+
 static int
-wl_iw_control_wl_off_softap(
+wl_iw_control_wl_off(
 	struct net_device *dev,
 	struct iw_request_info *info
 )
 {
 	int ret = 0;
-	wl_iw_t *iw;
+// yhcha @ 110218	wl_iw_t *iw;
 
 	WL_ERROR(("Enter %s\n", __FUNCTION__));
 
@@ -1618,38 +1610,52 @@ wl_iw_control_wl_off_softap(
 		return -1;
 	}
 
-	iw = *(wl_iw_t **)netdev_priv(dev);
+	DHD_OS_MUTEX_LOCK(&wl_start_lock);
 
+#ifdef SOFTAP
 	ap_cfg_running = FALSE;
-
+#endif
 
 	if (g_onoff == G_WLAN_SET_ON) {
 		g_onoff = G_WLAN_SET_OFF;
 
 #if defined(WL_IW_USE_ISCAN)
 		g_iscan->iscan_state = ISCAN_STATE_IDLE;
-#endif 
+#endif
 
-		dhd_dev_reset(dev, 1);
+#if defined(CONFIG_BRCM_USE_DEEPSLEEP)
+                /* Use Deep Sleep instead of WL Reset*/
+                dhd_deep_sleep(wl_ctl->dev, TRUE);
+#else	/* MPC mode */
+		{
+		scb_val_t scbval;
+		bzero(&scbval, sizeof(scb_val_t));
+		(void) dev_wlc_ioctl(dev, WLC_DISASSOC, &scbval, sizeof(scb_val_t));
+		}
+#endif	/* defined(CONFIG_BRCM_USE_DEEPSLEEP) */
 
 #if defined(WL_IW_USE_ISCAN)
+#if !defined(CSCAN)
+
 		wl_iw_free_ss_cache();
 		wl_iw_run_ss_cache_timer(0);
-		memset(g_scan, 0, G_SCAN_RESULTS);
-		
+
 		g_ss_cache_ctrl.m_link_down = 1;
+#endif
+		memset(g_scan, 0, G_SCAN_RESULTS);
 		g_scan_specified_ssid = 0;
-		
+
 		g_first_broadcast_scan = BROADCAST_SCAN_FIRST_IDLE;
+		g_first_counter_scans = 0;
 #endif
 
-#if defined(BCMLXSDMMC)
-		sdioh_stop(NULL);
-#endif
-		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_OFF);
+		net_os_set_dtim_skip(dev, 0);
 
 		wl_iw_send_priv_event(dev, "STOP");
+
 	}
+
+	DHD_OS_MUTEX_UNLOCK(&wl_start_lock);
 
 	WL_TRACE(("Exited %s\n", __FUNCTION__));
 
@@ -1657,7 +1663,7 @@ wl_iw_control_wl_off_softap(
 }
 
 static int
-wl_iw_control_wl_on_softap(
+wl_iw_control_wl_on(
 	struct net_device *dev,
 	struct iw_request_info *info
 )
@@ -1666,15 +1672,37 @@ wl_iw_control_wl_on_softap(
 
 	WL_TRACE(("Enter %s \n", __FUNCTION__));
 
-	ret = wl_control_wl_start(dev);
+	if (g_onoff == G_WLAN_SET_OFF) {
+#if defined(CONFIG_BRCM_USE_DEEPSLEEP)
+		{
+			/* Use Deep Sleep instead of WL RESET */
+			dhd_deep_sleep(dev, FALSE);
+		}
+#else /* MPC mode */
+		g_onoff = G_WLAN_SET_ON;
+#endif	/* defined(CONFIG_BRCM_USE_DEEPSLEEP) */
+
+
+	}
 
 	wl_iw_send_priv_event(dev, "START");
+
+#ifdef SOFTAP
+	if (!ap_fw_loaded) {
+		wl_iw_iscan_set_scan_broadcast_prep(dev, 0);
+	}
+#else
+	wl_iw_iscan_set_scan_broadcast_prep(dev, 0);
+#endif
 
 	WL_TRACE(("Exited %s \n", __FUNCTION__));
 
 	return ret;
 }
-#endif /* CONFIG_LGE_BCM432X_PATCH && SOFTAP */
+
+#endif	/* !defined(CONFIG_LGE_BCM432X_PATCH) */
+/* LGE_CHANGE_E, [dongp.kim@lge.com], 2011-01-29, when wifi suspend/resume, firmware is not reloaded each time*/
+//END: 0015047: [Wi-Fi] when in suspend/resume, wi-fi does not suspend/resume
 
 #ifdef SOFTAP
 static struct ap_profile my_ap;
@@ -1690,6 +1718,89 @@ static int set_ap_mac_list(struct net_device *dev, char *buf);
 static int get_parameter_from_string(
 	char **str_ptr, const char *token, int param_type, void  *dst, int param_max_len);
 
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+static int
+wl_iw_control_wl_off_softap(
+    struct net_device *dev,
+    struct iw_request_info *info
+)
+{
+    int ret = 0;
+    wl_iw_t *iw;
+
+    WL_ERROR(("Enter %s\n", __FUNCTION__));
+
+    if (!dev) {
+		WL_ERROR(("%s: dev is null\n", __FUNCTION__));
+		return -1;
+	}
+
+    iw = *(wl_iw_t **)netdev_priv(dev);
+#ifdef SOFTAP
+    ap_cfg_running = FALSE;
+
+#endif
+
+    if (g_onoff == G_WLAN_SET_ON) {
+        g_onoff = G_WLAN_SET_OFF;
+
+#if defined(WL_IW_USE_ISCAN)
+        g_iscan->iscan_state = ISCAN_STATE_IDLE;
+#endif
+
+        dhd_dev_reset(dev, 1);
+
+#if defined(WL_IW_USE_ISCAN)
+
+        wl_iw_free_ss_cache();
+        wl_iw_run_ss_cache_timer(0);
+        memset(g_scan, 0, G_SCAN_RESULTS);
+
+        g_ss_cache_ctrl.m_link_down = 1;
+        g_scan_specified_ssid = 0;
+
+        g_first_broadcast_scan = BROADCAST_SCAN_FIRST_IDLE;
+#endif
+
+#if defined(BCMLXSDMMC)
+        sdioh_stop(NULL);
+#endif
+        dhd_customer_gpio_wlan_ctrl(WLAN_RESET_OFF);
+        wl_iw_send_priv_event(dev, "STOP");
+
+    }
+    WL_TRACE(("Exited %s\n", __FUNCTION__));
+
+    return ret;
+}
+
+static int
+wl_iw_control_wl_on_softap(
+	struct net_device *dev,
+    struct iw_request_info *info
+)
+{
+    int ret = 0;
+
+    WL_TRACE(("Enter %s \n", __FUNCTION__));
+
+    ret = wl_control_wl_start(dev);
+
+    wl_iw_send_priv_event(dev, "START");
+
+#ifdef SOFTAP
+    if (!ap_fw_loaded) {
+        wl_iw_iscan_set_scan_broadcast_prep(dev, 0);
+    }
+#else
+    wl_iw_iscan_set_scan_broadcast_prep(dev, 0);
+#endif
+
+    WL_TRACE(("Exited %s \n", __FUNCTION__));
+
+    return ret;
+}
+#endif /* CONFIG_LGE_BCM432X_PATCH */
 #endif /* SOFTAP */
 
 static int
@@ -2028,6 +2139,8 @@ wl_iw_config_commit(
 
 	WL_TRACE(("%s: SIOCSIWCOMMIT\n", dev->name));
 
+	memset(&ssid, 0, sizeof(ssid));		//by sjpark 11-01-25 WBT : ID 196415
+
 	if ((error = dev_wlc_ioctl(dev, WLC_GET_SSID, &ssid, sizeof(ssid))))
 		return error;
 
@@ -2126,6 +2239,8 @@ wl_iw_get_freq(
 
 	WL_TRACE(("%s: SIOCGIWFREQ\n", dev->name));
 
+	memset(&ci, 0, sizeof(ci));	//by sjpark 11-01-25 WBT : ID 196416
+
 	if ((error = dev_wlc_ioctl(dev, WLC_GET_CHANNEL, &ci, sizeof(ci))))
 		return error;
 
@@ -2209,7 +2324,8 @@ wl_iw_get_range(
 	int error, i, k;
 	uint sf, ch;
 
-	int phytype;
+	//int phytype;
+	int phytype = WLC_PHY_TYPE_NULL;		//by sjpark 11-01-25 WBT : ID 196418
 	int bw_cap = 0, sgi_tx = 0, nmode = 0;
 	channel_info_t ci;
 	uint8 nrate_list2copy = 0;
@@ -2274,7 +2390,10 @@ wl_iw_get_range(
 	range->avg_qual.noise = 0x100 - 75;	/* -75 dBm */
 #endif /* WIRELESS_EXT > 11 */
 
+	
 	/* Set available bitrates */
+	memset(&rateset,0,sizeof(rateset));		//by sjpark 11-01-25 WBT : ID 196410, ID 196417
+
 	if ((error = dev_wlc_ioctl(dev, WLC_GET_CURR_RATESET, &rateset, sizeof(rateset)))) {
 		kfree(channels);
 		return error;
@@ -2285,6 +2404,8 @@ wl_iw_get_range(
 		range->bitrate[i] = (rateset.rates[i]& 0x7f) * 500000; /* convert to bps */
 	dev_wlc_intvar_get(dev, "nmode", &nmode);
 	dev_wlc_ioctl(dev, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
+
+	memset(&ci, 0, sizeof(ci));	//by sjpark 11-01-25 WBT : ID 196419
 
 	if (nmode == 1 && phytype == WLC_PHY_TYPE_SSN) {
 		dev_wlc_intvar_get(dev, "mimo_bw_cap", &bw_cap);
@@ -2724,6 +2845,8 @@ wl_iw_iscan_get_aplist(
 	struct iw_quality qual[IW_MAX_AP];
 	wl_bss_info_t *bi = NULL;
 	int i;
+
+	memset(&qual, 0, sizeof(qual));	//by sjpark 11-01-25 WBT : ID 196411
 
 	WL_TRACE(("%s: SIOCGIWAPLIST\n", dev->name));
 
@@ -3677,6 +3800,7 @@ wl_iw_handle_scanresults_ies(char **event_p, char *end,
 	return 0;
 }
 
+#if !defined(CSCAN) // yhcha @ 110218
 static uint
 wl_iw_get_scan_prep(
 	wl_scan_results_t *list,
@@ -3782,7 +3906,9 @@ wl_iw_get_scan_prep(
 	WL_TRACE(("%s: size=%d bytes prepared \n", __FUNCTION__, (unsigned int)(event - extra)));
 	return (uint)ret;
 }
+#endif /*!defined(CSCAN)*/ // yhcha @ 110218
 
+#if !defined(CSCAN) // yhcha @ 110218
 static int
 wl_iw_get_scan(
 	struct net_device *dev,
@@ -3796,7 +3922,11 @@ wl_iw_get_scan(
 	wl_scan_results_t *list = (wl_scan_results_t *) g_scan;
 	int error;
 	uint buflen_from_user = dwrq->length;
-	uint len =  G_SCAN_RESULTS;
+//ADD: 0013766: [Wi-Fi] due to kernel crash, speicific scan length is reduced as value less than 8 byte
+/* LGE_CHANGE_S, [dongp.kim@lge.com], 2011-01-09, for kernel crash, specific scan length is reduced as value less than 8704Byte*/
+	uint len =  G_SCAN_RESULTS  - 1024;
+/* LGE_CHANGE_E, [dongp.kim@lge.com], 2011-01-09, for kernel crash, specific scan length is reduced as value less than 8704Byte*/
+//END: 0013766: [Wi-Fi] due to kernel crash, speicific scan length is reduced as value less than 8 byte
 	__u16 len_ret = 0;
 #if  !defined(CSCAN)
 	__u16 merged_len = 0;
@@ -3810,6 +3940,8 @@ wl_iw_get_scan(
 #endif /* (WL_IW_USE_ISCAN) */
 
 	WL_TRACE(("%s: buflen_from_user %d: \n", dev->name, buflen_from_user));
+
+	memset(&ci, 0, sizeof(ci));		//by sjpark 11-01-25 WBT : ID 196420
 
 	if (!extra) {
 		WL_TRACE(("%s: wl_iw_get_scan return -EINVAL\n", dev->name));
@@ -3979,6 +4111,7 @@ wl_iw_get_scan(
 	WL_TRACE(("%s return to WE %d bytes APs=%d\n", __FUNCTION__, dwrq->length, list->count));
 	return 0;
 }
+#endif /*!define(CSCAN)*/ //yhcha @ 110218
 
 #if defined(WL_IW_USE_ISCAN)
 static int
@@ -4361,6 +4494,7 @@ wl_iw_get_essid(
 	wlc_ssid_t ssid;
 	int error;
 
+	memset(&ssid, 0, sizeof(ssid));	//by sjpark 11-01-25 WBT : ID 196412, ID 196421
 	WL_TRACE(("%s: SIOCGIWESSID\n", dev->name));
 
 	if (!extra)
@@ -4442,7 +4576,8 @@ wl_iw_set_rate(
 
 	WL_TRACE(("%s: SIOCSIWRATE\n", dev->name));
 
-	/* Get current rateset */
+	memset(&rateset,0,sizeof(rateset));		//by sjpark 11-01-25 WBT : ID 196413, ID 196422
+	
 	if ((error = dev_wlc_ioctl(dev, WLC_GET_CURR_RATESET, &rateset, sizeof(rateset))))
 		return error;
 
@@ -4504,7 +4639,7 @@ wl_iw_get_rate(
 	char *extra
 )
 {
-	int error, rate;
+	int error, rate = 0;		//by sjpark 11-01-25 WBT : ID 196423
 
 	WL_TRACE(("%s: SIOCGIWRATE\n", dev->name));
 
@@ -4659,7 +4794,8 @@ wl_iw_get_txpow(
 	char *extra
 )
 {
-	int error, disable, txpwrdbm;
+	int error, txpwrdbm;
+	int disable = 0;	//by sjpark 11-01-25 WBT : ID 196424
 	uint8 result;
 
 	WL_TRACE(("%s: SIOCGIWTXPOW\n", dev->name));
@@ -4733,7 +4869,9 @@ wl_iw_get_retry(
 	char *extra
 )
 {
-	int error, lrl, srl;
+	int error;
+	int lrl = 0;		//by sjpark 11-01-25 WBT : ID 196425
+	int srl = 0;		//by sjpark 11-01-25 WBT : ID 196426
 
 	WL_TRACE(("%s: SIOCGIWRETRY\n", dev->name));
 
@@ -4876,7 +5014,9 @@ wl_iw_get_encode(
 )
 {
 	wl_wsec_key_t key;
-	int error, val, wsec, auth;
+	int error, val;
+	int wsec = 0;		//by sjpark 11-01-25 WBT : ID 196427
+	int auth = 0;		//by sjpark 11-01-25 WBT : ID 196428
 
 	WL_TRACE(("%s: SIOCGIWENCODE\n", dev->name));
 
@@ -4959,7 +5099,8 @@ wl_iw_get_power(
 	char *extra
 )
 {
-	int error, pm;
+	int error;
+	int pm = 0;		//by sjpark 11-01-25 WBT : ID 196429
 
 	WL_TRACE(("%s: SIOCGIWPOWER\n", dev->name));
 
@@ -5531,6 +5672,7 @@ wl_iw_get_wpaauth(
 }
 #endif /* WIRELESS_EXT > 17 */
 
+
 /* LGE_CHANGE_S [yoohoo@lge.com] 2009-05-14, support private command */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 static int
@@ -6007,7 +6149,7 @@ iwpriv_set_cscan(struct net_device *dev, struct iw_request_info *info,
 	char  *extra = NULL;
 	iscan_info_t *iscan = g_iscan;
 	wlc_ssid_t ssids_local[WL_SCAN_PARAMS_SSID_MAX];
-	int nssid;
+	int nssid = 0; // yhcha @ 110218 "=0"
 	int nchan;
 	char *str_ptr;
 
@@ -6779,9 +6921,12 @@ wl_iw_set_ap_security(struct net_device *dev, struct ap_profile *ap)
 		if (key_len < WSEC_MAX_PSK_LEN) {
 			unsigned char output[2*SHA1HashSize];
 			char key_str_buf[WSEC_MAX_PSK_LEN+1];
+			bzero(output, 2*SHA1HashSize);
 
 			WL_SOFTAP(("%s: do passhash...\n", __FUNCTION__));
 			/* call passhash to make hash */
+			memset(output, 0, sizeof(output));	//by sjpark 11-01-25 WBT : ID 196414
+
 			pbkdf2_sha1(ap->key, ap->ssid, strlen(ap->ssid), 4096, output, 32);
 			/*  turn hex digit to char string */
 			ptr = key_str_buf;
@@ -7017,6 +7162,7 @@ iwpriv_fw_reload(struct net_device *dev,
 	union iwreq_data *wrqu,
 	char *ext)
 {
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	int ret = -1;
 	char extra[256];
 	char *fwstr = fw_path ; /* points to current Firmware path string */
@@ -7063,6 +7209,12 @@ iwpriv_fw_reload(struct net_device *dev,
 
 exit_proc:
 	return ret;
+#else
+	char *fwstr = fw_path ; 
+	WL_SOFTAP(("current firmware_path[]=%s\n", fwstr));
+	WL_ERROR(("%s : We don't reload the firmware.\n",__func__));
+	return 0;
+#endif
 }
 
 #ifdef SOFTAP
@@ -7329,7 +7481,7 @@ wl_iw_set_priv(
 {
 	int ret = 0;
 	char * extra;
-	
+
 /* LGE_CHANGE_S, [dongp.kim@lge.com] 2010-04-02 */
 /* [WLAN] Fixing wl_iw_set_priv function */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
@@ -7361,6 +7513,7 @@ wl_iw_set_priv(
 	net_os_wake_lock(dev);
 
 	if (dwrq->length && extra) {
+	/* Lin - a clear logic, on if it is a "START", then check the state */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 		if (g_onoff == G_WLAN_SET_OFF) {
 			if (strnicmp(extra, "START", strlen("START")) != 0) {
@@ -7379,8 +7532,7 @@ wl_iw_set_priv(
 			WL_TRACE(("wl_iw_send_priv_event response to START PRIVATE command\n"));
 		}
 
-#else /* CONFIG_LGE_BCM432X_PATCH */
-		/* Lin - a clear logic, on if it is a "START", then check the state */
+#else /* CONFIG_LGE_BCM432X_PATCH */		
 		if (strnicmp(extra, "START", strlen("START")) == 0) {
 			wl_iw_control_wl_on(dev, info);
 			WL_TRACE(("%s, Received regular START command\n", __FUNCTION__));
@@ -7453,7 +7605,6 @@ wl_iw_set_priv(
 			ret = wl_iw_set_btcoex_dhcp(dev, info, (union iwreq_data *)dwrq, extra);
 #endif
 #endif /* CONFIG_LGE_BCM432X_PATCH */
-
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 		else if (strnicmp(extra, "POWERMODE", 9) == 0) {
 /* LGE_CHANGE_S, Disable setting power save mode if PM is 0 */	
@@ -7509,7 +7660,6 @@ wl_iw_set_priv(
 		}
 #endif /* CONFIG_LGE_BCM432X_PATCH */
 
-	    /* Lin - Google put it here */
 #ifdef SOFTAP
 	    else if (strnicmp(extra, "ASCII_CMD", strlen("ASCII_CMD")) == 0) {
 	        /* process android WPA supplicant commands sent as an ASCII strings  */
@@ -7677,8 +7827,7 @@ static const iw_handler wl_iw_priv_handler[] = {
 	(iw_handler)wl_iw_control_wl_off_softap,
 	NULL,
 	(iw_handler)wl_iw_control_wl_on_softap,
-#endif /* defined(CONFIG_LGE_BCM432X_PATCH) */
-
+#endif /* CONFIG_LGE_BCM432X_PATCH */
 #endif /* SOFTAP */
 #if defined(CSCAN)
 	/* Combined scan call */
@@ -7797,8 +7946,7 @@ static const struct iw_priv_args wl_iw_priv_args[] =
 		IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | MAX_WX_STRING,
 		"START-SOFTAP"
 	},
-#endif
-
+#endif /* CONFIG_LGE_BCM432X_PATCH */
 #endif /* SOFTAP */
 #if defined(CSCAN)
 	{ /*  set a combined scan */
@@ -8654,7 +8802,11 @@ wl_iw_attach(struct net_device *dev, void * dhdp)
 	/* Allocate memory for iscan extra params */
 	iscan->iscan_ex_params_p = (wl_iscan_params_t*)kmalloc(params_size, GFP_KERNEL);
 	if (!iscan->iscan_ex_params_p)
+	{
+		if (!iscan)			//by sjpark 11-01-25 WBT : ID 196409
+			kfree(iscan);
 		return -ENOMEM;
+	}
 	iscan->iscan_ex_param_size = params_size;
 	iscan->sysioc_pid = -1;
 	/* we only care about main interface so save a global here */
@@ -8752,25 +8904,3 @@ wl_iw_detach(void)
 #endif
 
 }
-
-/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
-#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
-int del_wl_timers(void)
-{
-#if defined(WL_IW_USE_ISCAN)
-	iscan_info_t *iscan = NULL;
-
-	if(g_iscan)
-		iscan = g_iscan;
-	else
-	{
-		printk("[WiFi] Error g_scan is NULL \n");
-		return -1;
-	}
-
-	del_timer_sync(&iscan->timer);
-#endif	/* defined(WL_IW_USE_ISCAN) */
-	return 0;
-}
-#endif /* CONFIG_BRCM_LGE_WL_HOSTWAKEUP */
-/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */

@@ -167,20 +167,9 @@
 #define WLFC_D11_STATUS_INTERPRET(txs)	((((txs)->status & TX_STATUS_SUPR_MASK) >> \
 		TX_STATUS_SUPR_SHIFT)) ? WLFC_CTL_PKTFLAG_D11SUPPRESS : WLFC_CTL_PKTFLAG_DISCARD
 
-#ifdef PROP_TXSTATUS_DEBUG
-#define WLFC_DBGMESG(x) printf x
-/* wlfc-breadcrumb */
-#define WLFC_BREADCRUMB(x) do {if ((x) == NULL) \
-	{printf("WLFC: %s():%d:caller:%p\n", \
-	__FUNCTION__, __LINE__, __builtin_return_address(0));}} while (0)
-#define WLFC_PRINTMAC(banner, ea) do {printf("%s MAC: [%02x:%02x:%02x:%02x:%02x:%02x]\n", \
-	banner, ea[0], 	ea[1], 	ea[2], 	ea[3], 	ea[4], 	ea[5]); } while (0)
-#define WLFC_WHEREIS(s) printf("WLFC: at %s():%d, %s\n", __FUNCTION__, __LINE__, (s))
-#else
 #define WLFC_DBGMESG(x)
 #define WLFC_BREADCRUMB(x)
 #define WLFC_PRINTMAC(banner, ea)
 #define WLFC_WHEREIS(s)
-#endif
 
 #endif /* __wlfc_proto_definitions_h__ */

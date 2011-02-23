@@ -18,6 +18,7 @@ obj-$(CONFIG_BRCM_USE_STATIC_BUF) += brcm_static_buf.o
 
 wireless-objs = \
 	src/dhd/sys/dhd_linux.o \
+	src/dhd/sys/dhd_linux_sched.o \
 	src/shared/linux_osl.o \
 	src/shared/bcmutils.o \
 	src/dhd/sys/dhd_common.o \
@@ -67,8 +68,10 @@ EXTRA_CFLAGS = \
 	-DSDIO_DEVICE_ID_BROADCOM_4325=0x4c6 \
 	-DSDIO_DEVICE_ID_BROADCOM_4330=0x4330 \
 	-DANDROID_SPECIFIC \
+	-DOEM_ANDROID -DEMBEDDED_PLATFORM \
+	-DDHD_SCHED \
 	-DMMC_SDIO_ABORT \
-
+#	-DSDIO_ISR_THREAD		#by sjpark 10-11-18
 #	\
 	-fshort-wchar \
 	-D__KERNEL__ \
@@ -76,9 +79,22 @@ EXTRA_CFLAGS = \
 	-Iinclude/asm/mach-default \
 	-DBCMEMBEDIMAGE="<dongle/rte/wl/builds/4325b0/sdio-g-cdc-reclaim-idsup-wme/rtecdc.h>" \
 
-ifeq ($(CONFIG_BCM4330_DEBUG),y)
-EXTRA_CFLAGS += -DDHD_DEBUG -DSDTEST -DSRCBASE="\"$(SRCROOT)\""
+#	-DCUSTOM_OOB_GPIO_NUM=46 
+EXTRA_CFLAGS += -DCUSTOM_OOB_GPIO_NUM=$(CONFIG_BCM4330_GPIO_WL_HOSTWAKEUP)
+
+ifeq ($(CONFIG_BRCM_LGE_WL_PKTFILTER),y)
+EXTRA_CFLAGS += -DPKT_FILTER_SUPPORT
 endif
+ifeq ($(CONFIG_BRCM_LGE_WL_ARPOFFLOAD),y)
+EXTRA_CFLAGS += -DARP_OFFLOAD_SUPPORT
+endif
+ifeq ($(CONFIG_BRCM_USE_SOFTAP),y)
+EXTRA_CFLAGS += -DSOFTAP
+endif
+
+#ifeq ($(CONFIG_BCM4330_DEBUG),y)
+EXTRA_CFLAGS += -DDHD_DEBUG -DSDTEST -DSRCBASE="\"$(SRCROOT)\""
+#endif
 
 ifeq ($(CONFIG_BRCM_USE_STATIC_BUF),y)
 EXTRA_CFLAGS += -DDHD_USE_STATIC_BUF
@@ -95,8 +111,11 @@ EXTRA_CFLAGS += -DDHD_SDALIGN=32 -DMAX_HDR_READ=32 -DDHD_FIRSTREAD=32
 #CONFIG_MMC_MSM7X00A = y
 #EXTRA_CFLAGS += -DCONFIG_MMC_MSM7X00A=1
 #endif
-#
+
 #ifeq ($(CONFIG_MMC_MSM7X00A),y)
 #EXTRA_CFLAGS += -Dlinux
 #EXTRA_CFLAGS += -DDHD_SDALIGN=64 -DMAX_HDR_READ=64 -DDHD_FIRSTREAD=64
 #endif
+
+# Strip Module
+EXTRA_LDFLAGS += --strip-debug

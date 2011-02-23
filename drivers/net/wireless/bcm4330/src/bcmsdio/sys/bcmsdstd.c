@@ -49,92 +49,9 @@ uint sd_hiok = TRUE;			/* Use hi-speed mode if available? */
 uint sd_sdmode = SDIOH_MODE_SD4;	/* Use SD4 mode by default */
 uint sd_f2_blocksize = 64;		/* Default blocksize */
 
-#ifdef SDHOST3
-#define sd3_trace(x)
-
-/*	sd3ClkMode: 	0-SDR12 [25MHz]
- *				1-SDR25 [50MHz]+SHS=1
- *				2-SDR50 [100MHz]+SSDR50=1
- *				3-SDR104 [208MHz]+SSDR104=1
- *				4-DDR50 [50MHz]+SDDR50=1
- */
-#define SD3CLKMODE_0_SDR12	(0)
-#define SD3CLKMODE_1_SDR25	(1)
-#define SD3CLKMODE_2_SDR50	(2)
-#define SD3CLKMODE_3_SDR104	(3)
-#define SD3CLKMODE_4_DDR50	(4)
-#define SD3CLKMODE_DISABLED	(-1)
-#define SD3CLKMODE_AUTO		(99)
-
-/* values for global_UHSI_Supp */
-#define HOST_SDR_UNSUPP			(0)
-#define HOST_SDR_12_25			(1)
-#define HOST_SDR_50_104_DDR		(2)
-
-/* depends-on/affects sd3_autoselect_uhsi_max. 
- *	see sd3_autoselect_uhsi_max 
- */
-int sd_uhsimode = SD3CLKMODE_DISABLED;
-
-uint32 sd3_autoselect_uhsi_max = 0;
-
-#define MAX_TUNING_ITERS 			(40)
-/* (150+10)millisecs total time; so dividing it for per-loop */
-#define PER_TRY_TUNING_DELAY_MS 	(160/MAX_TUNING_ITERS)
-#define CLKTUNING_MAX_BRR_RETRIES	(10)
-
-/* table analogous to preset value register.
-*	This is bcos current HC doesn't have preset value reg support.
-*	All has DrvStr as 'B' [val:0] and CLKGEN as 0.
-*/
-static unsigned short presetval_sw_table[] = {
-	0x0520, /* initialization: 	DrvStr:'B' [0]; CLKGen:0;
-			* SDCLKFreqSel: 520 [division: 320*2 = 640: ~400 KHz]
-			*/
-	0x0008, /* default speed:DrvStr:'B' [0]; CLKGen:0;
-			* SDCLKFreqSel: 8 [division: 6*2 = 12: ~25 MHz]
-			*/
-	0x0004, /* High speed: 	DrvStr:'B' [0]; CLKGen:0;
-			* SDCLKFreqSel: 4 [division: 3*2 = 6: ~50 MHz]
-			*/
-	0x0008, /* SDR12: 		DrvStr:'B' [0]; CLKGen:0;
-			* SDCLKFreqSel: 8 [division: 6*2 = 12: ~25 MHz]
-			*/
-	0x0004, /* SDR25: 		DrvStr:'B' [0]; CLKGen:0;
-			* SDCLKFreqSel: 4 [division: 3*2 = 6: ~50 MHz]
-			*/
-	0x0002, /* SDR50: 		DrvStr:'B' [0]; CLKGen:0;
-			* SDCLKFreqSel: 2 [division: 1*2 = 2: ~100 MHz]
-			*/
-	0x0001, /* SDR104: 		DrvStr:'B' [0]; CLKGen:0;
-			SDCLKFreqSel: 1 [no division: ~255/~208 MHz]
-			*/
-	0x0004  /* DDR50: 		DrvStr:'B' [0]; CLKGen:0;
-			SDCLKFreqSel: 4 [division: 3*2 = 6: ~50 MHz]
-			*/
-};
-
-/* This is to have software overrides to the hardware. Info follows:
-	For override [1]: 	Preset registers: not supported
-	Voltage switch:  not supported
-	Clock Tuning: not supported
-*/
-bool sd3_sw_override1 = TRUE;
-
-#define SD3_TUNING_REQD(sd, sd_uhsimode) ((sd_uhsimode != SD3CLKMODE_DISABLED) && \
-			(sd->version == HOST_CONTR_VER_3) &&	\
-			((sd_uhsimode == SD3CLKMODE_3_SDR104) ||	\
-			((sd_uhsimode == SD3CLKMODE_2_SDR50) &&	\
-			(GFIELD(sd->caps3, CAP3_TUNING_SDR50)))))
-
-/* find next power of 2 */
-#define NEXT_POW2(n)  {n--; n |= n>>1; n |= n>>2; n |= n>>4; n++;}
-
-#else /* SDHOST3 */
 
 #define sd3_trace(x)
 
-#endif /* SDHOST3 */
 
 #ifdef BCMSDYIELD
 bool sd_yieldcpu = TRUE;		/* Allow CPU yielding for buffer requests */
@@ -149,11 +66,7 @@ uint sd_divisor = 2;	/* Default 48MHz/2 = 24MHz
 uint sd_power = 1;		/* Default to SD Slot powered ON */
 uint sd_clock = 1;		/* Default to SD Clock turned ON */
 uint sd_pci_slot = 0xFFFFffff; /* Used to force selection of a particular PCI slot */
-#ifdef SDHOST3
-uint8 sd_dma_mode = DMA_MODE_NONE; /* Default to NONE for now */
-#else
 uint8 sd_dma_mode = DMA_MODE_SDMA; /* Default to SDMA for now */
-#endif /* SDHOST3 */
 
 uint sd_toctl = 7;
 
@@ -191,15 +104,6 @@ static void sd_create_adma_descriptor(sdioh_info_t *sd,
 static void sd_dump_adma_dscr(sdioh_info_t *sd);
 static void sdstd_dumpregs(sdioh_info_t *sd);
 
-#ifdef SDHOST3
-static int sdstd_3_set_highspeed_uhsi_mode(sdioh_info_t *sd, int sd3ClkMode);
-static int sdstd_3_sigvoltswitch_proc(sdioh_info_t *sd);
-static int sdstd_3_get_matching_uhsi_clkmode(sdioh_info_t *sd,
-	int sd3_requested_clkmode);
-static bool sdstd_3_get_matching_drvstrn(sdioh_info_t *sd,
-	int sd3_requested_clkmode, uint32 *drvstrn, uint16 *presetval);
-static int sdstd_3_clock_wrapper(sdioh_info_t *sd);
-#endif /* SDHOST3 */
 
 static int sdstd_clock_wrapper(sdioh_info_t *sd);
 
@@ -377,12 +281,6 @@ sdioh_detach(osl_t *osh, sdioh_info_t *sd)
 	if (sd) {
 		sd_unmap_dma(sd);
 		sdstd_wreg16(sd, SD_IntrSignalEnable, 0);
-#ifdef SDHOST3
-		if (sd->sd3_tuning_reqd == TRUE) {
-			sdstd_3_osclean_tuning(sd);
-			sd->sd3_tuning_reqd = FALSE;
-		}
-#endif /* SDHOST3 */
 		sd_trace(("%s: freeing irq %d\n", __FUNCTION__, sd->irq));
 		sdstd_free_irq(sd->irq, sd);
 		if (sd->card_init_done)
@@ -463,9 +361,6 @@ enum {
 	IOV_MINYIELD,
 	IOV_FORCERB,
 	IOV_CLOCK,
-#ifdef SDHOST3
-	IOV_UHSIMOD
-#endif /* SDHOST3 */
 };
 
 const bcm_iovar_t sdioh_iovars[] = {
@@ -488,9 +383,6 @@ const bcm_iovar_t sdioh_iovars[] = {
 	{"sd_clock",	IOV_CLOCK,	0,	IOVT_UINT32,	0 },
 	{"sd_mode",	IOV_SDMODE,	0,	IOVT_UINT32,	100},
 	{"sd_highspeed",	IOV_HISPEED,	0,	IOVT_UINT32,	0},
-#ifdef SDHOST3
-	{"sd_uhsimode",	IOV_UHSIMOD,	0,	IOVT_UINT32,	0},
-#endif	/* SDHOST3 */
 	{NULL, 0, 0, 0, 0 }
 };
 
@@ -738,48 +630,6 @@ sdioh_iovar_op(sdioh_info_t *si, const char *name,
 		bcmerror = sdstd_set_highspeed_mode(si, (bool)sd_hiok);
 		break;
 
-#ifdef SDHOST3
-	case IOV_GVAL(IOV_UHSIMOD):
-		sd3_trace(("%s: Get UHSI: \n", __FUNCTION__));
-		int_val = (int)sd_uhsimode;
-		bcopy(&int_val, arg, val_size);
-		break;
-
-	case IOV_SVAL(IOV_UHSIMOD):
-		{
-			int oldval = sd_uhsimode; /* save old, working value */
-			sd3_trace(("%s: Set UHSI: \n", __FUNCTION__));
-			/* check if UHSI is supported by card/host */
-			if (!(si->card_UHSI_voltage_Supported && si->host_UHSISupported)) {
-				sd_err(("%s:UHSI not suppoted!\n", __FUNCTION__));
-				bcmerror = BCME_UNSUPPORTED;
-				break;
-			}
-			/* check for valid values */
-			if (!((int_val == SD3CLKMODE_AUTO) ||
-				(int_val == SD3CLKMODE_DISABLED) ||
-				((int_val >= SD3CLKMODE_0_SDR12) &&
-				(int_val <= SD3CLKMODE_4_DDR50)))) {
-				sd_err(("%s:CLK: bad arg!\n", __FUNCTION__));
-				bcmerror = BCME_BADARG;
-				break;
-			}
-
-			sd_uhsimode = int_val;
-			if (SUCCESS != sdstd_3_clock_wrapper(si)) {
-				sd_err(("%s:Error in setting uhsi clkmode:%d,"
-					"restoring back to %d\n", __FUNCTION__,
-					sd_uhsimode, oldval));
-				/* try to set back the old one */
-				sd_uhsimode = oldval;
-				if (SUCCESS != sdstd_3_clock_wrapper(si)) {
-					sd_err(("%s:Error in setting uhsi to old mode;"
-						"ignoring:\n", __FUNCTION__));
-				}
-			}
-			break;
-		}
-#endif	/* SDHOST3 */
 
 	case IOV_GVAL(IOV_NUMINTS):
 		int_val = (int32)si->intrcount;
@@ -999,33 +849,6 @@ sdioh_request_buffer(sdioh_info_t *sd, uint pio_dma, uint fix_inc, uint rw, uint
 	bool local_blockmode = sd->sd_blockmode;
 	SDIOH_API_RC status = SDIOH_API_RC_SUCCESS;
 
-#ifdef SDHOST3
-	int retries = 0;
-
-	if (sd->sd3_tuning_reqd) {
-		sd3_trace(("sd3: %s: tuning reqd\n", __FUNCTION__));
-		if (sd->sd3_tun_state == TUNING_ONGOING) {
-			retries = RETRIES_SMALL;
-			/* check if tuning is already going on */
-			while ((GFIELD(sdstd_rreg(sd, SD3_HostCntrl2),
-				HOSTCtrl2_EXEC_TUNING)) && retries--) {
-				if (retries == RETRIES_SMALL)
-					sd_err(("%s: Waiting for Tuning to complete\n",
-					__FUNCTION__));
-			}
-
-			if (!retries) {
-				sd_err(("%s: Tuning wait timeout\n", __FUNCTION__));
-				if (trap_errs)
-					ASSERT(0);
-				return SDIOH_API_RC_FAIL;
-			}
-		} else {
-			/* check and start tuning if required. */
-			sdstd_3_start_tuning(sd);
-		}
-	}
-#endif /* SDHOST3 */
 
 	sdstd_lock(sd);
 
@@ -1036,9 +859,6 @@ sdioh_request_buffer(sdioh_info_t *sd, uint pio_dma, uint fix_inc, uint rw, uint
 	sd_data(("%s: %c len %d r_cnt %d t_cnt %d, pkt @0x%p\n",
 	         __FUNCTION__, rw == SDIOH_READ ? 'R' : 'W',
 	         buflen_u, sd->r_cnt, sd->t_cnt, pkt));
-#ifdef SDHOST3
-	sd->sd3_dat_state = DATA_TRANSFER_ONGOING;
-#endif /* SDHOST3 */
 
 	/* Break buffer down into blocksize chunks:
 	 * Bytemode: 1 block at a time.
@@ -1094,16 +914,6 @@ sdioh_request_buffer(sdioh_info_t *sd, uint pio_dma, uint fix_inc, uint rw, uint
 			addr += len;
 	}
 done:
-#ifdef SDHOST3
-	sd->sd3_dat_state = DATA_TRANSFER_IDLE;
-
-	/* check if we have to do tuning; if so, start */
-	if (sd->sd3_tun_state == TUNING_START_AFTER_DAT) {
-		sd3_trace(("sd3: %s: tuning start\n", __FUNCTION__));
-		/* check and start tuning if required. */
-		sdstd_3_start_tuning(sd);
-	}
-#endif /* SDHOST3 */
 	sdstd_unlock(sd);
 
 	return status;
@@ -1631,12 +1441,6 @@ sdstd_host_init(sdioh_info_t *sd)
 			sd_err(("Host Controller version 2.0, Vendor Revision: 0x%02x\n",
 				sdstd_rreg16(sd, SD_HostControllerVersion) >> 8));
 			break;
-#ifdef SDHOST3
-		case 2:
-			sd_err(("Host Controller version 3.0, Vendor Revision: 0x%02x\n",
-				sdstd_rreg16(sd, SD_HostControllerVersion) >> 8));
-			break;
-#endif /* SDHOST3 */	
 		default:
 			sd_err(("%s: Host Controller version 0x%02x not supported.\n",
 			    __FUNCTION__, sd->version));
@@ -1644,12 +1448,6 @@ sdstd_host_init(sdioh_info_t *sd)
 	}
 
 	sd->caps = sdstd_rreg(sd, SD_Capabilities);	/* Cache this for later use */
-#ifdef SDHOST3
-	/* MSB 32 bits of caps supported in sdio 3.0 */
-	sd->caps3 = sdstd_rreg(sd, SD_Capabilities3); /* Cache this for later use */
-	sd3_trace(("sd3: %s: caps: 0x%x; MCCap:0x%x\n", __FUNCTION__, sd->caps, sd->curr_caps));
-	sd3_trace(("sd3: %s: caps3: 0x%x\n", __FUNCTION__, sd->caps3));
-#endif /* SDHOST3 */
 	sd->curr_caps = sdstd_rreg(sd, SD_MaxCurCap);
 
 	sd_info(("%s: caps: 0x%x; MCCap:0x%x\n", __FUNCTION__, sd->caps, sd->curr_caps));
@@ -1674,29 +1472,6 @@ sdstd_host_init(sdioh_info_t *sd)
 	sd->card_init_done = FALSE;
 	sd->adapter_slot = full_slot;
 
-#ifdef SDHOST3
-	if (sd3_sw_override1 && (sd_uhsimode != SD3CLKMODE_DISABLED)) {
-		sd->version = HOST_CONTR_VER_3;
-		sd3_trace(("%s:forcing to 3.0\n", __FUNCTION__));
-	}
-
-	if (sd->version == HOST_CONTR_VER_3) {
-		/* read host ctrl 2 */
-		uint16 reg16 = 0;
-		sd3_trace(("sd3: %s: HC3: reading additional regs\n", __FUNCTION__));
-
-		reg16 = sdstd_rreg16(sd, SD3_HostCntrl2);
-
-		sd_info(("%s: HCtrl: 0x%x; HCtrl2:0x%x\n", __FUNCTION__, reg8, reg16));
-
-		/* if HC supports 1.8V and one of the SDR/DDR modes, hc uhci support is PRESENT */
-		if ((GFIELD(sd->caps, CAP_VOLT_1_8)) &&
-			(GFIELD(sd->caps3, CAP3_SDR50_SUP) ||
-			GFIELD(sd->caps3, CAP3_SDR104_SUP) ||
-			GFIELD(sd->caps3, CAP3_DDR50_SUP)))
-			sd->host_UHSISupported = 1;
-	}
-#endif /* SDHOST3 */
 
 	return (SUCCESS);
 }
@@ -1747,11 +1522,6 @@ sdstd_client_init(sdioh_info_t *sd)
 	 * become 'live'
 	 */
 
-#ifdef SDHOST3
-	if (!sd->host_UHSISupported)
-		sdstd_wreg16(sd, SD_IntrStatusEnable, 0x1ff);
-	else
-#endif /* SDHOST3 */
 	{
 		/* enable retuning + INT_x interrupts, but DONOT enable signalling */
 		sdstd_wreg16(sd, SD_IntrStatusEnable, 0x1fff);
@@ -1862,14 +1632,6 @@ sdstd_client_init(sdioh_info_t *sd)
 		return ERROR;
 	}
 	/* Switch to High-speed clocking mode if both host and device support it */
-#ifdef SDHOST3
-	if (sd->host_UHSISupported) {
-		if (sdstd_3_clock_wrapper(sd)) {
-			sd_err(("sdstd_start_clock failed\n"));
-			return ERROR;
-		}
-	} else
-#endif /* SDHOST3 */
 	{
 		sd_err(("%s:SDHOST3-legacy\n", __FUNCTION__));
 		if (sdstd_clock_wrapper(sd)) {
@@ -1896,549 +1658,6 @@ sdstd_clock_wrapper(sdioh_info_t *sd)
 	return SUCCESS;
 }
 
-#ifdef SDHOST3
-
-static int
-sdstd_3_clock_wrapper(sdioh_info_t *sd)
-{
-	int retclk = 0;
-	sd_info(("%s: Enter\n", __FUNCTION__));
-	if (sd->card_UHSI_voltage_Supported) {
-		/* check if clk config requested is supported by both host and target. */
-		retclk = sdstd_3_get_matching_uhsi_clkmode(sd, sd_uhsimode);
-
-		/* if no match for requested caps, try to get the max match possible */
-		if (retclk == -1) {
-			/* if auto enabled */
-			if (sd3_autoselect_uhsi_max == 1) {
-				retclk = sdstd_3_get_matching_uhsi_clkmode(sd, SD3CLKMODE_AUTO);
-				/* still NO match */
-				if (retclk == -1) {
-					/* NO match with HC and card capabilities. Now try the
-						High speed/legacy mode if possible 
-					*/
-	/* 				return ERROR;	 */
-				}
-			} else {
-				/* means user doesn't want auto clock. So return ERROR */
-				sd_err(("%s: Not able to set requested clock, Try"
-				"auto mode\n", __FUNCTION__));
-				return ERROR;
-			}
-		}
-
-		if (retclk != -1) {
-			/* set the current clk to be selected clock */
-			sd_uhsimode = retclk;
-
-			if (BCME_OK != sdstd_3_set_highspeed_uhsi_mode(sd, sd_uhsimode)) {
-				sd_err(("%s: Not able to set requested clock\n", __FUNCTION__));
-				return ERROR;
-			}
-		} else {
-			/* try legacy mode */
-			if (SUCCESS != sdstd_clock_wrapper(sd)) {
-				sd_err(("sdstd_start_clock failed\n"));
-				return ERROR;
-			}
-		}
-	} else {
-		sd_info(("%s: Legacy Mode Clock\n", __FUNCTION__));
-		/* try legacy mode */
-		if (SUCCESS != sdstd_clock_wrapper(sd)) {
-			sd_err(("%s sdstd_clock_wrapper failed\n", __FUNCTION__));
-			return ERROR;
-		}
-	}
-	return SUCCESS;
-}
-
-int
-sdstd_3_clk_tuning(sdioh_info_t *sd, uint32 sd3ClkMode)
-{
-	int status, lcount = 0, brr_count = 0;
-	uint16 val1 = 0, bufready = 0;
-
-	sd3_trace(("sd3: %s: Enter\n", __FUNCTION__));
-	/* if (NOT SDR104) OR 
-	 *	(SDR_50 AND sdr50_tuning_reqd is NOT enabled)
-	 * return success, as tuning not reqd. 
-	 */
-	if (sd->sd3_tuning_reqd) {
-		sd_info(("%s: Tuning NOT reqd!\n", __FUNCTION__));
-		return SUCCESS;
-	}
-
-	/* execute tuning procedure */
-
-	/* enable Buffer ready  status. [donot enable the interrupt right now] */
-	val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-	val1 = SFIELD(val1, HOSTCtrl2_EXEC_TUNING, 1);
-	sdstd_wreg16(sd, SD3_HostCntrl2, val1);
-
-	/* Execute tuning */ 
-	val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-	val1 = SFIELD(val1, HOSTCtrl2_EXEC_TUNING, 1);
-	sdstd_wreg16(sd, SD3_HostCntrl2, val1);
-
-	do {
-		sd3_trace(("sd3: %s: cmd19 issue\n", __FUNCTION__));
-		/* Issue cmd19 */
-		if ((status = sdstd_cmd_issue(sd, USE_DMA(sd), SDIOH_CMD_19, 0))
-			!= SUCCESS) {
-			sd_err(("%s: CMD19 failed\n", __FUNCTION__));
-			return status;
-		}
-
-
-		/* wait for buffer read ready */
-		do {
-			OSL_DELAY(2000); /* tbd: 2ms is sufficient? */
-			bufready = sdstd_rreg16(sd, SD_IntrStatus);
-
-			if (GFIELD(bufready, INTSTAT_BUF_READ_READY))
-				break;
-		} while (++brr_count <= CLKTUNING_MAX_BRR_RETRIES);
-
-		/* buffer read ready timedout */
-		if (brr_count == CLKTUNING_MAX_BRR_RETRIES) {
-			sd_err(("%s: TUNINGFAILED: BRR response timedout!\n",
-				__FUNCTION__));
-			return ERROR;
-		}
-		/* clear BuffReadReady int */
-		bufready = SFIELD(bufready, INTSTAT_BUF_READ_READY, 1);
-		sdstd_wreg16(sd, SD_IntrStatus, bufready);
-
-		/* wait before continuing */		
-		OSL_DELAY(PER_TRY_TUNING_DELAY_MS * 1000);
-
-		/* check execute tuning bit */
-		val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-		if (!GFIELD(val1, HOSTCtrl2_EXEC_TUNING)) {
-			/* done tuning, break from loop */
-			break;
-		}
-
-		/* max tuning iterations exceeded */
-		if (lcount++ > MAX_TUNING_ITERS) {
-			sd_err(("%s: TUNINGFAILED: Max tuning iterations"
-				"exceeded!\n", __FUNCTION__));
-			return ERROR;
-		}
-	} while (1);
-
-	/* check sampling clk select */
-	val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-	if (!GFIELD(val1, HOSTCtrl2_SAMPCLK_SEL)) {
-		/* error in selecting clk */
-		sd_err(("%s: TUNINGFAILED: SamplClkSel failed!\n", __FUNCTION__));
-		return ERROR;
-	}
-
-/* done: */
-
-	return SUCCESS;
-}
-
-void
-sdstd_3_enable_retuning_int(sdioh_info_t *sd)
-{
-	uint16 raw_int;
-	raw_int = sdstd_rreg16(sd, SD_IntrSignalEnable);
-	sdstd_wreg16(sd, SD_IntrSignalEnable, (raw_int | HC_INTR_RETUNING));
-}
-
-void
-sdstd_3_disable_retuning_int(sdioh_info_t *sd)
-{
-	uint16 raw_int;
-	sd->intmask &= ~HC_INTR_RETUNING;
-	raw_int = sdstd_rreg16(sd, SD_IntrSignalEnable);
-	sdstd_wreg16(sd, SD_IntrSignalEnable, (raw_int & (~HC_INTR_RETUNING)));
-}
-
-bool
-sdstd_3_is_retuning_int_set(sdioh_info_t *sd)
-{
-	uint16 raw_int;
-
-	raw_int = sdstd_rreg16(sd, SD_IntrStatus);
-
-	if (GFIELD(raw_int, INTSTAT_RETUNING_INT))
-		return TRUE;
-
-	return FALSE;
-}
-
-/*
-	Assumption: sd3ClkMode is checked to be present in both host/card 
-	capabilities before entering this function. VALID values for sd3ClkMode 
-	in this function: SD3CLKMODE_2, 3, 4 [0 and 1 NOT supported as 
-	they are legacy] For that, need to call 
-	sdstd_3_get_matching_uhsi_clkmode()
-*/
-static int
-sdstd_3_set_highspeed_uhsi_mode(sdioh_info_t *sd, int sd3ClkMode)
-{
-	uint32 drvstrn;
-	int status;
-	uint8 hc_reg8;
-	uint16 val1 = 0, presetval = 0;
-	uint32 regdata;
-
-	sd3_trace(("sd3: %s:enter:clkmode:%d\n", __FUNCTION__, sd3ClkMode));
-
-	hc_reg8 = sdstd_rreg8(sd, SD_HostCntrl);
-
-	if (HOST_SDR_UNSUPP == sd->global_UHSI_Supp) {
-		sd_err(("%s:Trying to set clk with unsupported global support\n", __FUNCTION__));
-		return BCME_ERROR;
-	}
-
-	/* get [double check, as this is already done in 
-		sdstd_3_get_matching_uhsi_clkmode] drvstrn 
-	*/
-	if (!sdstd_3_get_matching_drvstrn(sd, sd3ClkMode, &drvstrn, &presetval)) {
-		sd_err(("%s:DRVStrn mismatch!: card strn:0x%x; HC preset"
-			"val:0x%x\n", __FUNCTION__, drvstrn, presetval));
-		return BCME_SDIO_ERROR;
-	}
-
-	/* also set driver type select in CCCR */
-	drvstrn = SFIELD(drvstrn, SDIO_BUS_DRVR_TYPE_SEL, GFIELD(presetval, PRESET_DRIVR_SELECT));
-
-	if ((status = sdstd_card_regwrite(sd, 0, SDIOD_CCCR_DRIVER_STRENGTH,
-		1, drvstrn)) != BCME_OK) {
-		sd_err(("%s:Setting SDIOD_CCCR_DRIVER_STRENGTH in card Failed!\n", __FUNCTION__));
-		return BCME_SDIO_ERROR;
-	}
-
-	/* ********** change Bus speed select in device */
-	if ((status = sdstd_card_regread(sd, 0, SDIOD_CCCR_SPEED_CONTROL,
-	                                 1, &regdata)) != SUCCESS) {
-		sd_err(("%s:FAILED 1\n", __FUNCTION__));
-		return BCME_SDIO_ERROR;
-	}
-	sd_info(("Attempting to change BSS.current val:0x%x\n", regdata));
-
-	if (regdata & SDIO_SPEED_SHS) {
-		sd_info(("Device supports High-Speed mode.\n"));
-		/* clear existing BSS */
-		regdata &= ~0xE;
-
-		regdata |= (sd3ClkMode << 1);
-
-		sd_info(("Writing %08x to Card at %08x\n",
-		         regdata, SDIOD_CCCR_SPEED_CONTROL));
-		if ((status = sdstd_card_regwrite(sd, 0, SDIOD_CCCR_SPEED_CONTROL,
-		                                  1, regdata)) != BCME_OK) {
-			sd_err(("%s:FAILED 2\n", __FUNCTION__));
-			return BCME_SDIO_ERROR;
-		}
-
-		if ((status = sdstd_card_regread(sd, 0, SDIOD_CCCR_SPEED_CONTROL,
-		                                 1, &regdata)) != BCME_OK) {
-			sd_err(("%s:FAILED 3\n", __FUNCTION__));
-			return BCME_SDIO_ERROR;
-		}
-
-		sd_info(("Read %08x from Card at %08x\n", regdata, SDIOD_CCCR_SPEED_CONTROL));
-	}
-	else {
-		sd_err(("Device does not support High-Speed Mode.\n"));
-	}
-
-	/* SD Clock Enable = 0 */
-	sdstd_wreg16(sd, SD_ClockCntrl,
-		sdstd_rreg16(sd, SD_ClockCntrl) & ~((uint16)0x4));
-
-	/* set to HighSpeed mode */
-	/* TBD: is these to change SD_HostCntrl reqd for UHSI? */
-	hc_reg8 = SFIELD(hc_reg8, HOST_HI_SPEED_EN, 1);
-	sdstd_wreg8(sd, SD_HostCntrl, hc_reg8);
-
-	/* set UHS Mode select in HC2 and also set preset */
-	val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-	val1 = SFIELD(val1, HOSTCtrl2_UHSMODE_SEL, sd3ClkMode);
-	if (TRUE != sd3_sw_override1) {
-	val1 = SFIELD(val1, HOSTCtrl2_PRESVAL_EN, 1);
-	} else {
-		/* set hC registers manually using the retreived values */
-		/* *set drvstrn */
-		val1 = SFIELD(val1, HOSTCtrl2_DRIVSTRENGTH_SEL,
-			GFIELD(presetval, PRESET_DRIVR_SELECT));
-	}
-
-	/* finally write Hcontrol2 */
-	sdstd_wreg16(sd, SD3_HostCntrl2, val1);
-
-	sd_err(("%s:HostCtrl2 final value:0x%x\n", __FUNCTION__, val1));
-
-	/* start clock : clk will be enabled inside. */
-	sdstd_start_clock(sd, GFIELD(presetval, PRESET_CLK_DIV));
-
-	/* execute first tuning procedure */
-	if (!sd3_sw_override1) {
-		if (SD3_TUNING_REQD(sd, sd3ClkMode)) {
-			sd_err(("%s: Tuning start..\n", __FUNCTION__));
-			sd->sd3_tuning_reqd = TRUE;
-			/* TBD: first time: enabling INT's could be problem? */
-			sdstd_3_start_tuning(sd);
-		}
-	}
-
-	return BCME_OK;
-}
-
-/* Need to run this function in interrupt-disabled context */
-bool sdstd_3_check_and_set_retuning(sdioh_info_t *sd)
-{
-	sd3_trace(("sd3: %s:\n", __FUNCTION__));
-
-	/* if already initiated, just return without anything */
-	if ((sd->sd3_tun_state == TUNING_START) ||
-		(sd->sd3_tun_state == TUNING_ONGOING) ||
-		(sd->sd3_tun_state == TUNING_START_AFTER_DAT)) {
-		/* do nothing */
-		return FALSE;
-	}
-
-	if (sd->sd3_dat_state == DATA_TRANSFER_IDLE) {
-		sd->sd3_tun_state = TUNING_START; /* tuning to be started by the tasklet */
-		return TRUE;
-	} else {
-		/* tuning to be started after finishing the existing data transfer */
-		sd->sd3_tun_state = TUNING_START_AFTER_DAT;
-	}
-	return FALSE;
-}
-
-int sdstd_3_get_tune_state(sdioh_info_t *sd)
-{
-	return sd->sd3_tun_state;
-}
-
-void sdstd_3_set_tune_state(sdioh_info_t *sd, int state)
-{
-	sd->sd3_tun_state = state;
-}
-
-uint8 sdstd_3_get_tuning_exp(sdioh_info_t *sd)
-{
-	return GFIELD(sd->caps3, CAP3_RETUNING_TC);
-}
-
-uint32 sdstd_3_get_uhsi_clkmode(sdioh_info_t *sd)
-{
-	return sd_uhsimode;
-}
-
-/* check, to see if the card supports driver_type corr to the driver_type 
-	in preset value, which will be selected by requested UHSI mode 
-    input: 
-	clk mode: valid values: SD3CLKMODE_2_SDR50, SD3CLKMODE_3_SDR104,
-			SD3CLKMODE_4_DDR50, SD3CLKMODE_AUTO 
-    outputs:
-	return_val: 	TRUE; if a matching drvstrn for the given clkmode is 
-		found in both HC and card. otherwise, FALSE.
-		[other outputs below valid ONLY if return_val is TRUE]
-	drvstrn	:      driver strength read from CCCR.
-	presetval: 	value of preset reg, corr to the clkmode. 
- */
-static bool
-sdstd_3_get_matching_drvstrn(sdioh_info_t *sd, int sd3_requested_clkmode,
-	uint32 *drvstrn, uint16 *presetval)
-{
-	int status;
-	uint8 presetreg;
-	uint8 cccr_reqd_dtype_mask = 1;
-
-	sd3_trace(("sd3: %s:\n", __FUNCTION__));
-
-	if (sd3_requested_clkmode != SD3CLKMODE_AUTO) {
-		/* CARD: get the card driver strength from cccr */
-		if ((status = sdstd_card_regread(sd, 0, SDIOD_CCCR_DRIVER_STRENGTH,
-			1, drvstrn)) != BCME_OK) {
-			sd_err(("%s:Reading SDIOD_CCCR_DRIVER_STRENGTH from card"
-				"Failed!\n", __FUNCTION__));
-			return FALSE;
-		}
-		if (TRUE != sd3_sw_override1) {
-		/* HOSTC: get the addr of preset register indexed by the clkmode */
-		presetreg = SD3_PresetValStart +
-		(SD3_PRESETVAL_SDR50_IX*(sd3_requested_clkmode - SD3CLKMODE_0_SDR12)* 2);
-		*presetval = sdstd_rreg16(sd, presetreg);
-		} else {
-			/* Note: +3 for mapping between SD3CLKMODE_xxx and presetval_sw_table */
-			*presetval = presetval_sw_table[sd3_requested_clkmode + 3];
-		sd_err(("%s:reqCLK: %d, presetval: 0x%x\n",
-			__FUNCTION__, sd3_requested_clkmode, *presetval));
-		}
-
-		cccr_reqd_dtype_mask <<= GFIELD(*presetval, PRESET_DRIVR_SELECT);
-
-		/* compare/match */
-		if (!(cccr_reqd_dtype_mask & GFIELD(*drvstrn, SDIO_BUS_DRVR_TYPE_CAP))) {
-			sd_err(("%s:cccr_reqd_dtype_mask and SDIO_BUS_DRVR_TYPE_CAP"
-				"not matching!:reqd:0x%x, cap:0x%x\n", __FUNCTION__,
-				cccr_reqd_dtype_mask, GFIELD(*drvstrn, SDIO_BUS_DRVR_TYPE_CAP)));
-			return FALSE;
-		} else {
-			/* modify drvstrn to reflect the preset val */
-			*drvstrn = GFIELD(*presetval, PRESET_DRIVR_SELECT);
-			sd_trace(("%s:drvstrn:0x%x\n", __FUNCTION__, *drvstrn));
-		}
-	} else {
-		/* TBD check for sd3_requested_clkmode : -1 also.  */
-	}
-	return TRUE;
-}
-
-/* Returns a matching UHSI clk speed is found. If not, returns -1. 
-	Also, if  sd3_requested_clkmode is -1, finds the closest max match clk and returns. 
- */
-static int
-sdstd_3_get_matching_uhsi_clkmode(sdioh_info_t *sd, int sd3_requested_clkmode)
-{
-	uint32 card_val_uhsisupp;
-	uint8 speedmask = 1;
-	uint32 drvstrn;
-	uint16 presetval;
-	int status;
-
-	sd3_trace(("sd3: %s:\n", __FUNCTION__));
-
-	sd->global_UHSI_Supp = HOST_SDR_UNSUPP;
-
-	/* for legacy/25MHz/50MHz bus speeds, no checks done here */
-	if ((sd3_requested_clkmode == SD3CLKMODE_0_SDR12) ||
-		(sd3_requested_clkmode == SD3CLKMODE_1_SDR25)) {
-		sd->global_UHSI_Supp = HOST_SDR_12_25;
-		return sd3_requested_clkmode;
-	}
-	/* get cap of card */
-	if ((status = sdstd_card_regread(sd, 0, SDIOD_CCCR_UHSI_SUPPORT,
-	                                 1, &card_val_uhsisupp)) != BCME_OK) {
-		sd_err(("%s:SDIOD_CCCR_UHSI_SUPPORT query failed!\n", __FUNCTION__));
-		return -1;
-	}
-	sd_info(("%s:Read %08x from Card at %08x\n", __FUNCTION__,
-		card_val_uhsisupp, SDIOD_CCCR_UHSI_SUPPORT));
-
-	if (sd3_requested_clkmode != SD3CLKMODE_AUTO) {
-		/* Note: it is assumed that, following are executed when (sd3ClkMode >= 2) */
-		speedmask <<= (sd3_requested_clkmode - SD3CLKMODE_2_SDR50);
-
-		/* check first about 3.0 HS modes */
-		if (!(GFIELD(sd->caps3, CAP3_30CLKCAP) & speedmask)) {
-			sd_err(("%s:HC does not support req 3.0 UHSI mode."
-				"requested:%d; capable:0x%x\n", __FUNCTION__,
-				sd3_requested_clkmode, GFIELD(sd->caps3, CAP3_30CLKCAP)));
-			return -1;
-		}
-
-		if (!(GFIELD(card_val_uhsisupp, SDIO_BUS_SPEED_UHSICAP) & speedmask)) {
-			sd_err(("%s:Card does not support req 3.0 UHSI mode. requested:%d;"
-				"capable:0x%x\n", __FUNCTION__, sd3_requested_clkmode,
-				GFIELD(card_val_uhsisupp, SDIO_BUS_SPEED_UHSICAP)));
-			return -1;
-		}
-
-		/* check, to see if the card supports driver_type corr to the
-			driver_type in preset value, which will be selected by
-			requested UHSI mode
-		*/
-		if (!sdstd_3_get_matching_drvstrn(sd, sd3_requested_clkmode,
-			&drvstrn, &presetval)) {
-			sd_err(("%s:DRVStrn mismatch!: card strn:0x%x; HC preset"
-				"val:0x%x\n", __FUNCTION__, drvstrn, presetval));
-			return -1;
-		}
-		/* success path. change the support variable accordingly */
-		sd->global_UHSI_Supp = HOST_SDR_50_104_DDR;
-		return sd3_requested_clkmode;
-	} else {
-		/* auto clk selection: get the highest clock capable by both card and HC */	
-/* TBD		TOBE DONE */
-/* 		sd->global_UHSI_Supp = TRUE; on success */
-		return -1;
-	}
-}
-
-static int
-sdstd_3_sigvoltswitch_proc(sdioh_info_t *sd)
-{
-	int status;
-	uint32 cmd_rsp = 0, presst;
-	uint16 val1 = 0;
-
-	sd3_trace(("sd3: %s:\n", __FUNCTION__));
-
-	/* Issue cmd11 */
-	if ((status = sdstd_cmd_issue(sd, USE_DMA(sd), SDIOH_CMD_11, 0))
-		!= SUCCESS) {
-		sd_err(("%s: CMD11 failed\n", __FUNCTION__));
-		return status;
-	}
-
-	/* check response */
-	sdstd_cmd_getrsp(sd, &cmd_rsp, 1);
-	if (
-		GFIELD(cmd_rsp, RSP1_ERROR) ||	/*  bit 19 */
-		GFIELD(cmd_rsp, RSP1_ILLEGAL_CMD) ||	/*  bit 22 */
-		GFIELD(cmd_rsp, RSP1_COM_CRC_ERROR) ||	/*  bit 23 */
-		GFIELD(cmd_rsp, RSP1_CARD_LOCKED)	/*  bit 25 */	) {
-		sd_err(("%s: FAIL:CMD11: cmd_resp:0x%x\n", __FUNCTION__, cmd_rsp));
-		return ERROR;
-	}
-
-	/* SD Clock Enable = 0 */
-	sdstd_wreg16(sd, SD_ClockCntrl,
-	             sdstd_rreg16(sd, SD_ClockCntrl) & ~((uint16)0x4));
-
-	/* check DAT[3..0] using Present State Reg. If not 0, error */
-	presst = sdstd_rreg(sd, SD_PresentState);
-	if (0 != GFIELD(presst, PRES_DAT_SIGNAL)) {
-		sd_err(("%s: FAIL: PRESTT:0x%x\n", __FUNCTION__, presst));
-		return ERROR;
-	}
-
-	/* turn 1.8V sig enable in HC2 */
-	val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-	val1 = SFIELD(val1, HOSTCtrl2_1_8SIG_EN, 1);
-	sdstd_wreg16(sd, SD3_HostCntrl2, val1);
-
-	/* wait 5ms */
-	OSL_DELAY(5000);
-
-	/* check 1.8V sig enable in HC2. if cleared, error */
-	val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-
-	if (!GFIELD(val1, HOSTCtrl2_1_8SIG_EN)) {
-		sd_err(("%s: FAIL: HC2:1.8V_En:0x%x\n", __FUNCTION__, val1));
-		return ERROR;
-	}
-
-	/* SD Clock Enable = 1 */
-	val1 = sdstd_rreg16(sd, SD_ClockCntrl);
-	sdstd_wreg16(sd, SD_ClockCntrl, val1 | 0x4);
-
-	/* wait 1ms */
-	OSL_DELAY(1000);
-
-	/* check DAT[3..0] using Present State Reg. If not 0b1111, error */
-	presst = sdstd_rreg(sd, SD_PresentState);
-	if (0xf != GFIELD(presst, PRES_DAT_SIGNAL)) {
-		sd_err(("%s: FAIL: PRESTT_FINAL:0x%x\n", __FUNCTION__, presst));
-		return ERROR;
-	}
-
-	return (SUCCESS);
-}
-
-
-#endif /* SDHOST3 */
 
 static int
 sdstd_set_highspeed_mode(sdioh_info_t *sd, bool HSMode)
@@ -2447,9 +1666,6 @@ sdstd_set_highspeed_mode(sdioh_info_t *sd, bool HSMode)
 	int status;
 	uint8 reg8;
 
-#ifdef SDHOST3
-	uint32 drvstrn;
-#endif
 
 	reg8 = sdstd_rreg8(sd, SD_HostCntrl);
 
@@ -2511,31 +1727,6 @@ sdstd_set_highspeed_mode(sdioh_info_t *sd, bool HSMode)
 		reg8 = SFIELD(reg8, HOST_HI_SPEED_EN, 0);
 	}
 
-#ifdef SDHOST3
-	if (sd->host_UHSISupported) {
-		/* also set the default driver strength in the card/HC [this is reqd because, 
-			if earlier we selected any other drv_strn, we need to reset it] 
-		*/
-		/* get the card driver strength from cccr */
-		if ((status = sdstd_card_regread(sd, 0, SDIOD_CCCR_DRIVER_STRENGTH,
-			1, &drvstrn)) != BCME_OK) {
-			sd_err(("%s:Reading SDIOD_CCCR_DRIVER_STRENGTH from card"
-				"Failed!\n", __FUNCTION__));
-			return BCME_SDIO_ERROR;
-		}
-
-		/* reset card drv strn */
-		drvstrn = SFIELD(drvstrn, SDIO_BUS_DRVR_TYPE_SEL, 0);
-
-		/* set card drv strn */
-		if ((status = sdstd_card_regwrite(sd, 0, SDIOD_CCCR_DRIVER_STRENGTH,
-			1, drvstrn)) != BCME_OK) {
-			sd_err(("%s:Setting SDIOD_CCCR_DRIVER_STRENGTH in"
-				"card Failed!\n", __FUNCTION__));
-			return BCME_SDIO_ERROR;
-		}
-	}
-#endif /* SDHOST3 */
 
 	sdstd_wreg8(sd, SD_HostCntrl, reg8);
 
@@ -2629,9 +1820,6 @@ sdstd_start_clock(sdioh_info_t *sd, uint16 new_sd_divisor)
 	uint rc, count;
 	uint16 divisor;
 	uint16 regdata;
-#ifdef SDHOST3
-	uint16 val1;
-#endif /* SDHOST3 */
 
 	sd3_trace(("%s: starting clk\n", __FUNCTION__));
 	/* turn off HC clock */
@@ -2639,11 +1827,6 @@ sdstd_start_clock(sdioh_info_t *sd, uint16 new_sd_divisor)
 	             sdstd_rreg16(sd, SD_ClockCntrl) & ~((uint16)0x4)); /*  Disable the HC clock */
 
 	/* Set divisor */
-#ifdef SDHOST3
-	if (sd->host_UHSISupported) {
-		divisor = (new_sd_divisor >> 1);
-	} else
-#endif /* SDHOST3 */
 	{
 		/* new logic: if divisor > 256, restrict to 256 */
 		if (new_sd_divisor > 256)
@@ -2653,19 +1836,6 @@ sdstd_start_clock(sdioh_info_t *sd, uint16 new_sd_divisor)
 
 
 	sd_info(("Clock control is 0x%x\n", sdstd_rreg16(sd, SD_ClockCntrl)));
-#ifdef SDHOST3
-	if (sd->host_UHSISupported) {
-		/* *get preset value and shift so that.
-		*	bits 0-7 are in 15-8 and 9-8 are in 7-6 of clkctrl
-		*/
-		val1 = divisor << 2;
-		val1 &= 0xfffc;
-		val1 |= divisor >> 8;
-		val1 <<= 6;
-		printf("divisor:%x;val1:%x\n", divisor, val1);
-		sdstd_mod_reg16(sd, SD_ClockCntrl, 0xffC0, val1);
-	} else
-#endif /* SDHOST3 */
 	{
 		sdstd_mod_reg16(sd, SD_ClockCntrl, 0xff00, divisor);
 	}
@@ -2674,7 +1844,6 @@ sdstd_start_clock(sdioh_info_t *sd, uint16 new_sd_divisor)
 	         new_sd_divisor, divisor));
 	sd_err(("%s:now, divided clk is: %d Hz\n",
 		__FUNCTION__, GFIELD(sd->caps, CAP_BASECLK)*1000000/new_sd_divisor));
-#ifndef SDHOST3
 	sd_info(("Primary Clock Freq = %d MHz\n", GFIELD(sd->caps, CAP_TO_CLKFREQ)));
 
 	if (GFIELD(sd->caps, CAP_TO_CLKFREQ) == 50) {
@@ -2698,7 +1867,6 @@ sdstd_start_clock(sdioh_info_t *sd, uint16 new_sd_divisor)
 		if (sd->version != HOST_CONTR_VER_3)
 			return (FALSE);
 	}
-#endif /* SDHOST3 */
 
 	sdstd_or_reg16(sd, SD_ClockCntrl, 0x1); /*  Enable the clock */
 
@@ -2719,16 +1887,10 @@ sdstd_start_clock(sdioh_info_t *sd, uint16 new_sd_divisor)
 	/* Turn on clock */
 	sdstd_or_reg16(sd, SD_ClockCntrl, 0x4);
 
-#ifdef SDHOST3
-	OSL_DELAY(2);
-#endif
 
 	/* Set timeout control (adjust default value based on divisor).
 	 * Disabling timeout interrupts during setting is advised by host spec.
 	 */
-#ifdef SDHOST3
-	if (GFIELD(sd->caps, CAP_BASECLK) < 50)
-#endif
 	{
 		uint toval;
 
@@ -2745,13 +1907,6 @@ sdstd_start_clock(sdioh_info_t *sd, uint16 new_sd_divisor)
 		sdstd_wreg8(sd, SD_TimeoutCntrl, (uint8)toval);
 		sdstd_wreg16(sd, SD_ErrorIntrStatusEnable, regdata);
 	}
-#ifdef SDHOST3
-	else {
-		sd_info(("%s: REsetting err int control\n", __FUNCTION__));
-		regdata = sdstd_rreg16(sd, SD_ErrorIntrStatusEnable);
-		sdstd_wreg16(sd, SD_ErrorIntrStatusEnable, (regdata & ~ERRINT_DATA_TIMEOUT_BIT));
-	}
-#endif
 	OSL_DELAY(2);
 
 	sd_info(("Final Clock control is 0x%x\n", sdstd_rreg16(sd, SD_ClockCntrl)));
@@ -2768,9 +1923,6 @@ sdstd_start_power(sdioh_info_t *sd)
 	uint8 pwr = 0;
 	int volts;
 	uint16 init_divider = 0;
-#ifdef SDHOST3
-	uint8 baseclk = 0;
-#endif /* SDHOST3 */	
 
 	/* reset the card uhsi volt support to false */
 	sd->card_UHSI_voltage_Supported = FALSE;
@@ -2816,37 +1968,7 @@ sdstd_start_power(sdioh_info_t *sd)
 	 */
 	OSL_DELAY(500000);
 
-#ifdef SDHOST3
-	baseclk = GFIELD(sd->caps, CAP_BASECLK);
-	sd_info(("%s:baseclk: %d MHz\n",	__FUNCTION__, baseclk));
-	/* for 3.0, find divisor */
-	if (sd->host_UHSISupported) {
-		sd3_trace(("sd3: %s: checking divisor\n", __FUNCTION__));
-		if (GFIELD(sd->caps3, CAP3_CLK_MULT) != 0)	{
-			sd_err(("%s:Possible error: CLK Mul 1 CLOCKING NOT supported!\n",
-				__FUNCTION__));
-			return ERROR;
-		} else {
-			/*  calculate dividor, which leads to 400KHz.  */
-			init_divider = baseclk*10/4; /* baseclk*1000000/(400000); */
-			/* make it a multiple of 2. */
-			init_divider += (init_divider & 0x1);
-			sd_err(("%s:divider used for init:%d\n",
-				__FUNCTION__, init_divider));
-		}
-	} else {
-	    if (baseclk > 50)
-			sd_divisor <<= 2; /* orig initialized was 2, based on 50MHz. */
-		/* TBD: merge both SDIO 2.0 and 3.0 to share same divider logic */
-		init_divider = baseclk*10/4; /* baseclk*1000000/(400000); */
-		/* find next power of 2 */
-		NEXT_POW2(init_divider);
-		sd_err(("%s:NONUHSI: divider used for init:%d\n",
-			__FUNCTION__, init_divider));
-	}
-#else
 	init_divider = 128;
-#endif /* SDHOST3 */
 
 
 	/* Start at ~400KHz clock rate for initialization */
@@ -2890,46 +2012,10 @@ sdstd_start_power(sdioh_info_t *sd)
 	sd_info(("Leaving bus power at 3.3 Volts\n"));
 
 	cmd_arg = SFIELD(0, CMD5_OCR, 0xfff000);
-#ifdef SDHOST3
-	if ((sd->host_UHSISupported) && (volts == 5)) {
-		/* set S18R also */
-		cmd_arg = SFIELD(cmd_arg, CMD5_S18R, 1);
-	}
-#endif
 	cmd_rsp = 0;
 	get_ocr(sd, &cmd_arg, &cmd_rsp);
 	sd_info(("OCR = 0x%x\n", GFIELD(cmd_rsp, RSP4_IO_OCR)));
 
-#ifdef SDHOST3
-	if ((sd->host_UHSISupported)) {
-		uint16 val1 = 0;
-		/* volt is 5 and responded with S18A do signal tuning proc */
-		if ((volts == 5) && (GFIELD(cmd_rsp, RSP4_S18A) == 1)) {
-			/* check S18A and do the signal voltage switch procedure */
-			if (sdstd_3_sigvoltswitch_proc(sd)) {
-				sd_err(("%s: voltage switch not done. continuing with legacy\n",
-					__FUNCTION__));
-			} else {
-				sd->card_UHSI_voltage_Supported = TRUE;
-				sd_err(("%s: voltage switch SUCCESS!\n", __FUNCTION__));
-			}
-		} else {
-			/* This case occurs when card is already 1.8V. [ie, when UHSI
-			 *	support is present and S18A is 0]
-			 */
-			sd_err(("hardcoded 1.8V: %s!\n", __FUNCTION__));
-			sd->card_UHSI_voltage_Supported = TRUE;
-
-			/* turn 1.8V sig enable in HC2 */
-			val1 = sdstd_rreg16(sd, SD3_HostCntrl2);
-			val1 = SFIELD(val1, HOSTCtrl2_1_8SIG_EN, 1);
-			sdstd_wreg16(sd, SD3_HostCntrl2, val1);
-		}
-	} else {
-		sd_info(("%s: Not supporting 3.0: host_UHSISupported: %d; HC volts=%d\n",
-			__FUNCTION__, sd->host_UHSISupported, volts));
-	}
-#endif	/* SDHOST3 */
 
 	return TRUE;
 }
@@ -2963,41 +2049,6 @@ sdstd_bus_width(sdioh_info_t *sd, int new_mode)
 	if ((status = sdstd_card_regwrite (sd, 0, SDIOD_CCCR_BICTRL, 1, regdata)) != SUCCESS)
 		return (bool)status;
 
-#ifdef SDHOST3
-	if (sd->host_UHSISupported) {
-		uint32 card_asyncint = 0;
-		uint16 host_asyncint = 0;
-
-		if ((status = sdstd_card_regread (sd, 0, SDIOD_CCCR_INTR_EXTN, 1,
-			&card_asyncint)) != SUCCESS) {
-			sd_err(("%s:INTR EXT getting failed!, ignoring\n", __FUNCTION__));
-		} else {
-			host_asyncint = sdstd_rreg16(sd, SD3_HostCntrl2);
-
-			/* check if supported by host and card */
-			if ((regdata & SD4_MODE) &&
-				(GFIELD(card_asyncint, SDIO_BUS_ASYNCINT_CAP)) &&
-				(GFIELD(sd->caps, CAP_ASYNCINT_SUP))) {
-				/* set enable async int in card */
-				card_asyncint = SFIELD(card_asyncint, SDIO_BUS_ASYNCINT_SEL, 1);
-
-				if ((status = sdstd_card_regwrite (sd, 0,
-					SDIOD_CCCR_INTR_EXTN, 1, card_asyncint)) != SUCCESS)
-					sd_err(("%s:INTR EXT setting failed!, ignoring\n",
-					__FUNCTION__));
-				else {
-					/* set enable async int in host */
-					host_asyncint = SFIELD(host_asyncint,
-						HOSTCtrl2_ASYINT_EN, 1);
-					sdstd_wreg16(sd, SD3_HostCntrl2, host_asyncint);
-				}
-			} else {
-				sd_err(("%s:INTR EXT NOT supported by either host or"
-					"card!, ignoring\n", __FUNCTION__));
-			}
-		}
-	}
-#endif /* SDHOST3 */
 
 	/* Set host side via Host reg */
 	reg8 = sdstd_rreg8(sd, SD_HostCntrl) & ~SD4_MODE;
@@ -3023,26 +2074,6 @@ sdstd_driver_init(sdioh_info_t *sd)
 		return ERROR;
 	}
 
-#ifdef SDHOST3
-	/* if the global cap matched and is SDR 104/50 [if 50 it is reqd] enable tuning. */
-	if ((TRUE != sd3_sw_override1) && SD3_TUNING_REQD(sd, sd_uhsimode)) {
-			sd->sd3_tuning_reqd = TRUE;
-
-			/* init OS structs for tuning */
-			sdstd_3_osinit_tuning(sd);
-
-			/* enable HC tuning interrupt OR timer based on tuning method */
-			if (GFIELD(sd->caps3, CAP3_RETUNING_MODES)) {
-				/* enable both RTReq and timer */
-				sd->intmask |= HC_INTR_RETUNING;
-				sdstd_wreg16(sd, SD_IntrSignalEnable, sd->intmask);
-#ifdef BCMSDYIELD
-				if (sd_forcerb)
-					sdstd_rreg16(sd, SD_IntrSignalEnable); /* Sync readback */
-#endif /* BCMSDYIELD */
-			}
-		}
-#endif /* SDHOST3 */
 
 	return SUCCESS;
 }

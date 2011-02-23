@@ -38,7 +38,6 @@
 /* This marks the start of a packed structure section. */
 #include <packed_section_start.h>
 
-#ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* ETHER_TYPE_BRCM is defined in ethernet.h */
 
 /*
@@ -94,7 +93,7 @@
 
 #define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
 #define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
-#endif /* LINUX_POSTMOGRIFY_REMOVAL */
+
 
 /* These fields are stored in network order */
 typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr

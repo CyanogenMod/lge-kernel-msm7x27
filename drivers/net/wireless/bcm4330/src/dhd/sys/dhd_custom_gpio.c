@@ -107,7 +107,8 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 #if defined CUSTOMER_HW
 	host_oob_irq = MSM_GPIO_TO_INT(dhd_oob_gpio_num);
 #elif defined CUSTOMER_HW3
-	gpio_request(dhd_oob_gpio_num, "oob irq");
+	//gpio_request(dhd_oob_gpio_num, "oob irq");
+	gpio_request(dhd_oob_gpio_num, "bcmsdh_sdmmc");
 	host_oob_irq = gpio_to_irq(dhd_oob_gpio_num);
 	gpio_direction_input(dhd_oob_gpio_num);
 #endif /* CUSTOMER_HW */
@@ -141,7 +142,6 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
             }
 #endif /* CONFIG_LGE_BCM432X_PATCH */
 /* LGE_CHANGE_E [yoohoo@lge.com] 2009-05-14, support start/stop */
-
 		break;
 
 		case WLAN_RESET_ON:
@@ -202,7 +202,6 @@ dhd_custom_get_mac_address(unsigned char *buf)
 
 	/* Customer access to MAC address stored outside of DHD driver */
 #if defined(CONFIG_MACH_MAHIMAHI) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
-	/* Lin - this will call wifi_control_data->get_mac_addr (dhd_linux.c) */
 	ret = wifi_get_mac_addr(buf);
 #endif
 

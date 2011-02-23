@@ -174,14 +174,6 @@ ifneq ($(findstring -debug-,-$(TARGET)-),)
 DFLAGS += -DDHD_DEBUG -DSDTEST
 endif
 
-# enable queuing in host
-ifneq ($(findstring -sdstd-,-$(TARGET)-),)
-DFLAGS += -DPROP_TXSTATUS
-ifneq ($(findstring -dbgwlfc-,-$(TARGET)-),)
-DFLAGS += -DPROP_TXSTATUS_DEBUG
-endif
-endif
-
 # Make big-endian a separate option
 ifneq ($(findstring -be-,-$(TARGET)-),)
 DFLAGS += -DIL_BIGENDIAN
@@ -241,9 +233,6 @@ endif
 ifneq ($(findstring -sdstd-,$(TARGET)-),)
 DFLAGS += -DBCMSDIO -DBCMSDIOH_STD
 CFILES += dhd_sdio.c bcmsdh.c bcmsdstd.c bcmsdstd_linux.c bcmsdh_linux.c
-ifneq ($(findstring -hc3-,$(TARGET)-),)
-DFLAGS += -DSDHOST3=1
-endif
 endif
 ifneq ($(findstring -nexus-,-$(TARGET)-),)
 DFLAGS += -Dlinux

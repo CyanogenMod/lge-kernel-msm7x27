@@ -36,10 +36,6 @@
 
 #include <linux/mmc/core.h>
 #include <linux/mmc/sdio_func.h>
-#if defined(CONFIG_LGE_BCM432X_PATCH)
-#include <linux/mmc/card.h>
-#include <linux/mmc/host.h>
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 #include <linux/mmc/sdio_ids.h>
 
 #include <dngl_stats.h>
@@ -66,11 +62,7 @@ extern int sdio_reset_comm(struct mmc_card *card);
 extern PBCMSDH_SDMMC_INSTANCE gInstance;
 
 uint sd_sdmode = SDIOH_MODE_SD4;	/* Use SD4 mode by default */
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 uint sd_f2_blocksize = 512;		/* Default blocksize */
-#else
-uint sd_f2_blocksize = 64;		/* Default blocksize */
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 
 uint sd_divisor = 2;			/* Default 48MHz/2 = 24MHz */
 
@@ -978,19 +970,6 @@ sdioh_request_packet(sdioh_info_t *sd, uint fix_inc, uint write, uint func,
 	return ((err_ret == 0) ? SDIOH_API_RC_SUCCESS : SDIOH_API_RC_FAIL);
 }
 
-#if defined(CONFIG_LGE_BCM432X_PATCH)
-#define PKTALIGN(osh, p, len, align)					\
-	do {								\
-		uint datalign;						\
-		datalign = (uintptr)PKTDATA((osh), (p));		\
-		datalign = ROUNDUP(datalign, (align)) - datalign;	\
-		ASSERT(datalign < (align));				\
-		ASSERT(PKTLEN((osh), (p)) >= ((len) + datalign));	\
-		if (datalign)						\
-			PKTPULL((osh), (p), datalign);			\
-		PKTSETLEN((osh), (p), (len));				\
-	} while (0)
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 
 /*
  * This function takes a buffer or packet, and fixes everything up so that in the
@@ -1019,25 +998,14 @@ sdioh_request_buffer(sdioh_info_t *sd, uint pio_dma, uint fix_inc, uint write, u
 		sd_data(("%s: Creating new %s Packet, len=%d\n",
 		         __FUNCTION__, write ? "TX" : "RX", buflen_u));
 #ifdef DHD_USE_STATIC_BUF
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 		if (!(mypkt = PKTGET_STATIC(sd->osh, buflen_u, write ? TRUE : FALSE))) {
 #else
-		if (!(mypkt = PKTGET_STATIC(sd->osh, buflen_u + DHD_SDALIGN, write ? TRUE : FALSE))) {
-#endif /* CONFIG_LGE_BCM432X_PATCH */
-#else
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 		if (!(mypkt = PKTGET(sd->osh, buflen_u, write ? TRUE : FALSE))) {
-#else
-		if (!(mypkt = PKTGET(sd->osh, buflen_u + DHD_SDALIGN, write ? TRUE : FALSE))) {
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 #endif /* DHD_USE_STATIC_BUF */
 			sd_err(("%s: PKTGET failed: len %d\n",
 			           __FUNCTION__, buflen_u));
 			return SDIOH_API_RC_FAIL;
 		}
-#if defined(CONFIG_LGE_BCM432X_PATCH)	
-		PKTALIGN(osh, mypkt, buflen_u, DHD_SDALIGN);
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 
 		/* For a write, copy the buffer data into the packet. */
 		if (write) {
@@ -1064,25 +1032,14 @@ sdioh_request_buffer(sdioh_info_t *sd, uint pio_dma, uint fix_inc, uint write, u
 		sd_data(("%s: Creating aligned %s Packet, len=%d\n",
 		         __FUNCTION__, write ? "TX" : "RX", PKTLEN(sd->osh, pkt)));
 #ifdef DHD_USE_STATIC_BUF
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 		if (!(mypkt = PKTGET_STATIC(sd->osh, PKTLEN(sd->osh, pkt), write ? TRUE : FALSE))) {
 #else
-		if (!(mypkt = PKTGET_STATIC(sd->osh, PKTLEN(sd->osh, pkt) + DHD_SDALIGN, write ? TRUE : FALSE))) {
-#endif /* CONFIG_LGE_BCM432X_PATCH */
-#else
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 		if (!(mypkt = PKTGET(sd->osh, PKTLEN(sd->osh, pkt), write ? TRUE : FALSE))) {
-#else
-		if (!(mypkt = PKTGET(sd->osh, PKTLEN(sd->osh, pkt) + DHD_SDALIGN, write ? TRUE : FALSE))) {
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 #endif /* DHD_USE_STATIC_BUF */
 			sd_err(("%s: PKTGET failed: len %d\n",
 			           __FUNCTION__, PKTLEN(sd->osh, pkt)));
 			return SDIOH_API_RC_FAIL;
 		}
-#if defined(CONFIG_LGE_BCM432X_PATCH)	
-		PKTALIGN(osh, mypkt, PKTLEN(sd->osh, pkt), DHD_SDALIGN);
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 
 		/* For a write, copy the buffer data into the packet. */
 		if (write) {

@@ -39,12 +39,6 @@ struct sdos_info {
 	sdioh_info_t *sd;
 	spinlock_t lock;
 	wait_queue_head_t intr_wait_queue;
-#ifdef SDHOST3
-	struct timer_list tuning_timer;
-	int tuning_timer_exp;
-	int timer_enab;
-	struct tasklet_struct tuning_tasklet;
-#endif /* SDHOST3 */
 };
 
 #define SDSTD_WAITBITS_TIMEOUT		(5 * HZ)	/* seconds * HZ */
@@ -55,12 +49,6 @@ struct sdos_info {
 #define BLOCKABLE()	(!in_interrupt())
 #endif
 
-#ifdef SDHOST3
-static void
-sdstd_3_ostasklet(ulong data);
-static void
-sdstd_3_tuning_timer(ulong data);
-#endif /* SDHOST3 */
 
 /* Interrupt handler */
 static irqreturn_t
@@ -74,9 +62,6 @@ sdstd_isr(int irq, void *dev_id
 	struct sdos_info *sdos;
 	bool ours;
 
-#ifdef SDHOST3
-	unsigned long flags;
-#endif /* SDHOST3 */
 	sd = (sdioh_info_t *)dev_id;
 	sdos = (struct sdos_info *)sd->sdos_info;
 
@@ -84,26 +69,6 @@ sdstd_isr(int irq, void *dev_id
 		sd_err(("%s: Hey Bogus intr...not even initted: irq %d\n", __FUNCTION__, irq));
 		return IRQ_RETVAL(FALSE);
 	} else {
-#ifdef SDHOST3
-		if (sdstd_3_is_retuning_int_set(sd)) {
-			/* for 3.0 host, retuning request might come in this path */
-			/* * disable ISR's */
-			local_irq_save(flags);
-
-			if (sdstd_3_check_and_set_retuning(sd))
-				tasklet_schedule(&sdos->tuning_tasklet);
-
-			/* * enable back ISR's */
-			local_irq_restore(flags);
-
-			/* * disable tuning isr signaling */
-			sdstd_3_disable_retuning_int(sd);
-			/* * note: check_client_intr() checks for  intmask also to 
-				wakeup. so be careful to use sd->intmask to disable 
-				re-tuning ISR. 
-				*/
-		}
-#endif /* SDHOST3 */
 		ours = check_client_intr(sd);
 
 		/* For local interrupts, wake the waiting process */
@@ -165,121 +130,6 @@ sdstd_osinit(sdioh_info_t *sd)
 	return BCME_OK;
 }
 
-#ifdef SDHOST3
-
-/* initilize tuning related OS structures */
-void
-sdstd_3_osinit_tuning(sdioh_info_t *sd)
-{
-	struct sdos_info *sdos = (struct sdos_info *)sd->sdos_info;
-
-	sd_trace(("%s Enter\n", __FUNCTION__));
-	/* initialize timer and tasklet for tuning */
-	init_timer(&sdos->tuning_timer);
-	sdos->tuning_timer.data = (ulong)sdos;
-	sdos->tuning_timer.function = sdstd_3_tuning_timer;
-	sdos->tuning_timer_exp = sdstd_3_get_tuning_exp(sdos->sd);
-
-	sdos->timer_enab = TRUE;
-
-	tasklet_init(&sdos->tuning_tasklet, sdstd_3_ostasklet, (ulong)sdos);
-	if (sdos->tuning_timer_exp) {
-		sdos->tuning_timer.expires = jiffies +	sdos->tuning_timer_exp * HZ;
-		add_timer(&sdos->tuning_timer);
-	}
-}
-
-/* finalize tuning related OS structures */
-void
-sdstd_3_osclean_tuning(sdioh_info_t *sd)
-{
-	struct sdos_info *sdos = (struct sdos_info *)sd->sdos_info;
-
-	printf("%s Enter\n", __FUNCTION__);
-	if (sdos->timer_enab == TRUE) {
-		del_timer(&sdos->tuning_timer);
-		sdos->timer_enab = FALSE;
-	}
-
-	tasklet_kill(&sdos->tuning_tasklet);
-}
-
-static void
-sdstd_3_ostasklet(ulong data)
-{
-	struct sdos_info *sdos = (struct sdos_info *)data;
-
-	/* * sdlock */
-	sdstd_lock(sdos->sd);
-
-	sdstd_3_start_tuning(sdos->sd);
-
-	/* * sd unlock */
-	sdstd_unlock(sdos->sd);
-}
-
-static void
-sdstd_3_tuning_timer(ulong data)
-{
-	struct sdos_info *sdos = (struct sdos_info *)data;
-/* 	uint8 timeout = 0; */
-	unsigned long int_flags;
-
-	sd_trace(("%s: enter\n", __FUNCTION__));
-	/* schedule tasklet */
-	/* * disable ISR's */
-	local_irq_save(int_flags);
-	if (sdstd_3_check_and_set_retuning(sdos->sd))
-		tasklet_schedule(&sdos->tuning_tasklet);
-
-	/* * enable back ISR's */
-	local_irq_restore(int_flags);
-}
-
-void sdstd_3_start_tuning(sdioh_info_t *sd)
-{
-	int tune_state;
-	unsigned long int_flags;
-	struct sdos_info *sdos = (struct sdos_info *)sd->sdos_info;
-
-	sd_trace(("%s: enter\n", __FUNCTION__));
-	/* * disable ISR's */
-	local_irq_save(int_flags);
-
-	/* disable timer if it was running */
-	if (timer_pending(&sdos->tuning_timer)) {
-		del_timer(&sdos->tuning_timer);
-	}
-
-	tune_state = sdstd_3_get_tune_state(sd);
-
-	if (tune_state == TUNING_ONGOING) {
-		/* do nothing */
-		local_irq_restore(int_flags);
-		return;
-	}
-	/* change state */
-	sdstd_3_set_tune_state(sd, TUNING_ONGOING);
-	/* * enable ISR's */
-	local_irq_restore(int_flags);
-	sdstd_3_clk_tuning(sd, sdstd_3_get_uhsi_clkmode(sd));
-	/* * disable ISR's */
-	local_irq_save(int_flags);
-	sdstd_3_set_tune_state(sd, TUNING_IDLE);
-	/* * enable ISR's */
-	local_irq_restore(int_flags);
-
-	/* enable retuning intrrupt */
-	sdstd_3_enable_retuning_int(sd);
-
-	/* start retuning timer if enabled */
-	if (sdos->tuning_timer_exp) {
-		sdos->tuning_timer.expires = jiffies +  sdos->tuning_timer_exp * HZ;
-		add_timer(&sdos->tuning_timer);
-	}
-}
-
-#endif /* SDHOST3 */
 
 void
 sdstd_osfree(sdioh_info_t *sd)

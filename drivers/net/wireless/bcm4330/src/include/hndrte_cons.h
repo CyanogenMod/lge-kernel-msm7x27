@@ -28,12 +28,7 @@
 #define CBUF_LEN	(128)
 #endif /* RWL_DONGLE || UART_REFLECTOR */
 
-/* 4329C0 only: must abandon putc to change LOG_BUF_LEN */
-#if defined(WLLMAC)
-#define LOG_BUF_LEN	2048
-#else
 #define LOG_BUF_LEN	1024
-#endif
 
 typedef struct {
 	uint32		buf;		/* Can't be pointer on (64-bit) hosts */

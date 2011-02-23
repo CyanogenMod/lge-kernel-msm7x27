@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c,v 1.274.2.37 2011/01/07 22:46:40 Exp $
+ * $Id: dhd_sdio.c,v 1.274.2.37.4.2 2011/02/02 04:04:58 Exp $
  */
 
 #include <typedefs.h>
@@ -150,9 +150,6 @@
 					PKTFREE(bus->dhd->osh, pkt, FALSE);
 DHD_SPINWAIT_SLEEP_INIT(sdioh_spinwait_sleep);
 
-#ifdef PROP_TXSTATUS
-extern void dhd_wlfc_txcomplete(dhd_pub_t *dhd, void *txp, bool success);
-#endif
 
 #ifdef DHD_DEBUG
 /* Device console log buffer state */
@@ -1080,20 +1077,10 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt)
 done:
 	/* restore pkt buffer pointer before calling tx complete routine */
 	PKTPULL(osh, pkt, SDPCM_HDRLEN + pad);
-#ifdef PROP_TXSTATUS
-	if (bus->dhd->wlfc_state) {
-		dhd_os_sdunlock(bus->dhd);
-		dhd_wlfc_txcomplete(bus->dhd, pkt, ret == 0);
-		dhd_os_sdlock(bus->dhd);
-	} else {
-#endif /* PROP_TXSTATUS */
 	dhd_txcomplete(bus->dhd, pkt, ret != 0);
 	if (free_pkt)
 		PKTFREE(osh, pkt, TRUE);
 
-#ifdef PROP_TXSTATUS
-	}
-#endif
 	return ret;
 }
 
@@ -1154,19 +1141,10 @@ dhd_bus_txdata(struct dhd_bus *bus, void *pkt)
 			dhd_os_sdunlock_txq(bus->dhd);
 			dhd_os_sdunlock(bus->dhd);
 #endif
-#ifdef PROP_TXSTATUS
-			if (bus->dhd->wlfc_state)
-				dhd_wlfc_txcomplete(bus->dhd, pkt, FALSE);
-			else
-#endif
 			dhd_txcomplete(bus->dhd, pkt, FALSE);
 #ifndef DHDTHREAD
 			dhd_os_sdlock(bus->dhd);
 			dhd_os_sdlock_txq(bus->dhd);
-#endif
-#ifdef PROP_TXSTATUS
-			/* let the caller decide whether to free the packet */
-		if (!bus->dhd->wlfc_state)
 #endif
 			PKTFREE(osh, pkt, TRUE);
 			ret = BCME_NORESOURCE;
@@ -1373,8 +1351,6 @@ dhd_bus_txctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 	}
 
 	if (ret == -1) {
-		bus->tx_seq = (bus->tx_seq + 1) % SDPCM_SEQUENCE_WRAP;
-
 #ifdef DHD_DEBUG
 		if (DHD_BYTES_ON() && DHD_CTL_ON()) {
 			prhex("Tx Frame", frame, len);
@@ -4325,7 +4301,7 @@ dhdsdio_dpc(dhd_bus_t *bus)
 
 	/* Make sure backplane clock is on */
 	dhdsdio_clkctl(bus, CLK_AVAIL, TRUE);
-	if (bus->clkstate == CLK_PENDING)
+	if (bus->clkstate != CLK_AVAIL)
 		goto clkwait;
 
 	/* Pending interrupt indicates new device status */
@@ -4465,7 +4441,9 @@ clkwait:
 
 		}
 
-		bus->tx_seq = (bus->tx_seq + 1) % SDPCM_SEQUENCE_WRAP;
+		if (ret == 0)
+			bus->tx_seq = (bus->tx_seq + 1) % SDPCM_SEQUENCE_WRAP;
+
 		bus->ctrl_frame_stat = FALSE;
 		dhd_wait_event_wakeup(bus->dhd);
 	}
@@ -6007,10 +5985,8 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 			dhd_txflowcontrol(bus->dhd, 0, ON);
 #endif /* !defined(IGNORE_ETH0_DOWN) */
 			/* save country setting if was pre-setup with priv ioctl */
-			// by jiyeon dhd_os_proto_block(dhdp); // jiyeon
 			dhd_wl_ioctl_cmd(bus->dhd, WLC_GET_COUNTRY,
 				bus->dhd->country_code, sizeof(bus->dhd->country_code), FALSE, 0);
-			// by jiyeon dhd_os_proto_unblock(dhdp); // jiyeon
 			/* Expect app to have torn down any connection before calling */
 			/* Stop the bus, disable F2 */
 			dhd_os_sdlock(dhdp);

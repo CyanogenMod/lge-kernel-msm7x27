@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wlioctl.h,v 1.767.2.36 2011/01/07 22:47:02 Exp $
+ * $Id: wlioctl.h,v 1.767.2.37 2011/01/24 22:53:20 Exp $
  */
 
 #ifndef _wlioctl_h_
@@ -47,9 +47,7 @@
 typedef struct remote_ioctl {
 	cdc_ioctl_t     msg;
 	uint        data_len;
-#ifndef OLYMPIC_RWL
 	char            intf_name[INTF_NAME_SIZ];
-#endif
 } rem_ioctl_t;
 #define REMOTE_SIZE sizeof(rem_ioctl_t)
 
@@ -1416,6 +1414,7 @@ typedef struct {
 
 /* Override bit for WLC_SET_TXPWR.  if set, ignore other level limits */
 #define WL_TXPWR_OVERRIDE   (1U<<31)
+#define WL_TXPWR_NEG   (1U<<30)
 
 #define WL_PHY_PAVARS_LEN   6   /* Phy type, Band range, chain, a1, b0, b1 */
 
@@ -3554,39 +3553,6 @@ typedef struct {
 	uint32  tsf_timer[2][2];    /* Start and End time for 8bytes value */
 } wl_mac_ratehisto_res_t;   /* MAC Specific Rate Histogram Response */
 
-#ifdef PROP_TXSTATUS
-/* Bit definitions for tlv iovar */
-/*
- * enable RSSI signals:
- * WLFC_CTL_TYPE_RSSI
- */
-#define WLFC_FLAGS_RSSI_SIGNALS                         1
-
-/* enable (if/mac_open, if/mac_close,, mac_add, mac_del) signals:
- *
- * WLFC_CTL_TYPE_MAC_OPEN
- * WLFC_CTL_TYPE_MAC_CLOSE
- *
- * WLFC_CTL_TYPE_INTERFACE_OPEN
- * WLFC_CTL_TYPE_INTERFACE_CLOSE
- *
- * WLFC_CTL_TYPE_MACDESC_ADD
- * WLFC_CTL_TYPE_MACDESC_DEL
- *
- */
-#define WLFC_FLAGS_XONXOFF_SIGNALS                      2
-
-/* enable (status, fifo_credit, mac_credit) signals
- * WLFC_CTL_TYPE_MAC_REQUEST_CREDIT
- * WLFC_CTL_TYPE_TXSTATUS
- * WLFC_CTL_TYPE_FIFO_CREDITBACK
- */
-#define WLFC_FLAGS_CREDIT_STATUS_SIGNALS        4
-
-#define WLFC_FLAGS_HOST_PROPTXSTATUS_ACTIVE     8
-#define WLFC_FLAGS_PSQ_GENERATIONFSM_ENABLE     16
-#define WLFC_FLAGS_PSQ_ZERO_BUFFER_ENABLE	32
-#endif /* PROP_TXSTATUS */
 
 #define BTA_STATE_LOG_SZ    64
 

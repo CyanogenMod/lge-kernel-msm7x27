@@ -30,7 +30,8 @@
 #define HTSFENDMAGIC    	0xEFEFABAB  /* to distinguish from RT2 magic */
 #define HTSF_HOSTOFFSET		102
 #define HTSF_DNGLOFFSET		HTSF_HOSTOFFSET	- 4
-#define HTSF_DNGLOFFSET2	HTSF_HOSTOFFSET	+ 278
+#define HTSF_DNGLOFFSET2	HTSF_HOSTOFFSET	+ 106
+#define HTSF_MIN_PKTLEN 	200
 #define ETHER_TYPE_BRCM_PKTDLYSTATS     0x886d
 
 typedef enum htsfts_type {

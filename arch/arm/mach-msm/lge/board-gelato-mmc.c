@@ -281,6 +281,9 @@ static struct mmc_platform_data bcm432x_sdcc_wlan_data = {
 	.status_irq		= MSM_GPIO_TO_INT(CONFIG_BCM4330_GPIO_WL_RESET),
     .irq_flags      = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
     .mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	// LGE_DEV_PORTING, 2011-02-22, jongpil.yoon@lge.com, <WiFi driver timeout issue>
+	.dummy52_required = 1,
+	// LGE_DEV_END, 2011-02-22, jongpil.yoon@lge.com, <WiFi driver timeout issue>
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 24576000,
 	//.msmsdcc_fmax	= 49152000,

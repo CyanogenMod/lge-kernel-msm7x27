@@ -672,7 +672,19 @@
 #define BCM943228SD_SSID	0x0573
 
 /* 4331 boards */
-#define BCM94331X19	        0x00d6
+#define BCM94331X19             0x00D6
+#define BCM94331PCIEBT3Ax_SSID  0x00E4
+#define BCM94331X12_2G_SSID     0x00EC
+#define BCM94331X12_5G_SSID     0x00ED
+#define BCM94331BU_SSID         0x0523
+#define BCM94331S9BU_SSID       0x0524
+#define BCM94331MC_SSID         0x0525
+#define BCM94331MCI_SSID        0x0526
+#define BCM94331PCIEBT4_SSID    0x0527
+#define BCM94331HM_SSID         0x0574
+#define BCM94331PCIEDUAL_SSID   0x059B
+#define BCM94331MCH5_SSID       0x05A9
+
 
 /* 53572 Boards */
 #define BCM953572BU_SSID       0x058D

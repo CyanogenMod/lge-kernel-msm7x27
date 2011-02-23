@@ -56,11 +56,6 @@
 
 #include <wlioctl.h>
 
-#if defined(NDIS60)
-#include <wdf.h>
-#include <WdfMiniport.h>
-#endif 
-
 /* Forward decls */
 struct dhd_bus;
 struct dhd_prot;
@@ -163,10 +158,6 @@ typedef struct dhd_pub {
 
 	uint8 country_code[WLC_CNTRY_BUF_SZ];
 	char eventmask[WL_EVENTING_MASK_LEN];
-#ifdef PROP_TXSTATUS
-	int   wlfc_enabled;
-	void* wlfc_state;
-#endif
 	bool	dongle_isolation;
 
 #ifdef WLMEDIA_HTSF
@@ -178,14 +169,6 @@ typedef struct dhd_cmn {
 	osl_t *osh;		/* OSL handle */
 	dhd_pub_t *dhd;
 } dhd_cmn_t;
-
-#if defined(NDIS60)
-typedef struct {
-	dhd_pub_t *dhd_pub;
-} dhd_workitem_context_t;
-
-WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(dhd_workitem_context_t, dhd_get_dhd_workitem_context)
-#endif /* NDIS60 && !UNDERC_CE */
 
 	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 
@@ -481,134 +464,6 @@ extern char config_path[MOD_PARAM_PATHLEN];
 #define DHD_DEL_IF	-0xe
 #define DHD_BAD_IF	-0xf
 
-#ifdef PROP_TXSTATUS
-/* Please be mindful that total pkttag space is 32 octets only */
-typedef struct dhd_pkttag {
-	/*
-	b[11 ] - 1 = this packet was sent in response to one time packet request,
-	do not increment credit on status for this one. [WLFC_CTL_TYPE_MAC_REQUEST_PACKET].
-	b[10 ] - 1 = signal-only-packet to firmware [i.e. nothing to piggyback on]
-	b[9  ] - 1 = packet is host->firmware (transmit direction)
-	       - 0 = packet received from firmware (firmware->host)
-	b[8  ] - 1 = packet was sent due to credit_request (pspoll),
-	             packet does not count against FIFO credit.
-	       - 0 = normal transaction, packet counts against FIFO credit
-	b[7  ] - 1 = AP, 0 = STA
-	b[6:4] - AC FIFO number
-	b[3:0] - interface index
-	*/
-	uint16	if_flags;
-	/* destination MAC address for this packet so that not every
-	module needs to open the packet to find this
-	*/
-	uint8	dstn_ether[ETHER_ADDR_LEN];
-	/*
-	This 32-bit goes from host to device for every packet.
-	*/
-	uint32	htod_tag;
-	/* bus specific stuff */
-	union {
-		struct {
-			void* stuff;
-			uint32 thing1;
-			uint32 thing2;
-		} sd;
-		struct {
-			void* bus;
-			void* urb;
-		} usb;
-	} bus_specific;
-} dhd_pkttag_t;
-
-#define DHD_PKTTAG_SET_H2DTAG(tag, h2dvalue)	((dhd_pkttag_t*)(tag))->htod_tag = (h2dvalue)
-#define DHD_PKTTAG_H2DTAG(tag)					(((dhd_pkttag_t*)(tag))->htod_tag)
-
-#define DHD_PKTTAG_IFMASK		0xf
-#define DHD_PKTTAG_IFTYPE_MASK	0x1
-#define DHD_PKTTAG_IFTYPE_SHIFT	7
-#define DHD_PKTTAG_FIFO_MASK	0x7
-#define DHD_PKTTAG_FIFO_SHIFT	4
-
-#define DHD_PKTTAG_SIGNALONLY_MASK			0x1
-#define DHD_PKTTAG_SIGNALONLY_SHIFT			10
-
-#define DHD_PKTTAG_ONETIMEPKTRQST_MASK		0x1
-#define DHD_PKTTAG_ONETIMEPKTRQST_SHIFT		11
-
-#define DHD_PKTTAG_PKTDIR_MASK			0x1
-#define DHD_PKTTAG_PKTDIR_SHIFT			9
-
-#define DHD_PKTTAG_CREDITCHECK_MASK		0x1
-#define DHD_PKTTAG_CREDITCHECK_SHIFT	8
-
-#define DHD_PKTTAG_INVALID_FIFOID 0x7
-
-#define DHD_PKTTAG_SETFIFO(tag, fifo)	((dhd_pkttag_t*)(tag))->if_flags = \
-	(((dhd_pkttag_t*)(tag))->if_flags & ~(DHD_PKTTAG_FIFO_MASK << DHD_PKTTAG_FIFO_SHIFT)) | \
-	(((fifo) & DHD_PKTTAG_FIFO_MASK) << DHD_PKTTAG_FIFO_SHIFT)
-#define DHD_PKTTAG_FIFO(tag)			((((dhd_pkttag_t*)(tag))->if_flags >> \
-	DHD_PKTTAG_FIFO_SHIFT) & DHD_PKTTAG_FIFO_MASK)
-
-#define DHD_PKTTAG_SETIF(tag, if)	((dhd_pkttag_t*)(tag))->if_flags = \
-	(((dhd_pkttag_t*)(tag))->if_flags & ~DHD_PKTTAG_IFMASK) | ((if) & DHD_PKTTAG_IFMASK)
-#define DHD_PKTTAG_IF(tag)	(((dhd_pkttag_t*)(tag))->if_flags & DHD_PKTTAG_IFMASK)
-
-#define DHD_PKTTAG_SETIFTYPE(tag, isAP)	((dhd_pkttag_t*)(tag))->if_flags = \
-	(((dhd_pkttag_t*)(tag))->if_flags & \
-	~(DHD_PKTTAG_IFTYPE_MASK << DHD_PKTTAG_IFTYPE_SHIFT)) | \
-	(((isAP) & DHD_PKTTAG_IFTYPE_MASK) << DHD_PKTTAG_IFTYPE_SHIFT)
-#define DHD_PKTTAG_IFTYPE(tag)	((((dhd_pkttag_t*)(tag))->if_flags >> \
-	DHD_PKTTAG_IFTYPE_SHIFT) & DHD_PKTTAG_IFTYPE_MASK)
-
-#define DHD_PKTTAG_SETCREDITCHECK(tag, check)	((dhd_pkttag_t*)(tag))->if_flags = \
-	(((dhd_pkttag_t*)(tag))->if_flags & \
-	~(DHD_PKTTAG_CREDITCHECK_MASK << DHD_PKTTAG_CREDITCHECK_SHIFT)) | \
-	(((check) & DHD_PKTTAG_CREDITCHECK_MASK) << DHD_PKTTAG_CREDITCHECK_SHIFT)
-#define DHD_PKTTAG_CREDITCHECK(tag)	((((dhd_pkttag_t*)(tag))->if_flags >> \
-	DHD_PKTTAG_CREDITCHECK_SHIFT) & DHD_PKTTAG_CREDITCHECK_MASK)
-
-#define DHD_PKTTAG_SETPKTDIR(tag, dir)	((dhd_pkttag_t*)(tag))->if_flags = \
-	(((dhd_pkttag_t*)(tag))->if_flags & \
-	~(DHD_PKTTAG_PKTDIR_MASK << DHD_PKTTAG_PKTDIR_SHIFT)) | \
-	(((dir) & DHD_PKTTAG_PKTDIR_MASK) << DHD_PKTTAG_PKTDIR_SHIFT)
-#define DHD_PKTTAG_PKTDIR(tag)	((((dhd_pkttag_t*)(tag))->if_flags >> \
-	DHD_PKTTAG_PKTDIR_SHIFT) & DHD_PKTTAG_PKTDIR_MASK)
-
-#define DHD_PKTTAG_SETSIGNALONLY(tag, signalonly)	((dhd_pkttag_t*)(tag))->if_flags = \
-	(((dhd_pkttag_t*)(tag))->if_flags & \
-	~(DHD_PKTTAG_SIGNALONLY_MASK << DHD_PKTTAG_SIGNALONLY_SHIFT)) | \
-	(((signalonly) & DHD_PKTTAG_SIGNALONLY_MASK) << DHD_PKTTAG_SIGNALONLY_SHIFT)
-#define DHD_PKTTAG_SIGNALONLY(tag)	((((dhd_pkttag_t*)(tag))->if_flags >> \
-	DHD_PKTTAG_SIGNALONLY_SHIFT) & DHD_PKTTAG_SIGNALONLY_MASK)
-
-#define DHD_PKTTAG_SETONETIMEPKTRQST(tag)	((dhd_pkttag_t*)(tag))->if_flags = \
-	(((dhd_pkttag_t*)(tag))->if_flags & \
-	~(DHD_PKTTAG_ONETIMEPKTRQST_MASK << DHD_PKTTAG_ONETIMEPKTRQST_SHIFT)) | \
-	(1 << DHD_PKTTAG_ONETIMEPKTRQST_SHIFT)
-#define DHD_PKTTAG_ONETIMEPKTRQST(tag)	((((dhd_pkttag_t*)(tag))->if_flags >> \
-	DHD_PKTTAG_ONETIMEPKTRQST_SHIFT) & DHD_PKTTAG_ONETIMEPKTRQST_MASK)
-
-#define DHD_PKTTAG_SETDSTN(tag, dstn_MAC_ea)	memcpy(((dhd_pkttag_t*)((tag)))->dstn_ether, \
-	(dstn_MAC_ea), ETHER_ADDR_LEN)
-#define DHD_PKTTAG_DSTN(tag)	((dhd_pkttag_t*)(tag))->dstn_ether
-
-typedef int (*f_commitpkt_t)(void* ctx, void* p);
-int dhd_wlfc_enable(dhd_pub_t *dhd);
-int dhd_wlfc_interface_event(struct dhd_info *, uint8 action, uint8 ifid, uint8 iftype, uint8* ea);
-int dhd_wlfc_FIFOcreditmap_event(struct dhd_info *dhd, uint8* event_data);
-int dhd_wlfc_event(struct dhd_info *dhd);
-int dhd_os_wlfc_block(dhd_pub_t *pub);
-int dhd_os_wlfc_unblock(dhd_pub_t *pub);
-
-#ifdef PROP_TXSTATUS_DEBUG
-#define DHD_WLFC_CTRINC_MAC_CLOSE(entry)	do { (entry)->closed_ct++; } while (0)
-#define DHD_WLFC_CTRINC_MAC_OPEN(entry)		do { (entry)->opened_ct++; } while (0)
-#else
-#define DHD_WLFC_CTRINC_MAC_CLOSE(entry)	do {} while (0)
-#define DHD_WLFC_CTRINC_MAC_OPEN(entry)		do {} while (0)
-#endif
-
-#endif /* PROP_TXSTATUS */
 
 extern void dhd_wait_for_event(dhd_pub_t *dhd, bool *lockvar);
 extern void dhd_wait_event_wakeup(dhd_pub_t*dhd);

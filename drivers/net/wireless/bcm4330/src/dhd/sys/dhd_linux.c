@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c,v 1.131.2.49 2011/01/19 21:47:40 Exp $
+ * $Id: dhd_linux.c,v 1.131.2.49.2.2 2011/02/05 01:40:31 Exp $
  */
 
 #ifdef CONFIG_WIFI_CONTROL_FUNC
@@ -86,11 +86,6 @@ typedef struct histo_ {
 
 static histo_t vi_d1, vi_d2, vi_d3, vi_d4;
 #endif /* WLMEDIA_HTSF */
-
-#ifdef PROP_TXSTATUS
-#include <wlfc_proto.h>
-#include <dhd_wlfc.h>
-#endif
 
 /* LGE_CHANGE_S [yoohoo@lge.com] 2009-03-05, for gpio set in dhd_linux */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
@@ -333,9 +328,6 @@ typedef struct dhd_info {
 	dhd_if_t *iflist[DHD_MAX_IFS];
 
 	struct semaphore proto_sem;
-#ifdef PROP_TXSTATUS
-	spinlock_t	wlfc_spinlock;
-#endif
 #ifdef WLMEDIA_HTSF
 	htsf_t  htsf;
 #endif
@@ -391,8 +383,9 @@ typedef struct dhd_info {
  */
 char firmware_path[MOD_PARAM_PATHLEN];
 char nvram_path[MOD_PARAM_PATHLEN];
-
+#if 0	//hyeok-test
 extern int wl_control_wl_start(struct net_device *dev);
+#endif
 extern int net_os_send_hang_message(struct net_device *dev);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 struct semaphore dhd_registration_sem;
@@ -724,12 +717,10 @@ static void dhd_suspend_resume_helper(struct dhd_info *dhd, int val)
 	dhd_pub_t *dhdp = &dhd->pub;
 
 	DHD_OS_WAKE_LOCK(dhdp);
-	dhd_os_proto_block(dhdp);
 	/* Set flag when early suspend was called */
 	dhdp->in_suspend = val;
 	if (!dhdp->suspend_disable_flag)
 		dhd_set_suspend(val, dhdp);
-	dhd_os_proto_unblock(dhdp);
 	DHD_OS_WAKE_UNLOCK(dhdp);
 }
 
@@ -1227,30 +1218,6 @@ dhd_set_multicast_list(struct net_device *dev)
 	up(&dhd->sysioc_sem);
 }
 
-#ifdef PROP_TXSTATUS
-int
-dhd_os_wlfc_block(dhd_pub_t *pub)
-{
-	dhd_info_t *di = (dhd_info_t *)(pub->info);
-	ASSERT(di != NULL);
-	spin_lock_bh(&di->wlfc_spinlock);
-	return 1;
-}
-
-int
-dhd_os_wlfc_unblock(dhd_pub_t *pub)
-{
-	dhd_info_t *di = (dhd_info_t *)(pub->info);
-	ASSERT(di != NULL);
-	spin_unlock_bh(&di->wlfc_spinlock);
-	return 1;
-}
-
-const uint8 wme_fifo2ac[] = { 0, 1, 2, 3, 1, 1 };
-uint8 prio2fifo[8] = { 1, 0, 0, 1, 2, 2, 3, 3 };
-#define WME_PRIO2AC(prio)	wme_fifo2ac[prio2fifo[(prio)]]
-
-#endif /* PROP_TXSTATUS */
 int
 dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 {
@@ -1280,22 +1247,6 @@ dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 	if (PKTPRIO(pktbuf) == 0)
 		pktsetprio(pktbuf, FALSE);
 
-#ifdef PROP_TXSTATUS
-	if (dhdp->wlfc_state) {
-		/* store the interface ID */
-		DHD_PKTTAG_SETIF(PKTTAG(pktbuf), ifidx);
-
-		/* store destination MAC in the tag as well */
-		DHD_PKTTAG_SETDSTN(PKTTAG(pktbuf), eh->ether_dhost);
-
-		/* decide which FIFO this packet belongs to */
-		if (ETHER_ISMULTI(eh->ether_dhost))
-			/* one additional queue index (highest AC + 1) is used for bc/mc queue */
-			DHD_PKTTAG_SETFIFO(PKTTAG(pktbuf), AC_COUNT);
-		else
-			DHD_PKTTAG_SETFIFO(PKTTAG(pktbuf), WME_PRIO2AC(PKTPRIO(pktbuf)));
-	} else
-#endif /* PROP_TXSTATUS */
 	/* If the protocol uses a data header, apply it */
 	dhd_prot_hdrpush(dhdp, ifidx, pktbuf);
 
@@ -1303,25 +1254,7 @@ dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 #ifdef WLMEDIA_HTSF
 	dhd_htsf_addtxts(dhdp, pktbuf);
 #endif
-#ifdef PROP_TXSTATUS
-	if (dhdp->wlfc_state && ((athost_wl_status_info_t*)dhdp->wlfc_state)->proptxstatus_mode
-			!= WLFC_FCMODE_NONE) {
-		dhd_os_wlfc_block(dhdp);
-		ret = dhd_wlfc_enque_sendq(dhdp->wlfc_state, DHD_PKTTAG_FIFO(PKTTAG(pktbuf)),
-			pktbuf);
-		dhd_wlfc_commit_packets(dhdp->wlfc_state,  (f_commitpkt_t)dhd_bus_txdata,
-			dhdp->bus);
-		if (((athost_wl_status_info_t*)dhdp->wlfc_state)->toggle_host_if) {
-			((athost_wl_status_info_t*)dhdp->wlfc_state)->toggle_host_if = 0;
-		}
-		dhd_os_wlfc_unblock(dhdp);
-	}
-	else
-		/* non-proptxstatus way */
 	ret = dhd_bus_txdata(dhdp->bus, pktbuf);
-#else
-	ret = dhd_bus_txdata(dhdp->bus, pktbuf);
-#endif /* PROP_TXSTATUS */
 
 
 	return ret;
@@ -1460,17 +1393,6 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt)
 		PKTSETNEXT(wl->sh.osh, pktbuf, NULL);
 
 
-#ifdef PROP_TXSTATUS
-		if (dhdp->wlfc_state && PKTLEN(wl->sh.osh, pktbuf) == 0) {
-			/* WLFC may send header only packet when
-			there is an urgent message but no packet to
-			piggy-back on
-			*/
-			((athost_wl_status_info_t*)dhdp->wlfc_state)->stats.wlfc_header_only_pkt++;
-			PKTFREE(dhdp->osh, pktbuf, TRUE);
-			continue;
-		}
-#endif
 
 		skb = PKTTONATIVE(dhdp->osh, pktbuf);
 
@@ -1744,10 +1666,10 @@ dhd_dpc(ulong data)
 		if (dhd_bus_dpc(dhd->pub.bus))
 			tasklet_schedule(&dhd->tasklet);
 		else
-			DHD_OS_WAKE_UNLOCK(&dhd->pub); /* Added by Lin, google doesn't have this */
+			DHD_OS_WAKE_UNLOCK(&dhd->pub);
 	} else {
 		dhd_bus_stop(dhd->pub.bus, TRUE);
-		DHD_OS_WAKE_UNLOCK(&dhd->pub); /* Added by Lin, google doesn't have this */
+		DHD_OS_WAKE_UNLOCK(&dhd->pub);
 	}
 }
 
@@ -2176,22 +2098,12 @@ dhd_stop(struct net_device *net)
 		return 0;
 	}
 
-#ifdef PROP_TXSTATUS
-	dhd_wlfc_cleanup(&dhd->pub);
-#endif
 	/* Set state and stop OS transmissions */
 	dhd->pub.up = 0;
 	netif_stop_queue(net);
 
 	/* Stop the protocol module */
 	dhd_prot_stop(&dhd->pub);
-
-	/* Stop the bus module */
-	dhd_bus_stop(dhd->pub.bus, FALSE);
-
-	/* Clear the watchdog timer */
-	del_timer_sync(&dhd->timer);
-	dhd->wd_timer_valid = FALSE;
 
 	OLD_MOD_DEC_USE_COUNT;
 	return 0;
@@ -2207,10 +2119,10 @@ dhd_open(struct net_device *net)
 #endif
 	int ifidx;
 	int32 ret = 0;
-
+#if 0	//hyeok-test
 	/*  Force start if ifconfig_up gets called before START command */
 	wl_control_wl_start(net);
-
+#endif
 	ifidx = dhd_net2idx(dhd, net);
 	DHD_TRACE(("%s: ifidx %d\n", __FUNCTION__, ifidx));
 
@@ -2408,10 +2320,6 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	net->netdev_ops = NULL;
 #endif
 	init_MUTEX(&dhd->proto_sem);
-#ifdef PROP_TXSTATUS
-	spin_lock_init(&dhd->wlfc_spinlock);
-	dhd->pub.wlfc_enabled = FALSE;
-#endif
 	/* Initialize other structure content */
 	init_waitqueue_head(&dhd->ioctl_resp_wait);
 	init_waitqueue_head(&dhd->ctrl_wait);
@@ -2806,7 +2714,6 @@ dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 		goto fail;
 	}
 
-	printf("===================jiyeon 98 ver=======================\n");
 	printf("%s: Broadcom Dongle Host Driver mac=%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n", net->name,
 	       dhd->pub.mac.octet[0], dhd->pub.mac.octet[1], dhd->pub.mac.octet[2],
 	       dhd->pub.mac.octet[3], dhd->pub.mac.octet[4], dhd->pub.mac.octet[5]);
@@ -2817,11 +2724,7 @@ dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 		/* Don't call for SOFTAP Interface in SOFTAP MODE */
 		wl_iw_iscan_set_scan_broadcast_prep(net, 1);
 #else
-/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-02-14, <Prevent scan after turning on wifi> */
-#if 0
 		wl_iw_iscan_set_scan_broadcast_prep(net, 1);
-#endif
-/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-02-14, <Prevent scan after turning on wifi> */
 #endif /* SOFTAP */
 #endif /* CONFIG_WIRELESS_EXT */
 
@@ -2914,21 +2817,13 @@ dhd_detach(dhd_pub_t *dhdp)
 #ifdef DHDTHREAD
 		if (dhd->watchdog_pid >= 0)
 		{
-#ifndef BGBRD
 			KILL_PROC(dhd->watchdog_pid, SIGTERM);
-#else
-			up(&dhd->watchdog_sem);
-#endif /* BGBRD */
 			wait_for_completion(&dhd->watchdog_exited);
 		}
 
 		if (dhd->dpc_pid >= 0)
 		{
-#ifndef BGBRD
 			KILL_PROC(dhd->dpc_pid, SIGTERM);
-#else
-			up(&dhd->dpc_sem);
-#endif /* BGBRD */
 			wait_for_completion(&dhd->dpc_exited);
 		}
 		else
@@ -2936,11 +2831,7 @@ dhd_detach(dhd_pub_t *dhdp)
 		tasklet_kill(&dhd->tasklet);
 
 		if (dhd->sysioc_pid >= 0) {
-#ifndef BGBRD
 			KILL_PROC(dhd->sysioc_pid, SIGTERM);
-#else
-			up(&dhd->sysioc_sem);
-#endif /* BGBRD */
 			wait_for_completion(&dhd->sysioc_exited);
 		}
 	}
@@ -3090,10 +2981,9 @@ dhd_module_init(void)
 /* LGE_CHANGE_S [yoohoo@lge.com] 2009-03-05, for gpio set in dhd_linux */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 	gpio_set_value(CONFIG_BCM4330_GPIO_WL_RESET, 1);
-	mdelay(1000);
 #endif /* CONFIG_LGE_BCM432X_PATCH */
 /* LGE_CHANGE_E [yoohoo@lge.com] 2009-03-05, for gpio set in dhd_linux */
-
+	//mdelay(1000); //yhcha @ 110218
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 		/*
 		 * Wait till MMC sdio_register_driver callback called and made driver attach.
@@ -3119,6 +3009,7 @@ fail_0:
 #endif /* defined(CONFIG_MACH_MAHIMAHI) && defined(CONFIG_WIFI_CONTROL_FUNC) */
 
 	/* Call customer gpio to turn off power with WL_REG_ON signal */
+	printf("#################### yhcha %s, %d ##\n", __func__, __LINE__);
 	dhd_customer_gpio_wlan_ctrl(WLAN_POWER_OFF);
 
 	return error;
@@ -3563,9 +3454,7 @@ int net_os_set_suspend(struct net_device *dev, int val)
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
 
 	if (dhd) {
-		dhd_os_proto_block(&dhd->pub);
 		ret = dhd_set_suspend(val, &dhd->pub);
-		dhd_os_proto_unblock(&dhd->pub);
 	}
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) */
 	return ret;
@@ -3592,12 +3481,10 @@ int net_os_set_packet_filter(struct net_device *dev, int val)
 	 * back ON only if suspend_disable_flag was not set
 	*/
 	if (dhd && dhd->pub.up) {
-		dhd_os_proto_block(&dhd->pub);
 		if (dhd->pub.in_suspend) {
 			if (!val || (val && !dhd->pub.suspend_disable_flag))
 				dhd_set_packet_filter(val, &dhd->pub);
 		}
-		dhd_os_proto_unblock(&dhd->pub);
 	}
 	return ret;
 }
@@ -3843,33 +3730,6 @@ int net_os_send_hang_message(struct net_device *dev)
 	return ret;
 }
 
-#ifdef PROP_TXSTATUS
-extern int dhd_wlfc_interface_entry_update(void* state,	ewlfc_mac_entry_action_t action, uint8 ifid,
-	uint8 iftype, uint8* ea);
-extern int dhd_wlfc_FIFOcreditmap_update(void* state, uint8* credits);
-
-int dhd_wlfc_interface_event(struct dhd_info *dhd, uint8 action, uint8 ifid, uint8 iftype,
-	uint8* ea)
-{
-	if (dhd->pub.wlfc_state == NULL)
-		return BCME_OK;
-
-	return dhd_wlfc_interface_entry_update(dhd->pub.wlfc_state, action, ifid, iftype, ea);
-}
-
-int dhd_wlfc_FIFOcreditmap_event(struct dhd_info *dhd, uint8* event_data)
-{
-	if (dhd->pub.wlfc_state == NULL)
-		return BCME_OK;
-
-	return dhd_wlfc_FIFOcreditmap_update(dhd->pub.wlfc_state, event_data);
-}
-
-int dhd_wlfc_event(struct dhd_info *dhd)
-{
-	return dhd_wlfc_enable(&dhd->pub);
-}
-#endif /* PROP_TXSTATUS */
 
 #ifdef BCMDBGFS
 

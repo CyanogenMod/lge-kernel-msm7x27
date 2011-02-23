@@ -83,11 +83,6 @@ extern int dhd_ioctl(dhd_pub_t * dhd_pub, dhd_ioctl_t *ioc, void * buf, uint buf
 
 extern int dhd_preinit_ioctls(dhd_pub_t *dhd);
 
-#ifdef PROP_TXSTATUS
-extern int dhd_wlfc_enque_sendq(void* state, int prec, void* p);
-extern int dhd_wlfc_commit_packets(void* state, f_commitpkt_t fcommit, void* commit_ctx);
-extern void dhd_wlfc_cleanup(dhd_pub_t *dhd);
-#endif /* PROP_TXSTATUS */
 
 /********************************
  * For version-string expansion *

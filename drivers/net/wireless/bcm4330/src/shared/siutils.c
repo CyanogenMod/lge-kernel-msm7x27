@@ -101,6 +101,12 @@ si_kattach(osl_t *osh)
 {
 	static bool ksii_attached = FALSE;
 
+	if(osh == NULL)	//by sjpark 11-01-25 WBT : ID 196407
+	{
+		SI_ERROR(("si_kattach: osh is NULL.\n"));
+		return NULL;
+	}
+
 	if (!ksii_attached) {
 		void *regs;
 		regs = REG_MAP(SI_ENUM_BASE, SI_CORE_SIZE);

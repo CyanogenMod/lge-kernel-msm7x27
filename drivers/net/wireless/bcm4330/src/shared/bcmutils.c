@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.c,v 1.277.2.16 2011/01/19 04:39:13 Exp $
+ * $Id: bcmutils.c,v 1.277.2.18 2011/01/26 02:32:08 Exp $
  */
 
 #include <typedefs.h>
@@ -56,6 +56,8 @@
 #include <proto/bcmip.h>
 #include <proto/802.1d.h>
 #include <proto/802.11.h>
+
+void *_bcmutils_dummy_fn = NULL;
 
 #ifdef BCMDRIVER
 

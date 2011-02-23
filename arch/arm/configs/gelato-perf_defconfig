@@ -1986,7 +1986,9 @@ CONFIG_MMC_MSM_SDC2_SUPPORT=y
 # CONFIG_MMC_MSM_SDC3_SUPPORT is not set
 # CONFIG_MMC_MSM_SDC4_SUPPORT is not set
 # CONFIG_MMC_MSM_SDC5_SUPPORT is not set
-CONFIG_MMC_MSM_PROG_DONE_SCAN=y
+# LGE_DEV_PORTING, 2011-02-22, jongpil.yoon@lge.com, <QCT Patch: Atheros dependancy config, so do not set>
+# CONFIG_MMC_MSM_PROG_DONE_SCAN is not set
+# LGE_DEV_END, 2011-02-22, jongpil.yoon@lge.com, <QCT Patch: Atheros dependancy config, so do not set>
 # CONFIG_MEMSTICK is not set
 CONFIG_NEW_LEDS=y
 CONFIG_LEDS_CLASS=y

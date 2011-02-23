@@ -58,9 +58,6 @@ typedef struct wlfc_hanger_item {
 	uint8	pad[3];
 	uint32	identifier;
 	void*	pkt;
-#ifdef PROP_TXSTATUS_DEBUG
-	uint32	push_time;
-#endif
 } wlfc_hanger_item_t;
 
 typedef struct wlfc_hanger {
@@ -110,12 +107,6 @@ typedef struct wlfc_mac_descriptor {
 	/* 1= send on next opportunity */
 	uint8 send_tim_signal;
 	uint8 mac_handle;
-#ifdef PROP_TXSTATUS_DEBUG
-	uint32 dstncredit_sent_packets;
-	uint32 dstncredit_acks;
-	uint32 opened_ct;
-	uint32 closed_ct;
-#endif
 } wlfc_mac_descriptor_t;
 
 #define WLFC_DECR_SEQCOUNT(entry, prec) do { if (entry->seq[(prec)] == 0) {\
@@ -157,33 +148,11 @@ typedef struct athost_wl_stat_counters {
 	uint32	generic_error;
 	/* an extra one for bc/mc traffic */
 	uint32	sendq_pkts[AC_COUNT + 1];
-#ifdef PROP_TXSTATUS_DEBUG
-	/* all pkt2bus -> txstatus latency accumulated */
-	uint32	latency_sample_count;
-	uint32	total_status_latency;
-	uint32	latency_most_recent;
-	int		idx_delta;
-	uint32	deltas[10];
-	uint32	fifo_credits_sent[6];
-	uint32	fifo_credits_back[6];
-	uint32	dropped_qfull[6];
-	uint32	signal_only_pkts_sent;
-	uint32	signal_only_pkts_freed;
-#endif
 } athost_wl_stat_counters_t;
 
-#ifdef PROP_TXSTATUS_DEBUG
-#define WLFC_HOST_FIFO_CREDIT_INC_SENTCTRS(ctx, ac) do { \
-	(ctx)->stats.fifo_credits_sent[(ac)]++;} while (0)
-#define WLFC_HOST_FIFO_CREDIT_INC_BACKCTRS(ctx, ac) do { \
-	(ctx)->stats.fifo_credits_back[(ac)]++;} while (0)
-#define WLFC_HOST_FIFO_DROPPEDCTR_INC(ctx, ac) do { \
-	(ctx)->stats.dropped_qfull[(ac)]++;} while (0)
-#else
 #define WLFC_HOST_FIFO_CREDIT_INC_SENTCTRS(ctx, ac) do {} while (0)
 #define WLFC_HOST_FIFO_CREDIT_INC_BACKCTRS(ctx, ac) do {} while (0)
 #define WLFC_HOST_FIFO_DROPPEDCTR_INC(ctx, ac) do {} while (0)
-#endif
 
 #define WLFC_FCMODE_NONE				0
 #define WLFC_FCMODE_IMPLIED_CREDIT		1

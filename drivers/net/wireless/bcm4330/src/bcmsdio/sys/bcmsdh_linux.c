@@ -679,10 +679,6 @@ module_param(sd_hiok, uint, 0);
 extern uint sd_f2_blocksize;
 module_param(sd_f2_blocksize, int, 0);
 
-#if defined(SDHOST3) && defined(BCMSDIOH_STD)
-extern int sd_uhsimode;
-module_param(sd_uhsimode, int, 0);
-#endif /* SDHOST3, BCMSDIOH_STD */
 
 #ifdef BCMSDH_MODULE
 EXPORT_SYMBOL(bcmsdh_attach);

@@ -132,7 +132,11 @@ typedef bool (*ifpkt_cb_t)(void*, int);
 
 #ifdef BCMPKTPOOL
 #define POOL_ENAB(pool)		((pool) && (pool)->inited)
+#if defined(BCM4329C0)
+#define SHARED_POOL		(pktpool_shared_ptr)
+#else
 #define SHARED_POOL		(pktpool_shared)
+#endif 
 #else /* BCMPKTPOOL */
 #define POOL_ENAB(bus)		0
 #define SHARED_POOL		((struct pktpool *)NULL)
@@ -201,7 +205,11 @@ typedef struct pktpool {
 #endif
 } pktpool_t;
 
+#if defined(BCM4329C0)
+extern pktpool_t *pktpool_shared_ptr;
+#else
 extern pktpool_t *pktpool_shared;
+#endif 
 
 extern int pktpool_init(osl_t *osh, pktpool_t *pktp, int *pktplen, int plen, bool istx);
 extern int pktpool_deinit(osl_t *osh, pktpool_t *pktp);
@@ -544,7 +552,11 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 #define ARRAYSIZE(a)		(sizeof(a)/sizeof(a[0]))
 #endif
 
-/* bit map related macros */
+
+extern void *_bcmutils_dummy_fn;
+#define REFERENCE_FUNCTION(f)	(_bcmutils_dummy_fn = (void *)(f))
+
+
 #ifndef setbit
 #ifndef NBBY		    /* the BSD family defines NBBY */
 #define	NBBY	8	/* 8 bits per byte */

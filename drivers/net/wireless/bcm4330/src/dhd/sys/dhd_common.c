@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c,v 1.57.2.21 2011/01/12 00:15:26 Exp $
+ * $Id: dhd_common.c,v 1.57.2.21.4.1 2011/02/01 19:36:23 Exp $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -43,10 +43,6 @@
 
 
 
-#ifdef PROP_TXSTATUS
-#include <wlfc_proto.h>
-#include <dhd_wlfc.h>
-#endif
 
 
 #ifdef WLMEDIA_HTSF
@@ -118,10 +114,6 @@ enum {
 	IOV_CONS,
 	IOV_DCONSOLE_POLL,
 #endif /* defined(DHD_DEBUG) */
-#ifdef PROP_TXSTATUS
-	IOV_PROPTXSTATUS_ENABLE,
-	IOV_PROPTXSTATUS_MODE,
-#endif
 	IOV_BUS_TYPE,
 #ifdef WLMEDIA_HTSF
 	IOV_WLPKTDLYSTAT_SZ,
@@ -146,16 +138,6 @@ const bcm_iovar_t dhd_iovars[] = {
 	{"clearcounts", IOV_CLEARCOUNTS, 0, IOVT_VOID,	0 },
 	{"gpioob",	IOV_GPIOOB,	0,	IOVT_UINT32,	0 },
 	{"ioctl_timeout",	IOV_IOCTLTIMEOUT,	0,	IOVT_UINT32,	0 },
-#ifdef PROP_TXSTATUS
-	{"proptx",	IOV_PROPTXSTATUS_ENABLE,	0,	IOVT_UINT32,	0 },
-	/*
-	set the proptxtstatus operation mode:
-	0 - Do not do any proptxtstatus flow control
-	1 - Use implied credit from a packet status
-	2 - Use explicit credit
-	*/
-	{"ptxmode",	IOV_PROPTXSTATUS_MODE,	0,	IOVT_UINT32,	0 },
-#endif
 	{"bustype", IOV_BUS_TYPE, 0, IOVT_UINT32, 0},
 #ifdef WLMEDIA_HTSF
 	{"pktdlystatsz", IOV_WLPKTDLYSTAT_SZ, 0, IOVT_UINT8, 0 },
@@ -175,7 +157,8 @@ dhd_common_init(osl_t *osh)
 	 * behavior since the value of the globals may be different on the
 	 * first time that the driver is initialized vs subsequent initializations.
 	 */
-	dhd_msg_level = DHD_ERROR_VAL | DHD_TRACE_VAL; // by jiyeon
+	dhd_msg_level = DHD_ERROR_VAL;
+	//dhd_msg_level = 0x03; //yhcha @ 110218
 	/* Allocate private bus interface state */
 	if (!(cmn = MALLOC(osh, sizeof(dhd_cmn_t)))) {
 		DHD_ERROR(("%s: MALLOC failed\n", __FUNCTION__));
@@ -187,20 +170,12 @@ dhd_common_init(osl_t *osh)
 #ifdef CONFIG_BCM4329_FW_PATH
 	strncpy(fw_path, CONFIG_BCM4329_FW_PATH, MOD_PARAM_PATHLEN-1);
 #else /* CONFIG_BCM4329_FW_PATH */
-/* LGE_CHANGE_S [yoohoo@lge.com] 2009-09-03, don't init */
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	fw_path[0] = '\0';
-/* LGE_CHANGE_E [yoohoo@lge.com] 2009-09-03, don't init */
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 #endif /* CONFIG_BCM4329_FW_PATH */
 #ifdef CONFIG_BCM4329_NVRAM_PATH
 	strncpy(nv_path, CONFIG_BCM4329_NVRAM_PATH, MOD_PARAM_PATHLEN-1);
 #else /* CONFIG_BCM4329_NVRAM_PATH */
-/* LGE_CHANGE_S [yoohoo@lge.com] 2009-09-03, don't init */
-#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	nv_path[0] = '\0';
-/* LGE_CHANGE_E [yoohoo@lge.com] 2009-09-03, don't init */
-#endif /* CONFIG_LGE_BCM432X_PATCH */
 #endif /* CONFIG_BCM4329_NVRAM_PATH */
 	return cmn;
 }
@@ -291,10 +266,12 @@ dhd_wl_ioctl(dhd_pub_t *dhd_pub, int ifindex, wl_ioctl_t *ioc, void *buf, int le
 {
 	int ret;
 
+	dhd_os_proto_block(dhd_pub);
 
 	ret = dhd_prot_ioctl(dhd_pub, ifindex, ioc, buf, len);
 
 
+	dhd_os_proto_unblock(dhd_pub);
 	return ret;
 }
 
@@ -382,23 +359,6 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		dhd_pub->wd_dpc_sched = 0;
 		memset(&dhd_pub->dstats, 0, sizeof(dhd_pub->dstats));
 		dhd_bus_clearcounts(dhd_pub);
-#ifdef PROP_TXSTATUS
-		/* clear proptxstatus related counters */
-		if (dhd_pub->wlfc_state) {
-			athost_wl_status_info_t *wlfc =
-			        (athost_wl_status_info_t*)dhd_pub->wlfc_state;
-			wlfc_hanger_t* hanger;
-
-			memset(&wlfc->stats, 0, sizeof(athost_wl_stat_counters_t));
-
-			hanger = (wlfc_hanger_t*)wlfc->hanger;
-			hanger->pushed = 0;
-			hanger->popped = 0;
-			hanger->failed_slotfind = 0;
-			hanger->failed_to_pop = 0;
-			hanger->failed_to_push = 0;
-		}
-#endif /* PROP_TXSTATUS */
 		break;
 
 
@@ -417,32 +377,6 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 	}
 
 
-#ifdef PROP_TXSTATUS
-	case IOV_GVAL(IOV_PROPTXSTATUS_ENABLE):
-		int_val = dhd_pub->wlfc_enabled? 1 : 0;
-		bcopy(&int_val, arg, val_size);
-		break;
-
-	case IOV_SVAL(IOV_PROPTXSTATUS_ENABLE):
-		dhd_pub->wlfc_enabled = int_val? 1 : 0;
-		break;
-
-	case IOV_GVAL(IOV_PROPTXSTATUS_MODE): {
-		athost_wl_status_info_t *wlfc =
-		        (athost_wl_status_info_t*)dhd_pub->wlfc_state;
-		int_val = dhd_pub->wlfc_state ? (int32)wlfc->proptxstatus_mode : 0;
-		bcopy(&int_val, arg, val_size);
-		break;
-	}
-
-	case IOV_SVAL(IOV_PROPTXSTATUS_MODE):
-		if (dhd_pub->wlfc_state) {
-			athost_wl_status_info_t *wlfc =
-			        (athost_wl_status_info_t*)dhd_pub->wlfc_state;
-			wlfc->proptxstatus_mode = int_val & 0xff;
-		}
-		break;
-#endif /* PROP_TXSTATUS */
 
 	case IOV_GVAL(IOV_BUS_TYPE):
 	/* The dhd application query the driver to check if its usb or sdio.  */
@@ -625,6 +559,12 @@ dhd_ioctl(dhd_pub_t * dhd_pub, dhd_ioctl_t *ioc, void * buf, uint buflen)
 		char *arg;
 		uint arglen;
 
+		if(buf == NULL)	//by sjpark 11-01-25 WBT : ID 196406
+		{
+			DHD_ERROR(("[%s] buf is NULL.\n",__FUNCTION__));
+			bcmerror = -1;
+			break;
+		}
 		/* scan past the name to any arguments */
 		for (arg = buf, arglen = buflen; *arg && arglen; arg++, arglen--)
 			;
@@ -950,41 +890,10 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 	evlen = datalen + sizeof(bcm_event_t);
 
 	switch (type) {
-#ifdef PROP_TXSTATUS
-	case WLC_E_FIFO_CREDIT_MAP:
-		dhd_wlfc_event(dhd_pub->info);
-		dhd_wlfc_FIFOcreditmap_event(dhd_pub->info, event_data);
-		WLFC_DBGMESG(("WLC_E_FIFO_CREDIT_MAP:(AC0,AC1,AC2,AC3),(BC_MC),(OTHER): "
-			"(%d,%d,%d,%d),(%d),(%d)\n", event_data[0], event_data[1],
-			event_data[2],
-			event_data[3], event_data[4], event_data[5]));
-		break;
-#endif
 
 	case WLC_E_IF:
 		{
 		dhd_if_event_t *ifevent = (dhd_if_event_t *)event_data;
-#ifdef PROP_TXSTATUS
-{
-		uint8* ea = pvt_data->eth.ether_dhost;
-		WLFC_DBGMESG(("WLC_E_IF: idx:%d, action:%s, iftype:%s, "
-		              "[%02x:%02x:%02x:%02x:%02x:%02x]\n",
-		              ifevent->ifidx,
-		              ((ifevent->action == WLC_E_IF_ADD) ? "ADD":"DEL"),
-		              ((ifevent->is_AP == 0) ? "STA":"AP "),
-		              ea[0], ea[1], ea[2], ea[3], ea[4], ea[5]));
-		(void)ea;
-
-		dhd_wlfc_interface_event(dhd_pub->info,
-		                         ((ifevent->action == WLC_E_IF_ADD) ?
-		                          eWLFC_MAC_ENTRY_ACTION_ADD : eWLFC_MAC_ENTRY_ACTION_DEL),
-		                         ifevent->ifidx, ifevent->is_AP, ea);
-
-		/* dhd already has created an interface by default, for 0 */
-		if (ifevent->ifidx == 0)
-			break;
-}
-#endif /* PROP_TXSTATUS */
 
 		if (ifevent->ifidx > 0 && ifevent->ifidx < DHD_MAX_IFS) {
 			if (ifevent->action == WLC_E_IF_ADD)
@@ -995,10 +904,8 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 			else
 				dhd_del_if(dhd_pub->info, ifevent->ifidx);
 		} else {
-#ifndef PROP_TXSTATUS
 			DHD_ERROR(("%s: Invalid ifidx %d for %s\n",
 			           __FUNCTION__, ifevent->ifidx, event->ifname));
-#endif /* !PROP_TXSTATUS */
 		}
 			}
 			/* send up the if event: btamp user needs it */
