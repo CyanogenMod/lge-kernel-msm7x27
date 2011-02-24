@@ -1655,6 +1655,8 @@ static int msm_pm_enter(suspend_state_t state)
 		int64_t end_time;
 #endif
 
+		clock_debug_print_enabled();
+
 #ifdef CONFIG_MSM_SLEEP_TIME_OVERRIDE
 		if (msm_pm_sleep_time_override > 0) {
 			int64_t ns;
