@@ -54,6 +54,37 @@ static int kgsl_runpending(struct kgsl_device *device)
 	return KGSL_SUCCESS;
 }
 
+static int kgsl_runpending_unlocked(struct kgsl_device *device)
+{
+	int ret;
+
+	mutex_lock(&device->mutex);
+	kgsl_check_suspended(device);
+	ret = kgsl_runpending(device);
+	mutex_unlock(&device->mutex);
+
+	return ret;
+}
+
+static void kgsl_check_idle_locked(struct kgsl_device *device)
+{
+	if (device->pwrctrl.nap_allowed == true &&
+	    device->state & KGSL_STATE_ACTIVE) {
+		device->requested_state = KGSL_STATE_NAP;
+		if (kgsl_pwrctrl_sleep(device) == KGSL_FAILURE)
+			mod_timer(&device->idle_timer,
+				  jiffies +
+				  device->pwrctrl.interval_timeout);
+	}
+}
+
+static void kgsl_check_idle(struct kgsl_device *device)
+{
+	mutex_lock(&device->mutex);
+	kgsl_check_idle_locked(device);
+	mutex_unlock(&device->mutex);
+}
+
 static void kgsl_clean_cache_all(struct kgsl_process_private *private)
 {
 	struct kgsl_mem_entry *entry = NULL;
@@ -1380,18 +1411,59 @@ done:
 }
 #endif /*CONFIG_MSM_KGSL_MMU*/
 
-static void kgsl_ioctl_idle_check(struct kgsl_device *device)
+static long
+kgsl_memory_ioctl(struct kgsl_device_private *dev_priv,
+		  unsigned int cmd, unsigned long arg)
 {
+	struct kgsl_device *device = dev_priv->device;
+	int result;
 
-	if (device->state & KGSL_STATE_ACTIVE) {
-		device->requested_state = KGSL_STATE_NAP;
-		if (kgsl_pwrctrl_sleep(device) == KGSL_FAILURE)
-			mod_timer(&device->idle_timer,
-					jiffies +
-					device->pwrctrl.interval_timeout);
+	switch (cmd) {
+#ifdef CONFIG_MSM_KGSL_MMU
+	case IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC:
+		kgsl_runpending_unlocked(device);
+
+		result = kgsl_ioctl_sharedmem_from_vmalloc(
+			dev_priv->process_priv,
+			(void __user *)arg);
+
+		/* The runpending probably woke up the hardware - try to
+		   lull it back to sleep */
+
+		kgsl_check_idle(device);
+		break;
+
+	case IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE:
+		result = kgsl_ioctl_sharedmem_flush_cache(
+			dev_priv->process_priv,
+			(void __user *)arg);
+		break;
+#endif
+	case IOCTL_KGSL_SHAREDMEM_FROM_PMEM:
+	case IOCTL_KGSL_MAP_USER_MEM:
+		kgsl_runpending_unlocked(device);
+		result = kgsl_ioctl_map_user_mem(dev_priv->process_priv,
+						 (void __user *)arg,
+						 cmd);
+
+		/* The runpending probably woke up the hardware - try to
+		   lull it back to sleep */
+
+		kgsl_check_idle(device);
+		break;
+
+	case IOCTL_KGSL_SHAREDMEM_FREE:
+		result = kgsl_ioctl_sharedmem_free(dev_priv->process_priv,
+						   (void __user *)arg);
+		break;
+
+	default:
+		result = -EINVAL;
+		break;
 	}
-}
 
+	return result;
+}
 
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
@@ -1406,6 +1478,17 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	BUG_ON(device != dev_priv->device);
 
 	KGSL_DRV_VDBG("filep %p cmd 0x%08x arg 0x%08lx\n", filep, cmd, arg);
+
+	/* Memory related functions don't always rely on locking hardware,
+	   so it is cleanest to handle them seperately without a lot of
+	   nasty if statements in this function */
+
+	if (cmd == IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC ||
+	    cmd == IOCTL_KGSL_SHAREDMEM_FROM_PMEM ||
+	    cmd == IOCTL_KGSL_MAP_USER_MEM ||
+	    cmd == IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE ||
+	    cmd == IOCTL_KGSL_SHAREDMEM_FREE)
+		return kgsl_memory_ioctl(dev_priv, cmd, arg);
 
 	mutex_lock(&device->mutex);
 	kgsl_check_suspended(device);
@@ -1467,35 +1550,6 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		    kgsl_ioctl_drawctxt_destroy(dev_priv, (void __user *)arg);
 		break;
 
-	case IOCTL_KGSL_SHAREDMEM_FREE:
-		result = kgsl_ioctl_sharedmem_free(dev_priv->process_priv,
-							(void __user *)arg);
-		break;
-
-#ifdef CONFIG_MSM_KGSL_MMU
-	case IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC:
-		kgsl_runpending(device);
-		result = kgsl_ioctl_sharedmem_from_vmalloc(
-							dev_priv->process_priv,
-							   (void __user *)arg);
-		break;
-	case IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE:
-			result =
-			    kgsl_ioctl_sharedmem_flush_cache(
-							dev_priv->process_priv,
-						       (void __user *)arg);
-		break;
-#endif
-	case IOCTL_KGSL_SHAREDMEM_FROM_PMEM:
-	case IOCTL_KGSL_MAP_USER_MEM:
-		kgsl_runpending(device);
-		result = kgsl_ioctl_map_user_mem(dev_priv->process_priv,
-							(void __user *)arg,
-							cmd);
-		break;
-
-
-
 	default:
 		/* call into device specific ioctls */
 		result = device->ftbl.device_ioctl(dev_priv, cmd, arg);
@@ -1506,8 +1560,8 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	if (device->active_cnt == 0)
 		complete(&device->suspend_gate);
 
-	if (device->pwrctrl.nap_allowed == true)
-		kgsl_ioctl_idle_check(device);
+	kgsl_check_idle_locked(device);
+
 	mutex_unlock(&device->mutex);
 	KGSL_DRV_VDBG("result %d\n", result);
 	return result;
