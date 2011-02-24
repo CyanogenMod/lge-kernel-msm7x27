@@ -933,9 +933,9 @@ int audlpa_async_fsync(struct audio *audio)
 		pr_err("%s: q6asm_cmd failed, rc = %d", __func__, rc);
 		goto done;
 	}
-	rc = wait_event_interruptible(audio->write_wait,
+	rc = wait_event_interruptible_timeout(audio->write_wait,
 				  (audio->teos || audio->wflush ||
-				  audio->stopped));
+				  audio->stopped), 5*HZ);
 
 	if (rc < 0) {
 		pr_err("%s: wait event for teos failed, rc = %d\n", __func__,
