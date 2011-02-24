@@ -1378,7 +1378,7 @@ msmsdcc_check_status(unsigned long data)
 				   __func__, __LINE__);
 /* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-01-24, <resolve the 'bus down' issue> */
 			// mmc_detect_change(host->mmc, 0); /* original */
-			mmc_detect_change(host->mmc, (4*HZ)/20); /* original */
+			mmc_detect_change(host->mmc, (3*HZ)/20); /* original */
 /* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-24, <resolve the 'bus down' issue> */
 		}
 		else
@@ -1985,14 +1985,19 @@ msmsdcc_runtime_suspend(struct device *dev)
 		 * the host so that any resume requests after this will
 		 * simple become pm usage counter increment operations.
 		 */
+// LGE_DEV_PORTING, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 		pm_runtime_get_noresume(dev);
 		rc = mmc_suspend_host(mmc);
 		pm_runtime_put_noidle(dev);
+#else
 
+		if (host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO)) {
+			pm_runtime_get_noresume(dev);
+			rc = mmc_suspend_host(mmc);
+			pm_runtime_put_noidle(dev);
+		}
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
-		/* LGE_CHANGE_S [dongp.kim@lge.com] 2009-12-22, Support Host Wakeup */
-		/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
-		//else if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
 		if (host->plat->status_irq == gpio_to_irq(WLAN_RESET_GPIO)) {
 			if(dhdpm.suspend != NULL) {
 				//rc = dhdpm.suspend(NULL);
@@ -2001,7 +2006,10 @@ msmsdcc_runtime_suspend(struct device *dev)
 			else
 				printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
 		}
-#endif
+#endif /* defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) */
+#endif /* !defined(CONFIG_LGE_BCM432X_PATCH) */
+// LGE_DEV_END, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+
 		if (!rc) {
 			/*
 			 * If MMC core level suspend is not supported, turn
@@ -2064,7 +2072,11 @@ msmsdcc_runtime_resume(struct device *dev)
 
 		spin_unlock_irqrestore(&host->lock, flags);
 
-		mmc_resume_host(mmc);
+		// LGE_DEV_PORTING, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+		if (host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO)) {
+			mmc_resume_host(mmc);
+		}
+		// LGE_DEV_END, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
 
 /* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24, <never sleep policy - host wakeup> */
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
