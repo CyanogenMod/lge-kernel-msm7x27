@@ -453,10 +453,11 @@ static int local_clk_disable_nolock(unsigned id)
 		rc = local_src_disable(clk->current_freq->src);
 		if (rc)
 			goto err_src;
-		if (clk->parent != C(NONE))
+		if (clk->parent != C(NONE)) {
 			rc = local_clk_disable_nolock(clk->parent);
 			if (rc)
 				goto err_par;
+		}
 		rc = local_unvote_sys_vdd(clk->current_freq->sys_vdd);
 		if (rc)
 			goto err_vdd;
