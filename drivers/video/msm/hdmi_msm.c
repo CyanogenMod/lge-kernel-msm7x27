@@ -248,7 +248,7 @@ static uint32 __hdmi_inp(uint32 offset)
 #endif /* DEBUG */
 
 static void hdmi_msm_turn_on(void);
-static void hdmi_msm_audio_off(void);
+static int hdmi_msm_audio_off(void);
 static int hdmi_msm_read_edid(void);
 static void hdmi_msm_hpd_off(void);
 
@@ -2298,12 +2298,35 @@ static void hdmi_msm_audio_setup(void)
 	DEV_INFO("HDMI Audio: Enabled\n");
 }
 
-static void hdmi_msm_audio_off(void)
+static int hdmi_msm_audio_off(void)
 {
+	uint32 audio_pkt_ctrl, audio_cfg;
+	 /* Number of wait iterations */
+	int i = 10;
+	audio_pkt_ctrl = HDMI_INP_ND(0x0020);
+	audio_cfg = HDMI_INP_ND(0x01D0);
+
+	/* Checking BIT[0] of AUDIO PACKET CONTROL and */
+	/* AUDIO CONFIGURATION register */
+	while (((audio_pkt_ctrl & 0x00000001) || (audio_cfg & 0x00000001))
+		&& (i--)) {
+		audio_pkt_ctrl = HDMI_INP_ND(0x0020);
+		audio_cfg = HDMI_INP_ND(0x01D0);
+		DEV_DBG("%d times :: HDMI AUDIO PACKET is %08x and "
+		"AUDIO CFG is %08x", i, audio_pkt_ctrl, audio_cfg);
+		msleep(100);
+		if (!i) {
+			DEV_ERR("%s:failed to set BIT[0] AUDIO PACKET"
+			"CONTROL or AUDIO CONFIGURATION REGISTER\n",
+				__func__);
+			return -ETIMEDOUT;
+		}
+	}
 	hdmi_msm_audio_info_setup(FALSE, 0, 0, FALSE);
 	hdmi_msm_audio_ctrl_setup(FALSE, 0);
 	hdmi_msm_audio_acr_setup(FALSE, 0, 0, 0);
 	DEV_INFO("HDMI Audio: Disabled\n");
+	return 0;
 }
 
 

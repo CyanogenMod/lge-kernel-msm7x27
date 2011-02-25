@@ -269,6 +269,8 @@ int mdp4_dtv_off(struct platform_device *pdev)
 {
 	int ret = 0;
 
+	ret = panel_next_off(pdev);
+
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	MDP_OUTP(MDP_BASE + DTV_BASE, 0);
@@ -276,7 +278,6 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_pipe_ctrl(MDP_OVERLAY1_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
-	ret = panel_next_off(pdev);
 
 	/* delay to make sure the last frame finishes */
 	msleep(100);
