@@ -686,13 +686,13 @@ static int32_t mt9t113_set_brightness(int8_t brightness)
 static int mt9t113_init_sensor(const struct msm_camera_sensor_info *data)
 {
 
-#if defined(MT9T113_TUN)
- mt9t113_read_register_from_file();
-#endif
 
 	int rc;
 	int num = 0;
 	unsigned short temp;
+#if defined(MT9T113_TUN)
+ mt9t113_read_register_from_file();
+#endif
 
 	rc = data->pdata->camera_power_on();
 	if (rc < 0) {

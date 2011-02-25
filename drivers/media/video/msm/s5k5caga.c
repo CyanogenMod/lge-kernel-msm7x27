@@ -524,30 +524,36 @@ static long lgcam_rear_sensor_snapshot_config(int mode,int width, int height)
 static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 {
 	int32_t rc = 0;
+#if 0
 	int32_t i = 0;
 	unsigned short af_pos = 0;
+#endif
 	if(debug_mask)
 		printk("lgcam_rear_sensor: cancel focus, mode = %d\n", mode);
 
 	switch(mode){
 	case FOCUS_AUTO:
 	case FOCUS_NORMAL:
+	case FOCUS_CONTINUOUS:
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.AF_nomal_reg_settings[0], lgcam_rear_sensor_regs.AF_nomal_reg_settings_size);
+
 		if(debug_mask)
 	   		printk("back to the infinity\n");
 
 		break;
 	
 	case FOCUS_MACRO:
+		rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.AF_macro_reg_settings[0], lgcam_rear_sensor_regs.AF_macro_reg_settings_size);
 		if(debug_mask)
 	   		printk("back to the macro\n");
 
 		break;
 
 	case FOCUS_MANUAL:
-		return rc;
+	default:
 		break;
 	}
-
+#if 0
 	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x7000, WORD_LEN);
 	if (rc < 0)
 		return rc;
@@ -588,6 +594,7 @@ static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 		
 		mdelay(60); // 1 frame skip
 }
+#endif
 	return rc;
 }
 
@@ -731,26 +738,7 @@ static int32_t lgcam_rear_sensor_check_af_lock_and_clear(void)
 #define FOCUS_SCNDWINSIZE_X 	143
 #define FOCUS_SCNDWINSIZE_Y 	143
 
-static int32_t lgcam_rear_sensor_set_focus(void)
-{
-#if 0	//mhlee 0107
-	int32_t rc = 0;
-	int lock = 0;
 
-	rc = s5k5caga_i2c_write_table(&s5k5caga_regs.AF_reg_settings[0], s5k5caga_regs.AF_reg_settings_size);
-	if(rc<0){
-		printk("[s5k5caga.c]%s: fail in writing for focus\n",__func__);
-		return rc;
-	}
-	msleep(60);  // 1 frame skip
-	
-	rc = s5k5caga_check_focus(&lock);
-
-	return rc;
-#else
-	return 0;
-#endif
-}
 
 #if !SENSOR_TUNING_SET
 static long lgcam_rear_sensor_set_focus_rect(int focus_rect)
@@ -876,7 +864,7 @@ static int lgcam_rear_sensor_check_af_lock(void)
 		{
 			printk("af_return = %d\n", af_lock);			
 		}
-		mdelay(200);
+		msleep(200);
 	}
 
 	return af_lock;
@@ -910,14 +898,107 @@ static int lgcam_rear_sensor_check_focus(int *lock)
 		//mdelay(60);
 		*lock = CFG_AF_LOCKED;  // success
 //LGE_DEV_PORTING GELATO
+		rc = 1;
+//LGE_DEV_END
+		return rc;
+	} else {
+		*lock = CFG_AF_UNLOCKED; //0: focus fail or 2: during focus
+//LGE_DEV_PORTING GELATO
+		rc = 0;
+//LGE_DEV_END
+		return rc;
+	}
+
+	return -ETIME;
+}
+static int lgcam_rear_sensor_check_continous_af_lock(void)
+{
+	int rc;
+	unsigned short af_lock = 0;
+	
+
+#if 1
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+			0x002C, 0x7000, WORD_LEN);		
+
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+			0x002E, 0x26FE, WORD_LEN);
+		
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
+				0x0F12, &af_lock, WORD_LEN);
+		
+		if (rc < 0) {
+			printk("lgcam_rear_sensor: reading af_lock fail\n");
+			return rc;
+		}
+
+		if (af_lock == 0x01) {
+			if(debug_mask)
+			printk("lgcam_rear_sensor_check_continous_af_lock\n");
+		}
+		else
+		{
+			printk("lgcam_rear_sensor_check_continous_af_lock af_return = %d\n", af_lock);			
+		}
+#else
+	for (i = 0; i < 10; ++i) {
+		/*INT state read to confirm INT release state*/
+
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+			0x002C, 0x7000, WORD_LEN);		
+
+		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+			0x002E, 0x26FE, WORD_LEN);
+		
+		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
+				0x0F12, &af_lock, WORD_LEN);
+		
+		if (rc < 0) {
+			printk("lgcam_rear_sensor: reading af_lock fail\n");
+			return rc;
+		}
+
+		if (af_lock == 0x01) {
+			if(debug_mask)
+			printk("af_lock is released\n");
+			break;
+		}
+		else
+		{
+			printk("af_return = %d\n", af_lock);			
+		}
+		mdelay(200);
+	}
+#endif
+
+	return af_lock;
+}
+static int lgcam_rear_sensor_status_continuous_af(int *lock)
+{
+	int rc;
+	unsigned short af_result = 0;
+
+
+
+	af_result = lgcam_rear_sensor_check_continous_af_lock();
+
+	
+	if (af_result == 1) {
+		//mdelay(60);
+		*lock = CFG_AF_LOCKED;  // success
+//LGE_DEV_PORTING GELATO
 rc = 1;
 //LGE_DEV_END
+	if(debug_mask)
+	printk("lgcam_rear_sensor_status_continuous_af result = 1\n");
 		return rc;
 	} else {
 		*lock = CFG_AF_UNLOCKED; //0: focus fail or 2: during focus
 //LGE_DEV_PORTING GELATO
 rc = 0;
 //LGE_DEV_END
+	if(debug_mask)
+	printk("lgcam_rear_sensor_status_continuous_af result = 0\n");
 		return rc;
 	}
 
@@ -992,8 +1073,10 @@ static int32_t lgcam_rear_sensor_set_auto_focus(void)
 	if(debug_mask)
 		printk("lgcam_rear_sensor: auto focus\n");
 
-	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.AF_nomal_reg_settings[0], lgcam_rear_sensor_regs.AF_nomal_reg_settings_size);
-	// mhlee 0118 mdelay(200);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x7000, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002A, 0x0252, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0005, WORD_LEN);
+
 	if(rc<0){
 		if(debug_mask)
 			printk("lgcam_rear_sensor: AF auto focus writing fail!\n");
@@ -1009,7 +1092,10 @@ static int32_t lgcam_rear_sensor_set_macro_focus(void)
 	if(debug_mask)
 		printk("lgcam_rear_sensor: macro focus\n");
 
-	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.AF_macro_reg_settings[0], lgcam_rear_sensor_regs.AF_macro_reg_settings_size);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x7000, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002A, 0x0252, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0005, WORD_LEN);
+
 	if(rc<0){
 		if(debug_mask)
 			printk("lgcam_rear_sensor: AF macro focus writing fail!\n");
@@ -1018,6 +1104,24 @@ static int32_t lgcam_rear_sensor_set_macro_focus(void)
 	return rc;
 }
 
+static int32_t lgcam_rear_sensor_set_continuous_focus(void)
+{
+	int32_t rc;
+	
+	if(debug_mask)
+		printk("lgcam_rear_sensor: continuous focus\n");
+
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0028, 0x7000, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x002A, 0x0252, WORD_LEN);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, 0x0F12, 0x0006, WORD_LEN);
+
+	if(rc<0){
+		if(debug_mask)
+			printk("lgcam_rear_sensor: AF continuous focus writing fail!\n");
+		return rc;
+	}	
+	return rc;
+}
 
 static int32_t lgcam_rear_sensor_focus_config(int mode)
 {
@@ -1043,6 +1147,10 @@ static int32_t lgcam_rear_sensor_focus_config(int mode)
 				//rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.manual_focus_reg_settings[0],
 				//		lgcam_rear_sensor_regs.manual_focus_reg_settings_size);
 				break;
+
+			case FOCUS_CONTINUOUS:
+				rc = lgcam_rear_sensor_set_continuous_focus();
+				break;
 				
 			default:
 				if(debug_mask)
@@ -1050,7 +1158,6 @@ static int32_t lgcam_rear_sensor_focus_config(int mode)
 				return -EINVAL;
 		}
 
-		rc = lgcam_rear_sensor_set_focus();
 	}
 
 	prev_af_mode = mode;	
@@ -2256,8 +2363,14 @@ static long lgcam_rear_sensor_read_ext_reg(char *filename)
 
 	do
 	{		
-		if (file_buf_alloc_pages[read_idx]=='0' && file_buf_alloc_pages[read_idx+1]=='x' 
-			&& file_buf_alloc_pages[read_idx + 2] != ' ') {	// skip : 0x
+		if ((file_buf_alloc_pages[read_idx]=='0' && file_buf_alloc_pages[read_idx+1]=='x' 
+			&& file_buf_alloc_pages[read_idx + 2] != ' ') &&
+			(file_buf_alloc_pages[read_idx-2]=='{' 
+|| file_buf_alloc_pages[read_idx-1]=='{' || 
+			 file_buf_alloc_pages[read_idx-6]=='{' || file_buf_alloc_pages[read_idx-7]=='{' || 
+			 file_buf_alloc_pages[read_idx-8]=='{' || file_buf_alloc_pages[read_idx-9]=='{' ||
+			 file_buf_alloc_pages[read_idx-10]=='{' || file_buf_alloc_pages[read_idx-11]=='{' ||
+			 file_buf_alloc_pages[read_idx-12]=='{' || file_buf_alloc_pages[read_idx-13]=='{')) {	// skip : 0x
 			read_idx += 2;			
 				if(file_buf_alloc_pages[read_idx-5]=='/' && file_buf_alloc_pages[read_idx-4]=='/')
 				{ // comment skip routine
@@ -2460,8 +2573,11 @@ static long lgcam_rear_sensor_reg_pll_ext(void)
 	
 
 	printk("%s : lgcam_rear_sensor_reg_pll_ext enter!!\n", __func__);
-	//length = lgcam_rear_sensor_read_ext_reg("/data/local/pll_settings_array.txt");
+#if 1
 	length = lgcam_rear_sensor_read_ext_reg("/sdcard/pll_settings_array.txt");
+#else
+	length = lgcam_rear_sensor_read_ext_reg("/data/local/pll_settings_array.txt");
+#endif
 	printk("%s : length = %d!\n", __func__, length);
 
 	if (!length)
@@ -2475,8 +2591,11 @@ static long lgcam_rear_sensor_reg_init_ext(void)
 	uint16_t length = 0;
 
 	printk("%s : lgcam_rear_sensor_reg_init_ext enter!!\n", __func__);
-	//length = lgcam_rear_sensor_read_ext_reg("/data/local/init_settings_array.txt");
+#if 1
 	length = lgcam_rear_sensor_read_ext_reg("/sdcard/init_settings_array.txt");
+#else
+	length = lgcam_rear_sensor_read_ext_reg("/data/local/init_settings_array.txt");
+#endif
 	printk("%s : length = %d!\n", __func__, length);	
 
 	if (!length)
@@ -2553,8 +2672,8 @@ static int dequeue_sensor_config(int cfgtype, int mode)
 				
 				rc = lgcam_rear_sensor_focus_config(mode);		
 //LGE_DEV_PORTING GELATO
-				rc = lgcam_rear_sensor_check_focus(&cfg_data.mode);
-				return rc;
+				if(mode != FOCUS_CONTINUOUS)
+					rc = lgcam_rear_sensor_check_focus(&cfg_data.mode);
 //LGE_DEV_END
 				break;
 		
@@ -2934,6 +3053,10 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 		focus_mode = cfg_data.mode;
 		
 		rc = lgcam_rear_sensor_focus_config(cfg_data.mode);		
+//LGE_DEV_PORTING GELATO
+		if(focus_mode != FOCUS_CONTINUOUS)
+			rc = lgcam_rear_sensor_check_focus(&cfg_data.mode);
+//LGE_DEV_END		
 		break;
 
 	case CFG_SET_PARM_AF_MODE:
@@ -2948,7 +3071,7 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 		if(debug_mask)
 			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_DEFAULT_FOCUS\n");
 		   
-		rc = lgcam_rear_sensor_set_focus();
+		//rc = lgcam_rear_sensor_set_focus();
 		break;
 
 	case CFG_MOVE_FOCUS:
@@ -2972,7 +3095,7 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 			rc = -EFAULT;
 		break;
 	case CFG_CHECK_AF_DONE:
-		rc = lgcam_rear_sensor_check_focus(&cfg_data.mode);
+		rc = lgcam_rear_sensor_status_continuous_af(&cfg_data.mode);
 		if (copy_to_user((void *)argp,
 				&cfg_data,
 				sizeof(struct sensor_cfg_data)))
