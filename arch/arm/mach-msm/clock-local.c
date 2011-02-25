@@ -420,11 +420,21 @@ static int local_clk_enable_nolock(unsigned id)
 		if (rc)
 			goto err_src;
 		local_clk_enable_reg(id);
+		/*
+		 * With remote rail control, the remote processor might modify
+		 * the clock control register when the rail is enabled/disabled.
+		 * Enable the rail inside the lock to protect against this.
+		 */
+		rc = soc_set_pwr_rail(id, 1);
+		if (rc)
+			goto err_pwr;
 	}
 	clk->count++;
 
 	return rc;
 
+err_pwr:
+	local_clk_disable_reg(id);
 err_src:
 	if (clk->parent != C(NONE))
 		rc = local_clk_disable_nolock(clk->parent);
@@ -449,6 +459,7 @@ static int local_clk_disable_nolock(unsigned id)
 	}
 
 	if (clk->count == 0) {
+		soc_set_pwr_rail(id, 0);
 		local_clk_disable_reg(id);
 		rc = local_src_disable(clk->current_freq->src);
 		if (rc)
@@ -485,17 +496,6 @@ int local_clk_enable(unsigned id)
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	rc = local_clk_enable_nolock(id);
-	if (rc)
-		goto unlock;
-	/*
-	 * With remote rail control, the remote processor might modify
-	 * the clock control register when the rail is enabled/disabled.
-	 * Enable the rail inside the lock to protect against this.
-	 */
-	rc = soc_set_pwr_rail(id, 1);
-	if (rc)
-		local_clk_disable_nolock(id);
-unlock:
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	return rc;
@@ -507,7 +507,6 @@ void local_clk_disable(unsigned id)
 	unsigned long flags;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	soc_set_pwr_rail(id, 0);
 	local_clk_disable_nolock(id);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
