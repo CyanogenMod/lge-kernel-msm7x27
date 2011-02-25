@@ -22,6 +22,7 @@
 #include <linux/fcntl.h>
 #include <linux/syscalls.h>
 
+#include <linux/slab.h>
 
 #include "lge_ats.h"
 #include "lge_ats_flex.h"
@@ -57,17 +58,17 @@ int lg_get_flex_from_xml(char *strIndex, char* flexValue)
 	
 	sys_close(fd);
 
-	printk("read data flex.xml fd: %d iFlexSize : %d res;%d\n", fd, iFlexSize, res);
+	printk("read data flex.xml fd: %d iFlexSize : %d res;%ld\n", fd, iFlexSize, res);
 
 	iFlexSize=res;
 	
 	iItemCnt = 0;
 	iItemCntAll = 0;
 	
-	for(iTotalCnt=0; iTotalCnt<iFlexSize;iTotalCnt++)  //Flex ini ?????? ?? character ??Á®?À±?
+	for(iTotalCnt=0; iTotalCnt<iFlexSize;iTotalCnt++)  //Flex ini ?????? ?? character ??n?1?
 	{
 		//printk("%x ",s_bufFlexINI[iTotalCnt]);
-		if ((s_bufFlexINI[iItemCntAll]) != '\n')  //???Ú¿?À» ???? ?Ð¾î¼­ ???Û¿? ?Ö±?
+		if ((s_bufFlexINI[iItemCntAll]) != '\n')  //???Ú¿?; ???? ?Ð¾î¼­ ???Û¿? ?Ö±?
 		{
 			s_bufItem[iItemCnt]=s_bufFlexINI[iItemCntAll];
 			iItemCnt ++;

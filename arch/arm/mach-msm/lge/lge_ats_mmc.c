@@ -38,10 +38,15 @@ int external_memory_test(void)
 		else
 			return_value = 0;
 	}
-	file_fail:
+
 	sys_close(fd);
 	sys_unlink((const char __user *)"/sdcard/SDTest.txt");
 	kfree(src);
 	kfree(dest);
+	return return_value;
+
+file_fail:
+	sys_close(fd);
+	sys_unlink((const char __user *)"/sdcard/SDTest.txt");
 	return return_value;
 }

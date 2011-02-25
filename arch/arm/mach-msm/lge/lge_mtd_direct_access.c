@@ -21,10 +21,12 @@
 #include <linux/mtd/mtd.h>
 #include <linux/sched.h>
 
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
-#define MISC_PART_NUM 8
+#include <linux/slab.h>
+//#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+#if 1
+#define MISC_PART_NUM 6
 #define MISC_PART_SIZE 4
-#define PERSIST_PART_NUM 9
+#define PERSIST_PART_NUM 7
 #define PERSIST_PART_SIZE 12
 #define PAGE_NUM_PER_BLK 64
 #define PAGE_SIZE_BYTE 2048
@@ -115,7 +117,7 @@ static int test_write_block(const char *val, struct kernel_param *kp)
 
 	test_init();
 	test_erase_block();
-	printk(KERN_INFO"%s: writing block: flag = %d\n", __func__,flag);
+	printk(KERN_INFO"%s: writing block: flag = %ld\n", __func__,flag);
 
 	for (i = 0; i < ebcnt; ++i) {
 		if (bbt[i])
@@ -179,7 +181,7 @@ error:
 	}
 	
 }
-module_param_call(read_block, param_get_bool, test_read_block, &dummy_arg, S_IWUSR | S_IRUGO);
+module_param_call(read_block, param_set_bool, test_read_block, &dummy_arg, S_IWUSR | S_IRUGO);
 
 int lge_erase_block(int ebnum)
 {
