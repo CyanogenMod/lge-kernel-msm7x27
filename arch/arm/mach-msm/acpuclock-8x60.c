@@ -499,7 +499,6 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	struct clkctl_acpu_speed *tgt_s, *strt_s;
 	struct clkctl_l2_speed *tgt_l2;
 	unsigned int vdd_mem, vdd_dig, pll_vdd_dig;
-	int freq_index = 0;
 	int rc = 0;
 
 	if (cpu > num_possible_cpus()) {
@@ -517,11 +516,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 		goto out;
 
 	/* Find target frequency. */
-	for (tgt_s = acpu_freq_tbl; tgt_s->acpuclk_khz != 0; tgt_s++) {
+	for (tgt_s = acpu_freq_tbl; tgt_s->acpuclk_khz != 0; tgt_s++)
 		if (tgt_s->acpuclk_khz == rate)
 			break;
-		freq_index++;
-	}
 	if (tgt_s->acpuclk_khz == 0) {
 		rc = -EINVAL;
 		goto out;
