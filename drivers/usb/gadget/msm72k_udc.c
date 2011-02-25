@@ -2642,8 +2642,27 @@ static struct dev_pm_ops msm72k_udc_dev_pm_ops = {
 	.runtime_idle = msm72k_udc_runtime_idle
 };
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+/* LGE_CHANGE
+ * Preventing from invoking wrong work function when power off.
+ * 2011-02-24, hyunhui.park@lge.com
+ */
+static void msm72k_udc_shutdown(struct platform_device *pdev)
+{
+	pr_debug("%s: flush workqueue\n", __func__);
+	flush_scheduled_work();
+}
+#endif
+
 static struct platform_driver usb_driver = {
 	.probe = msm72k_probe,
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+	/* LGE_CHANGE
+	 * Preventing from invoking wrong work function when power off.
+	 * 2011-02-24, hyunhui.park@lge.com
+	 */
+	.shutdown = msm72k_udc_shutdown,
+#endif
 	.driver = { .name = "msm_hsusb",
 		    .pm = &msm72k_udc_dev_pm_ops, },
 };
