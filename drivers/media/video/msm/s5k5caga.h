@@ -114,6 +114,7 @@ enum lgcam_rear_sensor_focus_mode {
 	FOCUS_AUTO,
 	FOCUS_MANUAL,
 	FOCUS_RECT,
+	FOCUS_CONTINUOUS,
 };
 
 /* this value is defined in Android native camera */
