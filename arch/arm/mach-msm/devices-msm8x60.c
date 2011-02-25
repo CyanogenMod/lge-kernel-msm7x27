@@ -521,8 +521,8 @@ static struct msm_bus_vectors grp2d0_max_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
-		.ab = 248000000,
-		.ib = 248000000,
+		.ab = 0,
+		.ib = 2096000000U,
 	},
 };
 
@@ -556,8 +556,8 @@ static struct msm_bus_vectors grp2d1_max_vectors[] = {
 	{
 		.src = MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1,
 		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
-		.ab = 248000000,
-		.ib = 248000000,
+		.ab = 0,
+		.ib = 2096000000U,
 	},
 };
 
