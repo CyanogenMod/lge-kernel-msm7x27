@@ -165,4 +165,8 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 int lge_ats_handle_atcmd_eta(struct msm_rpc_server *server,
 								 struct rpc_request_hdr *req, unsigned len);
 
+//LGE_CHAGE[irene.park@lge.com] 2010-06- 04 - to get flex value from ARM9 
+int lge_ats_handle_flex(struct msm_rpc_server *server,
+							 struct rpc_request_hdr *req, unsigned len);
+
 #endif /* _LGE_ATS_ATCMD_H_ */
