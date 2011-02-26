@@ -112,13 +112,14 @@
 
 
 /* MUX source input identifiers. */
-#define SRC_SEL_PLL0	4 /* Modem PLL */
-#define SRC_SEL_PLL1	1 /* Global PLL */
-#define SRC_SEL_PLL3	3 /* Multimedia/Peripheral PLL or Backup PLL1 */
-#define SRC_SEL_PLL4	2 /* Display PLL */
-#define SRC_SEL_LPXO	6 /* Low-power XO */
-#define SRC_SEL_TCXO	0 /* Used for sources that always source from TCXO */
-#define SRC_SEL_AXI	0 /* Used for rates that sync to AXI */
+#define SRC_SEL_PLL0		4 /* Modem PLL */
+#define SRC_SEL_PLL1		1 /* Global PLL */
+#define SRC_SEL_PLL3		3 /* Multimedia/Peripheral PLL or Backup PLL1 */
+#define SRC_SEL_PLL4		2 /* Display PLL */
+#define SRC_SEL_LPXO_SDAC	5 /* Low-power XO for SDAC */
+#define SRC_SEL_LPXO		6 /* Low-power XO */
+#define SRC_SEL_TCXO		0 /* TCXO */
+#define SRC_SEL_AXI		0 /* Used for rates that sync to AXI */
 
 /* Source name to PLL mappings. */
 #define SRC_PLL0	PLL_0
@@ -126,6 +127,7 @@
 #define SRC_PLL3	PLL_3
 #define SRC_PLL4	PLL_4
 #define SRC_LPXO	LPXO
+#define SRC_LPXO_SDAC	LPXO
 #define SRC_TCXO	TCXO
 #define SRC_AXI		AXI
 
@@ -305,15 +307,15 @@ static struct clk_freq_tbl clk_tbl_midi[] = {
 };
 
 static struct clk_freq_tbl clk_tbl_sdac[] = {
-	F_MND16( 256000, LPXO, 4,   1,    24, NOMINAL),
-	F_MND16( 352800, LPXO, 1, 147, 10240, NOMINAL),
-	F_MND16( 384000, LPXO, 4,   1,    16, NOMINAL),
-	F_MND16( 512000, LPXO, 4,   1,    12, NOMINAL),
-	F_MND16( 705600, LPXO, 1, 147,  5120, NOMINAL),
-	F_MND16( 768000, LPXO, 4,   1,     8, NOMINAL),
-	F_MND16(1024000, LPXO, 4,   1,     6, NOMINAL),
-	F_MND16(1411200, LPXO, 1, 147,  2560, NOMINAL),
-	F_MND16(1536000, LPXO, 4,   1,     4, NOMINAL),
+	F_MND16( 256000, LPXO_SDAC, 4,   1,    24, NOMINAL),
+	F_MND16( 352800, LPXO_SDAC, 1, 147, 10240, NOMINAL),
+	F_MND16( 384000, LPXO_SDAC, 4,   1,    16, NOMINAL),
+	F_MND16( 512000, LPXO_SDAC, 4,   1,    12, NOMINAL),
+	F_MND16( 705600, LPXO_SDAC, 1, 147,  5120, NOMINAL),
+	F_MND16( 768000, LPXO_SDAC, 4,   1,     8, NOMINAL),
+	F_MND16(1024000, LPXO_SDAC, 4,   1,     6, NOMINAL),
+	F_MND16(1411200, LPXO_SDAC, 1, 147,  2560, NOMINAL),
+	F_MND16(1536000, LPXO_SDAC, 4,   1,     4, NOMINAL),
 	F_END,
 };
 
