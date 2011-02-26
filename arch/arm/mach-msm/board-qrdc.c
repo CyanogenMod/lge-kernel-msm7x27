@@ -4024,7 +4024,6 @@ static int mdp_core_clk_rate_table[] = {
 	128000000,
 	160000000,
 	200000000,
-	200000000,
 };
 static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_core_clk_rate = 200000000,
