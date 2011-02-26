@@ -40,17 +40,51 @@
 static struct mdp4_overlay_pipe *dsi_pipe;
 static struct mdp4_overlay_pipe *pending_pipe;
 static struct msm_fb_data_type *dsi_mfd;
-static struct completion dsi_delay_comp;
-static atomic_t dsi_delay_kickoff_cnt;
 
-struct timer_list dsi_timer;
+static int vsync_start_y_adjust = 4;
 
-void dsi_delay_tout(unsigned long data)
+static __u32 msm_fb_line_length(__u32 fb_index, __u32 xres, int bpp)
 {
-	if (atomic_read(&dsi_delay_kickoff_cnt) != 0) {
-		atomic_dec(&dsi_delay_kickoff_cnt);
-		if (atomic_read(&dsi_delay_kickoff_cnt) == 0)
-			complete(&dsi_delay_comp);
+	/*
+	 * The adreno GPU hardware requires that the pitch be aligned to
+	 * 32 pixels for color buffers, so for the cases where the GPU
+	 * is writing directly to fb0, the framebuffer pitch
+	 * also needs to be 32 pixel aligned
+	 */
+
+	if (fb_index == 0)
+		return ALIGN(xres, 32) * bpp;
+	else
+		return xres * bpp;
+}
+
+void mdp4_mipi_vsync_enable(struct msm_fb_data_type *mfd,
+		struct mdp4_overlay_pipe *pipe, int which)
+{
+	uint32 start_y, data, tear_en;
+
+	tear_en = (1 << which);
+
+	if ((mfd->use_mdp_vsync) && (mfd->ibuf.vsync_enable) &&
+		(mfd->panel_info.lcd.vsync_enable)) {
+
+		if (vsync_start_y_adjust <= pipe->dst_y)
+			start_y = pipe->dst_y - vsync_start_y_adjust;
+		else
+			start_y = (mfd->total_lcd_lines - 1) -
+				(vsync_start_y_adjust - pipe->dst_y);
+		if (which == 0)
+			MDP_OUTP(MDP_BASE + 0x210, start_y);	/* primary */
+		else
+			MDP_OUTP(MDP_BASE + 0x214, start_y);	/* secondary */
+
+		data = inpdw(MDP_BASE + 0x20c);
+		data |= tear_en;
+		MDP_OUTP(MDP_BASE + 0x20c, data);
+	} else {
+		data = inpdw(MDP_BASE + 0x20c);
+		data &= ~tear_en;
+		MDP_OUTP(MDP_BASE + 0x20c, data);
 	}
 }
 
@@ -86,11 +120,7 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 		if (ret < 0)
 			printk(KERN_INFO "%s: format2type failed\n", __func__);
 
-		init_completion(&dsi_delay_comp);
 		dsi_pipe = pipe; /* keep it */
-		init_timer(&dsi_timer);
-		dsi_timer.function = dsi_delay_tout;
-		dsi_timer.data = 0;
 		/*
 		 * configure dsi stream id
 		 * dma_p = 0, dma_s = 1
@@ -134,6 +164,8 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 
 	mdp4_overlay_dmap_cfg(mfd, 0);
 
+	mdp4_mipi_vsync_enable(mfd, pipe, 0);
+
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
@@ -162,12 +194,6 @@ void mdp4_dsi_cmd_overlay_restore(void)
 	}
 }
 
-void dsi_add_delay_timer(int delay_ms)
-{
-	dsi_timer.expires = jiffies + ((delay_ms * HZ) / 1000);
-	add_timer(&dsi_timer);
-}
-
 void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
@@ -194,34 +220,12 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd,
 void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
-	unsigned long flag;
-
-	if (atomic_read(&dsi_delay_kickoff_cnt) != 0) {
-		spin_lock_irqsave(&mdp_spin_lock, flag);
-		complete(&dsi_delay_comp);
-		atomic_set(&dsi_delay_kickoff_cnt, 0);
-		del_timer(&dsi_timer);
-		mdp4_stat.kickoff_piggy++;
-		spin_unlock_irqrestore(&mdp_spin_lock, flag);
-		return;
-	}
-
 	mdp4_dsi_cmd_overlay_kickoff(mfd, pipe);
 }
 
 void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
-
-	if (mdp4_overlay_mixer_play(dsi_pipe->mixer_num) > 0) {
-		dsi_add_delay_timer(10);
-		atomic_set(&dsi_delay_kickoff_cnt, 1);
-		INIT_COMPLETION(dsi_delay_comp);
-		mutex_unlock(&mfd->dma->ov_mutex);
-		wait_for_completion_killable(&dsi_delay_comp);
-		mutex_lock(&mfd->dma->ov_mutex);
-	}
-
 	mdp4_dsi_cmd_overlay_kickoff(mfd, pipe);
 }
 
@@ -230,14 +234,12 @@ void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
 
-	down(&mfd->sem);
 	mdp_enable_irq(MDP_OVERLAY0_TERM);
 	mfd->dma->busy = TRUE;
 	/* start OVERLAY pipe */
 	mdp_pipe_kickoff(MDP_OVERLAY0_TERM, mfd);
 	/* trigger dsi cmd engine */
 	mipi_dsi_cmd_mdp_sw_trigger();
-	up(&mfd->sem);
 }
 
 void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
@@ -258,6 +260,6 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 			complete(&mfd->pan_comp);
 		}
 	}
-
+	mdp4_overlay_resource_release();
 	mutex_unlock(&mfd->dma->ov_mutex);
 }

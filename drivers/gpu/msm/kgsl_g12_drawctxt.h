@@ -29,8 +29,6 @@
 #ifndef __GSL_DRAWCTXT_G12_H
 #define __GSL_DRAWCTXT_G12_H
 
-#include "kgsl_sharedmem.h"
-
 struct kgsl_device;
 struct kgsl_device_private;
 

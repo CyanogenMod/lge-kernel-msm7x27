@@ -264,8 +264,18 @@ static void msm_gpio_update_dual_edge_pos(unsigned gpio)
 			set_gpio_bits(INTR_POL_CTL_HI, GPIO_INTR_CFG(gpio));
 		val2 = readl(GPIO_IN_OUT(gpio)) & BIT(GPIO_IN_BIT);
 		intstat = readl(GPIO_INTR_STATUS(gpio)) & BIT(INTR_STATUS_BIT);
-		if (intstat || val == val2)
+		if (intstat || val == val2) {
+			/* switch the configuration in the mpm as well*/
+			if (val)
+				msm_mpm_set_irq_type(msm_gpio_to_irq(
+						&msm_gpio.gpio_chip, gpio),
+						IRQF_TRIGGER_FALLING);
+			else
+				msm_mpm_set_irq_type(msm_gpio_to_irq(
+						&msm_gpio.gpio_chip, gpio),
+						IRQF_TRIGGER_RISING);
 			return;
+		}
 	} while (loop_limit-- > 0);
 	pr_err("%s: dual-edge irq failed to stabilize, "
 	       "interrupts dropped. %#08x != %#08x\n",

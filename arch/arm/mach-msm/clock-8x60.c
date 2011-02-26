@@ -27,11 +27,19 @@
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
+#include <mach/scm-io.h>
 
 #include "clock-local.h"
 #include "clock-8x60.h"
 #include "rpm.h"
 #include "rpm-regulator.h"
+
+#ifdef CONFIG_MSM_SECURE_IO
+#undef readl
+#undef writel
+#define readl secure_readl
+#define writel secure_writel
+#endif
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_MM(off)	(MSM_MMSS_CLK_CTL_BASE + (off))
@@ -987,7 +995,7 @@ static struct clk_freq_tbl clk_tbl_rot[] = {
 static struct pll_rate mm_pll2_rate[] = {
 	[0] = PLL_RATE( 7, 6301, 13500, 0, 4, 0x4248B), /*  50400500 Hz */
 	[1] = PLL_RATE( 8,    0,     0, 0, 4, 0x4248B), /*  54000000 Hz */
-	[2] = PLL_RATE(16,    2,   125, 0, 4, 0x4248F), /* 108108000 Hz */
+	[2] = PLL_RATE(16,    2,   125, 0, 4, 0x5248F), /* 108108000 Hz */
 	[3] = PLL_RATE(22,    0,     0, 2, 4, 0x6248B), /* 148500000 Hz */
 	[4] = PLL_RATE(44,    0,     0, 2, 4, 0x6248F), /* 297000000 Hz */
 };

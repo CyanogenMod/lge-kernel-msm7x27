@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,7 +39,10 @@
 #include <crypto/authenc.h>
 #include <crypto/scatterwalk.h>
 
+#include <mach/scm.h>
+#include <mach/board.h>
 #include "inc/qce.h"
+
 
 #define MAX_CRYPTO_DEVICE 3
 #define DEBUG_MAX_FNAME  16
@@ -68,6 +71,9 @@ static struct dentry *_debug_dent;
 static char _debug_read_buf[DEBUG_MAX_RW_BUF];
 
 struct crypto_priv {
+
+	struct msm_ce_hw_support ce_hw_support;
+
 	/* the lock protects queue and req*/
 	spinlock_t lock;
 
@@ -89,6 +95,77 @@ struct crypto_priv {
 
 	struct tasklet_struct done_tasklet;
 };
+
+
+/*-------------------------------------------------------------------------
+* Resource Locking Service
+* ------------------------------------------------------------------------*/
+#define QCRYPTO_CMD_ID				1
+#define QCRYPTO_CE_LOCK_CMD			1
+#define QCRYPTO_CE_UNLOCK_CMD			0
+#define NUM_RETRY				1000
+#define CE_BUSY				        55
+
+static int qcrypto_scm_cmd(int resource, int cmd, int *response)
+{
+#ifdef CONFIG_MSM_SCM
+
+	struct {
+		int resource;
+		int cmd;
+	} cmd_buf;
+
+	cmd_buf.resource = resource;
+	cmd_buf.cmd = cmd;
+
+	return scm_call(SCM_SVC_TZ, QCRYPTO_CMD_ID, &cmd_buf,
+		sizeof(cmd_buf), response, sizeof(*response));
+
+#else
+	return 0;
+#endif
+}
+
+static int qcrypto_unlock_ce(struct crypto_priv *cp)
+{
+	if (cp->ce_hw_support.ce_shared) {
+		int response = 0;
+
+		if (qcrypto_scm_cmd(cp->ce_hw_support.shared_ce_resource,
+					QCRYPTO_CE_UNLOCK_CMD, &response)) {
+			printk(KERN_ERR "%s Failed to release CE lock\n",
+				__func__);
+			return -EUSERS;
+		}
+	}
+	return 0;
+}
+
+static int qcrypto_lock_ce(struct crypto_priv *cp)
+{
+	if (cp->ce_hw_support.ce_shared) {
+		int response = -CE_BUSY;
+		int i = 0;
+
+		do {
+			if (qcrypto_scm_cmd(
+				cp->ce_hw_support.shared_ce_resource,
+				QCRYPTO_CE_LOCK_CMD, &response)) {
+				response = -EINVAL;
+				break;
+			}
+		} while ((response == -CE_BUSY) && (i++ < NUM_RETRY));
+
+		if ((response == -CE_BUSY) && (i >= NUM_RETRY))
+			return -EUSERS;
+
+		if (response < 0)
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
 
 #define QCRYPTO_MAX_KEY_SIZE	64
 
@@ -356,6 +433,8 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 	if (iv)
 		memcpy(ctx->iv, iv, crypto_ablkcipher_ivsize(ablk));
 
+	ret = qcrypto_unlock_ce(cp);
+
 	if (ret) {
 		cp->res = -ENXIO;
 		pstat->ablk_cipher_op_fail++;
@@ -408,6 +487,8 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 	if (iv)
 		memcpy(ctx->iv, iv, crypto_aead_ivsize(aead));
 
+	ret = qcrypto_unlock_ce(cp);
+
 	if (ret)
 		pstat->aead_op_fail++;
 	else
@@ -443,6 +524,7 @@ again:
 	if (backlog)
 		backlog->complete(backlog, -EINPROGRESS);
 	type = crypto_tfm_alg_type(async_req->tfm);
+
 	if (type == CRYPTO_ALG_TYPE_ABLKCIPHER) {
 		struct ablkcipher_request *req;
 		struct crypto_ablkcipher *tfm;
@@ -464,7 +546,12 @@ again:
 		qreq.ivsize = crypto_ablkcipher_ivsize(tfm);
 		qreq.cryptlen = req->nbytes;
 		qreq.use_pmem = 0;
-		ret =  qce_ablk_cipher_req(cp->qce, &qreq);
+
+		if ((ctx->enc_key_len == 0) &&
+				(cp->ce_hw_support.hw_key_support == 0))
+			ret = -EINVAL;
+		else
+			ret =  qce_ablk_cipher_req(cp->qce, &qreq);
 
 	} else {
 		struct aead_request *req;
@@ -496,6 +583,8 @@ again:
 		cp->req = NULL;
 		spin_unlock_irqrestore(&cp->lock, flags);
 
+		qcrypto_unlock_ce(cp);
+
 		if (type == CRYPTO_ALG_TYPE_ABLKCIPHER)
 			pstat->ablk_cipher_op_fail++;
 		else
@@ -512,10 +601,15 @@ static int _qcrypto_queue_req(struct crypto_priv *cp,
 	int ret;
 	unsigned long flags;
 
+	ret = qcrypto_lock_ce(cp);
+	if (ret)
+		return ret;
+
 	spin_lock_irqsave(&cp->lock, flags);
 	ret = crypto_enqueue_request(&cp->queue, req);
 	spin_unlock_irqrestore(&cp->lock, flags);
 	_start_qcrypto_process(cp);
+
 	return ret;
 }
 
@@ -1413,6 +1507,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	void *handle;
 	struct crypto_priv *cp;
 	int i;
+	struct msm_ce_hw_support *ce_hw_support;
 
 	if (pdev->id >= MAX_CRYPTO_DEVICE) {
 		printk(KERN_ERR "%s: device id %d  exceeds allowed %d\n",
@@ -1439,6 +1534,13 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	crypto_init_queue(&cp->queue, 50);
 	cp->qce = handle;
 	cp->pdev = pdev;
+
+	ce_hw_support = (struct msm_ce_hw_support *)pdev->dev.platform_data;
+	cp->ce_hw_support.ce_shared = ce_hw_support->ce_shared;
+	cp->ce_hw_support.shared_ce_resource =
+				ce_hw_support->shared_ce_resource;
+	cp->ce_hw_support.hw_key_support =
+				ce_hw_support->hw_key_support;
 
 	/* register crypto algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(_qcrypto_algos); i++) {
@@ -1578,4 +1680,4 @@ module_exit(_qcrypto_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm Crypto driver");
-MODULE_VERSION("1.01");
+MODULE_VERSION("1.03");

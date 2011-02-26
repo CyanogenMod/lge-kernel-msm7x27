@@ -1,4 +1,4 @@
-/*  Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/*  Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,7 +179,7 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &lb_cmd);
 	if (ret < 0) {
-		pr_err("AFE loopback failed\n");
+		pr_err("%s: AFE loopback failed\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -355,7 +355,7 @@ int afe_close(int port_id)
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &stop);
 
 	if (ret < 0) {
-		pr_err("AFE close failed\n");
+		pr_err("%s: AFE close failed\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -374,7 +374,6 @@ fail_cmd:
 
 static int __init afe_init(void)
 {
-	pr_info("%s:\n", __func__);
 	init_waitqueue_head(&this_afe.wait);
 	atomic_set(&this_afe.state, 0);
 	this_afe.apr = NULL;

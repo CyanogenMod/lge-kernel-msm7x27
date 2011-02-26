@@ -29,14 +29,10 @@
 #ifndef _GSL_CMDSTREAM_H
 #define _GSL_CMDSTREAM_H
 
-#include <linux/types.h>
 #include <linux/msm_kgsl.h>
-#include "kgsl_device.h"
-#include "kgsl_g12.h"
-#include <linux/msm_kgsl.h>
-#include "kgsl_sharedmem.h"
 
-struct kgsl_g12_device;
+struct kgsl_device;
+struct kgsl_device_private;
 
 int kgsl_g12_cmdstream_init(struct kgsl_device *device);
 

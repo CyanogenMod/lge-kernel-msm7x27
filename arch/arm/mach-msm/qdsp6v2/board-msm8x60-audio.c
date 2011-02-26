@@ -283,12 +283,30 @@ void msm_snddev_poweramp_off(void)
 	msleep(30);
 }
 
+/* Regulator 8058_l10 supplies regulator 8058_ncp. */
 static struct regulator *snddev_reg_ncp;
+static struct regulator *snddev_reg_l10;
 
 static void msm_snddev_voltage_on(void)
 {
 	int rc;
 	pr_debug("%s\n", __func__);
+
+	snddev_reg_l10 = regulator_get(NULL, "8058_l10");
+	if (IS_ERR(snddev_reg_l10)) {
+		pr_err("%s: regulator_get(%s) failed (%ld)\n", __func__,
+			"l10", PTR_ERR(snddev_reg_l10));
+		return;
+	}
+
+	rc = regulator_set_voltage(snddev_reg_l10, 2600000, 2600000);
+	if (rc < 0)
+		pr_err("%s: regulator_set_voltage(l10) failed (%d)\n",
+			__func__, rc);
+
+	rc = regulator_enable(snddev_reg_l10);
+	if (rc < 0)
+		pr_err("%s: regulator_enable(l10) failed (%d)\n", __func__, rc);
 
 	snddev_reg_ncp = regulator_get(NULL, "8058_ncp");
 	if (IS_ERR(snddev_reg_ncp)) {
@@ -313,7 +331,7 @@ static void msm_snddev_voltage_off(void)
 	pr_debug("%s\n", __func__);
 
 	if (!snddev_reg_ncp)
-		return;
+		goto done;
 
 	rc = regulator_disable(snddev_reg_ncp);
 	if (rc < 0)
@@ -323,6 +341,19 @@ static void msm_snddev_voltage_off(void)
 	regulator_put(snddev_reg_ncp);
 
 	snddev_reg_ncp = NULL;
+
+done:
+	if (!snddev_reg_l10)
+		return;
+
+	rc = regulator_disable(snddev_reg_l10);
+	if (rc < 0)
+		pr_err("%s: regulator_disable(l10) failed (%d)\n",
+			__func__, rc);
+
+	regulator_put(snddev_reg_l10);
+
+	snddev_reg_l10 = NULL;
 }
 
 static void msm_snddev_enable_amic_power(void)

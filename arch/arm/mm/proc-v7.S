@@ -253,14 +253,26 @@ __v7_setup:
 #ifdef CONFIG_ARCH_MSM_SCORPION
 	mov     r0, #0x33
 	mcr     p15, 3, r0, c15, c0, 3          @ set L2CR1
+#endif
+#if defined (CONFIG_ARCH_MSM_SCORPION) || defined (CONFIG_ARCH_MSM_SCORPIONMP)
 	mrc     p15, 0, r0, c1, c0, 1           @ read ACTLR
 #ifdef CONFIG_CPU_CACHE_ERR_REPORT
 	orr     r0, r0, #0x37                   @ turn on L1/L2 error reporting
 #else
 	bic     r0, r0, #0x37
 #endif
+#if defined (CONFIG_ARCH_MSM_SCORPIONMP)
+	orr    r0, r0, #0x1 << 24     @ optimal setting for Scorpion MP
+#endif
 	mcr     p15, 0, r0, c1, c0, 1           @ write ACTLR
 #endif
+
+#if defined (CONFIG_ARCH_MSM_SCORPIONMP)
+	mrc     p15, 3, r0, c15, c0, 2  @ optimal setting for Scorpion MP
+	orr	    r0, r0, #0x1 << 21
+	mcr     p15, 3, r0, c15, c0, 2
+#endif
+
 	/*
 	 * Memory region attributes with SCTLR.TRE=1
 	 *
@@ -290,7 +302,11 @@ __v7_setup:
 	 *   NOS = PRRR[24+n] = 1	- not outer shareable
 	 */
 	ldr	r5, =0xff0a81a8			@ PRRR
+#ifdef CONFIG_ARCH_MSM_SCORPIONMP
+	ldr	r6, =0x40e080e0			@ NMRR
+#else
 	ldr	r6, =0x40e040e0			@ NMRR
+#endif
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
 #endif

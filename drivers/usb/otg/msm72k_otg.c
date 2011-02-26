@@ -204,6 +204,8 @@ static void set_aca_id_inputs(struct msm_otg *dev)
 	u8		phy_ints;
 
 	phy_ints = ulpi_read(dev, 0x13);
+	if (phy_ints == -ETIMEDOUT)
+		return;
 
 	pr_debug("phy_ints = %x\n", phy_ints);
 	clear_bit(ID_A, &dev->inputs);
@@ -353,21 +355,13 @@ static void msm_otg_vote_for_pclk_source(struct msm_otg *dev, int vote)
 	if (!pclk_requires_voting(&dev->otg))
 		return;
 
-	if (dev->pdata->usb_in_sps) {
-		if (vote)
-			clk_set_min_rate(dev->dfab_clk, 64000000);
-		else
-			clk_set_min_rate(dev->dfab_clk, 0);
-		return;
-	}
-
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
 	/* LGE_CHANGE
 	 * Workaround for enabling ebi1_clock.
 	 * 2011-02-24, hyunhui.park@lge.com
 	 */
 	if (vote) {
-		if (!clk_enable(dev->pdata->ebi1_clk)) {
+		if (!clk_enable(dev->pclk_src)) {
 			pr_info("%s: clk_enable ok\n", __func__);
 			capable = 1;
 		} else {
@@ -376,13 +370,13 @@ static void msm_otg_vote_for_pclk_source(struct msm_otg *dev, int vote)
 		}
 	} else {
 		if (capable)
-			clk_disable(dev->pdata->ebi1_clk);
+			clk_disable(dev->pclk_src);
 	}
 #else
 	if (vote)
-		clk_enable(dev->pdata->ebi1_clk);
+		clk_enable(dev->pclk_src);
 	else
-		clk_disable(dev->pdata->ebi1_clk);
+		clk_disable(dev->pclk_src);
 #endif
 }
 
@@ -675,7 +669,7 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 static int msm_otg_suspend(struct msm_otg *dev)
 {
 	unsigned long timeout;
-	int vbus = 0;
+	bool host_bus_suspend;
 	unsigned ret;
 	enum chg_type chg_type = atomic_read(&dev->chg_type);
 	unsigned long flags;
@@ -721,8 +715,9 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	 * 3. host is supported, but, id is not routed to pmic
 	 * 4. peripheral is supported, but, vbus is not routed to pmic
 	 */
+	host_bus_suspend = dev->otg.host && is_host();
 	if ((dev->otg.gadget && chg_type == USB_CHG_TYPE__WALLCHARGER) ||
-		(dev->otg.host && is_host()) ||
+		host_bus_suspend ||
 		(dev->otg.host && !dev->pmic_id_notif_supp) ||
 		(dev->otg.gadget && !dev->pmic_vbus_notif_supp)) {
 		ulpi_write(dev, 0x01, 0x30);
@@ -774,7 +769,7 @@ static int msm_otg_suspend(struct msm_otg *dev)
 
 	atomic_set(&dev->in_lpm, 1);
 
-	if (!vbus && dev->pmic_vbus_notif_supp) {
+	if (!host_bus_suspend && dev->pmic_vbus_notif_supp) {
 		pr_debug("phy can power collapse: (%d)\n",
 			can_phy_power_collapse(dev));
 		if (can_phy_power_collapse(dev) && dev->pdata->ldo_enable) {
@@ -1125,11 +1120,11 @@ static int msm_otg_set_host(struct otg_transceiver *xceiv, struct usb_bus *host)
 void msm_otg_set_id_state(int id)
 {
 	struct msm_otg *dev = the_msm_otg;
+	unsigned long flags;
 
 	if (id == dev->pmic_id_status)
 		return;
 
-	wake_lock(&dev->wlock);
 	if (id) {
 		set_bit(ID, &dev->inputs);
 		dev->pmic_id_status = 1;
@@ -1138,7 +1133,12 @@ void msm_otg_set_id_state(int id)
 		set_bit(A_BUS_REQ, &dev->inputs);
 		dev->pmic_id_status = 0;
 	}
-	queue_work(dev->wq, &dev->sm_work);
+	spin_lock_irqsave(&dev->lock, flags);
+	if (dev->otg.state != OTG_STATE_UNDEFINED) {
+		wake_lock(&dev->wlock);
+		queue_work(dev->wq, &dev->sm_work);
+	}
+	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
 void msm_otg_set_vbus_state(int online)
@@ -1540,6 +1540,25 @@ static void msm_otg_sm_work(struct work_struct *w)
 
 	switch (state) {
 	case OTG_STATE_UNDEFINED:
+
+		/*
+		 * We can come here when LPM fails with wall charger
+		 * connected. Increment the PM usage counter to reflect
+		 * the actual device state. Change the state to
+		 * B_PERIPHERAL and schedule the work which takes care
+		 * of resetting the PHY and putting the hardware in
+		 * low power mode.
+		 */
+		if (atomic_read(&dev->chg_type) ==
+				USB_CHG_TYPE__WALLCHARGER) {
+			msm_otg_get_resume(dev);
+			spin_lock_irq(&dev->lock);
+			dev->otg.state = OTG_STATE_B_PERIPHERAL;
+			spin_unlock_irq(&dev->lock);
+			work = 1;
+			break;
+		}
+
 		/* Reset both phy and link */
 		otg_reset(&dev->otg, 1);
 
@@ -1659,10 +1678,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 
 			/* Workaround: Reset phy after session */
 			otg_reset(&dev->otg, 1);
+			if (is_b_sess_vld())
+				set_bit(B_SESS_VLD, &dev->inputs);
 
-			/* come back later to put hardware in
-			 * lpm. This removes addition checks in
-			 * suspend routine for missing BSV
+			/* If BSV is set gadget will be started. Otherwise
+			 * low power mode is initiated.
 			 */
 			work = 1;
 		} else if (test_bit(B_BUS_REQ, &dev->inputs) &&
@@ -2165,6 +2185,14 @@ static void msm_otg_id_func(unsigned long _dev)
 
 	phy_ints = ulpi_read(dev, 0x13);
 
+	/*
+	 * ACA timer will be kicked again after the PHY
+	 * state is recovered.
+	 */
+	if (phy_ints == -ETIMEDOUT)
+		return;
+
+
 	/* If id_gnd happened then stop and let isr take care of this */
 	if (phy_id_state_gnd(phy_ints))
 		goto out;
@@ -2360,6 +2388,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
+	the_msm_otg = dev;
 	dev->otg.dev = &pdev->dev;
 	dev->pdata = pdev->dev.platform_data;
 
@@ -2394,34 +2423,22 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 	clk_set_rate(dev->hs_clk, 60000000);
 
-	if (dev->pdata->usb_in_sps) {
-		dev->dfab_clk = clk_get(0, "dfab_clk");
-		if (IS_ERR(dev->dfab_clk)) {
-			pr_err("%s: failed to get dfab clk\n", __func__);
-			ret = PTR_ERR(dev->dfab_clk);
-			goto put_hs_clk;
-		}
-	}
+	/* pm qos request to prevent apps idle power collapse */
+	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
+					PM_QOS_DEFAULT_VALUE);
 
 	/* If USB Core is running its protocol engine based on PCLK,
 	 * PCLK must be running at >60Mhz for correct HSUSB operation and
 	 * USB core cannot tolerate frequency changes on PCLK. For such
 	 * USB cores, vote for maximum clk frequency on pclk source
 	 */
-	dev->pdata->pm_qos_req_dma = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
-					PM_QOS_DEFAULT_VALUE);
-
-	if (pclk_requires_voting(&dev->otg) && !dev->pdata->usb_in_sps) {
-		pr_info("%s: clk_get - ebi1_usb_clk\n", __func__);
-		dev->pdata->ebi1_clk = clk_get(NULL, "ebi1_usb_clk");
-		if (IS_ERR(dev->pdata->ebi1_clk)) {
-			ret = PTR_ERR(dev->pdata->ebi1_clk);
-			goto put_dfab_clk;
-		}
-		clk_set_rate(dev->pdata->ebi1_clk, INT_MAX);
+	if (dev->pdata->pclk_src_name) {
+		dev->pclk_src = clk_get(0, dev->pdata->pclk_src_name);
+		if (IS_ERR(dev->pclk_src))
+			goto put_hs_clk;
+		clk_set_rate(dev->pclk_src, INT_MAX);
 		msm_otg_vote_for_pclk_source(dev, 1);
 	}
-
 
 	if (!dev->pdata->pclk_is_hw_gated) {
 		pr_info("%s: clk_get - usb_hs_clk\n", __func__);
@@ -2429,7 +2446,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		if (IS_ERR(dev->hs_pclk)) {
 			pr_err("%s: failed to get usb_hs_pclk\n", __func__);
 			ret = PTR_ERR(dev->hs_pclk);
-			goto put_ebi_clk;
+			goto put_pclk_src;
 		}
 		clk_enable(dev->hs_pclk);
 	}
@@ -2530,17 +2547,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		ret = dev->pdata->pmic_id_notif_init(&msm_otg_set_id_state, 1);
 		if (!ret) {
 			dev->pmic_id_notif_supp = 1;
-			/*
-			 * As a part of usb initialization checks the id
-			 * by that time if pmic doesn't generate ID interrupt,
-			 * then it assumes that micro-A cable is connected
-			 * (as default pmic_id_status is 0, which indicates
-			 * as micro-A cable) and moving to Host mode and
-			 * ignoring the BSession Valid interrupts.
-			 * For now assigning default id_status as 1
-			 * (which indicates as micro-B)
-			 */
-			dev->pmic_id_status = 1;
 		} else if (ret != -ENOTSUPP) {
 			pr_err("%s: pmic_id_ notif_init failed err:%d",
 					__func__, ret);
@@ -2592,7 +2598,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto free_ldo_enable;
 	}
 
-	the_msm_otg = dev;
 	dev->otg.set_peripheral = msm_otg_set_peripheral;
 #ifdef CONFIG_USB_EHCI_MSM
 	dev->otg.set_host = msm_otg_set_host;
@@ -2699,12 +2704,10 @@ put_hs_pclk:
 		clk_disable(dev->hs_pclk);
 		clk_put(dev->hs_pclk);
 	}
-put_ebi_clk:
-	clk_put(dev->pdata->ebi1_clk);
-put_dfab_clk:
-	if (dev->dfab_clk) {
-		clk_set_min_rate(dev->dfab_clk, 0);
-		clk_put(dev->dfab_clk);
+put_pclk_src:
+	if (dev->pclk_src) {
+		msm_otg_vote_for_pclk_source(dev, 0);
+		clk_put(dev->pclk_src);
 	}
 put_hs_clk:
 	if (dev->hs_clk)
@@ -2790,7 +2793,7 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	kfree(dev);
 	pm_qos_remove_request(dev->pdata->pm_qos_req_dma);
-	clk_put(dev->pdata->ebi1_clk);
+	clk_put(dev->pclk_src);
 	return 0;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,9 +29,6 @@
 #include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#ifndef CONFIG_MSM_BUS_SCALING
-#include <linux/pm_qos_params.h>
-#endif
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
@@ -60,6 +57,8 @@ static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
 static struct mipi_dsi_platform_data *mipi_dsi_pdata;
 
+static int vsync_gpio = -1;
+
 static struct platform_driver mipi_dsi_driver = {
 	.probe = mipi_dsi_probe,
 	.remove = mipi_dsi_remove,
@@ -71,6 +70,8 @@ static struct platform_driver mipi_dsi_driver = {
 
 struct device dsi_dev;
 
+/* MIPI_DSI_MRPS, Maximum Return Packet Size */
+char max_pktsize[2] = {MIPI_DSI_MRPS, 0x00}; /* LSB tx first, 16 bytes */
 
 /*
  * mipi_dsi_mxo_selected() -
@@ -348,17 +349,30 @@ static int mipi_dsi_off(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct msm_fb_data_type *mfd;
+	struct msm_panel_info *pinfo;
 
 	mfd = platform_get_drvdata(pdev);
+	pinfo = &mfd->panel_info;
+
+	/* change to DSI_CMD_MODE since it needed to
+	 * tx DCS dsiplay off comamnd to panel
+	 */
+	mipi_dsi_op_mode_config(DSI_CMD_MODE);
+
+	if (pinfo->lcd.vsync_enable) {
+		if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0)
+			gpio_free(vsync_gpio);
+
+		mipi_dsi_set_tear_off();
+	}
 
 	ret = panel_next_off(pdev);
 
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
-		mipi_dsi_pdata->dsi_power_save(0);
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+	if (mfd->ebi1_clk)
+		clk_disable(mfd->ebi1_clk);
 #endif
 
 	disable_irq(DSI_IRQ);
@@ -380,6 +394,9 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	/* disbale dsi engine */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
 
+	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+		mipi_dsi_pdata->dsi_power_save(0);
+
 	pr_debug("%s:\n", __func__);
 
 	return ret;
@@ -392,6 +409,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct fb_info *fbi;
 	struct fb_var_screeninfo *var;
+	struct msm_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, data;
@@ -399,6 +417,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	mfd = platform_get_drvdata(pdev);
 	fbi = mfd->fbi;
 	var = &fbi->var;
+	pinfo = &mfd->panel_info;
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(1);
@@ -473,14 +492,29 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	mipi_dsi_host_init(mipi);
 
+	mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
+
 	ret = panel_next_on(pdev);
 
 	mipi_dsi_op_mode_config(mipi->mode);
 
+	if (pinfo->lcd.vsync_enable) {
+		if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0) {
+			if (gpio_request(vsync_gpio, "MDP_VSYNC") == 0)
+				gpio_direction_input(vsync_gpio);
+			else
+				pr_err("%s: unable to request gpio=%d\n",
+					__func__, vsync_gpio);
+		}
+
+		mipi_dsi_set_tear_on();
+	}
+
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, 122000);
+	if (mfd->ebi1_clk)
+		clk_enable(mfd->ebi1_clk);
 #endif
 
 	pr_debug("%s:\n", __func__);
@@ -494,6 +528,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	struct fb_info *fbi;
+	struct msm_panel_info *pinfo;
 	struct platform_device *mdp_dev = NULL;
 	struct msm_fb_panel_data *pdata = NULL;
 	int rc;
@@ -535,6 +570,11 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		disable_irq(DSI_IRQ);
 
 		mipi_dsi_calibration();
+
+		if (mipi_dsi_pdata) {
+			vsync_gpio = mipi_dsi_pdata->vsync_gpio;
+			pr_info("%s: vsync_gpio=%d\n", __func__, vsync_gpio);
+		}
 
 		mipi_dsi_resource_initialized = 1;
 
@@ -588,6 +628,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	 * get/set panel specific fb info
 	 */
 	mfd->panel_info = pdata->panel_info;
+	pinfo = &mfd->panel_info;
 
 	if (mfd->index == 0)
 		mfd->fb_imgType = MSMFB_DEFAULT_TYPE;
@@ -625,10 +666,11 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	pdev_list[pdev_list_cnt++] = pdev;
 
 #ifndef CONFIG_MSM_BUS_SCALING
-	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					       PM_QOS_DEFAULT_VALUE);
-	if (!mfd->pm_qos_req)
+	if (IS_ERR(mfd->ebi1_clk)) {
+		rc = PTR_ERR(mfd->ebi1_clk);
 		goto mipi_dsi_probe_err;
+	}
+	clk_set_rate(mfd->ebi1_clk, 122000000);
 #endif
 
 	return 0;
@@ -644,7 +686,7 @@ static int mipi_dsi_remove(struct platform_device *pdev)
 
 	mfd = platform_get_drvdata(pdev);
 #ifndef CONFIG_MSM_BUS_SCALING
-	pm_qos_remove_request(mfd->pm_qos_req);
+	clk_put(mfd->ebi1_clk);
 #endif
 
 	iounmap(msm_pmdh_base);
@@ -711,7 +753,7 @@ static int __init mipi_dsi_driver_init(void)
 		return ret;
 	}
 
-	mipi_dsi_init_comp();
+	mipi_dsi_init();
 
 	return ret;
 }

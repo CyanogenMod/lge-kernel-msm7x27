@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,11 +42,15 @@
 #include "msm_fb.h"
 #include "mipi_dsi.h"
 
-static struct completion dsi_comp;
+static struct mutex dsi_mutex;
+static struct completion dsi_dma_comp;
+static struct dsi_buf dsi_tx_buf;
 
-void mipi_dsi_init_comp(void)
+void mipi_dsi_init(void)
 {
-	init_completion(&dsi_comp);
+	init_completion(&dsi_dma_comp);
+	mutex_init(&dsi_mutex);
+	mipi_dsi_buf_alloc(&dsi_tx_buf, DSI_BUF_SIZE);
 }
 
 /*
@@ -557,7 +561,7 @@ int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 		len = mipi_dsi_peripheral_off(dp, cm);
 		break;
 	default:
-		pr_info("%s: dtype=%x NOT supported\n",
+		pr_debug("%s: dtype=%x NOT supported\n",
 					__func__, cm->dtype);
 		break;
 
@@ -674,6 +678,10 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 		data |= BIT(0);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x00c8, data); /* DSI_EOT_PACKET_CTRL */
 
+
+	/* allow only ack-err-status  to generate interrupt */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0108, 0x13ff3fe0); /* DSI_ERR_INT_MASK0 */
+
 	intr_ctrl |= DSI_INTR_ERROR_MASK;
 	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, intr_ctrl); /* DSI_INTL_CTRL */
 
@@ -701,7 +709,7 @@ void mipi_dsi_op_mode_config(int mode)
 		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK | DSI_INTR_ERROR_MASK;
 	}
 
-	pr_info("%s: dsi_ctrl=%x intr=%x\n", __func__, dsi_ctrl, intr_ctrl);
+	pr_debug("%s: dsi_ctrl=%x intr=%x\n", __func__, dsi_ctrl, intr_ctrl);
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, intr_ctrl); /* DSI_INTL_CTRL */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl);
@@ -712,6 +720,53 @@ void mipi_dsi_cmd_mdp_sw_trigger(void)
 {
 	MIPI_OUTP(MIPI_DSI_BASE + 0x090, 0x01);	/* trigger */
 	wmb();
+}
+
+
+void mipi_dsi_cmd_bta_sw_trigger(void)
+{
+	uint32 data;
+	int cnt = 0;
+
+	MIPI_OUTP(MIPI_DSI_BASE + 0x094, 0x01);	/* trigger */
+	wmb();
+
+	while (cnt < 10000) {
+		data = MIPI_INP(MIPI_DSI_BASE + 0x0004);/* DSI_STATUS */
+		if ((data & 0x0010) == 0)
+			break;
+		cnt++;
+	}
+
+	mipi_dsi_ack_err_status();
+
+	pr_debug("%s: BTA done, cnt=%d\n", __func__, cnt);
+}
+
+static char set_tear_on[2] = {0x35, 0x00};
+static struct dsi_cmd_desc dsi_tear_on_cmd = {
+	DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_tear_on), set_tear_on};
+
+static char set_tear_off[2] = {0x34, 0x00};
+static struct dsi_cmd_desc dsi_tear_off_cmd = {
+	DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(set_tear_off), set_tear_off};
+
+void mipi_dsi_set_tear_on(void)
+{
+	mutex_lock(&dsi_mutex);
+
+	mipi_dsi_buf_init(&dsi_tx_buf);
+	mipi_dsi_cmds_tx(&dsi_tx_buf, &dsi_tear_on_cmd, 1);
+	mutex_unlock(&dsi_mutex);
+}
+
+void mipi_dsi_set_tear_off(void)
+{
+	mutex_lock(&dsi_mutex);
+
+	mipi_dsi_buf_init(&dsi_tx_buf);
+	mipi_dsi_cmds_tx(&dsi_tx_buf, &dsi_tear_off_cmd, 1);
+	mutex_unlock(&dsi_mutex);
 }
 
 int mipi_dsi_cmd_reg_tx(uint32 data)
@@ -743,17 +798,17 @@ int mipi_dsi_cmd_reg_tx(uint32 data)
 	return 4;
 }
 
-int mipi_dsi_cmds_tx(struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt)
+int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 {
 	struct dsi_cmd_desc *cm;
 	int i;
 
 	cm = cmds;
-	mipi_dsi_buf_init(dp);
+	mipi_dsi_buf_init(tp);
 	for (i = 0; i < cnt; i++) {
-		mipi_dsi_buf_init(dp);
-		mipi_dsi_cmd_dma_add(dp, cm);
-		mipi_dsi_cmd_dma_tx(dp);
+		mipi_dsi_buf_init(tp);
+		mipi_dsi_cmd_dma_add(tp, cm);
+		mipi_dsi_cmd_dma_tx(tp);
 		if (cm->wait)
 			msleep(cm->wait);
 		cm++;
@@ -762,7 +817,52 @@ int mipi_dsi_cmds_tx(struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt)
 	return cnt;
 }
 
-int mipi_dsi_cmd_dma_tx(struct dsi_buf *dp)
+/*
+ * Novatek panel will reply with  MAX_RETURN_PACKET_SIZE bytes of data
+ * plus DCS header, ECC and CRC for DCS long read response
+ * currently, we set MAX_RETURN_PAKET_SIZE to 4 to align with 32 bits
+ * register
+ * currently, only MAX_RETURN_PACKET_SIZE (4) bytes per read
+ */
+int mipi_dsi_cmds_rx(struct dsi_buf *tp, struct dsi_buf *rp,
+				struct dsi_cmd_desc *cmds, int len)
+{
+	int cnt, res;
+
+	if (len <= 2)
+		cnt = 4;	/* short read */
+	else
+		cnt = MIPI_DSI_MRPS + 6; /* 4 bytes header + 2 bytes crc */
+
+	if (cnt > MIPI_DSI_REG_LEN) {
+		pr_debug("%s: len=%d too long\n", __func__, len);
+		return -ERANGE;
+	}
+
+	res = cnt & 0x03;
+
+	cnt += res;	/* 4 byte align */
+
+	mipi_dsi_buf_init(tp);
+	mipi_dsi_cmd_dma_add(tp, cmds);
+	/* transmit read comamnd to client */
+	mipi_dsi_cmd_dma_tx(tp);
+	/*
+	 * once cmd_dma_done interrupt received,
+	 * return data from client is ready and stored
+	 * at RDBK_DATA register already
+	 */
+	mipi_dsi_buf_reserve(rp, res);
+	mipi_dsi_cmd_dma_rx(rp, cnt);
+
+	/* strip off dcs read header & crc */
+	rp->data += (4 + res);
+	rp->len -= (6 + res);
+
+	return len;
+}
+
+int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
 	int len;
 
@@ -770,36 +870,70 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *dp)
 	int i;
 	char *bp;
 
-	bp = dp->data;
+	bp = tp->data;
 
 	pr_debug("%s: ", __func__);
-	for (i = 0; i < dp->len; i++)
+	for (i = 0; i < tp->len; i++)
 		pr_debug("%x ", *bp++);
 
 	pr_debug("\n");
 #endif
 
-	len = dp->len;
+	len = tp->len;
 	len += 3;
 	len &= ~0x03;	/* multipled by 4 */
 
-	dp->dmap = dma_map_single(&dsi_dev, dp->data, len, DMA_TO_DEVICE);
-	if (dma_mapping_error(&dsi_dev, dp->dmap))
+	tp->dmap = dma_map_single(&dsi_dev, tp->data, len, DMA_TO_DEVICE);
+	if (dma_mapping_error(&dsi_dev, tp->dmap))
 		pr_err("%s: dmap mapp failed\n", __func__);
 
-	INIT_COMPLETION(dsi_comp);
+	INIT_COMPLETION(dsi_dma_comp);
 
-	MIPI_OUTP(MIPI_DSI_BASE + 0x044, dp->dmap);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x044, tp->dmap);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x048, len);
 	wmb();
 	MIPI_OUTP(MIPI_DSI_BASE + 0x08c, 0x01);	/* trigger */
 	wmb();
 
-	wait_for_completion(&dsi_comp);
+	wait_for_completion(&dsi_dma_comp);
 
-	dma_unmap_single(&dsi_dev, dp->dmap, len, DMA_TO_DEVICE);
-	dp->dmap = 0;
-	return dp->len;
+	dma_unmap_single(&dsi_dev, tp->dmap, len, DMA_TO_DEVICE);
+	tp->dmap = 0;
+	return tp->len;
+}
+
+/*
+ * mipi_dsi_cmd_dma_rx: can receive at most 16 bytes
+ * per transaction since it only have 4 32bits reigsters
+ * to hold data.
+ * therefore Maximum Return Packet Size need to be set to 16.
+ * any return data more than MRPS need to be break down
+ * to multiple transactions.
+ */
+int mipi_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen)
+{
+	uint32 *lp, data;
+	int i, off, cnt;
+
+	lp = (uint32 *)rp->data;
+	cnt = rlen;
+	cnt += 3;
+	cnt >>= 2;
+
+	if (cnt > 4)
+		cnt = 4; /* 4 x 32 bits registers only */
+
+	off = 0x068;	/* DSI_RDBK_DATA0 */
+	off += ((cnt - 1) * 4);
+
+	for (i = 0; i < cnt; i++) {
+		data = (uint32)MIPI_INP(MIPI_DSI_BASE + off);
+		*lp++ = ntohl(data);	/* to network byte order */
+		off -= 4;
+		rp->len += sizeof(*lp);
+	}
+
+	return rlen;
 }
 
 void mipi_dsi_irq_set(uint32 mask, uint32 irq)
@@ -812,6 +946,77 @@ void mipi_dsi_irq_set(uint32 mask, uint32 irq)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, data);
 }
 
+
+void mipi_dsi_ack_err_status(void)
+{
+	uint32 status;
+
+	status = MIPI_INP(MIPI_DSI_BASE + 0x0064);/* DSI_ACK_ERR_STATUS */
+
+	if (status) {
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0064, status);
+		pr_debug("%s: status=%x\n", __func__, status);
+	}
+}
+
+void mipi_dsi_timeout_status(void)
+{
+	uint32 status;
+
+	status = MIPI_INP(MIPI_DSI_BASE + 0x00bc);/* DSI_TIMEOUT_STATUS */
+	if (status & 0x0111) {
+		MIPI_OUTP(MIPI_DSI_BASE + 0x00bc, status);
+		pr_debug("%s: status=%x\n", __func__, status);
+	}
+}
+
+void mipi_dsi_dln0_phy_err(void)
+{
+	uint32 status;
+
+	status = MIPI_INP(MIPI_DSI_BASE + 0x00b0);/* DSI_DLN0_PHY_ERR */
+
+	if (status & 0x011111) {
+		MIPI_OUTP(MIPI_DSI_BASE + 0x00b0, status);
+		pr_debug("%s: status=%x\n", __func__, status);
+	}
+}
+
+void mipi_dsi_fifo_status(void)
+{
+	uint32 status;
+
+	status = MIPI_INP(MIPI_DSI_BASE + 0x0008);/* DSI_FIFO_STATUS */
+
+	if (status & 0x44444489) {
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0008, status);
+		pr_debug("%s: status=%x\n", __func__, status);
+	}
+}
+
+void mipi_dsi_status(void)
+{
+	uint32 status;
+
+	status = MIPI_INP(MIPI_DSI_BASE + 0x0004);/* DSI_STATUS */
+
+	if (status & 0x80000000) {
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0004, status);
+		pr_debug("%s: status=%x\n", __func__, status);
+	}
+}
+
+void mipi_dsi_error(void)
+{
+	/* DSI_ERR_INT_MASK0 */
+	mipi_dsi_ack_err_status();	/* mask0, 0x01f */
+	mipi_dsi_timeout_status();	/* mask0, 0x0e0 */
+	mipi_dsi_fifo_status();		/* mask0, 0x133d00 */
+	mipi_dsi_status();		/* mask0, 0xc0100 */
+	mipi_dsi_dln0_phy_err();	/* mask0, 0x3e00000 */
+}
+
+
 irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 {
 	uint32 isr;
@@ -820,9 +1025,7 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x010c, isr);
 
 	if (isr & DSI_INTR_ERROR) {
-		/*
-		* do something  here
-		*/
+		mipi_dsi_error();
 	}
 
 	if (isr & DSI_INTR_VIDEO_DONE) {
@@ -832,9 +1035,7 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 	}
 
 	if (isr & DSI_INTR_CMD_DMA_DONE) {
-		/*
-		* do something  here
-		*/
+		complete(&dsi_dma_comp);
 	}
 
 	if (isr & DSI_INTR_CMD_MDP_DONE) {
@@ -843,7 +1044,6 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 		*/
 	}
 
-	complete(&dsi_comp);
 
 	return IRQ_HANDLED;
 }

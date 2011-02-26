@@ -2211,6 +2211,7 @@ static int tavarua_vidioc_g_ctrl(struct file *file, void *priv,
 	case V4L2_CID_AUDIO_VOLUME:
 		break;
 	case V4L2_CID_AUDIO_MUTE:
+		ctrl->value = radio->registers[IOCTRL] & 0x03 ;
 		break;
 	case V4L2_CID_PRIVATE_TAVARUA_SRCHMODE:
 		ctrl->value = radio->registers[SRCHCTRL] & SRCH_MODE;

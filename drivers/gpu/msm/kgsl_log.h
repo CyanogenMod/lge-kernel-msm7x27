@@ -29,11 +29,6 @@
 #ifndef _GSL_LOG_H
 #define _GSL_LOG_H
 
-#include <linux/bug.h>
-#include <linux/types.h>
-#include <linux/msm_kgsl.h>
-#include <linux/device.h>
-
 extern unsigned int kgsl_drv_log;
 extern unsigned int kgsl_cmd_log;
 extern unsigned int kgsl_ctxt_log;

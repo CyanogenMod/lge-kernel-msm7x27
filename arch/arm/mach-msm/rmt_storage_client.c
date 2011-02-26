@@ -1366,6 +1366,12 @@ static int rmt_storage_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
+	/* MDM will use ALLOC_RMT_BUR RPC call only */
+	if (dev->prog == MSM_RMT_STORAGE_APIPROG) {
+		rmt_storage_init_ramfs(); /* 8660 helper function */
+		rmt_storage_get_ramfs();
+	}
+
 	/* Client Registration */
 	srv->rpc_client = msm_rpc_register_client2("rmt_storage",
 						   dev->prog, dev->vers, 1,
@@ -1446,12 +1452,6 @@ static int rmt_storage_probe(struct platform_device *pdev)
 	if (ret)
 		pr_info("%s: unable to register alloc rmt buf callback %d\n",
 			__func__, ret);
-
-	/* MDM will use ALLOC_RMT_BUR RPC call only */
-	if (dev->prog == MSM_RMT_STORAGE_APIPROG) {
-		rmt_storage_init_ramfs(); /* 8660 helper function */
-		rmt_storage_get_ramfs();
-	}
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &dev_attr_grp);
 	if (ret)

@@ -154,7 +154,7 @@ static void usb_do_remote_wakeup(struct work_struct *w);
 
 #define USB_CHG_DET_DELAY	msecs_to_jiffies(1000)
 #define REMOTE_WAKEUP_DELAY	msecs_to_jiffies(1000)
-#define PHY_STATUS_CHECK_DELAY	msecs_to_jiffies(1000)
+#define PHY_STATUS_CHECK_DELAY	(jiffies + msecs_to_jiffies(1000))
 
 struct usb_info {
 	/* lock for register/queue/device state changes */
@@ -242,6 +242,7 @@ static int msm72k_pullup_internal(struct usb_gadget *_gadget, int is_active);
 static int msm72k_set_halt(struct usb_ep *_ep, int value);
 static void flush_endpoint(struct msm_endpoint *ept);
 static void usb_reset(struct usb_info *ui);
+static int usb_ept_set_halt(struct usb_ep *_ep, int value);
 
 static void msm_hsusb_set_speed(struct usb_info *ui)
 {
@@ -393,6 +394,9 @@ static void usb_phy_stuck_recover(struct work_struct *w)
 
 	disable_irq(otg->irq);
 	if (usb_phy_stuck_check(ui)) {
+#ifdef CONFIG_USB_MSM_ACA
+		del_timer_sync(&otg->id_timer);
+#endif
 		ui->phy_fail_count++;
 		dev_err(&ui->pdev->dev,
 				"%s():PHY stuck, resetting HW\n", __func__);
@@ -401,6 +405,10 @@ static void usb_phy_stuck_recover(struct work_struct *w)
 		 * reset the PHY and HW link to recover the PHY
 		 */
 		usb_reset(ui);
+#ifdef CONFIG_USB_MSM_ACA
+		mod_timer(&otg->id_timer, jiffies +
+				 msecs_to_jiffies(OTG_ID_POLL_MS));
+#endif
 		msm72k_pullup_internal(&ui->gadget, 1);
 	}
 	enable_irq(otg->irq);
@@ -979,9 +987,9 @@ static void handle_setup(struct usb_info *ui)
 					if (ept->wedged)
 						goto ack;
 					if (ctl.bRequest == USB_REQ_SET_FEATURE)
-						msm72k_set_halt(&ept->ep, 1);
+						usb_ept_set_halt(&ept->ep, 1);
 					else
-						msm72k_set_halt(&ept->ep, 0);
+						usb_ept_set_halt(&ept->ep, 0);
 				}
 				goto ack;
 			}
@@ -2032,7 +2040,7 @@ static int msm72k_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 }
 
 static int
-msm72k_set_halt(struct usb_ep *_ep, int value)
+usb_ept_set_halt(struct usb_ep *_ep, int value)
 {
 	struct msm_endpoint *ept = to_msm_endpoint(_ep);
 	struct usb_info *ui = ept->ui;
@@ -2041,11 +2049,6 @@ msm72k_set_halt(struct usb_ep *_ep, int value)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ui->lock, flags);
-
-	if (value && in && ept->req) {
-		spin_unlock_irqrestore(&ui->lock, flags);
-		return -EAGAIN;
-	}
 
 	n = readl(USB_ENDPTCTRL(ept->num));
 
@@ -2068,6 +2071,20 @@ msm72k_set_halt(struct usb_ep *_ep, int value)
 	if (!value)
 		ept->wedged = 0;
 	spin_unlock_irqrestore(&ui->lock, flags);
+
+	return 0;
+}
+
+static int
+msm72k_set_halt(struct usb_ep *_ep, int value)
+{
+	struct msm_endpoint *ept = to_msm_endpoint(_ep);
+	unsigned int in = ept->flags & EPT_FLAG_IN;
+
+	if (value && in && ept->req)
+		return -EAGAIN;
+
+	usb_ept_set_halt(_ep, value);
 
 	return 0;
 }

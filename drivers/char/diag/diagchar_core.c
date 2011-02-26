@@ -33,7 +33,7 @@
 #include "diagmem.h"
 #include "diagchar.h"
 #include "diagfwd.h"
-#ifdef CONFIG_MSM_SDIO_AL
+#ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
 #endif
 #include <linux/timer.h>
@@ -963,8 +963,9 @@ static void __exit diagchar_exit(void)
 	 ensure no memory leaks */
 	diagmem_exit(driver, POOL_TYPE_ALL);
 	diagfwd_exit();
-#ifdef CONFIG_MSM_SDIO_AL
-	diagfwd_sdio_exit();
+#ifdef CONFIG_DIAG_SDIO_PIPE
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
+		diagfwd_sdio_exit();
 #endif
 	diagchar_cleanup();
 	printk(KERN_INFO "done diagchar exit\n");

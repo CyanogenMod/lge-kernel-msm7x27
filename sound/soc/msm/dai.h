@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -57,4 +57,6 @@ void register_dma_irq_handler(int dma_ch,
 		irqreturn_t (*callback) (int intrSrc, void *private_data),
 		void *private_data);
 void unregister_dma_irq_handler(int dma_ch);
+void dai_set_master_mode(uint32_t dma_ch, int mode);
+
 #endif

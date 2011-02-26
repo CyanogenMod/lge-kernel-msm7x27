@@ -71,9 +71,11 @@ int vsync_start_th = 1;
 int vsync_load_cnt;
 int vsync_clk_status;
 DEFINE_MUTEX(vsync_clk_lock);
+DEFINE_MUTEX(vsync_timer_lock);
 
 static struct clk *mdp_vsync_clk;
 static struct msm_fb_data_type *vsync_mfd;
+static unsigned char timer_shutdown_flag;
 
 void mdp_hw_vsync_clk_enable(struct msm_fb_data_type *mfd)
 {
@@ -104,14 +106,26 @@ void mdp_vsync_clk_enable(void)
 {
 	if (vsync_mfd) {
 		mdp_hw_vsync_clk_enable(vsync_mfd);
-		mdp_set_vsync((unsigned long) vsync_mfd);
+		if (!vsync_mfd->vsync_resync_timer.function) {
+			mdp_set_vsync((unsigned long) vsync_mfd);
+		}
 	}
 }
 
 void mdp_vsync_clk_disable(void)
 {
 	if (vsync_mfd) {
-		del_timer(&vsync_mfd->vsync_resync_timer);
+		if (vsync_mfd->vsync_resync_timer.function) {
+			mutex_lock(&vsync_timer_lock);
+			timer_shutdown_flag = 1;
+			mutex_unlock(&vsync_timer_lock);
+			del_timer_sync(&vsync_mfd->vsync_resync_timer);
+			mutex_lock(&vsync_timer_lock);
+			timer_shutdown_flag = 0;
+			mutex_unlock(&vsync_timer_lock);
+			vsync_mfd->vsync_resync_timer.function = NULL;
+		}
+
 		mdp_hw_vsync_clk_disable(vsync_mfd);
 	}
 }
@@ -124,16 +138,11 @@ static void mdp_set_vsync(unsigned long data)
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
-	if ((pdata) && (pdata->set_vsync_notifier == NULL))
-		return;
-
 	vsync_mfd = mfd;
 	init_timer(&mfd->vsync_resync_timer);
-	mfd->vsync_resync_timer.function = mdp_set_vsync;
-	mfd->vsync_resync_timer.data = data;
-	mfd->vsync_resync_timer.expires =
-	    jiffies + mfd->panel_info.lcd.vsync_notifier_period;
-	add_timer(&mfd->vsync_resync_timer);
+
+	if ((pdata) && (pdata->set_vsync_notifier == NULL))
+		return;
 
 	if ((mfd->panel_info.lcd.vsync_enable) && (mfd->panel_power_on)
 	    && (!mfd->vsync_handler_pending)) {
@@ -148,6 +157,16 @@ static void mdp_set_vsync(unsigned long data)
 		     mfd->panel_info.lcd.vsync_enable, mfd->panel_power_on,
 		     mfd->vsync_handler_pending);
 	}
+
+	mutex_lock(&vsync_timer_lock);
+	if (!timer_shutdown_flag) {
+		mfd->vsync_resync_timer.function = mdp_set_vsync;
+		mfd->vsync_resync_timer.data = data;
+		mfd->vsync_resync_timer.expires =
+			jiffies + mfd->panel_info.lcd.vsync_notifier_period;
+		add_timer(&mfd->vsync_resync_timer);
+	}
+	mutex_unlock(&vsync_timer_lock);
 }
 
 static void mdp_vsync_handler(void *data)
@@ -155,7 +174,8 @@ static void mdp_vsync_handler(void *data)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
 
 	if (vsync_clk_status == 0) {
-		printk(KERN_ERR "Warning: vsync clk is disabled\n");
+		pr_debug("Warning: vsync clk is disabled\n");
+		mfd->vsync_handler_pending = FALSE;
 		return;
 	}
 
@@ -223,7 +243,6 @@ static void mdp_set_sync_cfg_1(struct msm_fb_data_type *mfd, int vsync_cnt)
 
 void mdp_config_vsync(struct msm_fb_data_type *mfd)
 {
-
 	/* vsync on primary lcd only for now */
 	if ((mfd->dest != DISPLAY_LCD) || (mfd->panel_info.pdest != DISPLAY_1)
 	    || (!vsync_mode)) {
@@ -336,6 +355,7 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 		mfd->vsync_width_boundary = vmalloc(mfd->panel_info.xres * 4);
 #endif
 
+#ifdef CONFIG_FB_MSM_MDDI
 		mfd->channel_irq = 0;
 		if (mfd->panel_info.lcd.hw_vsync_mode) {
 			u32 vsync_gpio = mfd->vsync_gpio;
@@ -356,6 +376,12 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 			if (ret)
 				goto err_handle;
 
+			/*
+			 * if use_mdp_vsync, then no interrupt need since
+			 * mdp_vsync is feed directly to mdp to reset the
+			 * write pointer counter. therefore no irq_handler
+			 * need to reset write pointer counter.
+			 */
 			if (!mfd->use_mdp_vsync) {
 				mfd->channel_irq = MSM_GPIO_TO_INT(vsync_gpio);
 				if (request_irq
@@ -371,7 +397,8 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 				}
 			}
 		}
-
+#endif
+		mdp_hw_vsync_clk_enable(mfd);
 		mdp_set_vsync((unsigned long)mfd);
 	}
 
@@ -399,9 +426,15 @@ void mdp_vsync_resync_workqueue_handler(struct work_struct *work)
 			    platform_data;
 
 			if (pdata->set_vsync_notifier != NULL) {
+				if (pdata->clk_func && !pdata->clk_func(2)) {
+					mfd->vsync_handler_pending = FALSE;
+					return;
+				}
+
+				pdata->set_vsync_notifier(
+						mdp_vsync_handler,
+						(void *)mfd);
 				vsync_fnc_enabled = TRUE;
-				pdata->set_vsync_notifier(mdp_vsync_handler,
-							  (void *)mfd);
 			}
 		}
 	}

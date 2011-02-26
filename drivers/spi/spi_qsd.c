@@ -609,6 +609,7 @@ static int msm_spi_calculate_size(int *fifo_size,
 		break;
 	case 3:
 		*fifo_size = words * 16;
+		break;
 	default:
 		return -1;
 	}
@@ -1100,8 +1101,16 @@ static irqreturn_t msm_spi_error_irq(int irq, void *dev_id)
 		dev_warn(master->dev.parent, "SPI input underrun error\n");
 	if (spi_err & SPI_ERR_OUTPUT_UNDER_RUN_ERR)
 		dev_warn(master->dev.parent, "SPI output underrun error\n");
-	if (spi_err & SPI_ERR_INPUT_OVER_RUN_ERR)
-		dev_warn(master->dev.parent, "SPI input overrun error\n");
+	if (spi_err & SPI_ERR_INPUT_OVER_RUN_ERR) {
+		/*
+		 * When switching from Run to Reset state, the core generates
+		 * a bogus input overrun error on 8660. We ignore such errors
+		 * when the transfer has completed successfully.
+		 */
+		if (dd->mode != SPI_MODE_NONE)
+			dev_warn(master->dev.parent,
+				 "SPI input overrun error\n");
+	}
 	msm_spi_get_clk_err(dd, &spi_err);
 	if (spi_err & SPI_ERR_CLK_OVER_RUN_ERR)
 		dev_warn(master->dev.parent, "SPI clock overrun error\n");

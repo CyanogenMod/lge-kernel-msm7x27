@@ -88,9 +88,9 @@ struct msm_gemini_hw_cmd hw_cmd_irq_get_status[] = {
 int msm_gemini_hw_irq_get_status(void)
 {
 	uint32_t n_irq_status = 0;
-
+	rmb();
 	n_irq_status = msm_gemini_hw_read(&hw_cmd_irq_get_status[0]);
-
+	rmb();
 	return n_irq_status;
 }
 
@@ -345,19 +345,24 @@ struct msm_gemini_hw_cmd hw_cmd_reset[] = {
 		HWIO_JPEG_RESET_CMD_RMSK, {JPEG_RESET_DEFAULT} },
 };
 
+void msm_gemini_hw_init(void *base, int size)
+{
+	gemini_region_base = base;
+	gemini_region_size = size;
+}
+
 void msm_gemini_hw_reset(void *base, int size)
 {
 	struct msm_gemini_hw_cmd *hw_cmd_p;
 
-	gemini_region_base = base;
-	gemini_region_size = size;
-
 	hw_cmd_p = &hw_cmd_reset[0];
 
+	wmb();
 	msm_gemini_hw_write(hw_cmd_p++);
 	msm_gemini_hw_write(hw_cmd_p++);
 	msm_gemini_hw_write(hw_cmd_p++);
 	msm_gemini_hw_write(hw_cmd_p);
+	wmb();
 
 	return;
 }

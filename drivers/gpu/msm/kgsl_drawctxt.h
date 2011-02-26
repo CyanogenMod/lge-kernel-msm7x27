@@ -48,6 +48,7 @@
 /* shader can be restored from shadow */
 #define CTXT_FLAGS_SHADER_RESTORE	0x00004000
 
+#include <linux/msm_kgsl.h>
 #include "kgsl_sharedmem.h"
 #include "yamato_reg.h"
 

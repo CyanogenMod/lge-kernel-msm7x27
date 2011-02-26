@@ -15,7 +15,6 @@
  * 02110-1301, USA.
  *
  */
-#ifdef CONFIG_MSM_SDIO_AL
 
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -119,22 +118,27 @@ void diag_read_mdm_work_fn(struct work_struct *work)
 {
 	if (driver->sdio_ch) {
 		wait_event_interruptible(driver->wait_q, (sdio_write_avail
-				(driver->sdio_ch) >= driver->read_len));
-		if (driver->sdio_ch && driver->usb_buf_mdm_out)
+				(driver->sdio_ch) >= driver->read_len_mdm));
+		if (driver->sdio_ch && driver->usb_buf_mdm_out &&
+						 (driver->read_len_mdm > 0))
 			sdio_write(driver->sdio_ch, driver->usb_buf_mdm_out,
-							 driver->read_len);
+							 driver->read_len_mdm);
 		APPEND_DEBUG('x');
 		driver->usb_read_mdm_ptr->buf = driver->usb_buf_mdm_out;
 		driver->usb_read_mdm_ptr->length = USB_MAX_OUT_BUF;
 		usb_diag_read(driver->mdm_ch, driver->usb_read_mdm_ptr);
 		APPEND_DEBUG('y');
-	} else
-		diagfwd_read_complete_sdio();
+	}
 }
 
 static void diag_sdio_notify(void *ctxt, unsigned event)
 {
-	queue_work(driver->diag_sdio_wq, &(driver->diag_read_sdio_work));
+	if (event == SDIO_EVENT_DATA_READ_AVAIL)
+		queue_work(driver->diag_sdio_wq,
+				 &(driver->diag_read_sdio_work));
+
+	if (event == SDIO_EVENT_DATA_WRITE_AVAIL)
+		wake_up_interruptible(&driver->wait_q);
 }
 
 static int diag_sdio_probe(struct platform_device *pdev)
@@ -145,8 +149,10 @@ static int diag_sdio_probe(struct platform_device *pdev)
 							 diag_sdio_notify);
 	if (err)
 		printk(KERN_INFO "DIAG could not open SDIO channel");
-	else
+	else {
 		printk(KERN_INFO "DIAG opened SDIO channel");
+		queue_work(driver->diag_sdio_wq, &(driver->diag_read_mdm_work));
+	}
 
 	return err;
 }
@@ -181,6 +187,7 @@ void diagfwd_sdio_init(void)
 {
 	int ret;
 
+	driver->read_len_mdm = 0;
 	if (driver->buf_in_sdio == NULL)
 		driver->buf_in_sdio = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_sdio == NULL)
@@ -243,5 +250,3 @@ void diagfwd_sdio_exit(void)
 	kfree(driver->usb_read_mdm_ptr);
 	destroy_workqueue(driver->diag_sdio_wq);
 }
-
-#endif /* CONFIG_MSM_SDIO_AL */

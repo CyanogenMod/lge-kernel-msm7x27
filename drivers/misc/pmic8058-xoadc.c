@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
+#include <linux/delay.h>
 
 #include <mach/mpp.h>
 
@@ -37,7 +38,16 @@
 #define MAX_QUEUE_SLOT		0x1
 
 /* User Processor */
-#define ADC_ARB_USRP_CNRTL                      0x197
+#define ADC_ARB_USRP_CNTRL                      0x197
+	#define ADC_ARB_USRP_CNTRL_EN_ARB	BIT(0)
+	#define ADC_ARB_USRP_CNTRL_RSV1		BIT(1)
+	#define ADC_ARB_USRP_CNTRL_RSV2		BIT(2)
+	#define ADC_ARB_USRP_CNTRL_RSV3		BIT(3)
+	#define ADC_ARB_USRP_CNTRL_RSV4		BIT(4)
+	#define ADC_ARB_USRP_CNTRL_RSV5		BIT(5)
+	#define ADC_ARB_USRP_CNTRL_EOC		BIT(6)
+	#define ADC_ARB_USRP_CNTRL_REQ		BIT(7)
+
 #define ADC_ARB_USRP_AMUX_CNTRL         0x198
 #define ADC_ARB_USRP_ANA_PARAM          0x199
 #define ADC_ARB_USRP_DIG_PARAM          0x19A
@@ -62,7 +72,7 @@ struct pmic8058_adc {
 
 static struct pmic8058_adc *pmic_adc[XOADC_PMIC_0 + 1];
 
-static bool xoadc_initialized;
+static bool xoadc_initialized, xoadc_calib_first_adc;
 
 DEFINE_RATELIMIT_STATE(pm8058_xoadc_msg_ratelimit,
 		DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
@@ -109,28 +119,47 @@ void pm8058_xoadc_slot_request(uint32_t adc_instance,
 }
 EXPORT_SYMBOL(pm8058_xoadc_slot_request);
 
+static int32_t pm8058_xoadc_arb_cntrl(uint32_t arb_cntrl,
+					uint32_t adc_instance)
+{
+	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
+	int i, rc;
+	u8 data_arb_cntrl;
+
+	data_arb_cntrl = ADC_ARB_USRP_CNTRL_EOC |
+			ADC_ARB_USRP_CNTRL_RSV5 |
+			ADC_ARB_USRP_CNTRL_RSV4;
+
+	if (data_arb_cntrl)
+		data_arb_cntrl |= ADC_ARB_USRP_CNTRL_EN_ARB;
+
+	/* Write twice to the CNTRL register for the arbiter settings
+	   to take into effect */
+	for (i = 0; i < 2; i++) {
+		rc = pm8058_write(adc_pmic->pm_chip, ADC_ARB_USRP_CNTRL,
+					&data_arb_cntrl, 1);
+		if (rc < 0) {
+			pr_debug("%s: PM8058 write failed\n", __func__);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 					struct adc_conv_slot *slot)
 {
 
 	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
-	u8 data_arb_cnrtl, data_amux_chan, data_arb_rsv, data_ana_param;
+	u8 data_arb_cntrl, data_amux_chan, data_arb_rsv, data_ana_param;
 	u8 data_dig_param, data_ana_param2;
 	int rc;
 
-	/* Write Twice to EN_ARB sig */
-	data_arb_cnrtl = 0x71;
-	rc = pm8058_write(adc_pmic->pm_chip, ADC_ARB_USRP_CNRTL,
-					&data_arb_cnrtl, 1);
+	rc = pm8058_xoadc_arb_cntrl(1, adc_instance);
 	if (rc < 0) {
-		pr_debug("%s: PM8058 write failed\n", __func__);
-		return rc;
-	}
-
-	rc = pm8058_write(adc_pmic->pm_chip, ADC_ARB_USRP_CNRTL,
-					&data_arb_cnrtl, 1);
-	if (rc < 0) {
-		pr_debug("%s: PM8058 write failed\n", __func__);
+		pr_debug("%s: Configuring ADC Arbiter"
+				"enable failed\n", __func__);
 		return rc;
 	}
 
@@ -253,12 +282,12 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		data_arb_rsv = 0x10;
 		slot->chan_properties.gain_numerator = 1;
 		slot->chan_properties.gain_denominator = 1;
-		slot->chan_properties.adc_graph = &adc_pmic->adc_graph[0];
+		slot->chan_properties.adc_graph = &adc_pmic->adc_graph[1];
 		break;
 
 	case CHAN_PATH_TYPE15:
 		data_amux_chan = CHANNEL_INTERNAL << 4;
-		data_arb_rsv = 0x10;
+		data_arb_rsv = 0x20;
 		slot->chan_properties.gain_numerator = 1;
 		slot->chan_properties.gain_denominator = 1;
 		slot->chan_properties.adc_graph = &adc_pmic->adc_graph[0];
@@ -287,7 +316,7 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		data_dig_param = 0x23;
 		data_ana_param2 = 0xFF;
 		/* AMUX register data to start the ADC conversion */
-		data_arb_cnrtl = 0xF1;
+		data_arb_cntrl = 0xF1;
 		break;
 
 	case ADC_CONFIG_TYPE2:
@@ -295,7 +324,7 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 		data_dig_param = 0x03;
 		data_ana_param2 = 0xFF;
 		/* AMUX register data to start the ADC conversion */
-		data_arb_cnrtl = 0xF1;
+		data_arb_cntrl = 0xF1;
 		break;
 	}
 
@@ -323,7 +352,7 @@ static int32_t pm8058_xoadc_configure(uint32_t adc_instance,
 	enable_irq(adc_pmic->adc_irq);
 
 	rc = pm8058_write(adc_pmic->pm_chip,
-				ADC_ARB_USRP_CNRTL, &data_arb_cnrtl, 1);
+				ADC_ARB_USRP_CNTRL, &data_arb_cntrl, 1);
 	if (rc < 0) {
 		pr_debug("%s: PM8058 write failed\n", __func__);
 		return rc;
@@ -343,8 +372,11 @@ int32_t pm8058_xoadc_select_chan_and_start_conv(uint32_t adc_instance,
 
 	mutex_lock(&slot_state->list_lock);
 	list_add_tail(&slot->list, &slot_state->slots);
-	if (adc_pmic->xoadc_queue_count == 0)
+	if (adc_pmic->xoadc_queue_count == 0) {
+		if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+			adc_pmic->pdata->xoadc_vreg_set(1);
 		pm8058_xoadc_configure(adc_instance, slot);
+	}
 	adc_pmic->xoadc_queue_count++;
 	mutex_unlock(&slot_state->list_lock);
 
@@ -408,6 +440,10 @@ int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance, int32_t *data)
 		*data |= ((1 << (8 * sizeof(*data) -
 			adc_pmic->adc_prop->bitresolution)) - 1) <<
 			adc_pmic->adc_prop->bitresolution;
+	/* Return if this is a calibration run since there
+	 * is no need to check requests in the waiting queue */
+	if (xoadc_calib_first_adc)
+		return 0;
 
 	mutex_lock(&slot_state->list_lock);
 	adc_pmic->xoadc_queue_count--;
@@ -415,6 +451,21 @@ int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance, int32_t *data)
 		slot = list_first_entry(&slot_state->slots,
 				struct adc_conv_slot, list);
 		pm8058_xoadc_configure(adc_instance, slot);
+	}
+	mutex_unlock(&slot_state->list_lock);
+
+	mutex_lock(&slot_state->list_lock);
+	/* Default value for switching off the arbiter after reading
+	   the ADC value. Bit 0 set to 0. */
+	if (adc_pmic->xoadc_queue_count == 0) {
+		rc = pm8058_xoadc_arb_cntrl(0, adc_instance);
+		if (rc < 0) {
+			pr_debug("%s: Configuring ADC Arbiter disable"
+						"failed\n", __func__);
+			return rc;
+		}
+		if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+			adc_pmic->pdata->xoadc_vreg_set(0);
 	}
 	mutex_unlock(&slot_state->list_lock);
 
@@ -429,6 +480,9 @@ static irqreturn_t pm8058_xoadc(int irq, void *dev_id)
 	int rc;
 
 	disable_irq_nosync(xoadc_8058->adc_irq);
+
+	if (xoadc_calib_first_adc)
+		return IRQ_HANDLED;
 
 	rc = pm8058_xoadc_dequeue_slot_request(xoadc_8058->xoadc_num, &slot);
 
@@ -449,10 +503,103 @@ struct adc_properties *pm8058_xoadc_get_properties(uint32_t dev_instance)
 }
 EXPORT_SYMBOL(pm8058_xoadc_get_properties);
 
+int32_t pm8058_xoadc_calib_device(uint32_t adc_instance)
+{
+	struct pmic8058_adc *adc_pmic = pmic_adc[adc_instance];
+	struct adc_conv_slot *slot;
+	int rc, offset_xoadc, slope_xoadc, calib_read_1, calib_read_2;
+
+	if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+		adc_pmic->pdata->xoadc_vreg_set(1);
+
+	pm8058_xoadc_slot_request(adc_instance, &slot);
+	if (slot) {
+		slot->chan_path = CHAN_PATH_TYPE13;
+		slot->chan_adc_config = ADC_CONFIG_TYPE2;
+		slot->chan_adc_calib = ADC_CONFIG_TYPE2;
+		xoadc_calib_first_adc = true;
+		rc = pm8058_xoadc_configure(adc_instance, slot);
+		if (rc) {
+			pr_err("pm8058_xoadc configure failed\n");
+			goto fail;
+		}
+	} else {
+		rc = -EINVAL;
+		goto fail;
+	}
+
+	msleep(3);
+
+	rc = pm8058_xoadc_read_adc_code(adc_instance, &calib_read_1);
+	if (rc) {
+		pr_err("pm8058_xoadc read adc failed\n");
+		xoadc_calib_first_adc = false;
+		goto fail;
+	}
+	xoadc_calib_first_adc = false;
+
+	pm8058_xoadc_slot_request(adc_instance, &slot);
+	if (slot) {
+		slot->chan_path = CHAN_PATH_TYPE15;
+		slot->chan_adc_config = ADC_CONFIG_TYPE2;
+		slot->chan_adc_calib = ADC_CONFIG_TYPE2;
+		xoadc_calib_first_adc = true;
+		rc = pm8058_xoadc_configure(adc_instance, slot);
+		if (rc) {
+			pr_err("pm8058_xoadc configure failed\n");
+			goto fail;
+		}
+	} else {
+		rc = -EINVAL;
+		goto fail;
+	}
+
+	msleep(3);
+
+	rc = pm8058_xoadc_read_adc_code(adc_instance, &calib_read_2);
+	if (rc) {
+		pr_err("pm8058_xoadc read adc failed\n");
+		xoadc_calib_first_adc = false;
+		goto fail;
+	}
+	xoadc_calib_first_adc = false;
+
+	pm8058_xoadc_restore_slot(adc_instance, slot);
+
+	slope_xoadc = (((calib_read_1 - calib_read_2) << 10)/
+					CHANNEL_ADC_625_MV);
+	offset_xoadc = calib_read_2 -
+			((slope_xoadc * CHANNEL_ADC_625_MV) >> 10);
+
+	printk(KERN_INFO"pmic8058_xoadc:The offset for AMUX calibration"
+						"was %d\n", offset_xoadc);
+
+	adc_pmic->adc_graph[0].offset = offset_xoadc;
+	adc_pmic->adc_graph[0].dy = (calib_read_1 - calib_read_2);
+	adc_pmic->adc_graph[0].dx = CHANNEL_ADC_625_MV;
+
+	/* Retain ideal calibration settings for therm readings */
+	adc_pmic->adc_graph[1].offset = 0 ;
+	adc_pmic->adc_graph[1].dy = (1 << 15) - 1;
+	adc_pmic->adc_graph[1].dx = 2200;
+
+	if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+		adc_pmic->pdata->xoadc_vreg_set(0);
+
+	return 0;
+fail:
+	if (adc_pmic->pdata->xoadc_vreg_set != NULL)
+		adc_pmic->pdata->xoadc_vreg_set(0);
+
+	return rc;
+}
+EXPORT_SYMBOL(pm8058_xoadc_calib_device);
+
 int32_t pm8058_xoadc_calibrate(uint32_t dev_instance,
 				struct adc_conv_slot *slot, int *calib_status)
 {
 	*calib_status = CALIB_NOT_REQUIRED;
+
 	return 0;
 }
 EXPORT_SYMBOL(pm8058_xoadc_calibrate);
@@ -460,6 +607,9 @@ EXPORT_SYMBOL(pm8058_xoadc_calibrate);
 static int __devexit pm8058_xoadc_teardown(struct platform_device *pdev)
 {
 	struct pmic8058_adc *adc_pmic = platform_get_drvdata(pdev);
+
+	if (adc_pmic->pdata->xoadc_vreg_shutdown != NULL)
+		adc_pmic->pdata->xoadc_vreg_shutdown();
 
 	platform_set_drvdata(pdev, adc_pmic->pm_chip);
 	device_init_wakeup(&pdev->dev, 0);
@@ -567,12 +717,11 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 
 	pmic_adc[adc_pmic->xoadc_num] = adc_pmic;
 
-	pr_debug("pm8058 xoadc successfully registered\n");
-
-	if (pdata->xoadc_setup != NULL)
-		pdata->xoadc_setup();
+	if (pdata->xoadc_vreg_setup != NULL)
+		pdata->xoadc_vreg_setup();
 
 	xoadc_initialized = true;
+	xoadc_calib_first_adc = false;
 
 	return 0;
 

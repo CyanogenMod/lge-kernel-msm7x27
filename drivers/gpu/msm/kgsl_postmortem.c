@@ -396,8 +396,7 @@ static int kgsl_dump_yamato(struct kgsl_device *device)
 
 	static struct ib_list ib_list;
 
-	struct kgsl_yamato_device *yamato_device = container_of(device,
-					struct kgsl_yamato_device, dev);
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 
 	mb();
 
@@ -662,16 +661,23 @@ end:
 
 int kgsl_postmortem_dump(struct kgsl_device *device)
 {
-	static int dump_done;
-
-	if (dump_done)
+	/* If device state is already hung that means we already dumped
+	 * this hang or are in the process of dumping it */
+	if (device->state & KGSL_STATE_HUNG)
 		return 0;
-	dump_done = 1;
 
 	BUG_ON(device == NULL);
 
-	if (device->id == KGSL_DEVICE_YAMATO)
+	if (device->id == KGSL_DEVICE_YAMATO) {
+		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+		del_timer(&device->idle_timer);
+		device->state = KGSL_STATE_HUNG;
+		KGSL_DRV_ERR("wait for work in workqueue to complete\n");
+		mutex_unlock(&device->mutex);
+		flush_workqueue(device->work_queue);
+		mutex_lock(&device->mutex);
 		kgsl_dump_yamato(device);
+	}
 	else
 		KGSL_DRV_FATAL("Unknown device id - 0x%x\n", device->id);
 

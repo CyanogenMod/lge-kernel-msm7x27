@@ -504,7 +504,7 @@ struct msm_rpm_platform_data {
 	unsigned int irq_vmpm;
 };
 
-int msm_rpm_has_outstanding_request(void);
+int msm_rpm_local_request_is_outstanding(void);
 int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count);
 int msm_rpm_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpm_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
