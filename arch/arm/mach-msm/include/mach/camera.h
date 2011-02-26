@@ -256,6 +256,8 @@ struct msm_sync {
 	struct msm_strobe_flash_ctrl sfctrl;
 	struct wake_lock wake_lock;
 	struct platform_device *pdev;
+	int16_t ignore_qcmd_type;
+	uint8_t ignore_qcmd;
 	uint8_t opencnt;
 	void *cropinfo;
 	int  croplen;

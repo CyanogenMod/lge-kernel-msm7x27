@@ -222,11 +222,14 @@ static void msm_enqueue_vpe(struct msm_device_queue *queue,
 		if (qcmd == q_cmd) {				\
 			__q->len--;				\
 			list_del_init(&qcmd->member);		\
-			pr_info("msm_delete_entry, match found\n");\
+			CDBG("msm_delete_entry, match found\n");\
+			kfree(q_cmd);				\
+			q_cmd = NULL;				\
 			break;					\
 		}						\
 	}							\
 	spin_unlock_irqrestore(&__q->lock, flags);		\
+	q_cmd;		\
 })
 
 #define msm_queue_drain(queue, member) do {			\
@@ -816,7 +819,13 @@ static struct msm_queue_cmd *__msm_control(struct msm_sync *sync,
 			return ERR_PTR(rc);
 		} else if (rc < 0) {
 			pr_err("%s: wait_event error %d\n", __func__, rc);
-			msm_delete_entry(&sync->event_q, list_config, qcmd);
+			if (msm_delete_entry(&sync->event_q,
+				list_config, qcmd)) {
+				sync->ignore_qcmd = true;
+				sync->ignore_qcmd_type =
+					(int16_t)((struct msm_ctrl_cmd *)
+					(qcmd->command))->type;
+			}
 			return ERR_PTR(rc);
 		}
 	}
@@ -867,36 +876,41 @@ static int msm_control(struct msm_control_device *ctrl_pmsm,
 
 	struct msm_sync *sync = ctrl_pmsm->pmsm->sync;
 	void __user *uptr;
-	struct msm_ctrl_cmd udata;
-	struct msm_queue_cmd *qcmd =
-		kmalloc(sizeof(struct msm_queue_cmd), GFP_ATOMIC);
-
+	struct msm_ctrl_cmd udata_resp;
 	struct msm_queue_cmd *qcmd_resp = NULL;
 	uint8_t data[max_control_command_size];
-
+	struct msm_ctrl_cmd *udata;
+	struct msm_queue_cmd *qcmd =
+		kmalloc(sizeof(struct msm_queue_cmd) +
+			sizeof(struct msm_ctrl_cmd), GFP_ATOMIC);
+	if (!qcmd) {
+		pr_err("%s: out of memory\n", __func__);
+		return -ENOMEM;
+	}
+	udata = (struct msm_ctrl_cmd *)(qcmd + 1);
+	atomic_set(&(qcmd->on_heap), 1);
 	CDBG("Inside msm_control\n");
-	if (copy_from_user(&udata, arg, sizeof(struct msm_ctrl_cmd))) {
+	if (copy_from_user(udata, arg, sizeof(struct msm_ctrl_cmd))) {
 		ERR_COPY_FROM_USER();
 		rc = -EFAULT;
 		goto end;
 	}
 
-	uptr = udata.value;
-	udata.value = data;
-	atomic_set(&(qcmd->on_heap), 1);
+	uptr = udata->value;
+	udata->value = data;
 	qcmd->type = MSM_CAM_Q_CTRL;
-	qcmd->command = &udata;
+	qcmd->command = udata;
 
-	if (udata.length) {
-		if (udata.length > sizeof(data)) {
+	if (udata->length) {
+		if (udata->length > sizeof(data)) {
 			pr_err("%s: user data too large (%d, max is %d)\n",
 					__func__,
-					udata.length,
+					udata->length,
 					sizeof(data));
 			rc = -EIO;
 			goto end;
 		}
-		if (copy_from_user(udata.value, uptr, udata.length)) {
+		if (copy_from_user(udata->value, uptr, udata->length)) {
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
 			goto end;
@@ -927,19 +941,19 @@ static int msm_control(struct msm_control_device *ctrl_pmsm,
 	}
 
 	if (qcmd_resp->command) {
-		udata = *(struct msm_ctrl_cmd *)qcmd_resp->command;
-		if (udata.length > 0) {
+		udata_resp = *(struct msm_ctrl_cmd *)qcmd_resp->command;
+		if (udata_resp.length > 0) {
 			if (copy_to_user(uptr,
-					 udata.value,
-					 udata.length)) {
+					 udata_resp.value,
+					 udata_resp.length)) {
 				ERR_COPY_TO_USER();
 				rc = -EFAULT;
 				goto end;
 			}
 		}
-		udata.value = uptr;
+		udata_resp.value = uptr;
 
-		if (copy_to_user((void *)arg, &udata,
+		if (copy_to_user((void *)arg, &udata_resp,
 				sizeof(struct msm_ctrl_cmd))) {
 			ERR_COPY_TO_USER();
 			rc = -EFAULT;
@@ -948,9 +962,8 @@ static int msm_control(struct msm_control_device *ctrl_pmsm,
 	}
 
 end:
-	free_qcmd(qcmd_resp);
-	CDBG(" msm_control done\n");
-	CDBG("%s: rc %d\n", __func__, rc);
+	free_qcmd(qcmd);
+	CDBG("%s: done rc = %d\n", __func__, rc);
 	return rc;
 }
 
@@ -1215,10 +1228,16 @@ static int msm_ctrl_cmd_done(struct msm_control_device *ctrl_pmsm,
 	} else
 		command->value = NULL;
 
-
-		/* wake up control thread */
-	msm_enqueue(&ctrl_pmsm->ctrl_q, &qcmd->list_control);
-
+	/* Ignore the command if the ctrl cmd has
+	   return back due to signaling */
+	/* Should be associated with wait_event
+	   error -512 from __msm_control*/
+	if (ctrl_pmsm->pmsm->sync->ignore_qcmd == true &&
+	   ctrl_pmsm->pmsm->sync->ignore_qcmd_type == (int16_t)command->type) {
+		ctrl_pmsm->pmsm->sync->ignore_qcmd = false;
+		ctrl_pmsm->pmsm->sync->ignore_qcmd_type = -1;
+	} else /* wake up control thread */
+		msm_enqueue(&ctrl_pmsm->ctrl_q, &qcmd->list_control);
 	return 0;
 }
 
@@ -3188,6 +3207,8 @@ static int msm_sync_init(struct msm_sync *sync,
 
 	sync->opencnt = 0;
 	sync->core_powered_on = 0;
+	sync->ignore_qcmd = false;
+	sync->ignore_qcmd_type = -1;
 	mutex_init(&sync->lock);
 	if (sync->sdata->strobe_flash_data) {
 		sync->sdata->strobe_flash_data->state = 0;
