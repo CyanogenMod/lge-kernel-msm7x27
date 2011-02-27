@@ -2,6 +2,7 @@ EXTRA_CFLAGS += -Iarch/arm/mach-msm
 obj-$(CONFIG_LGE_HEADSET_2GPIO) += lge_gpio_h2w.o
 obj-$(CONFIG_LGE_SWITCH_GPIO) += lge_gpio_switch.o
 obj-$(CONFIG_LGE_HANDLE_PANIC) += lge_handle_panic.o
+obj-$(CONFIG_LGE_BLUE_ERROR_HANDLER) += lge_errorhandler.o
 obj-$(CONFIG_LGE_PROC_COMM) += lge_proc_comm.o
 obj-$(CONFIG_LGE_SUPPORT_ERS) += lge_ers.o
 obj-$(CONFIG_LGE_SUPPORT_RAPI) += LG_rapi_client.o

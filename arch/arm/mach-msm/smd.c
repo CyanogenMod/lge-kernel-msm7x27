@@ -47,6 +47,11 @@
 #define CONFIG_DSPS 1
 #endif
 
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+#include "lge/lge_errorhandler.h"
+extern int LG_ErrorHandler_enable;
+#endif
+
 #define MODULE_NAME "msm_smd"
 #define SMEM_VERSION 0x000B
 #define SMD_VERSION 0x00020000
@@ -233,6 +238,7 @@ static void handle_modem_crash(void)
 
 	pr_err("ARM9 has CRASHED\n");
 	smd_diag();
+#ifndef CONFIG_LGE_BLUE_ERROR_HANDLER
 #ifdef CONFIG_LGE_HANDLE_MODEM_CRASH
 	/* flush console before reboot
 	 * from google's mahimahi kernel
@@ -249,7 +255,6 @@ static void handle_modem_crash(void)
 	smsm_reset_modem(SMSM_SYSTEM_DOWNLOAD);
 #endif
 #endif
-
 	/* hard reboot if possible FIXME
 	if (msm_reset_hook)
 		msm_reset_hook();
@@ -258,6 +263,7 @@ static void handle_modem_crash(void)
 	/* in this case the modem or watchdog should reboot us */
 	for (;;)
 		;
+#endif
 }
 
 int smsm_check_for_modem_crash(void)
@@ -1425,8 +1431,12 @@ void smsm_reset_modem(unsigned mode)
 	} else if (mode == SMSM_MODEM_WAIT) {
 		mode = SMSM_RESET | SMSM_MODEM_WAIT;
 #ifdef CONFIG_LGE_HANDLE_MODEM_CRASH
-    } else if (mode == SMSM_SYSTEM_REBOOT ) {
+    	} else if (mode == SMSM_SYSTEM_REBOOT ) {
 		mode = SMSM_RESET | SMSM_SYSTEM_REBOOT ;
+#endif
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+	} else if (mode == SMSM_APPS_SHUTDOWN) {
+		mode = SMSM_APPS_SHUTDOWN;
 #endif
 	} else { /* reset_mode is SMSM_RESET or default */
 		mode = SMSM_RESET;
@@ -1454,6 +1464,9 @@ EXPORT_SYMBOL(smsm_reset_modem_cont);
 static irqreturn_t smsm_irq_handler(int irq, void *data)
 {
 	unsigned long flags;
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+	int ret;
+#endif
 
 #if !defined(CONFIG_ARCH_MSM8X60)
 	uint32_t mux_val;
@@ -1499,6 +1512,15 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 
 		} else if (modm & SMSM_RESET) {
 			apps |= SMSM_RESET;
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+			if(!LG_ErrorHandler_enable) {
+				smd_diag();
+				ret = LGE_ErrorHandler_Main(MODEM_CRASH,error_modem_message);
+				smsm_reset_modem(ret);
+				while(1);
+				;
+			}
+#else
 #ifdef CONFIG_LGE_HANDLE_MODEM_CRASH
 			printk(KERN_INFO">>>>>\n");
 			printk(KERN_INFO"Modem crash\n");
@@ -1520,6 +1542,7 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 #endif	
 
 			while (1);
+#endif
 #endif
 			pr_err("\nSMSM: Modem SMSM state changed to SMSM_RESET.");
 			modem_queue_start_reset_notify();

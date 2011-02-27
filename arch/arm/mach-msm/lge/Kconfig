@@ -265,6 +265,12 @@ config LGE_FACTORY_PATCH
 	help
 	  This patch is added for factory process in PV event
 	  This supports Calibration process and user factory reset
+
+config LGE_BLUE_ERROR_HANDLER
+	bool "LGE Blue error handler"
+	default n
+	help
+	  This feature support crash handler used thunderg
 endmenu
 
 endmenu
