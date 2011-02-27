@@ -250,6 +250,7 @@ static uint32 __hdmi_inp(uint32 offset)
 static void hdmi_msm_turn_on(void);
 static void hdmi_msm_audio_off(void);
 static int hdmi_msm_read_edid(void);
+static void hdmi_msm_hpd_off(void);
 
 static void hdmi_msm_hpd_state_work(struct work_struct *work)
 {
@@ -2687,7 +2688,7 @@ static void hdmi_msm_hpd_read_work(struct work_struct *work)
 		kobject_uevent(external_common_state->uevent_kobj,
 			KOBJ_ONLINE);
 	}
-
+	hdmi_msm_hpd_off();
 	hdmi_msm_set_mode(FALSE);
 	hdmi_msm_state->pd->core_power(0, 1);
 	hdmi_msm_state->pd->enable_5v(0);

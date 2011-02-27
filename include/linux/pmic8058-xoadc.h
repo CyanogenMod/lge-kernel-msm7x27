@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -67,11 +67,16 @@ struct xoadc_conv_state {
 
 #define XOADC_PMIC_0		0x0
 
+#define CHANNEL_ADC_625_MV      625
+
 struct xoadc_platform_data {
 	struct adc_properties *xoadc_prop;
 	u32 (*xoadc_setup) (void);
 	void (*xoadc_shutdown) (void);
 	void (*xoadc_mpp_config) (void);
+	int (*xoadc_vreg_set) (int);
+	int (*xoadc_vreg_setup) (void);
+	void (*xoadc_vreg_shutdown) (void);
 	u32 xoadc_num;
 	u32 xoadc_wakeup;
 };
@@ -90,4 +95,6 @@ struct adc_properties *pm8058_xoadc_get_properties(uint32_t);
 int32_t pm8058_xoadc_calibrate(uint32_t, struct adc_conv_slot *, int *);
 
 int32_t pm8058_xoadc_registered(void);
+
+int32_t pm8058_xoadc_calib_device(uint32_t adc_instance);
 #endif

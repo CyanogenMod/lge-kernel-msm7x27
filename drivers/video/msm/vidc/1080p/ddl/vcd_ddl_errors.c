@@ -162,6 +162,8 @@ static void ddl_input_failed_cb(struct ddl_client_context *ddl,
 			ddl_get_state_string(ddl->client_state));
 		ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
 	}
+	if (vcd_status == VCD_ERR_IFRAME_EXPECTED)
+		vcd_status = VCD_S_SUCCESS;
 	ddl_context->ddl_callback(vcd_event, vcd_status, &ddl->input_frame,
 		payload_size, (u32 *)ddl, ddl->client_data);
 }
@@ -432,7 +434,7 @@ static u32 ddl_handle_dec_seq_hdr_fail_error(struct ddl_client_context *ddl)
 				DDL_MSG_HIGH("EOS_DONE-fromDDL");
 				ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
 				VCD_S_SUCCESS, NULL, 0, (u32 *) ddl,
-				ddl_context->client_data);
+				ddl->client_data);
 			}
 		}
 		DDL_MSG_LOW("ddl_state_transition: %s ~~> "

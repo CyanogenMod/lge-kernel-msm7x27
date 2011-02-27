@@ -48,7 +48,6 @@ static char if_sel_video[2] = {0x53, 0x01};
 static char exit_sleep[2] = {0x11, 0x00};
 static char display_on[2] = {0x29, 0x00};
 static char display_off[2] = {0x28, 0x00};
-static char max_pktsize[2] = {0x00, 0x04};	/* LSB tx first */
 static char enter_sleep[2] = {0x10, 0x00};
 
 static struct dsi_cmd_desc toshiba_display_off_cmds[] = {
@@ -104,11 +103,6 @@ static int mipi_toshiba_lcd_off(struct platform_device *pdev)
 		return -ENODEV;
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
-
-	/* change to DSI_CMD_MODE since it needed to
-	 * tx DCS dsiplay off comamnd to toshiba panel
-	 */
-	mipi_dsi_op_mode_config(DSI_CMD_MODE);
 
 	mipi_dsi_cmds_tx(&toshiba_tx_buf, toshiba_display_off_cmds,
 			ARRAY_SIZE(toshiba_display_off_cmds));

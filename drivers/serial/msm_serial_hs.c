@@ -146,7 +146,6 @@ struct msm_hs_port {
 	/* block and top control status block. The following pointers */
 	/* keep a handle to these blocks. */
 	unsigned char __iomem	*mapped_gsbi;
-	unsigned char __iomem	*mapped_tcsr;
 	int dma_tx_channel;
 	int dma_rx_channel;
 	int dma_tx_crci;
@@ -230,9 +229,8 @@ static inline unsigned int use_low_power_wakeup(struct msm_hs_port *msm_uport)
 
 static inline int is_gsbi_uart(struct msm_hs_port *msm_uport)
 {
-	/* assume gsbi uart if gsbi and tcsr resource found in pdata */
-	return ((msm_uport->mapped_gsbi != NULL) &&
-		(msm_uport->mapped_tcsr != NULL));
+	/* assume gsbi uart if gsbi resource found in pdata */
+	return ((msm_uport->mapped_gsbi != NULL));
 }
 
 static inline unsigned int msm_hs_read(struct uart_port *uport,
@@ -252,7 +250,6 @@ static void msm_hs_release_port(struct uart_port *port)
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(port);
 	struct platform_device *pdev = to_platform_device(port->dev);
 	struct resource *gsbi_resource;
-	struct resource *tcsr_resource;
 	resource_size_t size;
 
 	if (is_gsbi_uart(msm_uport)) {
@@ -265,18 +262,6 @@ static void msm_hs_release_port(struct uart_port *port)
 		release_mem_region(gsbi_resource->start, size);
 		iounmap(msm_uport->mapped_gsbi);
 		msm_uport->mapped_gsbi = NULL;
-		iowrite32(0x0, msm_uport->mapped_tcsr +
-			  TCSR_ADM_1_A_CRCI_MUX_SEL);
-		iowrite32(0x0, msm_uport->mapped_tcsr +
-			  TCSR_ADM_1_B_CRCI_MUX_SEL);
-		dmb();
-		tcsr_resource = platform_get_resource_byname(pdev,
-							     IORESOURCE_MEM,
-							     "tcsr_resource");
-		size = tcsr_resource->end - tcsr_resource->start + 1;
-		release_mem_region(tcsr_resource->start, size);
-		iounmap(msm_uport->mapped_tcsr);
-		msm_uport->mapped_tcsr = NULL;
 	}
 }
 
@@ -285,20 +270,12 @@ static int msm_hs_request_port(struct uart_port *port)
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(port);
 	struct platform_device *pdev = to_platform_device(port->dev);
 	struct resource *gsbi_resource;
-	struct resource *tcsr_resource;
 	resource_size_t size;
 
 	gsbi_resource = platform_get_resource_byname(pdev,
 						     IORESOURCE_MEM,
 						     "gsbi_resource");
-	tcsr_resource = platform_get_resource_byname(pdev,
-						     IORESOURCE_MEM,
-						     "tcsr_resource");
 	if (gsbi_resource) {
-		/* gsbi uarts need to set an additional mux */
-		/* in tcsr block to operate in dma mode. */
-		if (!tcsr_resource)
-			return -ENXIO;
 		size = gsbi_resource->end - gsbi_resource->start + 1;
 		if (unlikely(!request_mem_region(gsbi_resource->start, size,
 						 "msm_serial_hs")))
@@ -307,15 +284,6 @@ static int msm_hs_request_port(struct uart_port *port)
 						 size);
 		if (!msm_uport->mapped_gsbi) {
 			release_mem_region(gsbi_resource->start, size);
-			return -EBUSY;
-		}
-		size = tcsr_resource->end - tcsr_resource->start + 1;
-		if (unlikely(!request_mem_region(tcsr_resource->start, size,
-						 "msm_serial_hs")))
-			return -EBUSY;
-		msm_uport->mapped_tcsr = ioremap(tcsr_resource->start, size);
-		if (!msm_uport->mapped_tcsr) {
-			release_mem_region(tcsr_resource->start, size);
 			return -EBUSY;
 		}
 	}
@@ -1197,13 +1165,6 @@ static void msm_hs_config_port(struct uart_port *uport, int cfg_flags)
 	if (is_gsbi_uart(msm_uport)) {
 		iowrite32(GSBI_PROTOCOL_UART, msm_uport->mapped_gsbi +
 			  GSBI_CONTROL_ADDR);
-		iowrite32(ADM1_CRCI_GSBI6_RX_SEL | ADM1_CRCI_GSBI6_TX_SEL,
-			  msm_uport->mapped_tcsr +
-			  TCSR_ADM_1_A_CRCI_MUX_SEL);
-		iowrite32(ADM1_CRCI_GSBI6_RX_SEL | ADM1_CRCI_GSBI6_TX_SEL,
-			  msm_uport->mapped_tcsr +
-			  TCSR_ADM_1_B_CRCI_MUX_SEL);
-		dmb();
 	}
 	spin_unlock_irqrestore(&uport->lock, flags);
 }

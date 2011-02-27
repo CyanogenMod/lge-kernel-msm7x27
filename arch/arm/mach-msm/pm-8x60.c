@@ -744,18 +744,31 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 
 		switch (mode) {
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-			if (num_online_cpus() > 1)
+			if (!allow)
+				break;
+
+			if (num_online_cpus() > 1) {
 				allow = false;
+				break;
+			}
 			/* fall through */
 
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
+			if (!allow)
+				break;
+
+			if (!dev->cpu &&
+				msm_rpm_local_request_is_outstanding()) {
+				allow = false;
+				break;
+			}
 			/* fall through */
 
 		case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
 			if (!allow)
 				break;
 
-			rs_limits = msm_rpmrs_lowest_limits(
+			rs_limits = msm_rpmrs_lowest_limits(true,
 						mode, latency_us, sleep_us);
 
 			if (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask)
@@ -791,7 +804,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev)
 		if (allow) {
 			state->flags &= ~CPUIDLE_FLAG_IGNORE;
 			state->target_residency = 0;
-			state->exit_latency = rs_limits->latency_us[dev->cpu];
+			state->exit_latency = 0;
 			state->power_usage = rs_limits->power[dev->cpu];
 
 			if (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode)
@@ -921,7 +934,7 @@ static int msm_pm_enter(suspend_state_t state)
 		if (MSM_PM_DEBUG_SUSPEND_LIMITS & msm_pm_debug_mask)
 			msm_rpmrs_show_resources();
 
-		rs_limits = msm_rpmrs_lowest_limits(
+		rs_limits = msm_rpmrs_lowest_limits(false,
 				MSM_PM_SLEEP_MODE_POWER_COLLAPSE, -1, -1);
 
 		if ((MSM_PM_DEBUG_SUSPEND_LIMITS & msm_pm_debug_mask) &&

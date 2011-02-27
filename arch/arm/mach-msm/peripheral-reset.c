@@ -23,11 +23,11 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
+#include <mach/scm.h>
 #include <mach/msm_iomap.h>
 
 #include "peripheral-loader.h"
 #include "clock-8x60.h"
-#include "scm.h"
 
 #define MSM_MMS_REGS_BASE		0x10200000
 #define MSM_LPASS_QDSP6SS_BASE		0x28800000

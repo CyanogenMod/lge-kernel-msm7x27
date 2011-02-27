@@ -1752,6 +1752,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.chg_init	= hsusb_chg_init,
 	.ldo_enable	= msm_hsusb_ldo_enable,
 	.ldo_init	= msm_hsusb_ldo_init,
+	.pclk_src_name	= "ebi1_usb_clk",
 };
 
 static struct msm_hsusb_gadget_platform_data msm_gadget_pdata;

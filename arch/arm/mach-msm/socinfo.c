@@ -170,6 +170,7 @@ uint32_t socinfo_get_id(void)
 {
 	return (socinfo) ? socinfo->v1.id : 0;
 }
+EXPORT_SYMBOL_GPL(socinfo_get_id);
 
 uint32_t socinfo_get_version(void)
 {

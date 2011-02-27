@@ -547,8 +547,7 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 	uint8_t *result = NULL;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_process_private *priv;
-	struct kgsl_yamato_device *yamato_device = container_of(device,
-					struct kgsl_yamato_device, dev);
+	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	struct kgsl_ringbuffer *ringbuffer = &yamato_device->ringbuffer;
 
 	if (kgsl_gpuaddr_in_memdesc(&ringbuffer->buffer_desc, gpuaddr)) {
@@ -1357,6 +1356,17 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_process_private *private,
 		KGSL_DRV_ERR("invalid gpuaddr %08x\n", param.gpuaddr);
 		result = -EINVAL;
 	} else {
+		if (!entry->memdesc.hostptr)
+			entry->memdesc.hostptr =
+				kgsl_gpuaddr_to_vaddr(&entry->memdesc,
+					param.gpuaddr, &entry->memdesc.size);
+
+		if (!entry->memdesc.hostptr) {
+			KGSL_DRV_ERR("invalid hostptr with gpuaddr %08x\n",
+								param.gpuaddr);
+			goto done;
+		}
+
 		kgsl_cache_range_op((unsigned long)entry->memdesc.hostptr,
 				    entry->memdesc.size,
 				    KGSL_MEMFLAGS_CACHE_CLEAN |
@@ -1470,7 +1480,6 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 							   (void __user *)arg);
 		break;
 	case IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE:
-		if (kgsl_cache_enable)
 			result =
 			    kgsl_ioctl_sharedmem_flush_cache(
 							dev_priv->process_priv,

@@ -26,8 +26,16 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
+#include <mach/scm-io.h>
 #include "clock.h"
 #include "footswitch.h"
+
+#ifdef CONFIG_MSM_SECURE_IO
+#undef readl
+#undef writel
+#define readl secure_readl
+#define writel secure_writel
+#endif
 
 #define REG(off) (MSM_MMSS_CLK_CTL_BASE + (off))
 #define GEMINI_GFS_CTL_REG	REG(0x01A0)
@@ -258,19 +266,142 @@ out:
 	return rc;
 }
 
-static struct regulator_ops footswitch_ops = {
+static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
+{
+	struct footswitch *fs = rdev_get_drvdata(rdev);
+	uint32_t regval, rc = 0;
+
+	mutex_lock(&claim_lock);
+	fs->is_claimed = 1;
+	mutex_unlock(&claim_lock);
+
+	/* Make sure required clocks are on at the correct rates. */
+	rc = setup_clocks(fs);
+	if (rc)
+		goto out;
+
+	/* Un-halt all bus ports in the power domain. */
+	if (fs->bus_port1) {
+		rc = msm_bus_axi_portunhalt(fs->bus_port1);
+		if (rc) {
+			pr_err("%s: Port 1 unhalt failed.\n", __func__);
+			goto out;
+		}
+	}
+
+	/* Disable core clock. */
+	clk_disable(fs->core_clk);
+
+	/* (Re-)Assert resets for all clocks in the clock domain, since
+	 * footswitch_enable() is first called before footswitch_disable()
+	 * and resets should be asserted before power is restored. */
+	if (fs->axi_clk)
+		clk_reset(fs->axi_clk, CLK_RESET_ASSERT);
+	clk_reset(fs->ahb_clk, CLK_RESET_ASSERT);
+	clk_reset(fs->core_clk, CLK_RESET_ASSERT);
+	/* Wait for synchronous resets to propagate. */
+	udelay(20);
+
+	/* Enable the power rail at the footswitch. */
+	regval = readl(fs->gfs_ctl_reg);
+	regval |= ENABLE_BIT;
+	writel(regval, fs->gfs_ctl_reg);
+	udelay(1);
+
+	/* Un-clamp the I/O ports. */
+	regval &= ~CLAMP_BIT;
+	writel(regval, fs->gfs_ctl_reg);
+
+	/* Deassert resets for all clocks in the power domain. */
+	if (fs->axi_clk)
+		clk_reset(fs->axi_clk, CLK_RESET_DEASSERT);
+	clk_reset(fs->ahb_clk, CLK_RESET_DEASSERT);
+	clk_reset(fs->core_clk, CLK_RESET_DEASSERT);
+	udelay(20);
+
+	/* Re-enable core clock. */
+	clk_enable(fs->core_clk);
+
+	/* Return clocks to their state before this function. */
+	restore_clocks(fs);
+
+	fs->is_enabled = 1;
+out:
+	return rc;
+}
+
+static int gfx2d_footswitch_disable(struct regulator_dev *rdev)
+{
+	struct footswitch *fs = rdev_get_drvdata(rdev);
+	uint32_t regval, rc = 0;
+
+	/* Make sure required clocks are on at the correct rates. */
+	rc = setup_clocks(fs);
+	if (rc)
+		goto out;
+
+	/* Halt all bus ports in the power domain. */
+	if (fs->bus_port1) {
+		rc = msm_bus_axi_porthalt(fs->bus_port1);
+		if (rc) {
+			pr_err("%s: Port 1 halt failed.\n", __func__);
+			goto out;
+		}
+	}
+
+	/* Disable core clock. */
+	clk_disable(fs->core_clk);
+
+	/* Assert resets for all clocks in the clock domain so that
+	 * outputs settle prior to clamping. */
+	if (fs->axi_clk)
+		clk_reset(fs->axi_clk, CLK_RESET_ASSERT);
+	clk_reset(fs->ahb_clk, CLK_RESET_ASSERT);
+	clk_reset(fs->core_clk, CLK_RESET_ASSERT);
+	/* Wait for synchronous resets to propagate. */
+	udelay(20);
+
+	/* Clamp the I/O ports of the core to ensure the values
+	 * remain fixed while the core is collapsed. */
+	regval = readl(fs->gfs_ctl_reg);
+	regval |= CLAMP_BIT;
+	writel(regval, fs->gfs_ctl_reg);
+
+	/* Collapse the power rail at the footswitch. */
+	regval &= ~ENABLE_BIT;
+	writel(regval, fs->gfs_ctl_reg);
+
+	/* Re-enable core clock. */
+	clk_enable(fs->core_clk);
+
+	/* Return clocks to their state before this function. */
+	restore_clocks(fs);
+
+	fs->is_enabled = 0;
+
+out:
+	return rc;
+}
+
+static struct regulator_ops standard_fs_ops = {
 	.is_enabled = footswitch_is_enabled,
 	.enable = footswitch_enable,
 	.disable = footswitch_disable,
 };
 
-#define FOOTSWITCH(_id, _name, _gfs_ctl_reg, _dc, _bp1, _bp2, \
+static struct regulator_ops gfx2d_fs_ops = {
+	.is_enabled = footswitch_is_enabled,
+	.enable = gfx2d_footswitch_enable,
+	.disable = gfx2d_footswitch_disable,
+};
+
+#define FOOTSWITCH(_id, _name, _ops, _gfs_ctl_reg, _dc, _bp1, _bp2, \
 		   _core_clk, _ahb_clk, _axi_clk, _reset_rate) \
 	[(_id)] = { \
 		.desc = { \
 			.id = (_id), \
 			.name = (_name), \
-			.ops = &footswitch_ops, \
+			.ops = (_ops), \
 			.type = REGULATOR_VOLTAGE, \
 			.owner = THIS_MODULE, \
 		}, \
@@ -284,41 +415,41 @@ static struct regulator_ops footswitch_ops = {
 		.reset_rate = (_reset_rate), \
 	}
 static struct footswitch footswitches[] = {
-	FOOTSWITCH(FS_GFX2D0, "fs_gfx2d0",
+	FOOTSWITCH(FS_GFX2D0, "fs_gfx2d0", &gfx2d_fs_ops,
 		GFX2D0_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE0, 0,
 		"gfx2d0_clk", "gfx2d0_pclk", NULL, 0),
-	FOOTSWITCH(FS_GFX2D1, "fs_gfx2d1",
+	FOOTSWITCH(FS_GFX2D1, "fs_gfx2d1", &gfx2d_fs_ops,
 		GFX2D1_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_GRAPHICS_2D_CORE1, 0,
 		"gfx2d1_clk", "gfx2d1_pclk", NULL, 0),
-	FOOTSWITCH(FS_GFX3D, "fs_gfx3d",
+	FOOTSWITCH(FS_GFX3D, "fs_gfx3d", &standard_fs_ops,
 		GFX3D_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_GRAPHICS_3D, 0,
 		"gfx3d_clk", "gfx3d_pclk", NULL, 27000000),
-	FOOTSWITCH(FS_IJPEG, "fs_ijpeg",
+	FOOTSWITCH(FS_IJPEG, "fs_ijpeg", &standard_fs_ops,
 		GEMINI_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_JPEG_ENC, 0,
 		"ijpeg_clk", "ijpeg_pclk", "ijpeg_axi_clk", 0),
-	FOOTSWITCH(FS_MDP, "fs_mdp",
+	FOOTSWITCH(FS_MDP, "fs_mdp", &standard_fs_ops,
 		MDP_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_MDP_PORT0,
 		MSM_BUS_MMSS_MASTER_MDP_PORT1,
 		"mdp_clk", "mdp_pclk", "mdp_axi_clk", 0),
-	FOOTSWITCH(FS_ROT, "fs_rot",
+	FOOTSWITCH(FS_ROT, "fs_rot", &standard_fs_ops,
 		ROT_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_ROTATOR, 0,
 		"rot_clk", "rotator_pclk", "rot_axi_clk", 0),
-	FOOTSWITCH(FS_VED, "fs_ved",
+	FOOTSWITCH(FS_VED, "fs_ved", &standard_fs_ops,
 		VED_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
 		MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
 		"vcodec_clk", "vcodec_pclk", "vcodec_axi_clk", 0),
-	FOOTSWITCH(FS_VFE, "fs_vfe",
+	FOOTSWITCH(FS_VFE, "fs_vfe", &standard_fs_ops,
 		VFE_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_VFE, 0,
 		"vfe_clk", "vfe_pclk", "vfe_axi_clk", 0),
-	FOOTSWITCH(FS_VPE, "fs_vpe",
+	FOOTSWITCH(FS_VPE, "fs_vpe", &standard_fs_ops,
 		VPE_GFS_CTL_REG, 31,
 		MSM_BUS_MMSS_MASTER_VPE, 0,
 		"vpe_clk", "vpe_pclk", "vpe_axi_clk", 0),

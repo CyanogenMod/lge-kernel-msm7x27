@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -952,8 +952,6 @@ struct miscdevice audio_mvs_misc = {
 static int __init audio_mvs_init(void)
 {
 	int rc = 0;
-
-	pr_info("%s:\n", __func__);
 
 	memset(&audio_mvs_info, 0, sizeof(audio_mvs_info));
 

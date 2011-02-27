@@ -421,8 +421,8 @@ static int msm_rpm_set_exclusive(int ctx,
 	msm_rpm_request_irq_mode.sel_masks_ack = sel_masks_ack;
 	msm_rpm_request_irq_mode.done = &ack;
 
-	spin_lock(&msm_rpm_lock);
-	spin_lock_irqsave(&msm_rpm_irq_lock, flags);
+	spin_lock_irqsave(&msm_rpm_lock, flags);
+	spin_lock(&msm_rpm_irq_lock);
 
 	BUG_ON(msm_rpm_request);
 	msm_rpm_request = &msm_rpm_request_irq_mode;
@@ -439,8 +439,8 @@ static int msm_rpm_set_exclusive(int ctx,
 	msm_rpm_write_barrier();
 	msm_rpm_send_req_interrupt();
 
-	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
-	spin_unlock(&msm_rpm_lock);
+	spin_unlock(&msm_rpm_irq_lock);
+	spin_unlock_irqrestore(&msm_rpm_lock, flags);
 
 	wait_for_completion(&ack);
 
@@ -536,9 +536,11 @@ static int msm_rpm_set_common(
 		goto set_common_exit;
 
 	if (noirq) {
-		spin_lock(&msm_rpm_lock);
+		unsigned long flags;
+
+		spin_lock_irqsave(&msm_rpm_lock, flags);
 		rc = msm_rpm_set_exclusive_noirq(ctx, sel_masks, req, count);
-		spin_unlock(&msm_rpm_lock);
+		spin_unlock_irqrestore(&msm_rpm_lock, flags);
 	} else {
 		rc = mutex_lock_interruptible(&msm_rpm_mutex);
 		if (rc)
@@ -585,10 +587,12 @@ static int msm_rpm_clear_common(
 		msm_rpm_get_sel_mask(MSM_RPM_SEL_INVALIDATE);
 
 	if (noirq) {
-		spin_lock(&msm_rpm_lock);
+		unsigned long flags;
+
+		spin_lock_irqsave(&msm_rpm_lock, flags);
 		rc = msm_rpm_set_exclusive_noirq(ctx, sel_masks, r,
 			ARRAY_SIZE(r));
-		spin_unlock(&msm_rpm_lock);
+		spin_unlock_irqrestore(&msm_rpm_lock, flags);
 		BUG_ON(rc);
 	} else {
 		rc = mutex_lock_interruptible(&msm_rpm_mutex);
@@ -660,14 +664,21 @@ static void msm_rpm_initialize_notification(void)
 int msm_rpm_local_request_is_outstanding(void)
 {
 	unsigned long flags;
-	int outstanding;
+	int outstanding = 0;
 
-	if (spin_trylock_irqsave(&msm_rpm_irq_lock, flags))
-		return 0;
+	if (!spin_trylock_irqsave(&msm_rpm_lock, flags))
+		goto local_request_is_outstanding_exit;
+
+	if (!spin_trylock(&msm_rpm_irq_lock))
+		goto local_request_is_outstanding_unlock;
 
 	outstanding = (msm_rpm_request != NULL);
-	spin_unlock_irqrestore(&msm_rpm_irq_lock, flags);
+	spin_unlock(&msm_rpm_irq_lock);
 
+local_request_is_outstanding_unlock:
+	spin_unlock_irqrestore(&msm_rpm_lock, flags);
+
+local_request_is_outstanding_exit:
 	return outstanding;
 }
 

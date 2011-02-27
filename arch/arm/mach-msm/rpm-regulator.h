@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,10 +37,22 @@
 #define RPM_VREG_PIN_CTRL_D0	0x04
 #define RPM_VREG_PIN_CTRL_D1	0x08
 
-/* Pin ctrl enables/disables or toggles high/low power modes */
+/*
+ * Pin Function
+ * ENABLE  - pin control switches between disable and enable
+ * MODE    - pin control switches between LPM and HPM
+ * SLEEP_B - regulator is forced into LPM by asserting sleep_b signal
+ * NONE    - do not use pin control
+ *
+ * The pin function specified in platform data corresponds to the active state
+ * pin function value.  Pin function will be NONE until a consumer requests
+ * pin control with regulator_set_mode(vreg, REGULATOR_MODE_IDLE).
+ */
 enum rpm_vreg_pin_fn {
 	RPM_VREG_PIN_FN_ENABLE = 0,
 	RPM_VREG_PIN_FN_MODE,
+	RPM_VREG_PIN_FN_SLEEP_B,
+	RPM_VREG_PIN_FN_NONE,
 };
 
 enum rpm_vreg_mode {
@@ -130,6 +142,13 @@ enum rpm_vreg_id {
 	RPM_VREG_ID_MAX,
 };
 
+/* Minimum high power mode loads in uA. */
+#define RPM_VREG_LDO_50_HPM_MIN_LOAD	5000
+#define RPM_VREG_LDO_150_HPM_MIN_LOAD	10000
+#define RPM_VREG_LDO_300_HPM_MIN_LOAD	10000
+#define RPM_VREG_SMPS_HPM_MIN_LOAD	50000
+#define RPM_VREG_FTSMPS_HPM_MIN_LOAD	100000
+
 /*
  * default_uV = initial voltage to set the regulator to if enable is called
  *		before set_voltage (e.g. when boot_on or always_on is set).
@@ -138,8 +157,11 @@ enum rpm_vreg_id {
  * avg_uA     = initial avg load requirement sent in RPM request; overwritten
  *		along with peak_uA when regulator_set_mode or
  *		regulator_set_optimum_mode is called.
- * pin_fn     = RPM_VREG_PIN_FN_ENABLE - pin control ON/OFF
- *	      = RPM_VREG_PIN_FN_MODE   - pin control LPM/HPM
+ * pin_fn     = RPM_VREG_PIN_FN_ENABLE  - pin control ON/OFF
+ *	      = RPM_VREG_PIN_FN_MODE    - pin control LPM/HPM
+ *	      = RPM_VREG_PIN_FN_SLEEP_B - regulator is forced into LPM by
+ *					  asserting sleep_b signal
+ *	      = RPM_VREG_PIN_FN_NONE    - do not use pin control
  * mode	      = used to specify a force mode which overrides the votes of other
  *		RPM masters.
  * state      = initial state sent in RPM request.

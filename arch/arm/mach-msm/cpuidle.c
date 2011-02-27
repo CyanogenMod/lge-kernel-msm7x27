@@ -182,3 +182,16 @@ int __init msm_cpuidle_init(void)
 
 	return 0;
 }
+
+static int __init msm_cpuidle_early_init(void)
+{
+#ifdef CONFIG_MSM_SLEEP_STATS
+	unsigned int cpu;
+
+	for_each_possible_cpu(cpu)
+		ATOMIC_INIT_NOTIFIER_HEAD(&per_cpu(msm_cpuidle_notifiers, cpu));
+#endif
+	return 0;
+}
+
+early_initcall(msm_cpuidle_early_init);

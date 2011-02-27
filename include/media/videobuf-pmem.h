@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -24,19 +24,37 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * helper functions for physically contiguous PMEM capture buffers
  */
-#ifndef __MACH_SCM_H
-#define __MACH_SCM_H
 
-#define SCM_SVC_BOOT			0x1
-#define SCM_SVC_PIL			0x2
-#define SCM_SVC_UTIL			0x3
+#ifndef _VIDEOBUF_PMEM_CONTIG_H
+#define _VIDEOBUF_PMEM_CONTIG_H
 
-extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
-		void *resp_buf, size_t resp_len);
+#include <media/videobuf-core.h>
 
-#define SCM_VERSION(major, minor) (((major) << 16) | ((minor) & 0xFF))
+struct videobuf_contig_pmem {
+	u32 magic;
+	void *vaddr;
+	int phyaddr;
+	unsigned long size;
+	int is_userptr;
+	uint32_t y_off;
+	uint32_t cbcr_off;
+	int buffer_type;
+};
 
-extern u32 scm_get_version(void);
+void videobuf_queue_pmem_contig_init(struct videobuf_queue *q,
+			const struct videobuf_queue_ops *ops,
+			struct device *dev,
+			spinlock_t *irqlock,
+			enum v4l2_buf_type type,
+			enum v4l2_field field,
+			unsigned int msize,
+			void *priv);
 
-#endif
+int videobuf_to_pmem_contig(struct videobuf_buffer *buf);
+int videobuf_pmem_contig_free(struct videobuf_queue *q,
+			struct videobuf_buffer *buf);
+
+#endif /* _VIDEOBUF_PMEM_CONTIG_H */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -511,7 +511,7 @@ static int vfe31_enable(struct camera_enable_cmd *enable)
 	return 0;
 }
 
-void vfe31_stop(void)
+static void vfe31_stop(void)
 {
 	uint8_t  axiBusyFlag = true;
 	unsigned long flags;
@@ -711,6 +711,11 @@ static int vfe31_config_axi(int mode, struct axidata *ad, uint32_t *ao)
 		/* use wm0& 4 for preview, wm1&5 for video.*/
 		if ((ad->bufnum1 < 2) || (ad->bufnum2 < 2))
 			return -EINVAL;
+
+#ifdef CONFIG_MSM_CAMERA_V4L2
+		*p++ = 0x1;    /* xbar cfg0 */
+		*p = 0x1a03;    /* xbar cfg1 */
+#endif
 		vfe31_ctrl->outpath.out0.ch0 = 0; /* preview luma   */
 		vfe31_ctrl->outpath.out0.ch1 = 4; /* preview chroma */
 		vfe31_ctrl->outpath.out2.ch0 = 1; /* video luma     */
@@ -1159,7 +1164,7 @@ static void vfe31_update(void)
 	return;
 }
 
-void vfe31_sync_timer_stop(void)
+static void vfe31_sync_timer_stop(void)
 {
 	uint32_t value = 0;
 	vfe31_ctrl->sync_timer_state = 0;
@@ -1174,7 +1179,7 @@ void vfe31_sync_timer_stop(void)
 	msm_io_w(value, vfe31_ctrl->vfebase + V31_SYNC_TIMER_OFF);
 }
 
-void vfe31_sync_timer_start(const uint32_t *tbl)
+static void vfe31_sync_timer_start(const uint32_t *tbl)
 {
 	/* set bit 8 for auto increment. */
 	uint32_t value = 1;
@@ -1221,7 +1226,7 @@ void vfe31_sync_timer_start(const uint32_t *tbl)
 	msm_io_w(value, vfe31_ctrl->vfebase + V31_TIMER_SELECT_OFF);
 }
 
-void vfe31_program_dmi_cfg(enum VFE31_DMI_RAM_SEL bankSel)
+static void vfe31_program_dmi_cfg(enum VFE31_DMI_RAM_SEL bankSel)
 {
 	/* set bit 8 for auto increment. */
 	uint32_t value = VFE_DMI_CFG_DEFAULT;
@@ -1231,7 +1236,7 @@ void vfe31_program_dmi_cfg(enum VFE31_DMI_RAM_SEL bankSel)
 	/* by default, always starts with offset 0.*/
 	msm_io_w(0, vfe31_ctrl->vfebase + VFE_DMI_ADDR);
 }
-void vfe31_write_gamma_cfg(enum VFE31_DMI_RAM_SEL channel_sel,
+static void vfe31_write_gamma_cfg(enum VFE31_DMI_RAM_SEL channel_sel,
 						const uint32_t *tbl)
 {
 	int i;
@@ -1248,7 +1253,7 @@ void vfe31_write_gamma_cfg(enum VFE31_DMI_RAM_SEL channel_sel,
 	vfe31_program_dmi_cfg(NO_MEM_SELECTED);
 }
 
-void vfe31_write_la_cfg(enum VFE31_DMI_RAM_SEL channel_sel,
+static void vfe31_write_la_cfg(enum VFE31_DMI_RAM_SEL channel_sel,
 						const uint32_t *tbl)
 {
 	uint32_t i;
@@ -2441,6 +2446,9 @@ static void vfe31_process_output_path_irq_0(void)
 {
 	uint32_t ping_pong;
 	uint32_t pyaddr, pcbcraddr;
+#ifdef CONFIG_MSM_CAMERA_V4L2
+	uint32_t pyaddr_ping, pcbcraddr_ping, pyaddr_pong, pcbcraddr_pong;
+#endif
 	uint8_t out_bool = 0;
 
 	/* we render frames in the following conditions:
@@ -2495,6 +2503,42 @@ static void vfe31_process_output_path_irq_0(void)
 		} else {
 			vfe31_ctrl->outpath.out0.frame_drop_cnt++;
 			pr_info("path_irq_0 - no free buffer!\n");
+#ifdef CONFIG_MSM_CAMERA_V4L2
+			pr_info("Swapping ping and pong\n");
+
+			/*get addresses*/
+			/* Y channel */
+			pyaddr_ping = vfe31_get_ch_ping_addr(
+				vfe31_ctrl->outpath.out0.ch0);
+			/* Chroma channel */
+			pcbcraddr_ping = vfe31_get_ch_ping_addr(
+				vfe31_ctrl->outpath.out0.ch1);
+			/* Y channel */
+			pyaddr_pong = vfe31_get_ch_pong_addr(
+				vfe31_ctrl->outpath.out0.ch0);
+			/* Chroma channel */
+			pcbcraddr_pong = vfe31_get_ch_pong_addr(
+				vfe31_ctrl->outpath.out0.ch1);
+
+			CDBG("ping = 0x%p, pong = 0x%p\n", (void *)pyaddr_ping,
+							(void *)pyaddr_pong);
+			CDBG("ping_cbcr = 0x%p, pong_cbcr = 0x%p\n",
+				(void *)pcbcraddr_ping, (void *)pcbcraddr_pong);
+
+			/*put addresses*/
+			/* SWAP y channel*/
+			vfe31_put_ch_ping_addr(vfe31_ctrl->outpath.out0.ch0,
+								pyaddr_pong);
+			vfe31_put_ch_pong_addr(vfe31_ctrl->outpath.out0.ch0,
+								pyaddr_ping);
+			/* SWAP chroma channel*/
+			vfe31_put_ch_ping_addr(vfe31_ctrl->outpath.out0.ch1,
+							pcbcraddr_pong);
+			vfe31_put_ch_pong_addr(vfe31_ctrl->outpath.out0.ch1,
+							pcbcraddr_ping);
+			CDBG("after swap: ping = 0x%p, pong = 0x%p\n",
+				(void *)pyaddr_pong, (void *)pyaddr_ping);
+#endif
 		}
 	}
 

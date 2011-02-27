@@ -534,7 +534,25 @@ static ssize_t show_sensordata_value(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	char strbuf[AMI304_BUFSIZE];
+	int mx, my, mz;
+	int mxh, mxl, myh, myl, mzh, mzl;
+
 	AMI304_ReadSensorData(strbuf, AMI304_BUFSIZE);
+
+	mx = my = mz = 0;
+	mxh = mxl = myh = myl = mzh = mzl = 0;
+
+	sscanf(strbuf, "%x %x %x %x %x %x", &mxl, &mxh, &myl, &myh, &mzl, &mzh);
+	mx = mxh << 8 | mxl;
+	my = myh << 8 | myl;
+	mz = mzh << 8 | mzl;
+	if (mx>32768)  mx = mx-65536;//check negative value
+	if (my>32768)  my = my-65536;//check negative value
+	if (mz>32768)  mz = mz-65536;//check negative value
+
+	memset(strbuf, 0x00, AMI304_BUFSIZE);
+	sprintf(strbuf, "%d %d %d", mx, my, mz);
+
 	return sprintf(buf, "%s\n", strbuf);
 }
 
@@ -1584,6 +1602,10 @@ static int ami304_resume(struct device *device)
 	ecom_pdata->power(1);
 	AMI304_Chipset_Init(ami304_data.mode, ami304_data.chipset);
 
+//20110222
+	write_lock(&ami304mid_data.ctrllock);
+	ami304mid_data.controldata[AMI304_CB_RUN] = 2;         // Run = 1	//resume = 2
+	write_unlock(&ami304mid_data.ctrllock);
 	return 0;
 }
 #endif

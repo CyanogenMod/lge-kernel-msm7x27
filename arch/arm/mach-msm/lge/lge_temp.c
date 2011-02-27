@@ -20,7 +20,11 @@ static int tolk_store(struct device *dev, struct device_attribute *attr, const c
 	printk("jori++++++++++++++\n");
 	sscanf(buf, "%d\n", &magic_number);
 	printk("%d\n",magic_number);
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	vir_addr = ioremap(0xffff000, PAGE_SIZE);
+#else
 	vir_addr = ioremap(0x2ffff000, PAGE_SIZE);
+#endif
 	(*(unsigned int *)vir_addr) = magic_number;
 
 	return count;

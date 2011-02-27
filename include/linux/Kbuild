@@ -392,6 +392,7 @@ unifdef-y += xfrm.h
 objhdr-y += version.h
 header-y += wimax.h
 header-y += wimax/
+header-y += msm_adsp.h
 header-y += msm_mdp.h
 header-y += msm_kgsl.h
 header-y += msm_q6venc.h

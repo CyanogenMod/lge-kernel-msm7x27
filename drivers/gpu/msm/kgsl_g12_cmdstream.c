@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +40,7 @@ static inline unsigned int rb_offset(unsigned int index)
 
 int kgsl_g12_cmdstream_init(struct kgsl_device *device)
 {
-	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	memset(&g12_device->ringbuffer, 0, sizeof(struct kgsl_g12_ringbuffer));
 	g12_device->ringbuffer.prevctx = KGSL_G12_INVALID_CONTEXT;
 	return kgsl_sharedmem_alloc_coherent(&g12_device->ringbuffer.cmdbufdesc,
@@ -80,7 +80,7 @@ static void addcmd(struct kgsl_g12_ringbuffer *rb, unsigned int index,
 
 int kgsl_g12_cmdstream_start(struct kgsl_device *device)
 {
-	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	int result;
 	unsigned int cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
 
@@ -130,7 +130,7 @@ int kgsl_g12_cmdstream_start(struct kgsl_device *device)
 
 void kgsl_g12_cmdstream_close(struct kgsl_device *device)
 {
-	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	kgsl_sharedmem_free(&g12_device->ringbuffer.cmdbufdesc);
 	memset(&g12_device->ringbuffer, 0, sizeof(struct kgsl_g12_ringbuffer));
 	kgsl_cmdstream_close(device);
@@ -164,9 +164,13 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int cmd;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_pagetable *pagetable = dev_priv->process_priv->pagetable;
-	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
+	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	unsigned int sizedwords;
 
+	if (device->state & KGSL_STATE_HUNG) {
+		return -EINVAL;
+		goto error;
+	}
 	if (numibs != 1) {
 		KGSL_DRV_ERR("Invalid number of ib's passed for z180,"
 				" numibs: %d\n", numibs);
@@ -238,9 +242,7 @@ error:
 unsigned int kgsl_g12_cmdstream_readtimestamp(struct kgsl_device *device,
 			     enum kgsl_timestamp_type type)
 {
-	struct kgsl_g12_device *g12_device;
-
-	g12_device = (struct kgsl_g12_device *) device;
+	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	/* get current EOP timestamp */
 	return g12_device->timestamp;
 }

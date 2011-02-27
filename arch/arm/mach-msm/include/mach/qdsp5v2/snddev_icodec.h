@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -51,5 +51,7 @@ struct snddev_icodec_data {
 	s32 max_voice_rx_vol[VOC_RX_VOL_ARRAY_NUM]; /* [0]: NB,[1]: WB */
 	s32 min_voice_rx_vol[VOC_RX_VOL_ARRAY_NUM];
 	u32 dev_vol_type;
+	u32 property; /*variable used to hold the properties
+				internal to the device*/
 };
 #endif

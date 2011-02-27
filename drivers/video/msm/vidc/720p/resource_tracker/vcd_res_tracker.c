@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,6 @@
  *
  */
 #include <linux/firmware.h>
-#include <linux/pm_qos_params.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <mach/internal_power_rail.h>
@@ -334,7 +333,7 @@ static u32 res_trk_convert_perf_lvl_to_freq(u64 perf_lvl)
 	return (u32)freq;
 }
 
-static struct pm_qos_request_list *qos_req_list;
+static struct clk *ebi1_clk;
 
 u32 res_trk_power_up(void)
 {
@@ -344,12 +343,12 @@ u32 res_trk_power_up(void)
 {
 	VCDRES_MSG_MED("\n res_trk_power_up():: "
 		"Calling AXI add requirement\n");
-	qos_req_list = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-		PM_QOS_DEFAULT_VALUE);
-	if (IS_ERR_OR_NULL(qos_req_list))	{
+	ebi1_clk = clk_get(NULL, "ebi1_vcd_clk");
+	if (IS_ERR(ebi1_clk)) {
 		VCDRES_MSG_ERROR("Request AXI bus QOS fails.");
 		return false;
 	}
+	clk_enable(ebi1_clk);
 }
 #endif
 
@@ -364,7 +363,8 @@ u32 res_trk_power_down(void)
 #ifdef AXI_CLK_SCALING
 	VCDRES_MSG_MED("\n res_trk_power_down()::"
 		"Calling AXI remove requirement\n");
-	pm_qos_remove_request(qos_req_list);
+	clk_disable(ebi1_clk);
+	clk_put(ebi1_clk);
 #endif
 	VCDRES_MSG_MED("\n res_trk_power_down():: Calling "
 		"res_trk_disable_pwr_rail()\n");
@@ -457,9 +457,7 @@ u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
     if (req_perf_lvl != VCD_RESTRK_MIN_PERF_LEVEL) {
 		VCDRES_MSG_HIGH("\n %s(): Setting AXI freq to %u",
 			__func__, axi_freq);
-		pm_qos_update_request(qos_req_list,
-			axi_freq);
-
+		clk_set_rate(ebi1_clk, axi_freq * 1000);
 	}
 #endif
 

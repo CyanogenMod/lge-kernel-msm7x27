@@ -130,23 +130,6 @@ int camera_power_on (void)
 	config_camera_off_gpios();
 	mdelay(40);
 
-	/*AVDD power 2.8V*/
-	if (lge_bd_rev == LGE_REV_B) {
-		rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 2800);
-		if (rc < 0) {
-			printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AF_NO);
-			goto power_on_fail;
-		}
-		rc = aat28xx_ldo_enable(dev, LDO_CAM_AF_NO, 1);
-		if (rc < 0) {
-			printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_AF_NO);
-			goto power_on_fail;
-		}
-	} else {	/* it is for rev.c and default */
-		struct vreg *vreg_mmc = vreg_get(0, "mmc");
-		vreg_set_level(vreg_mmc, 2800);
-		vreg_enable(vreg_mmc);
-	}
 
   /* DVDD power 1.2V, change to 1.8V */
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_DVDD_NO, 1800);
@@ -232,23 +215,6 @@ int camera_power_off (void)
 	/*reset low*/
 	gpio_set_value(GPIO_CAM_RESET, 0);
 
-	/*AVDD power 2.8V*/
-	if (lge_bd_rev == LGE_REV_A) {
-		rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 0);
-		if (rc < 0) {
-			printk(KERN_ERR "%s: ldo %d set level error\n", __func__, LDO_CAM_AF_NO);
-			goto power_off_fail;
-		}
-		rc = aat28xx_ldo_enable(dev, LDO_CAM_AF_NO, 0);
-		if (rc < 0) {
-			printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_AF_NO);
-			goto power_off_fail;
-		}
-	} else {	/* it is for rev.c and default */
-		struct vreg *vreg_mmc = vreg_get(0, "mmc");
-		vreg_set_level(vreg_mmc, 0);
-		vreg_disable(vreg_mmc);
-	}
 
 
 	/*AVDD power 2.7V*/

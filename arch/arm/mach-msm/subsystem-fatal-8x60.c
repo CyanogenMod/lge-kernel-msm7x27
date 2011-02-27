@@ -27,7 +27,7 @@
 
 #include "smd_private.h"
 #include "modem_notifier.h"
-#include "scm.h"
+#include <mach/scm.h>
 
 #define MODEM_HWIO_MSS_RESET_ADDR       0x00902C48
 #define SCM_Q6_NMI_CMD			0x1

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,7 @@ struct dai_drv {
 	int in_use;
 	u32	buffer_len;
 	u32	period_len;
+	u32	master_mode;
 };
 
 static struct dai_drv *dai[MAX_CHANNELS];
@@ -166,12 +167,12 @@ static void dai_enable_codec(uint32_t dma_ch, int codec)
 	if (codec == DAI_SPKR) {
 		writel(0x0813, dai_info.base + LPAIF_DMA_CTL(dma_ch));
 		i2sctl = 0x4400;
-		i2sctl |= (0x1 << 9);
+		i2sctl |= (dai[dma_ch]->master_mode ? WS_SRC_INT : WS_SRC_EXT);
 		writel(i2sctl, dai_info.base + LPAIF_I2S_CTL_OFFSET(DAI_SPKR));
 	} else if (codec == DAI_MIC) {
 		writel(0x81b, dai_info.base + LPAIF_DMA_CTL(dma_ch));
 		i2sctl = 0x0110;
-		i2sctl |= (0x1 << 3);
+		i2sctl |= (dai[dma_ch]->master_mode ? WS_SRC_INT : WS_SRC_EXT);
 		writel(i2sctl, dai_info.base + LPAIF_I2S_CTL_OFFSET(DAI_MIC));
 	}
 }
@@ -222,6 +223,14 @@ void dai_close(uint32_t dma_ch)
 	else
 		dai_disable_codec(dma_ch, DAI_MIC);
 	free_irq(LPASS_SCSS_AUDIO_IF_OUT0_IRQ, (void *) (dma_ch + 1));
+}
+
+void dai_set_master_mode(uint32_t dma_ch, int mode)
+{
+	if (dma_ch < MAX_CHANNELS)
+		dai[dma_ch]->master_mode = mode;
+	else
+		pr_err("%s: invalid dma channel\n", __func__);
 }
 
 int dai_set_params(uint32_t dma_ch, struct dai_dma_params *params)

@@ -279,6 +279,8 @@ struct peer_sdioc_channel_config {
 
 #define MAX_NUM_OF_SDIO_DEVICES		2
 
+#define INVALID_SDIO_CHAN		0xFF
+
 /**
  * Peer SDIO-Client software header.
  */
@@ -622,37 +624,30 @@ static void sdio_al_debugfs_cleanup(void)
  */
 static int write_lpm_info(struct sdio_al_device *sdio_al_dev)
 {
-	int offset = 0;
+	struct sdio_func *lpm_func =
+		sdio_al_dev->card->sdio_func[sdio_al_dev->lpm_chan+1];
+	int offset = offsetof(struct peer_sdioc_sw_mailbox, ch_config)+
+		sizeof(struct peer_sdioc_channel_config) *
+		sdio_al_dev->lpm_chan+
+		offsetof(struct peer_sdioc_channel_config, is_host_ok_to_sleep);
 	int ret;
-	int i;
+
+	if (sdio_al_dev->lpm_chan == INVALID_SDIO_CHAN) {
+		pr_err(MODULE_NAME ":Invalid lpm_chan for card %d\n",
+				   sdio_al_dev->card->host->index);
+		return -EINVAL;
+	}
 
 	pr_debug(MODULE_NAME ":write_lpm_info is_ok_to_sleep=%d, device %d\n",
 		 sdio_al_dev->is_ok_to_sleep,
 		 sdio_al_dev->card->host->index);
 
-	for (i = 0; i < SDIO_AL_MAX_CHANNELS; i++) {
-		struct sdio_channel *ch = &sdio_al_dev->channel[i];
-
-		if ((!ch->is_valid) || (!ch->is_open))
-			continue;
-
-		offset = offsetof(struct peer_sdioc_sw_mailbox, ch_config)+
-			sizeof(struct peer_sdioc_channel_config) *
-			ch->num +
-			offsetof(struct peer_sdioc_channel_config,
-				 is_host_ok_to_sleep);
-
-		pr_debug(MODULE_NAME ":write_lpm_info: is_ok_to_sleep=%d, "
-				    "ch->num=%d, offset = 0x%x\n",
-			sdio_al_dev->is_ok_to_sleep, ch->num, offset);
-
-		ret = sdio_memcpy_toio(ch->func, SDIOC_SW_MAILBOX_ADDR+offset,
+	ret = sdio_memcpy_toio(lpm_func, SDIOC_SW_MAILBOX_ADDR+offset,
 				&sdio_al_dev->is_ok_to_sleep, sizeof(u32));
-		if (ret) {
-			pr_err(MODULE_NAME ":fail to write sdioc sw header "
-					   "for ch %d.\n", ch->num);
-			return ret;
-		}
+	if (ret) {
+		pr_err(MODULE_NAME ":failed to write lpm info for card %d\n",
+				   sdio_al_dev->card->host->index);
+		return ret;
 	}
 
 	return 0;
@@ -1600,12 +1595,8 @@ static int read_sdioc_channel_config(struct sdio_channel *ch)
 	if (!sdio_al_dev->use_default_conf) {
 		ch->is_packet_mode = ch_config->is_packet_mode;
 
-		if (!ch->is_packet_mode) {
+		if (!ch->is_packet_mode)
 			ch->poll_delay_msec = DEFAULT_POLL_DELAY_NOPACKET_MSEC;
-			/* TODO - change when there are multiple streaming
-			   channels! */
-			sdio_al_dev->lpm_chan = ch->num;
-		}
 	}
 	pr_info(MODULE_NAME ":ch %s is_packet_mode=%d.\n",
 		ch->name, ch->is_packet_mode);
@@ -2339,17 +2330,23 @@ int sdio_open(const char *name, struct sdio_channel **ret_ch, void *priv,
 	ret = open_channel(ch);
 	sdio_release_host(sdio_al_dev->card->sdio_func[0]);
 
-	if (ret)
+	if (ret) {
 		pr_info(MODULE_NAME ":sdio_open %s err=%d\n", name, -ret);
-	else
-		pr_info(MODULE_NAME ":sdio_open %s completed OK\n", name);
+		return ret;
+	}
+
+	pr_info(MODULE_NAME ":sdio_open %s completed OK\n", name);
+	if (sdio_al_dev->lpm_chan == INVALID_SDIO_CHAN) {
+		pr_info(MODULE_NAME ":setting channel %s as lpm_chan\n", name);
+		sdio_al_dev->lpm_chan = ch->num;
+	}
 
 	/* Read the mailbox after the channel is open to detect
 	   pending rx packets */
-	if ((!ret) && (!sdio_al_dev->use_irq))
+	if (!sdio_al_dev->use_irq)
 		ask_reading_mailbox(sdio_al_dev);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(sdio_open);
 
@@ -2832,6 +2829,8 @@ static int mmc_probe(struct mmc_card *card)
 
 	sdio_al_dev->is_suspended = 0;
 	sdio_al_dev->is_timer_initialized = false;
+
+	sdio_al_dev->lpm_chan = INVALID_SDIO_CHAN;
 
 	sdio_al_dev->card = card;
 	func1 = card->sdio_func[0];

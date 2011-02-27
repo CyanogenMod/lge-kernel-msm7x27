@@ -26,9 +26,17 @@
 #include <linux/delay.h>
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
+#include <mach/scm-io.h>
 
 #include "clock.h"
 #include "clock-local.h"
+
+#ifdef CONFIG_MSM_SECURE_IO
+#undef readl
+#undef writel
+#define readl secure_readl
+#define writel secure_writel
+#endif
 
 /* When enabling/disabling a clock, check the halt bit up to this number
  * number of times (with a 1 us delay in between) before continuing. */

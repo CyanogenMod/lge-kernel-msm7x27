@@ -4471,6 +4471,10 @@ pehci_hcd_urb_enqueue(struct usb_hcd *usb_hcd, struct urb *urb, gfp_t mem_flags)
 	urb_priv_t *urb_priv = NULL;
 	unsigned int flags;
 	pehci_entry("++	%s: Entered\n",	__FUNCTION__);
+
+	if (atomic_read(&urb->reject))
+		return -EINVAL;
+
 	INIT_LIST_HEAD(&qtd_list);
 	urb->transfer_flags &= ~EHCI_STATE_UNLINK;
 
@@ -4901,7 +4905,6 @@ pehci_hcd_urb_dequeue(struct usb_hcd *usb_hcd, struct urb *urb, int status)
 
 	case PIPE_INTERRUPT:
 		pehci_check("phci_1763_urb_dequeue: INTR needs to be done\n");
-		status = 0;
 		qh = urb_priv->qh;
 		td_ptd_buf = &td_ptd_map_buff[TD_PTD_BUFF_TYPE_INTL];
 		td_ptd_map = &td_ptd_buf->map_list[qh->qtd_ptd_index];
@@ -4926,6 +4929,8 @@ pehci_hcd_urb_dequeue(struct usb_hcd *usb_hcd, struct urb *urb, int status)
 		isp1763_reg_write16(hcd->dev, hcd->regs.inttdskipmap,
 			skipmap | td_ptd_map->ptd_bitmap);
 		qtd_list = &qh->qtd_list;
+		urb->status = status;
+		status = 0;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 		pehci_hcd_urb_complete(hcd, qh, urb, td_ptd_map, NULL);
 #else

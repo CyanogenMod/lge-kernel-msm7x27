@@ -28,6 +28,8 @@
 #ifndef __MACH_SCM_IO_H
 #define __MACH_SCM_IO_H
 
+#include <linux/types.h>
+
 #ifdef CONFIG_MSM_SECURE_IO
 
 extern u32 secure_readl(void __iomem *c);
