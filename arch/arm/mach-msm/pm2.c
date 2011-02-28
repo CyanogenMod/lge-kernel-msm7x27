@@ -1778,7 +1778,13 @@ static void msm_pm_power_off(void)
 						  0, SMSM_SYSTEM_POWER_DOWN);
 #endif
 
+/* FIXME: Bloock the rpcrouter close when system restart
+ *	  Sometimes, RPC CALL is called atfer RPC is closed
+ *        taehung.kim@lge.com
+ */
+#if 0 
 	msm_rpcrouter_close();
+#endif
 	printk(KERN_INFO"%s: \n",__func__);
 	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
 	for (;;)
@@ -1796,7 +1802,13 @@ static void msm_pm_restart(char str, const char *cmd)
 	msm_pm_flush_console();
 #endif
 
+/* FIXME: Bloock the rpcrouter close when system restart
+ *	  Sometimes, RPC CALL is called atfer RPC is closed
+ *        taehung.kim@lge.com
+ */
+#if 0 
 	msm_rpcrouter_close();
+#endif
 	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
 
 	for (;;)
