@@ -24,9 +24,9 @@
 #include <mach/system.h>
 
 #include "proc_comm.h"
+#include "smd_private.h"
 #ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
 /* LGE_CHANGE_S [bluerti@lge.com] 2009-07-06 <For Error Handler > */
-#include "smd_private.h"
 #include "lge/lge_errorhandler.h"
 /* LGE_CHANGE_E [bluerti@lge.com] 2009-07-06 <For Error Handler > */
 #endif
