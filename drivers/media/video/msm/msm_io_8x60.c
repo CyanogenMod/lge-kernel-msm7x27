@@ -751,6 +751,13 @@ common_fail:
 void msm_camio_disable(struct platform_device *pdev)
 {
 	uint32_t val;
+	val = (0x0 << MIPI_CALIBRATION_CONTROL_SWCAL_CAL_EN_SHFT) |
+		(0x0 <<
+		MIPI_CALIBRATION_CONTROL_SWCAL_STRENGTH_OVERRIDE_EN_SHFT) |
+		(0x0 << MIPI_CALIBRATION_CONTROL_CAL_SW_HW_MODE_SHFT) |
+		(0x0 << MIPI_CALIBRATION_CONTROL_MANUAL_OVERRIDE_EN_SHFT);
+	CDBG("%s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
+	msm_io_w(val, csibase + MIPI_CALIBRATION_CONTROL);
 
 	val = (20 <<
 		MIPI_PHY_D0_CONTROL2_SETTLE_COUNT_SHFT) |
