@@ -81,6 +81,11 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+/*LGE_CHANGE_S [bluerti@lge.com] 2010-04-01 <For Error Handler>*/
+extern int LG_ErrorHandler_enable ;
+/*LGE_CHANGE_E [bluerti@lge.com] 2010-04-01 <For Error Handler>*/
+#endif
 
 /*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
@@ -3956,6 +3961,16 @@ do_wait_for_common(struct completion *x, long timeout, int state, int iowait)
 static long __sched
 wait_for_common(struct completion *x, long timeout, int state, int iowait)
 {
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+/*LGE_CHANGE_S [bluerti@lge.com] 2010-04-01 <For Error Handler>*/
+	if (LG_ErrorHandler_enable) {
+		int i;
+		for(i=0; i<0x10000;i++) 
+			;
+		return 0;
+	}
+/*LGE_CHANGE_E [bluerti@lge.com] 2010-04-01 <For Error Handler>*/
+#endif
 	might_sleep();
 
 	spin_lock_irq(&x->wait.lock);

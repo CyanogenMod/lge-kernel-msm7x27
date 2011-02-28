@@ -1269,7 +1269,29 @@ static void fbcon_clear(struct vc_data *vc, int sy, int sx, int height,
 	} else
 		ops->clear(vc, info, real_y(p, sy), sx, height, width);
 }
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+/* LGE_CHANGE_S [bluerti@lge.com] 2009-07-13 */
+void fbcon_putcs_byLGE(struct vc_data *vc, const unsigned short *s,
+			int count, int ypos, int xpos)
+{
+	struct fb_info *info = registered_fb[con2fb_map[vc->vc_num]];
+	struct display *p = &fb_display[vc->vc_num];
+	struct fbcon_ops *ops = info->fbcon_par;
 
+	ops->putcs(vc, info, s, count, real_y(p, ypos), xpos,
+			   1, 0);
+
+
+}
+void fbcon_update_byLGE(struct vc_data *vc)
+{
+	struct fb_info *info = registered_fb[con2fb_map[vc->vc_num]];
+	struct fbcon_ops *ops = info->fbcon_par;
+	
+	ops->update_start(info);
+}
+/* LGE_CHANGE_E [bluerti@lge.com] 2009-07-13 */
+#endif
 static void fbcon_putcs(struct vc_data *vc, const unsigned short *s,
 			int count, int ypos, int xpos)
 {
