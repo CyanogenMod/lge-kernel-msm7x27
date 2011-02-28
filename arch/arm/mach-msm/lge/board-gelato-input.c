@@ -437,14 +437,9 @@ static struct platform_device accel_i2c_device = {
 };
 
 static struct i2c_board_info accel_i2c_bdinfo[] = {
-	[1] = {
+	[0] = {
 		I2C_BOARD_INFO("KR3DH", ACCEL_I2C_ADDRESS_H),
 		.type = "KR3DH",
-		.platform_data = &kr3dh_data,
-	},
-	[0] = {
-		I2C_BOARD_INFO("KR3DM", ACCEL_I2C_ADDRESS),
-		.type = "KR3DM",
 		.platform_data = &kr3dh_data,
 	},
 };
@@ -454,40 +449,26 @@ static void __init gelato_init_i2c_acceleration(int bus_num)
 	accel_i2c_device.id = bus_num;
 
 	init_gpio_i2c_pin(&accel_i2c_pdata, accel_i2c_pin[0], &accel_i2c_bdinfo[0]);
-
-#if 1 /* by jinkyu.choi@lge.com for Gelato */
-	i2c_register_board_info(bus_num, &accel_i2c_bdinfo[1], 1);	/* KR3DH */
-#else
-	if(lge_bd_rev >= LGE_REV_11)
-		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[1], 1);	/* KR3DH */
-	else
-		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 1);	/* KR3DM */
-#endif
-
+	i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 1);	/* KR3DH */
 	platform_device_register(&accel_i2c_device);
 }
 
-/* proximity & ecompass */
+
+/*  ecompass */
+
 static int ecom_power_set(unsigned char onoff)
 {
 	int ret = 0;
-	struct vreg *gp3_vreg = vreg_get(0, "rfrx2");
-	struct vreg *gp6_vreg = vreg_get(0, "gp6");
+	struct vreg *rfrx2_vreg = vreg_get(0, "rfrx2");
 
 	printk("[Ecompass] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
-		vreg_set_level(gp3_vreg, 3000);
-		vreg_enable(gp3_vreg);
+		vreg_set_level(rfrx2_vreg, 3000);
+		vreg_enable(rfrx2_vreg);
 
-		/* proximity power on , when we turn off I2C line be set to low caues sensor H/W characteristic */
-		vreg_set_level(gp6_vreg, 2800);
-		vreg_enable(gp6_vreg);
 	} else {
-		vreg_disable(gp3_vreg);
-
-		/* proximity power off */
-		vreg_disable(gp6_vreg);
+		vreg_disable(rfrx2_vreg);
 	}
 
 	return ret;
@@ -495,10 +476,50 @@ static int ecom_power_set(unsigned char onoff)
 
 static struct ecom_platform_data ecom_pdata = {
 	.pin_int        	= ECOM_GPIO_INT,
-	.pin_rst		= 0,
+	.pin_rst			= 0,
 	.power          	= ecom_power_set,
 };
 
+static struct i2c_board_info ecom_i2c_bdinfo[] = {
+	[0] = {
+		I2C_BOARD_INFO("ami304_sensor", ECOM_I2C_ADDRESS),
+		.type = "ami304_sensor",
+		.platform_data = &ecom_pdata,
+	},
+};
+
+static struct gpio_i2c_pin ecom_i2c_pin[] = {
+	[0] = {
+		.sda_pin	= ECOM_GPIO_I2C_SDA,
+		.scl_pin	= ECOM_GPIO_I2C_SCL,
+		.reset_pin	= 0,
+		.irq_pin	= ECOM_GPIO_INT,
+	},
+};
+
+static struct i2c_gpio_platform_data ecom_i2c_pdata = {
+	.sda_is_open_drain = 0,
+	.scl_is_open_drain = 0,
+	.udelay = 2,
+};
+
+static struct platform_device ecom_i2c_device = {
+        .name = "i2c-gpio",
+        .dev.platform_data = &ecom_i2c_pdata,
+};
+
+static void __init gelato_init_i2c_ecom(int bus_num)
+{
+	ecom_i2c_device.id = bus_num;
+
+	init_gpio_i2c_pin(&ecom_i2c_pdata, ecom_i2c_pin[0], &ecom_i2c_bdinfo[0]);
+
+	i2c_register_board_info(bus_num, &ecom_i2c_bdinfo[0], 1);
+	platform_device_register(&ecom_i2c_device);
+}
+
+
+/* proximity */
 static int prox_power_set(unsigned char onoff)
 {
 	int ret = 0;
@@ -525,56 +546,44 @@ static struct proximity_platform_data proxi_pdata = {
 	.cycle = 2,
 };
 
-static struct i2c_board_info prox_ecom_i2c_bdinfo[] = {
+static struct i2c_board_info prox_i2c_bdinfo[] = {
 	[0] = {
 		I2C_BOARD_INFO("proximity_gp2ap", PROXI_I2C_ADDRESS),
 		.type = "proximity_gp2ap",
 		.platform_data = &proxi_pdata,
-	},
-	[1] = {
-		I2C_BOARD_INFO("ami304_sensor", ECOM_I2C_ADDRESS),
-		.type = "ami304_sensor",
-		.platform_data = &ecom_pdata,
-	},
+	}, 
 };
 
-static struct gpio_i2c_pin proxi_ecom_i2c_pin[] = {
+static struct gpio_i2c_pin proxi_i2c_pin[] = {
 	[0] = {
 		.sda_pin	= PROXI_GPIO_I2C_SDA,
 		.scl_pin	= PROXI_GPIO_I2C_SCL,
 		.reset_pin	= 0,
 		.irq_pin	= PROXI_GPIO_DOUT,
 	},
-	[1] = {
-		.sda_pin	= ECOM_GPIO_I2C_SDA,
-		.scl_pin	= ECOM_GPIO_I2C_SCL,
-		.reset_pin	= 0,
-		.irq_pin	= ECOM_GPIO_INT,
-	},
 };
 
-static struct i2c_gpio_platform_data proxi_ecom_i2c_pdata = {
+static struct i2c_gpio_platform_data proxi_i2c_pdata = {
 	.sda_is_open_drain = 0,
 	.scl_is_open_drain = 0,
 	.udelay = 2,
 };
 
-static struct platform_device proxi_ecom_i2c_device = {
+static struct platform_device proxi_i2c_device = {
         .name = "i2c-gpio",
-        .dev.platform_data = &proxi_ecom_i2c_pdata,
+        .dev.platform_data = &proxi_i2c_pdata,
 };
 
-
-static void __init gelato_init_i2c_prox_ecom(int bus_num)
+static void __init gelato_init_i2c_prox(int bus_num)
 {
-	proxi_ecom_i2c_device.id = bus_num;
+	proxi_i2c_device.id = bus_num;
 
-	init_gpio_i2c_pin(&proxi_ecom_i2c_pdata, proxi_ecom_i2c_pin[0], &prox_ecom_i2c_bdinfo[0]);
-	init_gpio_i2c_pin(&proxi_ecom_i2c_pdata, proxi_ecom_i2c_pin[1], &prox_ecom_i2c_bdinfo[1]);
+	init_gpio_i2c_pin(&proxi_i2c_pdata, proxi_i2c_pin[0], &prox_i2c_bdinfo[0]);
 
-	i2c_register_board_info(bus_num, &prox_ecom_i2c_bdinfo[0], 2);
-	platform_device_register(&proxi_ecom_i2c_device);
+	i2c_register_board_info(bus_num, &prox_i2c_bdinfo[0], 1);
+	platform_device_register(&proxi_i2c_device);
 }
+
 
 /* common function */
 void __init lge_add_input_devices(void)
@@ -583,7 +592,8 @@ void __init lge_add_input_devices(void)
 	platform_add_devices(gelato_input_devices, ARRAY_SIZE(gelato_input_devices));
 
 	lge_add_gpio_i2c_device(gelato_init_i2c_touch);
-	lge_add_gpio_i2c_device(gelato_init_i2c_prox_ecom);
+	lge_add_gpio_i2c_device(gelato_init_i2c_prox);
+	lge_add_gpio_i2c_device(gelato_init_i2c_ecom);	
 	lge_add_gpio_i2c_device(gelato_init_i2c_acceleration);
 }
 

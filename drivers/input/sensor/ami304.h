@@ -23,7 +23,7 @@
 #include <linux/ioctl.h>
 
 //new Addr=0x0E(Low), old Addr=0x0F(High)
-#define AMI304_I2C_ADDRESS 			0x0E  
+#define AMI304_I2C_ADDRESS 			0x0F
 
 /* AMI304 Internal Register Address  (Please refer to AMI304 Specifications) */
 #define AMI304_REG_CTRL1			0x1B
