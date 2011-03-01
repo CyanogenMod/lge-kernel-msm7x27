@@ -344,40 +344,13 @@ static void otg_pm_qos_update_latency(struct msm_otg *dev, int vote)
  */
 static void msm_otg_vote_for_pclk_source(struct msm_otg *dev, int vote)
 {
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-	/* LGE_CHANGE
-	 * Workaround for enabling ebi1_clock.
-	 * 2011-02-24, hyunhui.park@lge.com
-	 */
-	static int capable = 0;
-#endif
-
 	if (!pclk_requires_voting(&dev->otg))
 		return;
 
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-	/* LGE_CHANGE
-	 * Workaround for enabling ebi1_clock.
-	 * 2011-02-24, hyunhui.park@lge.com
-	 */
-	if (vote) {
-		if (!clk_enable(dev->pclk_src)) {
-			pr_info("%s: clk_enable ok\n", __func__);
-			capable = 1;
-		} else {
-			pr_info("%s: clk_enable failed, skip clk setting..\n", __func__);
-			capable = 0;
-		}
-	} else {
-		if (capable)
-			clk_disable(dev->pclk_src);
-	}
-#else
 	if (vote)
 		clk_enable(dev->pclk_src);
 	else
 		clk_disable(dev->pclk_src);
-#endif
 }
 
 /* Controller gives interrupt for every 1 mesc if 1MSIE is set in OTGSC.
