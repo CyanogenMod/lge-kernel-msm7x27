@@ -346,53 +346,33 @@ isp1763_mem_write(struct isp1763_dev *dev,
 {
 	int a = length;
 	u8 *temp = (u8 *) buffer;
-	u16 *temp16 = (u8 *) buffer;
 	u8 one = (u8) (*buffer);
 	u16 two = (u16) (*buffer);
-	static int iCount = 0;
-	int fJump = 0;
-	unsigned long ulFlags;
 
-	if (buffer == NULL || length == 0) {
-		printk("Wrong length or buffer pointer\n");
-		return -1;
-	}
 
 	isp1763_reg_write16(dev, HC_MEM_READ_REG, start_add);
 	/* This delay requirement comes from the ISP1763A programming guide */
 	ndelay(100);
-	a = (int) (length);
-      last_write:
 
 	if (a == 1) {
 		isp1763_reg_write16(dev, HC_DATA_REG, one);
-		iCount++;
 		return 0;
 	}
 	if (a == 2) {
 		isp1763_reg_write16(dev, HC_DATA_REG, two);
-		iCount++;
 		return 0;
 	}
 
-
 	while (a > 0) {
-		isp1763_reg_write16(dev, HC_DATA_REG, (*(u16 *) temp));
-		a -= 2;
-		if (a <= 2) {
-			if (temp16 != temp){
-				printk("Offset is wrong!!" 
-					"temp=0x%X temp16=0x%X\n", temp,temp16);
-			}
-			temp += 2;
-			temp16++;
-			two = *temp16;
-			one = *temp;
-			fJump = 1;
-			goto last_write;
-		}
-		temp += 2;
-		temp16++;
+		isp1763_reg_write16(dev, HC_DATA_REG, (u16) (*buffer));
+		if (a >= 3)
+			isp1763_reg_write16(dev, HC_DATA_REG,
+					    (u16) ((*buffer) >> 16));
+		start_add += 4;
+		a -= 4;
+		if (a <= 0)
+			break;
+		buffer += 1;
 
 	}
 
