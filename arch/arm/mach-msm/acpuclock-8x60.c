@@ -53,9 +53,7 @@
 #define L_VAL_SCPLL_CAL_MIN	0x08 /* =  432 MHz with 27MHz source */
 #define L_VAL_SCPLL_CAL_MAX	0x1C /* = 1512 MHz with 27MHz source */
 
-#define MAX_VDD_SC		1200000 /* uV */
-#define MAX_VDD_MEM		1200000 /* uV */
-#define MAX_VDD_DIG		1200000 /* uV */
+#define MAX_VDD_SC		1250000 /* uV */
 #define MAX_AXI			 310500 /* KHz */
 #define SCPLL_LOW_VDD_FMAX	 594000 /* KHz */
 #define SCPLL_LOW_VDD		1000000 /* uV */
@@ -88,6 +86,10 @@
 #define SPSS1_CLK_CTL_ADDR		(MSM_ACC1_BASE + 0x04)
 #define SPSS1_CLK_SEL_ADDR		(MSM_ACC1_BASE + 0x08)
 #define SPSS_L2_CLK_SEL_ADDR		(MSM_GCC_BASE  + 0x38)
+
+/* Speed bin register. */
+#define QFPROM_SPEED_BIN_PRI		(MSM_QFPROM_BASE + 0x00C0)
+
 static const void * const clk_ctl_addr[] = {SPSS0_CLK_CTL_ADDR,
 			SPSS1_CLK_CTL_ADDR};
 static const void * const clk_sel_addr[] = {SPSS0_CLK_SEL_ADDR,
@@ -180,7 +182,7 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
 static uint32_t bus_perf_client;
 
 /* L2 frequencies = 2 * 27 MHz * L_VAL */
-static struct clkctl_l2_speed l2_freq_tbl_1188[] = {
+static struct clkctl_l2_speed l2_freq_tbl_v2[] = {
 	[0]  = { MAX_AXI, 0, 0,    1000000, 1100000, 4},
 	[1]  = { 432000,  1, 0x08, 1000000, 1100000, 4},
 	[2]  = { 486000,  1, 0x09, 1000000, 1100000, 4},
@@ -197,11 +199,12 @@ static struct clkctl_l2_speed l2_freq_tbl_1188[] = {
 	[13] = {1080000,  1, 0x14, 1100000, 1200000, 7},
 	[14] = {1134000,  1, 0x15, 1100000, 1200000, 7},
 	[15] = {1188000,  1, 0x16, 1200000, 1200000, 8},
+	[16] = {1404000,  1, 0x1A, 1200000, 1250000, 8},
 };
 
-#define L2(x) (&l2_freq_tbl_1188[(x)])
+#define L2(x) (&l2_freq_tbl_v2[(x)])
 /* SCPLL frequencies = 2 * 27 MHz * L_VAL */
-static struct clkctl_acpu_speed acpu_freq_tbl_1188[] = {
+static struct clkctl_acpu_speed acpu_freq_tbl_v2[] = {
   { {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    L2(1),   812500, 0x03006000},
   /* MAX_AXI row is used to source CPU cores and L2 from the AFAB clock. */
   { {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    L2(0),   875000, 0x03006000},
@@ -221,6 +224,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl_1188[] = {
   { {1, 1}, 1080000,  ACPU_SCPLL, 0, 0, 1, 0x14, L2(13), 1137500, 0x03006000},
   { {1, 1}, 1134000,  ACPU_SCPLL, 0, 0, 1, 0x15, L2(14), 1162500, 0x03006000},
   { {1, 1}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, L2(15), 1187500, 0x03006000},
+  { {1, 1}, 1512000,  ACPU_SCPLL, 0, 0, 1, 0x1C, L2(16), 1250000, 0x03006000},
   { {0, 0}, 0 },
 };
 /* acpu_freq_tbl row to use when reconfiguring SC/L2 PLLs. */
@@ -745,11 +749,30 @@ static void __init cpufreq_table_init(void)
 static void __init cpufreq_table_init(void) {}
 #endif
 
-static void __init select_freq_tables(void)
+static void __init select_freq_plan(void)
 {
-	acpu_freq_tbl = acpu_freq_tbl_1188;
-	l2_freq_tbl = l2_freq_tbl_1188;
-	l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_1188);
+	uint32_t speed_bin, max_khz;
+	struct clkctl_acpu_speed *f;
+
+	acpu_freq_tbl = acpu_freq_tbl_v2;
+	l2_freq_tbl = l2_freq_tbl_v2;
+	l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_v2);
+
+	speed_bin = readl(QFPROM_SPEED_BIN_PRI) & 0xF;
+	if (speed_bin == 0x1)
+		max_khz = 1512000;
+	else
+		max_khz = 1188000;
+
+	/* Truncate the table based to max_khz. */
+	for (f = acpu_freq_tbl; f->acpuclk_khz != 0; f++) {
+		if (f->acpuclk_khz > max_khz) {
+			f->acpuclk_khz = 0;
+			break;
+		}
+	}
+	f--;
+	pr_info("Max ACPU freq: %u KHz\n", f->acpuclk_khz);
 }
 
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
@@ -761,7 +784,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 
 	/* Configure hardware. */
-	select_freq_tables();
+	select_freq_plan();
 	unselect_scplls();
 	scpll_set_refs();
 	for_each_possible_cpu(cpu)
