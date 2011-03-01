@@ -116,6 +116,29 @@ module_param_named(
 		display_kernel_enable, display_kernel_enable,
 		int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+int hidden_reset_enable = 0;
+module_param_named(
+		hidden_reset_enable, hidden_reset_enable,
+		int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+int on_hidden_reset = 0;
+module_param_named(
+		on_hidden_reset, on_hidden_reset,
+		int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+static int __init check_hidden_reset(char *reset_mode)
+{
+	if (!strncmp(reset_mode, "on", 2)) {
+		on_hidden_reset = 1;
+		printk(KERN_INFO"reboot mode: hidden reset %s\n", "on");
+	}
+	
+	return 1;
+}
+__setup("lge.hreset=", check_hidden_reset);
+#endif
+
 static struct ram_console_buffer *ram_console_buffer = 0;
 
 static int get_panic_report_start(uint32_t start, uint32_t size, uint8_t *data)

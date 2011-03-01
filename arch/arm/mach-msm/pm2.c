@@ -46,6 +46,9 @@
 #include <asm/vfp.h>
 #endif
 
+#ifdef CONFIG_MACH_LGE
+#include <mach/board_lge.h>
+#endif
 #ifdef CONFIG_MSM_MEMORY_LOW_POWER_MODE_SUSPEND_DEEP_POWER_DOWN
 #include <mach/msm_migrate_pages.h>
 #endif
@@ -1778,7 +1781,13 @@ static void msm_pm_power_off(void)
 						  0, SMSM_SYSTEM_POWER_DOWN);
 #endif
 
+/* FIXME: Bloock the rpcrouter close when system restart
+ *	  Sometimes, RPC CALL is called atfer RPC is closed
+ *        taehung.kim@lge.com
+ */
+#if 0 
 	msm_rpcrouter_close();
+#endif
 	printk(KERN_INFO"%s: \n",__func__);
 	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
 	for (;;)
@@ -1793,10 +1802,35 @@ static void msm_pm_restart(char str, const char *cmd)
 	 * from google's mahimahi kernel
 	 * 2010-05-04, cleaneye.kim@lge.com
 	 */
+    unsigned long irqflags;
+	static DEFINE_SPINLOCK(state_lock);
 	msm_pm_flush_console();
+	if (restart_reason == 0x776655BB) {
+		void *copy_addr;
+		unsigned int *rc_buffer;
+
+		copy_addr = lge_get_fb_copy_virt_addr();
+		*((unsigned *)copy_addr) = restart_reason;
+
+		rc_buffer = (unsigned int *)get_ram_console_buffer();
+		*rc_buffer = 0x0;
+
+	    	spin_lock_irqsave(&state_lock, irqflags);
+		smsm_reset_modem(SMSM_APPS_SHUTDOWN);
+		smsm_reset_modem(SMSM_SYSTEM_REBOOT);
+
+		while (1)
+			;
+	}
 #endif
 
+/* FIXME: Bloock the rpcrouter close when system restart
+ *	  Sometimes, RPC CALL is called atfer RPC is closed
+ *        taehung.kim@lge.com
+ */
+#if 0 
 	msm_rpcrouter_close();
+#endif
 	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
 
 	for (;;)
@@ -1819,6 +1853,9 @@ static int msm_reboot_call
 			restart_reason = 0x6f656d00 | code;
 		} else if (!strncmp(cmd, "", 1)) {
 			restart_reason = 0x776655AA;
+		} else if (!strncmp(cmd, "charge_reset", 12)) {
+			restart_reason = 0x776655BB;
+
 		} else {
 			restart_reason = 0x77665501;
 		}

@@ -185,8 +185,39 @@ static struct platform_device msm_fb_device = {
 	}
 };
 
+static void *fb_copy_virt;
+void *lge_get_fb_copy_virt_addr(void)
+{
+	return (void *)fb_copy_virt;
+}
+static size_t fb_copy_phys;
+static size_t fb_copy_size;
+
+void *lge_get_fb_copy_phys_addr(void)
+{
+	return (void *)fb_copy_phys;
+}
+static void __init lge_make_fb_pmem(void)
+{
+	struct membank *bank = &meminfo.bank[0];
+	unsigned *temp;
+
+	fb_copy_phys = MSM7X27_EBI1_CS0_BASE + bank->size + LGE_RAM_CONSOLE_SIZE;
+	fb_copy_size = 320 * 240 * 2;
+	fb_copy_virt = ioremap(fb_copy_phys, fb_copy_size);
+
+	temp = fb_copy_virt;
+	*temp = 0x0;
+
+	printk("FB START PHYS ADDR : %x\n", fb_copy_phys);
+	printk("FB START VIRT ADDR : %x\n", (unsigned)fb_copy_virt);
+	printk("FB SIZE : %x\n", fb_copy_size);
+
+	return;
+}
 void __init msm_add_fb_device(void) 
 {
+	lge_make_fb_pmem();
 	platform_device_register(&msm_fb_device);
 }
 

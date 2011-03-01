@@ -105,7 +105,7 @@
 #define ECOM_GPIO_I2C_SDA	108	/*108 in p500*/
 #define ECOM_GPIO_RST
 #define ECOM_GPIO_INT		31
-#define ECOM_I2C_ADDRESS		0x0E /* slave address 7bit */
+#define ECOM_I2C_ADDRESS		0x0F /* slave address 7bit */
 
 /* lcd & backlight */
 #define GPIO_LCD_BL_EN		82
