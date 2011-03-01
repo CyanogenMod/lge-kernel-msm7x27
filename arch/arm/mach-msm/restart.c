@@ -111,6 +111,11 @@ void arch_reset(char mode, const char *cmd)
 		iounmap(restart_reason);
 	}
 
+	writel(0, PSHOLD_CTL_SU); /* Actually reset the chip */
+	mdelay(5000);
+
+	printk(KERN_NOTICE "PS_HOLD didn't work, falling back to watchdog\n");
+
 	writel(1, WDT0_RST);
 	writel(0, WDT0_EN);
 	writel(0x31F3, WDT0_BARK_TIME);
@@ -120,6 +125,7 @@ void arch_reset(char mode, const char *cmd)
 	secure_writel(3, MSM_TCSR_BASE + TCSR_WDT_CFG);
 
 	mdelay(10000);
+	printk(KERN_ERR "Restarting has failed\n");
 }
 
 static int __init msm_restart_init(void)
