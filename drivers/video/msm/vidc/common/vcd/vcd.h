@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -321,6 +321,8 @@ u32 vcd_handle_ind_output_reconfig_in_flushing
     (struct vcd_clnt_ctxt *cctxt, void* payload, u32 status);
 
 void vcd_flush_output_buffers(struct vcd_clnt_ctxt *cctxt);
+
+void vcd_flush_bframe_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode);
 
 u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode);
 void vcd_flush_buffers_in_err_fatal(struct vcd_clnt_ctxt *cctxt);

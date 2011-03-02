@@ -20,13 +20,12 @@ config DIAG_OVER_USB
 	 This feature helps segregate code required for DIAG traffic to go over USB.
 endmenu
 
-menu "Modem less Diag Support"
+menu "SDIO support for DIAG"
 
-config DIAG_NO_MODEM
-	bool "Enable DIAG even when no modem is present"
-	depends on USB_ANDROID_DIAG || USB_FUNCTION_DIAG
-	depends on ARCH_MSM
-	default n
+config DIAG_SDIO_PIPE
+	depends on MSM_SDIO_AL
+	default y
+	bool "Enable 9K DIAG traffic over SDIO"
 	help
-	 This enables DIAG support even when no modem is present.
+	 SDIO Transport Layer for DIAG Router
 endmenu

@@ -32,6 +32,7 @@
 
 #include <linux/types.h>
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 
 #define DSPS_SIGNATURE	0x12345678
 
@@ -66,12 +67,27 @@ struct dsps_gpio_info {
 };
 
 /**
+ * DSPS Power regulators Platform data.
+ *
+ * @name - regulator name.
+ * @volt - required voltage (in uV).
+ * @reg - reserved for the driver.
+ */
+struct dsps_regulator_info {
+	const char *name;
+	int volt;
+	struct regulator *reg;
+};
+
+/**
  * DSPS Platform data.
  *
  * @clks - array of clocks.
  * @clks_num - number of clocks in array.
  * @gpios - array of gpios.
  * @gpios_num - number of gpios.
+ * @regs - array of regulators.
+ * @regs_num - number of regulators.
  * @signature - signature for validity check.
  */
 struct msm_dsps_platform_data {
@@ -79,6 +95,8 @@ struct msm_dsps_platform_data {
 	int clks_num;
 	struct dsps_gpio_info *gpios;
 	int gpios_num;
+	struct dsps_regulator_info *regs;
+	int regs_num;
 	u32 signature;
 };
 

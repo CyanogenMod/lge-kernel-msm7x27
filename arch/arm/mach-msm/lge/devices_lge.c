@@ -185,8 +185,43 @@ static struct platform_device msm_fb_device = {
 	}
 };
 
+static void *fb_copy_virt;
+void *lge_get_fb_copy_virt_addr(void)
+{
+	return (void *)fb_copy_virt;
+}
+static size_t fb_copy_phys;
+static size_t fb_copy_size;
+
+void *lge_get_fb_copy_phys_addr(void)
+{
+	return (void *)fb_copy_phys;
+}
+static void __init lge_make_fb_pmem(void)
+{
+	struct membank *bank = &meminfo.bank[0];
+	unsigned *temp;
+
+	fb_copy_phys = MSM7X27_EBI1_CS0_BASE + bank->size + LGE_RAM_CONSOLE_SIZE;
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	fb_copy_size = 320 * 240 * 2;
+#else
+	fb_copy_size = 320 * 480 * 2;
+#endif
+	fb_copy_virt = ioremap(fb_copy_phys, fb_copy_size);
+
+	temp = fb_copy_virt;
+	*temp = 0x0;
+
+	printk("FB START PHYS ADDR : %x\n", fb_copy_phys);
+	printk("FB START VIRT ADDR : %x\n", (unsigned)fb_copy_virt);
+	printk("FB SIZE : %x\n", fb_copy_size);
+
+	return;
+}
 void __init msm_add_fb_device(void) 
 {
+	lge_make_fb_pmem();
 	platform_device_register(&msm_fb_device);
 }
 
@@ -747,39 +782,30 @@ static int hsusb_rpc_connect(int connect)
 	else
 		return msm_hsusb_rpc_close();
 }
+#endif
 
+#ifdef CONFIG_USB_MSM_OTG_72K
 struct vreg *vreg_3p3;
 static int msm_hsusb_ldo_init(int init)
 {
 	if (init) {
+		/*
+		 * PHY 3.3V analog domain(VDDA33) is powered up by
+		 * an always enabled power supply (LP5900TL-3.3).
+		 * USB VREG default source is VBUS line. Turning
+		 * on USB VREG has a side effect on the USB suspend
+		 * current. Hence USB VREG is explicitly turned
+		 * off here.
+		 */
 		vreg_3p3 = vreg_get(NULL, "usb");
 		if (IS_ERR(vreg_3p3))
 			return PTR_ERR(vreg_3p3);
-		vreg_set_level(vreg_3p3, 3300);
-	} else
+		vreg_enable(vreg_3p3);
+		vreg_disable(vreg_3p3);
 		vreg_put(vreg_3p3);
+	}
 
 	return 0;
-}
-
-static int msm_hsusb_ldo_enable(int enable)
-{
-	static int ldo_status;
-
-	if (!vreg_3p3 || IS_ERR(vreg_3p3))
-		return -ENODEV;
-
-	if (ldo_status == enable)
-		return 0;
-
-	ldo_status = enable;
-
-	pr_info("%s: %d", __func__, enable);
-
-	if (enable)
-		return vreg_enable(vreg_3p3);
-
-	return vreg_disable(vreg_3p3);
 }
 
 static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
@@ -817,8 +843,8 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.vbus_power = msm_hsusb_vbus_power,
 #endif
 	.ldo_init       = msm_hsusb_ldo_init,
-	.ldo_enable     = msm_hsusb_ldo_enable,
-	.pclk_required_during_lpm = 1
+	.pclk_required_during_lpm = 1,
+	.pclk_src_name		= "ebi1_usb_clk",
 };
 
 #ifdef CONFIG_USB_GADGET

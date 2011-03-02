@@ -25,6 +25,11 @@
 
 #include "proc_comm.h"
 #include "smd_private.h"
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+/* LGE_CHANGE_S [bluerti@lge.com] 2009-07-06 <For Error Handler > */
+#include "lge/lge_errorhandler.h"
+/* LGE_CHANGE_E [bluerti@lge.com] 2009-07-06 <For Error Handler > */
+#endif
 
 #if defined(CONFIG_ARCH_MSM7X30)
 #define MSM_TRIG_A2M_PC_INT (writel(1 << 6, MSM_GCC_BASE + 0x8))
@@ -102,11 +107,14 @@ int msm_proc_comm(unsigned cmd, unsigned *data1, unsigned *data2)
 	int ret;
 
 	spin_lock_irqsave(&proc_comm_lock, flags);
-
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+	if (proc_comm_wait_for(base + MDM_STATUS, PCOM_READY))
+		goto crash;
+#else
 again:
 	if (proc_comm_wait_for(base + MDM_STATUS, PCOM_READY))
 		goto again;
-
+#endif
 	writel(cmd, base + APP_COMMAND);
 	writel(data1 ? *data1 : 0, base + APP_DATA1);
 	writel(data2 ? *data2 : 0, base + APP_DATA2);
@@ -114,7 +122,11 @@ again:
 	notify_other_proc_comm();
 
 	if (proc_comm_wait_for(base + APP_COMMAND, PCOM_CMD_DONE))
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+		goto crash;
+#else
 		goto again;
+#endif
 
 	if (readl(base + APP_STATUS) == PCOM_CMD_SUCCESS) {
 		if (data1)
@@ -130,5 +142,29 @@ again:
 
 	spin_unlock_irqrestore(&proc_comm_lock, flags);
 	return ret;
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+/* LGE_CHANGE_S [bluerti@lge.com] 2009-07-06 <For Error Handler > */
+crash:
+	{
+		extern char * error_modem_message ;
+		extern int LG_ErrorHandler_enable;
+	//	extern int get_status_hidden_reset();
+		int ret;
+		spin_unlock_irqrestore(&proc_comm_lock, flags);
+	
+		if (LG_ErrorHandler_enable) // check using proc_comm after arm9 crash 
+			return 0;
+		
+	//	if(get_status_hidden_reset()==0 ) {
+			ret = LGE_ErrorHandler_Main(MODEM_CRASH, error_modem_message);
+			smsm_reset_modem(ret);
+	//	} else {
+	//		smsm_reset_modem(SMSM_SYSTEM_REBOOT);
+	//	}
+		while(1) 
+			;
+	}
+/* LGE_CHANGE_E [bluerti@lge.com] 2009-07-06 <For Error Handler > */
+#endif
 }
 EXPORT_SYMBOL(msm_proc_comm);

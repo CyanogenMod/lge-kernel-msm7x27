@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -161,7 +161,7 @@ struct msm_fb_data_type {
 #endif
 	u32 mdp_fb_page_protection;
 
-	struct pm_qos_request_list *pm_qos_req;
+	struct clk *ebi1_clk;
 	boolean dma_update_flag;
 };
 

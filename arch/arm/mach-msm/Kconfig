@@ -70,6 +70,7 @@ config ARCH_MSM8X60
 	select MSM_XO
 	select MSM_GPIOMUX
 	select MSM_BUS_SCALING
+	select MSM_SECURE_IO
 
 endchoice
 
@@ -686,7 +687,7 @@ config MSM_SMD_DEBUG
 	  between the ARM9 and ARM11
 
 config MSM_SDIO_AL
-	depends on ((ARCH_MSM7X30 || ARCH_MSM8X60) && HAS_WAKELOCK)
+	depends on ((ARCH_MSM7X30 || MACH_MSM8X60_CHARM_FFA || MACH_MSM8X60_CHARM_SURF) && HAS_WAKELOCK)
 	default y
 	tristate "SDIO-Abstraction-Layer"
 	help

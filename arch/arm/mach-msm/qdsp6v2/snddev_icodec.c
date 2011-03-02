@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,8 +202,6 @@ static int get_msm_cdcclk_ctl_gpios(struct platform_device *pdev)
 static int msm_cdcclk_ctl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-
-	pr_info("%s:\n", __func__);
 
 	rc = get_msm_cdcclk_ctl_gpios(pdev);
 	if (rc < 0) {

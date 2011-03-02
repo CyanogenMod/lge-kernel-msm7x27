@@ -29,8 +29,6 @@
 #ifndef __GSL_SHAREDMEM_H
 #define __GSL_SHAREDMEM_H
 
-#include <linux/types.h>
-#include <linux/msm_kgsl.h>
 #include <linux/dma-mapping.h>
 
 #define KGSL_PAGESIZE           0x1000

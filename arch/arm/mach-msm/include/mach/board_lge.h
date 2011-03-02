@@ -321,6 +321,9 @@ enum {
 	REBOOT_KEY_PRESS = 0,
 	REBOOT_KEY_NOT_PRESS,
 };
+void *lge_get_fb_addr(void);
+void *lge_get_fb_copy_phys_addr(void);
+void *lge_get_fb_copy_virt_addr(void);
 
 struct lge_panic_handler_platform_data {
 	int (*reboot_key_detect)(void);

@@ -49,7 +49,7 @@
 #include <mach/msm_dsps.h>
 #endif
 #include <linux/gpio.h>
-#include "mdm.h"
+#include <mach/mdm.h>
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -112,9 +112,16 @@ static void charm_ap2mdm_kpdpwr_off(void)
 }
 
 static struct resource charm_resources[] = {
+	/* MDM2AP_ERRFATAL */
 	{
 		.start	= MSM_GPIO_TO_INT(133),
 		.end	= MSM_GPIO_TO_INT(133),
+		.flags = IORESOURCE_IRQ,
+	},
+	/* MDM2AP_STATUS */
+	{
+		.start	= MSM_GPIO_TO_INT(134),
+		.end	= MSM_GPIO_TO_INT(134),
 		.flags = IORESOURCE_IRQ,
 	}
 };
@@ -185,12 +192,6 @@ static struct resource msm_uart1_dm_resources[] = {
 		.start = MSM_GSBI6_PHYS,
 		.end   = MSM_GSBI6_PHYS + 4 - 1,
 		.name  = "gsbi_resource",
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.start = TCSR_BASE_PHYS,
-		.end   = TCSR_BASE_PHYS + 0x80 - 1,
-		.name  = "tcsr_resource",
 		.flags = IORESOURCE_MEM,
 	},
 	{
@@ -1115,6 +1116,17 @@ static struct dsps_clk_info dsps_clks[] = {
 	}
 };
 
+static struct dsps_regulator_info dsps_regs[] = {
+	{
+		.name = "8058_l5",
+		.volt = 2850000, /* in uV */
+	},
+	{
+		.name = "8058_s3",
+		.volt = 1800000, /* in uV */
+	}
+};
+
 /*
  * Note: GPIOs field is	intialized in run-time at the function
  * msm8x60_init_dsps().
@@ -1125,6 +1137,8 @@ struct msm_dsps_platform_data msm_dsps_pdata = {
 	.clks_num = ARRAY_SIZE(dsps_clks),
 	.gpios = NULL,
 	.gpios_num = 0,
+	.regs = dsps_regs,
+	.regs_num = ARRAY_SIZE(dsps_regs),
 	.signature = DSPS_SIGNATURE,
 };
 
@@ -1432,19 +1446,6 @@ struct platform_device msm_bus_cpss_fpb = {
 };
 #endif
 
-/* XXX: TEMPORARY FUNCTION: Should not be present in final code. */
-void __init msm_clock_dfab_temp_init(void)
-{
-	struct clk *dfab_temp_clk;
-
-	/* Until all other DFAB voters are used, add a fake vote for the max
-	 * DFAB rate so nothing breaks when the actual voters are added
-	 * one-at-a-time. */
-	dfab_temp_clk = clk_get(NULL, "dfab_temp_clk");
-	clk_set_rate(dfab_temp_clk, 64000000);
-	clk_enable(dfab_temp_clk);
-}
-
 #define FS(_id, _name) (&(struct platform_device){ \
 	.name	= "footswitch-msm8x60", \
 	.id	= (_id), \
@@ -1469,6 +1470,8 @@ struct platform_device *msm_footswitch_devices[] = {
 	FS(FS_VFE,	"fs_vfe"),
 	FS(FS_VPE,	"fs_vpe"),
 	FS(FS_GFX3D,	"fs_gfx3d"),
+	FS(FS_GFX2D0,	"fs_gfx2d0"),
+	FS(FS_GFX2D1,	"fs_gfx2d1"),
 };
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);
 
@@ -1547,7 +1550,7 @@ struct clk_lookup msm_clocks_8x60[] = {
 	CLK_8X60("uartdm_pclk",		GSBI6_P_CLK, "msm_serial_hs.0", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI7_P_CLK, "qup_i2c.4", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI8_P_CLK, "qup_i2c.3", OFF),
-	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK, "msm_seraial_hsl.1", OFF),
+	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK, "msm_serial_hsl.1", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI9_P_CLK, "qup_i2c.2", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI10_P_CLK, "spi_qsd.1", OFF),
 	CLK_8X60("gsbi_pclk",		GSBI11_P_CLK,		NULL, OFF),
@@ -1667,8 +1670,6 @@ struct clk_lookup msm_clocks_8x60[] = {
 					"dfab_clk",    "msm_sdcc.4", 0),
 	CLK_VOTER("dfab_sdc_clk",      DFAB_SDC5_CLK,
 					"dfab_clk",    "msm_sdcc.5", 0),
-	CLK_VOTER("dfab_temp_clk",    DFAB_TEMP_CLK,
-					"dfab_clk", NULL, 0),
 };
 
 unsigned msm_num_clocks_8x60 = ARRAY_SIZE(msm_clocks_8x60);

@@ -17,6 +17,7 @@
  */
 
 #include "kgsl.h"
+#include "kgsl_log.h"
 #include "kgsl_cmdstream.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_yamato.h"

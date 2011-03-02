@@ -289,13 +289,32 @@ static int atcmd_tty_tiocmset(struct tty_struct *tty, struct file *file,
 
 	if (clear & TIOCM_RI)
 		info->line_status &= ~TIOCM_RI;
-	
+
 	if (set & TIOCM_CD)
 		info->line_status |= TIOCM_CD;
-	
+
 	if (clear & TIOCM_CD)
 		info->line_status &= ~TIOCM_CD;
-	
+
+	/* DTR, RTS, CTS bit set/clear */
+	if (set & TIOCM_DTR)
+		info->line_status |= TIOCM_DTR;
+
+	if (clear & TIOCM_DTR)
+		info->line_status &= ~TIOCM_DTR;
+
+	if (set & TIOCM_RTS)
+		info->line_status |= TIOCM_RTS;
+
+	if (clear & TIOCM_RTS)
+		info->line_status &= ~TIOCM_RTS;
+
+	if (set & TIOCM_CTS)
+		info->line_status |= TIOCM_CTS;
+
+	if (clear & TIOCM_CTS)
+		info->line_status &= ~TIOCM_CTS;
+
 	barrier();
 
 	mutex_unlock(info->lock);

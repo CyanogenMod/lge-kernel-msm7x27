@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2009 Google, Inc.
  * Copyright (C) 2009 HTC Corporation
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -169,6 +169,8 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		while (cnt++ < pcm->buffer_count)
 			q6asm_read(pcm->ac);
+		pr_info("%s: AUDIO_START session id[%d]\n", __func__,
+							pcm->ac->session);
 		break;
 	}
 	case AUDIO_GET_SESSION_ID: {
@@ -188,8 +190,7 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			rc = -EFAULT;
 			break;
 		}
-
-		pr_info("%s: buffer_size:%d channel_count:%d sample_rate:%d \
+		pr_debug("%s: buffer_size:%d channel_count:%d sample_rate:%d \
 			buffer_count:%d\n", __func__, config.buffer_size,
 			config.channel_count, config.sample_rate,
 			config.buffer_count);
@@ -293,7 +294,7 @@ static int pcm_in_open(struct inode *inode, struct file *file)
 	atomic_set(&pcm->in_count, 0);
 	atomic_set(&pcm->in_opened, 1);
 	file->private_data = pcm;
-	pr_info("pcm in open\n");
+	pr_info("%s: pcm in open session id[%d]\n", __func__, pcm->ac->session);
 	return 0;
 fail:
 	if (pcm->ac)
@@ -370,6 +371,8 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct pcm *pcm = file->private_data;
 
+	pr_info("[%s:%s] release session id[%d]\n", __MM_FILE__,
+		__func__, pcm->ac->session);
 	mutex_lock(&pcm->lock);
 	/* remove this session from topology list */
 	auddev_cfg_tx_copp_topology(pcm->ac->session,
@@ -380,7 +383,6 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	 msm_clear_session_id(pcm->ac->session);
 	q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
-	pr_info("[%s:%s] release\n", __MM_FILE__, __func__);
 	return rc;
 }
 

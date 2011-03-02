@@ -30,8 +30,6 @@
 #define __GSL_RINGBUFFER_H
 #include <linux/msm_kgsl.h>
 #include <linux/mutex.h>
-#include "kgsl_log.h"
-#include "kgsl_sharedmem.h"
 #include "yamato_reg.h"
 
 #define GSL_STATS_RINGBUFFER
@@ -72,8 +70,6 @@ static const unsigned int kgsl_cfg_rb_blksizequadwords  = GSL_RB_SIZE_16;
 
 struct kgsl_device;
 struct kgsl_device_private;
-struct kgsl_drawctxt;
-struct kgsl_ringbuffer;
 
 #define GSL_RB_MEMPTRS_SCRATCH_COUNT	 8
 struct kgsl_rbmemptrs {
@@ -87,10 +83,12 @@ struct kgsl_rbmemptrs {
 #define GSL_RB_MEMPTRS_WPTRPOLL_OFFSET \
 	(offsetof(struct kgsl_rbmemptrs, wptr_poll))
 
+#ifdef GSL_STATS_RINGBUFFER
 struct kgsl_rbstats {
 	int64_t issues;
 	int64_t words_total;
 };
+#endif /* GSL_STATS_RINGBUFFER */
 
 
 struct kgsl_ringbuffer {
@@ -177,8 +175,6 @@ struct kgsl_ringbuffer {
 #else
 #define GSL_RB_STATS(x)
 #endif /* GSL_STATS_RINGBUFFER */
-
-struct kgsl_mem_entry;
 
 int kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				int drawctxt_index,

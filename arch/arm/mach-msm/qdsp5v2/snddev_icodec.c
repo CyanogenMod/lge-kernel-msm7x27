@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -778,8 +778,13 @@ static int snddev_icodec_probe(struct platform_device *pdev)
 			dev_info->min_voc_rx_vol[i] =
 				pdata->min_voice_rx_vol[i];
 		}
-		dev_info->dev_ops.enable_sidetone =
-		snddev_icodec_enable_sidetone;
+		/*sidetone is enabled only for  the device which
+		property set for side tone*/
+		if (pdata->property & SIDE_TONE_MASK)
+			dev_info->dev_ops.enable_sidetone =
+				snddev_icodec_enable_sidetone;
+		else
+			dev_info->dev_ops.enable_sidetone = NULL;
 	} else {
 		dev_info->dev_ops.enable_sidetone = NULL;
 	}

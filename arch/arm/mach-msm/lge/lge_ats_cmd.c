@@ -29,14 +29,15 @@ void wirte_flight_mode(int mode)
 	int fd = sys_open("/sys/devices/platform/autoall/flight", O_WRONLY, 0);
 	
 	if (fd == -1) {
-        	return;
+        //	return -1;
     	}
+	else {
+		sprintf(buf, "%d", mode);
 
-	sprintf(buf, "%d", mode);
+		sys_write(fd, buf, strlen(buf));
 
-	sys_write(fd, buf, strlen(buf));
-
-	sys_close(fd);
+		sys_close(fd);
+	}
 
 }
 

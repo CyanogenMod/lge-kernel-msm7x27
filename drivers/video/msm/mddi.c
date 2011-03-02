@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,9 +34,6 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
-#ifndef CONFIG_MSM_BUS_SCALING
-#include <linux/pm_qos_params.h>
-#endif
 #include "msm_fb.h"
 #include "mddihosti.h"
 #include "mddihost.h"
@@ -67,6 +64,8 @@ static struct clk *mddi_clk;
 static struct clk *mddi_pclk;
 static struct mddi_platform_data *mddi_pdata;
 
+DEFINE_MUTEX(mddi_timer_lock);
+
 static int mddi_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "pm_runtime: suspending...\n");
@@ -93,6 +92,7 @@ static struct dev_pm_ops mddi_dev_pm_ops = {
 
 static int pmdh_clk_status;
 int irq_enabled;
+unsigned char mddi_timer_shutdown_flag;
 
 static struct platform_driver mddi_driver = {
 	.probe = mddi_probe,
@@ -111,22 +111,46 @@ static struct platform_driver mddi_driver = {
 };
 
 extern int int_mddi_pri_flag;
-
-void pmdh_clk_set(int enable)
-{
-	if (enable)
-		pmdh_clk_enable();
-	else
-		pmdh_clk_disable();
-}
 DEFINE_MUTEX(pmdh_clk_lock);
+
+int pmdh_clk_func(int value)
+{
+	int ret = 0;
+
+	switch (value) {
+	case 0:
+		pmdh_clk_disable();
+		break;
+	case 1:
+		pmdh_clk_enable();
+		break;
+	case 2:
+	default:
+		mutex_lock(&pmdh_clk_lock);
+		ret = pmdh_clk_status;
+		mutex_unlock(&pmdh_clk_lock);
+		break;
+	}
+	return ret;
+}
+
 static void pmdh_clk_disable()
 {
-	if (pmdh_clk_status == 0)
-		return;
 	mutex_lock(&pmdh_clk_lock);
-	if (mddi_host_timer.function)
+	if (pmdh_clk_status == 0) {
+		mutex_unlock(&pmdh_clk_lock);
+		return;
+	}
+
+	if (mddi_host_timer.function) {
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 1;
+		mutex_unlock(&mddi_timer_lock);
 		del_timer_sync(&mddi_host_timer);
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 0;
+		mutex_unlock(&mddi_timer_lock);
+	}
 	if (int_mddi_pri_flag && irq_enabled) {
 		disable_irq(INT_MDDI_PRI);
 		irq_enabled = 0;
@@ -143,10 +167,12 @@ static void pmdh_clk_disable()
 
 static void pmdh_clk_enable()
 {
-	if (pmdh_clk_status == 1)
-		return;
-
 	mutex_lock(&pmdh_clk_lock);
+	if (pmdh_clk_status == 1) {
+		mutex_unlock(&pmdh_clk_lock);
+		return;
+	}
+
 	if (mddi_clk) {
 		clk_enable(mddi_clk);
 		pmdh_clk_status = 1;
@@ -190,7 +216,8 @@ static int mddi_off(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+	if (mfd->ebi1_clk)
+		clk_disable(mfd->ebi1_clk);
 #endif
 	pm_runtime_put(&pdev->dev);
 	return ret;
@@ -211,6 +238,7 @@ static int mddi_on(struct platform_device *pdev)
 	if (mddi_pdata && mddi_pdata->mddi_power_save)
 		mddi_pdata->mddi_power_save(1);
 
+	pmdh_clk_enable();
 #ifdef ENABLE_FWD_LINK_SKEW_CALIBRATION
 	if (mddi_client_type < 2) {
 		/* For skew calibration, clock should be less than 50MHz */
@@ -249,7 +277,8 @@ static int mddi_on(struct platform_device *pdev)
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(2);
 #else
-	pm_qos_update_request(mfd->pm_qos_req, 65000);
+	if (mfd->ebi1_clk)
+		clk_enable(mfd->ebi1_clk);
 #endif
 	ret = panel_next_on(pdev);
 
@@ -327,7 +356,7 @@ static int mddi_probe(struct platform_device *pdev)
 	pdata->on = mddi_on;
 	pdata->off = mddi_off;
 	pdata->next = pdev;
-	pdata->clk_set = pmdh_clk_set;
+	pdata->clk_func = pmdh_clk_func;
 	/*
 	 * get/set panel specific fb info
 	 */
@@ -368,10 +397,10 @@ static int mddi_probe(struct platform_device *pdev)
 	rc = 0;
 	pm_runtime_enable(&pdev->dev);
 #ifndef CONFIG_MSM_BUS_SCALING
-	mfd->pm_qos_req = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
-					       PM_QOS_DEFAULT_VALUE);
-	if (!mfd->pm_qos_req)
-		return -ENOMEM;
+	mfd->ebi1_clk = clk_get(NULL, "ebi1_mddi_clk");
+	if (IS_ERR(mfd->ebi1_clk))
+		return PTR_ERR(mfd->ebi1_clk);
+	clk_set_rate(mfd->ebi1_clk, 65000000);
 #endif
 	/*
 	 * register in mdp driver
@@ -435,11 +464,25 @@ static int mddi_is_in_suspend;
 
 static int mddi_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	mddi_host_type host_idx = MDDI_HOST_PRIM;
 	if (mddi_is_in_suspend)
 		return 0;
 
 	mddi_is_in_suspend = 1;
-	mddi_disable(0);
+
+	if (mddi_power_locked)
+		return 0;
+
+	pmdh_clk_enable();
+
+	mddi_pad_ctrl = mddi_host_reg_in(PAD_CTL);
+	mddi_host_reg_out(PAD_CTL, 0x0);
+
+	if (clk_set_min_rate(mddi_clk, 0) < 0)
+		printk(KERN_ERR "%s: clk_set_min_rate failed\n", __func__);
+
+	pmdh_clk_disable();
+
 	return 0;
 }
 
@@ -486,8 +529,15 @@ static void mddi_early_resume(struct early_suspend *h)
 static int mddi_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-	if (mddi_host_timer.function)
+	if (mddi_host_timer.function) {
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 1;
+		mutex_unlock(&mddi_timer_lock);
 		del_timer_sync(&mddi_host_timer);
+		mutex_lock(&mddi_timer_lock);
+		mddi_timer_shutdown_flag = 0;
+		mutex_unlock(&mddi_timer_lock);
+	}
 
 	iounmap(msm_pmdh_base);
 

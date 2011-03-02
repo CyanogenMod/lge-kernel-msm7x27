@@ -348,6 +348,7 @@ static int mt9t113_reg_preview(void)
 	  do {
  	  mt9t113_i2c_write(mt9t113_client->addr, 0x098E, 0x8400, WORD_LEN);
  	  mt9t113_i2c_read(mt9t113_client->addr, 0x0990, &temp, WORD_LEN);
+if(!(temp & 0x0005))
     printk(KERN_ERR "preview extra polling %d\n", temp);
  	 } while( temp & 0x0005 );
 	 } else {
@@ -686,13 +687,13 @@ static int32_t mt9t113_set_brightness(int8_t brightness)
 static int mt9t113_init_sensor(const struct msm_camera_sensor_info *data)
 {
 
-#if defined(MT9T113_TUN)
- mt9t113_read_register_from_file();
-#endif
 
 	int rc;
 	int num = 0;
 	unsigned short temp;
+#if defined(MT9T113_TUN)
+ mt9t113_read_register_from_file();
+#endif
 
 	rc = data->pdata->camera_power_on();
 	if (rc < 0) {
@@ -726,6 +727,7 @@ static int mt9t113_init_sensor(const struct msm_camera_sensor_info *data)
 	/* pll polling */
  do {
   mt9t113_i2c_read(mt9t113_client->addr, 0x0018, &temp, WORD_LEN);
+if(!(temp & 0x4000))
   printk(KERN_ERR "pll polling 0x%x\n", temp);
 
  } while( temp & 0x4000 );

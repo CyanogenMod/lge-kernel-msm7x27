@@ -25,8 +25,6 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
-#include <linux/reboot.h>
-#include <linux/interrupt.h>
 #include <linux/diagchar.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
@@ -37,7 +35,7 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagchar_hdlc.h"
-#ifdef CONFIG_MSM_SDIO_AL
+#ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
 #endif
 
@@ -49,7 +47,6 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 
-#ifdef CONFIG_DIAG_NO_MODEM
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 
@@ -68,9 +65,12 @@ do {									\
 		usb_diag_write(driver->legacy_ch, driver->write_ptr_1);	\
 	}								\
 } while (0)
-#endif
+
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 ((bufStart <= start) && (end - start >= length)) ? 1 : 0
+
+#define CHK_APQ_GET_ID() \
+(socinfo_get_id() == 86) ? 4062 : 0
 
 void __diag_smd_send_req(void)
 {
@@ -188,10 +188,14 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			write_ptr->buf = buf;
 			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		}
-#ifdef CONFIG_MSM_SDIO_AL
+#ifdef CONFIG_DIAG_SDIO_PIPE
 		else if (proc_num == SDIO_DATA) {
-			write_ptr->buf = buf;
-			err = usb_diag_write(driver->mdm_ch, write_ptr);
+			if (machine_is_msm8x60_charm_surf() ||
+					machine_is_msm8x60_charm_ffa()) {
+				write_ptr->buf = buf;
+				err = usb_diag_write(driver->mdm_ch, write_ptr);
+			} else
+				pr_err("diag: Incorrect data while USB write");
 		}
 #endif
 		APPEND_DEBUG('d');
@@ -462,52 +466,46 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		diag_update_msg_mask((uint32_t)start, (uint32_t)end , buf);
 		diag_update_userspace_clients(MSG_MASKS_TYPE);
 	}
-	/* Check for mode reset command */
-	else if (cpu_is_msm8x60() && (*buf == 0x29) && (*(buf+1) == 0x02)
-						   && (*(buf+2) == 0x00)) {
-		/* call reset API */
-		printk(KERN_CRIT "diag: mode reset, Rebooting SoC..\n");
-		lock_kernel();
-		kernel_restart(NULL);
-		unlock_kernel();
-		return 0;
-	}
 	/* Set all run-time masks
 	if ((*buf == 0x7d) && (*(++buf) == 0x5)) {
 		TO DO
 	} */
-#if defined(CONFIG_DIAG_NO_MODEM) && defined(CONFIG_DIAG_OVER_USB)
-	/* Respond to polling for Apps only DIAG */
-	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) && (*(buf+2) == 0x03)) {
-		for (i = 0; i < 3; i++)
-			driver->apps_rsp_buf[i] = *(buf+i);
-		for (i = 0; i < 13; i++)
-			driver->apps_rsp_buf[i+3] = 0;
+#if defined(CONFIG_DIAG_OVER_USB)
+	 /* Check for ID for APQ8060 AND NO MODEM present */
+	else if (!(driver->ch) && CHK_APQ_GET_ID()) {
+		/* Respond to polling for Apps only DIAG */
+		if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
+							 (*(buf+2) == 0x03)) {
+			for (i = 0; i < 3; i++)
+				driver->apps_rsp_buf[i] = *(buf+i);
+			for (i = 0; i < 13; i++)
+				driver->apps_rsp_buf[i+3] = 0;
 
-		ENCODE_RSP_AND_SEND(15);
-		return 0;
-	}
-	/* respond to 0x0 command */
-	else if (*buf == 0x00) {
-		for (i = 0; i < 55; i++)
-			driver->apps_rsp_buf[i] = 0;
+			ENCODE_RSP_AND_SEND(15);
+			return 0;
+		}
+		/* respond to 0x0 command */
+		else if (*buf == 0x00) {
+			for (i = 0; i < 55; i++)
+				driver->apps_rsp_buf[i] = 0;
 
-		ENCODE_RSP_AND_SEND(54);
-		return 0;
+			ENCODE_RSP_AND_SEND(54);
+			return 0;
+		}
+		/* respond to 0x7c command */
+		else if (*buf == 0x7c) {
+			driver->apps_rsp_buf[0] = 0x7c;
+			for (i = 1; i < 8; i++)
+				driver->apps_rsp_buf[i] = 0;
+			/* Tools ID for APQ 8060 */
+			*(int *)(driver->apps_rsp_buf + 8) = CHK_APQ_GET_ID();
+			*(unsigned char *)(driver->apps_rsp_buf + 12) = '\0';
+			*(unsigned char *)(driver->apps_rsp_buf + 13) = '\0';
+			ENCODE_RSP_AND_SEND(13);
+			return 0;
+		}
 	}
-	/* respond to 0x7c command */
-	else if (*buf == 0x7c) {
-		driver->apps_rsp_buf[0] = 0x7c;
-		for (i = 1; i < 8; i++)
-			driver->apps_rsp_buf[i] = 0;
-
-		*(int *)(driver->apps_rsp_buf + 8) = 4062; /* ID for APQ 8060 */
-		*(unsigned char *)(driver->apps_rsp_buf + 12) = '\0';
-		*(unsigned char *)(driver->apps_rsp_buf + 13) = '\0';
-		ENCODE_RSP_AND_SEND(13);
-		return 0;
-	}
-#endif /* DIAG over USB & NO MODEM present */
+#endif
 	/* Check for registered clients and forward packet to user-space */
 	else{
 		cmd_code = (int)(*(char *)buf);
@@ -597,14 +595,13 @@ void diag_process_hdlc(void *data, unsigned len)
 					   DUMP_PREFIX_ADDRESS, data, len, 1);
 		driver->debug_flag = 0;
 	}
-#ifdef CONFIG_DIAG_NO_MODEM
-	if (type == 1) { /* implies this packet is NOT meant for apps */
+	/* implies this packet is NOT meant for apps */
+	if (!(driver->ch) && type == 1 && CHK_APQ_GET_ID()) {
 		if (driver->chqdsp)
 			smd_write(driver->chqdsp, driver->hdlc_buf,
 							 hdlc.dest_idx - 3);
 		type = 0;
 	}
-#endif /* NO MODEM present */
 
 #ifdef DIAG_DEBUG
 	printk(KERN_INFO "\n hdlc.dest_idx = %d", hdlc.dest_idx);
@@ -651,11 +648,13 @@ int diagfwd_connect(void)
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
 	/* Poll USB channel to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_work));
-#ifdef CONFIG_MSM_SDIO_AL
-	if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
-		diagfwd_connect_sdio();
-	else
-		printk(KERN_INFO "diag:No data from SDIO without  USB MDM ch");
+#ifdef CONFIG_DIAG_SDIO_PIPE
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa()) {
+		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
+			diagfwd_connect_sdio();
+		else
+			printk(KERN_INFO "diag: No USB MDM ch");
+	}
 #endif
 	return 0;
 }
@@ -670,9 +669,10 @@ int diagfwd_disconnect(void)
 	driver->in_busy_qdsp_2 = 1;
 	driver->debug_flag = 1;
 	usb_diag_free_req(driver->legacy_ch);
-#ifdef CONFIG_MSM_SDIO_AL
-	if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
-		diagfwd_disconnect_sdio();
+#ifdef CONFIG_DIAG_SDIO_PIPE
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
+		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
+			diagfwd_disconnect_sdio();
 #endif
 	/* TBD - notify and flow control SMD */
 	return 0;
@@ -700,9 +700,13 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		APPEND_DEBUG('P');
 		queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
 	}
-#ifdef CONFIG_MSM_SDIO_AL
+#ifdef CONFIG_DIAG_SDIO_PIPE
 	else if (buf == (void *)driver->buf_in_sdio)
-		diagfwd_write_complete_sdio();
+		if (machine_is_msm8x60_charm_surf() ||
+					 machine_is_msm8x60_charm_ffa())
+			diagfwd_write_complete_sdio();
+		else
+			pr_err("diag: Incorrect buffer pointer while WRITE");
 #endif
 	else {
 		diagmem_free(driver, (unsigned char *)buf, POOL_TYPE_HDLC);
@@ -717,29 +721,36 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 {
 	int status = diag_read_ptr->status;
 	unsigned char *buf = diag_read_ptr->buf;
-	driver->read_len = diag_read_ptr->actual;
 
 	/* Determine if the read complete is for data on legacy/mdm ch */
 	if (buf == (void *)driver->usb_buf_out) {
+		driver->read_len_legacy = diag_read_ptr->actual;
 		APPEND_DEBUG('s');
 #ifdef DIAG_DEBUG
 		printk(KERN_INFO "read data from USB, pkt length %d",
 		    diag_read_ptr->actual);
-	print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
+		print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
 		       DUMP_PREFIX_ADDRESS, diag_read_ptr->buf,
 		       diag_read_ptr->actual, 1);
 #endif /* DIAG DEBUG */
-	if (driver->logging_mode == USB_MODE) {
-		if (status != -ECONNRESET && status != -ESHUTDOWN)
-			queue_work(driver->diag_wq,
+		if (driver->logging_mode == USB_MODE) {
+			if (status != -ECONNRESET && status != -ESHUTDOWN)
+				queue_work(driver->diag_wq,
 					&(driver->diag_proc_hdlc_work));
-		else
-			queue_work(driver->diag_wq, &(driver->diag_read_work));
+			else
+				queue_work(driver->diag_wq,
+						 &(driver->diag_read_work));
+		}
 	}
+#ifdef CONFIG_DIAG_SDIO_PIPE
+	else if (buf == (void *)driver->usb_buf_mdm_out) {
+		if (machine_is_msm8x60_charm_surf() ||
+					 machine_is_msm8x60_charm_ffa()) {
+			driver->read_len_mdm = diag_read_ptr->actual;
+			diagfwd_read_complete_sdio();
+		} else
+			pr_err("diag: Incorrect buffer pointer while READ");
 	}
-#ifdef CONFIG_MSM_SDIO_AL
-	else if (buf == (void *)driver->usb_buf_mdm_out)
-		diagfwd_read_complete_sdio();
 #endif
 	else
 		printk(KERN_ERR "diag: Unknown buffer ptr from USB");
@@ -759,7 +770,7 @@ void diag_read_work_fn(struct work_struct *work)
 void diag_process_hdlc_fn(struct work_struct *work)
 {
 	APPEND_DEBUG('D');
-	diag_process_hdlc(driver->usb_buf_out, driver->read_len);
+	diag_process_hdlc(driver->usb_buf_out, driver->read_len_legacy);
 	diag_read_work_fn(work);
 	APPEND_DEBUG('E');
 }
@@ -848,6 +859,7 @@ static struct platform_driver msm_smd_ch1_driver = {
 void diagfwd_init(void)
 {
 	diag_debug_buf_idx = 0;
+	driver->read_len_legacy = 0;
 	if (driver->buf_in_1 == NULL)
 		driver->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_1 == NULL)
@@ -931,12 +943,10 @@ void diagfwd_init(void)
 	     (driver->pkt_buf = kzalloc(PKT_SIZE,
 			 GFP_KERNEL)) == NULL)
 		goto err;
-#ifdef CONFIG_DIAG_NO_MODEM
 	if (driver->apps_rsp_buf == NULL)
 			driver->apps_rsp_buf = kzalloc(150, GFP_KERNEL);
 		if (driver->apps_rsp_buf == NULL)
 			goto err;
-#endif
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 #ifdef CONFIG_DIAG_OVER_USB
 	INIT_WORK(&(driver->diag_proc_hdlc_work), diag_process_hdlc_fn);
@@ -947,8 +957,9 @@ void diagfwd_init(void)
 		printk(KERN_ERR "Unable to open USB diag legacy channel\n");
 		goto err;
 	}
-#ifdef CONFIG_MSM_SDIO_AL
-	diagfwd_sdio_init();
+#ifdef CONFIG_DIAG_SDIO_PIPE
+	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
+		diagfwd_sdio_init();
 #endif
 #endif
 	platform_driver_register(&msm_smd_ch1_driver);
@@ -975,9 +986,7 @@ err:
 		kfree(driver->write_ptr_qdsp_1);
 		kfree(driver->write_ptr_qdsp_2);
 		kfree(driver->usb_read_ptr);
-#ifdef CONFIG_DIAG_NO_MODEM
 		kfree(driver->apps_rsp_buf);
-#endif
 		if (driver->diag_wq)
 			destroy_workqueue(driver->diag_wq);
 }
@@ -1016,8 +1025,6 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_qdsp_1);
 	kfree(driver->write_ptr_qdsp_2);
 	kfree(driver->usb_read_ptr);
-#ifdef CONFIG_DIAG_NO_MODEM
 	kfree(driver->apps_rsp_buf);
-#endif
 	destroy_workqueue(driver->diag_wq);
 }

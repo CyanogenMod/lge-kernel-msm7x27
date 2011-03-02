@@ -84,6 +84,9 @@ u32 msm_fb_msg_level = 7;
 
 /* Setting mddi_msg_level to 8 prints out ALL messages */
 u32 mddi_msg_level = 5;
+#ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
+int msm_fb_refesh_enabled = 1;	// LGE_CHANGE [bluerti@lge.com] 2009-07-18
+#endif
 
 extern int32 mdp_block_power_cnt[MDP_MAX_BLOCK];
 extern unsigned long mdp_timer_duration;

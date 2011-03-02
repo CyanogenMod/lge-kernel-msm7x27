@@ -30,7 +30,7 @@
 #ifndef KGSL_POSTMORTEM_H
 #define KGSL_POSTMORTEM_H
 
-#include "kgsl.h"
+struct kgsl_device;
 
 void kgsl_postmortem_init(struct dentry *);
 

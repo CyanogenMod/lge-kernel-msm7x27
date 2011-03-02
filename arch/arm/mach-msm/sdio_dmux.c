@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -561,6 +561,7 @@ int msm_sdio_dmux_close(uint32_t id)
 
 	sdio_ch[id].receive_cb = NULL;
 	sdio_ch[id].priv = NULL;
+	sdio_ch[id].status &= ~SDIO_CH_LOCAL_OPEN;
 	spin_unlock_irqrestore(&sdio_ch[id].lock, flags);
 
 	hdr.magic_num = SDIO_MUX_HDR_MAGIC_NO;

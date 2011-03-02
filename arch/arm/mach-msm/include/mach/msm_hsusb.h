@@ -1,7 +1,7 @@
 /* linux/include/mach/hsusb.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -179,6 +179,7 @@ struct msm_otg_platform_data {
 	 * now being disabled because of H/w issues
 	 */
 	int			pclk_is_hw_gated;
+	char			*pclk_src_name;
 
 	int (*ldo_init) (int init);
 	int (*ldo_enable) (int enable);
@@ -205,7 +206,6 @@ struct msm_otg_platform_data {
 	int (*init_vddcx)(int init);
 
 	struct pm_qos_request_list *pm_qos_req_dma;
-	struct clk *ebi1_clk;
 };
 
 struct msm_usb_host_platform_data {

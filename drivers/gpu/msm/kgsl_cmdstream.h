@@ -32,7 +32,6 @@
 
 #include <linux/msm_kgsl.h>
 #include "kgsl_device.h"
-#include "kgsl_log.h"
 
 #ifdef KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 #define KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
@@ -54,6 +53,8 @@
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_PMODE			0x00000001
 #define KGSL_CMD_FLAGS_NO_TS_CMP		0x00000002
+
+struct kgsl_mem_entry;
 
 int kgsl_cmdstream_init(struct kgsl_device *device);
 

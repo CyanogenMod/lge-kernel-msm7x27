@@ -578,12 +578,12 @@ static void rmnet_start_rx(struct rmnet_dev *dev)
 	struct usb_composite_dev *cdev = dev->cdev;
 	int status;
 	struct usb_request *req;
-	struct list_head *act, *tmp;
+	struct list_head *pool = &dev->rx_idle;
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev->lock, flags);
-	list_for_each_safe(act, tmp, &dev->rx_idle) {
-		req = list_entry(act, struct usb_request, list);
+	while (!list_empty(pool)) {
+		req = list_entry(pool->next, struct usb_request, list);
 		list_del(&req->list);
 
 		spin_unlock_irqrestore(&dev->lock, flags);
@@ -592,7 +592,7 @@ static void rmnet_start_rx(struct rmnet_dev *dev)
 
 		if (status) {
 			ERROR(cdev, "rmnet data rx enqueue err %d\n", status);
-			list_add_tail(&req->list, &dev->rx_idle);
+			list_add_tail(&req->list, pool);
 			break;
 		}
 	}
