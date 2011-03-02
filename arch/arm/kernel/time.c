@@ -161,9 +161,9 @@ device_initcall(timer_init_sysfs);
 
 void __init time_init(void)
 {
-	system_timer->init();
 #ifdef CONFIG_HAVE_SCHED_CLOCK
 	sched_clock_postinit();
 #endif
+	system_timer->init();
 }
 
