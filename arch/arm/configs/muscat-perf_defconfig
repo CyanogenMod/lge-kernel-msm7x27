@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.10
-# Tue Mar  1 14:52:21 2011
+# Wed Mar  2 13:07:36 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -76,8 +76,7 @@ CONFIG_RESOURCE_COUNTERS=y
 # CONFIG_CGROUP_MEM_RES_CTLR is not set
 CONFIG_CGROUP_SCHED=y
 CONFIG_FAIR_GROUP_SCHED=y
-# CONFIG_FAIR_GROUP_SCHED is not set
-CONFIG_RT_GROUP_SCHED=y
+# CONFIG_RT_GROUP_SCHED is not set
 # CONFIG_BLK_CGROUP is not set
 # CONFIG_SYSFS_DEPRECATED_V2 is not set
 CONFIG_RELAY=y
