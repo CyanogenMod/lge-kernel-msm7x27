@@ -1134,15 +1134,19 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	spin_lock_irqsave(&host->lock, flags);
 	if (!(clk & MCI_CLK_ENABLE) && host->clks_on) {
-		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO &&
-				!host->plat->sdiowakeup_irq) {
-			writel(MCI_SDIOINTMASK, host->base + MMCIMASK0);
-			WARN_ON(host->sdcc_irq_disabled);
-			if (host->plat->cfg_mpm_sdiowakeup &&
+		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
+			if (!host->plat->sdiowakeup_irq) {
+				writel(MCI_SDIOINTMASK, host->base + MMCIMASK0);
+				WARN_ON(host->sdcc_irq_disabled);
+				if (host->plat->cfg_mpm_sdiowakeup &&
 					(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ))
-				host->plat->cfg_mpm_sdiowakeup(
-						mmc_dev(mmc), 1);
-			enable_irq_wake(host->irqres->start);
+					host->plat->cfg_mpm_sdiowakeup(
+							mmc_dev(mmc), 1);
+				enable_irq_wake(host->irqres->start);
+			} else {
+				writel(0, host->base + MMCIMASK0);
+			}
+			msmsdcc_delay(host);
 		}
 		clk_disable(host->clk);
 		if (!IS_ERR(host->pclk))
