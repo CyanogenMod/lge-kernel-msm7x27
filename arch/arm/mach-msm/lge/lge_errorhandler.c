@@ -105,6 +105,26 @@ char * android_errhanlder_ptr = NULL;
 
 	while(1)
 	{
+#ifdef CONFIG_MACH_MSM7X27_GELATO
+		/*
+		 * for Gelato Rev.A Board
+		 * FIXME: it should be modified for the common usage.
+		 * 2011-03-02, jinkyu.choi@lge.com
+		 */
+		gpio_set_value(33,0);
+		gpio_set_value(34,1);
+		gpio_set_value(35,1);
+		mdelay(50);
+
+		if(gpio_get_value(38)==0) {
+			printk("Pressed Volume up key\n");
+			return SMSM_SYSTEM_DOWNLOAD;
+		} else if(gpio_get_value(37) ==0 ) {
+			printk("Pressed Volume down key\n");
+			return SMSM_SYSTEM_REBOOT;
+		}
+		mdelay(100);
+#else
 		gpio_set_value(36,0);
 		gpio_set_value(32,1);
 		gpio_set_value(33,1);
@@ -118,6 +138,7 @@ char * android_errhanlder_ptr = NULL;
 		}
 
 		mdelay(200);
+#endif
 	
 	/*	This is for C710 project
 		// 1. Check Volume Down Key (GPIO81)
