@@ -47,8 +47,10 @@ static struct platform_device msm_batt_device = {
 
 
 /* muscat Board Vibrator Functions for Android Vibrator Driver */
-#define VIBE_IC_VOLTAGE 3300
-static uint motor_voltage = 3100;
+#define VIBE_IC_VOLTAGE 3000
+static uint motor_voltage = 3000;
+static uint prev_motor_voltage = 3000;
+
 
 extern int aat2870bl_ldo_set_level(struct device * dev, unsigned num, unsigned vol);
 extern int aat2870bl_ldo_enable(struct device * dev, unsigned num, unsigned enable);
@@ -166,10 +168,22 @@ int muscat_vibrator_power_set(int enable)
 	if (enable) {
 		if (is_enabled) {
 			//printk(KERN_INFO "vibrator power was enabled, already\n");
+			
+                       if( prev_motor_voltage != motor_voltage )
+                       {
+                               if (aat28xx_ldo_set_level(dev, 1, motor_voltage) < 0)
+                               {
+                                       printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
+                                       return -EIO;
+                               }
+
+                               prev_motor_voltage = motor_voltage;
+                       }
+
 			return 0;
 		}
 
-		if (aat28xx_ldo_set_level(dev, 1, VIBE_IC_VOLTAGE) < 0) {
+		if (aat28xx_ldo_set_level(dev, 1, motor_voltage) < 0) {
 			printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
 			return -EIO;
 		}
@@ -179,7 +193,7 @@ int muscat_vibrator_power_set(int enable)
 			return -EIO;
 		}
 
-		pmic_vib_mot_set_volt(motor_voltage);
+		//pmic_vib_mot_set_volt(motor_voltage);
 		printk("%s: vibrator volage %d\n", __FUNCTION__, motor_voltage);
 
 		is_enabled = 1;
@@ -189,7 +203,7 @@ int muscat_vibrator_power_set(int enable)
 			return 0;
 		}
 		
-		pmic_vib_mot_set_volt(0);
+		//pmic_vib_mot_set_volt(0);
 
 		if (aat28xx_ldo_set_level(dev, 1, 0) < 0) {		
 			printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
@@ -208,7 +222,34 @@ int muscat_vibrator_power_set(int enable)
 
 int muscat_vibrator_pwm_set(int enable, int amp)
 {
+	
+	
 #if 1 /* for test, jinkyu.choi@lge.com */
+	if (amp >= 100)
+		motor_voltage = 3300;
+	else if (amp >= 90)
+		motor_voltage = 3200;
+	else if (amp >= 80)
+		motor_voltage = 3100;
+	else if (amp >= 70)
+		motor_voltage = 3000;
+	else if (amp >= 60)
+		motor_voltage = 2900;
+	else if (amp >= 50)
+		motor_voltage = 2800;
+	else if (amp >= 40)
+		motor_voltage = 2700;
+	else if (amp >= 30)
+		motor_voltage = 2600;
+	else if (amp >= 20)
+		motor_voltage = 2500;
+	else if (amp >= 10)
+		motor_voltage = 2200;
+	else
+		motor_voltage = 0;
+#endif
+
+#if 0 /* for test, jinkyu.choi@lge.com */
 	if (amp > 100)
 		motor_voltage = 3100;
 	else if (amp > 90)
@@ -243,7 +284,7 @@ static struct android_vibrator_platform_data muscat_vibrator_data = {
 	.power_set = muscat_vibrator_power_set,
 	.pwm_set = muscat_vibrator_pwm_set,
 	.ic_enable_set = muscat_vibrator_ic_enable_set,
-	.amp_value = 105,
+	.amp_value = 70,
 };
 
 static struct platform_device android_vibrator_device = {
