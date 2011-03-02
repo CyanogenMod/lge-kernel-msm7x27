@@ -782,11 +782,62 @@ static void msmsdcc_wait_for_rxdata(struct msmsdcc_host *host,
 	}
 }
 
+static void msmsdcc_do_cmdirq(struct msmsdcc_host *host, uint32_t status)
+{
+	struct mmc_command *cmd = host->curr.cmd;
+
+	host->curr.cmd = NULL;
+	cmd->resp[0] = readl(host->base + MMCIRESPONSE0);
+	cmd->resp[1] = readl(host->base + MMCIRESPONSE1);
+	cmd->resp[2] = readl(host->base + MMCIRESPONSE2);
+	cmd->resp[3] = readl(host->base + MMCIRESPONSE3);
+
+	if (status & MCI_CMDTIMEOUT) {
+#if VERBOSE_COMMAND_TIMEOUTS
+		pr_err("%s: Command timeout\n", mmc_hostname(host->mmc));
+#endif
+		cmd->error = -ETIMEDOUT;
+	} else if (status & MCI_CMDCRCFAIL && cmd->flags & MMC_RSP_CRC) {
+		pr_err("%s: Command CRC error\n", mmc_hostname(host->mmc));
+		cmd->error = -EILSEQ;
+	}
+
+	if (!cmd->data || cmd->error) {
+		if (host->curr.data && host->dma.sg)
+			msm_dmov_stop_cmd(host->dma.channel,
+					  &host->dma.hdr, 0);
+		else if (host->curr.data) { /* Non DMA */
+			msmsdcc_reset_and_restore(host);
+			msmsdcc_stop_data(host);
+			msmsdcc_request_end(host, cmd->mrq);
+		} else { /* host->data == NULL */
+			if (!cmd->error && host->prog_enable) {
+				if (status & MCI_PROGDONE) {
+					host->prog_scan = 0;
+					host->prog_enable = 0;
+					 msmsdcc_request_end(host, cmd->mrq);
+				} else
+					host->curr.cmd = cmd;
+			} else {
+				if (host->prog_enable) {
+					host->prog_scan = 0;
+					host->prog_enable = 0;
+				}
+				if (cmd->data && cmd->error)
+					msmsdcc_reset_and_restore(host);
+				msmsdcc_request_end(host, cmd->mrq);
+			}
+		}
+	} else if (cmd->data) {
+		if (!(cmd->data->flags & MMC_DATA_READ))
+			msmsdcc_start_data(host, cmd->data, NULL, 0);
+	}
+}
+
 static irqreturn_t
 msmsdcc_irq(int irq, void *dev_id)
 {
 	struct msmsdcc_host	*host = dev_id;
-	void __iomem		*base = host->base;
 	u32			status;
 	int			ret = 0;
 	int			timer = 0;
@@ -867,61 +918,7 @@ msmsdcc_irq(int irq, void *dev_id)
 		cmd = host->curr.cmd;
 		if ((status & (MCI_CMDSENT | MCI_CMDRESPEND | MCI_CMDCRCFAIL |
 			      MCI_CMDTIMEOUT | MCI_PROGDONE)) && cmd) {
-
-			host->curr.cmd = NULL;
-
-			cmd->resp[0] = readl(base + MMCIRESPONSE0);
-			cmd->resp[1] = readl(base + MMCIRESPONSE1);
-			cmd->resp[2] = readl(base + MMCIRESPONSE2);
-			cmd->resp[3] = readl(base + MMCIRESPONSE3);
-
-			if (status & MCI_CMDTIMEOUT) {
-#if VERBOSE_COMMAND_TIMEOUTS
-				pr_err("%s: Command timeout\n",
-				       mmc_hostname(host->mmc));
-#endif
-				cmd->error = -ETIMEDOUT;
-			} else if (status & MCI_CMDCRCFAIL &&
-				   cmd->flags & MMC_RSP_CRC) {
-				pr_err("%s: Command CRC error\n",
-				       mmc_hostname(host->mmc));
-				cmd->error = -EILSEQ;
-			}
-
-			if (!cmd->data || cmd->error) {
-				if (host->curr.data && host->dma.sg)
-					msm_dmov_stop_cmd(host->dma.channel,
-							  &host->dma.hdr, 0);
-				else if (host->curr.data) { /* Non DMA */
-					msmsdcc_reset_and_restore(host);
-					msmsdcc_stop_data(host);
-					timer |= msmsdcc_request_end(host,
-							cmd->mrq);
-				} else { /* host->data == NULL */
-					if (!cmd->error && host->prog_enable) {
-						if (status & MCI_PROGDONE) {
-							host->prog_scan = 0;
-							host->prog_enable = 0;
-							timer |=
-							 msmsdcc_request_end(
-								host, cmd->mrq);
-						} else
-							host->curr.cmd = cmd;
-					} else {
-						if (host->prog_enable) {
-							host->prog_scan = 0;
-							host->prog_enable = 0;
-						}
-						timer |=
-							msmsdcc_request_end(
-							 host, cmd->mrq);
-					}
-				}
-			} else if (cmd->data) {
-				if (!(cmd->data->flags & MMC_DATA_READ))
-					msmsdcc_start_data(host, cmd->data,
-								NULL, 0);
-			}
+			msmsdcc_do_cmdirq(host, status);
 		}
 
 		if (data) {
