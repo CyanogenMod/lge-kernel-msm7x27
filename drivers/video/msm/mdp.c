@@ -879,8 +879,25 @@ static int mdp_runtime_resume(struct device *dev)
 	dev_dbg(dev, "pm_runtime: resuming...\n");
 	return 0;
 }
+/* FIXME : ADD workaround code for HW QGATE ABOUT MDP CLK OFF
+ * taehung.kim@lge.com
+ */
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+static void mdp_suspend_sub(void);
+static int mdp_suspend_dummy(struct device* dev)
+{
+	mdp_suspend_sub();
+	return 0;
+}
+#endif
 
 static struct dev_pm_ops mdp_dev_pm_ops = {
+/* FIXME : ADD workaround code for HW QGATE ABOUT MDP CLK OFF
+ * taehung.kim@lge.com
+ */
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	.suspend	= mdp_suspend_dummy,
+#endif
 	.runtime_suspend = mdp_runtime_suspend,
 	.runtime_resume = mdp_runtime_resume,
 };
