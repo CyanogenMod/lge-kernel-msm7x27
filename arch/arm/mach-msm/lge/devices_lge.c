@@ -203,7 +203,11 @@ static void __init lge_make_fb_pmem(void)
 	unsigned *temp;
 
 	fb_copy_phys = MSM7X27_EBI1_CS0_BASE + bank->size + LGE_RAM_CONSOLE_SIZE;
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
 	fb_copy_size = 320 * 240 * 2;
+#else
+	fb_copy_size = 320 * 480 * 2;
+#endif
 	fb_copy_virt = ioremap(fb_copy_phys, fb_copy_size);
 
 	temp = fb_copy_virt;
