@@ -175,6 +175,10 @@ static DEFINE_SPINLOCK(msm_mpm_lock);
 static DECLARE_BITMAP(msm_mpm_enabled_apps_irqs, MSM_MPM_NR_APPS_IRQS);
 static DECLARE_BITMAP(msm_mpm_wake_apps_irqs, MSM_MPM_NR_APPS_IRQS);
 
+static DECLARE_BITMAP(msm_mpm_gic_irqs_mask, MSM_MPM_NR_APPS_IRQS);
+static DECLARE_BITMAP(msm_mpm_gpio_irqs_mask, MSM_MPM_NR_APPS_IRQS);
+
+
 static uint32_t msm_mpm_enabled_irq[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_wake_irq[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_detect_ctl[MSM_MPM_REG_WIDTH];
@@ -454,6 +458,24 @@ bool msm_mpm_irqs_detectable(bool from_idle)
 	return (bool)__bitmap_empty(apps_irq_bitmap, MSM_MPM_NR_APPS_IRQS);
 }
 
+bool msm_mpm_gic_irq_enabled(bool from_idle)
+{
+	unsigned long *apps_irq_bitmap = from_idle ?
+			msm_mpm_enabled_apps_irqs : msm_mpm_wake_apps_irqs;
+
+	return __bitmap_intersects(msm_mpm_gic_irqs_mask, apps_irq_bitmap,
+			MSM_MPM_NR_APPS_IRQS);
+}
+
+bool msm_mpm_gpio_irq_enabled(bool from_idle)
+{
+	unsigned long *apps_irq_bitmap = from_idle ?
+			msm_mpm_enabled_apps_irqs : msm_mpm_wake_apps_irqs;
+
+	return __bitmap_intersects(msm_mpm_gpio_irqs_mask, apps_irq_bitmap,
+			MSM_MPM_NR_APPS_IRQS);
+}
+
 void msm_mpm_enter_sleep(bool from_idle)
 {
 	msm_mpm_set(!from_idle);
@@ -516,8 +538,13 @@ static int __init msm_mpm_init(void)
 	unsigned int irq = MSM_MPM_IPC_IRQ;
 	int rc;
 
+	bitmap_set(msm_mpm_gic_irqs_mask, 0, NR_MSM_IRQS - 1);
+	bitmap_set(msm_mpm_gpio_irqs_mask, NR_MSM_IRQS,
+			MSM_MPM_NR_APPS_IRQS - 1);
+
 	rc = request_irq(irq, msm_mpm_irq,
 			IRQF_TRIGGER_RISING, "mpm_drv", msm_mpm_irq);
+
 	if (rc) {
 		pr_err("%s: failed to request irq %u: %d\n",
 			__func__, irq, rc);
