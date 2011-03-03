@@ -89,7 +89,7 @@ struct bank_mask_info {
 	const uint32_t	mode_mask;
 };
 
-struct banked_mnd_masks {
+struct bank_masks {
 	const uint32_t			bank_sel_mask;
 	const struct bank_mask_info	bank0_mask;
 	const struct bank_mask_info	bank1_mask;
@@ -129,10 +129,10 @@ struct clk_local {
 	const uint16_t	halt_bit;
 	const uint32_t	br_en_mask;
 	const uint32_t	root_en_mask;
-	const uint32_t	ns_mask;
+	uint32_t	ns_mask;
 	const uint32_t	cc_mask;
 	const uint32_t	test_vector;
-	struct banked_mnd_masks *const banked_mnd_masks;
+	struct bank_masks *const bank_masks;
 	const int	parent;
 	const uint32_t	*const children;
 	void		(*set_rate)(struct clk_local *, struct clk_freq_tbl *);
@@ -143,7 +143,7 @@ struct clk_local {
 #define C(x)		L_##x##_CLK
 #define L_NONE_CLK	-1
 #define CLK(id, t, ns_r, cc_r, md_r, r_r, r_m, h_r, h_c, h_b, br, root, \
-		n_m, c_m, s_fn, tbl, bmnd, par, chld_lst, tv) \
+		n_m, c_m, s_fn, tbl, bmasks, par, chld_lst, tv) \
 	[C(id)] = { \
 	.type = t, \
 	.ns_reg = ns_r, \
@@ -159,7 +159,7 @@ struct clk_local {
 	.ns_mask = n_m, \
 	.cc_mask = c_m, \
 	.test_vector = tv, \
-	.banked_mnd_masks = bmnd, \
+	.bank_masks = bmasks, \
 	.parent = C(par), \
 	.children = chld_lst, \
 	.set_rate = s_fn, \
@@ -240,7 +240,6 @@ int soc_clk_reset(unsigned id, enum clk_reset_action action);
 /*
  * Generic set-rate implementations
  */
-void set_rate_basic(struct clk_local *clk, struct clk_freq_tbl *nf);
 void set_rate_mnd(struct clk_local *clk, struct clk_freq_tbl *nf);
 void set_rate_nop(struct clk_local *clk, struct clk_freq_tbl *nf);
 

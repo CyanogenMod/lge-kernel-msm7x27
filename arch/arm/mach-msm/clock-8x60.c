@@ -213,6 +213,7 @@
 #define SRC_SEL_BB_PLL0		2
 #define SRC_SEL_BB_PLL8		3
 #define SRC_SEL_BB_PLL6		4
+#define SRC_SEL_BB_GND		6
 #define SRC_SEL_MM_PXO		0
 #define SRC_SEL_MM_PLL0		1
 #define SRC_SEL_MM_PLL1		1
@@ -220,12 +221,15 @@
 #define SRC_SEL_MM_GPERF	2
 #define SRC_SEL_MM_GPLL0	3
 #define SRC_SEL_MM_MXO		4
+#define SRC_SEL_MM_GND		6
 #define SRC_SEL_XO_CXO		0
 #define SRC_SEL_XO_PXO		1
 #define SRC_SEL_XO_MXO		2
+#define SRC_SEL_XO_GND		3
 #define SRC_SEL_LPA_PXO		0
 #define SRC_SEL_LPA_CXO		1
 #define SRC_SEL_LPA_PLL0	2
+#define SRC_SEL_LPA_GND		6
 
 /* Source name mapping. */
 #define SRC_BB_PXO		PXO
@@ -234,6 +238,7 @@
 #define SRC_BB_PLL0		PLL_0
 #define SRC_BB_PLL8		PLL_8
 #define SRC_BB_PLL6		PLL_6
+#define SRC_BB_GND		SRC_NONE
 #define SRC_MM_PXO		PXO
 #define SRC_MM_PLL0		PLL_1
 #define SRC_MM_PLL1		PLL_2
@@ -241,12 +246,15 @@
 #define SRC_MM_GPERF		PLL_8
 #define SRC_MM_GPLL0		PLL_0
 #define SRC_MM_MXO		SRC_NONE
+#define SRC_MM_GND		SRC_NONE
 #define SRC_XO_CXO		CXO
 #define SRC_XO_PXO		PXO
 #define SRC_XO_MXO		SRC_NONE
+#define SRC_XO_GND		SRC_NONE
 #define SRC_LPA_PXO		PXO
 #define SRC_LPA_CXO		CXO
 #define SRC_LPA_PLL0		PLL_4
+#define SRC_LPA_GND		SRC_NONE
 
 /* Test Vector Macros */
 #define TEST_TYPE_PER_LS	1
@@ -269,7 +277,7 @@
 
 static void set_rate_cam(struct clk_local *clk, struct clk_freq_tbl *nf)
 {
-	uint32_t ns_reg_val, cc_reg_val;
+	uint32_t cc_reg_val;
 
 	/* Assert MND reset. */
 	cc_reg_val = readl(clk->cc_reg);
@@ -283,12 +291,6 @@ static void set_rate_cam(struct clk_local *clk, struct clk_freq_tbl *nf)
 	cc_reg_val &= ~(clk->cc_mask);
 	cc_reg_val |= nf->cc_val;
 	writel(cc_reg_val, clk->cc_reg);
-
-	/* Program N value, divider and source. */
-	ns_reg_val = readl(clk->ns_reg);
-	ns_reg_val &= ~(clk->ns_mask);
-	ns_reg_val |= nf->ns_val;
-	writel(ns_reg_val, clk->ns_reg);
 
 	/* Deassert MND reset. */
 	cc_reg_val &= ~BIT(8);
@@ -345,7 +347,7 @@ static void set_rate_tv(struct clk_local *clk, struct clk_freq_tbl *nf)
 
 static void set_rate_mnd_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 {
-	struct banked_mnd_masks *banks = clk->banked_mnd_masks;
+	struct bank_masks *banks = clk->bank_masks;
 	const struct bank_mask_info *new_bank_masks;
 	const struct bank_mask_info *old_bank_masks;
 	uint32_t ns_reg_val, cc_reg_val;
@@ -356,8 +358,8 @@ static void set_rate_mnd_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 	 * both banks aren't running. */
 	cc_reg_val = readl(clk->cc_reg);
 	bank_sel = !!(cc_reg_val & banks->bank_sel_mask);
-	 /* If clock is disabled, don't switch banks. */
-	bank_sel ^= !(clk->count);
+	 /* If clock isn't running, don't switch banks. */
+	bank_sel ^= (clk->count == 0 || clk->current_freq->freq_hz == 0);
 	if (bank_sel == 0) {
 		new_bank_masks = &banks->bank1_mask;
 		old_bank_masks = &banks->bank0_mask;
@@ -372,6 +374,15 @@ static void set_rate_mnd_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 	ns_reg_val |= new_bank_masks->rst_mask;
 	writel(ns_reg_val, clk->ns_reg);
 
+	/* Program NS only if the clock is enabled, since the NS will be set
+	 * as part of the enable procedure and should remain with a low-power
+	 * MUX input selected until then. */
+	if (clk->count) {
+		ns_reg_val &= ~(new_bank_masks->ns_mask);
+		ns_reg_val |= (nf->ns_val & new_bank_masks->ns_mask);
+		writel(ns_reg_val, clk->ns_reg);
+	}
+
 	writel(nf->md_val, new_bank_masks->md_reg);
 
 	/* Enable counter only if clock is enabled. */
@@ -384,60 +395,85 @@ static void set_rate_mnd_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 	cc_reg_val |= (nf->cc_val & new_bank_masks->mode_mask);
 	writel(cc_reg_val, clk->cc_reg);
 
-	ns_reg_val &= ~(new_bank_masks->ns_mask);
-	ns_reg_val |= (nf->ns_val & new_bank_masks->ns_mask);
-	writel(ns_reg_val, clk->ns_reg);
-
 	/* Deassert bank MND reset. */
 	ns_reg_val &= ~(new_bank_masks->rst_mask);
 	writel(ns_reg_val, clk->ns_reg);
 
-	/* Switch to the new bank if clock is on.  If it isn't, then no
-	 * switch is necessary since we programmed the active bank. */
-	if (clk->count) {
+	/* Switch to the new bank if clock is running.  If it isn't, then
+	 * no switch is necessary since we programmed the active bank. */
+	if (clk->count && clk->current_freq->freq_hz) {
 		cc_reg_val ^= banks->bank_sel_mask;
 		writel(cc_reg_val, clk->cc_reg);
 		/* Wait at least 6 cycles of slowest bank's clock
 		 * for the glitch-free MUX to fully switch sources. */
 		udelay(1);
 
-		/* Disable previous MN counter. */
+		/* Disable old bank's MN counter. */
 		cc_reg_val &= ~(old_bank_masks->mnd_en_mask);
 		writel(cc_reg_val, clk->cc_reg);
+
+		/* Program old bank to a low-power source and divider. */
+		ns_reg_val &= ~(old_bank_masks->ns_mask);
+		ns_reg_val |= (clk->freq_tbl->ns_val & old_bank_masks->ns_mask);
+		writel(ns_reg_val, clk->ns_reg);
 	}
 
 	/* If this freq requires the MN counter to be enabled,
 	 * update the enable mask to match the current bank. */
 	if (nf->mnd_en_mask)
 		nf->mnd_en_mask = new_bank_masks->mnd_en_mask;
+	/* Update the NS mask to match the current bank. */
+	clk->ns_mask = new_bank_masks->ns_mask;
 }
 
 static void set_rate_div_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 {
-	uint32_t ns_reg_val, ns_mask, bank_sel;
+	struct bank_masks *banks = clk->bank_masks;
+	const struct bank_mask_info *new_bank_masks;
+	const struct bank_mask_info *old_bank_masks;
+	uint32_t ns_reg_val, bank_sel;
 
 	/* Determine active bank and program the other one. If the clock is
 	 * off, program the active bank since bank switching won't work if
 	 * both banks aren't running. */
 	ns_reg_val = readl(clk->ns_reg);
-	bank_sel = !!(ns_reg_val & BIT(30));
-	 /* If clock is disabled, don't switch banks. */
-	bank_sel ^= !(clk->count);
-	if (bank_sel == 0)
-		ns_mask = (BM(29, 26) | BM(21, 19));
-	else
-		ns_mask = (BM(25, 22) | BM(18, 16));
+	bank_sel = !!(ns_reg_val & banks->bank_sel_mask);
+	 /* If clock isn't running, don't switch banks. */
+	bank_sel ^= (clk->count == 0 || clk->current_freq->freq_hz == 0);
+	if (bank_sel == 0) {
+		new_bank_masks = &banks->bank1_mask;
+		old_bank_masks = &banks->bank0_mask;
+	} else {
+		new_bank_masks = &banks->bank0_mask;
+		old_bank_masks = &banks->bank1_mask;
+	}
 
-	ns_reg_val &= ~(ns_mask);
-	ns_reg_val |= (nf->ns_val & ns_mask);
-	writel(ns_reg_val, clk->ns_reg);
-
-	/* Switch to the new bank if clock is on.  If it isn't, then no
-	 * switch is necessary since we programmed the active bank. */
+	/* Program NS only if the clock is enabled, since the NS will be set
+	 * as part of the enable procedure and should remain with a low-power
+	 * MUX input selected until then. */
 	if (clk->count) {
-		ns_reg_val ^= BIT(30);
+		ns_reg_val &= ~(new_bank_masks->ns_mask);
+		ns_reg_val |= (nf->ns_val & new_bank_masks->ns_mask);
 		writel(ns_reg_val, clk->ns_reg);
 	}
+
+	/* Switch to the new bank if clock is running.  If it isn't, then
+	 * no switch is necessary since we programmed the active bank. */
+	if (clk->count && clk->current_freq->freq_hz) {
+		ns_reg_val ^= banks->bank_sel_mask;
+		writel(ns_reg_val, clk->ns_reg);
+		/* Wait at least 6 cycles of slowest bank's clock
+		 * for the glitch-free MUX to fully switch sources. */
+		udelay(1);
+
+		/* Program old bank to a low-power source and divider. */
+		ns_reg_val &= ~(old_bank_masks->ns_mask);
+		ns_reg_val |= (clk->freq_tbl->ns_val & old_bank_masks->ns_mask);
+		writel(ns_reg_val, clk->ns_reg);
+	}
+
+	/* Update the NS mask to match the current bank. */
+	clk->ns_mask = new_bank_masks->ns_mask;
 }
 
 /*
@@ -573,6 +609,7 @@ static void set_rate_div_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_gsbi_uart[] = {
+	F_GSBI_UART(       0, BB_GND,  1,  0,   0, NONE),
 	F_GSBI_UART( 3686400, BB_PLL8, 1,  6, 625, LOW),
 	F_GSBI_UART( 7372800, BB_PLL8, 1, 12, 625, LOW),
 	F_GSBI_UART(14745600, BB_PLL8, 1, 24, 625, LOW),
@@ -622,6 +659,7 @@ static struct clk_freq_tbl clk_tbl_gsbi_uart[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
+	F_GSBI_QUP(       0, BB_GND,  1, 0,  0, NONE),
 	F_GSBI_QUP( 1100000, BB_PXO,  1, 2, 49, LOW),
 	F_GSBI_QUP( 5400000, BB_PXO,  1, 1,  5, LOW),
 	F_GSBI_QUP(10800000, BB_PXO,  1, 2,  5, LOW),
@@ -648,7 +686,7 @@ static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
 		.br_en_mask = BIT(9), \
 		.root_en_mask = BIT(11), \
 		.ns_mask = BM(1, 0), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_pdm, \
 		.parent = L_NONE_CLK, \
 		.current_freq = &local_dummy_freq, \
@@ -661,6 +699,7 @@ static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_pdm[] = {
+	F_PDM(       0, XO_GND, 1, NONE),
 	F_PDM(27000000, XO_PXO, 1, LOW),
 	F_END,
 };
@@ -678,7 +717,7 @@ static struct clk_freq_tbl clk_tbl_pdm[] = {
 		.halt_bit = 10, \
 		.br_en_mask = BIT(10), \
 		.ns_mask = (BM(6, 3) | BM(2, 0)), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_prng, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_PER_LS(0x7D), \
@@ -727,6 +766,7 @@ static struct clk_freq_tbl clk_tbl_prng[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_sdc[] = {
+	F_SDC(       0,  BB_GND,  1, 0,   0, NONE),
 	F_SDC(  144000,  BB_PXO,  3, 2, 125, LOW),
 	F_SDC(  400000, BB_PLL8,  4, 1, 240, LOW),
 	F_SDC(16000000, BB_PLL8,  4, 1,   6, LOW),
@@ -766,6 +806,7 @@ static struct clk_freq_tbl clk_tbl_sdc[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_tsif_ref[] = {
+	F_TSIF_REF(     0, BB_GND, 1, 0,   0, NONE),
 	F_TSIF_REF(105000, BB_PXO, 1, 1, 256, LOW),
 	F_END,
 };
@@ -782,7 +823,7 @@ static struct clk_freq_tbl clk_tbl_tsif_ref[] = {
 		.halt_bit = 4, \
 		.br_en_mask = BIT(4), \
 		.ns_mask = BM(1, 0), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_tssc, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_PER_LS(0x94), \
@@ -796,6 +837,7 @@ static struct clk_freq_tbl clk_tbl_tsif_ref[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_tssc[] = {
+	F_TSSC(       0, XO_GND, NONE),
 	F_TSSC(27000000, XO_PXO, LOW),
 	F_END,
 };
@@ -845,6 +887,7 @@ static struct clk_freq_tbl clk_tbl_tssc[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_usb[] = {
+	F_USB(       0, BB_GND,  1, 0,  0, NONE),
 	F_USB(60000000, BB_PLL8, 1, 5, 32, NOMINAL),
 	F_END,
 };
@@ -879,6 +922,7 @@ static struct clk_freq_tbl clk_tbl_usb[] = {
 		.sys_vdd = v \
 	}
 static struct clk_freq_tbl clk_tbl_cam[] = {
+	F_CAM(        0, MM_GND,   1, 0,  0, NONE),
 	F_CAM(  6000000, MM_GPERF, 4, 1, 16, LOW),
 	F_CAM(  8000000, MM_GPERF, 4, 1, 12, LOW),
 	F_CAM( 12000000, MM_GPERF, 4, 1,  8, LOW),
@@ -901,7 +945,7 @@ static struct clk_freq_tbl clk_tbl_cam[] = {
 		.cc_reg = CSI_CC_REG, \
 		.root_en_mask = BIT(2), \
 		.ns_mask = (BM(15, 12) | BM(2, 0)), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_csi, \
 		.parent = L_NONE_CLK, \
 		.children = chld_csi_src, \
@@ -915,6 +959,7 @@ static struct clk_freq_tbl clk_tbl_cam[] = {
 		.sys_vdd = v \
 	}
 static struct clk_freq_tbl clk_tbl_csi[] = {
+	F_CSI(        0, MM_GND,   1, NONE),
 	F_CSI(192000000, MM_GPERF, 2, LOW),
 	F_CSI(384000000, MM_GPERF, 1, NOMINAL),
 	F_END,
@@ -932,7 +977,7 @@ static struct clk_freq_tbl clk_tbl_csi[] = {
 		.halt_check = DELAY, \
 		.root_en_mask = BIT(2), \
 		.ns_mask = BM(27, 24), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_dsi_byte, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_MM_LS(0x00), \
@@ -956,7 +1001,7 @@ static struct clk_freq_tbl clk_tbl_dsi_byte[] = {
 };
 
 /* GFX2D0 and GFX2D1 */
-static struct banked_mnd_masks bmnd_info_gfx2d0 = {
+static struct bank_masks bmnd_info_gfx2d0 = {
 	.bank_sel_mask =			BIT(11),
 	.bank0_mask = {
 			.md_reg =		GFX2D0_MD0_REG,
@@ -987,12 +1032,12 @@ static struct banked_mnd_masks bmnd_info_gfx2d0 = {
 		.root_en_mask = BIT(2), \
 		.set_rate = set_rate_mnd_banked, \
 		.freq_tbl = clk_tbl_gfx2d, \
-		.banked_mnd_masks = &bmnd_info_gfx2d0, \
+		.bank_masks = &bmnd_info_gfx2d0, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_MM_HS(0x07), \
 		.current_freq = &local_dummy_freq, \
 	}
-static struct banked_mnd_masks bmnd_info_gfx2d1 = {
+static struct bank_masks bmnd_info_gfx2d1 = {
 	.bank_sel_mask =		BIT(11),
 	.bank0_mask = {
 			.md_reg =		GFX2D1_MD0_REG,
@@ -1023,7 +1068,7 @@ static struct banked_mnd_masks bmnd_info_gfx2d1 = {
 		.root_en_mask = BIT(2), \
 		.set_rate = set_rate_mnd_banked, \
 		.freq_tbl = clk_tbl_gfx2d, \
-		.banked_mnd_masks = &bmnd_info_gfx2d1, \
+		.bank_masks = &bmnd_info_gfx2d1, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_MM_HS(0x08), \
 		.current_freq = &local_dummy_freq, \
@@ -1039,6 +1084,7 @@ static struct banked_mnd_masks bmnd_info_gfx2d1 = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_gfx2d[] = {
+	F_GFX2D(        0, MM_GND,   0,  0, NONE),
 	F_GFX2D( 27000000, MM_PXO,   0,  0, LOW),
 	F_GFX2D( 48000000, MM_GPERF, 1,  8, LOW),
 	F_GFX2D( 54857000, MM_GPERF, 1,  7, LOW),
@@ -1055,7 +1101,7 @@ static struct clk_freq_tbl clk_tbl_gfx2d[] = {
 };
 
 /* GFX3D */
-static struct banked_mnd_masks bmnd_info_gfx3d = {
+static struct bank_masks bmnd_info_gfx3d = {
 	.bank_sel_mask =		BIT(11),
 	.bank0_mask = {
 			.md_reg =		GFX3D_MD0_REG,
@@ -1086,7 +1132,7 @@ static struct banked_mnd_masks bmnd_info_gfx3d = {
 		.root_en_mask = BIT(2), \
 		.set_rate = set_rate_mnd_banked, \
 		.freq_tbl = clk_tbl_gfx3d, \
-		.banked_mnd_masks = &bmnd_info_gfx3d, \
+		.bank_masks = &bmnd_info_gfx3d, \
 		.parent = L_##par##_CLK, \
 		.test_vector = TEST_MM_HS(0x09), \
 		.current_freq = &local_dummy_freq, \
@@ -1102,6 +1148,7 @@ static struct banked_mnd_masks bmnd_info_gfx3d = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_gfx3d[] = {
+	F_GFX3D(        0, MM_GND,   0,  0, NONE),
 	F_GFX3D( 27000000, MM_PXO,   0,  0, LOW),
 	F_GFX3D( 48000000, MM_GPERF, 1,  8, LOW),
 	F_GFX3D( 54857000, MM_GPERF, 1,  7, LOW),
@@ -1153,6 +1200,7 @@ static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_ijpeg[] = {
+	F_IJPEG(        0, MM_GND,   1, 0,  0, NONE),
 	F_IJPEG( 27000000, MM_PXO,   1, 0,  0, LOW),
 	F_IJPEG( 36570000, MM_GPERF, 1, 2, 21, LOW),
 	F_IJPEG( 54860000, MM_GPERF, 7, 0,  0, LOW),
@@ -1179,7 +1227,7 @@ static struct clk_freq_tbl clk_tbl_ijpeg[] = {
 		.br_en_mask = BIT(0), \
 		.root_en_mask = BIT(2), \
 		.ns_mask =  (BM(15, 12) | BM(2, 0)), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_jpegd, \
 		.parent = L_##par##_CLK, \
 		.test_vector = TEST_MM_HS(0x0A), \
@@ -1193,6 +1241,7 @@ static struct clk_freq_tbl clk_tbl_ijpeg[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_jpegd[] = {
+	F_JPEGD(        0, MM_GND,   1, NONE),
 	F_JPEGD( 64000000, MM_GPERF, 6, LOW),
 	F_JPEGD( 76800000, MM_GPERF, 5, LOW),
 	F_JPEGD( 96000000, MM_GPERF, 4, LOW),
@@ -1202,7 +1251,7 @@ static struct clk_freq_tbl clk_tbl_jpegd[] = {
 };
 
 /* MDP */
-static struct banked_mnd_masks bmnd_info_mdp = {
+static struct bank_masks bmnd_info_mdp = {
 	.bank_sel_mask =		BIT(11),
 	.bank0_mask = {
 			.md_reg =		MDP_MD0_REG,
@@ -1233,7 +1282,7 @@ static struct banked_mnd_masks bmnd_info_mdp = {
 		.root_en_mask = BIT(2), \
 		.set_rate = set_rate_mnd_banked, \
 		.freq_tbl = clk_tbl_mdp, \
-		.banked_mnd_masks = &bmnd_info_mdp, \
+		.bank_masks = &bmnd_info_mdp, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_MM_HS(0x1A), \
 		.current_freq = &local_dummy_freq, \
@@ -1249,6 +1298,7 @@ static struct banked_mnd_masks bmnd_info_mdp = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_mdp[] = {
+	F_MDP(        0, MM_GND,   0,  0, NONE),
 	F_MDP(  9600000, MM_GPERF, 1, 40, LOW),
 	F_MDP( 13710000, MM_GPERF, 1, 28, LOW),
 	F_MDP( 27000000, MM_PXO,   0,  0, LOW),
@@ -1279,7 +1329,7 @@ static struct clk_freq_tbl clk_tbl_mdp[] = {
 		.halt_bit = 22, \
 		.br_en_mask = BIT(6), \
 		.ns_mask = BIT(13), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_mdp_vsync, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_MM_LS(0x20), \
@@ -1331,6 +1381,7 @@ static struct clk_freq_tbl clk_tbl_mdp_vsync[] = {
 		.sys_vdd = v \
 	}
 static struct clk_freq_tbl clk_tbl_pixel_mdp[] = {
+	F_PIXEL_MDP(        0, MM_GND,   1,   0,    0, NONE),
 	F_PIXEL_MDP( 25600000, MM_GPERF, 3,   1,    5, LOW),
 	F_PIXEL_MDP( 42667000, MM_GPERF, 1,   1,    9, LOW),
 	F_PIXEL_MDP( 43192000, MM_GPERF, 1,  64,  569, LOW),
@@ -1346,6 +1397,15 @@ static struct clk_freq_tbl clk_tbl_pixel_mdp[] = {
 };
 
 /* ROT */
+static struct bank_masks bdiv_info_rot = {
+	.bank_sel_mask = BIT(30),
+	.bank0_mask = {
+		.ns_mask =	BM(25, 22) | BM(18, 16),
+	},
+	.bank1_mask = {
+		.ns_mask =	BM(29, 26) | BM(21, 19),
+	},
+};
 #define CLK_ROT(id) \
 	[L_##id##_CLK] = { \
 		.type = BASIC, \
@@ -1360,6 +1420,7 @@ static struct clk_freq_tbl clk_tbl_pixel_mdp[] = {
 		.root_en_mask = BIT(2), \
 		.set_rate = set_rate_div_banked, \
 		.freq_tbl = clk_tbl_rot, \
+		.bank_masks = &bdiv_info_rot, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_MM_HS(0x1B), \
 		.current_freq = &local_dummy_freq, \
@@ -1373,6 +1434,7 @@ static struct clk_freq_tbl clk_tbl_pixel_mdp[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_rot[] = {
+	F_ROT(        0, MM_GND,    1, NONE),
 	F_ROT( 27000000, MM_PXO,    1, LOW),
 	F_ROT( 29540000, MM_GPERF, 13, LOW),
 	F_ROT( 32000000, MM_GPERF, 12, LOW),
@@ -1425,6 +1487,7 @@ static struct pll_rate mm_pll2_rate[] = {
 	[4] = PLL_RATE(44,    0,     0, 2, 4, 0x6248F), /* 297000000 Hz */
 };
 static struct clk_freq_tbl clk_tbl_tv[] = {
+	F_TV(        0, MM_GND,  &mm_pll2_rate[0], 1, 0, 0, NONE),
 	F_TV( 25200000, MM_PLL2, &mm_pll2_rate[0], 2, 0, 0, LOW),
 	F_TV( 27000000, MM_PLL2, &mm_pll2_rate[1], 2, 0, 0, LOW),
 	F_TV( 27030000, MM_PLL2, &mm_pll2_rate[2], 4, 0, 0, LOW),
@@ -1466,6 +1529,7 @@ static struct clk_freq_tbl clk_tbl_tv[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_vcodec[] = {
+	F_VCODEC(        0, MM_GND,   0,  0, NONE),
 	F_VCODEC( 27000000, MM_PXO,   0,  0, LOW),
 	F_VCODEC( 32000000, MM_GPERF, 1, 12, LOW),
 	F_VCODEC( 48000000, MM_GPERF, 1,  8, LOW),
@@ -1491,7 +1555,7 @@ static struct clk_freq_tbl clk_tbl_vcodec[] = {
 		.br_en_mask = BIT(0), \
 		.root_en_mask = BIT(2), \
 		.ns_mask = (BM(15, 12) | BM(2, 0)), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_vpe, \
 		.parent = L_NONE_CLK, \
 		.test_vector = TEST_MM_HS(0x1C), \
@@ -1505,6 +1569,7 @@ static struct clk_freq_tbl clk_tbl_vcodec[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_vpe[] = {
+	F_VPE(        0, MM_GND,    1, NONE),
 	F_VPE( 27000000, MM_PXO,    1, LOW),
 	F_VPE( 34909000, MM_GPERF, 11, LOW),
 	F_VPE( 38400000, MM_GPERF, 10, LOW),
@@ -1550,6 +1615,7 @@ static struct clk_freq_tbl clk_tbl_vpe[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_vfe[] = {
+	F_VFE(        0, MM_GND,    1, 0,  0, NONE),
 	F_VFE( 13960000, MM_GPERF,  1, 2, 55, LOW),
 	F_VFE( 27000000, MM_PXO,    1, 0,  0, LOW),
 	F_VFE( 36570000, MM_GPERF,  1, 2, 21, LOW),
@@ -1600,6 +1666,7 @@ static struct clk_freq_tbl clk_tbl_vfe[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_aif_osr[] = {
+	F_AIF_OSR(       0, LPA_GND,  1, 0,   0, NONE),
 	F_AIF_OSR(  768000, LPA_PLL0, 4, 1, 176, LOW),
 	F_AIF_OSR( 1024000, LPA_PLL0, 4, 1, 132, LOW),
 	F_AIF_OSR( 1536000, LPA_PLL0, 4, 1,  88, LOW),
@@ -1625,7 +1692,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr[] = {
 		.halt_check = DELAY, \
 		.br_en_mask = BIT(15), \
 		.ns_mask = BM(14, 10), \
-		.set_rate = set_rate_basic, \
+		.set_rate = set_rate_nop, \
 		.freq_tbl = clk_tbl_aif_bit, \
 		.parent = L_NONE_CLK, \
 		.test_vector = tv, \
@@ -1677,6 +1744,7 @@ static struct clk_freq_tbl clk_tbl_aif_bit[] = {
 		.sys_vdd = v, \
 	}
 static struct clk_freq_tbl clk_tbl_pcm[] = {
+	F_PCM(       0, LPA_GND,  1, 0,   0, NONE),
 	F_PCM(  512000, LPA_PLL0, 4, 1, 264, LOW),
 	F_PCM(  768000, LPA_PLL0, 4, 1, 176, LOW),
 	F_PCM( 1024000, LPA_PLL0, 4, 1, 132, LOW),
@@ -2434,13 +2502,14 @@ void __init msm_clk_soc_init(void)
 	reg_init();
 
 	/* Initialize rates for clocks that only support one. */
-	set_1rate(PRNG);
-	set_1rate(MDP_VSYNC);
-	set_1rate(TSIF_REF);
-	set_1rate(TSSC);
-	set_1rate(USB_HS1_XCVR);
-	set_1rate(USB_FS1_SRC);
-	set_1rate(USB_FS2_SRC);
+	local_clk_set_rate(C(PDM), 27000000);
+	local_clk_set_rate(C(PRNG), 64000000);
+	local_clk_set_rate(C(MDP_VSYNC), 27000000);
+	local_clk_set_rate(C(TSIF_REF), 105000);
+	local_clk_set_rate(C(TSSC), 27000000);
+	local_clk_set_rate(C(USB_HS1_XCVR), 60000000);
+	local_clk_set_rate(C(USB_FS1_SRC), 60000000);
+	local_clk_set_rate(C(USB_FS2_SRC), 60000000);
 }
 
 static int msm_clk_soc_late_init(void)
