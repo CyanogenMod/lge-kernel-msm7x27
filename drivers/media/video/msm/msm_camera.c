@@ -2900,6 +2900,7 @@ static struct msm_vfe_callback msm_vfe_s = {
 	.vfe_free = msm_vfe_sync_free,
 };
 
+#if defined (CONFIG_MT9T113)	//for muscat //improve for preivew time
 int __msm_open_thread(void *data)
 {
 	int rc;
@@ -2946,11 +2947,14 @@ int __msm_open_thread(void *data)
       msm_open_thread_done:
 	return rc;
 }
+#endif
 static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 			int is_controlnode)
 {
 	int rc = 0;
+#if defined (CONFIG_MT9T113)	//for muscat //improve for preivew time
 	struct task_struct *p;
+#endif
 
 	mutex_lock(&sync->lock);
 	if (sync->apps_id && strcmp(sync->apps_id, apps_id)
@@ -2969,7 +2973,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 	if (!sync->core_powered_on && !is_controlnode) {
 		wake_lock(&sync->wake_lock);
 
-#if 0
+#if !defined (CONFIG_MT9T113) // do not apply gelato camera (not stable for gelato)
 		msm_camvfe_fn_init(&sync->vfefn, sync);
 		if (sync->vfefn.vfe_init) {
 			sync->pp_frame_avail = 0;
@@ -3007,12 +3011,14 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 				sync->vpefn.vpe_reg(&msm_vpe_s);
 			sync->unblock_poll_frame = 0;
 		}
-#endif
+		sync->core_powered_on = 1;
+#else
 		p = kthread_run(__msm_open_thread, sync, "__msm_open_thread");
 		sync->core_powered_on = 1;
 		msleep(100);
 		if (IS_ERR(p))
     		    rc = PTR_ERR(p);
+#endif
 	}
 	sync->opencnt++;
 
