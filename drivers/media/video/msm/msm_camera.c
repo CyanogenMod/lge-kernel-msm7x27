@@ -926,6 +926,9 @@ static int msm_control(struct msm_control_device *ctrl_pmsm,
 				  &ctrl_pmsm->ctrl_q,
 				  qcmd, msecs_to_jiffies(10000));
 
+	/* ownership of qcmd will be transfered to event queue */
+	qcmd = NULL;
+
 	if (!qcmd_resp || IS_ERR(qcmd_resp)) {
 		/* Do not free qcmd_resp here.  If the config thread read it,
 		 * then it has already been freed, and we timed out because
