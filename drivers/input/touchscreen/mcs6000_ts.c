@@ -320,8 +320,8 @@ static void mcs6000_work(struct work_struct *work)
 	x2 |= read_buf[6];
 	y2 |= read_buf[7];
 
-	x2 = read_buf[5];
-	y2 = read_buf[6];
+	x2 = read_buf[5]; // pinch data ==> 0:not pinched 1:pinched
+	y2 = read_buf[6]; // distance
 	
 	s_input_type = x2;
 
@@ -363,11 +363,15 @@ static void mcs6000_work(struct work_struct *work)
 
 
 			if(s_input_type == 1) {
-				mcs6000_multi_ts_event_touch(x1, y1, x2, y2, PRESSED, dev);
-				pre_x1 = x1;
-				pre_y1 = y1;
-				pre_x2 = x1;
-				pre_y2 = y2;
+				if( y2 > 240)
+					y2 = 240;
+				//create virtual coordinates
+				mcs6000_multi_ts_event_touch(0, 150, y2, 150, PRESSED, dev);
+				pre_x1 = 0;
+				pre_y1 = 150;
+				pre_x2 = y2;
+				pre_y2 = 150;
+
 			}
 			else if(s_input_type == 0) {
 				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, PRESSED, dev);
