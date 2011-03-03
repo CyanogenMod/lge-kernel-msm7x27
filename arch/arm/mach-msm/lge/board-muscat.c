@@ -140,6 +140,9 @@ char *usb_functions_lge_all[] = {
 #ifdef CONFIG_USB_F_SERIAL
 	"nmea",
 #endif
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+	"usb_cdrom_storage",
+#endif
 	"usb_mass_storage",
 	"adb",
 };
@@ -193,9 +196,20 @@ char *usb_functions_lge_manufacturing[] = {
 };
 
 /* Mass storage only mode */
-char *usb_functions_lge_mass_stroage_only[] = {
+char *usb_functions_lge_mass_storage_only[] = {
 	"usb_mass_storage",
 };
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* CDROM storage only mode(Autorun default mode) */
+char *usb_functions_lge_cdrom_storage_only[] = {
+	"usb_cdrom_storage",
+};
+
+char *usb_functions_lge_cdrom_storage_adb[] = {
+	"usb_cdrom_storage", "adb",
+};
+#endif
 
 /* QCT original's composition array is existed in device_lge.c */
 struct android_usb_product usb_products[] = {
@@ -255,9 +269,22 @@ struct android_usb_product usb_products[] = {
 	},
 	{
 		.product_id = 0x61C5,
-		.num_functions = ARRAY_SIZE(usb_functions_lge_mass_stroage_only),
-		.functions = usb_functions_lge_mass_stroage_only,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_mass_storage_only),
+		.functions = usb_functions_lge_mass_storage_only,
 	},
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+	{
+		/* FIXME: This pid is just for test */
+		.product_id = 0x91C8,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_cdrom_storage_only),
+		.functions = usb_functions_lge_cdrom_storage_only,
+	},
+	{
+		.product_id = 0x61A6,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_cdrom_storage_adb),
+		.functions = usb_functions_lge_cdrom_storage_adb,
+	},
+#endif
 };
 
 struct usb_mass_storage_platform_data mass_storage_pdata = {
@@ -324,6 +351,28 @@ struct platform_device acm_device = {
 	.id 	= -1,
 	.dev    = {
 		.platform_data = &acm_pdata,
+	},
+};
+#endif
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* LGE_CHANGE
+ * Add platform data and device for cdrom storage function.
+ * It will be used in Autorun feature.
+ * 2011-03-02, hyunhui.park@lge.com
+ */
+struct usb_cdrom_storage_platform_data cdrom_storage_pdata = {
+	.nluns      = 1,
+	.vendor     = "LGE",
+	.product    = "Android Platform",
+	.release    = 0x0100,
+};
+
+struct platform_device usb_cdrom_storage_device = {
+	.name   = "usb_cdrom_storage",
+	.id = -1,
+	.dev    = {
+		.platform_data = &cdrom_storage_pdata,
 	},
 };
 #endif
