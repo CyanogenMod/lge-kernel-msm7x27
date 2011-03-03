@@ -7,7 +7,7 @@ endif
 
 # LGE_CHANGE
 # Add lge usb utility code
-# FIXME: Compilation of this must be performed
+# FIXME: Compilation of this code must be performed
 # earlier than gadget code because of using dynamic debugging macro.
 # 2011-01-18, hyunhui.park@lge.com
 # LG specific
@@ -81,6 +81,7 @@ obj-$(CONFIG_USB_ANDROID_MASS_STORAGE)	+= f_mass_storage.o
 obj-$(CONFIG_USB_ANDROID_MTP)	+= f_mtp.o
 obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
 obj-$(CONFIG_USB_ANDROID_CDC_ECM)	+= f_ecm.o u_ether.o
+obj-$(CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN)	+= f_cdrom_storage.o
 
 # MSM specific
 obj-$(CONFIG_USB_ANDROID_DIAG)	+= f_diag.o

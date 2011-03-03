@@ -98,6 +98,22 @@ struct acm_platform_data {
 };
 #endif
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* LGE_CHANGE
+ * Platform data for "usb_cdrom_storage" driver.
+ * 2011-03-02, hyunhui.park@lge.com
+ */
+struct usb_cdrom_storage_platform_data {
+	/* Contains values for the SC_INQUIRY SCSI command. */
+	char *vendor;
+	char *product;
+	int release;
+
+	/* number of LUNS */
+	int nluns;
+};
+#endif
+
 extern void android_usb_set_connected(int on);
 
 extern void android_register_function(struct android_usb_function *f);
