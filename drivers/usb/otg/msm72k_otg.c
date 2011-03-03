@@ -2703,10 +2703,8 @@ static void msm_otg_shutdown(struct platform_device *pdev)
 	struct msm_otg *dev = the_msm_otg;
 
 	pr_debug("%s: destroy workqueue k_otg\n", __func__);
-	if (dev->wq) {
-		flush_workqueue(dev->wq);
+	if (dev->wq)
 		destroy_workqueue(dev->wq);
-	}
 }
 #endif
 
