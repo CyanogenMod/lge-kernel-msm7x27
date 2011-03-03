@@ -6069,8 +6069,8 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const af_reg_settings_array[]
 
 static const struct lgcam_rear_sensor_i2c_reg_conf const af_nomal_mode_reg_settings_array[] = {
 	{0x0028, 0x7000, WORD_LEN},
-	{0x002A, 0x0254, WORD_LEN},
-	{0x0F12, 0x003C, WORD_LEN},
+	{0x002A, 0x0252, WORD_LEN},
+	{0x0F12, 0x0003, WORD_LEN},
 
 };
 
@@ -6099,6 +6099,8 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const af_macro_mode_reg_setti
 	{0x0F12, 0x1000, WORD_LEN},	// #af_pos_usMacroStartEnd 
 	{0x002A, 0x0254, WORD_LEN},
 	{0x0F12, 0x0001, WORD_LEN},	// #REG_TC_AF_AfCmdParam
+	{0x002A, 0x0252, WORD_LEN},
+	{0x0F12, 0x0005, WORD_LEN},	
 };
 static const struct lgcam_rear_sensor_i2c_reg_conf const manual_focus_mode_reg_settings_array[] = {
 	{0x0028, 0x7000, WORD_LEN},
