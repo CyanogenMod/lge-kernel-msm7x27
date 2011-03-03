@@ -2693,21 +2693,6 @@ free_dev:
 	return ret;
 }
 
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-/* LGE_CHANGE
- * Preventing from invoking wrong work function when power off.
- * 2011-02-24, hyunhui.park@lge.com
- */
-static void msm_otg_shutdown(struct platform_device *pdev)
-{
-	struct msm_otg *dev = the_msm_otg;
-
-	pr_debug("%s: destroy workqueue k_otg\n", __func__);
-	if (dev->wq)
-		destroy_workqueue(dev->wq);
-}
-#endif
-
 static int __exit msm_otg_remove(struct platform_device *pdev)
 {
 	struct msm_otg *dev = the_msm_otg;
@@ -2741,8 +2726,7 @@ static int __exit msm_otg_remove(struct platform_device *pdev)
 #endif
 	if (dev->pdata->chg_init)
 		dev->pdata->chg_init(0);
-	if (dev->irq)
-		free_irq(dev->irq, pdev);
+	free_irq(dev->irq, pdev);
 	iounmap(dev->regs);
 	if (dev->hs_cclk) {
 		clk_disable(dev->hs_cclk);
@@ -2800,13 +2784,6 @@ static struct dev_pm_ops msm_otg_dev_pm_ops = {
 
 static struct platform_driver msm_otg_driver = {
 	.remove = __exit_p(msm_otg_remove),
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-	/* LGE_CHANGE
-	 * Preventing from invoking wrong work function when power off.
-	 * 2011-02-24, hyunhui.park@lge.com
-	 */
-	.shutdown = msm_otg_shutdown,
-#endif
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
