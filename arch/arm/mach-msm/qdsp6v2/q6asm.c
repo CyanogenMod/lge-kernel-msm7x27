@@ -142,6 +142,53 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 	return 0;
 }
 
+int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
+			struct audio_client *ac)
+{
+	struct audio_port_data *port;
+	int cnt = 0;
+	int rc = 0;
+	pr_debug("%s: Session id %d\n", __func__, ac->session);
+	mutex_lock(&ac->cmd_lock);
+	if (ac->io_mode == SYNC_IO_MODE) {
+		port = &ac->port[dir];
+		if (!port->buf) {
+			mutex_unlock(&ac->cmd_lock);
+			return 0;
+		}
+		cnt = port->max_buf_cnt - 1;
+
+		if (cnt >= 0) {
+			rc = q6asm_memory_unmap(ac, port->buf[0].size, dir);
+			if (rc < 0)
+				pr_err("%s CMD Memory_unmap_regions failed\n",
+								__func__);
+		}
+
+		if (port->buf[0].data) {
+			pr_debug("%s:data[%p]phys[%p][%p] cnt[%d]\n",
+				   __func__,
+				   (void *)port->buf[0].data,
+				   (void *)port->buf[0].phys,
+				   (void *)&port->buf[0].phys, cnt);
+			dma_free_coherent(NULL,
+				port->buf[0].size * port->max_buf_cnt,
+				port->buf[0].data,
+				port->buf[0].phys);
+		}
+		while (cnt >= 0) {
+			port->buf[cnt].data = NULL;
+			port->buf[cnt].phys = 0;
+			cnt--;
+		}
+		port->max_buf_cnt = 0;
+		kfree(port->buf);
+		port->buf = NULL;
+	}
+	mutex_unlock(&ac->cmd_lock);
+	return 0;
+}
+
 void q6asm_audio_client_free(struct audio_client *ac)
 {
 	int loopcnt;
@@ -318,6 +365,83 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 	return 0;
 fail:
 	q6asm_audio_client_buf_free(dir, ac);
+	return -EINVAL;
+}
+
+int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
+			struct audio_client *ac,
+			unsigned int bufsz,
+			unsigned int bufcnt)
+{
+	int cnt = 0;
+	int rc = 0;
+	struct audio_buffer *buf;
+
+	if (!(ac) || ((dir != IN) && (dir != OUT)))
+		return -EINVAL;
+
+	pr_debug("%s: session[%d]bufsz[%d]bufcnt[%d]\n",
+			__func__, ac->session,
+			bufsz, bufcnt);
+
+	if (ac->session <= 0 || ac->session > 8)
+		goto fail;
+
+	if (ac->io_mode == SYNC_IO_MODE) {
+		if (ac->port[dir].buf) {
+			pr_debug("%s: buffer already allocated\n", __func__);
+			return 0;
+		}
+		mutex_lock(&ac->cmd_lock);
+		buf = kzalloc(((sizeof(struct audio_buffer))*bufcnt),
+				GFP_KERNEL);
+
+		if (!buf) {
+			mutex_unlock(&ac->cmd_lock);
+			goto fail;
+		}
+
+		ac->port[dir].buf = buf;
+
+		buf[0].data =  dma_alloc_coherent(NULL, bufsz * bufcnt,
+					&buf[0].phys, GFP_KERNEL);
+		buf[0].used = dir ^ 1;
+		buf[0].size = bufsz;
+		buf[0].actual_size = bufsz;
+		cnt = 1;
+		while (cnt < bufcnt) {
+			if (bufsz > 0) {
+				buf[cnt].data =  buf[0].data + (cnt * bufsz);
+				buf[cnt].phys =  buf[0].phys + (cnt * bufsz);
+
+				if (!buf[cnt].data) {
+					pr_err("%s Buf alloc failed\n",
+								__func__);
+					mutex_unlock(&ac->cmd_lock);
+					goto fail;
+				}
+				buf[cnt].used = dir ^ 1;
+				buf[cnt].size = bufsz;
+				buf[cnt].actual_size = bufsz;
+				pr_debug("%s data[%p]phys[%p][%p]\n", __func__,
+					   (void *)buf[cnt].data,
+					   (void *)buf[cnt].phys,
+					   (void *)&buf[cnt].phys);
+			}
+			cnt++;
+		}
+		ac->port[dir].max_buf_cnt = cnt;
+
+		mutex_unlock(&ac->cmd_lock);
+		rc = q6asm_memory_map(ac, buf[0].phys, dir, bufsz, cnt);
+		if (rc < 0) {
+			pr_err("%s:CMD Memory_map_regions failed\n", __func__);
+			goto fail;
+		}
+	}
+	return 0;
+fail:
+	q6asm_audio_client_buf_free_contiguous(dir, ac);
 	return -EINVAL;
 }
 
