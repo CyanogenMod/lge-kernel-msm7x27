@@ -218,10 +218,12 @@ typedef struct mdp_ibuf_s {
 
 struct mdp_dma_data {
 	boolean busy;
+	boolean dmap_busy;
 	boolean waiting;
 	struct mutex ov_mutex;
 	struct semaphore mutex;
 	struct completion comp;
+	struct completion dmap_comp;
 };
 
 #define MDP_CMD_DEBUG_ACCESS_BASE   (MDP_BASE+0x10000)
