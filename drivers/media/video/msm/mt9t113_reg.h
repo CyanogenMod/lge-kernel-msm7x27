@@ -841,108 +841,108 @@ tuning_reg_settings_array[] = {
   {0x0990, 0x000A, WORD_LEN},	// MCU_DATA_0
          //
   //[Lens Correction 85% 2010/10/26 23:05:06_152]
-  {0x3640, 0x0270, WORD_LEN}, 	//  P_G1_P0Q0
-  {0x3642, 0x75AD, WORD_LEN}, 	//  P_G1_P0Q1
-  {0x3644, 0x3971, WORD_LEN}, 	//  P_G1_P0Q2
-  {0x3646, 0xDB6E, WORD_LEN}, 	//  P_G1_P0Q3
-  {0x3648, 0xA2D1, WORD_LEN}, 	//  P_G1_P0Q4
-  {0x364A, 0x03D0, WORD_LEN}, 	//  P_R_P0Q0
-  {0x364C, 0xE66E, WORD_LEN}, 	//  P_R_P0Q1
-  {0x364E, 0x1631, WORD_LEN},   //0x3631 	//  P_R_P0Q2
-  {0x3650, 0x2210, WORD_LEN}, 	//  P_R_P0Q3
-  {0x3652, 0xB1B1, WORD_LEN}, 	//  P_R_P0Q4
-  {0x3654, 0x0b90, WORD_LEN},   //0x0390 	//  P_B_P0Q0
-  {0x3656, 0x4CCE, WORD_LEN}, 	//  P_B_P0Q1
-  {0x3658, 0x57F0, WORD_LEN}, 	//  P_B_P0Q2
-  {0x365A, 0xEC8F, WORD_LEN}, 	//  P_B_P0Q3
-  {0x365C, 0x97EF, WORD_LEN}, 	//  P_B_P0Q4
-  {0x365E, 0x0690, WORD_LEN}, 	//  P_G2_P0Q0
-  {0x3660, 0x8D2F, WORD_LEN}, 	//  P_G2_P0Q1
-  {0x3662, 0x51F1, WORD_LEN}, 	//  P_G2_P0Q2
-  {0x3664, 0x1DEF, WORD_LEN}, 	//  P_G2_P0Q3
-  {0x3666, 0xE811, WORD_LEN}, 	//  P_G2_P0Q4
-  {0x3680, 0xBA6D, WORD_LEN}, 	//  P_G1_P1Q0
-  {0x3682, 0xD76E, WORD_LEN}, 	//  P_G1_P1Q1
-  {0x3684, 0xF46F, WORD_LEN}, 	//  P_G1_P1Q2
-  {0x3686, 0x696F, WORD_LEN}, 	//  P_G1_P1Q3
-  {0x3688, 0x46F0, WORD_LEN}, 	//  P_G1_P1Q4
-  {0x368A, 0x99CD, WORD_LEN}, 	//  P_R_P1Q0
-  {0x368C, 0x060F, WORD_LEN}, 	//  P_R_P1Q1
-  {0x368E, 0xAFEF, WORD_LEN}, 	//  P_R_P1Q2
-  {0x3690, 0xA7B0, WORD_LEN}, 	//  P_R_P1Q3
-  {0x3692, 0x76D0, WORD_LEN}, 	//  P_R_P1Q4
-  {0x3694, 0x6CAC, WORD_LEN}, 	//  P_B_P1Q0
-  {0x3696, 0x26EF, WORD_LEN}, 	//  P_B_P1Q1
-  {0x3698, 0x0230, WORD_LEN}, 	//  P_B_P1Q2
-  {0x369A, 0xBA30, WORD_LEN}, 	//  P_B_P1Q3
-  {0x369C, 0xE5D1, WORD_LEN}, 	//  P_B_P1Q4
-  {0x369E, 0x566D, WORD_LEN}, 	//  P_G2_P1Q0
-  {0x36A0, 0xB46F, WORD_LEN}, 	//  P_G2_P1Q1
-  {0x36A2, 0x0B90, WORD_LEN}, 	//  P_G2_P1Q2
-  {0x36A4, 0x6E10, WORD_LEN}, 	//  P_G2_P1Q3
-  {0x36A6, 0x8EF2, WORD_LEN}, 	//  P_G2_P1Q4
-  {0x36C0, 0x4EB1, WORD_LEN}, 	//  P_G1_P2Q0
-  {0x36C2, 0x1D0F, WORD_LEN}, 	//  P_G1_P2Q1
-  {0x36C4, 0x5C6F, WORD_LEN}, 	//  P_G1_P2Q2
-  {0x36C6, 0x114F, WORD_LEN}, 	//  P_G1_P2Q3
-  {0x36C8, 0x9233, WORD_LEN}, 	//  P_G1_P2Q4
-  {0x36CA, 0x4DB1, WORD_LEN},   //0x6DB1 	//  P_R_P2Q0
-  {0x36CC, 0xB9B0, WORD_LEN}, 	//  P_R_P2Q1
-  {0x36CE, 0x7F70, WORD_LEN}, 	//  P_R_P2Q2
-  {0x36D0, 0x996D, WORD_LEN}, 	//  P_R_P2Q3
-  {0x36D2, 0x8DD3, WORD_LEN}, 	//  P_R_P2Q4
-  {0x36D4, 0x20B1, WORD_LEN}, 	//  P_B_P2Q0
-  {0x36D6, 0x14AF, WORD_LEN}, 	//  P_B_P2Q1
-  {0x36D8, 0x3E11, WORD_LEN}, 	//  P_B_P2Q2
-  {0x36DA, 0x1750, WORD_LEN}, 	//  P_B_P2Q3
-  {0x36DC, 0xABD3, WORD_LEN}, 	//  P_B_P2Q4
-  {0x36DE, 0x4DB1, WORD_LEN}, 	//  P_G2_P2Q0
-  {0x36E0, 0xAE30, WORD_LEN}, 	//  P_G2_P2Q1
-  {0x36E2, 0x242E, WORD_LEN}, 	//  P_G2_P2Q2
-  {0x36E4, 0x860E, WORD_LEN}, 	//  P_G2_P2Q3
-  {0x36E6, 0x8632, WORD_LEN}, 	//  P_G2_P2Q4
-  {0x3700, 0xA18F, WORD_LEN}, 	//  P_G1_P3Q0
-  {0x3702, 0x388E, WORD_LEN}, 	//  P_G1_P3Q1
-  {0x3704, 0x1B2E, WORD_LEN}, 	//  P_G1_P3Q2
-  {0x3706, 0xE90F, WORD_LEN}, 	//  P_G1_P3Q3
-  {0x3708, 0xA5ED, WORD_LEN}, 	//  P_G1_P3Q4
-  {0x370A, 0xCD23, WORD_LEN}, 	//  P_R_P3Q0
-  {0x370C, 0x26CF, WORD_LEN}, 	//  P_R_P3Q1
-  {0x370E, 0xE230, WORD_LEN}, 	//  P_R_P3Q2
-  {0x3710, 0xAD50, WORD_LEN}, 	//  P_R_P3Q3
-  {0x3712, 0xE970, WORD_LEN}, 	//  P_R_P3Q4
-  {0x3714, 0xA92F, WORD_LEN}, 	//  P_B_P3Q0
-  {0x3716, 0xD1D0, WORD_LEN}, 	//  P_B_P3Q1
-  {0x3718, 0x8431, WORD_LEN}, 	//  P_B_P3Q2
-  {0x371A, 0x0E32, WORD_LEN}, 	//  P_B_P3Q3
-  {0x371C, 0x62D2, WORD_LEN}, 	//  P_B_P3Q4
-  {0x371E, 0xCA8F, WORD_LEN}, 	//  P_G2_P3Q0
-  {0x3720, 0x6610, WORD_LEN}, 	//  P_G2_P3Q1
-  {0x3722, 0xC251, WORD_LEN}, 	//  P_G2_P3Q2
-  {0x3724, 0xC0F2, WORD_LEN}, 	//  P_G2_P3Q3
-  {0x3726, 0x7A52, WORD_LEN}, 	//  P_G2_P3Q4
-  {0x3740, 0x9C12, WORD_LEN}, 	//  P_G1_P4Q0
-  {0x3742, 0x9030, WORD_LEN}, 	//  P_G1_P4Q1
-  {0x3744, 0xDC11, WORD_LEN}, 	//  P_G1_P4Q2
-  {0x3746, 0x06F1, WORD_LEN}, 	//  P_G1_P4Q3
-  {0x3748, 0xD5F5, WORD_LEN}, 	//  P_G1_P4Q4
-  {0x374A, 0xD251, WORD_LEN}, 	//  P_R_P4Q0
-  {0x374C, 0x7911, WORD_LEN}, 	//  P_R_P4Q1
-  {0x374E, 0xB9B3, WORD_LEN}, 	//  P_R_P4Q2
-  {0x3750, 0x12F1, WORD_LEN}, 	//  P_R_P4Q3
-  {0x3752, 0xD3F4, WORD_LEN}, 	//  P_R_P4Q4
-  {0x3754, 0x97B1, WORD_LEN}, 	//  P_B_P4Q0
-  {0x3756, 0xDE91, WORD_LEN}, 	//  P_B_P4Q1
-  {0x3758, 0x9813, WORD_LEN}, 	//  P_B_P4Q2
-  {0x375A, 0x0B33, WORD_LEN}, 	//  P_B_P4Q3
-  {0x375C, 0x1773, WORD_LEN}, 	//  P_B_P4Q4
-  {0x375E, 0x86B2, WORD_LEN}, 	//  P_G2_P4Q0
-  {0x3760, 0x1C72, WORD_LEN}, 	//  P_G2_P4Q1
-  {0x3762, 0xAEF3, WORD_LEN}, 	//  P_G2_P4Q2
-  {0x3764, 0x01D3, WORD_LEN}, 	//  P_G2_P4Q3
-  {0x3766, 0xD3B4, WORD_LEN}, 	//  P_G2_P4Q4
-  {0x3784, 0x03B0, WORD_LEN}, 	//  CENTER_COLUMN
-  {0x3782, 0x0310, WORD_LEN}, 	//  CENTER_ROW
+  {0x3640, 0x0130, WORD_LEN}, 	//  P_G1_P0Q0
+  {0x3642, 0x592D, WORD_LEN}, 	//  P_G1_P0Q1
+  {0x3644, 0x1151, WORD_LEN}, 	//  P_G1_P0Q2
+  {0x3646, 0xDE6E, WORD_LEN}, 	//  P_G1_P0Q3
+  {0x3648, 0xB230, WORD_LEN}, 	//  P_G1_P0Q4
+  {0x364A, 0x0270, WORD_LEN}, 	//  P_R_P0Q0
+  {0x364C, 0xA98E, WORD_LEN}, 	//  P_R_P0Q1
+  {0x364E, 0x29D0, WORD_LEN},   //0x3631 	//  P_R_P0Q2
+  {0x3650, 0x650F, WORD_LEN}, 	//  P_R_P0Q3
+  {0x3652, 0x20AE, WORD_LEN}, 	//  P_R_P0Q4
+  {0x3654, 0x03B0, WORD_LEN},   //0x0390 	//  P_B_P0Q0
+  {0x3656, 0x58AE, WORD_LEN}, 	//  P_B_P0Q1
+  {0x3658, 0x0B90, WORD_LEN}, 	//  P_B_P0Q2
+  {0x365A, 0xDB0F, WORD_LEN}, 	//  P_B_P0Q3
+  {0x365C, 0x8F4D, WORD_LEN}, 	//  P_B_P0Q4
+  {0x365E, 0x0A50, WORD_LEN}, 	//  P_G2_P0Q0
+  {0x3660, 0x8DCF, WORD_LEN}, 	//  P_G2_P0Q1
+  {0x3662, 0x3B91, WORD_LEN}, 	//  P_G2_P0Q2
+  {0x3664, 0x182F, WORD_LEN}, 	//  P_G2_P0Q3
+  {0x3666, 0xB591, WORD_LEN}, 	//  P_G2_P0Q4
+  {0x3680, 0xB3EA, WORD_LEN}, 	//  P_G1_P1Q0
+  {0x3682, 0xAC0E, WORD_LEN}, 	//  P_G1_P1Q1
+  {0x3684, 0x990F, WORD_LEN}, 	//  P_G1_P1Q2
+  {0x3686, 0x6AEE, WORD_LEN}, 	//  P_G1_P1Q3
+  {0x3688, 0x0252, WORD_LEN}, 	//  P_G1_P1Q4
+  {0x368A, 0xF98B, WORD_LEN}, 	//  P_R_P1Q0
+  {0x368C, 0x44CE, WORD_LEN}, 	//  P_R_P1Q1
+  {0x368E, 0x830E, WORD_LEN}, 	//  P_R_P1Q2
+  {0x3690, 0xA350, WORD_LEN}, 	//  P_R_P1Q3
+  {0x3692, 0x5E71, WORD_LEN}, 	//  P_R_P1Q4
+  {0x3694, 0x1ACE, WORD_LEN}, 	//  P_B_P1Q0
+  {0x3696, 0x7F6E, WORD_LEN}, 	//  P_B_P1Q1
+  {0x3698, 0x0E6F, WORD_LEN}, 	//  P_B_P1Q2
+  {0x369A, 0xE0D0, WORD_LEN}, 	//  P_B_P1Q3
+  {0x369C, 0x322C, WORD_LEN}, 	//  P_B_P1Q4
+  {0x369E, 0x218E, WORD_LEN}, 	//  P_G2_P1Q0
+  {0x36A0, 0x988F, WORD_LEN}, 	//  P_G2_P1Q1
+  {0x36A2, 0x1750, WORD_LEN}, 	//  P_G2_P1Q2
+  {0x36A4, 0x42CF, WORD_LEN}, 	//  P_G2_P1Q3
+  {0x36A6, 0xC78F, WORD_LEN}, 	//  P_G2_P1Q4
+  {0x36C0, 0x3CD1, WORD_LEN}, 	//  P_G1_P2Q0
+  {0x36C2, 0x162F, WORD_LEN}, 	//  P_G1_P2Q1
+  {0x36C4, 0x2812, WORD_LEN}, 	//  P_G1_P2Q2
+  {0x36C6, 0x646F, WORD_LEN}, 	//  P_G1_P2Q3
+  {0x36C8, 0xF533, WORD_LEN}, 	//  P_G1_P2Q4
+  {0x36CA, 0x29F1, WORD_LEN},   //0x6DB1 	//  P_R_P2Q0
+  {0x36CC, 0xBAAF, WORD_LEN}, 	//  P_R_P2Q1
+  {0x36CE, 0x2073, WORD_LEN}, 	//  P_R_P2Q2
+  {0x36D0, 0x80B0, WORD_LEN}, 	//  P_R_P2Q3
+  {0x36D2, 0xB554, WORD_LEN}, 	//  P_R_P2Q4
+  {0x36D4, 0x1CF1, WORD_LEN}, 	//  P_B_P2Q0
+  {0x36D6, 0x44CF, WORD_LEN}, 	//  P_B_P2Q1
+  {0x36D8, 0x22D2, WORD_LEN}, 	//  P_B_P2Q2
+  {0x36DA, 0x4671, WORD_LEN}, 	//  P_B_P2Q3
+  {0x36DC, 0xBAF1, WORD_LEN}, 	//  P_B_P2Q4
+  {0x36DE, 0x3C31, WORD_LEN}, 	//  P_G2_P2Q0
+  {0x36E0, 0xA8B0, WORD_LEN}, 	//  P_G2_P2Q1
+  {0x36E2, 0x3A32, WORD_LEN}, 	//  P_G2_P2Q2
+  {0x36E4, 0x758E, WORD_LEN}, 	//  P_G2_P2Q3
+  {0x36E6, 0xDE13, WORD_LEN}, 	//  P_G2_P2Q4
+  {0x3700, 0x036F, WORD_LEN}, 	//  P_G1_P3Q0
+  {0x3702, 0xBBA6, WORD_LEN}, 	//  P_G1_P3Q1
+  {0x3704, 0x5672, WORD_LEN}, 	//  P_G1_P3Q2
+  {0x3706, 0xEBB1, WORD_LEN}, 	//  P_G1_P3Q3
+  {0x3708, 0xA1B3, WORD_LEN}, 	//  P_G1_P3Q4
+  {0x370A, 0x460F, WORD_LEN}, 	//  P_R_P3Q0
+  {0x370C, 0xB8CE, WORD_LEN}, 	//  P_R_P3Q1
+  {0x370E, 0x7BF1, WORD_LEN}, 	//  P_R_P3Q2
+  {0x3710, 0x342F, WORD_LEN}, 	//  P_R_P3Q3
+  {0x3712, 0x90F3, WORD_LEN}, 	//  P_R_P3Q4
+  {0x3714, 0xA6CE, WORD_LEN}, 	//  P_B_P3Q0
+  {0x3716, 0xAEB0, WORD_LEN}, 	//  P_B_P3Q1
+  {0x3718, 0x3B52, WORD_LEN}, 	//  P_B_P3Q2
+  {0x371A, 0x5A72, WORD_LEN}, 	//  P_B_P3Q3
+  {0x371C, 0xD3F2, WORD_LEN}, 	//  P_B_P3Q4
+  {0x371E, 0x5C8C, WORD_LEN}, 	//  P_G2_P3Q0
+  {0x3720, 0x380C, WORD_LEN}, 	//  P_G2_P3Q1
+  {0x3722, 0x7052, WORD_LEN}, 	//  P_G2_P3Q2
+  {0x3724, 0xDB71, WORD_LEN}, 	//  P_G2_P3Q3
+  {0x3726, 0xCB33, WORD_LEN}, 	//  P_G2_P3Q4
+  {0x3740, 0x8CB2, WORD_LEN}, 	//  P_G1_P4Q0
+  {0x3742, 0xBC10, WORD_LEN}, 	//  P_G1_P4Q1
+  {0x3744, 0x8235, WORD_LEN}, 	//  P_G1_P4Q2
+  {0x3746, 0xF4D1, WORD_LEN}, 	//  P_G1_P4Q3
+  {0x3748, 0x0A15, WORD_LEN}, 	//  P_G1_P4Q4
+  {0x374A, 0xAC51, WORD_LEN}, 	//  P_R_P4Q0
+  {0x374C, 0x792E, WORD_LEN}, 	//  P_R_P4Q1
+  {0x374E, 0xDE74, WORD_LEN}, 	//  P_R_P4Q2
+  {0x3750, 0x9972, WORD_LEN}, 	//  P_R_P4Q3
+  {0x3752, 0x21B3, WORD_LEN}, 	//  P_R_P4Q4
+  {0x3754, 0xE7D1, WORD_LEN}, 	//  P_B_P4Q0
+  {0x3756, 0xA431, WORD_LEN}, 	//  P_B_P4Q1
+  {0x3758, 0xC7B4, WORD_LEN}, 	//  P_B_P4Q2
+  {0x375A, 0xD954, WORD_LEN}, 	//  P_B_P4Q3
+  {0x375C, 0x06D5, WORD_LEN}, 	//  P_B_P4Q4
+  {0x375E, 0x8F12, WORD_LEN}, 	//  P_G2_P4Q0
+  {0x3760, 0x6B52, WORD_LEN}, 	//  P_G2_P4Q1
+  {0x3762, 0xAD35, WORD_LEN}, 	//  P_G2_P4Q2
+  {0x3764, 0x8774, WORD_LEN}, 	//  P_G2_P4Q3
+  {0x3766, 0x0156, WORD_LEN}, 	//  P_G2_P4Q4
+  {0x3782, 0x02A0, WORD_LEN}, 	//  CENTER_COLUMN
+  {0x3784, 0x03F0, WORD_LEN}, 	//  CENTER_ROW
   //low_light
   {0x098E, 0x4918, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_START_GAIN_METRIC]
   {0x0990, 0x0030, WORD_LEN}, 	// MCU_DATA_0
@@ -1075,12 +1075,15 @@ tuning_reg_settings_array[] = {
   {0x0990, 0x003C, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xC94F, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_DELTA_THRESHOLD_STOP]
   {0x0990, 0x0064, WORD_LEN}, 	// MCU_DATA_0
+  {0x098E, 0xE876, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_LL_START_SATURATION]
+  {0x0990, 0x0070, WORD_LEN}, 	// 80 MCU_DATA_0
   {0x098E, 0xE877, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_LL_END_SATURATION]
-  {0x0990, 0x0050, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x0030, WORD_LEN}, 	// 50 MCU_DATA_0
   //aperture 2D 1D Gain  
-  {0x326A, 0x0408, WORD_LEN},	// APERTURE_PARAMETERS_1D
-  {0x326C, 0x0D1C, WORD_LEN}, // APERTURE_PARAMETERS_2D
-  {0x3210, 0x05B8, WORD_LEN}, // COLOR_PIPELINE_CONTROL
+  {0x326A, 0x0c08, WORD_LEN},	// APERTURE_PARAMETERS_1D
+  {0x326C, 0x0D1C, WORD_LEN}, // APERTURE_PARAMETERS_2D         
+  {0x3210, 0x05B8, WORD_LEN}, // COLOR_PIPELINE_CONTROL       
+         
   //gamma
   {0x098E, 0x3C42, WORD_LEN}, 	// MCU_ADDRESS [LL_START_GAMMA_FTB]
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0
@@ -1217,8 +1220,9 @@ tuning_reg_settings_array[] = {
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
-  //polling
   {0xdddd, 0xdddd, WORD_LEN},
+   //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 
@@ -1236,6 +1240,8 @@ preview_mode_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS
   {0x0990, 0x0005, WORD_LEN}, 	// MCU_DATA_0
   {0xddd1, 0xddd1, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 static struct mt9t113_register_address_value_pair const
@@ -1256,6 +1262,8 @@ effect_mode_off_reg_settings_array[] = {
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - mono */
@@ -1267,6 +1275,8 @@ effect_mode_mono_reg_settings_array[] = {
   {0x0990, 0x0001, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - negative */
@@ -1278,6 +1288,8 @@ effect_mode_negative_reg_settings_array[] = {
   {0x0990, 0x0003, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - solarize */
@@ -1289,6 +1301,8 @@ effect_mode_solarize_reg_settings_array[] = {
   {0x0990, 0x0004, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - sepia */
@@ -1308,6 +1322,8 @@ effect_mode_sepia_reg_settings_array[] = {
   {0x0990, 0x00E6, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - aqua */
@@ -1327,6 +1343,8 @@ effect_mode_aqua_reg_settings_array[] = {
   {0x0990, 0x0020, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* effect setting end */
 
@@ -1343,13 +1361,8 @@ wb_mode_auto_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
-  //polling
-  /*
-  {0x098E, 0xAC3B, WORD_LEN}, 	// MCU_ADDRESS [AWB_R_RATIO_PRE_AWB]
-  {0x0990, 0x0070, WORD_LEN}, 	// MCU_DATA_0
-  {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
-  {0x0990, 0x0029, WORD_LEN}, 	// MCU_DATA_0
-  */
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - incandescent */
@@ -1370,6 +1383,8 @@ wb_mode_incandescent_reg_settings_array[] = {
   {0x0990, 0x0065, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x0028, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - fluorescent */
@@ -1390,6 +1405,8 @@ wb_mode_fluorescent_reg_settings_array[] = {
   {0x0990, 0x004C, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x0030, WORD_LEN}, 	// MCU_DATA_0  
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - daylight */
@@ -1409,6 +1426,8 @@ wb_mode_daylight_reg_settings_array[] = {
   {0x0990, 0x0044, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x0048, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - cloudy */
@@ -1429,6 +1448,8 @@ wb_mode_cloudy_reg_settings_array[] = {
   {0x0990, 0x0048, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x004B, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* White Balance setting end */
 
@@ -1446,6 +1467,8 @@ iso_mode_auto_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* ISO - 100 */
@@ -1461,6 +1484,8 @@ iso_mode_100_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* ISO - 200 */
@@ -1476,6 +1501,8 @@ iso_mode_200_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* ISO - 400 */
@@ -1491,6 +1518,8 @@ iso_mode_400_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
+  //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* ISO setting end */
 
@@ -1510,6 +1539,8 @@ brightness_reg_settings_array[] = {
   {0x0990, 0x0026, WORD_LEN}, // 3
   {0x0990, 0x0030, WORD_LEN}, // 4
   {0x0990, 0x003a, WORD_LEN}, // 5
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* Brightness end */
 /* framerate mode start */
@@ -1529,6 +1560,8 @@ auto_framerate_mode_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN},      // MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN},      // MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* fixed */
@@ -1548,6 +1581,8 @@ fixed_framerate_mode_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN},      // MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN},      // MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
+ //dither                                                               
+  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 struct mt9t113_reg mt9t113_regs = {
