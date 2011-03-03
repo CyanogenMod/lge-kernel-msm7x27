@@ -1542,6 +1542,15 @@ static unsigned low_power_mode;
 
 static ssize_t msm_batt_pif_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
+#if 1 /* It is just TEMPORARY */
+	/* LGE_CHANGE
+	 * Temporary workaround for fixing communication problem on PIF cable.
+	 * 2011-03-03, hyunhui.park@lge.com
+	 */
+	if (pif_value > 2)
+		pif_value = 2;
+#endif
+
 	return sprintf(buf,"%d\n", pif_value);
 }
 
