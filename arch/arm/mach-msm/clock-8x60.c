@@ -2038,7 +2038,7 @@ struct clk_local soc_clk_local_tbl[] = {
 	CLK_PCM(PCM),
 };
 
-static struct msm_xo_voter *xo_pxo;
+static struct msm_xo_voter *xo_pxo, *xo_cxo;
 /*
  * SoC-specific functions required by clock-local driver
  */
@@ -2047,11 +2047,17 @@ static struct msm_xo_voter *xo_pxo;
 static int xo_enable(unsigned src, unsigned enable)
 {
 	int xo_mode = enable ? MSM_XO_MODE_ON : MSM_XO_MODE_OFF;
+	struct msm_xo_voter *xo = NULL;
 
-	if (!xo_pxo)
+	if (src == PXO)
+		xo = xo_pxo;
+	else if (src == CXO)
+		xo = xo_cxo;
+
+	if (!xo)
 		return -ENODEV;
 
-	return msm_xo_mode_vote(xo_pxo, xo_mode);
+	return msm_xo_mode_vote(xo, xo_mode);
 }
 
 /* Enable/disable for hardware-voteable PLLs. */
@@ -2140,7 +2146,7 @@ static int pll4_enable(unsigned src, unsigned enable)
 #define CLK_SRC(_src, _func, _par) \
 	[(_src)] = { .enable_func = (_func), .par = (_par), }
 struct clk_source soc_clk_sources[NUM_SRC] = {
-	CLK_SRC(CXO,   NULL, SRC_NONE),
+	CLK_SRC(CXO,   xo_enable, SRC_NONE),
 	CLK_SRC(MXO,   NULL, SRC_NONE),
 	CLK_SRC(PXO,   xo_enable, SRC_NONE),
 	CLK_SRC(PLL_0, voteable_pll_enable, PXO),
@@ -2417,6 +2423,11 @@ void __init msm_clk_soc_init(void)
 	xo_pxo = msm_xo_get(MSM_XO_PXO, "clock-8x60");
 	if (IS_ERR(xo_pxo)) {
 		pr_err("%s: msm_xo_get(PXO) failed.\n", __func__);
+		BUG();
+	}
+	xo_cxo = msm_xo_get(MSM_XO_TCXO_D1, "clock-8x60");
+	if (IS_ERR(xo_cxo)) {
+		pr_err("%s: msm_xo_get(CXO) failed.\n", __func__);
 		BUG();
 	}
 
