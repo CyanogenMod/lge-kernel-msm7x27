@@ -651,6 +651,28 @@ __WEAK struct platform_device acm_device = {
 };
 #endif
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* LGE_CHANGE
+ * Add platform data and device for cdrom storage function.
+ * It will be used in Autorun feature.
+ * 2011-03-02, hyunhui.park@lge.com
+ */
+__WEAK struct usb_cdrom_storage_platform_data cdrom_storage_pdata = {
+	.nluns		= 1,
+	.vendor		= "Qualcomm Incorporated",
+	.product    = "CDROM storage",
+	.release	= 0x0100,
+};
+
+__WEAK struct platform_device usb_cdrom_storage_device = {
+	.name	= "usb_cdrom_storage",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &cdrom_storage_pdata,
+	},
+};
+#endif
+
 __WEAK struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x05C6,
 	.product_id	= 0x9026,
@@ -879,6 +901,14 @@ static struct platform_device *usb_devices[] __initdata = {
 #endif
 #ifdef CONFIG_USB_ANDROID_DIAG
 	&usb_diag_device,
+#endif
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+	/* LGE_CHANGE
+	 * Add platform data and device for cdrom storage function.
+	 * It will be used in Autorun feature.
+	 * 2011-03-02, hyunhui.park@lge.com
+	 */
+	&usb_cdrom_storage_device,
 #endif
 	&android_usb_device,
 #endif

@@ -660,6 +660,36 @@ void android_enable_function(struct usb_function *f, int enable)
 	}
 #endif
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+	/* LGE_CHANGE
+	 * Enabling usb cdrom storage only mode,
+	 * enabling of cdrom is seperated from other function handling.
+	 * 2011-03-02, hyunhui.park@lge.com
+	 */
+	if (!strcmp(f->name, "usb_cdrom_storage")) {
+		/* We force to change mode even if cdrom storage is already enabled */
+		f->disabled = disable;
+		if (enable) {
+			/* switch to cdrom storage only */
+			set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
+					0x00, 0x00);
+			android_set_default_product(LGE_CDONLY_PID);
+			lgeusb_info("Switch to CDROM %x\n", LGE_CDONLY_PID);
+		} else {
+			set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
+			android_set_default_product(dev->product_id);
+		}
+
+		product_id = get_product_id(dev);
+		device_desc.idProduct = __constant_cpu_to_le16(product_id);
+		if (dev->cdev)
+			dev->cdev->desc.idProduct = device_desc.idProduct;
+
+		usb_composite_force_reset(dev->cdev);
+		return;
+	}
+#endif
+
 	if (!!f->disabled != disable) {
 		f->disabled = disable;
 
