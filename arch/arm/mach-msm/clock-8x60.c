@@ -229,7 +229,7 @@
 
 /* Source name mapping. */
 #define SRC_BB_PXO		PXO
-#define SRC_BB_MXO		MXO
+#define SRC_BB_MXO		SRC_NONE
 #define SRC_BB_CXO		CXO
 #define SRC_BB_PLL0		PLL_0
 #define SRC_BB_PLL8		PLL_8
@@ -240,10 +240,10 @@
 #define SRC_MM_PLL2		PLL_3
 #define SRC_MM_GPERF		PLL_8
 #define SRC_MM_GPLL0		PLL_0
-#define SRC_MM_MXO		MXO
+#define SRC_MM_MXO		SRC_NONE
 #define SRC_XO_CXO		CXO
 #define SRC_XO_PXO		PXO
-#define SRC_XO_MXO		MXO
+#define SRC_XO_MXO		SRC_NONE
 #define SRC_LPA_PXO		PXO
 #define SRC_LPA_CXO		CXO
 #define SRC_LPA_PLL0		PLL_4
@@ -2147,14 +2147,12 @@ static int pll4_enable(unsigned src, unsigned enable)
 	[(_src)] = { .enable_func = (_func), .par = (_par), }
 struct clk_source soc_clk_sources[NUM_SRC] = {
 	CLK_SRC(CXO,   xo_enable, SRC_NONE),
-	CLK_SRC(MXO,   NULL, SRC_NONE),
 	CLK_SRC(PXO,   xo_enable, SRC_NONE),
 	CLK_SRC(PLL_0, voteable_pll_enable, PXO),
 	CLK_SRC(PLL_1, nt_pll_enable, PXO),
 	CLK_SRC(PLL_2, nt_pll_enable, PXO),
 	CLK_SRC(PLL_3, nt_pll_enable, PXO),
 	CLK_SRC(PLL_4, pll4_enable, PXO),
-	CLK_SRC(PLL_5, NULL, CXO),
 	CLK_SRC(PLL_6, voteable_pll_enable, CXO),
 	CLK_SRC(PLL_7, nt_pll_enable, PXO),
 	CLK_SRC(PLL_8, voteable_pll_enable, PXO),

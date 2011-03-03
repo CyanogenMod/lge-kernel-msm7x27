@@ -199,11 +199,9 @@ enum clk_sources {
 	PLL_2,
 	PLL_3,
 	PLL_4,
-	PLL_5,
 	PLL_6,
 	PLL_7,
 	PLL_8,
-	MXO,
 	PXO,
 	CXO,
 	NUM_SRC
