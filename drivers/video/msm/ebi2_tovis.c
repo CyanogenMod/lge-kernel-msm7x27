@@ -51,7 +51,7 @@ static void *DISP_DATA_PORT;
 
 static boolean disp_initialized = FALSE;
 struct msm_fb_panel_data tovis_qvga_panel_data;
-struct msm_panel_common_pdata *tovis_qvga_panel_pdata;
+struct msm_panel_ilitek_pdata *tovis_qvga_panel_pdata;
 struct pm_qos_request_list *tovis_pm_qos_req;
 
 /* For some reason the contrast set at init time is not good. Need to do
@@ -97,11 +97,10 @@ static void tovis_qvga_disp_init(struct platform_device *pdev)
 
 static void msm_fb_ebi2_power_save(int on)
 {
-	struct msm_panel_common_pdata *pdata = tovis_qvga_panel_pdata;
+	struct msm_panel_ilitek_pdata *pdata = tovis_qvga_panel_pdata;
 
-	/* Use pmic_backlight as power_save function, munyoung.hwang@lge.com */
-	if(pdata && pdata->pmic_backlight)
-		pdata->pmic_backlight(on);
+	if(pdata && pdata->lcd_power_save)
+		pdata->lcd_power_save(on);
 }
 
 static int ilitek_qvga_disp_off(struct platform_device *pdev)
@@ -283,9 +282,116 @@ static void do_ilitek_init(struct platform_device *pdev)
 	EBI2_WRITE16C(DISP_CMD_PORT,0x29); // Display On
 }
 
+static void do_lgd_init(struct platform_device *pdev)
+{
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x11);
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x35);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 1
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x36);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x48); // 1
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x3a);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x05); // 1
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xb1);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x17); // 2
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xb4);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 1
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xb6);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0a); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 2
+
+	/* Power Control 1 */
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xc0);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x12); // 1
+
+	/* Power Control 2 */
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xc1);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x11); // 1
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xc5);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x22); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x33); // 2
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xc7);
+	EBI2_WRITE16D(DISP_DATA_PORT,0xcf); // 1
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xcb);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x39); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x2c); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 3
+	EBI2_WRITE16D(DISP_DATA_PORT,0x35); // 4
+	EBI2_WRITE16D(DISP_DATA_PORT,0x06); // 5
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xcf);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0xba); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0xb0); // 3
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xe8);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x89); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x7b); // 3
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xea);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x10); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 2
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xf6);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x01); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x30); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 3
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xf7);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x20); // 1
+
+	/* Gamma Setting(Positive) */
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xe0);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0f); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x22); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x30); // 3
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0f); // 4
+	EBI2_WRITE16D(DISP_DATA_PORT,0x13); // 5
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0e); // 6
+	EBI2_WRITE16D(DISP_DATA_PORT,0x50); // 7
+	EBI2_WRITE16D(DISP_DATA_PORT,0x55); // 8
+	EBI2_WRITE16D(DISP_DATA_PORT,0x2c); // 9
+	EBI2_WRITE16D(DISP_DATA_PORT,0x06); // 10
+	EBI2_WRITE16D(DISP_DATA_PORT,0x14); // 11
+	EBI2_WRITE16D(DISP_DATA_PORT,0x04); // 12
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0a); // 13
+	EBI2_WRITE16D(DISP_DATA_PORT,0x08); // 14
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 15
+
+	/* Gamma Setting(Negative) */
+	EBI2_WRITE16C(DISP_CMD_PORT, 0xe1);
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0e); // 2
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0f); // 3
+	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 4
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0c); // 5
+	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 6
+	EBI2_WRITE16D(DISP_DATA_PORT,0x2e); // 7
+	EBI2_WRITE16D(DISP_DATA_PORT,0x25); // 8
+	EBI2_WRITE16D(DISP_DATA_PORT,0x49); // 9
+	EBI2_WRITE16D(DISP_DATA_PORT,0x05); // 10
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0c); // 11
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0b); // 12
+	EBI2_WRITE16D(DISP_DATA_PORT,0x35); // 13
+	EBI2_WRITE16D(DISP_DATA_PORT,0x38); // 14
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0f); // 15
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x29);
+}
+
 static int ilitek_qvga_disp_on(struct platform_device *pdev)
 {
-	struct msm_panel_common_pdata *pdata = tovis_qvga_panel_pdata;
+	struct msm_panel_ilitek_pdata *pdata = tovis_qvga_panel_pdata;
 
 	printk("%s: display on...", __func__);
 	if (!disp_initialized)
@@ -305,7 +411,10 @@ static int ilitek_qvga_disp_on(struct platform_device *pdev)
 		mdelay(120);
 		display_on = TRUE;
 
-		do_ilitek_init(pdev);
+		if(pdata->maker_id == PANEL_ID_LGDISPLAY)
+			do_lgd_init(pdev);
+		else
+			do_ilitek_init(pdev);
 	}
 	pm_qos_update_request(tovis_pm_qos_req, 65000);
 	return 0;
