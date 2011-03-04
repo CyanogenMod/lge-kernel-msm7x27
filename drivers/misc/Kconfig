@@ -511,6 +511,14 @@ config PMIC8058_MISC
 	  Qualcomm PM8058 chip.  Examples include: signalling when the 32kHz
 	  oscillator malfunctions.
 
+config PMIC8058_BATTALARM
+	tristate "Qualcomm PM8058 Battery Alarm Device driver"
+	depends on PMIC8058
+	help
+	  This option enables support for the battery alarm module on the
+	  Qualcomm PM8058 PMIC chip.  This support allows for configuration of
+	  the alarm module as well as interrupt handling.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
