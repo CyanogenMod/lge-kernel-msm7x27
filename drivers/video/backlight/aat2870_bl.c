@@ -525,7 +525,7 @@ static void aat28xx_sleep(struct aat28xx_driver_data *drvdata)
 	if (!drvdata || drvdata->state == SLEEP_STATE)
 		return;
 
-	dprintk("operation mode is %s\n", (drvdata->mode == NORMAL_MODE) ? "normal_mode" : "alc_mode");
+	printk(KERN_INFO "%s: cur state=%d to sleep state(2)\n", __func__, drvdata->state);
 	
 	switch (drvdata->mode) {
 		case NORMAL_MODE:
@@ -545,8 +545,8 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 	if (!drvdata || drvdata->state == NORMAL_STATE)
 		return;
 
-	dprintk("operation mode is %s\n", (drvdata->mode == NORMAL_MODE) ? "normal_mode" : "alc_mode");
-
+	printk(KERN_INFO "%s: cur state=%d to wakeup state(1)\n", __func__, drvdata->state);
+	
 	if (drvdata->state == POWEROFF_STATE) {
 		aat28xx_poweron(drvdata);
 	} else if (drvdata->state == SLEEP_STATE) {
