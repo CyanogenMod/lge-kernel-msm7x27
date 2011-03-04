@@ -196,4 +196,17 @@ static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 	return 0;
 }
 
+static inline struct kgsl_device *kgsl_device_from_dev(struct device *dev)
+{
+	int i;
+
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		if (kgsl_driver.devp[i] && kgsl_driver.devp[i]->dev == dev)
+			return kgsl_driver.devp[i];
+	}
+
+	return NULL;
+}
+
+
 #endif /* _GSL_DRIVER_H */

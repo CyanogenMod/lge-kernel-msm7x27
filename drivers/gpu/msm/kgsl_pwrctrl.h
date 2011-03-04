@@ -77,6 +77,8 @@ struct kgsl_pwrctrl {
 	uint32_t pcl;
 	unsigned int nap_allowed;
 	struct kgsl_drawctxt *suspended_ctxt;
+	unsigned int io_fraction;
+	unsigned int io_count;
 };
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag);
@@ -90,5 +92,8 @@ void kgsl_pre_hwaccess(struct kgsl_device *device);
 void kgsl_check_suspended(struct kgsl_device *device);
 int kgsl_pwrctrl_sleep(struct kgsl_device *device);
 int kgsl_pwrctrl_wake(struct kgsl_device *device);
+
+int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
+void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device);
 
 #endif /* _GSL_PWRCTRL_H */
