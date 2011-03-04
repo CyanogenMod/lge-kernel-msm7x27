@@ -373,6 +373,7 @@ static int __devinit isl9519q_probe(struct i2c_client *client,
 			__func__, client->irq, ret);
 		goto unregister;
 	}
+	set_irq_wake(client->irq, 1);
 
 	isl_chg->max_system_voltage &= MAX_VOLTAGE_REG_MASK;
 	isl_chg->min_system_voltage &= MIN_VOLTAGE_REG_MASK;
