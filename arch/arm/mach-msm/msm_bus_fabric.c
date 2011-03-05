@@ -133,7 +133,7 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 	for (i = 0; i < fabric->pdata->len; i++) {
 		struct msm_bus_inode_info *info;
 		info = kzalloc(sizeof(struct msm_bus_inode_info), GFP_KERNEL);
-		info->node_info = fabric->pdata->info++;
+		info->node_info = fabric->pdata->info + i;
 		info->commit_index = -1;
 		info->num_pnodes = -1;
 		if (info->node_info->slaveclk) {
@@ -258,7 +258,7 @@ static int msm_bus_fabric_rpm_commit(struct msm_bus_fabric_device *fabdev,
 		i = 0;
 
 	/* Copy arb values to rpm data */
-	for (; i <= (fabric->pdata->ntieredslaves * fabric->pdata->nmasters);
+	for (; i < (fabric->pdata->ntieredslaves * fabric->pdata->nmasters);
 		i += 2) {
 		rpm_data[index].id = offset + index;
 		rpm_data[index].value = RPM_SHIFT(*(cdata->arb + i + 1)) |
@@ -356,12 +356,14 @@ static int msm_bus_fabric_update_clks(struct msm_bus_fabric_device *fabdev,
 		max_pclk_freq =
 			BW_TO_CLK_FREQ_HZ(slave->node_info->buswidth, max_pclk);
 
-		for (i = 0; i < fabric->pdata->nslaves; i++) {
+		for (i = 0; i < fabric->pdata->len; i++) {
+			if (fabric->pdata->info[i].gateway ||
+				(fabric->pdata->info[i].id < SLAVE_ID_KEY))
+				continue;
 			info = radix_tree_lookup(&fabric->fab_tree,
-				(fabric->fabdev.id + SLAVE_ID_KEY + i));
+				fabric->pdata->info[i].priv_id);
 			if (!info)
 				continue;
-
 			SELECT_CLK_VAL(context, info->link_info);
 			max_pclk_freq = max(max_pclk_freq,
 				BW_TO_CLK_FREQ_HZ(info->node_info->buswidth,
@@ -648,7 +650,7 @@ static int allocate_commit_data(struct msm_bus_fabric *fabric,
 		return -ENOMEM;
 	}
 	(*cdata)->arb = kzalloc(((sizeof(uint16_t *)) *
-		fabric->pdata->ntieredslaves * fabric->pdata->nmasters),
+		(fabric->pdata->ntieredslaves * fabric->pdata->nmasters) + 1),
 		GFP_KERNEL);
 	if (!(*cdata)->arb) {
 		MSM_FAB_DBG("Couldn't alloc memory for"
