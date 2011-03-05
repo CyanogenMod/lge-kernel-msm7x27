@@ -350,16 +350,5 @@ static void __init msm7x2x_init_mmc(void)
 
 void __init lge_add_mmc_devices(void)
 {
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
-	/*
-	 * by jinkyu.choi@lge.com
-	 * temporal code for Gelato EVB, PCB version Rev.B
-	 * this routine should be removed, later.
-	 */
-	if (lge_bd_rev == LGE_REV_B) {
-		sd_detect_gpio = 49;
-		msm7x2x_sdc1_data.status_irq = MSM_GPIO_TO_INT(49);
-	}
-#endif
 	msm7x2x_init_mmc();
 }
