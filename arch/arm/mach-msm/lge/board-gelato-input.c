@@ -75,8 +75,7 @@ static unsigned int keypad_row_gpios[] = {
 };
 
 static unsigned int keypad_col_gpios[][3] = {
-	[0] = { 32, 33, 34 },
-	[1] = { 35, 34, 33 },
+	[0] = { 35, 34, 33 },
 };
 
 #define KEYMAP_INDEX(col, row) ((col)*ARRAY_SIZE(keypad_row_gpios) + (row))
@@ -131,13 +130,10 @@ static struct gpio_event_matrix_info gelato_keypad_matrix_info = {
 static void __init gelato_select_keymap(void)
 {
 	gelato_keypad_matrix_info.keymap = keypad_keymap_gelato;
-	if (lge_bd_rev == LGE_REV_B) {
-		gelato_keypad_matrix_info.output_gpios = keypad_col_gpios[0];
-		gelato_keypad_matrix_info.noutputs = ARRAY_SIZE(keypad_col_gpios[0]);
-	} else {
-		gelato_keypad_matrix_info.output_gpios = keypad_col_gpios[1];
-		gelato_keypad_matrix_info.noutputs = ARRAY_SIZE(keypad_col_gpios[1]);
-	}
+
+	gelato_keypad_matrix_info.output_gpios = keypad_col_gpios[0];
+	gelato_keypad_matrix_info.noutputs = ARRAY_SIZE(keypad_col_gpios[0]);
+
 	return;
 }
 
@@ -240,8 +236,7 @@ static int ts_set_vreg(unsigned char onoff)
 		return -1;
 	}
 
-	if (lge_bd_rev != LGE_REV_B)
-		vreg_pullup = vreg_get(0, "mmc");
+	vreg_pullup = vreg_get(0, "mmc");
 	if (IS_ERR(vreg_pullup)) {
 		printk("[Touch] vreg_get fail : touch\n");
 		return -1;
@@ -257,14 +252,12 @@ static int ts_set_vreg(unsigned char onoff)
 		}
 		vreg_enable(vreg_touch);
 
-		if (lge_bd_rev != LGE_REV_B) {
-			rc = vreg_set_level(vreg_pullup, 2600);
-			if (rc != 0) {
-				printk("[TOUCH] vreg_set_level failed\n");
-				return -1;
-			}
-			vreg_enable(vreg_pullup);
+		rc = vreg_set_level(vreg_pullup, 2600);
+		if (rc != 0) {
+			printk("[TOUCH] vreg_set_level failed\n");
+			return -1;
 		}
+		vreg_enable(vreg_pullup);
 
 		msleep(15);	// wait 15ms
 
@@ -272,10 +265,8 @@ static int ts_set_vreg(unsigned char onoff)
 	} else {
 		ts_config_gpio(0);
 
-		if (lge_bd_rev != LGE_REV_B) {
-			vreg_set_level(vreg_pullup, 0);
-			vreg_disable(vreg_pullup);
-		}
+		vreg_set_level(vreg_pullup, 0);
+		vreg_disable(vreg_pullup);
 
 		vreg_set_level(vreg_touch, 0);
 		vreg_disable(vreg_touch);
@@ -291,17 +282,6 @@ static struct synaptics_i2c_rmi_platform_data ts_pdata_synaptics = {
 	.power = ts_set_vreg,
 };
 
-static struct touch_platform_data ts_pdata_mcs6000 = {
-	.ts_x_min = TS_X_MIN,
-	.ts_x_max = TS_X_MAX,
-	.ts_y_min = TS_Y_MIN,
-	.ts_y_max = TS_Y_MAX,
-	.power 	  = ts_set_vreg,
-	.irq 	  = TS_GPIO_IRQ,
-	.scl      = TS_GPIO_I2C_SCL,
-	.sda      = TS_GPIO_I2C_SDA,
-};
-
 static struct i2c_board_info ts_i2c_bdinfo_synaptics[] = {
 	[0] = {
 		I2C_BOARD_INFO("synaptics-rmi-ts", TS_I2C_SLAVE_ADDR),
@@ -310,35 +290,19 @@ static struct i2c_board_info ts_i2c_bdinfo_synaptics[] = {
 	},
 };
 
-static struct i2c_board_info ts_i2c_bdinfo_mcs6000[] = {
-	[0] = {
-		I2C_BOARD_INFO("touch_mcs6000", TS_I2C_SLAVE_ADDR),
-		.type = "touch_mcs6000",
-		.platform_data = &ts_pdata_mcs6000,
-	},
-};
-
 static void __init gelato_init_i2c_touch(int bus_num)
 {
 	ts_i2c_device.id = bus_num;
 
-	if (lge_bd_rev != LGE_REV_B) {
-		init_gpio_i2c_pin(&ts_i2c_pdata, ts_i2c_pin[0],	&ts_i2c_bdinfo_synaptics[0]);
-		i2c_register_board_info(bus_num, &ts_i2c_bdinfo_synaptics[0], 1);
-	} else {
-		init_gpio_i2c_pin(&ts_i2c_pdata, ts_i2c_pin[0],	&ts_i2c_bdinfo_mcs6000[0]);
-		i2c_register_board_info(bus_num, &ts_i2c_bdinfo_mcs6000[0], 1);
-	}
+	init_gpio_i2c_pin(&ts_i2c_pdata, ts_i2c_pin[0],	&ts_i2c_bdinfo_synaptics[0]);
+	i2c_register_board_info(bus_num, &ts_i2c_bdinfo_synaptics[0], 1);
 	platform_device_register(&ts_i2c_device);
 }
 
 /* acceleration */
 static int kr3dh_device_id(void)
 {
-	if(lge_bd_rev == LGE_REV_A)
-		return 0x33;
-	else
-		return 0x32;
+	return 0x33;
 }
 
 static int kr3dh_config_gpio(int config)
@@ -367,15 +331,12 @@ static int accel_power_on(void)
 {
 	int ret = 0;
 	struct vreg *gp3_vreg;
-	if(lge_bd_rev == LGE_REV_A)
-		gp3_vreg = vreg_get(0, "gp3");
-	else
-		gp3_vreg = vreg_get(0, "rfrx2");
 
-	printk("[Accelerometer] %s() : Power On\n",__FUNCTION__);
-
+	gp3_vreg = vreg_get(0, "gp3");
 	vreg_set_level(gp3_vreg, 3000);
 	vreg_enable(gp3_vreg);
+
+	printk("[Accelerometer] %s() : Power On\n",__FUNCTION__);
 
 	return ret;
 }
@@ -384,14 +345,10 @@ static int accel_power_off(void)
 {
 	int ret = 0;
 	struct vreg *gp3_vreg;
-	if(lge_bd_rev == LGE_REV_A)
-		gp3_vreg = vreg_get(0, "gp3");
-	else
-		gp3_vreg = vreg_get(0, "rfrx2");
 
-	printk("[Accelerometer] %s() : Power Off\n",__FUNCTION__);
-
+	gp3_vreg = vreg_get(0, "gp3");
 	vreg_disable(gp3_vreg);
+	printk("[Accelerometer] %s() : Power Off\n",__FUNCTION__);
 
 	return ret;
 }

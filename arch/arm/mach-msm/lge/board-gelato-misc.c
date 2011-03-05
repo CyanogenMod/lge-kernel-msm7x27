@@ -305,32 +305,11 @@ static int gelato_gpio_earsense_work_func(void)
 			gpio_value?"injected":"ejected");
 	if (gpio_value == EAR_EJECT) {
 		state = EAR_STATE_EJECT;
-
-		/*
-		 * jinkyu.choi@lge.com
-		 * for EVB Board, PCB regitser Rev.B
-		 * this routine should be removed, later
-		 */
-		if (lge_bd_rev == LGE_REV_B) {
-			gpio_set_value(GPIO_HS_MIC_BIAS_EN, 0);
-		} else {
-			vreg_disable(gp4_vreg);
-		}
-
+		vreg_disable(gp4_vreg);
 	} else {
 		state = EAR_STATE_INJECT;
-
-		/*
-		 * jinkyu.choi@lge.com
-		 * for EVB Board, PCB regitser Rev.B
-		 * this routine should be removed, later
-		 */
-		if (lge_bd_rev == LGE_REV_B) {
-			gpio_set_value(GPIO_HS_MIC_BIAS_EN, 1);
-		} else {
-			vreg_set_level(gp4_vreg, 1800);
-			vreg_enable(gp4_vreg);
-		}
+		vreg_set_level(gp4_vreg, 1800);
+		vreg_enable(gp4_vreg);
 	}
 
 	return state;
