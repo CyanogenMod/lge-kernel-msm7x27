@@ -60,7 +60,7 @@ int previous_mode = 0;
 /* END: 0004743 hyungtae.lee@lge.com 2010-03-08 */
 
 int focus_mode = 0;
-static int debug_mask = 1;
+static int debug_mask = 0;
 
 static int prev_af_mode;
 //#define TOUCH_FOCUS_TEST
