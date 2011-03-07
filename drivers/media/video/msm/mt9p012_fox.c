@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009, 2011 Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,7 +163,7 @@ static int mt9p012_i2c_rxdata(unsigned short saddr, unsigned char *rxdata,
 
 	do {
 		rc = i2c_transfer(mt9p012_client->adapter, msgs, 2);
-		if (!rc)
+		if (rc > 0)
 			break;
 		retry_cnt++;
 	} while (retry_cnt < 3);
@@ -219,7 +219,7 @@ static int32_t mt9p012_i2c_txdata(unsigned short saddr, unsigned char *txdata,
 
 	do {
 		rc = i2c_transfer(mt9p012_client->adapter, msg, 1);
-		if (!rc)
+		if (rc > 0)
 			break;
 		retry_cnt++;
 	} while (retry_cnt < 3);
