@@ -1796,12 +1796,6 @@ int soc_clk_reset(unsigned id, enum clk_reset_action action)
 	return ret;
 }
 
-/* SoC-specific clk_ops initialization. */
-void __init msm_clk_soc_set_ops(struct clk *clk)
-{
-	return;
-}
-
 /*
  * Miscellaneous clock register initializations
  */

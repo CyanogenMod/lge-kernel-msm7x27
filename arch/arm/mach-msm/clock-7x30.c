@@ -1072,24 +1072,22 @@ static const struct clk_local_ownership {
 	[C(ROTATOR_P)]			= { O(SH2_OWN_GLBL), B(13) },
 };
 
-static struct clk_ops * __init clk_is_local(uint32_t id)
+static bool __init clk_is_local(uint32_t id)
 {
-	uint32_t local, bit = ownership_map[id].bit;
+	uint32_t bit = ownership_map[id].bit;
 	const uint32_t *reg = ownership_map[id].reg;
 
 	BUG_ON(id >= ARRAY_SIZE(ownership_map) || !reg);
 
-	local = *reg & bit;
-	return local ? &soc_clk_ops_7x30 : NULL;
+	return *reg & bit;
 }
 
 /* SoC-specific clk_ops initialization. */
 void __init msm_clk_soc_set_ops(struct clk *clk)
 {
 	if (!clk->ops) {
-		struct clk_ops *ops = clk_is_local(clk->id);
-		if (ops)
-			clk->ops = ops;
+		if (clk_is_local(clk->id))
+			clk->ops = &soc_clk_ops_7x30;
 		else {
 			clk->ops = &clk_ops_remote;
 			clk->id = clk->remote_id;
