@@ -746,7 +746,7 @@ static void __init cpufreq_table_init(void)
 static void __init cpufreq_table_init(void) {}
 #endif
 
-static void __init select_freq_plan(void)
+static unsigned int __init select_freq_plan(void)
 {
 	uint32_t raw_speed_bin, speed_bin, max_khz;
 	struct clkctl_acpu_speed *f;
@@ -773,10 +773,13 @@ static void __init select_freq_plan(void)
 	}
 	f--;
 	pr_info("Max ACPU freq: %u KHz\n", f->acpuclk_khz);
+
+	return f->acpuclk_khz;
 }
 
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 {
+	unsigned int max_cpu_khz;
 	int cpu;
 
 	mutex_init(&drv_state.lock);
@@ -785,7 +788,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 
 	/* Configure hardware. */
-	select_freq_plan();
+	max_cpu_khz = select_freq_plan();
 	unselect_scplls();
 	scpll_set_refs();
 	for_each_possible_cpu(cpu)
@@ -796,7 +799,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 
 	/* Improve boot time by ramping up CPUs immediately. */
 	for_each_online_cpu(cpu)
-		acpuclk_set_rate(cpu, 810000, SETRATE_INIT);
+		acpuclk_set_rate(cpu, max_cpu_khz, SETRATE_INIT);
 
 	cpufreq_table_init();
 }
