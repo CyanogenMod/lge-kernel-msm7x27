@@ -143,6 +143,9 @@ DEFINE_MUTEX(mt9p012_mut);
 static int mt9p012_i2c_rxdata(unsigned short saddr, unsigned char *rxdata,
 			      int length)
 {
+	int retry_cnt = 0;
+	int rc;
+
 	struct i2c_msg msgs[] = {
 		{
 		 .addr = saddr,
@@ -158,8 +161,15 @@ static int mt9p012_i2c_rxdata(unsigned short saddr, unsigned char *rxdata,
 		 },
 	};
 
-	if (i2c_transfer(mt9p012_client->adapter, msgs, 2) < 0) {
-		CDBG("mt9p012_i2c_rxdata failed!\n");
+	do {
+		rc = i2c_transfer(mt9p012_client->adapter, msgs, 2);
+		if (!rc)
+			break;
+		retry_cnt++;
+	} while (retry_cnt < 3);
+
+	if (rc < 0) {
+		pr_err("mt9p012_i2c_rxdata failed!:%d %d\n", rc, retry_cnt);
 		return -EIO;
 	}
 
@@ -195,6 +205,9 @@ static int32_t mt9p012_i2c_read_w(unsigned short saddr, unsigned short raddr,
 static int32_t mt9p012_i2c_txdata(unsigned short saddr, unsigned char *txdata,
 				  int length)
 {
+	int retry_cnt = 0;
+	int rc;
+
 	struct i2c_msg msg[] = {
 		{
 		 .addr = saddr,
@@ -204,8 +217,15 @@ static int32_t mt9p012_i2c_txdata(unsigned short saddr, unsigned char *txdata,
 		 },
 	};
 
-	if (i2c_transfer(mt9p012_client->adapter, msg, 1) < 0) {
-		CDBG("mt9p012_i2c_txdata failed\n");
+	do {
+		rc = i2c_transfer(mt9p012_client->adapter, msg, 1);
+		if (!rc)
+			break;
+		retry_cnt++;
+	} while (retry_cnt < 3);
+
+	if (rc < 0) {
+		pr_err("mt9p012_i2c_txdata failed: %d %d\n", rc, retry_cnt);
 		return -EIO;
 	}
 
