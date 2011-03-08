@@ -382,10 +382,14 @@ static int libra_sdio_suspend(struct device *dev)
 		return ret;
 	}
 	if (libra_suspend_hldr) {
+		/* Disable SDIO IRQ when driver is being suspended */
+		libra_enable_sdio_irq(func, 0);
 		ret = libra_suspend_hldr(func);
 		if (ret) {
 			printk(KERN_ERR
 			"%s: Libra driver is not able to suspend\n" , __func__);
+			/* Error - Restore SDIO IRQ */
+			libra_enable_sdio_irq(func, 1);
 			return ret;
 		}
 	}
@@ -398,8 +402,11 @@ static int libra_sdio_resume(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 
-	if (libra_resume_hldr)
+	if (libra_resume_hldr) {
 		libra_resume_hldr(func);
+		/* Restore SDIO IRQ */
+		libra_enable_sdio_irq(func, 1);
+	}
 
 	return 0;
 }
@@ -441,13 +448,19 @@ static int __init libra_sdioif_init(void)
 
 static void __exit libra_sdioif_exit(void)
 {
+	unsigned int attempts = 0;
+
+	if (!libra_detect_card_change()) {
+		do {
+			++attempts;
+			msleep(500);
+		} while (libra_sdio_func != NULL && attempts < 3);
+	}
+
+	if (libra_sdio_func != NULL)
+		printk(KERN_ERR "%s: Card removal not detected\n", __func__);
 
 	sdio_unregister_driver(&libra_sdiofn_driver);
-
-	if (libra_mmc_host) {
-		mmc_detect_change(libra_mmc_host, 0);
-		msleep(500);
-	}
 
 	libra_sdio_func = NULL;
 	libra_mmc_host = NULL;
