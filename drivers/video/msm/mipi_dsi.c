@@ -34,6 +34,7 @@
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/clk.h>
+#include <mach/msm_iomap.h>
 
 #include "msm_fb.h"
 #include "mipi_dsi.h"
@@ -555,9 +556,9 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		if (!mipi_dsi_base)
 			return -ENOMEM;
 
-		mmss_cc_base =  ioremap(MMSS_CC_BASE_PHY, 0x200);
-		MSM_FB_INFO("mmss_cc base phy_addr = 0x%x virt = 0x%x\n",
-				MMSS_CC_BASE_PHY, (int) mmss_cc_base);
+		mmss_cc_base = MSM_MMSS_CLK_CTL_BASE;
+		MSM_FB_INFO("msm_mmss_cc base = 0x%x\n",
+				(int) mmss_cc_base);
 
 		if (!mmss_cc_base)
 			return -ENOMEM;
