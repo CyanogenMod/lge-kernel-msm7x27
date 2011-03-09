@@ -135,6 +135,7 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 		init_timer(&dsi_clock_timer);
 		dsi_clock_timer.function = dsi_clock_tout;
 		dsi_clock_timer.data = (unsigned long) mfd;;
+		dsi_clock_timer.expires = HZ;
 #endif
 
 		dsi_pipe = pipe; /* keep it */

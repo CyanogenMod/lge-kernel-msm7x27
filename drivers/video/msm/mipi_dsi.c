@@ -441,8 +441,26 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	disable_irq(DSI_IRQ);
 
-	/* disbale dsi pll */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0);
+	/* DSIPHY_PLL_CTRL_5 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0214, 0x05f);
+
+	/* DSIPHY_TPA_CTRL_1 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0258, 0x08f);
+
+	/* DSIPHY_TPA_CTRL_2 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x025c, 0x001);
+
+	/* DSIPHY_REGULATOR_CTRL_0 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x02cc, 0x02);
+
+	/* DSIPHY_CTRL_0 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0290, 0x00);
+
+	/* DSIPHY_CTRL_1 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0294, 0x7f);
+
+	/* DSIPHY_PLL_CTRL_0, disbale dsi pll */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0x40);
 
 	/* disbale dsi clk */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0118, 0);
@@ -518,6 +536,15 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	mipi_dsi_pclk(1);
 
 	mipi_dsi_clk_on = 1;
+
+	/* DSIPHY_PLL_CTRL_5 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0214, 0x050);
+
+	/* DSIPHY_TPA_CTRL_1 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0258, 0x00f);
+
+	/* DSIPHY_TPA_CTRL_2 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x025c, 0x000);
 
 	mipi_dsi_phy_init(0, &(mfd->panel_info));
 
