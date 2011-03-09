@@ -1609,10 +1609,13 @@ struct kgsl_driver kgsl_driver  = {
 static void kgsl_device_unregister(void)
 {
 	int j;
+	struct kgsl_device *device;
 
 	for (j = 0; j < kgsl_driver.num_devs; j++) {
 		device_destroy(kgsl_driver.class,
 					MKDEV(MAJOR(kgsl_driver.dev_num), j));
+		device =  kgsl_driver.devp[j];
+		kgsl_pwrctrl_uninit_sysfs(device);
 	}
 
 	class_destroy(kgsl_driver.class);
@@ -1707,6 +1710,8 @@ static int kgsl_register_dev(int num_devs)
 					MKDEV(MAJOR(kgsl_driver.dev_num), j));
 			goto error_device_create;
 		}
+
+		kgsl_pwrctrl_init_sysfs(device);
 	}
 
 	/* add char dev(s) */
