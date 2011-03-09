@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2010 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011 Code Aurora Forum. All rights reserved.
  * Author: San Mehat <san@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -141,6 +141,25 @@ struct rtc_tod_args {
 	int proc;
 	struct rtc_time *tm;
 };
+
+struct suspend_state_info {
+	atomic_t state;
+	int64_t tick_at_suspend;
+};
+
+static struct suspend_state_info suspend_state = {ATOMIC_INIT(0), 0};
+
+bool msmrtc_is_suspended(void)
+{
+	return atomic_read(&suspend_state.state) ? true : false;
+}
+EXPORT_SYMBOL(msmrtc_is_suspended);
+
+int64_t msmrtc_get_tickatsuspend(void)
+{
+	return suspend_state.tick_at_suspend;
+}
+EXPORT_SYMBOL(msmrtc_get_tickatsuspend);
 
 static int msmrtc_tod_proc_args(struct msm_rpc_client *client, void *buff,
 							void *data)
@@ -431,6 +450,20 @@ static void process_cb_request(void *buffer)
 			rtc_cb->cb_info_data.tod_update.freq);
 
 		getnstimeofday(&ts);
+		if (atomic_read(&suspend_state.state)) {
+			int64_t now, sleep;
+			now = msm_timer_get_sclk_time(NULL);
+
+			if (now && suspend_state.tick_at_suspend) {
+				sleep = now -
+					suspend_state.tick_at_suspend;
+				timespec_add_ns(&ts, sleep);
+			} else
+				pr_err("%s: Invalid ticks from SCLK"
+					"now=%lld tick_at_suspend=%lld",
+					__func__, now,
+					suspend_state.tick_at_suspend);
+		}
 		rtc_hctosys();
 		getnstimeofday(&tv);
 		/* Update the alarm information with the new time info. */
@@ -667,6 +700,7 @@ msmrtc_suspend(struct platform_device *dev, pm_message_t state)
 	unsigned long now;
 	struct msm_rtc *rtc_pdata = platform_get_drvdata(dev);
 
+	suspend_state.tick_at_suspend = msm_timer_get_sclk_time(NULL);
 	if (rtc_pdata->rtcalarm_time) {
 		rc = msmrtc_timeremote_read_time(&dev->dev, &tm);
 		if (rc) {
@@ -685,6 +719,7 @@ msmrtc_suspend(struct platform_device *dev, pm_message_t state)
 			((int64_t) diff * NSEC_PER_SEC));
 	} else
 		msm_pm_set_max_sleep_time(0);
+	atomic_inc(&suspend_state.state);
 	return 0;
 }
 
@@ -708,6 +743,8 @@ msmrtc_resume(struct platform_device *dev)
 		if (diff <= 0)
 			msmrtc_alarmtimer_expired(2 , rtc_pdata);
 	}
+	suspend_state.tick_at_suspend = 0;
+	atomic_dec(&suspend_state.state);
 	return 0;
 }
 #else
