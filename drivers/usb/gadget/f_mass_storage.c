@@ -2868,9 +2868,6 @@ buffhds_first_it:
 	} while (--i);
 	bh->next = common->buffhds;
 
-	/* enabling the stall support by default, since our USB
-	 * device supports stall in the hardware */
-	cfg->can_stall = 1;
 
 	/* Prepare inquiryString */
 	if (cfg->release != 0xffff) {
@@ -3268,7 +3265,7 @@ static int fsg_probe(struct platform_device *pdev)
 	fsg_cfg.vendor_name = pdata->vendor;
 	fsg_cfg.product_name = pdata->product;
 	fsg_cfg.release = pdata->release;
-	fsg_cfg.can_stall = 0;
+	fsg_cfg.can_stall = pdata->can_stall;
 	fsg_cfg.pdev = pdev;
 
 	return 0;

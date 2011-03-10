@@ -192,6 +192,7 @@ static struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.vendor		= "Qualcomm Incorporated",
 	.product        = "Mass storage",
 	.release	= 0x0100,
+	.can_stall	= 1,
 };
 
 static struct platform_device usb_mass_storage_device = {
