@@ -312,10 +312,10 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 #ifdef CONFIG_MSM_AVS_HW
 		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
 #endif
-		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1C,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
-		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,
-		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0xFFFFFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0x0C0CFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0x78780FFF,
 
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLK_EN] = 0x01,
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_PRECLMP_EN] = 0x07,
@@ -340,10 +340,10 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 #ifdef CONFIG_MSM_AVS_HW
 		.reg_init_values[MSM_SPM_REG_SAW_AVS_CTL] = 0x586020FF,
 #endif
-		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1F,
+		.reg_init_values[MSM_SPM_REG_SAW_CFG] = 0x1C,
 		.reg_init_values[MSM_SPM_REG_SAW_SPM_CTL] = 0x68,
-		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0xFFFFFFFF,
-		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0xFFFFFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_SLP_TMR_DLY] = 0x0C0CFFFF,
+		.reg_init_values[MSM_SPM_REG_SAW_SPM_WAKE_TMR_DLY] = 0x78780FFF,
 
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_CLK_EN] = 0x13,
 		.reg_init_values[MSM_SPM_REG_SAW_SLP_HSFS_PRECLMP_EN] = 0x07,
