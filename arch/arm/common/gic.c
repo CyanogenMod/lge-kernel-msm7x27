@@ -126,6 +126,15 @@ static void gic_unmask_irq(unsigned int irq)
 	msm_mpm_enable_irq(irq, 1);
 }
 
+#ifdef CONFIG_MSM_RPM
+static void gic_disable_irq(unsigned int irq)
+{
+	msm_mpm_enable_irq(irq, 0);
+}
+#else
+#define gic_disable_irq NULL
+#endif
+
 #ifdef CONFIG_SMP
 static int gic_set_cpu(unsigned int irq, const struct cpumask *mask_val)
 {
@@ -356,6 +365,7 @@ static struct irq_chip gic_chip = {
 #endif
 	.set_type	= gic_set_type,
 	.set_wake	= gic_set_wake,
+	.disable	= gic_disable_irq,
 };
 
 void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
