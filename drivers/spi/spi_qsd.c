@@ -416,6 +416,11 @@ static inline void msm_spi_start_write(struct msm_spi *dd, u32 read_count)
 }
 static inline void msm_spi_set_write_count(struct msm_spi *dd, int val) {}
 
+static inline void msm_spi_complete(struct msm_spi *dd)
+{
+	complete(&dd->transfer_complete);
+}
+
 #elif defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
 
 /* Interrupt Handling */
@@ -569,6 +574,11 @@ static inline void msm_spi_start_write(struct msm_spi *dd, u32 read_count)
 static inline void msm_spi_set_write_count(struct msm_spi *dd, int val)
 {
 	writel(val, dd->base + QUP_MX_WRITE_COUNT);
+}
+
+static inline void msm_spi_complete(struct msm_spi *dd)
+{
+	dd->done = 1;
 }
 
 #endif
@@ -998,7 +1008,7 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 				if (atomic_inc_return(&dd->rx_irq_called) == 1)
 					return IRQ_HANDLED;
 			}
-			dd->done = 1;
+			msm_spi_complete(dd);
 			return IRQ_HANDLED;
 		}
 		return IRQ_NONE;
@@ -1011,7 +1021,7 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 			msm_spi_read_word_from_fifo(dd);
 		}
 		if (dd->rx_bytes_remaining == 0)
-			dd->done = 1;
+			msm_spi_complete(dd);
 	}
 
 	return IRQ_HANDLED;
@@ -1080,7 +1090,7 @@ static irqreturn_t msm_spi_output_irq(int irq, void *dev_id)
 		if (dd->read_buf == NULL && readl(dd->base + SPI_OPERATIONAL) &
 					    SPI_OP_MAX_OUTPUT_DONE_FLAG) {
 			msm_spi_ack_transfer(dd);
-			dd->done = 1;
+			msm_spi_complete(dd);
 			return IRQ_HANDLED;
 		}
 		return IRQ_NONE;
