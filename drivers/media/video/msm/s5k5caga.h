@@ -105,6 +105,11 @@ struct lgcam_rear_sensor_reg {
 	uint16_t zoom_mode_capture_405_reg_settings_size;
 	const struct lgcam_rear_sensor_i2c_reg_conf *focus_rect_reg_settings;
 	uint16_t focus_rect_reg_settings_size;	
+
+	const struct lgcam_rear_sensor_i2c_reg_conf *auto_frame_reg_settings;
+	uint16_t auto_frame_reg_settings_size;
+	const struct lgcam_rear_sensor_i2c_reg_conf *fixed_frame_reg_settings;
+	uint16_t fixed_frame_reg_settings_size;	
 };
 
 /* this value is defined in Android native camera */
@@ -152,12 +157,12 @@ enum lgcam_rear_sensor_iso_value {
 
 /* Enum type for scene mode */
 enum {
-	CAMERA_SCENE_AUTO = 1,
-	CAMERA_SCENE_PORTRAIT,
-	CAMERA_SCENE_LANDSCAPE,
-	CAMERA_SCENE_SPORTS,
-	CAMERA_SCENE_NIGHT,
-	CAMERA_SCENE_SUNSET,
+	CAMERA_SCENE_AUTO = 0,
+	CAMERA_SCENE_LANDSCAPE = 1,
+	CAMERA_SCENE_SUNSET = 4,
+	CAMERA_SCENE_NIGHT = 5,
+	CAMERA_SCENE_PORTRAIT = 6,
+	CAMERA_SCENE_SPORTS = 8,
 };
 
 #if defined(CONFIG_MACH_MSM7X27_GELATO)
