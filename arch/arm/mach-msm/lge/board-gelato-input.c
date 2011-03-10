@@ -333,7 +333,7 @@ static int accel_power_on(void)
 	struct vreg *gp3_vreg;
 
 	gp3_vreg = vreg_get(0, "gp3");
-	vreg_set_level(gp3_vreg, 3000);
+	vreg_set_level(gp3_vreg, 2600);
 	vreg_enable(gp3_vreg);
 
 	printk("[Accelerometer] %s() : Power On\n",__FUNCTION__);
@@ -421,7 +421,7 @@ static int ecom_power_set(unsigned char onoff)
 	printk("[Ecompass] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
-		vreg_set_level(rfrx2_vreg, 3000);
+		vreg_set_level(rfrx2_vreg, 2600);
 		vreg_enable(rfrx2_vreg);
 
 	} else {
