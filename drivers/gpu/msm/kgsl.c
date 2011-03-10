@@ -377,7 +377,7 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 
 	mutex_lock(&kgsl_driver.process_mutex);
 	list_for_each_entry(private, &kgsl_driver.process_list, list) {
-		if (private->pid == task_pid_nr(current)) {
+		if (private->pid == task_tgid_nr(current)) {
 			private->refcnt++;
 			goto out;
 		}
@@ -392,7 +392,7 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 
 	spin_lock_init(&private->mem_lock);
 	private->refcnt = 1;
-	private->pid = task_pid_nr(current);
+	private->pid = task_tgid_nr(current);
 
 	INIT_LIST_HEAD(&private->mem_list);
 
@@ -402,7 +402,7 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 		unsigned long pt_name;
 
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-		pt_name = task_pid_nr(current);
+		pt_name = task_tgid_nr(current);
 #else
 		pt_name = KGSL_MMU_GLOBAL_PT;
 #endif
