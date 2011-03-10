@@ -6437,6 +6437,59 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const focus_rect_reg_settings
 {0xFFFF, 0x0001, BURST_LEN}, //#REG_TC_AF_WinSizesUpdated
 };
 
+static const struct lgcam_rear_sensor_i2c_reg_conf const auto_frame_reg_settings_array[] = {
+	//normal 30fps
+	{0x0028, 0x7000, WORD_LEN},
+	{0x002A, 0x0286, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, // #REG_0TC_PCFG_FrRateQualityType
+	{0x0F12, 0x03E8, WORD_LEN}, // #REG_0TC_PCFG_usMaxFrTimeMsecMult10 //10fps
+	{0x0F12, 0x014D, WORD_LEN}, // #REG_0TC_PCFG_usMinFrTimeMsecMult10 //30fps
+	
+	//============================================================												   
+	// Preview Configuration Update setting 											 
+	//============================================================																				
+	{0x0028, 0x7000, WORD_LEN},
+	{0x002A, 0x023C, WORD_LEN},
+	{0x0F12, 0x0000, WORD_LEN}, //#REG_TC_GP_ActivePrevConfig	  //preview config0
+	{0x002A, 0x0240, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_PrevOpenAfterChange  //config change
+	{0x002A, 0x0230, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_NewConfigSync
+	{0x002A, 0x023E, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_PrevConfigChanged
+	{0x002A, 0x0220, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_EnablePreview
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_EnablePreviewChfanged
+
+};
+
+static const struct lgcam_rear_sensor_i2c_reg_conf const fixed_frame_reg_settings_array[] = {
+	//Fixed 30fps
+	{0x0028, 0x7000, WORD_LEN},
+	{0x002A, 0x0286, WORD_LEN},
+	{0x0F12, 0x0000, WORD_LEN}, // #REG_0TC_PCFG_FrRateQualityType
+	{0x0F12, 0x014D, WORD_LEN}, // #REG_0TC_PCFG_usMaxFrTimeMsecMult10 //30fps for test
+	{0x0F12, 0x014D, WORD_LEN}, // #REG_0TC_PCFG_usMinFrTimeMsecMult10 //30fps for test
+	
+	//============================================================												   
+	// Preview Configuration Update setting 											 
+	//============================================================																				
+	{0x0028, 0x7000, WORD_LEN},
+	{0x002A, 0x023C, WORD_LEN},
+	{0x0F12, 0x0000, WORD_LEN}, //#REG_TC_GP_ActivePrevConfig	  //preview config0
+	{0x002A, 0x0240, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_PrevOpenAfterChange  //config change
+	{0x002A, 0x0230, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_NewConfigSync
+	{0x002A, 0x023E, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_PrevConfigChanged
+	{0x002A, 0x0220, WORD_LEN},
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_EnablePreview
+	{0x0F12, 0x0001, WORD_LEN}, //#REG_TC_GP_EnablePreviewChfanged
+
+};
+
+
 struct lgcam_rear_sensor_reg lgcam_rear_sensor_regs = {
 
 	.pll = pll_settings_array,
@@ -6515,6 +6568,12 @@ struct lgcam_rear_sensor_reg lgcam_rear_sensor_regs = {
 	.zoom_mode_capture_405_reg_settings_size = ARRAY_SIZE(zoom_mode_capture_405_settings_array),
 	.focus_rect_reg_settings = focus_rect_reg_settings_array,
 	.focus_rect_reg_settings_size = ARRAY_SIZE(focus_rect_reg_settings_array),	
+
+	.auto_frame_reg_settings = auto_frame_reg_settings_array,
+	.auto_frame_reg_settings_size = ARRAY_SIZE(auto_frame_reg_settings_array),
+
+	.fixed_frame_reg_settings = fixed_frame_reg_settings_array,
+	.fixed_frame_reg_settings_size = ARRAY_SIZE(fixed_frame_reg_settings_array),		
 };
 #endif /* #define lgcam_rear_sensor_REG_H */
 
