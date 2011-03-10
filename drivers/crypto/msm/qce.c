@@ -84,7 +84,7 @@ struct qce_device {
 	dma_addr_t coh_pmem;	    /* Allocated coherent physical memory */
 	void __iomem *iobase;	    /* Virtual io base of CE HW  */
 	unsigned int phy_iobase;    /* Physical io base of CE HW    */
-
+	struct clk *ce_clk;	    /* Handle to CE clk */
 	unsigned int crci_in;	      /* CRCI for CE DM IN Channel   */
 	unsigned int crci_out;	      /* CRCI for CE DM OUT Channel   */
 	unsigned int crci_hash;	      /* CRCI for CE HASH   */
@@ -566,6 +566,7 @@ static int _sha_ce_setup(struct qce_device *pce_dev, struct qce_sha_req *sreq)
 {
 	uint32_t auth32[SHA256_DIGEST_SIZE / sizeof(uint32_t)];
 	uint32_t diglen;
+	int rc;
 	int i;
 	uint32_t cfg = 0;
 
@@ -598,6 +599,10 @@ static int _sha_ce_setup(struct qce_device *pce_dev, struct qce_sha_req *sreq)
 		}
 	} else
 		_byte_stream_to_net_words(auth32, sreq->digest, diglen);
+
+	rc = clk_enable(pce_dev->ce_clk);
+	if (rc)
+		return rc;
 
 	writel(auth32[0], pce_dev->iobase + CRYPTO_AUTH_IV0_REG);
 	writel(auth32[1], pce_dev->iobase + CRYPTO_AUTH_IV1_REG);
@@ -656,10 +661,14 @@ static int _ce_setup(struct qce_device *pce_dev, struct qce_req *q_req,
 			0, 0, 0, 0};
 	uint32_t enck_size_in_word = q_req->encklen / sizeof(uint32_t);
 	int aes_key_chg;
-	int i;
+	int i, rc;
 	uint32_t aes_round_key[CRYPTO_AES_RNDKEYS];
 	uint32_t cfg;
 	uint32_t ivsize = q_req->ivsize;
+
+	rc = clk_enable(pce_dev->ce_clk);
+	if (rc)
+		return rc;
 
 	cfg = (1 << CRYPTO_FIRST) | (1 << CRYPTO_LAST);
 	if (q_req->op == QCE_REQ_AEAD) {
@@ -881,11 +890,12 @@ static int _aead_complete(struct qce_device *pce_dev)
 			DMA_TO_DEVICE);
 
 	/* get iv out */
-	if (pce_dev->mode == QCE_MODE_ECB)
+	if (pce_dev->mode == QCE_MODE_ECB) {
+		clk_disable(pce_dev->ce_clk);
 		pce_dev->qce_cb(areq, pce_dev->dig_result, NULL,
 				pce_dev->chan_ce_in_status |
 				pce_dev->chan_ce_out_status);
-	else {
+	} else {
 
 		iv_out[0] = readl(pce_dev->iobase + CRYPTO_CNTR0_IV0_REG);
 		iv_out[1] = readl(pce_dev->iobase + CRYPTO_CNTR1_IV1_REG);
@@ -893,7 +903,7 @@ static int _aead_complete(struct qce_device *pce_dev)
 		iv_out[3] = readl(pce_dev->iobase + CRYPTO_CNTR3_IV3_REG);
 
 		_net_words_to_byte_stream(iv_out, iv, sizeof(iv));
-
+		clk_disable(pce_dev->ce_clk);
 		pce_dev->qce_cb(areq, pce_dev->dig_result, iv,
 				pce_dev->chan_ce_in_status |
 				pce_dev->chan_ce_out_status);
@@ -913,6 +923,7 @@ static void _sha_complete(struct qce_device *pce_dev)
 
 	auth_data[0] = readl(pce_dev->iobase + CRYPTO_AUTH_BYTECNT0_REG);
 	auth_data[1] = readl(pce_dev->iobase + CRYPTO_AUTH_BYTECNT1_REG);
+	clk_disable(pce_dev->ce_clk);
 	pce_dev->qce_cb(areq,  pce_dev->dig_result, (unsigned char *)auth_data,
 				pce_dev->chan_ce_in_status);
 };
@@ -934,17 +945,18 @@ static int _ablk_cipher_complete(struct qce_device *pce_dev)
 							DMA_TO_DEVICE);
 
 	/* get iv out */
-	if (pce_dev->mode == QCE_MODE_ECB)
+	if (pce_dev->mode == QCE_MODE_ECB) {
+		clk_disable(pce_dev->ce_clk);
 		pce_dev->qce_cb(areq, NULL, NULL, pce_dev->chan_ce_in_status |
 					pce_dev->chan_ce_out_status);
-	else {
+	} else {
 		iv_out[0] = readl(pce_dev->iobase + CRYPTO_CNTR0_IV0_REG);
 		iv_out[1] = readl(pce_dev->iobase + CRYPTO_CNTR1_IV1_REG);
 		iv_out[2] = readl(pce_dev->iobase + CRYPTO_CNTR2_IV2_REG);
 		iv_out[3] = readl(pce_dev->iobase + CRYPTO_CNTR3_IV3_REG);
 
 		_net_words_to_byte_stream(iv_out, iv, sizeof(iv));
-
+		clk_disable(pce_dev->ce_clk);
 		pce_dev->qce_cb(areq, NULL, iv, pce_dev->chan_ce_in_status |
 					pce_dev->chan_ce_out_status);
 	}
@@ -1575,8 +1587,10 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 
 	/* set up crypto device */
 	rc = _ce_setup(pce_dev, q_req, totallen, ivsize + areq->assoclen);
-	if (rc < 0)
+	if (rc < 0) {
+		clk_disable(pce_dev->ce_clk);
 		goto bad;
+	}
 
 	/* setup for callback, and issue command to adm */
 	pce_dev->areq = q_req->areq;
@@ -1680,8 +1694,10 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 #endif
 	/* set up crypto device */
 	rc = _ce_setup(pce_dev, c_req, areq->nbytes, 0);
-	if (rc < 0)
+	if (rc < 0) {
+		clk_disable(pce_dev->ce_clk);
 		goto bad;
+	}
 
 	/* setup for callback, and issue command to adm */
 	pce_dev->areq = areq;
@@ -1746,8 +1762,10 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 
 	rc =  _sha_ce_setup(pce_dev, sreq);
 
-	if (rc < 0)
+	if (rc < 0) {
+		clk_disable(pce_dev->ce_clk);
 		goto bad;
+	}
 
 	pce_dev->areq = areq;
 	pce_dev->qce_cb = sreq->qce_cb;
@@ -1774,6 +1792,7 @@ void *qce_open(struct platform_device *pdev, int *rc)
 {
 	struct qce_device *pce_dev;
 	struct resource *resource;
+	struct clk *ce_clk;
 
 	pce_dev = kzalloc(sizeof(struct qce_device), GFP_KERNEL);
 	if (!pce_dev) {
@@ -1782,6 +1801,12 @@ void *qce_open(struct platform_device *pdev, int *rc)
 		return NULL;
 	}
 	pce_dev->pdev = &pdev->dev;
+	ce_clk = clk_get(pce_dev->pdev, "ce_clk");
+	if (IS_ERR(ce_clk)) {
+		*rc = PTR_ERR(ce_clk);
+		return NULL;
+	}
+	pce_dev->ce_clk = ce_clk;
 
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!resource) {
@@ -1855,12 +1880,17 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	pce_dev->chan_ce_in_state = QCE_CHAN_STATE_IDLE;
 	pce_dev->chan_ce_out_state = QCE_CHAN_STATE_IDLE;
 
+	*rc = clk_enable(pce_dev->ce_clk);
+	if (*rc)
+		return NULL;
+
 	if (_init_ce_engine(pce_dev)) {
 		*rc = -ENXIO;
+		clk_disable(pce_dev->ce_clk);
 		goto err;
 	}
 	*rc = 0;
-
+	clk_disable(pce_dev->ce_clk);
 	return pce_dev;
 err:
 	if (pce_dev)
@@ -1888,6 +1918,7 @@ int qce_close(void *handle)
 	kfree(pce_dev->chan_ce_out_cmd);
 
 	kfree(handle);
+	clk_put(pce_dev->ce_clk);
 	return 0;
 }
 EXPORT_SYMBOL(qce_close);
@@ -1904,38 +1935,18 @@ EXPORT_SYMBOL(qce_hmac_support);
 
 static int __init _qce_init(void)
 {
-	int err = 0;
-	struct clk *ce_clk;
-
-	ce_clk = clk_get(0, "ce_clk");
-	if (IS_ERR(ce_clk))
-		return PTR_ERR(ce_clk);
-
-	err = clk_enable(ce_clk);
-
-	if (err)
-		return err;
-	else
-		return 0;
+	return 0;
 }
 
 static void __exit _qce_exit(void)
 {
-	struct clk *ce_clk;
-
-	ce_clk = clk_get(0, "ce_clk");
-
-	if (IS_ERR(ce_clk))
-		return;
-
-	clk_disable(ce_clk);
-	clk_put(ce_clk);
+	return;
 }
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("1.03");
+MODULE_VERSION("1.04");
 
 module_init(_qce_init);
 module_exit(_qce_exit);
