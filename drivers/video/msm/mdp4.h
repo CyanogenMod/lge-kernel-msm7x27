@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -78,6 +78,10 @@ enum {
 	EBI2_LCD0,
 	EBI2_LCD1
 };
+
+#define MDP4_3D_NONE		0
+#define MDP4_3D_SIDE_BY_SIDE	1
+#define MDP4_3D_TOP_DOWN	2
 
 #define MDP4_PANEL_MDDI		BIT(0)
 #define MDP4_PANEL_LCDC		BIT(1)
@@ -236,6 +240,9 @@ struct mdp4_overlay_pipe {
 	uint32 src_format;
 	uint32 src_width;	/* source img width */
 	uint32 src_height;	/* source img height */
+	uint32 is_3d;
+	uint32 src_width_3d;	/* source img width */
+	uint32 src_height_3d;	/* source img height */
 	uint32 src_w;		/* roi */
 	uint32 src_h;		/* roi */
 	uint32 src_x;		/* roi */
@@ -420,8 +427,7 @@ void mdp4_overlay_lcdc_wait4vsync(struct msm_fb_data_type *mfd);
 void mdp4_overlay_vsync_push(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_mddi_overlay_dmas_restore(void);
-void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd,
-				struct mdp4_overlay_pipe *pipe);
+void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_rgb_igc_lut_setup(int num);
@@ -448,8 +454,8 @@ void mdp4_mddi_kickoff_video(struct msm_fb_data_type *mfd,
 
 void mdp4_mddi_read_ptr_intr(void);
 
-void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd,
-				struct mdp4_overlay_pipe *pipe);
+void mdp4_dsi_cmd_dma_busy_check(void);
+void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,
@@ -457,6 +463,11 @@ void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,
 void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_cmd_overlay_restore(void);
+
+void mdp4_overlay_panel_3d(int mixer_num, uint32 panel_3d);
+int mdp4_overlay_3d(struct fb_info *info, struct msmfb_overlay_3d *req);
+void mdp4_dsi_cmd_3d(struct msm_fb_data_type *mfd,
+			 struct msmfb_overlay_3d *r3d);
 
 void mdp_dmap_vsync_set(int enable);
 int mdp_dmap_vsync_get(void);

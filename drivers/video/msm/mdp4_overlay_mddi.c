@@ -39,8 +39,8 @@
 #include "mdp4.h"
 
 static struct mdp4_overlay_pipe *mddi_pipe;
-static struct mdp4_overlay_pipe *pending_pipe;
 static struct msm_fb_data_type *mddi_mfd;
+static int busy_wait_cnt;
 
 static int vsync_start_y_adjust = 4;
 
@@ -360,8 +360,9 @@ void mdp4_overlay0_done_mddi()
 
 	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
 
-	if (pending_pipe)
-		complete(&pending_pipe->comp);
+	if (busy_wait_cnt)
+		busy_wait_cnt--;
+
 }
 
 void mdp4_mddi_overlay_restore(void)
@@ -372,7 +373,7 @@ void mdp4_mddi_overlay_restore(void)
 	if (mddi_mfd->panel_power_on == 0)
 		return;
 	if (mddi_mfd && mddi_pipe) {
-		mdp4_mddi_dma_busy_wait(mddi_mfd, mddi_pipe);
+		mdp4_mddi_dma_busy_wait(mddi_mfd);
 		mdp4_overlay_update_lcd(mddi_mfd);
 		mdp4_mddi_overlay_kickoff(mddi_mfd, mddi_pipe);
 		mddi_mfd->dma_update_flag = 1;
@@ -381,26 +382,30 @@ void mdp4_mddi_overlay_restore(void)
 		mdp4_mddi_overlay_dmas_restore();
 }
 
-void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd,
-				struct mdp4_overlay_pipe *pipe)
+/*
+ * mdp4_mddi_cmd_dma_busy_wait: check mddi link activity
+ * dsi link is a shared resource and it can only be used
+ * while it is in idle state.
+ * ov_mutex need to be acquired before call this function.
+ */
+void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd)
 {
 	unsigned long flag;
-
-	if (pipe == NULL) /* first time since boot up */
-		return;
+	int need_wait = 0;
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	if (mfd->dma->busy == TRUE) {
-		INIT_COMPLETION(pipe->comp);
-		pending_pipe = pipe;
+		if (busy_wait_cnt == 0)
+			INIT_COMPLETION(mfd->dma->comp);
+		busy_wait_cnt++;
+		need_wait++;
 	}
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-	if (pending_pipe != NULL) {
+
+	if (need_wait) {
 		/* wait until DMA finishes the current job */
-		wait_for_completion_killable(&pipe->comp);
-		mfd->dma_update_flag = 0;
-		pending_pipe = NULL;
+		wait_for_completion(&mfd->dma->comp);
 	}
 }
 
@@ -426,11 +431,6 @@ void mdp4_mddi_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdp_pipe_kickoff(MDP_OVERLAY0_TERM, mfd);
 }
 
-void mdp4_dma_s_done_mddi()
-{
-	if (pending_pipe)
-		complete(&pending_pipe->dmas_comp);
-}
 void mdp4_dma_s_update_lcd(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe)
 {
@@ -505,15 +505,12 @@ void mdp4_mddi_dma_s_kickoff(struct msm_fb_data_type *mfd,
 {
 	mdp_enable_irq(MDP_DMA_S_TERM);
 	mfd->dma->busy = TRUE;
-	INIT_COMPLETION(pipe->dmas_comp);
 	mfd->ibuf_flushed = TRUE;
-	pending_pipe = pipe;
 	/* start dma_s pipe */
 	mdp_pipe_kickoff(MDP_DMA_S_TERM, mfd);
 
 	/* wait until DMA finishes the current job */
-	wait_for_completion_killable(&pipe->dmas_comp);
-	pending_pipe = NULL;
+	wait_for_completion(&mfd->dma->comp);
 	mdp_disable_irq(MDP_DMA_S_TERM);
 }
 
@@ -521,7 +518,7 @@ void mdp4_mddi_overlay_dmas_restore(void)
 {
 	/* mutex held by caller */
 	if (mddi_mfd && mddi_pipe) {
-		mdp4_mddi_dma_busy_wait(mddi_mfd, mddi_pipe);
+		mdp4_mddi_dma_busy_wait(mddi_mfd);
 		mdp4_dma_s_update_lcd(mddi_mfd, mddi_pipe);
 		mdp4_mddi_dma_s_kickoff(mddi_mfd, mddi_pipe);
 		mddi_mfd->dma_update_flag = 1;
@@ -533,7 +530,7 @@ void mdp4_mddi_overlay(struct msm_fb_data_type *mfd)
 	mutex_lock(&mfd->dma->ov_mutex);
 
 	if (mfd && mfd->panel_power_on) {
-		mdp4_mddi_dma_busy_wait(mfd, mddi_pipe);
+		mdp4_mddi_dma_busy_wait(mfd);
 		mdp4_overlay_update_lcd(mfd);
 
 		if (mdp_hw_revision < MDP4_REVISION_V2_1) {
@@ -557,4 +554,16 @@ void mdp4_mddi_overlay(struct msm_fb_data_type *mfd)
 	}
 	mdp4_overlay_resource_release();
 	mutex_unlock(&mfd->dma->ov_mutex);
+}
+
+int mdp4_mddi_overlay_cursor(struct fb_info *info, struct fb_cursor *cursor)
+{
+	struct msm_fb_data_type *mfd = info->par;
+	mutex_lock(&mfd->dma->ov_mutex);
+	if (mfd && mfd->panel_power_on) {
+		mdp4_mddi_dma_busy_wait(mfd);
+		mdp_hw_cursor_update(info, cursor);
+	}
+	mutex_unlock(&mfd->dma->ov_mutex);
+	return 0;
 }
