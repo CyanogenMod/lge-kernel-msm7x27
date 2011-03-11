@@ -47,6 +47,62 @@
 
 static void kgsl_put_phys_file(struct file *file);
 
+/* Allocate a new context id */
+
+struct kgsl_context *
+kgsl_create_context(struct kgsl_device_private *dev_priv)
+{
+	struct kgsl_context *context;
+	int ret, id;
+
+	context = kzalloc(sizeof(*context), GFP_KERNEL);
+
+	if (context == NULL)
+		return NULL;
+
+	while (1) {
+		if (idr_pre_get(&dev_priv->device->context_idr,
+				GFP_KERNEL) == 0) {
+			kfree(context);
+			return NULL;
+		}
+
+		ret = idr_get_new(&dev_priv->device->context_idr,
+				  context, &id);
+
+		if (ret != -EAGAIN)
+			break;
+	}
+
+	if (ret) {
+		kfree(context);
+		return NULL;
+	}
+
+	context->id = id;
+	context->dev_priv = dev_priv;
+
+	return context;
+}
+
+void
+kgsl_destroy_context(struct kgsl_device_private *dev_priv,
+		     struct kgsl_context *context)
+{
+	int id;
+
+	if (context == NULL)
+		return;
+
+	/* Fire a bug if the devctxt hasn't been freed */
+	BUG_ON(context->devctxt);
+
+	id = context->id;
+	kfree(context);
+
+	idr_remove(&dev_priv->device->context_idr, id);
+}
+
 static int kgsl_runpending(struct kgsl_device *device)
 {
 	kgsl_cmdstream_memqueue_drain(device);
@@ -401,10 +457,11 @@ unlock:
 static int kgsl_release(struct inode *inodep, struct file *filep)
 {
 	int result = 0;
-	unsigned int i = 0;
 	struct kgsl_device_private *dev_priv = NULL;
 	struct kgsl_process_private *private = NULL;
 	struct kgsl_device *device;
+	struct kgsl_context *context;
+	int next = 0;
 
 	device = kgsl_driver.devp[iminor(inodep)];
 	BUG_ON(device == NULL);
@@ -418,9 +475,18 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 
 	mutex_lock(&device->mutex);
 	kgsl_check_suspended(device);
-	for (i = 0; i < KGSL_CONTEXT_MAX; i++) {
-		if (test_bit(i, dev_priv->ctxt_bitmap))
-			device->ftbl.device_drawctxt_destroy(device, i);
+
+	while (1) {
+		context = idr_get_next(&dev_priv->device->context_idr, &next);
+		if (context == NULL)
+			break;
+
+		if (context->dev_priv == dev_priv) {
+			device->ftbl.device_drawctxt_destroy(device, context);
+			kgsl_destroy_context(dev_priv, context);
+		}
+
+		next = next + 1;
 	}
 
 	if (atomic_dec_return(&device->open_count) == -1) {
@@ -482,7 +548,6 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 		goto done;
 	}
 
-	bitmap_zero(dev_priv->ctxt_bitmap, KGSL_CONTEXT_MAX);
 	dev_priv->device = device;
 	filep->private_data = dev_priv;
 
@@ -512,6 +577,7 @@ done:
 		kgsl_release(inodep, filep);
 	return result;
 }
+
 
 /*call with private->mem_lock locked */
 static struct kgsl_mem_entry *
@@ -736,13 +802,15 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	int result = 0;
 	struct kgsl_ringbuffer_issueibcmds param;
 	struct kgsl_ibdesc *ibdesc;
+	struct kgsl_context *context;
 
 	if (copy_from_user(&param, arg, sizeof(param))) {
 		result = -EFAULT;
 		goto done;
 	}
 
-	if (!test_bit(param.drawctxt_id, dev_priv->ctxt_bitmap)) {
+	context = kgsl_find_context(dev_priv, param.drawctxt_id);
+	if (context == NULL) {
 		result = -EINVAL;
 		KGSL_DRV_ERR("invalid drawctxt drawctxt_id %d\n",
 				      param.drawctxt_id);
@@ -801,7 +869,7 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 	result = dev_priv->device->ftbl.device_issueibcmds(dev_priv,
-					     param.drawctxt_id,
+					     context,
 					     ibdesc,
 					     param.numibs,
 					     &param.timestamp,
@@ -891,26 +959,38 @@ static long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 {
 	int result = 0;
 	struct kgsl_drawctxt_create param;
+	struct kgsl_context *context = NULL;
 
 	if (copy_from_user(&param, arg, sizeof(param))) {
 		result = -EFAULT;
 		goto done;
 	}
 
+	context = kgsl_create_context(dev_priv);
+
+	if (context == NULL) {
+		result = -ENOMEM;
+		goto done;
+	}
+
 	result = dev_priv->device->ftbl.device_drawctxt_create(dev_priv,
 					param.flags,
-					&param.drawctxt_id);
+					context);
+
 	if (result != 0)
 		goto done;
+
+	param.drawctxt_id = context->id;
 
 	if (copy_to_user(arg, &param, sizeof(param))) {
 		result = -EFAULT;
 		goto done;
 	}
 
-	set_bit(param.drawctxt_id, dev_priv->ctxt_bitmap);
-
 done:
+	if (result && context)
+		kgsl_destroy_context(dev_priv, context);
+
 	return result;
 }
 
@@ -919,22 +999,25 @@ static long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 {
 	int result = 0;
 	struct kgsl_drawctxt_destroy param;
+	struct kgsl_context *context;
 
 	if (copy_from_user(&param, arg, sizeof(param))) {
 		result = -EFAULT;
 		goto done;
 	}
 
-	if (!test_bit(param.drawctxt_id, dev_priv->ctxt_bitmap)) {
+	context = kgsl_find_context(dev_priv, param.drawctxt_id);
+
+	if (context == NULL) {
 		result = -EINVAL;
 		goto done;
 	}
 
 	result = dev_priv->device->ftbl.device_drawctxt_destroy(
 							dev_priv->device,
-							param.drawctxt_id);
-	if (result == 0)
-		clear_bit(param.drawctxt_id, dev_priv->ctxt_bitmap);
+							context);
+
+	kgsl_destroy_context(dev_priv, context);
 
 done:
 	return result;

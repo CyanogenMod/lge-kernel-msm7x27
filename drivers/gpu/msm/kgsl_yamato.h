@@ -35,9 +35,7 @@
 struct kgsl_yamato_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	struct kgsl_memregion gmemspace;
-	unsigned int      drawctxt_count;
-	struct kgsl_drawctxt *drawctxt_active;
-	struct kgsl_drawctxt *drawctxt[KGSL_CONTEXT_MAX];
+	struct kgsl_yamato_context *drawctxt_active;
 	wait_queue_head_t ib1_wq;
 	unsigned int *pfp_fw;
 	size_t pfp_fw_size;
