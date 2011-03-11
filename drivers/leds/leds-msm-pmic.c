@@ -123,11 +123,27 @@ static int msm_pmic_led_resume(struct platform_device *dev)
 #define msm_pmic_led_resume NULL
 #endif
 
+#ifdef CONFIG_MACH_LGE
+/* 
+ * 2011-03-08, jinkyu.choi@lge.com
+ * if using the VBAT power,
+ * we should turn off the leds when reboot or power down.
+ */
+static void msm_pmic_led_shutdown(struct platform_device *dev)
+{
+	msm_keypad_bl_led_set(&msm_kp_bl_led, LED_OFF);
+	//printk("%s is done!\n", __func__);
+}
+#endif
+
 static struct platform_driver msm_pmic_led_driver = {
 	.probe		= msm_pmic_led_probe,
 	.remove		= __devexit_p(msm_pmic_led_remove),
 	.suspend	= msm_pmic_led_suspend,
 	.resume		= msm_pmic_led_resume,
+#ifdef  CONFIG_MACH_LGE
+	.shutdown	= msm_pmic_led_shutdown,
+#endif
 	.driver		= {
 		.name	= "pmic-leds",
 		.owner	= THIS_MODULE,

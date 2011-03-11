@@ -500,6 +500,9 @@ static void aat28xx_poweron(struct aat28xx_driver_data *drvdata)
 #if 0
 static void aat28xx_poweroff(struct aat28xx_driver_data *drvdata)
 {
+	printk("%s backlight power state = %d, gpio %d\n",
+			__func__, drvdata->state, drvdata->gpio);
+
 	if (!drvdata || drvdata->state == POWEROFF_STATE)
 		return;
 
@@ -525,7 +528,7 @@ static void aat28xx_sleep(struct aat28xx_driver_data *drvdata)
 	if (!drvdata || drvdata->state == SLEEP_STATE)
 		return;
 
-	dprintk("operation mode is %s\n", (drvdata->mode == NORMAL_MODE) ? "normal_mode" : "alc_mode");
+	printk(KERN_INFO "%s: cur state=%d to sleep state(2)\n", __func__, drvdata->state);
 	
 	switch (drvdata->mode) {
 		case NORMAL_MODE:
@@ -545,8 +548,8 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 	if (!drvdata || drvdata->state == NORMAL_STATE)
 		return;
 
-	dprintk("operation mode is %s\n", (drvdata->mode == NORMAL_MODE) ? "normal_mode" : "alc_mode");
-
+	printk(KERN_INFO "%s: cur state=%d to wakeup state(1)\n", __func__, drvdata->state);
+	
 	if (drvdata->state == POWEROFF_STATE) {
 		aat28xx_poweron(drvdata);
 	} else if (drvdata->state == SLEEP_STATE) {
@@ -659,6 +662,26 @@ static int aat28xx_resume(struct i2c_client *i2c_dev)
 #define aat28xx_suspend	NULL
 #define aat28xx_resume	NULL
 #endif	/* CONFIG_PM */
+
+/* 
+ * 2011-03-08, jinkyu.choi@lge.com
+ * if the backlight ic is using vbat power,
+ * we should turn off the backlight ic when reboot or power down.
+ */
+static void aat28xx_shutdown(struct i2c_client *i2c_dev) {
+	struct aat28xx_driver_data *drvdata = i2c_get_clientdata(i2c_dev);
+
+#if 0
+	printk("%s backlight power state = %d, gpio %d\n",
+			__func__, drvdata->state, drvdata->gpio);
+#endif
+
+	/* change the state to sleep and disable the backlight ic */
+	aat28xx_sleep(drvdata);
+	gpio_direction_output(drvdata->gpio, 0);
+
+	//printk("%s is done!\n", __func__);
+}
 
 void aat28xx_switch_mode(struct device *dev, int next_mode)
 {
@@ -937,6 +960,7 @@ static struct i2c_driver __refdata aat28xx_driver = {
 	.suspend 	= aat28xx_suspend,
 	.resume 	= aat28xx_resume,
 #endif
+	.shutdown	= aat28xx_shutdown,
 	.id_table 	= aat28xx_idtable,
 	.driver = {
 		.name = MODULE_NAME,

@@ -275,7 +275,8 @@ static void synaptics_ts_fw_reflash_work_func(struct work_struct *work)
 
 	DEBUG_MSG("start F/W reflash for synaptics touch IC!!\n");
 
-	if (kind_of_product != SYNAPTICS_3000) {
+	if(kind_of_product != SYNAPTICS_3000)
+	{
 		DEBUG_MSG("synaptics_ts_fw_reflash_work_func : F/W update is not supported!\n");
 		return;
 	}
@@ -284,7 +285,8 @@ static void synaptics_ts_fw_reflash_work_func(struct work_struct *work)
 	if (ts->use_irq)
 		disable_irq(ts->client->irq);
 
-	if (SynaDoReflash(ts->client, ts->fw_revision) == FW_REFLASH_SUCCEED) {
+	if(SynaDoReflash(ts->client, ts->fw_revision) == FW_REFLASH_SUCCEED)
+	{
 		SHOW_MSG("synaptics_ts_fw_reflash_work_func : SynaDoReflash succeed!\n");
 
 		ret = i2c_smbus_read_byte_data(ts->client, ts_cmd_reg_data.firmware_revision_query);
@@ -365,7 +367,8 @@ static void synaptics_ts_work_func(struct work_struct *work)
 	DEBUG_MSG("synaptics_ts_work_func : int mode = 0x%x\n", int_mode);
 
 #ifdef SYNAPTICS_ESD_RECOVERY
-	if (int_mode < 0) {
+	if(int_mode < 0)
+	{
 		DEBUG_MSG("synaptics_ts_new_work_func : death from ESD attack\n");
 
 		if (ts->use_irq)
@@ -402,8 +405,10 @@ static void synaptics_ts_work_func(struct work_struct *work)
 	}
 #endif
 
-	if (int_mode & SYNAPTICS_INT_ABS0) {
-		while (1) {
+	if(int_mode & SYNAPTICS_INT_ABS0)
+	{
+		while (1)
+		{
 			i2c_smbus_read_i2c_block_data(ts->client, START_ADDR, sizeof(ts_reg_data),(u8 *)&ts_reg_data);
 
 			finger0_status = TS_SNTS_GET_FINGER_STATE_0(ts_reg_data.finger_state_reg);
@@ -411,7 +416,8 @@ static void synaptics_ts_work_func(struct work_struct *work)
 
 			printk("synaptics_ts_work_func : finger0_status = 0x%x, finger1_status = 0x%x\n",finger0_status,finger1_status);
 
-			if ((finger0_status == 0) && (ts_pre_state == 0)) {
+			if((finger0_status == 0) && (ts_pre_state == 0))
+			{
 				DEBUG_MSG("synaptics_ts_work_func: Synaptics Touch is is the idle state\n");
 				//longpress_pre = 0;
 				//flicking = 0;
@@ -419,8 +425,17 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				goto SYNAPTICS_TS_IDLE;
 			}
 
-			if ((finger0_status == 1) || (finger0_status == 2)) {
+			if((finger0_status == 1) || (finger0_status == 2))
+			{
 				ts_pre_state = 1;
+			}
+			else
+			{
+				ts_pre_state = 0;
+			}
+
+			if((finger0_status == 1) || (finger0_status == 2))
+			{
 				touch1_prestate = 1;
 
 				tmp_x = (int)TS_SNTS_GET_X_POSITION(ts_reg_data.X_high_position_finger0_reg, ts_reg_data.XY_low_position_finger0_reg);
@@ -442,8 +457,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				DEBUG_MSG("push : first_x= %d, first_y = %d, width = %d\n", curr_ts_data.X_position[0], curr_ts_data.Y_position[0], width0);
 
 				input_mt_sync(ts->input_dev);
-			} else if ((finger0_status == 0) && (touch1_prestate == 1)) {
-				ts_pre_state = 0;
+			}
+			else if((finger0_status == 0) && (touch1_prestate == 1))
+			{
 				touch1_prestate = 0;
 
 				tmp_x = (int)TS_SNTS_GET_X_POSITION(ts_reg_data.X_high_position_finger0_reg, ts_reg_data.XY_low_position_finger0_reg);
@@ -464,12 +480,15 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				input_mt_sync(ts->input_dev);
 
 				DEBUG_MSG("release : first_x= %d, first_y = %d, width = %d\n", curr_ts_data.X_position[0], curr_ts_data.Y_position[0], width0);
-			} else if (finger0_status == 0) {
-				ts_pre_state = 0;
+			}
+			else if(finger0_status == 0)
+			{
 				touch1_prestate = 0;
 			}
 
-			if ((finger1_status == 1) || (finger1_status == 2)/* && (touch1_prestate == 1)*/) {
+
+			if((finger1_status == 1) || (finger1_status == 2)/* && (touch1_prestate == 1)*/)
+			{
 				ts_pre_state = 1;
 				touch2_prestate = 1;
 
@@ -491,7 +510,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				input_mt_sync(ts->input_dev);
 
 				DEBUG_MSG("push : second_x= %d, second_y = %d, width = %d\n", curr_ts_data.X_position[1], curr_ts_data.Y_position[1], width1);
-			} else if ((finger1_status == 0) /*&& (touch1_prestate == 1)*/ && (touch2_prestate == 1)) {
+			}
+			else if((finger1_status == 0) /*&& (touch1_prestate == 1)*/ && (touch2_prestate == 1))
+			{
 				touch2_prestate = 0;
 
 				tmp_x = (int)TS_SNTS_GET_X_POSITION(ts_reg_data.X_high_position_finger1_reg, ts_reg_data.XY_low_position_finger1_reg);
@@ -512,12 +533,15 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				input_mt_sync(ts->input_dev);
 
 				DEBUG_MSG("release : second_x= %d, second_y = %d, width = %d\n", curr_ts_data.X_position[1], curr_ts_data.Y_position[1], width1);
-			} else if (finger1_status == 0) {
+			}
+			else if(finger1_status == 0)
+			{
 				touch2_prestate = 0;
 			}
 			input_sync(ts->input_dev);
 
-			if (ts_pre_state == 0) {
+			if (ts_pre_state == 0)
+			{
 				break;
 			}
 
@@ -526,7 +550,8 @@ static void synaptics_ts_work_func(struct work_struct *work)
 	}
 
 SYNAPTICS_TS_IDLE:
-	if (ts->use_irq) {
+	if (ts->use_irq)
+	{
 		enable_irq(ts->client->irq);
 	}
 }
@@ -557,7 +582,8 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 	DEBUG_MSG("synaptics_ts_new_work_func : int mode = 0x%x\n", int_mode);
 
 #ifdef TOUCH_TEST
-	if ((fd_check = sys_open((const char __user *) "/sdcard/start_touch_logging", O_RDONLY, 0) ) >= 0) {
+	if((fd_check = sys_open((const char __user *) "/sdcard/start_touch_logging", O_RDONLY, 0) ) >= 0)
+	{
 		sys_close(fd_check);
 
 		memset(reg_data1, 0x00, sizeof(reg_data1));
@@ -567,7 +593,8 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 		i2c_smbus_read_i2c_block_data(ts->client, 0x15, 11, reg_data1);
 		i2c_smbus_read_i2c_block_data(ts->client, 0x2c, 24, reg_data2);
 
-		if ((fd = sys_open((const char __user *) "/sdcard/touch_reg.txt", O_CREAT | O_APPEND | O_WRONLY, 0)) >= 0) {
+		if((fd = sys_open((const char __user *) "/sdcard/touch_reg.txt", O_CREAT | O_APPEND | O_WRONLY, 0)) >= 0)
+		{
 			sprintf(tmp_buf,"[0x15]= 0x%x,\t[0x16]= 0x%x,\t[0x17]= 0x%x,\t[0x18]= 0x%x,\t[0x19]= 0x%x\n\
 [0x1a]= 0x%x,\t[0x1b]= 0x%x,\t[0x1c]= 0x%x,\t[0x1d]= 0x%x,\t[0x1e]= 0x%x\n\
 [0x1f]= 0x%x,\t[0x2c]= 0x%x,\t[0x2d]= 0x%x,\t[0x2e]= 0x%x,\t[0x2f]= 0x%x\n\
@@ -590,7 +617,8 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 #endif
 
 #ifdef SYNAPTICS_ESD_RECOVERY
-	if ((int_mode < 0) && (is_first_release_event != 1)) {
+	if((int_mode < 0) && (is_first_release_event != 1))
+	{
 		SHOW_MSG("synaptics_ts_new_work_func : death from ESD attack\n");
 
 		if (ts->use_irq)
@@ -634,8 +662,10 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 	}
 #endif
 
-	if (int_mode & SYNAPTICS_INT_ABS0) {
-		while (1) {
+	if(int_mode & SYNAPTICS_INT_ABS0)
+	{
+		while (1)
+		{
 			i2c_smbus_read_i2c_block_data(ts->client, START_ADDR, sizeof(ts_reg_data), (u8 *)&ts_reg_data);
 
 			finger0_status = TS_SNTS_GET_FINGER_STATE_0(ts_reg_data.finger_state_reg);
@@ -643,7 +673,8 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 
 			DEBUG_MSG("synaptics_ts_new_work_func : finger0_status = 0x%x, finger1_status = 0x%x\n",finger0_status,finger1_status);
 
-			if ((finger0_status == 0) && (ts_pre_state == 0)) {
+			if((finger0_status == 0) && (ts_pre_state == 0))
+			{
 				DEBUG_MSG("synaptics_ts_new_work_func: Synaptics Touch is is the idle state\n");
 				//longpress_pre = 0;
 				//flicking = 0;
@@ -651,8 +682,17 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 				goto SYNAPTICS_TS_IDLE;
 			}
 
-			if (finger0_status == 1) {
+			if((finger0_status == 1))
+			{
 				ts_pre_state = 1;
+			}
+			else
+			{
+				ts_pre_state = 0;
+			}
+
+			if(finger0_status == 1)
+			{
 				touch1_prestate = 1;
 
 				tmp_x = (int)TS_SNTS_GET_X_POSITION(ts_reg_data.X_high_position_finger0_reg, ts_reg_data.XY_low_position_finger0_reg);
@@ -673,8 +713,9 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 				input_mt_sync(ts->input_dev);
 
 				DEBUG_MSG("push : first_x= %d, first_y = %d, width = %d\n", curr_ts_data.X_position[0], curr_ts_data.Y_position[0], width0);
-			} else if((finger0_status == 0) && (touch1_prestate == 1)) {
-				ts_pre_state = 0;
+			}
+			else if((finger0_status == 0) && (touch1_prestate == 1))
+			{
 				touch1_prestate = 0;
 
 				tmp_x = (int)TS_SNTS_GET_X_POSITION(ts_reg_data.X_high_position_finger0_reg, ts_reg_data.XY_low_position_finger0_reg);
@@ -695,27 +736,32 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 				input_mt_sync(ts->input_dev);
 
 #ifdef SYNAPTICS_MELTINGMODE
-				if(is_first_release_event == 1) {
-					i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING_REG, SYNAPTICS_MELTING_NO); 	// melting mode
+				if(is_first_release_event == 1)
+				{
+					i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING_REG, SYNAPTICS_MELTING_AUTO); 	// melting mode
 					is_first_release_event = 0;
 					DEBUG_MSG("chaning melting mode : melting --> auto melting\n");
 				}
 #endif
 
 				DEBUG_MSG("release : first_x= %d, first_y = %d, width = %d\n", curr_ts_data.X_position[0], curr_ts_data.Y_position[0], width0);
-			} else if(finger0_status == 0) {
+			}
+			else if(finger0_status == 0)
+			{
 #ifdef SYNAPTICS_MELTINGMODE
-				if(is_first_release_event == 1)	{
-					i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING_REG, SYNAPTICS_MELTING_NO); 	// melting mode
+				if(is_first_release_event == 1)
+				{
+					i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING_REG, SYNAPTICS_MELTING_AUTO); 	// melting mode
 					is_first_release_event = 0;
 					DEBUG_MSG("chaning melting mode : melting --> auto melting\n");
 				}
 #endif
-				ts_pre_state = 0;
+
 				touch1_prestate = 0;
 			}
 
-			if((finger1_status == 1)/* && (touch1_prestate == 1)*/) {
+			if((finger1_status == 1)/* && (touch1_prestate == 1)*/)
+			{
 				ts_pre_state = 1;
 				touch2_prestate = 1;
 
@@ -737,7 +783,9 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 				input_mt_sync(ts->input_dev);
 
 				DEBUG_MSG("push : second_x= %d, second_y = %d, width = %d\n", curr_ts_data.X_position[1], curr_ts_data.Y_position[1], width1);
-			} else if((finger1_status == 0) /*&& (touch1_prestate == 1)*/ && (touch2_prestate == 1)) {
+			}
+			else if((finger1_status == 0) /*&& (touch1_prestate == 1)*/ && (touch2_prestate == 1))
+			{
 				touch2_prestate = 0;
 
 				tmp_x = (int)TS_SNTS_GET_X_POSITION(ts_reg_data.X_high_position_finger1_reg, ts_reg_data.XY_low_position_finger1_reg);
@@ -758,12 +806,15 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 				input_mt_sync(ts->input_dev);
 
 				DEBUG_MSG("release : second_x= %d, second_y = %d, width = %d\n", curr_ts_data.X_position[1], curr_ts_data.Y_position[1], width1);
-			} else if(finger1_status == 0) {
+			}
+			else if(finger1_status == 0)
+			{
 				touch2_prestate = 0;
 			}
 			input_sync(ts->input_dev);
 
-			if ((ts_pre_state == 0) || (power_status == 0))	{
+			if ((ts_pre_state == 0) || (power_status == 0))
+			{
 				break;
 			}
 
@@ -772,7 +823,8 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 	}
 
 SYNAPTICS_TS_IDLE:
-	if (ts->use_irq) {
+	if (ts->use_irq)
+	{
 		enable_irq(ts->client->irq);
 	}
 }
@@ -883,6 +935,10 @@ static int synaptics_ts_probe(
 		ret = -ENOMEM;
 		goto err_alloc_data_failed;
 	}
+	INIT_WORK(&ts->work, synaptics_ts_work_func);
+#ifdef SYNAPTICS_FW_REFLASH
+	INIT_WORK(&ts->work_for_reflash, synaptics_ts_fw_reflash_work_func);
+#endif
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
 	pdata = client->dev.platform_data;
@@ -940,16 +996,11 @@ static int synaptics_ts_probe(
 	//DEBUG_MSG("synaptics_ts_probe : kind_of_product = 0x%x\n",kind_of_product);
 
 	synaptics_ts_get_device_inform(kind_of_product);
-	if(kind_of_product == SYNAPTICS_2000)
-		INIT_WORK(&ts->work, synaptics_ts_work_func);
-	else {
+	if(kind_of_product != SYNAPTICS_2000)
+	{
 		DEBUG_MSG("synaptics_ts_probe : work function changed : synaptics_ts_new_work_func\n");
 		INIT_WORK(&ts->work, synaptics_ts_new_work_func);
 	}
-#ifdef SYNAPTICS_FW_REFLASH
-	INIT_WORK(&ts->work_for_reflash, synaptics_ts_fw_reflash_work_func);
-#endif
-
 	//DEBUG_MSG("synaptics_ts_probe : ts_cmd_reg_data.device_command = 0x%x\n",ts_cmd_reg_data.device_command);
 	//DEBUG_MSG("synaptics_ts_probe : ts_cmd_reg_data.absolute_query_2d = 0x%x\n",ts_cmd_reg_data.absolute_query_2d);
 
@@ -1035,22 +1086,17 @@ static int synaptics_ts_probe(
 	if (ret < 0) {
 		ERR_MSG("i2c_smbus_read_word_data failed\n");
 	}
-
 	max_y |= (((ret & 0xFF) << 8) & 0xff00);
 	ts->max[1] = max_y;
 
 	SHOW_MSG("synaptics_ts_probe : max_x = 0x%x\n",max_x);
 	SHOW_MSG("synaptics_ts_probe : max_y = 0x%x\n",max_y);
 
-	ret = i2c_smbus_read_word_data(ts->client, SYNAPTICS_MELTING_REG);
-	if (ret < 0) {
-		ERR_MSG("i2c_smbus_read_word_data failed\n");
-	}
-	SHOW_MSG("synaptics_ts_probe : Melting mode  = 0x%x\n", ret);
-
 #ifdef SYNAPTICS_FW_REFLASH
-	if (kind_of_product == SYNAPTICS_3000) {
-		if ((max_x == 0x00) || (max_y == 0x00)) {
+	if(kind_of_product == SYNAPTICS_3000)
+	{
+		if((max_x == 0x00) || (max_y == 0x00))
+		{
 			ERR_MSG("F/W image is not normal status : need upgrade.\n");
 			is_need_forced_update = 1;
 		}
@@ -1058,7 +1104,8 @@ static int synaptics_ts_probe(
 #endif
 
 	ret = i2c_smbus_read_i2c_block_data(ts->client, START_ADDR, sizeof(ts_reg_data), (u8 *)&ts_reg_data);
-	if (ret < 0) {
+	if (ret < 0)
+	{
 		ERR_MSG("synaptics_ts_probe : i2c_smbus_read_i2c_block_data failed: START_ADDR\n");
 	}
 	DEBUG_MSG("synaptics_ts_probe : status_reg(%d), interrupt_status_reg(%d,)\n", ts_reg_data.device_status_reg, ts_reg_data.interrupt_status_reg);
@@ -1075,7 +1122,8 @@ static int synaptics_ts_probe(
 	set_bit(EV_ABS, ts->input_dev->evbit);
 	set_bit(EV_KEY, ts->input_dev->evbit);	// 2010.11.02 myeonggyu.son@lge.com [MS690] set event type for MTC daemon
 
-	if (is_need_forced_update != 1) {
+	if(is_need_forced_update != 1)
+	{
 		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, max_x, fuzz_x, 0);
 		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, max_y, fuzz_y, 0);
 		input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 15, fuzz_p, 0);
@@ -1090,10 +1138,12 @@ static int synaptics_ts_probe(
 	}
 	DEBUG_MSG("########## irq [%d], irqflags[0x%x]\n", client->irq, irqflags);
 
-	if (client->irq) {
+	if (client->irq)
+	{
 		ret = request_irq(client->irq, synaptics_ts_irq_handler, irqflags, client->name, ts);
 
-		if (ret == 0) {
+		if (ret == 0)
+		{
 			ts->use_irq = 1;
 			DEBUG_MSG("request_irq\n");
 		}
@@ -1102,7 +1152,8 @@ static int synaptics_ts_probe(
 			dev_err(&client->dev, "request_irq failed\n");
 		}
 	}
-	if (!ts->use_irq) {
+	if (!ts->use_irq)
+	{
 		hrtimer_init(&ts->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 		ts->timer.function = synaptics_ts_timer_func;
 		hrtimer_start(&ts->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
@@ -1152,7 +1203,8 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	int ret;
 	struct synaptics_ts_data *ts = i2c_get_clientdata(client);
 
-	if (is_fw_reflash == 1) {
+	if(is_fw_reflash == 1)
+	{
 		SHOW_MSG("synaptics_ts_suspend: during f/w image update - block suspend\n");
 		return 0;
 	}

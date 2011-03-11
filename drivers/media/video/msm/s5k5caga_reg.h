@@ -1728,6 +1728,9 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12, 0x003C, WORD_LEN},  //#af_pos_usCaptureFixedPos, BURST_LEN},  // 0x0008
 
 
+{0x0028, 0x7000, WORD_LEN},
+{0x002A, 0x116A, WORD_LEN},
+{0x0F12, 0x0032, WORD_LEN},
 
 // AF Lens Position Table Settings 
 
@@ -6064,13 +6067,39 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_night_reg_se
 };
 
 static const struct lgcam_rear_sensor_i2c_reg_conf const af_reg_settings_array[] = {
+	{0x0028, 0x7000, WORD_LEN},
+{0x002A, 0x1074, WORD_LEN},
+//mhlee
+
+{0xFFFE, 0x0010, BURST_LEN}, //0010 //#af_pos_usTableLastInd// 16 Steps 091222
+{0x0, 0x0028, BURST_LEN}, //003C //#af_pos_usTable_0_// af_pos_usTable
+{0x0, 0x002B, BURST_LEN}, //003F //#af_pos_usTable_1_
+{0x0, 0x002E, BURST_LEN}, //0042 //#af_pos_usTable_2_
+{0x0, 0x0031, BURST_LEN}, //0045 //#af_pos_usTable_3_
+{0x0, 0x0034, BURST_LEN}, //0048 //#af_pos_usTable_4_
+{0x0, 0x0037, BURST_LEN}, //004B //#af_pos_usTable_5_
+{0x0, 0x003A, BURST_LEN}, //004E //#af_pos_usTable_6_
+{0x0, 0x003D, BURST_LEN}, //0051 //#af_pos_usTable_7_
+{0x0, 0x0040, BURST_LEN}, //0054 //#af_pos_usTable_8_
+{0x0, 0x0043, BURST_LEN}, //0057 //#af_pos_usTable_9_
+{0x0, 0x0046, BURST_LEN}, //005A //#af_pos_usTable_10_
+{0x0, 0x004A, BURST_LEN}, //005E //#af_pos_usTable_11_
+{0x0, 0x004D, BURST_LEN}, //0061 //#af_pos_usTable_12_
+{0x0, 0x0050, BURST_LEN}, //0064 //#af_pos_usTable_13_
+{0x0, 0x0054, BURST_LEN}, //0068 //#af_pos_usTable_14_
+{0x0, 0x0058, BURST_LEN}, //006C //#af_pos_usTable_15_
+{0xFFFF, 0x0064, BURST_LEN}, //0078 //#af_pos_usTable_16_
+
+
+
+
 
 };
 
 static const struct lgcam_rear_sensor_i2c_reg_conf const af_nomal_mode_reg_settings_array[] = {
 	{0x0028, 0x7000, WORD_LEN},
-	{0x002A, 0x0254, WORD_LEN},
-	{0x0F12, 0x003C, WORD_LEN},
+	{0x002A, 0x0252, WORD_LEN},
+	{0x0F12, 0x0003, WORD_LEN},
 
 };
 
@@ -6099,6 +6128,8 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const af_macro_mode_reg_setti
 	{0x0F12, 0x1000, WORD_LEN},	// #af_pos_usMacroStartEnd 
 	{0x002A, 0x0254, WORD_LEN},
 	{0x0F12, 0x0001, WORD_LEN},	// #REG_TC_AF_AfCmdParam
+	{0x002A, 0x0252, WORD_LEN},
+	{0x0F12, 0x0005, WORD_LEN},	
 };
 static const struct lgcam_rear_sensor_i2c_reg_conf const manual_focus_mode_reg_settings_array[] = {
 	{0x0028, 0x7000, WORD_LEN},

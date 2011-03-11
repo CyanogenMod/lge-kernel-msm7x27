@@ -43,26 +43,43 @@ static int lcd_suspend = 1;
 char * android_errhanlder_ptr = NULL;
 
 
- int LGE_ErrorHandler_Main( int crash_side, char * message)
- {
-/*	if (hidden_reset_enable) {
+int LGE_ErrorHandler_Main( int crash_side, char * message)
+{
+	/*
+	 * 2011-03-10, jinkyu.choi@lge.com
+	 * add the reboot reason as chargerlogo reboot when the crash occures.
+	 * if we press the volume down key and restart the system for the panic log,
+	 * the chargerlogo should not work when rebooting.
+	 */
+	unsigned *reboot_panic;
+
+#ifdef CONFIG_LGE_4G_DDR
+	reboot_panic = ioremap(0x2ff40000, PAGE_SIZE);
+#else
+	reboot_panic = ioremap(0x0ff40000, PAGE_SIZE);
+#endif
+	*reboot_panic = (unsigned)0x776655BB;
+	iounmap(reboot_panic);
+
+#if 0
+	if (hidden_reset_enable) {
 		if (crash_side == MODEM_CRASH) {
 			unsigned *temp;
 
 			printk(KERN_INFO"%s: arm9 has crashed...\n",__func__);
 			printk(KERN_INFO"%s\n", message);
-		
+
 			atomic_notifier_call_chain(&panic_notifier_list, 0, "arm9 has crashed...\n");
-			
+
 			temp = lge_get_fb_copy_virt_addr();
 			*temp = 0x12345678;
 			printk(KERN_INFO"%s: hidden magic  %x\n",__func__, temp[0]);
 
 			return SMSM_SYSTEM_REBOOT;
 		}
-
 		return 0;
-	}*/
+	}
+#endif
 
   	if(BLUE_ERROR_HANDLER_LEVEL != 0) {
 		// If LCD is off,  Turn on backlight

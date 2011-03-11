@@ -73,9 +73,10 @@ static int ebi2_tovis_power_save(int on)
 	return 0;
 }
 
-static struct msm_panel_common_pdata ebi2_tovis_panel_data = {
+static struct msm_panel_ilitek_pdata ebi2_tovis_panel_data = {
 	.gpio = 102,				/* lcd reset_n */
-	.pmic_backlight = ebi2_tovis_power_save,
+	.lcd_power_save = ebi2_tovis_power_save,
+	.maker_id = PANEL_ID_TOVIS,
 };
 
 static struct platform_device ebi2_tovis_panel_device = {
