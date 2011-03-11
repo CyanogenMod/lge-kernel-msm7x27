@@ -1221,8 +1221,6 @@ tuning_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
-   //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 
@@ -1240,8 +1238,6 @@ preview_mode_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS
   {0x0990, 0x0005, WORD_LEN}, 	// MCU_DATA_0
   {0xddd1, 0xddd1, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 static struct mt9t113_register_address_value_pair const
@@ -1262,8 +1258,6 @@ effect_mode_off_reg_settings_array[] = {
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - mono */
@@ -1275,8 +1269,6 @@ effect_mode_mono_reg_settings_array[] = {
   {0x0990, 0x0001, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - negative */
@@ -1288,8 +1280,6 @@ effect_mode_negative_reg_settings_array[] = {
   {0x0990, 0x0003, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - solarize */
@@ -1301,8 +1291,6 @@ effect_mode_solarize_reg_settings_array[] = {
   {0x0990, 0x0004, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - sepia */
@@ -1322,8 +1310,6 @@ effect_mode_sepia_reg_settings_array[] = {
   {0x0990, 0x00E6, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* effect - aqua */
@@ -1343,8 +1329,6 @@ effect_mode_aqua_reg_settings_array[] = {
   {0x0990, 0x0020, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* effect setting end */
 
@@ -1361,8 +1345,6 @@ wb_mode_auto_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - incandescent */
@@ -1383,8 +1365,6 @@ wb_mode_incandescent_reg_settings_array[] = {
   {0x0990, 0x0065, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x0028, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - fluorescent */
@@ -1405,8 +1385,6 @@ wb_mode_fluorescent_reg_settings_array[] = {
   {0x0990, 0x004C, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x0030, WORD_LEN}, 	// MCU_DATA_0  
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - daylight */
@@ -1426,8 +1404,6 @@ wb_mode_daylight_reg_settings_array[] = {
   {0x0990, 0x0044, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x0048, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* WB - cloudy */
@@ -1448,8 +1424,6 @@ wb_mode_cloudy_reg_settings_array[] = {
   {0x0990, 0x0048, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
   {0x0990, 0x004B, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* White Balance setting end */
 
@@ -1467,8 +1441,6 @@ iso_mode_auto_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* ISO - 100 */
@@ -1484,8 +1456,6 @@ iso_mode_100_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* ISO - 200 */
@@ -1501,8 +1471,6 @@ iso_mode_200_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* ISO - 400 */
@@ -1518,8 +1486,6 @@ iso_mode_400_reg_settings_array[] = {
   {0x0990, 0x0040, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN}, 	// MCU_ADDRESS [AE_TRACK_STATUS]
   {0x0990, 0x001C, WORD_LEN}, 	// MCU_DATA_0
-  //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* ISO setting end */
 
@@ -1539,8 +1505,6 @@ brightness_reg_settings_array[] = {
   {0x0990, 0x0026, WORD_LEN}, // 3
   {0x0990, 0x0030, WORD_LEN}, // 4
   {0x0990, 0x003a, WORD_LEN}, // 5
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 /* Brightness end */
 /* framerate mode start */
@@ -1560,8 +1524,6 @@ auto_framerate_mode_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN},      // MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN},      // MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 /* fixed */
@@ -1581,8 +1543,6 @@ fixed_framerate_mode_reg_settings_array[] = {
   {0x098E, 0x8400, WORD_LEN},      // MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN},      // MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
- //dither                                                               
-  {0x3348, 0x4110, WORD_LEN},   //4110 4108 4100 COLOR_PIPELINE_CONTROL 
 };
 
 struct mt9t113_reg mt9t113_regs = {
