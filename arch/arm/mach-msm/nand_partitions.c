@@ -47,10 +47,9 @@ struct msm_ptbl_entry {
 };
 
 #ifdef CONFIG_MACH_LGE
-/* increase max for fota
- * hyunhui.park@lge.com 2010-06-15
- */
-#define MSM_MAX_PARTITIONS 11
+// LGE_UPDATE_S	GELATO moon.jung@lge.com
+#define MSM_MAX_PARTITIONS 12
+// LGE_UPDATE_E	GELATO moon.jung@lge.com
 #else /* original */
 #define MSM_MAX_PARTITIONS 10
 #endif
