@@ -15,11 +15,12 @@ extern int init_mtd_access(int partition, int block);
 
 static int tolk_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	unsigned int magic_number = 0;
+	unsigned long magic_number = 0;
 	unsigned *vir_addr;
-	printk("jori++++++++++++++\n");
-	sscanf(buf, "%d\n", &magic_number);
-	printk("%d\n",magic_number);
+
+	printk("%s:factory reset magic num from android=%s\n",__func__,buf);
+	magic_number = simple_strtoul(buf,NULL,16);
+	printk("magic_number = %lu\n",magic_number);
 #ifdef CONFIG_MACH_MSM7X27_MUSCAT
 	vir_addr = ioremap(0xffff000, PAGE_SIZE);
 #else
