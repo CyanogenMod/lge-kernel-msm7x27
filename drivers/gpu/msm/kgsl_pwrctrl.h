@@ -76,9 +76,9 @@ struct kgsl_pwrctrl {
 	struct regulator *gpu_reg;
 	uint32_t pcl;
 	unsigned int nap_allowed;
-	struct kgsl_drawctxt *suspended_ctxt;
 	unsigned int io_fraction;
 	unsigned int io_count;
+	struct kgsl_yamato_context *suspended_ctxt;
 };
 
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag);

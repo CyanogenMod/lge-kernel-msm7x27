@@ -28,7 +28,6 @@
 
 #include <mach/msm_bus.h>
 
-#include "kgsl_drawctxt.h"
 #include "kgsl.h"
 #include "kgsl_yamato.h"
 #include "kgsl_log.h"
@@ -36,6 +35,7 @@
 #include "kgsl_cmdstream.h"
 #include "kgsl_postmortem.h"
 #include "kgsl_cffdump.h"
+#include "kgsl_drawctxt.h"
 
 #include "yamato_reg.h"
 
@@ -1272,6 +1272,7 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 {
 	int result = 0;
 	struct kgsl_drawctxt_set_bin_base_offset binbase;
+	struct kgsl_context *context;
 
 	switch (cmd) {
 	case IOCTL_KGSL_DRAWCTXT_SET_BIN_BASE_OFFSET:
@@ -1281,10 +1282,11 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 			break;
 		}
 
-		if (test_bit(binbase.drawctxt_id, dev_priv->ctxt_bitmap)) {
+		context = kgsl_find_context(dev_priv, binbase.drawctxt_id);
+		if (context) {
 			result = kgsl_drawctxt_set_bin_base_offset(
 					dev_priv->device,
-					binbase.drawctxt_id,
+					context,
 					binbase.offset);
 		} else {
 			result = -EINVAL;

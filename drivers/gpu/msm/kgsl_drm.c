@@ -24,9 +24,9 @@
 #include <linux/android_pmem.h>
 #include <linux/notifier.h>
 
-#include "kgsl_drawctxt.h"
 #include "kgsl.h"
 #include "kgsl_device.h"
+#include "kgsl_drawctxt.h"
 #include "kgsl_drm.h"
 #include "kgsl_mmu.h"
 #include "kgsl_yamato.h"
