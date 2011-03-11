@@ -44,6 +44,19 @@ static int lgeusb_get_mode(char *buffer, struct kernel_param *kp);
 module_param_call(mode, NULL, lgeusb_get_mode, NULL, S_IRUGO);
 MODULE_PARM_DESC(mode, "LGE USB Specific mode");
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* LGE_CHANGE
+ * To set/get USB user mode to/from user space.
+ * 2011-03-09, hyunhui.park@lge.com
+ */
+static u16 user_mode;
+static int lgeusb_set_usermode(const char *val, struct kernel_param *kp);
+static int lgeusb_get_usermode(char *buffer, struct kernel_param *kp);
+module_param_call(user_mode, lgeusb_set_usermode, lgeusb_get_usermode,
+					&user_mode, 0664);
+MODULE_PARM_DESC(user_mode, "USB Autorun user mode");
+#endif
+
 static struct lgeusb_info *usb_info;
 
 /* FIXME: This length must be same as MAX_STR_LEN in android.c */
@@ -109,6 +122,43 @@ static int lgeusb_get_mode(char *buffer, struct kernel_param *kp)
 
 	return ret;
 }
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* LGE_CHANGE
+ * To set/get USB user mode to/from user space for autorun.
+ * 2011-03-09, hyunhui.park@lge.com
+ */
+static int lgeusb_set_usermode(const char *val, struct kernel_param *kp)
+{
+	int ret = 0;
+	unsigned long tmp;
+
+	ret = strict_strtoul(val, 16, &tmp);
+	if (ret)
+		return ret;
+
+	user_mode = (unsigned int)tmp;
+	pr_info("autorun user mode : %d\n", user_mode);
+
+	return ret;
+}
+
+static int lgeusb_get_usermode(char *buffer, struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&lock);
+	ret = sprintf(buffer, "%d", user_mode);
+	mutex_unlock(&lock);
+
+	return ret;
+}
+
+int lgeusb_get_usb_usermode(void)
+{
+	return user_mode;
+}
+#endif
 
 static void do_switch_mode(int pid, int need_reset)
 {
