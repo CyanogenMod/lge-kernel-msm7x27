@@ -106,17 +106,7 @@ struct kgsl_driver {
 	   platform */
 
 	unsigned int pt_va_size;
-
-	/* A structure for information about the pool of
-	   pagetable memory */
-
-	struct {
-		unsigned long *bitmap;
-		int entries;
-		spinlock_t lock;
-		void *hostptr;
-		unsigned int physaddr;
-	} ptpool;
+	struct dma_pool *ptpool;
 };
 
 extern struct kgsl_driver kgsl_driver;
