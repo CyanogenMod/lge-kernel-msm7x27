@@ -378,11 +378,6 @@ typedef struct dhd_info {
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 } dhd_info_t;
 
-/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-03-04, <suspend/resum> */
-extern void register_mmc_card_pm(struct early_suspend *);
-extern void unregister_mmc_card_pm(void);
-/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-03-04, <suspend/resum> */
-
 /* Definitions to provide path to the firmware and nvram
  * example nvram_path[MOD_PARAM_PATHLEN]="/projects/wlan/nvram.txt"
  */
@@ -2439,10 +2434,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	dhd->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 20;
 	dhd->early_suspend.suspend = dhd_early_suspend;
 	dhd->early_suspend.resume = dhd_late_resume;
-/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-03-04, <suspend/resum> */
-	//register_early_suspend(&dhd->early_suspend); /*original*/
-	register_mmc_card_pm(&dhd->early_suspend);
-/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-03-04, <suspend/resum> */
+	register_early_suspend(&dhd->early_suspend);
 	dhd_state |= DHD_ATTACH_STATE_EARLYSUSPEND_DONE;
 #endif
 	dhd_state |= DHD_ATTACH_STATE_DONE;
@@ -2802,10 +2794,7 @@ dhd_detach(dhd_pub_t *dhdp)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	if (dhd->dhd_state & DHD_ATTACH_STATE_EARLYSUSPEND_DONE)	{
 		if (dhd->early_suspend.suspend)
-/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-03-04, <suspend/resum> */
-			//unregister_early_suspend(&dhd->early_suspend); /*original*/
-			unregister_mmc_card_pm();
-/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-03-04, <suspend/resum> */
+			unregister_early_suspend(&dhd->early_suspend);
 	}
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) */
 
