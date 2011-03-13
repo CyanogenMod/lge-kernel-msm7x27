@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -165,14 +165,9 @@ struct msm_panel_info {
 	__u32 frame_count;
 
 
-	union {
-		struct mddi_panel_info mddi;
-	};
-
-	union {
-		struct lcd_panel_info lcd;
-		struct lcdc_panel_info lcdc;
-	};
+	struct mddi_panel_info mddi;
+	struct lcd_panel_info lcd;
+	struct lcdc_panel_info lcdc;
 
 	struct mipi_panel_info mipi;
 };
