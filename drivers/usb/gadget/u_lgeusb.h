@@ -59,6 +59,8 @@ int lgeusb_detect_factory_cable(void);
 int lgeusb_set_current_mode(int need_reset);
 int lgeusb_get_current_mode(void);
 
+int lgeusb_get_usb_usermode(void);
+
 void lgeusb_switch_factory_mode(int need_reset);
 void lgeusb_switch_android_mode(int need_reset);
 
