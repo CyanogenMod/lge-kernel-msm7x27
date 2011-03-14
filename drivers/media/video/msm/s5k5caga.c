@@ -70,10 +70,9 @@ static struct lgcam_rear_sensor_register_address_value_pair  ext_reg_settings[40
 #else
 static long lgcam_rear_sensor_set_capture_zoom(int zoom);
 #endif
-#ifdef CONFIG_MACH_MSM7X27_THUNDERG //muscat/gelato???
+
 /* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
-extern mdp_load_thunder_lut(int lut_type);
-#endif
+extern void mdp_load_thunder_lut(int lut_type);
 
 module_param_named(debug_mask, debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
 struct lgcam_rear_sensor_work {
@@ -992,42 +991,14 @@ static int lgcam_rear_sensor_check_continous_af_lock(void)
 }
 static int lgcam_rear_sensor_status_continuous_af(int *lock)
 {
-	int rc;
 	unsigned short af_result = 0;
 
 
 
 	af_result = lgcam_rear_sensor_check_continous_af_lock();
 
-	
-	if (af_result == 1) {
-		//mdelay(60);
-		*lock = CFG_AF_LOCKED;  // success
-		//LGE_DEV_PORTING GELATO
-		rc = 1;
-		//LGE_DEV_END
-		if(debug_mask)
-		CDBG("lgcam_rear_sensor_status_continuous_af result = 1\n");
-			return rc;
-	} 
-	else if(af_result == 2){
-		*lock = CFG_CHECK_AF_DONE; //0: focus fail or 2: focus_success
-		//LGE_DEV_PORTING GELATO
-		rc = 2;
-		//LGE_DEV_END
-		if(debug_mask)
-		CDBG("lgcam_rear_sensor_status_continuous_af result = 2\n");
-			return rc;
-	} 
-	else {
-		*lock = CFG_AF_UNLOCKED; //0: focus fail or 2: during focus
-		//LGE_DEV_PORTING GELATO
-		rc = 0;
-		//LGE_DEV_END
-		if(debug_mask)
-		CDBG("lgcam_rear_sensor_status_continuous_af result = 0\n");
-			return rc;
-	}
+	*lock = af_result;	
+			return 0;
 
 	return -ETIME;
 }
@@ -3469,10 +3440,8 @@ int lgcam_rear_sensor_sensor_release(void)
 
 	lgcam_rear_sensor_ctrl=NULL;
 	
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 		/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 		mdp_load_thunder_lut(1);	// Normal LUT
-#endif
 	return rc;
 }
 
@@ -3550,10 +3519,8 @@ static int lgcam_rear_sensor_sensor_probe(const struct msm_camera_sensor_info *i
 	}
 	mdelay(10);
 
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 	/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 	mdp_load_thunder_lut(2);	// Camera LUT
-#endif
 	rc = lgcam_rear_sensor_sensor_init_probe(info);
 	if (rc < 0)
 		goto probe_done;
