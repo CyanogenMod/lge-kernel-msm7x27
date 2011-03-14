@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,6 +29,8 @@
 
 #ifndef _ARCH_ARM_MACH_MSM_SOCINFO_H_
 #define _ARCH_ARM_MACH_MSM_SOCINFO_H_
+
+#include <linux/init.h>
 
 /*
  * SOC version type with major number in the upper 16 bits and minor
