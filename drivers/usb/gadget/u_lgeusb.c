@@ -215,7 +215,7 @@ int lgeusb_get_current_mode(void)
 {
 	struct lgeusb_info *info = usb_info;
 
-	return info->current_mode;
+	return (int)info->current_mode;
 }
 
 /* LGE_CHANGE
