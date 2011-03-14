@@ -1081,6 +1081,8 @@ static int __init msm_audio_init(void)
 	init_waitqueue_head(&the_locks.write_wait);
 	init_waitqueue_head(&the_locks.read_wait);
 	memset(&session_route, DEVICE_IGNORE, sizeof(struct pcm_session));
+	src_dev = DEVICE_IGNORE;
+	dst_dev = DEVICE_IGNORE;
 
 	return ret;
 }
