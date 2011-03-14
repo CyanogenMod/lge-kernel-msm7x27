@@ -149,6 +149,7 @@ struct qce_device {
 	uint32_t aes_key_size;		/* cached aes key size in bytes */
 	int fastaes;			/* ce supports fast aes */
 	int hmac;			/* ce support hmac-sha1 */
+	unsigned int use_pmem;		/* uses PMEM allocated memory */
 
 	qce_comp_func_ptr_t qce_cb;	/* qce callback function pointer */
 
@@ -936,14 +937,15 @@ static int _ablk_cipher_complete(struct qce_device *pce_dev)
 
 	areq = (struct ablkcipher_request *) pce_dev->areq;
 
-	if (areq->src != areq->dst) {
-		dma_unmap_sg(pce_dev->pdev, areq->dst, pce_dev->dst_nents,
-					DMA_FROM_DEVICE);
-	}
-	dma_unmap_sg(pce_dev->pdev, areq->src, pce_dev->src_nents,
+	if (!pce_dev->use_pmem) {
+		if (areq->src != areq->dst) {
+			dma_unmap_sg(pce_dev->pdev, areq->dst,
+				pce_dev->dst_nents, DMA_FROM_DEVICE);
+		}
+		dma_unmap_sg(pce_dev->pdev, areq->src, pce_dev->src_nents,
 			(areq->src == areq->dst) ? DMA_BIDIRECTIONAL :
 							DMA_TO_DEVICE);
-
+	}
 	/* get iv out */
 	if (pce_dev->mode == QCE_MODE_ECB) {
 		clk_disable(pce_dev->ce_clk);
@@ -1636,6 +1638,7 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 
 	_chain_buffer_in_init(pce_dev);
 	_chain_buffer_out_init(pce_dev);
+	pce_dev->use_pmem = c_req->use_pmem;
 
 	pce_dev->src_nents = 0;
 	pce_dev->dst_nents = 0;
@@ -1946,7 +1949,7 @@ static void __exit _qce_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Crypto Engine driver");
-MODULE_VERSION("1.04");
+MODULE_VERSION("1.05");
 
 module_init(_qce_init);
 module_exit(_qce_exit);
