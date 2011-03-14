@@ -624,6 +624,48 @@ static void android_config_functions(struct usb_function *f, int enable)
 }
 #endif
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+static void android_set_class_product(int pid, int class_code)
+{
+	struct android_dev *dev = _android_dev;
+	int subclass, protocol;
+
+	switch(class_code) {
+		case USB_CLASS_PER_INTERFACE:
+			subclass = 0x00;
+			protocol = 0x00;
+			break;
+		case USB_CLASS_COMM:
+			subclass = 0x00;
+			protocol = 0x00;
+			break;
+		case USB_CLASS_MISC:
+			subclass = 0x02;
+			protocol = 0x01;
+			break;
+		default:
+			subclass = 0xFF;
+			protocol = 0xFF;
+			break;
+	}
+	set_device_class(dev->cdev->desc, class_code, subclass, protocol);
+	android_set_default_product(pid);
+}
+
+static void android_force_reset(void)
+{
+	struct android_dev *dev = _android_dev;
+	int product_id;
+
+	product_id = get_product_id(dev);
+	device_desc.idProduct = __constant_cpu_to_le16(product_id);
+	if (dev->cdev)
+		dev->cdev->desc.idProduct = device_desc.idProduct;
+
+	usb_composite_force_reset(dev->cdev);
+}
+#endif
+
 void android_enable_function(struct usb_function *f, int enable)
 {
 	struct android_dev *dev = _android_dev;
@@ -641,21 +683,13 @@ void android_enable_function(struct usb_function *f, int enable)
 		f->disabled = disable;
 		if (enable) {
 			/* switch to mass storage only */
-			set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
-					0x00, 0x00);
-			android_set_default_product(LGE_UMSONLY_PID);
+			android_set_class_product(LGE_UMSONLY_PID, USB_CLASS_PER_INTERFACE);
 			lgeusb_info("Switch to UMS only %x\n", LGE_UMSONLY_PID);
 		} else {
-			set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
-			android_set_default_product(dev->product_id);
+			android_set_class_product(dev->product_id, USB_CLASS_COMM);
 		}
 
-		product_id = get_product_id(dev);
-		device_desc.idProduct = __constant_cpu_to_le16(product_id);
-		if (dev->cdev)
-			dev->cdev->desc.idProduct = device_desc.idProduct;
-
-		usb_composite_force_reset(dev->cdev);
+		android_force_reset();
 		return;
 	}
 #endif
@@ -671,21 +705,57 @@ void android_enable_function(struct usb_function *f, int enable)
 		f->disabled = disable;
 		if (enable) {
 			/* switch to cdrom storage only */
-			set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
-					0x00, 0x00);
-			android_set_default_product(LGE_CDONLY_PID);
+			android_set_class_product(LGE_CDONLY_PID, USB_CLASS_PER_INTERFACE);
 			lgeusb_info("Switch to CDROM %x\n", LGE_CDONLY_PID);
 		} else {
-			set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
-			android_set_default_product(dev->product_id);
+			android_set_class_product(dev->product_id, USB_CLASS_COMM);
 		}
 
-		product_id = get_product_id(dev);
-		device_desc.idProduct = __constant_cpu_to_le16(product_id);
-		if (dev->cdev)
-			dev->cdev->desc.idProduct = device_desc.idProduct;
+		android_force_reset();
+		return;
+	}
 
-		usb_composite_force_reset(dev->cdev);
+	/* LGE_CHANGE
+	 * Enabling usb modem mode in connection mode.
+	 * In LGE Autorun process, modem mode means default mode of
+	 * LGE Android driver.
+	 * 2011-03-11, hyunhui.park@lge.com
+	 */
+	if (!strcmp(f->name, "acm")) {
+		/* We force to change mode even if already enabled */
+		f->disabled = disable;
+		if (enable) {
+			/* switch to modem(default) mode */
+			android_set_class_product(LGE_DEFAULT_PID, USB_CLASS_COMM);
+			lgeusb_info("Switch to modem mode %x\n", LGE_DEFAULT_PID);
+		} else {
+			android_set_class_product(dev->product_id, USB_CLASS_COMM);
+		}
+
+		android_force_reset();
+		return;
+	}
+
+	/* LGE_CHANGE
+	 * Enabling usb charge only mode.
+	 * In Android Gadget driver, charge only means disconnection of
+	 * gadget driver. Therefore, we use android_usb_set_connected
+	 * function.
+	 * 2011-03-11, hyunhui.park@lge.com
+	 */
+	if (!strcmp(f->name, "charge_only")) {
+		f->disabled = disable;
+		if (enable) {
+			android_set_default_product(LGE_CHARGEONLY_PID);
+			/* Disconnect the android gadget */
+			android_usb_set_connected(0);
+			lgeusb_info("Switch to CHARGE ONLY\n");
+
+			/* Not use usb_composite_force_reset() */
+		} else {
+			android_set_class_product(dev->product_id, USB_CLASS_COMM);
+			android_force_reset();
+		}
 		return;
 	}
 #endif

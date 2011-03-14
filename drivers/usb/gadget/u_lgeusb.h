@@ -38,7 +38,11 @@
 #define LGE_DEFAULT_PID 0x618E
 /* #define LGE_PLATFORM_PID 0x618E */
 #define LGE_UMSONLY_PID 0x61C5 /* For LGP500, It will be fixed */
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 #define LGE_CDONLY_PID 0x91C8 /* TEST */
+#define LGE_CHARGEONLY_PID 0xFFFF
+#endif
 
 enum lgeusb_mode {
 	LGEUSB_FACTORY_MODE = 0,
@@ -48,7 +52,7 @@ enum lgeusb_mode {
 
 struct lgeusb_info {
 	int current_pid;
-	int current_mode;
+	enum lgeusb_mode current_mode;
 	char *serialno;
 	const char *defaultno;
 	void (*switch_func)(int pid, int need_reset);
@@ -59,7 +63,9 @@ int lgeusb_detect_factory_cable(void);
 int lgeusb_set_current_mode(int need_reset);
 int lgeusb_get_current_mode(void);
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 int lgeusb_get_usb_usermode(void);
+#endif
 
 void lgeusb_switch_factory_mode(int need_reset);
 void lgeusb_switch_android_mode(int need_reset);

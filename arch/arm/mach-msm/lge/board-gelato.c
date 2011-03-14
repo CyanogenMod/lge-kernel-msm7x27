@@ -142,6 +142,7 @@ char *usb_functions_lge_all[] = {
 #endif
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 	"usb_cdrom_storage",
+	"charge_only",
 #endif
 	"usb_mass_storage",
 	"adb",
@@ -208,6 +209,10 @@ char *usb_functions_lge_cdrom_storage_only[] = {
 
 char *usb_functions_lge_cdrom_storage_adb[] = {
 	"usb_cdrom_storage", "adb",
+};
+
+char *usb_functions_lge_charge_only[] = {
+	"charge_only",
 };
 #endif
 
@@ -283,6 +288,12 @@ struct android_usb_product usb_products[] = {
 		.product_id = 0x61A6,
 		.num_functions = ARRAY_SIZE(usb_functions_lge_cdrom_storage_adb),
 		.functions = usb_functions_lge_cdrom_storage_adb,
+	},
+	{
+		/* Charge only doesn't have no specific pid */
+		.product_id = 0xFFFF,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_charge_only),
+		.functions = usb_functions_lge_charge_only,
 	},
 #endif
 };
