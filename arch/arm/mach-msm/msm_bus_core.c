@@ -357,6 +357,7 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 	int next_pnode;
 	int add_bw = req_bw - curr_bw;
 	unsigned bwsum = 0;
+	unsigned req_clk_hz, curr_clk_hz, bwsum_hz;
 	int master_tier = 0;
 	struct msm_bus_fabric_device *fabdev = msm_bus_get_fabric_device
 		(GET_FABID(curr));
@@ -375,7 +376,6 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 	SELECT_BW_CLK(active_ctx, info->link_info);
 	SELECT_BW_CLK(active_ctx, info->pnode[index]);
 	*info->link_info.sel_bw += add_bw;
-	*info->pnode[index].sel_clk = req_clk;
 	*info->pnode[index].sel_bw += add_bw;
 	info->link_info.tier = info->node_info->tier;
 	master_tier = info->node_info->tier;
@@ -412,19 +412,28 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 		SELECT_BW_CLK(active_ctx, hop->pnode[index]);
 
 		*hop->link_info.sel_bw += add_bw;
-		*hop->pnode[index].sel_clk = req_clk;
+		*hop->pnode[index].sel_clk = BW_TO_CLK_FREQ_HZ(hop->node_info->
+			buswidth, req_clk);
 		*hop->pnode[index].sel_bw += add_bw;
-		MSM_BUS_DBG("fabric: %d slave: %d info: %d\n",
-			fabdev->id, hop->node_info->priv_id,
-			info->node_info->priv_id);
+		MSM_BUS_DBG("fabric: %d slave: %d, slave-width: %d info: %d\n",
+			fabdev->id, hop->node_info->priv_id, hop->node_info->
+			buswidth, info->node_info->priv_id);
 		/* Update Bandwidth */
 		fabdev->algo->update_bw(fabdev, hop, info, add_bw,
 			master_tier, active_ctx);
 		bwsum = (uint16_t)*hop->link_info.sel_bw;
 		/* Update Fabric clocks */
+		curr_clk_hz = BW_TO_CLK_FREQ_HZ(hop->node_info->buswidth,
+			curr_clk);
+		req_clk_hz = BW_TO_CLK_FREQ_HZ(hop->node_info->buswidth,
+			req_clk);
+		bwsum_hz = BW_TO_CLK_FREQ_HZ(hop->node_info->buswidth,
+			MSM_BUS_GET_BW_BYTES(bwsum));
+		MSM_BUS_DBG("Calling update-clks: curr_hz: %u, req_hz: %u,"
+			" bw_hz %u\n", curr_clk, req_clk, bwsum_hz);
 		ret = fabdev->algo->update_clks(fabdev, hop, index,
-			curr_clk, req_clk, bwsum, SEL_FAB_CLK, active_ctx,
-			cl_active_flag);
+			curr_clk_hz, req_clk_hz, bwsum_hz, SEL_FAB_CLK,
+			active_ctx, cl_active_flag);
 		if (ret)
 			MSM_BUS_WARN("Failed to update clk\n");
 		info = hop;
@@ -436,8 +445,8 @@ static int update_path(int curr, int pnode, unsigned req_clk, unsigned req_bw,
 		return -ENXIO;
 	}
 	/* Update slave clocks */
-	ret = fabdev->algo->update_clks(fabdev, info, index, curr_clk,
-	    req_clk, bwsum, SEL_SLAVE_CLK, active_ctx, cl_active_flag);
+	ret = fabdev->algo->update_clks(fabdev, info, index, curr_clk_hz,
+	    req_clk_hz, bwsum_hz, SEL_SLAVE_CLK, active_ctx, cl_active_flag);
 	if (ret)
 		MSM_BUS_ERR("Failed to update clk\n");
 	return ret;
