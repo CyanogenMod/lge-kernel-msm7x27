@@ -3024,6 +3024,7 @@ static int hdmi_init_irq(void);
 static int hdmi_enable_5v(int on);
 static int hdmi_core_power(int on, int show);
 static int hdmi_cec_power(int on);
+static bool hdmi_check_hdcp_hw_support(void);
 
 static struct msm_hdmi_platform_data adv7520_hdmi_data = {
 	.irq = MSM_GPIO_TO_INT(18),
@@ -3032,6 +3033,7 @@ static struct msm_hdmi_platform_data adv7520_hdmi_data = {
 	.enable_5v = hdmi_enable_5v,
 	.core_power = hdmi_core_power,
 	.cec_power = hdmi_cec_power,
+	.check_hdcp_hw_support = hdmi_check_hdcp_hw_support,
 };
 
 static struct i2c_board_info msm_i2c_board_info[] = {
@@ -3696,6 +3698,14 @@ static int hdmi_cec_power(int on)
 {
 	pr_info("%s: %d <LDO17>\n", __func__, on);
 	return gpio_set("gp11", "LDO17", 2600, on);
+}
+
+static bool hdmi_check_hdcp_hw_support(void)
+{
+	if (machine_is_msm7x30_fluid())
+		return false;
+	else
+		return true;
 }
 
 static int dtv_panel_power(int on)

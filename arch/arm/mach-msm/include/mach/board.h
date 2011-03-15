@@ -293,6 +293,7 @@ struct msm_hdmi_platform_data {
 	int (*core_power)(int on, int show);
 	int (*cec_power)(int on);
 	int (*init_irq)(void);
+	bool (*check_hdcp_hw_support)(void);
 };
 
 struct msm_i2c_platform_data {
