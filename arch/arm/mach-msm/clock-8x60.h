@@ -34,7 +34,6 @@
 
 enum {
 	/* Peripheral Clocks */
-	L_CE2_CLK,
 	L_GSBI1_UART_CLK,
 	L_GSBI2_UART_CLK,
 	L_GSBI3_UART_CLK,
@@ -91,6 +90,7 @@ enum {
 	L_RPM_MSG_RAM_P_CLK,
 
 	/* Fast Peripheral Bus Clocks */
+	L_CE2_P_CLK,
 	L_GSBI1_P_CLK,
 	L_GSBI2_P_CLK,
 	L_GSBI3_P_CLK,
@@ -126,7 +126,6 @@ enum {
 	L_GFX2D1_CLK,
 	L_GFX3D_CLK,
 	L_IJPEG_CLK,
-	L_IMEM_CLK,
 	L_JPEGD_CLK,
 	L_MDP_CLK,
 	L_MDP_VSYNC_CLK,
@@ -146,10 +145,11 @@ enum {
 	L_CSI0_VFE_CLK,
 	L_CSI1_VFE_CLK,
 	L_GMEM_AXI_CLK,
+	L_IJPEG_AXI_CLK,
+	L_IMEM_AXI_CLK,
 	L_JPEGD_AXI_CLK,
 	L_VCODEC_AXI_CLK,
 	L_VFE_AXI_CLK,
-	L_IJPEG_AXI_CLK,
 	L_MDP_AXI_CLK,
 	L_ROT_AXI_CLK,
 	L_VPE_AXI_CLK,
@@ -199,17 +199,14 @@ enum clk_sources {
 	PLL_2,
 	PLL_3,
 	PLL_4,
-	PLL_5,
 	PLL_6,
 	PLL_7,
 	PLL_8,
-	MXO,
 	PXO,
 	CXO,
 	NUM_SRC
 };
 
-int __init pxo_is_27mhz(void);
 extern struct clk_local soc_clk_local_tbl_mxo[];
 
 struct pll_rate {

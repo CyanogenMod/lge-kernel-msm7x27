@@ -28,7 +28,6 @@
 
 #include <mach/msm_bus.h>
 
-#include "kgsl_drawctxt.h"
 #include "kgsl.h"
 #include "kgsl_yamato.h"
 #include "kgsl_log.h"
@@ -36,6 +35,7 @@
 #include "kgsl_cmdstream.h"
 #include "kgsl_postmortem.h"
 #include "kgsl_cffdump.h"
+#include "kgsl_drawctxt.h"
 
 #include "yamato_reg.h"
 
@@ -549,6 +549,10 @@ kgsl_yamato_init_pwrctrl(struct kgsl_device *device)
 		KGSL_PWRFLAGS_IRQ_OFF;
 	device->pwrctrl.nap_allowed = pdata->nap_allowed;
 	device->pwrctrl.clk_freq[KGSL_AXI_HIGH] = pdata->high_axi_3d;
+	/* per test, io_fraction default value is set to 33% for best
+	   power/performance result */
+	device->pwrctrl.io_fraction = 33;
+	device->pwrctrl.io_count = 0;
 	device->pwrctrl.ebi1_clk = clk_get(NULL, "ebi1_kgsl_clk");
 	if (IS_ERR(device->pwrctrl.ebi1_clk))
 		device->pwrctrl.ebi1_clk = NULL;
@@ -1214,6 +1218,12 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 	__wait_io_event_interruptible_timeout(wq, condition, __ret);	\
 	__ret;								\
 })
+#define kgsl_wait_event_interruptible_timeout(wq, condition, timeout)	\
+({									\
+	long __ret = timeout;						\
+	__wait_event_interruptible_timeout(wq, condition, __ret);	\
+	__ret;								\
+})
 
 /* MUST be called with the device mutex held */
 static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
@@ -1222,15 +1232,25 @@ static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
 {
 	long status = 0;
 	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	if (!kgsl_check_timestamp(device, timestamp)) {
 		mutex_unlock(&device->mutex);
 		/* We need to make sure that the process is placed in wait-q
 		 * before its condition is called */
-		status = kgsl_wait_io_event_interruptible_timeout(
-				yamato_device->ib1_wq,
-				kgsl_check_interrupt_timestamp(device,
+		pwr->io_count = (pwr->io_count + 1) % 100;
+		if (pwr->io_count < pwr->io_fraction ||
+				 pwr->io_fraction == 100) {
+			status = kgsl_wait_io_event_interruptible_timeout(
+					yamato_device->ib1_wq,
+					kgsl_check_interrupt_timestamp(device,
 					timestamp), msecs_to_jiffies(msecs));
+		} else {
+			status = kgsl_wait_event_interruptible_timeout(
+					yamato_device->ib1_wq,
+					kgsl_check_interrupt_timestamp(device,
+					timestamp), msecs_to_jiffies(msecs));
+		}
 		mutex_lock(&device->mutex);
 
 		if (status > 0)
@@ -1252,6 +1272,7 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 {
 	int result = 0;
 	struct kgsl_drawctxt_set_bin_base_offset binbase;
+	struct kgsl_context *context;
 
 	switch (cmd) {
 	case IOCTL_KGSL_DRAWCTXT_SET_BIN_BASE_OFFSET:
@@ -1261,10 +1282,11 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 			break;
 		}
 
-		if (test_bit(binbase.drawctxt_id, dev_priv->ctxt_bitmap)) {
+		context = kgsl_find_context(dev_priv, binbase.drawctxt_id);
+		if (context) {
 			result = kgsl_drawctxt_set_bin_base_offset(
 					dev_priv->device,
-					binbase.drawctxt_id,
+					context,
 					binbase.offset);
 		} else {
 			result = -EINVAL;

@@ -30,6 +30,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/hrtimer.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
 
 #include <linux/mfd/pmic8058.h>
 #include <linux/pmic8058-othc.h>
@@ -71,6 +72,7 @@ struct pm8058_othc {
 	void *adc_handle;
 	void *accessory_adc_handle;
 	spinlock_t lock;
+	struct regulator *othc_vreg;
 	struct input_dev *othc_ipd;
 	struct switch_dev othc_sdev;
 	struct pmic8058_othc_config_pdata *othc_pdata;
@@ -166,6 +168,7 @@ EXPORT_SYMBOL(pm8058_othc_svideo_enable);
 #ifdef CONFIG_PM
 static int pm8058_othc_suspend(struct device *dev)
 {
+	int rc = 0;
 	struct pm8058_othc *dd = dev_get_drvdata(dev);
 
 	if (dd->othc_pdata->micbias_capability == OTHC_MICBIAS_HSED) {
@@ -175,11 +178,18 @@ static int pm8058_othc_suspend(struct device *dev)
 		}
 	}
 
-	return 0;
+	if (!device_may_wakeup(dev)) {
+		rc = regulator_disable(dd->othc_vreg);
+		if (rc)
+			pr_err("othc micbais power off failed\n");
+	}
+
+	return rc;
 }
 
 static int pm8058_othc_resume(struct device *dev)
 {
+	int rc = 0;
 	struct pm8058_othc *dd = dev_get_drvdata(dev);
 
 	if (dd->othc_pdata->micbias_capability == OTHC_MICBIAS_HSED) {
@@ -189,7 +199,13 @@ static int pm8058_othc_resume(struct device *dev)
 		}
 	}
 
-	return 0;
+	if (!device_may_wakeup(dev)) {
+		rc = regulator_enable(dd->othc_vreg);
+		if (rc)
+			pr_err("othc micbais power on failed\n");
+	}
+
+	return rc;
 }
 
 static struct dev_pm_ops pm8058_othc_pm_ops = {
@@ -225,6 +241,9 @@ static int __devexit pm8058_othc_remove(struct platform_device *pd)
 		free_irq(dd->othc_irq_ir, dd);
 		input_unregister_device(dd->othc_ipd);
 	}
+	regulator_disable(dd->othc_vreg);
+	regulator_put(dd->othc_vreg);
+
 	kfree(dd);
 
 	return 0;
@@ -361,6 +380,7 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 		 * If the current accessory is video cable, reject the removal
 		 * interrupt.
 		 */
+		pr_info("Accessory [%d] removed\n", dd->curr_accessory);
 		if (dd->curr_accessory == OTHC_SVIDEO_OUT)
 			return 0;
 
@@ -437,7 +457,7 @@ static int pm8058_accessory_report(struct pm8058_othc *dd, int status)
 						dd->curr_accessory_code, 1);
 			input_sync(dd->othc_ipd);
 		}
-
+		pr_info("Accessory [%d] inserted\n", dd->curr_accessory);
 	} else
 		pr_info("Unable to detect accessory. False interrupt!\n");
 
@@ -483,6 +503,7 @@ static irqreturn_t pm8058_no_sw(int irq, void *dev_id)
 
 	spin_lock_irqsave(&dd->lock, flags);
 	if (dd->switch_reject == true) {
+		pr_debug("Rejected switch interrupt\n");
 		spin_unlock_irqrestore(&dd->lock, flags);
 		return IRQ_HANDLED;
 	}
@@ -978,6 +999,32 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 	dd->othc_pdata = pdata;
 	dd->pm_chip = chip;
 	dd->othc_base = res->start;
+	if (pdata->micbias_regulator == NULL) {
+		pr_err("OTHC regulator not specified\n");
+		goto fail_get_res;
+	}
+
+	dd->othc_vreg = regulator_get(NULL,
+				pdata->micbias_regulator->regulator);
+	if (IS_ERR(dd->othc_vreg)) {
+		pr_err("regulator get failed\n");
+		rc = PTR_ERR(dd->othc_vreg);
+		goto fail_get_res;
+	}
+
+	rc = regulator_set_voltage(dd->othc_vreg,
+				pdata->micbias_regulator->min_uV,
+				pdata->micbias_regulator->max_uV);
+	if (rc) {
+		pr_err("othc regulator set voltage failed\n");
+		goto fail_reg_enable;
+	}
+
+	rc = regulator_enable(dd->othc_vreg);
+	if (rc) {
+		pr_err("othc regulator enable failed\n");
+		goto fail_reg_enable;
+	}
 
 	platform_set_drvdata(pd, dd);
 
@@ -986,11 +1033,11 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 		if (pdata->hsed_config != NULL) {
 			rc = othc_configure_hsed(dd, pd);
 			if (rc < 0)
-				goto fail_get_res;
+				goto fail_othc_hsed;
 		} else {
 			pr_err("HSED config data not present\n");
 			rc = -EINVAL;
-			goto fail_get_res;
+			goto fail_othc_hsed;
 		}
 	}
 
@@ -1002,6 +1049,10 @@ static int __devinit pm8058_othc_probe(struct platform_device *pd)
 					pd->name, pd->id);
 	return 0;
 
+fail_othc_hsed:
+	regulator_disable(dd->othc_vreg);
+fail_reg_enable:
+	regulator_put(dd->othc_vreg);
 fail_get_res:
 	pm_runtime_set_suspended(&pd->dev);
 	pm_runtime_disable(&pd->dev);

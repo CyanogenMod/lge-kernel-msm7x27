@@ -177,7 +177,7 @@ struct kgsl_ringbuffer {
 #endif /* GSL_STATS_RINGBUFFER */
 
 int kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
-				int drawctxt_index,
+				struct kgsl_context *context,
 				struct kgsl_ibdesc *ibdesc, unsigned int numibs,
 				uint32_t *timestamp,
 				unsigned int flags);

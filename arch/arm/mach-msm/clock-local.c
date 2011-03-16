@@ -62,16 +62,6 @@ static int local_src_disable_nolock(int src);
 /*
  * Common Set-Rate Functions
  */
-/* For clocks with integer dividers only. */
-void set_rate_basic(struct clk_local *clk, struct clk_freq_tbl *nf)
-{
-	uint32_t reg_val;
-
-	reg_val = readl(clk->ns_reg);
-	reg_val &= ~(clk->ns_mask);
-	reg_val |= nf->ns_val;
-	writel(reg_val, clk->ns_reg);
-}
 
 /* For clocks with MND dividers. */
 void set_rate_mnd(struct clk_local *clk, struct clk_freq_tbl *nf)
@@ -80,16 +70,11 @@ void set_rate_mnd(struct clk_local *clk, struct clk_freq_tbl *nf)
 
 	/* Assert MND reset. */
 	ns_reg_val = readl(clk->ns_reg);
-	ns_reg_val |= B(7);
+	ns_reg_val |= BIT(7);
 	writel(ns_reg_val, clk->ns_reg);
 
 	/* Program M and D values. */
 	writel(nf->md_val, clk->md_reg);
-
-	/* Program NS register. */
-	ns_reg_val &= ~(clk->ns_mask);
-	ns_reg_val |= nf->ns_val;
-	writel(ns_reg_val, clk->ns_reg);
 
 	/* If the clock has a separate CC register, program it. */
 	if (clk->ns_reg != clk->cc_reg) {
@@ -100,13 +85,16 @@ void set_rate_mnd(struct clk_local *clk, struct clk_freq_tbl *nf)
 	}
 
 	/* Deassert MND reset. */
-	ns_reg_val &= ~B(7);
+	ns_reg_val &= ~BIT(7);
 	writel(ns_reg_val, clk->ns_reg);
 }
 
 void set_rate_nop(struct clk_local *clk, struct clk_freq_tbl *nf)
 {
-	/* Nothing to do for fixed-rate clocks. */
+	/* Nothing to do for fixed-rate or integer-divider clocks. Any settings
+	 * in NS registers are applied in the enable path, since power can be
+	 * saved by leaving an un-clocked or slowly-clocked source selected
+	 * until the clock is enabled. */
 }
 
 /*
@@ -296,7 +284,7 @@ static int local_clk_is_halted(unsigned id)
 {
 	struct clk_local *clk = &soc_clk_local_tbl[id];
 	int invert = (clk->halt_check == ENABLE);
-	int status_bit = readl(clk->halt_reg) & B(clk->halt_bit);
+	int status_bit = readl(clk->halt_reg) & BIT(clk->halt_bit);
 	return invert ? !status_bit : status_bit;
 }
 
@@ -310,6 +298,16 @@ void local_clk_enable_reg(unsigned id)
 	WARN((clk->type != NORATE) && (clk->current_freq == &local_dummy_freq),
 		"Attempting to enable clock %d before setting its rate. "
 		"Set the rate first!\n", id);
+
+	/* Program the NS register, if applicable. NS registers are not
+	 * set in the set_rate path because power can be saved by deferring
+	 * the selection of a clocked source until the clock is enabled. */
+	if (clk->ns_mask) {
+		reg_val = readl(clk->ns_reg);
+		reg_val &= ~(clk->ns_mask);
+		reg_val |= (clk->current_freq->ns_val & clk->ns_mask);
+		writel(reg_val, clk->ns_reg);
+	}
 
 	/* Enable MN counter, if applicable. */
 	reg_val = readl(reg);
@@ -396,6 +394,14 @@ void local_clk_disable_reg(unsigned id)
 		reg_val &= ~(clk->current_freq->mnd_en_mask);
 		writel(reg_val, reg);
 	}
+	/* Program NS register to low-power value with an un-clocked or
+	 * slowly-clocked source selected. */
+	if (clk->ns_mask) {
+		reg_val = readl(clk->ns_reg);
+		reg_val &= ~(clk->ns_mask);
+		reg_val |= (clk->freq_tbl->ns_val & clk->ns_mask);
+		writel(reg_val, clk->ns_reg);
+	}
 }
 
 /* Enable a clock with no locking, enabling parent clocks as needed. */
@@ -420,11 +426,21 @@ static int local_clk_enable_nolock(unsigned id)
 		if (rc)
 			goto err_src;
 		local_clk_enable_reg(id);
+		/*
+		 * With remote rail control, the remote processor might modify
+		 * the clock control register when the rail is enabled/disabled.
+		 * Enable the rail inside the lock to protect against this.
+		 */
+		rc = soc_set_pwr_rail(id, 1);
+		if (rc)
+			goto err_pwr;
 	}
 	clk->count++;
 
 	return rc;
 
+err_pwr:
+	local_clk_disable_reg(id);
 err_src:
 	if (clk->parent != C(NONE))
 		rc = local_clk_disable_nolock(clk->parent);
@@ -449,14 +465,16 @@ static int local_clk_disable_nolock(unsigned id)
 	}
 
 	if (clk->count == 0) {
+		soc_set_pwr_rail(id, 0);
 		local_clk_disable_reg(id);
 		rc = local_src_disable(clk->current_freq->src);
 		if (rc)
 			goto err_src;
-		if (clk->parent != C(NONE))
+		if (clk->parent != C(NONE)) {
 			rc = local_clk_disable_nolock(clk->parent);
 			if (rc)
 				goto err_par;
+		}
 		rc = local_unvote_sys_vdd(clk->current_freq->sys_vdd);
 		if (rc)
 			goto err_vdd;
@@ -484,17 +502,6 @@ int local_clk_enable(unsigned id)
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	rc = local_clk_enable_nolock(id);
-	if (rc)
-		goto unlock;
-	/*
-	 * With remote rail control, the remote processor might modify
-	 * the clock control register when the rail is enabled/disabled.
-	 * Enable the rail inside the lock to protect against this.
-	 */
-	rc = soc_set_pwr_rail(id, 1);
-	if (rc)
-		local_clk_disable_nolock(id);
-unlock:
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	return rc;
@@ -506,7 +513,6 @@ void local_clk_disable(unsigned id)
 	unsigned long flags;
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	soc_set_pwr_rail(id, 0);
 	local_clk_disable_nolock(id);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
@@ -547,7 +553,7 @@ static int _local_clk_set_rate(unsigned id, struct clk_freq_tbl *nf)
 		goto release_lock;
 
 	/* Disable branch if clock isn't dual-banked with a glitch-free MUX. */
-	if (clk->banked_mnd_masks == NULL) {
+	if (clk->bank_masks == NULL) {
 		/* Disable all branches to prevent glitches. */
 		for (i = 0; chld && chld[i] != C(NONE); i++) {
 			struct clk_local *ch = &soc_clk_local_tbl[chld[i]];
@@ -590,7 +596,7 @@ static int _local_clk_set_rate(unsigned id, struct clk_freq_tbl *nf)
 src_enable_failed:
 sys_vdd_vote_failed:
 	/* Enable any clocks that were disabled. */
-	if (clk->banked_mnd_masks == NULL) {
+	if (clk->bank_masks == NULL) {
 		if (clk->count)
 			local_clk_enable_reg(id);
 		/* Enable only branches that were ON before. */

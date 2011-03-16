@@ -120,7 +120,6 @@ struct audio_client {
 	struct mutex	       cmd_lock;
 
 	atomic_t		cmd_state;
-	atomic_t		eos_state;
 	wait_queue_head_t	cmd_wait;
 
 	app_cb			cb;

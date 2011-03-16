@@ -37,6 +37,8 @@
 
 #include "msm_fb.h"
 #include "mipi_dsi.h"
+#include "mdp.h"
+#include "mdp4.h"
 
 static int mipi_dsi_probe(struct platform_device *pdev);
 static int mipi_dsi_remove(struct platform_device *pdev);
@@ -363,10 +365,14 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0)
 			gpio_free(vsync_gpio);
 
-		mipi_dsi_set_tear_off();
+		mipi_dsi_set_tear_off(mfd);
 	}
 
 	ret = panel_next_off(pdev);
+
+	mutex_lock(&mfd->dma->ov_mutex);
+	/* make sure mdp dma is not running */
+	mdp4_dsi_cmd_dma_busy_wait(mfd);
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
@@ -396,6 +402,8 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(0);
+
+	mutex_unlock(&mfd->dma->ov_mutex);
 
 	pr_debug("%s:\n", __func__);
 
@@ -498,16 +506,17 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	mipi_dsi_op_mode_config(mipi->mode);
 
-	if (pinfo->lcd.vsync_enable) {
-		if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0) {
-			if (gpio_request(vsync_gpio, "MDP_VSYNC") == 0)
-				gpio_direction_input(vsync_gpio);
-			else
-				pr_err("%s: unable to request gpio=%d\n",
-					__func__, vsync_gpio);
+	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
+		if (pinfo->lcd.vsync_enable) {
+			if (pinfo->lcd.hw_vsync_mode && vsync_gpio > 0) {
+				if (gpio_request(vsync_gpio, "MDP_VSYNC") == 0)
+					gpio_direction_input(vsync_gpio);
+				else
+					pr_err("%s: unable to request gpio=%d\n",
+						__func__, vsync_gpio);
+			}
+			mipi_dsi_set_tear_on(mfd);
 		}
-
-		mipi_dsi_set_tear_on();
 	}
 
 #ifdef CONFIG_MSM_BUS_SCALING

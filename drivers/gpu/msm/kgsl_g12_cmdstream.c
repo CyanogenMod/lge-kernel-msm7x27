@@ -147,7 +147,7 @@ static int room_in_rb(struct kgsl_g12_device *device)
 
 int
 kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
-			int drawctxt_index,
+			struct kgsl_context *context,
 			struct kgsl_ibdesc *ibdesc,
 			unsigned int numibs,
 			uint32_t *timestamp,
@@ -183,12 +183,12 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	tmp.hostptr = (void *)*timestamp;
 
 	KGSL_CMD_INFO("ctxt %d ibaddr 0x%08x sizedwords %d",
-		      drawctxt_index, cmd, sizedwords);
+		      context->id, cmd, sizedwords);
 	/* context switch */
-	if ((drawctxt_index != (int)g12_device->ringbuffer.prevctx) ||
+	if ((context->id != (int)g12_device->ringbuffer.prevctx) ||
 	    (ctrl & KGSL_CONTEXT_CTX_SWITCH)) {
 		KGSL_CMD_INFO("context switch %d -> %d",
-				drawctxt_index, g12_device->ringbuffer.prevctx);
+				context->id, g12_device->ringbuffer.prevctx);
 		kgsl_mmu_setstate(device, pagetable);
 		cnt = PACKETSIZE_STATESTREAM;
 		ofs = 0;
@@ -211,7 +211,7 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	nextindex = g12_device->current_timestamp % KGSL_G12_PACKET_COUNT;
 	*timestamp = g12_device->current_timestamp;
 
-	g12_device->ringbuffer.prevctx = drawctxt_index;
+	g12_device->ringbuffer.prevctx = context->id;
 
 	addcmd(&g12_device->ringbuffer, index, cmd + ofs, cnt);
 

@@ -734,7 +734,7 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 
 int
 kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
-				int drawctxt_index,
+				struct kgsl_context *context,
 				struct kgsl_ibdesc *ibdesc,
 				unsigned int numibs,
 				uint32_t *timestamp,
@@ -745,16 +745,17 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int *link;
 	unsigned int *cmds;
 	unsigned int i;
+	struct kgsl_yamato_context *drawctxt = context->devctxt;
 
-	KGSL_CMD_VDBG("enter (device_id=%d, drawctxt_index=%d, ibdesc=0x%08x,"
+	KGSL_CMD_VDBG("enter (device_id=%d, ibdesc=0x%08x,"
 			" numibs=%d, timestamp=%p)\n",
-			device->id, drawctxt_index, (unsigned int)ibdesc,
+			device->id, (unsigned int)ibdesc,
 			numibs, timestamp);
 
 	if (device->state & KGSL_STATE_HUNG)
 		return -EINVAL;
 	if (!(yamato_device->ringbuffer.flags & KGSL_FLAGS_STARTED) ||
-				(drawctxt_index >= KGSL_CONTEXT_MAX)) {
+	      context == NULL) {
 		KGSL_CMD_VDBG("return %d\n", -EINVAL);
 		return -EINVAL;
 	}
@@ -769,7 +770,6 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				" submission, size %x\n", numibs * 3);
 		return -ENOMEM;
 	}
-
 	for (i = 0; i < numibs; i++) {
 		kgsl_cffdump_parse_ibs(dev_priv, NULL,
 			ibdesc[i].gpuaddr, ibdesc[i].sizedwords, false);
@@ -783,14 +783,13 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		      kgsl_pt_get_flags(device->mmu.hwpagetable,
 					device->id));
 
-	kgsl_drawctxt_switch(yamato_device,
-			yamato_device->drawctxt[drawctxt_index], flags);
+	kgsl_drawctxt_switch(yamato_device, drawctxt, flags);
 
 	*timestamp = kgsl_ringbuffer_addcmds(&yamato_device->ringbuffer,
 					0, &link[0], (cmds - link));
 
 	KGSL_CMD_INFO("ctxt %d g %08x numibs %d ts %d\n",
-		drawctxt_index, (unsigned int)ibdesc, numibs, *timestamp);
+		context->id, (unsigned int)ibdesc, numibs, *timestamp);
 
 	KGSL_CMD_VDBG("return %d\n", 0);
 

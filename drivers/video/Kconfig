@@ -2319,6 +2319,11 @@ config FB_MSM_MDDI_AUTO_DETECT
 	select FB_MSM_MDDI
 	default n
 
+config FB_MSM_LCDC_AUTO_DETECT
+	bool
+	select FB_MSM_LCDC
+	default n
+
 config FB_MSM_LCDC_PANEL
 	bool
 	select FB_MSM_LCDC
@@ -2387,6 +2392,11 @@ config FB_MSM_LCDC_SHARP_WVGA_PT
 	select FB_MSM_LCDC_PANEL
 	default n
 
+config FB_MSM_LCDC_SAMSUNG_OLED_PT
+	bool
+	select FB_MSM_LCDC_PANEL
+	default n
+
 config FB_MSM_LCDC_WXGA
 	bool
 	select FB_MSM_LCDC_PANEL
@@ -2446,6 +2456,16 @@ config FB_MSM_LCDC_SHARP_WVGA_PT_PANEL
 	---help---
 	  Support for LCDC Sharp WVGA PT (480x800) panel
 
+config FB_MSM_LCDC_SAMSUNG_OLED_PT_PANEL
+	depends on FB_MSM_LCDC_HW
+	bool "LCDC Samsung OLED PT Panel"
+	select FB_MSM_LCDC_SAMSUNG_OLED_PT
+	---help---
+	  Support for LCDC Samsung OLED PT (480x800) panel
+	  .
+	  .
+	  .
+
 config FB_MSM_TRY_MDDI_CATCH_LCDC_PRISM
 	depends on FB_MSM_LCDC_HW
 	bool "MDDI Panel Auto Detect + LCDC Prism WVGA"
@@ -2462,15 +2482,28 @@ config FB_MSM_TRY_MDDI_CATCH_LCDC_PRISM
 
 config FB_MSM_MIPI_PANEL_DETECT
 	depends on FB_MSM_LCDC_HW
-	bool "MIPI Panel Detect + LCDC Samsung WSVGA"
+	bool "MIPI Panel Detect + LCDC Panel Auto Detect"
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
+	select FB_MSM_LCDC_AUTO_DETECT
 	select FB_MSM_LCDC_SAMSUNG_WSVGA
+	select FB_MSM_LCDC_SAMSUNG_OLED_PT
 
 config FB_MSM_MDDI_PANEL_AUTO_DETECT
 	bool "MDDI Panel Auto Detect"
 	select FB_MSM_MDDI_AUTO_DETECT
 	---help---
 	  Support for MDDI panel auto detect
+
+config FB_MSM_LCDC_PANEL_AUTO_DETECT
+	bool "LCDC Panel Auto Detect"
+	select FB_MSM_LCDC_AUTO_DETECT
+	select FB_MSM_LCDC_SAMSUNG_WSVGA
+	select FB_MSM_LCDC_SAMSUNG_OLED_PT
+	---help---
+	  Support for LCDC panel auto detect
+	  .
+	  .
+	  .
 
 config FB_MSM_MDDI_PRISM_WVGA
 	bool "MDDI Prism WVGA Panel"

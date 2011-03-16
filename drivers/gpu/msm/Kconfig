@@ -94,12 +94,3 @@ config MSM_KGSL_DISABLE_SHADOW_WRITES
 	bool "Disable register shadow writes for context switches"
 	default n
 	depends on MSM_KGSL
-
-config MSM_KGSL_CONTEXTS
-	int "Maximum number of GPU HW contexts"
-	default 32
-	depends on MSM_KGSL
-	help
-	  Set the maximum number of possible concurrent GPU HW contexts.
-	  The actual number of contexts that can be allocated depends
-	  on available system memory.

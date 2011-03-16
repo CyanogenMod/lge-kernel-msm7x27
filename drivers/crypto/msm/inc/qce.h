@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver API
  *
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -110,7 +110,7 @@ struct qce_sha_req {
 	bool first_blk;
 	bool last_blk;
 	unsigned int size;
-	void *cookie;
+	void *areq;
 };
 
 struct qce_req {

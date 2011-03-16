@@ -185,12 +185,6 @@ static int voter_clk_set_parent(unsigned id, struct clk *parent)
 	return 0;
 }
 
-static int voter_clk_measure_rate(unsigned id)
-{
-	/* Not supported. */
-	return -EPERM;
-}
-
 struct clk_ops clk_ops_voter = {
 	.enable = voter_clk_enable,
 	.disable = voter_clk_disable,
@@ -200,5 +194,4 @@ struct clk_ops clk_ops_voter = {
 	.is_enabled = voter_clk_is_enabled,
 	.round_rate = voter_clk_round_rate,
 	.set_parent = voter_clk_set_parent,
-	.measure_rate = voter_clk_measure_rate,
 };

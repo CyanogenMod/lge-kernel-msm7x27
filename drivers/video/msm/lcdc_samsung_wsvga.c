@@ -227,7 +227,7 @@ static int __init lcdc_samsung_panel_init(void)
 	int ret;
 	struct msm_panel_info *pinfo;
 
-#ifdef CONFIG_FB_MSM_MIPI_PANEL_DETECT
+#ifdef CONFIG_FB_MSM_LCDC_AUTO_DETECT
 	if (msm_fb_detect_client("lcdc_samsung_wsvga"))
 		return 0;
 #endif
