@@ -72,7 +72,7 @@
 #define BATTERY_CB_ID_ALL_ACTIV		1
 #define BATTERY_CB_ID_LOW_VOL		2
 
-#define BATTERY_LOW		3200
+#define BATTERY_LOW		2800//3200
 #define BATTERY_HIGH		4300
 
 #define ONCRPC_CHG_GET_GENERAL_STATUS_PROC	12
@@ -459,7 +459,7 @@ static int msm_batt_get_batt_chg_status(void)
 		be32_to_cpu_self(v1p->battery_soc);
 #endif
 
-#if 0
+#if 1
 		DBG_LIMIT("%s() \n ----- charger / battery status --------\n", __func__);
 		DBG_LIMIT("\t charger_status=%d\n", v1p->charger_status);
 		DBG_LIMIT("\t charger_type=%d\n", v1p->charger_type);
@@ -467,7 +467,7 @@ static int msm_batt_get_batt_chg_status(void)
 		DBG_LIMIT("\t battery_level=%d\n", v1p->battery_level);
 		DBG_LIMIT("\t battery_voltage=%d\n", v1p->battery_voltage);
 		DBG_LIMIT("\t battery_temp=%d\n", v1p->battery_temp);
-	#ifdef CONFIG_LGE_FUEL_GAUGE
+	#if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 		DBG_LIMIT("\t battery_soc=%d\n", v1p->battery_soc);
 	#endif
 #endif
@@ -505,6 +505,7 @@ static void msm_batt_update_psy_status(void)
 #if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	battery_soc = rep_batt_chg.v1.battery_soc;
 #endif
+
 	/* Make correction for battery status */
 	if (battery_status == BATTERY_STATUS_INVALID_v1) {
 		if (msm_batt_info.chg_api_version < CHG_RPC_VER_3_1)
@@ -1731,7 +1732,7 @@ static int __devinit msm_batt_init_rpc(void)
 
 	msm_batt_info.chg_ep =
 		msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_4_1, 0);
-	msm_batt_info.chg_api_version =  CHG_RPC_VER_4_1;
+	    msm_batt_info.chg_api_version =  CHG_RPC_VER_4_1;
 	if (msm_batt_info.chg_ep == NULL) {
 		pr_err("%s: rpc connect CHG_RPC_PROG = NULL\n", __func__);
 		return -ENODEV;
