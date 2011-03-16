@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,7 @@ static struct snddev_icodec_data snddev_iearpiece_data = {
 	.default_sample_rate = 48000,
 	.pamp_on = NULL,
 	.pamp_off = NULL,
+	.property = SIDE_TONE_MASK,
 	.max_voice_rx_vol[VOC_NB_INDEX] = -200,
 	.min_voice_rx_vol[VOC_NB_INDEX] = -1700,
 	.max_voice_rx_vol[VOC_WB_INDEX] = -200,
@@ -173,6 +174,7 @@ static struct snddev_icodec_data snddev_ihs_stereo_rx_data = {
 	.default_sample_rate = 48000,
 	.pamp_on = NULL,
 	.pamp_off = NULL,
+	.property = SIDE_TONE_MASK,
 	.max_voice_rx_vol[VOC_NB_INDEX] = -700,
 	.min_voice_rx_vol[VOC_NB_INDEX] = -2200,
 	.max_voice_rx_vol[VOC_WB_INDEX] = -900,
@@ -213,6 +215,7 @@ static struct snddev_icodec_data snddev_ihs_mono_rx_data = {
 	.default_sample_rate = 48000,
 	.pamp_on = NULL,
 	.pamp_off = NULL,
+	.property = SIDE_TONE_MASK,
 	.max_voice_rx_vol[VOC_NB_INDEX] = -700,
 	.min_voice_rx_vol[VOC_NB_INDEX] = -2200,
 	.max_voice_rx_vol[VOC_WB_INDEX] = -900,
