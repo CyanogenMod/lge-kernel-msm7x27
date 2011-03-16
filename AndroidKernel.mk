@@ -37,10 +37,17 @@ $(KERNEL_OUT)/piggy : $(TARGET_PREBUILT_INT_KERNEL)
 $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_CONFIG) $(KERNEL_HEADERS_INSTALL)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi-
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- modules
+
 #LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-02-09, <cp wireless.ko to system/lib/modules>
 	mkdir -p $(TARGET_OUT)/lib
 	mkdir -p $(KERNEL_MODULES_OUT) 
+ifeq ($(TARGET_PRODUCT), lge_gelato)
 	-cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4330/wireless.ko $(KERNEL_MODULES_OUT)
+endif
+
+ifeq ($(TARGET_PRODUCT), muscat)
+	-cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4329/wireless.ko $(KERNEL_MODULES_OUT)
+endif
 #LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-02-09, <cp wireless.ko to system/lib/modules>
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(KERNEL_CONFIG)
