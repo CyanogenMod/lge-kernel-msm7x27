@@ -77,7 +77,6 @@
 #include "cpuidle.h"
 #include "pm.h"
 #include "rpm.h"
-#include "mpm.h"
 #include "spm.h"
 #include "rpm_log.h"
 #include "timer.h"
@@ -177,7 +176,7 @@ static struct regulator_init_data saw_s0_init_data = {
 		.constraints = {
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 			.min_uV = 840000,
-			.max_uV = 1200000,
+			.max_uV = 1250000,
 		},
 		.num_consumer_supplies = 1,
 		.consumer_supplies = &saw_s0_supply,
@@ -187,7 +186,7 @@ static struct regulator_init_data saw_s1_init_data = {
 		.constraints = {
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 			.min_uV = 840000,
-			.max_uV = 1200000,
+			.max_uV = 1250000,
 		},
 		.num_consumer_supplies = 1,
 		.consumer_supplies = &saw_s1_supply,
@@ -1403,16 +1402,16 @@ static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
 	RPM_VREG_INIT_LDO(PM8058_L24, 0, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
 	RPM_VREG_INIT_LDO(PM8058_L25, 0, 1, 0, 1200000, 1200000, LDO150HMIN, 0),
 
-	RPM_VREG_INIT_SMPS(PM8058_S0, 0, 1, 1,  500000, 1200000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p75),
-	RPM_VREG_INIT_SMPS(PM8058_S1, 0, 1, 1,  500000, 1200000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p75),
+	RPM_VREG_INIT_SMPS(PM8058_S0, 0, 1, 1,  500000, 1250000,  SMPS_HMIN, 0,
+		RPM_VREG_FREQ_1p60),
+	RPM_VREG_INIT_SMPS(PM8058_S1, 0, 1, 1,  500000, 1250000,  SMPS_HMIN, 0,
+		RPM_VREG_FREQ_1p60),
 	RPM_VREG_INIT_SMPS(PM8058_S2, 0, 1, 0, 1200000, 1400000,  SMPS_HMIN,
-		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p75),
+		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p60),
 	RPM_VREG_INIT_SMPS(PM8058_S3, 1, 1, 0, 1800000, 1800000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p75),
+		RPM_VREG_FREQ_1p60),
 	RPM_VREG_INIT_SMPS(PM8058_S4, 1, 1, 0, 2200000, 2200000,  SMPS_HMIN, 0,
-		RPM_VREG_FREQ_1p75),
+		RPM_VREG_FREQ_1p60),
 
 	RPM_VREG_INIT_VS(PM8058_LVS0, 0, 1, 0,				 0),
 	RPM_VREG_INIT_VS(PM8058_LVS1, 0, 1, 0,				 0),
@@ -1429,11 +1428,11 @@ static struct rpm_vreg_pdata rpm_vreg_init_pdata[RPM_VREG_ID_MAX] = {
 	RPM_VREG_INIT_LDO(PM8901_L6,  0, 1, 0, 2200000, 2200000, LDO300HMIN, 0),
 
 	RPM_VREG_INIT_SMPS(PM8901_S2, 0, 1, 0, 1300000, 1300000,   FTS_HMIN, 0,
-		RPM_VREG_FREQ_1p75),
+		RPM_VREG_FREQ_1p60),
 	RPM_VREG_INIT_SMPS(PM8901_S3, 0, 1, 0, 1100000, 1100000,   FTS_HMIN, 0,
-		RPM_VREG_FREQ_1p75),
+		RPM_VREG_FREQ_1p60),
 	RPM_VREG_INIT_SMPS(PM8901_S4, 0, 1, 0, 1225000, 1225000,   FTS_HMIN,
-		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p75),
+		RPM_VREG_PIN_CTRL_A0, RPM_VREG_FREQ_1p60),
 
 	RPM_VREG_INIT_VS(PM8901_LVS0, 1, 1, 0,				 0),
 	RPM_VREG_INIT_VS(PM8901_LVS1, 0, 1, 0,				 0),
@@ -1825,11 +1824,18 @@ static struct pmic8058_vibrator_pdata pmic_vib_pdata = {
 #define PM8058_OTHC_CNTR_BASE1	0x134
 #define PM8058_OTHC_CNTR_BASE2	0x137
 
+static struct othc_regulator_config othc_reg = {
+	.regulator	 = "8058_l5",
+	.max_uV		 = 2850000,
+	.min_uV		 = 2850000,
+};
+
 /* MIC_BIAS0 is configured as normal MIC BIAS */
 static struct pmic8058_othc_config_pdata othc_config_pdata_0 = {
 	.micbias_select = OTHC_MICBIAS_0,
 	.micbias_capability = OTHC_MICBIAS,
 	.micbias_enable = OTHC_SIGNAL_OFF,
+	.micbias_regulator = &othc_reg,
 };
 
 /* MIC_BIAS1 is configured as HSED_BIAS for OTHC */
@@ -1837,6 +1843,7 @@ static struct pmic8058_othc_config_pdata othc_config_pdata_1 = {
 	.micbias_select = OTHC_MICBIAS_1,
 	.micbias_capability = OTHC_MICBIAS,
 	.micbias_enable = OTHC_SIGNAL_OFF,
+	.micbias_regulator = &othc_reg,
 };
 
 /* MIC_BIAS2 is configured as normal MIC BIAS */
@@ -1844,6 +1851,7 @@ static struct pmic8058_othc_config_pdata othc_config_pdata_2 = {
 	.micbias_select = OTHC_MICBIAS_2,
 	.micbias_capability = OTHC_MICBIAS,
 	.micbias_enable = OTHC_SIGNAL_OFF,
+	.micbias_regulator = &othc_reg,
 };
 
 static struct resource resources_othc_0[] = {
@@ -2520,13 +2528,13 @@ static struct pm8901_platform_data pm8901_platform_data = {
 	.irq_base = PM8901_IRQ_BASE,
 	.num_subdevs = ARRAY_SIZE(pm8901_subdevs),
 	.sub_devices = pm8901_subdevs,
-	.irq_trigger_flags = IRQF_TRIGGER_HIGH,
+	.irq_trigger_flags = IRQF_TRIGGER_LOW,
 };
 
 static struct i2c_board_info pm8901_boardinfo[] __initdata = {
 	{
 		I2C_BOARD_INFO("pm8901-core", 0x55),
-		.irq = TLMM_SCSS_DIR_CONN_IRQ_2,
+		.irq = MSM_GPIO_TO_INT(PM8901_GPIO_INT),
 		.platform_data = &pm8901_platform_data,
 	},
 };
@@ -2799,14 +2807,6 @@ static void __init msm8x60_init_tlmm(void)
 
 	for (n = 0; n < ARRAY_SIZE(msm8x60_tlmm_cfgs); ++n)
 		gpio_tlmm_config(msm8x60_tlmm_cfgs[n], 0);
-
-	msm_gpio_install_direct_irq(PM8058_GPIO_INT, 1, 0);
-	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_1,
-			MSM_GPIO_TO_INT(PM8058_GPIO_INT), 1);
-	msm_gpio_install_direct_irq(PM8901_GPIO_INT, 2, 0);
-	msm_set_direct_connect(TLMM_SCSS_DIR_CONN_IRQ_2,
-			MSM_GPIO_TO_INT(PM8901_GPIO_INT), 1);
-
 }
 
 #define GPIO_SDC3_WP_SWITCH (GPIO_EXPANDER_GPIO_BASE + (16 * 1) + 6)
@@ -4023,7 +4023,6 @@ static int mdp_core_clk_rate_table[] = {
 	59080000,
 	128000000,
 	160000000,
-	200000000,
 	200000000,
 };
 static struct msm_panel_common_pdata mdp_pdata = {

@@ -70,10 +70,9 @@ static struct lgcam_rear_sensor_register_address_value_pair  ext_reg_settings[40
 #else
 static long lgcam_rear_sensor_set_capture_zoom(int zoom);
 #endif
-#ifdef CONFIG_MACH_MSM7X27_THUNDERG //muscat/gelato???
+
 /* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
-extern mdp_load_thunder_lut(int lut_type);
-#endif
+extern void mdp_load_thunder_lut(int lut_type);
 
 module_param_named(debug_mask, debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
 struct lgcam_rear_sensor_work {
@@ -542,10 +541,8 @@ static int32_t lgcam_rear_sensor_set_continuous_focus(void)
 static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 {
 	int32_t rc = 0;
-#if 1
 	int32_t i = 0;
 	unsigned short af_pos = 0;
-#endif
 	if(debug_mask)
 		printk("lgcam_rear_sensor: cancel focus, mode = %d\n", mode);
 
@@ -600,7 +597,10 @@ static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 				return rc;
 			}
 			else
-				printk("af_lenspos is equal with af_pos1 = 0x%x\n", af_pos);
+			{
+				if(debug_mask)
+					printk("af_lenspos is equal with af_pos1 = 0x%x\n", af_pos);
+			}
 		}
 		else if(mode == FOCUS_MACRO)
 		{
@@ -615,6 +615,7 @@ static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 		else if(mode == FOCUS_CONTINUOUS)
 		{
 			if(af_pos == 0x0028){
+				if(debug_mask)
 					printk("caf_lenspos is equal with af_pos = 0x%x\n", af_pos);
 				lgcam_rear_sensor_set_continuous_focus();
 				return rc;
@@ -958,91 +959,46 @@ static int lgcam_rear_sensor_check_continous_af_lock(void)
 	unsigned short af_lock = 0;
 	
 
-#if 1
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x002C, 0x7000, WORD_LEN);		
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+		0x002C, 0x7000, WORD_LEN);		
 
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x002E, 0x26FE, WORD_LEN);
-		
-		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
-				0x0F12, &af_lock, WORD_LEN);
-		
-		if (rc < 0) {
-			printk("lgcam_rear_sensor: reading af_lock fail\n");
-			return rc;
-		}
-
-		if (af_lock == 0x01) {
-			if(debug_mask)
-			printk("lgcam_rear_sensor_check_continous_af_lock\n");
-		}
-		else
-		{
-			if(debug_mask)
-				printk("lgcam_rear_sensor_check_continous_af_lock af_return = %d\n", af_lock);			
-		}
-#else
-	for (i = 0; i < 10; ++i) {
-		/*INT state read to confirm INT release state*/
-
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x002C, 0x7000, WORD_LEN);		
-
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x002E, 0x26FE, WORD_LEN);
-		
-		rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
-				0x0F12, &af_lock, WORD_LEN);
-		
-		if (rc < 0) {
-			printk("lgcam_rear_sensor: reading af_lock fail\n");
-			return rc;
-		}
-
-		if (af_lock == 0x01) {
-			if(debug_mask)
-			printk("af_lock is released\n");
-			break;
-		}
-		else
-		{
-			printk("af_return = %d\n", af_lock);			
-		}
-		mdelay(200);
+	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
+		0x002E, 0x26FE, WORD_LEN);
+	
+	rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
+			0x0F12, &af_lock, WORD_LEN);
+	
+	if (rc < 0) {
+		printk("lgcam_rear_sensor: reading af_lock fail\n");
+		return rc;
 	}
-#endif
+
+	if (af_lock == 0x01) {
+		if(debug_mask)
+			printk("lgcam_rear_sensor_check_continous_af_lock\n");
+	}
+	else if(af_lock == 0x02) {
+		if(debug_mask)
+			printk("lgcam_rear_sensor_check_continous_af_lock success\n");
+	}
+	else
+	{
+		if(debug_mask)
+			printk("lgcam_rear_sensor_check_continous_af_lock af_return = %d\n", af_lock);			
+	}
 
 	return af_lock;
 }
 static int lgcam_rear_sensor_status_continuous_af(int *lock)
 {
-	int rc;
 	unsigned short af_result = 0;
 
 
 
 	af_result = lgcam_rear_sensor_check_continous_af_lock();
 
-	
-	if (af_result == 1) {
-		//mdelay(60);
-		*lock = CFG_AF_LOCKED;  // success
-//LGE_DEV_PORTING GELATO
-rc = 1;
-//LGE_DEV_END
-	if(debug_mask)
-	CDBG("lgcam_rear_sensor_status_continuous_af result = 1\n");
-		return rc;
-	} else {
-		*lock = CFG_AF_UNLOCKED; //0: focus fail or 2: during focus
-//LGE_DEV_PORTING GELATO
-rc = 0;
-//LGE_DEV_END
-	if(debug_mask)
-	CDBG("lgcam_rear_sensor_status_continuous_af result = 0\n");
-		return rc;
-	}
+	*lock = af_result;	
+			return 0;
 
 	return -ETIME;
 }
@@ -2084,7 +2040,7 @@ static long lgcam_rear_sensor_set_scene_mode(int8_t mode)
 		break;
 	
 	default:
-		printk("lgcam_rear_sensor: wrong scene mode value, set to the normal\n");
+		printk("lgcam_rear_sensor: wrong scene mode value = %d, set to the normal\n", mode);
 	}   
 	if (rc < 0)
 		return rc;
@@ -3130,7 +3086,7 @@ if((cfg_data.mode == FOCUS_AUTO) || (cfg_data.mode == FOCUS_CONTINUOUS))
 			rc = -EFAULT;
 
 		if (debug_mask)
-			CDBG("lgcam_rear_sensor: CFG_CHECK_AF_DONE, %ld\n", rc);
+			printk("lgcam_rear_sensor: CFG_CHECK_AF_DONE, %ld\n", rc);
 
 		mutex_unlock(&lgcam_rear_sensor_mutex);
 		return rc;
@@ -3192,6 +3148,16 @@ if((cfg_data.mode == FOCUS_AUTO) || (cfg_data.mode == FOCUS_CONTINUOUS))
 			rc = -EFAULT;
 	}
 		break;
+
+	case CFG_SET_FPS:
+	//	if(debug_mask)
+			printk("lgcam_rear_sensor_sensor_config: command is CFG_SET_FPS mode = %d, auto:0, fixed:1\n",cfg_data.mode);
+		
+		if(cfg_data.mode == 0)
+			rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.auto_frame_reg_settings[0],lgcam_rear_sensor_regs.auto_frame_reg_settings_size);
+		else
+			rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.fixed_frame_reg_settings[0],lgcam_rear_sensor_regs.fixed_frame_reg_settings_size);
+		
 		break;
 
 #if !SENSOR_TUNING_SET  
@@ -3474,10 +3440,8 @@ int lgcam_rear_sensor_sensor_release(void)
 
 	lgcam_rear_sensor_ctrl=NULL;
 	
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 		/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 		mdp_load_thunder_lut(1);	// Normal LUT
-#endif
 	return rc;
 }
 
@@ -3555,10 +3519,8 @@ static int lgcam_rear_sensor_sensor_probe(const struct msm_camera_sensor_info *i
 	}
 	mdelay(10);
 
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 	/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
 	mdp_load_thunder_lut(2);	// Camera LUT
-#endif
 	rc = lgcam_rear_sensor_sensor_init_probe(info);
 	if (rc < 0)
 		goto probe_done;

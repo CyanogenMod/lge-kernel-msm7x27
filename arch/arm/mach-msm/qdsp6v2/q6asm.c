@@ -384,6 +384,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_FLUSH:
 		case ASM_SESSION_CMD_RUN:
 		case ASM_SESSION_CMD_REGISTER_FOR_TX_OVERFLOW_EVENTS:
+		pr_debug("%s:Payload = [0x%x]\n", __func__, payload[0]);
 		if (token != ac->session) {
 			pr_err("%s:Invalid session[%d] rxed expected[%d]",
 					__func__, token, ac->session);
@@ -482,14 +483,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	}
 	case ASM_DATA_EVENT_EOS:
 	case ASM_DATA_CMDRSP_EOS:
-		pr_debug("%s:rxed opcode[0x%x]eos[%d]", __func__,
-			data->opcode, atomic_read(&ac->eos_state));
-
-		if (atomic_read(&ac->eos_state)) {
-			atomic_set(&ac->eos_state, 0);
-			wake_up(&ac->cmd_wait);
-		} else
-			return 0;
+		pr_debug("%s:EOS ACK received: rxed opcode[0x%x]\n",
+				  __func__, data->opcode);
 		break;
 	case ASM_STREAM_CMDRSP_GET_ENCDEC_PARAM:
 		break;
@@ -1879,9 +1874,8 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 	case CMD_EOS:
 		pr_debug("%s:CMD_EOS\n", __func__);
 		hdr.opcode = ASM_DATA_CMD_EOS;
-		atomic_set(&ac->eos_state, 1);
-		state = &ac->eos_state;
 		atomic_set(&ac->cmd_state, 0);
+		state = &ac->cmd_state;
 		break;
 	case CMD_CLOSE:
 		pr_debug("%s:CMD_CLOSE\n", __func__);

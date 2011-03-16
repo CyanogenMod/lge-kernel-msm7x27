@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,9 @@ static char display_config_set_threelane[] = {
 	0xae, 0x05, 0x15, 0x80
 };
 
+static char led_pwm2[] = {0x53, 0x24}; /* DTYPE_DCS_LWRITE */
+static char led_pwm3[] = {0x55, 0x00}; /* DTYPE_DCS_LWRITE */
+
 #else
 
 static char sw_reset[2] = {0x01, 0x00}; /* DTYPE_DCS_WRITE */
@@ -104,6 +107,8 @@ static char enter_sleep[2] = {0x10, 0x00}; /* DTYPE_DCS_WRITE */
 static char exit_sleep[2] = {0x11, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_off[2] = {0x28, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_on[2] = {0x29, 0x00}; /* DTYPE_DCS_WRITE */
+
+
 
 static char rgb_888[2] = {0x3A, 0x77}; /* DTYPE_DCS_WRITE1 */
 
@@ -123,6 +128,14 @@ static char set_width[5] = { /* DTYPE_DCS_LWRITE */
 	0x2A, 0x00, 0x00, 0x02, 0x1B}; /* 540 - 1 */
 static char set_height[5] = { /* DTYPE_DCS_LWRITE */
 	0x2B, 0x00, 0x00, 0x03, 0xBF}; /* 960 - 1 */
+#endif
+
+#ifdef NOVATEK_BACKLIGHT
+static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_LWRITE */
+
+static struct dsi_cmd_desc novatek_cmd_backlight_cmds[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm1), led_pwm1},
+};
 #endif
 
 static struct dsi_cmd_desc novatek_video_on_cmds[] = {
@@ -175,7 +188,7 @@ static char manufacture_id[2] = {0x04, 0x00}; /* DTYPE_DCS_READ */
 static struct dsi_cmd_desc novatek_manufacture_id_cmd = {
 	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id), manufacture_id};
 
-static uint32 mipi_novatek_manufacture_id(void)
+static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
 {
 	struct dsi_buf *rp, *tp;
 	struct dsi_cmd_desc *cmd;
@@ -187,7 +200,7 @@ static uint32 mipi_novatek_manufacture_id(void)
 	mipi_dsi_buf_init(tp);
 
 	cmd = &novatek_manufacture_id_cmd;
-	mipi_dsi_cmds_rx(tp, rp, cmd, 3);
+	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 3);
 	lp = (uint32 *)rp->data;
 	pr_info("%s: manufacture_id=%x", __func__, *lp);
 	return *lp;
@@ -207,15 +220,15 @@ static int mipi_novatek_lcd_on(struct platform_device *pdev)
 	mipi  = &mfd->panel_info.mipi;
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_video_on_cmds,
+		mipi_dsi_cmds_tx(mfd, &novatek_tx_buf, novatek_video_on_cmds,
 			ARRAY_SIZE(novatek_video_on_cmds));
 	} else {
-		mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_cmd_on_cmds,
+		mipi_dsi_cmds_tx(mfd, &novatek_tx_buf, novatek_cmd_on_cmds,
 			ARRAY_SIZE(novatek_cmd_on_cmds));
 
 		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
 
-		mipi_novatek_manufacture_id();
+		mipi_novatek_manufacture_id(mfd);
 	}
 
 	return 0;
@@ -232,11 +245,34 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi_dsi_cmds_tx(&novatek_tx_buf, novatek_display_off_cmds,
+	mipi_dsi_cmds_tx(mfd, &novatek_tx_buf, novatek_display_off_cmds,
 			ARRAY_SIZE(novatek_display_off_cmds));
 
 	return 0;
 }
+
+#ifdef NOVATEK_BACKLIGHT
+static int mipi_dsi_cmd_set_backlight(struct msm_fb_data_type *mfd)
+{
+	struct mipi_panel_info *mipi;
+	static int bl_level_old;
+
+	mipi  = &mfd->panel_info.mipi;
+	if (bl_level_old == mfd->bl_level)
+		return 0;
+
+	led_pwm1[1] = (unsigned char)(mfd->bl_level);
+
+	if (mipi->mode == DSI_CMD_MODE) {
+		mipi_dsi_cmds_tx(mfd, &novatek_tx_buf,
+				novatek_cmd_backlight_cmds,
+				ARRAY_SIZE(novatek_cmd_backlight_cmds));
+		bl_level_old = mfd->bl_level;
+	}
+
+	return 0;
+}
+#endif
 
 static int __devinit mipi_novatek_lcd_probe(struct platform_device *pdev)
 {

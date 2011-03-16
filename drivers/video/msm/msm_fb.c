@@ -3,7 +3,7 @@
  * Core MSM framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2577,6 +2577,23 @@ static int msmfb_overlay_blt_off(struct fb_info *info, unsigned long *argp)
 	return ret;
 }
 
+static int msmfb_overlay_3d(struct fb_info *info, unsigned long *argp)
+{
+	int	ret;
+	struct msmfb_overlay_3d req;
+
+	ret = copy_from_user(&req, argp, sizeof(req));
+	if (ret) {
+		pr_err("%s:msmfb_overlay_3d_ctrl ioctl failed\n",
+			__func__);
+		return ret;
+	}
+
+	ret = mdp4_overlay_3d(info, &req);
+
+	return ret;
+}
+
 #endif
 
 DECLARE_MUTEX(msm_fb_ioctl_ppp_sem);
@@ -2671,6 +2688,11 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_OVERLAY_BLT_OFFSET:
 		down(&msm_fb_ioctl_ppp_sem);
 		ret = msmfb_overlay_blt_off(info, argp);
+		up(&msm_fb_ioctl_ppp_sem);
+		break;
+	case MSMFB_OVERLAY_3D:
+		down(&msm_fb_ioctl_ppp_sem);
+		ret = msmfb_overlay_3d(info, argp);
 		up(&msm_fb_ioctl_ppp_sem);
 		break;
 #endif

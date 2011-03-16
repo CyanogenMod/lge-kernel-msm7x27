@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -920,9 +920,9 @@ static int imx074_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	if (!rc) {
 		CDBG("sensor_reset = %d\n", rc);
 		gpio_direction_output(data->sensor_reset, 0);
-		msleep(20);
+		usleep_range(5000, 6000);
 		gpio_set_value_cansleep(data->sensor_reset, 1);
-		msleep(20);
+		usleep_range(5000, 6000);
 	} else {
 		CDBG("gpio reset fail");
 		goto init_probe_done;
@@ -1003,8 +1003,7 @@ int imx074_sensor_open_init(const struct msm_camera_sensor_info *data)
 
 	/* enable mclk first */
 	msm_camio_clk_rate_set(24000000);
-	msleep(20);
-
+	usleep_range(1000, 2000);
 	rc = imx074_probe_init_sensor(data);
 	if (rc < 0) {
 		CDBG("Calling imx074_sensor_open_init fail\n");
@@ -1068,7 +1067,6 @@ static int imx074_i2c_probe(struct i2c_client *client,
 	imx074_init_client(client);
 	imx074_client = client;
 
-	msleep(50);
 
 	CDBG("imx074_probe successed! rc = %d\n", rc);
 	return 0;

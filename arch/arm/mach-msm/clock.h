@@ -19,6 +19,7 @@
 
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/list.h>
 #include <mach/clk.h>
 
 #define CLKFLAG_INVERT			0x00000001
@@ -71,23 +72,29 @@ enum clkvote_client {
 	CLKVOTE_MAX,
 };
 
-#ifdef CONFIG_DEBUG_FS
-int __init clock_debug_init(void);
-int __init clock_debug_add(struct clk *clock);
+#ifdef CONFIG_ARCH_MSM7X30
+void __init msm_clk_soc_set_ops(struct clk *clk);
 #else
-static inline int __init clock_debug_init(void) { return 0; }
+static inline void __init msm_clk_soc_set_ops(struct clk *clk) { }
+#endif
+
+#if defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60)
+void __init msm_clk_soc_init(void);
+#else
+static inline void __init msm_clk_soc_init(void) { }
+#endif
+
+#ifdef CONFIG_DEBUG_FS
+int __init clock_debug_init(struct list_head *head);
+int __init clock_debug_add(struct clk *clock);
+void clock_debug_print_enabled(void);
+#else
+static inline int __init clock_debug_init(struct list_head *head) { return 0; }
 static inline int __init clock_debug_add(struct clk *clock) { return 0; }
+static inline void clock_debug_print_enabled(void) { return; }
 #endif
 
 extern struct clk_ops clk_ops_remote;
-
-#if defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60)
-void msm_clk_soc_init(void);
-void msm_clk_soc_set_ops(struct clk *clk);
-#else
-static inline void msm_clk_soc_init(void) { }
-static inline void msm_clk_soc_set_ops(struct clk *clk) { }
-#endif
 
 static inline int msm_clock_require_tcxo(unsigned long *reason, int nbits)
 {

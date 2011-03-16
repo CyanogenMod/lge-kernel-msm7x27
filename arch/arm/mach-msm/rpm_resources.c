@@ -72,18 +72,23 @@ enum {
 };
 
 static bool msm_rpmrs_pxo_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits,
+		int from_idle);
 static void msm_rpmrs_restore_pxo(void);
 static bool msm_rpmrs_l2_cache_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limit,
+		int from_idle);
 static void msm_rpmrs_restore_l2_cache(void);
 static bool msm_rpmrs_vdd_mem_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limit,
+		int from_idle);
 static void msm_rpmrs_restore_vdd_mem(void);
 static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits,
+		int from_idle);
 static void msm_rpmrs_restore_vdd_dig(void);
-static void msm_rpmrs_aggregate_rpm_cpu(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_rpm_cpu(struct msm_rpmrs_limits *limits,
+		int from_idle);
 static void msm_rpmrs_restore_rpm_cpu(void);
 
 struct msm_rpmrs_resource {
@@ -92,7 +97,7 @@ struct msm_rpmrs_resource {
 	char *name;
 
 	bool (*beyond_limits)(struct msm_rpmrs_limits *limits);
-	void (*aggregate)(struct msm_rpmrs_limits *limits);
+	void (*aggregate)(struct msm_rpmrs_limits *limits, int from_idle);
 	void (*restore)(void);
 };
 
@@ -267,7 +272,7 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
  * Resource Specific Functions
  *****************************************************************************/
 
-static void msm_rpmrs_aggregate_sclk(uint32_t sclk_count)
+static void msm_rpmrs_aggregate_sclk(uint32_t sclk_count, int from_idle)
 {
 	msm_rpmrs_buffer[MSM_RPM_ID_TRIGGER_TIMED_TO] = 0;
 	set_bit(MSM_RPM_ID_TRIGGER_TIMED_TO, msm_rpmrs_buffered);
@@ -296,7 +301,8 @@ static bool msm_rpmrs_pxo_beyond_limits(struct msm_rpmrs_limits *limits)
 	return pxo > limits->pxo;
 }
 
-static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits,
+		int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_pxo;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs.id];
@@ -305,7 +311,8 @@ static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits)
 		rs->rs.value = *buf;
 		if (limits->pxo > *buf)
 			*buf = limits->pxo;
-
+		if (msm_mpm_gpio_irq_enabled(from_idle))
+			*buf = MSM_RPMRS_PXO_ON;
 		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
 			pr_info("%s: %d (0x%x)\n", __func__, *buf, *buf);
 	}
@@ -332,7 +339,8 @@ static bool msm_rpmrs_l2_cache_beyond_limits(struct msm_rpmrs_limits *limits)
 	return l2_cache > limits->l2_cache;
 }
 
-static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits,
+		int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_l2_cache;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs.id];
@@ -380,7 +388,8 @@ static bool msm_rpmrs_vdd_mem_beyond_limits(struct msm_rpmrs_limits *limits)
 				MSM_RPMRS_VDD(limits->vdd_mem_upper_bound);
 }
 
-static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits,
+		int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_vdd_mem;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs.id];
@@ -390,6 +399,11 @@ static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits)
 		if (MSM_RPMRS_VDD(limits->vdd_mem) > MSM_RPMRS_VDD(*buf)) {
 			*buf &= ~MSM_RPMRS_VDD_MASK;
 			*buf |= MSM_RPMRS_VDD(limits->vdd_mem);
+		}
+		if ((MSM_RPMRS_VDD(*buf) < MSM_RPMRS_VDD_MEM_ACTIVE) &&
+			msm_mpm_gic_irq_enabled(from_idle)) {
+			*buf &= ~MSM_RPMRS_VDD_MASK;
+			*buf |= MSM_RPMRS_VDD(MSM_RPMRS_VDD_MEM_ACTIVE);
 		}
 
 		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
@@ -431,7 +445,8 @@ static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits)
 				MSM_RPMRS_VDD(limits->vdd_dig_upper_bound);
 }
 
-static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits,
+		int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_vdd_dig;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs.id];
@@ -441,6 +456,12 @@ static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits)
 		if (MSM_RPMRS_VDD(limits->vdd_dig) > MSM_RPMRS_VDD(*buf)) {
 			*buf &= ~MSM_RPMRS_VDD_MASK;
 			*buf |= MSM_RPMRS_VDD(limits->vdd_dig);
+		}
+
+		if ((MSM_RPMRS_VDD(*buf) < MSM_RPMRS_VDD_DIG_ACTIVE) &&
+			msm_mpm_gic_irq_enabled(from_idle)) {
+			*buf &= ~MSM_RPMRS_VDD_MASK;
+			*buf |= MSM_RPMRS_VDD(MSM_RPMRS_VDD_DIG_ACTIVE);
 		}
 
 		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
@@ -457,7 +478,8 @@ static void msm_rpmrs_restore_vdd_dig(void)
 		msm_rpmrs_buffer[rs->rs.id] = rs->rs.value;
 }
 
-static void msm_rpmrs_aggregate_rpm_cpu(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_rpm_cpu(struct msm_rpmrs_limits *limits,
+		int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_rpm_cpu;
 
@@ -570,16 +592,16 @@ static int msm_rpmrs_clear_buffer(struct msm_rpm_iv_pair *req, int count)
 }
 
 static int msm_rpmrs_flush_buffer(
-	uint32_t sclk_count, struct msm_rpmrs_limits *limits)
+	uint32_t sclk_count, struct msm_rpmrs_limits *limits, int from_idle)
 {
 	struct msm_rpm_iv_pair *req;
 	int count;
 	int rc;
 	int i;
 
-	msm_rpmrs_aggregate_sclk(sclk_count);
+	msm_rpmrs_aggregate_sclk(sclk_count, from_idle);
 	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_resources); i++)
-		msm_rpmrs_resources[i]->aggregate(limits);
+		msm_rpmrs_resources[i]->aggregate(limits, from_idle);
 
 	count = bitmap_weight(msm_rpmrs_buffered, MSM_RPM_ID_LAST + 1);
 
@@ -840,9 +862,6 @@ struct msm_rpmrs_limits *msm_rpmrs_lowest_limits(
 		if (sleep_mode != level->sleep_mode)
 			continue;
 
-		if (level->use_mpm && !irqs_detectable)
-			continue;
-
 		if (latency_us < level->latency_us)
 			continue;
 
@@ -875,7 +894,7 @@ int msm_rpmrs_enter_sleep(
 {
 	int rc;
 
-	rc = msm_rpmrs_flush_buffer(sclk_count, limits);
+	rc = msm_rpmrs_flush_buffer(sclk_count, limits, from_idle);
 	if (rc)
 		return rc;
 

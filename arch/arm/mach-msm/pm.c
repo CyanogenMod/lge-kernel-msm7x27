@@ -623,6 +623,8 @@ static int msm_pm_enter(suspend_state_t state)
 	sleep_limit = SLEEP_LIMIT_NONE;
 #endif
 
+	clock_debug_print_enabled();
+
 #ifdef CONFIG_MSM_SLEEP_TIME_OVERRIDE
 	if (msm_pm_sleep_time_override > 0) {
 		int64_t ns = NSEC_PER_SEC * (int64_t)msm_pm_sleep_time_override;

@@ -24,6 +24,58 @@
 #include "kgsl.h"
 #include "kgsl_log.h"
 
+static int kgsl_pwrctrl_fraction_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	unsigned long val;
+	char temp[20];
+	struct kgsl_device *device = kgsl_device_from_dev(dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	snprintf(temp, sizeof(temp), "%.*s",
+			 (int)min(count, sizeof(temp) - 1), buf);
+	strict_strtoul(temp, 0, &val);
+
+	mutex_lock(&device->mutex);
+
+	if (val < 100)
+		pwr->io_fraction = (unsigned int)val;
+	else
+		pwr->io_fraction = 100;
+
+	mutex_unlock(&device->mutex);
+
+	return count;
+}
+
+static int kgsl_pwrctrl_fraction_show(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	struct kgsl_device *device = kgsl_device_from_dev(dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	return sprintf(buf, "%d\n", pwr->io_fraction);
+}
+
+static struct device_attribute pwrio_fraction_attr = {
+	.attr = { .name = "io_fraction", .mode = 0644, },
+	.show = kgsl_pwrctrl_fraction_show,
+	.store = kgsl_pwrctrl_fraction_store,
+};
+
+int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
+{
+	int ret = 0;
+	ret = device_create_file(device->dev, &pwrio_fraction_attr);
+	return ret;
+}
+
+void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device)
+{
+	device_remove_file(device->dev, &pwrio_fraction_attr);
+}
+
 int kgsl_pwrctrl_clk(struct kgsl_device *device, unsigned int pwrflag)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;

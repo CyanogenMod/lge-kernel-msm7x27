@@ -196,6 +196,7 @@ struct pm8058_charger {
 	struct dentry *dent;
 
 	int inited;
+	int present;
 };
 
 static struct pm8058_charger pm8058_chg;
@@ -707,28 +708,40 @@ static irqreturn_t pm8058_chg_chgval_handler(int irq, void *dev_id)
 	u8 old, temp;
 	int ret;
 
-	if (is_chg_plugged_in()) {	/*this debounces it */
-		msm_charger_notify_event(&usb_hw_chg, CHG_INSERTED_EVENT);
+	if (is_chg_plugged_in()) {	/* this debounces it */
+		if (!pm8058_chg.present) {
+			msm_charger_notify_event(&usb_hw_chg,
+						CHG_INSERTED_EVENT);
+			pm8058_chg.present = 1;
+		}
 	} else {
-		ret = pm8058_read(pm8058_chg.pm_chip, PM8058_OVP_TEST_REG,
-					&old, 1);
-		temp = old | BIT(FORCE_OVP_OFF);
-		ret = pm8058_write(pm8058_chg.pm_chip, PM8058_OVP_TEST_REG,
-					&temp, 1);
-		temp = 0xFC;
-		ret = pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_TEST,
-					&temp, 1);
-		/* 10 ms sleep is for the VCHG to discharge */
-		msleep(10);
-		temp = 0xF0;
-		ret = pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_TEST,
-					&temp, 1);
-		ret = pm8058_write(pm8058_chg.pm_chip, PM8058_OVP_TEST_REG,
-					&old, 1);
+		if (pm8058_chg.present) {
+			ret = pm8058_read(pm8058_chg.pm_chip,
+						PM8058_OVP_TEST_REG,
+						&old, 1);
+			temp = old | BIT(FORCE_OVP_OFF);
+			ret = pm8058_write(pm8058_chg.pm_chip,
+						PM8058_OVP_TEST_REG,
+						&temp, 1);
+			temp = 0xFC;
+			ret = pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_TEST,
+						&temp, 1);
+			/* 10 ms sleep is for the VCHG to discharge */
+			msleep(10);
+			temp = 0xF0;
+			ret = pm8058_write(pm8058_chg.pm_chip,
+						PM8058_CHG_TEST,
+						&temp, 1);
+			ret = pm8058_write(pm8058_chg.pm_chip,
+						PM8058_OVP_TEST_REG,
+						&old, 1);
 
-		pm_chg_enum_done_enable(0);
-		pm_chg_auto_disable(1);
-		msm_charger_notify_event(&usb_hw_chg, CHG_REMOVED_EVENT);
+			pm_chg_enum_done_enable(0);
+			pm_chg_auto_disable(1);
+			msm_charger_notify_event(&usb_hw_chg,
+						CHG_REMOVED_EVENT);
+			pm8058_chg.present = 0;
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -739,26 +752,35 @@ static irqreturn_t pm8058_chg_chginval_handler(int irq, void *dev_id)
 	u8 old, temp;
 	int ret;
 
-	pm8058_chg_disable_irq(CHGINVAL_IRQ);
+	if (pm8058_chg.present) {
+		pm8058_chg_disable_irq(CHGINVAL_IRQ);
 
-	pm_chg_enum_done_enable(0);
-	pm_chg_auto_disable(1);
-	ret = pm8058_read(pm8058_chg.pm_chip, PM8058_OVP_TEST_REG, &old, 1);
-	temp = old | BIT(FORCE_OVP_OFF);
-	ret = pm8058_write(pm8058_chg.pm_chip, PM8058_OVP_TEST_REG, &temp, 1);
-	temp = 0xFC;
-	ret = pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_TEST, &temp, 1);
-	/* 10 ms sleep is for the VCHG to discharge */
-	msleep(10);
-	temp = 0xF0;
-	ret = pm8058_write(pm8058_chg.pm_chip, PM8058_CHG_TEST, &temp, 1);
-	ret = pm8058_write(pm8058_chg.pm_chip, PM8058_OVP_TEST_REG, &old, 1);
+		pm_chg_enum_done_enable(0);
+		pm_chg_auto_disable(1);
+		ret = pm8058_read(pm8058_chg.pm_chip,
+				PM8058_OVP_TEST_REG, &old, 1);
+		temp = old | BIT(FORCE_OVP_OFF);
+		ret = pm8058_write(pm8058_chg.pm_chip,
+				PM8058_OVP_TEST_REG, &temp, 1);
+		temp = 0xFC;
+		ret = pm8058_write(pm8058_chg.pm_chip,
+				PM8058_CHG_TEST, &temp, 1);
+		/* 10 ms sleep is for the VCHG to discharge */
+		msleep(10);
+		temp = 0xF0;
+		ret = pm8058_write(pm8058_chg.pm_chip,
+				PM8058_CHG_TEST, &temp, 1);
+		ret = pm8058_write(pm8058_chg.pm_chip,
+				PM8058_OVP_TEST_REG, &old, 1);
 
-	if (!is_chg_plugged_in()) {
-		msm_charger_notify_event(&usb_hw_chg, CHG_REMOVED_EVENT);
-	} else {
-		/* was a fake */
-		pm8058_chg_enable_irq(CHGINVAL_IRQ);
+		if (!is_chg_plugged_in()) {
+			msm_charger_notify_event(&usb_hw_chg,
+					CHG_REMOVED_EVENT);
+			pm8058_chg.present = 0;
+		} else {
+			/* was a fake */
+			pm8058_chg_enable_irq(CHGINVAL_IRQ);
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -1190,9 +1212,11 @@ err_out:
 static void pm8058_chg_determine_initial_state(void)
 {
 	if (is_chg_plugged_in()) {
+		pm8058_chg.present = 1;
 		msm_charger_notify_event(&usb_hw_chg, CHG_INSERTED_EVENT);
 		dev_info(pm8058_chg.dev, "%s charger present\n", __func__);
 	} else {
+		pm8058_chg.present = 0;
 		dev_info(pm8058_chg.dev, "%s charger absent\n", __func__);
 	}
 	pm8058_chg_enable_irq(CHGVAL_IRQ);
@@ -1489,12 +1513,7 @@ static int batt_read_adc(int channel, int *mv_reading)
 						__func__, channel, ret);
 		goto out;
 	}
-	ret = wait_for_completion_interruptible(&conv_complete_evt);
-	if (ret) {
-		pr_err("%s: wait interrupted channel %d ret=%d\n",
-						__func__, channel, ret);
-		goto out;
-	}
+	wait_for_completion(&conv_complete_evt);
 	ret = adc_channel_read_result(h, &adc_chan_result);
 	if (ret) {
 		pr_err("%s: couldnt read result channel %d ret=%d\n",

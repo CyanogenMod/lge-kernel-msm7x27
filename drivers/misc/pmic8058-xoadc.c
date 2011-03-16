@@ -130,7 +130,7 @@ static int32_t pm8058_xoadc_arb_cntrl(uint32_t arb_cntrl,
 			ADC_ARB_USRP_CNTRL_RSV5 |
 			ADC_ARB_USRP_CNTRL_RSV4;
 
-	if (data_arb_cntrl)
+	if (arb_cntrl)
 		data_arb_cntrl |= ADC_ARB_USRP_CNTRL_EN_ARB;
 
 	/* Write twice to the CNTRL register for the arbiter settings

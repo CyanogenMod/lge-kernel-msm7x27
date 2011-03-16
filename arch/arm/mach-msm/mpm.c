@@ -175,17 +175,15 @@ static DEFINE_SPINLOCK(msm_mpm_lock);
 static DECLARE_BITMAP(msm_mpm_enabled_apps_irqs, MSM_MPM_NR_APPS_IRQS);
 static DECLARE_BITMAP(msm_mpm_wake_apps_irqs, MSM_MPM_NR_APPS_IRQS);
 
+static DECLARE_BITMAP(msm_mpm_gic_irqs_mask, MSM_MPM_NR_APPS_IRQS);
+static DECLARE_BITMAP(msm_mpm_gpio_irqs_mask, MSM_MPM_NR_APPS_IRQS);
+
+
 static uint32_t msm_mpm_enabled_irq[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_wake_irq[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_detect_ctl[MSM_MPM_REG_WIDTH];
 static uint32_t msm_mpm_polarity[MSM_MPM_REG_WIDTH];
 
-struct gpio_direct_connect {
-	int gpio_irq;
-	int reverse_polarity;
-};
-
-static struct gpio_direct_connect direct_connect[NR_TLMM_SCSS_DIR_CONN_IRQ];
 
 /******************************************************************************
  * Low Level Functions for Accessing MPM
@@ -277,12 +275,6 @@ static inline void msm_mpm_set_irq_a2m(unsigned int apps_irq,
 	msm_mpm_irqs_a2m[apps_irq] = (uint8_t) mpm_irq;
 }
 
-static inline void msm_mpm_set_irq_m2a(unsigned int mpm_irq,
-	unsigned int apps_irq)
-{
-	msm_mpm_irqs_m2a[mpm_irq] = (uint8_t) apps_irq;
-}
-
 static inline bool msm_mpm_is_valid_mpm_irq(unsigned int irq)
 {
 	return irq < ARRAY_SIZE(msm_mpm_irqs_m2a);
@@ -291,15 +283,6 @@ static inline bool msm_mpm_is_valid_mpm_irq(unsigned int irq)
 static inline uint16_t msm_mpm_get_irq_m2a(unsigned int irq)
 {
 	return msm_mpm_irqs_m2a[irq];
-}
-
-static inline uint16_t msm_mpm_is_direct_connect_and_reversed(unsigned int irq)
-{
-	int index = irq - TLMM_SCSS_DIR_CONN_IRQ_0;
-
-	if (index < 0 || index > NR_TLMM_SCSS_DIR_CONN_IRQ-1)
-		return 0;
-	return direct_connect[index].reverse_polarity;
 }
 
 static bool msm_mpm_bypass_apps_irq(unsigned int irq)
@@ -373,14 +356,6 @@ static int msm_mpm_set_irq_type_exclusive(
 			msm_mpm_polarity[index] |= mask;
 		else
 			msm_mpm_polarity[index] &= ~mask;
-
-		if (msm_mpm_is_direct_connect_and_reversed(irq)) {
-				if (flow_type & (IRQ_TYPE_EDGE_RISING
-						| IRQ_TYPE_LEVEL_HIGH))
-					msm_mpm_polarity[index] &= ~mask;
-				else
-					msm_mpm_polarity[index] |= mask;
-		}
 	}
 
 	return 0;
@@ -483,6 +458,24 @@ bool msm_mpm_irqs_detectable(bool from_idle)
 	return (bool)__bitmap_empty(apps_irq_bitmap, MSM_MPM_NR_APPS_IRQS);
 }
 
+bool msm_mpm_gic_irq_enabled(bool from_idle)
+{
+	unsigned long *apps_irq_bitmap = from_idle ?
+			msm_mpm_enabled_apps_irqs : msm_mpm_wake_apps_irqs;
+
+	return __bitmap_intersects(msm_mpm_gic_irqs_mask, apps_irq_bitmap,
+			MSM_MPM_NR_APPS_IRQS);
+}
+
+bool msm_mpm_gpio_irq_enabled(bool from_idle)
+{
+	unsigned long *apps_irq_bitmap = from_idle ?
+			msm_mpm_enabled_apps_irqs : msm_mpm_wake_apps_irqs;
+
+	return __bitmap_intersects(msm_mpm_gpio_irqs_mask, apps_irq_bitmap,
+			MSM_MPM_NR_APPS_IRQS);
+}
+
 void msm_mpm_enter_sleep(bool from_idle)
 {
 	msm_mpm_set(!from_idle);
@@ -498,7 +491,7 @@ void msm_mpm_exit_sleep(bool from_idle)
 		pending = msm_mpm_read(MSM_MPM_STATUS_REG_PENDING, i);
 
 		if (MSM_MPM_DEBUG_PENDING_IRQ & msm_mpm_debug_mask)
-			pr_info("%s: pending.%d: 0x%08lu", __func__,
+			pr_info("%s: pending.%d: 0x%08lx", __func__,
 				i, pending);
 
 		k = find_first_bit(&pending, 32);
@@ -526,24 +519,6 @@ void msm_mpm_exit_sleep(bool from_idle)
 	msm_mpm_set(!from_idle);
 }
 
-void msm_set_direct_connect(int apps_irq, int gpio_irq, int reverse_polarity)
-{
-	int mpm_irq;
-	int index = apps_irq - TLMM_SCSS_DIR_CONN_IRQ_0;
-
-	BUG_ON(index < 0
-			|| index > NR_TLMM_SCSS_DIR_CONN_IRQ-1);
-
-	direct_connect[index].reverse_polarity = reverse_polarity;
-
-	mpm_irq = msm_mpm_get_irq_a2m(gpio_irq);
-	if (mpm_irq) {
-		msm_mpm_set_irq_a2m(gpio_irq, 0);
-		msm_mpm_set_irq_a2m(apps_irq, mpm_irq);
-		msm_mpm_set_irq_m2a(mpm_irq, apps_irq);
-	}
-}
-
 static int __init msm_mpm_early_init(void)
 {
 	uint8_t mpm_irq;
@@ -563,8 +538,13 @@ static int __init msm_mpm_init(void)
 	unsigned int irq = MSM_MPM_IPC_IRQ;
 	int rc;
 
+	bitmap_set(msm_mpm_gic_irqs_mask, 0, NR_MSM_IRQS - 1);
+	bitmap_set(msm_mpm_gpio_irqs_mask, NR_MSM_IRQS,
+			MSM_MPM_NR_APPS_IRQS - 1);
+
 	rc = request_irq(irq, msm_mpm_irq,
 			IRQF_TRIGGER_RISING, "mpm_drv", msm_mpm_irq);
+
 	if (rc) {
 		pr_err("%s: failed to request irq %u: %d\n",
 			__func__, irq, rc);

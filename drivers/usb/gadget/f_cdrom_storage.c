@@ -309,6 +309,8 @@
 #include <linux/platform_device.h>
 #endif
 
+#include "u_lgeusb.h"
+
 #define FUNCTION_NAME		"usb_cdrom_storage"
 /*------------------------------------------------------------------------*/
 
@@ -323,6 +325,40 @@ static const char fsg_string_interface[] = "CD Storage";
 #define FSG_NO_OTG               1
 #define FSG_NO_INTR_EP           1
 
+/* Belows are LGE-customized SCSI cmd and
+ * sub-cmd for autorun processing.
+ * 2011-03-09, hyunhui.park@lge.com
+ */
+#define SC_LGE_SPE      		0xF1
+#define SUB_CODE_MODE_CHANGE		0x01
+#define SUB_CODE_GET_VALUE		0x02
+#define SUB_CODE_PROBE_DEV		0xff
+#define TYPE_MOD_CHG_TO_ACM		0x01
+#define TYPE_MOD_CHG_TO_UMS		0x02
+#define TYPE_MOD_CHG_TO_MTP		0x03
+#define TYPE_MOD_CHG_TO_ASK		0x05
+#define TYPE_MOD_CHG_TO_CGO		0x08
+#define TYPE_MOD_CHG_TO_TET		0x09
+#define TYPE_MOD_CHG2_TO_ACM		0x81
+#define TYPE_MOD_CHG2_TO_UMS		0x82
+#define TYPE_MOD_CHG2_TO_MTP		0x83
+#define TYPE_MOD_CHG2_TO_ASK		0x85
+#define TYPE_MOD_CHG2_TO_CGO		0x86
+#define TYPE_MOD_CHG2_TO_TET		0x87
+/* ACK TO SEND HOST PC */
+#define ACK_STATUS_TO_HOST		0x10
+#define ACK_SW_REV_TO_HOST		0x12
+#define ACK_MEID_TO_HOST		0x13
+#define ACK_MODEL_TO_HOST		0x14
+#define ACK_SUB_VER_TO_HOST		0x15
+#define SUB_ACK_STATUS_ACM		0x00
+#define SUB_ACK_STATUS_MTP		0x01
+#define SUB_ACK_STATUS_UMS		0x02
+#define SUB_ACK_STATUS_ASK		0x03
+#define SUB_ACK_STATUS_CGO		0x04
+#define SUB_ACK_STATUS_TET		0x05
+/* 2011-03-09, hyunhui.park@lge.com */
+
 #include "storage_common.c"
 
 #ifdef CONFIG_USB_CSW_HACK
@@ -331,6 +367,54 @@ static int write_error_after_csw_sent;
 /*-------------------------------------------------------------------------*/
 
 struct fsg_dev;
+
+/* Belows are uevent string to communicate with
+ * android framework and application.
+ * 2011-03-09, hyunhui.park@lge.com
+ */
+static const char *chg_mode[] = {
+	"change_unknown",
+	"change_acm",
+	"change_mtp",
+	"change_ums",
+	"change_ask",
+	"change_charge",
+	"change_tether",
+	"query_value",
+	"device_info",
+};
+
+enum chg_mode_state{
+	MODE_STATE_UNKNOWN = 0,
+	MODE_STATE_ACM,
+	MODE_STATE_MTP,
+	MODE_STATE_UMS,
+	MODE_STATE_ASK,
+	MODE_STATE_CGO,
+	MODE_STATE_TET,
+	MODE_STATE_GET_VALUE,
+	MODE_STATE_PROBE_DEV,
+};
+
+static const char *check_str[] = {
+	"ACK_STATUS_ACM",
+	"ACK_STATUS_MTP",
+	"ACK_STATUS_UMS",
+	"ACK_STATUS_ASK",
+	"ACK_STATUS_CGO",
+	"ACK_STATUS_TET",
+};
+
+enum check_mode_state {
+	ACK_STATUS_ACM = SUB_ACK_STATUS_ACM,
+	ACK_STATUS_MTP = SUB_ACK_STATUS_MTP,
+	ACK_STATUS_UMS = SUB_ACK_STATUS_UMS,
+	ACK_STATUS_ASK = SUB_ACK_STATUS_ASK,
+	ACK_STATUS_CGO = SUB_ACK_STATUS_CGO,
+	ACK_STATUS_TET = SUB_ACK_STATUS_TET,
+	ACK_STATUS_ERR,
+};
+/* 2011-03-09, hyunhui.park@lge.com */
 
 
 /* Data shared by all the FSG instances. */
@@ -392,6 +476,9 @@ struct fsg_common {
 	/* Vendor (8 chars), product (16 chars), release (4
 	 * hexadecimal digits) and NUL byte */
 	char inquiry_string[8 + 16 + 4 + 1];
+
+	/* LGE-customized USB mode */
+	enum chg_mode_state mode_state;
 
 	struct kref		ref;
 };
@@ -1241,6 +1328,91 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 	return 36;
 }
 
+/* Add function which handles LGE-customized command from PC.
+ * 2011-03-09, hyunhui.park@lge.com
+ */
+static int do_ack_status(struct fsg_common *common, struct fsg_buffhd *bh, u8 ack)
+{
+	u8	*buf = (u8 *) bh->buf;
+
+	if (!common->curlun) {		/* Unsupported LUNs are okay */
+		common->bad_lun_okay = 1;
+		memset(buf, 0, 1);
+		buf[0] = 0xf;
+		return 1;
+	}
+
+	buf[0] = ack;
+
+/*  Old froyo version */
+/* 	if(ack == SUB_ACK_STATUS_ACM)
+		buf[0] = SUB_ACK_STATUS_ACM;
+	else if(ack == SUB_ACK_STATUS_MTP)
+		buf[0] = SUB_ACK_STATUS_MTP;
+	else if(ack == SUB_ACK_STATUS_UMS)
+		buf[0] = SUB_ACK_STATUS_UMS;
+	else if(ack == SUB_ACK_STATUS_ASK)
+		buf[0] = SUB_ACK_STATUS_ASK;
+	else if(ack == SUB_ACK_STATUS_CGO)
+		buf[0] = SUB_ACK_STATUS_CGO;
+	else if(ack == SUB_ACK_STATUS_TET)
+		buf[0] = SUB_ACK_STATUS_TET;
+*/
+	return 1;
+}
+
+static int do_get_sw_rev(struct fsg_common *common, struct fsg_buffhd *bh)
+{
+	u8	*buf = (u8 *) bh->buf;
+
+	memset(buf, 0, 7);
+
+	buf[0] = 2;
+	buf[1] = 1;
+	buf[5] = 1;
+	buf[6] = 2;
+	return 7;
+}
+
+static int do_get_serial(struct fsg_common *common, struct fsg_buffhd *bh)
+{
+	u8	*buf = (u8 *) bh->buf;
+
+	memset(buf, 0, 7);
+
+	buf[0] = 3;
+	buf[1] = 1;
+	buf[5] = 1;
+	buf[6] = 3;
+	return 7;
+}
+
+static int do_get_model(struct fsg_common *common, struct fsg_buffhd *bh)
+{
+	u8	*buf = (u8 *) bh->buf;
+
+	memset(buf, 0, 7);
+
+	buf[0] = 4;
+	buf[1] = 1;
+	buf[5] = 1;
+	buf[6] = 4;
+	return 7;
+}
+
+static int do_get_sub_ver(struct fsg_common *common, struct fsg_buffhd *bh)
+{
+	u8	*buf = (u8 *) bh->buf;
+
+	memset(buf, 0, 7);
+
+	buf[0] = 5;
+	buf[1] = 1;
+	buf[5] = 1;
+	buf[6] = 5;
+	return 7;
+}
+/* 2011-03-09, hyunhui.park@lge.com */
 
 static int do_request_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 {
@@ -1981,6 +2153,10 @@ static int check_command(struct fsg_common *common, int cmnd_size,
 	return 0;
 }
 
+/* moved from downstair for using switch driver.
+ * 2011-03-09, hyunhui.park@lge.com
+ */
+static struct fsg_dev			*the_fsg;
 
 static int do_scsi_command(struct fsg_common *common)
 {
@@ -1989,6 +2165,11 @@ static int do_scsi_command(struct fsg_common *common)
 	int			reply = -EINVAL;
 	int			i;
 	static char		unknown[16];
+
+	/* USB default connection user mode.
+	 * 2011-03-09, hyunhui.park@lge.com
+	 */
+	unsigned int user_mode;
 
 	dump_cdb(common);
 
@@ -2013,6 +2194,114 @@ static int do_scsi_command(struct fsg_common *common)
 				      "INQUIRY");
 		if (reply == 0)
 			reply = do_inquiry(common, bh);
+		break;
+
+	/* Handle LGE-customized SCSI cmd.
+	 * 2011-03-09, hyunhui.park@lge.com
+	 */
+	case SC_LGE_SPE:
+		pr_info("%s : SC_LGE_SPE - %x %x %x\n", __func__,
+			  common->cmnd[0], common->cmnd[1], common->cmnd[2]);
+
+		common->mode_state = MODE_STATE_UNKNOWN;
+		switch(common->cmnd[1])
+		{
+			case SUB_CODE_MODE_CHANGE:
+				switch(common->cmnd[2])
+				{
+					case TYPE_MOD_CHG_TO_ACM :
+					case TYPE_MOD_CHG2_TO_ACM :
+						common->mode_state = MODE_STATE_ACM;
+						break;
+					case TYPE_MOD_CHG_TO_UMS :
+					case TYPE_MOD_CHG2_TO_UMS :
+						common->mode_state = MODE_STATE_UMS;
+						break;
+					case TYPE_MOD_CHG_TO_MTP :
+					case TYPE_MOD_CHG2_TO_MTP :
+						common->mode_state = MODE_STATE_MTP;
+						break;
+					case TYPE_MOD_CHG_TO_ASK :
+					case TYPE_MOD_CHG2_TO_ASK :
+						common->mode_state = MODE_STATE_ASK;
+						break;
+					case TYPE_MOD_CHG_TO_CGO :
+					case TYPE_MOD_CHG2_TO_CGO :
+						common->mode_state = MODE_STATE_CGO;
+						break;
+					case TYPE_MOD_CHG_TO_TET :
+					case TYPE_MOD_CHG2_TO_TET :
+						common->mode_state = MODE_STATE_TET;
+						break;
+					default:
+						common->mode_state = MODE_STATE_UNKNOWN;
+				}
+				pr_info("%s: SC_LGE_MODE - %d\n", __func__, common->mode_state);
+				switch_set_state(&the_fsg->sdev, common->mode_state);
+				/* For Refreshing Uevent, This Uevent will be ignore by
+				   AutoRun APK */
+				switch_set_state(&the_fsg->sdev, MODE_STATE_UNKNOWN);
+				reply = 0;
+				break;
+			case SUB_CODE_GET_VALUE:
+				switch(common->cmnd[2])
+				{
+					case ACK_STATUS_TO_HOST :	// 0xf1 0x02 0x10
+						/* If some error exists, we set default mode
+						   to ACM mode */
+						user_mode = lgeusb_get_usb_usermode();
+						common->mode_state = MODE_STATE_GET_VALUE;
+						if (user_mode >= ACK_STATUS_ERR) {
+							pr_err("%s [AUTORUN] : Error on user mode setting, set default mode (ACM)\n", __func__);
+							user_mode = ACK_STATUS_ACM;
+						} else
+							pr_info("%s [AUTORUN] : send user mode to PC %s\n", __func__, check_str[user_mode]);
+
+						common->data_size_from_cmnd = 1;
+						if ((reply = check_command(common, 6, DATA_DIR_TO_HOST,
+										(7<<1), 1, check_str[user_mode])) == 0)
+							reply=do_ack_status(common, bh, user_mode);
+
+						/* For reseting Autorun App watchdog timer */
+						switch_set_state(&the_fsg->sdev, common->mode_state);
+						break;
+					case ACK_SW_REV_TO_HOST :	// 0xf1 0x02 0x12
+						common->data_size_from_cmnd = 7;
+						if ((reply = check_command(common, 6, DATA_DIR_TO_HOST,
+										(7<<1), 1, "ACK_SW_REV")) == 0)
+							reply=do_get_sw_rev(common, bh);
+						break;
+					case ACK_MEID_TO_HOST :		// 0xf1 0x02 0x13
+						common->data_size_from_cmnd = 7;
+						if ((reply = check_command(common, 6, DATA_DIR_TO_HOST,
+										(7<<1), 1, "ACK_SERIAL")) == 0)
+							reply=do_get_serial(common, bh);
+						break;
+					case ACK_MODEL_TO_HOST :	// 0xf1 0x02 0x14
+						common->data_size_from_cmnd = 7;
+						if ((reply = check_command(common, 6, DATA_DIR_TO_HOST,
+										(7<<1), 1, "ACK_MODEL_NAME")) == 0)
+							reply=do_get_model(common, bh);
+						break;
+					case ACK_SUB_VER_TO_HOST:	// 0xf1 0x02 0x15
+						common->data_size_from_cmnd = 7;
+						if ((reply = check_command(common, 6, DATA_DIR_TO_HOST,
+										(7<<1), 1, "ACK_SUB_VERSION")) == 0)
+							reply=do_get_sub_ver(common, bh);
+						break;
+					default:
+						break;
+				}
+				break;
+			case SUB_CODE_PROBE_DEV:
+				common->mode_state = MODE_STATE_PROBE_DEV;
+				reply=0;
+				break;
+			default:
+				common->mode_state = MODE_STATE_UNKNOWN;
+				reply=0;
+				break;
+		}
 		break;
 
 	case SC_MODE_SELECT_6:
@@ -2499,7 +2788,10 @@ static void fsg_disable(struct usb_function *f)
 
 /*-------------------------------------------------------------------------*/
 
-static struct fsg_dev			*the_fsg;
+/* move to upstair for using switch driver.
+ * 2011-03-09, hyunhui.park@lge.com
+ */
+/* static struct fsg_dev			*the_fsg; */
 
 static void handle_exception(struct fsg_common *common)
 {
@@ -2617,7 +2909,8 @@ static void handle_exception(struct fsg_common *common)
 
 	case FSG_STATE_CONFIG_CHANGE:
 		do_set_interface(common, common->new_fsg);
-		switch_set_state(&the_fsg->sdev, !!common->new_fsg);
+		/* XXX: Temporary comment out, 2011-03-09, hyunhui.park@lge.com */
+		/* switch_set_state(&the_fsg->sdev, !!common->new_fsg); */
 		break;
 
 	case FSG_STATE_EXIT:
@@ -3109,8 +3402,18 @@ static ssize_t print_switch_name(struct switch_dev *sdev, char *buf)
 
 static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 {
+/* original code : not used */
+#if 0
 	struct fsg_dev	*fsg = container_of(sdev, struct fsg_dev, sdev);
+#endif
+
+	pr_info("%s : send Uevent - %s\n", __func__,  chg_mode[sdev->state]);
+	return sprintf(buf, "%s\n", chg_mode[sdev->state]);
+
+/* original code : not used */
+#if 0
 	return sprintf(buf, "%s\n", (fsg->common->new_fsg ? "online" : "offline"));
+#endif
 }
 
 static int fsg_add(struct usb_composite_dev *cdev,

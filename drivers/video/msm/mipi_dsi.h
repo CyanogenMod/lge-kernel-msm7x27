@@ -183,11 +183,14 @@ char *mipi_dsi_buf_init(struct dsi_buf *dp);
 void mipi_dsi_init(void);
 int mipi_dsi_buf_alloc(struct dsi_buf *, int size);
 int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm);
-int mipi_dsi_cmds_tx(struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt);
+int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
+		struct dsi_buf *dp, struct dsi_cmd_desc *cmds, int cnt);
+
 int mipi_dsi_cmd_dma_tx(struct dsi_buf *dp);
 int mipi_dsi_cmd_reg_tx(uint32 data);
-int mipi_dsi_cmds_rx(struct dsi_buf *tp, struct dsi_buf *rp,
-				struct dsi_cmd_desc *cmds, int len);
+int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
+			struct dsi_buf *tp, struct dsi_buf *rp,
+			struct dsi_cmd_desc *cmds, int len);
 int mipi_dsi_cmd_dma_rx(struct dsi_buf *tp, int rlen);
 void mipi_dsi_host_init(struct mipi_panel_info *pinfo);
 void mipi_dsi_op_mode_config(int mode);
@@ -196,8 +199,8 @@ void mdp4_dsi_cmd_trigger(void);
 void mipi_dsi_cmd_mdp_sw_trigger(void);
 void mipi_dsi_cmd_bta_sw_trigger(void);
 void mipi_dsi_ack_err_status(void);
-void mipi_dsi_set_tear_on(void);
-void mipi_dsi_set_tear_off(void);
+void mipi_dsi_set_tear_on(struct msm_fb_data_type *mfd);
+void mipi_dsi_set_tear_off(struct msm_fb_data_type *mfd);
 
 irqreturn_t mipi_dsi_isr(int irq, void *ptr);
 

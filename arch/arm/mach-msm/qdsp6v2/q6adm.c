@@ -41,7 +41,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 {
 	uint32_t *payload;
 	payload = data->payload;
-	pr_info("%s: code = 0x%x %x %x size = %d\n", __func__,
+	pr_debug("%s: code = 0x%x %x %x size = %d\n", __func__,
 			data->opcode, payload[0], payload[1],
 					data->payload_size);
 
@@ -168,7 +168,7 @@ int adm_open(int port_id, int session_id , int path,
 	struct adm_routings_command	route;
 	int ret = 0;
 
-	pr_info("%s: port %d session 0x%x path:%d rate:%d mode:%d\n", __func__,
+	pr_debug("%s: port %d session 0x%x path:%d rate:%d mode:%d\n", __func__,
 				port_id, session_id, path, rate, channel_mode);
 
 	if (port_id >= AFE_MAX_PORTS) {

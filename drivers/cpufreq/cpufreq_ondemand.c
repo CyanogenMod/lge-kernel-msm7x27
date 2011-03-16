@@ -767,7 +767,22 @@ static DECLARE_WORK(dbs_refresh_work, dbs_refresh_callback);
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
+#ifdef CONFIG_MACH_LGE
+	/*
+	 * 2011-03-11, jinkyu.choi@lge.com
+	 * FIXME: it should be changed accrding to the sensors of target model.
+	 * for the idle current,
+	 * we does not boost up the cpu frequency in case of sensor events.
+	 */
+	if(!strcmp((char*)(handle->dev->name), "accelerometer")
+			|| !strcmp((char*)(handle->dev->name), "Acompass")){
+		return;
+	} else {
+		schedule_work_on(0, &dbs_refresh_work);
+	}
+#else /* origin */
 	schedule_work_on(0, &dbs_refresh_work);
+#endif
 }
 
 static int dbs_input_connect(struct input_handler *handler,

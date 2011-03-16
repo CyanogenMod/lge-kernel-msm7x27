@@ -394,7 +394,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	svc = &client[dest_id][client_id].svc[svc_idx];
 	if (src_port != 0xFFFFFFFF) {
 		temp_port = ((src_port >> 8) * 8) + (src_port & 0xFF);
-		pr_info("port = %d t_port = %d\n", src_port, temp_port);
+		pr_debug("port = %d t_port = %d\n", src_port, temp_port);
 		if (!svc->port_cnt && !svc->svc_cnt)
 			client[dest_id][client_id].svc_cnt++;
 		svc->port_cnt++;

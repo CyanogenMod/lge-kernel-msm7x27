@@ -67,6 +67,12 @@ enum othc_headset_type {
 	OTHC_HEADSET_NC,
 };
 
+struct othc_regulator_config {
+	const char *regulator;
+	unsigned int max_uV;
+	unsigned int min_uV;
+};
+
 /* Signal control for OTHC module */
 enum othc_micbias_enable {
 	/* Turn off MICBIAS signal */
@@ -142,6 +148,7 @@ struct pmic8058_othc_config_pdata {
 	enum othc_micbias_capability micbias_capability;
 	struct othc_hsed_config *hsed_config;
 	const char *hsed_name;
+	struct othc_regulator_config *micbias_regulator;
 };
 
 int pm8058_micbias_enable(enum othc_micbias micbias,
