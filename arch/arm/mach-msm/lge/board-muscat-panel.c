@@ -19,6 +19,7 @@
 #include <mach/vreg.h>
 #include <mach/board.h>
 #include <mach/board_lge.h>
+#include <linux/fb.h>
 #include "devices.h"
 #include "board-muscat.h"
 
@@ -136,9 +137,28 @@ void __init muscat_init_i2c_backlight(int bus_num)
 	platform_device_register(&bl_i2c_device);
 }
 
+static int muscat_fb_event_notify(struct notifier_block *self,
+			      unsigned long action, void *data)
+{
+	struct fb_event *event = data;
+	struct fb_info *info = event->info;
+	struct fb_var_screeninfo *var = &info->var;
+	if(action == FB_EVENT_FB_REGISTERED) {
+		var->width = 43;
+		var->height = 58;
+	}
+	return 0;
+}
+
+static struct notifier_block muscat_fb_event_notifier = {
+	.notifier_call	= muscat_fb_event_notify,
+};
+
 /* common functions */
 void __init lge_add_lcd_devices(void)
 {
+	fb_register_client(&muscat_fb_event_notifier);
+
 	platform_device_register(&ebi2_tovis_panel_device);
 	msm_fb_add_devices();
 	lge_add_gpio_i2c_device(muscat_init_i2c_backlight);
