@@ -98,6 +98,10 @@ struct crypto_priv {
 	/* request queue */
 	struct crypto_queue queue;
 
+	uint32_t ce_lock_count;
+
+	struct work_struct unlock_ce_ws;
+
 	struct tasklet_struct done_tasklet;
 };
 
@@ -131,27 +135,27 @@ static int qcrypto_scm_cmd(int resource, int cmd, int *response)
 #endif
 }
 
-static int qcrypto_unlock_ce(struct crypto_priv *cp)
+static void qcrypto_unlock_ce(struct work_struct *work)
 {
-	if (cp->ce_hw_support.ce_shared) {
-		int response = 0;
-
-		if (qcrypto_scm_cmd(cp->ce_hw_support.shared_ce_resource,
-					QCRYPTO_CE_UNLOCK_CMD, &response)) {
-			printk(KERN_ERR "%s Failed to release CE lock\n",
-				__func__);
-			return -EUSERS;
-		}
-	}
-	return 0;
+	int response = 0;
+	unsigned long flags;
+	struct crypto_priv *cp = container_of(work, struct crypto_priv,
+							unlock_ce_ws);
+	if (cp->ce_lock_count == 1)
+		BUG_ON(qcrypto_scm_cmd(cp->ce_hw_support.shared_ce_resource,
+				QCRYPTO_CE_UNLOCK_CMD, &response) != 0);
+	spin_lock_irqsave(&cp->lock, flags);
+	cp->ce_lock_count--;
+	spin_unlock_irqrestore(&cp->lock, flags);
 }
 
 static int qcrypto_lock_ce(struct crypto_priv *cp)
 {
-	if (cp->ce_hw_support.ce_shared) {
-		int response = -CE_BUSY;
-		int i = 0;
+	unsigned long flags;
+	int response = -CE_BUSY;
+	int i = 0;
 
+	if (cp->ce_lock_count == 0) {
 		do {
 			if (qcrypto_scm_cmd(
 				cp->ce_hw_support.shared_ce_resource,
@@ -163,10 +167,13 @@ static int qcrypto_lock_ce(struct crypto_priv *cp)
 
 		if ((response == -CE_BUSY) && (i >= NUM_RETRY))
 			return -EUSERS;
-
 		if (response < 0)
 			return -EINVAL;
 	}
+	spin_lock_irqsave(&cp->lock, flags);
+	cp->ce_lock_count++;
+	spin_unlock_irqrestore(&cp->lock, flags);
+
 
 	return 0;
 }
@@ -644,7 +651,6 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 	sha_ctx->last_blk = 0;
 	sha_ctx->first_blk = 0;
 
-	ret = qcrypto_unlock_ce(cp);
 	if (ret) {
 		cp->res = -ENXIO;
 		pstat->sha_op_fail++;
@@ -655,6 +661,8 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 	kfree(rctx->k_buf);
 	kfree(rctx->k_sg);
 
+	if (cp->ce_hw_support.ce_shared)
+		schedule_work(&cp->unlock_ce_ws);
 	tasklet_schedule(&cp->done_tasklet);
 };
 
@@ -676,8 +684,6 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 	if (iv)
 		memcpy(ctx->iv, iv, crypto_ablkcipher_ivsize(ablk));
 
-	ret = qcrypto_unlock_ce(cp);
-
 	if (ret) {
 		cp->res = -ENXIO;
 		pstat->ablk_cipher_op_fail++;
@@ -685,7 +691,8 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 		cp->res = 0;
 		pstat->ablk_cipher_op_success++;
 	}
-
+	if (cp->ce_hw_support.ce_shared)
+		schedule_work(&cp->unlock_ce_ws);
 	tasklet_schedule(&cp->done_tasklet);
 };
 
@@ -730,13 +737,13 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 	if (iv)
 		memcpy(ctx->iv, iv, crypto_aead_ivsize(aead));
 
-	ret = qcrypto_unlock_ce(cp);
-
 	if (ret)
 		pstat->aead_op_fail++;
 	else
 		pstat->aead_op_success++;
 
+	if (cp->ce_hw_support.ce_shared)
+		schedule_work(&cp->unlock_ce_ws);
 	tasklet_schedule(&cp->done_tasklet);
 }
 
@@ -870,9 +877,11 @@ static int _qcrypto_queue_req(struct crypto_priv *cp,
 	int ret;
 	unsigned long flags;
 
-	ret = qcrypto_lock_ce(cp);
-	if (ret)
-		return ret;
+	if (cp->ce_hw_support.ce_shared) {
+		ret = qcrypto_lock_ce(cp);
+		if (ret)
+			return ret;
+	}
 
 	spin_lock_irqsave(&cp->lock, flags);
 	ret = crypto_enqueue_request(&cp->queue, req);
@@ -2264,7 +2273,9 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 				ce_hw_support->shared_ce_resource;
 	cp->ce_hw_support.hw_key_support =
 				ce_hw_support->hw_key_support;
-
+	cp->ce_lock_count = 0;
+	if (cp->ce_hw_support.ce_shared)
+		INIT_WORK(&cp->unlock_ce_ws, qcrypto_unlock_ce);
 	/* register crypto cipher algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(_qcrypto_algos); i++) {
 		struct qcrypto_alg *q_alg;
@@ -2427,4 +2438,4 @@ module_exit(_qcrypto_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm Crypto driver");
-MODULE_VERSION("1.05");
+MODULE_VERSION("1.06");
