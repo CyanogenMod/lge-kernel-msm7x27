@@ -185,7 +185,7 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 	up_write(&leds_list_lock);
 
 	if (!led_cdev->max_brightness)
-		led_cdev->max_brightness = LED_FULL;
+		led_cdev->max_brightness = LED_SET;
 
 	led_update_brightness(led_cdev);
 
