@@ -402,6 +402,23 @@ int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type)
 	return rc;
 }
 
+int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable)
+{
+	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
+	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_mpm_lock, flags);
+
+	if (enable)
+		msm_mpm_enabled_irq[index] |= mask;
+	else
+		msm_mpm_enabled_irq[index] &= ~mask;
+
+	spin_unlock_irqrestore(&msm_mpm_lock, flags);
+	return 0;
+}
+
 int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)
 {
 	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
