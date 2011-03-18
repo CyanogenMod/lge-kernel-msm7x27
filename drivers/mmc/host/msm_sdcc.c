@@ -1406,6 +1406,28 @@ msmsdcc_check_status(unsigned long data)
 	}
 }
 
+#if 0 /* QCT origin */
+static void
+msmsdcc_check_status(unsigned long data)
+{
+	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
+	unsigned int status;
+
+	if (!host->plat->status) {
+		mmc_detect_change(host->mmc, 0);
+	} else {
+		status = host->plat->status(mmc_dev(host->mmc));
+		host->eject = !status;
+		if (status ^ host->oldstat) {
+			pr_info("%s: Slot status change detected (%d -> %d)\n",
+			       mmc_hostname(host->mmc), host->oldstat, status);
+			mmc_detect_change(host->mmc, 0);
+		}
+		host->oldstat = status;
+	}
+}
+#endif
+
 static irqreturn_t
 msmsdcc_platform_status_irq(int irq, void *dev_id)
 {
@@ -2101,9 +2123,16 @@ msmsdcc_runtime_resume(struct device *dev)
 		spin_lock_irqsave(&host->lock, flags);
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
 
+#ifdef WLAN_RESET_GPIO
+		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
+				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
+				!host->sdio_irq_disabled &&
+				host->plat->status_irq != gpio_to_irq(CONFIG_BCM4329_GPIO_WL_RESET) ) {
+#else /* QCT origin */
 		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
 				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
 				!host->sdio_irq_disabled) {
+#endif
 				if (host->plat->sdiowakeup_irq) {
 					disable_irq_nosync(
 						host->plat->sdiowakeup_irq);
