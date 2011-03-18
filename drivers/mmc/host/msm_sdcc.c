@@ -1777,7 +1777,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (plat->sdiowakeup_irq) {
 		ret = request_irq(plat->sdiowakeup_irq,
 			msmsdcc_platform_sdiowakeup_irq,
-			IRQF_SHARED | IRQF_TRIGGER_FALLING,
+			IRQF_SHARED | IRQF_TRIGGER_LOW,
 			DRIVER_NAME "sdiowakeup", host);
 		if (ret) {
 			pr_err("Unable to get sdio wakeup IRQ %d (%d)\n",
@@ -1923,7 +1923,7 @@ platform_irq_free:
 	}
  pio_irq_free:
 	free_irq(irqres->start, host);
-irq_free:
+ irq_free:
 	free_irq(irqres->start, host);
  clk_disable:
 	clk_disable(host->clk);
@@ -2039,7 +2039,6 @@ msmsdcc_runtime_suspend(struct device *dev)
 		rc = mmc_suspend_host(mmc);
 		pm_runtime_put_noidle(dev);
 #else
-
 		if (host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO)) {
 			pm_runtime_get_noresume(dev);
 			rc = mmc_suspend_host(mmc);
@@ -2118,11 +2117,15 @@ msmsdcc_runtime_resume(struct device *dev)
 
 		spin_unlock_irqrestore(&host->lock, flags);
 
+#ifdef  WLAN_RESET_GPIO
 		// LGE_DEV_PORTING, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
 		if (host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO)) {
 			mmc_resume_host(mmc);
 		}
 		// LGE_DEV_END, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+#else /* QCT origin */
+		mmc_resume_host(mmc);
+#endif
 
 /* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24, <never sleep policy - host wakeup> */
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
