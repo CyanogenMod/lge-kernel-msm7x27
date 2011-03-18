@@ -2131,7 +2131,7 @@ msmsdcc_runtime_resume(struct device *dev)
 		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
 				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
 				!host->sdio_irq_disabled &&
-				host->plat->status_irq != gpio_to_irq(CONFIG_BCM4329_GPIO_WL_RESET) ) {
+				host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO) ) {
 #else /* QCT origin */
 		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
 				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
