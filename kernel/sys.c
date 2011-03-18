@@ -391,7 +391,7 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 
 #ifdef CONFIG_MACH_LGE 
 	printk(KERN_INFO"%s: sys_reboot is called from android\n",__func__);
-	printk(KERN_INFO"%s: reboot cmd is %d\n", __func__, cmd);
+	printk(KERN_INFO"%s: reboot cmd is 0x%X\n", __func__, cmd);
 #endif
 
 	mutex_lock(&reboot_mutex);
