@@ -88,7 +88,7 @@
 #define SPSS_L2_CLK_SEL_ADDR		(MSM_GCC_BASE  + 0x38)
 
 /* Speed bin register. */
-#define QFPROM_SPEED_BIN_PRI		(MSM_QFPROM_BASE + 0x00C0)
+#define QFPROM_SPEED_BIN_ADDR		(MSM_QFPROM_BASE + 0x00C0)
 
 static const void * const clk_ctl_addr[] = {SPSS0_CLK_CTL_ADDR,
 			SPSS1_CLK_CTL_ADDR};
@@ -746,14 +746,17 @@ static void __init cpufreq_table_init(void) {}
 
 static void __init select_freq_plan(void)
 {
-	uint32_t speed_bin, max_khz;
+	uint32_t raw_speed_bin, speed_bin, max_khz;
 	struct clkctl_acpu_speed *f;
 
 	acpu_freq_tbl = acpu_freq_tbl_v2;
 	l2_freq_tbl = l2_freq_tbl_v2;
 	l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_v2);
 
-	speed_bin = readl(QFPROM_SPEED_BIN_PRI) & 0xF;
+	raw_speed_bin = readl(QFPROM_SPEED_BIN_ADDR);
+	speed_bin = raw_speed_bin & 0xF;
+	if (speed_bin == 0xF)
+		speed_bin = (raw_speed_bin >> 4) & 0xF;
 	if (speed_bin == 0x1)
 		max_khz = 1512000;
 	else
