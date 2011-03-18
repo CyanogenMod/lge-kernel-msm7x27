@@ -68,9 +68,13 @@
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 #include <asm/gpio.h>
-/*LGE_CHANGE_S, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
-#define BRCM_WLAN_SLOT 2
-/*LGE_CHANGE_E, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
+
+#ifdef CONFIG_BCM4330
+#define BRCM_WLAN_SLOT 2 // give 25MHz to SDIO I/F
+#else
+#define BRCM_WLAN_SLOT 100 // give 50MHz to SDIO I/F
+#endif
+
 #endif
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 
