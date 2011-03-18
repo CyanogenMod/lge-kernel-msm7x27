@@ -61,21 +61,15 @@
 #define WLAN_RESET_GPIO CONFIG_BCM4329_GPIO_WL_RESET
 #endif
 
-/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */ 
 #ifdef CONFIG_BCM4330_GPIO_WL_RESET
 #define WLAN_RESET_GPIO CONFIG_BCM4330_GPIO_WL_RESET
 #endif
-/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
 
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 #include <asm/gpio.h>
 /*LGE_CHANGE_S, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
-#ifdef CONFIG_BCM4330
-#define BRCM_WLAN_SLOT 2 // give 25MHz to SDIO I/F
-#else
-#define BRCM_WLAN_SLOT 100 // give 50MHz to SDIO I/F
-#endif
+#define BRCM_WLAN_SLOT 2
 /*LGE_CHANGE_E, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
 #endif
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
@@ -1398,11 +1392,10 @@ msmsdcc_check_status(unsigned long data)
 				   host->plat->status_irq,
 				   MSM_GPIO_TO_INT(WLAN_RESET_GPIO),
 				   __func__, __LINE__);
-#ifdef CONFIG_BCM4330
-			mmc_detect_change(host->mmc, 0);
-#else
-			mmc_detect_change(host->mmc, (3*HZ)/20 );
-#endif
+/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-01-24, <resolve the 'bus down' issue> */
+			// mmc_detect_change(host->mmc, 0); /* original */
+			mmc_detect_change(host->mmc, (3*HZ)/20); /* original */
+/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-24, <resolve the 'bus down' issue> */
 		}
 		else
 #endif
@@ -1412,6 +1405,28 @@ msmsdcc_check_status(unsigned long data)
 				mmc_detect_change(host->mmc, 0);
 	}
 }
+
+#if 0 /* QCT origin */
+static void
+msmsdcc_check_status(unsigned long data)
+{
+	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
+	unsigned int status;
+
+	if (!host->plat->status) {
+		mmc_detect_change(host->mmc, 0);
+	} else {
+		status = host->plat->status(mmc_dev(host->mmc));
+		host->eject = !status;
+		if (status ^ host->oldstat) {
+			pr_info("%s: Slot status change detected (%d -> %d)\n",
+			       mmc_hostname(host->mmc), host->oldstat, status);
+			mmc_detect_change(host->mmc, 0);
+		}
+		host->oldstat = status;
+	}
+}
+#endif
 
 static irqreturn_t
 msmsdcc_platform_status_irq(int irq, void *dev_id)
@@ -1535,19 +1550,15 @@ static void msmsdcc_early_suspend(struct early_suspend *h)
 		container_of(h, struct msmsdcc_host, early_suspend);
 	unsigned long flags;
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, don't do this to WLAN */
-//	printk(KERN_ERR "msmsdcc_early_suspend : start \n");
 #ifdef  WLAN_RESET_GPIO
 	if ( host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO) )
 #endif
 	{
-/* LGE_CHANGE_E [yoohoo@lge.com] 2009-10-24, don't do this to WLAN */
-	spin_lock_irqsave(&host->lock, flags);
-	host->polling_enabled = host->mmc->caps & MMC_CAP_NEEDS_POLL;
-	host->mmc->caps &= ~MMC_CAP_NEEDS_POLL;
-	spin_unlock_irqrestore(&host->lock, flags);
-/* LGE_CHANGE_S [yoohoo@lge.com] 2009-10-24, don't do this to WLAN */
+		spin_lock_irqsave(&host->lock, flags);
+		host->polling_enabled = host->mmc->caps & MMC_CAP_NEEDS_POLL;
+		host->mmc->caps &= ~MMC_CAP_NEEDS_POLL;
+		spin_unlock_irqrestore(&host->lock, flags);
 	}
-//	printk(KERN_ERR "msmsdcc_early_suspend : end \n");
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, don't do this to WLAN */
 };
 static void msmsdcc_late_resume(struct early_suspend *h)
@@ -1556,21 +1567,17 @@ static void msmsdcc_late_resume(struct early_suspend *h)
 		container_of(h, struct msmsdcc_host, early_suspend);
 	unsigned long flags;
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, don't do this to WLAN */
-//	printk(KERN_ERR "msmsdcc_late_resume : start \n");
 #ifdef  WLAN_RESET_GPIO
 	if ( host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO) )
 #endif
 	{
-/* LGE_CHANGE_E [yoohoo@lge.com] 2009-10-24, don't do this to WLAN */
-	if (host->polling_enabled) {
-		spin_lock_irqsave(&host->lock, flags);
-		host->mmc->caps |= MMC_CAP_NEEDS_POLL;
-		mmc_detect_change(host->mmc, 0);
-		spin_unlock_irqrestore(&host->lock, flags);
+		if (host->polling_enabled) {
+			spin_lock_irqsave(&host->lock, flags);
+			host->mmc->caps |= MMC_CAP_NEEDS_POLL;
+			mmc_detect_change(host->mmc, 0);
+			spin_unlock_irqrestore(&host->lock, flags);
+		}
 	}
-/* LGE_CHANGE_S [yoohoo@lge.com] 2009-10-24, don't do this to WLAN */
-	}
-//	printk(KERN_ERR "msmsdcc_late_resume : END \n");
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, don't do this to WLAN */
 };
 #endif
@@ -1792,7 +1799,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (plat->sdiowakeup_irq) {
 		ret = request_irq(plat->sdiowakeup_irq,
 			msmsdcc_platform_sdiowakeup_irq,
-			IRQF_SHARED | IRQF_TRIGGER_FALLING,
+			IRQF_SHARED | IRQF_TRIGGER_LOW,
 			DRIVER_NAME "sdiowakeup", host);
 		if (ret) {
 			pr_err("Unable to get sdio wakeup IRQ %d (%d)\n",
@@ -1938,7 +1945,7 @@ platform_irq_free:
 	}
  pio_irq_free:
 	free_irq(irqres->start, host);
-irq_free:
+ irq_free:
 	free_irq(irqres->start, host);
  clk_disable:
 	clk_disable(host->clk);
@@ -2029,41 +2036,38 @@ msmsdcc_runtime_suspend(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	int rc = 0;
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24 */
-	printk(KERN_ERR "msmsdcc_suspend : start \n");
-/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24 */
 
 	if (mmc) {
 		host->sdcc_suspending = 1;
 		mmc->suspend_task = current;
 
-		// dk.moon 20110215 add a conditional sentence for WLAN
-		if (!mmc->card || (host->plat->sdiowakeup_irq &&
-				mmc->card->type == MMC_TYPE_SDIO) ||
-				mmc->card->type != MMC_TYPE_SDIO) {
-			/*
-			 * MMC core thinks that host is disabled by now since
-			 * runtime suspend is scheduled after msmsdcc_disable()
-			 * is called. Thus, MMC core will try to enable the host
-			 * while suspending it. This results in a synchronous
-			 * runtime resume request while in runtime suspending
-			 * context and hence inorder to complete this resume
-			 * requet, it will wait for suspend to be complete,
-			 * but runtime suspend also can not proceed further
-			 * until the host is resumed. Thus, it leads to a hang.
-			 * Hence, increase the pm usage count before suspending
-			 * the host so that any resume requests after this will
-			 * simple become pm usage counter increment operations.
-			 */
+		/*
+		 * MMC core thinks that host is disabled by now since
+		 * runtime suspend is scheduled after msmsdcc_disable()
+		 * is called. Thus, MMC core will try to enable the host
+		 * while suspending it. This results in a synchronous
+		 * runtime resume request while in runtime suspending
+		 * context and hence inorder to complete this resume
+		 * requet, it will wait for suspend to be complete,
+		 * but runtime suspend also can not proceed further
+		 * until the host is resumed. Thus, it leads to a hang.
+		 * Hence, increase the pm usage count before suspending
+		 * the host so that any resume requests after this will
+		 * simple become pm usage counter increment operations.
+		 */
+// LGE_DEV_PORTING, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
+		pm_runtime_get_noresume(dev);
+		rc = mmc_suspend_host(mmc);
+		pm_runtime_put_noidle(dev);
+#else
+		if (host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO)) {
 			pm_runtime_get_noresume(dev);
 			rc = mmc_suspend_host(mmc);
 			pm_runtime_put_noidle(dev);
 		}
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
-		/* LGE_CHANGE_S [dongp.kim@lge.com] 2009-12-22, Support Host Wakeup */
-		/* LGE_CHANGE_S [yoohoo@lge.com] 2009-11-19, Support Host Wakeup */
-		//else if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
-		else if (host->plat->status_irq == gpio_to_irq(WLAN_RESET_GPIO)) {
+		if (host->plat->status_irq == gpio_to_irq(WLAN_RESET_GPIO)) {
 			if(dhdpm.suspend != NULL) {
 				//rc = dhdpm.suspend(NULL);
 				dhdpm.suspend(NULL);
@@ -2071,7 +2075,10 @@ msmsdcc_runtime_suspend(struct device *dev)
 			else
 				printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
 		}
-#endif
+#endif /* defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) */
+#endif /* !defined(CONFIG_LGE_BCM432X_PATCH) */
+// LGE_DEV_END, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+
 		if (!rc) {
 			/*
 			 * If MMC core level suspend is not supported, turn
@@ -2081,25 +2088,23 @@ msmsdcc_runtime_suspend(struct device *dev)
 			mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 		}
 
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */
-#ifndef WLAN_RESET_GPIO
-		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && mmc->card &&
-				mmc->card->type == MMC_TYPE_SDIO) {
-#else
-		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && mmc->card &&
-				mmc->card->type == MMC_TYPE_SDIO && host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO)) {
-#endif			
-/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */			
+#ifdef WLAN_RESET_GPIO
+		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
+				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
+				(host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO))) {
+#else /* QCT origin */
+		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
+				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ)) {
+#endif
 			host->sdio_irq_disabled = 0;
-			enable_irq_wake(host->plat->sdiowakeup_irq);
-			enable_irq(host->plat->sdiowakeup_irq);
+			if (host->plat->sdiowakeup_irq) {
+				enable_irq_wake(host->plat->sdiowakeup_irq);
+				enable_irq(host->plat->sdiowakeup_irq);
+			}
 		}
 		host->sdcc_suspending = 0;
 		mmc->suspend_task = NULL;
 	}
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24 */
-	printk(KERN_ERR "msmsdcc_suspend : end \n");
-/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24 */
 	return rc;
 }
 
@@ -2111,10 +2116,6 @@ msmsdcc_runtime_resume(struct device *dev)
 	unsigned long flags;
 	int release_lock = 0;
 
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24 */
-	printk(KERN_ERR "msmsdcc_resume : start \n");
-/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24 */
-
 	if (mmc) {
 		mmc->ios.clock = host->clk_rate;
 		mmc->ops->set_ios(host->mmc, &host->mmc->ios);
@@ -2122,42 +2123,48 @@ msmsdcc_runtime_resume(struct device *dev)
 		spin_lock_irqsave(&host->lock, flags);
 		writel(host->mci_irqenable, host->base + MMCIMASK0);
 
-		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
+#ifdef WLAN_RESET_GPIO
+		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
+				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
+				!host->sdio_irq_disabled &&
+				host->plat->status_irq != gpio_to_irq(CONFIG_BCM4329_GPIO_WL_RESET) ) {
+#else /* QCT origin */
+		if (mmc->card && (mmc->card->type == MMC_TYPE_SDIO) &&
+				(mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
 				!host->sdio_irq_disabled) {
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */
-#ifndef WLAN_RESET_GPIO
-		if (mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
-#else
-			if (mmc->card && mmc->card->type == MMC_TYPE_SDIO && host->plat->status_irq != gpio_to_irq(CONFIG_BCM4329_GPIO_WL_RESET)) {
-#endif			
-/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */
-				disable_irq_nosync(host->plat->sdiowakeup_irq);
-				disable_irq_wake(host->plat->sdiowakeup_irq);
+#endif
+				if (host->plat->sdiowakeup_irq) {
+					disable_irq_nosync(
+						host->plat->sdiowakeup_irq);
+					disable_irq_wake(
+						host->plat->sdiowakeup_irq);
+				}
 				host->sdio_irq_disabled = 1;
-			}
 		} else {
 			release_lock = 1;
 		}
 
 		spin_unlock_irqrestore(&host->lock, flags);
-// dk.moon 20110215 add a conditional sentence for WLAN
-		if (!mmc->card || (host->plat->sdiowakeup_irq &&
-				mmc->card->type == MMC_TYPE_SDIO) ||
-				mmc->card->type != MMC_TYPE_SDIO)
+
+#ifdef  WLAN_RESET_GPIO
+		// LGE_DEV_PORTING, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+		if (host->plat->status_irq != gpio_to_irq(WLAN_RESET_GPIO)) {
 			mmc_resume_host(mmc);
+		}
+		// LGE_DEV_END, 2011-02-24, jongpil.yoon@lge.com, <wifi suspend/resume>
+#else /* QCT origin */
+		mmc_resume_host(mmc);
+#endif
 
 /* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24, <never sleep policy - host wakeup> */
 #if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
 		//if ( mmc->card && mmc->card->type == MMC_TYPE_SDIO) {
 		if (host->plat->status_irq == gpio_to_irq(WLAN_RESET_GPIO)) {
-//			printk("%s: Enabling SDIO Interrupt \n", __FUNCTION__);
 			//msmsdcc_enable_sdio_irq(mmc, 1); We will confirm whether this function is need ?
 
 			if(dhdpm.resume != NULL) {
 				dhdpm.resume(NULL);
 			}
-//			else
-//				printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
 		}
 #endif	
 /* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24, <never sleep policy - host wakeup> */
@@ -2171,9 +2178,6 @@ msmsdcc_runtime_resume(struct device *dev)
 
 		 wake_unlock(&host->sdio_suspend_wlock);
 	}
-/* LGE_CHANGE_S, [jisung.yang@lge.com], 2010-04-24 */
-	printk(KERN_ERR "msmsdcc_resume : end \n");
-/* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-04-24 */
 	return 0;
 }
 
