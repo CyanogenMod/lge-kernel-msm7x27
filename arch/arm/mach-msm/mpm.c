@@ -163,6 +163,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] = {
 	LPASS_SCSS_GP_LOW_IRQ,
 	LPASS_SCSS_GP_MEDIUM_IRQ,
 	LPASS_SCSS_GP_HIGH_IRQ,
+	SDC4_IRQ_0,
 	SPS_MTI_31,
 };
 
