@@ -1563,9 +1563,101 @@ static int config_gpio_table(enum msm_cam_stat stat)
 	return rc;
 }
 
+#define CAM_BOOSTER_MPP	(0)
+static int config_camera_on_gpios_fluid(void)
+{
+	int rc = 0;
+
+	rc = config_gpio_table(MSM_CAM_ON);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio table request"
+		"failed\n", __func__);
+		return rc;
+	}
+
+	rc = gpio_request(GPIO_EXT_CAMIF_PWR_EN, "CAM_EN");
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio %d request"
+			"failed\n", __func__, GPIO_EXT_CAMIF_PWR_EN);
+		return rc;
+	}
+	gpio_direction_output(GPIO_EXT_CAMIF_PWR_EN, 0);
+	msleep(20);
+	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 1);
+
+
+	/*Enable LED_FLASH_EN*/
+	rc = gpio_request(GPIO_LED_FLASH_EN, "LED_FLASH_EN");
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio %d request"
+			"failed\n", __func__, GPIO_LED_FLASH_EN);
+
+		config_gpio_table(MSM_CAM_OFF);
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+		gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+		return rc;
+	}
+	gpio_direction_output(GPIO_LED_FLASH_EN, 1);
+	msleep(20);
+
+	/* FLUID: turn on 5V booster */
+	rc = pm8901_mpp_config_digital_out(CAM_BOOSTER_MPP,
+		PM8901_MPP_DIG_LEVEL_MSMIO, 1);
+
+	if (rc) {
+		pr_err("%s: CAM_5V_BOOST_EN failed\n", __func__);
+
+		gpio_direction_output(GPIO_LED_FLASH_EN, 0);
+		gpio_free(GPIO_LED_FLASH_EN);
+		config_gpio_table(MSM_CAM_OFF);
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+		gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+		return  rc;
+	}
+
+	rc = gpio_request(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP),
+		"CAM_5V_BOOST_EN");
+
+	if (rc) {
+		pr_err("%s: camera 5V booster gpio pm8901 mpp1 request"
+		"failed\n", __func__);
+		pm8901_mpp_config_digital_out(CAM_BOOSTER_MPP,
+		PM8901_MPP_DIG_LEVEL_MSMIO, 0);
+		gpio_direction_output(GPIO_LED_FLASH_EN, 0);
+		gpio_free(GPIO_LED_FLASH_EN);
+		config_gpio_table(MSM_CAM_OFF);
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+		gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+		return rc;
+	}
+
+	gpio_direction_output(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP), 1);
+	gpio_set_value(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP), 1);
+	return rc;
+}
+
+static void config_camera_off_gpios_fluid(void)
+{
+	gpio_direction_output(GPIO_LED_FLASH_EN, 0);
+	gpio_free(GPIO_LED_FLASH_EN);
+
+
+	pm8901_mpp_config_digital_out(CAM_BOOSTER_MPP,
+	PM8901_MPP_DIG_LEVEL_MSMIO, 0);
+	gpio_set_value(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP), 0);
+	gpio_free(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP));
+
+	config_gpio_table(MSM_CAM_OFF);
+
+	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+	gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+}
 static int config_camera_on_gpios(void)
 {
 	int rc = 0;
+
+	if (machine_is_msm8x60_fluid())
+		return config_camera_on_gpios_fluid();
 
 	rc = config_gpio_table(MSM_CAM_ON);
 	if (rc < 0) {
@@ -1589,6 +1681,10 @@ static int config_camera_on_gpios(void)
 
 static void config_camera_off_gpios(void)
 {
+	if (machine_is_msm8x60_fluid())
+		return config_camera_off_gpios_fluid();
+
+
 	config_gpio_table(MSM_CAM_OFF);
 
 	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
