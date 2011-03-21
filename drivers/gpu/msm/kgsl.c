@@ -437,12 +437,10 @@ kgsl_put_process_private(struct kgsl_device *device,
 
 	list_del(&private->list);
 
-	spin_lock(&private->mem_lock);
 	list_for_each_entry_safe(entry, entry_tmp, &private->mem_list, list) {
 		list_del(&entry->list);
 		kgsl_destroy_mem_entry(entry);
 	}
-	spin_unlock(&private->mem_lock);
 
 #ifdef CONFIG_MSM_KGSL_MMU
 	if (private->pagetable != NULL)
