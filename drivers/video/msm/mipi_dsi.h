@@ -115,6 +115,8 @@ struct dsi_clk_desc {
 	uint32 m;
 	uint32 n;
 	uint32 d;
+	uint32 mnd_mode;
+	uint32 pre_div_func;
 };
 
 #define DSI_HOST_HDR_SIZE	4
