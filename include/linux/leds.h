@@ -19,6 +19,8 @@
 struct device;
 /*
  * LED Core
+ * Added LED_SET level for value 2
+ * fred.cho@lge.com
  */
 
 enum led_brightness {
