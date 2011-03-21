@@ -6677,10 +6677,11 @@ static unsigned int msm8x60_sdcc_slot_status(struct device *dev)
 #endif
 
 #ifdef	CONFIG_MMC_MSM_SDC4_SUPPORT
-static int msm_sdcc_cfg_mpm_sdiowakeup(struct device *dev, bool is_wake_up)
+static int msm_sdcc_cfg_mpm_sdiowakeup(struct device *dev, unsigned mode)
 {
 	struct platform_device *pdev;
 	enum msm_mpm_pin pin;
+	int ret = 0;
 
 	pdev = container_of(dev, struct platform_device, dev);
 
@@ -6690,13 +6691,25 @@ static int msm_sdcc_cfg_mpm_sdiowakeup(struct device *dev, bool is_wake_up)
 	else
 		return -EINVAL;
 
-	if (is_wake_up) {
-		msm_mpm_set_pin_type(pin, IRQ_TYPE_LEVEL_LOW);
-		msm_mpm_set_pin_wake(pin, 1);
-	} else
-		msm_mpm_set_pin_wake(pin, 0);
-
-	return 0;
+	switch (mode) {
+	case SDC_DAT1_DISABLE:
+		ret = msm_mpm_enable_pin(pin, 0);
+		break;
+	case SDC_DAT1_ENABLE:
+		ret = msm_mpm_set_pin_type(pin, IRQ_TYPE_LEVEL_LOW);
+		ret = msm_mpm_enable_pin(pin, 1);
+		break;
+	case SDC_DAT1_ENWAKE:
+		ret = msm_mpm_set_pin_wake(pin, 1);
+		break;
+	case SDC_DAT1_DISWAKE:
+		ret = msm_mpm_set_pin_wake(pin, 0);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
 }
 #endif
 #endif
