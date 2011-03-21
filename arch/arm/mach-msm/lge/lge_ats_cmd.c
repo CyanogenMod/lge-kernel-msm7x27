@@ -22,6 +22,8 @@
 #include <linux/syscalls.h>
 #include <linux/fcntl.h>
 
+extern int fw_rev;
+
 void wirte_flight_mode(int mode)
 {
 	char buf[10];
@@ -136,6 +138,10 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 		update_atcmd_state("mmcformat", 0);
 		update_atcmd_state("mmcformat", 1);
 		update_atcmd_state("mmcformat", 9);
+		break;
+
+	case ATCMD_TOUCHFWVER:
+		ret_value1 = fw_rev;
 		break;
 
 	default :
