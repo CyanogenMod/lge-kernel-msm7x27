@@ -4031,8 +4031,13 @@ clkwait:
 	/* Resched if events or tx frames are pending, else await next interrupt */
 	/* On failed register access, all bets are off: no resched or interrupts */
 	if ((bus->dhd->busstate == DHD_BUS_DOWN) || bcmsdh_regfail(sdh)) {
-		DHD_ERROR(("%s: failed backplane access over SDIO, halting operation\n",
-		           __FUNCTION__));
+		DHD_ERROR(("%s: failed backplane access over SDIO, halting operation %d \n",
+		           __FUNCTION__, bcmsdh_regfail(sdh)));
+// dk.moon_S 20110316 Muscat, Patch- JTrac52 (Disable SDIO interrupt when BUS is down)
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+		bcmsdh_intr_disable(bus->sdh);
+#endif
+// dk.moon_E 20110316 Muscat, Patch-JTrac52 (Disable SDIO interrupt when BUS is down)
 		bus->dhd->busstate = DHD_BUS_DOWN;
 		bus->intstatus = 0;
 	} else if (bus->clkstate == CLK_PENDING) {
