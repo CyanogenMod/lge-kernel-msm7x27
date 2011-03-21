@@ -71,8 +71,6 @@ static struct lgcam_rear_sensor_register_address_value_pair  ext_reg_settings[40
 static long lgcam_rear_sensor_set_capture_zoom(int zoom);
 #endif
 
-/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
-extern void mdp_load_thunder_lut(int lut_type);
 
 module_param_named(debug_mask, debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
 struct lgcam_rear_sensor_work {
@@ -3440,8 +3438,6 @@ int lgcam_rear_sensor_sensor_release(void)
 
 	lgcam_rear_sensor_ctrl=NULL;
 	
-		/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
-		mdp_load_thunder_lut(1);	// Normal LUT
 	return rc;
 }
 
@@ -3519,8 +3515,6 @@ static int lgcam_rear_sensor_sensor_probe(const struct msm_camera_sensor_info *i
 	}
 	mdelay(10);
 
-	/* LGE_CHANGE_S. Change code to apply new LUT for display quality. 2010-08-13. minjong.gong@lge.com */
-	mdp_load_thunder_lut(2);	// Camera LUT
 	rc = lgcam_rear_sensor_sensor_init_probe(info);
 	if (rc < 0)
 		goto probe_done;

@@ -198,8 +198,10 @@ static int vfe_7x_enable(struct camera_enable_cmd *enable)
 		rc = msm_adsp_enable(vfe_mod);
 
 	if (!cnt) {
+#if 0		//QCT SR 00479707 //Temp disable for sleep current
 		add_axi_qos();
 		cnt++;
+#endif
 	}
 	return rc;
 }
