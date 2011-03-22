@@ -59,6 +59,7 @@ static uint32_t extlen;
 struct mutex vfe_lock;
 static void     *vfe_syncdata;
 static uint8_t vfestopped;
+static int cnt;
 
 static struct stop_event stopevent;
 
@@ -190,7 +191,6 @@ static struct msm_adsp_ops vfe_7x_sync = {
 static int vfe_7x_enable(struct camera_enable_cmd *enable)
 {
 	int rc = -EFAULT;
-	static int cnt;
 
 	if (!strcmp(enable->name, "QCAMTASK"))
 		rc = msm_adsp_enable(qcam_mod);
@@ -259,8 +259,9 @@ static void vfe_7x_release(struct platform_device *pdev)
 	kfree(extdata);
 	extlen = 0;
 
-	/* set back the AXI frequency to default */
-	update_axi_qos(PM_QOS_DEFAULT_VALUE);
+	/* Release AXI */
+	release_axi_qos();
+	cnt = 0;
 }
 
 static int vfe_7x_init(struct msm_vfe_callback *presp,
