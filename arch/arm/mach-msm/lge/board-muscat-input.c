@@ -42,6 +42,63 @@ static unsigned short pp2106_keycode[PP2106_KEYPAD_ROW][PP2106_KEYPAD_COL] = {
 	{KEY_UNKNOWN, KEY_UNKNOWN, KEY_VOLUMEDOWN, KEY_VOLUMEUP, KEY_UNKNOWN, KEY_UNKNOWN, KEY_UNKNOWN },
 };
 
+static int pp2106_set_power(unsigned char onoff)
+{
+	int rc = -EINVAL;
+	static int is_enabled = 0;
+	struct vreg *vreg_gp6;
+
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	if (lge_bd_rev < LGE_REV_C)
+		return 0;
+#endif
+	
+	vreg_gp6 = vreg_get(NULL, "gp6");
+	
+	if (IS_ERR(vreg_gp6)) {
+		printk(KERN_ERR "%s: vreg_get(%s) failed (%ld)\n",
+			__func__, "gp6", PTR_ERR(vreg_gp6));
+		return PTR_ERR(vreg_gp6);
+	}
+
+	if (onoff) {
+		if (is_enabled) {
+			return 0;
+		}
+		
+		rc = vreg_set_level(vreg_gp6, 2600);
+		if (rc) {
+			printk(KERN_ERR "%s: GP6 vreg_set_level failed (%d)\n",
+				__func__, rc);
+			return -EIO;
+		}
+		
+		rc = vreg_enable(vreg_gp6);
+		if (rc) {
+			printk(KERN_ERR "%s: GP6 vreg_enable failed (%d)\n",
+				__func__, rc);
+			return -EIO;
+		}
+
+		is_enabled = 1;
+	} else {
+		if (!is_enabled) {
+			return 0;
+		}
+
+		rc = vreg_disable(vreg_gp6);
+		if (rc) {
+			printk(KERN_ERR "%s: GP6 vreg_disable failed (%d)\n",
+				__func__, rc);
+			return -EIO;
+		}
+
+		is_enabled = 0;
+	}
+	
+	return 0;
+}
+
 static struct pp2106_platform_data pp2106_pdata = {
 	.keypad_row = PP2106_KEYPAD_ROW,
 	.keypad_col = PP2106_KEYPAD_COL,
@@ -50,6 +107,7 @@ static struct pp2106_platform_data pp2106_pdata = {
 	.irq_pin = GPIO_PP2106_IRQ,
 	.sda_pin = GPIO_PP2106_SDA,
 	.scl_pin = GPIO_PP2106_SCL,
+	.power = pp2106_set_power,
 };
 
 static struct platform_device qwerty_device = {
