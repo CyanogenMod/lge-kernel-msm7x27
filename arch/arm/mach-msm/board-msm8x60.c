@@ -2010,11 +2010,19 @@ static void __init msm8x60_init_dsps(void)
 }
 #endif /* CONFIG_MSM_DSPS */
 
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+/* 960 x 540 x 3 x 2 */
+#define MIPI_DSI_WRITEBACK_SIZE 0x300000
+#else
+#define MIPI_DSI_WRITEBACK_SIZE 0
+#endif
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 /* prim = 1024 x 600 x 4(bpp) x 2(pages)
  * hdmi = 1920 x 1080 x 2(bpp) x 1(page)
  * Note: must be multiple of 4096 */
-#define MSM_FB_SIZE roundup(0x4B0000 + 0x3F4800 + MSM_FB_DSUB_PMEM_ADDER, 4096)
+#define MSM_FB_SIZE roundup(0x4B0000 + 0x3F4800 + MIPI_DSI_WRITEBACK_SIZE + \
+					MSM_FB_DSUB_PMEM_ADDER, 4096)
 #elif defined(CONFIG_FB_MSM_TVOUT)
 /* prim = 1024 x 600 x 4(bpp) x 2(pages)
  * tvout = 720 x 576 x 2(bpp) x 2(pages)
