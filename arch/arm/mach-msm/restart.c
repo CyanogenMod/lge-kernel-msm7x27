@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/scm-io.h>
+#include <mach/restart.h>
 
 #define TCSR_WDT_CFG 0x30
 
@@ -39,6 +40,8 @@
 #define PSHOLD_CTL_SU (MSM_TLMM_BASE + 0x820)
 
 #define RESTART_REASON_ADDR 0x2A05F65C
+
+static int restart_mode;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 static int in_panic;
@@ -70,6 +73,12 @@ static void set_dload_mode(int on)
 #define set_dload_mode(x) do {} while (0)
 #endif
 
+void msm_set_restart_mode(int mode)
+{
+	restart_mode = mode;
+}
+EXPORT_SYMBOL(msm_set_restart_mode);
+
 static void msm_power_off(void)
 {
 	printk(KERN_NOTICE "Powering off the SoC\n");
@@ -86,7 +95,7 @@ void arch_reset(char mode, const char *cmd)
 	void *restart_reason;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
-	if (in_panic)
+	if (in_panic || restart_mode == RESTART_DLOAD)
 		set_dload_mode(1);
 #endif
 
