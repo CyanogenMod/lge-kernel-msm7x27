@@ -94,6 +94,11 @@ PARTICULAR PURPOSE.  See the * GNU General Public License for more details. * */
 #define PRODUCT_ID_STRING_NUM	11
 #define CMD_REG_BLOCK_NUM		41
 /************************************/
+
+int fw_rev = 0;
+EXPORT_SYMBOL(fw_rev);
+module_param(fw_rev, int, S_IWUSR | S_IRUGO);
+
 /******* enum ***********************/
 enum {
 	SYNAPTICS_2000 = 0,
@@ -791,7 +796,7 @@ static int synaptics_ts_probe(
 		ERR_MSG("i2c_smbus_read_byte_data failed\n");
 	}
 	SHOW_MSG("synaptics_ts_probe: Firmware Revision 0x%x\n", ts->fw_revision);
-
+	fw_rev = ts->fw_revision;
 	if (pdata) {
 #if 0
 		while (pdata->version > panel_version)

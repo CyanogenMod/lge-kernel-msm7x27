@@ -22,6 +22,12 @@
 #include <linux/syscalls.h>
 #include <linux/fcntl.h>
 
+//FIXME: block to compile error in muscat
+//       fix this routine, taehung.kim@lge.com
+#if !defined(CONFIG_MACH_MSM7X27_MUSCAT)
+extern int fw_rev;
+#endif
+
 void wirte_flight_mode(int mode)
 {
 	char buf[10];
@@ -137,7 +143,13 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 		update_atcmd_state("mmcformat", 1);
 		update_atcmd_state("mmcformat", 9);
 		break;
-
+//FIXME: block to compile error in muscat
+//       fix this routine, taehung.kim@lge.com
+#if !defined(CONFIG_MACH_MSM7X27_MUSCAT)
+	case ATCMD_TOUCHFWVER:
+		ret_value1 = fw_rev;
+		break;
+#endif
 	default :
 		result = HANDLE_ERROR;
 		break;

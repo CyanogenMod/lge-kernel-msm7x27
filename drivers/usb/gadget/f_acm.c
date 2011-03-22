@@ -842,6 +842,14 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 	if (!can_support_cdc(c))
 		return -EINVAL;
 
+
+#ifndef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
+	/* LGE_CHANGE
+	 * By not set string IDs, iMACAddress of ECM descriptor
+	 * for LG AndroidNet will be set properly.
+	 * 2011-03-22, hyunhui.park@lge.com
+	 */
+
 	/* REVISIT might want instance-specific strings to help
 	 * distinguish instances ...
 	 */
@@ -869,6 +877,7 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 
 		acm_iad_descriptor.iFunction = status;
 	}
+#endif
 
 	/* allocate and initialize one new instance */
 	acm = kzalloc(sizeof *acm, GFP_KERNEL);

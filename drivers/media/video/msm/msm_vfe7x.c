@@ -61,6 +61,10 @@ static void     *vfe_syncdata;
 static uint8_t vfestopped;
 
 static struct stop_event stopevent;
+//LGE_DEV_PORTING 
+// sleep current issue : Case Number:  00479707
+static int cnt;
+//LGE_DEV_END
 
 static void vfe_7x_convert(struct msm_vfe_phy_info *pinfo,
 		enum vfe_resp_msg type,
@@ -190,13 +194,11 @@ static struct msm_adsp_ops vfe_7x_sync = {
 static int vfe_7x_enable(struct camera_enable_cmd *enable)
 {
 	int rc = -EFAULT;
-	static int cnt;
 
 	if (!strcmp(enable->name, "QCAMTASK"))
 		rc = msm_adsp_enable(qcam_mod);
 	else if (!strcmp(enable->name, "VFETASK"))
 		rc = msm_adsp_enable(vfe_mod);
-
 	if (!cnt) {
 		add_axi_qos();
 		cnt++;
@@ -260,7 +262,14 @@ static void vfe_7x_release(struct platform_device *pdev)
 	extlen = 0;
 
 	/* set back the AXI frequency to default */
-	update_axi_qos(PM_QOS_DEFAULT_VALUE);
+//LGE_DEV_PORTING 
+// sleep current issue : Case Number:  00479707
+//update_axi_qos(PM_QOS_DEFAULT_VALUE);
+	if (cnt) {
+		release_axi_qos();                     
+		cnt = 0;
+	}
+//LGE_DEV_END
 }
 
 static int vfe_7x_init(struct msm_vfe_callback *presp,

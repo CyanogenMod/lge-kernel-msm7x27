@@ -1023,8 +1023,6 @@ static void mcs6000_early_suspend(struct early_suspend * h)
 		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
 		disable_irq(dev->num_irq);
 		DMSG("%s: irq disable\n", __FUNCTION__);
-
-
 		dev->power(OFF);		
 	}
 	is_touch_suspend = 1;
@@ -1039,7 +1037,6 @@ static void mcs6000_late_resume(struct early_suspend * h)
 		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
 		mcs6000_ts_on();
 
-				
 		enable_irq(dev->num_irq);
 		DMSG("%s: irq enable\n", __FUNCTION__);
 	}
@@ -1072,8 +1069,6 @@ static int __devinit mcs6000_ts_init(void)
 	int err = 0;
 	struct mcs6000_ts_device *dev;
 	dev = &mcs6000_ts_dev;
-
-
 
 	memset(&mcs6000_ts_dev, 0, sizeof(struct mcs6000_ts_device));
 
