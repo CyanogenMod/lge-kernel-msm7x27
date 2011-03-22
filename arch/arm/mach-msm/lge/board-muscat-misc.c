@@ -47,9 +47,30 @@ static struct platform_device msm_batt_device = {
 
 
 /* muscat Board Vibrator Functions for Android Vibrator Driver */
-#define VIBE_IC_VOLTAGE 3000
-static uint motor_voltage = 3000;
-static uint prev_motor_voltage = 3000;
+//#define VIBE_IC_VOLTAGE 3300
+static uint motor_voltage = 3300;
+static uint prev_motor_voltage = 3300;
+
+
+#define GPIO_LIN_MOTOR_PWM		28
+
+#define GP_MN_CLK_MDIV_REG		0x004C
+#define GP_MN_CLK_NDIV_REG		0x0050
+#define GP_MN_CLK_DUTY_REG		0x0054
+
+/* about 22.93 kHz, should be checked */
+#define GPMN_M_DEFAULT			21
+#define GPMN_N_DEFAULT			4500
+/* default duty cycle = disable motor ic */
+#define GPMN_D_DEFAULT			(GPMN_N_DEFAULT >> 1) 
+#define PWM_MAX_HALF_DUTY		((GPMN_N_DEFAULT >> 1) - 60) /* minimum operating spec. should be checked */
+
+#define GPMN_M_MASK				0x01FF
+#define GPMN_N_MASK				0x1FFF
+#define GPMN_D_MASK				0x1FFF
+
+#define REG_WRITEL(value, reg)	writel(value, (MSM_WEB_BASE+reg))
+
 
 
 extern int aat2870bl_ldo_set_level(struct device * dev, unsigned num, unsigned vol);
@@ -168,18 +189,19 @@ int muscat_vibrator_power_set(int enable)
 	if (enable) {
 		if (is_enabled) {
 			//printk(KERN_INFO "vibrator power was enabled, already\n");
-			
-                       if( prev_motor_voltage != motor_voltage )
-                       {
-                               if (aat28xx_ldo_set_level(dev, 1, motor_voltage) < 0)
-                               {
-                                       printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
-                                       return -EIO;
-                               }
+			if (lge_bd_rev <= LGE_REV_C)
+			{
+				if( prev_motor_voltage != motor_voltage )
+				{
+					if (aat28xx_ldo_set_level(dev, 1, motor_voltage) < 0)
+					{
+						printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
+						return -EIO;
+					}
 
-                               prev_motor_voltage = motor_voltage;
-                       }
-
+					prev_motor_voltage = motor_voltage;
+				}
+			}
 			return 0;
 		}
 
@@ -222,53 +244,56 @@ int muscat_vibrator_power_set(int enable)
 
 int muscat_vibrator_pwm_set(int enable, int amp)
 {
-	
-	
-#if 1 /* for test, jinkyu.choi@lge.com */
-	if (amp >= 100)
-		motor_voltage = 3300;
-	else if (amp >= 90)
-		motor_voltage = 3200;
-	else if (amp >= 80)
-		motor_voltage = 3100;
-	else if (amp >= 70)
-		motor_voltage = 3000;
-	else if (amp >= 60)
-		motor_voltage = 2900;
-	else if (amp >= 50)
-		motor_voltage = 2800;
-	else if (amp >= 40)
-		motor_voltage = 2700;
-	else if (amp >= 30)
-		motor_voltage = 2600;
-	else if (amp >= 20)
-		motor_voltage = 2500;
-	else if (amp >= 10)
-		motor_voltage = 2200;
-	else
-		motor_voltage = 0;
-#endif
 
-#if 0 /* for test, jinkyu.choi@lge.com */
-	if (amp > 100)
-		motor_voltage = 3100;
-	else if (amp > 90)
-		motor_voltage = 2800;
-	else if (amp > 80)
-		motor_voltage = 2500;
-	else if (amp > 70)
-		motor_voltage = 2200;
-	else if (amp > 60)
-		motor_voltage = 1900;
-	else if (amp > 50)
-		motor_voltage = 1600;
-	else if (amp > 40)
-		motor_voltage = 1300;
-	else if (amp > 30)
-		motor_voltage = 1100;
-	else
-		motor_voltage = 0;
-#endif
+
+	if (lge_bd_rev >= LGE_REV_D){
+
+		int gain = ((PWM_MAX_HALF_DUTY*amp) >> 7)+ GPMN_D_DEFAULT;
+
+		REG_WRITEL((GPMN_M_DEFAULT & GPMN_M_MASK), GP_MN_CLK_MDIV_REG);
+		REG_WRITEL((~( GPMN_N_DEFAULT - GPMN_M_DEFAULT )&GPMN_N_MASK), GP_MN_CLK_NDIV_REG);
+
+		if (enable) {
+			REG_WRITEL((gain & GPMN_D_MASK), GP_MN_CLK_DUTY_REG);
+			gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+			gpio_direction_output(GPIO_LIN_MOTOR_PWM, 1);
+		} else {
+			REG_WRITEL(GPMN_D_DEFAULT, GP_MN_CLK_DUTY_REG);
+			/* PWM siganl disable by bongkyu.kim */
+			gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+			gpio_direction_output(GPIO_LIN_MOTOR_PWM, 0);
+		}		
+			
+
+	}else{
+
+	/* for test, jinkyu.choi@lge.com */
+	   if (amp >= 100)
+		   motor_voltage = 3300;
+	   else if (amp >= 90)
+		   motor_voltage = 3200;
+	   else if (amp >= 80)
+		   motor_voltage = 3100;
+	   else if (amp >= 70)
+		   motor_voltage = 3000;
+	   else if (amp >= 60)
+		   motor_voltage = 2900;
+	   else if (amp >= 50)
+		   motor_voltage = 2800;
+	   else if (amp >= 40)
+		   motor_voltage = 2700;
+	   else if (amp >= 30)
+		   motor_voltage = 2600;
+	   else if (amp >= 20)
+		   motor_voltage = 2500;
+	   else if (amp >= 10)
+		   motor_voltage = 2200;
+	   else
+		   motor_voltage = 0;
+
+	}
+
+
 
 	return 0;
 }
@@ -284,7 +309,7 @@ static struct android_vibrator_platform_data muscat_vibrator_data = {
 	.power_set = muscat_vibrator_power_set,
 	.pwm_set = muscat_vibrator_pwm_set,
 	.ic_enable_set = muscat_vibrator_ic_enable_set,
-	.amp_value = 70,
+	.amp_value = 92,
 };
 
 static struct platform_device android_vibrator_device = {
@@ -384,6 +409,17 @@ static struct platform_device *muscat_misc_devices[] __initdata = {
 /* main interface */
 void __init lge_add_misc_devices(void)
 {
+
+	if (lge_bd_rev >= LGE_REV_D)
+	{
+		motor_voltage = 3300;
+		muscat_vibrator_data.amp_value = 92;
+	}else{
+		motor_voltage = 3000;
+		muscat_vibrator_data.amp_value = 70;
+	}
+			
+
 	platform_add_devices(muscat_misc_devices, ARRAY_SIZE(muscat_misc_devices));
 	platform_device_register(&msm_device_pmic_leds);
 }
