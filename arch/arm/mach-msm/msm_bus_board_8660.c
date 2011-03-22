@@ -278,12 +278,12 @@ static struct msm_bus_node_info mmss_fabric_info[]  = {
 	{
 		.id = MSM_BUS_MASTER_MDP_PORT0,
 		.masterp = MSM_BUS_MASTER_PORT_MDP_PORT0,
-		.tier = MSM_BUS_BW_TIER1,
+		.tier = MSM_BUS_BW_TIER2,
 	},
 	{
 		.id = MSM_BUS_MASTER_MDP_PORT1,
 		.masterp = MSM_BUS_MASTER_PORT_MDP_PORT1,
-		.tier = MSM_BUS_BW_TIER1,
+		.tier = MSM_BUS_BW_TIER2,
 	},
 	{
 		.id = MSM_BUS_MMSS_MASTER_ADM1_PORT0,
