@@ -1024,11 +1024,6 @@ static void mcs6000_early_suspend(struct early_suspend * h)
 		disable_irq(dev->num_irq);
 		DMSG("%s: irq disable\n", __FUNCTION__);
 
-#if defined(CONFIG_MACH_MSM7X27_MUSCAT)
-
-		/* touch disable */
-    	gpio_set_value(28, 0);
-#endif
 
 		dev->power(OFF);		
 	}
@@ -1043,12 +1038,6 @@ static void mcs6000_late_resume(struct early_suspend * h)
 	{
 		DMSG(KERN_INFO"%s: start! \n", __FUNCTION__);
 		mcs6000_ts_on();
-
-#if defined(CONFIG_MACH_MSM7X27_MUSCAT)
-
-		/* touch enable */
-    	gpio_set_value(28, 1);
-#endif
 
 				
 		enable_irq(dev->num_irq);
@@ -1085,12 +1074,6 @@ static int __devinit mcs6000_ts_init(void)
 	dev = &mcs6000_ts_dev;
 
 
-#if defined(CONFIG_MACH_MSM7X27_MUSCAT)	
-	/* LGE_CHANGE [james.jang@lge.com] 2010-12-21, set gpio 28 config for touch enable */
-	gpio_tlmm_config(GPIO_CFG(28, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	/* touch enable */
-	gpio_set_value(28, 1);
-#endif
 
 	memset(&mcs6000_ts_dev, 0, sizeof(struct mcs6000_ts_device));
 

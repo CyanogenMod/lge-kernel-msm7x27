@@ -258,6 +258,9 @@ static int ts_set_vreg(unsigned char onoff)
 	}
 
 	if (onoff) {
+
+		if (lge_bd_rev <= LGE_REV_C)
+			gpio_set_value(28, 1);
 		on_off = 0;
 		id = PM_VREG_PDOWN_SYNT_ID;
 		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);
@@ -270,6 +273,8 @@ static int ts_set_vreg(unsigned char onoff)
 		}
 		vreg_enable(vreg_touch);
 	} else {
+		if (lge_bd_rev <= LGE_REV_C)
+			gpio_set_value(28, 0);
 		vreg_disable(vreg_touch);
 		on_off = 1;
 		id = PM_VREG_PDOWN_SYNT_ID;
@@ -324,6 +329,9 @@ static int init_gpio_i2c_pin_touch(struct i2c_gpio_platform_data *i2c_adap_pdata
 		i2c_board_info_data->irq =
 			MSM_GPIO_TO_INT(gpio_i2c_pin.irq_pin);
 	}
+
+	if (lge_bd_rev <= LGE_REV_C)
+		gpio_tlmm_config(GPIO_CFG(28, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
 	return 0;
 }
