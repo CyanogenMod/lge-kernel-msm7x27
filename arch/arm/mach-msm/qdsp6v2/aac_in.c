@@ -33,7 +33,7 @@
 
 
 /* Buffer with meta*/
-#define PCM_BUF_SIZE		(32768 + sizeof(struct meta_in))
+#define PCM_BUF_SIZE		(4096 + sizeof(struct meta_in))
 
 /* Maximum 5 frames in buffer with meta */
 #define FRAME_SIZE		(1 + ((1536+sizeof(struct meta_out_dsp)) * 5))

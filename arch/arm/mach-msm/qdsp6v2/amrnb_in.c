@@ -32,7 +32,7 @@
 #include "audio_utils.h"
 
 /* Buffer with meta*/
-#define PCM_BUF_SIZE		(16384 + sizeof(struct meta_in))
+#define PCM_BUF_SIZE		(4096 + sizeof(struct meta_in))
 
 /* Maximum 10 frames in buffer with meta */
 #define FRAME_SIZE		(1 + ((32+sizeof(struct meta_out_dsp)) * 10))
