@@ -108,6 +108,7 @@ struct pp2106_platform_data {
 	unsigned int keypad_row;
 	unsigned int keypad_col;
 	unsigned char *keycode;
+	int (*power)(unsigned char onoff);
 };
 
 /* atcmd virtual keyboard platform data */
