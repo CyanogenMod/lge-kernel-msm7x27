@@ -51,6 +51,8 @@
 #define MARM_CLK_FS			(MSM_CLK_CTL_BASE + 0x2BD0)
 #define MAHB2_CLK_FS			(MSM_CLK_CTL_BASE + 0x2C24)
 #define PLL_ENA_MARM			(MSM_CLK_CTL_BASE + 0x3500)
+#define PLL8_STATUS			(MSM_CLK_CTL_BASE + 0x3158)
+#define CLK_HALT_MSS_SMPSS_MISC_STATE	(MSM_CLK_CTL_BASE + 0x2FDC)
 
 #define LCC_Q6_FUNC			(MSM_LPASS_CLK_CTL_BASE + 0x001C)
 #define QDSP6SS_RST_EVB			(msm_lpass_qdsp6ss_base + 0x0000)
@@ -58,6 +60,8 @@
 #define QDSP6SS_STRAP_AHB		(msm_lpass_qdsp6ss_base + 0x0020)
 
 #define PPSS_RESET			(MSM_CLK_CTL_BASE + 0x2594)
+#define PPSS_PROC_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2588)
+#define CLK_HALT_DFAB_STATE		(MSM_CLK_CTL_BASE + 0x2FC8)
 
 #define PAS_MODEM	0
 #define PAS_Q6		1
@@ -154,6 +158,9 @@ static int init_image_dsps_untrusted(const u8 *metadata, size_t size)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	dsps_start = ehdr->e_entry;
+	/* Bring memory and bus interface out of reset */
+	writel(0x2, PPSS_RESET);
+	dsb();
 	return 0;
 }
 
@@ -190,6 +197,10 @@ static int reset_modem_untrusted(void)
 	reg = readl(PLL_ENA_MARM);
 	reg |= BIT(8);
 	writel(reg, PLL_ENA_MARM);
+
+	/* Wait for PLL8 to enable */
+	while (!(readl(PLL8_STATUS) & BIT(16)))
+		cpu_relax();
 
 	/* Set MAHB1 divider to Div-5 to run MAHB1,2 and sfab at 79.8 Mhz*/
 	writel(0x4, MAHB1_NS);
@@ -234,12 +245,15 @@ static int reset_modem_untrusted(void)
 	writel(0x0, MAHB0_SFAB_PORT_RESET);
 
 	/* Wait for above clocks to be turned on */
-	mb();
+	while (readl(CLK_HALT_MSS_SMPSS_MISC_STATE) & (BIT(7) | BIT(8) |
+				BIT(9) | BIT(10) | BIT(4) | BIT(6)))
+		cpu_relax();
+
 	/* Setup exception vector table base address */
 	writel(modem_start | 0x1, MARM_BOOT_CONTROL);
 
 	/* Wait for vector table to be setup */
-	mb();
+	dsb();
 
 	/* Bring modem out of reset */
 	writel(0x0, MARM_RESET);
@@ -273,6 +287,7 @@ static int shutdown_modem_untrusted(void)
 
 	/* Put modem into reset */
 	writel(0x1, MARM_RESET);
+	dsb();
 
 	/* Put modem AHB0,1,2 clocks into reset */
 	writel(BIT(0) | BIT(1), MAHB0_SFAB_PORT_RESET);
@@ -368,15 +383,17 @@ static int reset_q6_untrusted(void)
 	writel(reg, LCC_Q6_FUNC);
 
 	/* Wait for clocks to be enabled */
-	mb();
+	dsb();
 	/* Program boot address */
 	writel((q6_start >> 12) & 0xFFFFF, QDSP6SS_RST_EVB);
 
-	writel(Q6_STRAP_TCM_CONFIG | Q6_STRAP_TCM_BASE, QDSP6SS_STRAP_TCM);
-	writel(Q6_STRAP_AHB_UPPER | Q6_STRAP_AHB_LOWER, QDSP6SS_STRAP_AHB);
+	writel(Q6_STRAP_TCM_CONFIG | Q6_STRAP_TCM_BASE,
+			QDSP6SS_STRAP_TCM);
+	writel(Q6_STRAP_AHB_UPPER | Q6_STRAP_AHB_LOWER,
+			QDSP6SS_STRAP_AHB);
 
 	/* Wait for addresses to be programmed before starting Q6 */
-	mb();
+	dsb();
 
 	/* Start Q6 instruction execution */
 	reg &= ~STOP_CORE;
@@ -419,6 +436,10 @@ static int shutdown_q6_trusted(void)
 
 static int reset_dsps_untrusted(void)
 {
+	writel(0x10, PPSS_PROC_CLK_CTL);
+	while (readl(CLK_HALT_DFAB_STATE) & BIT(18))
+		cpu_relax();
+
 	/* Bring DSPS out of reset */
 	writel(0x0, PPSS_RESET);
 	return 0;
@@ -436,7 +457,8 @@ static int shutdown_dsps_trusted(void)
 
 static int shutdown_dsps_untrusted(void)
 {
-	writel(0x3, PPSS_RESET);
+	writel(0x2, PPSS_RESET);
+	writel(0x0, PPSS_PROC_CLK_CTL);
 	return 0;
 }
 
