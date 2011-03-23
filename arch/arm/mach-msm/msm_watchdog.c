@@ -66,10 +66,10 @@ module_param_call(runtime_disable, wdog_enable_set, param_get_int,
 			&runtime_disable, 0644);
 
 /*
- * On the kernel command line specify msm_watchdog.appsbark=0 to handle
- * watchdog barks on the secure side. By default barks are processed by Linux.
+ * On the kernel command line specify msm_watchdog.appsbark=1 to handle
+ * watchdog barks in Linux. By default barks are processed by the secure side.
  */
-static int appsbark = 1;
+static int appsbark;
 module_param(appsbark, int, 0);
 
 /*
