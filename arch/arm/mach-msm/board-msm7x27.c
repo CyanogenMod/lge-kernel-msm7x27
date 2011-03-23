@@ -1957,8 +1957,12 @@ static void __init msm7x2x_init(void)
 
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	kgsl_pdata.pt_va_size = SZ_32M;
+	/* Maximum of 32 concurrent processes */
+	kgsl_pdata.pt_max_count = 32;
 #else
 	kgsl_pdata.pt_va_size = SZ_128M;
+	/* We only ever have one pagetable for everybody */
+	kgsl_pdata.pt_max_count = 1;
 #endif
 #endif
 	usb_mpp_init();

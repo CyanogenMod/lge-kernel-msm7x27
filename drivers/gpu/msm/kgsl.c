@@ -29,7 +29,7 @@
 #include <linux/vmalloc.h>
 #include <linux/notifier.h>
 #include <linux/pm_runtime.h>
-#include <linux/dmapool.h>
+
 #include <asm/atomic.h>
 
 #include <linux/ashmem.h>
@@ -1880,6 +1880,62 @@ error_class_create:
 	return err;
 }
 
+static void
+kgsl_ptpool_cleanup(void)
+{
+	int size = kgsl_driver.ptpool.entries * kgsl_driver.ptsize;
+
+	if (kgsl_driver.ptpool.hostptr)
+		dma_free_coherent(NULL, size, kgsl_driver.ptpool.hostptr,
+				  kgsl_driver.ptpool.physaddr);
+
+
+	kfree(kgsl_driver.ptpool.bitmap);
+
+	memset(&kgsl_driver.ptpool, 0, sizeof(kgsl_driver.ptpool));
+}
+
+/* Allocate memory and structures for the pagetable pool */
+
+static int __devinit
+kgsl_ptpool_init(void)
+{
+	int size = kgsl_driver.ptpool.entries * kgsl_driver.ptsize;
+
+	/* Allocate a large chunk of memory for the page tables */
+
+	kgsl_driver.ptpool.hostptr =
+		dma_alloc_coherent(NULL, size, &kgsl_driver.ptpool.physaddr,
+				   GFP_KERNEL);
+
+	if (kgsl_driver.ptpool.hostptr == NULL) {
+		KGSL_DRV_ERR("pagetable init failed\n");
+		return -ENOMEM;
+	}
+
+	/* Allocate room for the bitmap */
+
+	kgsl_driver.ptpool.bitmap =
+		kzalloc((kgsl_driver.ptpool.entries / BITS_PER_BYTE) + 1,
+			GFP_KERNEL);
+
+	if (kgsl_driver.ptpool.bitmap == NULL) {
+		KGSL_DRV_ERR("pagetable init failed\n");
+		dma_free_coherent(NULL, size, kgsl_driver.ptpool.hostptr,
+				  kgsl_driver.ptpool.physaddr);
+		return -ENOMEM;
+	}
+
+	/* Clear the memory at init time - this saves us having to do
+	   it as page tables are allocated */
+
+	memset(kgsl_driver.ptpool.hostptr, 0, size);
+
+	spin_lock_init(&kgsl_driver.ptpool.lock);
+
+	return 0;
+}
+
 static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 {
 	int i, result = 0;
@@ -1930,10 +1986,12 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	kgsl_driver.ptsize = ALIGN(kgsl_driver.ptsize, KGSL_PAGESIZE);
 
 	kgsl_driver.pt_va_size = pdata->pt_va_size;
+	kgsl_driver.ptpool.entries = pdata->pt_max_count;
 
-	kgsl_driver.ptpool = dma_pool_create("kgsl-ptpool", NULL,
-					     kgsl_driver.ptsize,
-					     4096, 0);
+	result = kgsl_ptpool_init();
+
+	if (result != 0)
+		goto done;
 
 	result = kgsl_drm_init(pdev);
 
@@ -2002,6 +2060,7 @@ static int kgsl_platform_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 
+	kgsl_ptpool_cleanup();
 	kgsl_driver_cleanup();
 	kgsl_drm_exit();
 	kgsl_device_unregister();
