@@ -6660,6 +6660,17 @@ set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 		}
 		res = dev_wlc_ioctl(dev, WLC_GET_AP, &apsta_var, sizeof(apsta_var));
 #else
+#if defined(CONFIG_LGE_BCM432X_PATCH)		//hyeok-test
+		{
+			int arpoe = 0;
+			printk("%s : set arpoe [%d]\n",__func__,arpoe);
+			iolen = bcm_mkiovar("arpoe", (char *)&arpoe, 4, buf, sizeof(buf));
+			if((res = dev_wlc_ioctl(dev, WLC_SET_VAR, buf, iolen)) < 0) {
+				WL_ERROR(("%s fail to set arpoe \n", __FUNCTION__));
+				goto fail;
+			}
+		}
+#endif
 		/*   APSTA MODE ( default ) 2 net_device interfaces */
 		apsta_var = 1;
 		iolen = wl_bssiovar_mkbuf("apsta",
