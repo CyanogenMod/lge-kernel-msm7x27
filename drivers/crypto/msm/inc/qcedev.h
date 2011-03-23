@@ -43,6 +43,10 @@
 
 #define QCEDEV_USE_PMEM		1
 #define QCEDEV_NO_PMEM		0
+
+#define QCEDEV_AES_KEY_128	16
+#define QCEDEV_AES_KEY_192	24
+#define QCEDEV_AES_KEY_256	32
 /**
 *qcedev_oper_enum: Operation types
 * @QCEDEV_OPER_ENC:		Encrypt
@@ -83,7 +87,9 @@ enum qcedev_cipher_mode_enum {
 	QCEDEV_AES_MODE_CBC	= 0,
 	QCEDEV_AES_MODE_ECB	= 1,
 	QCEDEV_AES_MODE_CTR	= 2,
-	QCEDEV_AES_MODE_LAST
+	QCEDEV_DES_MODE_CBC	= 3,
+	QCEDEV_DES_MODE_ECB	= 4,
+	QCEDEV_AES_DES_MODE_LAST
 };
 
 /**

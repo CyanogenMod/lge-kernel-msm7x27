@@ -398,9 +398,11 @@ static int start_cipher_req(struct qcedev_control *podev)
 
 	switch (qcedev_areq->cipher_op_req.mode) {
 	case QCEDEV_AES_MODE_CBC:
+	case QCEDEV_DES_MODE_CBC:
 		creq.mode = QCE_MODE_CBC;
 		break;
 	case QCEDEV_AES_MODE_ECB:
+	case QCEDEV_DES_MODE_ECB:
 		creq.mode = QCE_MODE_ECB;
 		break;
 	case QCEDEV_AES_MODE_CTR:
@@ -1310,6 +1312,57 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 
 }
 
+static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
+						struct qcedev_control *podev)
+{
+	if ((req->entries == 0) || (req->data_len == 0))
+		goto error;
+	if ((req->alg >= QCEDEV_ALG_LAST) ||
+		(req->mode >= QCEDEV_AES_DES_MODE_LAST))
+		goto error;
+	if (req->alg == QCEDEV_ALG_AES) {
+		/* if intending to use HW key make sure key fields are set
+		correctly and HW key is indeed supported in target */
+		if (req->encklen == 0) {
+			int i;
+			for (i = 0; i < QCEDEV_MAX_KEY_SIZE; i++)
+				if (req->enckey[i])
+					goto error;
+			if ((req->op != QCEDEV_OPER_ENC_NO_KEY) &&
+				(req->op != QCEDEV_OPER_DEC_NO_KEY))
+				if (!podev->ce_hw_support.hw_key_support)
+					goto error;
+		} else
+		/* if not using HW key make sure key length is valid */
+			if (!((req->encklen == QCEDEV_AES_KEY_128) ||
+					(req->encklen == QCEDEV_AES_KEY_192) ||
+					(req->encklen == QCEDEV_AES_KEY_256)))
+				goto error;
+	}
+
+	if (req->ivlen != 0)
+		if ((req->mode == QCEDEV_AES_MODE_ECB) ||
+				(req->mode == QCEDEV_DES_MODE_ECB))
+			goto error;
+	return 0;
+error:
+	return -EINVAL;
+
+}
+
+static int qcedev_check_sha_params(struct qcedev_sha_op_req *req)
+{
+	if ((req->entries == 0) || (req->data_len == 0))
+		goto sha_error;
+
+	if (req->alg >= QCEDEV_ALG_SHA_ALG_LAST)
+		goto sha_error;
+
+	return 0;
+sha_error:
+	return -EINVAL;
+}
+
 static int qcedev_ioctl(struct inode *inode, struct file *file,
 			  unsigned cmd, unsigned long arg)
 {
@@ -1351,6 +1404,10 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_CIPHER;
 
+		if (qcedev_check_cipher_params(&qcedev_areq.cipher_op_req,
+				podev))
+			return -EINVAL;
+
 		if (qcedev_areq.cipher_op_req.use_pmem == QCEDEV_USE_PMEM)
 			err = qcedev_pmem_ablk_cipher(&qcedev_areq, podev);
 		else
@@ -1373,7 +1430,8 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 					(void __user *)arg,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
-
+		if (qcedev_check_sha_params(&qcedev_areq.sha_op_req))
+			return -EINVAL;
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
 		err = qcedev_sha_init(&qcedev_areq, podev);
@@ -1391,7 +1449,8 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 					(void __user *)arg,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
-
+		if (qcedev_check_sha_params(&qcedev_areq.sha_op_req))
+			return -EINVAL;
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
 		err = qcedev_sha_update(&qcedev_areq, podev);
@@ -1415,7 +1474,8 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 					(void __user *)arg,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
-
+		if (qcedev_check_sha_params(&qcedev_areq.sha_op_req))
+			return -EINVAL;
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
 		err = qcedev_sha_final(&qcedev_areq, podev);
@@ -1440,7 +1500,8 @@ static int qcedev_ioctl(struct inode *inode, struct file *file,
 					(void __user *)arg,
 					sizeof(struct qcedev_sha_op_req)))
 			return -EFAULT;
-
+		if (qcedev_check_sha_params(&qcedev_areq.sha_op_req))
+			return -EINVAL;
 		qcedev_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 		podev->sha_ctxt = &qcedev_areq.sha_op_req.ctxt;
 		qcedev_sha_init(&qcedev_areq, podev);
@@ -1659,7 +1720,7 @@ static void qcedev_exit(void)
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Mona Hossain <mhossain@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm DEV Crypto driver");
-MODULE_VERSION("1.09");
+MODULE_VERSION("1.10");
 
 module_init(qcedev_init);
 module_exit(qcedev_exit);
