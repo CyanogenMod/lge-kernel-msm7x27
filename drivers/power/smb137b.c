@@ -190,8 +190,8 @@
 
 #define INPUT_CURRENT_REG_DEFAULT	0xE1
 #define INPUT_CURRENT_REG_MIN		0x01
-#define	COMMAND_A_REG_DEFAULT		0x80
-#define	COMMAND_A_REG_OTG_MODE		0x82
+#define	COMMAND_A_REG_DEFAULT		0xA0
+#define	COMMAND_A_REG_OTG_MODE		0xA2
 
 #define	PIN_CTRL_REG_DEFAULT		0x08
 #define	PIN_CTRL_REG_CHG_OFF		0x04
@@ -450,18 +450,20 @@ static int smb137b_start_charging(struct smb137b_data *smb137b_chg,
 
 	smb137b_chg->chgcurrent = chg_current;
 
-	ret = smb137b_write_reg(smb137b_chg->client,
-					PIN_CTRL_REG, PIN_CTRL_REG_DEFAULT);
-	if (ret) {
-		dev_err(&smb137b_chg->client->dev,
-			"%s couldn't write to pin ctrl reg\n", __func__);
-		goto out;
-	}
+	/*Due to non-volatile reload feature,always enable volatile
+	 mirror writes before modifying any 00h~09h control register*/
 	ret = smb137b_write_reg(smb137b_chg->client,
 					COMMAND_A_REG, COMMAND_A_REG_DEFAULT);
 	if (ret) {
 		dev_err(&smb137b_chg->client->dev,
 			"%s couldn't write to command_reg\n", __func__);
+		goto out;
+	}
+	ret = smb137b_write_reg(smb137b_chg->client,
+					PIN_CTRL_REG, PIN_CTRL_REG_DEFAULT);
+	if (ret) {
+		dev_err(&smb137b_chg->client->dev,
+			"%s couldn't write to pin ctrl reg\n", __func__);
 		goto out;
 	}
 
@@ -481,7 +483,7 @@ static int smb137b_start_charging(struct smb137b_data *smb137b_chg,
 		dev_err(&smb137b_chg->client->dev,
 			"%s couldn't read status e reg %d\n", __func__, ret);
 	} else {
-		if (temp && CHARGER_ERROR_STAT) {
+		if (temp & CHARGER_ERROR_STAT) {
 			dev_err(&smb137b_chg->client->dev,
 				"%s chg error E=0x%x\n", __func__, temp);
 			smb137b_dbg_print_status_regs(smb137b_chg);
@@ -536,6 +538,10 @@ static irqreturn_t smb137b_valid_handler(int irq, void *dev_id)
 	struct i2c_client *client = dev_id;
 
 	smb137b_chg = i2c_get_clientdata(client);
+
+	/*extra delay needed to allow CABLE_DET_N settling down and debounce
+	 before	trying to sample its correct value*/
+	usleep_range(1000, 1200);
 	val = gpio_get_value_cansleep(smb137b_chg->valid_n_gpio);
 	if (val < 0) {
 		dev_err(&smb137b_chg->client->dev,

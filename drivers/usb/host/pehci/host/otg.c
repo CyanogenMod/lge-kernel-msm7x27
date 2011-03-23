@@ -125,8 +125,10 @@ int
 phci_resume_wakeup(struct isp1763_dev *dev)
 {
     printk("phci_wakeup_otg_port is called\n");
+#if 0
     hubdev->otgstate = USB_OTG_WAKEUP_ALL;
     if(huburb->status == -EINPROGRESS)
+#endif
         huburb->status = 0;
     /*complete the urb*/
 #if ((defined LINUX_269) || defined (LINUX_2611))

@@ -44,9 +44,6 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* Philips PSC805 audio device */
 	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
 
-	/* Philips ISP1520 Hub */
-	{ USB_DEVICE(0x0471, 0x3526), .driver_info = USB_QUIRK_NO_AUTOSUSPEND },
-
 	/* Artisman Watchdog Dongle */
 	{ USB_DEVICE(0x04b4, 0x0526), .driver_info =
 			USB_QUIRK_CONFIG_INTF_STRINGS },
@@ -87,9 +84,6 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* BUILDWIN Photo Frame */
 	{ USB_DEVICE(0x1908, 0x1315), .driver_info =
 			USB_QUIRK_HONOR_BNUMINTERFACES },
-
-	/* ST-ERICSSON ISP1763 Root-Hub */
-	{ USB_DEVICE(0x1d6b, 0x0002), .driver_info = USB_QUIRK_NO_AUTOSUSPEND },
 
 	/* INTEL VALUE SSD */
 	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
