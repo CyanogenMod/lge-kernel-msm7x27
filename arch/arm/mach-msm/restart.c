@@ -17,6 +17,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/reboot.h>
@@ -45,6 +46,7 @@ static int restart_mode;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 static int in_panic;
+static int reset_detection;
 
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
@@ -69,6 +71,45 @@ static void set_dload_mode(int on)
 		iounmap(dload_mode_addr);
 	}
 }
+
+static int reset_detect_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	int old_val = reset_detection;
+
+	ret = param_set_int(val, kp);
+
+	if (ret)
+		return ret;
+
+	switch (reset_detection) {
+
+	case 0:
+		/*
+		*  Deactivate reset detection. Unset the download mode flag only
+		*  if someone hasn't already set restart_mode to something other
+		*  than RESTART_NORMAL.
+		*/
+		if (restart_mode == RESTART_NORMAL)
+			set_dload_mode(0);
+	break;
+
+	case 1:
+		set_dload_mode(1);
+	break;
+
+	default:
+		reset_detection = old_val;
+		return -EINVAL;
+	break;
+
+	}
+
+	return 0;
+}
+
+module_param_call(reset_detection, reset_detect_set, param_get_int,
+			&reset_detection, 0644);
 #else
 #define set_dload_mode(x) do {} while (0)
 #endif
@@ -97,6 +138,14 @@ void arch_reset(char mode, const char *cmd)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	if (in_panic || restart_mode == RESTART_DLOAD)
 		set_dload_mode(1);
+
+	/*
+	*  If we're not currently panic-ing, and if reset detection is active,
+	*  unset the download mode flag. However, do this only if the current
+	*  restart mode is RESTART_NORMAL.
+	*/
+	if (reset_detection && !in_panic && restart_mode == RESTART_NORMAL)
+		set_dload_mode(0);
 #endif
 
 	printk(KERN_NOTICE "Going down for restart now\n");
