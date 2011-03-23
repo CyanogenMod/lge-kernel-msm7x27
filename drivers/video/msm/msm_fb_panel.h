@@ -145,6 +145,7 @@ struct mipi_panel_info {
 	char stream;	/* 0 or 1 */
 	char mdp_trigger;
 	char dma_trigger;
+	uint32 dsi_pclk_rate;
 };
 
 struct msm_panel_info {
