@@ -691,6 +691,67 @@ static void kr3dh_input_cleanup(struct kr3dh_data *kr)
 	input_free_device(kr->input_dev);
 }
 
+static ssize_t show_enable_value(struct device *dev, 
+		struct device_attribute *attr, char *buf)
+{
+	char strbuf[256];
+	struct i2c_client *client = i2c_verify_client(dev);
+	struct kr3dh_data *kr = i2c_get_clientdata(client);
+	
+	sprintf(strbuf, "%d", atomic_read(&kr->enabled));
+	return sprintf(buf, "%s\n", strbuf);
+}
+
+static ssize_t store_enable_value(struct device *dev, 
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int mode=0;
+	struct i2c_client *client = i2c_verify_client(dev);
+	struct kr3dh_data *kr = i2c_get_clientdata(client);
+	
+	sscanf(buf, "%d", &mode);
+	if (mode) {
+			kr3dh_device_power_on(kr);
+			atomic_set(&kr->enabled, 1);
+			printk(KERN_INFO "Power On Enable\n");
+	}
+	else {
+			kr3dh_device_power_off(kr);
+			atomic_set(&kr->enabled, 0);
+			printk(KERN_INFO "Power Off Disable\n");
+	}
+	return 0;
+}
+
+static ssize_t show_sensordata_value(struct device *dev, 
+		struct device_attribute *attr, char *buf)
+{
+	char strbuf[5];
+	int xyz[3];
+
+	struct i2c_client *client = i2c_verify_client(dev);
+	struct kr3dh_data *kr = i2c_get_clientdata(client);
+
+	kr3dh_get_acceleration_data(kr, xyz);
+	sprintf(strbuf, "%d %d %d", xyz[0], xyz[1], xyz[2]);
+	return sprintf(buf, "%s\n",strbuf);
+}
+
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, show_enable_value, store_enable_value);
+static DEVICE_ATTR(sensordata, S_IRUGO, show_sensordata_value, NULL);
+
+
+static struct attribute *krd_attributes[] = {
+
+	&dev_attr_enable.attr,
+	&dev_attr_sensordata.attr,
+	NULL,
+};
+
+static struct attribute_group krd_attribute_group = {
+	.attrs = krd_attributes,
+};
+
 static int kr3dh_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
@@ -788,6 +849,14 @@ static int kr3dh_probe(struct i2c_client *client,
 		dev_err(&client->dev, "krd_device register failed\n");
 		goto err4;
 	}
+	
+	/* Register sysfs hooks */
+	err = sysfs_create_group(&client->dev.kobj, &krd_attribute_group);
+	if (err) {
+		dev_err(&client->dev, "krd sysfs register failed\n");
+		goto err5;
+	}
+
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	kr3dh_sensor_early_suspend.suspend = kr3dh_early_suspend;
@@ -809,6 +878,8 @@ static int kr3dh_probe(struct i2c_client *client,
 
 	return 0;
 
+err5:	
+	sysfs_remove_group(&client->dev.kobj, &krd_attribute_group);
 err4:
 	kr3dh_input_cleanup(kr);
 err3:
@@ -829,6 +900,7 @@ static int __devexit kr3dh_remove(struct i2c_client *client)
 {
 	/* TODO: revisit ordering here once _probe order is finalized */
 	struct kr3dh_data *kr = i2c_get_clientdata(client);
+	sysfs_remove_group(&client->dev.kobj, &krd_attribute_group);
 
 	misc_deregister(&kr3dh_misc_device);
 	kr3dh_input_cleanup(kr);
