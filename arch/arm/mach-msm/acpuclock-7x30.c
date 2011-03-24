@@ -40,10 +40,9 @@
 #define SCSS_CLK_SEL_ADDR	(MSM_ACC_BASE + 0x08)
 
 #define PLL2_L_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x33C)
-#define PLL2_806_MHZ		42
-#define PLL2_1024_MHZ		53
-#define PLL2_1200_MHZ		125
-#define PLL2_1400_MHZ		73
+#define PLL2_M_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x340)
+#define PLL2_N_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x344)
+#define PLL2_CONFIG_ADDR	(MSM_CLK_CTL_BASE + 0x34C)
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -67,6 +66,13 @@ struct clock_state {
 	struct clk			*ebi1_clk;
 };
 
+struct pll {
+	unsigned int l;
+	unsigned int m;
+	unsigned int n;
+	unsigned int pre_div;
+};
+
 struct clkctl_acpu_speed {
 	unsigned int	acpu_clk_khz;
 	int		src;
@@ -75,19 +81,20 @@ struct clkctl_acpu_speed {
 	unsigned int	axi_clk_hz;
 	unsigned int	vdd_mv;
 	unsigned int	vdd_raw;
+	struct pll	*pll_rate;
 	unsigned long	lpj; /* loops_per_jiffy */
 };
 
 static struct clock_state drv_state = { 0 };
 
-static struct cpufreq_frequency_table freq_table[] = {
-	{ 0, 122880 },
-	{ 1, 245760 },
-	{ 2, 368640 },
-	{ 3, 768000 },
-	/* 806.4MHz is updated to 1024MHz at runtime for MSM8x55. */
-	{ 4, 806400 },
-	{ 5, CPUFREQ_TABLE_END },
+/* Switch to this when reprogramming PLL2 */
+static struct clkctl_acpu_speed *backup_s;
+
+static struct pll pll2_tbl[] = {
+	{  42, 0, 1, 0 }, /*  806 MHz */
+	{  53, 1, 3, 0 }, /* 1024 MHz */
+	{ 125, 0, 1, 1 }, /* 1200 MHz */
+	{  73, 0, 1, 0 }, /* 1401 MHz */
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -111,9 +118,11 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
 	/*
 	 * AXI has MSMC1 implications. See above.
-	 * 806.4MHz is increased to match the SoC's capabilities at runtime
 	 */
-	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1100, VDD_RAW(1100) },
+	{ 806400, PLL_2,    3, 0,  UINT_MAX, 1100, VDD_RAW(1100), &pll2_tbl[0]},
+	{1024000, PLL_2,    3, 0,  UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[1]},
+	{1200000, PLL_2,    3, 0,  UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[2]},
+	{1401600, PLL_2,    3, 0,  UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[3]},
 	{ 0 }
 };
 
@@ -142,6 +151,21 @@ static int acpuclk_set_acpu_vdd(struct clkctl_acpu_speed *s)
 	/* Wait for voltage to stabilize. */
 	udelay(drv_state.vdd_switch_time_us);
 	return 0;
+}
+
+/* Assumes PLL2 is off and the acpuclock isn't sourced from PLL2 */
+static void acpuclk_config_pll2(struct pll *pll)
+{
+	uint32_t config = readl(PLL2_CONFIG_ADDR);
+
+	writel(pll->l, PLL2_L_VAL_ADDR);
+	writel(pll->m, PLL2_M_VAL_ADDR);
+	writel(pll->n, PLL2_N_VAL_ADDR);
+	if (pll->pre_div)
+		config |= BIT(15);
+	else
+		config &= ~BIT(15);
+	writel(config, PLL2_CONFIG_ADDR);
 }
 
 /* Set clock source and divider given a clock speed */
@@ -217,16 +241,31 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 		}
 	}
 
+	/* Move off of PLL2 if we're reprogramming it */
+	if (tgt_s->src == PLL_2 && strt_s->src == PLL_2) {
+		local_src_enable(backup_s->src);
+		acpuclk_set_src(backup_s);
+		local_src_disable(PLL_2);
+	}
+
+	/* Reconfigure PLL2 if we're moving to it */
+	if (tgt_s->src == PLL_2)
+		acpuclk_config_pll2(tgt_s->pll_rate);
+
 	/* Make sure target PLL is on. */
 	if (strt_s->src != tgt_s->src && tgt_s->src >= 0) {
 		dprintk("Enabling PLL %d\n", tgt_s->src);
 		local_src_enable(tgt_s->src);
-	}
+	} else if (tgt_s->src == PLL_2 && strt_s->src == PLL_2)
+		local_src_enable(PLL_2);
 
 	/* Perform the frequency switch */
 	acpuclk_set_src(tgt_s);
 	drv_state.current_speed = tgt_s;
 	loops_per_jiffy = tgt_s->lpj;
+
+	if (tgt_s->src == PLL_2 && strt_s->src == PLL_2)
+		local_src_disable(backup_s->src);
 
 	/* Nothing else to do for SWFI. */
 	if (reason == SETRATE_SWFI)
@@ -298,6 +337,7 @@ static void __init acpuclk_init(void)
 	uint32_t div, sel, src_num;
 	uint32_t reg_clksel, reg_clkctl;
 	int res;
+	u8 pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
 
 	drv_state.ebi1_clk = clk_get(NULL, "ebi1_clk");
 	BUG_ON(IS_ERR(drv_state.ebi1_clk));
@@ -344,6 +384,12 @@ static void __init acpuclk_init(void)
 		return;
 	}
 
+	/* Look at PLL2's L val to determine what speed PLL2 is running at */
+	if (s->src == PLL_2)
+		for ( ; s->acpu_clk_khz; s++)
+			if (s->pll_rate && s->pll_rate->l == pll2_l)
+				break;
+
 	/* Set initial ACPU VDD. */
 	acpuclk_set_acpu_vdd(s);
 
@@ -375,48 +421,47 @@ static void __init lpj_init(void)
 	}
 }
 
-/* Update frequency tables for PLL2. */
+#ifdef CONFIG_CPU_FREQ_MSM
+static struct cpufreq_frequency_table cpufreq_tbl[ARRAY_SIZE(acpu_freq_tbl)];
+
+static void setup_cpufreq_table(void)
+{
+	unsigned i;
+	const struct clkctl_acpu_speed *speed;
+
+	for (i = 0, speed = acpu_freq_tbl; speed->acpu_clk_khz; i++, speed++) {
+		cpufreq_tbl[i].index = i;
+		cpufreq_tbl[i].frequency = speed->acpu_clk_khz;
+	}
+	cpufreq_tbl[i].frequency = CPUFREQ_TABLE_END;
+
+	cpufreq_frequency_table_get_attr(cpufreq_tbl, smp_processor_id());
+}
+#else
+static inline void setup_cpufreq_table(void) { }
+#endif
+
+/*
+ * Truncate the frequency table at the current PLL2 rate and determine the
+ * backup PLL to use when scaling PLL2.
+ */
 void __init pll2_fixup(void)
 {
-	struct clkctl_acpu_speed *speed;
-	struct cpufreq_frequency_table *cpu_freq;
-	u8 pll2_l;
+	struct clkctl_acpu_speed *speed = acpu_freq_tbl;
+	u8 pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
 
-	pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
-	speed = &acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2];
-	cpu_freq = &freq_table[ARRAY_SIZE(freq_table)-2];
-
-	if (speed->acpu_clk_khz != 806400 || cpu_freq->frequency != 806400) {
-		pr_err("Frequency table fixups for PLL2 rate failed.\n");
-		BUG();
+	for ( ; speed->acpu_clk_khz; speed++) {
+		if (speed->src != PLL_2)
+			backup_s = speed;
+		if (speed->pll_rate && speed->pll_rate->l == pll2_l) {
+			speed++;
+			speed->acpu_clk_khz = 0;
+			return;
+		}
 	}
 
-	switch (pll2_l) {
-	case PLL2_1024_MHZ:
-		speed->acpu_clk_khz = 1024000;
-		speed->vdd_mv = 1200;
-		speed->vdd_raw = VDD_RAW(1200);
-		cpu_freq->frequency = 1024000;
-		break;
-	case PLL2_1200_MHZ:
-		speed->acpu_clk_khz = 1200000;
-		speed->vdd_mv = 1200;
-		speed->vdd_raw = VDD_RAW(1200);
-		cpu_freq->frequency = 1200000;
-		break;
-	case PLL2_1400_MHZ:
-		speed->acpu_clk_khz = 1400000;
-		speed->vdd_mv = 1250;
-		speed->vdd_raw = VDD_RAW(1250);
-		cpu_freq->frequency = 1400000;
-		break;
-	case PLL2_806_MHZ:
-		/* No fixup necessary */
-		break;
-	default:
-		pr_err("Unknown PLL2 lval %d\n", pll2_l);
-		BUG();
-	}
+	pr_err("Unknown PLL2 lval %d\n", pll2_l);
+	BUG();
 }
 
 #define RPM_BYPASS_MASK	(1 << 3)
@@ -432,7 +477,5 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	pll2_fixup();
 	acpuclk_init();
 	lpj_init();
-#ifdef CONFIG_CPU_FREQ_MSM
-	cpufreq_frequency_table_get_attr(freq_table, smp_processor_id());
-#endif
+	setup_cpufreq_table();
 }

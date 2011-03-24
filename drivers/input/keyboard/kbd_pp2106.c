@@ -69,6 +69,9 @@ enum {
 #define KEY_SCL_PIN		(pp2106_pdata->scl_pin)
 #define KEY_SDA_PIN		(pp2106_pdata->sda_pin)
 
+#define KEY_IRQ_PIN		(pp2106_pdata->irq_pin)
+#define KEY_RST_PIN		(pp2106_pdata->reset_pin)
+
 #define QWERTY_SDA_OUTPUT()	{ gpio_direction_output(KEY_SDA_PIN, 1); udelay(25);}
 #define QWERTY_SDA_HIGH()	{ gpio_set_value(KEY_SDA_PIN,GPIO_HIGH_VALUE); udelay(25); }
 #define QWERTY_SDA_LOW()	{ gpio_set_value(KEY_SDA_PIN,GPIO_LOW_VALUE); udelay(25); }
@@ -77,6 +80,10 @@ enum {
 #define QWERTY_SCL_OUTPUT()	{ gpio_direction_output(KEY_SCL_PIN, 1); udelay(25); }
 #define QWERTY_SCL_HIGH()	{ gpio_set_value(KEY_SCL_PIN,GPIO_HIGH_VALUE); udelay(25); }
 #define QWERTY_SCL_LOW()	{ gpio_set_value(KEY_SCL_PIN,GPIO_LOW_VALUE); udelay(25); }
+
+#define QWERTY_IRQ_LOW()	{ gpio_set_value(KEY_IRQ_PIN,GPIO_LOW_VALUE); udelay(25); }
+#define QWERTY_IRQ_HIGH()	{ gpio_set_value(KEY_IRQ_PIN,GPIO_HIGH_VALUE); udelay(25); }
+#define QWERTY_RST_LOW()	{ gpio_set_value(KEY_RST_PIN,GPIO_LOW_VALUE); udelay(25); }
 
 /*
  * The qwerty_kbd_record structure consolates all the data/variables
@@ -302,14 +309,30 @@ EXPORT_SYMBOL(qwerty_get_input_dev);
 
 static int pp2106_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	disable_irq_nosync(MSM_GPIO_TO_INT(pp2106_pdata->irq_pin));
+		
+	pp2106_pdata->power(0);
+
+	QWERTY_SDA_LOW();
+	QWERTY_SCL_LOW();
+	QWERTY_IRQ_LOW();
+	QWERTY_RST_LOW();
+	
 	return 0;
 }
 
 static int pp2106_resume(struct platform_device *pdev)
 {
+	pp2106_pdata->power(1);
+
 	/* future capability*/
 	QWERTY_SDA_HIGH();
 	QWERTY_SCL_HIGH();
+	QWERTY_IRQ_HIGH();
+
+	pp2106_hwreset();
+
+	enable_irq(MSM_GPIO_TO_INT(pp2106_pdata->irq_pin));
 
 	return 0;
 }
@@ -359,7 +382,9 @@ static int  __init pp2106_probe(struct platform_device *pdev)
 		if (keycode != KEY_UNKNOWN)
 				set_bit(keycode, pp2106_kbd_dev->keybit);
 	}
-	
+
+	pp2106_pdata->power(1);
+
 	rc = pp2106_config_gpio();
 	if (rc) {
 		printk(KERN_ERR"%s : gpio setting failed\n", __func__);
@@ -378,7 +403,7 @@ static int  __init pp2106_probe(struct platform_device *pdev)
 				"(rc = %d)\n", kbd_name, rc);
 		rc = -EIO;
 	}
-	set_irq_wake(MSM_GPIO_TO_INT(pp2106_pdata->irq_pin), 1);
+	//set_irq_wake(MSM_GPIO_TO_INT(pp2106_pdata->irq_pin), 1);
 
 	rc = input_register_device(pp2106_kbd_dev);
 	if (rc)
