@@ -63,6 +63,7 @@ static void mcs6000_late_resume(struct early_suspend *h);
 #define TOUCH_BACK      248
 
 
+int fw_rev = 0;
 
 static bool running_debug = 0;
 
@@ -738,6 +739,7 @@ static int mcs6000_ts_ioctl(struct inode *inode, struct file *flip,
 					unsigned char fw_ver, hw_ver;
 					mcs6000_firmware_info(&fw_ver, &hw_ver);
 					err = fw_ver;
+					fw_rev = fw_ver;
 					break;
 				}
 				case MCS6000_TS_IOCTL_MAIN_ON:
@@ -799,7 +801,7 @@ static ssize_t read_touch_version(struct device *dev, struct device_attribute *a
 	}
 
 	mcs6000_firmware_info(&fw_ver, &hw_ver);
-	r = sprintf(buf,"MCS6000 Touch Version HW:%02x FW:%02x\n",hw_ver, fw_ver);
+	r = sprintf(buf,"MCS6000 Touch Version HW:%02d FW:%02d ATCMD-FW:%02d\n",hw_ver, fw_ver, fw_rev);
 
 	return r;
 }
