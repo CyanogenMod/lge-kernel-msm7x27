@@ -446,8 +446,8 @@ int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req,
 int mdp4_overlay_blt_offset(struct fb_info *info, int *off);
 int mdp4_mddi_overlay_blt_offset(int *off);
 void mdp4_dsi_overlay_blt(ulong addr);
-void mdp4_dsi_overlay_blt_start(struct msm_fb_data_type *mfd);
-void mdp4_dsi_overlay_blt_stop(struct msm_fb_data_type *mfd);
+int mdp4_dsi_overlay_blt_start(struct msm_fb_data_type *mfd);
+int mdp4_dsi_overlay_blt_stop(struct msm_fb_data_type *mfd);
 void mdp4_mddi_overlay_blt(ulong addr);
 int mdp4_lcdc_overlay_blt_offset(int *off);
 void mdp4_lcdc_overlay_blt(ulong addr);

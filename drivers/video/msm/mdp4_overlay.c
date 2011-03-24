@@ -1742,6 +1742,15 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		return ret;
 	}
 
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+	if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
+		if (mixer == MDP4_MIXER0) {
+			mdp4_dsi_blt_dmap_busy_wait(mfd);
+			mdp4_dsi_overlay_blt_start(mfd);
+		}
+	}
+#endif
+
 	/* return id back to user */
 	req->id = pipe->pipe_ndx;	/* pipe_ndx start from 1 */
 	pipe->req_data = *req;		/* keep original req */
@@ -1801,7 +1810,6 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 		if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
 			if (mfd->panel_power_on) {
-				mdp4_dsi_cmd_dma_busy_wait(mfd);
 				mdp4_dsi_blt_dmap_busy_wait(mfd);
 			}
 		}
@@ -1819,7 +1827,8 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 		if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
 			if (mfd->panel_power_on)
-				mdp4_dsi_cmd_overlay_restore();
+				if (mdp4_dsi_overlay_blt_stop(mfd) == 0)
+					mdp4_dsi_cmd_overlay_restore();
 		}
 #else
 		if (ctrl->panel_mode & MDP4_PANEL_MDDI) {

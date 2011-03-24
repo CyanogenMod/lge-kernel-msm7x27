@@ -436,7 +436,9 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				spin_unlock(&mdp_spin_lock);
 #endif
 			}
+#ifndef CONFIG_FB_MSM_MIPI_DSI
 			complete(&dma->comp);
+#endif
 		}
 		if (isr & INTR_DMA_S_DONE) {
 			mdp4_stat.intr_dma_s++;
