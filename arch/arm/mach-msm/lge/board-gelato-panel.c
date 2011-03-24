@@ -118,7 +118,7 @@ static struct platform_device bl_i2c_device = {
 static struct aat28xx_platform_data aat2870bl_data = {
   .gpio = 82,
   .version = 2862,
-  .initialized = 1,
+  .initialized = 0,
 };
 
 static struct i2c_board_info bl_i2c_bdinfo[] = {

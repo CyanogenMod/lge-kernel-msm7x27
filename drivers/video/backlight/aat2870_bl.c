@@ -438,7 +438,6 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 static void aat28xx_hw_reset(struct aat28xx_driver_data *drvdata)
 {
 	if (drvdata->client && gpio_is_valid(drvdata->gpio)) {
-		gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		/* EN set to LOW(shutdown) -> HIGH(enable) */
 		gpio_set_value(drvdata->gpio, 0);
 		mdelay(20);
