@@ -67,7 +67,6 @@
 
 static int kgsl_g12_start(struct kgsl_device *device, unsigned int init_ram);
 static int kgsl_g12_stop(struct kgsl_device *device);
-static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
 static int kgsl_g12_wait(struct kgsl_device *device,
 				unsigned int timestamp,
 				unsigned int msecs);
@@ -650,7 +649,7 @@ static int kgsl_g12_getproperty(struct kgsl_device *device,
 	return status;
 }
 
-static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
+int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	int status = KGSL_SUCCESS;
 	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
