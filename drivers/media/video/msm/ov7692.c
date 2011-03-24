@@ -370,6 +370,7 @@ static int32_t ov7692_power_down(void)
 }
 static int ov7692_probe_init_done(const struct msm_camera_sensor_info *data)
 {
+	gpio_direction_input(data->sensor_reset);
 	gpio_free(data->sensor_reset);
 	return 0;
 }
@@ -384,9 +385,9 @@ static int ov7692_probe_init_sensor(const struct msm_camera_sensor_info *data)
 	if (!rc) {
 		CDBG("sensor_reset = %d\n", rc);
 		gpio_direction_output(data->sensor_reset, 0);
-		msleep(20);
+		usleep_range(5000, 6000);
 		gpio_set_value_cansleep(data->sensor_reset, 1);
-		msleep(20);
+		usleep_range(5000, 6000);
 	} else {
 		CDBG("gpio reset fail");
 		goto init_probe_done;
@@ -409,6 +410,7 @@ static int ov7692_probe_init_sensor(const struct msm_camera_sensor_info *data)
 init_probe_fail:
 	printk(KERN_INFO " ov7692_probe_init_sensor fails\n");
 	gpio_set_value_cansleep(data->sensor_reset, 0);
+	ov7692_probe_init_done(data);
 init_probe_done:
 	printk(KERN_INFO " ov7692_probe_init_sensor finishes\n");
 	return rc;
@@ -479,7 +481,7 @@ static int ov7692_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	int rc = 0;
-	CDBG("ov7692_probe called!\n");
+	CDBG("ov7692_i2c_probe called!\n");
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		CDBG("i2c_check_functionality failed\n");
@@ -497,13 +499,11 @@ static int ov7692_i2c_probe(struct i2c_client *client,
 	ov7692_init_client(client);
 	ov7692_client = client;
 
-	msleep(50);
-
-	CDBG("ov7692_probe successed! rc = %d\n", rc);
+	CDBG("ov7692_i2c_probe success! rc = %d\n", rc);
 	return 0;
 
 probe_failure:
-	CDBG("ov7692_probe failed! rc = %d\n", rc);
+	CDBG("ov7692_i2c_probe failed! rc = %d\n", rc);
 	return rc;
 }
 
@@ -559,6 +559,8 @@ static int ov7692_sensor_release(void)
 	mutex_lock(&ov7692_mut);
 	ov7692_power_down();
 	gpio_set_value_cansleep(ov7692_ctrl->sensordata->sensor_reset, 0);
+	msleep(5);
+	gpio_direction_input(ov7692_ctrl->sensordata->sensor_reset);
 	gpio_free(ov7692_ctrl->sensordata->sensor_reset);
 	kfree(ov7692_ctrl);
 	ov7692_ctrl = NULL;
