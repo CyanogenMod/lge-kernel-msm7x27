@@ -228,6 +228,36 @@ static boolean mdp_is_hist_start = FALSE;
 #endif
 static DEFINE_MUTEX(mdp_hist_mutex);
 
+int mdp_histogram_ctrl(boolean en)
+{
+	unsigned long flag;
+	boolean hist_start;
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	hist_start = mdp_is_hist_start;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+
+	if (hist_start == TRUE) {
+		if (en == TRUE) {
+			mdp_enable_irq(MDP_HISTOGRAM_TERM);
+			mdp_hist.frame_cnt = 1;
+			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+#ifdef CONFIG_FB_MSM_MDP40
+			MDP_OUTP(MDP_BASE + 0x95010, 1);
+			MDP_OUTP(MDP_BASE + 0x9501c, INTR_HIST_DONE);
+			MDP_OUTP(MDP_BASE + 0x95004, 1);
+			MDP_OUTP(MDP_BASE + 0x95000, 1);
+#else
+			MDP_OUTP(MDP_BASE + 0x94004, 1);
+			MDP_OUTP(MDP_BASE + 0x94000, 1);
+#endif
+			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF,
+					FALSE);
+		} else
+			mdp_disable_irq(MDP_HISTOGRAM_TERM);
+	}
+	return 0;
+}
+
 int mdp_start_histogram(struct fb_info *info)
 {
 	unsigned long flag;
@@ -912,6 +942,7 @@ static struct platform_driver mdp_driver = {
 static int mdp_off(struct platform_device *pdev)
 {
 	int ret = 0;
+	mdp_histogram_ctrl(FALSE);
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	ret = panel_next_off(pdev);
@@ -931,6 +962,7 @@ static int mdp_on(struct platform_device *pdev)
 	}
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 #endif
+	mdp_histogram_ctrl(TRUE);
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	ret = panel_next_on(pdev);

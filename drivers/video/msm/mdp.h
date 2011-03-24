@@ -708,4 +708,5 @@ int mdp_debugfs_init(void);
 void mdp_dma_s_update(struct msm_fb_data_type *mfd);
 int mdp_start_histogram(struct fb_info *info);
 int mdp_stop_histogram(struct fb_info *info);
+int mdp_histogram_ctrl(boolean en);
 #endif /* MDP_H */
