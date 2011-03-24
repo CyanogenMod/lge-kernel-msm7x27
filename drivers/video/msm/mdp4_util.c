@@ -488,7 +488,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 					mdp4_overlay0_done_dsi_cmd(dma);
 #else
 				if (panel & MDP4_PANEL_MDDI)
-					mdp4_overlay0_done_mddi();
+					mdp4_overlay0_done_mddi(dma);
 #endif
 			}
 			mdp_hw_cursor_done();

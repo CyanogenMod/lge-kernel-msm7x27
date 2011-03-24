@@ -420,7 +420,7 @@ void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_pipe_staged(int mixer);
 void mdp4_lcdc_primary_vsyn(void);
 void mdp4_overlay0_done_lcdc(void);
-void mdp4_overlay0_done_mddi(void);
+void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma);
 void mdp4_dma_s_done_mddi(void);
 void mdp4_dma_p_done_mddi(void);
 void mdp4_dma_p_done_dsi(struct mdp_dma_data *dma);

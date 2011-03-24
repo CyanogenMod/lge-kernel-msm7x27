@@ -350,8 +350,18 @@ void mdp4_dma_p_done_mddi(void)
 /*
  * mdp4_overlay0_done_mddi: called from isr
  */
-void mdp4_overlay0_done_mddi()
+void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma)
 {
+	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
+
+	dma->busy = FALSE;
+	complete(&dma->comp);
+	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK,
+			MDP_BLOCK_POWER_OFF, TRUE);
+
+	if (busy_wait_cnt)
+		busy_wait_cnt--;
+
 	if (mddi_pipe->blt_addr) {
 		if (mddi_pipe->blt_cnt == 0) {
 			mdp4_overlayproc_cfg(mddi_pipe);
@@ -369,10 +379,7 @@ void mdp4_overlay0_done_mddi()
 		mddi_pipe->ov_cnt++;
 	}
 
-	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
 
-	if (busy_wait_cnt)
-		busy_wait_cnt--;
 
 }
 
