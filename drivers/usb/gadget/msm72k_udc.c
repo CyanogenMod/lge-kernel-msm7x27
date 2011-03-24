@@ -735,25 +735,81 @@ static void ep0_complete(struct usb_ep *ep, struct usb_request *req)
 		req->complete(&ui->ep0in.ep, req);
 }
 
+static void ep0_status_complete(struct usb_ep *ep, struct usb_request *_req)
+{
+	struct usb_request *req = _req->context;
+	struct msm_request *r;
+	struct msm_endpoint *ept;
+	struct usb_info *ui;
+
+	pr_debug("%s:\n", __func__);
+	if (!req)
+		return;
+
+	r = to_msm_request(req);
+	ept = to_msm_endpoint(ep);
+	ui = ept->ui;
+	_req->context = 0;
+
+	req->complete = r->gadget_complete;
+	req->zero = 0;
+	r->gadget_complete = 0;
+	if (req->complete)
+		req->complete(&ui->ep0in.ep, req);
+
+}
+
+static void ep0_status_phase(struct usb_ep *ep, struct usb_request *req)
+{
+	struct msm_endpoint *ept = to_msm_endpoint(ep);
+	struct usb_info *ui = ept->ui;
+
+	pr_debug("%s:\n", __func__);
+
+	req->length = 0;
+	req->complete = ep0_status_complete;
+
+	/* status phase */
+	if (atomic_read(&ui->ep0_dir) == USB_DIR_IN)
+		usb_ept_queue_xfer(&ui->ep0out, req);
+	else
+		usb_ept_queue_xfer(&ui->ep0in, req);
+}
+
+static void ep0in_send_zero_leng_pkt(struct msm_endpoint *ept)
+{
+	struct usb_info *ui = ept->ui;
+	struct usb_request *req = ui->setup_req;
+
+	pr_debug("%s:\n", __func__);
+
+	req->length = 0;
+	req->complete = ep0_status_phase;
+	usb_ept_queue_xfer(&ui->ep0in, req);
+}
+
 static void ep0_queue_ack_complete(struct usb_ep *ep,
 	struct usb_request *_req)
 {
-	struct msm_request *r = to_msm_request(_req);
 	struct msm_endpoint *ept = to_msm_endpoint(ep);
 	struct usb_info *ui = ept->ui;
 	struct usb_request *req = ui->setup_req;
 
+	pr_debug("%s: _req:%p actual:%d length:%d zero:%d\n",
+			__func__, _req, _req->actual,
+			_req->length, _req->zero);
+
 	/* queue up the receive of the ACK response from the host */
 	if (_req->status == 0 && _req->actual == _req->length) {
-		req->length = 0;
-		if (atomic_read(&ui->ep0_dir) == USB_DIR_IN)
-			usb_ept_queue_xfer(&ui->ep0out, req);
-		else
-			usb_ept_queue_xfer(&ui->ep0in, req);
-		_req->complete = r->gadget_complete;
-		r->gadget_complete = 0;
-		if (_req->complete)
-			_req->complete(&ui->ep0in.ep, _req);
+		req->context = _req;
+		if (atomic_read(&ui->ep0_dir) == USB_DIR_IN) {
+			if (_req->zero && _req->length &&
+					!(_req->length % ep->maxpacket)) {
+				ep0in_send_zero_leng_pkt(&ui->ep0in);
+				return;
+			}
+		}
+		ep0_status_phase(ep, req);
 	} else
 		ep0_complete(ep, _req);
 }
