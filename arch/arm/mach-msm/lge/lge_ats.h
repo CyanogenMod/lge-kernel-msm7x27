@@ -121,6 +121,9 @@
 // yorong drm command
 #define ATCMD_DRMIMEI		84
 #define ATCMD_POWERDOWN		85  // LGE_CHANGE [jinwoonam@lge.com] Powerdown system when no battery
+#define ATCMD_PROXIMITY		95
+#define ATCMD_ACCEL			96
+#define ATCMD_COMPASS		97
 #define ATCMD_MMCFORMAT    129
 #define ATCMD_TOUCHFWVER   130
 

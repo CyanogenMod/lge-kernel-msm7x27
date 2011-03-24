@@ -635,6 +635,32 @@ static ssize_t show_roll_value(struct device *dev,
 	return sprintf(buf, "%d\n", ami304mid_data.roll);
 }
 
+static ssize_t show_enable_value(struct device *dev, 
+		struct device_attribute *attr, char *buf)
+{
+	char strbuf[AMI304_BUFSIZE];
+	sprintf(strbuf, "%d", atomic_read(&ami304_report_enabled));
+	return sprintf(buf, "%s\n", strbuf);
+}
+
+static ssize_t store_enable_value(struct device *dev, 
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int mode=0;
+	sscanf(buf, "%d", &mode);
+	if (mode) {
+			ami304_resume(dev);
+			atomic_set(&ami304_report_enabled, 1);
+			printk(KERN_INFO "Power On Enable\n");
+	}
+	else {
+			ami304_suspend(dev);
+			atomic_set(&ami304_report_enabled, 0);
+			printk(KERN_INFO "Power Off Disable\n");
+	}
+	return 0;
+}
+
 static DEVICE_ATTR(chipinfo, S_IRUGO, show_chipinfo_value, NULL);
 static DEVICE_ATTR(sensordata, S_IRUGO, show_sensordata_value, NULL);
 static DEVICE_ATTR(posturedata, S_IRUGO, show_posturedata_value, NULL);
@@ -645,6 +671,7 @@ static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR, show_mode_value, store_mode_value );
 static DEVICE_ATTR(wia, S_IRUGO, show_wia_value, NULL);
 static DEVICE_ATTR(pitch, S_IRUGO | S_IWUSR, show_pitch_value, NULL);
 static DEVICE_ATTR(roll, S_IRUGO | S_IWUSR, show_roll_value, NULL);
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, show_enable_value, store_enable_value);
 
 static struct attribute *ami304_attributes[] = {
 	&dev_attr_chipinfo.attr,
@@ -658,11 +685,12 @@ static struct attribute *ami304_attributes[] = {
 	/* Test mode attribute */
 	&dev_attr_pitch.attr,
 	&dev_attr_roll.attr,
+	&dev_attr_enable.attr,
 	NULL,
 };
 
 static struct attribute_group ami304_attribute_group = {
-	.attrs = ami304_attributes
+	.attrs = ami304_attributes,
 };
 
 static int ami304_open(struct inode *inode, struct file *file)
