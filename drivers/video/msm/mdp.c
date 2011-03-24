@@ -1022,6 +1022,39 @@ int mdp_set_core_clk(uint16 perf_level)
 	return ret;
 }
 
+unsigned long mdp_get_core_clk(void)
+{
+	unsigned long clk_rate = 0;
+	if (mdp_clk) {
+		mutex_lock(&mdp_clk_lock);
+		clk_rate = clk_get_rate(mdp_clk);
+		mutex_unlock(&mdp_clk_lock);
+	}
+
+	return clk_rate;
+}
+
+unsigned long mdp_perf_level2clk_rate(uint32 perf_level)
+{
+	unsigned long clk_rate = 0;
+
+	if (mdp_pdata && mdp_pdata->mdp_core_clk_table) {
+		if (perf_level > mdp_pdata->num_mdp_clk) {
+			printk(KERN_ERR "%s invalid perf level\n", __func__);
+			clk_rate = mdp_get_core_clk();
+		} else {
+			if (mdp4_extn_disp)
+				perf_level = 1;
+			clk_rate = mdp_pdata->
+				mdp_core_clk_table[mdp_pdata->num_mdp_clk
+					- perf_level];
+		}
+	} else
+		clk_rate = mdp_get_core_clk();
+
+	return clk_rate;
+}
+
 static int mdp_irq_clk_setup(void)
 {
 	int ret;
