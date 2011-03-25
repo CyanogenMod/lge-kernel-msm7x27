@@ -100,7 +100,7 @@
 #include "rpm-regulator.h"
 #include "gpiomux.h"
 #include "gpiomux-8x60.h"
-
+#include "rpm_stats.h"
 #define MSM_SHARED_RAM_PHYS 0x40000000
 
 /* Macros assume PMIC GPIOs start at 0 */
@@ -3520,6 +3520,9 @@ static struct platform_device *surf_devices[] __initdata = {
 
 #if defined(CONFIG_MSM_RPM_LOG) || defined(CONFIG_MSM_RPM_LOG_MODULE)
 	&msm_rpm_log_device,
+#endif
+#if defined(CONFIG_MSM_RPM_STATS_LOG)
+	&msm_rpm_stat_device,
 #endif
 	&msm_device_vidc,
 #if (defined(CONFIG_MARIMBA_CORE)) && \

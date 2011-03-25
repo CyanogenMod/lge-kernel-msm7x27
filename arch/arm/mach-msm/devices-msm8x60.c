@@ -50,6 +50,7 @@
 #endif
 #include <linux/gpio.h>
 #include <mach/mdm.h>
+#include "rpm_stats.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS	0x16000000
@@ -1418,6 +1419,21 @@ struct platform_device msm_device_vidc = {
 	.num_resources = ARRAY_SIZE(msm_device_vidc_resources),
 	.resource = msm_device_vidc_resources,
 };
+
+#if defined(CONFIG_MSM_RPM_STATS_LOG)
+static struct msm_rpmstats_platform_data msm_rpm_stat_pdata = {
+	.phys_addr_base = 0x00107E04,
+	.phys_size = SZ_8K,
+};
+
+struct platform_device msm_rpm_stat_device = {
+	.name = "msm_rpm_stat",
+	.id = -1,
+	.dev = {
+		.platform_data = &msm_rpm_stat_pdata,
+	},
+};
+#endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
 struct platform_device msm_bus_sys_fabric = {
