@@ -129,17 +129,20 @@ u32
 isp1763_reg_read32(struct isp1763_dev *dev, u16 reg, u32 data)
 {
 
+#ifdef DATABUS_WIDTH_16
+	u16 wvalue1, wvalue2;
+#else
+	u8 bval1, bval2, bval3, bval4;
+#endif
 	data = 0;
 	reg <<= 1;
 #ifdef DATABUS_WIDTH_16
-	u16 wvalue1, wvalue2;
 	wvalue1 = readw(dev->baseaddress + ((reg)));
 	wvalue2 = readw(dev->baseaddress + (((reg + 4))));
 	data |= wvalue2;
 	data <<= 16;
 	data |= wvalue1;
 #else
-	u8 bval1, bval2, bval3, bval4;
 
 	bval1 = readb(dev->baseaddress + (reg));
 	bval2 = readb(dev->baseaddress + (reg + 1));
@@ -256,11 +259,6 @@ isp1763_mem_read(struct isp1763_dev *dev, u32 start_add,
 	u32 a = (u32) length;
 	u32 w;
 	u32 w2;
-	u8 bvalue;
-	u16 wvalue;
-	unsigned long ulFlags;
-
-	static int iShowTS = 0;
 
 	if (buffer == 0) {
 		printk("Buffer address zero\n");
@@ -345,7 +343,6 @@ isp1763_mem_write(struct isp1763_dev *dev,
 	u32 start_add, u32 end_add, u32 * buffer, u32 length, u16 dir)
 {
 	int a = length;
-	u8 *temp = (u8 *) buffer;
 	u8 one = (u8) (*buffer);
 	u16 two = (u16) (*buffer);
 
@@ -425,7 +422,7 @@ isp1763_register_driver(struct isp1763_driver *drv)
 		result = drv->probe(dev, drv->id);
 	} else {
 		printk("%s no probe function for indes %d \n", __FUNCTION__,
-			drv->index);
+			(int)drv->index);
 	}
 
 	if (result >= 0) {
@@ -544,7 +541,7 @@ isp1763_module_cleanup(void)
 
 void dummy_mem_read(struct isp1763_dev *dev)
 {
-	u32 w;
+	u32 w = 0;
 	isp1763_reg_write16(dev, HC_MEM_READ_REG, 0x0400);
 	w = isp1763_reg_read16(dev, HC_DATA_REG, w);
 
@@ -577,13 +574,11 @@ static int __devinit
 isp1763_probe(struct platform_device *pdev)
 {
 	u32 reg_data = 0;
-	int retry_count;
 	struct isp1763_dev *loc_dev;
 	int status = 1;
 	u32 hwmodectrl = 0;
 	u16 us_reset_hc = 0;
 	u32 chipid = 0;
-	u32 ureadVal = 0;
 	struct isp1763_platform_data *pdata = pdev->dev.platform_data;
 
 	hal_entry("%s: Entered\n", __FUNCTION__);
@@ -607,7 +602,8 @@ isp1763_probe(struct platform_device *pdev)
 		status = -ENOMEM;
 		goto put_mem_res;
 	}
-	pr_info("%s: ioremap done at: %x\n", __func__, loc_dev->baseaddress);
+	pr_info("%s: ioremap done at: %x\n", __func__,
+					(int)loc_dev->baseaddress);
 	loc_dev->irq = platform_get_irq(pdev, 0);
 	if (!loc_dev->irq) {
 		pr_err("%s: platform_get_irq failed\n", __func__);
@@ -652,7 +648,7 @@ isp1763_probe(struct platform_device *pdev)
 	pr_info("after HC reset, chipid:%x\n", chipid);
 
 	msleep(20);
-	hwmodectrl = isp1763_reg_read16(loc_dev, HC_HW_MODE_REG, hwmodectrl);
+	hwmodectrl = isp1763_reg_read16(loc_dev, HC_HWMODECTRL_REG, hwmodectrl);
 	pr_debug("Mode Ctrl Value b4 setting buswidth: %x\n", hwmodectrl);
 #ifdef DATABUS_WIDTH_16
 	hwmodectrl &= 0xFFEF;	/*enable the 16 bit bus */
@@ -660,10 +656,10 @@ isp1763_probe(struct platform_device *pdev)
 	pr_debug("Setting 8-BIT mode\n");
 	hwmodectrl |= 0x0010;	/*enable the 8 bit bus */
 #endif
-	isp1763_reg_write16(loc_dev, HC_HW_MODE_REG, hwmodectrl);
+	isp1763_reg_write16(loc_dev, HC_HWMODECTRL_REG, hwmodectrl);
 	pr_debug("writing 0x%x to hw mode reg\n", hwmodectrl);
 
-	hwmodectrl = isp1763_reg_read16(loc_dev, HC_HW_MODE_REG, hwmodectrl);
+	hwmodectrl = isp1763_reg_read16(loc_dev, HC_HWMODECTRL_REG, hwmodectrl);
 	msleep(100);
 
 	pr_debug("Mode Ctrl Value after setting buswidth: %x\n", hwmodectrl);

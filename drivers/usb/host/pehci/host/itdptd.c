@@ -21,6 +21,9 @@
 * Author : wired support <wired.support@stericsson.com>
 *
 */
+#ifdef CONFIG_ISO_SUPPORT
+void phcd_clean_periodic_ep(void);
+#endif
 
 #ifdef CONFIG_ISO_SUPPORT
 
@@ -1202,10 +1205,10 @@ void
 phcd_clean_iso_qh(phci_hcd * hcd, struct ehci_qh *qh)
 {
 	unsigned int i = 0;
-	u16 skipmap;
-	struct ehci_sitd *sitd, *current_sitd;
+	u16 skipmap=0;
+	struct ehci_sitd *sitd;
 	struct ehci_itd *itd;
-	struct urb *urb = NULL;
+
 	iso_dbg(ISO_DBG_ERR, "phcd_clean_iso_qh \n");
 	if (!qh){
 		return;
@@ -1296,22 +1299,18 @@ phcd_clean_iso_qh(phci_hcd * hcd, struct ehci_qh *qh)
  */
 
 
-int
-phcd_clean_periodic_ep(){
+void phcd_clean_periodic_ep(void){
 	periodic_ep[0] = NULL;
 	periodic_ep[1] = NULL;
-
 }
 int
 phcd_clean_urb_pending(phci_hcd * hcd, struct urb *urb)
 {
 	unsigned int i = 0;
-	int retval = 0;
 	struct ehci_qh *qhead;
-	struct list_head *sitd_itd_list, *position, *temp;
-	struct ehci_sitd *sitd, *current_sitd;
+	struct ehci_sitd *sitd;
 	struct ehci_itd *itd;
-	u16 skipmap;
+	u16 skipmap=0;;
 
 	iso_dbg(ISO_DBG_ENTRY, "[phcd_clean_urb_pending] : Enter\n");
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
@@ -1411,7 +1410,7 @@ phcd_store_urb_pending(phci_hcd * hcd, int index, struct urb *urb, int *status)
 	if (urb != NULL) {
 		if (periodic_ep[0] != urb->ep && periodic_ep[1] != urb->ep) {
 			if (periodic_ep[0] == NULL) {
-				printk("storing in 0 %x %x\n",urb,urb->pipe);
+				printk("storing in 0 %x %x\n", (int)urb,urb->pipe);
 				periodic_ep[0] = urb->ep;
 			} else if (periodic_ep[1] == NULL) {
 				printk("storing in 1\n");
@@ -1464,8 +1463,12 @@ phcd_store_urb_pending(phci_hcd * hcd, int index, struct urb *urb, int *status)
 	//		if (hcd->periodic_sched < 
 		//		MAX_PERIODIC_SIZE - urb->number_of_packets) {
 			if(1){
-				if (phcd_submit_iso(hcd, urb, 
-					(unsigned int *) &status) == 0) {
+				if (phcd_submit_iso(hcd, 
+					#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+						struct usb_host_endpoint *ep,
+					#endif
+						urb,
+						( unsigned long *) &status) == 0) {
 					pehci_hcd_iso_schedule(hcd, urb);
 				} else{
 				//*status = 0;
@@ -1500,8 +1503,11 @@ phcd_store_urb_pending(phci_hcd * hcd, int index, struct urb *urb, int *status)
 			if (hcd->periodic_sched <=
 				MAX_PERIODIC_SIZE - uiNumofPTDs) {
 
-				if (phcd_submit_iso(hcd, urb, (int *) &status)
-					== 0) {
+				if (phcd_submit_iso(hcd,
+					#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+						struct usb_host_endpoint *ep,
+					#endif
+					urb, (unsigned long *) &status)== 0) {
 
 					pehci_hcd_iso_schedule(hcd, urb);
 				}
@@ -1553,7 +1559,7 @@ phcd_submit_iso(phci_hcd * hcd,
 	unsigned long ep_in, max_pkt, mult;
 	unsigned long bus_time, high_speed, start_frame;
 	unsigned long temp;
-	unsigned long flags, packets;
+	unsigned long packets;
 	/*for high speed device */
 	unsigned int iMicroIndex = 0;
 	unsigned int iNumofSlots = 0;

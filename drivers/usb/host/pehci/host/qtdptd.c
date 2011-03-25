@@ -497,9 +497,6 @@ phci_hcd_qh_link_async(phci_hcd	* hcd, struct ehci_qh *qh, int *status)
 	struct ehci_qtd	*qtd = 0;
 	struct list_head *qtd_list = &qh->qtd_list;
 
-	td_ptd_map_buff_t *ptd_map_buff;
-	td_ptd_map_t *td_ptd_map;
-
 	/*  take the first td, in case we are not able to schedule the new td
 	   and this is going for remove
 	 */
