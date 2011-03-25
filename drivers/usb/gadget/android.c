@@ -357,17 +357,30 @@ void android_register_function(struct android_usb_function *f)
  */
 static void android_set_function_mask(struct android_usb_product *up)
 {
-	int index;
+	int index, found = 0;
 	struct usb_function *func;
 
 	list_for_each_entry(func, &android_config_driver.functions, list) {
 		/* adb function enable/disable handled separetely */
 		if (!strcmp(func->name, "adb"))
 			continue;
-		func->disabled = 1;
+
 		for (index = 0; index < up->num_functions; index++) {
-			if (!strcmp(up->functions[index], func->name))
-				func->disabled = 0;
+			if (!strcmp(up->functions[index], func->name)) {
+				found = 1;
+				break;
+			}
+		}
+
+		if (found) { /* func is part of product. */
+			/* if func is disabled, enable the same. */
+			if (func->disabled)
+				usb_function_set_enabled(func, 1);
+			found = 0;
+		} else { /* func is not part if product. */
+			/* if func is enabled, disable the same. */
+			if (!func->disabled)
+				usb_function_set_enabled(func, 0);
 		}
 	}
 }
@@ -431,7 +444,7 @@ void android_enable_function(struct usb_function *f, int enable)
 	int product_id;
 
 	if (!!f->disabled != disable) {
-		f->disabled = disable;
+		usb_function_set_enabled(f, !disable);
 
 #ifdef CONFIG_USB_ANDROID_RNDIS
 		if (!strcmp(f->name, "rndis")) {
