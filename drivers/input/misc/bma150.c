@@ -573,7 +573,7 @@ static DEVICE_ATTR(mode, S_IRUGO|S_IWUSR|S_IWGRP,
 		bma150_mode_show, bma150_mode_store);
 static DEVICE_ATTR(value, S_IRUGO|S_IWUSR|S_IWGRP,
 		bma150_value_show, NULL);
-static DEVICE_ATTR(delay, S_IRUGO|S_IWUSR|S_IWGRP,
+static DEVICE_ATTR(delay, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
 		bma150_delay_show, bma150_delay_store);
 
 static struct attribute *bma150_attributes[] = {
