@@ -77,6 +77,7 @@ struct usb_mass_storage_platform_data {
 	char *product;
 	int release;
 
+	char can_stall;
 	/* number of LUNS */
 	int nluns;
 };

@@ -19,6 +19,7 @@
 #include <linux/gpio_event.h>
 #include <linux/keyreset.h>
 #include <linux/synaptics_i2c_rmi.h>
+#include <mach/pn544.h>
 #include <mach/gpio.h>
 #include <mach/vreg.h>
 #include <mach/board.h>
@@ -541,6 +542,71 @@ static void __init gelato_init_i2c_prox(int bus_num)
 	platform_device_register(&proxi_i2c_device);
 }
 
+#ifdef CONFIG_PN544_NFC
+// 2011.02.15 jaejoon.park@lge.com NFC registration
+static struct gpio_i2c_pin nfc_i2c_pin[] = {
+	[0] = {
+		.sda_pin	= NFC_GPIO_I2C_SDA,
+		.scl_pin	= NFC_GPIO_I2C_SCL,
+		.reset_pin	= NFC_GPIO_VEN,
+		.irq_pin	= NFC_GPIO_IRQ,
+	},
+};
+
+static struct i2c_gpio_platform_data nfc_i2c_pdata = {
+	.sda_is_open_drain = 0,
+	.scl_is_open_drain = 0,
+	.udelay = 2,
+};
+
+static struct platform_device nfc_i2c_device = {
+	.name = "i2c-gpio",
+	.dev.platform_data = &nfc_i2c_pdata,
+};
+
+static struct pn544_i2c_platform_data nfc_pdata = {
+	.ven_gpio 		= NFC_GPIO_VEN,
+	.irq_gpio 	 	= NFC_GPIO_IRQ,
+	.scl_gpio		= NFC_GPIO_I2C_SCL,
+	.sda_gpio		= NFC_GPIO_I2C_SDA,
+	.firm_gpio		= NFC_GPIO_FRIM,
+};
+
+static struct i2c_board_info nfc_i2c_bdinfo[] = {
+	[0] = {
+		I2C_BOARD_INFO("pn544", NFC_I2C_SLAVE_ADDR),
+		.type = "pn544",
+		.platform_data = &nfc_pdata,
+	},
+};
+
+static void __init gelato_init_i2c_nfc(int bus_num)
+{
+	int ret;
+
+	gpio_tlmm_config(GPIO_CFG(NFC_GPIO_FRIM, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+
+	nfc_i2c_device.id = bus_num;
+	ret = init_gpio_i2c_pin(&nfc_i2c_pdata, nfc_i2c_pin[0],	&nfc_i2c_bdinfo[0]);
+	ret = i2c_register_board_info(bus_num, &nfc_i2c_bdinfo[0], 1);
+	platform_device_register(&nfc_i2c_device);
+}
+// 2011.02.15 jaejoon.park@lge.com End of NFC registration
+#else
+static void gelato_nfc_gpio_sleep_set(void) {
+	gpio_tlmm_config(GPIO_CFG(NFC_GPIO_IRQ, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(NFC_GPIO_VEN, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(NFC_GPIO_FRIM, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(NFC_GPIO_I2C_SDA, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(NFC_GPIO_I2C_SCL, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+}
+#endif
 
 /* common function */
 void __init lge_add_input_devices(void)
@@ -552,5 +618,10 @@ void __init lge_add_input_devices(void)
 	lge_add_gpio_i2c_device(gelato_init_i2c_prox);
 	lge_add_gpio_i2c_device(gelato_init_i2c_ecom);	
 	lge_add_gpio_i2c_device(gelato_init_i2c_acceleration);
+#ifdef CONFIG_PN544_NFC
+	lge_add_gpio_i2c_device(gelato_init_i2c_nfc);
+#else
+	gelato_nfc_gpio_sleep_set();
+#endif
 }
 

@@ -1913,7 +1913,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 
 		pipe->srcp0_ystride = pipe->src_width;
 		pipe->srcp1_ystride = pipe->src_width;
-	} else if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
+	} else if (pipe->fetch_plane == OVERLAY_PLANE_PLANAR) {
 		addr += pipe->src_width * pipe->src_height;
 		pipe->srcp1_addr = addr;
 		addr += ((pipe->src_width / 2) * (pipe->src_height / 2));

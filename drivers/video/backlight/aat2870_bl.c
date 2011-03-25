@@ -281,7 +281,7 @@ static int aat28xx_write(struct i2c_client *client, u8 reg, u8 val)
 	ret = i2c_smbus_write_byte_data(client, reg, val);
 	if (ret != 0) {
 		status = -EIO;
-		eprintk("fail to write(reg=0x%x,val=0x%x)\n", reg, val);
+		eprintk("fail to write(reg=0x%x,val=0x%x,ret=%d)\n", reg, val, ret);
 	}
 
 	return status;
@@ -441,9 +441,9 @@ static void aat28xx_hw_reset(struct aat28xx_driver_data *drvdata)
 		gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		/* EN set to LOW(shutdown) -> HIGH(enable) */
 		gpio_set_value(drvdata->gpio, 0);
-		udelay(5);
+		mdelay(20);
 		gpio_set_value(drvdata->gpio, 1);
-		udelay(5);
+		mdelay(2);
 	}
 }
 

@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.10
-# Thu Mar 24 16:01:41 2011
+# Thu Mar 24 16:02:31 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1010,7 +1010,7 @@ CONFIG_UID_STAT=y
 # CONFIG_TSIF is not set
 # CONFIG_HAPTIC_ISA1200 is not set
 CONFIG_LGE_AT_CMD_DEVICE=y
-# CONFIG_PN544_NFC is not set
+CONFIG_PN544_NFC=y
 # CONFIG_C2PORT is not set
 
 #

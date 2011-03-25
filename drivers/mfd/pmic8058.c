@@ -948,6 +948,14 @@ static int pm8058_probe(struct i2c_client *client,
 	rc = mfd_add_devices(&chip->dev->dev, 0, pdata->sub_devices,
 			     pdata->num_subdevs, NULL, 0);
 
+	/* Add charger sub device with the chip parameter as driver data */
+	if (pdata->charger_sub_device) {
+		pdata->charger_sub_device->driver_data = chip;
+		rc = mfd_add_devices(&chip->dev->dev, 0,
+					pdata->charger_sub_device,
+					1, NULL, 0);
+	}
+
 	if (pdata->init) {
 		rc = pdata->init(chip);
 		if (rc != 0) {
