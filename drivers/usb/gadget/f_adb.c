@@ -322,6 +322,7 @@ requeue_req:
 	if (ret < 0) {
 		atomic_set(&dev->error, 1);
 		r = ret;
+		usb_ep_fifo_flush(dev->ep_out);
 		goto done;
 	}
 	if (!atomic_read(&dev->error)) {
