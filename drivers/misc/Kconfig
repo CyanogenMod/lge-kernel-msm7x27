@@ -549,6 +549,14 @@ config PMIC8058_BATTALARM
 	  Qualcomm PM8058 PMIC chip.  This support allows for configuration of
 	  the alarm module as well as interrupt handling.
 
+config PN544_NFC
+	tristate "NXP PN544 support for Near Field Communication"
+	depends on I2C
+	default n
+	help
+	  NXP PN544 chip has a module to support NFC (Near Field
+	  Communication). This option enables the driver to support it.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

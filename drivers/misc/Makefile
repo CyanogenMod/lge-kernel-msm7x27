@@ -56,3 +56,5 @@ obj-$(CONFIG_LGE_AT_CMD_DEVICE) += lge_ats_at.o
 obj-$(CONFIG_PMIC8058_XOADC) += pmic8058-xoadc.o
 obj-$(CONFIG_PMIC8058_MISC) += pmic8058-misc.o
 obj-$(CONFIG_PMIC8058_BATTALARM) += pmic8058-batt-alarm.o
+
+obj-$(CONFIG_PN544_NFC) += pn544.o
