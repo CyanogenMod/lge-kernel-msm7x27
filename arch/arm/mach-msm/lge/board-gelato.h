@@ -107,6 +107,16 @@
 #define ECOM_GPIO_INT		31
 #define ECOM_I2C_ADDRESS		0x0E /* slave address 7bit */
 
+// 2011.02.15 jaejoon.park@lge.com added GPIO values for NFC
+/* NFC macros */
+#define NFC_GPIO_I2C_SDA		128
+#define NFC_GPIO_I2C_SCL		129
+#define NFC_GPIO_IRQ			126
+#define NFC_GPIO_VEN			98
+#define NFC_GPIO_FRIM			127
+#define NFC_I2C_SLAVE_ADDR		0x28
+// 2011.02.15 jaejoon.park@lge.com End
+
 /* lcd & backlight */
 #define GPIO_LCD_BL_EN		82
 #define GPIO_BL_I2C_SCL		88
