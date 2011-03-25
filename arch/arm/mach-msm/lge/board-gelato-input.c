@@ -480,16 +480,23 @@ static void __init gelato_init_i2c_ecom(int bus_num)
 /* proximity */
 static int prox_power_set(unsigned char onoff)
 {
+	static bool init_done = 0;
+	
 	int ret = 0;
 	struct vreg *gp6_vreg = vreg_get(0, "gp6");
 
 	printk("[Proximity] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
+	
+	if (init_done == 0 && onoff)
+	{
+		if (onoff) {
+			vreg_set_level(gp6_vreg, 2800);
+			vreg_enable(gp6_vreg);
 
-	if (onoff) {
-		vreg_set_level(gp6_vreg, 2800);
-		vreg_enable(gp6_vreg);
-	} else {
-		vreg_disable(gp6_vreg);
+			init_done = 1;
+		} else {
+			vreg_disable(gp6_vreg);
+		}
 	}
 
 	return ret;
