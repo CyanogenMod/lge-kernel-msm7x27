@@ -429,8 +429,11 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	ret = panel_next_off(pdev);
 
 	mutex_lock(&mfd->dma->ov_mutex);
+
 	/* make sure mdp dma is not running */
-	mdp4_dsi_cmd_dma_busy_wait(mfd);
+	if (mfd->panel_info.type == MIPI_CMD_PANEL)
+		mdp4_dsi_cmd_dma_busy_wait(mfd);
+
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
