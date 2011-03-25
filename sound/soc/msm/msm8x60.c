@@ -378,10 +378,10 @@ static int msm_device_put(struct snd_kcontrol *kcontrol,
 				}
 				src_dev_info = audio_dev_ctrl_find_dev(
 						src_dev);
-				if (IS_ERR(dst_dev_info)) {
-					pr_err("dst_dev:%s:pass invalid"
+				if (IS_ERR(src_dev_info)) {
+					pr_err("src_dev:%s:pass invalid"
 						"dev_id\n", __func__);
-					rc = PTR_ERR(dst_dev_info);
+					rc = PTR_ERR(src_dev_info);
 					return rc;
 				}
 				if ((dst_dev_info->opened) &&
@@ -424,10 +424,10 @@ static int msm_device_put(struct snd_kcontrol *kcontrol,
 					}
 					src_dev_info = audio_dev_ctrl_find_dev(
 							src_dev);
-					if (IS_ERR(dst_dev_info)) {
-						pr_err("dst_dev:%s:pass invalid"
+					if (IS_ERR(src_dev_info)) {
+						pr_err("src_dev:%s:pass invalid"
 							"dev_id\n", __func__);
-						rc = PTR_ERR(dst_dev_info);
+						rc = PTR_ERR(src_dev_info);
 						return rc;
 					}
 					pr_debug("%d: Disable afe_loopback\n",
