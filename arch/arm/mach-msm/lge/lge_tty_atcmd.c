@@ -28,7 +28,7 @@
 #define MAX_ATCMD_TTYS	2
 #define BACK_END	0
 #define FRONT_END	1
-#define BUF_SIZE	SZ_8K
+#define BUF_SIZE	SZ_4K
 
 struct buf_fifo {
 	char *buf_addr;
