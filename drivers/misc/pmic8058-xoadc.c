@@ -30,6 +30,7 @@
 #include <linux/delay.h>
 
 #include <mach/mpp.h>
+#include <mach/msm_xo.h>
 
 #define ADC_DRIVER_NAME			"pm8058-xoadc"
 
@@ -68,6 +69,7 @@ struct pmic8058_adc {
 	struct xoadc_conv_state *conv_queue_list;
 	struct adc_conv_slot conv_queue_elements[MAX_QUEUE_LENGTH];
 	int xoadc_num;
+	struct msm_xo_voter *adc_voter;
 };
 
 static struct pmic8058_adc *pmic_adc[XOADC_PMIC_0 + 1];
@@ -130,8 +132,10 @@ static int32_t pm8058_xoadc_arb_cntrl(uint32_t arb_cntrl,
 			ADC_ARB_USRP_CNTRL_RSV5 |
 			ADC_ARB_USRP_CNTRL_RSV4;
 
-	if (arb_cntrl)
+	if (arb_cntrl) {
 		data_arb_cntrl |= ADC_ARB_USRP_CNTRL_EN_ARB;
+		msm_xo_mode_vote(adc_pmic->adc_voter, MSM_XO_MODE_ON);
+	}
 
 	/* Write twice to the CNTRL register for the arbiter settings
 	   to take into effect */
@@ -143,6 +147,9 @@ static int32_t pm8058_xoadc_arb_cntrl(uint32_t arb_cntrl,
 			return rc;
 		}
 	}
+
+	if (!arb_cntrl)
+		msm_xo_mode_vote(adc_pmic->adc_voter, MSM_XO_MODE_OFF);
 
 	return 0;
 }
@@ -611,6 +618,7 @@ static int __devexit pm8058_xoadc_teardown(struct platform_device *pdev)
 	if (adc_pmic->pdata->xoadc_vreg_shutdown != NULL)
 		adc_pmic->pdata->xoadc_vreg_shutdown();
 
+	msm_xo_put(adc_pmic->adc_voter);
 	platform_set_drvdata(pdev, adc_pmic->pm_chip);
 	device_init_wakeup(&pdev->dev, 0);
 	kfree(adc_pmic);
@@ -714,6 +722,15 @@ static int __devinit pm8058_xoadc_probe(struct platform_device *pdev)
 	disable_irq(adc_pmic->adc_irq);
 
 	device_init_wakeup(&pdev->dev, pdata->xoadc_wakeup);
+
+	if (adc_pmic->adc_voter == NULL) {
+		adc_pmic->adc_voter = msm_xo_get(MSM_XO_TCXO_D1,
+							"pmic8058_xoadc");
+		if (IS_ERR(adc_pmic->adc_voter)) {
+			dev_err(&pdev->dev, "Failed to get XO vote\n");
+			goto err_cleanup;
+		}
+	}
 
 	pmic_adc[adc_pmic->xoadc_num] = adc_pmic;
 
