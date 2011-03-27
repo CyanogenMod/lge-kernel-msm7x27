@@ -651,12 +651,12 @@ static ssize_t store_enable_value(struct device *dev,
 	if (mode) {
 			ami304_resume(dev);
 			atomic_set(&ami304_report_enabled, 1);
-			printk(KERN_INFO "Power On Enable\n");
+			printk(KERN_INFO "Compass_Power On\n");
 	}
 	else {
 			ami304_suspend(dev);
 			atomic_set(&ami304_report_enabled, 0);
-			printk(KERN_INFO "Power Off Disable\n");
+			printk(KERN_INFO "Compass_Power Off\n");
 	}
 	return 0;
 }
@@ -1601,6 +1601,9 @@ static void ami304_early_suspend(struct early_suspend *h)
 
 static void ami304_late_resume(struct early_suspend *h)
 {
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-03-25 */
+	AMI304_Chipset_Init(ami304_data.mode, ami304_data.chipset);
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-03-25 */
 	atomic_set(&ami304_report_enabled, 1);
 }
 #endif
