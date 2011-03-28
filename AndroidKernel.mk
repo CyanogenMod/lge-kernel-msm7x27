@@ -43,6 +43,8 @@ $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_CONFIG) $(KERNEL_HEADERS_I
 	mkdir -p $(KERNEL_MODULES_OUT) 
 ifeq ($(TARGET_PRODUCT), lge_gelato)
 	-cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4330/wireless.ko $(KERNEL_MODULES_OUT)
+else ifeq ($(TARGET_PRODUCT), lge_gelato_nfc)
+	-cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4330/wireless.ko $(KERNEL_MODULES_OUT)
 endif
 
 ifeq ($(TARGET_PRODUCT), muscat)
