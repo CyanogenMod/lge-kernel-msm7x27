@@ -246,7 +246,7 @@ static int atcmd_tty_chars_in_buffer(struct tty_struct *tty)
 
 	read_buffer = info->read_buffer;
 	buf_size = read_buffer->size;
-	
+
 	mutex_lock(read_buffer->lock);
 	n_read = buf_size - get_free_space(read_buffer);
 	mutex_unlock(read_buffer->lock);
@@ -257,12 +257,13 @@ static int atcmd_tty_chars_in_buffer(struct tty_struct *tty)
 static int atcmd_tty_tiocmget(struct tty_struct *tty, struct file *file)
 {
 	struct atcmd_tty_info *info = tty->driver_data;
+	struct atcmd_tty_info *other_info = info->other_tty;
 	int status = 0;
 	int result = 0;
 
 	mutex_lock(info->lock);
 
-	status = info->line_status;
+	status = other_info->line_status;
 
 	result = ((status & TIOCM_DTR)  ? TIOCM_DTR  : 0) |  /* DTR is set */
 		((status & TIOCM_RTS)  ? TIOCM_RTS  : 0) |  /* RTS is set */
@@ -281,39 +282,40 @@ static int atcmd_tty_tiocmset(struct tty_struct *tty, struct file *file,
 		unsigned int set, unsigned int clear)
 {
 	struct atcmd_tty_info *info = tty->driver_data;
+	struct atcmd_tty_info *other_info = info->other_tty;
 
 	mutex_lock(info->lock);
 
 	if (set & TIOCM_RI)
-		info->line_status |= TIOCM_RI;
+		other_info->line_status |= TIOCM_RI;
 
 	if (clear & TIOCM_RI)
-		info->line_status &= ~TIOCM_RI;
+		other_info->line_status &= ~TIOCM_RI;
 
 	if (set & TIOCM_CD)
-		info->line_status |= TIOCM_CD;
+		other_info->line_status |= TIOCM_CD;
 
 	if (clear & TIOCM_CD)
-		info->line_status &= ~TIOCM_CD;
+		other_info->line_status &= ~TIOCM_CD;
 
 	/* DTR, RTS, CTS bit set/clear */
 	if (set & TIOCM_DTR)
-		info->line_status |= TIOCM_DTR;
+		other_info->line_status |= TIOCM_DTR;
 
 	if (clear & TIOCM_DTR)
-		info->line_status &= ~TIOCM_DTR;
+		other_info->line_status &= ~TIOCM_DTR;
 
 	if (set & TIOCM_RTS)
-		info->line_status |= TIOCM_RTS;
+		other_info->line_status |= TIOCM_RTS;
 
 	if (clear & TIOCM_RTS)
-		info->line_status &= ~TIOCM_RTS;
+		other_info->line_status &= ~TIOCM_RTS;
 
 	if (set & TIOCM_CTS)
-		info->line_status |= TIOCM_CTS;
+		other_info->line_status |= TIOCM_CTS;
 
 	if (clear & TIOCM_CTS)
-		info->line_status &= ~TIOCM_CTS;
+		other_info->line_status &= ~TIOCM_CTS;
 
 	barrier();
 
