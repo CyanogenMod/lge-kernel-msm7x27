@@ -739,7 +739,7 @@ static int mcs6000_ts_ioctl(struct inode *inode, struct file *flip,
 					unsigned char fw_ver, hw_ver;
 					mcs6000_firmware_info(&fw_ver, &hw_ver);
 					err = fw_ver;
-					fw_rev = fw_ver;
+					fw_rev = fw_ver;					
 					break;
 				}
 				case MCS6000_TS_IOCTL_MAIN_ON:
@@ -968,7 +968,7 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	int err = 0;
 	struct touch_platform_data *ts_pdata;
 	struct mcs6000_ts_device *dev;
-//	unsigned char fw_ver, hw_ver;
+	//unsigned char fw_ver, hw_ver;
 
 	DMSG("%s: start...\n", __FUNCTION__);
 
@@ -1034,8 +1034,8 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	ts_early_suspend.resume = mcs6000_late_resume;
 	ts_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +1 ;
 	register_early_suspend(&ts_early_suspend);
-#endif
-	//mcs6000_firmware_info(&fw_ver, &hw_ver);
+#endif	
+	//mcs6000_firmware_info(&fw_ver, &hw_ver);	
 	mcs6000_create_file(mcs6000_ts_input);  
 	DMSG(KERN_INFO "%s: ts driver probed\n", __FUNCTION__);
 

@@ -43,6 +43,17 @@ static int busy_wait_cnt;
 
 static int vsync_start_y_adjust = 4;
 
+
+#ifdef DSI_CLK_CTRL
+struct timer_list dsi_clock_timer;
+
+static void dsi_clock_tout(unsigned long data)
+{
+	if (mipi_dsi_clk_on)
+		mipi_dsi_clk_disable();
+}
+#endif
+
 static __u32 msm_fb_line_length(__u32 fb_index, __u32 xres, int bpp)
 {
 	/*
@@ -120,6 +131,11 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 		ret = mdp4_overlay_format2pipe(pipe);
 		if (ret < 0)
 			printk(KERN_INFO "%s: format2type failed\n", __func__);
+#ifdef DSI_CLK_CTRL
+		init_timer(&dsi_clock_timer);
+		dsi_clock_timer.function = dsi_clock_tout;
+		dsi_clock_timer.data = (unsigned long) mfd;;
+#endif
 
 		dsi_pipe = pipe; /* keep it */
 		/*
@@ -286,7 +302,16 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 	unsigned long flag;
 	int need_wait = 0;
 
+#ifdef DSI_CLK_CTRL
+	mod_timer(&dsi_clock_timer, jiffies + HZ); /* one second */
+#endif
+
 	spin_lock_irqsave(&mdp_spin_lock, flag);
+#ifdef DSI_CLK_CTRL
+	if (mipi_dsi_clk_on == 0)
+		mipi_dsi_clk_enable();
+#endif
+
 	if (mfd->dma->busy == TRUE) {
 		if (busy_wait_cnt == 0)
 			INIT_COMPLETION(mfd->dma->comp);

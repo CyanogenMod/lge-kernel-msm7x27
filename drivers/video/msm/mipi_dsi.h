@@ -105,6 +105,7 @@ enum {		/* mipi dsi panel */
 #define DSI_CMD_TRIGGER_SW_TE		0x06
 
 extern struct device dsi_dev;
+extern int mipi_dsi_clk_on;
 
 struct dsi_clk_desc {
 	uint32 src;
@@ -201,6 +202,8 @@ void mipi_dsi_cmd_bta_sw_trigger(void);
 void mipi_dsi_ack_err_status(void);
 void mipi_dsi_set_tear_on(struct msm_fb_data_type *mfd);
 void mipi_dsi_set_tear_off(struct msm_fb_data_type *mfd);
+void mipi_dsi_clk_enable(void);
+void mipi_dsi_clk_disable(void);
 
 irqreturn_t mipi_dsi_isr(int irq, void *ptr);
 

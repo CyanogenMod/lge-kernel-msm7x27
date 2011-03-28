@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -135,6 +135,14 @@ int q6asm_audio_client_buf_alloc(unsigned int dir/* 1:Out,0:In */,
 				struct audio_client *ac,
 				unsigned int bufsz,
 				unsigned int bufcnt);
+int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir
+				/* 1:Out,0:In */,
+				struct audio_client *ac,
+				unsigned int bufsz,
+				unsigned int bufcnt);
+
+int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
+			struct audio_client *ac);
 
 int q6asm_open_read(struct audio_client *ac, uint32_t format);
 
@@ -164,9 +172,14 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add,
 int q6asm_run(struct audio_client *ac, uint32_t flags,
 		uint32_t msw_ts, uint32_t lsw_ts);
 
+int q6asm_run_nowait(struct audio_client *ac, uint32_t flags,
+		uint32_t msw_ts, uint32_t lsw_ts);
+
 int q6asm_reg_tx_overflow(struct audio_client *ac, uint16_t enable);
 
 int q6asm_cmd(struct audio_client *ac, int cmd);
+
+int q6asm_cmd_nowait(struct audio_client *ac, int cmd);
 
 void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac,
 				uint32_t *size, uint32_t *idx);

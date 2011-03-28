@@ -57,6 +57,10 @@
 
 #include "define.h"
 
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-03-25 */
+#define BMA250_BUFSIZE 256
+static atomic_t bma250_report_enabled = ATOMIC_INIT(0);
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-03-25 */
 
 bma250_t * p_bma250;
 
@@ -3563,6 +3567,71 @@ static unsigned int bma250_poll(struct file *file, poll_table *wait)
     return mask;
 }
 
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-03-25 */
+static ssize_t show_bma250_enable(struct device *dev, 
+		struct device_attribute *attr, char *buf)
+{
+	char strbuf[BMA250_BUFSIZE];
+	sprintf(strbuf, "%d", atomic_read(&bma250_report_enabled));
+	return sprintf(buf, "%s\n", strbuf);
+}
+
+static ssize_t store_bma250_enable(struct device *dev, 
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int mode=0;
+		
+	sscanf(buf, "%d", &mode);
+
+	if(mode)
+	{
+			bma250_pdata->power(1);
+			atomic_set(&bma250_report_enabled, 1);
+			printk(KERN_INFO "ECCEL_Power On\n");
+	}
+	else {
+			bma250_pdata->power(0);
+			atomic_set(&bma250_report_enabled, 0);
+			printk(KERN_INFO "ECCEL_Power Off\n");
+	}
+	return 0;
+}
+
+
+static ssize_t show_bma250_sensordata(struct device *dev, 
+		struct device_attribute *attr, char *buf)
+{
+	char strbuf[BMA250_BUFSIZE];
+	int x=0,y=0,z=0;
+
+	bma250acc_t acc;
+	
+	bma250_read_accel_xyz(&acc);
+	
+	memset(strbuf, 0x00, BMA250_BUFSIZE);
+	
+	//sprintf(strbuf, "%d %d %d", (int)acc.x, (int)acc.y, (int)acc.z);
+	x=(-(int)acc.x)*4;
+	y=(-(int)acc.y)*4;
+	z=(-(int)acc.z)*4;
+	sprintf(strbuf, "%d %d %d", x, y, z);
+
+	return sprintf(buf, "%s\n", strbuf);
+}
+
+static DEVICE_ATTR(bma250_enable, S_IRUGO | S_IWUSR, show_bma250_enable, store_bma250_enable);
+static DEVICE_ATTR(bma250_sensordata, S_IRUGO, show_bma250_sensordata, NULL);
+
+static struct attribute *bma250_attributes[] = {
+	&dev_attr_bma250_enable.attr,
+	&dev_attr_bma250_sensordata.attr,
+	NULL,
+};
+
+static struct attribute_group bma250_attribute_group = {
+	.attrs = bma250_attributes
+};
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-03-25 */
 
 /*	open command for BMA250 device file	*/
 static int bma250_open(struct inode *inode, struct file *file)
@@ -5495,6 +5564,14 @@ static int bma250_probe(struct i2c_client *client,
 		printk(KERN_ERR "bma250 device register failed\n");
 		goto kfree_exit;
 	}
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-03-25 */	
+	/* Register sysfs hooks */
+	err = sysfs_create_group(&client->dev.kobj, &bma250_attribute_group);
+	if (err) {
+		printk(KERN_ERR "bma250 sysfs register failed\n");
+		goto exit_sysfs_create_group_failed;
+	}
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-03-25 */	
 	printk(KERN_INFO "bma250 device create ok\n");
 
 	/* bma250 sensor initial */
@@ -5542,6 +5619,10 @@ static int bma250_probe(struct i2c_client *client,
 exit_dereg:
     misc_deregister(&bma_device);
 #endif
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-03-25 */
+exit_sysfs_create_group_failed:	
+	sysfs_remove_group(&client->dev.kobj, &bma250_attribute_group);
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-03-25 */
 kfree_exit:
 	kfree(data);
 exit:
@@ -5589,6 +5670,10 @@ static int bma250_resume(struct i2c_client *client)
 static int bma250_remove(struct i2c_client *client)
 {
 	struct bma250_data *data = i2c_get_clientdata(client);
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-03-25 */
+	sysfs_remove_group(&client->dev.kobj, &bma250_attribute_group);
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-03-25 */
+
 #ifdef BMA250_DEBUG
 	printk(KERN_INFO "%s\n",__FUNCTION__);
 #endif	

@@ -43,7 +43,6 @@ struct buffer_rec {
 struct audio_locks {
 	wait_queue_head_t read_wait;
 	wait_queue_head_t write_wait;
-	wait_queue_head_t wait;
 	wait_queue_head_t eos_wait;
 	wait_queue_head_t enable_wait;
 };
@@ -70,12 +69,14 @@ struct msm_audio {
 	int abort; /* set when error, like sample rate mismatch */
 
 	int enabled;
-	int eos_ack;
+	int close_ack;
 	int cmd_ack;
 	atomic_t start;
 	atomic_t out_count;
 	atomic_t in_count;
+	atomic_t out_needed;
 	int periods;
+	int mmap_flag;
 };
 
 struct pcm_session {

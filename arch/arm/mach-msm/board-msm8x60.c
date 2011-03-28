@@ -1439,6 +1439,7 @@ static struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns		= 1,
 	.vendor		= "Qualcomm Incorporated",
 	.product        = "Mass storage",
+	.can_stall	= 1,
 };
 
 static struct platform_device usb_mass_storage_device = {
@@ -1562,9 +1563,101 @@ static int config_gpio_table(enum msm_cam_stat stat)
 	return rc;
 }
 
+#define CAM_BOOSTER_MPP	(0)
+static int config_camera_on_gpios_fluid(void)
+{
+	int rc = 0;
+
+	rc = config_gpio_table(MSM_CAM_ON);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio table request"
+		"failed\n", __func__);
+		return rc;
+	}
+
+	rc = gpio_request(GPIO_EXT_CAMIF_PWR_EN, "CAM_EN");
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio %d request"
+			"failed\n", __func__, GPIO_EXT_CAMIF_PWR_EN);
+		return rc;
+	}
+	gpio_direction_output(GPIO_EXT_CAMIF_PWR_EN, 0);
+	msleep(20);
+	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 1);
+
+
+	/*Enable LED_FLASH_EN*/
+	rc = gpio_request(GPIO_LED_FLASH_EN, "LED_FLASH_EN");
+	if (rc < 0) {
+		printk(KERN_ERR "%s: CAMSENSOR gpio %d request"
+			"failed\n", __func__, GPIO_LED_FLASH_EN);
+
+		config_gpio_table(MSM_CAM_OFF);
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+		gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+		return rc;
+	}
+	gpio_direction_output(GPIO_LED_FLASH_EN, 1);
+	msleep(20);
+
+	/* FLUID: turn on 5V booster */
+	rc = pm8901_mpp_config_digital_out(CAM_BOOSTER_MPP,
+		PM8901_MPP_DIG_LEVEL_MSMIO, 1);
+
+	if (rc) {
+		pr_err("%s: CAM_5V_BOOST_EN failed\n", __func__);
+
+		gpio_direction_output(GPIO_LED_FLASH_EN, 0);
+		gpio_free(GPIO_LED_FLASH_EN);
+		config_gpio_table(MSM_CAM_OFF);
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+		gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+		return  rc;
+	}
+
+	rc = gpio_request(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP),
+		"CAM_5V_BOOST_EN");
+
+	if (rc) {
+		pr_err("%s: camera 5V booster gpio pm8901 mpp1 request"
+		"failed\n", __func__);
+		pm8901_mpp_config_digital_out(CAM_BOOSTER_MPP,
+		PM8901_MPP_DIG_LEVEL_MSMIO, 0);
+		gpio_direction_output(GPIO_LED_FLASH_EN, 0);
+		gpio_free(GPIO_LED_FLASH_EN);
+		config_gpio_table(MSM_CAM_OFF);
+		gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+		gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+		return rc;
+	}
+
+	gpio_direction_output(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP), 1);
+	gpio_set_value(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP), 1);
+	return rc;
+}
+
+static void config_camera_off_gpios_fluid(void)
+{
+	gpio_direction_output(GPIO_LED_FLASH_EN, 0);
+	gpio_free(GPIO_LED_FLASH_EN);
+
+
+	pm8901_mpp_config_digital_out(CAM_BOOSTER_MPP,
+	PM8901_MPP_DIG_LEVEL_MSMIO, 0);
+	gpio_set_value(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP), 0);
+	gpio_free(PM8901_GPIO_PM_TO_SYS(CAM_BOOSTER_MPP));
+
+	config_gpio_table(MSM_CAM_OFF);
+
+	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
+	gpio_free(GPIO_EXT_CAMIF_PWR_EN);
+}
 static int config_camera_on_gpios(void)
 {
 	int rc = 0;
+
+	if (machine_is_msm8x60_fluid())
+		return config_camera_on_gpios_fluid();
 
 	rc = config_gpio_table(MSM_CAM_ON);
 	if (rc < 0) {
@@ -1588,6 +1681,10 @@ static int config_camera_on_gpios(void)
 
 static void config_camera_off_gpios(void)
 {
+	if (machine_is_msm8x60_fluid())
+		return config_camera_off_gpios_fluid();
+
+
 	config_gpio_table(MSM_CAM_OFF);
 
 	gpio_set_value_cansleep(GPIO_EXT_CAMIF_PWR_EN, 0);
@@ -2318,10 +2415,10 @@ static ssize_t tma300_vkeys_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":60:875:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":180:875:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":300:875:90:90"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":420:875:90:90"
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":60:875:90:120"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":180:875:90:120"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":300:875:90:120"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":420:875:90:120"
 	"\n");
 }
 
@@ -4694,17 +4791,18 @@ static struct mfd_cell pm8058_subdevs[] = {
 		.id		= -1,
 	},
 	{
-		.name = "pm8058-charger",
-		.id = -1,
-		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
-		.resources = resources_pm8058_charger,
-	},
-	{
 		.name = "pm8058-misc",
 		.id = -1,
 		.num_resources  = ARRAY_SIZE(resources_pm8058_misc),
 		.resources      = resources_pm8058_misc,
 	},
+};
+
+static struct mfd_cell pm8058_charger_sub_dev = {
+		.name = "pm8058-charger",
+		.id = -1,
+		.num_resources = ARRAY_SIZE(resources_pm8058_charger),
+		.resources = resources_pm8058_charger,
 };
 
 static struct pm8058_platform_data pm8058_platform_data = {
@@ -7432,7 +7530,7 @@ static int mipi_dsi_panel_power(int on)
 			return rc;
 		}
 
-		rc = regulator_set_voltage(ldo0, 3300000, 3300000);
+		rc = regulator_set_voltage(ldo0, 1200000, 1200000);
 		if (rc)
 			goto out;
 
@@ -7444,12 +7542,12 @@ static int mipi_dsi_panel_power(int on)
 	if (on) {
 		/* set ldo0 to HPM */
 		rc = regulator_set_optimum_mode(ldo0, 100000);
-		if (rc)
+		if (rc < 0)
 			goto out;
 	} else {
 		/* set ldo0 to LPM */
 		rc = regulator_set_optimum_mode(ldo0, 9000);
-		if (rc)
+		if (rc < 0)
 			goto out;
 	}
 
@@ -8164,15 +8262,14 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	if (machine_is_msm8x60_charm_surf() || machine_is_msm8x60_charm_ffa())
 		platform_add_devices(charm_devices, ARRAY_SIZE(charm_devices));
 
-	if (machine_is_msm8x60_fluid()) {
-#if defined(CONFIG_SMB137B_CHARGER) || defined(CONFIG_SMB137B_CHARGER_MODULE)
-		/* we dont want to register the pmic charger driver*/
-		pm8058_platform_data.num_subdevs--;
-#endif
+	if (!machine_is_msm8x60_fluid())
+		pm8058_platform_data.charger_sub_device
+			= &pm8058_charger_sub_dev;
+
 #if defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
+	if (machine_is_msm8x60_fluid())
 		platform_device_register(&msm_gsbi10_qup_spi_device);
 #endif
-	}
 
 	if (!machine_is_msm8x60_sim())
 		msm_fb_add_devices();
