@@ -35,6 +35,20 @@
 
 static const char *kbd_name  = "pp2106"; 
 
+#define PP2106_EARLY_SUSPEND
+
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+#include <linux/earlysuspend.h>
+
+static struct early_suspend kbd_early_suspend;
+static void pp2106_early_suspend(struct early_suspend *h);
+static void pp2106_late_resume(struct early_suspend *h);
+#endif
+#endif
+
+
 /* add extern value for AT_CMD GKPD
  * 2010-05-02 younchan.kim@lge.com
  */
@@ -317,7 +331,7 @@ static int pp2106_suspend(struct platform_device *pdev, pm_message_t state)
 	QWERTY_SCL_LOW();
 	QWERTY_IRQ_LOW();
 	QWERTY_RST_LOW();
-	
+	printk("[pp2106] %s() ............ \n",__FUNCTION__);
 	return 0;
 }
 
@@ -333,9 +347,56 @@ static int pp2106_resume(struct platform_device *pdev)
 	pp2106_hwreset();
 
 	enable_irq(MSM_GPIO_TO_INT(pp2106_pdata->irq_pin));
+	printk("[pp2106] %s() ............ \n",__FUNCTION__);
 
 	return 0;
 }
+
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+static void pp2106_early_suspend(struct early_suspend * h)
+{
+
+	if(lge_bd_rev < LGE_REV_C)
+		return;
+		
+
+	disable_irq_nosync(MSM_GPIO_TO_INT(pp2106_pdata->irq_pin));
+
+	pp2106_pdata->power(0);
+
+	QWERTY_SDA_LOW();
+	QWERTY_SCL_LOW();
+	QWERTY_IRQ_LOW();
+	QWERTY_RST_LOW();
+
+	printk("[pp2106] %s() ............ \n",__FUNCTION__);
+}
+
+static void pp2106_late_resume(struct early_suspend * h)
+{
+
+	if(lge_bd_rev < LGE_REV_C)
+		return;
+	
+	pp2106_pdata->power(1);
+
+	/* future capability*/
+	QWERTY_SDA_HIGH();
+	QWERTY_SCL_HIGH();
+	QWERTY_IRQ_HIGH();
+
+	pp2106_hwreset();
+
+	enable_irq(MSM_GPIO_TO_INT(pp2106_pdata->irq_pin));
+	printk("[pp2106] %s() ............ \n",__FUNCTION__);
+
+}
+#endif
+#endif
+
+
 
 static int  __init pp2106_probe(struct platform_device *pdev)
 {
@@ -408,6 +469,18 @@ static int  __init pp2106_probe(struct platform_device *pdev)
 	rc = input_register_device(pp2106_kbd_dev);
 	if (rc)
 		printk(KERN_ERR"%s : input_register_device failed\n", __func__);
+	
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	if(lge_bd_rev >= LGE_REV_C)
+	{
+		kbd_early_suspend.suspend = pp2106_early_suspend;
+		kbd_early_suspend.resume = pp2106_late_resume;
+		kbd_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +1 ;
+		register_early_suspend(&kbd_early_suspend);
+	}
+#endif	
+#endif
 
 	return rc;
 }
