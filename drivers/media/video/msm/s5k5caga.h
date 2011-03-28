@@ -81,6 +81,8 @@ struct lgcam_rear_sensor_reg {
 	uint16_t AF_macro_reg_settings_size;	
 	const struct lgcam_rear_sensor_i2c_reg_conf *manual_focus_reg_settings;
 	uint16_t manual_focus_reg_settings_size;	
+	const struct lgcam_rear_sensor_i2c_reg_conf *CAF_reg_settings;
+	uint16_t CAF_reg_settings_size;
 
 	/*register for ISO*/
 	const struct lgcam_rear_sensor_i2c_reg_conf *iso_auto_reg_settings;
@@ -119,7 +121,8 @@ enum lgcam_rear_sensor_focus_mode {
 	FOCUS_AUTO,
 	FOCUS_MANUAL,
 	FOCUS_RECT,
-	FOCUS_CONTINUOUS,
+	FOCUS_CONTINUOUS_VIDEO,
+	FOCUS_CONTINUOUS_CAMERA,	
 };
 
 /* this value is defined in Android native camera */
