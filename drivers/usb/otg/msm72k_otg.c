@@ -55,7 +55,7 @@ static int is_host(void)
 	else if (dev->pdata->otg_mode == OTG_ID)
 		return (OTGSC_ID & readl(USB_OTGSC)) ? 0 : 1;
 	else
-		return (dev->otg.state >= OTG_STATE_A_IDLE);
+		return !test_bit(ID, &dev->inputs);
 }
 
 static int is_b_sess_vld(void)
@@ -65,7 +65,7 @@ static int is_b_sess_vld(void)
 	if (dev->pdata->otg_mode == OTG_ID)
 		return (OTGSC_BSV & readl(USB_OTGSC)) ? 1 : 0;
 	else
-		return (dev->otg.state == OTG_STATE_B_PERIPHERAL);
+		return test_bit(B_SESS_VLD, &dev->inputs);
 }
 
 static unsigned ulpi_read(struct msm_otg *dev, unsigned reg)
