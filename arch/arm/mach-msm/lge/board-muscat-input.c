@@ -48,10 +48,9 @@ static int pp2106_set_power(unsigned char onoff)
 	static int is_enabled = 0;
 	struct vreg *vreg_gp6;
 
-#ifdef CONFIG_MACH_MSM7X27_MUSCAT
 	if (lge_bd_rev < LGE_REV_C)
 		return 0;
-#endif
+
 	
 	vreg_gp6 = vreg_get(NULL, "gp6");
 	
