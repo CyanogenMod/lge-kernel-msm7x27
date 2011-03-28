@@ -30,6 +30,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/scm-io.h>
 #include <mach/scm.h>
+#include "msm_watchdog.h"
 
 #define TCSR_WDT_CFG 0x30
 
@@ -80,8 +81,8 @@ module_param(appsbark, int, 0);
 static int print_all_stacks = 1;
 module_param(print_all_stacks, int,  S_IRUGO | S_IWUSR);
 
-static void pet_watchdog(struct work_struct *work);
-static DECLARE_DELAYED_WORK(dogwork_struct, pet_watchdog);
+static void pet_watchdog_work(struct work_struct *work);
+static DECLARE_DELAYED_WORK(dogwork_struct, pet_watchdog_work);
 
 static int msm_watchdog_suspend(void)
 {
@@ -182,10 +183,15 @@ done:
 	return ret;
 }
 
-static void pet_watchdog(struct work_struct *work)
+void pet_watchdog(void)
 {
 	writel(1, WDT0_RST);
 	last_pet = sched_clock();
+}
+
+static void pet_watchdog_work(struct work_struct *work)
+{
+	pet_watchdog();
 
 	if (enable)
 		schedule_delayed_work(&dogwork_struct, delay_time);
@@ -297,7 +303,6 @@ static int __init init_watchdog(void)
 		return ret;
 	}
 
-	INIT_DELAYED_WORK(&dogwork_struct, pet_watchdog);
 	schedule_delayed_work(&dogwork_struct, delay_time);
 
 	atomic_notifier_chain_register(&panic_notifier_list,
