@@ -48,7 +48,6 @@ static int pp2106_set_power(unsigned char onoff)
 	static int is_enabled = 0;
 	struct vreg *vreg_gp6;
 
-
 	if (lge_bd_rev < LGE_REV_C)
 		return 0;
 

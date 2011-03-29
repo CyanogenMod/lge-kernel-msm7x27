@@ -6136,6 +6136,44 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const manual_focus_mode_reg_s
 	{0x002A, 0x0254, WORD_LEN},
 
 };
+static const struct lgcam_rear_sensor_i2c_reg_conf const caf_reg_settings_array[] = {
+	// AF Lens Position Table Settings 
+	{0x002A, 0x1074, WORD_LEN},
+	{0x0F12, 0x001E, WORD_LEN}, //#af_pos_usTableLastInd// 30 Steps
+	{0x0F12, 0x0028, WORD_LEN}, //#af_pos_usTable_0_// af_pos_usTable
+	{0x0F12, 0x002A, WORD_LEN}, //#af_pos_usTable_1_
+	{0x0F12, 0x002C, WORD_LEN}, //#af_pos_usTable_2_
+	{0x0F12, 0x002E, WORD_LEN}, //#af_pos_usTable_3_
+	{0x0F12, 0x0030, WORD_LEN}, //#af_pos_usTable_4_
+	{0x0F12, 0x0032, WORD_LEN}, //#af_pos_usTable_5_
+	{0x0F12, 0x0034, WORD_LEN}, //#af_pos_usTable_6_
+	{0x0F12, 0x0036, WORD_LEN}, //#af_pos_usTable_7_
+	{0x0F12, 0x0038, WORD_LEN}, //#af_pos_usTable_8_
+	{0x0F12, 0x003A, WORD_LEN}, //#af_pos_usTable_9_
+	{0x0F12, 0x003C, WORD_LEN}, //#af_pos_usTable_10_
+	{0x0F12, 0x003E, WORD_LEN}, //#af_pos_usTable_11_
+	{0x0F12, 0x0040, WORD_LEN}, //#af_pos_usTable_12_
+	{0x0F12, 0x0042, WORD_LEN}, //#af_pos_usTable_13_
+	{0x0F12, 0x0044, WORD_LEN}, //#af_pos_usTable_14_
+	{0x0F12, 0x0046, WORD_LEN}, //#af_pos_usTable_15_
+	{0x0F12, 0x0048, WORD_LEN}, //#af_pos_usTable_16_
+	{0x0F12, 0x004A, WORD_LEN}, //#af_pos_usTable_17_
+	{0x0F12, 0x004C, WORD_LEN}, //#af_pos_usTable_18_
+	{0x0F12, 0x004E, WORD_LEN}, //#af_pos_usTable_19_
+	{0x0F12, 0x0050, WORD_LEN}, //#af_pos_usTable_20_
+	{0x0F12, 0x0052, WORD_LEN}, //#af_pos_usTable_21_
+	{0x0F12, 0x0054, WORD_LEN}, //#af_pos_usTable_22_
+	{0x0F12, 0x0056, WORD_LEN}, //#af_pos_usTable_23_
+	{0x0F12, 0x0058, WORD_LEN}, //#af_pos_usTable_24_
+	{0x0F12, 0x005A, WORD_LEN}, //#af_pos_usTable_25_
+	{0x0F12, 0x005C, WORD_LEN}, //#af_pos_usTable_26_
+	{0x0F12, 0x005E, WORD_LEN}, //#af_pos_usTable_27_
+	{0x0F12, 0x0060, WORD_LEN}, //#af_pos_usTable_28_
+	{0x0F12, 0x0062, WORD_LEN}, //#af_pos_usTable_29_
+	{0x0F12, 0x0064, WORD_LEN}, //#af_pos_usTable_30_
+	//{0xFFFF, 0x0, WORD_LEN}, //transfer buffer
+
+};
 
 static const struct lgcam_rear_sensor_i2c_reg_conf const iso_mode_auto_reg_settings_array[] = {
 	// CAMTUNING_ISO_AUTO
@@ -6539,6 +6577,8 @@ struct lgcam_rear_sensor_reg lgcam_rear_sensor_regs = {
 	
 	.manual_focus_reg_settings = manual_focus_mode_reg_settings_array,
 	.manual_focus_reg_settings_size = ARRAY_SIZE(manual_focus_mode_reg_settings_array),
+	.CAF_reg_settings = caf_reg_settings_array,
+	.CAF_reg_settings_size = ARRAY_SIZE(caf_reg_settings_array), 
 	
 	.iso_auto_reg_settings = iso_mode_auto_reg_settings_array,
 	.iso_auto_reg_settings_size = ARRAY_SIZE(iso_mode_auto_reg_settings_array),
