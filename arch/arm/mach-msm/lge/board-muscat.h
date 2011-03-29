@@ -117,20 +117,6 @@
 
 #define BL_POWER_SUSPEND 0
 #define BL_POWER_RESUME  1
-/* bluetooth gpio pin */
-enum {
-	BT_WAKE         = 42,
-	BT_RFR          = 43,
-	BT_CTS          = 44,
-	BT_RX           = 45,
-	BT_TX           = 46,
-	BT_PCM_DOUT     = 68,
-	BT_PCM_DIN      = 69,
-	BT_PCM_SYNC     = 70,
-	BT_PCM_CLK      = 71,
-	BT_HOST_WAKE    = 83,
-	BT_RESET_N			= 123,
-};
 
 /* for desk dock
  * 2010-07-05, dongjin.ha@lge.com
