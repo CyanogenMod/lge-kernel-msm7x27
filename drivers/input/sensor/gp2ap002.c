@@ -46,7 +46,7 @@
  * usage: echo [mask_value] > /sys/module/gp2ap002/parameters/debug_mask
  * All		: 127
  * No msg	: 0
- * default	: 2
+ * default	: 24
  */
 enum {
 	GP2AP_DEBUG_ERR_CHECK		= 1U << 0,
@@ -59,17 +59,8 @@ enum {
 	GP2AP_DEBUG_INTR_DELAY		= 1U << 7,
 };
 
-static unsigned int gp2ap_debug_mask = GP2AP_DEBUG_USER_ERROR;
-
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-#include <linux/earlysuspend.h>
-
-struct early_suspend gp2ap_sensor_early_suspend;
-static void gp2ap_early_suspend(struct early_suspend *h);
-static void gp2ap_late_resume(struct early_suspend *h);
-static atomic_t gp2ap_report_enabled = ATOMIC_INIT(0);
-#endif
-
+static unsigned int gp2ap_debug_mask = GP2AP_DEBUG_DEV_STATUS | \
+					GP2AP_DEBUG_DEV_DEBOUNCE;
 
 module_param_named(debug_mask, gp2ap_debug_mask, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
@@ -363,10 +354,6 @@ gp2ap_report_event(int state)
 	if (GP2AP_DEBUG_FUNC_TRACE & gp2ap_debug_mask)
 		PROXD("entry\n");
 
-	#if defined(CONFIG_HAS_EARLYSUSPEND)
-		if(!atomic_read(&gp2ap_report_enabled))
-			return;
-	#endif
 	input_state = (state == PROX_SENSOR_DETECT_N) ? PROX_INPUT_FAR : PROX_INPUT_NEAR;
 
 	input_report_abs(gp2ap_pdev->input_dev, ABS_DISTANCE, input_state);
@@ -766,12 +753,6 @@ gp2ap_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	pdata->power(1);
 	udelay(60);
 
-	#if defined(CONFIG_HAS_EARLYSUSPEND)
-	gp2ap_sensor_early_suspend.suspend = gp2ap_early_suspend;
-	gp2ap_sensor_early_suspend.resume = gp2ap_late_resume;
-	register_early_suspend(&gp2ap_sensor_early_suspend);
-	atomic_set(&gp2ap_report_enabled, 1);
-	#endif
 	/* set up registers according to VOUT output mode */
 	ret = gp2ap_device_initialise();
 	if (GP2AP_DEBUG_ERR_CHECK & gp2ap_debug_mask) {
@@ -854,22 +835,8 @@ gp2ap_i2c_remove(struct i2c_client *client)
 	if (GP2AP_DEBUG_FUNC_TRACE & gp2ap_debug_mask)
 		PROXD("exit\n");
 
-	#if defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_early_suspend(&gp2ap_sensor_early_suspend);
-	#endif
 	return 0;
 }
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-static void gp2ap_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&gp2ap_report_enabled, 0);
-}
-
-static void gp2ap_late_resume(struct early_suspend *h)
-{
-	atomic_set(&gp2ap_report_enabled, 1);
-}
-#endif
 
 static int
 gp2ap_suspend(struct i2c_client *i2c_dev, pm_message_t state)
