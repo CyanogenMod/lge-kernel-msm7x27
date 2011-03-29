@@ -124,13 +124,18 @@ To do:
 
 Limitations:
 ===============
-(1) Do not load this driver if your device has user space apps that needs to
+(1) Each packet transfer size (for cipher and hash) is limited to maximum of
+    32KB.  This is a limitation in the crypto engine hardware. Client will
+    have to break packets larger than 32KB into multiple requests of smaller
+    size data packets.
+
+(2) Do not load this driver if your device has user space apps that needs to
     access the crypto hardware. Please make sure to have the qcrypto module
     disabled/unloaded.
     Not having the driver loaded, will result in the kernel space apps to use
     the registered software implementation of the crypto algorithms.
 
-(2) If your device has Playready application enabled and uses the qcedev module
+(3) If your device has Playready application enabled and uses the qcedev module
     to access the crypto hardware accelarator, please be informed that for
     performance reasons, the CE hardware will need to be dedicated to playready
     application.  Any other user space or kernel application should be implemented

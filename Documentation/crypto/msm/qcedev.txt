@@ -182,8 +182,7 @@ qce driver. Please see Documentation/arm/msm/qce.txt.
 User space utilities:
 =====================
 
-The kernel-tests/qcedev_test is the test code to test the driver. It provides
-a reference to show users how to use the API.
+none
 
 Known issues:
 =============
