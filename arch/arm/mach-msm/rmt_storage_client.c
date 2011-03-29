@@ -312,7 +312,6 @@ static int rmt_storage_event_open_cb(struct rmt_storage_event *event_args,
 		goto free_rs_client;
 	}
 	memcpy(event_args->path, path, len);
-	pr_info("open partition %s\n", event_args->path);
 
 	rs_client->sid = rmt_storage_get_sid(event_args->path);
 	if (!rs_client->sid) {
@@ -323,13 +322,14 @@ static int rmt_storage_event_open_cb(struct rmt_storage_event *event_args,
 	}
 	strncpy(rs_client->path, event_args->path, MAX_PATH_NAME);
 
-	cid = find_first_zero_bit(&rmc->cids, sizeof(rmc->cids));
+	cid = find_first_zero_bit(&rmc->cids, sizeof(rmc->cids) * 8);
 	if (cid > MAX_NUM_CLIENTS) {
 		pr_err("%s: Max clients are reached\n", __func__);
 		cid = 0;
 		return cid;
 	}
 	__set_bit(cid, &rmc->cids);
+	pr_info("open partition %s handle=%d\n", event_args->path, cid);
 
 #ifdef CONFIG_MSM_RMT_STORAGE_CLIENT_STATS
 	stats = &client_stats[cid - 1];
