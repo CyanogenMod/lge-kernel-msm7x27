@@ -45,6 +45,8 @@ char * android_errhanlder_ptr = NULL;
 
 int LGE_ErrorHandler_Main( int crash_side, char * message)
 {
+
+#ifndef CONFIG_MACH_MSM7X27_MUSCAT
 	/*
 	 * 2011-03-10, jinkyu.choi@lge.com
 	 * add the reboot reason as chargerlogo reboot when the crash occures.
@@ -60,6 +62,7 @@ int LGE_ErrorHandler_Main( int crash_side, char * message)
 #endif
 	*reboot_panic = (unsigned)0x776655BB;
 	iounmap(reboot_panic);
+#endif
 
 #if 0
 	if (hidden_reset_enable) {
