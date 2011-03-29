@@ -100,7 +100,7 @@ static int mipi_dsi_mxo_selected(void)
 	uint32 data;
 
 	cc = (uint32 *)(mmss_cc_base + 0x004c);
-	data = MIPI_INP(cc);
+	data = MIPI_INP_SECURE(cc);
 
 	if (data & BIT(14))
 		return 1;
@@ -122,68 +122,40 @@ static void mipi_dsi_clk(int on, struct dsi_clk_desc *clk)
 	val = clk->d * 2;
 	data = (~val) & 0x0ff;
 	data |= clk->m << 8;
-	MIPI_OUTP(md, data);
+	MIPI_OUTP_SECURE(md, data);
 
 	val = clk->n - clk->m;
 	data = (~val) & 0x0ff;
 	data <<= 24;
 	data |= clk->src;
-	MIPI_OUTP(ns, data);
+	MIPI_OUTP_SECURE(ns, data);
 
 	/*
 	 * mxo, bypass, mnd_en, root_en, clk_en
 	 * */
-	MIPI_OUTP(cc, 0x0145);
+	MIPI_OUTP_SECURE(cc, 0x0145);
 }
 #else
 
 static void mipi_dsi_clk(int on)
 {
-	char	*cc, *ns, *md, *vec;
-	unsigned long data;
+	char	*cc, *ns, *md;
 
 	cc = mmss_cc_base + 0x004c;
 	md = mmss_cc_base + 0x0050;
 	ns = mmss_cc_base + 0x0054;
-	vec = mmss_cc_base + 0x01d0;
-
-	if (mipi_dsi_mxo_selected())
-		data = 0x180;	/* mxo, dual edge mode */
-	else
-		data = 0x80;	/* pxo, dual edge mode */
 
 	if (on) {
-		MIPI_OUTP(md, 0x1fd);
-		MIPI_OUTP(ns, 0xff000003);
+		if (mipi_dsi_mxo_selected())
+			MIPI_OUTP_SECURE(cc, 0x125);	/* mxo */
+		else
+			MIPI_OUTP_SECURE(cc, 0x25);	/* pxo */
 
-		data |= 0x20;	/* MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x04;	/* ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x01;	/* CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is on */
-		data = MIPI_INP(vec);
-		while (data & 0x04)	/* DSI_CLK_OFF */
-			data = MIPI_INP(vec);
-	} else {
-		data |=  0x24;	/* ~CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x04;	/* ~ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x20;	/* ~MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is off */
-		data = MIPI_INP(vec);
-		while ((data & 0x04) == 0) /* DSI_CLK_OFF */
-			data = MIPI_INP(vec);
-	}
+		MIPI_OUTP_SECURE(md, 0x1fd);
+		MIPI_OUTP_SECURE(ns, 0xff000003);
+
+	} else
+		MIPI_OUTP_SECURE(cc, 0);
 
 }
 #endif
@@ -204,47 +176,18 @@ static void mipi_dsi_sfpb_cfg(void)
 
 static void mipi_dsi_pclk(int on)
 {
-	char	*cc, *ns, *md, *vec;
-	unsigned long data;
+	char	*cc, *ns, *md;
 
 	cc = mmss_cc_base + 0x0130;
 	md = mmss_cc_base + 0x0134;
 	ns = mmss_cc_base + 0x0138;
-	vec = mmss_cc_base + 0x01d0;
 
-	data = 0x80;	/* dual edge mode */
 	if (on) {
-		MIPI_OUTP(md, 0x1fb);
-		MIPI_OUTP(ns, 0xfd0003);
-
-		data |= 0x20;	/* MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x04;	/* ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x01;	/* CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is on */
-		data = MIPI_INP(vec);
-		while (data & 0x40)	/* DSI_PIXEL_CLK_OFF */
-			data = MIPI_INP(vec);
-	} else {
-		data |=  0x24;	/* ~CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x04;	/* ~ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x20;	/* ~MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is off */
-		data = MIPI_INP(vec);
-		while ((data & 0x40) == 0) /* DSI_PIXEL_CLK_OFF */
-			data = MIPI_INP(vec);
-	}
+		MIPI_OUTP_SECURE(cc, 0x2a5);
+		MIPI_OUTP_SECURE(md, 0x1fb);
+		MIPI_OUTP_SECURE(ns, 0xfd0003);
+	} else
+		MIPI_OUTP_SECURE(cc, 0);
 }
 
 static void mipi_dsi_ahb_en(void)
@@ -253,7 +196,8 @@ static void mipi_dsi_ahb_en(void)
 
 	ahb = mmss_cc_base + 0x08;
 
-	printk(KERN_INFO "%s: ahb=%x %x\n", __func__, (int) ahb, MIPI_INP(ahb));
+	printk(KERN_INFO "%s: ahb=%x %x\n",
+		__func__, (int) ahb, MIPI_INP_SECURE(ahb));
 }
 
 static void mipi_dsi_calibration(void)
@@ -689,7 +633,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		MSM_FB_INFO("mmss_sfpb  base phy_addr = 0x%x virt = 0x%x\n",
 				MMSS_SFPB_BASE_PHY, (int) mmss_sfpb_base);
 
-		if (!mmss_cc_base)
+		if (!mmss_sfpb_base)
 			return -ENOMEM;
 
 		rc = request_irq(DSI_IRQ, mipi_dsi_isr, IRQF_DISABLED,
