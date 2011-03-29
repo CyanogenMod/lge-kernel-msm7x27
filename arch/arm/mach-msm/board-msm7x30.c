@@ -89,6 +89,7 @@
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/sdio_al.h>
 #include "smd_private.h"
+#include <linux/bma150.h>
 
 #define MSM_PMEM_SF_SIZE	0x1700000
 #define MSM_FB_SIZE		0x500000
@@ -119,6 +120,10 @@
 
 #define PMIC_GPIO_FLASH_BOOST_ENABLE	15	/* PMIC GPIO Number 16 */
 #define PMIC_GPIO_HAP_ENABLE   16  /* PMIC GPIO Number 17 */
+
+#define PMIC_GPIO_WLAN_EXT_POR  22 /* PMIC GPIO NUMBER 23 */
+
+#define BMA150_GPIO_INT 1
 
 #define HAP_LVL_SHFT_MSM_GPIO 24
 
@@ -3036,6 +3041,81 @@ static struct msm_hdmi_platform_data adv7520_hdmi_data = {
 	.check_hdcp_hw_support = hdmi_check_hdcp_hw_support,
 };
 
+#ifdef CONFIG_BOSCH_BMA150
+static struct vreg *vreg_gp6;
+static int sensors_ldo_enable(void)
+{
+	int rc;
+
+	/*
+	 * Enable the VREGs L8(gp7), L15(gp6)
+	 * for I2C communication with sensors.
+	 */
+	pr_info("sensors_ldo_enable called!!\n");
+	vreg_gp7 = vreg_get(NULL, "gp7");
+	if (IS_ERR(vreg_gp7)) {
+		pr_err("%s: vreg_get gp7 failed\n", __func__);
+		rc = PTR_ERR(vreg_gp7);
+		goto fail_gp7_get;
+	}
+
+	rc = vreg_set_level(vreg_gp7, 1800);
+	if (rc) {
+		pr_err("%s: vreg_set_level gp7 failed\n", __func__);
+		goto fail_gp7_level;
+	}
+
+	rc = vreg_enable(vreg_gp7);
+	if (rc) {
+		pr_err("%s: vreg_enable gp7 failed\n", __func__);
+		goto fail_gp7_level;
+	}
+
+	vreg_gp6 = vreg_get(NULL, "gp6");
+	if (IS_ERR(vreg_gp6)) {
+		pr_err("%s: vreg_get gp6 failed\n", __func__);
+		rc = PTR_ERR(vreg_gp6);
+		goto fail_gp6_get;
+	}
+
+	rc = vreg_set_level(vreg_gp6, 2800);
+	if (rc) {
+		pr_err("%s: vreg_set_level gp6 failed\n", __func__);
+		goto fail_gp6_level;
+	}
+
+	rc = vreg_enable(vreg_gp6);
+	if (rc) {
+		pr_err("%s: vreg_enable gp6 failed\n", __func__);
+		goto fail_gp6_level;
+	}
+
+	return 0;
+
+fail_gp6_level:
+	vreg_put(vreg_gp6);
+fail_gp6_get:
+	vreg_disable(vreg_gp7);
+fail_gp7_level:
+	vreg_put(vreg_gp7);
+fail_gp7_get:
+	return rc;
+}
+
+static void sensors_ldo_disable(void)
+{
+	pr_info("sensors_ldo_disable called!!\n");
+	vreg_disable(vreg_gp6);
+	vreg_put(vreg_gp6);
+	vreg_disable(vreg_gp7);
+	vreg_put(vreg_gp7);
+}
+static struct bma150_platform_data bma150_data = {
+	.power_on = sensors_ldo_enable,
+	.power_off = sensors_ldo_disable,
+};
+#endif
+
 static struct i2c_board_info msm_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("m33c01", OPTNAV_I2C_SLAVE_ADDR),
@@ -3046,6 +3126,14 @@ static struct i2c_board_info msm_i2c_board_info[] = {
 		I2C_BOARD_INFO("adv7520", 0x72 >> 1),
 		.platform_data = &adv7520_hdmi_data,
 	},
+#ifdef CONFIG_BOSCH_BMA150
+	{
+		I2C_BOARD_INFO("bma150", 0x38),
+		.flags = I2C_CLIENT_WAKE,
+		.irq = MSM_GPIO_TO_INT(BMA150_GPIO_INT),
+		.platform_data = &bma150_data,
+	},
+#endif
 };
 
 static struct i2c_board_info msm_marimba_board_info[] = {
