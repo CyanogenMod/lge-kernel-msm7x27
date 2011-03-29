@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
@@ -119,6 +120,7 @@ enum sc_src {
 static struct clock_state {
 	struct clkctl_acpu_speed	*current_speed[NR_CPUS];
 	struct clkctl_l2_speed		*current_l2_speed;
+	spinlock_t			l2_lock;
 	struct mutex			lock;
 	uint32_t			acpu_switch_time_us;
 	uint32_t			vdd_switch_time_us;
@@ -499,6 +501,7 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	struct clkctl_acpu_speed *tgt_s, *strt_s;
 	struct clkctl_l2_speed *tgt_l2;
 	unsigned int vdd_mem, vdd_dig, pll_vdd_dig;
+	unsigned long flags;
 	int rc = 0;
 
 	if (cpu > num_possible_cpus()) {
@@ -557,8 +560,10 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	switch_sc_speed(cpu, tgt_s);
 
 	/* Update the L2 vote and apply the rate change. */
+	spin_lock_irqsave(&drv_state.l2_lock, flags);
 	tgt_l2 = compute_l2_speed(cpu, tgt_s->l2_level);
 	set_l2_speed(tgt_l2);
+	spin_unlock_irqrestore(&drv_state.l2_lock, flags);
 
 	/* Nothing else to do for SWFI. */
 	if (reason == SETRATE_SWFI)
@@ -775,6 +780,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	int cpu;
 
 	mutex_init(&drv_state.lock);
+	spin_lock_init(&drv_state.l2_lock);
 	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 
