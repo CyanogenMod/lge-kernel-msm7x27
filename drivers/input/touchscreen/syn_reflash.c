@@ -19,9 +19,8 @@
  *
  */
 
-#include "synaptics_abstractionlayer.h"
-#include "synaptics_firmwareimage.h"
-#include "synaptics_reflash.h"
+#include "syn_fw.h"
+#include "syn_reflash.h"
 
 #include <linux/delay.h>
 
@@ -39,7 +38,6 @@ struct RMI4FunctionDescriptor SynaPdtF34Flash;
 struct RMI4FunctionDescriptor SynaPdtF01Common;
 
 /* vars used for flashing image and configuration */
-int   SynaRet;
 unsigned short SynaBootloadID;
 unsigned short SynabootloadImgID;
 unsigned char  SynafirmwareImgVersion;
@@ -50,7 +48,6 @@ unsigned short SynafirmwareBlockCount;
 unsigned short SynaconfigBlockSize;
 unsigned short SynaconfigBlockCount;
 unsigned char  SynauPageData[0x200];
-unsigned char  SynauStatus;
 unsigned long  SynafirmwareImgSize;
 unsigned long  SynaconfigImgSize;
 unsigned long  SynafileSize;
@@ -76,53 +73,169 @@ extern int is_fw_reflash;
  * Functions to read the register format and determine how to initialize the
  * flash format register addresses which vary from one format to another.
  */
-unsigned int SynaIsExpectedRegFormat()
+#include <linux/delay.h>
+#include <mach/gpio.h>
+
+struct i2c_client *syn_touch_client;
+
+#define SYNAPTICS_ATTN_GPIO	92
+
+/* Special defined error codes used by Synaptics - the OEM should not define any error codes the same. */
+
+int wait_attn(unsigned long MilliSeconds)
 {
-  /* Flash Properties query 1: registration map format version 1
-   *                        0: registration map format version 0
-   */
-  SynaRet = SynaReadRegister(SynauF34ReflashQuery_FlashPropertyQuery, &SynauPageData[0], 1);
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaIsExpectedRegFormat- SynauF34ReflashQuery_FlashPropertyQuery = 0x%x\n",SynauPageData[0]);
-  return ((unsigned int)((SynauPageData[0] & 0x01) == 0x01));
+	int trialTime=0;
+	while((gpio_get_value(SYNAPTICS_ATTN_GPIO)!=0))
+	{
+		if(trialTime < MilliSeconds)
+			trialTime++;
+		else
+		{
+			printk(KERN_INFO "SynaWaitForATTN time over!!\n");
+			break;
+		}
+
+		msleep(1);
+	}
+
+	if(gpio_get_value(SYNAPTICS_ATTN_GPIO)==0)
+	{
+		return 0;
+	}
+
+	return -1;
+}
+
+int write_reg(unsigned short   uRmiAddress, unsigned char  *data, unsigned int     length)
+{
+	s32 smbus_ret;
+	u16 data_word;
+
+	if(uRmiAddress>0xFF) {
+		printk("Error SMB Address\n");
+		return -1;
+	}
+
+	if(length>0xFF) {
+		printk("Error SMB Length\n");
+		return -1;
+	}
+
+	switch(length)
+	{
+		case 1:
+			smbus_ret=i2c_smbus_write_byte_data(syn_touch_client,(u8)uRmiAddress,*data);
+			break;
+		case 2:
+			data_word=data[1]*0x100+data[0];
+			smbus_ret=i2c_smbus_write_word_data(syn_touch_client,(u8)uRmiAddress,data_word);
+			break;
+		default:
+			smbus_ret=i2c_smbus_write_i2c_block_data(syn_touch_client,(u8)uRmiAddress,(u8)length, data);
+			break;
+	}
+
+	if(smbus_ret>=0)  //if smbus success
+	{
+		return 0;
+	}
+
+	printk("smbbus write error : err_code:%d\n",smbus_ret);
+	return smbus_ret;
+}
+
+int read_reg(unsigned short  uRmiAddress, unsigned char * data, unsigned int length)
+{
+	s32 smbus_ret;
+	struct i2c_msg msg[2];
+	uint8_t start_reg;
+
+	if(uRmiAddress>0xFF) {
+		printk("Error SMB Address\n");
+		return -1;
+	}
+
+	if(length>0xFF) {
+		printk("Error SMB Length\n");
+		return -1;
+	}
+
+	if(length==1)
+	{
+		smbus_ret=i2c_smbus_read_byte_data(syn_touch_client,(u8)uRmiAddress);
+		*data=(u8)smbus_ret;
+	}
+	else
+	{
+		msg[0].addr = syn_touch_client->addr;
+		msg[0].flags = 0;
+		msg[0].len = 1;
+		msg[0].buf = &start_reg;
+		start_reg = (u8)uRmiAddress;
+		msg[1].addr = syn_touch_client->addr;
+		msg[1].flags = I2C_M_RD;
+		msg[1].len = length;
+		msg[1].buf = data;
+
+		smbus_ret = i2c_transfer(syn_touch_client->adapter, msg, 2);
+	}
+
+	if(smbus_ret >= 0)  //if smbus success
+		return 0;
+
+	printk("smbbus read error  error number:%d\n",smbus_ret);
+	return smbus_ret;
 }
 
 /* This function gets the firmware block size, block count and image size */
-void SynaReadFirmwareInfo()
+int firmware_info()
 {
   unsigned char uData[2];
+  int ret;
 
-  SynaRet = SynaReadRegister(SynauF34ReflashQuery_FirmwareBlockSize, &uData[0], 2);
+  ret = read_reg(SynauF34ReflashQuery_FirmwareBlockSize, &uData[0], 2);
+  if (ret != 0)
+	  return -1;
   SynafirmwareBlockSize = uData[0] | (uData[1] << 8);
 
-  SynaRet = SynaReadRegister(SynauF34ReflashQuery_FirmwareBlockCount, &uData[0], 2);
+  ret = read_reg(SynauF34ReflashQuery_FirmwareBlockCount, &uData[0], 2);
+  if (ret != 0)
+	  return -1;
   SynafirmwareBlockCount = uData[0] | (uData[1] << 8);
 
   SynafirmwareImgSize = SynafirmwareBlockCount*SynafirmwareBlockSize;
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadFirmwareInfo -SynafirmwareBlockSize=0x%x \n",SynafirmwareBlockSize);
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadFirmwareInfo -SynafirmwareBlockCount=0x%x \n",SynafirmwareBlockCount);
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadFirmwareInfo -SynafirmwareImgSize=0x%lx \n",SynafirmwareImgSize);
+  printk(KERN_INFO "firmwareImgSize=0x%lx \n",SynafirmwareImgSize);
+
+  return 0;
 }
 
 /* This function gets config block count, config block size and image size */
-void SynaReadConfigInfo()
+int config_info()
 {
   unsigned char uData[2];
+  int ret;
 
-  SynaRet = SynaReadRegister(SynauF34ReflashQuery_ConfigBlockSize, &uData[0], 2);
+  ret = read_reg(SynauF34ReflashQuery_ConfigBlockSize, &uData[0], 2);
   SynaconfigBlockSize = uData[0] | (uData[1] << 8);
 
-  SynaRet = SynaReadRegister(SynauF34ReflashQuery_ConfigBlockCount, &uData[0], 2);
+  ret = read_reg(SynauF34ReflashQuery_ConfigBlockCount, &uData[0], 2);
   SynaconfigBlockCount = uData[0] | (uData[1] << 8);
 
   SynaconfigImgSize = SynaconfigBlockSize*SynaconfigBlockCount;
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadConfigInfo -SynaconfigBlockSize=0x%x \n",SynaconfigBlockSize);
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadConfigInfo -SynaconfigBlockCount=0x%x \n",SynaconfigBlockCount);
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadConfigInfo -SynaconfigImgSize=0x%lx \n",SynaconfigImgSize);
+  printk(KERN_INFO "configImgSize=0x%lx \n",SynaconfigImgSize);
+
+  return ret;
 }
 
-void SynaSetFlashAddrForDifFormat()
+int set_flash_addr()
 {
-  if (SynaIsExpectedRegFormat())
+  unsigned int RegFormat;
+  int ret;
+
+  ret = read_reg(SynauF34ReflashQuery_FlashPropertyQuery, &SynauPageData[0], 1);
+  RegFormat = ((unsigned int)((SynauPageData[0] & 0x01) == 0x01));
+
+  if (RegFormat)
   {
     SynauF34Reflash_FlashControl = SynaPdtF34Flash.DataBase + SynafirmwareBlockSize + 2;
     SynauF34Reflash_BlockNum = SynaPdtF34Flash.DataBase;
@@ -134,28 +247,30 @@ void SynaSetFlashAddrForDifFormat()
     SynauF34Reflash_BlockNum = SynaPdtF34Flash.DataBase + 1;
     SynauF34Reflash_BlockData = SynaPdtF34Flash.DataBase + 3;
   }
+  return ret;
 }
 
 /* This function reads the Page Descriptor Table and assigns the function 0x01 and
  * function 0x34 addresses for data, control, query, etc.                          */
-void SynaReadPageDescriptionTable()
+int read_description()
 {
 	struct RMI4FunctionDescriptor Buffer;
 	unsigned short uAddress;
+	int ret;
 
 	SynaPdtF01Common.ID = 0;
 	SynaPdtF34Flash.ID = 0;
 
-	SynaSleep(20);
+	msleep(20);
 
 	for (uAddress = 0xe9; uAddress > 0xbf; uAddress -= sizeof(struct RMI4FunctionDescriptor))
 	{
-		SynaRet = SynaReadRegister(uAddress, (unsigned char*)&Buffer, sizeof(Buffer));
+		ret = read_reg(uAddress, (unsigned char*)&Buffer, sizeof(Buffer));
 
 		if(Buffer.ID == 0)
 			break;
 
-		printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadPageDescriptionTable - Buffer.ID = 0x%x\n",Buffer.ID);
+		printk(KERN_INFO "read_description - Buffer.ID = 0x%x\n",Buffer.ID);
 
 		switch(Buffer.ID)
 		{
@@ -171,12 +286,6 @@ void SynaReadPageDescriptionTable()
 				break;
 		}
 	}
-	printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadPageDescriptionTable - SynaPdtF34Flash.DataBase = 0x%x\n",SynaPdtF34Flash.DataBase);
-	printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadPageDescriptionTable - SynaPdtF34Flash.QueryBase = 0x%x\n",SynaPdtF34Flash.QueryBase);
-
-	printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadPageDescriptionTable - SynaPdtF01Common.DataBase = 0x%x\n",SynaPdtF01Common.DataBase);
-	printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadPageDescriptionTable - SynaPdtF01Common.QueryBase = 0x%x\n",SynaPdtF01Common.QueryBase);
-
 	/* Initialize function address bases for function 0x01 and function 0x34. */
 	SynauF01RMI_DataBase = SynaPdtF01Common.DataBase;
 
@@ -190,106 +299,100 @@ void SynaReadPageDescriptionTable()
   	SynauF34ReflashQuery_ConfigBlockSize = SynaPdtF34Flash.QueryBase + 3;
 	SynauF34ReflashQuery_ConfigBlockCount = SynaPdtF34Flash.QueryBase + 7;
 
-	return;
-}
-
-void RMI4CheckIfFatalError(int errCode)
-{
-	if(errCode != ESuccess)
-	{
-		printk("%s(): errCode:%d\n",__FUNCTION__,errCode);
-	}
-
-	return;
+	return ret;
 }
 
 // Wait for ATTN assertion and see if it's idle and flash enabled
-void RMI4WaitATTN(void)
+int RMI4WaitATTN(void)
 {
   int errorCount = 300;
   int uErrorCount = 0;
+  int ret;
+  unsigned char status;
 
   // To work around the physical address error from Control Bridge
-  if (SynaWaitForATTN(1000) != ESuccess)
-  {
-    RMI4CheckIfFatalError(EErrorTimeout);
-  }
+  wait_attn(1000);
 
   do {
-    SynaRet = SynaReadRegister(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
+	  ret = read_reg(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
 
     // To work around the physical address error from control bridge
     // The default check count value is 3. But the value is larger for erase condition
-    if((SynaRet != ESuccess) && uErrorCount < errorCount)
+    if((ret != 0) && uErrorCount < errorCount)
     {
       uErrorCount++;
       SynauPageData[0] = 0;
       continue;
     }
 
-    RMI4CheckIfFatalError(SynaRet);
-
     // Clear the attention assertion by reading the interrupt status register
-    SynaRet = SynaReadRegister(SynaPdtF01Common.DataBase + 1, &SynauStatus, 1);
-    RMI4CheckIfFatalError(SynaRet);
+    ret = read_reg(SynaPdtF01Common.DataBase + 1, &status, 1);
 
   } while( SynauPageData[0] != s_uF34ReflashCmd_NormalResult && uErrorCount < errorCount);
+
+  return ret;
 }
 
 
-int SynaInitialize(struct i2c_client *syn_touch)
+int initialize(struct i2c_client *syn_touch)
 {
 	unsigned char uPage = 0x00;
 	unsigned char uF01_RMI_Data[2];
-	int m_uStatus;
+	int ret;
+	unsigned char status;
 
-	SynaI2CClientInit(syn_touch);
+	syn_touch_client = syn_touch;
 
 	/* Setup to read and write from page 0 */
-	SynaRet = SynaWriteRegister(0xff, &uPage, 1);
-	RMI4CheckIfFatalError(SynaRet);
+	ret = write_reg(0xff, &uPage, 1);
 
 	do
 	{
-		SynaRet = SynaReadRegister(0, &SynauStatus, 1);
-		RMI4CheckIfFatalError(SynaRet);
+		read_reg(0, &status, 1);
 
-		if(SynauStatus & 0x80)
+		if(status & 0x80)
 		{
 			/* unconfigured */
 			break;
 		}
-	} while(SynauStatus & 0x40);
+	} while(status & 0x40);
 
 	/* Read in the PDT to get addresses for functions 0x01 and 0x34 */
-	SynaReadPageDescriptionTable();
+	ret = read_description();
+	if(ret != 0)
+		return -1;
 
 	/* Read block size and block count for config and firmware image */
-	SynaReadConfigInfo();
-  	SynaReadFirmwareInfo();
+	ret = config_info();
+	if(ret != 0)
+		return -1;
 
-	SynaSetFlashAddrForDifFormat();
+  	ret = firmware_info();
+	if(ret != 0)
+		return -1;
+
+	ret = set_flash_addr();
+	if(ret != 0)
+		return -1;
 
 	/* Check that we got them OK - it's a fatal error if not */
 	if(SynaPdtF34Flash.ID == 0)
 	{
-		SynaPrintMsg("Function $34 is not supported\n");
-		RMI4CheckIfFatalError( EErrorFunctionNotSupported );
+		printk("Function $34 is not supported\n");
 	}
 
 	if(SynaPdtF01Common.ID == 0)
 	{
-		SynaPrintMsg("Function $01 is not supported\n");
+		printk("Function $01 is not supported\n");
 		SynaPdtF01Common.ID = 0x01;
     	SynaPdtF01Common.DataBase = 0;
-		RMI4CheckIfFatalError( EErrorFunctionNotSupported );
 		return -1;
 	}
 
 	// Get device status
-	m_uStatus = SynaReadRegister(SynaPdtF01Common.DataBase, &uF01_RMI_Data[0], sizeof(uF01_RMI_Data));
-	RMI4CheckIfFatalError(m_uStatus);
-
+	ret = read_reg(SynaPdtF01Common.DataBase, &uF01_RMI_Data[0], sizeof(uF01_RMI_Data));
+	if (ret != 0)
+		return -1;
 	// Check Device Status
 	printk(KERN_INFO "Configured: %s\n", uF01_RMI_Data[0] & 0x80 ? "false" : "true");
 	printk(KERN_INFO "FlashProg:  %s\n", uF01_RMI_Data[0] & 0x40 ? "true" : "false");
@@ -299,88 +402,56 @@ int SynaInitialize(struct i2c_client *syn_touch)
 	SynafirmwareImgData = 0;
 	SynaconfigImgData = 0;
 
-	return ESuccess;
-}
-
-void SynaSpecialCopyEndianAgnostic(unsigned char *dest, unsigned short src)
-{
-  dest[0] = src%0x100;
-  dest[1] = src/0x100;
-}
-
-/* Read Bootloader ID from Block Data Registers as a 'key value' */
-unsigned int SynaReadBootloadID()
-{
-  unsigned char uData[2];
-
-  SynaRet = SynaReadRegister(SynauF34ReflashQuery_BootID, &uData[0], 2);
-
-  SynaBootloadID = (unsigned int)uData[0] + (unsigned int)uData[1]*0x100;
-  printk(KERN_INFO "synaptics_ts_fw_angent : SynaReadBootloadID - SynaBootloadID = 0x%x\n",SynaBootloadID);
-  return SynaRet;
-}
-
-/* Write the bootloader ID to the sensor */
-unsigned int SynaWriteBootloadID()
-{
-  unsigned char uData[2];
-
-  SynaSpecialCopyEndianAgnostic(uData, SynaBootloadID);
-
-  SynaRet = SynaWriteRegister(SynauF34Reflash_BlockData, &uData[0], 2);
-
-  return SynaRet;
+	return 0;
 }
 
 /* Enable Flash programming */
-void SynaEnableFlashing()
+int enable_flashing()
 {
-  int uErrorCount = 0;
+  int count = 0;
   unsigned char uData[2];
-
-  /* Read bootload ID */
-  SynaRet = SynaReadBootloadID();
-  RMI4CheckIfFatalError(SynaRet);
-
-  /* Write bootID to block data registers  */
-  SynaRet = SynaWriteBootloadID();
-  RMI4CheckIfFatalError(SynaRet);
+  int ret;
+  unsigned char status;
 
   do {
-    SynaRet = SynaReadRegister(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
-
+    ret = read_reg(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
     /* To deal with an error when device is busy and not available for read */
-    if((SynaRet != ESuccess) && uErrorCount < DefaultErrorRetryCount)
+    if((ret != 0) && count < 300)
     {
-      uErrorCount++;
+      count++;
       SynauPageData[0] = 0;
       continue;
     }
 
-	RMI4CheckIfFatalError(SynaRet);
 
     /* Clear the attention assertion by reading the interrupt status register */
-    SynaRet = SynaReadRegister((unsigned short)(SynaPdtF01Common.DataBase + 1), &SynauStatus, 1);
-	RMI4CheckIfFatalError(SynaRet);
-  } while(((SynauPageData[0] & 0x0f) != 0x00) && (uErrorCount <= DefaultErrorRetryCount));
+    ret = read_reg((unsigned short)(SynaPdtF01Common.DataBase + 1), &status, 1);
+  } while(((SynauPageData[0] & 0x0f) != 0x00) && (count <= 300));
 
   /* Issue Enable flash command */
   uData[0] = 0x0f;
-  SynaRet = SynaWriteRegister(SynauF34Reflash_FlashControl, &uData[0], 1);
-  RMI4CheckIfFatalError(SynaRet);
+  ret = write_reg(SynauF34Reflash_FlashControl, &uData[0], 1);
+  if(ret != 0)
+	  return -1;
 
   /* Read the page descriptor table */
-  SynaReadPageDescriptionTable();
+  ret = read_description();
+	if(ret != 0)
+		return -1;
 
   // Wait for ATTN and check if flash command state is idle
   RMI4WaitATTN();
 
-  SynaRet = SynaReadRegister(SynauF34Reflash_FlashControl, &uData[0], 1);
+  ret = read_reg(SynauF34Reflash_FlashControl, &uData[0], 1);
+  if(ret != 0)
+	  return -1;
+
   if ( uData[0] != 0x80 )
   {
-    SynaPrintMsg("\nFlash failed\n");
-    SynaExit();
+	  printk("\nFlash failed\n");
+	  return -1;
   }
+  return 0;
 }
 
 void SynaCalculateChecksum(unsigned short * data, unsigned short len, unsigned long * dataBlock)
@@ -426,10 +497,11 @@ unsigned long SynaGetFirmwareSize(void)
 	return (unsigned long)SynafirmwareBlockSize*(unsigned long)SynafirmwareBlockCount;
 }
 
-void SynaReadFirmwareHeader(void)
+int read_firmware_header(void)
 {
   unsigned long firmwareImgFileCheckSum = 0;
   unsigned long checkSumCode = 0;
+  int ret;
 
   SynafileSize = sizeof(SynaFirmware) - 1;
 
@@ -444,40 +516,45 @@ void SynaReadFirmwareHeader(void)
 
   if (firmwareImgFileCheckSum != checkSumCode)
   {
-    SynaPrintMsg("\nError: SynaFirmwareImage invalid checksum.\n");
-    SynaExit();
+    printk("\nError: SynaFirmwareImage invalid checksum.\n");
+    return -1;
   }
 
   if (SynafileSize != (0x100+SynafirmwareImgSize+SynaconfigImgSize))
   {
-    SynaPrintMsg("Error: SynaFirmwareImage actual size not expected size.\n");
-    SynaExit();
+    printk("Error: SynaFirmwareImage actual size not expected size.\n");
+    return -1;
   }
 
   if (SynafirmwareImgSize != SynaGetFirmwareSize())
   {
-    SynaPrintMsg("\nFirmware image size verfication failed.\n");
-    SynaExit();
+    printk("\nFirmware image size verfication failed.\n");
+    return -1;
   }
 
   if (SynaconfigImgSize != SynaGetConfigSize())
   {
-    SynaPrintMsg("Configuration size verfication failed.\n");
-    SynaExit();
+    printk("Configuration size verfication failed.\n");
+    return -1;
   }
 
   SynafirmwareImgData = (unsigned char *)((&SynaFirmware[0])+0x100);
   SynaconfigImgData   = (unsigned char *)((&SynaFirmware[0])+0x100+SynafirmwareImgSize);
 
-  SynaReadRegister(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
+  ret = read_reg(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
+  if (ret != 0)
+	  return -1;
+  return 0;
 }
 
 /* Wait for ATTN assertion and see if the status is idle and we're ready to continue */
 void SynaWaitATTN(int errorCount)
 {
   int uErrorCount = 0;
+  int ret;
+  unsigned char status;
 
-  if (SynaWaitForATTN(DefaultMillisecondTimeout))
+  if (wait_attn(300))
   {
     printk(KERN_ERR "synaptics_ts_fw_angent - SynaWaitATTN Time out Error\n");
   }
@@ -487,11 +564,11 @@ void SynaWaitATTN(int errorCount)
    * depending on the command that was sent. Reading the interrups status register will clear
    * the attention line. */
   do {
-    SynaRet = SynaReadRegister(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
+    ret = read_reg(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
 
     /* To work around the physical address error. */
 
-    if(SynaRet && uErrorCount < errorCount)
+    if(ret && uErrorCount < errorCount)
     {
       uErrorCount++;
       SynauPageData[0] = 0;
@@ -499,7 +576,7 @@ void SynaWaitATTN(int errorCount)
     }
 
     /* Clear the attention assertion by reading the interrupt status register */
-    SynaRet = SynaReadRegister((unsigned short)(SynaPdtF01Common.DataBase + 1), &SynauStatus, 1);
+    read_reg((unsigned short)(SynaPdtF01Common.DataBase + 1), &status, 1);
   } while( SynauPageData[0] != 0x80 && uErrorCount < errorCount);
 }
 
@@ -510,74 +587,35 @@ int SynaFlashFirmwareWrite()
 {
   unsigned char *puFirmwareData = SynafirmwareImgData;
   unsigned char uData[2];
-  unsigned short uBlockNum;
+  /* Move to next data block */
+  puFirmwareData += SynafirmwareBlockSize;
 
-#if 0
-  unsigned char temp[20];
-  int i;
-#endif
+  /* Issue Write Firmware Block command */
+  uData[0] = 2;
+  write_reg(SynauF34Reflash_FlashControl, &uData[0], 1);
 
-  for (uBlockNum = 0; uBlockNum < SynafirmwareBlockCount; ++uBlockNum)
-  {
-    uData[0] = uBlockNum & 0xff;
-    uData[1] = (uBlockNum & 0xff00) >> 8;
+  /* Wait ATTN until device is done writing the block and is ready for the next. */
+  RMI4WaitATTN();
 
-    /* Write Block Number */
-    SynaRet = SynaWriteRegister(SynauF34Reflash_BlockNum, &uData[0], 2);
-
-    /* Write Data Block */
-    SynaRet = SynaWriteRegister(SynauF34Reflash_BlockData, puFirmwareData, SynafirmwareBlockSize);
-
-#if 0
-	printk(KERN_INFO "SynaFlashFirmwareWrite : blockNum = %d\n",uBlockNum);
-	for(i=0;i<SynafirmwareBlockSize;i++)
-	{
-		printk(KERN_INFO "0x%x  ",*(puFirmwareData+i));
-	}
-	printk(KERN_INFO "\n");
-
-	SynaReadRegister(SynauF34Reflash_BlockData, &temp[0], SynafirmwareBlockSize);
-	for(i=0;i<SynafirmwareBlockSize;i++)
-	{
-		printk(KERN_INFO "0x%x  ",temp[i]);
-	}
-	printk(KERN_INFO "\n");
-#endif
-
-    /* Move to next data block */
-    puFirmwareData += SynafirmwareBlockSize;
-
-    /* Issue Write Firmware Block command */
-    uData[0] = 2;
-    SynaRet = SynaWriteRegister(SynauF34Reflash_FlashControl, &uData[0], 1);
-
-    /* Wait ATTN until device is done writing the block and is ready for the next. */
-    RMI4WaitATTN();
-  }
-
-  return ESuccess;
+  return 0;
 }
 
-void SynaProgramFirmware()
+int program_firmware()
 {
   unsigned char uData[1];
-
-  SynaRet = SynaReadBootloadID();
-
-  /* Write bootID to data block register */
-  SynaRet = SynaWriteBootloadID();
-  RMI4CheckIfFatalError(SynaRet);
+  int ret;
 
   /* Issue the firmware erase command */
   uData[0] = 3;
-  SynaRet = SynaWriteRegister(SynauF34Reflash_FlashControl, &uData[0], 1);
-  RMI4CheckIfFatalError(SynaRet);
+  ret = write_reg(SynauF34Reflash_FlashControl, &uData[0], 1);
+  if (ret != 0)
+	  return -1;
 
   RMI4WaitATTN();
 
   /* Write firmware image */
-  SynaRet = SynaFlashFirmwareWrite();
-  RMI4CheckIfFatalError(SynaRet);
+  SynaFlashFirmwareWrite();
+  return 0;
 }
 
 /**************************************************************
@@ -589,45 +627,22 @@ void SynaProgramConfiguration(void)
   unsigned char *puData = SynaconfigImgData;
   unsigned short blockNum;
 
-#if 0
-  unsigned char temp[20];
-  int i;
-#endif
-
   for (blockNum = 0; blockNum < SynaconfigBlockCount; blockNum++)
   {
-    SynaSpecialCopyEndianAgnostic(&uData[0], blockNum);
+	uData[0] = blockNum&0xff;
+	uData[1] = (blockNum&0xff00) >> 8;
 
     /* Write Configuration Block Number */
-    SynaRet = SynaWriteRegister(SynauF34Reflash_BlockNum, &uData[0], 2);
-    RMI4CheckIfFatalError(SynaRet);
+    write_reg(SynauF34Reflash_BlockNum, &uData[0], 2);
 
     /* Write Data Block */
-    SynaRet = SynaWriteRegister(SynauF34Reflash_BlockData, puData, SynaconfigBlockSize);
-	RMI4CheckIfFatalError(SynaRet);
-
-#if 0
-		printk(KERN_INFO "SynaProgramConfiguration : blockNum = %d\n",blockNum);
-		for(i=0;i<SynaconfigBlockSize;i++)
-		{
-			printk(KERN_INFO "0x%x	",*(puData+i));
-		}
-		printk(KERN_INFO "\n");
-
-		SynaReadRegister(SynauF34Reflash_BlockData, &temp[0], SynaconfigBlockSize);
-		for(i=0;i<SynaconfigBlockSize;i++)
-		{
-			printk(KERN_INFO "0x%x	",temp[i]);
-		}
-		printk(KERN_INFO "\n");
-#endif
+    write_reg(SynauF34Reflash_BlockData, puData, SynaconfigBlockSize);
 
     puData += SynaconfigBlockSize;
 
     /* Issue Write Configuration Block command to flash command register */
     uData[0] = 0x06;
-    SynaRet = SynaWriteRegister(SynauF34Reflash_FlashControl, &uData[0], 1);
-	RMI4CheckIfFatalError(SynaRet);
+    write_reg(SynauF34Reflash_FlashControl, &uData[0], 1);
 
     // Wait for ATTN
     RMI4WaitATTN();
@@ -639,47 +654,51 @@ int SynaFinalizeFlash()
   unsigned char uData[2];
   unsigned int uErrorCount = 0;
   unsigned int i=0;
+  int ret;
+  unsigned char status;
 
   /* Reset the sensor by issuing a reset command = 1 */
   uData[0] = 1;
-  SynaRet = SynaWriteRegister(SynaPdtF01Common.CommandBase, &uData[0], 1);
-  RMI4CheckIfFatalError(SynaRet);
-
+  ret = write_reg(SynaPdtF01Common.CommandBase, &uData[0], 1);
+  if (ret != 0)
+	  printk("Failed to write register\n");
   /* wait up to 200 milliseconds for sensor to come back from a reset */
-  SynaSleep(DefaultWaitPeriodAfterReset);
+  msleep(200);
 
   /* Wait for ATTN to be asserted to see if device is in idle state */
-  if (SynaWaitForATTN(DefaultMillisecondTimeout)!= ESuccess)
+  if (wait_attn(300)!= 0)
   {
-    RMI4CheckIfFatalError(EErrorTimeout);
+	  printk("Wait_ATTN ; TimeOut\n");
   }
 
   do {
-    SynaRet = SynaReadRegister(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
+    ret = read_reg(SynauF34Reflash_FlashControl, &SynauPageData[0], 1);
 
     /* To work around an error from device if device not ready */
-    if((SynaRet!= ESuccess) && uErrorCount < DefaultErrorRetryCount)
+    if((ret!= 0) && uErrorCount < 300)
     {
       uErrorCount++;
       SynauPageData[0] = 0;
       continue;
     }
 
-  } while(((SynauPageData[0] & 0x0f) != 0x00) && (uErrorCount < DefaultErrorRetryCount));
-  RMI4CheckIfFatalError(EErrorTimeout);
+  } while(((SynauPageData[0] & 0x0f) != 0x00) && (uErrorCount < 300));
+  printk("Over Default Error Retry Count\n");
 
   /* Clear the attention assertion by reading the interrupt status register */
-  SynaRet = SynaReadRegister((unsigned short)(SynaPdtF01Common.DataBase + 1), &SynauStatus, 1);
-  RMI4CheckIfFatalError(EErrorTimeout);
+  ret = read_reg((unsigned short)(SynaPdtF01Common.DataBase + 1), &status, 1);
+  if (ret != 0)
+	  printk("Failed to read register\n");
 
   /* Read F01 Flash Program Status, ensure the 6th bit is '0' */
   uData[0] = 0xFF;
 
-  for(i=500; i>0; i--)
+  for(i=500; i!=0; i--)
   {
-    SynaSleep(1);
-    SynaRet = SynaReadRegister(SynauF01RMI_DataBase, &uData[0], 1);
-	RMI4CheckIfFatalError(SynaRet);
+    msleep(1);
+    ret = read_reg(SynauF01RMI_DataBase, &uData[0], 1);
+	if (ret != 0)
+		printk("Failed to read register\n");
 
     if((uData[0] & 0x40) == 0)
     {
@@ -689,131 +708,62 @@ int SynaFinalizeFlash()
 
   if(!i)
   {
-	if(SynaRet)
-		printk(KERN_INFO "synaptics_ts_fw_angent : SynaFinalizeFlash - Error = 0x%x\n",SynaRet);
+	if(ret != 0)
+		printk(KERN_INFO "synaptics_ts_fw_angent : SynaFinalizeFlash - Error = 0x%x\n",ret);
 	else
-		SynaPrintMsg("time is not enough!!\n");
+		printk("time is not enough!!\n");
   }
 
-/*
-  do
-  {
-    SynaSleep(100);
-    SynaRet = SynaReadRegister(SynauF01RMI_DataBase, &uData[0], 1);
+/* With a new flash image the page description table could change so re-read it. */
+  read_description();
 
-  } while((uData[0] & 0x40)!= 0);
-*/
-  /* With a new flash image the page description table could change so re-read it. */
-  SynaReadPageDescriptionTable();
-
-  return ESuccess;
+  return 0;
 }
-
-#if 0
-/* write block data test */
-void synaptics_test_write_block_data(void)
-{
-	// Write Data Block
-	int i;
-	unsigned short address;
-	unsigned char write_data[16]={0x55};
-	unsigned char read_data[16]={0x00};
-	write_data[0]=0x11;
-	write_data[1]=0x22;
-	write_data[1]=0x33;
-	write_data[15]=0x66;
-
-	address=2;
-
-	printk("%s(): synaptics test start\n",__FUNCTION__);
-
-//	m_ret = SynaReadRegister(0xB4, read_data, 10);
-//	printk("%s(): read B4 : %s\n",__FUNCTION__,read_data);
-
-	printk("%s(): m_uF34Reflash_BlockData : 0x%x\n",__FUNCTION__,SynauF34Reflash_BlockData);
-
-	/* byte data */
-	SynaRet = SynaWriteRegister(address, write_data, 1);
-	printk("%s(): write 1 byte: 0x%x\n",__FUNCTION__,write_data[0]);
-
-	SynaRet = SynaReadRegister(address, read_data, 1);
-	printk("%s(): read 1 byte: 0x%x\n",__FUNCTION__,read_data[0]);
-
-
-	/* word data */
-	SynaRet = SynaWriteRegister(address, write_data, 2);
-	printk("%s(): write 2 bytes: 0x%x,  0x%x\n",__FUNCTION__,write_data[0],write_data[1]);
-
-	SynaRet = SynaReadRegister(address, read_data, 2);
-	printk("%s(): read 2 bytes: 0x%x,  0x%x\n",__FUNCTION__,read_data[0],read_data[1]);
-
-	/* block data */
-	for(i=0; i<16; i++)
-		write_data[i]=i;
-
-	SynaRet = SynaWriteRegister(address, write_data, 16);
-	printk("%s(): write 16 bytes:",__FUNCTION__);
-	for(i=0; i<16; i++)
-		printk("  0x%x",write_data[i]);
-	printk("\n");
-
-	SynaRet = SynaReadRegister(address, read_data, 16);
-	printk("%s(): read 16 bytes:",__FUNCTION__);
-	for(i=0; i<16; i++)
-		printk("  0x%x",read_data[i]);
-	printk("\n");
-
-
-}
-#endif
 
 /*
  *  Performs all the steps needed to reflash the image.
  */
-unsigned int SynaDoReflash(struct i2c_client *syn_touch, int fw_revision)
+unsigned int firmware_reflash(struct i2c_client *syn_touch, int fw_revision)
 {
-#if 1
+	int ret;
   if((fw_revision == SynaFirmware[0x1F]) && (is_need_forced_update == 0))
   {
     printk(KERN_INFO "synaptics_ts_fw_angent : F/W version is up-to-date\n");
   	return -1;
   }
-#endif
 
   is_fw_reflash = 1;
 
   printk(KERN_INFO "synaptics_ts_fw_angent : F/W Upgrade!! - from 0x%x to 0x%x\n",fw_revision,SynaFirmware[0x1F]);
 
   //Start reflash
-  if(SynaInitialize(syn_touch) != ESuccess)
+  if(initialize(syn_touch) != 0)
   {
-    printk(KERN_INFO "synaptics_ts_fw_angent : SynaInitialize failed!!\n");
+    printk(KERN_INFO "ts_fw_agent : Initialize failed!!\n");
 	return -1;
   }
 
   /* Enable flash mode */
-  SynaEnableFlashing();
-
-#if 0
-  /* test for block write */
-  synaptics_test_write_block_data();
-#endif
+  if (enable_flashing() !=0)
+	  return -1;
 
   /* Read the firmware header info from the byte array defined in SynaFirmwareImage.h */
-  SynaReadFirmwareHeader();
+  if (read_firmware_header() != 0)
+	  return -1;
 
   /* Program the firmware image */
-  SynaProgramFirmware();
+  if (program_firmware() != 0)
+	  return -1;
 
   /* Program the new configuration */
   SynaProgramConfiguration();
 
   /* Reset the device and do checks to finalize reflashing */
-  if(SynaFinalizeFlash()!=ESuccess)
+  if(SynaFinalizeFlash()!= 0)
   {
     return -1;
   }
 
   /* return the globally set status */
-  return SynaRet;
+  return ret;
 }

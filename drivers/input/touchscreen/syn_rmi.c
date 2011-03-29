@@ -20,7 +20,7 @@ PARTICULAR PURPOSE.  See the * GNU General Public License for more details. * */
 #include <mach/gpio.h>
 
 #ifdef SYNAPTICS_FW_REFLASH
-#include "synaptics_reflash.h"
+#include "syn_reflash.h"
 #endif
 
 #ifdef TOUCH_TEST
@@ -289,9 +289,9 @@ static void synaptics_ts_fw_reflash_work_func(struct work_struct *work)
 	if (ts->use_irq)
 		disable_irq_nosync(ts->client->irq);
 
-	if(SynaDoReflash(ts->client, ts->fw_revision) == FW_REFLASH_SUCCEED)
+	if(firmware_reflash(ts->client, ts->fw_revision) == FW_REFLASH_SUCCEED)
 	{
-		SHOW_MSG("synaptics_ts_fw_reflash_work_func : SynaDoReflash succeed!\n");
+		SHOW_MSG("synaptics_ts_fw_reflash_work_func : DoReflash succeed!\n");
 
 		ret = i2c_smbus_read_byte_data(ts->client, ts_cmd_reg_data.firmware_revision_query);
 		if (ret < 0) {
