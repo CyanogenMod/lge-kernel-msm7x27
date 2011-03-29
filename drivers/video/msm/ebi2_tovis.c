@@ -57,7 +57,7 @@ struct pm_qos_request_list *tovis_pm_qos_req;
 /* For some reason the contrast set at init time is not good. Need to do
 * it again
 */
-static boolean display_on = TRUE; //FALSE;
+static boolean display_on = FALSE;
 
 #define DISP_SET_RECT(csp, cep, psp, pep) \
 	{ \
@@ -105,19 +105,24 @@ static void msm_fb_ebi2_power_save(int on)
 
 static int ilitek_qvga_disp_off(struct platform_device *pdev)
 {
+	struct msm_panel_ilitek_pdata *pdata = tovis_qvga_panel_pdata;
+
+	printk("%s: display off...", __func__);
 	if (!disp_initialized)
 		tovis_qvga_disp_init(pdev);
 
 	pm_qos_update_request(tovis_pm_qos_req, PM_QOS_DEFAULT_VALUE);
-	if (display_on) {
-		// perform lcd deep sleep instead of power off
-		EBI2_WRITE16C(DISP_CMD_PORT, 0x28);
-		mdelay(50);
-		EBI2_WRITE16C(DISP_CMD_PORT, 0x10); // SPLIN
-		mdelay(120);
-		msm_fb_ebi2_power_save(0);
-		display_on = FALSE;
-	}
+
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x28);
+	mdelay(50);
+	EBI2_WRITE16C(DISP_CMD_PORT, 0x10); // SPLIN
+	mdelay(120);
+
+	if(pdata->gpio)
+		gpio_set_value(pdata->gpio, 0);
+
+	msm_fb_ebi2_power_save(0);
+	display_on = FALSE;
 
 	return 0;
 }
@@ -397,26 +402,26 @@ static int ilitek_qvga_disp_on(struct platform_device *pdev)
 	if (!disp_initialized)
 		tovis_qvga_disp_init(pdev);
 
-	if(display_on && system_state == SYSTEM_BOOTING)
+	if(pdata->initialized && system_state == SYSTEM_BOOTING) {
+		/* Do not hw initialize */
+	} else {
 		msm_fb_ebi2_power_save(1);
 
-	if (!display_on) {
-		msm_fb_ebi2_power_save(1);
-		mdelay(10);
-		gpio_set_value(pdata->gpio, 1);
-		mdelay(1);
-		gpio_set_value(pdata->gpio, 0);
-		mdelay(1);
-		gpio_set_value(pdata->gpio, 1);
-		mdelay(120);
-		display_on = TRUE;
-
+		if(pdata->gpio) {
+			gpio_set_value(pdata->gpio, 0);
+			mdelay(1);
+			gpio_set_value(pdata->gpio, 1);
+			mdelay(120);
+		}
 		if(pdata->maker_id == PANEL_ID_LGDISPLAY)
 			do_lgd_init(pdev);
 		else
 			do_ilitek_init(pdev);
 	}
+
 	pm_qos_update_request(tovis_pm_qos_req, 65000);
+	display_on = TRUE;
+
 	return 0;
 }
 

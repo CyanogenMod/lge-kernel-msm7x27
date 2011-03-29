@@ -45,7 +45,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 static void __init msm_fb_add_devices(void)
 {
 	msm_fb_register_device("mdp", &mdp_pdata);
-	msm_fb_register_device("ebi2", 0); 
+	msm_fb_register_device("ebi2", 0);
 }
 
 /* Use pmic_backlight function as power save function, munyoung.hwang@lge.com */
@@ -63,12 +63,11 @@ static int ebi2_tovis_power_save(int on)
 	mddi_power_save_on = flag_on;
 
 	if (on) {
-		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], enable, 1800);
+		/* MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], enable, 1800); */
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], enable, 2800);
 	} else{
-/* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
+		/* LGE_CHANGE, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
 		//MSM_FB_LCDC_VREG_OP(msm_fb_vreg[0], disable, 0);
-/* LGE_CHANGE_E, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
 		MSM_FB_LCDC_VREG_OP(msm_fb_vreg[1], disable, 0);
 	}
 	return 0;
@@ -78,6 +77,7 @@ static struct msm_panel_ilitek_pdata ebi2_tovis_panel_data = {
 	.gpio = 102,				/* lcd reset_n */
 	.lcd_power_save = ebi2_tovis_power_save,
 	.maker_id = PANEL_ID_TOVIS,
+	.initialized = 1,
 };
 
 static struct platform_device ebi2_tovis_panel_device = {
@@ -157,6 +157,9 @@ static struct notifier_block muscat_fb_event_notifier = {
 /* common functions */
 void __init lge_add_lcd_devices(void)
 {
+	if(ebi2_tovis_panel_data.initialized)
+		ebi2_tovis_power_save(1);
+
 	fb_register_client(&muscat_fb_event_notifier);
 
 	platform_device_register(&ebi2_tovis_panel_device);
