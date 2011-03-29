@@ -359,7 +359,7 @@ static void __init pmem_kernel_ebi1_size_setup(char **p)
 }
 __early_param("pmem_kernel_ebi1_size=", pmem_kernel_ebi1_size_setup);
 
-static unsigned pmem_mdp_size = MSM_PMEM_MDP_SIZE;
+__WEAK unsigned pmem_mdp_size = MSM_PMEM_MDP_SIZE;
 static void __init pmem_mdp_size_setup(char **p)
 {
 	pmem_mdp_size = memparse(*p, p);
