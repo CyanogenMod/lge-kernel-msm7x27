@@ -413,7 +413,7 @@ void __init lge_add_misc_devices(void)
 	if (lge_bd_rev >= LGE_REV_D)
 	{
 		motor_voltage = 3300;
-		muscat_vibrator_data.amp_value = 92;
+		muscat_vibrator_data.amp_value = 106;
 	}else{
 		motor_voltage = 3000;
 		muscat_vibrator_data.amp_value = 70;
