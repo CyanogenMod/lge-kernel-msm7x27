@@ -23,19 +23,6 @@ PARTICULAR PURPOSE.  See the * GNU General Public License for more details. * */
 #include "syn_reflash.h"
 #endif
 
-#ifdef TOUCH_TEST
-#include <linux/syscalls.h>
-#include <linux/fcntl.h>
-#include <linux/fs.h>
-#include <linux/uaccess.h>
-
-#include <linux/module.h>
-#include <linux/input.h>
-#include <linux/syscalls.h>
-#include <linux/delay.h>
-
-#endif
-
 #ifdef SYNAPTICS_FW_REFLASH
 #define FW_REFLASH_SUCCEED 0
 #endif
@@ -98,14 +85,6 @@ PARTICULAR PURPOSE.  See the * GNU General Public License for more details. * */
 int fw_rev = 0;
 EXPORT_SYMBOL(fw_rev);
 module_param(fw_rev, int, S_IWUSR | S_IRUGO);
-
-/******* enum ***********************/
-enum {
-	SYNAPTICS_2000 = 0,
-	SYNAPTICS_2100,
-	SYNAPTICS_3000,
-};
-/************************************/
 
 /***********************************************************/
 /**************** structure ***********************************/
@@ -254,11 +233,8 @@ static ts_sensor_data ts_reg_data={0};
 static ts_finger_data curr_ts_data;
 static ts_sensor_command ts_cmd_reg_data={0};
 static int ts_pre_state = 0; /* for checking the touch state */
-//static int longpress_pre = 0;
-//static int flicking = 0;
-//static uint16_t max_x, max_y;
+
 uint16_t max_x, max_y;
-static int kind_of_product = SYNAPTICS_2000;
 #ifdef SYNAPTICS_MELTINGMODE
 static int is_first_release_event = 1;
 #endif
@@ -273,31 +249,25 @@ static void synaptics_ts_late_resume(struct early_suspend *h);
 /****************************************************************/
 
 #ifdef SYNAPTICS_FW_REFLASH
-static void synaptics_ts_fw_reflash_work_func(struct work_struct *work)
+static void ts_reflash_work_func(struct work_struct *work)
 {
 	struct synaptics_ts_data *ts = container_of(work, struct synaptics_ts_data, work_for_reflash);
 	int ret;
 
 	DEBUG_MSG("start F/W reflash for synaptics touch IC!!\n");
 
-	if(kind_of_product != SYNAPTICS_3000)
-	{
-		DEBUG_MSG("synaptics_ts_fw_reflash_work_func : F/W update is not supported!\n");
-		return;
-	}
-
 	if (ts->use_irq)
 		disable_irq_nosync(ts->client->irq);
 
 	if(firmware_reflash(ts->client, ts->fw_revision) == FW_REFLASH_SUCCEED)
 	{
-		SHOW_MSG("synaptics_ts_fw_reflash_work_func : DoReflash succeed!\n");
+		SHOW_MSG("ts_reflash_work_func : DoReflash succeed!\n");
 
 		ret = i2c_smbus_read_byte_data(ts->client, ts_cmd_reg_data.firmware_revision_query);
 		if (ret < 0) {
 			ERR_MSG("i2c_smbus_read_byte_data failed\n");
 		}
-		DEBUG_MSG("synaptics_ts_fw_reflash_work_func: Firmware Revision 0x%x\n", ret);
+		DEBUG_MSG("ts_reflash_work_func: Firmware Revision 0x%x\n", ret);
 
 		ret = i2c_smbus_read_word_data(ts->client, MAX_X_POS_LOW_REG);
 		if (ret < 0) {
@@ -325,8 +295,8 @@ static void synaptics_ts_fw_reflash_work_func(struct work_struct *work)
 		max_y |= (((ret & 0xFF) << 8) & 0xff00);
 		ts->max[1] = max_y;
 
-		SHOW_MSG("synaptics_ts_fw_reflash_work_func : max_x = 0x%x\n",max_x);
-		SHOW_MSG("synaptics_ts_fw_reflash_work_func : max_y = 0x%x\n",max_y);
+		SHOW_MSG("ts_reflash_work_func : max_x = 0x%x\n",max_x);
+		SHOW_MSG("ts_reflash_work_func : max_y = 0x%x\n",max_y);
 
 		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, max_x, 0, 0);
 		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, max_y, 0, 0);
@@ -349,7 +319,7 @@ static void synaptics_ts_fw_reflash_work_func(struct work_struct *work)
 }
 #endif
 
-static void synaptics_ts_new_work_func(struct work_struct *work)
+static void ts_work_func(struct work_struct *work)
 {
 	struct synaptics_ts_data *ts = container_of(work, struct synaptics_ts_data, work);
 
@@ -363,56 +333,15 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 #ifdef SYNAPTICS_ESD_RECOVERY
 	int ret;
 #endif
-#ifdef TOUCH_TEST
-	unsigned char reg_data1[11];
-	unsigned char reg_data2[24];
-	char tmp_buf[700];
-	int fd_check, fd;
-#endif
-
+	printk("work start ----  gpio status ==============> %d\n", gpio_get_value(92));
 	int_mode = i2c_smbus_read_byte_data(ts->client, INT_STATUS_REG);
 
-	DEBUG_MSG("synaptics_ts_new_work_func : int mode = 0x%x\n", int_mode);
-
-#ifdef TOUCH_TEST
-	if((fd_check = sys_open((const char __user *) "/sdcard/start_touch_logging", O_RDONLY, 0) ) >= 0)
-	{
-		sys_close(fd_check);
-
-		memset(reg_data1, 0x00, sizeof(reg_data1));
-		memset(reg_data2, 0x00, sizeof(reg_data2));
-		memset(tmp_buf, 0x00, sizeof(tmp_buf));
-
-		i2c_smbus_read_i2c_block_data(ts->client, 0x15, 11, reg_data1);
-		i2c_smbus_read_i2c_block_data(ts->client, 0x2c, 24, reg_data2);
-
-		if((fd = sys_open((const char __user *) "/sdcard/touch_reg.txt", O_CREAT | O_APPEND | O_WRONLY, 0)) >= 0)
-		{
-			sprintf(tmp_buf,"[0x15]= 0x%x,\t[0x16]= 0x%x,\t[0x17]= 0x%x,\t[0x18]= 0x%x,\t[0x19]= 0x%x\n\
-[0x1a]= 0x%x,\t[0x1b]= 0x%x,\t[0x1c]= 0x%x,\t[0x1d]= 0x%x,\t[0x1e]= 0x%x\n\
-[0x1f]= 0x%x,\t[0x2c]= 0x%x,\t[0x2d]= 0x%x,\t[0x2e]= 0x%x,\t[0x2f]= 0x%x\n\
-[0x30]= 0x%x,\t[0x31]= 0x%x,\t[0x32]= 0x%x,\t[0x33]= 0x%x,\t[0x34]= 0x%x\n\
-[0x35]= 0x%x,\t[0x36]= 0x%x,\t[0x37]= 0x%x,\t[0x38]= 0x%x,\t[0x39]= 0x%x\n\
-[0x3a]= 0x%x,\t[0x3b]= 0x%x,\t[0x3c]= 0x%x,\t[0x3d]= 0x%x,\t[0x3e]= 0x%x\n\
-[0x3f]= 0x%x,\t[0x40]= 0x%x,\t[0x41]= 0x%x,\t[0x42]= 0x%x,\t[0x43]= 0x%x\n\n",
-				reg_data1[0], reg_data1[1], reg_data1[2], reg_data1[3], reg_data1[4],
-				reg_data1[5], reg_data1[6], reg_data1[7], reg_data1[8], reg_data1[9],
-				reg_data1[10], reg_data2[0], reg_data2[1], reg_data2[2], reg_data2[3],
-				reg_data2[4], reg_data2[5], reg_data2[6], reg_data2[7], reg_data2[8],
-				reg_data2[9], reg_data2[10], reg_data2[11], reg_data2[12], reg_data2[13],
-				reg_data2[14], reg_data2[15], reg_data2[16], reg_data2[17], reg_data2[18],
-				reg_data2[19], reg_data2[20], reg_data2[21], reg_data2[22], reg_data2[23]);
-
-			sys_write(fd, (const char __user *) tmp_buf, strlen(tmp_buf)+1);
-			sys_close(fd);
-		}
-	}
-#endif
+	DEBUG_MSG("ts_work_func : int mode = 0x%x\n", int_mode);
 
 #ifdef SYNAPTICS_ESD_RECOVERY
 	if((int_mode < 0) && (is_first_release_event != 1))
 	{
-		SHOW_MSG("synaptics_ts_new_work_func : death from ESD attack\n");
+		SHOW_MSG("ts_work_func : death from ESD attack\n");
 
 		if (ts->use_irq)
 			disable_irq_nosync(ts->client->irq);
@@ -449,7 +378,7 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 		else
 			hrtimer_start(&ts->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
 
-		SHOW_MSG("synaptics_ts_new_work_func : death from ESD attack --> recovery action completed\n");
+		SHOW_MSG("ts_work_func : death from ESD attack --> recovery action completed\n");
 
 		goto SYNAPTICS_TS_IDLE;
 	}
@@ -459,16 +388,17 @@ static void synaptics_ts_new_work_func(struct work_struct *work)
 	{
 		while (1)
 		{
+			printk("gpio status ==============> %d\n", gpio_get_value(92));
 			i2c_smbus_read_i2c_block_data(ts->client, START_ADDR, sizeof(ts_reg_data), (u8 *)&ts_reg_data);
 
 			finger0_status = TS_SNTS_GET_FINGER_STATE_0(ts_reg_data.finger_state_reg);
 			finger1_status = TS_SNTS_GET_FINGER_STATE_1(ts_reg_data.finger_state_reg);
 
-			DEBUG_MSG("synaptics_ts_new_work_func : finger0_status = 0x%x, finger1_status = 0x%x\n",finger0_status,finger1_status);
+			DEBUG_MSG("ts_work_func : finger0_status = 0x%x, finger1_status = 0x%x\n",finger0_status,finger1_status);
 
 			if((finger0_status == 0) && (ts_pre_state == 0))
 			{
-				DEBUG_MSG("synaptics_ts_new_work_func: Synaptics Touch is is the idle state\n");
+				DEBUG_MSG("ts_work_func: Synaptics Touch is is the idle state\n");
 				goto SYNAPTICS_TS_IDLE;
 			}
 
@@ -639,33 +569,15 @@ static irqreturn_t synaptics_ts_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void synaptics_ts_get_device_inform(int product_num)
+static void get_device_inform(void)
 {
 	int i;
 	unsigned char reg_block_num[CMD_REG_BLOCK_NUM]={0x00};
 
-	switch(product_num)
-	{
-		case SYNAPTICS_2000:
-			for(i=0;i<CMD_REG_BLOCK_NUM;i++)
-				reg_block_num[i] = i+0x58;
-			break;
-		case SYNAPTICS_2100:
-			for(i=0;i<CMD_REG_BLOCK_NUM;i++)
-				reg_block_num[i]=i+0x5C;
-			break;
-		case SYNAPTICS_3000:
-			for(i=0;i<CMD_REG_BLOCK_NUM;i++)
-				reg_block_num[i]= i+0x70;
-			break;
-		default:
-			for(i=0;i<CMD_REG_BLOCK_NUM;i++)
-				reg_block_num[i]=0x00;
-			ERR_MSG("synaptics_ts_get_device_inform : Not supported deivce!!\n");
-			break;
-	}
-	memcpy(&ts_cmd_reg_data, &reg_block_num[0], CMD_REG_BLOCK_NUM);
+	for(i=0;i<CMD_REG_BLOCK_NUM;i++)
+		reg_block_num[i]= i+0x70;
 
+	memcpy(&ts_cmd_reg_data, &reg_block_num[0], CMD_REG_BLOCK_NUM);
 	return;
 }
 
@@ -700,9 +612,6 @@ static int synaptics_ts_probe(
 	int snap_top_off;
 	int snap_bottom_on;
 	int snap_bottom_off;
-#if 0
-	uint32_t panel_version;
-#endif
 	int product_id_quwery_reg;
 	char product_name[PRODUCT_ID_STRING_NUM];
 
@@ -721,7 +630,7 @@ static int synaptics_ts_probe(
 		goto err_alloc_data_failed;
 	}
 #ifdef SYNAPTICS_FW_REFLASH
-	INIT_WORK(&ts->work_for_reflash, synaptics_ts_fw_reflash_work_func);
+	INIT_WORK(&ts->work_for_reflash, ts_reflash_work_func);
 #endif
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
@@ -765,25 +674,9 @@ static int synaptics_ts_probe(
 	}
 	SHOW_MSG("synaptics_ts_probe : product_name = %s\n",product_name);
 
-	if(strcmp(product_name, "TM1590-001")==0)
-	{
-		kind_of_product = SYNAPTICS_2000;
-	}
-	else if(strcmp(product_name, "TM1610-001")==0)
-	{
-		kind_of_product = SYNAPTICS_2100;
-	}
-	else
-	{
-		kind_of_product = SYNAPTICS_3000;
-	}
+	get_device_inform();
 
-	synaptics_ts_get_device_inform(kind_of_product);
-	if(kind_of_product != SYNAPTICS_2000)
-	{
-		DEBUG_MSG("synaptics_ts_probe : work function changed : synaptics_ts_new_work_func\n");
-		INIT_WORK(&ts->work, synaptics_ts_new_work_func);
-	}
+	INIT_WORK(&ts->work, ts_work_func);
 
 	ret = i2c_smbus_read_byte_data(ts->client, ts_cmd_reg_data.customer_family_query);
 	if (ret < 0) {
@@ -798,10 +691,6 @@ static int synaptics_ts_probe(
 	SHOW_MSG("synaptics_ts_probe: Firmware Revision 0x%x\n", ts->fw_revision);
 	fw_rev = ts->fw_revision;
 	if (pdata) {
-#if 0
-		while (pdata->version > panel_version)
-			pdata++;
-#endif
 		ts->flags = pdata->flags;
 		ts->sensitivity_adjust = pdata->sensitivity_adjust;
 		irqflags = pdata->irqflags;
@@ -874,13 +763,10 @@ static int synaptics_ts_probe(
 	SHOW_MSG("synaptics_ts_probe : max_y = 0x%x\n",max_y);
 
 #ifdef SYNAPTICS_FW_REFLASH
-	if(kind_of_product == SYNAPTICS_3000)
+	if((max_x == 0x00) || (max_y == 0x00))
 	{
-		if((max_x == 0x00) || (max_y == 0x00))
-		{
-			ERR_MSG("F/W image is not normal status : need upgrade.\n");
-			is_need_forced_update = 1;
-		}
+		ERR_MSG("F/W image is not normal status : need upgrade.\n");
+		is_need_forced_update = 1;
 	}
 #endif
 
