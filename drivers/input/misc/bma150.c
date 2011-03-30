@@ -711,12 +711,9 @@ static int bma150_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	struct bma150_data *data = i2c_get_clientdata(client);
 
-	bma150_set_mode(client, BMA150_MODE_SLEEP);
+	cancel_delayed_work_sync(&data->work);
 
-	if (data->platform_data->power_off)
-		data->platform_data->power_off();
-	else
-		printk(KERN_ERR "power_off function not defined!!\n");
+	bma150_set_mode(client, BMA150_MODE_SLEEP);
 
 	return 0;
 }
@@ -725,12 +722,10 @@ static int bma150_resume(struct i2c_client *client)
 {
 	struct bma150_data *data = i2c_get_clientdata(client);
 
-	if (data->platform_data->power_on)
-		data->platform_data->power_on();
-	else
-		printk(KERN_ERR "power_on function not defined!!\n");
-
 	bma150_set_mode(client, BMA150_MODE_NORMAL);
+
+	schedule_delayed_work(&data->work,
+		msecs_to_jiffies(atomic_read(&data->delay)));
 
 	return 0;
 }
