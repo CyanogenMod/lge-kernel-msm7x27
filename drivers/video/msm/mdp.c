@@ -1287,6 +1287,15 @@ static int mdp_probe(struct platform_device *pdev)
 			mfd->dma = &dma_e_data;
 		}
 		mdp4_display_intf_sel(if_no, DSI_VIDEO_INTF);
+
+		/* Enable MDP Footswitch for MIPI DSI Video mode
+		 * Disabling footswitch on suspend resets the MDP
+		 * hardware and DSI Video mode initialization is
+		 * affected during resume. Hence Footswitch is
+		 * enabled by default for Video Mode DSI panels
+		 */
+		if (footswitch != NULL)
+			regulator_enable(footswitch);
 		break;
 
 	case MIPI_CMD_PANEL:
