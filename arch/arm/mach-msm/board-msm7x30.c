@@ -3134,6 +3134,15 @@ static struct bma150_platform_data bma150_data = {
 	.power_on = sensors_ldo_enable,
 	.power_off = sensors_ldo_disable,
 };
+
+static struct i2c_board_info bma150_board_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("bma150", 0x38),
+		.flags = I2C_CLIENT_WAKE,
+		.irq = MSM_GPIO_TO_INT(BMA150_GPIO_INT),
+		.platform_data = &bma150_data,
+	},
+};
 #endif
 
 static struct i2c_board_info msm_i2c_board_info[] = {
@@ -3146,14 +3155,6 @@ static struct i2c_board_info msm_i2c_board_info[] = {
 		I2C_BOARD_INFO("adv7520", ADV7520_I2C_ADDR),
 		.platform_data = &adv7520_hdmi_data,
 	},
-#ifdef CONFIG_BOSCH_BMA150
-	{
-		I2C_BOARD_INFO("bma150", 0x38),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = MSM_GPIO_TO_INT(BMA150_GPIO_INT),
-		.platform_data = &bma150_data,
-	},
-#endif
 };
 
 static struct i2c_board_info msm_marimba_board_info[] = {
@@ -7223,6 +7224,11 @@ static void __init msm7x30_init(void)
 	if (machine_is_msm7x30_fluid())
 		i2c_register_board_info(0, cy8info,
 					ARRAY_SIZE(cy8info));
+#ifdef CONFIG_BOSCH_BMA150
+	if (machine_is_msm7x30_fluid())
+		i2c_register_board_info(0, bma150_board_info,
+					ARRAY_SIZE(bma150_board_info));
+#endif
 
 	i2c_register_board_info(2, msm_marimba_board_info,
 			ARRAY_SIZE(msm_marimba_board_info));
