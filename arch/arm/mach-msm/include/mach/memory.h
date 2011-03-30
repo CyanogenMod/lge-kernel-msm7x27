@@ -97,3 +97,7 @@ extern void l2x0_cache_sync(void);
 #define MEMORY_ACTIVE		2
 
 #define NPA_MEMORY_NODE_NAME	"/mem/apps/ddr_dpd"
+
+#ifndef CONFIG_ARCH_MSM7X27
+#define CONSISTENT_DMA_SIZE	(SZ_1M * 14)
+#endif
