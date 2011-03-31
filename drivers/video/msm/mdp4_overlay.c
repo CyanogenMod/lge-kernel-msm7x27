@@ -2062,7 +2062,11 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 		ctrl->mixer1_played++;
 		/* enternal interface */
 		if (ctrl->panel_mode & MDP4_PANEL_DTV)
+#ifdef CONFIG_FB_MSM_DTV
+			mdp4_overlay_dtv_vsync_push(mfd, pipe);
+#else
 			mdp4_overlay_reg_flush(pipe, 1);
+#endif
 		else if (ctrl->panel_mode & MDP4_PANEL_ATV)
 			mdp4_overlay_reg_flush(pipe, 1);
 	} else {
