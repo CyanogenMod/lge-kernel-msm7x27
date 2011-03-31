@@ -271,7 +271,7 @@ static void do_ilitek_init(struct platform_device *pdev)
 
 	EBI2_WRITE16C(DISP_CMD_PORT,0x11); // Exit Sleep
 
-	mdelay(80);
+	mdelay(120);
 
 /*-- bootlogo is displayed at oemsbl
 	EBI2_WRITE16C(DISP_CMD_PORT,0x2c); // Write memory start
@@ -408,8 +408,10 @@ static int ilitek_qvga_disp_on(struct platform_device *pdev)
 		msm_fb_ebi2_power_save(1);
 
 		if(pdata->gpio) {
-			gpio_set_value(pdata->gpio, 0);
+			gpio_set_value(pdata->gpio, 1);
 			mdelay(1);
+			gpio_set_value(pdata->gpio, 0);
+			mdelay(10);
 			gpio_set_value(pdata->gpio, 1);
 			mdelay(120);
 		}
