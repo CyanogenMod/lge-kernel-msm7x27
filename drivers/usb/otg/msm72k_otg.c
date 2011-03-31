@@ -643,6 +643,27 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 	}
 }
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+/* LGE_CHANGE
+ * Apply the fix about TA Icon issue existed at Froyo era.
+ * 2011-03-20, hyunhui.park@lge.com
+ */
+static int msm_otg_are_interrupts_pending(struct msm_otg *dev)
+{
+	unsigned otgsc = readl(USB_OTGSC);
+
+	/* check if there are any pending otg interrupts */
+	if (((otgsc & OTGSC_INTR_MASK) >> 8) & otgsc) {
+		pr_info("%s: Interrupts while suspending phy: "
+				"otgsc:%08x\n", __func__, otgsc);
+		return 1;
+	}
+
+	return 0;
+
+}
+#endif
+
 static int msm_otg_suspend(struct msm_otg *dev)
 {
 	unsigned long timeout;
@@ -706,6 +727,17 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	disable_phy_clk();
 	while (!is_phy_clk_disabled()) {
 		if (time_after(jiffies, timeout)) {
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+			/* LGE_CHANGE
+			 * Apply the fix about TA Icon issue existed at Froyo era.
+			 * 2011-03-20, hyunhui.park@lge.com
+			 */
+			/* check if there are any pending interrupts at first*/
+			if (msm_otg_are_interrupts_pending(dev)) {
+				enable_idabc(dev);
+				goto out;
+			}
+#endif
 			pr_err("%s: Unable to suspend phy\n", __func__);
 			/*
 			 * Start otg state machine in default state upon
@@ -1697,6 +1729,20 @@ static void msm_otg_sm_work(struct work_struct *w)
 			/* Allow idle power collapse */
 			otg_pm_qos_update_latency(dev, 0);
 		}
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+		/* LGE_CHANGE
+		 * Apply the fix about TA Icon issue existed at Froyo era.
+		 * 2011-03-20, hyunhui.park@lge.com
+		 */
+		/* check if the cable status is changed after set_suspend */
+		if (!is_b_sess_vld()) {
+			msm_otg_set_suspend(&dev->otg, 0);
+			pr_info("%s: Missed BSV interrupt-2\n", __func__);
+			clear_bit(B_SESS_VLD, &dev->inputs);
+			work = 1;
+			break;
+		}
+#endif
 		break;
 	case OTG_STATE_B_WAIT_ACON:
 		if (!test_bit(ID, &dev->inputs) ||
