@@ -855,6 +855,8 @@ uint32 mdp4_overlay_format(struct mdp4_overlay_pipe *pipe)
 	if (pipe->alpha_enable)
 		format |= MDP4_FORMAT_ALPHA_ENABLE;
 
+	if (pipe->flags & MDP_SOURCE_ROTATED_90)
+		format |= MDP4_FORMAT_90_ROTATED;
 	format |= (pipe->unpack_count << 13);
 	format |= ((pipe->bpp - 1) << 9);
 	format |= (pipe->a_bit << 6);
