@@ -50,4 +50,5 @@
 #define PMEM_MEMTYPE   PMEM_MEMTYPE_EBI1
 #endif
 
+#define VIDC_1080p_DISABLE_GATING
 #endif
