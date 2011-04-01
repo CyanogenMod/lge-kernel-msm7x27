@@ -55,3 +55,107 @@ unsigned lge_get_lpm_info(void)
 }
 EXPORT_SYMBOL(lge_get_lpm_info);
 #endif
+
+#ifdef CONFIG_MACH_LGE
+unsigned lge_get_batt_volt(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0x3;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_batt_volt);
+
+unsigned lge_get_chg_therm(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0x9;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_chg_therm);
+
+unsigned lge_get_pcb_version(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0xA;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_pcb_version);
+
+unsigned lge_get_chg_curr_volt(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0xB;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_chg_curr_volt);
+
+unsigned lge_get_batt_therm(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0xC;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_batt_therm);
+
+unsigned lge_get_batt_volt_raw(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0xD;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_batt_volt_raw);
+#endif
