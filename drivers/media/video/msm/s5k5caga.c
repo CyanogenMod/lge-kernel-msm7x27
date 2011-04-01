@@ -692,12 +692,12 @@ static long lgcam_rear_sensor_set_sensor_mode(int mode,int width, int height)
 				printk("lgcam_rear_sensor_set_sensor_mode: sensor mode is PREVIEW, previous mode = %d\n", previous_mode);			
 		
 		if(previous_mode == CAPTURE_MODE){
-			mdelay(60); // 1 frame skip ==> total 2 frames skip
 			rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.prev_reg_settings[0], lgcam_rear_sensor_regs.prev_reg_settings_size);
 			if(rc<0){
 				printk("lgcam_rear_sensor: preview writing fail!\n");
 				return rc;
 			}
+			mdelay(150); // 1 frame skip ==> total 2 frames skip
 
 	//		mdelay(200);  // 2 frames skip
 			rc = lgcam_rear_sensor_cancel_focus(focus_mode);
