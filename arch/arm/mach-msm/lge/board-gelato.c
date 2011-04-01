@@ -471,16 +471,8 @@ static void __init msm7x2x_init(void)
 	msm_add_fb_device();
 
 #if !defined(CONFIG_MSM_SERIAL_DEBUGGER)
-#if 0 /* original */
 	if (lge_get_uart_mode())
 		platform_device_register(&msm_device_uart3);
-#else
-	/* FIXME : THIS IS TEMPORARY! for ROM COPY image.
-	 * If cable is 56K cable, enables uart3 temporarily.
-	 */
-	if (lge_get_uart_mode() || (lge_get_pif_info() == 2))
-		platform_device_register(&msm_device_uart3);
-#endif
 #endif
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
