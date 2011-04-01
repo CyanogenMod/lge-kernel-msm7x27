@@ -345,6 +345,13 @@ int lge_gpio_switch_pass_event(char *sdev_name, int state);
 unsigned lge_get_pif_info(void);
 unsigned lge_get_lpm_info(void);
 
+unsigned lge_get_batt_volt(void);
+unsigned lge_get_chg_therm(void);
+unsigned lge_get_pcb_version(void);
+unsigned lge_get_chg_curr_volt(void);
+unsigned lge_get_batt_therm(void);
+unsigned lge_get_batt_volt_raw(void);
+
 #define CAMERA_POWER_ON				0
 #define CAMERA_POWER_OFF			1
 
