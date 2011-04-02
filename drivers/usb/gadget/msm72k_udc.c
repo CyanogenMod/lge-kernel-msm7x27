@@ -1465,15 +1465,7 @@ static void usb_do_work(struct work_struct *w)
 		spin_lock_irqsave(&ui->lock, iflags);
 		flags = ui->flags;
 		ui->flags = 0;
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-		/* LGE_CHANGE
-		 * Apply USB noti QCT patch from froyo era.
-		 * 2011-03-29, hyunhui.park@lge.com
-		 */
-		_vbus = is_b_sess_vld();
-#else /* original */
 		_vbus = is_usb_online(ui);
-#endif
 		spin_unlock_irqrestore(&ui->lock, iflags);
 
 		/* give up if we have nothing to do */
@@ -1486,60 +1478,7 @@ static void usb_do_work(struct work_struct *w)
 				int ret;
 
 				if (!_vbus) {
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-					/* LGE_CHANGE
-					 * Apply USB noti QCT patch from froyo era.
-					 * 2011-03-29, hyunhui.park@lge.com
-					 */
-					ui->chg_current = 0;
-					/* wait incase chg_detect is running */
-					if (!ui->gadget.is_a_peripheral)
-						cancel_delayed_work_sync(&ui->chg_det);
-
-					dev_info(&ui->pdev->dev,
-							"msm72k_udc: IDLE -> OFFLINE\n");
-
 					ui->state = USB_STATE_OFFLINE;
-
-					atomic_set(&ui->running, 0);
-					atomic_set(&ui->remote_wakeup, 0);
-					atomic_set(&ui->configured, 0);
-
-					if (ui->driver) {
-						dev_dbg(&ui->pdev->dev,
-								"usb: notify offline\n");
-						ui->driver->disconnect(&ui->gadget);
-					}
-					/* cancel pending ep0 transactions */
-					flush_endpoint(&ui->ep0out);
-					flush_endpoint(&ui->ep0in);
-
-					/* synchronize with irq context */
-					spin_lock_irqsave(&ui->lock, iflags);
-
-					msm72k_pullup_internal(&ui->gadget, 0);
-					spin_unlock_irqrestore(&ui->lock, iflags);
-
-					/* if charger is initialized to known type
-					 * we must let modem know about charger
-					 * disconnection
-					 */
-					otg_set_power(ui->xceiv, 0);
-
-					if (ui->irq) {
-						free_irq(ui->irq, ui);
-						ui->irq = 0;
-					}
-
-					switch_set_state(&ui->sdev, 0);
-
-					usb_do_work_check_vbus(ui);
-					pm_runtime_put_noidle(&ui->pdev->dev);
-					pm_runtime_suspend(&ui->pdev->dev);
-					wake_unlock(&ui->wlock);
-#else /* original */
-					ui->state = USB_STATE_OFFLINE;
-#endif
 					break;
 				}
 
@@ -1610,8 +1549,6 @@ static void usb_do_work(struct work_struct *w)
 				if (ui->driver) {
 					dev_dbg(&ui->pdev->dev,
 						"usb: notify offline\n");
-					dev_info(&ui->pdev->dev,
-						"usb: notify offline - ONLINE -> OFFLINE\n");
 					ui->driver->disconnect(&ui->gadget);
 				}
 				/* cancel pending ep0 transactions */
