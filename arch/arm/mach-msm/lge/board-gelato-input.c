@@ -506,7 +506,7 @@ static struct proximity_platform_data proxi_pdata = {
 	.irq_num	= PROXI_GPIO_DOUT,
 	.power		= prox_power_set,
 	.methods		= 0,
-	.operation_mode		= 0,
+	.operation_mode		= 2,
 	.debounce	 = 0,
 	.cycle = 2,
 };
