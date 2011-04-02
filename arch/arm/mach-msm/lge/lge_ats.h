@@ -127,6 +127,8 @@
 #define ATCMD_MMCFORMAT    129
 #define ATCMD_TOUCHFWVER   130
 
+#define ATCMD_LEDON		132		// LGE_UPDATE seungin.choi@lge.com 2011-04-01
+
 //////////////////////////////////////////////////////////////////
 // at_cmd value end
 

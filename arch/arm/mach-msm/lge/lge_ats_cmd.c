@@ -145,6 +145,15 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 		ret_value1 = fw_rev;		
 		break;
 
+	//LGE_UPDATE_S seungin.choi@lge.com 2011-04-01, add AT%LEDON
+	case ATCMD_LEDON:
+		if(at_act != ATCMD_ACTION)
+			result = HANDLE_FAIL;
+
+		update_atcmd_state("ledon", at_param);
+		break;
+	//LGE_UPDATE_E seungin.choi@lge.com 2011-04-01, add AT%LEDON
+
 	default :
 		result = HANDLE_ERROR;
 		break;
