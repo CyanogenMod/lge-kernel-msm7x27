@@ -56,7 +56,7 @@ static int is_host(void)
 	else if (dev->pdata->otg_mode == OTG_ID)
 		return (OTGSC_ID & readl(USB_OTGSC)) ? 0 : 1;
 	else
-		return (dev->otg.state >= OTG_STATE_A_IDLE);
+		return !test_bit(ID, &dev->inputs);
 }
 
 static int is_b_sess_vld(void)
@@ -66,7 +66,7 @@ static int is_b_sess_vld(void)
 	if (dev->pdata->otg_mode == OTG_ID)
 		return (OTGSC_BSV & readl(USB_OTGSC)) ? 1 : 0;
 	else
-		return (dev->otg.state == OTG_STATE_B_PERIPHERAL);
+		return test_bit(B_SESS_VLD, &dev->inputs);
 }
 
 static unsigned ulpi_read(struct msm_otg *dev, unsigned reg)
@@ -643,27 +643,6 @@ static void msm_otg_start_host(struct otg_transceiver *xceiv, int on)
 	}
 }
 
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-/* LGE_CHANGE
- * Apply the fix about TA Icon issue existed at Froyo era.
- * 2011-03-20, hyunhui.park@lge.com
- */
-static int msm_otg_are_interrupts_pending(struct msm_otg *dev)
-{
-	unsigned otgsc = readl(USB_OTGSC);
-
-	/* check if there are any pending otg interrupts */
-	if (((otgsc & OTGSC_INTR_MASK) >> 8) & otgsc) {
-		pr_info("%s: Interrupts while suspending phy: "
-				"otgsc:%08x\n", __func__, otgsc);
-		return 1;
-	}
-
-	return 0;
-
-}
-#endif
-
 static int msm_otg_suspend(struct msm_otg *dev)
 {
 	unsigned long timeout;
@@ -727,17 +706,6 @@ static int msm_otg_suspend(struct msm_otg *dev)
 	disable_phy_clk();
 	while (!is_phy_clk_disabled()) {
 		if (time_after(jiffies, timeout)) {
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-			/* LGE_CHANGE
-			 * Apply the fix about TA Icon issue existed at Froyo era.
-			 * 2011-03-20, hyunhui.park@lge.com
-			 */
-			/* check if there are any pending interrupts at first*/
-			if (msm_otg_are_interrupts_pending(dev)) {
-				enable_idabc(dev);
-				goto out;
-			}
-#endif
 			pr_err("%s: Unable to suspend phy\n", __func__);
 			/*
 			 * Start otg state machine in default state upon
@@ -1472,7 +1440,7 @@ static void otg_reset(struct otg_transceiver *xceiv, int phy_reset)
 {
 	struct msm_otg *dev = container_of(xceiv, struct msm_otg, otg);
 	unsigned long timeout;
-	u32 mode;
+	u32 mode, work = 0;
 
 	clk_enable(dev->hs_clk);
 
@@ -1519,17 +1487,49 @@ reset_link:
 		mode = USBMODE_SDIS | USBMODE_HOST;
 	writel(mode, USB_USBMODE);
 
-	if (dev->otg.gadget)
+	if (dev->otg.gadget) {
 		enable_sess_valid(dev);
+		/* Due to the above 100ms delay, interrupts from PHY are
+		 * sometimes missed during fast plug-in/plug-out of cable.
+		 * Check for such cases here.
+		 */
+		if (is_b_sess_vld() && !test_bit(B_SESS_VLD, &dev->inputs)) {
+			pr_debug("%s: handle missing BSV event\n", __func__);
+			set_bit(B_SESS_VLD, &dev->inputs);
+			work = 1;
+		} else if (!is_b_sess_vld() && test_bit(B_SESS_VLD,
+				&dev->inputs)) {
+			pr_debug("%s: handle missing !BSV event\n", __func__);
+			clear_bit(B_SESS_VLD, &dev->inputs);
+			work = 1;
+		}
+	}
 
 #ifdef CONFIG_USB_EHCI_MSM
-	if (dev->otg.host && !dev->pmic_id_notif_supp)
+	if (dev->otg.host && !dev->pmic_id_notif_supp) {
 		enable_idgnd(dev);
-	else
+		/* Handle missing ID_GND interrupts during fast PIPO */
+		if (is_host() && test_bit(ID, &dev->inputs)) {
+			pr_debug("%s: handle missing ID_GND event\n", __func__);
+			clear_bit(ID, &dev->inputs);
+			work = 1;
+		} else if (!is_host() && !test_bit(ID, &dev->inputs)) {
+			pr_debug("%s: handle missing !ID_GND event\n",
+						__func__);
+			set_bit(ID, &dev->inputs);
+			work = 1;
+		}
+	} else {
 		disable_idgnd(dev);
+	}
 #endif
 
 	enable_idabc(dev);
+
+	if (work) {
+		wake_lock(&dev->wlock);
+		queue_work(dev->wq, &dev->sm_work);
+	}
 }
 
 static void msm_otg_sm_work(struct work_struct *w)
@@ -1687,12 +1687,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 
 			/* Workaround: Reset phy after session */
 			otg_reset(&dev->otg, 1);
-			if (is_b_sess_vld())
-				set_bit(B_SESS_VLD, &dev->inputs);
-
-			/* If BSV is set gadget will be started. Otherwise
-			 * low power mode is initiated.
-			 */
 			work = 1;
 		} else if (test_bit(B_BUS_REQ, &dev->inputs) &&
 				dev->otg.gadget->b_hnp_enable &&
@@ -1718,31 +1712,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 #endif
 			/* Workaround: Reset PHY in SE1 state */
 			otg_reset(&dev->otg, 1);
-			if (!is_b_sess_vld()) {
-				clear_bit(B_SESS_VLD, &dev->inputs);
-				work = 1;
-				break;
-			}
-
 			pr_info("%s: entering into lpm with wall-charger\n", __func__);
 			msm_otg_put_suspend(dev);
 			/* Allow idle power collapse */
 			otg_pm_qos_update_latency(dev, 0);
 		}
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-		/* LGE_CHANGE
-		 * Apply the fix about TA Icon issue existed at Froyo era.
-		 * 2011-03-20, hyunhui.park@lge.com
-		 */
-		/* check if the cable status is changed after set_suspend */
-		if (!is_b_sess_vld()) {
-			msm_otg_set_suspend(&dev->otg, 0);
-			pr_info("%s: Missed BSV interrupt-2\n", __func__);
-			clear_bit(B_SESS_VLD, &dev->inputs);
-			work = 1;
-			break;
-		}
-#endif
 		break;
 	case OTG_STATE_B_WAIT_ACON:
 		if (!test_bit(ID, &dev->inputs) ||
