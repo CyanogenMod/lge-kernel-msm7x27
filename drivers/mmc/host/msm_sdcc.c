@@ -1408,7 +1408,13 @@ msmsdcc_check_status(unsigned long data)
 				   __func__, __LINE__);
 /* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-01-24, <resolve the 'bus down' issue> */
 			// mmc_detect_change(host->mmc, 0); /* original */
-			mmc_detect_change(host->mmc, (3*HZ)/20); /* original */
+			if(!host->eject) {
+				printk(KERN_ERR "[%s] !host->eject: mmc_detect_change after 150ms\n", __func__);
+				mmc_detect_change(host->mmc, (3*HZ)/20); 
+			} else {
+				printk(KERN_ERR "[%s] host->eject: mmc_detect_change without delay\n", __func__);
+				mmc_detect_change(host->mmc, 0); 
+			}
 /* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-24, <resolve the 'bus down' issue> */
 		}
 		else
