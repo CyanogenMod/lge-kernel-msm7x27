@@ -253,6 +253,8 @@ static int ts_set_vreg(unsigned char onoff)
 		}
 		vreg_enable(vreg_touch);
 
+		msleep(1);
+
 		rc = vreg_set_level(vreg_pullup, 2600);
 		if (rc != 0) {
 			printk("[TOUCH] vreg_set_level failed\n");

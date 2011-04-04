@@ -15,15 +15,12 @@ int config_info(void);
 int set_flash_addr(void);
 int read_description(void);
 int enable_flashing(void);
-void SynaSpecialCopyEndianAgnostic(unsigned char *dest, unsigned short src) ;
 unsigned int SynaReadBootloadID(void);
 unsigned int SynaWriteBootloadID(void);
-void SynaWaitATTN(int errorCount);
 int program_firmware(void);
-int SynaFlashFirmwareWrite(void);
+int flash_fw_write(void);
 unsigned int firmware_reflash(struct i2c_client *syn_touch, int fw_revision);
-void RMI4CheckIfFatalError(int errCode);
-int SynaFinalizeFlash(void);
+int finalize_flash(void);
 
 #endif /* _SYNA_REPLASH_LAYER_H */
 
