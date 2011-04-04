@@ -2483,7 +2483,11 @@ static void wl_iw_send_scan_complete(iscan_info_t *iscan)
 
 		memset(&wrqu, 0, sizeof(wrqu));
 		memset(extra, 0, sizeof(extra));
-		wireless_send_event(iscan->dev, SIOCGIWSCAN, &wrqu, extra);
+		// UPDATE_S dk.moon 20110331, remove warning message in wireless EXT. (from BCM4330 src)
+		/* wext expects to get no data for SIOCGIWSCAN Event  */
+		wireless_send_event(iscan->dev, SIOCGIWSCAN, &wrqu, NULL);
+		//wireless_send_event(iscan->dev, SIOCGIWSCAN, &wrqu, extra);
+		// UPDATE_E dk.moon 20110331, remove warning message in wireless EXT.
 		WL_TRACE(("Send Event SCAN complete\n"));
 #endif
 }
@@ -6992,8 +6996,14 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 		return;
 #endif	/* CONFIG_LGE_BCM432X_PATCH */
 #ifndef SANDGATE2G
-		if (cmd)
-			wireless_send_event(dev, cmd, &wrqu, extra);
+		// UPDATE_S dk.moon 20110331, remove warning message in wireless EXT. (from BCM4330 src)
+		if (cmd) {
+			if (cmd == SIOCGIWSCAN)
+				wireless_send_event(dev, cmd, &wrqu, NULL);
+			else
+				wireless_send_event(dev, cmd, &wrqu, extra);
+		}
+		// UPDATE_S dk.moon 20110331, remove warning message in wireless EXT.
 #endif
 
 #if defined(STA) || defined(BCMDONGLEHOST)

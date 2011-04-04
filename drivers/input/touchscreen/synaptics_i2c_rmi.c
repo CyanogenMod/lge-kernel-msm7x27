@@ -905,8 +905,13 @@ static int synaptics_ts_probe(
 
 	if(is_need_forced_update != 1)
 	{
+#if 0 /* this routine should be checked, later */
 		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, max_x, fuzz_x, 0);
 		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, max_y, fuzz_y, 0);
+#else
+		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, max_x+1, 0, 0);
+		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, max_y+1, 0, 0);
+#endif
 		input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 15, fuzz_p, 0);
 		input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 15, fuzz_w, 0);
 
