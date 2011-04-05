@@ -48,6 +48,7 @@ static void *mddi_hitachi_vsync_handler_arg;
 static uint16 mddi_hitachi_vsync_attempts;
 
 static struct msm_panel_hitachi_pdata *mddi_hitachi_pdata;
+static int hitachi_display_on = FALSE;
 
 static int mddi_hitachi_lcd_on(struct platform_device *pdev);
 static int mddi_hitachi_lcd_off(struct platform_device *pdev);
@@ -108,11 +109,9 @@ static struct display_table mddi_hitachi_display_off[] = {
 static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	// Display off sequence
 	{0x28, 4, {0x00, 0x00, 0x00, 0x00}},
-	// [App 4th Table] Change from 40ms to 20ms. 2010-08-03. minjong.gong@lge.com
 	{REGFLAG_DELAY, 20, {}},
 	{0x10, 4, {0x00, 0x00, 0x00, 0x00}},
-	// [Apply 4th Table] Change from 100ms to 40ms. 2010-08-03. minjong.gong@lge.com
-	{REGFLAG_DELAY, 40, {}},
+	{REGFLAG_DELAY, 120, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
@@ -405,28 +404,38 @@ static int mddi_hitachi_lcd_on(struct platform_device *pdev)
 	EPRINTK("%s: started.\n", __func__);
 
 	if (system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized) {
+		hitachi_display_on = TRUE;
 		return 0;
 	}
 
-	if(mddi_hitachi_pdata->maker_id == PANEL_ID_HITACHI) {
-		init_table = mddi_hitachi_initialize;
-		size = sizeof(mddi_hitachi_initialize)/sizeof(struct display_table);
-	} else {
-		init_table = mddi_auo_initialize;
-		size = sizeof(mddi_auo_initialize)/sizeof(struct display_table);
-	}
-	// LCD HW Reset
-	mddi_hitachi_lcd_panel_poweron();
-	display_table(init_table, size);
-	display_table(mddi_hitachi_display_on, sizeof(mddi_hitachi_display_on) / sizeof(struct display_table));
+	if(!hitachi_display_on) {
 
+		if(mddi_hitachi_pdata->maker_id == PANEL_ID_HITACHI) {
+			init_table = mddi_hitachi_initialize;
+			size = sizeof(mddi_hitachi_initialize)/sizeof(struct display_table);
+		} else {
+			init_table = mddi_auo_initialize;
+			size = sizeof(mddi_auo_initialize)/sizeof(struct display_table);
+		}
+		// LCD HW Reset
+		mddi_hitachi_lcd_panel_poweron();
+		display_table(init_table, size);
+		display_table(mddi_hitachi_display_on,
+					  ARRAY_SIZE(mddi_hitachi_display_on));
+
+		hitachi_display_on = TRUE;
+	}
 	return 0;
 }
 
 static int mddi_hitachi_lcd_off(struct platform_device *pdev)
 {
-	display_table(mddi_hitachi_sleep_mode_on_data, sizeof(mddi_hitachi_sleep_mode_on_data)/sizeof(struct display_table));
-	mddi_hitachi_lcd_panel_poweroff();
+	if(hitachi_display_on) {
+		display_table(mddi_hitachi_sleep_mode_on_data,
+					  ARRAY_SIZE(mddi_hitachi_sleep_mode_on_data));
+		mddi_hitachi_lcd_panel_poweroff();
+		hitachi_display_on = FALSE;
+	}
 	return 0;
 }
 
@@ -443,7 +452,7 @@ ssize_t mddi_hitachi_lcd_store_onoff(struct device *dev, struct device_attribute
 	sscanf(buf, "%d", &onoff);
 
 	EPRINTK("%s: onoff : %d\n", __func__, onoff);
-	
+
 	if(onoff) {
 		mddi_hitachi_lcd_on(NULL);
 	}
@@ -461,7 +470,7 @@ int mddi_hitachi_position(void)
 }
 EXPORT_SYMBOL(mddi_hitachi_position);
 
-DEVICE_ATTR(lcd_onoff, 0666, mddi_hitachi_lcd_show_onoff, mddi_hitachi_lcd_store_onoff);
+DEVICE_ATTR(lcd_onoff, 0664, mddi_hitachi_lcd_show_onoff, mddi_hitachi_lcd_store_onoff);
 
 struct msm_fb_panel_data hitachi_panel_data0 = {
 	.on = mddi_hitachi_lcd_on,
