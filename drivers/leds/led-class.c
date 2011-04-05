@@ -184,18 +184,8 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 	list_add_tail(&led_cdev->node, &leds_list);
 	up_write(&leds_list_lock);
 
-/* LGE_CHANGE 
- * Modified LED Level 4 to 2 
- * fred.cho@lge.com, 2011.03.21
- */
- 
-#ifdef CONFIG_MACH_MSM7X27_GELATO
-	if (!led_cdev->max_brightness)
-		led_cdev->max_brightness = LED_SET;
-#else
 	if (!led_cdev->max_brightness)
 	    led_cdev->max_brightness = LED_FULL;
-#endif
 
 	led_update_brightness(led_cdev);
 
