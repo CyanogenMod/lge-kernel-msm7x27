@@ -1527,7 +1527,7 @@ static long lgcam_rear_sensor_set_effect(int effect)
 	
 	return 0;
 }
-
+#if 0	//CTS fail, should not wriatble
 static long lgcam_rear_sensor_set_zoom(int8_t zoom)
 {
 	int32_t rc;	
@@ -1658,7 +1658,7 @@ static long lgcam_rear_sensor_set_zoom(int8_t zoom)
 	lgcam_rear_sensor_ctrl->zoom = zoom;
 	return rc;
 }
-
+#endif //CTS fail, should not wriatble
 #if !SENSOR_TUNING_SET
 static long lgcam_rear_sensor_set_zoom_sensor(int zoom)
 {
@@ -3254,7 +3254,7 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
 /* =====================================================================================*/
 /* lgcam_rear_sensor sysf                                                                          */
 /* =====================================================================================*/
-
+#if 0	// CTS fail //should not writable
 static ssize_t lgcam_rear_sensor_write_byte_store(struct device* dev, struct device_attribute* attr,const char* buf, size_t n)
 {
 	unsigned int val;
@@ -3492,6 +3492,7 @@ static void lgcam_rear_sensor_sysfs_add(struct kobject* kobj)
 /*======================================================================================*/
 /*  end :  sysf                                                                         */
 /*======================================================================================*/
+#endif	// CTS fail //should not writable
 
 int lgcam_rear_sensor_sensor_release(void)
 {
@@ -3537,8 +3538,9 @@ static int lgcam_rear_sensor_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, lgcam_rear_sensor_sensorw);
 	lgcam_rear_sensor_init_client(client);
 	lgcam_rear_sensor_client = client;
-	
+#if 0	// CTS fail, should not writable	
 	lgcam_rear_sensor_sysfs_add(&client->dev.kobj);
+#endif	// CTS fail, should not writable	
 
 	if(debug_mask)
 		printk("lgcam_rear_sensor: lgcam_rear_sensor_probe succeeded!\n");
