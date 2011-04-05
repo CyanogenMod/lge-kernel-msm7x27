@@ -62,6 +62,7 @@ int libra_sdio_configure(sdio_irq_handler_t libra_sdio_rxhandler,
 	if (sdio_set_block_size(func, blksize)) {
 		printk(KERN_ERR "%s: Unable to set the block size.\n",
 				__func__);
+		sdio_release_host(func);
 		goto cfg_error;
 	}
 
