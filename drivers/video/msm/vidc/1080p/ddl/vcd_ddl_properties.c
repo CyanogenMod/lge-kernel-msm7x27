@@ -1683,7 +1683,7 @@ u32 ddl_get_yuv_buffer_size(struct vcd_property_frame_size *frame_size,
 			total_memory_size = frame_sz.scan_lines *
 						frame_sz.stride;
 		else
-			total_memory_size = frame_sz.height * frame_sz.width;
+			total_memory_size = frame_sz.height * frame_sz.stride;
 		c_offset = DDL_ALIGN(total_memory_size,
 			DDL_LINEAR_MULTIPLY_FACTOR);
 		total_memory_size = c_offset + DDL_ALIGN(
