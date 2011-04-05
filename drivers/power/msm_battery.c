@@ -72,7 +72,7 @@
 #define BATTERY_CB_ID_ALL_ACTIV		1
 #define BATTERY_CB_ID_LOW_VOL		2
 
-#define BATTERY_LOW		2800//3200
+#define BATTERY_LOW		3200//2800
 #define BATTERY_HIGH		4300
 
 #define ONCRPC_CHG_GET_GENERAL_STATUS_PROC	12
@@ -459,7 +459,7 @@ static int msm_batt_get_batt_chg_status(void)
 		be32_to_cpu_self(v1p->battery_soc);
 #endif
 
-#if 1
+#if 0
 		DBG_LIMIT("%s() \n ----- charger / battery status --------\n", __func__);
 		DBG_LIMIT("\t charger_status=%d\n", v1p->charger_status);
 		DBG_LIMIT("\t charger_type=%d\n", v1p->charger_type);
@@ -479,6 +479,13 @@ static int msm_batt_get_batt_chg_status(void)
 	return 0;
 }
 
+#ifdef CONFIG_MACH_LGE
+/* 2010-12-14 by baborobo@lge.com
+ * if it is updateing of battery-status by rpc,
+ * don't request updateing of battery-status
+ */
+static int is_run_batt_update = 0;
+#endif
 static void msm_batt_update_psy_status(void)
 {
 	static u32 unnecessary_event_count;
@@ -493,8 +500,23 @@ static void msm_batt_update_psy_status(void)
 #endif
 	struct	power_supply	*supp;
 
+#ifdef CONFIG_MACH_LGE
+  /* 2010-12-14 by baborobo@lge.com
+   * to check the updating-status
+   */
+	if(is_run_batt_update)
+		return;
+
+	is_run_batt_update = 1;
+	
+	if (msm_batt_get_batt_chg_status())	{
+		is_run_batt_update = 0;
+		return;
+	}
+#else
 	if (msm_batt_get_batt_chg_status())
 		return;
+#endif
 
 	charger_status = rep_batt_chg.v1.charger_status;
 	charger_type = rep_batt_chg.v1.charger_type;
@@ -528,6 +550,12 @@ static void msm_batt_update_psy_status(void)
 		if ((unnecessary_event_count % 20) == 1)
 			DBG_LIMIT("BATT: same event count = %u\n",
 				 unnecessary_event_count);
+#ifdef CONFIG_MACH_LGE
+    /* 2010-12-14 by baborobo@lge.com
+     * to check the updating-status
+     */
+	  is_run_batt_update = 0;
+#endif
 		return;
 	}
 
@@ -793,6 +821,13 @@ static void msm_batt_update_psy_status(void)
 		DBG_LIMIT("BATT: Supply = %s\n", supp->name);
 		power_supply_changed(supp);
 	}
+
+#ifdef CONFIG_MACH_LGE
+  /* 2010-12-14 by baborobo@lge.com
+   * to check the updating-status
+   */
+	is_run_batt_update = 0;
+#endif
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
