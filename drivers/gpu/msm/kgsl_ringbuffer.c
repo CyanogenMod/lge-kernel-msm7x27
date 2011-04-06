@@ -78,11 +78,11 @@ void kgsl_cp_intrcallback(struct kgsl_device *device)
 
 	KGSL_CMD_VDBG("enter (device=%p)\n", device);
 
-	kgsl_yamato_regread(device, REG_MASTER_INT_SIGNAL, &master_status);
+	kgsl_yamato_regread_isr(device, REG_MASTER_INT_SIGNAL, &master_status);
 	while (!status && (num_reads < VALID_STATUS_COUNT_MAX) &&
 		(master_status & MASTER_INT_SIGNAL__CP_INT_STAT)) {
-		kgsl_yamato_regread(device, REG_CP_INT_STATUS, &status);
-		kgsl_yamato_regread(device, REG_MASTER_INT_SIGNAL,
+		kgsl_yamato_regread_isr(device, REG_CP_INT_STATUS, &status);
+		kgsl_yamato_regread_isr(device, REG_MASTER_INT_SIGNAL,
 					&master_status);
 		num_reads++;
 	}
@@ -115,23 +115,23 @@ void kgsl_cp_intrcallback(struct kgsl_device *device)
 
 	if (status & CP_INT_CNTL__T0_PACKET_IN_IB_MASK) {
 		KGSL_CMD_FATAL("ringbuffer TO packet in IB interrupt\n");
-		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		kgsl_yamato_regwrite_isr(rb->device, REG_CP_INT_CNTL, 0);
 	}
 	if (status & CP_INT_CNTL__OPCODE_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer opcode error interrupt\n");
-		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		kgsl_yamato_regwrite_isr(rb->device, REG_CP_INT_CNTL, 0);
 	}
 	if (status & CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer protected mode error interrupt\n");
-		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		kgsl_yamato_regwrite_isr(rb->device, REG_CP_INT_CNTL, 0);
 	}
 	if (status & CP_INT_CNTL__RESERVED_BIT_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer reserved bit error interrupt\n");
-		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		kgsl_yamato_regwrite_isr(rb->device, REG_CP_INT_CNTL, 0);
 	}
 	if (status & CP_INT_CNTL__IB_ERROR_MASK) {
 		KGSL_CMD_FATAL("ringbuffer IB error interrupt\n");
-		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		kgsl_yamato_regwrite_isr(rb->device, REG_CP_INT_CNTL, 0);
 	}
 	if (status & CP_INT_CNTL__SW_INT_MASK)
 		KGSL_CMD_DBG("ringbuffer software interrupt\n");
@@ -144,7 +144,7 @@ void kgsl_cp_intrcallback(struct kgsl_device *device)
 
 	/* only ack bits we understand */
 	status &= GSL_CP_INT_MASK;
-	kgsl_yamato_regwrite(device, REG_CP_INT_ACK, status);
+	kgsl_yamato_regwrite_isr(device, REG_CP_INT_ACK, status);
 
 	if (status & (CP_INT_CNTL__IB1_INT_MASK | CP_INT_CNTL__RB_INT_MASK)) {
 		KGSL_CMD_WARN("ringbuffer ib1/rb interrupt\n");

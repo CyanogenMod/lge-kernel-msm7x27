@@ -120,21 +120,21 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 
 	KGSL_MEM_VDBG("enter (device=%p)\n", device);
 
-	kgsl_regread(device, mmu_reg[device->id].interrupt_status, &status);
+	kgsl_regread_isr(device, mmu_reg[device->id].interrupt_status, &status);
 
 	if (status & MH_INTERRUPT_MASK__AXI_READ_ERROR) {
 		KGSL_MEM_FATAL("axi read error interrupt\n");
 	} else if (status & MH_INTERRUPT_MASK__AXI_WRITE_ERROR) {
 		KGSL_MEM_FATAL("axi write error interrupt\n");
 	} else if (status & MH_INTERRUPT_MASK__MMU_PAGE_FAULT) {
-		kgsl_regread(device, mmu_reg[device->id].page_fault, &reg);
+		kgsl_regread_isr(device, mmu_reg[device->id].page_fault, &reg);
 		KGSL_MEM_FATAL("mmu page fault interrupt: %08x\n", reg);
 	} else {
 		KGSL_MEM_DBG("bad bits in REG_MH_INTERRUPT_STATUS %08x\n",
 			     status);
 	}
 
-	kgsl_regwrite(device, mmu_reg[device->id].interrupt_clear, status);
+	kgsl_regwrite_isr(device, mmu_reg[device->id].interrupt_clear, status);
 
 	/*TODO: figure out how to handle errror interupts.
 	* specifically, page faults should probably nuke the client that

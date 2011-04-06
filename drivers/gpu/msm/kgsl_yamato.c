@@ -157,11 +157,11 @@ static void kgsl_yamato_rbbm_intrcallback(struct kgsl_device *device)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	kgsl_yamato_regread(device, REG_RBBM_INT_STATUS, &status);
+	kgsl_yamato_regread_isr(device, REG_RBBM_INT_STATUS, &status);
 
 	if (status & RBBM_INT_CNTL__RDERR_INT_MASK) {
 		union rbbm_read_error_u rerr;
-		kgsl_yamato_regread(device, REG_RBBM_READ_ERROR, &rderr);
+		kgsl_yamato_regread_isr(device, REG_RBBM_READ_ERROR, &rderr);
 		rerr.val = rderr;
 		if (rerr.f.read_address == REG_CP_INT_STATUS &&
 			rerr.f.read_error &&
@@ -180,7 +180,7 @@ static void kgsl_yamato_rbbm_intrcallback(struct kgsl_device *device)
 	}
 
 	status &= GSL_RBBM_INT_MASK;
-	kgsl_yamato_regwrite(device, REG_RBBM_INT_ACK, status);
+	kgsl_yamato_regwrite_isr(device, REG_RBBM_INT_ACK, status);
 
 	KGSL_DRV_VDBG("return\n");
 }
@@ -191,7 +191,7 @@ static void kgsl_yamato_sq_intrcallback(struct kgsl_device *device)
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
-	kgsl_yamato_regread(device, REG_SQ_INT_STATUS, &status);
+	kgsl_yamato_regread_isr(device, REG_SQ_INT_STATUS, &status);
 
 	if (status & SQ_INT_CNTL__PS_WATCHDOG_MASK)
 		KGSL_DRV_DBG("sq ps watchdog interrupt\n");
@@ -202,7 +202,7 @@ static void kgsl_yamato_sq_intrcallback(struct kgsl_device *device)
 
 
 	status &= GSL_SQ_INT_MASK;
-	kgsl_yamato_regwrite(device, REG_SQ_INT_ACK, status);
+	kgsl_yamato_regwrite_isr(device, REG_SQ_INT_ACK, status);
 
 	KGSL_DRV_VDBG("return\n");
 }
@@ -219,7 +219,7 @@ irqreturn_t kgsl_yamato_isr(int irq, void *data)
 	BUG_ON(device->regspace.sizebytes == 0);
 	BUG_ON(device->regspace.mmio_virt_base == 0);
 
-	kgsl_yamato_regread(device, REG_MASTER_INT_SIGNAL, &status);
+	kgsl_yamato_regread_isr(device, REG_MASTER_INT_SIGNAL, &status);
 
 	if (status & MASTER_INT_SIGNAL__MH_INT_STAT) {
 		kgsl_mh_intrcallback(device);
@@ -443,13 +443,13 @@ kgsl_yamato_getchipid(struct kgsl_device *device)
 	unsigned int coreid, majorid, minorid, patchid, revid;
 
 	/* YDX */
-	kgsl_yamato_regread(device, REG_RBBM_PERIPHID1, &coreid);
+	kgsl_yamato_regread_isr(device, REG_RBBM_PERIPHID1, &coreid);
 	coreid &= 0xF;
 
-	kgsl_yamato_regread(device, REG_RBBM_PERIPHID2, &majorid);
+	kgsl_yamato_regread_isr(device, REG_RBBM_PERIPHID2, &majorid);
 	majorid = (majorid >> 4) & 0xF;
 
-	kgsl_yamato_regread(device, REG_RBBM_PATCH_RELEASE, &revid);
+	kgsl_yamato_regread_isr(device, REG_RBBM_PATCH_RELEASE, &revid);
 	/* this is a 16bit field, but extremely unlikely it would ever get
 	* this high
 	*/
@@ -1125,42 +1125,58 @@ static int kgsl_yamato_suspend_context(struct kgsl_device *device)
 	return status;
 }
 
-int kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords,
-				unsigned int *value)
+void _yamato_regread(struct kgsl_device *device, unsigned int offsetwords,
+		    unsigned int *value)
 {
 	unsigned int *reg;
 
-	kgsl_pre_hwaccess(device);
-	if (offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes) {
-		KGSL_DRV_ERR("invalid offset %d\n", offsetwords);
-		return -ERANGE;
-	}
+	BUG_ON(offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes);
 
 	reg = (unsigned int *)(device->regspace.mmio_virt_base
 				+ (offsetwords << 2));
 	*value = readl(reg);
-
-	return 0;
 }
 
-int kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+void kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords,
+				unsigned int *value)
+{
+	kgsl_pre_hwaccess(device);
+	_yamato_regread(device, offsetwords, value);
+}
+
+void kgsl_yamato_regread_isr(struct kgsl_device *device,
+			     unsigned int offsetwords,
+			     unsigned int *value)
+{
+	_yamato_regread(device, offsetwords, value);
+}
+
+
+void _yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int value)
 {
 	unsigned int *reg;
 
-	if (offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes) {
-		KGSL_DRV_ERR("invalid offset %d\n", offsetwords);
-		return -ERANGE;
-	}
+	BUG_ON(offsetwords*sizeof(uint32_t) >= device->regspace.sizebytes);
 
 	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
 	reg = (unsigned int *)(device->regspace.mmio_virt_base
 				+ (offsetwords << 2));
-
-	kgsl_pre_hwaccess(device);
 	writel(value, reg);
+}
 
-	return 0;
+void kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+				unsigned int value)
+{
+	kgsl_pre_hwaccess(device);
+	_yamato_regwrite(device, offsetwords, value);
+}
+
+void kgsl_yamato_regwrite_isr(struct kgsl_device *device,
+			      unsigned int offsetwords,
+			      unsigned int value)
+{
+	_yamato_regwrite(device, offsetwords, value);
 }
 
 static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
@@ -1314,6 +1330,8 @@ int kgsl_yamato_getfunctable(struct kgsl_functable *ftbl)
 		return KGSL_FAILURE;
 	ftbl->device_regread = kgsl_yamato_regread;
 	ftbl->device_regwrite = kgsl_yamato_regwrite;
+	ftbl->device_regread_isr = kgsl_yamato_regread_isr;
+	ftbl->device_regwrite_isr = kgsl_yamato_regwrite_isr;
 	ftbl->device_setstate = kgsl_yamato_setstate;
 	ftbl->device_idle = kgsl_yamato_idle;
 	ftbl->device_isidle = kgsl_yamato_isidle;

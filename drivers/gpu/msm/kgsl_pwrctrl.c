@@ -356,6 +356,8 @@ int kgsl_pwrctrl_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
 
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
 	if (device->state == KGSL_STATE_SUSPEND)
 		return status;
 
