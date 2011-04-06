@@ -84,6 +84,7 @@ static int msm_xo_show_voters(struct seq_file *m, void *v)
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_D1], "TCXO D1");
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A0], "TCXO A0");
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_TCXO_A1], "TCXO A1");
+	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_CORE], "TCXO Core");
 	msm_xo_dump_xo(m, &msm_xo_sources[MSM_XO_PXO], "PXO during sleep");
 	spin_unlock_irqrestore(&msm_xo_lock, flags);
 
@@ -144,7 +145,8 @@ static int msm_xo_update_vote(struct msm_xo *xo)
 		cmd.value = (msm_xo_sources[MSM_XO_TCXO_D0].mode << 0)  |
 			    (msm_xo_sources[MSM_XO_TCXO_D1].mode << 8)  |
 			    (msm_xo_sources[MSM_XO_TCXO_A0].mode << 16) |
-			    (msm_xo_sources[MSM_XO_TCXO_A1].mode << 24);
+			    (msm_xo_sources[MSM_XO_TCXO_A1].mode << 24) |
+			    ((msm_xo_sources[MSM_XO_CORE].mode ? 1 : 0) << 2);
 		ret = msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &cmd, 1);
 	}
 
