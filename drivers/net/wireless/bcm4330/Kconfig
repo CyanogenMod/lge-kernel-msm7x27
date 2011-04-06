@@ -84,3 +84,26 @@ config BRCM_USE_STATIC_BUF
 	bool "Use static buff of osl_malloc"
 	default n
 	depends on BCM4330
+
+#LGE_CHANGE_S, 2011-0226, add CCX
+config BCM43xx_CCX
+    bool "Enable CCX feature"
+    default n
+    depends on BCM4330
+    ---help---
+        Enabling/disabling CCX features
+#LGE_CHANGE_E, 2011-0226, add CCX
+
+config BRCM_USE_WLP2P
+	bool "Use P2P"
+	default n
+	depends on BCM4330
+	---help---
+	Using P2P feature.
+
+config BRCM_USE_WLBTAMP
+	bool "Use BTAMP"
+	default n
+	depends on BCM4330
+	---help---
+	Using BTAMP feature.

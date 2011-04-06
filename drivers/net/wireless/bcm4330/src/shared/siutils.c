@@ -430,6 +430,10 @@ si_doattach(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 
 		if (sii->pub.ccrev >= 20) {
 			cc = (chipcregs_t *)si_setcore(sih, CC_CORE_ID, 0);
+			if (cc == NULL) {	// 20110324_WBT : ID 851
+				SI_ERROR(("%s: cc is NULL\n", __FUNCTION__));
+				return NULL;
+			}
 			ASSERT(cc != NULL);
 			W_REG(osh, &cc->gpiopullup, 0);
 			W_REG(osh, &cc->gpiopulldown, 0);
@@ -1805,6 +1809,10 @@ si_btcgpiowar(si_t *sih)
 	origidx = si_coreidx(sih);
 
 	cc = (chipcregs_t *)si_setcore(sih, CC_CORE_ID, 0);
+	if (cc == NULL) {	// 20110324_WBT : ID 850
+		SI_ERROR(("%s: cc is NULL\n", __FUNCTION__));
+		return;
+	}
 	ASSERT(cc != NULL);
 
 	W_REG(sii->osh, &cc->uart0mcr, R_REG(sii->osh, &cc->uart0mcr) | 0x04);

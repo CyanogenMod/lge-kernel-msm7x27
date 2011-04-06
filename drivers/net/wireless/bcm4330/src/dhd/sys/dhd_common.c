@@ -41,6 +41,10 @@
 #include <dhd_dbg.h>
 #include <msgtrace.h>
 
+#ifdef WLBTAMP
+#include <proto/bt_amp_hci.h>
+#include <dhd_bta.h>
+#endif /* WLBTAMP */
 
 
 
@@ -110,6 +114,10 @@ enum {
 	IOV_LOGSTAMP,
 	IOV_GPIOOB,
 	IOV_IOCTLTIMEOUT,
+#ifdef WLBTAMP
+	IOV_HCI_CMD,		/* HCI command */
+	IOV_HCI_ACL_DATA,	/* HCI data packet */
+#endif /* WLBTAMP */
 #if defined(DHD_DEBUG)
 	IOV_CONS,
 	IOV_DCONSOLE_POLL,
@@ -138,6 +146,10 @@ const bcm_iovar_t dhd_iovars[] = {
 	{"clearcounts", IOV_CLEARCOUNTS, 0, IOVT_VOID,	0 },
 	{"gpioob",	IOV_GPIOOB,	0,	IOVT_UINT32,	0 },
 	{"ioctl_timeout",	IOV_IOCTLTIMEOUT,	0,	IOVT_UINT32,	0 },
+#ifdef WLBTAMP
+	{"HCI_cmd",	IOV_HCI_CMD,	0,	IOVT_BUFFER,	0},
+	{"HCI_ACL_data", IOV_HCI_ACL_DATA, 0,	IOVT_BUFFER,	0},
+#endif /* WLBTAMP */
 	{"bustype", IOV_BUS_TYPE, 0, IOVT_UINT32, 0},
 #ifdef WLMEDIA_HTSF
 	{"pktdlystatsz", IOV_WLPKTDLYSTAT_SZ, 0, IOVT_UINT8, 0 },
@@ -158,7 +170,6 @@ dhd_common_init(osl_t *osh)
 	 * first time that the driver is initialized vs subsequent initializations.
 	 */
 	dhd_msg_level = DHD_ERROR_VAL;
-	//dhd_msg_level = 0x03; //yhcha @ 110218
 	/* Allocate private bus interface state */
 	if (!(cmn = MALLOC(osh, sizeof(dhd_cmn_t)))) {
 		DHD_ERROR(("%s: MALLOC failed\n", __FUNCTION__));
@@ -376,8 +387,37 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		break;
 	}
 
+#ifdef WLBTAMP
+	case IOV_SVAL(IOV_HCI_CMD): {
+		amp_hci_cmd_t *cmd = (amp_hci_cmd_t *)arg;
 
+		/* sanity check: command preamble present */
+		if (len < HCI_CMD_PREAMBLE_SIZE)
+			return BCME_BUFTOOSHORT;
 
+		/* sanity check: command parameters are present */
+		if (len < (int)(HCI_CMD_PREAMBLE_SIZE + cmd->plen))
+			return BCME_BUFTOOSHORT;
+
+		dhd_bta_docmd(dhd_pub, cmd, len);
+		break;
+	}
+
+	case IOV_SVAL(IOV_HCI_ACL_DATA): {
+		amp_hci_ACL_data_t *ACL_data = (amp_hci_ACL_data_t *)arg;
+
+		/* sanity check: HCI header present */
+		if (len < HCI_ACL_DATA_PREAMBLE_SIZE)
+			return BCME_BUFTOOSHORT;
+
+		/* sanity check: ACL data is present */
+		if (len < (int)(HCI_ACL_DATA_PREAMBLE_SIZE + ACL_data->dlen))
+			return BCME_BUFTOOSHORT;
+
+		dhd_bta_tx_hcidata(dhd_pub, ACL_data, len);
+		break;
+	}
+#endif /* WLBTAMP */
 	case IOV_GVAL(IOV_BUS_TYPE):
 	/* The dhd application query the driver to check if its usb or sdio.  */
 #ifdef BCMDHDUSB
@@ -831,6 +871,13 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 		break;
 	}
 
+#if defined(WLBTAMP) && defined(BCMDBG)
+	case WLC_E_BTA_HCI_EVENT:
+		DHD_EVENT(("MACEVENT: %s %d\n", event_name, ntoh32(*((int *)event_data))));
+		if (DHD_BTA_ON())
+			dhd_bta_hcidump_evt(NULL, event_data);
+		break;
+#endif   /* WLBTAMP && BCMDBG */
 
 	case WLC_E_RSSI:
 		DHD_EVENT(("MACEVENT: %s %d\n", event_name, ntoh32(*((int *)event_data))));
@@ -853,6 +900,10 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 	}
 }
 #endif /* SHOW_EVENTS */
+#if defined(WLP2P) /* WLP2P @ victor @ 20110322 */
+extern int dhd_use_p2p;
+#define P2P_INTERFACE_NAME "p2p"
+#endif /* WLP2P */
 
 int
 wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
@@ -894,7 +945,16 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 	case WLC_E_IF:
 		{
 		dhd_if_event_t *ifevent = (dhd_if_event_t *)event_data;
-
+		DHD_TRACE(("%s: if event\n", __FUNCTION__));
+#if defined(WLP2P) /* WLP2P @ victor @ 20110322 */
+		if (dhd_use_p2p) {
+			if (strncmp(pvt_data->event.ifname,"wl",2) == 0) {
+			memmove(&(pvt_data->event.ifname[1]),&(pvt_data->event.ifname[0]),6);
+			memcpy(pvt_data->event.ifname,P2P_INTERFACE_NAME,strlen(P2P_INTERFACE_NAME));
+			memcpy(event, &pvt_data->event, sizeof(wl_event_msg_t));
+			}
+		}
+#endif /* WLP2P */
 		if (ifevent->ifidx > 0 && ifevent->ifidx < DHD_MAX_IFS) {
 			if (ifevent->action == WLC_E_IF_ADD)
 				dhd_add_if(dhd_pub->info, ifevent->ifidx,
@@ -927,6 +987,83 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 		       sizeof(pvt_data->event.event_type));
 	}
 		/* These are what external supplicant/authenticator wants */
+/* LGE_CHANGE_S, 2011-0226, add CCX */		//by sjpark 11-03-15
+#if defined(BCMCCX) && defined(BCMDBG_EVENT) /* junlim */
+		case WLC_E_PRUNE:
+			{
+#define WLC_E_PRUNE_CCXFAST_PREVAP	11	/* CCX FAST ROAM: prune previous AP */
+#define WLC_E_PRUNE_CCXFAST_DROAM	14	/* CCX FAST ROAM: prune unqualified AP */
+#define WLC_E_PRUNE_QBSS_LOAD		16	/* QBSS LOAD - AAC is too low */
+#define WLC_E_PRUNE_AP_BLOCKED		18	/* prune blocked AP */
+#define WLC_E_PRUNE_NO_DIAG_SUPPORT	19	/* prune due to diagnostic mode not supported */
+				uint reason;
+				char eabuf[ETHER_ADDR_STR_LEN];
+				reason = ntoh32_ua((void *)&event->reason);
+				sprintf(eabuf, "%02x:%02x:%02x:%02x:%02x:%02x",
+				        (uchar)event->addr.octet[0]&0xff,
+				        (uchar)event->addr.octet[1]&0xff,
+				        (uchar)event->addr.octet[2]&0xff,
+				        (uchar)event->addr.octet[3]&0xff,
+				        (uchar)event->addr.octet[4]&0xff,
+				        (uchar)event->addr.octet[5]&0xff);
+
+				switch(reason) {
+					case WLC_E_PRUNE_CCXFAST_PREVAP:
+						DHD_ERROR(("PRUNE %s: PRUNE: WLC_E_PRUNE_CCXFAST_PREVAP\n", eabuf));
+						break;
+					case WLC_E_PRUNE_CCXFAST_DROAM:
+						DHD_ERROR(("PRUNE %s: PRUNE: WLC_E_PRUNE_CCXFAST_DROAM\n", eabuf));
+						break;
+					case WLC_E_PRUNE_QBSS_LOAD:
+						DHD_ERROR(("PRUNE %s: PRUNE: WLC_E_PRUNE_QBSS_LOAD\n", eabuf));
+						break;
+					case WLC_E_PRUNE_AP_BLOCKED:
+						DHD_ERROR(("PRUNE %s: PRUNE: WLC_E_PRUNE_AP_BLOCKED\n", eabuf));
+						break;
+					case WLC_E_PRUNE_NO_DIAG_SUPPORT:
+						DHD_ERROR(("PRUNE %s: PRUNE: WLC_E_PRUNE_NO_DIAG_SUPPORT\n", eabuf));
+						break;
+					default:
+						DHD_ERROR(("PRUNE %s: status %d, reason %d\n",
+						           eabuf, status, reason));
+						break;
+				}
+				break;
+			}
+		case WLC_E_ADDTS_IND:
+			{
+				uint reason;
+				char eabuf[ETHER_ADDR_STR_LEN];
+				reason = ntoh32_ua((void *)&event->reason);
+				sprintf(eabuf, "%02x:%02x:%02x:%02x:%02x:%02x",
+				        (uchar)event->addr.octet[0]&0xff,
+				        (uchar)event->addr.octet[1]&0xff,
+				        (uchar)event->addr.octet[2]&0xff,
+				        (uchar)event->addr.octet[3]&0xff,
+				        (uchar)event->addr.octet[4]&0xff,
+				        (uchar)event->addr.octet[5]&0xff);
+				DHD_ERROR(("Junlim WLC_E_ADDTS_IND %s: status %d, reason %d\n",
+				           eabuf, status, reason));
+			}
+			break;
+		case WLC_E_DELTS_IND:
+			{
+				uint reason;
+				char eabuf[ETHER_ADDR_STR_LEN];
+				reason = ntoh32_ua((void *)&event->reason);
+				sprintf(eabuf, "%02x:%02x:%02x:%02x:%02x:%02x",
+				        (uchar)event->addr.octet[0]&0xff,
+				        (uchar)event->addr.octet[1]&0xff,
+				        (uchar)event->addr.octet[2]&0xff,
+				        (uchar)event->addr.octet[3]&0xff,
+				        (uchar)event->addr.octet[4]&0xff,
+				        (uchar)event->addr.octet[5]&0xff);
+				DHD_ERROR(("Junlim WLC_E_DELTS_IND %s: status %d, reason %d\n",
+				           eabuf, status, reason));
+			}
+			break;
+#endif /* defined(BCMCCX) && defined(BCMDBG_EVENT) */ /* junlim */
+/* LGE_CHANGE_E, 2011-0226, add CCX */
 		/* fall through */
 	case WLC_E_LINK:
 	case WLC_E_DEAUTH:
@@ -1275,6 +1412,14 @@ void
 dhd_sendup_event_common(dhd_pub_t *dhdp, wl_event_msg_t *event, void *data)
 {
 	switch (ntoh32(event->event_type)) {
+#ifdef WLBTAMP
+	case WLC_E_BTA_HCI_EVENT:
+#ifdef BCMDBG
+		if (DHD_BTA_ON())
+			dhd_bta_hcidump_evt(dhdp, data);
+#endif
+		break;
+#endif /* WLBTAMP */
 	default:
 		break;
 	}
@@ -1767,7 +1912,12 @@ wl_iw_parse_channel_list_tlv(char** list_str, uint16* channel_list,
 	char* str = *list_str;
 	int idx = 0;
 
-	if ((list_str == NULL) || (*list_str == NULL) ||(bytes_left == NULL) || (*bytes_left < 0)) {
+	if ( (list_str == NULL) ||(bytes_left == NULL) ) {	// 20110324_WBT : ID 2088, 2092, 2100
+		DHD_ERROR(("%s error paramters\n", __FUNCTION__));
+		return -1;
+	}
+
+	if ((*list_str == NULL)  || (*bytes_left < 0)) {	// 20110324_WBT : ID 2088, 2092, 2100
 		DHD_ERROR(("%s error paramters\n", __FUNCTION__));
 		return -1;
 	}

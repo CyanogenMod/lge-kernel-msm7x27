@@ -107,8 +107,7 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 #if defined CUSTOMER_HW
 	host_oob_irq = MSM_GPIO_TO_INT(dhd_oob_gpio_num);
 #elif defined CUSTOMER_HW3
-	//gpio_request(dhd_oob_gpio_num, "oob irq");
-	gpio_request(dhd_oob_gpio_num, "bcmsdh_sdmmc");
+	gpio_request(dhd_oob_gpio_num, "oob irq");
 	host_oob_irq = gpio_to_irq(dhd_oob_gpio_num);
 	gpio_direction_input(dhd_oob_gpio_num);
 #endif /* CUSTOMER_HW */

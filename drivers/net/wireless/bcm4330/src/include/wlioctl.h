@@ -715,6 +715,12 @@ typedef struct {
 #define WPA_AUTH_UNSPECIFIED    0x0002  /* over 802.1x */
 #define WPA_AUTH_PSK        0x0004  /* Pre-shared key */
 /* #define WPA_AUTH_8021X 0x0020 */ /* 802.1x, reserved */
+/* LGE_CHANGE_S, 2011-0226, add CCX */	//by sjpark 11-03-15
+#ifdef BCMCCX
+#define WPA_AUTH_CCKM		0x0008	/* CCKM */
+#define WPA2_AUTH_CCKM		0x0010	/* CCKM2 */
+#endif /* BCMCCX */
+/* LGE_CHANGE_E, 2011-0226, add CCX */
 #define WPA2_AUTH_UNSPECIFIED   0x0040  /* over 802.1x */
 #define WPA2_AUTH_PSK       0x0080  /* Pre-shared key */
 #ifndef LINUX_POSTMOGRIFY_REMOVAL
@@ -745,6 +751,19 @@ typedef struct _pmkid_cand_list {
 	pmkid_cand_t    pmkid_cand[1];
 } pmkid_cand_list_t;
 
+/* LGE_CHANGE_S, 2011-0226, add CCX */
+#ifdef BCMCCX
+typedef struct wl_assoc_info {
+	uint32		req_len;
+	uint32		resp_len;
+	uint32		flags;
+	struct dot11_assoc_req req;
+	struct ether_addr reassoc_bssid;
+	struct dot11_assoc_resp resp;
+} wl_assoc_info_t;
+#endif /* BCMCCX */
+/* LGE_CHANGE_E, 2011-0226, add CCX */
+
 #ifndef LINUX_POSTMOGRIFY_REMOVAL
 typedef struct wl_led_info {
 	uint32      index;      /* led index */
@@ -752,6 +771,7 @@ typedef struct wl_led_info {
 	uint8       activehi;
 } wl_led_info_t;
 
+#if 0		//by sjpark 11-03-15 : move up to define CCX
 typedef struct wl_assoc_info {
 	uint32      req_len;
 	uint32      resp_len;
@@ -760,6 +780,7 @@ typedef struct wl_assoc_info {
 	struct ether_addr reassoc_bssid; /* used in reassoc's */
 	struct dot11_assoc_resp resp;
 } wl_assoc_info_t;
+#endif
 
 /* flags */
 #define WLC_ASSOC_REQ_IS_REASSOC 0x01 /* assoc req was actually a reassoc */

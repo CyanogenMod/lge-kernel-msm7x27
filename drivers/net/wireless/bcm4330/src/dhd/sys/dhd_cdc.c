@@ -152,7 +152,8 @@ dhdcdc_query_ioctl(dhd_pub_t *dhd, int ifidx, uint cmd, void *buf, uint len, uin
 	msg->flags = htol32(msg->flags);
 
 	if (buf)
-		memcpy((void *)(&msg[1]), buf, len);
+		//memcpy((void *)(&msg[1]), buf, len);
+		memcpy(prot->buf, buf, len);	// 20110324_WBT : ID 1044, 1045
 
 	if ((ret = dhdcdc_msg(dhd)) < 0) {
 		DHD_ERROR(("dhdcdc_query_ioctl: dhdcdc_msg failed w/status %d\n", ret));
@@ -222,10 +223,13 @@ dhdcdc_set_ioctl(dhd_pub_t *dhd, int ifidx, uint cmd, void *buf, uint len, uint8
 	msg->flags = htol32(msg->flags);
 
 	if (buf)
-		memcpy((void *)(&msg[1]), buf, len);
+		//memcpy((void *)(&msg[1]), buf, len);
+		memcpy(prot->buf, buf, len);	// 20110324_WBT : ID 1121, 1122
 
-	if ((ret = dhdcdc_msg(dhd)) < 0)
+	if ((ret = dhdcdc_msg(dhd)) < 0) {
+		DHD_ERROR(("dhdcdc_set_ioctl: dhdcdc_msg failed w/status %d\n", ret));
 		goto done;
+	}
 
 	if ((ret = dhdcdc_cmplt(dhd, prot->reqid, len)) < 0)
 		goto done;
@@ -719,6 +723,10 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 		}
 		/* Setup timeout bcm_timeout from dhd driver 4.217.48 */
 
+#ifdef BCMCCX								/* LGE_CHANGE_S, 2011-0226, add CCX */	//by sjpark 11-03-15
+		if(var_int)
+			printk(" roam_off =%d BCMCCX roam_off should be 0\n",var_int);
+#endif											/* LGE_CHANGE_E, 2011-0226, add CCX */
 		iovlen = bcm_mkiovar(name, (char *)&var_int, sizeof(var_int),
 				iovbuf, sizeof(iovbuf));
 		return dhdcdc_set_ioctl(dhd, ifidx, WLC_SET_VAR,
@@ -802,6 +810,15 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	uint up = 0;
 /* LGE_CHANGE_S [yoohoo@lge.com] 2009-08-27, roam_off, PM */
 #if !defined(CONFIG_LGE_BCM432X_PATCH)
+#ifdef BCMCCX								/* LGE_CHANGE_S, 2011-0226, add CCX */	//by sjpark 11-03-15
+	uint roamvar = 0;
+#else									/* LGE_CHANGE_E, 2011-0226, add CCX */
+#ifdef CUSTOMER_HW2
+	uint roamvar = 0;
+#else
+	uint roamvar = 1;
+#endif							/* LGE_CHANGE, 2011-0226, just add BRCM patch */
+#endif
 	uint power_mode = PM_FAST;
 #endif /* CONFIG_LGE_BCM432X_PATCH */
 /* LGE_CHANGE_E [yoohoo@lge.com] 2009-08-27, roam_off, PM */
@@ -809,8 +826,10 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	uint32 glom = 0;
 	int arpoe = 1;
 	int arp_ol = 0xf;
+#ifndef BCMCCX								/* LGE_CHANGE_S, 2011-0226, add CCX */	//by sjpark 11-03-15
 	int scan_assoc_time = 40;
 	int scan_unassoc_time = 80;
+#endif
 	const char 				*str;
 	wl_pkt_filter_t		pkt_filter;
 	wl_pkt_filter_t		*pkt_filterp;
@@ -819,7 +838,11 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	uint32					mask_size;
 	uint32					pattern_size;
 	char buf[256];
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+	uint filter_mode = 0;
+#else
 	uint filter_mode = 1;
+#endif /* CONFIG_LGE_BCM432X_PATCH */
 #ifdef AP
 	uint32 mpc = 0; /* Turn MPC off for AP/APSTA mode */
 	uint32 apsta = 1; /* Enable APSTA mode */
@@ -870,9 +893,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	bcm_mkiovar("apsta", (char *)&apsta, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 #endif
-	printk("[hyeok-deubg] sleep ~~~ 200msec");
 
-	bcm_mdelay(200);
 	/* Force STA UP */
 	ret = dhd_wl_ioctl_cmd(dhd, WLC_UP, (char *)&up, sizeof(up), TRUE, 0);
 	if (ret < 0)
@@ -904,16 +925,23 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	setbit(eventmask, WLC_E_TXFAIL);
 	setbit(eventmask, WLC_E_JOIN_START);
 	setbit(eventmask, WLC_E_SCAN_COMPLETE);
-	setbit(eventmask, WLC_E_TRACE);	
 #ifdef WLMEDIA_HTSF
 	setbit(eventmask, WLC_E_HTSFSYNC);
 #endif
+
+#if defined(BCMCCX) && defined(BCMDBG_EVENT) /* junlim */								/* LGE_CHANGE_S, 2011-0226, add CCX */		//by sjpark 11-03-15
+	setbit(eventmask, WLC_E_ADDTS_IND);
+	setbit(eventmask, WLC_E_DELTS_IND);
+#endif /* defined(BCMCCX) && (BCMDBG_EVENT) */ /* junlim */	
+
 	bcm_mkiovar("event_msgs", eventmask, WL_EVENTING_MASK_LEN, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+#ifndef BCMCCX								/* LGE_CHANGE_S, 2011-0226, add CCX */	//by sjpark 11-03-15
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_CHANNEL_TIME, (char *)&scan_assoc_time,
 		sizeof(scan_assoc_time), TRUE, 0);
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_UNASSOC_TIME, (char *)&scan_unassoc_time,
 		sizeof(scan_unassoc_time), TRUE, 0);
+#endif									/* LGE_CHANGE_E, 2011-0226, add CCX */
 
 	/* Set ARP offload */
 	bcm_mkiovar("arpoe", (char *)&arpoe, 4, iovbuf, sizeof(iovbuf));
@@ -942,13 +970,36 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	/* Parse pattern filter offset. */
 	pkt_filter.u.pattern.offset = htod32(0);
 
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+	/* Parse pattern filter mask. */
+#if 1	//kernel panic at gelato
+	mask_size =	htod32(wl_pattern_atoh("0x7f",
+		(char *) pkt_filterp->u.pattern.mask_and_pattern));
+#endif
+
+	mask_size =	htod32(wl_pattern_atoh("0xff",
+		(char *) pkt_filterp->u.pattern.mask_and_pattern));
+
+	if (mask_size < 0)	{// 20110324_WBT : ID 325
+		DHD_ERROR(("%s : mask_size(%d) is fail\n", __FUNCTION__, mask_size));
+		return -EINVAL;
+	}
+
+	/* Parse pattern filter pattern. */
+	pattern_size = htod32(wl_pattern_atoh("0xff",
+		(char *) &pkt_filterp->u.pattern.mask_and_pattern[mask_size]));
+#else
 	/* Parse pattern filter mask. */
 	mask_size =	htod32(wl_pattern_atoh("0x01",
 		(char *) pkt_filterp->u.pattern.mask_and_pattern));
-
+	if (mask_size < 0)	{// 20110324_WBT :  : ID 325
+		DHD_ERROR(("%s : mask_size(%d) is fail\n", __FUNCTION__, mask_size));
+		return -EINVAL;
+	}
 	/* Parse pattern filter pattern. */
 	pattern_size = htod32(wl_pattern_atoh("0x00",
 		(char *) &pkt_filterp->u.pattern.mask_and_pattern[mask_size]));
+#endif /* CONFIG_LGE_BCM432X_PATCH */
 
 	if (mask_size != pattern_size) {
 		DHD_ERROR(("Mask and pattern not the same size\n"));

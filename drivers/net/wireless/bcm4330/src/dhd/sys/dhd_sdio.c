@@ -149,7 +149,10 @@
 #define PKTFREE2()		if ((bus->bus != SPI_BUS) || bus->usebufpool) \
 					PKTFREE(bus->dhd->osh, pkt, FALSE);
 DHD_SPINWAIT_SLEEP_INIT(sdioh_spinwait_sleep);
-
+/* add hw_oob */
+#if defined(OOB_INTR_ONLY)
+extern void bcmsdh_set_irq(int flag);
+#endif /* defined(OOB_INTR_ONLY) */
 
 #ifdef DHD_DEBUG
 /* Device console log buffer state */
@@ -1345,9 +1348,11 @@ dhd_bus_txctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 			DHD_INFO(("%s: ctrl_frame_stat == FALSE\n", __FUNCTION__));
 			ret = 0;
 		} else {
-			DHD_INFO(("%s: ctrl_frame_stat == TRUE\n", __FUNCTION__));
+			DHD_ERROR(("%s: ctrl_frame_stat == TRUE\n", __FUNCTION__));
 			ret = -1;
-	}
+			bus->ctrl_frame_stat = FALSE;
+			goto done;
+		}
 	}
 
 	if (ret == -1) {
@@ -1394,6 +1399,7 @@ dhd_bus_txctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 		} while ((ret < 0) && retries++ < TXRETRIES);
 	}
 
+done:
 	if ((bus->idletime == DHD_IDLE_IMMEDIATE) && !bus->dpc_sched) {
 		bus->activity = FALSE;
 		dhdsdio_clkctl(bus, CLK_NONE, TRUE);
@@ -2569,8 +2575,11 @@ dhdsdio_write_vars(dhd_bus_t *bus)
 		/* Verify NVRAM bytes */
 		DHD_INFO(("Compare NVRAM dl & ul; varsize=%d\n", varsize));
 		nvram_ularray = (uint8*)MALLOC(bus->dhd->osh, varsize);
-		if (!nvram_ularray)
+		if (!nvram_ularray) {
+			if (vbuffer)	// 20110324_WBT : ID 1975
+				MFREE(bus->dhd->osh, vbuffer, varsize);
 			return BCME_NOMEM;
+		}
 
 		/* Upload image to verify downloaded contents. */
 		memset(nvram_ularray, 0xaa, varsize);
@@ -2967,6 +2976,12 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 		/* Make sure we're talking to the core. */
 		if (!(bus->regs = si_setcore(bus->sih, PCMCIA_CORE_ID, 0)))
 			bus->regs = si_setcore(bus->sih, SDIOD_CORE_ID, 0);
+		
+		if (bus->regs == NULL) {	// 20110324_WBT : ID 852
+			DHD_ERROR(("%s: bus->regs is NULL\n", __FUNCTION__));
+			goto exit;
+		}
+		
 		ASSERT(bus->regs != NULL);
 
 		/* Set up the interrupt mask and enable interrupts */
@@ -4392,11 +4407,12 @@ dhdsdio_dpc(dhd_bus_t *bus)
 	bus->intstatus = intstatus;
 
 clkwait:
-
+/* comment hw_oob */
+#if 0
 #if defined(OOB_INTR_ONLY)
 	bcmsdh_oob_intr_set(1);
 #endif /* (OOB_INTR_ONLY) */
-
+#endif
 	/* Re-enable interrupts to detect new device events (mailbox, rx frame)
 	 * or clock availability.  (Allows tx loop to check ipend if desired.)
 	 * (Unless register access seems hosed, as we may not be able to ACK...)
@@ -4405,6 +4421,10 @@ clkwait:
 		DHD_INTR(("%s: enable SDIO interrupts, rxdone %d framecnt %d\n",
 		          __FUNCTION__, rxdone, framecnt));
 		bus->intdis = FALSE;
+/* add hw_oob */
+#if defined(OOB_INTR_ONLY)
+	bcmsdh_oob_intr_set(1);
+#endif /* (OOB_INTR_ONLY) */
 		bcmsdh_intr_enable(sdh);
 	}
 
@@ -5025,7 +5045,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 {
 	int ret;
 	dhd_bus_t *bus;
-	dhd_cmn_t *cmn;
+	dhd_cmn_t *cmn = NULL;	// 20110324_WBT : ID 2038
 
 	/* Init global variables at run-time, not as part of the declaration.
 	 * This is required to support init/de-init of the driver. Initialization
@@ -5180,6 +5200,8 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 	return bus;
 
 fail:
+	if (cmn != NULL)
+		MFREE(osh, cmn, sizeof(dhd_cmn_t));	// 20110324_WBT : ID 2038
 	dhdsdio_release(bus, osh);
 	return NULL;
 }
@@ -5741,6 +5763,10 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *fw_path)
 
 	/* Download image */
 	while ((len = dhd_os_get_image_block((char*)memptr, MEMBLOCK, image))) {
+		if (len < 0) {	// 20110324_WBT : ID 414
+			DHD_ERROR(("%s: len(%d) is fail\n", __FUNCTION__, len));
+			goto err;
+		}
 		bcmerror = dhdsdio_membytes(bus, TRUE, offset, memptr, len);
 		if (bcmerror) {
 			DHD_ERROR(("%s: error %d on writing %d membytes at 0x%08x\n",
@@ -5991,6 +6017,11 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 			/* Stop the bus, disable F2 */
 			dhd_os_sdlock(dhdp);
 			dhd_bus_stop(bus, FALSE);
+/* add hw_oob */
+#if defined(OOB_INTR_ONLY)
+			/* Clean up any pending IRQ */
+			bcmsdh_set_irq(FALSE);
+#endif /* defined(OOB_INTR_ONLY) */
 
 			/* Clean tx/rx buffer pointers, detach from the dongle */
 			dhdsdio_release_dongle(bus, bus->dhd->osh, TRUE);
@@ -6024,9 +6055,12 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 					dhdsdio_download_firmware(bus, bus->dhd->osh, bus->sdh)) {
 
 					/* Re-init bus, enable F2 transfer */
-					dhd_bus_init((dhd_pub_t *) bus->dhd, FALSE);
-
+/* modify hw_oob S */
+					bcmerror = dhd_bus_init((dhd_pub_t *) bus->dhd, FALSE);
+					if (bcmerror == BCME_OK) {
+/* modify hw_oob E */
 #if defined(OOB_INTR_ONLY)
+						bcmsdh_set_irq(TRUE);  /* add hw_oob */
 					dhd_enable_oob_intr(bus, TRUE);
 #endif /* defined(OOB_INTR_ONLY) */
 
@@ -6039,6 +6073,12 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 #endif 
 
 					DHD_TRACE(("%s: WLAN ON DONE\n", __FUNCTION__));
+/* add hw_oob S*/
+					} else {
+						dhd_bus_stop(bus, FALSE);
+						dhdsdio_release_dongle(bus, bus->dhd->osh, TRUE);
+					}
+/* add hw_oob E*/
 				} else
 					bcmerror = BCME_SDIO_ERROR;
 			} else

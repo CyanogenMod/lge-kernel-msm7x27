@@ -673,16 +673,16 @@ sdioh_enable_hw_oob_intr(sdioh_info_t *sd, bool enable)
 	uint8 data;
 
 	if (enable)
-		data = 3;	/* enable hw oob interrupt */
+		data = SDIO_SEPINT_MASK | SDIO_SEPINT_OE;	/* enable hw oob interrupt */
 	else
-		data = 4;	/* disable hw oob interrupt */
+		data = SDIO_SEPINT_ACT_HI;	/* disable hw oob interrupt */
 
 #if 1 && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 	/* Needed for Android Linux Kernel 2.6.35 */
-	data |= 4; 		/* Active HIGH */
+	data |= SDIO_SEPINT_ACT_HI; 		/* Active HIGH */
 #endif /* OEM_ANDROID */
 
-	status = sdioh_request_byte(sd, SDIOH_WRITE, 0, 0xf2, &data);
+	status = sdioh_request_byte(sd, SDIOH_WRITE, 0, SDIOD_CCCR_BRCM_SEPINT, &data);
 	return status;
 }
 #endif /* defined(OOB_INTR_ONLY) && defined(HW_OOB) */

@@ -63,6 +63,11 @@
 #include <wl_cfg80211.h>
 #endif
 
+#ifdef WLBTAMP
+#include <proto/802.11_bta.h>
+#include <proto/bt_amp_hci.h>
+#include <dhd_bta.h>
+#endif /* WLBTAMP */
 
 #ifdef WLMEDIA_HTSF
 #include <linux/time.h>
@@ -436,7 +441,11 @@ uint dhd_pkt_filter_init = 0;
 module_param(dhd_pkt_filter_init, uint, 0);
 
 /* Pkt filter mode control */
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+uint dhd_master_mode = FALSE;
+#else
 uint dhd_master_mode = TRUE;
+#endif
 module_param(dhd_master_mode, uint, 1);
 
 #ifdef DHDTHREAD
@@ -452,6 +461,11 @@ module_param(dhd_dpc_prio, int, 0);
 extern int dhd_dongle_memsize;
 module_param(dhd_dongle_memsize, int, 0);
 #endif /* DHDTHREAD */
+
+// WLP2P : to distinct P2P and SoftAP @ victor @ 20110322
+int dhd_use_p2p=0;
+module_param(dhd_use_p2p, int, 0);
+
 /* Control fw roaming */
 #ifdef CONFIG_MACH_MAHIMAHI
 uint dhd_roam_disable = 0;
@@ -641,10 +655,12 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	int power_mode = PM_MAX;
 	/* wl_pkt_filter_enable_t	enable_parm; */
 	char iovbuf[32];
 	int bcn_li_dtim = 3;
+#endif
 #ifdef CONFIG_MACH_MAHIMAHI
 	uint roamvar = 1;
 #endif /* CONFIG_MACH_MAHIMAHI */
@@ -658,12 +674,15 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				/* Kernel suspended */
 				DHD_TRACE(("%s: force extra Suspend setting \n", __FUNCTION__));
 
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
 				                 sizeof(power_mode), TRUE, 0);
+#endif
 
 				/* Enable packet filter, only allow unicast packet to send up */
 				dhd_set_packet_filter(1, dhd);
 
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 				/* If DTIM skip is set up as default, force it to wake
 				 * each third DTIM for better power savings.  Note that
 				 * one side effect is a chance to miss BC/MC packet.
@@ -675,6 +694,7 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				bcm_mkiovar("bcn_li_dtim", (char *)&bcn_li_dtim,
 					4, iovbuf, sizeof(iovbuf));
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+#endif
 #ifdef CONFIG_MACH_MAHIMAHI
 				/* Disable built-in roaming to allow
 				 * supplicant to take care of it.
@@ -688,18 +708,22 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				/* Kernel resumed  */
 				DHD_TRACE(("%s: Remove extra suspend setting \n", __FUNCTION__));
 
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 				power_mode = PM_FAST;
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
 				                 sizeof(power_mode), TRUE, 0);
+#endif
 
 				/* disable pkt filter */
 				dhd_set_packet_filter(0, dhd);
 
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 				/* restore pre-suspend setting for dtim_skip */
 				bcm_mkiovar("bcn_li_dtim", (char *)&dhd->dtim_skip,
 					4, iovbuf, sizeof(iovbuf));
 
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+#endif
 #ifdef CONFIG_MACH_MAHIMAHI
 				roamvar = dhd_roam_disable;
 				bcm_mkiovar("roam_off", (char *)&roamvar, 4, iovbuf,
@@ -1043,7 +1067,8 @@ _dhd_set_mac_address(dhd_info_t *dhd, int ifidx, struct ether_addr *addr)
 
 #ifdef SOFTAP
 extern struct net_device *ap_net_dev;
-#endif
+extern bool ap_fw_loaded;
+#endif /* SOFTAP */
 
 static void
 dhd_op_if(dhd_if_t *ifp)
@@ -1085,14 +1110,23 @@ dhd_op_if(dhd_if_t *ifp)
 				ret = -EOPNOTSUPP;
 			} else {
 #ifdef SOFTAP
-				 /* semaphore that the soft AP CODE waits on */
-				extern struct semaphore  ap_eth_sema;
 
-				/* save ptr to wl0.1 netdev for use in wl_iw.c  */
-				ap_net_dev = ifp->net;
-				 /* signal to the SOFTAP 'sleeper' thread, wl0.1 is ready */
-				up(&ap_eth_sema);
-#endif
+				if (ap_fw_loaded == TRUE) {
+					/* semaphore that the soft AP CODE waits on */
+					extern struct semaphore  ap_eth_sema;
+
+#if defined(WLP2P) /* WLP2P @ victor @ 20110322 */
+				if(!dhd_use_p2p) {
+#endif /* WLP2P */
+					/* save ptr to wl0.1 netdev for use in wl_iw.c  */
+					ap_net_dev = ifp->net;
+					/* signal to the SOFTAP 'sleeper' thread, wl0.1 is ready */
+					up(&ap_eth_sema);
+#if defined(WLP2P)/* WLP2P @ victor @ 20110316 */
+				}
+#endif /* WLP2P */
+				}
+#endif /* SOFTAP */
 				DHD_TRACE(("\n ==== pid:%x, net_device for if:%s created ===\n\n",
 					current->pid, ifp->net->name));
 				ifp->state = 0;
@@ -1168,7 +1202,6 @@ _dhd_sysioc_thread(void *data)
 				}
 #endif /* SOFTAP */
 				if (dhd->set_multicast) {
-					dhd->set_multicast = FALSE;
 					_dhd_set_multicast_list(dhd, i);
 				}
 				if (dhd->set_macaddress) {
@@ -1178,6 +1211,8 @@ _dhd_sysioc_thread(void *data)
 			}
 		}
 		DHD_OS_WAKE_UNLOCK(&dhd->pub);
+		if (dhd->set_multicast)
+			dhd->set_multicast = FALSE;
 	}
 	complete_and_exit(&dhd->sysioc_exited, 0);
 }
@@ -1388,10 +1423,31 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt)
 	save_pktbuf = pktbuf;
 
 	for (i = 0; pktbuf && i < numpkt; i++, pktbuf = pnext) {
+#ifdef WLBTAMP
+		struct ether_header *eh;
+		struct dot11_llc_snap_header *lsh;
+#endif /* WLBTAMP */
 
 		pnext = PKTNEXT(dhdp->osh, pktbuf);
 		PKTSETNEXT(wl->sh.osh, pktbuf, NULL);
+#ifdef WLBTAMP
+		eh = (struct ether_header *)PKTDATA(wl->sh.osh, pktbuf);
+		lsh = (struct dot11_llc_snap_header *)&eh[1];
 
+		if ((ntoh16(eh->ether_type) < ETHER_TYPE_MIN) &&
+		    (PKTLEN(wl->sh.osh, pktbuf) >= RFC1042_HDR_LEN) &&
+		    bcmp(lsh, BT_SIG_SNAP_MPROT, DOT11_LLC_SNAP_HDR_LEN - 2) == 0 &&
+		    lsh->type == HTON16(BTA_PROT_L2CAP)) {
+			amp_hci_ACL_data_t *ACL_data = (amp_hci_ACL_data_t *)
+			        ((uint8 *)eh + RFC1042_HDR_LEN);
+#ifdef BCMDBG
+			if (DHD_BTA_ON())
+				dhd_bta_hcidump_ACL_data(dhdp, ACL_data, FALSE);
+#endif
+			/* XXX forward HCI ACL data to BT stack */
+			ACL_data = NULL;
+		}
+#endif /* WLBTAMP */
 
 
 		skb = PKTTONATIVE(dhdp->osh, pktbuf);
@@ -1440,7 +1496,12 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt)
 			&event,
 			&data);
 
-
+#ifdef WLBTAMP
+			wl_event_to_host_order(&event);
+			if (event.event_type == WLC_E_BTA_HCI_EVENT) {
+				dhd_bta_doevt(dhdp, data, event.datalen);
+			}
+#endif /* WLBTAMP */
 
 		ASSERT(ifidx < DHD_MAX_IFS && dhd->iflist[ifidx]);
 		if (dhd->iflist[ifidx] && !dhd->iflist[ifidx]->state)
@@ -1489,6 +1550,9 @@ dhd_txcomplete(dhd_pub_t *dhdp, void *txp, bool success)
 	dhd_info_t *dhd = (dhd_info_t *)(dhdp->info);
 	struct ether_header *eh;
 	uint16 type;
+#ifdef WLBTAMP
+	uint len;
+#endif /* WLBTAMP */
 
 	dhd_prot_hdrpull(dhdp, &ifidx, txp);
 
@@ -1498,6 +1562,23 @@ dhd_txcomplete(dhd_pub_t *dhdp, void *txp, bool success)
 	if (type == ETHER_TYPE_802_1X)
 		atomic_dec(&dhd->pend_8021x_cnt);
 
+#ifdef WLBTAMP
+	/* Crack open the packet and check to see if it is BT HCI ACL data packet.
+	 * If yes generate packet completion event.
+	 */
+	len = PKTLEN(dhdp->osh, txp);
+
+	/* Generate ACL data tx completion event locally to avoid SDIO bus transaction */
+	if ((type < ETHER_TYPE_MIN) && (len >= RFC1042_HDR_LEN)) {
+		struct dot11_llc_snap_header *lsh = (struct dot11_llc_snap_header *)&eh[1];
+
+		if (bcmp(lsh, BT_SIG_SNAP_MPROT, DOT11_LLC_SNAP_HDR_LEN - 2) == 0 &&
+		    ntoh16(lsh->type) == BTA_PROT_L2CAP) {
+
+			dhd_bta_tx_hcidata_complete(dhdp, txp, success);
+		}
+	}
+#endif /* WLBTAMP */
 }
 
 static struct net_device_stats *
@@ -2126,6 +2207,11 @@ dhd_open(struct net_device *net)
 	ifidx = dhd_net2idx(dhd, net);
 	DHD_TRACE(("%s: ifidx %d\n", __FUNCTION__, ifidx));
 
+	if (ifidx < 0 ) {	// 20110324_WBT : ID 408
+		DHD_ERROR(("%s: Error: ifidx (%d)is fail. BAD_IF\n", __FUNCTION__, ifidx));
+		return -1;
+	}
+
 	if ((dhd->iflist[ifidx]) && (dhd->iflist[ifidx]->state == WLC_E_IF_DEL)) {
 		DHD_ERROR(("%s: Error: called when IF already deleted\n", __FUNCTION__));
 		return -1;
@@ -2543,11 +2629,7 @@ dhd_bus_start(dhd_pub_t *dhdp)
 #endif /* PNO_SUPPORT */
 
 /* enable dongle roaming event */
-/* LGE_DEV_PORTING, [jongpil.yoon@lge.com], 2011-03-28, <Resolve the current issue because of the trial of L2 roaming> */
-#if defined(CONFIG_LGE_BCM432X_PATCH)
-	//setbit(dhdp->eventmask, WLC_E_ROAM);
-#endif 
-/* LGE_DEV_END, [jongpil.yoon@lge.com], 2011-03-28, <Resolve the current issue because of the trial of L2 roaming> */
+	setbit(dhdp->eventmask, WLC_E_ROAM);
 
 	dhdp->pktfilter_count = 1;
 	/* Setup filter to allow only unicast */
@@ -2987,7 +3069,7 @@ dhd_module_init(void)
 	gpio_set_value(CONFIG_BCM4330_GPIO_WL_RESET, 1);
 #endif /* CONFIG_LGE_BCM432X_PATCH */
 /* LGE_CHANGE_E [yoohoo@lge.com] 2009-03-05, for gpio set in dhd_linux */
-	//mdelay(1000); //yhcha @ 110218
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 		/*
 		 * Wait till MMC sdio_register_driver callback called and made driver attach.
@@ -3013,7 +3095,6 @@ fail_0:
 #endif /* defined(CONFIG_MACH_MAHIMAHI) && defined(CONFIG_WIFI_CONTROL_FUNC) */
 
 	/* Call customer gpio to turn off power with WL_REG_ON signal */
-	printf("#################### yhcha %s, %d ##\n", __func__, __LINE__);
 	dhd_customer_gpio_wlan_ctrl(WLAN_POWER_OFF);
 
 	return error;
@@ -3370,7 +3451,12 @@ dhd_wl_host_event(dhd_info_t *dhd, int *ifidx, void *pktdata,
 	/*
 	 * Wireless ext is on primary interface only
 	 */
+#if defined(SOFTAP)
+	if (dhd->iflist[*ifidx]->net && ((event->bsscfgidx == 0)||
+		(ap_fw_loaded == TRUE)))
+#else
 	if (dhd->iflist[*ifidx]->net && (event->bsscfgidx == 0))
+#endif
 		wl_iw_event(dhd->iflist[*ifidx]->net, event, *data);
 #if defined(CONFIG_CFG80211)
 	}
@@ -3394,6 +3480,103 @@ void
 dhd_sendup_event(dhd_pub_t *dhdp, wl_event_msg_t *event, void *data)
 {
 	switch (ntoh32(event->event_type)) {
+#ifdef WLBTAMP
+	/* Send up locally generated AMP HCI Events */
+	case WLC_E_BTA_HCI_EVENT: {
+		struct sk_buff *p, *skb;
+		bcm_event_t *msg;
+		wl_event_msg_t *p_bcm_event;
+		char *ptr;
+		uint32 len;
+		uint32 pktlen;
+		dhd_if_t *ifp;
+		dhd_info_t *dhd;
+		uchar *eth;
+		int ifidx;
+
+		len = ntoh32(event->datalen);
+		pktlen = sizeof(bcm_event_t) + len + 2;
+		dhd = dhdp->info;
+		ifidx = dhd_ifname2idx(dhd, event->ifname);
+
+		if ((p = PKTGET(dhdp->osh, pktlen, FALSE))) {
+			ASSERT(ISALIGNED((uintptr)PKTDATA(dhdp->osh, p), sizeof(uint32)));
+
+			msg = (bcm_event_t *) PKTDATA(dhdp->osh, p);
+
+			bcopy(&dhdp->mac, &msg->eth.ether_dhost, ETHER_ADDR_LEN);
+			bcopy(&dhdp->mac, &msg->eth.ether_shost, ETHER_ADDR_LEN);
+			ETHER_TOGGLE_LOCALADDR(&msg->eth.ether_shost);
+
+			msg->eth.ether_type = hton16(ETHER_TYPE_BRCM);
+
+			/* BCM Vendor specific header... */
+			msg->bcm_hdr.subtype = hton16(BCMILCP_SUBTYPE_VENDOR_LONG);
+			msg->bcm_hdr.version = BCMILCP_BCM_SUBTYPEHDR_VERSION;
+			bcopy(BRCM_OUI, &msg->bcm_hdr.oui[0], DOT11_OUI_LEN);
+
+			/* vendor spec header length + pvt data length (private indication
+			 *  hdr + actual message itself)
+			 */
+			msg->bcm_hdr.length = hton16(BCMILCP_BCM_SUBTYPEHDR_MINLENGTH +
+				BCM_MSG_LEN + sizeof(wl_event_msg_t) + (uint16)len);
+			msg->bcm_hdr.usr_subtype = hton16(BCMILCP_BCM_SUBTYPE_EVENT);
+
+			PKTSETLEN(dhdp->osh, p, (sizeof(bcm_event_t) + len + 2));
+
+			/* copy  wl_event_msg_t into sk_buf */
+
+			/* pointer to wl_event_msg_t in sk_buf */
+			p_bcm_event = &msg->event;
+			bcopy(event, p_bcm_event, sizeof(wl_event_msg_t));
+
+			/* copy hci event into sk_buf */
+			bcopy(data, (p_bcm_event + 1), len);
+
+			msg->bcm_hdr.length  = hton16(sizeof(wl_event_msg_t) +
+				ntoh16(msg->bcm_hdr.length));
+			PKTSETLEN(dhdp->osh, p, (sizeof(bcm_event_t) + len + 2));
+
+			ptr = (char *)(msg + 1);
+			/* Last 2 bytes of the message are 0x00 0x00 to signal that there
+			 * are no ethertypes which are following this
+			 */
+			ptr[len+0] = 0x00;
+			ptr[len+1] = 0x00;
+
+			skb = PKTTONATIVE(dhdp->osh, p);
+			eth = skb->data;
+			len = skb->len;
+
+			ifp = dhd->iflist[ifidx];
+			if (ifp == NULL)
+			     ifp = dhd->iflist[0];
+
+			ASSERT(ifp);
+			skb->dev = ifp->net;
+			skb->protocol = eth_type_trans(skb, skb->dev);
+
+			skb->data = eth;
+			skb->len = len;
+
+			/* Strip header, count, deliver upward */
+			skb_pull(skb, ETH_HLEN);
+
+			/* Send the packet */
+			if (in_interrupt()) {
+				netif_rx(skb);
+			} else {
+				netif_rx_ni(skb);
+			}
+		}
+		else {
+			/* Could not allocate a sk_buf */
+			DHD_ERROR(("%s: unable to alloc sk_buf", __FUNCTION__));
+		}
+		break;
+	} /* case WLC_E_BTA_HCI_EVENT */
+#endif /* WLBTAMP */
+
 	default:
 		break;
 	}

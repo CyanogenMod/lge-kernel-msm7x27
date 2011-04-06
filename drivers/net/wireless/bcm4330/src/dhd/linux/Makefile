@@ -292,6 +292,12 @@ endif
 ifneq ($(findstring -intc1,$(shell echo $(LINUXVER))),)
 DFLAGS += -DSANDGATE2G
 endif
+#ifdef WLBTAMP
+ifneq ($(findstring -btamp-,$(TARGET)-),)
+DFLAGS += -DWLBTAMP
+CFILES += dhd_bta.c
+endif
+#endif
 
 ifneq ($(findstring -n2dbg-,$(TARGET)-),)
 DFLAGS += -DWLMEDIA_HTSF -DHOST_TS
@@ -352,6 +358,9 @@ TARGETS += dhd-rndis-usb
 #endif
 TARGETS += dhd-cdc-sdext-be
 TARGETS += dhd-cdc-sdext-be-dnglimage
+#ifdef WLBTAMP
+TARGETS += dhd-cdc-sdstd-btamp
+#endif
 ifneq ($(findstring -intc1,$(shell echo $(LINUXVER))),)
 TARGETS += dhd-cdc-sdio dhd-cdc-sdiofd # dhd-cdc-sdmmc
 endif

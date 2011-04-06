@@ -751,8 +751,14 @@ sb_commit(si_t *sih)
 	/* switch over to chipcommon core if there is one, else use pci */
 	if (sii->pub.ccrev != NOREV) {
 		chipcregs_t *ccregs = (chipcregs_t *)si_setcore(sih, CC_CORE_ID, 0);
+
 		ASSERT(ccregs != NULL);
 
+		if (ccregs == NULL) {	//20110324_WBT : ID 849
+			SI_ERROR(("%s: ccregs is NULL\n", __FUNCTION__));
+			return;
+		}
+		
 		/* do the buffer registers update */
 		W_REG(sii->osh, &ccregs->broadcastaddress, SB_COMMIT);
 		W_REG(sii->osh, &ccregs->broadcastdata, 0x0);

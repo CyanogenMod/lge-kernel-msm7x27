@@ -302,10 +302,10 @@ int bcmsdh_remove(struct device *dev)
 	osh = sdhc->osh;
 	MFREE(osh, sdhc, sizeof(bcmsdh_hc_t));
 	osl_detach(osh);
-
-#if !defined(BCMLXSDMMC)
+/* modify hw_oob */
+#if !defined(BCMLXSDMMC) || defined(OOB_INTR_ONLY)
 	dev_set_drvdata(dev, NULL);
-#endif /* !defined(BCMLXSDMMC) */
+#endif /* !defined(BCMLXSDMMC) || defined(OOB_INTR_ONLY) */
 
 	return 0;
 }
@@ -642,6 +642,20 @@ int bcmsdh_register_oob_intr(void * dhdp)
 	}
 
 	return 0;
+}
+/* add hw_oob */
+void bcmsdh_set_irq(int flag)
+{
+	if (sdhcinfo->oob_irq_registered) {
+		SDLX_MSG(("%s Flag = %d", __FUNCTION__, flag));
+		if (flag) {
+			enable_irq(sdhcinfo->oob_irq);
+			set_irq_wake(sdhcinfo->oob_irq, 1);
+		} else {
+			set_irq_wake(sdhcinfo->oob_irq, 0);
+			disable_irq(sdhcinfo->oob_irq);
+		}
+	}
 }
 
 void bcmsdh_unregister_oob_intr(void)

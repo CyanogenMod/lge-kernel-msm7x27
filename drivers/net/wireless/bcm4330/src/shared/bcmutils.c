@@ -749,8 +749,12 @@ pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir, ifpkt_cb_t fn, int 
 			bool head = (p == q->head);
 			if (head)
 				q->head = PKTLINK(p);
-			else
+			else {
+				if (prev)					// 20110324_WBT : ID 150
 				PKTSETLINK(prev, PKTLINK(p));
+				else
+					break;
+			}
 			PKTSETLINK(p, NULL);
 			PKTFREE(osh, p, dir);
 			q->len--;
