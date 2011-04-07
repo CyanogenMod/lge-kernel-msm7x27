@@ -110,10 +110,15 @@ int msm_bus_board_get_iid(int id);
 	(bw) = MSM_BUS_GET_BW(val);	\
 	} while (0)
 
+#define ROUNDED_BW_VAL_FROM_BYTES(bw) \
+	((((bw) >> 17) + 1) & 0x8000 ? 0x7FFF : (((bw) >> 17) + 1))
+
+#define BW_VAL_FROM_BYTES(bw) \
+	((((bw) >> 17) & 0x8000) ? 0x7FFF : ((bw) >> 17))
+
 #define MSM_BUS_BW_VAL_FROM_BYTES(bw) \
-	((bw) & 0x1FFFF) ? \
-	(((((bw) >> 17) + 1) & 0x8000 ? 0x7FFF : (((bw) >> 17) + 1))) : \
-	((bw) >> 17)
+	((((bw) & 0x1FFFF) && (((bw) >> 17) == 0)) ? \
+	 ROUNDED_BW_VAL_FROM_BYTES(bw) : BW_VAL_FROM_BYTES(bw))
 
 #define MSM_BUS_CREATE_BW_TIER_PAIR_BYTES(type, bw) \
 	((((type) == MSM_BUS_BW_TIER1 ? 1 : 0) << 15) | \
