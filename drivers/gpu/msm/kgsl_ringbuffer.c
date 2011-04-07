@@ -688,6 +688,11 @@ kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb,
 		      KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp)));
 	GSL_RB_WRITE(ringcmds, rcmd_gpu, rb->timestamp);
 
+	/*memory barriers added for the timestamp update*/
+	mb();
+	dsb();
+	outer_sync();
+
 	if (!(flags & KGSL_CMD_FLAGS_NO_TS_CMP)) {
 		/* Conditional execution based on memory values */
 		GSL_RB_WRITE(ringcmds, rcmd_gpu,
