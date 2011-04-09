@@ -3585,12 +3585,12 @@ static ssize_t store_bma250_enable(struct device *dev,
 
 	if(mode)
 	{
-			bma250_pdata->power(1);
+			bma250_set_mode(bma250_MODE_NORMAL);
 			atomic_set(&bma250_report_enabled, 1);
 			printk(KERN_INFO "ECCEL_Power On\n");
 	}
 	else {
-			bma250_pdata->power(0);
+			bma250_set_mode(bma250_MODE_SUSPEND);
 			atomic_set(&bma250_report_enabled, 0);
 			printk(KERN_INFO "ECCEL_Power Off\n");
 	}
@@ -5511,6 +5511,9 @@ static int bma250_probe(struct i2c_client *client,
 {
 	int err = 0;
 	int tempvalue;
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-04-01 */
+	int again_cnt=0;
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-04-01 */
 	struct bma250_data *data;
 	struct acceleration_platform_data *pdata;
 #ifdef BMA250_DEBUG
@@ -5538,8 +5541,12 @@ static int bma250_probe(struct i2c_client *client,
 #ifdef BMA250_SMBUS
 	tempvalue = i2c_smbus_read_word_data(client, 0x00);
 #else
+	again_cnt = 3;
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-04-01 */
+again_i2c:
 	i2c_master_send(client, (char*)&tempvalue, 1);
 	i2c_master_recv(client, (char*)&tempvalue, 1);
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-04-01 */
 #endif
 
 
@@ -5551,6 +5558,14 @@ static int bma250_probe(struct i2c_client *client,
 	}
 	else
 	{
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-04-01 */
+		if(again_cnt > 1)
+		{	
+			again_cnt--;	
+			printk(KERN_INFO "Bosch Sensortec Device again detect~\n");
+			goto again_i2c;
+		}
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-04-01 */
 		printk(KERN_INFO "Bosch Sensortec Device not found, i2c error %d \n", tempvalue);
 				
 		bma250_client = NULL;
