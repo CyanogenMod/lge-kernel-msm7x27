@@ -63,7 +63,7 @@ tuning_reg_settings_array[] = {
   {0x098E, 0x4808, WORD_LEN},	//Base Frame Lines (A)
   {0x0990, 0x0359, WORD_LEN},	//      = 857
   {0x098E, 0x480A, WORD_LEN},	//Line Length (A)
-  {0x0990, 0x0D65, WORD_LEN},	//      = 3429
+  {0x0990, 0x0ab7, WORD_LEN},    	//0x0d65      = 3429
   {0x098E, 0x480C, WORD_LEN},	//Fine Correction (A)
   {0x0990, 0x0399, WORD_LEN},	//      = 921
   {0x098E, 0x480E, WORD_LEN},	//Row Speed (A)
@@ -85,7 +85,7 @@ tuning_reg_settings_array[] = {
   {0x098E, 0x4835, WORD_LEN},	//Base Frame Lines (B)
   {0x0990, 0x065D, WORD_LEN},	//      = 1629
   {0x098E, 0x4837, WORD_LEN},	//Line Length (B)
-  {0x0990, 0x122C, WORD_LEN},	//      = 4209
+  {0x0990, 0x0e8a, WORD_LEN},    	//0x122c      = 4209
   {0x098E, 0x4839, WORD_LEN},	//Fine Correction (B)
   {0x0990, 0x019F, WORD_LEN},	//      = 415
   {0x098E, 0x483B, WORD_LEN},	//Row Speed (B)
@@ -158,7 +158,7 @@ tuning_reg_settings_array[] = {
   {0x098E, 0x6824, WORD_LEN},   	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_TARGET_DGAIN]
   {0x0990, 0x0080, WORD_LEN},   	// MCU_DATA_0
   {0x098E, 0xE826, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_BASE_TARGET]
-  {0x0990, 0x003c, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x0040, WORD_LEN},   	// MCU_DATA_0
   {0x098E, 0x6829, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_AE_MIN_VIRT_DGAIN]
   {0x0990, 0x0080, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x682B, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_AE_MAX_VIRT_DGAIN]
@@ -170,9 +170,9 @@ tuning_reg_settings_array[] = {
   {0x098E, 0x682F, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_AE_MAX_VIRT_AGAIN]
   {0x0990, 0x0120, WORD_LEN},	//1F8 	// MCU_DATA_0
   {0x098E, 0x6815, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_FD_MAX_FDZONE_50HZ]
-  {0x0990, 0x0008, WORD_LEN},   	// MCU_DATA_0
-  {0x098E, 0x6817, WORD_LEN},   	// MCU_ADDRESS [PRI_A_CONFIG_FD_MAX_FDZONE_60HZ]
   {0x0990, 0x000a, WORD_LEN},   	// MCU_DATA_0
+  {0x098E, 0x6817, WORD_LEN},   	// MCU_ADDRESS [PRI_A_CONFIG_FD_MAX_FDZONE_60HZ]
+  {0x0990, 0x000c, WORD_LEN},   	// MCU_DATA_0
   //FD_set
   {0x098E, 0x680F, WORD_LEN}, 	 	// MCU_ADDRESS [PRI_A_CONFIG_FD_ALGO_ENTER]
   {0x0990, 0x0003, WORD_LEN}, 	 	// MCU_DATA_0 //important point
@@ -277,7 +277,7 @@ tuning_reg_settings_array[] = {
   {0x098E, 0x489D, WORD_LEN}, 	// MCU_ADDRESS
   {0x0990, 0xFFE1, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x48B8, WORD_LEN}, 	// MCU_ADDRESS [CAM1_AWB_X_SHIFT]
-  {0x0990, 0x0028, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x002D, WORD_LEN},   	// MCU_DATA_0
   {0x098E, 0x48BA, WORD_LEN}, 	// MCU_ADDRESS [CAM1_AWB_Y_SHIFT]
   {0x0990, 0x0011, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x48BC, WORD_LEN}, 	// MCU_ADDRESS [CAM1_AWB_RECIP_XSCALE]
@@ -853,12 +853,12 @@ tuning_reg_settings_array[] = {
   {0x3644, 0x3971, WORD_LEN}, 	//  P_G1_P0Q2
   {0x3646, 0xDB6E, WORD_LEN}, 	//  P_G1_P0Q3
   {0x3648, 0xA2D1, WORD_LEN}, 	//  P_G1_P0Q4
-  {0x364A, 0x03D0, WORD_LEN}, 	//  P_R_P0Q0
+  {0x364A, 0x02d0, WORD_LEN},   //  0x03D0	//  P_R_P0Q0 2011.04.07
   {0x364C, 0xE66E, WORD_LEN}, 	//  P_R_P0Q1
   {0x364E, 0x1631, WORD_LEN},   //0x3631 	//  P_R_P0Q2
   {0x3650, 0x2210, WORD_LEN}, 	//  P_R_P0Q3
   {0x3652, 0xB1B1, WORD_LEN}, 	//  P_R_P0Q4
-  {0x3654, 0x0b90, WORD_LEN},   //0x0390 	//  P_B_P0Q0
+  {0x3654, 0X1Bd0, WORD_LEN},   //  1b90, 0b90, 0x0390 	//  P_B_P0Q0 2011.04.07
   {0x3656, 0x4CCE, WORD_LEN}, 	//  P_B_P0Q1
   {0x3658, 0x57F0, WORD_LEN}, 	//  P_B_P0Q2
   {0x365A, 0xEC8F, WORD_LEN}, 	//  P_B_P0Q3
@@ -950,7 +950,8 @@ tuning_reg_settings_array[] = {
   {0x3766, 0xD3B4, WORD_LEN}, 	//  P_G2_P4Q4
   {0x3784, 0x03B0, WORD_LEN}, 	//  CENTER_COLUMN
   {0x3782, 0x0310, WORD_LEN}, 	//  CENTER_ROW
-  {0x3210, 0x01B8, WORD_LEN}, 	// COLOR_PIPELINE_CONTROL
+  {0x326A, 0x0408, WORD_LEN}, 	// APERTURE_PARAMETERS_1D 2011.04.5
+  {0x3210, 0X05B8, WORD_LEN},   //0x01B8   	// COLOR_PIPELINE_CONTROL 2011.04.5
   //low_light
   {0x098E, 0x4918, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_START_GAIN_METRIC]
   {0x0990, 0x0030, WORD_LEN}, 	// MCU_DATA_0
@@ -1067,7 +1068,7 @@ tuning_reg_settings_array[] = {
   {0x098E, 0xC906, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_DM_EDGE_TH_START]
   {0x0990, 0x000A, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xC907, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_DM_EDGE_TH_STOP]
-  {0x0990, 0x0050, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x0010, WORD_LEN},  	// 50 MCU_DATA_0
   {0x098E, 0xBC02, WORD_LEN}, 	// MCU_ADDRESS [LL_MODE]
   {0x0990, 0x0005, WORD_LEN}, 	//D //2010-12-24 센서 Defect관련 수정 // MCU_DATA_0
   {0x098E, 0xC908, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_AP_KNEE_START]
@@ -1084,7 +1085,7 @@ tuning_reg_settings_array[] = {
   {0x098E, 0xC94F, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_DELTA_THRESHOLD_STOP]
   {0x0990, 0x0064, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xE877, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_LL_END_SATURATION]
-  {0x0990, 0x0050, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x0060, WORD_LEN}, 	// 50 MCU_DATA_0                                          
   //gamma
   {0x098E, 0x3C42, WORD_LEN}, 	// MCU_ADDRESS [LL_START_GAMMA_FTB]
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0
@@ -1514,11 +1515,11 @@ brightness_reg_settings_array[] = {
 static struct mt9t113_register_address_value_pair const
 auto_framerate_mode_reg_settings_array[] = {
   {0x098E, 0x480A, WORD_LEN},     // MCU_ADDRESS [CAM1_CTX_A_LINE_LENGTH_PCLK]
-  {0x0990, 0x0D65, WORD_LEN},     // MCU_DATA_0
+  {0x0990, 0x0ab7, WORD_LEN},     // MCU_DATA_0
   {0x098E, 0x6815, WORD_LEN},      // MCU_ADDRESS [PRI_A_CONFIG_FD_MAX_FDZONE_50HZ]
-  {0x0990, 0x0008, WORD_LEN},      // MCU_DATA_0
+  {0x0990, 0x000a, WORD_LEN},      // 8 MCU_DATA_0
   {0x098E, 0x6817, WORD_LEN},      // MCU_ADDRESS [PRI_A_CONFIG_FD_MAX_FDZONE_60HZ]
-  {0x0990, 0x000a, WORD_LEN},      // MCU_DATA_0
+  {0x0990, 0x000c, WORD_LEN},      // a MCU_DATA_0
   {0x098E, 0x6820, WORD_LEN},      // MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_TARGET_FDZONE]
   {0x0990, 0x0005, WORD_LEN},      // MCU_DATA_0
   {0x098E, 0x2800, WORD_LEN},      // MCU_ADDRESS [AE_TRACK_STATUS]
@@ -1533,7 +1534,7 @@ static struct mt9t113_register_address_value_pair const
 fixed_framerate_mode_reg_settings_array[] = {
   // 24fps
   {0x098E, 0x480A, WORD_LEN},     // MCU_ADDRESS [CAM1_CTX_A_LINE_LENGTH_PCLK]
-  {0x0990, 0x0d42, WORD_LEN},     // MCU_DATA_0
+  {0x0990, 0x0ab7, WORD_LEN},     // MCU_DATA_0
   {0x098E, 0x6815, WORD_LEN},      // MCU_ADDRESS [PRI_A_CONFIG_FD_MAX_FDZONE_50HZ]
   {0x0990, 0x0005, WORD_LEN},      // MCU_DATA_0
   {0x098E, 0x6817, WORD_LEN},      // MCU_ADDRESS [PRI_A_CONFIG_FD_MAX_FDZONE_60HZ]

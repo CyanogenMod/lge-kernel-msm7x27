@@ -2,19 +2,19 @@
  *
  * Copyright (C) 2008 QUALCOMM Incorporated.
  * Copyright (c) 2008 QUALCOMM USA, INC.
- * 
+ *
  * All source code in this file is licensed under the following license
  * except where indicated.
- * 
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, you can find it at http://www.fsf.org
  */
@@ -65,24 +65,24 @@ static void mddi_hitachi_lcd_panel_poweroff(void);
 #endif
 
 struct display_table {
-    unsigned reg;
-    unsigned char count;
-    unsigned char val_list[20];
+	unsigned reg;
+	unsigned char count;
+	unsigned char val_list[20];
 };
 
 struct display_table2 {
-    unsigned reg;
-    unsigned char count;
-    unsigned char val_list[16384];
+	unsigned reg;
+	unsigned char count;
+	unsigned char val_list[16384];
 };
 
 #define REGFLAG_DELAY             0XFFFE
 #define REGFLAG_END_OF_TABLE      0xFFFF   // END OF REGISTERS MARKER
 
 static struct display_table mddi_hitachi_position_table[] = {
-	// set column address 
+	// set column address
 	{0x2a,  4, {0x00, 0x00, 0x01, 0x3f}},
-	// set page address 
+	// set page address
 	{0x2b,  4, {0x00, 0x00, 0x01, 0xdf}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
@@ -117,103 +117,103 @@ static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 
 static struct display_table mddi_hitachi_initialize[] = {
 
-	// Power ON Sequence 
+	// Power ON Sequence
 	{0xf0, 4, {0x5a, 0x5a, 0x00, 0x00}},
 	{0xf1, 4, {0x5a, 0x5a, 0x00, 0x00}},
 
-	// PWRCTL 
+	// PWRCTL
 	{0xf4, 16, {0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			    0x04, 0x66, 0x02, 0x04, 0x66, 0x02, 0x00, 0x00}},
+				0x04, 0x66, 0x02, 0x04, 0x66, 0x02, 0x00, 0x00}},
 
-	// VCMCTL 
+	// VCMCTL
 	// Revert 6th parameter. From 0x04 to 0x00. 2010-09-02. minjong.gong@lge.com
 	{0xf5, 12, {0x00, 0x59, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00,
-			    0x00, 0x00, 0x59, 0x45}},
+				0x00, 0x00, 0x59, 0x45}},
 	{REGFLAG_DELAY, 10, {}},
 
-	// MANPWRSEQ 
+	// MANPWRSEQ
 	// Revert 1st parameter. From 0x03 to 0x01. 2010-09-02. minjong.gong@lge.com
 	{0xf3, 8,  {0x01, 0x6e, 0x15, 0x07, 0x03, 0x00, 0x00, 0x00}},
-	
-	// DISCTL 
+
+	// DISCTL
 	// Revert 2nd and 15th parameters. From 0x54 to 0x4d.
 	// Revert 6th, 7th, 9th and 10th parameters. From 0x08 to ox00.
 	// 2010-09-02. minjong.gong@lge.com
 	{0xf2, 20, {0x3b, 0x4d, 0x0f, 0x08, 0x08, 0x00, 0x00, 0x00,
-			    0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x4d, 0x08,
-			    0x08, 0x08, 0x08, 0x00}},
+				0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x4d, 0x08,
+				0x08, 0x08, 0x08, 0x00}},
 
 	{0xf6, 12, {0x04, 0x00, 0x08, 0x03, 0x01, 0x00, 0x01, 0x00,
-			    0x00, 0x00, 0x00, 0x00}},
+				0x00, 0x00, 0x00, 0x00}},
 
 	{0xf9, 4,  {0x27, 0x00, 0x00, 0x00}},
 
-	// PGAMMACTL 
+	// PGAMMACTL
 	{0xfa, 16, {0x03, 0x03, 0x08, 0x28, 0x2b, 0x2f, 0x32, 0x12,
-			    0x1d, 0x1f, 0x1c, 0x1c, 0x0f, 0x00, 0x00, 0x00}},
+				0x1d, 0x1f, 0x1c, 0x1c, 0x0f, 0x00, 0x00, 0x00}},
 
-	// MADCTL 
+	// MADCTL
 	{0x36,  4, {0x48, 0x00, 0x00, 0x00}},
 
-	// TEON 
+	// TEON
 	{0x35,  4, {0x00, 0x00, 0x00, 0x00}},
 
-	// COLMOD 
+	// COLMOD
 	{0x3a,  4, {0x55, 0x00, 0x00, 0x00}},
 
-	// set column address 
+	// set column address
 	{0x2a,  4, {0x00, 0x00, 0x01, 0x3f}},
 
-	// set page address 
+	// set page address
 	{0x2b,  4, {0x00, 0x00, 0x01, 0xdf}},
 
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
 static struct display_table mddi_auo_initialize[] = {
-	// Power ON Sequence 
+	// Power ON Sequence
 	{0xf0, 4, {0x5a, 0x5a, 0x00, 0x00}},
 	{0xf1, 4, {0x5a, 0x5a, 0x00, 0x00}},
 	{0xf2, 20, {0x3b, 0x48, 0x03, 0x08, 0x08, 0x08, 0x08, 0x00,
-			    0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x54, 0x08,
-			    0x08, 0x08, 0x08, 0x00}},
-	// PWRCTL 
+				0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x54, 0x08,
+				0x08, 0x08, 0x08, 0x00}},
+	// PWRCTL
 	{0xf4, 16, {0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			    0x3f, 0x79, 0x03, 0x3f, 0x79, 0x03, 0x00, 0x00}},
-	// VCMCTL 
+				0x3f, 0x79, 0x03, 0x3f, 0x79, 0x03, 0x00, 0x00}},
+	// VCMCTL
 	// Revert 6th parameter. From 0x04 to 0x00. 2010-09-02. minjong.gong@lge.com
 	{0xf5, 12, {0x00, 0x5d, 0x75, 0x00, 0x00, 0x00, 0x00, 0x00,
-			    0x04, 0x00, 0x5d, 0x75}},
-        // SRCCTL
+				0x04, 0x00, 0x5d, 0x75}},
+		// SRCCTL
 	{0xf6, 8, {0x04, 0x00, 0x08, 0x03, 0x01, 0x00, 0x01, 0x00}},
-        // IFCTL
+		// IFCTL
 	{0xf7, 8, {0x48, 0x80, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00}},
-        // PANELCTL
+		// PANELCTL
 	{0xf8, 4, {0x11, 0x00, 0x00, 0x00}},
-        // GAMMASEL
+		// GAMMASEL
 	{0xf9, 4,  {0x24, 0x00, 0x00, 0x00}},
-	// PGAMMACTL 
+	// PGAMMACTL
 	{0xfa, 16, {0x0b, 0x0b, 0x05, 0x01, 0x0b, 0x20, 0x2c, 0x13,
-			    0x1c, 0x21, 0x23, 0x2f, 0x24, 0x00, 0x00, 0x01}},
-        // GAMMASEL
+				0x1c, 0x21, 0x23, 0x2f, 0x24, 0x00, 0x00, 0x01}},
+		// GAMMASEL
 	{0xf9, 4,  {0x22, 0x00, 0x00, 0x00}},
-	// PGAMMACTL 
+	// PGAMMACTL
 	{0xfa, 16, {0x0b, 0x0b, 0x10, 0x2c, 0x27, 0x2a, 0x30, 0x11,
-			    0x1a, 0x20, 0x26, 0x1f, 0x24, 0x00, 0x00, 0x01}},
-        // GAMMASEL
+				0x1a, 0x20, 0x26, 0x1f, 0x24, 0x00, 0x00, 0x01}},
+		// GAMMASEL
 	{0xf9, 4,  {0x21, 0x00, 0x00, 0x00}},
-	// PGAMMACTL 
+	// PGAMMACTL
 	{0xfa, 16, {0x0b, 0x0b, 0x1a, 0x3a, 0x3f, 0x3f, 0x3f, 0x07,
-			    0x14, 0x1d, 0x17, 0x18, 0x19, 0x00, 0x00, 0x01}},
-	// COLMOD 
+				0x14, 0x1d, 0x17, 0x18, 0x19, 0x00, 0x00, 0x01}},
+	// COLMOD
 	{0x3a,  4, {0x55, 0x00, 0x00, 0x00}},
-	// MADCTL 
+	// MADCTL
 	{0x36,  4, {0x00, 0x00, 0x00, 0x00}},
-	// TEON 
+	// TEON
 	{0x35,  4, {0x00, 0x00, 0x00, 0x00}},
-	// set page address 
+	// set page address
 	{0x2b,  4, {0x00, 0x00, 0x01, 0xdf}},
-	// set column address 
+	// set column address
 	{0x2a,  4, {0x00, 0x00, 0x01, 0x3f}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
@@ -222,53 +222,53 @@ void display_table(struct display_table *table, unsigned int count)
 {
 	unsigned int i;
 
-    for(i = 0; i < count; i++) {
-		
-        unsigned reg;
-        reg = table[i].reg;
-		
-        switch (reg) {
-			
-            case REGFLAG_DELAY :
-                msleep(table[i].count);
+	for(i = 0; i < count; i++) {
+
+		unsigned reg;
+		reg = table[i].reg;
+
+		switch (reg) {
+
+			case REGFLAG_DELAY :
+				mdelay(table[i].count);
 				EPRINTK("%s() : delay %d msec\n", __func__, table[i].count);
-                break;
-				
-            case REGFLAG_END_OF_TABLE :
-                break;
-				
-            default:
-                mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 1, 0, 0);
+				break;
+
+			case REGFLAG_END_OF_TABLE :
+				break;
+
+			default:
+				mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 1, 0, 0);
 				//EPRINTK("%s: reg : %x, val : %x.\n", __func__, reg, table[i].val_list[0]);
-       	}
-    }
-	
+		}
+	}
+
 }
 
 static void __attribute__ ((unused)) compare_table(struct display_table *table, unsigned int count)
 {
 	unsigned int i;
 
-    for(i = 0; i < count; i++) {
-		
-        unsigned reg;
-        reg = table[i].reg;
-		
-        switch (reg) {
-			
-            case REGFLAG_DELAY :              
-                break;
-				
-            case REGFLAG_END_OF_TABLE :
-                break;
-				
-            default:
-                mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 0, 0, 0);
+	for(i = 0; i < count; i++) {
+
+		unsigned reg;
+		reg = table[i].reg;
+
+		switch (reg) {
+
+			case REGFLAG_DELAY :
+				break;
+
+			case REGFLAG_END_OF_TABLE :
+				break;
+
+			default:
+				mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 0, 0, 0);
 //				if(table[i].val_list != temp)
-					
+
 				EPRINTK("%s: reg : %x, val : %x.\n", __func__, reg, table[i].val_list[0]);
-       	}
-    }	
+		}
+	}
 }
 
 static void mddi_hitachi_vsync_set_handler(msm_fb_vsync_handler_type handler,	/* ISR to be executed */
@@ -278,7 +278,7 @@ static void mddi_hitachi_vsync_set_handler(msm_fb_vsync_handler_type handler,	/*
 	unsigned long flags;
 
 	/* LGE_CHANGE [neo.kang@lge.com] 2009-11-26, change debugging api */
-	printk("%s : handler = %x\n", 
+	printk("%s : handler = %x\n",
 			__func__, (unsigned int)handler);
 
 	/* Disable interrupts */
@@ -292,7 +292,7 @@ static void mddi_hitachi_vsync_set_handler(msm_fb_vsync_handler_type handler,	/*
 		mddi_hitachi_vsync_handler = handler;
 		mddi_hitachi_vsync_handler_arg = arg;
 	}
-	
+
 	/* Restore interrupts */
 	spin_unlock_irqrestore(&mddi_host_spin_lock, flags);
 	/* MDDI_INTFREE(); */
@@ -534,11 +534,11 @@ static int mddi_hitachi_lcd_init(void)
 		pinfo->mddi.vdopkt = 0x23;//MDDI_DEFAULT_PRIM_PIX_ATTR;
 		pinfo->wait_cycle = 0;
 		pinfo->bpp = 16;
-	
+
 		// vsync config
 		pinfo->lcd.vsync_enable = TRUE;
 		pinfo->lcd.refx100 = (mddi_hitachi_rows_per_second * 100) /
-                        		mddi_hitachi_rows_per_refresh;
+								mddi_hitachi_rows_per_refresh;
 
 /* LGE_CHANGE.
   * Change proch values to resolve LCD Tearing. Before BP:14, FP:6. After BP=FP=6.
