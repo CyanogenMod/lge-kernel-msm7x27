@@ -450,6 +450,12 @@ static void msm7x27_wlan_init(void)
 unsigned pmem_fb_size = 	0x96000;
 unsigned pmem_adsp_size =	0xAE4000; 
 
+/* decrease MDP pmem size in case of gpu and ashmem.
+ * this should be synch. with android display framework.
+ * 2011-04-11, jinkyu.choi@lge.com
+ */
+unsigned pmem_mdp_size = 0x5A0000;
+
 static void __init msm7x2x_init(void)
 {
 	if (socinfo_init() < 0)
