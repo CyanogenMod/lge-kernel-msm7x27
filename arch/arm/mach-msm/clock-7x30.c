@@ -981,6 +981,8 @@ int soc_clk_set_flags(unsigned id, unsigned clk_flags)
 			ret = -EINVAL;
 
 		writel(regval, CAM_VFE_NS_REG);
+		/* Make sure write is issued before returning. */
+		dsb();
 		break;
 	default:
 		ret = -EPERM;
