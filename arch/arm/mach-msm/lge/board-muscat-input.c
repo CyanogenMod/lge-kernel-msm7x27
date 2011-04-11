@@ -303,7 +303,6 @@ static int ts_set_vreg(unsigned char onoff)
 {
 	struct vreg *vreg_touch;
 	int rc;
-	unsigned on_off, id;
 
 	printk("[Touch] %s() onoff:%d\n",__FUNCTION__, onoff);
 
@@ -318,10 +317,6 @@ static int ts_set_vreg(unsigned char onoff)
 
 		if (lge_bd_rev <= LGE_REV_C)
 			gpio_set_value(28, 1);
-		on_off = 0;
-		id = PM_VREG_PDOWN_SYNT_ID;
-		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);
-		vreg_disable(vreg_touch);
 
 		rc = vreg_set_level(vreg_touch, 3050);
 		if (rc != 0) {
@@ -333,9 +328,6 @@ static int ts_set_vreg(unsigned char onoff)
 		if (lge_bd_rev <= LGE_REV_C)
 			gpio_set_value(28, 0);
 		vreg_disable(vreg_touch);
-		on_off = 1;
-		id = PM_VREG_PDOWN_SYNT_ID;
-		msm_proc_comm(PCOM_VREG_PULLDOWN, &on_off, &id);
 	}
 
 	return 0;
