@@ -362,13 +362,31 @@ static int msm_batt_power_get_property(struct power_supply *psy,
 		val->intval = msm_batt_info.voltage_min_design;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+#ifdef CONFIG_MACH_LGE
+/* 2011-04-11 by hyuncheol0@lge.com
+ * We use "voltage_now" attribute for the voltage of battery.
+ * The unit of voltage_now is micro voltage.
+ * So, we convert it here.
+ */
+		val->intval = (msm_batt_info.battery_voltage)*1000;
+#else
 		val->intval = msm_batt_info.battery_voltage;
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = msm_batt_info.batt_capacity;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
+#ifdef CONFIG_MACH_LGE
+/* 2011-04-11 by hyuncheol0@lge.com
+ * We use "temp" attribute for the temperature of battery.
+ * The android framework and application treat it as xx.x degree Celsius.
+ * So, we convert it here.
+ */
+		val->intval = (msm_batt_info.battery_temp)*10;
+#else
 		val->intval = msm_batt_info.battery_temp;
+#endif
 		break;
 	default:
 		return -EINVAL;
