@@ -856,6 +856,8 @@ static void do_create_pdevs(struct work_struct *work)
 	list_for_each_entry(server, &server_list, list) {
 		if (server->pid != RPCROUTER_PID_LOCAL) {
 			if (server->pdev_name[0] == 0) {
+				sprintf(server->pdev_name, "rs%.8x",
+					server->prog);
 				spin_unlock_irqrestore(&server_list_lock,
 						       flags);
 				msm_rpcrouter_create_server_pdev(server);
