@@ -341,6 +341,7 @@ nap:
 
 	device->state = device->requested_state;
 	device->requested_state = KGSL_STATE_NONE;
+	wake_unlock(&device->idle_wakelock);
 
 	return KGSL_SUCCESS;
 }
@@ -367,6 +368,7 @@ int kgsl_pwrctrl_wake(struct kgsl_device *device)
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 
 	KGSL_DRV_VDBG("<-- kgsl_yamato_wake(). Return value %d\n", status);
+	wake_lock(&device->idle_wakelock);
 
 	return status;
 }

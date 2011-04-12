@@ -205,6 +205,10 @@ typedef	struct _ehci_regs {
 
 /*memory management structures*/
 #define MEM_KV
+struct isp1763_async_cleanup_urb {
+        struct list_head urb_list;
+        struct urb *urb;
+};
 #ifdef MEM_KV
 typedef struct isp1763_mem_addr {
 	u32 phy_addr;		/* Physical address of the memory */
@@ -505,6 +509,7 @@ typedef	struct _phci_hcd {
 	struct timer_list watchdog;
 	void (*worker_function)	(struct	_phci_hcd * hcd);
 	struct _periodic_list periodic_list[PTD_PERIODIC_SIZE];
+	struct isp1763_async_cleanup_urb cleanup_urb;
 } phci_hcd, *pphci_hcd;
 
 /*usb_device->hcpriv, points to	this structure*/
@@ -669,6 +674,7 @@ phci_mem_cleanup(void)
 /* urb state*/
 #define	DELETE_URB			0x0008
 #define	NO_TRANSFER_ACTIVE		0xFFFF
+#define	NO_TRANSFER_DONE		0x0000
 #define	MAX_PTD_BUFFER_SIZE		4096	/*max ptd size */
 
 /*information of the td	in headers of host memory*/
@@ -706,7 +712,7 @@ typedef	struct td_ptd_map_buff {
 
 #define     USB_HCD_MAJOR           0
 #define     USB_HCD_MODULE_NAME     "isp1763hcd"
-static char devpath[] = "/dev/isp1763hcd";
+/* static char devpath[] = "/dev/isp1763hcd"; */
 
 #define HCD_IOC_MAGIC	'h'
 

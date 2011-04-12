@@ -380,7 +380,6 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			break;
 
 		mdp4_stat.intr_tot++;
-
 		mask = inpdw(MDP_INTR_ENABLE);
 		outpdw(MDP_INTR_CLEAR, isr);
 
@@ -424,19 +423,22 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				spin_unlock(&mdp_spin_lock);
 			} else { /* MDDI */
 #ifdef CONFIG_FB_MSM_OVERLAY
-#ifdef CONFIG_FB_MSM_MDDI
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+				mdp4_dma_p_done_dsi(dma);
+#else
 				mdp4_dma_p_done_mddi();
+				mdp_pipe_ctrl(MDP_DMA2_BLOCK,
+					MDP_BLOCK_POWER_OFF, TRUE);
 #endif
 #else
 				spin_lock(&mdp_spin_lock);
 				dma->busy = FALSE;
 				spin_unlock(&mdp_spin_lock);
 #endif
-				mdp_pipe_ctrl(MDP_DMA2_BLOCK,
-					MDP_BLOCK_POWER_OFF, TRUE);
 			}
-
+#ifndef CONFIG_FB_MSM_MIPI_DSI
 			complete(&dma->comp);
+#endif
 		}
 		if (isr & INTR_DMA_S_DONE) {
 			mdp4_stat.intr_dma_s++;
@@ -482,21 +484,15 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				else if (panel & MDP4_PANEL_DSI_VIDEO)
 					mdp4_overlay0_done_dsi_video();
 #endif
-			} else {	/* MDDI, DSI_CMD  */
-				dma->busy = FALSE;
-				complete(&dma->comp);
-				mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK,
-					MDP_BLOCK_POWER_OFF, TRUE);
+			} else {        /* MDDI, DSI_CMD  */
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 				if (panel & MDP4_PANEL_DSI_CMD)
-					mdp4_overlay0_done_dsi_cmd();
+					mdp4_overlay0_done_dsi_cmd(dma);
 #else
 				if (panel & MDP4_PANEL_MDDI)
-					mdp4_overlay0_done_mddi();
+					mdp4_overlay0_done_mddi(dma);
 #endif
 			}
-
-
 			mdp_hw_cursor_done();
 		}
 		if (isr & INTR_OVERLAY1_DONE) {

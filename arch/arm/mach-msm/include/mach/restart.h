@@ -27,20 +27,17 @@
  *
  */
 
-#ifndef __RTC_MSM_H__
-#define __RTC_MSM_H__
+#ifndef _ASM_ARCH_MSM_RESTART_H_
+#define _ASM_ARCH_MSM_RESTART_H_
 
-/*
- * This is the only function which updates the xtime structure. This
- * function is supposed to be called only once during kernel initialization.
- * But we need to call this function whenever we receive an RTC update
- * from MODEM.
- */
-int rtc_hctosys(void);
+#define RESTART_NORMAL 0x0
+#define RESTART_DLOAD  0x1
 
-extern void msm_pm_set_max_sleep_time(int64_t sleep_time_ns);
-int64_t msm_timer_get_sclk_time(int64_t *period);
-int64_t msmrtc_get_tickatsuspend(void);
-bool msmrtc_is_suspended(void);
+#if defined(CONFIG_ARCH_MSM8X60)
+void msm_set_restart_mode(int mode);
+#else
+#define msm_set_restart_mode(mode)
+#endif
 
-#endif  /* __RTC_MSM_H__ */
+#endif
+

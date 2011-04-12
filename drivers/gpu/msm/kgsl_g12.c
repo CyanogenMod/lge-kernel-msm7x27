@@ -67,7 +67,9 @@
 
 static int kgsl_g12_start(struct kgsl_device *device, unsigned int init_ram);
 static int kgsl_g12_stop(struct kgsl_device *device);
-static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
+static int kgsl_g12_wait(struct kgsl_device *device,
+				unsigned int timestamp,
+				unsigned int msecs);
 static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 				unsigned int timestamp,
 				unsigned int msecs);
@@ -464,6 +466,7 @@ kgsl_g12_init(struct kgsl_device *device)
 
 	kgsl_sharedmem_set(&device->memstore, 0, 0, device->memstore.size);
 
+	wake_lock_init(&device->idle_wakelock, WAKE_LOCK_IDLE, device->name);
 	return 0;
 
 error_close_mmu:
@@ -513,6 +516,7 @@ int kgsl_g12_close(struct kgsl_device *device)
 		device->work_queue = NULL;
 	}
 
+	wake_lock_destroy(&device->idle_wakelock);
 	KGSL_DRV_VDBG("return %d\n", 0);
 	return 0;
 }
@@ -645,7 +649,7 @@ static int kgsl_g12_getproperty(struct kgsl_device *device,
 	return status;
 }
 
-static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
+int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	int status = KGSL_SUCCESS;
 	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
@@ -653,7 +657,7 @@ static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 	KGSL_DRV_VDBG("enter (device=%p, timeout=%d)\n", device, timeout);
 
 	if (g12_device->current_timestamp > g12_device->timestamp)
-		status = kgsl_g12_waittimestamp(device,
+		status = kgsl_g12_wait(device,
 					g12_device->current_timestamp, timeout);
 
 	if (status)
@@ -763,6 +767,18 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 				unsigned int msecs)
 {
 	int status = -EINVAL;
+	mutex_unlock(&device->mutex);
+	status = kgsl_g12_wait(device, timestamp, msecs);
+	mutex_lock(&device->mutex);
+
+	return status;
+}
+
+static int kgsl_g12_wait(struct kgsl_device *device,
+				unsigned int timestamp,
+				unsigned int msecs)
+{
+	int status = -EINVAL;
 	struct kgsl_g12_device *g12_device = KGSL_G12_DEVICE(device);
 	long timeout = 0;
 
@@ -772,12 +788,10 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 	KGSL_DRV_INFO("current (device=%p,timestamp=%d)\n",
 			device, g12_device->timestamp);
 
-	mutex_unlock(&device->mutex);
 	timeout = wait_io_event_interruptible_timeout(
 			g12_device->wait_timestamp_wq,
 			kgsl_check_timestamp(device, timestamp),
 			msecs_to_jiffies(msecs));
-	mutex_lock(&device->mutex);
 
 	if (timeout > 0)
 		status = 0;

@@ -49,6 +49,7 @@ struct kgsl_g12_device {
 
 irqreturn_t kgsl_g12_isr(int irq, void *data);
 int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags);
+int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
 struct kgsl_device *kgsl_get_2d_device(enum kgsl_deviceid);
 int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value);

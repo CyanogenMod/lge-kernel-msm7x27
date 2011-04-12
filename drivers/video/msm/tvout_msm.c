@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,16 +110,6 @@ static irqreturn_t tvout_msm_isr(int irq, void *dev_id)
 	TV_OUT(TV_INTR_CLEAR, tvout_msm_state->hpd_int_status);
 	DEV_DBG("%s: ISR: 0x%02x\n", __func__,
 		tvout_msm_state->hpd_int_status & 0x05);
-
-#ifdef CONFIG_SUSPEND
-	mutex_lock(&tvout_msm_state_mutex);
-	if (tvout_msm_state->pm_suspended) {
-		mutex_unlock(&tvout_msm_state_mutex);
-		DEV_WARN("%s: ignored, pm_suspended\n", __func__);
-		return IRQ_HANDLED;
-	}
-	mutex_unlock(&tvout_msm_state_mutex);
-#endif
 
 	if (tvenc_pdata->poll)
 		if (!tvout_msm_state || !tvout_msm_state->disp_powered_up) {

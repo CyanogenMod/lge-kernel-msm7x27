@@ -33,6 +33,8 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
+#include <asm/system.h>
+
 #include <../mach-msm/mpm.h>
 
 static DEFINE_SPINLOCK(irq_controller_lock);
@@ -190,6 +192,7 @@ static int gic_suspend(struct sys_device *sysdev, pm_message_t state)
 		writel(gic_data[gic_nr].wakeup_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
+	mb();
 	return 0;
 }
 
@@ -230,6 +233,7 @@ static int gic_resume(struct sys_device *sysdev)
 		writel(gic_data[gic_nr].enabled_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
+	mb();
 	return 0;
 }
 
@@ -430,6 +434,7 @@ void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 	}
 
 	writel(1, base + GIC_DIST_CTRL);
+	mb();
 }
 
 void __cpuinit gic_cpu_init(unsigned int gic_nr, void __iomem *base)
@@ -441,6 +446,7 @@ void __cpuinit gic_cpu_init(unsigned int gic_nr, void __iomem *base)
 
 	writel(0xf0, base + GIC_CPU_PRIMASK);
 	writel(1, base + GIC_CPU_CTRL);
+	mb();
 }
 
 #ifdef CONFIG_SMP
@@ -450,6 +456,7 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 
 	/* this always happens on GIC0 */
 	writel(map << 16 | irq, gic_data[0].dist_base + GIC_DIST_SOFTINT);
+	mb();
 }
 #endif
 

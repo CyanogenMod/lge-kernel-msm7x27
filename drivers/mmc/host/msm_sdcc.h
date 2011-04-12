@@ -168,7 +168,13 @@
 
 #define NR_SG		32
 
-#define MSM_MMC_IDLE_TIMEOUT	10000 /* msec */
+#define MSM_MMC_IDLE_TIMEOUT	10000 /* msecs */
+
+/*
+ * Set the request timeout to 10secs to allow
+ * bad cards/controller to respond.
+ */
+#define MSM_MMC_REQ_TIMEOUT	10000 /* msecs */
 
 struct clk;
 
@@ -270,7 +276,7 @@ struct msmsdcc_host {
 
 	struct timer_list    check_timer;
 	unsigned int sdcc_irq_disabled;
-
+	struct timer_list req_tout_timer;
 };
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);

@@ -338,8 +338,9 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 								&buf[cnt].phys,
 								GFP_KERNEL);
 				if (!buf[cnt].data) {
-					pr_err("%s Buf alloc failed\n",
-								__func__);
+					pr_err("%s Buf alloc failed for"
+						" size=%d\n", __func__,
+						bufsz);
 					mutex_unlock(&ac->cmd_lock);
 					goto fail;
 				}

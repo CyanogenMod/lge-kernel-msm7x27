@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -218,10 +218,12 @@ typedef struct mdp_ibuf_s {
 
 struct mdp_dma_data {
 	boolean busy;
+	boolean dmap_busy;
 	boolean waiting;
 	struct mutex ov_mutex;
 	struct semaphore mutex;
 	struct completion comp;
+	struct completion dmap_comp;
 };
 
 #define MDP_CMD_DEBUG_ACCESS_BASE   (MDP_BASE+0x10000)
@@ -685,6 +687,8 @@ void mdp_disable_irq_nosync(uint32 term);
 int mdp_get_bytes_per_pixel(uint32_t format,
 				 struct msm_fb_data_type *mfd);
 int mdp_set_core_clk(uint16 perf_level);
+unsigned long mdp_get_core_clk(void);
+unsigned long mdp_perf_level2clk_rate(uint32 perf_level);
 
 #ifdef CONFIG_MSM_BUS_SCALING
 int mdp_bus_scale_update_request(uint32_t index);
@@ -704,4 +708,5 @@ int mdp_debugfs_init(void);
 void mdp_dma_s_update(struct msm_fb_data_type *mfd);
 int mdp_start_histogram(struct fb_info *info);
 int mdp_stop_histogram(struct fb_info *info);
+int mdp_histogram_ctrl(boolean en);
 #endif /* MDP_H */

@@ -307,10 +307,14 @@ void mdp4_blt_xy_update(struct mdp4_overlay_pipe *pipe)
 	if (pipe->blt_addr == 0)
 		return;
 
-	/* overlay ouput is RGB565 */
-	bpp = 2;
+
+#ifdef BLT_RGB565
+	bpp = 2; /* overlay ouput is RGB565 */
+#else
+	bpp = 3; /* overlay ouput is RGB888 */
+#endif
 	off = 0;
-	if (pipe->blt_cnt & 0x01)
+	if (pipe->dmap_cnt & 0x01)
 		off = pipe->src_height * pipe->src_width * bpp;
 
 	addr = pipe->blt_addr + off;
@@ -335,19 +339,35 @@ void mdp4_dma_p_done_mddi(void)
 		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 		mdp4_overlayproc_cfg(mddi_pipe);
 		mdp4_overlay_dmap_xy(mddi_pipe);
-		return;
 	}
+
+	/*
+	 * single buffer, no need to increase
+	 * mdd_pipe->dmap_cnt here
+	 */
 }
 
 /*
  * mdp4_overlay0_done_mddi: called from isr
  */
-void mdp4_overlay0_done_mddi()
+void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma)
 {
+	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
+
+	dma->busy = FALSE;
+	complete(&dma->comp);
+	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK,
+			MDP_BLOCK_POWER_OFF, TRUE);
+
+	if (busy_wait_cnt)
+		busy_wait_cnt--;
+
 	if (mddi_pipe->blt_addr) {
 		if (mddi_pipe->blt_cnt == 0) {
 			mdp4_overlayproc_cfg(mddi_pipe);
 			mdp4_overlay_dmap_xy(mddi_pipe);
+			mddi_pipe->ov_cnt = 0;
+			mddi_pipe->dmap_cnt = 0;
 			/* BLT start from next frame */
 		} else {
 			mdp_pipe_ctrl(MDP_DMA2_BLOCK, MDP_BLOCK_POWER_ON,
@@ -356,12 +376,10 @@ void mdp4_overlay0_done_mddi()
 			outpdw(MDP_BASE + 0x000c, 0x0); /* start DMAP */
 		}
 		mddi_pipe->blt_cnt++;
+		mddi_pipe->ov_cnt++;
 	}
 
-	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
 
-	if (busy_wait_cnt)
-		busy_wait_cnt--;
 
 }
 

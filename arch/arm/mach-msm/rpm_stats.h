@@ -27,20 +27,13 @@
  *
  */
 
-#ifndef __RTC_MSM_H__
-#define __RTC_MSM_H__
+#ifndef __ARCH_ARM_MACH_MSM_RPM_STATS_H
+#define __ARCH_ARM_MACH_MSM_RPM_STATS_H
 
-/*
- * This is the only function which updates the xtime structure. This
- * function is supposed to be called only once during kernel initialization.
- * But we need to call this function whenever we receive an RTC update
- * from MODEM.
- */
-int rtc_hctosys(void);
+#include <linux/types.h>
 
-extern void msm_pm_set_max_sleep_time(int64_t sleep_time_ns);
-int64_t msm_timer_get_sclk_time(int64_t *period);
-int64_t msmrtc_get_tickatsuspend(void);
-bool msmrtc_is_suspended(void);
-
-#endif  /* __RTC_MSM_H__ */
+struct msm_rpmstats_platform_data {
+	phys_addr_t phys_addr_base;
+	u32 phys_size;
+};
+#endif
