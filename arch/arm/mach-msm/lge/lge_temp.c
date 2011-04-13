@@ -30,7 +30,7 @@ static int tolk_store(struct device *dev, struct device_attribute *attr, const c
 
 	return count;
 }
-static DEVICE_ATTR(tolk, 0777, NULL, tolk_store);
+static DEVICE_ATTR(tolk, 0664, NULL, tolk_store);
 
 static unsigned int lcdbe = 1;
 static int lcdbe_mode(char *test)
@@ -47,7 +47,7 @@ static int lcdbe_show(struct device *dev, struct device_attribute *attr, char *b
 {
 	return sprintf(buf, "%d\n", lcdbe);
 }
-static DEVICE_ATTR(lcdis, 0777, lcdbe_show, NULL);
+static DEVICE_ATTR(lcdis, 0664, lcdbe_show, NULL);
 
 static unsigned int test_result = 0;
 static int result_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -96,7 +96,7 @@ static int result_store(struct device *dev, struct device_attribute *attr, const
 	kfree(buf11);
 	return count;
 }
-static DEVICE_ATTR(result, 0777, result_show, result_store);
+static DEVICE_ATTR(result, 0664, result_show, result_store);
 
 static unsigned int g_flight = 0;
 static int flight_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -114,7 +114,7 @@ static int flight_store(struct device *dev, struct device_attribute *attr, const
 	
 	return count;
 }
-static DEVICE_ATTR(flight, 0777, flight_show, flight_store);
+static DEVICE_ATTR(flight, 0664, flight_show, flight_store);
 
 static int __init lge_tempdevice_probe(struct platform_device *pdev)
 {
