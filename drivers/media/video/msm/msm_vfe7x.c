@@ -62,10 +62,6 @@ static uint8_t vfestopped;
 static int cnt;
 
 static struct stop_event stopevent;
-//LGE_DEV_PORTING 
-// sleep current issue : Case Number:  00479707
-static int cnt;
-//LGE_DEV_END
 
 static void vfe_7x_convert(struct msm_vfe_phy_info *pinfo,
 		enum vfe_resp_msg type,
