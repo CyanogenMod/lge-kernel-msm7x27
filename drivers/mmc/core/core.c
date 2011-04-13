@@ -61,6 +61,7 @@ int mmc_assume_removable;
 #else
 int mmc_assume_removable = 1;
 #endif
+EXPORT_SYMBOL(mmc_assume_removable);
 module_param_named(removable, mmc_assume_removable, bool, 0644);
 MODULE_PARM_DESC(
 	removable,
@@ -1122,9 +1123,12 @@ void mmc_rescan(struct work_struct *work)
 
 	mmc_bus_get(host);
 
-	/* if there is a card registered, check whether it is still present */
-	if ((host->bus_ops != NULL) && host->bus_ops->detect &&
-		!host->bus_dead) {
+	/*
+	 * if there is a _removable_ card registered, check whether it is
+	 * still present
+	 */
+	if (host->bus_ops && host->bus_ops->detect && !host->bus_dead
+	    && !(host->caps & MMC_CAP_NONREMOVABLE)) {
 		host->bus_ops->detect(host);
 		/* If the card was removed the bus will be marked
 		 * as dead - extend the wakelock so userspace
