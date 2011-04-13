@@ -69,20 +69,17 @@ struct shared_ramfs_table {
 
 struct rmt_storage_client_info {
 	unsigned long cids;
-	/* Shared memory parameters from RAMFS table and alloc_rmt_buf */
-	struct rmt_shrd_mem_param rmt_shrd_mem[MAX_SHRD_MEM_ENTRIES];
+	struct list_head shrd_mem_list; /* List of shared memory entries */
 	int open_excl;
 	atomic_t total_events;
 	wait_queue_head_t event_q;
 	struct list_head event_list;
 	struct list_head client_list;	/* List of remote storage clients */
-	/* Lock to protect event and client lists */
+	/* Lock to protect lists */
 	spinlock_t lock;
 	/* Wakelock to be acquired when processing requests from modem */
 	struct wake_lock wlock;
 	atomic_t wcount;
-	/* Shared memory parameters from RAMFS table only*/
-	struct shared_ramfs_entry *smem_info[MAX_RAMFS_TBL_ENTRIES];
 };
 
 struct rmt_storage_kevent {
@@ -105,6 +102,13 @@ struct rmt_storage_client {
 	char path[MAX_PATH_NAME];
 	struct rmt_storage_srv *srv;
 	struct list_head list;
+};
+
+struct rmt_shrd_mem {
+	struct list_head list;
+	struct rmt_shrd_mem_param param;
+	struct shared_ramfs_entry *smem_info;
+	struct rmt_storage_srv *srv;
 };
 
 static struct rmt_storage_srv *rmt_storage_get_srv(uint32_t prog);
@@ -164,11 +168,6 @@ static struct dentry *stats_dentry;
 /* MDM EFS*/
 #define RAMFS_MDM_STORAGE_ID		0x4D4583A1
 
-#define for_each_smem_info(s, i)	\
-		for (i = 0; \
-		     (i < MAX_RAMFS_TBL_ENTRIES) && (s = rmc->smem_info[i]); \
-		     i++)
-
 static struct rmt_storage_client *rmt_storage_get_client(uint32_t handle)
 {
 	struct rmt_storage_client *rs_client;
@@ -180,23 +179,39 @@ static struct rmt_storage_client *rmt_storage_get_client(uint32_t handle)
 
 static struct rmt_shrd_mem_param *rmt_storage_get_shrd_mem(uint32_t sid)
 {
-	int i;
+	struct rmt_shrd_mem *shrd_mem;
+	struct rmt_shrd_mem_param *shrd_mem_param = NULL;
 
-	for (i = 0; i < MAX_SHRD_MEM_ENTRIES; i++)
-		if (rmc->rmt_shrd_mem[i].sid == sid)
-			return &rmc->rmt_shrd_mem[i];
-	return NULL;
+	spin_lock(&rmc->lock);
+	list_for_each_entry(shrd_mem, &rmc->shrd_mem_list, list)
+		if (shrd_mem->param.sid == sid)
+			shrd_mem_param = &shrd_mem->param;
+	spin_unlock(&rmc->lock);
+
+	return shrd_mem_param;
 }
 
-static struct shared_ramfs_entry *rmt_storage_get_smem_info(uint32_t client_id)
+static int rmt_storage_add_shrd_mem(uint32_t sid, uint32_t start,
+				    uint32_t size, void *base,
+				    struct shared_ramfs_entry *smem_info,
+				    struct rmt_storage_srv *srv)
 {
-	int i;
-	struct shared_ramfs_entry *smem_info;
+	struct rmt_shrd_mem *shrd_mem;
 
-	for_each_smem_info(smem_info, i)
-		if (smem_info->client_id == client_id)
-			return smem_info;
-	return NULL;
+	shrd_mem = kzalloc(sizeof(struct rmt_shrd_mem), GFP_KERNEL);
+	if (!shrd_mem)
+		return -ENOMEM;
+	shrd_mem->param.sid = sid;
+	shrd_mem->param.start = start;
+	shrd_mem->param.size = size;
+	shrd_mem->param.base = base;
+	shrd_mem->smem_info = smem_info;
+	shrd_mem->srv = srv;
+
+	spin_lock(&rmc->lock);
+	list_add(&shrd_mem->list, &rmc->shrd_mem_list);
+	spin_unlock(&rmc->lock);
+	return 0;
 }
 
 static struct msm_rpc_client *rmt_storage_get_rpc_client(uint32_t handle)
@@ -708,11 +723,9 @@ static int rmt_storage_event_alloc_rmt_buf_cb(
 {
 	struct rmt_storage_client *rs_client;
 	struct rmt_shrd_mem_param *shrd_mem;
-	uint32_t event_type, handle, size;
-	int i;
-#ifdef CONFIG_MSM_SDIO_SMEM
+	uint32_t event_type, handle, size, start, vstart;
 	int ret;
-#endif
+
 	xdr_recv_uint32(xdr, &event_type);
 	if (event_type != RMT_STORAGE_EVNT_ALLOC_RMT_BUF)
 		return -EINVAL;
@@ -743,44 +756,28 @@ static int rmt_storage_event_alloc_rmt_buf_cb(
 	if (shrd_mem)
 		return (int) shrd_mem->start;
 
-	spin_lock(&rmc->lock);
-	for (i = 0; i < MAX_SHRD_MEM_ENTRIES; i++)
-		if (!rmc->rmt_shrd_mem[i].sid) {
-			shrd_mem = &rmc->rmt_shrd_mem[i];
-			shrd_mem->sid = 1; /* in-use marker */
-			break;
-		}
-	spin_unlock(&rmc->lock);
-
-	if (i == MAX_SHRD_MEM_ENTRIES) {
-		pr_err("%s: Unable to find shared mem entry\n", __func__);
-		return -EINVAL;
-	}
-
+	/* Allocate memory from heap for MDM only */
 	if (rs_client->srv->prog != MDM_RMT_STORAGE_APIPROG)
-		shrd_mem->start = 0;
-	else {
-		shrd_mem->start = (uint32_t)kzalloc(size, GFP_KERNEL);
-		if (!shrd_mem->start) {
-			pr_err("%s: Unable to allocate memory\n", __func__);
-			spin_lock(&rmc->lock);
-			shrd_mem->sid = 0;
-			spin_unlock(&rmc->lock);
-			return -EINVAL;
-		}
-		shrd_mem->start = __pa(shrd_mem->start);
-	}
-	shrd_mem->sid = rs_client->sid;
-	shrd_mem->size = size;
+		return -EINVAL;
+
+	vstart = (uint32_t)kzalloc(size, GFP_KERNEL);
+	if (!vstart)
+		return -ENOMEM;
+
+	start = __pa(vstart);
+	ret = rmt_storage_add_shrd_mem(rs_client->sid, start, size,
+				       NULL, NULL, rs_client->srv);
+	if (ret < 0)
+		return ret;
 	pr_debug("%s: Allocated %d bytes at phys_addr=0x%x for handle=%d\n",
-		__func__, shrd_mem->size, shrd_mem->start, rs_client->handle);
+		__func__, size, start, rs_client->handle);
 
 #ifdef CONFIG_MSM_SDIO_SMEM
 	ret = platform_driver_register(&sdio_smem_drv);
 	if (ret)
 		pr_err("%s: Unable to register sdio smem client\n", __func__);
 #endif
-	return (int) shrd_mem->start;
+	return (int)start;
 }
 
 static int handle_rmt_storage_call(struct msm_rpc_client *client,
@@ -830,12 +827,7 @@ static int handle_rmt_storage_call(struct msm_rpc_client *client,
 		}
 
 		rc = cb_func(event_args, xdr);
-		/* ALLOC_RMT_BUF returns an address, which when casted
-		   to int could be negative */
-		if (rc < 0) {
-			if (req->procedure ==
-			    RMT_STORAGE_ALLOC_RMT_BUF_CB_TYPE_PROC)
-				break;
+		if (IS_ERR_VALUE(rc)) {
 			pr_err("%s: Invalid parameters received\n", __func__);
 			result = RMT_STORAGE_ERROR_PARAM;
 			kfree(kevent);
@@ -872,15 +864,12 @@ out:
 
 static int rmt_storage_open(struct inode *ip, struct file *fp)
 {
-	int i, ret = 0;
-	struct shared_ramfs_entry *smem_info;
+	int ret = 0;
 
 	spin_lock(&rmc->lock);
-	if (!rmc->open_excl) {
+	if (!rmc->open_excl)
 		rmc->open_excl = 1;
-		for_each_smem_info(smem_info, i)
-			smem_info->client_sts = 1;
-	} else
+	else
 		ret = -EBUSY;
 	spin_unlock(&rmc->lock);
 
@@ -889,13 +878,8 @@ static int rmt_storage_open(struct inode *ip, struct file *fp)
 
 static int rmt_storage_release(struct inode *ip, struct file *fp)
 {
-	int i;
-	struct shared_ramfs_entry *smem_info;
-
 	spin_lock(&rmc->lock);
 	rmc->open_excl = 0;
-	for_each_smem_info(smem_info, i)
-			smem_info->client_sts = 0;
 	spin_unlock(&rmc->lock);
 
 	return 0;
@@ -1214,11 +1198,14 @@ static struct miscdevice rmt_storage_device = {
 	.fops = &rmt_storage_fops,
 };
 
-static int rmt_storage_get_ramfs(void)
+static int rmt_storage_get_ramfs(struct rmt_storage_srv *srv)
 {
 	struct shared_ramfs_table *ramfs_table;
 	struct shared_ramfs_entry *ramfs_entry;
-	int index;
+	int index, ret;
+
+	if (srv->prog != MSM_RMT_STORAGE_APIPROG)
+		return 0;
 
 	ramfs_table = smem_alloc(SMEM_SEFS_INFO,
 			sizeof(struct shared_ramfs_table));
@@ -1237,26 +1224,24 @@ static int rmt_storage_get_ramfs(void)
 	}
 
 	for (index = 0; index < ramfs_table->entries; index++) {
-		if (index == MAX_RAMFS_TBL_ENTRIES) {
-			pr_err("%s: Unable to store more than %d entries\n",
-				__func__, MAX_RAMFS_TBL_ENTRIES);
-			break;
-		}
 		ramfs_entry = &ramfs_table->ramfs_entry[index];
 		if (!ramfs_entry->client_id ||
 		    ramfs_entry->client_id == (u32) RAMFS_DEFAULT)
 			break;
+
 		pr_info("%s: RAMFS entry: addr = 0x%08x, size = 0x%08x\n",
 			__func__, ramfs_entry->base_addr, ramfs_entry->size);
 
-		rmc->rmt_shrd_mem[index].sid = ramfs_entry->client_id;
-		rmc->rmt_shrd_mem[index].start = ramfs_entry->base_addr;
-		rmc->rmt_shrd_mem[index].size = ramfs_entry->size;
-		rmc->smem_info[index] = ramfs_entry;
-
-		if (rmc->open_excl == 1) {
-			rmc->smem_info[index]->client_sts = 1;
-			pr_debug("%s: setting client_sts to 1\n", __func__);
+		ret = rmt_storage_add_shrd_mem(ramfs_entry->client_id,
+					       ramfs_entry->base_addr,
+					       ramfs_entry->size,
+					       NULL,
+					       ramfs_entry,
+					       srv);
+		if (ret) {
+			pr_err("%s: Error (%d) adding shared mem\n",
+			       __func__, ret);
+			return ret;
 		}
 	}
 	return 0;
@@ -1312,9 +1297,12 @@ show_sync_sts(struct device *dev, struct device_attribute *attr, char *buf)
 			rmt_storage_get_sync_status(srv->rpc_client));
 }
 
-static int rmt_storage_init_ramfs(void)
+static int rmt_storage_init_ramfs(struct rmt_storage_srv *srv)
 {
 	struct shared_ramfs_table *ramfs_table;
+
+	if (srv->prog != MSM_RMT_STORAGE_APIPROG)
+		return 0;
 
 	ramfs_table = smem_alloc(SMEM_SEFS_INFO,
 				 sizeof(struct shared_ramfs_table));
@@ -1342,6 +1330,19 @@ static int rmt_storage_init_ramfs(void)
 	return 0;
 }
 
+static void rmt_storage_set_client_status(struct rmt_storage_srv *srv,
+					  int enable)
+{
+	struct rmt_shrd_mem *shrd_mem;
+
+	spin_lock(&rmc->lock);
+	list_for_each_entry(shrd_mem, &rmc->shrd_mem_list, list)
+		if (shrd_mem->srv->prog == srv->prog)
+			if (shrd_mem->smem_info)
+				shrd_mem->smem_info->client_sts = !!enable;
+	spin_unlock(&rmc->lock);
+}
+
 static DEVICE_ATTR(force_sync, S_IRUGO | S_IWUSR, NULL, set_force_sync);
 static DEVICE_ATTR(sync_sts, S_IRUGO | S_IWUSR, show_sync_sts, NULL);
 static struct attribute *dev_attrs[] = {
@@ -1366,11 +1367,9 @@ static int rmt_storage_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	/* MDM will use ALLOC_RMT_BUR RPC call only */
-	if (dev->prog == MSM_RMT_STORAGE_APIPROG) {
-		rmt_storage_init_ramfs(); /* 8660 helper function */
-		rmt_storage_get_ramfs();
-	}
+
+	rmt_storage_init_ramfs(srv);
+	rmt_storage_get_ramfs(srv);
 
 	/* Client Registration */
 	srv->rpc_client = msm_rpc_register_client2("rmt_storage",
@@ -1453,6 +1452,9 @@ static int rmt_storage_probe(struct platform_device *pdev)
 		pr_info("%s: unable to register alloc rmt buf callback %d\n",
 			__func__, ret);
 
+	/* For targets that poll SMEM, set status to ready */
+	rmt_storage_set_client_status(srv, 1);
+
 	ret = sysfs_create_group(&pdev->dev.kobj, &dev_attr_grp);
 	if (ret)
 		pr_err("%s: Failed to create sysfs node: %d\n", __func__, ret);
@@ -1467,19 +1469,11 @@ unregister_client:
 static void rmt_storage_client_shutdown(struct platform_device *pdev)
 {
 	struct rpcsvr_platform_device *dev;
-	struct rmt_storage_client *rs_client;
-	struct shared_ramfs_entry *smem_info;
+	struct rmt_storage_srv *srv;
 
 	dev = container_of(pdev, struct rpcsvr_platform_device, base);
-
-	spin_lock(&rmc->lock);
-	list_for_each_entry(rs_client, &rmc->client_list, list)
-		if (rs_client->srv->prog == dev->prog) {
-			smem_info = rmt_storage_get_smem_info(rs_client->sid);
-			if (smem_info)
-				smem_info->client_sts = 0;
-		}
-	spin_unlock(&rmc->lock);
+	srv = rmt_storage_get_srv(dev->prog);
+	rmt_storage_set_client_status(srv, 0);
 }
 
 static void rmt_storage_destroy_rmc(void)
@@ -1495,6 +1489,7 @@ static void __init rmt_storage_init_client_info(void)
 	atomic_set(&rmc->total_events, 0);
 	INIT_LIST_HEAD(&rmc->event_list);
 	INIT_LIST_HEAD(&rmc->client_list);
+	INIT_LIST_HEAD(&rmc->shrd_mem_list);
 	/* The client expects a non-zero return value for
 	 * its open requests. Hence reserve 0 bit.  */
 	__set_bit(0, &rmc->cids);

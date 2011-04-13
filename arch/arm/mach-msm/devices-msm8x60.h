@@ -70,4 +70,7 @@ void __init msm8x60_check_2d_hardware(void);
 extern struct platform_device msm_dsps_device;
 #endif
 
+#if defined(CONFIG_MSM_RPM_STATS_LOG)
+extern struct platform_device msm_rpm_stat_device;
+#endif
 #endif

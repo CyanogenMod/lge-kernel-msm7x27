@@ -235,6 +235,25 @@ static void msm_irq_ack(unsigned int irq)
 	writel(irq, reg);
 }
 
+static void msm_irq_disable(unsigned int irq)
+{
+	void __iomem *reg = VIC_INT_TO_REG_ADDR(VIC_INT_ENCLEAR0, irq);
+	unsigned index = VIC_INT_TO_REG_INDEX(irq);
+	uint32_t mask = 1UL << (irq & 31);
+	int smsm_irq = msm_irq_to_smsm[irq];
+
+	if (!(msm_irq_shadow_reg[index].int_en[1] & mask)) {
+		msm_irq_shadow_reg[index].int_en[0] &= ~mask;
+		writel(mask, reg);
+		if (smsm_irq == 0)
+			msm_irq_idle_disable[index] &= ~mask;
+		else {
+			mask = 1UL << (smsm_irq - 1);
+			msm_irq_smsm_wake_enable[0] &= ~mask;
+		}
+	}
+}
+
 static void msm_irq_mask(unsigned int irq)
 {
 	void __iomem *reg = VIC_INT_TO_REG_ADDR(VIC_INT_ENCLEAR0, irq);
@@ -521,7 +540,7 @@ void msm_irq_exit_sleep3(uint32_t irq_mask, uint32_t wakeup_reason,
 
 static struct irq_chip msm_irq_chip = {
 	.name      = "msm",
-	.disable   = msm_irq_mask,
+	.disable   = msm_irq_disable,
 	.ack       = msm_irq_ack,
 	.mask      = msm_irq_mask,
 	.unmask    = msm_irq_unmask,

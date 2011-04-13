@@ -19,6 +19,7 @@
 #include <linux/spinlock.h>
 
 #include <mach/clk.h>
+#include <mach/socinfo.h>
 
 #include "proc_comm.h"
 #include "clock.h"

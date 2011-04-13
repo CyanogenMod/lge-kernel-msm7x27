@@ -29,6 +29,7 @@
 #define BUF_ALLOC_IN    0x01
 #define BUF_ALLOC_OUT   0x02
 #define BUF_ALLOC_INOUT 0x03
+#define ALIGN_BUF_SIZE(size) ((size + 4095) & (~4095))
 
 struct timestamp{
 	unsigned long lowpart;

@@ -88,7 +88,7 @@
 #define SPSS_L2_CLK_SEL_ADDR		(MSM_GCC_BASE  + 0x38)
 
 /* Speed bin register. */
-#define QFPROM_SPEED_BIN_PRI		(MSM_QFPROM_BASE + 0x00C0)
+#define QFPROM_SPEED_BIN_ADDR		(MSM_QFPROM_BASE + 0x00C0)
 
 static const void * const clk_ctl_addr[] = {SPSS0_CLK_CTL_ADDR,
 			SPSS1_CLK_CTL_ADDR};
@@ -153,23 +153,18 @@ struct clkctl_acpu_speed {
 #define BW_MBPS(_bw) \
 	{ \
 		.vectors = &(struct msm_bus_vectors){ \
-			.src = MSM_BUS_APPSS_MASTER_SMPSS_M0, \
-			.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0, \
+			.src = MSM_BUS_MASTER_AMPSS_M0, \
+			.dst = MSM_BUS_SLAVE_EBI_CH0, \
 			.ib = (_bw) * 1000000UL, \
 			.ab = 0, \
 		}, \
 		.num_paths = 1, \
 	}
 static struct msm_bus_paths bw_level_tbl[] = {
-	[0] = BW_MBPS( 108), /*  13.5 MHz on bus. */
-	[1] = BW_MBPS( 216), /*  27.0 MHz on bus. */
-	[2] = BW_MBPS( 496), /*  62.0 MHz on bus. */
-	[3] = BW_MBPS( 709), /*  88.0 MHz on bus. */
-	[4] = BW_MBPS( 828), /* 103.5 MHz on bus. */
-	[5] = BW_MBPS(1048), /* 131.0 MHz on bus. */
-	[6] = BW_MBPS(1397), /* 174.6 MHz on bus. */
-	[7] = BW_MBPS(2096), /* 262.0 MHz on bus. */
-	[8] = BW_MBPS(2484), /* 310.5 MHz on bus. */
+	[0] =  BW_MBPS(824), /* At least 103 MHz on bus. */
+	[1] = BW_MBPS(1336), /* At least 167 MHz on bus. */
+	[2] = BW_MBPS(2008), /* At least 251 MHz on bus. */
+	[3] = BW_MBPS(2480), /* At least 310 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -183,23 +178,23 @@ static uint32_t bus_perf_client;
 
 /* L2 frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_l2_speed l2_freq_tbl_v2[] = {
-	[0]  = { MAX_AXI, 0, 0,    1000000, 1100000, 4},
-	[1]  = { 432000,  1, 0x08, 1000000, 1100000, 4},
-	[2]  = { 486000,  1, 0x09, 1000000, 1100000, 4},
-	[3]  = { 540000,  1, 0x0A, 1000000, 1100000, 4},
-	[4]  = { 594000,  1, 0x0B, 1000000, 1100000, 4},
-	[5]  = { 648000,  1, 0x0C, 1000000, 1100000, 6},
-	[6]  = { 702000,  1, 0x0D, 1100000, 1100000, 6},
-	[7]  = { 756000,  1, 0x0E, 1100000, 1100000, 6},
-	[8]  = { 810000,  1, 0x0F, 1100000, 1100000, 6},
-	[9]  = { 864000,  1, 0x10, 1100000, 1100000, 6},
-	[10] = { 918000,  1, 0x11, 1100000, 1100000, 7},
-	[11] = { 972000,  1, 0x12, 1100000, 1100000, 7},
-	[12] = {1026000,  1, 0x13, 1100000, 1100000, 7},
-	[13] = {1080000,  1, 0x14, 1100000, 1200000, 7},
-	[14] = {1134000,  1, 0x15, 1100000, 1200000, 7},
-	[15] = {1188000,  1, 0x16, 1200000, 1200000, 8},
-	[16] = {1404000,  1, 0x1A, 1200000, 1250000, 8},
+	[0]  = { MAX_AXI, 0, 0,    1000000, 1100000, 0},
+	[1]  = { 432000,  1, 0x08, 1000000, 1100000, 0},
+	[2]  = { 486000,  1, 0x09, 1000000, 1100000, 0},
+	[3]  = { 540000,  1, 0x0A, 1000000, 1100000, 0},
+	[4]  = { 594000,  1, 0x0B, 1000000, 1100000, 0},
+	[5]  = { 648000,  1, 0x0C, 1000000, 1100000, 1},
+	[6]  = { 702000,  1, 0x0D, 1100000, 1100000, 1},
+	[7]  = { 756000,  1, 0x0E, 1100000, 1100000, 1},
+	[8]  = { 810000,  1, 0x0F, 1100000, 1100000, 1},
+	[9]  = { 864000,  1, 0x10, 1100000, 1100000, 1},
+	[10] = { 918000,  1, 0x11, 1100000, 1100000, 2},
+	[11] = { 972000,  1, 0x12, 1100000, 1100000, 2},
+	[12] = {1026000,  1, 0x13, 1100000, 1100000, 2},
+	[13] = {1080000,  1, 0x14, 1100000, 1200000, 2},
+	[14] = {1134000,  1, 0x15, 1100000, 1200000, 2},
+	[15] = {1188000,  1, 0x16, 1200000, 1200000, 3},
+	[16] = {1404000,  1, 0x1A, 1200000, 1250000, 3},
 };
 
 #define L2(x) (&l2_freq_tbl_v2[(x)])
@@ -751,14 +746,17 @@ static void __init cpufreq_table_init(void) {}
 
 static void __init select_freq_plan(void)
 {
-	uint32_t speed_bin, max_khz;
+	uint32_t raw_speed_bin, speed_bin, max_khz;
 	struct clkctl_acpu_speed *f;
 
 	acpu_freq_tbl = acpu_freq_tbl_v2;
 	l2_freq_tbl = l2_freq_tbl_v2;
 	l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_v2);
 
-	speed_bin = readl(QFPROM_SPEED_BIN_PRI) & 0xF;
+	raw_speed_bin = readl(QFPROM_SPEED_BIN_ADDR);
+	speed_bin = raw_speed_bin & 0xF;
+	if (speed_bin == 0xF)
+		speed_bin = (raw_speed_bin >> 4) & 0xF;
 	if (speed_bin == 0x1)
 		max_khz = 1512000;
 	else

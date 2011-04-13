@@ -43,6 +43,8 @@
 
 
 int mipi_dsi_clk_on;
+static struct dsi_clk_desc dsicore_clk;
+static struct dsi_clk_desc dsi_pclk;
 
 static int mipi_dsi_probe(struct platform_device *pdev);
 static int mipi_dsi_remove(struct platform_device *pdev);
@@ -79,114 +81,47 @@ struct device dsi_dev;
 /* MIPI_DSI_MRPS, Maximum Return Packet Size */
 char max_pktsize[2] = {MIPI_DSI_MRPS, 0x00}; /* LSB tx first, 16 bytes */
 
-/*
- * mipi_dsi_mxo_selected() -
- *
- *	determine if PXO or MXO should be used as clk_ref for the
- *	DSI PLL.
- *
- *	Note - this function can only be called after clk_enable()
- *	is called for the dsi_esc_clk, as that is what ensures that
- *	the MXO/PXO slection has been made for the dsi_esc_clk.  This
- *	function simply reads what the kernel's clock manager has
- *	configured for dsi_esc_clk.
- *
- *	Returns 1 if MXO should be used, 0 if PXO should be used
- *
- */
-static int mipi_dsi_mxo_selected(void)
+static void mipi_dsi_clk(struct dsi_clk_desc *clk, int clk_en)
 {
-	uint32_t *cc;
-	uint32 data;
-
-	cc = (uint32 *)(mmss_cc_base + 0x004c);
-	data = MIPI_INP(cc);
-
-	if (data & BIT(14))
-		return 1;
-	else
-		return 0;
-}
-
-
-#ifdef DSI_CLK_CALCULATE
-static void mipi_dsi_clk(int on, struct dsi_clk_desc *clk)
-{
-	uint32 *cc, *ns, *md;
-	uint32 data, val;
-
-	cc = (uint32 *)(mmss_cc_base + 0x004c);
-	md = (uint32 *)(mmss_cc_base + 0x0050);
-	ns = (uint32 *)(mmss_cc_base + 0x0054);
-
-	val = clk->d * 2;
-	data = (~val) & 0x0ff;
-	data |= clk->m << 8;
-	MIPI_OUTP(md, data);
-
-	val = clk->n - clk->m;
-	data = (~val) & 0x0ff;
-	data <<= 24;
-	data |= clk->src;
-	MIPI_OUTP(ns, data);
-
-	/*
-	 * mxo, bypass, mnd_en, root_en, clk_en
-	 * */
-	MIPI_OUTP(cc, 0x0145);
-}
-#else
-
-static void mipi_dsi_clk(int on)
-{
-	char	*cc, *ns, *md, *vec;
-	unsigned long data;
+	char	*cc, *ns, *md;
+	int	pmxo_sel = 0;
+	char	mnd_en = 1, root_en = 1;
+	uint32	data, val;
 
 	cc = mmss_cc_base + 0x004c;
 	md = mmss_cc_base + 0x0050;
 	ns = mmss_cc_base + 0x0054;
-	vec = mmss_cc_base + 0x01d0;
 
-	if (mipi_dsi_mxo_selected())
-		data = 0x180;	/* mxo, dual edge mode */
-	else
-		data = 0x80;	/* pxo, dual edge mode */
+	if (clk_en) {
+		if (clk->mnd_mode == 0) {
+			data  = clk->pre_div_func << 14;
+			data |= clk->src;
+			MIPI_OUTP_SECURE(ns, data);
+			MIPI_OUTP_SECURE(cc, ((pmxo_sel << 8)
+						| (clk->mnd_mode << 6)
+						| (root_en << 2) | clk_en));
+		} else {
+			val = clk->d * 2;
+			data = (~val) & 0x0ff;
+			data |= clk->m << 8;
+			MIPI_OUTP_SECURE(md, data);
 
-	if (on) {
-		MIPI_OUTP(md, 0x1fd);
-		MIPI_OUTP(ns, 0xff000003);
+			val = clk->n - clk->m;
+			data = (~val) & 0x0ff;
+			data <<= 24;
+			data |= clk->src;
+			MIPI_OUTP_SECURE(ns, data);
 
-		data |= 0x20;	/* MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x04;	/* ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x01;	/* CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is on */
-		data = MIPI_INP(vec);
-		while (data & 0x04)	/* DSI_CLK_OFF */
-			data = MIPI_INP(vec);
-	} else {
-		data |=  0x24;	/* ~CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x04;	/* ~ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x20;	/* ~MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is off */
-		data = MIPI_INP(vec);
-		while ((data & 0x04) == 0) /* DSI_CLK_OFF */
-			data = MIPI_INP(vec);
-	}
+			MIPI_OUTP_SECURE(cc, ((pmxo_sel << 8)
+					      | (clk->mnd_mode << 6)
+					      | (mnd_en << 5)
+					      | (root_en << 2) | clk_en));
+		}
+
+	} else
+		MIPI_OUTP_SECURE(cc, 0);
 
 }
-#endif
 
 static void mipi_dsi_sfpb_cfg(void)
 {
@@ -202,49 +137,42 @@ static void mipi_dsi_sfpb_cfg(void)
 }
 
 
-static void mipi_dsi_pclk(int on)
+static void mipi_dsi_pclk(struct dsi_clk_desc *clk, int clk_en)
 {
-	char	*cc, *ns, *md, *vec;
-	unsigned long data;
+	char	*cc, *ns, *md;
+	char	mnd_en = 1, root_en = 1;
+	uint32	data, val;
 
 	cc = mmss_cc_base + 0x0130;
 	md = mmss_cc_base + 0x0134;
 	ns = mmss_cc_base + 0x0138;
-	vec = mmss_cc_base + 0x01d0;
 
-	data = 0x80;	/* dual edge mode */
-	if (on) {
-		MIPI_OUTP(md, 0x1fb);
-		MIPI_OUTP(ns, 0xfd0003);
+	if (clk_en) {
+		if (clk->mnd_mode == 0) {
+			data  = clk->pre_div_func << 12;
+			data |= clk->src;
+			MIPI_OUTP_SECURE(ns, data);
+			MIPI_OUTP_SECURE(cc, ((clk->mnd_mode << 6)
+					      | (root_en << 2) | clk_en));
+		} else {
+			val = clk->d * 2;
+			data = (~val) & 0x0ff;
+			data |= clk->m << 8;
+			MIPI_OUTP_SECURE(md, data);
 
-		data |= 0x20;	/* MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x04;	/* ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data |= 0x01;	/* CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is on */
-		data = MIPI_INP(vec);
-		while (data & 0x40)	/* DSI_PIXEL_CLK_OFF */
-			data = MIPI_INP(vec);
-	} else {
-		data |=  0x24;	/* ~CLK_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x04;	/* ~ROOT_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		data &= ~0x20;	/* ~MND_EN */
-		MIPI_OUTP(cc, data);
-		wmb();
-		/* spin until clk is off */
-		data = MIPI_INP(vec);
-		while ((data & 0x40) == 0) /* DSI_PIXEL_CLK_OFF */
-			data = MIPI_INP(vec);
-	}
+			val = clk->n - clk->m;
+			data = (~val) & 0x0ff;
+			data <<= 24;
+			data |= clk->src;
+			MIPI_OUTP_SECURE(ns, data);
+
+			MIPI_OUTP_SECURE(cc, ((clk->mnd_mode << 6)
+					      | (mnd_en << 5)
+					      | (root_en << 2) | clk_en));
+		}
+
+	} else
+		MIPI_OUTP_SECURE(cc, 0);
 }
 
 static void mipi_dsi_ahb_en(void)
@@ -253,7 +181,8 @@ static void mipi_dsi_ahb_en(void)
 
 	ahb = mmss_cc_base + 0x08;
 
-	printk(KERN_INFO "%s: ahb=%x %x\n", __func__, (int) ahb, MIPI_INP(ahb));
+	printk(KERN_INFO "%s: ahb=%x %x\n",
+		__func__, (int) ahb, MIPI_INP_SECURE(ahb));
 }
 
 static void mipi_dsi_calibration(void)
@@ -282,38 +211,43 @@ struct dsiphy_pll_divider_config {
 	u32 dsi_clk_divider;	/* oCLK3 */
 };
 
-static const struct dsiphy_pll_divider_config divider_db[] = {
-	{ 366000000, 366, 27, 2, 16, 16 }, /* test */
-	{ 380000000, 380, 27, 2, 16, 16 }, /* test */
-	{ 366000000, 732, 54, 2, 16,  8 },
-	{ 380000000, 760, 54, 2, 16,  8 },
-	{ 400000000, 400, 27, 2, 16,  8 },
-	{ 200000000, 400, 27, 4, 32, 16 },
-	{ 500000000, 250, 27, 1,  8,  8 },
+struct dsi_clk_mnd_table {
+	uint8 lanes;
+	uint8 bpp;
+	uint8 dsiclk_div;
+	uint8 dsiclk_m;
+	uint8 dsiclk_n;
+	uint8 dsiclk_d;
+	uint8 pclk_m;
+	uint8 pclk_n;
+	uint8 pclk_d;
+};
+
+#define PREF_DIV_RATIO 27
+static struct dsiphy_pll_divider_config pll_divider_config;
+
+static const struct dsi_clk_mnd_table mnd_table[] = {
+	{ 1, 2, 8, 1, 1, 0, 1,  2, 0},
+	{ 1, 3, 8, 1, 1, 0, 1,  3, 2},
+	{ 2, 2, 4, 1, 1, 0, 1,  2, 0},
+	{ 2, 3, 4, 1, 1, 0, 1,  3, 2},
+	{ 3, 2, 1, 3, 8, 4, 3, 16, 7},
+	{ 3, 3, 1, 3, 8, 4, 1,  8, 4},
+	{ 4, 2, 2, 1, 1, 0, 1,  2, 0},
+	{ 4, 3, 2, 1, 1, 0, 1,  3, 2},
 };
 
 int mipi_dsi_phy_pll_config(u32 clk_rate)
 {
-	struct dsiphy_pll_divider_config const *dividers = divider_db;
+	struct dsiphy_pll_divider_config *dividers;
 	u32 fb_divider, tmp;
-
-	/* find the requested divider_db entry */
-	for (; dividers != divider_db + ARRAY_SIZE(divider_db); ++dividers) {
-		if (dividers->clk_rate == clk_rate)
-			break;
-	}
-
-	if (dividers == divider_db + ARRAY_SIZE(divider_db)) {
-		pr_err("%s: request clk_rate, %u, not supported\n",
-			__func__, clk_rate);
-		return -EINVAL;
-	}
+	dividers = &pll_divider_config;
 
 	/* DSIPHY_PLL_CTRL_x:    1     2     3     8     9     10 */
 	/* masks               0xff  0x07  0x3f  0x0f  0xff  0xff */
 
 	/* DSIPHY_PLL_CTRL_1 */
-	fb_divider = dividers->fb_divider - 1;
+	fb_divider = ((dividers->fb_divider) / 2) - 1;
 	MIPI_OUTP(MIPI_DSI_BASE + 0x204, fb_divider & 0xff);
 
 	/* DSIPHY_PLL_CTRL_2 */
@@ -338,7 +272,81 @@ int mipi_dsi_phy_pll_config(u32 clk_rate)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x224, (dividers->byte_clk_divider - 1));
 
 	/* DSIPHY_PLL_CTRL_10 */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x22c, (dividers->dsi_clk_divider - 1));
+	MIPI_OUTP(MIPI_DSI_BASE + 0x228, (dividers->dsi_clk_divider - 1));
+
+	return 0;
+}
+
+int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes)
+{
+	u32 fb_divider, rate, vco;
+	u32 div_ratio = 0;
+	struct dsi_clk_mnd_table const *mnd_entry = mnd_table;
+	if (pll_divider_config.clk_rate == 0)
+		pll_divider_config.clk_rate = 454000000;
+
+	rate = pll_divider_config.clk_rate / 1000000; /* In Mhz */
+
+	if (rate < 125) {
+		vco = rate * 8;
+		div_ratio = 8;
+	} else if (rate < 250) {
+		vco = rate * 4;
+		div_ratio = 4;
+	} else if (rate < 500) {
+		vco = rate * 2;
+		div_ratio = 2;
+	} else {
+		vco = rate * 1;
+		div_ratio = 1;
+	}
+
+	/* find the mnd settings from mnd_table entry */
+	for (; mnd_entry != mnd_table + ARRAY_SIZE(mnd_table); ++mnd_entry) {
+		if (((mnd_entry->lanes) == lanes) &&
+			((mnd_entry->bpp) == bpp))
+			break;
+	}
+
+	if (mnd_entry == mnd_table + ARRAY_SIZE(mnd_table)) {
+		pr_err("%s: requested Lanes, %u & BPP, %u, not supported\n",
+			__func__, lanes, bpp);
+		return -EINVAL;
+	}
+	fb_divider = ((vco * PREF_DIV_RATIO) / 27);
+	pll_divider_config.fb_divider = fb_divider;
+	pll_divider_config.ref_divider_ratio = PREF_DIV_RATIO;
+	pll_divider_config.bit_clk_divider = div_ratio;
+	pll_divider_config.byte_clk_divider =
+			pll_divider_config.bit_clk_divider * 8;
+	pll_divider_config.dsi_clk_divider =
+			(mnd_entry->dsiclk_div) * div_ratio;
+
+	if ((mnd_entry->dsiclk_d == 0)
+		|| (mnd_entry->dsiclk_m == 1)) {
+		dsicore_clk.mnd_mode = 0;
+		dsicore_clk.src = 0x3;
+		dsicore_clk.pre_div_func = (mnd_entry->dsiclk_n - 1);
+	} else {
+		dsicore_clk.mnd_mode = 2;
+		dsicore_clk.src = 0x3;
+		dsicore_clk.m = mnd_entry->dsiclk_m;
+		dsicore_clk.n = mnd_entry->dsiclk_n;
+		dsicore_clk.d = mnd_entry->dsiclk_d;
+	}
+
+	if ((mnd_entry->pclk_d == 0)
+		|| (mnd_entry->pclk_m == 1)) {
+		dsi_pclk.mnd_mode = 0;
+		dsi_pclk.src = 0x3;
+		dsi_pclk.pre_div_func = (mnd_entry->pclk_n - 1);
+	} else {
+		dsi_pclk.mnd_mode = 2;
+		dsi_pclk.src = 0x3;
+		dsi_pclk.m = mnd_entry->pclk_m;
+		dsi_pclk.n = mnd_entry->pclk_n;
+		dsi_pclk.d = mnd_entry->pclk_d;
+	}
 
 	return 0;
 }
@@ -396,13 +404,13 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info)
 		off += 4;
 	}
 
+	if (panel_info)
+		mipi_dsi_phy_pll_config(panel_info->clk_rate);
+
 	/* pll ctrl 0 */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x200, pd->pll[0]);
 	wmb();
 	MIPI_OUTP(MIPI_DSI_BASE + 0x200, (pd->pll[0] | 0x01));
-
-	if (panel_info)
-		mipi_dsi_phy_pll_config(panel_info->clk_rate);
 }
 
 static int mipi_dsi_off(struct platform_device *pdev)
@@ -429,8 +437,11 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	ret = panel_next_off(pdev);
 
 	mutex_lock(&mfd->dma->ov_mutex);
+
 	/* make sure mdp dma is not running */
-	mdp4_dsi_cmd_dma_busy_wait(mfd);
+	if (mfd->panel_info.type == MIPI_CMD_PANEL)
+		mdp4_dsi_cmd_dma_busy_wait(mfd);
+
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
@@ -441,14 +452,32 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	disable_irq(DSI_IRQ);
 
-	/* disbale dsi pll */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0);
+	/* DSIPHY_PLL_CTRL_5 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0214, 0x05f);
+
+	/* DSIPHY_TPA_CTRL_1 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0258, 0x08f);
+
+	/* DSIPHY_TPA_CTRL_2 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x025c, 0x001);
+
+	/* DSIPHY_REGULATOR_CTRL_0 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x02cc, 0x02);
+
+	/* DSIPHY_CTRL_0 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0290, 0x00);
+
+	/* DSIPHY_CTRL_1 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0294, 0x7f);
+
+	/* DSIPHY_PLL_CTRL_0, disbale dsi pll */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0x40);
 
 	/* disbale dsi clk */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0118, 0);
 
-	mipi_dsi_pclk(0);
-	mipi_dsi_clk(0);
+	mipi_dsi_pclk(&dsi_pclk, 0);
+	mipi_dsi_clk(&dsicore_clk, 0);
 	clk_disable(dsi_esc_clk);
 	clk_disable(dsi_byte_div_clk);
 	clk_disable(dsi_m_pclk);
@@ -514,17 +543,24 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	mipi_dsi_ahb_en();
 	mipi_dsi_sfpb_cfg();
-	mipi_dsi_clk(1);
-	mipi_dsi_pclk(1);
-
+	mipi_dsi_clk(&dsicore_clk, 1);
+	mipi_dsi_pclk(&dsi_pclk, 1);
 	mipi_dsi_clk_on = 1;
+
+	/* DSIPHY_PLL_CTRL_5 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0214, 0x050);
+
+	/* DSIPHY_TPA_CTRL_1 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0258, 0x00f);
+
+	/* DSIPHY_TPA_CTRL_2 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x025c, 0x000);
 
 	mipi_dsi_phy_init(0, &(mfd->panel_info));
 
 	enable_irq(DSI_IRQ);
 
 	mipi  = &mfd->panel_info.mipi;
-
 	if (mfd->panel_info.type == MIPI_VIDEO_PANEL) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x20,
 			((hbp + width - 1) << 16 | (hbp - 1)));
@@ -545,7 +581,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB565)
 			bpp = 2;
 		else
-			bpp = 1;
+			bpp = 3;	/* Default format set to RGB888 */
 
 		ystride = width * bpp + 1;
 
@@ -601,8 +637,8 @@ void mipi_dsi_clk_enable(void)
 	clk_enable(dsi_s_pclk);
 	clk_enable(dsi_byte_div_clk);
 	clk_enable(dsi_esc_clk);
-	mipi_dsi_pclk(1);
-	mipi_dsi_clk(1);
+	mipi_dsi_pclk(&dsi_pclk, 1);
+	mipi_dsi_clk(&dsicore_clk, 1);
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0x23f); /* DSI_CLK_CTRL */
 
@@ -613,8 +649,8 @@ void mipi_dsi_clk_disable(void)
 {
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0118, 0);
 
-	mipi_dsi_pclk(0);
-	mipi_dsi_clk(0);
+	mipi_dsi_pclk(&dsi_pclk, 0);
+	mipi_dsi_clk(&dsicore_clk, 0);
 	clk_disable(dsi_esc_clk);
 	clk_disable(dsi_byte_div_clk);
 	clk_disable(dsi_m_pclk);
@@ -631,9 +667,13 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct fb_info *fbi;
 	struct msm_panel_info *pinfo;
+	struct mipi_panel_info *mipi;
 	struct platform_device *mdp_dev = NULL;
 	struct msm_fb_panel_data *pdata = NULL;
 	int rc;
+	uint8 lanes = 0, bpp;
+	uint32 h_period, v_period;
+
 	resource_size_t size ;
 
 	if ((pdev->id == 0) && (pdev->num_resources >= 0)) {
@@ -659,7 +699,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		MSM_FB_INFO("mmss_sfpb  base phy_addr = 0x%x virt = 0x%x\n",
 				MMSS_SFPB_BASE_PHY, (int) mmss_sfpb_base);
 
-		if (!mmss_cc_base)
+		if (!mmss_sfpb_base)
 			return -ENOMEM;
 
 		rc = request_irq(DSI_IRQ, mipi_dsi_isr, IRQF_DISABLED,
@@ -745,6 +785,53 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	fbi->var.lower_margin = mfd->panel_info.lcdc.v_front_porch;
 	fbi->var.hsync_len = mfd->panel_info.lcdc.h_pulse_width;
 	fbi->var.vsync_len = mfd->panel_info.lcdc.v_pulse_width;
+
+	h_period = ((mfd->panel_info.lcdc.h_pulse_width)
+			+ (mfd->panel_info.lcdc.h_back_porch)
+			+ (mfd->panel_info.xres)
+			+ (mfd->panel_info.lcdc.h_front_porch));
+
+	v_period = ((mfd->panel_info.lcdc.v_pulse_width)
+			+ (mfd->panel_info.lcdc.v_back_porch)
+			+ (mfd->panel_info.yres)
+			+ (mfd->panel_info.lcdc.v_front_porch));
+
+	mipi  = &mfd->panel_info.mipi;
+
+	if (mipi->data_lane3)
+		lanes += 1;
+	if (mipi->data_lane2)
+		lanes += 1;
+	if (mipi->data_lane1)
+		lanes += 1;
+	if (mipi->data_lane0)
+		lanes += 1;
+
+	if ((mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
+	    || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB888)
+	    || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB666_LOOSE))
+		bpp = 3;
+	else if ((mipi->dst_format == DSI_CMD_DST_FORMAT_RGB565)
+		 || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB565))
+		bpp = 2;
+	else
+		bpp = 3;		/* Default format set to RGB888 */
+
+	if (mfd->panel_info.type == MIPI_VIDEO_PANEL) {
+		if (lanes > 0) {
+			pll_divider_config.clk_rate =
+			((h_period * v_period * (mipi->frame_rate) * bpp * 8)
+			   / lanes);
+		} else {
+			pr_err("%s: forcing mipi_dsi lanes to 1\n", __func__);
+			pll_divider_config.clk_rate =
+				(h_period * v_period
+					 * (mipi->frame_rate) * bpp * 8);
+		}
+	} else
+		pll_divider_config.clk_rate = mfd->panel_info.clk_rate;
+
+	mipi_dsi_clk_div_config(bpp, lanes);
 
 #ifdef DSI_CLK
 	clk_rate = mfd->panel_info.clk_max;

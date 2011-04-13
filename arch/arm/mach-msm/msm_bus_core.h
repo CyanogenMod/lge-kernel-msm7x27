@@ -124,7 +124,8 @@ struct msm_bus_fab_algorithm {
 	int (*update_clks)(struct msm_bus_fabric_device *fabdev,
 		struct msm_bus_inode_info *pme, int index,
 		unsigned long curr_clk, unsigned long req_clk,
-		unsigned long bwsum, int flag, int context);
+		unsigned long bwsum, int flag, int context,
+		unsigned int cl_active_flag);
 	int (*port_halt)(struct msm_bus_fabric_device *fabdev, int portid);
 	int (*port_unhalt)(struct msm_bus_fabric_device *fabdev, int portid);
 	int (*commit)(struct msm_bus_fabric_device *fabdev,

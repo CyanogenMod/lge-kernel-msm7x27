@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -62,182 +62,182 @@ struct res_trk_context {
 #ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors vidc_init_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab = 0,
 		.ib = 0,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab = 0,
 		.ib = 0,
 	},
 };
 static struct msm_bus_vectors vidc_venc_vga_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 54525952,
 		.ib  = 436207616,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 72351744,
 		.ib  = 289406976,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 500000,
 		.ib  = 1000000,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 500000,
 		.ib  = 1000000,
 	},
 };
 static struct msm_bus_vectors vidc_vdec_vga_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 40894464,
 		.ib  = 327155712,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 48234496,
 		.ib  = 192937984,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 500000,
 		.ib  = 2000000,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 500000,
 		.ib  = 2000000,
 	},
 };
 static struct msm_bus_vectors vidc_venc_720p_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 163577856,
 		.ib  = 1308622848,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 219152384,
 		.ib  = 876609536,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 1750000,
 		.ib  = 3500000,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 1750000,
 		.ib  = 3500000,
 	},
 };
 static struct msm_bus_vectors vidc_vdec_720p_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 121634816,
 		.ib  = 973078528,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 155189248,
 		.ib  = 620756992,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 1750000,
 		.ib  = 7000000,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 1750000,
 		.ib  = 7000000,
 	},
 };
 static struct msm_bus_vectors vidc_venc_1080p_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 372244480,
 		.ib  = 1861222400,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 501219328,
 		.ib  = 2004877312,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 2500000,
 		.ib  = 5000000,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 2500000,
 		.ib  = 5000000,
 	},
 };
 static struct msm_bus_vectors vidc_vdec_1080p_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 222298112,
 		.ib  = 1778384896,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_HD_CODEC_PORT1,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 330301440,
 		.ib  = 1321205760,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 2500000,
 		.ib  = 700000000,
 	},
 	{
-		.src = MSM_BUS_APPSS_MASTER_SMPSS_M0,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_AMPSS_M0,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 2500000,
 		.ib  = 10000000,
 	},

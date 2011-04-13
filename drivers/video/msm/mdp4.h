@@ -297,7 +297,11 @@ struct mdp4_overlay_pipe {
 	uint32 element0; /* 0 = C0, 1 = C1, 2 = C2, 3 = C3 */
 	struct completion comp;
 	ulong blt_addr; /* blt mode addr */
+	ulong blt_base;
+	ulong blt_offset;
 	uint32 blt_cnt;
+	uint32 ov_cnt;
+	uint32 dmap_cnt;
 	uint32 blt_end;
 	struct completion dmas_comp;
 	struct mdp_overlay req_data;
@@ -388,7 +392,7 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd);
 int mdp4_dsi_video_on(struct platform_device *pdev);
 int mdp4_dsi_video_off(struct platform_device *pdev);
 void mdp4_overlay0_done_dsi_video(void);
-void mdp4_overlay0_done_dsi_cmd(void);
+void mdp4_overlay0_done_dsi_cmd(struct mdp_dma_data *dma);
 void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd);
 void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_reg_flush(struct mdp4_overlay_pipe *pipe, int all);
@@ -416,9 +420,10 @@ void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_pipe_staged(int mixer);
 void mdp4_lcdc_primary_vsyn(void);
 void mdp4_overlay0_done_lcdc(void);
-void mdp4_overlay0_done_mddi(void);
+void mdp4_overlay0_done_mddi(struct mdp_dma_data *dma);
 void mdp4_dma_s_done_mddi(void);
 void mdp4_dma_p_done_mddi(void);
+void mdp4_dma_p_done_dsi(struct mdp_dma_data *dma);
 void mdp4_overlay1_done_dtv(void);
 void mdp4_overlay1_done_atv(void);
 void mdp4_primary_vsync_lcdc(void);
@@ -440,6 +445,9 @@ int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req,
 		struct file **pp_src_file);
 int mdp4_overlay_blt_offset(struct fb_info *info, int *off);
 int mdp4_mddi_overlay_blt_offset(int *off);
+void mdp4_dsi_overlay_blt(ulong addr);
+int mdp4_dsi_overlay_blt_start(struct msm_fb_data_type *mfd);
+int mdp4_dsi_overlay_blt_stop(struct msm_fb_data_type *mfd);
 void mdp4_mddi_overlay_blt(ulong addr);
 int mdp4_lcdc_overlay_blt_offset(int *off);
 void mdp4_lcdc_overlay_blt(ulong addr);
@@ -456,6 +464,7 @@ void mdp4_mddi_read_ptr_intr(void);
 
 void mdp4_dsi_cmd_dma_busy_check(void);
 void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd);
+void mdp4_dsi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_cmd_kickoff_video(struct msm_fb_data_type *mfd,

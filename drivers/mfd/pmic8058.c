@@ -67,6 +67,8 @@
 /* PON CNTL 1 register */
 #define SSBI_REG_ADDR_PON_CNTL_1	0x01C
 
+#define PM8058_PON_PUP_MASK		0xF0
+
 #define PM8058_PON_WD_EN_MASK		0x08
 #define PM8058_PON_WD_EN_RESET		0x08
 #define PM8058_PON_WD_EN_PWR_OFF	0x00
@@ -321,6 +323,9 @@ get_out2:
 
 	pon &= ~PM8058_PON_WD_EN_MASK;
 	pon |= reset ? PM8058_PON_WD_EN_RESET : PM8058_PON_WD_EN_PWR_OFF;
+
+	/* Enable all pullups */
+	pon |= PM8058_PON_PUP_MASK;
 
 	rc = ssbi_write(pmic_chip->dev, SSBI_REG_ADDR_PON_CNTL_1, &pon, 1);
 	if (rc) {

@@ -321,6 +321,7 @@ struct msm_spi {
 	uint32_t                 pm_lat;
 	/* When set indicates a write followed by read transfer */
 	bool                     multi_xfr;
+	bool                     done;
 };
 
 /* Forward declaration */
@@ -415,6 +416,11 @@ static inline void msm_spi_start_write(struct msm_spi *dd, u32 read_count)
 }
 static inline void msm_spi_set_write_count(struct msm_spi *dd, int val) {}
 
+static inline void msm_spi_complete(struct msm_spi *dd)
+{
+	complete(&dd->transfer_complete);
+}
+
 #elif defined(CONFIG_SPI_QUP) || defined(CONFIG_SPI_QUP_MODULE)
 
 /* Interrupt Handling */
@@ -466,7 +472,7 @@ static inline int msm_spi_request_gsbi(struct msm_spi *dd)
 static inline void msm_spi_init_gsbi(struct msm_spi *dd)
 {
 	/* Set GSBI to SPI mode, and CRCI_MUX_CTRL to SPI CRCI ports */
-	writel(GSBI_SPI_CONFIG, dd->gsbi_base + GSBI_CTRL_REG);
+	writel_relaxed(GSBI_SPI_CONFIG, dd->gsbi_base + GSBI_CTRL_REG);
 }
 
 /* Figure which irq occured and call the relevant functions */
@@ -475,23 +481,29 @@ static irqreturn_t msm_spi_qup_irq(int irq, void *dev_id)
 	u32 op, ret = IRQ_NONE;
 	struct msm_spi *dd = dev_id;
 
-	if (readl(dd->base + SPI_ERROR_FLAGS) ||
-	    readl(dd->base + QUP_ERROR_FLAGS)) {
+	if (readl_relaxed(dd->base + SPI_ERROR_FLAGS) ||
+	    readl_relaxed(dd->base + QUP_ERROR_FLAGS)) {
 		struct spi_master *master = dev_get_drvdata(dd->dev);
 		ret |= msm_spi_error_irq(irq, master);
 	}
 
-	op = readl(dd->base + SPI_OPERATIONAL);
+	op = readl_relaxed(dd->base + SPI_OPERATIONAL);
 	if (op & SPI_OP_INPUT_SERVICE_FLAG) {
-		writel(SPI_OP_INPUT_SERVICE_FLAG, dd->base + SPI_OPERATIONAL);
+		writel_relaxed(SPI_OP_INPUT_SERVICE_FLAG,
+			       dd->base + SPI_OPERATIONAL);
 		ret |= msm_spi_input_irq(irq, dev_id);
 	}
 
 	if (op & SPI_OP_OUTPUT_SERVICE_FLAG) {
-		writel(SPI_OP_OUTPUT_SERVICE_FLAG, dd->base + SPI_OPERATIONAL);
+		writel_relaxed(SPI_OP_OUTPUT_SERVICE_FLAG,
+			       dd->base + SPI_OPERATIONAL);
 		ret |= msm_spi_output_irq(irq, dev_id);
 	}
 
+	if (dd->done) {
+		complete(&dd->transfer_complete);
+		dd->done = 0;
+	}
 	return ret;
 }
 
@@ -525,12 +537,12 @@ static inline void msm_spi_enable_irqs(struct msm_spi *dd)
 
 static inline void msm_spi_get_clk_err(struct msm_spi *dd, u32 *spi_err)
 {
-	*spi_err = readl(dd->base + QUP_ERROR_FLAGS);
+	*spi_err = readl_relaxed(dd->base + QUP_ERROR_FLAGS);
 }
 
 static inline void msm_spi_ack_clk_err(struct msm_spi *dd)
 {
-	writel(QUP_ERR_MASK, dd->base + QUP_ERROR_FLAGS);
+	writel_relaxed(QUP_ERR_MASK, dd->base + QUP_ERROR_FLAGS);
 }
 
 static inline void msm_spi_add_configs(struct msm_spi *dd, u32 *config, int n);
@@ -538,10 +550,11 @@ static inline void msm_spi_add_configs(struct msm_spi *dd, u32 *config, int n);
 /* QUP has no_input, no_output, and N bits at QUP_CONFIG */
 static inline void msm_spi_set_qup_config(struct msm_spi *dd, int bpw)
 {
-	u32 qup_config = readl(dd->base + QUP_CONFIG);
+	u32 qup_config = readl_relaxed(dd->base + QUP_CONFIG);
 
 	msm_spi_add_configs(dd, &qup_config, bpw-1);
-	writel(qup_config | QUP_CONFIG_SPI_MODE, dd->base + QUP_CONFIG);
+	writel_relaxed(qup_config | QUP_CONFIG_SPI_MODE,
+		       dd->base + QUP_CONFIG);
 }
 
 static inline int msm_spi_prepare_for_write(struct msm_spi *dd)
@@ -563,7 +576,12 @@ static inline void msm_spi_start_write(struct msm_spi *dd, u32 read_count)
 
 static inline void msm_spi_set_write_count(struct msm_spi *dd, int val)
 {
-	writel(val, dd->base + QUP_MX_WRITE_COUNT);
+	writel_relaxed(val, dd->base + QUP_MX_WRITE_COUNT);
+}
+
+static inline void msm_spi_complete(struct msm_spi *dd)
+{
+	dd->done = 1;
 }
 
 #endif
@@ -636,7 +654,7 @@ static void __init msm_spi_calculate_fifo_size(struct msm_spi *dd)
 	int block;
 	int mult;
 
-	spi_iom = readl(dd->base + SPI_IO_MODES);
+	spi_iom = readl_relaxed(dd->base + SPI_IO_MODES);
 
 	block = (spi_iom & SPI_IO_M_INPUT_BLOCK_SIZE) >> INPUT_BLOCK_SZ_SHIFT;
 	mult = (spi_iom & SPI_IO_M_INPUT_FIFO_SIZE) >> INPUT_FIFO_SZ_SHIFT;
@@ -677,7 +695,7 @@ static void msm_spi_read_word_from_fifo(struct msm_spi *dd)
 	int   i;
 	int   shift;
 
-	data_in = readl(dd->base + SPI_INPUT_FIFO);
+	data_in = readl_relaxed(dd->base + SPI_INPUT_FIFO);
 	if (dd->read_buf) {
 		for (i = 0; (i < dd->bytes_per_word) &&
 			     dd->rx_bytes_remaining; i++) {
@@ -716,7 +734,7 @@ static void msm_spi_read_word_from_fifo(struct msm_spi *dd)
 
 static inline bool msm_spi_is_valid_state(struct msm_spi *dd)
 {
-	u32 spi_op = readl(dd->base + SPI_STATE);
+	u32 spi_op = readl_relaxed(dd->base + SPI_STATE);
 
 	return spi_op & SPI_OP_STATE_VALID;
 }
@@ -766,15 +784,15 @@ static inline int msm_spi_set_state(struct msm_spi *dd,
 	enum msm_spi_state cur_state;
 	if (msm_spi_wait_valid(dd))
 		return -1;
-	cur_state = readl(dd->base + SPI_STATE);
+	cur_state = readl_relaxed(dd->base + SPI_STATE);
 	/* Per spec:
 	   For PAUSE_STATE to RESET_STATE, two writes of (10) are required */
 	if (((cur_state & SPI_OP_STATE) == SPI_OP_STATE_PAUSE) &&
 			(state == SPI_OP_STATE_RESET)) {
-		writel(SPI_OP_STATE_CLEAR_BITS, dd->base + SPI_STATE);
-		writel(SPI_OP_STATE_CLEAR_BITS, dd->base + SPI_STATE);
+		writel_relaxed(SPI_OP_STATE_CLEAR_BITS, dd->base + SPI_STATE);
+		writel_relaxed(SPI_OP_STATE_CLEAR_BITS, dd->base + SPI_STATE);
 	} else {
-		writel((cur_state & ~SPI_OP_STATE) | state,
+		writel_relaxed((cur_state & ~SPI_OP_STATE) | state,
 		       dd->base + SPI_STATE);
 	}
 	if (msm_spi_wait_valid(dd))
@@ -802,7 +820,7 @@ static void msm_spi_set_config(struct msm_spi *dd, int bpw)
 {
 	u32 spi_config;
 
-	spi_config = readl(dd->base + SPI_CONFIG);
+	spi_config = readl_relaxed(dd->base + SPI_CONFIG);
 
 	if (dd->cur_msg->spi->mode & SPI_CPHA)
 		spi_config &= ~SPI_CFG_INPUT_FIRST;
@@ -813,7 +831,7 @@ static void msm_spi_set_config(struct msm_spi *dd, int bpw)
 	else
 		spi_config &= ~SPI_CFG_LOOPBACK;
 	msm_spi_add_configs(dd, &spi_config, bpw-1);
-	writel(spi_config, dd->base + SPI_CONFIG);
+	writel_relaxed(spi_config, dd->base + SPI_CONFIG);
 	msm_spi_set_qup_config(dd, bpw);
 }
 
@@ -902,14 +920,18 @@ static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
 			read_transfers = DIV_ROUND_UP(
 						dd->read_len + dd->write_len,
 						dd->bytes_per_word);
-			writel(write_transfers, dd->base + SPI_MX_OUTPUT_COUNT);
-			writel(read_transfers, dd->base + SPI_MX_INPUT_COUNT);
+			writel_relaxed(write_transfers,
+				       dd->base + SPI_MX_OUTPUT_COUNT);
+			writel_relaxed(read_transfers,
+				       dd->base + SPI_MX_INPUT_COUNT);
 		}
 	} else {
 		if (dd->write_buf)
-			writel(num_transfers, dd->base + SPI_MX_OUTPUT_COUNT);
+			writel_relaxed(num_transfers,
+				       dd->base + SPI_MX_OUTPUT_COUNT);
 		if (dd->read_buf)
-			writel(num_transfers, dd->base + SPI_MX_INPUT_COUNT);
+			writel_relaxed(num_transfers,
+				       dd->base + SPI_MX_INPUT_COUNT);
 	}
 }
 
@@ -971,8 +993,9 @@ static int msm_spi_dm_send_next(struct msm_spi *dd)
 
 static inline void msm_spi_ack_transfer(struct msm_spi *dd)
 {
-	writel(SPI_OP_MAX_INPUT_DONE_FLAG | SPI_OP_MAX_OUTPUT_DONE_FLAG,
-	       dd->base + SPI_OPERATIONAL);
+	writel_relaxed(SPI_OP_MAX_INPUT_DONE_FLAG |
+		       SPI_OP_MAX_OUTPUT_DONE_FLAG,
+		       dd->base + SPI_OPERATIONAL);
 }
 
 static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
@@ -985,7 +1008,7 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	if (dd->mode == SPI_DMOV_MODE) {
-		u32 op = readl(dd->base + SPI_OPERATIONAL);
+		u32 op = readl_relaxed(dd->base + SPI_OPERATIONAL);
 		if ((!dd->read_buf || op & SPI_OP_MAX_INPUT_DONE_FLAG) &&
 		    (!dd->write_buf || op & SPI_OP_MAX_OUTPUT_DONE_FLAG)) {
 			msm_spi_ack_transfer(dd);
@@ -993,20 +1016,20 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 				if (atomic_inc_return(&dd->rx_irq_called) == 1)
 					return IRQ_HANDLED;
 			}
-			complete(&dd->transfer_complete);
+			msm_spi_complete(dd);
 			return IRQ_HANDLED;
 		}
 		return IRQ_NONE;
 	}
 
 	if (dd->mode == SPI_FIFO_MODE) {
-		while ((readl(dd->base + SPI_OPERATIONAL) &
+		while ((readl_relaxed(dd->base + SPI_OPERATIONAL) &
 			SPI_OP_IP_FIFO_NOT_EMPTY) &&
 			(dd->rx_bytes_remaining > 0)) {
 			msm_spi_read_word_from_fifo(dd);
 		}
 		if (dd->rx_bytes_remaining == 0)
-			complete(&dd->transfer_complete);
+			msm_spi_complete(dd);
 	}
 
 	return IRQ_HANDLED;
@@ -1046,7 +1069,7 @@ static void msm_spi_write_word_to_fifo(struct msm_spi *dd)
 			dd->write_xfr_cnt = 0;
 		}
 	}
-	writel(word, dd->base + SPI_OUTPUT_FIFO);
+	writel_relaxed(word, dd->base + SPI_OUTPUT_FIFO);
 }
 
 static inline void msm_spi_write_rmn_to_fifo(struct msm_spi *dd)
@@ -1054,7 +1077,8 @@ static inline void msm_spi_write_rmn_to_fifo(struct msm_spi *dd)
 	int count = 0;
 
 	while ((dd->tx_bytes_remaining > 0) && (count < dd->input_fifo_size) &&
-	       !(readl(dd->base + SPI_OPERATIONAL) & SPI_OP_OUTPUT_FIFO_FULL)) {
+	       !(readl_relaxed(dd->base + SPI_OPERATIONAL) &
+		SPI_OP_OUTPUT_FIFO_FULL)) {
 		msm_spi_write_word_to_fifo(dd);
 		count++;
 	}
@@ -1072,10 +1096,11 @@ static irqreturn_t msm_spi_output_irq(int irq, void *dev_id)
 	if (dd->mode == SPI_DMOV_MODE) {
 		/* TX_ONLY transaction is handled here
 		   This is the only place we send complete at tx and not rx */
-		if (dd->read_buf == NULL && readl(dd->base + SPI_OPERATIONAL) &
-					    SPI_OP_MAX_OUTPUT_DONE_FLAG) {
+		if (dd->read_buf == NULL &&
+		    readl_relaxed(dd->base + SPI_OPERATIONAL) &
+		    SPI_OP_MAX_OUTPUT_DONE_FLAG) {
 			msm_spi_ack_transfer(dd);
-			complete(&dd->transfer_complete);
+			msm_spi_complete(dd);
 			return IRQ_HANDLED;
 		}
 		return IRQ_NONE;
@@ -1094,7 +1119,7 @@ static irqreturn_t msm_spi_error_irq(int irq, void *dev_id)
 	struct msm_spi          *dd = spi_master_get_devdata(master);
 	u32                      spi_err;
 
-	spi_err = readl(dd->base + SPI_ERROR_FLAGS);
+	spi_err = readl_relaxed(dd->base + SPI_ERROR_FLAGS);
 	if (spi_err & SPI_ERR_OUTPUT_OVER_RUN_ERR)
 		dev_warn(master->dev.parent, "SPI output overrun error\n");
 	if (spi_err & SPI_ERR_INPUT_UNDER_RUN_ERR)
@@ -1116,7 +1141,7 @@ static irqreturn_t msm_spi_error_irq(int irq, void *dev_id)
 		dev_warn(master->dev.parent, "SPI clock overrun error\n");
 	if (spi_err & SPI_ERR_CLK_UNDER_RUN_ERR)
 		dev_warn(master->dev.parent, "SPI clock underrun error\n");
-	writel(SPI_ERR_MASK, dd->base + SPI_ERROR_FLAGS);
+	writel_relaxed(SPI_ERR_MASK, dd->base + SPI_ERROR_FLAGS);
 	msm_spi_ack_clk_err(dd);
 	return IRQ_HANDLED;
 }
@@ -1245,17 +1270,18 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 		   For those transactions we usually move to Data Mover mode.
 		*/
 		if (read_count <= dd->input_fifo_size) {
-			writel(read_count, dd->base + SPI_MX_READ_COUNT);
+			writel_relaxed(read_count,
+				       dd->base + SPI_MX_READ_COUNT);
 			msm_spi_set_write_count(dd, read_count);
 		} else {
-			writel(0, dd->base + SPI_MX_READ_COUNT);
+			writel_relaxed(0, dd->base + SPI_MX_READ_COUNT);
 			msm_spi_set_write_count(dd, 0);
 		}
 	} else
 		dd->mode = SPI_DMOV_MODE;
 
 	/* Write mode - fifo or data mover*/
-	spi_iom = readl(dd->base + SPI_IO_MODES);
+	spi_iom = readl_relaxed(dd->base + SPI_IO_MODES);
 	spi_iom &= ~(SPI_IO_M_INPUT_MODE | SPI_IO_M_OUTPUT_MODE);
 	spi_iom = (spi_iom | (dd->mode << OUTPUT_MODE_SHIFT));
 	spi_iom = (spi_iom | (dd->mode << INPUT_MODE_SHIFT));
@@ -1264,11 +1290,11 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 		spi_iom |= SPI_IO_M_PACK_EN | SPI_IO_M_UNPACK_EN;
 	else
 		spi_iom &= ~(SPI_IO_M_PACK_EN | SPI_IO_M_UNPACK_EN);
-	writel(spi_iom, dd->base + SPI_IO_MODES);
+	writel_relaxed(spi_iom, dd->base + SPI_IO_MODES);
 
 	msm_spi_set_config(dd, bpw);
 
-	spi_ioc = readl(dd->base + SPI_IO_CONTROL);
+	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
 	spi_ioc_orig = spi_ioc;
 	if (dd->cur_msg->spi->mode & SPI_CPOL)
 		spi_ioc |= SPI_IO_C_CLK_IDLE_HIGH;
@@ -1280,7 +1306,7 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	if (!dd->cur_transfer->cs_change)
 		spi_ioc |= SPI_IO_C_MX_CS_MODE;
 	if (spi_ioc != spi_ioc_orig)
-		writel(spi_ioc, dd->base + SPI_IO_CONTROL);
+		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
 
 	if (dd->mode == SPI_DMOV_MODE) {
 		msm_spi_setup_dm_transfer(dd);
@@ -1330,7 +1356,8 @@ transfer_end:
 	dd->mode = SPI_MODE_NONE;
 
 	msm_spi_set_state(dd, SPI_OP_STATE_RESET);
-	writel(spi_ioc & ~SPI_IO_C_MX_CS_MODE, dd->base + SPI_IO_CONTROL);
+	writel_relaxed(spi_ioc & ~SPI_IO_C_MX_CS_MODE,
+		       dd->base + SPI_IO_CONTROL);
 }
 
 static int get_transfer_length(struct spi_transfer *tr, struct spi_message *msg)
@@ -1619,7 +1646,7 @@ static int msm_spi_setup(struct spi_device *spi)
 	if (dd->pclk)
 		clk_enable(dd->pclk);
 
-	spi_ioc = readl(dd->base + SPI_IO_CONTROL);
+	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
 	mask = SPI_IO_C_CS_N_POLARITY_0 << spi->chip_select;
 	if (spi->mode & SPI_CS_HIGH)
 		spi_ioc |= mask;
@@ -1630,9 +1657,9 @@ static int msm_spi_setup(struct spi_device *spi)
 	else
 		spi_ioc &= ~SPI_IO_C_CLK_IDLE_HIGH;
 
-	writel(spi_ioc, dd->base + SPI_IO_CONTROL);
+	writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
 
-	spi_config = readl(dd->base + SPI_CONFIG);
+	spi_config = readl_relaxed(dd->base + SPI_CONFIG);
 	if (spi->mode & SPI_LOOP)
 		spi_config |= SPI_CFG_LOOPBACK;
 	else
@@ -1641,7 +1668,7 @@ static int msm_spi_setup(struct spi_device *spi)
 		spi_config &= ~SPI_CFG_INPUT_FIRST;
 	else
 		spi_config |= SPI_CFG_INPUT_FIRST;
-	writel(spi_config, dd->base + SPI_CONFIG);
+	writel_relaxed(spi_config, dd->base + SPI_CONFIG);
 
 	clk_disable(dd->clk);
 	if (dd->pclk)
@@ -1658,14 +1685,14 @@ err_setup_exit:
 #ifdef CONFIG_DEBUG_FS
 static int debugfs_iomem_x32_set(void *data, u64 val)
 {
-	iowrite32(val, data);
+	writel_relaxed(val, data);
 	wmb();
 	return 0;
 }
 
 static int debugfs_iomem_x32_get(void *data, u64 *val)
 {
-	*val = ioread32(data);
+	*val = readl_relaxed(data);
 	return 0;
 }
 
@@ -2136,15 +2163,15 @@ skip_dma_resources:
 	}
 
 	/* Initialize registers */
-	writel(0x00000001, dd->base + SPI_SW_RESET);
+	writel_relaxed(0x00000001, dd->base + SPI_SW_RESET);
 	msm_spi_set_state(dd, SPI_OP_STATE_RESET);
 
-	writel(0x00000000, dd->base + SPI_OPERATIONAL);
-	writel(0x00000000, dd->base + SPI_CONFIG);
-	writel(0x00000000, dd->base + SPI_IO_MODES);
-	writel(0x0000007C, dd->base + SPI_ERROR_FLAGS_EN);
+	writel_relaxed(0x00000000, dd->base + SPI_OPERATIONAL);
+	writel_relaxed(0x00000000, dd->base + SPI_CONFIG);
+	writel_relaxed(0x00000000, dd->base + SPI_IO_MODES);
+	writel_relaxed(0x0000007C, dd->base + SPI_ERROR_FLAGS_EN);
 
-	writel(SPI_IO_C_NO_TRI_STATE, dd->base + SPI_IO_CONTROL);
+	writel_relaxed(SPI_IO_C_NO_TRI_STATE, dd->base + SPI_IO_CONTROL);
 	rc = msm_spi_set_state(dd, SPI_OP_STATE_RESET);
 	if (rc)
 		goto err_probe_state;

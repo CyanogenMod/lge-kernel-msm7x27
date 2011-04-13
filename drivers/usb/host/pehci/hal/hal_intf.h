@@ -90,11 +90,11 @@
 #define HC_ATL_PTD_LASTPTD_REG				(0xB4<<1)	/* ATL PTD Last PTD Register  */
 
 /*General Purpose Registers */
-#define HC_HW_MODE_REG					(0xB6<<1)	/* H/W Mode Register  */
+#define HC_HW_MODE_REG					(0x0C<<1)	/* H/W Mode Register  */
 #define HC_CHIP_ID_REG						(0x70<<1)	/* Chip ID Register */
 #define HC_SCRATCH_REG					(0x78<<1)	/* Scratch Register */
 #define HC_RESET_REG						(0xB8<<1)	/* HC Reset Register */
-#define HC_HWMODECTRL_REG				(0x0C<<1)
+#define HC_HWMODECTRL_REG				(0xB6<<1)
 #define HC_UNLOCK_DEVICE					(0x7C<<1)
 
 /* Interrupt Registers */
@@ -150,11 +150,11 @@
 #define HC_ATL_PTD_LASTPTD_REG				0xB4	/* ATL PTD Last PTD Register  */
 
 /*General Purpose Registers */
-#define HC_HW_MODE_REG					0xB6	/* H/W Mode Register  */
+#define HC_HW_MODE_REG					0x0C	/* H/W Mode Register  */
 #define HC_CHIP_ID_REG						0x70	/* Chip ID Register */
 #define HC_SCRATCH_REG					0x78	/* Scratch Register */
 #define HC_RESET_REG						0xB8	/* HC Reset Register */
-#define HC_HWMODECTRL_REG				0x0C
+#define HC_HWMODECTRL_REG				0xB6
 #define HC_UNLOCK_DEVICE					0x7C
 
 /* Interrupt Registers */

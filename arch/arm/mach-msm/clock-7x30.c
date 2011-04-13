@@ -226,7 +226,6 @@ static struct clk_freq_tbl clk_tbl_mdh[] = {
 };
 
 static struct clk_freq_tbl clk_tbl_grp[] = {
-	F_BASIC(        0, GND,   1, NONE),
 	F_BASIC( 24576000, LPXO,  1, NOMINAL),
 	F_BASIC( 46080000, PLL3, 16, NOMINAL),
 	F_BASIC( 49152000, PLL3, 15, NOMINAL),
@@ -273,7 +272,7 @@ static struct clk_freq_tbl clk_tbl_sdc2_4[] = {
 };
 
 static struct clk_freq_tbl clk_tbl_mdp_core[] = {
-	F_BASIC(        0, GND,  1,  NONE),
+	F_BASIC( 24576000, LPXO,  1, NOMINAL),
 	F_BASIC( 46080000, PLL3, 16, NOMINAL),
 	F_BASIC( 49152000, PLL3, 15, NOMINAL),
 	F_BASIC( 52663000, PLL3, 14, NOMINAL),
@@ -347,7 +346,7 @@ static struct clk_freq_tbl clk_tbl_usb[] = {
 };
 
 static struct clk_freq_tbl clk_tbl_vfe_jpeg[] = {
-	F_MND16(        0, GND,  1,   0,   0, NONE),
+	F_MND16( 24576000, LPXO, 1,   0,   0, NOMINAL),
 	F_MND16( 36864000, PLL3, 4,   1,   5, NOMINAL),
 	F_MND16( 46080000, PLL3, 4,   1,   4, NOMINAL),
 	F_MND16( 61440000, PLL3, 4,   1,   3, NOMINAL),
@@ -378,7 +377,6 @@ static struct clk_freq_tbl clk_tbl_cam[] = {
 };
 
 static struct clk_freq_tbl clk_tbl_vpe[] = {
-	F_MND8(        0,  0,  0, GND,  1,   0,   0, NONE),
 	F_MND8( 24576000, 22, 15, LPXO, 1,   0,   0, NOMINAL),
 	F_MND8( 30720000, 22, 15, PLL3, 4,   1,   6, NOMINAL),
 	F_MND8( 61440000, 22, 15, PLL3, 4,   1,   3, NOMINAL),

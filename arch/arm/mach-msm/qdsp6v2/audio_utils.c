@@ -159,9 +159,9 @@ int audio_in_buf_alloc(struct q6audio_in *audio)
 	case NO_BUF_ALLOC:
 		if (audio->feedback == NON_TUNNEL_MODE) {
 			rc = q6asm_audio_client_buf_alloc(IN,
-					audio->ac,
-					audio->pcm_cfg.buffer_size,
-					audio->pcm_cfg.buffer_count);
+				audio->ac,
+				ALIGN_BUF_SIZE(audio->pcm_cfg.buffer_size),
+				audio->pcm_cfg.buffer_count);
 			if (rc < 0) {
 				pr_err("%s:session id %d: Buffer Alloc\
 						failed\n", __func__,
@@ -172,8 +172,8 @@ int audio_in_buf_alloc(struct q6audio_in *audio)
 			audio->buf_alloc |= BUF_ALLOC_IN;
 		}
 		rc = q6asm_audio_client_buf_alloc(OUT, audio->ac,
-					audio->str_cfg.buffer_size,
-					audio->str_cfg.buffer_count);
+				ALIGN_BUF_SIZE(audio->str_cfg.buffer_size),
+				audio->str_cfg.buffer_count);
 		if (rc < 0) {
 			pr_err("%s:session id %d: Buffer Alloc failed rc=%d\n",
 					__func__, audio->ac->session, rc);
@@ -184,8 +184,8 @@ int audio_in_buf_alloc(struct q6audio_in *audio)
 		break;
 	case BUF_ALLOC_IN:
 		rc = q6asm_audio_client_buf_alloc(OUT, audio->ac,
-					audio->str_cfg.buffer_size,
-					audio->str_cfg.buffer_count);
+				ALIGN_BUF_SIZE(audio->str_cfg.buffer_size),
+				audio->str_cfg.buffer_count);
 		if (rc < 0) {
 			pr_err("%s:session id %d: Buffer Alloc failed rc=%d\n",
 					__func__, audio->ac->session, rc);
@@ -197,8 +197,8 @@ int audio_in_buf_alloc(struct q6audio_in *audio)
 	case BUF_ALLOC_OUT:
 		if (audio->feedback == NON_TUNNEL_MODE) {
 			rc = q6asm_audio_client_buf_alloc(IN, audio->ac,
-					audio->pcm_cfg.buffer_size,
-					audio->pcm_cfg.buffer_count);
+				ALIGN_BUF_SIZE(audio->pcm_cfg.buffer_size),
+				audio->pcm_cfg.buffer_count);
 			if (rc < 0) {
 				pr_err("%s:session id %d: Buffer Alloc\
 					failed\n", __func__,
@@ -282,7 +282,7 @@ long audio_in_ioctl(struct file *file,
 		audio->str_cfg.buffer_size = cfg.buffer_size;
 		audio->str_cfg.buffer_count = cfg.buffer_count;
 		rc = q6asm_audio_client_buf_alloc(OUT, audio->ac,
-				audio->str_cfg.buffer_size,
+				ALIGN_BUF_SIZE(audio->str_cfg.buffer_size),
 				audio->str_cfg.buffer_count);
 		if (rc < 0) {
 			pr_err("%s: session id %d: Buffer Alloc failed rc=%d\n",
@@ -371,7 +371,7 @@ long audio_in_ioctl(struct file *file,
 		audio->pcm_cfg.channel_count = cfg.channel_count;
 		audio->pcm_cfg.sample_rate = cfg.sample_rate;
 		rc = q6asm_audio_client_buf_alloc(IN, audio->ac,
-			audio->pcm_cfg.buffer_size,
+			ALIGN_BUF_SIZE(audio->pcm_cfg.buffer_size),
 			audio->pcm_cfg.buffer_count);
 		if (rc < 0) {
 			pr_err("%s:session id %d: Buffer Alloc failed\n",

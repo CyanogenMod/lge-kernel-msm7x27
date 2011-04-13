@@ -59,6 +59,7 @@ static uint32_t extlen;
 struct mutex vfe_lock;
 static void     *vfe_syncdata;
 static uint8_t vfestopped;
+static int cnt;
 
 static struct stop_event stopevent;
 //LGE_DEV_PORTING 
@@ -261,15 +262,9 @@ static void vfe_7x_release(struct platform_device *pdev)
 	kfree(extdata);
 	extlen = 0;
 
-	/* set back the AXI frequency to default */
-//LGE_DEV_PORTING 
-// sleep current issue : Case Number:  00479707
-//update_axi_qos(PM_QOS_DEFAULT_VALUE);
-	if (cnt) {
-		release_axi_qos();                     
-		cnt = 0;
-	}
-//LGE_DEV_END
+	/* Release AXI */
+	release_axi_qos();
+	cnt = 0;
 }
 
 static int vfe_7x_init(struct msm_vfe_callback *presp,

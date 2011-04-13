@@ -412,7 +412,7 @@ config MMC_MSM_SDC1_8_BIT_SUPPORT
 
 config MMC_MSM_SDC1_DUMMY52_REQUIRED
 	boolean "Send dummy 52 read for SDC1"
-	depends on MMC_MSM_SDC1_SUPPORT && !MMC_MSM_PROG_DONE_SCAN
+	depends on MMC_MSM_SDC1_SUPPORT
 	default n
 	help
 	  Select Y to enable sending dummy 52 reads to complete
@@ -435,7 +435,7 @@ config MMC_MSM_SDC2_8_BIT_SUPPORT
 
 config MMC_MSM_SDC2_DUMMY52_REQUIRED
 	boolean "Send dummy 52 read for SDC2"
-	depends on MMC_MSM_SDC2_SUPPORT && !MMC_MSM_PROG_DONE_SCAN
+	depends on MMC_MSM_SDC2_SUPPORT
 	default n
 	help
 	  Select Y to enable sending dummy 52 reads to complete
@@ -458,7 +458,7 @@ config MMC_MSM_SDC3_8_BIT_SUPPORT
 
 config MMC_MSM_SDC3_DUMMY52_REQUIRED
 	boolean "Send dummy 52 read for SDC3"
-	depends on MMC_MSM_SDC3_SUPPORT && !MMC_MSM_PROG_DONE_SCAN
+	depends on MMC_MSM_SDC3_SUPPORT
 	default n
 	help
 	  Select Y to enable sending dummy 52 reads to complete
@@ -481,7 +481,7 @@ config MMC_MSM_SDC4_8_BIT_SUPPORT
 
 config MMC_MSM_SDC4_DUMMY52_REQUIRED
 	boolean "Send dummy 52 read for SDC4"
-	depends on MMC_MSM_SDC4_SUPPORT && !MMC_MSM_PROG_DONE_SCAN
+	depends on MMC_MSM_SDC4_SUPPORT
 	default n
 	help
 	  Select Y to enable sending dummy 52 reads to complete
@@ -504,19 +504,12 @@ config MMC_MSM_SDC5_8_BIT_SUPPORT
 
 config MMC_MSM_SDC5_DUMMY52_REQUIRED
 	boolean "Send dummy 52 read for SDC5"
-	depends on MMC_MSM_SDC5_SUPPORT && !MMC_MSM_PROG_DONE_SCAN
+	depends on MMC_MSM_SDC5_SUPPORT
 	default n
 	help
 	  Select Y to enable sending dummy 52 reads to complete
 	  all data commands.  Required for some SDIO cards.
 	  If unsure, say N.
-
-config MMC_MSM_PROG_DONE_SCAN
-	bool "Perform prog done scan as needed for SDIO"
-	depends on MMC_MSM
-	default n
-	help
-	  Enable prog_done scan after cmd53-dummycmd52 for SDIO
 
 config MMC_TMIO
 	tristate "Toshiba Mobile IO Controller (TMIO) MMC/SD function support"

@@ -108,26 +108,26 @@ void __iomem *csibase;
 
 static struct msm_bus_vectors cam_init_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VPE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
@@ -135,26 +135,26 @@ static struct msm_bus_vectors cam_init_vectors[] = {
 
 static struct msm_bus_vectors cam_preview_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 1521190000,
 		.ib  = 1521190000,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 1521190000,
 		.ib  = 1521190000,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VPE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
@@ -162,26 +162,26 @@ static struct msm_bus_vectors cam_preview_vectors[] = {
 
 static struct msm_bus_vectors cam_video_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 1521190000,
 		.ib  = 1521190000,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 1521190000,
 		.ib  = 1521190000,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VPE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 1521190000,
 		.ib  = 1521190000,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
@@ -189,26 +189,26 @@ static struct msm_bus_vectors cam_video_vectors[] = {
 
 static struct msm_bus_vectors cam_snapshot_vectors[] = {
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 1521190000,
 		.ib  = 1521190000,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VFE,
-		.dst = MSM_BUS_APPSS_SLAVE_EBI_CH0,
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_VPE,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 0,
 		.ib  = 0,
 	},
 	{
-		.src = MSM_BUS_MMSS_MASTER_JPEG_ENC,
-		.dst = MSM_BUS_MMSS_SLAVE_SMI,
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_SMI,
 		.ab  = 1521190000,
 		.ib  = 1521190000,
 	},
@@ -480,7 +480,7 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 	case CAMIO_VPE_CLK:
 		camio_vpe_clk =
 		clk = clk_get(NULL, "vpe_clk");
-		msm_camio_clk_set_min_rate(clk, 150000000);
+		msm_camio_clk_set_min_rate(clk, 200000000);
 		break;
 
 	case CAMIO_VPE_PCLK:

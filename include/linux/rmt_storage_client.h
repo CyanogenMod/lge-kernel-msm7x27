@@ -42,9 +42,6 @@
 #define RMT_STORAGE_MAX_IOVEC_XFR_CNT 5
 #define MAX_NUM_CLIENTS 10
 #define MAX_RAMFS_TBL_ENTRIES 3
-/* 9k entries are dynamically allocated, in addition
-   to RAMFS entries */
-#define MAX_SHRD_MEM_ENTRIES		(MAX_RAMFS_TBL_ENTRIES + 2)
 #define RAMFS_BLOCK_SIZE		512
 
 

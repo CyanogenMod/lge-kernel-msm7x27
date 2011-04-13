@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/rpc_server_time_remote.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2010 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011 Code Aurora Forum. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -22,6 +22,7 @@
 #include "rpc_server_time_remote.h"
 #include <linux/rtc.h>
 #include <linux/android_alarm.h>
+#include <linux/rtc-msm.h>
 
 /* time_remote_mtoa server definitions. */
 
@@ -117,6 +118,19 @@ static int handle_rpc_call(struct msm_rpc_server *server,
 		       args->tick, args->stamp);
 
 		getnstimeofday(&ts);
+		if (msmrtc_is_suspended()) {
+			int64_t now, sleep, tick_at_suspend;
+			now = msm_timer_get_sclk_time(NULL);
+			tick_at_suspend = msmrtc_get_tickatsuspend();
+			if (now && tick_at_suspend) {
+				sleep = now - tick_at_suspend;
+				timespec_add_ns(&ts, sleep);
+			} else
+				pr_err("%s: Invalid ticks from SCLK"
+					"now=%lld tick_at_suspend=%lld",
+					__func__, now, tick_at_suspend);
+
+		}
 		rtc_hctosys();
 		getnstimeofday(&tv);
 		/* Update the alarm information with the new time info. */
