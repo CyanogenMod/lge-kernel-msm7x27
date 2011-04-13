@@ -2001,6 +2001,7 @@ static int32_t lgcam_rear_sensor_set_iso(int8_t iso)
 		printk("[lgcam_rear_sensor.c] incorrect iso value\n");
 		rc = -EINVAL;
 	}	
+	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.prev_reg_settings[0], lgcam_rear_sensor_regs.prev_reg_settings_size);
 	
 	return rc;
 }
