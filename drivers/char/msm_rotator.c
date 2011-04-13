@@ -84,7 +84,6 @@
 
 #define MAX_SESSIONS 16
 #define INVALID_SESSION -1
-#define VERSION_KEY_MASK 0xFFFFFF00
 
 struct tile_parm {
 	unsigned int width;  /* tile's width */
@@ -280,12 +279,9 @@ static int msm_rotator_ycxcx_h2v1(struct msm_rotator_img_info *info,
 				  unsigned int in_paddr,
 				  unsigned int out_paddr,
 				  unsigned int use_imem,
-				  int new_session,
-				  unsigned int in_chroma_paddr,
-				  unsigned int out_chroma_paddr)
+				  int new_session)
 {
 	int bpp;
-	unsigned int in_chr_addr, out_chr_addr;
 
 	if (info->src.format != info->dst.format)
 		return -EINVAL;
@@ -294,28 +290,14 @@ static int msm_rotator_ycxcx_h2v1(struct msm_rotator_img_info *info,
 	if (bpp < 0)
 		return -ENOTTY;
 
-	if (!in_chroma_paddr) {
-		in_chr_addr = chroma_addr(in_paddr, info->src.width,
-				info->src.height,
-				bpp);
-	} else
-		in_chr_addr = in_chroma_paddr;
-
-	if (!out_chroma_paddr) {
-		out_chr_addr = chroma_addr(out_paddr, info->dst.width,
-				info->dst.height,
-				bpp);
-	} else
-		out_chr_addr = out_chroma_paddr;
-
 	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
-
-	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
-	iowrite32(in_chr_addr, MSM_ROTATOR_SRCP1_ADDR);
+	iowrite32(chroma_addr(in_paddr, info->src.width, info->src.height, bpp),
+		  MSM_ROTATOR_SRCP1_ADDR);
 	iowrite32(out_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP0_ADDR);
-	iowrite32(out_chr_addr +
+	iowrite32(chroma_addr(out_paddr, info->dst.width, info->dst.height,
+			      bpp) +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP1_ADDR);
 
@@ -368,12 +350,9 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 				  unsigned int in_paddr,
 				  unsigned int out_paddr,
 				  unsigned int use_imem,
-				  int new_session,
-				  unsigned int in_chroma_paddr,
-				  unsigned int out_chroma_paddr)
+				  int new_session)
 {
 	int bpp;
-	unsigned int in_chr_addr, out_chr_addr;
 
 	if (info->src.format != info->dst.format)
 		return -EINVAL;
@@ -382,27 +361,14 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 	if (bpp < 0)
 		return -ENOTTY;
 
-	if (!in_chroma_paddr) {
-		in_chr_addr = chroma_addr(in_paddr, info->src.width,
-				info->src.height,
-				bpp);
-	} else
-		in_chr_addr = in_chroma_paddr;
-
-	if (!out_chroma_paddr) {
-		out_chr_addr = chroma_addr(out_paddr, info->dst.width,
-				info->dst.height,
-				bpp);
-	} else
-		out_chr_addr = out_chroma_paddr;
-
 	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
-	iowrite32(in_chr_addr,
+	iowrite32(chroma_addr(in_paddr, info->src.width, info->src.height, bpp),
 		  MSM_ROTATOR_SRCP1_ADDR);
 	iowrite32(out_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP0_ADDR);
-	iowrite32(out_chr_addr +
+	iowrite32(chroma_addr(out_paddr, info->dst.width, info->dst.height,
+			      bpp) +
 			((info->dst_y * info->dst.width)/2 + info->dst_x),
 		  MSM_ROTATOR_OUTP1_ADDR);
 
@@ -462,13 +428,10 @@ static int msm_rotator_ycxcx_h2v2_tile(struct msm_rotator_img_info *info,
 				  unsigned int in_paddr,
 				  unsigned int out_paddr,
 				  unsigned int use_imem,
-				  int new_session,
-				  unsigned in_chroma_paddr,
-				  unsigned out_chroma_paddr)
+				  int new_session)
 {
 	int bpp;
 	unsigned int offset = 0;
-	unsigned int in_chr_addr, out_chr_addr;
 	/*
 	 * each row of samsung tile consists of two tiles in height
 	 * and two tiles in width which means width should align to
@@ -488,24 +451,14 @@ static int msm_rotator_ycxcx_h2v2_tile(struct msm_rotator_img_info *info,
 		return -ENOTTY;
 
 	offset = tile_size(info->src.width, info->src.height, &tile);
-	if (!in_chroma_paddr)
-		in_chr_addr = in_paddr + offset;
-	else
-		in_chr_addr = in_chroma_paddr;
-
-	if (!out_chroma_paddr) {
-		out_chr_addr = chroma_addr(out_paddr, info->dst.width,
-				info->dst.height,
-				bpp);
-	} else
-		out_chr_addr = out_chroma_paddr;
 
 	iowrite32(in_paddr, MSM_ROTATOR_SRCP0_ADDR);
 	iowrite32(in_paddr + offset, MSM_ROTATOR_SRCP1_ADDR);
 	iowrite32(out_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP0_ADDR);
-	iowrite32(out_chr_addr +
+	iowrite32(chroma_addr(out_paddr, info->dst.width, info->dst.height,
+			      bpp) +
 			((info->dst_y * info->dst.width)/2 + info->dst_x),
 		  MSM_ROTATOR_OUTP1_ADDR);
 
@@ -752,10 +705,6 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	struct file *dst_file = 0;
 	int use_imem = 0;
 	int s;
-	struct file *src_chroma_file = 0;
-	struct file *dst_chroma_file = 0;
-	unsigned int in_chroma_paddr = 0, out_chroma_paddr = 0;
-	uint32_t format;
 
 	if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
 		return -EFAULT;
@@ -774,7 +723,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	if (rc) {
 		printk(KERN_ERR "%s: out get_img() failed id=0x%08x\n",
 		       DRIVER_NAME, info.dst.memory_id);
-		goto do_rotate_fail_dst_img;
+		return rc;
 	}
 	out_paddr += info.dst.offset;
 
@@ -800,36 +749,6 @@ static int msm_rotator_do_rotate(unsigned long arg)
 			__func__, s);
 		rc = -EINVAL;
 		goto do_rotate_unlock_mutex;
-	}
-
-	format = msm_rotator_dev->img_info[s]->src.format;
-	if (((info.version_key & VERSION_KEY_MASK) == 0xA5B4C300) &&
-		((info.version_key & ~VERSION_KEY_MASK) > 0) &&
-		 (format == MDP_Y_CBCR_H2V2 ||
-		  format == MDP_Y_CRCB_H2V2 ||
-		  format == MDP_Y_CRCB_H2V2_TILE ||
-		  format == MDP_Y_CBCR_H2V2_TILE ||
-		  format == MDP_Y_CBCR_H2V1 ||
-		  format == MDP_Y_CRCB_H2V1)) {
-		rc = get_img(info.src_chroma.memory_id,
-				(unsigned long *)&in_chroma_paddr,
-				(unsigned long *)&len, &src_chroma_file);
-		if (rc) {
-			printk(KERN_ERR "%s: in chroma get_img() failed id=0x%08x\n",
-				DRIVER_NAME, info.src_chroma.memory_id);
-			goto do_rotate_unlock_mutex;
-		}
-		in_chroma_paddr += info.src_chroma.offset;
-
-		rc = get_img(info.dst_chroma.memory_id,
-				(unsigned long *)&out_chroma_paddr,
-				(unsigned long *)&len, &dst_chroma_file);
-		if (rc) {
-			printk(KERN_ERR "%s: out chroma get_img() failed id=0x%08x\n",
-				DRIVER_NAME, info.dst_chroma.memory_id);
-			goto do_rotate_fail_dst_chr_img;
-		}
-		out_chroma_paddr += info.dst_chroma.offset;
 	}
 
 	cancel_delayed_work(&msm_rotator_dev->rot_clk_work);
@@ -865,7 +784,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 		  (msm_rotator_dev->img_info[s]->src.width & 0x1fff),
 		  MSM_ROTATOR_SRC_IMAGE_SIZE);
 
-	switch (format) {
+	switch (msm_rotator_dev->img_info[s]->src.format) {
 	case MDP_RGB_565:
 	case MDP_BGR_565:
 	case MDP_RGB_888:
@@ -885,18 +804,14 @@ static int msm_rotator_do_rotate(unsigned long arg)
 		rc = msm_rotator_ycxcx_h2v2(msm_rotator_dev->img_info[s],
 					    in_paddr, out_paddr, use_imem,
 					    msm_rotator_dev->last_session_idx
-								!= s,
-					    in_chroma_paddr,
-					    out_chroma_paddr);
+								!= s);
 		break;
 	case MDP_Y_CRCB_H2V2_TILE:
 	case MDP_Y_CBCR_H2V2_TILE:
 		rc = msm_rotator_ycxcx_h2v2_tile(msm_rotator_dev->img_info[s],
 				in_paddr, out_paddr, use_imem,
 				msm_rotator_dev->last_session_idx
-				!= s,
-				in_chroma_paddr,
-				out_chroma_paddr);
+				!= s);
 	break;
 
 	case MDP_Y_CBCR_H2V1:
@@ -904,9 +819,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 		rc = msm_rotator_ycxcx_h2v1(msm_rotator_dev->img_info[s],
 					    in_paddr, out_paddr, use_imem,
 					    msm_rotator_dev->last_session_idx
-								!= s,
-					    in_chroma_paddr,
-					    out_chroma_paddr);
+								!= s);
 		break;
 	case MDP_YCRYCB_H2V1:
 		rc = msm_rotator_ycrycb(msm_rotator_dev->img_info[s],
@@ -942,18 +855,12 @@ do_rotate_exit:
 	msm_rotator_imem_free(ROTATOR_REQUEST);
 #endif
 	schedule_delayed_work(&msm_rotator_dev->rot_clk_work, HZ);
-	if (dst_chroma_file)
-		put_pmem_file(dst_chroma_file);
-do_rotate_fail_dst_chr_img:
-	if (src_chroma_file)
-		put_pmem_file(src_chroma_file);
 do_rotate_unlock_mutex:
-	mutex_unlock(&msm_rotator_dev->rotator_lock);
-	if (dst_file)
-		put_pmem_file(dst_file);
-do_rotate_fail_dst_img:
 	if (src_file)
 		put_pmem_file(src_file);
+	if (dst_file)
+		put_pmem_file(dst_file);
+	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	dev_dbg(msm_rotator_dev->device, "%s() returning rc = %d\n",
 		__func__, rc);
 	return rc;
