@@ -1070,7 +1070,7 @@ static unsigned int kgsl_yamato_isidle(struct kgsl_device *device)
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		/* Is the ring buffer is empty? */
 		GSL_RB_GET_READPTR(rb, &rb->rptr);
-		if (rb->rptr == rb->wptr) {
+		if (!device->active_cnt && (rb->rptr == rb->wptr)) {
 			/* Is the core idle? */
 			kgsl_yamato_regread(device, REG_RBBM_STATUS,
 					    &rbbm_status);
