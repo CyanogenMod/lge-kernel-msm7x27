@@ -421,6 +421,8 @@ void mdp4_dma_p_done_dsi(struct mdp_dma_data *dma)
 	pr_debug("%s: ov_cnt=%d dmap_cnt=%d\n",
 			__func__, dsi_pipe->ov_cnt, dsi_pipe->dmap_cnt);
 
+	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, TRUE);
+
 	if (diff <= 0) {
 		spin_lock(&mdp_spin_lock);
 		dma->dmap_busy = FALSE;
@@ -464,9 +466,11 @@ void mdp4_overlay0_done_dsi_cmd(struct mdp_dma_data *dma)
 
 	int diff;
 
+
 	mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
 
 	if (dsi_pipe->blt_addr == 0) {
+		mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, TRUE);
 		spin_lock(&mdp_spin_lock);
 		dma->busy = FALSE;
 		spin_unlock(&mdp_spin_lock);
@@ -510,8 +514,6 @@ void mdp4_overlay0_done_dsi_cmd(struct mdp_dma_data *dma)
 	outpdw(MDP_BASE + 0x000c, 0x0);
 	/* trigger dsi cmd engine */
 	mipi_dsi_cmd_mdp_sw_trigger();
-
-	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, TRUE);
 }
 
 void mdp4_dsi_cmd_overlay_restore(void)
