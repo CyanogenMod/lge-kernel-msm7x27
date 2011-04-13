@@ -192,8 +192,15 @@ int bcmsdh_probe(struct device *dev)
 
 #if defined(OOB_INTR_ONLY)
 #ifdef HW_OOB
+/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-04-10, <Hostwakeup irq registration> */
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+	irq_flags =
+		IORESOURCE_IRQ | IRQF_TRIGGER_RISING | IORESOURCE_IRQ_SHAREABLE;
+#else
 	irq_flags =
 		IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE;
+#endif
+/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-04-10, <Hostwakeup irq registration> */
 #else
 	 irq_flags = IRQF_TRIGGER_FALLING;
 #endif /* HW_OOB */
