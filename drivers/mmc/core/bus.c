@@ -255,7 +255,9 @@ int mmc_add_card(struct mmc_card *card)
 			mmc_card_highspeed(card) ? "high speed " : "",
 			type, card->rca);
 	}
-
+/*LGE_UPDATE_S DYLEE */
+	printk(KERN_INFO "[LGE] mmc device add\n");	
+/*LGE_UPDATE_E DYLEE */
 	ret = device_add(&card->dev);
 	if (ret)
 		return ret;
@@ -287,6 +289,9 @@ void mmc_remove_card(struct mmc_card *card)
 			printk(KERN_INFO "%s: card %04x removed\n",
 				mmc_hostname(card->host), card->rca);
 		}
+/*LGE_UPDATE_S DYLEE */
+		printk(KERN_INFO "[LGE] mmc device remove\n");	//LGE_UPDATE E720 BCPARK
+/*LGE_UPDATE_E DYLEE */
 		device_del(&card->dev);
 	}
 

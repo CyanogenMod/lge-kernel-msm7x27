@@ -941,7 +941,10 @@ void mmc_power_up(struct mmc_host *host)
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
 	 */
-	mmc_delay(10);
+/*LGE_UPDATE_S DYLEE */
+	mmc_delay(20);	
+/* mmc_delay(10);	*/
+/*LGE_UPDATE_E DYLEE */
 
 		host->ios.clock = host->f_min;
 
@@ -952,7 +955,10 @@ void mmc_power_up(struct mmc_host *host)
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
 	 */
-	mmc_delay(10);
+/*LGE_UPDATE_S DYLEE */
+	mmc_delay(20);	
+/* mmc_delay(10);	*/
+/*LGE_UPDATE_E DYLEE */
 }
 EXPORT_SYMBOL(mmc_power_up);
 
