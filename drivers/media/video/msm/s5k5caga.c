@@ -63,6 +63,7 @@ int focus_mode = 0;
 static int debug_mask = 0;
 
 static int prev_af_mode;
+static int init_burst_mode = 0;
 //#define TOUCH_FOCUS_TEST
 
 #if SENSOR_TUNING_SET
@@ -172,36 +173,6 @@ static int32_t lgcam_rear_sensor_i2c_write(unsigned short saddr,
 	
 	switch (width) {
 		
-		case BURST_LEN: 
-
-			switch(waddr) {
-
-			case 0xFFFE:
-		//		mutex_lock(&lgcam_rear_sensor_tuning_mutex);
-				memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
-					burst_num = 0; // initialize
-					sensor_burst_buffer[burst_num++] = 0x0F;
-					sensor_burst_buffer[burst_num++] = 0x12;		
-					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;		
-					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);						
-				break;
-				
-			case 0x0:
-					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;				
-					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);		
-				
-				break;
-
-			case 0xFFFF:
-					sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8;				
-					sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);	
-				
-				rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, burst_num+1);	
-		//		mutex_unlock(&lgcam_rear_sensor_tuning_mutex);		
-					burst_num = 0; // initialize
-				break;
-		} 
-		break;
 		case DOBULE_LEN:
 		memset(buf_dbl, 0, sizeof(buf_dbl));
 		buf_dbl[0] = (waddr & 0xFF00)>>8;
@@ -214,45 +185,48 @@ static int32_t lgcam_rear_sensor_i2c_write(unsigned short saddr,
 		break;
 		
 		case WORD_LEN:
-#if 0
-		if(waddr == 0x0F12)
+#if 1
+		if(init_burst_mode)
 		{
-			if(burst_num == 0)
+			if(waddr == 0x0F12)
 			{
-				sensor_burst_buffer[burst_num++] = 0x0F;
-				sensor_burst_buffer[burst_num++] = 0x12;			
+				if(burst_num == 0)
+				{
+					memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
+					sensor_burst_buffer[burst_num++] = 0x0F;
+					sensor_burst_buffer[burst_num++] = 0x12;			
+				}
+				sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8; 	
+				sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
+
+
 			}
-			sensor_burst_buffer[burst_num++] = (wdata & 0xFF00)>>8; 	
-			sensor_burst_buffer[burst_num++] = (wdata & 0x00FF);
+			else
+			{
+				if(burst_num > 0)
+				{
+					rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, burst_num);	
+			//		memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
 
-printk("wdata = 0x%x\n", wdata);
+				}
 
+				memset(buf_wrd, 0, sizeof(buf_wrd));
+				buf_wrd[0] = (waddr & 0xFF00)>>8;
+				buf_wrd[1] = (waddr & 0x00FF);
+				buf_wrd[2] = (wdata & 0xFF00)>>8;
+				buf_wrd[3] = (wdata & 0x00FF);
+				rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_wrd, 4);		
+				burst_num = 0;
+			}
 		}
 		else
 		{
-			if(burst_num > 0)
-			{
-				rc = lgcam_rear_sensor_i2c_txdata(saddr, (unsigned char*)sensor_burst_buffer, burst_num);	
-printk("wdata1 = 0x%x, sizeof buffer len = %d\n", wdata, sizeof(sensor_burst_buffer));
-				memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
-				if(waddr == 0xFFFF) //when 0xFFFF is last line, buffer should be transfer.
-				{
-					burst_num = 0;
- 					return 0;
-				}
-
-			}
-				memset(sensor_burst_buffer, 0, sizeof(sensor_burst_buffer));
-printk(" buf_wrd sizeof buffer len = %d\n",sizeof(buf_wrd));
-
-			memset(buf_wrd, 0, 4/*sizeof(buf_wrd)*/);
+			memset(buf_wrd, 0, sizeof(buf_wrd));
 			buf_wrd[0] = (waddr & 0xFF00)>>8;
 			buf_wrd[1] = (waddr & 0x00FF);
 			buf_wrd[2] = (wdata & 0xFF00)>>8;
 			buf_wrd[3] = (wdata & 0x00FF);
-			rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_wrd, 4);		
-printk("wdata2 = 0x%x\n", wdata);
-			burst_num = 0;
+			rc = lgcam_rear_sensor_i2c_txdata(saddr, buf_wrd, 4);
 		}
 #else
 		memset(buf_wrd, 0, sizeof(buf_wrd));
@@ -1375,6 +1349,7 @@ static int32_t lgcam_rear_sensor_move_focus(int32_t steps)
 	return rc;
 }
 
+#if !SENSOR_TUNING_SET
 static long lgcam_rear_sensor_set_effect(int effect)
 {
 	int32_t rc;
@@ -1527,139 +1502,6 @@ static long lgcam_rear_sensor_set_effect(int effect)
 	
 	return 0;
 }
-#if 0	//CTS fail, should not wriatble
-static long lgcam_rear_sensor_set_zoom(int8_t zoom)
-{
-	int32_t rc;	
-	
-	if(debug_mask)
-		printk("lgcam_rear_sensor_set_zoom : called, new zoom: %d\n", zoom);
-		
-	switch (zoom){
-	case 0:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 1.0\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x0001, WORD_LEN);
-		break;
-
-	case 1:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 1.15\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x2601, WORD_LEN);
-		break;		
-	
-	case 2:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 1.3\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x4C01, WORD_LEN);
-		break;	
-		
-	case 3:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 1.45\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x7301, WORD_LEN);
-		break;
-		
-	case 4:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 1.6\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x9901, WORD_LEN);
-		break;
-		
-	case 5:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 1.75\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xC001, WORD_LEN);
-		break;
-		
-	case 6:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 1.9\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xE601, WORD_LEN);
-		break;
-		
-	case 7:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 2.05\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x0C02, WORD_LEN);
-		break;
-		
-	case 8:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 2.2\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x3302, WORD_LEN);
-		break;
-		
-	case 9:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 2.35\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x5902, WORD_LEN);
-		break;
-		
-	case 10:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 2.5\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x8002, WORD_LEN);
-		break;
-		
-	case 11:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 2.65\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xA602, WORD_LEN);
-		break;
-		
-	case 12:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 2.8\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xCC02, WORD_LEN);
-		break;
-		
-	case 13:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 2.95\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0xF302, WORD_LEN);
-		break;
-	
-	case 14:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 3.1\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x1903, WORD_LEN);
-		break;	
-		
-	case 15:
-		if(debug_mask)
-			printk("lgcam_rear_sensor_set_zoom: zoom is 3.2\n");
-		
-		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,0x0032, 0x3303, WORD_LEN);
-		break;		
-	
-	default:
-		printk("lgcam_rear_sensor: wrong zoom value\n");
-		return -EFAULT;
-	}
-	if (rc < 0)
-		return rc;
-	
-	lgcam_rear_sensor_ctrl->zoom = zoom;
-	return rc;
-}
-#endif //CTS fail, should not wriatble
-#if !SENSOR_TUNING_SET
 static long lgcam_rear_sensor_set_zoom_sensor(int zoom)
 {
 	int32_t rc;	
@@ -1707,7 +1549,7 @@ static long lgcam_rear_sensor_set_capture_zoom(int zoom)
 	}	
 	return rc;
 }
-#endif //!SENSOR_TUNING_SET
+
 
 static long lgcam_rear_sensor_set_wb(int8_t wb)
 {
@@ -1948,7 +1790,6 @@ static long lgcam_rear_sensor_set_wb(int8_t wb)
 	return 0;
 }
 
-#if !SENSOR_TUNING_SET
 static int32_t lgcam_rear_sensor_set_iso(int8_t iso)
 {
 	int32_t rc = 0;	
@@ -2002,10 +1843,8 @@ static int32_t lgcam_rear_sensor_set_iso(int8_t iso)
 		rc = -EINVAL;
 	}	
 	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.prev_reg_settings[0], lgcam_rear_sensor_regs.prev_reg_settings_size);
-	
 	return rc;
 }
-#endif //!SENSOR_TUNING_SET
 
 static long lgcam_rear_sensor_set_scene_mode(int8_t mode)
 {
@@ -2316,36 +2155,7 @@ static int32_t lgcam_rear_sensor_set_brightness(int8_t ev)
 	return rc;
 }
 /* END: 0005280 hyungtae.lee@lge.com 2010-03-22 */
-
-#if 0 /* not used, now */
-static int lgcam_rear_sensor_sensor_init_probe(const struct msm_camera_sensor_info *data)
-{
-	uint16_t model_id = 0;
-	int32_t  rc;
-	if(debug_mask)
-		printk("lgcam_rear_sensor_sensor_init_probe\n");
-
-
-	/* Read the Model ID of the sensor */
-	rc = lgcam_rear_sensor_i2c_read(lgcam_rear_sensor_client->addr,
-		REG_LGCAM_REAR_SENSOR_MODEL_ID, &model_id, WORD_LEN);
-	if (rc < 0)
-		goto init_probe_fail;
-	
-	if(debug_mask)
-		printk("lgcam_rear_sensor model_id = 0x%x\n", model_id);
-	/* Check if it matches it with the value in Datasheet */
-	if (model_id != LGCAM_REAR_SENSOR_MODEL_ID) {
-		rc = -EINVAL;
-		goto init_probe_fail;
-	}
-
-	return rc;
-   
-init_probe_fail:
-    return rc;
-}
-#endif
+#endif //!SENSOR_TUNING_SET
 
 #if SENSOR_TUNING_SET
 #define LOOP_INTERVAL		20
@@ -2907,7 +2717,9 @@ memset(ext_reg_settings, 0x00, sizeof(ext_reg_settings));
 	statuscheck = 1;	
 
 #else
+	init_burst_mode = 1;
 	rc = lgcam_rear_sensor_i2c_write_table(&lgcam_rear_sensor_regs.init[0], lgcam_rear_sensor_regs.init_size);
+	init_burst_mode = 0;
 #endif //LGCAM_REAR_SENSOR_THREAD_ENABLE	
 #else
 	rc = lgcam_rear_sensor_reg_init_ext();
@@ -3252,248 +3064,6 @@ cfg_data.cfgtype = CFG_SET_FOCUS_RECT;
  	
 }
 
-/* =====================================================================================*/
-/* lgcam_rear_sensor sysf                                                                          */
-/* =====================================================================================*/
-#if 0	// CTS fail //should not writable
-static ssize_t lgcam_rear_sensor_write_byte_store(struct device* dev, struct device_attribute* attr,const char* buf, size_t n)
-{
-	unsigned int val;
-	unsigned short waddr, wdata;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%x",&val);
-	waddr=(val & 0xffff00)>>8;
-	wdata=(val & 0x0000ff);
-
-	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, waddr, wdata, BYTE_LEN);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to write register\n");
-
-	return n;
-}
-
-static DEVICE_ATTR(write_byte, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_write_byte_store);
-
-static ssize_t lgcam_rear_sensor_write_word_store(struct device* dev, struct device_attribute* attr,const char* buf, size_t n)
-{
-	unsigned int val;
-	unsigned short waddr, wdata;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%x",&val);
-	waddr=(val & 0xffff0000)>>16;
-	wdata=(val & 0x0000ffff);
-
-	rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr, waddr, wdata, WORD_LEN);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to write register\n");
-
-	return n;
-}
-
-static DEVICE_ATTR(write_word, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_write_word_store);
-
-static ssize_t lgcam_rear_sensor_af_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%d",&val);
-
-	rc = lgcam_rear_sensor_focus_config(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set autofocus\n");
-
-	return n;
-}
-
-static DEVICE_ATTR(af, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_af_store);
-
-static ssize_t lgcam_rear_sensor_move_focus_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%d",&val);
-
-	rc = lgcam_rear_sensor_move_focus(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set autofocus\n");
-
-	return n;
-}
-
-static DEVICE_ATTR(mf, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_move_focus_store);
-
-static ssize_t lgcam_rear_sensor_cancel_focus_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%d",&val);
-
-	rc = lgcam_rear_sensor_cancel_focus(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set cancel_focus\n");
-
-	return n;
-}
-
-static DEVICE_ATTR(cf, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_cancel_focus_store);
-
-static ssize_t lgcam_rear_sensor_zoom_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%d",&val);
-
-	rc = lgcam_rear_sensor_set_zoom(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set zoom\n");
-
-	return n;
-}
-
-static DEVICE_ATTR(zoom, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_zoom_store);
-
-static ssize_t lgcam_rear_sensor_brightness_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%d",&val);
-
-	rc = lgcam_rear_sensor_set_brightness(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set brightness\n");
-
-	return n;
-}
-
-static DEVICE_ATTR(brightness, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_brightness_store);
-
-static ssize_t lgcam_rear_sensor_scene_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%x",&val);
-
-	if(val < CAMERA_SCENE_AUTO || val > CAMERA_SCENE_SUNSET) {
-		printk("[lgcam_rear_sensor.c] invalid scene mode input\n");
-		return 0;
-	}
-	rc = lgcam_rear_sensor_set_scene_mode(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set scene\n");
-
-	return n;
-}
-static DEVICE_ATTR(scene, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_scene_store);
-
-static ssize_t lgcam_rear_sensor_wb_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%x",&val);
-
-	if(val < CAMERA_WB_MIN_MINUS_1 || val > CAMERA_WB_MAX_PLUS_1) {
-		printk("lgcam_rear_sensor: invalid white balance input\n");
-		return 0;
-	}
-
-	rc = lgcam_rear_sensor_set_wb(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set white balance\n");
-
-	return n;
-}
-static DEVICE_ATTR(wb, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_wb_store);
-
-static ssize_t lgcam_rear_sensor_effect_store(struct device* dev, struct device_attribute* attr, const char* buf, size_t n)
-{
-	int val;
-	long rc;
-
-	if (lgcam_rear_sensor_ctrl == NULL)
-		return 0;
-
-	sscanf(buf,"%x",&val);
-
-	if(val < CAMERA_EFFECT_OFF || val > CAMERA_EFFECT_MAX) {
-		printk("lgcam_rear_sensor: invalid effect input\n");
-		return 0;
-	}
-
-	rc = lgcam_rear_sensor_set_effect(val);
-	if (rc < 0)
-		printk("lgcam_rear_sensor: failed to set effect\n");
-
-	return n;
-}
-static DEVICE_ATTR(effect, S_IRUGO|S_IWUGO, NULL, lgcam_rear_sensor_effect_store);
-
-static struct attribute* lgcam_rear_sensor_sysfs_attrs[] = {
-	&dev_attr_write_byte.attr,
-	&dev_attr_write_word.attr,
-	&dev_attr_af.attr,
-	&dev_attr_mf.attr,
-	&dev_attr_cf.attr,
-	&dev_attr_effect.attr,
-	&dev_attr_wb.attr,
-	&dev_attr_scene.attr,
-	&dev_attr_zoom.attr,
-	&dev_attr_brightness.attr,  
-	NULL
-};
-
-static void lgcam_rear_sensor_sysfs_add(struct kobject* kobj)
-{
-	int i, n, ret;
-	n = ARRAY_SIZE(lgcam_rear_sensor_sysfs_attrs);
-	for(i = 0; i < n; i++){
-		if(lgcam_rear_sensor_sysfs_attrs[i]){
-			ret = sysfs_create_file(kobj, lgcam_rear_sensor_sysfs_attrs[i]);
-			if(ret < 0)
-				printk("lgcam_rear_sensor sysfs is not created\n");
-		}
-	}
-}
-
-/*======================================================================================*/
-/*  end :  sysf                                                                         */
-/*======================================================================================*/
-#endif	// CTS fail //should not writable
 
 int lgcam_rear_sensor_sensor_release(void)
 {
@@ -3539,9 +3109,6 @@ static int lgcam_rear_sensor_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, lgcam_rear_sensor_sensorw);
 	lgcam_rear_sensor_init_client(client);
 	lgcam_rear_sensor_client = client;
-#if 0	// CTS fail, should not writable	
-	lgcam_rear_sensor_sysfs_add(&client->dev.kobj);
-#endif	// CTS fail, should not writable	
 
 	if(debug_mask)
 		printk("lgcam_rear_sensor: lgcam_rear_sensor_probe succeeded!\n");
