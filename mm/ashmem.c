@@ -687,8 +687,8 @@ static int ashmem_flush_cache_range(struct ashmem_area *asma)
 		goto done;
 	}
 
-	flush_cache_user_range(addr, addr + size);
 #ifdef CONFIG_OUTER_CACHE
+	flush_cache_user_range(addr, addr + size);
 	for (end = addr; end < (addr + size); end += PAGE_SIZE) {
 		unsigned long physaddr;
 		physaddr = kgsl_virtaddr_to_physaddr(end);
@@ -700,6 +700,8 @@ static int ashmem_flush_cache_range(struct ashmem_area *asma)
 		outer_flush_range(physaddr, physaddr + PAGE_SIZE);
 	}
 	mb();
+#else
+	clean_and_invalidate_caches(addr, size, 0);
 #endif
 done:
 	mutex_unlock(&ashmem_mutex);
