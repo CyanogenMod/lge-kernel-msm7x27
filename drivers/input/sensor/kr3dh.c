@@ -920,11 +920,19 @@ static int __devexit kr3dh_remove(struct i2c_client *client)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 static void kr3dh_early_suspend(struct early_suspend *h)
 {
+	if (kr->pdata->gpio_config){
+			kr->pdata->gpio_config(0);
+	}
+
 	kr3dh_disable(kr3dh_misc_data);
 }
 
 static void kr3dh_late_resume(struct early_suspend *h)
 {
+	if (kr->pdata->gpio_config){
+			kr->pdata->gpio_config(1);
+	}
+
 	kr3dh_enable(kr3dh_misc_data);
 }
 #endif
@@ -952,6 +960,10 @@ static int kr3dh_resume(struct device *device)
 	return 0;
 #endif
 
+	if (kr->pdata->gpio_config){
+			kr->pdata->gpio_config(1);
+	}
+
 	return kr3dh_enable(kr);
 }
 
@@ -967,6 +979,10 @@ static int kr3dh_suspend(struct device *device)
 		kr->pdata->gpio_config(0);
 	}
 #endif
+
+	if (kr->pdata->gpio_config){
+			kr->pdata->gpio_config(0);
+	}
 
 	return kr3dh_disable(kr);
 }
