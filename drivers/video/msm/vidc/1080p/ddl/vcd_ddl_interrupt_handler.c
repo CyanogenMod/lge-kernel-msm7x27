@@ -937,10 +937,10 @@ static void ddl_decoder_input_done_callback(
 	is_interlaced = (dec_disp_info->decode_coding ==
 		VIDC_1080P_DISPLAY_CODING_INTERLACED);
 	if (decoder->output_order == VCD_DEC_ORDER_DECODE) {
-		dec_disp_info->tag_top = input_vcd_frm->ip_frm_tag;
 		dec_disp_info->tag_bottom = is_interlaced ?
-			input_vcd_frm->intrlcd_ip_frm_tag :
+			dec_disp_info->tag_top :
 			VCD_FRAMETAG_INVALID;
+		dec_disp_info->tag_top = input_vcd_frm->ip_frm_tag;
 	}
 	input_vcd_frm->interlaced = is_interlaced;
 	input_vcd_frm->offset += dec_disp_info->input_bytes_consumed;
