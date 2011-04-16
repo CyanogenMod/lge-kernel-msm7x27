@@ -1793,7 +1793,7 @@ static int __devinit msm_batt_probe(struct platform_device *pdev)
 	} else {
 		pif_value = lge_get_pif_info();
 		mdelay(10);
-		low_power_mode = lge_get_lpm_info();
+		//low_power_mode = lge_get_lpm_info();
 	}
 
 	dev_info(&pdev->dev, "%s : Using PIF ZIG (%d)\n", __func__, pif_value);
