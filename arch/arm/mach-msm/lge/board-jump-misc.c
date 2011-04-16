@@ -251,7 +251,7 @@ static struct platform_device *jump_misc_devices[] __initdata = {
 void __init lge_add_misc_devices(void)
 {
 	motor_voltage = 3000;
-	muscat_vibrator_data.amp_value = 70;
+	jump_vibrator_data.amp_value = 70;
 
 	platform_add_devices(jump_misc_devices, ARRAY_SIZE(jump_misc_devices));
 	platform_device_register(&msm_device_pmic_leds);
