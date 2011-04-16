@@ -49,6 +49,13 @@ obj-$(CONFIG_MACH_MSM7X27_MUSCAT) += board-muscat-input.o
 obj-$(CONFIG_MACH_MSM7X27_MUSCAT) += board-muscat-misc.o
 obj-$(CONFIG_MACH_MSM7X27_MUSCAT) += board-muscat-pm.o
 
+obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump.o
+obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-snd.o
+obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-panel.o
+obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-input.o
+obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-misc.o
+obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-pm.o
+
 obj-$(CONFIG_MACH_LGE) += devices_lge.o
 
 obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats.o

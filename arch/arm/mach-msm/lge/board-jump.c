@@ -490,7 +490,6 @@ static void __init msm7x2x_init(void)
 	config_camera_off_gpios(); /* might not be necessary */
 #endif
 	msm_device_i2c_init();
-	i2c_register_board_info(0, i2c_devices, ARRAY_SIZE(i2c_devices));
 
 	if (cpu_is_msm7x27())
 		msm_pm_set_platform_data(msm7x27_pm_data,

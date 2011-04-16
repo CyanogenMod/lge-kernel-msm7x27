@@ -22,13 +22,6 @@ int lcd_bl_power_state=0;
 int jump_pwrsink_suspend_noirq(struct device *dev)
 {
 	printk(KERN_INFO"%s: configure gpio for suspend\n", __func__);
-	camera_power_mutex_lock();
-
-	if(camera_power_state == CAM_POWER_ON)
-	{
-		camera_power_mutex_unlock();
-		return 0;
-	}
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
@@ -45,7 +38,6 @@ int jump_pwrsink_suspend_noirq(struct device *dev)
 	/* gpio_direction_output(GPIO_LCD_RESET_N, 0); */
 
 	lcd_bl_power_state = BL_POWER_SUSPEND;
-	camera_power_mutex_unlock();
 
 	return 0;
 }
@@ -53,13 +45,6 @@ int jump_pwrsink_suspend_noirq(struct device *dev)
 int jump_pwrsink_resume_noirq(struct device *dev)
 {
 	printk(KERN_INFO"%s: configure gpio for resume\n", __func__);
-	camera_power_mutex_lock();
-
-	if(camera_power_state == CAM_POWER_ON || lcd_bl_power_state == BL_POWER_RESUME)
-	{
-		camera_power_mutex_unlock();
-		return 0;
-	}
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_BL_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_direction_output(GPIO_LCD_BL_EN, 1);
@@ -78,8 +63,6 @@ int jump_pwrsink_resume_noirq(struct device *dev)
 	/* gpio_direction_output(GPIO_LCD_RESET_N, 0); */
 
 	lcd_bl_power_state = BL_POWER_RESUME;
-
-	camera_power_mutex_unlock();
 
 	return 0;
 }
