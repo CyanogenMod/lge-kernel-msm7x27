@@ -572,7 +572,7 @@ int mcs6000_ts_ioctl_down(struct inode *inode, struct file *flip, unsigned int c
 	if (_IOC_NR(cmd) >= MCS6000_TS_DOWN_IOCTL_MAXNR)
 		return -EINVAL;
 
-#if defined(CONFIG_MACH_MSM7X27_MUSCAT)
+#if defined(CONFIG_MACH_MSM7X27_MUSCAT) || defined (CONFIG_MACH_MSM7X27_JUMP)
 	switch (cmd) {
 		case MCS6000_TS_DOWN_IOCTL_VDD_HIGH:
 			err = dev->power(ON);

@@ -917,7 +917,7 @@ static int mdp_runtime_resume(struct device *dev)
 /* FIXME : ADD workaround code for HW QGATE ABOUT MDP CLK OFF
  * taehung.kim@lge.com
  */
-#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+#if defined (CONFIG_MACH_MSM7X27_MUSCAT) || defined (CONFIG_MACH_MSM7X27_JUMP)
 static void mdp_suspend_sub(void);
 static int mdp_suspend_dummy(struct device* dev)
 {
@@ -930,7 +930,7 @@ static struct dev_pm_ops mdp_dev_pm_ops = {
 /* FIXME : ADD workaround code for HW QGATE ABOUT MDP CLK OFF
  * taehung.kim@lge.com
  */
-#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+#if defined (CONFIG_MACH_MSM7X27_MUSCAT) || defined (CONFIG_MACH_MSM7X27_JUMP)
 	.suspend	= mdp_suspend_dummy,
 #endif
 	.runtime_suspend = mdp_runtime_suspend,

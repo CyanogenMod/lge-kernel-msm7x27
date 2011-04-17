@@ -701,7 +701,8 @@ static ssize_t read_touch_version(struct device *dev, struct device_attribute *a
 	unsigned char hw_ver, fw_ver;
 
 	if (is_downloading == 1) {
-#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) || defined(CONFIG_MACH_MSM7X27_MUSCAT)
+#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) ||
+	defined(CONFIG_MACH_MSM7X27_MUSCAT) || defined(CONFIG_MACH_MSM7X27_JUMP)
 		r = sprintf(buf,"Now, MCS7000 Firmware Update is going, check it later\n ");
 #else
 		r = sprintf(buf,"Now, MCS7000 Firmware Update is going, check it later\n ");
@@ -710,7 +711,8 @@ static ssize_t read_touch_version(struct device *dev, struct device_attribute *a
 	}
 
 	mcs7000_firmware_info(&fw_ver, &hw_ver);
-#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) || defined(CONFIG_MACH_MSM7X27_MUSCAT)
+#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) ||
+	defined(CONFIG_MACH_MSM7X27_MUSCAT) || defined(CONFIG_MACH_MSM7X27_JUMP)
 	r = sprintf(buf,"MCS7000 Touch Version HW:%02x FW:%02x\n",hw_ver, fw_ver);
 #else
 	r = sprintf(buf,"MCS7000 Touch Version HW:%02x FW:%02x\n",hw_ver, fw_ver);
