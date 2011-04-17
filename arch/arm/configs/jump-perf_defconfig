@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.10
-# Sat Apr 16 17:25:44 2011
+# Sun Apr 17 13:05:56 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1172,7 +1172,7 @@ CONFIG_INPUT_KEYBOARD=y
 # CONFIG_KEYBOARD_XTKBD is not set
 # CONFIG_KEYBOARD_QCIKBD is not set
 CONFIG_KEYBOARD_ATCMD_VIRTUAL=y
-CONFIG_KEYBOARD_PP2106=y
+# CONFIG_KEYBOARD_PP2106 is not set
 # CONFIG_INPUT_MOUSE is not set
 # CONFIG_INPUT_JOYSTICK is not set
 # CONFIG_INPUT_TABLET is not set
