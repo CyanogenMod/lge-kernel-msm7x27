@@ -62,6 +62,13 @@
 #define TS_GPIO_IRQ			92
 #define TS_I2C_SLAVE_ADDR	0x20
 
+/* proximity sensor */
+#define PROXI_GPIO_I2C_SCL	19   /*107 in p500*/
+#define PROXI_GPIO_I2C_SDA 	20   /*108 in p500*/
+#define PROXI_GPIO_DOUT		109
+#define PROXI_I2C_ADDRESS	0x44 /*slave address 7bit*/
+#define PROXI_LDO_NO_VCC	1
+
 /* accelerometer */
 #define ACCEL_GPIO_INT	 		39
 #define ACCEL_GPIO_I2C_SCL  	2
