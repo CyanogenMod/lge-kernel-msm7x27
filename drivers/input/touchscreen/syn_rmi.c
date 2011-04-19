@@ -190,10 +190,9 @@ static __inline void esd_recovery(struct synaptics_ts_data *ts)
 {
 	int ret;
 
-    if (ts->use_irq)
-		disable_irq_nosync(ts->client->irq);
-	else
+    if (!ts->use_irq)
 		hrtimer_cancel(&ts->timer);
+
 	msleep(20);
     ret = i2c_smbus_write_byte_data(ts->client, SYN_CONTROL, SYN_CONT_SLEEP); /* sleep */
 	if (ret < 0) {
@@ -204,15 +203,14 @@ static __inline void esd_recovery(struct synaptics_ts_data *ts)
 		ret = ts->power(0);
 		if (ret < 0)
 			printk("[TOUCH] power off failed\n");
-	}
 
-	msleep(20);
-
-	if (ts->power) {
 		ret = ts->power(1);
 		if (ret < 0)
 			printk("[TOUCH] power on failed\n");
 	}
+
+    i2c_smbus_read_byte_data(ts->client, INT_STATUS);
+	melt_mode = 1;
 }
 
 static void ts_work_func(struct work_struct *work)
