@@ -536,8 +536,10 @@ static int kgsl_g12_start(struct kgsl_device *device, unsigned int init_ram)
 	device->state = KGSL_STATE_INIT;
 	device->requested_state = KGSL_STATE_NONE;
 
-	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
+	/* Turn the clocks on before the power.  Required for some platforms,
+		has no adverse effect on the others */
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
+	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_POWER_ON);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
 
 	/* Set up MH arbiter.  MH offsets are considered to be dword
