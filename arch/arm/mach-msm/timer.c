@@ -1040,18 +1040,20 @@ static void __init msm_timer_init(void)
 void local_timer_setup(struct clock_event_device *evt)
 {
 	unsigned long flags;
+	static bool first_boot = true;
 	struct msm_clock *clock = &msm_clocks[MSM_GLOBAL_TIMER];
 
 #ifdef CONFIG_ARCH_MSM8X60
 	writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
 #endif
 
-	if (!local_clock_event) {
+	if (first_boot) {
 		writel(0, clock->regbase  + TIMER_ENABLE);
 		writel(1, clock->regbase + TIMER_CLEAR);
 		writel(0, clock->regbase + TIMER_COUNT_VAL);
 		writel(~0, clock->regbase + TIMER_MATCH_VAL);
 		__get_cpu_var(msm_clocks_percpu)[clock->index].alarm = ~0;
+		first_boot = false;
 	}
 	evt->irq = clock->irq.irq;
 	evt->name = "local_timer";
