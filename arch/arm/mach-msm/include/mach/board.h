@@ -323,7 +323,7 @@ struct msm_ssbi_platform_data {
 	enum msm_ssbi_controller_type controller_type;
 };
 
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 struct isp1763_platform_data {
 	unsigned reset_gpio;
 	int (*setup_gpio)(int enable);

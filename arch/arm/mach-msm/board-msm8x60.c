@@ -800,7 +800,7 @@ static struct msm_cpuidle_state msm_cstates[] __initdata = {
 	{1, 1, "C1", "STANDALONE_POWER_COLLAPSE",
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
 };
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 
 #define ISP1763_INT_GPIO		117
 #define ISP1763_RST_GPIO		152
@@ -3484,7 +3484,7 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_ssbi2,
 	&msm_device_ssbi3,
 #endif
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 	&isp1763_device,
 #endif
 
@@ -5791,7 +5791,7 @@ static void register_i2c_devices(void)
 
 static void __init msm8x60_init_uart12dm(void)
 {
-#ifndef CONFIG_USB_PEHCI_HCD
+#if !defined(CONFIG_USB_PEHCI_HCD) && !defined(CONFIG_USB_PEHCI_HCD_MODULE)
 	/* 0x1D000000 now belongs to EBI2:CS3 i.e. USB ISP Controller */
 	void *fpga_mem = ioremap_nocache(0x1D000000, SZ_4K);
 	/* Advanced mode */
@@ -5949,7 +5949,7 @@ static void __init msm8x60_init_ebi2(void)
 			 * The lowest 4 bits are the read delay, the next
 			 * 4 are the write delay. */
 			writel(0x031F1C99, ebi2_cfg_ptr + 0x10);
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 			/*
 			 * RECOVERY=5, HOLD_WR=1
 			 * INIT_LATENCY_WR=1, INIT_LATENCY_RD=1
@@ -8312,7 +8312,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 		platform_add_devices(rumi_sim_devices,
 				     ARRAY_SIZE(rumi_sim_devices));
 	}
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 	if (machine_is_msm8x60_surf() || machine_is_msm8x60_ffa())
 		msm8x60_cfg_isp1763();
 #endif
