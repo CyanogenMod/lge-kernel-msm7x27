@@ -1838,11 +1838,11 @@ static void msm_pm_restart(char str, const char *cmd)
 #endif
 
 	/*
-	 * FIXME: 2011-04-20, jinkyu.choi@lge.com,
+	 * 2011-04-20, jinkyu.choi@lge.com,
 	 * use the PCOM_RESET_CHIP_IMM,
 	 * because the reboot reason is overwritten by another rpoc_com such as ebi1_clk_min
 	 */
-#if 1
+#ifdef CONFIG_MACH_MSM7X27_GELATO
 	msm_proc_comm(PCOM_RESET_CHIP_IMM, &restart_reason, 0);
 #else /* QCT origin */
 	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
