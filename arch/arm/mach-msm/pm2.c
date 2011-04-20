@@ -1783,11 +1783,11 @@ static void msm_pm_power_off(void)
 						  0, SMSM_SYSTEM_POWER_DOWN);
 #endif
 
-/* FIXME: Bloock the rpcrouter close when system restart
+/* FIXME: Block the rpcrouter close when system restart
  *	  Sometimes, RPC CALL is called atfer RPC is closed
  *        taehung.kim@lge.com
  */
-#if 0 
+#if 0
 	msm_rpcrouter_close();
 #endif
 	printk(KERN_INFO"%s: \n",__func__);
@@ -1829,14 +1829,24 @@ static void msm_pm_restart(char str, const char *cmd)
 	}
 #endif
 
-/* FIXME: Bloock the rpcrouter close when system restart
+/* FIXME: Block the rpcrouter close when system restart
  *	  Sometimes, RPC CALL is called atfer RPC is closed
  *        taehung.kim@lge.com
  */
-#if 0 
+#if 0
 	msm_rpcrouter_close();
 #endif
+
+	/*
+	 * FIXME: 2011-04-20, jinkyu.choi@lge.com,
+	 * use the PCOM_RESET_CHIP_IMM,
+	 * because the reboot reason is overwritten by another rpoc_com such as ebi1_clk_min
+	 */
+#if 1
+	msm_proc_comm(PCOM_RESET_CHIP_IMM, &restart_reason, 0);
+#else /* QCT origin */
 	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
+#endif
 
 	for (;;)
 		;
