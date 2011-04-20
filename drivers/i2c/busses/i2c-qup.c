@@ -608,17 +608,18 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				dev->out_blk_sz, dev->out_fifo_sz);
 	}
 
-	if (dev->num_irqs == 3) {
-		enable_irq(dev->in_irq);
-		enable_irq(dev->out_irq);
-	}
-	enable_irq(dev->err_irq);
 	writel(1, dev->base + QUP_SW_RESET);
 	ret = qup_i2c_poll_state(dev, QUP_RESET_STATE);
 	if (ret) {
 		dev_err(dev->dev, "QUP Busy:Trying to recover\n");
 		goto out_err;
 	}
+
+	if (dev->num_irqs == 3) {
+		enable_irq(dev->in_irq);
+		enable_irq(dev->out_irq);
+	}
+	enable_irq(dev->err_irq);
 
 	/* Initialize QUP registers */
 	writel(0, dev->base + QUP_CONFIG);
@@ -815,16 +816,16 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 
 	ret = num;
  out_err:
-	dev->complete = NULL;
-	dev->msg = NULL;
-	dev->pos = 0;
-	dev->err = 0;
-	dev->cnt = 0;
 	disable_irq(dev->err_irq);
 	if (dev->num_irqs == 3) {
 		disable_irq(dev->in_irq);
 		disable_irq(dev->out_irq);
 	}
+	dev->complete = NULL;
+	dev->msg = NULL;
+	dev->pos = 0;
+	dev->err = 0;
+	dev->cnt = 0;
 	dev->pwr_timer.expires = jiffies + 3*HZ;
 	add_timer(&dev->pwr_timer);
 	mutex_unlock(&dev->mlock);
