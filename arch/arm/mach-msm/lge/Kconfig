@@ -29,6 +29,14 @@ config MACH_MSM7X27_MUSCAT
     help
       Support for the LGE MSM7x27 MUSCAT board.
 
+config MACH_MSM7X27_JUMP
+    depends on ARCH_MSM7X27
+    depends on !MSM_STACKED_MEMORY
+    select MACH_LGE
+    bool "MSM7x27 JUMP"
+    help
+      Support for the LGE MSM7x27 JUMP board.
+
 endmenu
 
 config LGE_SUPPORT_ERS

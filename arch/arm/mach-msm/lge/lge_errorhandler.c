@@ -46,7 +46,7 @@ char * android_errhanlder_ptr = NULL;
 int LGE_ErrorHandler_Main( int crash_side, char * message)
 {
 
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#if !defined (CONFIG_MACH_MSM7X27_MUSCAT) && !defined (CONFIG_MACH_MSM7X27_JUMP)
 	/*
 	 * 2011-03-10, jinkyu.choi@lge.com
 	 * add the reboot reason as chargerlogo reboot when the crash occures.
