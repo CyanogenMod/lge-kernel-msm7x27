@@ -298,18 +298,24 @@ static int gelato_gpio_earsense_work_func(void)
 {
 	int state;
 	int gpio_value;
+	/*LGE_CHANGE_S, [yeri.lee@lge.com] , 2011-04-21, Earjack detect pop noise - control ARM9 
 	struct vreg *gp4_vreg = vreg_get(0, "gp4");
+	LGE_CHANGE_E, [yeri.lee@lge.com] , 2011-04-21*/
 	
 	gpio_value = gpio_get_value(GPIO_EAR_SENSE);
 	printk(KERN_INFO"%s: ear sense detected : %s\n", __func__, 
 			gpio_value?"injected":"ejected");
 	if (gpio_value == EAR_EJECT) {
 		state = EAR_STATE_EJECT;
+		/*LGE_CHANGE_S, [yeri.lee@lge.com] , 2011-04-21, Earjack detect pop noise - control ARM9 
 		vreg_disable(gp4_vreg);
+		LGE_CHANGE_E, [yeri.lee@lge.com] , 2011-04-21*/
 	} else {
 		state = EAR_STATE_INJECT;
+		/*LGE_CHANGE_S, [yeri.lee@lge.com] , 2011-04-21, Earjack detect pop noise - control ARM9 
 		vreg_set_level(gp4_vreg, 1800);
 		vreg_enable(gp4_vreg);
+		LGE_CHANGE_E, [yeri.lee@lge.com] , 2011-04-21*/
 	}
 
 	return state;
