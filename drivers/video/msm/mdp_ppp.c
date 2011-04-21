@@ -613,6 +613,7 @@ struct mdp_blit_req *req, struct file *p_src_file, struct file *p_dst_file)
 	ppp_operation_reg = 0;
 	ppp_dst_cfg_reg = 0;
 	ppp_src_cfg_reg = 0;
+	ppp_operation_reg |= PPP_OP_DITHER_EN; //temp for dithering
 
 	/* Wait for the pipe to clear */
 	do { } while (mdp_ppp_pipe_wait() <= 0);
