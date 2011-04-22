@@ -633,6 +633,7 @@ static void aat28xx_early_suspend(struct early_suspend * h)
 
 	dprintk("start\n");
 	aat28xx_sleep(drvdata);
+	gpio_direction_output(drvdata->gpio, 0);
 
 	return;
 }
@@ -643,6 +644,7 @@ static void aat28xx_late_resume(struct early_suspend * h)
 						    early_suspend);
 
 	dprintk("start\n");
+	gpio_direction_output(drvdata->gpio, 1);
 	aat28xx_wakeup(drvdata);
 
 	return;
