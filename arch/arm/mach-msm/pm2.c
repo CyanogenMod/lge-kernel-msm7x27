@@ -1772,6 +1772,13 @@ void msm_pm_flush_console(void)
 }
 #endif
 
+/* LGE_CHANGE_S Add code for avoiding power off crash and losing reboot reason */
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+static DEFINE_SPINLOCK(msm_pwroff_lock);
+static DEFINE_SPINLOCK(msm_reboot_lock);
+#endif
+/* LGE_CHANGE_E */
+
 static void msm_pm_power_off(void)
 {
 
@@ -1790,8 +1797,18 @@ static void msm_pm_power_off(void)
 #if 0
 	msm_rpcrouter_close();
 #endif
+
+/* LGE_CHANGE_S Add code for avoiding power off crash */
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	msm_rpcrouter_close();
+#endif
 	printk(KERN_INFO"%s: \n",__func__);
 	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
+
+/* LGE_CHANGE_S Add code for avoiding power off crash */
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	spin_lock_irq(&msm_pwroff_lock);
+#endif
 	for (;;)
 		;
 }
@@ -1837,6 +1854,10 @@ static void msm_pm_restart(char str, const char *cmd)
 	msm_rpcrouter_close();
 #endif
 
+/* LGE_CHANGE_S Add code for avoiding power off crash and losing reboot reason */
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	msm_rpcrouter_close();
+#endif
 	/*
 	 * 2011-04-20, jinkyu.choi@lge.com,
 	 * use the PCOM_RESET_CHIP_IMM,
@@ -1848,6 +1869,10 @@ static void msm_pm_restart(char str, const char *cmd)
 	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
 #endif
 
+/* LGE_CHANGE_S Add code for avoiding power off crash and losing reboot reason */
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+	spin_lock_irq(&msm_reboot_lock);
+#endif
 	for (;;)
 		;
 }
