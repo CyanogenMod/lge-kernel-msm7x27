@@ -114,6 +114,7 @@ int camera_power_on (void)
 {
 	int rc;
 	struct device *dev = gelato_backlight_dev();
+	int retry  = 0;
 
 	camera_power_mutex_lock();
 	if(lcd_bl_power_state == BL_POWER_SUSPEND)
@@ -122,10 +123,25 @@ int camera_power_on (void)
 		mdelay(50);
 	}
 
-	
 	/* clear RESET, PWDN to Low*/
 	gpio_set_value(GPIO_CAM_RESET, 0);
 	gpio_set_value(GPIO_CAM_PWDN, 0);
+
+	/*
+	 * 2011-04-23, jinkyu.choi@lge.com
+	 * wait for Backlight IC enable.
+	 * because camera application does not work well permanently after power on failure.
+	 */
+	for (retry = 100; retry != 0; retry--) {
+		/* FIXME: check the Backlight IC enable status using another method */
+		rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 2800);
+		if (rc < 0) {
+			//printk("%s, wait for Backlight IC enabling, ramian retry %d\n", __func__, retry);
+			msleep(50);
+		} else {
+			break;
+		}
+	}
 
 	/*AVDD power 2.8V*/
 	rc = aat28xx_ldo_set_level(dev, LDO_CAM_AF_NO, 2800);

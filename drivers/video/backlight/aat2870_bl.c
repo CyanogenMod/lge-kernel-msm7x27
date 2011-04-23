@@ -630,10 +630,26 @@ static void aat28xx_early_suspend(struct early_suspend * h)
 {
 	struct aat28xx_driver_data *drvdata = container_of(h, struct aat28xx_driver_data,
 						    early_suspend);
+	int retry = 0;
 
 	dprintk("start\n");
 	aat28xx_sleep(drvdata);
-	gpio_direction_output(drvdata->gpio, 0);
+
+	/*
+	 * 2011-04-23, jinkyu.choi@lge.com
+	 * wait for LDO disable for 500 msec if LODs is enabled
+	 */
+	for (retry = 10; retry != 0; retry--) {
+		if (drvdata->reg_ldo_enable == 0) {
+			gpio_direction_output(drvdata->gpio, 0);
+			break;
+		} else {
+			printk("%s can't be disabled, enabled LDO %d\n",
+					__func__, drvdata->reg_ldo_enable);
+		}
+		msleep(50);
+		printk("%s retry cnt remain %d\n", __func__, retry);
+	}
 
 	return;
 }
