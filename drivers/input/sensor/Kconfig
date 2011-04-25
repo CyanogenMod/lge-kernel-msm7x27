@@ -47,6 +47,18 @@ config SENSOR_BMA250
 	  To compile this driver as a module, choose M here: the
 	  module will be called bma250.
 
+config SENSOR_K3DH
+	tristate "K3DH based accelerometer sensor"
+	help
+	  Say Y here if you have a sensor interface using the
+	  KR3DH controller, and your board-specific
+	  setup code includes i2c devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ads7846.
+
 config SENSOR_KR3DH
 	tristate "KR3DH based accelerometer sensor"
 	help
