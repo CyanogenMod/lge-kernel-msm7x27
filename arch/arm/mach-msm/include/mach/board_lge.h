@@ -153,7 +153,29 @@ struct acceleration_platform_data {
 	int (*power)(unsigned char onoff);
 };
 
-/* kr3dh acceleration platform data */
+/* acceleration platform data */
+/* k3dh */
+
+struct k3dh_platform_data {
+	int poll_interval;
+	int min_interval;
+
+	u8 g_range;
+
+	u8 axis_map_x;
+	u8 axis_map_y;
+	u8 axis_map_z;
+
+	u8 negate_x;
+	u8 negate_y;
+	u8 negate_z;
+
+	int (*kr_init)(void);
+	void (*kr_exit)(void);
+	int (*power_on)(void);
+	int (*power_off)(void);
+	int (*gpio_config)(int config);
+};
 struct kr3dh_platform_data {
 	int poll_interval;
 	int min_interval;

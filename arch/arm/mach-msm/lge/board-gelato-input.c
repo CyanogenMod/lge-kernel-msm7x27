@@ -303,12 +303,10 @@ static void __init gelato_init_i2c_touch(int bus_num)
 }
 
 /* acceleration */
-static int kr3dh_device_id(void)
-{
-	return 0x33;
-}
 
-static int kr3dh_config_gpio(int config)
+/* k3dh */
+
+static int k3dh_config_gpio(int config)
 {
 	if (config) {	/* for wake state */
 		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_I2C_SCL, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
@@ -359,8 +357,9 @@ static int accel_power_off(void)
 	return ret;
 }
 
-struct kr3dh_platform_data kr3dh_data = {
-	.poll_interval = 100,
+struct k3dh_platform_data k3dh_data = {
+	.poll_interval = 10,
+	
 	.min_interval = 0,
 	.g_range = 0x00,
 	.axis_map_x = 0,
@@ -370,13 +369,12 @@ struct kr3dh_platform_data kr3dh_data = {
 	.negate_x = 0,
 	.negate_y = 0,
 	.negate_z = 0,
-
+ 
 	.power_on = accel_power_on,
 	.power_off = accel_power_off,
 	.kr_init = kr_init,
 	.kr_exit = kr_exit,
-	.gpio_config = kr3dh_config_gpio,
-	.device_id = kr3dh_device_id,
+	.gpio_config = k3dh_config_gpio,
 };
 
 static struct gpio_i2c_pin accel_i2c_pin[] = {
@@ -401,9 +399,9 @@ static struct platform_device accel_i2c_device = {
 
 static struct i2c_board_info accel_i2c_bdinfo[] = {
 	[0] = {
-		I2C_BOARD_INFO("KR3DH", ACCEL_I2C_ADDRESS_H),
-		.type = "KR3DH",
-		.platform_data = &kr3dh_data,
+		I2C_BOARD_INFO("K3DH", ACCEL_I2C_ADDRESS_H),
+		.type = "K3DH",
+		.platform_data = &k3dh_data,
 	},
 };
 
