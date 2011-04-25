@@ -276,9 +276,9 @@ gp2ap_device_initialise(void)
 	if(gp2ap_pdev->op_mode == PROX_OPMODE_A)
 		hys = 0xC2;
 	else if(gp2ap_pdev->op_mode == PROX_OPMODE_B1)
-		hys = 0x40;
-	else	/* PROX_OPMODE_B2 */
 		hys = 0x20;
+	else	/* PROX_OPMODE_B2 */
+		hys = 0x00;
 
 	ret = prox_i2c_write(GP2AP_REG_HYS, hys, GP2AP_NO_INTCLEAR);
 	if (ret < 0)
