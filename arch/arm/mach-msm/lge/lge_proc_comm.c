@@ -158,4 +158,40 @@ unsigned lge_get_batt_volt_raw(void)
 	return ret;
 }
 EXPORT_SYMBOL(lge_get_batt_volt_raw);
+
+#ifdef CONFIG_MACH_MSM7X27_GELATO
+unsigned lge_get_chg_stat_reg(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0xE;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_chg_stat_reg);
+
+unsigned lge_get_chg_en_reg(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0xF;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_get_chg_en_reg);
+#endif
 #endif
