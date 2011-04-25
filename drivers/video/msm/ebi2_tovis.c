@@ -74,7 +74,13 @@ static boolean display_on = FALSE;
 	}
 
 static unsigned int te_lines = 0xef;
+
+#if defined (CONFIG_MACH_MSM7X27_JUMP)
+static unsigned int mactl = 0x48;
+#else
 static unsigned int mactl = 0x98;
+#endif
+
 #ifdef TUNING_INITCODE
 module_param(te_lines, uint, 0644);
 module_param(mactl, uint, 0644);
@@ -408,8 +414,6 @@ static int ilitek_qvga_disp_on(struct platform_device *pdev)
 		msm_fb_ebi2_power_save(1);
 
 		if(pdata->gpio) {
-			gpio_set_value(pdata->gpio, 1);
-			mdelay(1);
 			gpio_set_value(pdata->gpio, 0);
 			mdelay(10);
 			gpio_set_value(pdata->gpio, 1);

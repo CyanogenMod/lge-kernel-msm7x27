@@ -351,6 +351,11 @@ unsigned lge_get_pcb_version(void);
 unsigned lge_get_chg_curr_volt(void);
 unsigned lge_get_batt_therm(void);
 unsigned lge_get_batt_volt_raw(void);
+#ifdef CONFIG_MACH_MSM7X27_GELATO
+unsigned lge_get_chg_stat_reg(void);
+unsigned lge_get_chg_en_reg(void);
+#endif
+
 
 #define CAMERA_POWER_ON				0
 #define CAMERA_POWER_OFF			1
