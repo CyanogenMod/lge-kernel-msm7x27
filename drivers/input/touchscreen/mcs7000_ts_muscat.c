@@ -57,7 +57,12 @@ static void mcs7000_late_resume(struct early_suspend *h);
  * do not enable the debugging flag, it reduce the touch performance
  * 2011-01-19, by jinkyu.choi@lge.com
  */
+
+#if defined (CONFIG_MACH_MSM7X27_JUMP)
+#define SUPPORT_TOUCH_KEY 1
+#else
 #define SUPPORT_TOUCH_KEY 0
+#endif
 
 #if SUPPORT_TOUCH_KEY
 #define LG_FW_HARDKEY_BLOCK
@@ -130,7 +135,7 @@ enum{
 	MAX_TOUCH_TYPE
 };
 
-#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL)
+#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) || defined(CONFIG_MACH_MSM7X27_JUMP)
 enum{
 	NO_KEY_TOUCHED = 0,
 	KEY_MENU_TOUCHED = 1, 
@@ -169,15 +174,15 @@ static __inline void mcs7000_key_event_touch(int touch_reg,  int value,  struct 
 {
 	unsigned int keycode;
 
-#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL)
+#if defined(CONFIG_MACH_MSM7X27_PECAN) || defined(CONFIG_MACH_MSM7X27_HAZEL) || defined(CONFIG_MACH_MSM7X27_JUMP)
 	if (touch_reg == KEY_BACK_TOUCHED) {
-		keycode = TOUCH_BACK;
+		keycode = KEY_BACK;
 	} else if (touch_reg == KEY_MENU_TOUCHED) {
-		keycode = TOUCH_MENU;
+		keycode = KEY_MENU;
 	} else if (touch_reg == KEY_HOME_TOUCHED) {
-		keycode = TOUCH_HOME;
+		keycode = KEY_HOME;
 	} else if (touch_reg == KEY_SEARCH_TOUCHED) {
-		keycode = TOUCH_SEARCH;
+		keycode = KEY_SEARCH;
 	}
 	else {
 		printk("%s Not available touch key reg. %d\n", __FUNCTION__, touch_reg);
@@ -1039,8 +1044,10 @@ static int __devinit mcs7000_ts_init(void)
 	set_bit(EV_ABS, 	 mcs7000_ts_input->evbit);
 	set_bit(ABS_MT_TOUCH_MAJOR, mcs7000_ts_input->absbit);
 #if SUPPORT_TOUCH_KEY
-	set_bit(TOUCH_BACK, mcs7000_ts_input->keybit);
-	set_bit(TOUCH_SEARCH, mcs7000_ts_input->keybit);
+	set_bit(KEY_BACK, mcs7000_ts_input->keybit);
+	set_bit(KEY_MENU, mcs7000_ts_input->keybit);
+	set_bit(KEY_HOME, mcs7000_ts_input->keybit);
+	set_bit(KEY_SEARCH, mcs7000_ts_input->keybit);
 #endif
 
 	err = input_register_device(mcs7000_ts_input);
