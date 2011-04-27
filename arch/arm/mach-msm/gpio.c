@@ -141,6 +141,7 @@ static int msm_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 	msm_chip = container_of(chip, struct msm_gpio_chip, chip);
 	spin_lock_irqsave(&msm_chip->lock, irq_flags);
 	writel(readl(msm_chip->regs.oe) & ~BIT(offset), msm_chip->regs.oe);
+	dsb();
 	spin_unlock_irqrestore(&msm_chip->lock, irq_flags);
 	return 0;
 }
@@ -155,6 +156,7 @@ msm_gpio_direction_output(struct gpio_chip *chip, unsigned offset, int value)
 	spin_lock_irqsave(&msm_chip->lock, irq_flags);
 	msm_gpio_write(msm_chip, offset, value);
 	writel(readl(msm_chip->regs.oe) | BIT(offset), msm_chip->regs.oe);
+	dsb();
 	spin_unlock_irqrestore(&msm_chip->lock, irq_flags);
 	return 0;
 }
@@ -162,9 +164,11 @@ msm_gpio_direction_output(struct gpio_chip *chip, unsigned offset, int value)
 static int msm_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
 	struct msm_gpio_chip *msm_chip;
-
+	int rc;
 	msm_chip = container_of(chip, struct msm_gpio_chip, chip);
-	return (readl(msm_chip->regs.in) & (1U << offset)) ? 1 : 0;
+	rc = (readl(msm_chip->regs.in) & (1U << offset)) ? 1 : 0;
+	dsb();
+	return rc;
 }
 
 static void msm_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
@@ -175,6 +179,7 @@ static void msm_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	msm_chip = container_of(chip, struct msm_gpio_chip, chip);
 	spin_lock_irqsave(&msm_chip->lock, irq_flags);
 	msm_gpio_write(msm_chip, offset, value);
+	dsb();
 	spin_unlock_irqrestore(&msm_chip->lock, irq_flags);
 }
 
@@ -256,6 +261,7 @@ static void msm_gpio_irq_mask(unsigned int irq)
 		msm_gpio_clear_detect_status(msm_chip, offset);
 	msm_chip->int_enable[0] &= ~BIT(offset);
 	writel(msm_chip->int_enable[0], msm_chip->regs.int_en);
+	dsb();
 	spin_unlock_irqrestore(&msm_chip->lock, irq_flags);
 }
 
@@ -271,6 +277,7 @@ static void msm_gpio_irq_unmask(unsigned int irq)
 		msm_gpio_clear_detect_status(msm_chip, offset);
 	msm_chip->int_enable[0] |= BIT(offset);
 	writel(msm_chip->int_enable[0], msm_chip->regs.int_en);
+	dsb();
 	spin_unlock_irqrestore(&msm_chip->lock, irq_flags);
 }
 
@@ -318,6 +325,7 @@ static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
 		else
 			writel(val & ~mask, msm_chip->regs.int_pos);
 	}
+	dsb();
 	spin_unlock_irqrestore(&msm_chip->lock, irq_flags);
 	return 0;
 }
@@ -431,6 +439,7 @@ void msm_gpio_enter_sleep(int from_idle)
 		}
 	}
 
+	dsb();
 	if (smem_gpio) {
 		if (msm_gpio_debug_mask & GPIO_DEBUG_SLEEP)
 			for (i = 0; i < ARRAY_SIZE(smem_gpio->enabled); i++) {
@@ -458,6 +467,7 @@ void msm_gpio_exit_sleep(void)
 		       msm_gpio_chips[i].regs.int_en);
 	}
 
+	dsb();
 	if (smem_gpio && (smem_gpio->num_fired[0] || smem_gpio->num_fired[1])) {
 		if (msm_gpio_debug_mask & GPIO_DEBUG_SLEEP)
 			printk(KERN_INFO "gpio: fired %x %x\n",
@@ -481,14 +491,16 @@ static int __init msm_init_gpio(void)
 		set_irq_flags(i, IRQF_VALID);
 	}
 
+	set_irq_chained_handler(INT_GPIO_GROUP1, msm_gpio_irq_handler);
+	set_irq_chained_handler(INT_GPIO_GROUP2, msm_gpio_irq_handler);
+
 	for (i = 0; i < ARRAY_SIZE(msm_gpio_chips); i++) {
 		spin_lock_init(&msm_gpio_chips[i].lock);
 		writel(0, msm_gpio_chips[i].regs.int_en);
 		gpiochip_add(&msm_gpio_chips[i].chip);
 	}
+	dsb();
 
-	set_irq_chained_handler(INT_GPIO_GROUP1, msm_gpio_irq_handler);
-	set_irq_chained_handler(INT_GPIO_GROUP2, msm_gpio_irq_handler);
 	set_irq_wake(INT_GPIO_GROUP1, 1);
 	set_irq_wake(INT_GPIO_GROUP2, 2);
 	return 0;
