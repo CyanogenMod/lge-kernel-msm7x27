@@ -403,15 +403,20 @@ static void msm_pm_config_hw_before_power_down(void)
 {
 #if defined(CONFIG_ARCH_MSM7X30)
 	writel(1, APPS_PWRDOWN);
+	dsb();
 	writel(4, APPS_SECOP);
 #elif defined(CONFIG_ARCH_MSM7X27)
 	writel(0x1f, APPS_CLK_SLEEP_EN);
+	dsb();
 	writel(1, APPS_PWRDOWN);
 #else
 	writel(0x1f, APPS_CLK_SLEEP_EN);
+	dsb();
 	writel(1, APPS_PWRDOWN);
+	dsb();
 	writel(0, APPS_STANDBY_CTL);
 #endif
+	dsb();
 }
 
 /*
@@ -421,11 +426,15 @@ static void msm_pm_config_hw_after_power_up(void)
 {
 #if defined(CONFIG_ARCH_MSM7X30)
 	writel(0, APPS_SECOP);
+	dsb();
 	writel(0, APPS_PWRDOWN);
+	dsb();
 	msm_spm_reinit();
 #else
 	writel(0, APPS_PWRDOWN);
+	dsb();
 	writel(0, APPS_CLK_SLEEP_EN);
+	dsb();
 #endif
 }
 
@@ -439,6 +448,7 @@ static void msm_pm_config_hw_before_swfi(void)
 #elif defined(CONFIG_ARCH_MSM7X27)
 	writel(0x0f, APPS_CLK_SLEEP_EN);
 #endif
+	dsb();
 }
 
 /*
