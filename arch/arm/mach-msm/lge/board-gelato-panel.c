@@ -99,7 +99,7 @@ static struct gpio_i2c_pin bl_i2c_pin[] = {
 	[0] = {
 		.sda_pin	= 89,
 		.scl_pin	= 88,
-		.reset_pin	= 82,
+		.reset_pin	= GPIO_LCD_BL_EN,
 		.irq_pin	= 0,
 	},
 };
@@ -116,9 +116,9 @@ static struct platform_device bl_i2c_device = {
 };
 
 static struct aat28xx_platform_data aat2870bl_data = {
-  .gpio = 82,
-  .version = 2862,
-  .initialized = 0,
+	.gpio = GPIO_LCD_BL_EN,
+	.version = 2862,
+	.initialized = 0,
 };
 
 static struct i2c_board_info bl_i2c_bdinfo[] = {
@@ -138,7 +138,7 @@ void __init gelato_init_i2c_backlight(int bus_num)
 {
 	bl_i2c_device.id = bus_num;
 	bl_i2c_bdinfo[0].platform_data = &aat2870bl_data;
-	
+
 	init_gpio_i2c_pin(&bl_i2c_pdata, bl_i2c_pin[0],	&bl_i2c_bdinfo[0]);
 	i2c_register_board_info(bus_num, &bl_i2c_bdinfo[0], 1);
 	platform_device_register(&bl_i2c_device);

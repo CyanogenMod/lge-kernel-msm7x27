@@ -27,18 +27,7 @@
 
 int mclk_rate = 24000000;
                 
-DEFINE_MUTEX(camera_power_mutex);
 int camera_power_state;
-
-void camera_power_mutex_lock()
-{
-	mutex_lock(&camera_power_mutex);
-}
-
-void camera_power_mutex_unlock()
-{
-	mutex_unlock(&camera_power_mutex);
-}
 
 struct i2c_board_info i2c_devices[1] = {
 #if defined (CONFIG_MT9T113)
@@ -116,12 +105,7 @@ int camera_power_on (void)
 	int rc;
 	struct device *dev = muscat_backlight_dev();
 
-	camera_power_mutex_lock();
-	if(lcd_bl_power_state == BL_POWER_SUSPEND)
-	{
-		muscat_pwrsink_resume();
-		mdelay(50);
-	}
+	aat28xx_power(dev, 1);
 
 	/* clear RESET, PWDN to Low*/
 	gpio_set_value(GPIO_CAM_RESET, 0);
@@ -192,7 +176,6 @@ int camera_power_on (void)
 	camera_power_state = CAM_POWER_ON;
 
 power_on_fail:
-	camera_power_mutex_unlock();
 	return rc;
 
 }
@@ -202,12 +185,6 @@ int camera_power_off (void)
 	int rc;
 	struct device *dev = muscat_backlight_dev();
 
-	camera_power_mutex_lock();
-
-	if (lcd_bl_power_state == BL_POWER_SUSPEND) {
-		muscat_pwrsink_resume();
-		mdelay(50);
-	}
 	/*Nstandby low*/
 	gpio_set_value(GPIO_CAM_PWDN, 0);
 	mdelay(5);
@@ -252,11 +229,11 @@ int camera_power_off (void)
 		printk(KERN_ERR "%s: ldo %d control error\n", __func__, LDO_CAM_DVDD_NO);
 		goto power_off_fail;
 	}
+	aat28xx_power(dev, 0);
 	camera_power_state = CAM_POWER_OFF;
 
 
 power_off_fail:
-	camera_power_mutex_unlock();
 	return rc;
 
 }
