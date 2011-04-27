@@ -879,6 +879,7 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 	struct vcd_property_hdr *property_hdr, void *property_value)
 {
 	struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
+	struct vcd_property_frame_size *fz_size;
 	u32 vcd_status = VCD_ERR_ILLEGAL_PARM;
 	DDL_MSG_HIGH("property_hdr->prop_id:%x\n", property_hdr->prop_id);
 	switch (property_hdr->prop_id) {
@@ -887,6 +888,14 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 			property_hdr->sz) {
 			ddl_calculate_stride(&decoder->client_frame_size,
 				!decoder->progressive_only);
+			fz_size =
+			&decoder->client_frame_size;
+			fz_size->stride =
+			DDL_TILE_ALIGN(fz_size->width,
+				DDL_TILE_ALIGN_WIDTH);
+			fz_size->scan_lines =
+			DDL_TILE_ALIGN(fz_size->height,
+				DDL_TILE_ALIGN_HEIGHT);
 			*(struct vcd_property_frame_size *)
 				property_value =
 					decoder->client_frame_size;
