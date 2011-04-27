@@ -24,6 +24,7 @@
 #include <linux/fb.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/mutex.h>
 #include <mach/board_lge.h>
 
 #define MODULE_NAME  "aat2870bl"
@@ -135,6 +136,8 @@ struct aat28xx_driver_data {
 	int initialized;
 	struct aat28xx_cmds cmds;
 	struct aat28xx_reg_addrs reg_addrs;
+	struct mutex power_lock;
+	int refcnt;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
@@ -411,6 +414,48 @@ int aat28xx_ldo_set_level(struct device *dev, unsigned num, unsigned vol)
 }
 EXPORT_SYMBOL(aat28xx_ldo_set_level);
 
+static void aat28xx_power_internal(struct aat28xx_driver_data *drvdata, int on)
+{
+	if(!drvdata || !drvdata->gpio)
+		return;
+
+	if(drvdata->refcnt == 0 && !on) {
+		printk(KERN_ERR "%s: already in power off!!\n",  __func__);
+		return;
+	}
+
+	printk(KERN_INFO "%s: on = %d, refcnt = %d\n",
+		   __func__, on, drvdata->refcnt);
+
+	mutex_lock(&drvdata->power_lock);
+	if(on) {
+		if(drvdata->refcnt == 0) {
+			gpio_set_value(drvdata->gpio, 0);
+			mdelay(20);
+			gpio_set_value(drvdata->gpio, 1);
+			mdelay(2);
+		}
+		drvdata->refcnt++;
+	} else {
+		drvdata->refcnt--;
+		if(drvdata->refcnt ==0) {
+			gpio_set_value(drvdata->gpio, 0);
+			mdelay(20);
+		}
+	}
+	mutex_unlock(&drvdata->power_lock);
+}
+
+void aat28xx_power(struct device *dev, int on)
+{
+	struct i2c_adapter *adap;
+	struct i2c_client *client;
+
+	if((adap = dev_get_drvdata(dev)) && (client=i2c_get_adapdata(adap)))
+		aat28xx_power_internal(i2c_get_clientdata(client), on);
+}
+EXPORT_SYMBOL(aat28xx_power);
+
 static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx_ctrl_tbl *ptbl)
 {
 	unsigned int i = 0;
@@ -442,13 +487,7 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 
 static void aat28xx_hw_reset(struct aat28xx_driver_data *drvdata)
 {
-	if (drvdata->client && gpio_is_valid(drvdata->gpio)) {
-		/* EN set to LOW(shutdown) -> HIGH(enable) */
-		gpio_set_value(drvdata->gpio, 0);
-		mdelay(20);
-		gpio_set_value(drvdata->gpio, 1);
-		mdelay(2);
-	}
+	aat28xx_power_internal(drvdata, 1);
 }
 
 static void aat28xx_go_opmode(struct aat28xx_driver_data *drvdata)
@@ -471,6 +510,7 @@ static void aat28xx_go_opmode(struct aat28xx_driver_data *drvdata)
 static void aat28xx_device_init(struct aat28xx_driver_data *drvdata)
 {
 	if (drvdata->initialized && system_state == SYSTEM_BOOTING) {
+		drvdata->refcnt++;
 		aat28xx_go_opmode(drvdata);
 		return;
 	}
@@ -630,26 +670,10 @@ static void aat28xx_early_suspend(struct early_suspend * h)
 {
 	struct aat28xx_driver_data *drvdata = container_of(h, struct aat28xx_driver_data,
 						    early_suspend);
-	int retry = 0;
 
 	dprintk("start\n");
 	aat28xx_sleep(drvdata);
-
-	/*
-	 * 2011-04-23, jinkyu.choi@lge.com
-	 * wait for LDO disable for 500 msec if LODs is enabled
-	 */
-	for (retry = 10; retry != 0; retry--) {
-		if (drvdata->reg_ldo_enable == 0) {
-			gpio_direction_output(drvdata->gpio, 0);
-			break;
-		} else {
-			printk("%s can't be disabled, enabled LDO %d\n",
-					__func__, drvdata->reg_ldo_enable);
-		}
-		msleep(50);
-		printk("%s retry cnt remain %d\n", __func__, retry);
-	}
+	aat28xx_power_internal(drvdata, 0);
 
 	return;
 }
@@ -660,7 +684,7 @@ static void aat28xx_late_resume(struct early_suspend * h)
 						    early_suspend);
 
 	dprintk("start\n");
-	gpio_direction_output(drvdata->gpio, 1);
+	aat28xx_power_internal(drvdata, 1);
 	aat28xx_wakeup(drvdata);
 
 	return;
@@ -670,12 +694,14 @@ static int aat28xx_suspend(struct i2c_client *i2c_dev, pm_message_t state)
 {
 	struct aat28xx_driver_data *drvdata = i2c_get_clientdata(i2c_dev);
 	aat28xx_sleep(drvdata);
+	aat28xx_power_internal(drvdata, 0);
 	return 0;
 }
 
 static int aat28xx_resume(struct i2c_client *i2c_dev)
 {
 	struct aat28xx_driver_data *drvdata = i2c_get_clientdata(i2c_dev);
+	aat28xx_power_internal(drvdata, 1);
 	aat28xx_wakeup(drvdata);
 	return 0;
 }
@@ -700,8 +726,7 @@ static void aat28xx_shutdown(struct i2c_client *i2c_dev) {
 
 	/* change the state to sleep and disable the backlight ic */
 	aat28xx_sleep(drvdata);
-	gpio_direction_output(drvdata->gpio, 0);
-
+	aat28xx_power_internal(drvdata, 0);
 	//printk("%s is done!\n", __func__);
 }
 
@@ -910,6 +935,7 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 		kfree(drvdata);
 		return -ENODEV;
 	}
+
 	if (drvdata->gpio && gpio_request(drvdata->gpio, "aat28xx_en") != 0) {
 		eprintk("Error while requesting gpio %d\n", drvdata->gpio);
 		kfree(drvdata);
@@ -941,6 +967,8 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 		err = device_create_file(drvdata->led->dev, &dev_attr_max_current);
 	}
 #endif
+
+	mutex_init(&drvdata->power_lock);
 
 	i2c_set_clientdata(i2c_dev, drvdata);
 	i2c_set_adapdata(i2c_dev->adapter, i2c_dev);
