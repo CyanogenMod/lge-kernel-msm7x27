@@ -846,16 +846,25 @@ void android_enable_function(struct usb_function *f, int enable)
 		}
 #endif
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
+		/* LGE_CHANGE
+		 * Handle to enable adb when mass storage only mode.
+		 * 2011-04-16, hyunhui.park@lge.com
+		 */
+		if (device_desc.idProduct == LGE_UMSONLY_PID) {
+			/* When adb enable during mass storage only */
+			if (!strcmp(f->name, "adb")) {
+				set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
+				android_set_default_product(dev->product_id);
+			}
+		}
+#endif
 		product_id = get_product_id(dev);
 		device_desc.idProduct = __constant_cpu_to_le16(product_id);
 		if (dev->cdev)
 			dev->cdev->desc.idProduct = device_desc.idProduct;
 
 		usb_composite_force_reset(dev->cdev);
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-		/* Trigger uevent for enabling/disabling function */
-		usb_function_set_enabled(f, enable);
-#endif
 	}
 }
 

@@ -27,6 +27,9 @@ else
 	params_phys-$(CONFIG_MACH_MSM7X27_MUSCAT)   := 0x02800100
 	initrd_phys-$(CONFIG_MACH_MSM7X27_MUSCAT)   := 0x03800000
 
+	   zreladdr-$(CONFIG_MACH_MSM7X27_JUMP)   := 0x02808000
+	params_phys-$(CONFIG_MACH_MSM7X27_JUMP)   := 0x02800100
+	initrd_phys-$(CONFIG_MACH_MSM7X27_JUMP)   := 0x03800000
 endif
 
 # MSM7x30

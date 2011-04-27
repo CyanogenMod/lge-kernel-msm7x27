@@ -1591,7 +1591,7 @@ static int msm_batt_cb_func(struct msm_rpc_client *client,
 
 #if defined(CONFIG_LGE_DETECT_PIF_PATCH)
 static unsigned pif_value;
-static unsigned low_power_mode;
+//static unsigned low_power_mode;
 
 static ssize_t msm_batt_pif_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
@@ -1792,8 +1792,8 @@ static int __devinit msm_batt_probe(struct platform_device *pdev)
 			"%s: msm_batt_cleanup  failed rc=%d\n", __func__, rc);
 	} else {
 		pif_value = lge_get_pif_info();
-		mdelay(10);
-		low_power_mode = lge_get_lpm_info();
+		//mdelay(10);
+		//low_power_mode = lge_get_lpm_info();
 	}
 
 	dev_info(&pdev->dev, "%s : Using PIF ZIG (%d)\n", __func__, pif_value);

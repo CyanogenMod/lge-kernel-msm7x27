@@ -684,11 +684,15 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 
 		bcm_ether_atoe(value, &ea);
 
+/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-04-13, <sync macaddrd: firmware & driver> */
+#if !defined (CONFIG_LGE_BCM432X_PATCH)
 		ret = memcmp( &ea.octet, dhd->mac.octet, ETHER_ADDR_LEN);
 		if(ret == 0){
 			DHD_ERROR(("%s: Same Macaddr\n",__FUNCTION__));
 			return 0;
 		}
+#endif
+/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-04-13, <sync macaddrd: firmware & driver> */
 
 		DHD_ERROR(("%s: Change Macaddr = %02X:%02X:%02X:%02X:%02X:%02X\n",__FUNCTION__,
 					ea.octet[0], ea.octet[1], ea.octet[2],

@@ -70,7 +70,7 @@
 #include <linux/usb/android_composite.h>
 #endif
 #include <mach/board_lge.h>
-#include "board-gelato.h"
+#include "board-jump.h"
 
 /* board-specific pm tuning data definitions */
 
@@ -398,7 +398,7 @@ struct android_usb_platform_data android_usb_pdata = {
 	.products = usb_products,
 	.num_functions = ARRAY_SIZE(usb_functions_lge_all),
 	.functions = usb_functions_lge_all,
-	.serial_number = "LG_ANDROID_P690_GB_",
+	.serial_number = "LG_ANDROID_C660_GB_",
 };
 
 #endif /* CONFIG_USB_ANDROID */
@@ -443,12 +443,19 @@ static void msm7x27_wlan_init(void)
 	}
 }
 
-/* decrease FB pmem size because gelato uses hvga
+/* decrease FB pmem size because thunderg uses hvga
  * qualcomm's original value depends on wvga resolution
  * 2010-04-18, cleaneye.kim@lge.com
  */
-unsigned pmem_fb_size = 	0x96000;
-unsigned pmem_adsp_size =	0xAE4000; 
+/* jump, QVGA */
+unsigned pmem_fb_size = 	0x50000;
+unsigned pmem_adsp_size =	0xAE4000;
+
+/* decrease MDP pmem size in case of gpu and ashmem.
+ * this should be synch. with android display framework.
+ * 2011-03-28, jinkyu.choi@lge.com
+ */
+unsigned pmem_mdp_size = 0x5A0000;
 
 static void __init msm7x2x_init(void)
 {
@@ -458,8 +465,8 @@ static void __init msm7x2x_init(void)
 	msm_clock_init(msm_clocks_7x27, msm_num_clocks_7x27);
 
 #if defined(CONFIG_MSM_SERIAL_DEBUGGER)
-	msm_serial_debug_init(MSM_UART3_PHYS, INT_UART3,
-			&msm_device_uart3.dev, 1);
+	msm_serial_debug_init(MSM_UART1_PHYS, INT_UART1,
+			&msm_device_uart1.dev, 1);
 #endif
 
 	if (cpu_is_msm7x27())
@@ -469,12 +476,10 @@ static void __init msm7x2x_init(void)
 
 	msm_add_pmem_devices();
 	msm_add_fb_device();
-
 #if !defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	if (lge_get_uart_mode())
 		platform_device_register(&msm_device_uart3);
 #endif
-
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 #ifdef CONFIG_ARCH_MSM7X27
 	msm_add_kgsl_device();
@@ -485,7 +490,6 @@ static void __init msm7x2x_init(void)
 	config_camera_off_gpios(); /* might not be necessary */
 #endif
 	msm_device_i2c_init();
-	i2c_register_board_info(0, i2c_devices, ARRAY_SIZE(i2c_devices));
 
 	if (cpu_is_msm7x27())
 		msm_pm_set_platform_data(msm7x27_pm_data,
@@ -527,7 +531,7 @@ static void __init msm7x2x_map_io(void)
 #endif
 }
 
-MACHINE_START(MSM7X27_GELATO, "GELATO Global board (LGE LGP690)")
+MACHINE_START(MSM7X27_JUMP, "JUMP board (LGE LGXXX)")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io        = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst    = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,

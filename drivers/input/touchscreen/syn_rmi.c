@@ -28,9 +28,6 @@
 #include <mach/vreg.h>
 #include "syn_reflash.h"
 
-#define REFLASH_SUCCEED     0
-#define POLLING_TIME 	    1 /* polling time(msec) when touch was pressed */
-
 #define INT_STATUS			0x14
 
 #define SYN_INT_REG			0x26
@@ -86,64 +83,64 @@ struct synaptics_ts_data {
 
 typedef struct
 {
-	unsigned char dev_status;                   //0x13
-	unsigned char int_status;			        //0x14
-	unsigned char finger_state;				    //0x15
+	unsigned char dev_status;                   /* 0x13 */
+	unsigned char int_status;			        /* 0x14 */
+	unsigned char finger_state;				    /* 0x15 */
 
-	// Finger 0
-	unsigned char X_high0;                      //0x16
-	unsigned char Y_high0;                      //0x17
-	unsigned char XY_low0;	                    //0x18
-	unsigned char XY_width0;	        		//0x19
-	unsigned char Z_finger0;    				//0x1A
-	// Finger 1
-	unsigned char X_high1;                      //0x1B
-	unsigned char Y_high1;                    	//0x1C
-	unsigned char XY_low1;	                    //0x1D
-	unsigned char XY_width1;			        //0x1E
-	unsigned char Z_finger1;			    	//0x1F
+	/* Finger 0 */
+	unsigned char X_high0;                      /* 0x16 */
+	unsigned char Y_high0;                      /* 0x17 */
+	unsigned char XY_low0;	                    /* 0x18 */
+	unsigned char XY_width0;	        		/* 0x19 */
+	unsigned char Z_finger0;    				/* 0x1A */
+	/* Finger 1 */
+	unsigned char X_high1;                      /* 0x1B */
+	unsigned char Y_high1;                    	/* 0x1C */
+	unsigned char XY_low1;	                    /* 0x1D */
+	unsigned char XY_width1;			        /* 0x1E */
+	unsigned char Z_finger1;			    	/* 0x1F */
  } ts_sensor_data;
 
-typedef struct 									// synaptics 3000
+typedef struct 									/* synaptics 3000 */
 {
-	unsigned char device_command;				//0x70
-	unsigned char command_2d;					//0x71
-	unsigned char bootloader_id0;				//0x72
-	unsigned char bootloader_id1;				//0x73
-	unsigned char flash_properties;				//0x74
-	unsigned char block_size0;					//0x75
-	unsigned char block_size1;					//0x76
-	unsigned char firmware_block_cnt0;			//0x77
-	unsigned char firmware_block_cnt1;			//0x78
-	unsigned char config_block_cnt0;			//0x79
-	unsigned char config_block_cnt1;			//0x7A
-	unsigned char manufact_id_query;			//0x7B
-	unsigned char product_properties_query;		//0x7C
-	unsigned char customer_family_query;		//0x7D
-	unsigned char firmware_revision_query;		//0x7E
-	unsigned char device_serialization_query0;	//0x7F
-	unsigned char device_serialization_query1;	//0x80
-	unsigned char device_serialization_query2;	//0x81
-	unsigned char device_serialization_query3;	//0x82
-	unsigned char device_serialization_query4;	//0x83
-	unsigned char device_serialization_query5;	//0x84
-	unsigned char device_serialization_query6;	//0x85
-	unsigned char product_id_query0;			//0x86
-	unsigned char product_id_query1;			//0x87
-	unsigned char product_id_query2;			//0x88
-	unsigned char product_id_query3;			//0x89
-	unsigned char product_id_query4;			//0x8A
-	unsigned char product_id_query5;			//0x8B
-	unsigned char product_id_query6;			//0x8C
-	unsigned char product_id_query7;			//0x8D
-	unsigned char product_id_query8;			//0x8E
-	unsigned char product_id_query9;			//0x8F
-	unsigned char per_device_query;				//0x90
-	unsigned char reporting_mode_2d;			//0x91
-	unsigned char number_x_electrode_2d;		//0x92
-	unsigned char number_y_electrode_2d;		//0x93
-	unsigned char maximum_electorde_2d;			//0x94
-	unsigned char absolute_query_2d;			//0x95
+	unsigned char device_command;				/* 0x70 */
+	unsigned char command_2d;					/* 0x71 */
+	unsigned char bootloader_id0;				/* 0x72 */
+	unsigned char bootloader_id1;				/* 0x73 */
+	unsigned char flash_properties;				/* 0x74 */
+	unsigned char block_size0;					/* 0x75 */
+	unsigned char block_size1;					/* 0x76 */
+	unsigned char firmware_block_cnt0;			/* 0x77 */
+	unsigned char firmware_block_cnt1;			/* 0x78 */
+	unsigned char config_block_cnt0;			/* 0x79 */
+	unsigned char config_block_cnt1;			/* 0x7A */
+	unsigned char manufact_id_query;			/* 0x7B */
+	unsigned char product_properties_query;		/* 0x7C */
+	unsigned char customer_family_query;		/* 0x7D */
+	unsigned char firmware_revision_query;		/* 0x7E */
+	unsigned char device_serialization_query0;	/* 0x7F */
+	unsigned char device_serialization_query1;	/* 0x80 */
+	unsigned char device_serialization_query2;	/* 0x81 */
+	unsigned char device_serialization_query3;	/* 0x82 */
+	unsigned char device_serialization_query4;	/* 0x83 */
+	unsigned char device_serialization_query5;	/* 0x84 */
+	unsigned char device_serialization_query6;	/* 0x85 */
+	unsigned char product_id_query0;			/* 0x86 */
+	unsigned char product_id_query1;			/* 0x87 */
+	unsigned char product_id_query2;			/* 0x88 */
+	unsigned char product_id_query3;			/* 0x89 */
+	unsigned char product_id_query4;			/* 0x8A */
+	unsigned char product_id_query5;			/* 0x8B */
+	unsigned char product_id_query6;			/* 0x8C */
+	unsigned char product_id_query7;			/* 0x8D */
+	unsigned char product_id_query8;			/* 0x8E */
+	unsigned char product_id_query9;			/* 0x8F */
+	unsigned char per_device_query;				/* 0x90 */
+	unsigned char reporting_mode_2d;			/* 0x91 */
+	unsigned char number_x_electrode_2d;		/* 0x92 */
+	unsigned char number_y_electrode_2d;		/* 0x93 */
+	unsigned char maximum_electorde_2d;			/* 0x94 */
+	unsigned char absolute_query_2d;			/* 0x95 */
 }ts_sensor_command;
 
 typedef struct {
@@ -166,12 +163,12 @@ static int tapcount = 0;
 static int first_touch = 0;
 
 uint16_t max_x, max_y;
-int is_need_update = 0;// is_need_update = 0;
+int is_need_update = 0;
 int is_fw_reflash = 0;
 
 EXPORT_SYMBOL(max_x);
 EXPORT_SYMBOL(max_y);
-EXPORT_SYMBOL(is_need_update); //is_need_update);
+EXPORT_SYMBOL(is_need_update);
 EXPORT_SYMBOL(is_fw_reflash);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -193,10 +190,9 @@ static __inline void esd_recovery(struct synaptics_ts_data *ts)
 {
 	int ret;
 
-    if (ts->use_irq)
-		disable_irq_nosync(ts->client->irq);
-	else
+    if (!ts->use_irq)
 		hrtimer_cancel(&ts->timer);
+
 	msleep(20);
     ret = i2c_smbus_write_byte_data(ts->client, SYN_CONTROL, SYN_CONT_SLEEP); /* sleep */
 	if (ret < 0) {
@@ -207,15 +203,14 @@ static __inline void esd_recovery(struct synaptics_ts_data *ts)
 		ret = ts->power(0);
 		if (ret < 0)
 			printk("[TOUCH] power off failed\n");
-	}
 
-	msleep(20);
-
-	if (ts->power) {
 		ret = ts->power(1);
 		if (ret < 0)
 			printk("[TOUCH] power on failed\n");
 	}
+
+    i2c_smbus_read_byte_data(ts->client, INT_STATUS);
+	melt_mode = 1;
 }
 
 static void ts_work_func(struct work_struct *work)
@@ -261,14 +256,13 @@ static void ts_work_func(struct work_struct *work)
 		width1 = (width1 & 0xF0) >> 4;
 	else
 		width1 = (width1 & 0xF);
-
-	if (finger0_status && finger1_status) {  // 1 & 2
+	if (finger0_status && finger1_status) {    /* 1 & 2 */
 		touch_pressed = 1;
 		multi = 1;
 		tapcount = 0;
 		ts_event_touch(1, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
 		ts_event_touch(1, width1, curr_ts_data.X_position[1], curr_ts_data.Y_position[1], ts);
-	} else if (finger0_status) {  // 1 only
+	} else if (finger0_status) {    /* 1 only */
 		first_touch++;
 		touch_pressed = 1;
 		if (first_touch == 1) {
@@ -276,39 +270,38 @@ static void ts_work_func(struct work_struct *work)
 			tmp_oldy = curr_ts_data.Y_position[0];
 		}
 		ts_event_touch(1, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
-		if (multi == 1) {  // 1 & 2 ==> release 2
+		if (multi == 1) {    /* 1 & 2 ==> release 2 */
 			multi = 0;
 			ts_event_touch(0, width1, curr_ts_data.X_position[1], curr_ts_data.Y_position[1], ts);
 		}
-	} else if (finger1_status) {  // 2 only
+	} else if (finger1_status) {    /* 2 only */
 		ts_event_touch(1, width1, curr_ts_data.X_position[1], curr_ts_data.Y_position[1], ts);
-		if (multi == 1) {  // 1 & 2 ==> release 1
+		if (multi == 1) {    /* 1 & 2 ==> release 1 */
 			multi = 0;
 			ts_event_touch(0, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
 		}
-	} else if (multi == 1 && touch_pressed == 1) {  // release 1 & 2
+	} else if (multi == 1 && touch_pressed == 1) {    /* release 1 & 2 */
 		multi = 0;
 		touch_pressed =0;
 		first_touch = 0;
 		tapcount = 0;
 		ts_event_touch(0, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
 		ts_event_touch(0, width1, curr_ts_data.X_position[1], curr_ts_data.Y_position[1], ts);
-	} else if (touch_pressed == 1) {  // 1 only ==> release 1
+	} else if (touch_pressed == 1) {    /* 1 only ==> release 1 */
 		touch_pressed = 0;
 		first_touch = 0;
 		ts_event_touch(0, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
-		if (melt_mode == 1) {  // melt_mode
-			if ((abs(tmp0_x - tmp_oldx) > 140) || (abs(tmp0_y - tmp_oldy) > 140)){  // long drag
+		if (melt_mode == 1) {    /* melt_mode */
+			if ((abs(tmp0_x - tmp_oldx) > 140) || (abs(tmp0_y - tmp_oldy) > 140)){  /* long drag */
 				i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING, MELTING_NO);
 				melt_mode = 0;
-			} else if (tapcount++ > 2) {  // tapping!!!!
+			} else if (tapcount++ > 2) {    /* tapping!!!! */
 				i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING, MELTING_NO);
 				melt_mode = 0;
 			}
 		}
 	}
 	input_sync(ts->input_dev);
-	msleep(POLLING_TIME);
 
 	if (ts->use_irq)
 	{
@@ -326,8 +319,7 @@ static void ts_reflash_work_func(struct work_struct *work)
 	if (ts->use_irq)
 		disable_irq_nosync(ts->client->irq);
 
-	if(firmware_reflash(ts->client, ts->fw_revision) == REFLASH_SUCCEED)
-	{
+	if(firmware_reflash(ts->client, ts->fw_revision) == 0) {
 		printk("[TOUCH] ts_reflash_work_func : DoReflash succeed!\n");
 
 		ret = i2c_smbus_read_byte_data(ts->client, ts_cmd_reg_data.firmware_revision_query);
@@ -390,7 +382,7 @@ static enum hrtimer_restart synaptics_ts_timer_func(struct hrtimer *timer)
 	struct synaptics_ts_data *ts = container_of(timer, struct synaptics_ts_data, timer);
 
 	queue_work(synaptics_wq, &ts->work);
-		hrtimer_start(&ts->timer, ktime_set(0, 12500000), HRTIMER_MODE_REL); /* 12.5 msec */
+	hrtimer_start(&ts->timer, ktime_set(0, 12500000), HRTIMER_MODE_REL); /* 12.5 msec */
 
     return HRTIMER_NORESTART;
 }
@@ -487,8 +479,7 @@ static int synaptics_ts_probe(
 	product_id_query= ret + 11;
 
 	ret = i2c_smbus_read_i2c_block_data(ts->client, product_id_query, sizeof(product_name)-1, product_name);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		printk("[TOUCH] synaptics_ts_probe : i2c_smbus_read_i2c_block_data failed: product_id_query\n");
 	}
 
@@ -524,12 +515,14 @@ static int synaptics_ts_probe(
 	}
 	max_x |= (((ret & 0xFF) << 8) & 0xff00);
 	ts->max[0] = max_x;
-	printk("[TOUCH] max_x  ===> %d", max_x);
+	printk("[TOUCH] max_x  ===> %d\n", max_x);
+
 	ret = i2c_smbus_read_word_data(ts->client, MAX_Y_LOW);
 	if (ret < 0) {
 		printk("[TOUCH] i2c_smbus_read_word_data failed\n");
 	}
 	max_y = (ret & 0xFF);
+	printk("[TOUCH] max_y  ===> %d\n", max_y);
 
 	ret = i2c_smbus_read_word_data(ts->client, MAX_Y_HIGH);
 	if (ret < 0) {
@@ -538,15 +531,13 @@ static int synaptics_ts_probe(
 	max_y |= (((ret & 0xFF) << 8) & 0xff00);
 	ts->max[1] = max_y;
 
-	if((max_x == 0x00) || (max_y == 0x00))
-	{
+	if((max_x == 0x00) || (max_y == 0x00)) {
 		printk("[TOUCH] F/W image is not normal status : need upgrade.\n");
-		is_need_update = 1; //is_need_update = 1;
+		is_need_update = 1;
 	}
 
 	ret = i2c_smbus_read_i2c_block_data(ts->client, START_ADDR, sizeof(ts_reg_data), (unsigned char*)&ts_reg_data);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		printk("[TOUCH] synaptics_ts_probe : i2c_smbus_read_i2c_block_data failed: START_ADDR\n");
 	}
 
@@ -573,21 +564,16 @@ static int synaptics_ts_probe(
 		goto err_input_register_device_failed;
 	}
 
-	if (client->irq)
-	{
+	if (client->irq) {
 		ret = request_irq(client->irq, synaptics_ts_irq_handler, irqflags, client->name, ts);
 
-		if (ret == 0)
-		{
+		if (ret == 0) {
 			ts->use_irq = 1;
-		}
-		else
-		{
+		} else {
 			dev_err(&client->dev, "request_irq failed\n");
 		}
 	}
-	if (!ts->use_irq)
-	{
+	if (!ts->use_irq) {
 		hrtimer_init(&ts->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 		ts->timer.function = synaptics_ts_timer_func;
 		hrtimer_start(&ts->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
@@ -635,8 +621,7 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	int ret;
 	struct synaptics_ts_data *ts = i2c_get_clientdata(client);
 
-	if(is_fw_reflash == 1)
-	{
+	if(is_fw_reflash == 1) {
 		printk("[TOUCH] synaptics_ts_suspend: during f/w image update - block suspend\n");
 		return 0;
 	}
