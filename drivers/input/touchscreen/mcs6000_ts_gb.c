@@ -55,6 +55,7 @@ static void mcs6000_late_resume(struct early_suspend *h);
 
 
 #define TS_POLLING_TIME 10 /* msec */
+#define	TS_SENSE_CH_CNT	21
 
 
 #define LG_FW_MULTI_TOUCH
@@ -131,6 +132,7 @@ struct mcs6000_ts_data {
 	int fw_version;
 	int hw_version;
 	int status;
+	int tsp_type;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
@@ -488,7 +490,7 @@ static irqreturn_t mcs6000_ts_irq_handler(int irq, void *dev_id)
 static void mcs6000_firmware_info(unsigned char* fw_ver, unsigned char* hw_ver)
 {
 	//int ret = 0;
-	char ret = 0;
+	char ret = 0;	
 	struct vreg *vreg_touch = vreg_get(0, "synt");
 
 	if (MCS6000_DM_TRACE_FUNC & mcs6000_debug_mask)
@@ -506,6 +508,7 @@ static void mcs6000_firmware_info(unsigned char* fw_ver, unsigned char* hw_ver)
 
 	*fw_ver = 0xfa;
 	*hw_ver = 0xfa;
+	mcs6000_ext_ts->tsp_type = 0x00;
 
 	{
 		int retry = 10;
@@ -549,8 +552,71 @@ static void mcs6000_firmware_info(unsigned char* fw_ver, unsigned char* hw_ver)
 
 	//if (MCS6000_DM_TRACE_YES & mcs6000_debug_mask)
 		DMSG("MCS-6000 hardware version(0x%x)\n", ret);
-
+	
 	mcs6000_ext_ts->hw_version = *hw_ver = (unsigned char)ret;
+
+#if defined(CONFIG_MACH_MSM7X27_MUSCAT)
+	{
+		int retry = 10;
+		while ((retry-- > 0)) {			
+			read_buf[0]= 0x28;
+			i2c_master_send(mcs6000_ext_ts->client,read_buf ,1);
+			i2c_master_recv(mcs6000_ext_ts->client,&ret ,1);
+			if (ret >= 0)
+				break;
+			msleep(100);			
+		}
+	}
+			
+	if (ret < 0) {
+		printk(KERN_ERR "mcs6000_panel_info : i2c read failed\n");		
+		return;
+	}
+	mcs6000_ext_ts->tsp_type = ret;
+
+	DMSG("MCS-6000 panel pattern type (0x%x)\n", ret);
+
+	{
+		int retry = 10;
+		while ((retry-- > 0)) {			
+			read_buf[0]= 0x22;
+			i2c_master_send(mcs6000_ext_ts->client,read_buf ,1);
+			i2c_master_recv(mcs6000_ext_ts->client,&ret ,1);
+			if (ret >= 0)
+				break;
+			msleep(100);			
+		}
+	}
+			
+	if (ret < 0) {
+		printk(KERN_ERR "mcs6000_panel_info : i2c read failed\n");		
+		return;
+	}
+
+
+	switch(ret)
+	{
+		case 0x01:	// tsp vendor : yount fast
+			if( mcs6000_ext_ts->tsp_type == 1 )
+			{
+				mcs6000_ext_ts->tsp_type = 1; //yount fast : diamond
+			}
+			break;
+			
+		case 0x02:	// tsp vendor : lg-inotek
+			if( mcs6000_ext_ts->tsp_type == 1 )
+			{
+				mcs6000_ext_ts->tsp_type = 2;	//lg-inotek : diamond
+			}
+			break;
+
+		default:
+			mcs6000_ext_ts->tsp_type = 0;	//young fast : triangle
+
+	}
+	
+	DMSG("MCS-6000 panel vendor (0x%x)\n", mcs6000_ext_ts->tsp_type);
+#endif
 }
 
 /* now,Does not support mcs6000 F/W downloads */
@@ -722,6 +788,7 @@ static int mcs6000_ioctl(struct inode *inode, struct file *file,
 {
 	int err = -1;
 	unsigned char fw_ver = 0, hw_ver = 0;
+	
 
 	if (MCS6000_DM_TRACE_FUNC & mcs6000_debug_mask)
 		DMSG("\n");
@@ -736,7 +803,11 @@ static int mcs6000_ioctl(struct inode *inode, struct file *file,
 					{
 						msleep(100);
 						mcs6000_firmware_info(&fw_ver, &hw_ver);
-						err = fw_rev = fw_ver;
+						err = fw_rev = fw_ver;	
+						err |= hw_ver<<8;
+						err |= mcs6000_ext_ts->tsp_type<<16;
+						printk(KERN_INFO "mcs6000 TSP TYPE: %x\n", mcs6000_ext_ts->tsp_type);
+						printk(KERN_INFO "mcs6000 ioctl version info: %x\n", err);
 						break;
 					}
 				case MCS6000_TS_IOCTL_MAIN_ON:
@@ -831,12 +902,13 @@ mcs6000_version_show(struct device *dev, struct device_attribute *attr, char *bu
 {
 	struct mcs6000_ts_data *ts = dev_get_drvdata(dev);
 	unsigned char hw_ver, fw_ver;
+	
 
 	if (ts->status == MCS6000_DEV_DOWNLOAD)
 		return snprintf(buf, PAGE_SIZE, "Now, MCS-6000 FW update is going, check it later\n");
-	mcs6000_firmware_info(&fw_ver, &hw_ver);
-	return snprintf(buf, PAGE_SIZE, "fw:0x%x, hw:0x%x\n", 
-			ts->fw_version, ts->hw_version);
+	mcs6000_firmware_info(&fw_ver, &hw_ver);	
+	return snprintf(buf, PAGE_SIZE, "fw:0x%x, hw:0x%x, panel:0x%x\n", 
+			ts->fw_version, ts->hw_version, ts->tsp_type);
 }
 
 	static ssize_t 
@@ -1001,8 +1073,10 @@ mcs6000_sensitivity_show(struct device *dev, struct device_attribute *attr, char
 {
 
 	
-	int len=0;
-	unsigned char read_buf[20];	
+	int len=0;	
+	int sense_cnt = 0;
+	unsigned char read_buf[TS_SENSE_CH_CNT];	
+	
 	
 	
 	struct mcs6000_ts_data *ts = dev_get_drvdata(dev);
@@ -1012,31 +1086,28 @@ mcs6000_sensitivity_show(struct device *dev, struct device_attribute *attr, char
 		return len;
 	}
 
-	
-	if ( i2c_smbus_read_i2c_block_data(ts->client, 0x30, 20, read_buf) < 0) {
+
+	if ( i2c_smbus_read_i2c_block_data(ts->client, 0x30, TS_SENSE_CH_CNT, read_buf) < 0) {
 		printk(KERN_ERR "%s touch ic read error\n", __FUNCTION__);
 		len = sprintf(buf,"MCS6000 read error\n ");
 		return len;
 		
 	} 
-
-
 		
 
-	len = snprintf(buf, PAGE_SIZE, "\nMCS-6000 Channel Sensitivity\n");
+	len = snprintf(buf, PAGE_SIZE, "\nMCS-6000 Channel Sensitivity[%x]\n", ts->tsp_type);
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "Right Ch. : %d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", \
-		read_buf[0],read_buf[1],read_buf[2],read_buf[3],read_buf[4],read_buf[5],read_buf[6],read_buf[7],read_buf[8],read_buf[9]);
-	
-	len += snprintf(buf + len, PAGE_SIZE - len, "Left Ch.  : %d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", \
-		read_buf[10],read_buf[11],read_buf[12],read_buf[13],read_buf[14],read_buf[15],read_buf[16],read_buf[17],read_buf[18],read_buf[19]);
-	len += snprintf(buf + len, PAGE_SIZE - len, "Interrupt :%d\n", gpio_get_value(ts->intr_gpio));
+	for(sense_cnt=0; sense_cnt<TS_SENSE_CH_CNT; sense_cnt++)
+	{
+		len += snprintf(buf + len, PAGE_SIZE - len,"%d,",read_buf[sense_cnt]);
+
+	}
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "\nInterrupt :%d\n", gpio_get_value(ts->intr_gpio));
 	len += snprintf(buf + len, PAGE_SIZE - len, "<< X1:%d X2:%d Y1:%d Y2:%d  >>\n", \
-		coord_array[0], coord_array[1], coord_array[2], coord_array[3]);
-
-	coord_array[0] = coord_array[1] = 0;
-	coord_array[2] = coord_array[3] = 0;
-
+		coord_array[0], coord_array[1], coord_array[2], coord_array[3]);		
+	//coord_array[0] = coord_array[1] = 0;
+	//coord_array[2] = coord_array[3] = 0;	
 	
 	return len;	
 }
@@ -1344,6 +1415,8 @@ static int mcs6000_ts_resume(struct i2c_client *client)
 
 	if (MCS6000_DM_TRACE_FUNC & mcs6000_debug_mask)
 		DMSG("\n");
+
+	gpio_request(ts->num_irq, "MCS6000-IRQ");	
 
 	gpio_direction_input(ts->intr_gpio);
 
