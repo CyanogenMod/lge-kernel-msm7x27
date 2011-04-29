@@ -152,5 +152,6 @@ void vidc_sm_set_encoder_new_i_period(struct ddl_buf_addr *shared_mem,
 	u32 new_i_period);
 void vidc_sm_set_encoder_init_rc_value(struct ddl_buf_addr *shared_mem,
 	u32 new_rc_value);
-
+void vidc_sm_set_concealment_color(struct ddl_buf_addr *shared_mem,
+	u32 conceal_ycolor, u32 conceal_ccolor);
 #endif

@@ -470,6 +470,16 @@ void vidc_sm_get_min_yc_dpb_sizes(struct ddl_buf_addr *shared_mem,
 		VIDC_SM_MIN_CHROMA_DPB_SIZE_ADDR);
 }
 
+void vidc_sm_set_concealment_color(struct ddl_buf_addr *shared_mem,
+	u32 conceal_ycolor, u32 conceal_ccolor)
+{
+	u32 conceal_color;
+
+	conceal_color = (((conceal_ycolor << 8) & 0xff00) |
+		(conceal_ccolor & 0xff));
+	DDL_MEM_WRITE_32(shared_mem, 0x00f0, conceal_color);
+}
+
 void vidc_sm_set_metadata_enable(struct ddl_buf_addr *shared_mem,
 	u32 extradata_enable, u32 qp_enable, u32 concealed_mb_enable,
 	u32 vc1Param_enable, u32 sei_nal_enable, u32 vui_enable,
