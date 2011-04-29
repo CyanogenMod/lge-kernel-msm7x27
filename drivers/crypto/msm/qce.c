@@ -543,7 +543,11 @@ static int _init_ce_engine(struct qce_device *pce_dev)
 
 	/* reset qce */
 	writel(1 << CRYPTO_SW_RST, pce_dev->iobase + CRYPTO_CONFIG_REG);
-	wmb(); /* barrier */
+
+	/* Ensure previous instruction (write to reset bit)
+	 * was completed.
+	 */
+	dsb();
 	msleep(1);
 	/* configure ce */
 	val = (1 << CRYPTO_MASK_DOUT_INTR) | (1 << CRYPTO_MASK_DIN_INTR) |
@@ -646,7 +650,10 @@ static int _sha_ce_setup(struct qce_device *pce_dev, struct qce_sha_req *sreq)
 	/* issue go to crypto   */
 	wmb(); /* barrier */
 	writel(1 << CRYPTO_GO, pce_dev->iobase + CRYPTO_GOPROC_REG);
-	wmb(); /* barrier */
+	/* Ensure previous instructions (setting the GO register)
+	 * was completed before issuing a DMA transfer request
+	 */
+	dsb();
 
 	return 0;
 }
@@ -862,7 +869,10 @@ static int _ce_setup(struct qce_device *pce_dev, struct qce_req *q_req,
 	/* issue go to crypto   */
 	wmb(); /* barrier */
 	writel(1 << CRYPTO_GO, pce_dev->iobase + CRYPTO_GOPROC_REG);
-	wmb(); /* barrier */
+	/* Ensure previous instructions (setting the GO register)
+	 * was completed before issuing a DMA transfer request
+	 */
+	dsb();
 	return 0;
 };
 
@@ -924,6 +934,7 @@ static void _sha_complete(struct qce_device *pce_dev)
 
 	auth_data[0] = readl(pce_dev->iobase + CRYPTO_AUTH_BYTECNT0_REG);
 	auth_data[1] = readl(pce_dev->iobase + CRYPTO_AUTH_BYTECNT1_REG);
+	dsb();
 	clk_disable(pce_dev->ce_clk);
 	pce_dev->qce_cb(areq,  pce_dev->dig_result, (unsigned char *)auth_data,
 				pce_dev->chan_ce_in_status);
