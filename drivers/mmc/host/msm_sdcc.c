@@ -2085,8 +2085,10 @@ static int msmsdcc_pm_resume(struct device *dev)
 	int rc = 0;
 
 	rc = msmsdcc_runtime_resume(dev);
-	if (host->plat->status_irq)
+	if (host->plat->status_irq) {
+		msmsdcc_check_status((unsigned long)host);
 		enable_irq(host->plat->status_irq);
+	}
 
 	/* Update the run-time PM status */
 	pm_runtime_disable(dev);
