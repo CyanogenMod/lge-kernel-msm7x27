@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/lge/board-muscat-mmc.c
+/* arch/arm/mach-msm/lge/board-jump-mmc.c
  * Copyright (C) 2010 LGE Corporation.
  * Author: SungEun Kim <cleaneye.kim@lge.com>
  *
@@ -26,7 +26,7 @@
 #include <mach/vreg.h>
 #include <mach/mpp.h>
 #include <mach/board.h>
-#include "board-muscat.h"
+#include "board-jump.h"
 
 #ifdef CONFIG_MMC
 static void sdcc_gpio_init(void)
@@ -310,7 +310,7 @@ static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 }
 
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
-static unsigned int muscat_sdcc_slot_status(struct device *dev)
+static unsigned int jump_sdcc_slot_status(struct device *dev)
 {
 #if 0
 	return !(gpio_get_value(GPIO_MMC_COVER_DETECT)||gpio_get_value(GPIO_SD_DETECT_N));
@@ -347,7 +347,7 @@ static struct mmc_platform_data msm7x2x_sdcc_data = {
 #ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	.ocr_mask		= MMC_VDD_30_31,
 	.translate_vdd	= msm_sdcc_setup_power,
-	.status 		= muscat_sdcc_slot_status,
+	.status 		= jump_sdcc_slot_status,
 	.status_irq 	= MSM_GPIO_TO_INT(GPIO_SD_DETECT_N),
 	.irq_flags		= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 	.mmc_bus_width	= MMC_CAP_4_BIT_DATA,
