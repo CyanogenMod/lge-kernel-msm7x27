@@ -71,7 +71,11 @@ static void mcs7000_late_resume(struct early_suspend *h);
 #define TOUCH_BACK      248
 #endif
 
+#if defined (CONFIG_MACH_MSM7X27_JUMP)
+#define TS_POLLING_TIME 2 /* msec */
+#else
 #define TS_POLLING_TIME 0 /* msec */
+#endif
 
 #define DEBUG_TS 0 /* enable or disable debug message */
 
