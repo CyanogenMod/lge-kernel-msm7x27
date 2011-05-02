@@ -273,6 +273,7 @@ struct aat28xx_platform_data {
 };
 int aat28xx_ldo_enable(struct device *dev, unsigned num, unsigned enable);
 int aat28xx_ldo_set_level(struct device *dev, unsigned num, unsigned vol);
+void aat28xx_power(struct device *dev, int on);
 
 /* rt9393 backlight */
 struct rt9393_platform_data {
