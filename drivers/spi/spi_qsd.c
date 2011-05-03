@@ -491,12 +491,22 @@ static irqreturn_t msm_spi_qup_irq(int irq, void *dev_id)
 	if (op & SPI_OP_INPUT_SERVICE_FLAG) {
 		writel_relaxed(SPI_OP_INPUT_SERVICE_FLAG,
 			       dd->base + SPI_OPERATIONAL);
+		/*
+		 * Ensure service flag was cleared before further
+		 * processing of interrupt.
+		 */
+		dsb();
 		ret |= msm_spi_input_irq(irq, dev_id);
 	}
 
 	if (op & SPI_OP_OUTPUT_SERVICE_FLAG) {
 		writel_relaxed(SPI_OP_OUTPUT_SERVICE_FLAG,
 			       dd->base + SPI_OPERATIONAL);
+		/*
+		 * Ensure service flag was cleared before further
+		 * processing of interrupt.
+		 */
+		dsb();
 		ret |= msm_spi_output_irq(irq, dev_id);
 	}
 
@@ -996,6 +1006,8 @@ static inline void msm_spi_ack_transfer(struct msm_spi *dd)
 	writel_relaxed(SPI_OP_MAX_INPUT_DONE_FLAG |
 		       SPI_OP_MAX_OUTPUT_DONE_FLAG,
 		       dd->base + SPI_OPERATIONAL);
+	/* Ensure done flag was cleared before proceeding further */
+	dsb();
 }
 
 static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
@@ -1143,6 +1155,8 @@ static irqreturn_t msm_spi_error_irq(int irq, void *dev_id)
 		dev_warn(master->dev.parent, "SPI clock underrun error\n");
 	writel_relaxed(SPI_ERR_MASK, dd->base + SPI_ERROR_FLAGS);
 	msm_spi_ack_clk_err(dd);
+	/* Ensure clearing of QUP_ERROR_FLAGS was completed */
+	dsb();
 	return IRQ_HANDLED;
 }
 
@@ -1670,6 +1684,8 @@ static int msm_spi_setup(struct spi_device *spi)
 		spi_config |= SPI_CFG_INPUT_FIRST;
 	writel_relaxed(spi_config, dd->base + SPI_CONFIG);
 
+	/* Ensure previous write completed before disabling the clocks */
+	dsb();
 	clk_disable(dd->clk);
 	if (dd->pclk)
 		clk_disable(dd->pclk);
@@ -1686,13 +1702,16 @@ err_setup_exit:
 static int debugfs_iomem_x32_set(void *data, u64 val)
 {
 	writel_relaxed(val, data);
-	wmb();
+	/* Ensure the previous write completed. */
+	dsb();
 	return 0;
 }
 
 static int debugfs_iomem_x32_get(void *data, u64 *val)
 {
 	*val = readl_relaxed(data);
+	/* Ensure the previous read completed. */
+	dsb();
 	return 0;
 }
 
