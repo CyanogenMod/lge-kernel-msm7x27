@@ -55,6 +55,7 @@ obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-panel.o
 obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-input.o
 obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-misc.o
 obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-pm.o
+obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-mmc.o
 
 obj-$(CONFIG_MACH_LGE) += devices_lge.o
 
