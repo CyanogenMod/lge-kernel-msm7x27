@@ -2457,7 +2457,7 @@ static void reg_init(void)
 	writel(0x80FF0000, ROT_CC_REG);
 	writel(0x80FF0000, TV_CC_REG);
 	writel(0x000004FF, TV_CC2_REG);
-	writel(0x80FF0000, VCODEC_CC_REG);
+	writel(0xC0FF0000, VCODEC_CC_REG);
 	writel(0x80FF0000, VFE_CC_REG);
 	writel(0x80FF0000, VPE_CC_REG);
 
