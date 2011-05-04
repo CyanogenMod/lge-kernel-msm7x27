@@ -158,7 +158,7 @@ static ts_finger_data curr_ts_data;
 static ts_sensor_command ts_cmd_reg_data={0};
 static int touch_pressed = 0;
 static int multi = 0;
-static int melt_mode = 1, tmp_oldx = 0, tmp_oldy = 0;
+static int melt_mode = 1, melt_count =0, tmp_oldx = 0, tmp_oldy = 0;
 static int tapcount = 0;
 static int first_touch = 0;
 
@@ -208,9 +208,6 @@ static __inline void esd_recovery(struct synaptics_ts_data *ts)
 		if (ret < 0)
 			printk("[TOUCH] power on failed\n");
 	}
-
-    i2c_smbus_read_byte_data(ts->client, INT_STATUS);
-	melt_mode = 1;
 }
 
 static void ts_work_func(struct work_struct *work)
@@ -226,6 +223,13 @@ static void ts_work_func(struct work_struct *work)
 	if (unlikely(int_mode < 0)) {
 		printk("[TOUCH] i2c failed ==> recovery touch!!");
 		esd_recovery(ts);
+		if (ts->use_irq)
+		{
+			enable_irq(ts->client->irq);
+		}
+		i2c_smbus_read_byte_data(ts->client, INT_STATUS);
+		melt_mode = 1;
+		return;
 	}
 
 	i2c_smbus_read_i2c_block_data(ts->client, START_ADDR, sizeof(ts_reg_data), (unsigned char*)&ts_reg_data);
@@ -258,13 +262,15 @@ static void ts_work_func(struct work_struct *work)
 		width1 = (width1 & 0xF);
 	if (finger0_status && finger1_status) {    /* 1 & 2 */
 		touch_pressed = 1;
-		multi = 1;
+		multi = 1, melt_count = 2;
 		tapcount = 0;
 		ts_event_touch(1, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
 		ts_event_touch(1, width1, curr_ts_data.X_position[1], curr_ts_data.Y_position[1], ts);
 	} else if (finger0_status) {    /* 1 only */
 		first_touch++;
 		touch_pressed = 1;
+		if (melt_count == 0)
+			melt_count = 1;
 		if (first_touch == 1) {
 			tmp_oldx = curr_ts_data.X_position[0];
 			tmp_oldy = curr_ts_data.Y_position[0];
@@ -291,15 +297,19 @@ static void ts_work_func(struct work_struct *work)
 		touch_pressed = 0;
 		first_touch = 0;
 		ts_event_touch(0, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
-		if (melt_mode == 1) {    /* melt_mode */
+		if (melt_mode == 1 && melt_count == 1) {    /* melt_mode */
 			if ((abs(tmp0_x - tmp_oldx) > 140) || (abs(tmp0_y - tmp_oldy) > 140)){  /* long drag */
 				i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING, MELTING_NO);
+				printk("[TOUCH] Long Drag detected!!==> set no melt\n");
 				melt_mode = 0;
 			} else if (tapcount++ > 2) {    /* tapping!!!! */
 				i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING, MELTING_NO);
+				printk("[TOUCH] TapCount detected!!==> set no melt\n");
+				tapcount = 0;
 				melt_mode = 0;
 			}
 		}
+		melt_count = 0;
 	}
 	input_sync(ts->input_dev);
 
@@ -460,7 +470,6 @@ static int synaptics_ts_probe(
 			printk("[TOUCH] synaptics_ts_probe power on failed\n");
 			goto err_power_failed;
 		}
-		msleep(500);
 	}
 
 	for(i=0;i <PID_STR_NUM;i++)
@@ -498,7 +507,7 @@ static int synaptics_ts_probe(
 	}
 
 	fw_rev = ts->fw_revision;
-	printk("[TOUCH] Synaptics Touch Firmware Version : %x", fw_rev);
+	printk("[TOUCH] Synaptics Touch Firmware Version : %x\n", fw_rev);
 
   	memset(&ts_reg_data, 0x0, sizeof(ts_sensor_data));
   	memset(&curr_ts_data, 0x0, sizeof(ts_finger_data));
@@ -643,10 +652,10 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 
 static int synaptics_ts_resume(struct i2c_client *client)
 {
-	int ret;
+	int ret, int_mode = 0;
 	struct synaptics_ts_data *ts = i2c_get_clientdata(client);
+	tapcount = 0, melt_count = 0;
 
-	melt_mode = 1;
 	if (ts->power) {
 		ret = ts->power(1);
 		if (ret < 0)
@@ -659,6 +668,14 @@ static int synaptics_ts_resume(struct i2c_client *client)
 		enable_irq(client->irq);
 	else
 		hrtimer_start(&ts->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
+
+	int_mode = i2c_smbus_read_byte_data(ts->client, INT_STATUS);
+	if (unlikely(int_mode < 0)) {
+		printk("[TOUCH] i2c failed ==> recovery touch!!");
+		esd_recovery(ts);
+		i2c_smbus_read_byte_data(ts->client, INT_STATUS);
+	}
+	melt_mode = 1;
 	return 0;
 }
 

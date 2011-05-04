@@ -253,7 +253,7 @@ static int ts_set_vreg(unsigned char onoff)
 		}
 		vreg_enable(vreg_touch);
 
-		msleep(1);
+		msleep(20);
 
 		rc = vreg_set_level(vreg_pullup, 2600);
 		if (rc != 0) {
@@ -262,7 +262,7 @@ static int ts_set_vreg(unsigned char onoff)
 		}
 		vreg_enable(vreg_pullup);
 
-		msleep(15);	// wait 15ms
+		msleep(400);	// wait 400ms
 
 		//ts_config_gpio(1);
 	} else {
