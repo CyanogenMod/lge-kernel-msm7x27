@@ -33,10 +33,10 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/socinfo.h>
+#include <mach/rpm-regulator.h>
 
 #include "acpuclock.h"
 #include "clock-8x60.h"
-#include "rpm-regulator.h"
 #include "avs.h"
 
 #define dprintk(msg...) \
