@@ -436,8 +436,8 @@ static struct proximity_platform_data proxi_pdata = {
 
 static struct i2c_board_info prox_i2c_bdinfo[] = {
 	[0] = {
-		I2C_BOARD_INFO("proximity_gp2ap", PROXI_I2C_ADDRESS),
-		.type = "proximity_gp2ap",
+		I2C_BOARD_INFO("apds9190", PROXI_I2C_ADDRESS),
+		.type = "apds9190",
 		.platform_data = &proxi_pdata,
 	}, 
 };

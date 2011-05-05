@@ -13,3 +13,4 @@ obj-$(CONFIG_SENSOR_KR3DH)	+= kr3dh.o
 obj-$(CONFIG_SENSOR_AK8973)	+= akm8973.o
 obj-$(CONFIG_SENSOR_AMI602) += ami602.o
 obj-$(CONFIG_SENSOR_AMI304) += ami304.o
+obj-$(CONFIG_SENSOR_APDS9190) += apds9190.o
