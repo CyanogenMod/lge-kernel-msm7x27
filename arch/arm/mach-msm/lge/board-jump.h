@@ -66,7 +66,7 @@
 #define PROXI_GPIO_I2C_SCL	19   /*107 in p500*/
 #define PROXI_GPIO_I2C_SDA 	20   /*108 in p500*/
 #define PROXI_GPIO_DOUT		109
-#define PROXI_I2C_ADDRESS	0x44 /*slave address 7bit*/
+#define PROXI_I2C_ADDRESS	0x39 /*slave address 7bit*/
 #define PROXI_LDO_NO_VCC	1
 
 /* accelerometer */
