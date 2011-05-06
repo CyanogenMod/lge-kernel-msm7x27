@@ -65,78 +65,18 @@ static struct platform_device msm_device_pmic_leds = {
  */
 int jump_vibrator_power_set(int enable)
 {
-	static int is_enabled = 0;
-	struct device *dev = jump_backlight_dev();
-
-	if (dev==NULL) {
-		printk(KERN_ERR "%s: backlight devive get failed\n", __FUNCTION__);
-		return -1;
-	}
-
 	if (enable) {
-		if (aat28xx_ldo_set_level(dev, 1, motor_voltage) < 0) {
-			printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
-			return -EIO;
-		}
-		
-		if (aat28xx_ldo_enable(dev, 1, 1) < 0) {
-			printk(KERN_ERR "%s: vibrator LDO enable failed\n", __FUNCTION__);
-			return -EIO;
-		}
-
-		//pmic_vib_mot_set_volt(motor_voltage);
-		printk("%s: vibrator volage %d\n", __FUNCTION__, motor_voltage);
-
-		is_enabled = 1;
+		if (pmic_vib_mot_set_volt(3100) < 0)
+			printk("LGE: motor power on fail\n");
 	} else {
-		if (!is_enabled) {
-			//printk(KERN_INFO "vibrator power was disabled, already\n");
-			return 0;
-		}
-		
-		//pmic_vib_mot_set_volt(0);
-
-		if (aat28xx_ldo_set_level(dev, 1, 0) < 0) {		
-			printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
-			return -EIO;
-		}
-		
-		if (aat28xx_ldo_enable(dev, 1, 0) < 0) {
-			printk(KERN_ERR "%s: vibrator LDO disable failed\n", __FUNCTION__);
-			return -EIO;
-		}
-
-		is_enabled = 0;
+		if (pmic_vib_mot_set_volt(0) < 0)
+			printk("LGE: motor power off fail\n");
 	}
 	return 0;
 }
 
 int jump_vibrator_pwm_set(int enable, int amp)
 {
-	/* for test, jinkyu.choi@lge.com */
-   if (amp >= 100)
-	   motor_voltage = 3300;
-   else if (amp >= 90)
-	   motor_voltage = 3200;
-   else if (amp >= 80)
-	   motor_voltage = 3100;
-   else if (amp >= 70)
-	   motor_voltage = 3000;
-   else if (amp >= 60)
-	   motor_voltage = 2900;
-   else if (amp >= 50)
-	   motor_voltage = 2800;
-   else if (amp >= 40)
-	   motor_voltage = 2700;
-   else if (amp >= 30)
-	   motor_voltage = 2600;
-   else if (amp >= 20)
-	   motor_voltage = 2500;
-   else if (amp >= 10)
-	   motor_voltage = 2200;
-   else
-	   motor_voltage = 0;
-
 	return 0;
 }
 
