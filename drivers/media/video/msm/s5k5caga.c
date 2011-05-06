@@ -1756,7 +1756,7 @@ static long lgcam_rear_sensor_set_wb(int8_t wb)
 			return rc;	
 
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x0F12, 0x05B0, WORD_LEN);
+			0x0F12, 0x0700, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
@@ -1772,7 +1772,7 @@ static long lgcam_rear_sensor_set_wb(int8_t wb)
 		if (rc < 0)
 			return rc;	
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x0F12, 0x0590, WORD_LEN);
+			0x0F12, 0x0500, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
