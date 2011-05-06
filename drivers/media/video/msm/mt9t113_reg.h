@@ -47,7 +47,7 @@ tuning_reg_settings_array[] = {
   {0x0022, 0x0140, WORD_LEN}, 	// VDD_DIS_COUNTER
   {0x001E, 0x0700, WORD_LEN},	//771 	// PAD_SLEW_PAD_CONFIG
   {0x0112, 0x0012, WORD_LEN},	// RX_FIFO_CONTROL
-  {0x3B84, 0x0062, WORD_LEN},     //0x0197, // I2C_MASTER_FREQUENCY_DIVIDER    2011-3-18 
+  {0x3B84, 0x0062, WORD_LEN},     //0x0197, // I2C_MASTER_FREQUENCY_DIVIDER    2011-3-18 2011-04-20
   {0x098E, 0x2C03, WORD_LEN}, // MCU_ADDRESS [AWB_ALGO]
   {0x0990, 0x0000, WORD_LEN}, // MCU_DATA_0 
   {0x098E, 0x2803, WORD_LEN}, // MCU_ADDRESS [AE_ALGO]
@@ -158,7 +158,7 @@ tuning_reg_settings_array[] = {
   {0x098E, 0x6824, WORD_LEN},   	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_TARGET_DGAIN]
   {0x0990, 0x0080, WORD_LEN},   	// MCU_DATA_0
   {0x098E, 0xE826, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_BASE_TARGET]
-  {0x0990, 0x0040, WORD_LEN},   	// MCU_DATA_0
+  {0x0990, 0x003c, WORD_LEN},   	// 40 MCU_DATA_0  
   {0x098E, 0x6829, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_AE_MIN_VIRT_DGAIN]
   {0x0990, 0x0080, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x682B, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AE_TRACK_AE_MAX_VIRT_DGAIN]
@@ -278,8 +278,8 @@ tuning_reg_settings_array[] = {
   {0x0990, 0xFFE1, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x48B8, WORD_LEN}, 	// MCU_ADDRESS [CAM1_AWB_X_SHIFT]
   {0x0990, 0x002D, WORD_LEN},   	// MCU_DATA_0
-  {0x098E, 0x48BA, WORD_LEN}, 	// MCU_ADDRESS [CAM1_AWB_Y_SHIFT]
-  {0x0990, 0x0011, WORD_LEN}, 	// MCU_DATA_0
+  {0x098E, 0x48BA, WORD_LEN},   	// MCU_ADDRESS [CAM1_AWB_Y_SHIFT] 2011-04-22
+  {0x0990, 0x0018, WORD_LEN},   	// 11 MCU_DATA_0
   {0x098E, 0x48BC, WORD_LEN}, 	// MCU_ADDRESS [CAM1_AWB_RECIP_XSCALE]
   {0x0990, 0x0080, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x48BE, WORD_LEN}, 	// MCU_ADDRESS [CAM1_AWB_RECIP_YSCALE]
@@ -848,7 +848,7 @@ tuning_reg_settings_array[] = {
   {0x30BC, 0x0384, WORD_LEN}, // RESERVED // 2011-03-18
   {0x30C0, 0x1220, WORD_LEN}, // RESERVED // 2011-03-18         
   //[Lens Correction 85% 2010/10/26 23:05:06_152]
-  {0x3640, 0x0270, WORD_LEN}, 	//  P_G1_P0Q0
+  {0x3640, 0x0670, WORD_LEN}, 	//  0270  P_G1_P0Q0 2011-04-25
   {0x3642, 0x75AD, WORD_LEN}, 	//  P_G1_P0Q1
   {0x3644, 0x3971, WORD_LEN}, 	//  P_G1_P0Q2
   {0x3646, 0xDB6E, WORD_LEN}, 	//  P_G1_P0Q3
@@ -952,6 +952,11 @@ tuning_reg_settings_array[] = {
   {0x3782, 0x0310, WORD_LEN}, 	//  CENTER_ROW
   {0x326A, 0x0408, WORD_LEN}, 	// APERTURE_PARAMETERS_1D 2011.04.5
   {0x3210, 0X05B8, WORD_LEN},   //0x01B8   	// COLOR_PIPELINE_CONTROL 2011.04.5
+ 
+  {0x098E, 0xE856, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AWB_K_B_R] 2011-04-25
+  {0x0990, 0x007D, WORD_LEN}, 	// MCU_DATA_0
+  {0x098E, 0xE850, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_AWB_X0] 2011-04-25
+  {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0        
   //low_light
   {0x098E, 0x4918, WORD_LEN}, 	// MCU_ADDRESS [CAM1_LL_START_GAIN_METRIC]
   {0x0990, 0x0030, WORD_LEN}, 	// MCU_DATA_0
@@ -1250,6 +1255,7 @@ snapshot_mode_reg_settings_array[] = {
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0 //pre.0x0009
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS
   {0x0990, 0x0002, WORD_LEN}, 	// MCU_DATA_0
+  {0xdddd, 0xdddd, WORD_LEN},
 };
 
 /* effect setting start */
@@ -1262,6 +1268,7 @@ effect_mode_off_reg_settings_array[] = {
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+  {0xdddd, 0xdddd, WORD_LEN},
 };
 
 /* effect - mono */
@@ -1273,6 +1280,7 @@ effect_mode_mono_reg_settings_array[] = {
   {0x0990, 0x0001, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+  {0xdddd, 0xdddd, WORD_LEN},
 };
 
 /* effect - negative */
@@ -1284,6 +1292,7 @@ effect_mode_negative_reg_settings_array[] = {
   {0x0990, 0x0003, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+  {0xdddd, 0xdddd, WORD_LEN},
 };
 
 /* effect - solarize */
@@ -1295,6 +1304,7 @@ effect_mode_solarize_reg_settings_array[] = {
   {0x0990, 0x0004, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+  {0xdddd, 0xdddd, WORD_LEN},
 };
 
 /* effect - sepia */
@@ -1314,6 +1324,7 @@ effect_mode_sepia_reg_settings_array[] = {
   {0x0990, 0x00E6, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+  {0xdddd, 0xdddd, WORD_LEN},
 };
 
 /* effect - aqua */
@@ -1333,6 +1344,7 @@ effect_mode_aqua_reg_settings_array[] = {
   {0x0990, 0x0020, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
+  {0xdddd, 0xdddd, WORD_LEN},
 };
 /* effect setting end */
 
@@ -1361,14 +1373,16 @@ wb_mode_incandescent_reg_settings_array[] = {
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0x6867, WORD_LEN}, 	// MCU_ADDRESS [PRI_A_CONFIG_STAT_ALGO_RUN]
   {0x0990, 0x0000, WORD_LEN}, 	// MCU_DATA_0
+  {0x364A, 0x02D0, WORD_LEN}, 	// P_R_P0Q0 2011-04-20
+  {0x364E, 0x4031, WORD_LEN}, 	// P_R_P0Q2 2011-04-20  
   {0x098E, 0x8400, WORD_LEN}, 	// MCU_ADDRESS [SEQ_CMD]
   {0x0990, 0x0006, WORD_LEN}, 	// MCU_DATA_0
   {0xdddd, 0xdddd, WORD_LEN},
   //polling
   {0x098E, 0xAC3B, WORD_LEN}, 	// MCU_ADDRESS [AWB_R_RATIO_PRE_AWB]
-  {0x0990, 0x0065, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x005B, WORD_LEN}, 	// 65 MCU_DATA_0  2011-04-20
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
-  {0x0990, 0x0028, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x002B, WORD_LEN}, 	// 28 MCU_DATA_0 2011-04-20
 };
 
 /* WB - fluorescent */
@@ -1388,7 +1402,7 @@ wb_mode_fluorescent_reg_settings_array[] = {
   {0x098E, 0xAC3B, WORD_LEN}, 	// MCU_ADDRESS [AWB_R_RATIO_PRE_AWB]
   {0x0990, 0x004C, WORD_LEN}, 	// MCU_DATA_0
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
-  {0x0990, 0x0030, WORD_LEN}, 	// MCU_DATA_0  
+  {0x0990, 0x0039, WORD_LEN}, 	// 30 MCU_DATA_0   11-04-20
 };
 
 /* WB - daylight */
@@ -1425,9 +1439,9 @@ wb_mode_cloudy_reg_settings_array[] = {
   {0xdddd, 0xdddd, WORD_LEN},
   //polling
   {0x098E, 0xAC3B, WORD_LEN}, 	// MCU_ADDRESS [AWB_R_RATIO_PRE_AWB]
-  {0x0990, 0x0048, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x0041, WORD_LEN}, 	// 48 MCU_DATA_0   2011-04-20
   {0x098E, 0xAC3C, WORD_LEN}, 	// MCU_ADDRESS [AWB_B_RATIO_PRE_AWB]
-  {0x0990, 0x004B, WORD_LEN}, 	// MCU_DATA_0
+  {0x0990, 0x004f, WORD_LEN}, 	// 4b MCU_DATA_0   2011-04-20
 };
 /* White Balance setting end */
 /* ISO setting start */
