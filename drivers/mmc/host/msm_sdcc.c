@@ -1416,53 +1416,13 @@ static const struct mmc_host_ops msmsdcc_ops = {
  * And still same status, just skip.
  * fred.cho@lge.com, 2010-08-05
  */
-/*LGE_UPDATE_S DYLEE */
-#if 1
-#define MSMSDCC_MAX_DETECT_DEBOUNCE		3
-#define MSMSDCC_MAX_HW_CHANGE			3
-#endif
-/* LGE_UPDATE_E DYLEE */
+
 
 static void
 msmsdcc_check_status(unsigned long data)
 {
 	struct msmsdcc_host *host = (struct msmsdcc_host *)data;
-/*LGE_UPDATE_S DYLEE */
-#if 1
-    unsigned int status;
-    unsigned int msmsdcc_old_status=0;
-	unsigned int msmsdcc_detect_debounce=0;
-	unsigned int msmsdcc_hw_chnage=0;
 
-	status = host->plat->status(mmc_dev(host->mmc));
-	msmsdcc_old_status=status;
-
-	while((msmsdcc_detect_debounce < MSMSDCC_MAX_DETECT_DEBOUNCE) && (msmsdcc_hw_chnage < MSMSDCC_MAX_HW_CHANGE))
-	{
-		mdelay(20);
-		status = host->plat->status(mmc_dev(host->mmc));
-		pr_info("[LGE] msmsdcc_check_status: old status - %d,  current status - %d\n", msmsdcc_old_status, status);
-		if(msmsdcc_old_status != status)	
-		{
-			pr_info("[LGE] msmsdcc_check_status: sd card is changed physically\n");
-			msmsdcc_detect_debounce=0;			
-			msmsdcc_hw_chnage++;
-		}
-		else
-		{
-			msmsdcc_detect_debounce++;
-		}	
-		msmsdcc_old_status = status;
-	}
-
-	if((msmsdcc_detect_debounce == MSMSDCC_MAX_DETECT_DEBOUNCE) && (msmsdcc_hw_chnage == MSMSDCC_MAX_HW_CHANGE))
-	{
-		pr_info("[LGE] msmsdcc_check_status: sd card detection is not stable\n");
-	}
-
-	pr_info("[LGE] msmsdcc_check_status (last status): old status - %d,  current status - %d\n", host->oldstat, status);
-#endif
-/* LGE_UPDATE_E DYLEE */
 	if (msmsdcc_get_status(host->mmc)) {
 
 #ifdef CONFIG_LGE_BCM432X_PATCH
