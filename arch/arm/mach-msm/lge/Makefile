@@ -69,5 +69,4 @@ obj-$(CONFIG_LGE_ATS_INPUT_DEVICE) += lge_ats_input.o
 obj-$(CONFIG_LGE_DIAG_WMC) += lg_diag_wmc.o
 obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats_flex.o # LGE_CHANGE [irene.park@lge.com] 2010-06-04 - to get flex value from ARM9 
 obj-$(CONFIG_LGE_PWRSINK) += lge_pwrsink.o
-obj-$(CONFIG_LGE_ATCMD_TTY) += lge_tty_atcmd.o
 obj-$(CONFIG_LGE_FACTORY_PATCH) += lge_temp.o lge_mtd_direct_access.o
