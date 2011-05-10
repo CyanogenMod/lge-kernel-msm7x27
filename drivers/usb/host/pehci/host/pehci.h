@@ -26,6 +26,7 @@
 #ifndef	__PEHCI_H__
 #define	__PEHCI_H__
 
+
 #define	DRIVER_AUTHOR	"ST-ERICSSON	  "
 #define	DRIVER_DESC "ISP1763 'Enhanced'	Host Controller	(EHCI) Driver"
 
@@ -77,11 +78,11 @@
 #define	QHA_ACTIVE		(1<<31)
 
 /*1763 error bit maps*/
-#define	HC_SOF_INT		(1<< 0)
+#define	HC_MSOF_INT		(1<< 0)
 #define	HC_MSEC_INT		(1 << 1)
 #define	HC_EOT_INT		(1 << 3)
-#define   HC_OPR_REG_INT	(1<<4)
-#define   HC_CLK_RDY_INT	(1<<6)
+#define     HC_OPR_REG_INT	(1<<4)
+#define     HC_CLK_RDY_INT	(1<<6)
 #define	HC_INTL_INT		(1 << 7)
 #define	HC_ATL_INT		(1 << 8)
 #define	HC_ISO_INT		(1 << 9)
@@ -205,10 +206,6 @@ typedef	struct _ehci_regs {
 
 /*memory management structures*/
 #define MEM_KV
-struct isp1763_async_cleanup_urb {
-        struct list_head urb_list;
-        struct urb *urb;
-};
 #ifdef MEM_KV
 typedef struct isp1763_mem_addr {
 	u32 phy_addr;		/* Physical address of the memory */
@@ -465,6 +462,15 @@ struct _isp1763_hcd;
 
 #include <linux/usb/hcd.h>
 
+#define USBNET
+#ifdef USBNET 
+struct isp1763_async_cleanup_urb {
+        struct list_head urb_list;
+        struct urb *urb;
+};
+#endif
+
+
 /*host controller*/
 typedef	struct _phci_hcd {
 
@@ -509,7 +515,9 @@ typedef	struct _phci_hcd {
 	struct timer_list watchdog;
 	void (*worker_function)	(struct	_phci_hcd * hcd);
 	struct _periodic_list periodic_list[PTD_PERIODIC_SIZE];
+#ifdef USBNET 
 	struct isp1763_async_cleanup_urb cleanup_urb;
+#endif
 } phci_hcd, *pphci_hcd;
 
 /*usb_device->hcpriv, points to	this structure*/

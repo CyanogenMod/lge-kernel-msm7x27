@@ -1297,12 +1297,11 @@ phcd_clean_iso_qh(phci_hcd * hcd, struct ehci_qh *qh)
  *  - Store URB into a queue
  *  - If ther's enough free PTD slots , repairing the PTDs
  */
-
-
 void phcd_clean_periodic_ep(void){
 	periodic_ep[0] = NULL;
 	periodic_ep[1] = NULL;
 }
+
 int
 phcd_clean_urb_pending(phci_hcd * hcd, struct urb *urb)
 {
@@ -1410,7 +1409,7 @@ phcd_store_urb_pending(phci_hcd * hcd, int index, struct urb *urb, int *status)
 	if (urb != NULL) {
 		if (periodic_ep[0] != urb->ep && periodic_ep[1] != urb->ep) {
 			if (periodic_ep[0] == NULL) {
-				printk("storing in 0 %x %x\n", (int)urb,urb->pipe);
+			//	printk("storing in 0 %x %x\n",urb,urb->pipe);
 				periodic_ep[0] = urb->ep;
 			} else if (periodic_ep[1] == NULL) {
 				printk("storing in 1\n");
