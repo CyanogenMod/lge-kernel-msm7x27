@@ -33,12 +33,12 @@ config BRCM_LGE_WL_HOSTWAKEUP
 config BRCM_LGE_WL_PKTFILTER
 	bool "Setting Multicat/Broadcast packet fillter."
 	default n
-	depends on BCM4329 && BRCM_LGE_WL_HOSTWAKEUP
+	depends on BCM4329
 
 config BRCM_LGE_WL_ARPOFFLOAD
 	bool "Use Arp offload function."
 	default n
-	depends on BCM4329 && BRCM_LGE_WL_HOSTWAKEUP
+	depends on BCM4329
 
 config BRCM_GPIO_INTR
 	bool "Use Broadcom Host Wakeup GPIO"

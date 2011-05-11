@@ -103,14 +103,11 @@ bcmsdh_detach(osl_t *osh, void *sdh)
 {
 	bcmsdh_info_t *bcmsdh = (bcmsdh_info_t *)sdh;
 
-	ASSERT(bcmsdh);
-
-	if (bcmsdh->sdioh) {
-		sdioh_detach(osh, bcmsdh->sdioh);
-		bcmsdh->sdioh = NULL;
-	}
-
-	if (bcmsdh) {
+	if (bcmsdh != NULL) {
+		if (bcmsdh->sdioh) {
+			sdioh_detach(osh, bcmsdh->sdioh);
+			bcmsdh->sdioh = NULL;
+		}
 		MFREE(osh, bcmsdh, sizeof(bcmsdh_info_t));
 	}
 

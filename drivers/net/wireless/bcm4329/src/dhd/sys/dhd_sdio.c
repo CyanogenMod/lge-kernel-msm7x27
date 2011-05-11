@@ -2426,12 +2426,15 @@ exit:
 void
 dhd_bus_stop(struct dhd_bus *bus, bool enforce_mutex)
 {
-	osl_t *osh = bus->dhd->osh;
+	osl_t *osh;
 	uint32 local_hostintmask;
 	uint8 saveclk;
 	uint retries;
 	int err;
+	if (!bus->dhd)
+		return;
 
+	osh = bus->dhd->osh;
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
 	bcmsdh_waitlockfree(NULL);
