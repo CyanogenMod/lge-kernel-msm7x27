@@ -45,15 +45,20 @@ struct kgsl_g12_device {
 	int timestamp;
 	wait_queue_head_t wait_timestamp_wq;
 	struct kgsl_g12_ringbuffer ringbuffer;
+	spinlock_t cmdwin_lock;
 };
 
 irqreturn_t kgsl_g12_isr(int irq, void *data);
 int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags);
 int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
 struct kgsl_device *kgsl_get_2d_device(enum kgsl_deviceid);
-int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
+void kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value);
-int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+void kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+			unsigned int value);
+void kgsl_g12_regread_isr(struct kgsl_device *device, unsigned int offsetwords,
+				unsigned int *value);
+void kgsl_g12_regwrite_isr(struct kgsl_device *device, unsigned int offsetwords,
 			unsigned int value);
 
 int __init kgsl_g12_config(struct kgsl_devconfig *,

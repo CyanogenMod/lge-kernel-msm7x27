@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
@@ -119,6 +120,7 @@ enum sc_src {
 static struct clock_state {
 	struct clkctl_acpu_speed	*current_speed[NR_CPUS];
 	struct clkctl_l2_speed		*current_l2_speed;
+	spinlock_t			l2_lock;
 	struct mutex			lock;
 	uint32_t			acpu_switch_time_us;
 	uint32_t			vdd_switch_time_us;
@@ -352,7 +354,7 @@ static struct clkctl_l2_speed *compute_l2_speed(unsigned int voting_cpu,
 	/* Find max L2 speed vote. */
 	l2_vote[voting_cpu] = tgt_s;
 	new_s = l2_freq_tbl;
-	for_each_online_cpu(cpu)
+	for_each_present_cpu(cpu)
 		new_s = max(new_s, l2_vote[cpu]);
 
 	return new_s;
@@ -499,7 +501,7 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	struct clkctl_acpu_speed *tgt_s, *strt_s;
 	struct clkctl_l2_speed *tgt_l2;
 	unsigned int vdd_mem, vdd_dig, pll_vdd_dig;
-	int freq_index = 0;
+	unsigned long flags;
 	int rc = 0;
 
 	if (cpu > num_possible_cpus()) {
@@ -517,11 +519,9 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 		goto out;
 
 	/* Find target frequency. */
-	for (tgt_s = acpu_freq_tbl; tgt_s->acpuclk_khz != 0; tgt_s++) {
+	for (tgt_s = acpu_freq_tbl; tgt_s->acpuclk_khz != 0; tgt_s++)
 		if (tgt_s->acpuclk_khz == rate)
 			break;
-		freq_index++;
-	}
 	if (tgt_s->acpuclk_khz == 0) {
 		rc = -EINVAL;
 		goto out;
@@ -560,8 +560,10 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 	switch_sc_speed(cpu, tgt_s);
 
 	/* Update the L2 vote and apply the rate change. */
+	spin_lock_irqsave(&drv_state.l2_lock, flags);
 	tgt_l2 = compute_l2_speed(cpu, tgt_s->l2_level);
 	set_l2_speed(tgt_l2);
+	spin_unlock_irqrestore(&drv_state.l2_lock, flags);
 
 	/* Nothing else to do for SWFI. */
 	if (reason == SETRATE_SWFI)
@@ -744,7 +746,7 @@ static void __init cpufreq_table_init(void)
 static void __init cpufreq_table_init(void) {}
 #endif
 
-static void __init select_freq_plan(void)
+static unsigned int __init select_freq_plan(void)
 {
 	uint32_t raw_speed_bin, speed_bin, max_khz;
 	struct clkctl_acpu_speed *f;
@@ -771,18 +773,22 @@ static void __init select_freq_plan(void)
 	}
 	f--;
 	pr_info("Max ACPU freq: %u KHz\n", f->acpuclk_khz);
+
+	return f->acpuclk_khz;
 }
 
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 {
+	unsigned int max_cpu_khz;
 	int cpu;
 
 	mutex_init(&drv_state.lock);
+	spin_lock_init(&drv_state.l2_lock);
 	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 
 	/* Configure hardware. */
-	select_freq_plan();
+	max_cpu_khz = select_freq_plan();
 	unselect_scplls();
 	scpll_set_refs();
 	for_each_possible_cpu(cpu)
@@ -793,7 +799,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 
 	/* Improve boot time by ramping up CPUs immediately. */
 	for_each_online_cpu(cpu)
-		acpuclk_set_rate(cpu, 810000, SETRATE_INIT);
+		acpuclk_set_rate(cpu, max_cpu_khz, SETRATE_INIT);
 
 	cpufreq_table_init();
 }

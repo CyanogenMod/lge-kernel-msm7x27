@@ -277,7 +277,8 @@ int mipi_dsi_phy_pll_config(u32 clk_rate)
 	return 0;
 }
 
-int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes)
+int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes,
+			    uint32 *expected_dsi_pclk)
 {
 	u32 fb_divider, rate, vco;
 	u32 div_ratio = 0;
@@ -340,12 +341,18 @@ int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes)
 		dsi_pclk.mnd_mode = 0;
 		dsi_pclk.src = 0x3;
 		dsi_pclk.pre_div_func = (mnd_entry->pclk_n - 1);
+		*expected_dsi_pclk = ((vco * 1000000) /
+					((pll_divider_config.dsi_clk_divider)
+					* (mnd_entry->pclk_n)));
 	} else {
 		dsi_pclk.mnd_mode = 2;
 		dsi_pclk.src = 0x3;
 		dsi_pclk.m = mnd_entry->pclk_m;
 		dsi_pclk.n = mnd_entry->pclk_n;
 		dsi_pclk.d = mnd_entry->pclk_d;
+		*expected_dsi_pclk = ((vco * 1000000 * dsi_pclk.m) /
+					((pll_divider_config.dsi_clk_divider)
+					* (mnd_entry->pclk_n)));
 	}
 
 	return 0;
@@ -672,7 +679,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	struct msm_fb_panel_data *pdata = NULL;
 	int rc;
 	uint8 lanes = 0, bpp;
-	uint32 h_period, v_period;
+	uint32 h_period, v_period, dsi_pclk_rate;
 
 	resource_size_t size ;
 
@@ -831,7 +838,13 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	} else
 		pll_divider_config.clk_rate = mfd->panel_info.clk_rate;
 
-	mipi_dsi_clk_div_config(bpp, lanes);
+	rc = mipi_dsi_clk_div_config(bpp, lanes, &dsi_pclk_rate);
+	if (rc)
+		goto mipi_dsi_probe_err;
+
+	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 103300000))
+		dsi_pclk_rate = 35000000;
+	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
 #ifdef DSI_CLK
 	clk_rate = mfd->panel_info.clk_max;

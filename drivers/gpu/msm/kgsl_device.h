@@ -80,10 +80,16 @@ struct kgsl_device_private;
 struct kgsl_context;
 
 struct kgsl_functable {
-	int (*device_regread) (struct kgsl_device *device,
+	void (*device_regread) (struct kgsl_device *device,
 					unsigned int offsetwords,
 					unsigned int *value);
-	int (*device_regwrite) (struct kgsl_device *device,
+	void (*device_regwrite) (struct kgsl_device *device,
+					unsigned int offsetwords,
+					unsigned int value);
+	void (*device_regread_isr) (struct kgsl_device *device,
+					unsigned int offsetwords,
+					unsigned int *value);
+	void (*device_regwrite_isr) (struct kgsl_device *device,
 					unsigned int offsetwords,
 					unsigned int value);
 	int (*device_setstate) (struct kgsl_device *device, uint32_t flags);

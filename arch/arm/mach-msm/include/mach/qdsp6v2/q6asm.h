@@ -120,11 +120,14 @@ struct audio_client {
 	struct mutex	       cmd_lock;
 
 	atomic_t		cmd_state;
+	atomic_t		time_flag;
 	wait_queue_head_t	cmd_wait;
+	wait_queue_head_t	time_wait;
 
 	app_cb			cb;
 	void			*priv;
 	uint32_t         io_mode;
+	uint64_t         time_stamp;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);
@@ -155,6 +158,9 @@ int q6asm_open_read_write(struct audio_client *ac,
 int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				uint32_t lsw_ts, uint32_t flags);
 
+int q6asm_write_nolock(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
+				uint32_t lsw_ts, uint32_t flags);
+
 int q6asm_async_write(struct audio_client *ac,
 					  struct audio_aio_write_param *param);
 
@@ -162,6 +168,7 @@ int q6asm_async_read(struct audio_client *ac,
 					  struct audio_aio_read_param *param);
 
 int q6asm_read(struct audio_client *ac);
+int q6asm_read_nolock(struct audio_client *ac);
 
 int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add,
 			int dir, uint32_t bufsz, uint32_t bufcnt);
@@ -228,6 +235,8 @@ int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain);
 
 /* Enable Mute/unmute flag */
 int q6asm_set_mute(struct audio_client *ac, int muteflag);
+
+uint64_t q6asm_get_session_time(struct audio_client *ac);
 
 /* Client can set the IO mode to either AIO/SIO mode */
 int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode);

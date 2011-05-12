@@ -335,8 +335,11 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device)
 sleep:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);
+	goto clk_off;
 
 nap:
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
+clk_off:
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_OFF);
 
 	device->state = device->requested_state;
@@ -353,6 +356,8 @@ int kgsl_pwrctrl_wake(struct kgsl_device *device)
 {
 	int status = KGSL_SUCCESS;
 
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
 	if (device->state == KGSL_STATE_SUSPEND)
 		return status;
 
@@ -360,11 +365,12 @@ int kgsl_pwrctrl_wake(struct kgsl_device *device)
 	status = kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_CLK_ON);
 	if (device->state != KGSL_STATE_NAP) {
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_ON);
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 	}
+	/* Enable state before turning on irq */
+	device->state = KGSL_STATE_ACTIVE;
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_ON);
 
 	/* Re-enable HW access */
-	device->state = KGSL_STATE_ACTIVE;
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 
 	KGSL_DRV_VDBG("<-- kgsl_yamato_wake(). Return value %d\n", status);

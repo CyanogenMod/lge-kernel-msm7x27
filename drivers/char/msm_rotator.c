@@ -1291,12 +1291,16 @@ static int msm_rotator_resume(struct platform_device *dev)
 {
 	mutex_lock(&msm_rotator_dev->imem_lock);
 	if (msm_rotator_dev->imem_clk_state == CLK_SUSPEND
-		&& msm_rotator_dev->imem_clk)
+		&& msm_rotator_dev->imem_clk) {
 		clk_enable(msm_rotator_dev->imem_clk);
+		msm_rotator_dev->imem_clk_state = CLK_EN;
+	}
 	mutex_unlock(&msm_rotator_dev->imem_lock);
 	mutex_lock(&msm_rotator_dev->rotator_lock);
-	if (msm_rotator_dev->rot_clk_state == CLK_SUSPEND)
+	if (msm_rotator_dev->rot_clk_state == CLK_SUSPEND) {
 		enable_rot_clks();
+		msm_rotator_dev->rot_clk_state = CLK_EN;
+	}
 	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	return 0;
 }

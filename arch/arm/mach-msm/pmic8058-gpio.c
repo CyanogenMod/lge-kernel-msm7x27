@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8,12 +8,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
  */
 /*
  * Qualcomm PMIC8058 GPIO driver
@@ -64,6 +58,8 @@
 /* Bank 3 */
 #define	PM8058_GPIO_OUT_STRENGTH_MASK	0x0C
 #define	PM8058_GPIO_OUT_STRENGTH_SHIFT	2
+#define	PM8058_GPIO_PIN_ENABLE		0x00
+#define	PM8058_GPIO_PIN_DISABLE		0x01
 
 /* Bank 4 */
 #define	PM8058_GPIO_FUNC_MASK		0x0E
@@ -487,7 +483,9 @@ int pm8058_gpio_config(int gpio, struct pm8058_gpio *param)
 			PM8058_GPIO_BANK_MASK) |
 		((param->out_strength <<
 			PM8058_GPIO_OUT_STRENGTH_SHIFT) &
-			PM8058_GPIO_OUT_STRENGTH_MASK);
+			PM8058_GPIO_OUT_STRENGTH_MASK) |
+		(param->disable_pin ?
+			PM8058_GPIO_PIN_DISABLE : PM8058_GPIO_PIN_ENABLE);
 	bank[4] = PM8058_GPIO_WRITE |
 		((4 << PM8058_GPIO_BANK_SHIFT) &
 			PM8058_GPIO_BANK_MASK) |

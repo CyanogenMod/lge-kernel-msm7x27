@@ -196,7 +196,8 @@ void ddl_vidc_decode_init_codec(struct ddl_client_context *ddl)
 	u32 seq_size;
 
 	vidc_1080p_set_decode_mpeg4_pp_filter(decoder->post_filter.post_filter);
-
+	vidc_sm_set_concealment_color(&ddl->shared_mem[ddl->command_channel],
+		DDL_CONCEALMENT_Y_COLOR, DDL_CONCEALMENT_C_COLOR);
 	ddl_vidc_metadata_enable(ddl);
 	vidc_sm_set_metadata_start_address(&ddl->shared_mem
 		[ddl->command_channel],
@@ -869,6 +870,8 @@ void ddl_vidc_decode_eos_run(struct ddl_client_context *ddl)
 	DDL_MSG_LOW("ddl_state_transition: %s ~~> DDL_CLIENT_WAIT_FOR_EOS_DONE",
 	ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_EOS_DONE;
+	if (decoder->output_order == VCD_DEC_ORDER_DECODE)
+		decoder->dynamic_prop_change |= DDL_DEC_REQ_OUTPUT_FLUSH;
 	ddl_vidc_decode_dynamic_property(ddl, true);
 	ddl_decoder_dpb_transact(decoder, NULL, DDL_DPB_OP_SET_MASK);
 	decoder->dynmic_prop_change_req = true;

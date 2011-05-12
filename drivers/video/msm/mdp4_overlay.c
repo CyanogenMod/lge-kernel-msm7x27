@@ -855,6 +855,8 @@ uint32 mdp4_overlay_format(struct mdp4_overlay_pipe *pipe)
 	if (pipe->alpha_enable)
 		format |= MDP4_FORMAT_ALPHA_ENABLE;
 
+	if (pipe->flags & MDP_SOURCE_ROTATED_90)
+		format |= MDP4_FORMAT_90_ROTATED;
 	format |= (pipe->unpack_count << 13);
 	format |= ((pipe->bpp - 1) << 9);
 	format |= (pipe->a_bit << 6);
@@ -1779,6 +1781,11 @@ static uint32 mdp4_overlay_get_perf_level(uint32 width, uint32 height,
 	if (format == MDP_Y_CRCB_H2V2_TILE ||
 		format == MDP_Y_CBCR_H2V2_TILE)
 		size_720p = OVERLAY_720P_TILE_SIZE;
+
+        if (ctrl->ov_pipe[OVERLAY_PIPE_VG1].ref_cnt &&
+		ctrl->ov_pipe[OVERLAY_PIPE_VG2].ref_cnt)
+		return OVERLAY_PERF_LEVEL1;
+
 	if (width*height <= OVERLAY_VGA_SIZE)
 		return OVERLAY_PERF_LEVEL3;
 	else if (width*height <= size_720p)
@@ -1928,7 +1935,9 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 
 	mdp4_overlay_pipe_free(pipe);
 
-	mdp4_del_res_rel = 1;
+	if (!(ctrl->ov_pipe[OVERLAY_PIPE_VG1].ref_cnt +
+		ctrl->ov_pipe[OVERLAY_PIPE_VG2].ref_cnt))
+		mdp4_del_res_rel = 1;
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 
@@ -2055,7 +2064,11 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req,
 		ctrl->mixer1_played++;
 		/* enternal interface */
 		if (ctrl->panel_mode & MDP4_PANEL_DTV)
+#ifdef CONFIG_FB_MSM_DTV
+			mdp4_overlay_dtv_vsync_push(mfd, pipe);
+#else
 			mdp4_overlay_reg_flush(pipe, 1);
+#endif
 		else if (ctrl->panel_mode & MDP4_PANEL_ATV)
 			mdp4_overlay_reg_flush(pipe, 1);
 	} else {

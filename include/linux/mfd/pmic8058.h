@@ -162,6 +162,7 @@ struct pm8058_gpio {
 	int		out_strength;
 	int		function;
 	int		inv_int_pol;	/* invert interrupt polarity */
+	int		disable_pin;	/* disable pin and tri-state its pad */
 };
 
 /* chip revision */

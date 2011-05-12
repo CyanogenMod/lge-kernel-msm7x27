@@ -54,6 +54,11 @@ struct sdio_channel; /* Forward Declaration */
 struct sdio_al_platform_data {
 	int (*config_mdm2ap_status)(int);
 	int (*get_mdm2ap_status)(void);
+	int allow_sdioc_version_major_2;
+	int peer_sdioc_version_minor;
+	int peer_sdioc_version_major;
+	int peer_sdioc_boot_version_minor;
+	int peer_sdioc_boot_version_major;
 };
 
 /**

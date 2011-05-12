@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -289,6 +289,7 @@ struct ddl_decoder_data {
 	struct ddl_yuv_buffer_size  dpb_buf_size;
 	struct vidc_1080p_dec_disp_info dec_disp_info;
 	u32  progressive_only;
+	u32  output_order;
 	u32  meta_data_enable_flag;
 	u32  suffix;
 	u32  meta_data_offset;

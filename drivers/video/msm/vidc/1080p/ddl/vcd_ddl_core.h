@@ -97,6 +97,9 @@
 #define DDL_MAX_H264_QP            51
 #define DDL_MAX_MPEG4_QP           31
 
+#define DDL_CONCEALMENT_Y_COLOR                 16
+#define DDL_CONCEALMENT_C_COLOR                 128
+
 #define DDL_ALLOW_DEC_FRAMESIZE(width, height) \
 	((DDL_NO_OF_MB(width, height) <= \
 	MAX_FRAME_SIZE_L4PT0_MBS) && \

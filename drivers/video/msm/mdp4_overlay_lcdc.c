@@ -260,8 +260,6 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	mdp_pipe_ctrl(MDP_OVERLAY0_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
-	mdp_disable_irq(MDP_DMA2_TERM);	/* disable intr */
-
 	mdp_histogram_ctrl(FALSE);
 	ret = panel_next_off(pdev);
 

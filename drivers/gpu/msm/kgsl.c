@@ -198,29 +198,6 @@ int kgsl_check_timestamp(struct kgsl_device *device, unsigned int timestamp)
 	return timestamp_cmp(ts_processed, timestamp);
 }
 
-int kgsl_regread(struct kgsl_device *device, unsigned int offsetwords,
-			unsigned int *value)
-{
-	int status = -ENXIO;
-
-	if (device->ftbl.device_regread)
-		status = device->ftbl.device_regread(device, offsetwords,
-					value);
-
-	return status;
-}
-
-int kgsl_regwrite(struct kgsl_device *device, unsigned int offsetwords,
-			unsigned int value)
-{
-	int status = -ENXIO;
-	if (device->ftbl.device_regwrite)
-		status = device->ftbl.device_regwrite(device, offsetwords,
-					value);
-
-	return status;
-}
-
 int kgsl_setstate(struct kgsl_device *device, uint32_t flags)
 {
 	int status = -ENXIO;
@@ -446,12 +423,10 @@ kgsl_put_process_private(struct kgsl_device *device,
 
 	list_del(&private->list);
 
-	spin_lock(&private->mem_lock);
 	list_for_each_entry_safe(entry, entry_tmp, &private->mem_list, list) {
 		list_del(&entry->list);
 		kgsl_destroy_mem_entry(entry);
 	}
-	spin_unlock(&private->mem_lock);
 
 #ifdef CONFIG_MSM_KGSL_MMU
 	if (private->pagetable != NULL)
@@ -733,9 +708,14 @@ static long kgsl_ioctl_device_regread(struct kgsl_device_private *dev_priv,
 		result = -EFAULT;
 		goto done;
 	}
-	result = dev_priv->device->ftbl.device_regread(dev_priv->device,
-						param.offsetwords,
-						&param.value);
+
+	if (param.offsetwords*sizeof(uint32_t) >=
+	    dev_priv->device->regspace.sizebytes) {
+		KGSL_DRV_ERR("invalid offset %d\n", param.offsetwords);
+		return -ERANGE;
+	}
+
+	kgsl_regread(dev_priv->device, param.offsetwords, &param.value);
 
 	if (result != 0)
 		goto done;

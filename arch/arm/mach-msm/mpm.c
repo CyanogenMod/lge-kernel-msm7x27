@@ -163,6 +163,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] = {
 	LPASS_SCSS_GP_LOW_IRQ,
 	LPASS_SCSS_GP_MEDIUM_IRQ,
 	LPASS_SCSS_GP_HIGH_IRQ,
+	SDC4_IRQ_0,
 	SPS_MTI_31,
 };
 
@@ -399,6 +400,23 @@ int msm_mpm_set_irq_type(unsigned int irq, unsigned int flow_type)
 	spin_unlock_irqrestore(&msm_mpm_lock, flags);
 
 	return rc;
+}
+
+int msm_mpm_enable_pin(enum msm_mpm_pin pin, unsigned int enable)
+{
+	uint32_t index = MSM_MPM_IRQ_INDEX(pin);
+	uint32_t mask = MSM_MPM_IRQ_MASK(pin);
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_mpm_lock, flags);
+
+	if (enable)
+		msm_mpm_enabled_irq[index] |= mask;
+	else
+		msm_mpm_enabled_irq[index] &= ~mask;
+
+	spin_unlock_irqrestore(&msm_mpm_lock, flags);
+	return 0;
 }
 
 int msm_mpm_set_pin_wake(enum msm_mpm_pin pin, unsigned int on)

@@ -67,9 +67,6 @@ IMPORTANT NOTE:
     should be implemented to use the software implemenation (ex: openssl/crypto)
     of the crypto algorithms.
 
-(TBD: In the future we will provide a layer that exposes the kernel crypto APIs
- to user space, which will allow both user space app and kernel space app to
- access the CE hardware accelerator.)
 
 Hardware description:
 =====================
