@@ -655,7 +655,7 @@ wl_iw_get_macaddr(
 	return error;
 }
 
-#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD)
+#if defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD)
 static int
 wl_iw_set_hostip(
 	struct net_device *dev,
@@ -708,7 +708,7 @@ wl_iw_set_hostip(
 
     return 0;
 }
-#endif	/* defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD) */
+#endif	/* defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD) */
 
 static int
 wl_iw_set_country(
@@ -6090,10 +6090,10 @@ wl_iw_set_priv(
 			ret = wl_iw_get_macaddr(dev, info, (union iwreq_data *)dwrq, extra);
 	    else if (strnicmp(extra, "COUNTRY", strlen("COUNTRY")) == 0)
 			ret = wl_iw_set_country(dev, info, (union iwreq_data *)dwrq, extra);
-#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD)
+#if defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD)
 	    else if (strnicmp(extra, "IPADDR", strlen("IPADDR")) == 0)
 			ret = wl_iw_set_hostip(dev, info, (union iwreq_data *)dwrq, extra);
-#endif	/* defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD) */
+#endif	/* defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD) */
 	    else if (strnicmp(extra, "STOP", strlen("STOP")) == 0)
 			ret = wl_iw_control_wl_off(dev, info);
 #if !defined(CONFIG_LGE_BCM432X_PATCH)

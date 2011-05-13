@@ -147,7 +147,7 @@ static unsigned sdcc_cfg_data[][6] = {
 #ifdef  CONFIG_MMC_MSM_CARD_HW_DETECTION
 	{
 /* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
-#if 0	// Original Code
+#if 1	// Original Code
 	GPIO_CFG(GPIO_SD_DATA_3, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_DATA_2, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_DATA_1, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
@@ -338,7 +338,7 @@ static struct mmc_platform_data bcm432x_sdcc_wlan_data = {
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 24576000,
 	.msmsdcc_fmax	= 49152000,
-	.nonremovable	= 1,
+	.nonremovable	= 0,
 };
 #endif  /* CONFIG_LGE_BCM432X_PATCH*/
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, BCM4325 control gpio */
@@ -392,8 +392,9 @@ static void __init msm7x2x_init_mmc(void)
 	gpio_tlmm_config(GPIO_CFG(CONFIG_BCM4329_GPIO_WL_RESET, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	/*gpio_configure(CONFIG_BCM4329_GPIO_WL_RESET, GPIOF_DRIVE_OUTPUT);*/ // for dkmoon GB kernel
 	gpio_set_value(CONFIG_BCM4329_GPIO_WL_RESET, 0);
-	
-	gpio_tlmm_config(GPIO_CFG(CONFIG_BCM4329_GPIO_WL_HOSTWAKEUP, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+
+	// 20110506 dk.moon, block for OOB type. 
+	//gpio_tlmm_config(GPIO_CFG(CONFIG_BCM4329_GPIO_WL_HOSTWAKEUP, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	/*gpio_configure(CONFIG_BCM4329_GPIO_WL_HOSTWAKEUP, GPIOF_INPUT);*/ // for dkmoon GB kernel
 
 	/* Register platform device */

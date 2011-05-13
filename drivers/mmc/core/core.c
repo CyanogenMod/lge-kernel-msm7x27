@@ -957,8 +957,8 @@ void mmc_power_up(struct mmc_host *host)
 	 * time required to reach a stable voltage.
 	 */
 /*LGE_UPDATE_S DYLEE */
-	mmc_delay(20);	
-/* mmc_delay(10);	*/
+/*	mmc_delay(20);	*/
+ mmc_delay(10);	
 /*LGE_UPDATE_E DYLEE */
 }
 EXPORT_SYMBOL(mmc_power_up);

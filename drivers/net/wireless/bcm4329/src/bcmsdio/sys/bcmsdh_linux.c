@@ -581,19 +581,34 @@ bcmsdh_unregister(void)
 }
 
 #if defined(OOB_INTR_ONLY)
+void bcmsdh_oob_intr_set(bool enable)
+{
+	static bool curstate = 1;
+	unsigned long flags;
+
+	spin_lock_irqsave(&sdhcinfo->irq_lock, flags);
+	if (curstate != enable) {
+		if (enable)
+			enable_irq(sdhcinfo->oob_irq);
+		else
+			disable_irq_nosync(sdhcinfo->oob_irq);
+		curstate = enable;
+	}
+	spin_unlock_irqrestore(&sdhcinfo->irq_lock, flags);
+}
+
 static irqreturn_t wlan_oob_irq(int irq, void *dev_id)
 {
 	dhd_pub_t *dhdp;
 
 	dhdp = (dhd_pub_t *)dev_get_drvdata(sdhcinfo->dev);
 
+	bcmsdh_oob_intr_set(0);
+
 	if (dhdp == NULL) {
-		disable_irq(sdhcinfo->oob_irq);
-		printk("Out of band GPIO interrupt fired way too early\n");
+		SDLX_MSG(("Out of band GPIO interrupt fired way too early\n"));
 		return IRQ_HANDLED;
 	}
-
-	WAKE_LOCK_TIMEOUT(dhdp, WAKE_LOCK_TMOUT, 25);
 
 	dhdsdio_isr((void *)dhdp->bus);
 
@@ -617,9 +632,6 @@ int bcmsdh_register_oob_intr(void * dhdp)
 	error = request_irq(sdhcinfo->oob_irq, wlan_oob_irq, sdhcinfo->oob_flags,
 		"bcmsdh_sdmmc", NULL);
 
-	if (error)
-		return -ENODEV;
-
 	set_irq_wake(sdhcinfo->oob_irq, 1);
 		sdhcinfo->oob_irq_registered = TRUE;
 	}
@@ -631,26 +643,12 @@ void bcmsdh_unregister_oob_intr(void)
 {
 	SDLX_MSG(("%s: Enter\n", __FUNCTION__));
 
-	set_irq_wake(sdhcinfo->oob_irq, 0);
-	disable_irq(sdhcinfo->oob_irq);	/* just in case.. */
-	free_irq(sdhcinfo->oob_irq, NULL);
-	sdhcinfo->oob_irq_registered = FALSE;
-}
-
-void bcmsdh_oob_intr_set(bool enable)
-{
-	static bool curstate = 1;
-	unsigned long flags;
-
-	spin_lock_irqsave(&sdhcinfo->irq_lock, flags);
-	if (curstate != enable) {
-		if (enable)
-			enable_irq(sdhcinfo->oob_irq);
-		else
-			disable_irq(sdhcinfo->oob_irq);
-		curstate = enable;
+	if (sdhcinfo->oob_irq_registered == TRUE) {
+		set_irq_wake(sdhcinfo->oob_irq, 0);
+		disable_irq(sdhcinfo->oob_irq);	/* just in case.. */
+		free_irq(sdhcinfo->oob_irq, NULL);
+		sdhcinfo->oob_irq_registered = FALSE;
 	}
-	spin_unlock_irqrestore(&sdhcinfo->irq_lock, flags);
 }
 #endif /* defined(OOB_INTR_ONLY) */
 /* Module parameters specific to each host-controller driver */
