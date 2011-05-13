@@ -154,8 +154,6 @@ static void event_handler(uint32_t opcode,
 	struct snd_pcm_substream *substream = prtd->substream;
 	uint32_t *ptrmem = (uint32_t *)payload;
 	int i = 0;
-	uint32_t idx = 0;
-	uint32_t size = 0;
 
 	pr_debug("%s\n", __func__);
 	switch (opcode) {
@@ -171,14 +169,10 @@ static void event_handler(uint32_t opcode,
 			break;
 		if (!prtd->mmap_flag)
 			break;
-		if (q6asm_is_cpu_buf_avail(IN,
-				prtd->audio_client,
-				&size, &idx)) {
-			pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
-					__func__, prtd->pcm_count);
-			q6asm_write_nolock(prtd->audio_client,
-				prtd->pcm_count, 0, 0, NO_TIMESTAMP);
-		}
+		pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
+				__func__, prtd->pcm_count);
+		q6asm_write_nolock(prtd->audio_client,
+			prtd->pcm_count, 0, 0, NO_TIMESTAMP);
 		break;
 	}
 	case ASM_DATA_CMDRSP_EOS:
@@ -200,10 +194,7 @@ static void event_handler(uint32_t opcode,
 		if (atomic_read(&prtd->in_count) <= prtd->periods)
 			atomic_inc(&prtd->in_count);
 		wake_up(&the_locks.read_wait);
-		if (prtd->mmap_flag
-			&& q6asm_is_cpu_buf_avail(OUT,
-				prtd->audio_client,
-				&size, &idx))
+		if (prtd->mmap_flag)
 			q6asm_read_nolock(prtd->audio_client);
 		break;
 	}
