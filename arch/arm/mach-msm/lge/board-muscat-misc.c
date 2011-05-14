@@ -204,6 +204,8 @@ int muscat_vibrator_power_set(int enable)
 			}
 			return 0;
 		}
+		
+		aat28xx_power(dev, 1);
 
 		if (aat28xx_ldo_set_level(dev, 1, motor_voltage) < 0) {
 			printk(KERN_ERR "%s: vibrator LDO set failed\n", __FUNCTION__);
@@ -236,6 +238,7 @@ int muscat_vibrator_power_set(int enable)
 			printk(KERN_ERR "%s: vibrator LDO disable failed\n", __FUNCTION__);
 			return -EIO;
 		}
+		aat28xx_power(dev, 0);
 
 		is_enabled = 0;
 	}
