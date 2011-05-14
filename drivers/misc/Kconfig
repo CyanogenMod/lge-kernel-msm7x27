@@ -523,6 +523,14 @@ config LGE_AT_CMD_DEVICE
 	help
 	 Choose if use AT_CMD device used for sending uevent to user space
 
+config LGE_ATCMD_TTY
+	bool "Support LGE atcmd bypassing tty"
+	default n
+	help
+	  Support LGE atcmd bypassing tty. "/dev/atcmd-tty0" is back-end tty,
+	  and "dev/atcmd-tty1" is front-end tty. Back-end tty will be interfaced
+	  with portbridge and front-end tty will be interfaced with parser/filter.
+
 config PMIC8058_XOADC
 	tristate "Qualcomm PM8058 XOADC driver"
 	depends on PMIC8058
