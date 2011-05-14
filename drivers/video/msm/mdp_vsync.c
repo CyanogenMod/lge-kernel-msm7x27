@@ -355,7 +355,7 @@ void mdp_config_vsync(struct msm_fb_data_type *mfd)
 		mfd->vsync_width_boundary = vmalloc(mfd->panel_info.xres * 4);
 #endif
 
-#ifdef CONFIG_FB_MSM_MDDI
+#if defined(CONFIG_FB_MSM_MDDI) || defined(CONFIG_FB_MSM_EBI2)
 		mfd->channel_irq = 0;
 		if (mfd->panel_info.lcd.hw_vsync_mode) {
 			u32 vsync_gpio = mfd->vsync_gpio;
