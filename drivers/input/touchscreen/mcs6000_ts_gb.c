@@ -1388,11 +1388,8 @@ static int mcs6000_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	}
 
 	//ret = cancel_work_sync(&ts->work);
-	ret = cancel_delayed_work_sync(&ts->work);
-	if (ret) {
-		enable_irq(client->irq);
-		ts->irq_sync++;
-	}
+	cancel_delayed_work_sync(&ts->work);
+	
 //	ret = i2c_smbus_write_byte_data(ts->client, 0x1d, 0x00); /* disable int */
 //	if (ret < 0)
 //		printk(KERN_ERR "mcs6000_ts_suspend: i2c write failed\n");
