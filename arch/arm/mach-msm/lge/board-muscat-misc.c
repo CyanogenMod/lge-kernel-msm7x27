@@ -304,11 +304,20 @@ int muscat_vibrator_ic_enable_set(int enable)
 	return 0;
 }
 
+
+int muscat_vibrator_gpio_request(void)
+{
+	gpio_request(GPIO_LIN_MOTOR_PWM, "Vibrator_PWM");
+	return 0;
+}
+
+
 static struct android_vibrator_platform_data muscat_vibrator_data = {
 	.enable_status = 0,	
 	.power_set = muscat_vibrator_power_set,
 	.pwm_set = muscat_vibrator_pwm_set,
 	.ic_enable_set = muscat_vibrator_ic_enable_set,
+	.gpio_request = muscat_vibrator_gpio_request,
 	.amp_value = 92,
 };
 
