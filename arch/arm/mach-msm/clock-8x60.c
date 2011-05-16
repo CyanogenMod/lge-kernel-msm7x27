@@ -2308,6 +2308,8 @@ int soc_clk_measure_rate(unsigned id)
 		ret = -EPERM;
 		goto err;
 	}
+	/* Make sure test vector is set before continuing. */
+	dsb();
 
 	/* Enable CXO/4 and RINGOSC branch and root. */
 	pdm_reg_backup = readl(PDM_CLK_NS_REG);
@@ -2380,6 +2382,9 @@ int soc_clk_reset(unsigned id, enum clk_reset_action action)
 	writel(reg_val, clk->reset_reg);
 
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	/* Make sure write is issued before returning. */
+	dsb();
 
 	return ret;
 }
@@ -2474,6 +2479,8 @@ static void reg_init(void)
 	writel(BIT(12), SW_RESET_CORE_REG);
 	udelay(5);
 	writel(0, SW_RESET_CORE_REG);
+	/* Make sure reset is de-asserted before clock is disabled. */
+	mb();
 	local_clk_disable(C(GFX3D));
 
 	/* Enable TSSC and PDM PXO sources. */
