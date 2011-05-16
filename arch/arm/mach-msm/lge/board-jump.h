@@ -60,7 +60,7 @@
 #define TS_GPIO_I2C_SDA		91
 #define TS_GPIO_I2C_SCL		90
 #define TS_GPIO_IRQ			92
-#define TS_I2C_SLAVE_ADDR	0x20
+#define TS_I2C_SLAVE_ADDR	0x48
 
 /* proximity sensor */
 #define PROXI_GPIO_I2C_SCL	19   /*107 in p500*/

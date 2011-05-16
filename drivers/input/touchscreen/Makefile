@@ -59,5 +59,6 @@ obj-$(CONFIG_TOUCHSCREEN_MSM_LEGACY)		+= msm_touch.o
 obj-$(CONFIG_TOUCHSCREEN_MCS6000)	+= mcs6000_ts_gb.o
 #obj-$(CONFIG_TOUCHSCREEN_MCS7000)	+= mcs7000_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MCS7000)	+= mcs7000_ts_muscat.o
+obj-$(CONFIG_TOUCHSCREEN_MCS8000)	+= mcs8000_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CY8C_TS)	+= cy8c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CYTTSP_I2C)       += cyttsp-i2c.o

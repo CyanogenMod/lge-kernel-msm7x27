@@ -658,6 +658,13 @@ config TOUCHSCREEN_MCS7000
 	help
 	  Say Y here if you have a MCS7000 touchscreen.
 
+config TOUCHSCREEN_MCS8000
+	default n
+	bool "MCS8000 touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you have a MCS8000 touchscreen.
+
 config TOUCHSCREEN_CY8C_TS
 	tristate "Cypress TMA300-TMG200 based touchscreens"
 	depends on I2C
