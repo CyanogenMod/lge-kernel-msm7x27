@@ -27,6 +27,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/types.h>
+#include <asm/system.h>
 
 #define DRIVER_NAME "msm_rng"
 
@@ -172,6 +173,7 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	val = readl(base + PRNG_CONFIG_OFFSET) & PRNG_CONFIG_MASK;
 	val |= PRNG_CONFIG_ENABLE;
 	writel(val, base + PRNG_CONFIG_OFFSET);
+	dsb();	/* make sure writes occur before clock is disable */
 
 	clk_disable(msm_rng_dev->prng_clk);
 
