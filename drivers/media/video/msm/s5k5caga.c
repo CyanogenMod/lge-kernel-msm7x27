@@ -607,7 +607,7 @@ static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 		}
 		if((mode == FOCUS_AUTO) || (mode == FOCUS_NORMAL))
 		{
-			if(af_pos == 0x0028){
+			if(af_pos == 0x0){
 				if(debug_mask)
 					printk("af_lenspos is equal with af_pos = 0x%x\n", af_pos);
 				return rc;
@@ -630,7 +630,7 @@ static int32_t lgcam_rear_sensor_cancel_focus(int mode)
 		}
 		else if((mode == FOCUS_CONTINUOUS_VIDEO) || (mode == FOCUS_CONTINUOUS_CAMERA))
 		{
-			if(af_pos == 0x0028){
+			if(af_pos == 0x0){
 				if(debug_mask)
 					printk("caf_lenspos is equal with af_pos = 0x%x\n", af_pos);
 				lgcam_rear_sensor_set_continuous_focus();
@@ -1705,7 +1705,7 @@ static long lgcam_rear_sensor_set_wb(int8_t wb)
 			return rc;	
 
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x0F12, 0x0460, WORD_LEN);
+			0x0F12, 0x0490, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
@@ -1721,7 +1721,7 @@ static long lgcam_rear_sensor_set_wb(int8_t wb)
 		if (rc < 0)
 			return rc;	
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,
-			0x0F12, 0x0730, WORD_LEN);
+			0x0F12, 0x0760, WORD_LEN);
 		if (rc < 0)
 			return rc;	
 		rc = lgcam_rear_sensor_i2c_write(lgcam_rear_sensor_client->addr,

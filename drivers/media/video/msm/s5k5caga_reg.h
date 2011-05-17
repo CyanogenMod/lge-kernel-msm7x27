@@ -1167,7 +1167,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12, 0x030A, WORD_LEN}, // #senHal_pContSenModesRegsArray[76][2]2 70001536
 {0x0F12, 0x021C, WORD_LEN}, // #senHal_pContSenModesRegsArray[76][3]2 70001538
 {0x0F12, 0x062F, WORD_LEN}, // #senHal_pContSenModesRegsArray[77][0]2 7000153A
-{0xF12, 0x0460, WORD_LEN}, // #senHal_pContSenModesRegsArray[77][1]2 7000153C
+{0x0F12, 0x0460, WORD_LEN}, // #senHal_pContSenModesRegsArray[77][1]2 7000153C
 {0x0F12, 0x038C, WORD_LEN}, // #senHal_pContSenModesRegsArray[77][2]2 7000153E
 {0x0F12, 0x029E, WORD_LEN}, // #senHal_pContSenModesRegsArray[77][3]2 70001540
 {0x0F12, 0x07FC, WORD_LEN}, // #senHal_pContSenModesRegsArray[78][0]2 70001542
@@ -1255,7 +1255,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 // AF Default Position 
 
 {0x002A, 0x1060, WORD_LEN},
-{0x0F12, 0x0028, WORD_LEN},  //3C//#af_pos_usHomePos
+{0x0F12, 0x0000, WORD_LEN},  //3C//#af_pos_usHomePos
 {0x0F12, 0x6428, WORD_LEN},  //#af_pos_usLowConfPos
 
 
@@ -1289,22 +1289,22 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 
 {0x002A, 0x1074, WORD_LEN},
 {0x0F12, 0x0010, WORD_LEN}, //0010 //#af_pos_usTableLastInd// 16 Steps 091222
-{0x0F12, 0x0028, WORD_LEN}, //003C //#af_pos_usTable_0_// af_pos_usTable
-{0x0F12, 0x002B, WORD_LEN}, //003F //#af_pos_usTable_1_
-{0x0F12, 0x002E, WORD_LEN}, //0042 //#af_pos_usTable_2_
-{0x0F12, 0x0031, WORD_LEN}, //0045 //#af_pos_usTable_3_
-{0x0F12, 0x0034, WORD_LEN}, //0048 //#af_pos_usTable_4_
-{0x0F12, 0x0037, WORD_LEN}, //004B //#af_pos_usTable_5_
-{0x0F12, 0x003A, WORD_LEN}, //004E //#af_pos_usTable_6_
-{0x0F12, 0x003D, WORD_LEN}, //0051 //#af_pos_usTable_7_
-{0x0F12, 0x0040, WORD_LEN}, //0054 //#af_pos_usTable_8_
-{0x0F12, 0x0043, WORD_LEN}, //0057 //#af_pos_usTable_9_
-{0x0F12, 0x0046, WORD_LEN}, //005A //#af_pos_usTable_10_
-{0x0F12, 0x004A, WORD_LEN}, //005E //#af_pos_usTable_11_
-{0x0F12, 0x004D, WORD_LEN}, //0061 //#af_pos_usTable_12_
-{0x0F12, 0x0050, WORD_LEN}, //0064 //#af_pos_usTable_13_
-{0x0F12, 0x0054, WORD_LEN}, //0068 //#af_pos_usTable_14_
-{0x0F12, 0x0058, WORD_LEN}, //006C //#af_pos_usTable_15_
+{0x0F12, 0x0000, WORD_LEN}, //003C //#af_pos_usTable_0_// af_pos_usTable
+{0x0F12, 0x0028, WORD_LEN}, //003F //#af_pos_usTable_1_
+{0x0F12, 0x002D, WORD_LEN}, //0042 //#af_pos_usTable_2_
+{0x0F12, 0x0032, WORD_LEN}, //0045 //#af_pos_usTable_3_
+{0x0F12, 0x0037, WORD_LEN}, //0048 //#af_pos_usTable_4_
+{0x0F12, 0x003C, WORD_LEN}, //004B //#af_pos_usTable_5_
+{0x0F12, 0x003F, WORD_LEN}, //004E //#af_pos_usTable_6_
+{0x0F12, 0x0042, WORD_LEN}, //0051 //#af_pos_usTable_7_
+{0x0F12, 0x0045, WORD_LEN}, //0054 //#af_pos_usTable_8_
+{0x0F12, 0x0048, WORD_LEN}, //0057 //#af_pos_usTable_9_
+{0x0F12, 0x004B, WORD_LEN}, //005A //#af_pos_usTable_10_
+{0x0F12, 0x004E, WORD_LEN}, //005E //#af_pos_usTable_11_
+{0x0F12, 0x0051, WORD_LEN}, //0061 //#af_pos_usTable_12_
+{0x0F12, 0x0054, WORD_LEN}, //0064 //#af_pos_usTable_13_
+{0x0F12, 0x0057, WORD_LEN}, //0068 //#af_pos_usTable_14_
+{0x0F12, 0x005A, WORD_LEN}, //006C //#af_pos_usTable_15_
 {0x0F12, 0x0064, WORD_LEN}, //0078 //#af_pos_usTable_16_
 {0x002A, 0x0252, WORD_LEN},
 {0x0F12, 0x0003, WORD_LEN},  //init 
@@ -1425,7 +1425,6 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 // #AE weight
 
 {0x002A, 0x0F7E, WORD_LEN},
-//mhlee
 
 {0x0F12,  0x0101, WORD_LEN},  // #ae_WeightTbl_16_0_
 {0x0F12,  0x0101, WORD_LEN},  // #ae_WeightTbl_16_1_
@@ -1485,37 +1484,36 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 
 {0x002A, 0x06CE, WORD_LEN},
 
-//mhlee
 
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[0], WORD_LEN},  // #Horizon
+{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[0]  // #Horizon
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[1]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[2]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[3]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[4], WORD_LEN},  // #IncandA
+{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[4] // #IncandA
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[5]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[6]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[7]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[8], WORD_LEN},  // #WW
+{0x0F12,  0x00F0, WORD_LEN},  // #TVAR_ash_GASAlpha[8]  // #WW
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[9]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[10]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[11]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[12], WORD_LEN},  // #CWF
+{0x0F12,  0x00E0, WORD_LEN},  // #TVAR_ash_GASAlpha[12] // #CWF
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[13]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[14]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[15]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[16], WORD_LEN},  // #D50
+{0x0F12,  0x010A, WORD_LEN},  // #TVAR_ash_GASAlpha[16]  // #D50
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[17]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[18]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[19]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[20], WORD_LEN},  // #D65
+{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[20]  // #D65
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[21]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[22]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[23]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[24], WORD_LEN},  // #D75
+{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[24] // #D75
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[25]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[26]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[27]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASOutdoorAlpha[0], WORD_LEN},  // #Outdoor
+{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASOutdoorAlpha[0]// #Outdoor
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASOutdoorAlpha[1]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASOutdoorAlpha[2]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASOutdoorAlpha[3]
@@ -1584,591 +1582,1142 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 
 {0x002A, 0x347C, WORD_LEN},
 
-//mhlee
 
-{0x0F12,  0x018A, WORD_LEN},  // #TVAR_ash_pGAS[0]
-{0x0F12,  0x014C, WORD_LEN},  // #TVAR_ash_pGAS[1]
-{0x0F12,  0x0111, WORD_LEN},  // #TVAR_ash_pGAS[2]         
-{0x0F12,  0x00E0, WORD_LEN},  // #TVAR_ash_pGAS[3]
-{0x0F12,  0x00BE, WORD_LEN},  // #TVAR_ash_pGAS[4]
-{0x0F12,  0x00A9, WORD_LEN},  // #TVAR_ash_pGAS[5]         
-{0x0F12,  0x00A0, WORD_LEN},  // #TVAR_ash_pGAS[6]             
-{0x0F12,  0x00A0, WORD_LEN},  // #TVAR_ash_pGAS[7]             
-{0x0F12,  0x00AF, WORD_LEN},  // #TVAR_ash_pGAS[8]             
-{0x0F12,  0x00CF, WORD_LEN},  // #TVAR_ash_pGAS[9]             
-{0x0F12,  0x00F6, WORD_LEN},  // #TVAR_ash_pGAS[10]             
-{0x0F12,  0x011B, WORD_LEN},  // #TVAR_ash_pGAS[11]             
-{0x0F12,  0x0141, WORD_LEN},  // #TVAR_ash_pGAS[12]             
-{0x0F12,  0x0156, WORD_LEN},  // #TVAR_ash_pGAS[13]             
-{0x0F12,  0x0121, WORD_LEN},  // #TVAR_ash_pGAS[14]             
-{0x0F12,  0x00E0, WORD_LEN},  // #TVAR_ash_pGAS[15]             
-{0x0F12,  0x00AD, WORD_LEN},  // #TVAR_ash_pGAS[16]             
-{0x0F12,  0x008C, WORD_LEN},  // #TVAR_ash_pGAS[17]             
-{0x0F12,  0x0076, WORD_LEN},  // #TVAR_ash_pGAS[18]             
-{0x0F12,  0x006D, WORD_LEN},  // #TVAR_ash_pGAS[19]             
-{0x0F12,  0x006F, WORD_LEN},  // #TVAR_ash_pGAS[20]             
-{0x0F12,  0x007D, WORD_LEN},  // #TVAR_ash_pGAS[21]             
-{0x0F12,  0x0098, WORD_LEN},  // #TVAR_ash_pGAS[22]             
-{0x0F12,  0x00C4, WORD_LEN},  // #TVAR_ash_pGAS[23]             
-{0x0F12,  0x00F6, WORD_LEN},  // #TVAR_ash_pGAS[24]             
-{0x0F12,  0x011E, WORD_LEN},  // #TVAR_ash_pGAS[25]             
-{0x0F12,  0x0133, WORD_LEN},  // #TVAR_ash_pGAS[26]             
-{0x0F12,  0x00F3, WORD_LEN},  // #TVAR_ash_pGAS[27]             
-{0x0F12,  0x00AF, WORD_LEN},  // #TVAR_ash_pGAS[28]             
-{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[29]             
-{0x0F12,  0x005B, WORD_LEN},  // #TVAR_ash_pGAS[30]             
-{0x0F12,  0x0048, WORD_LEN},  // #TVAR_ash_pGAS[31]             
-{0x0F12,  0x003C, WORD_LEN},  // #TVAR_ash_pGAS[32]             
-{0x0F12,  0x0041, WORD_LEN},  // #TVAR_ash_pGAS[33]             
-{0x0F12,  0x0051, WORD_LEN},  // #TVAR_ash_pGAS[34]             
-{0x0F12,  0x006E, WORD_LEN},  // #TVAR_ash_pGAS[35]             
-{0x0F12,  0x0098, WORD_LEN},  // #TVAR_ash_pGAS[36]             
-{0x0F12,  0x00D1, WORD_LEN},  // #TVAR_ash_pGAS[37]             
-{0x0F12,  0x0109, WORD_LEN},  // #TVAR_ash_pGAS[38]             
-{0x0F12,  0x0112, WORD_LEN},  // #TVAR_ash_pGAS[39]             
-{0x0F12,  0x00D1, WORD_LEN},  // #TVAR_ash_pGAS[40]             
-{0x0F12,  0x0090, WORD_LEN},  // #TVAR_ash_pGAS[41]             
-{0x0F12,  0x005B, WORD_LEN},  // #TVAR_ash_pGAS[42]            
-{0x0F12,  0x003A, WORD_LEN},  // #TVAR_ash_pGAS[43]             
-{0x0F12,  0x0024, WORD_LEN},  // #TVAR_ash_pGAS[44]             
-{0x0F12,  0x001E, WORD_LEN},  // #TVAR_ash_pGAS[45]             
-{0x0F12,  0x0022, WORD_LEN},  // #TVAR_ash_pGAS[46]             
-{0x0F12,  0x0033, WORD_LEN},  // #TVAR_ash_pGAS[47]             
-{0x0F12,  0x0051, WORD_LEN},  // #TVAR_ash_pGAS[48]             
-{0x0F12,  0x007C, WORD_LEN},  // #TVAR_ash_pGAS[49]             
-{0x0F12,  0x00B7, WORD_LEN},  // #TVAR_ash_pGAS[50]             
-{0x0F12,  0x00F8, WORD_LEN},  // #TVAR_ash_pGAS[51]             
-{0x0F12,  0x010A, WORD_LEN},  // #TVAR_ash_pGAS[52]             
-{0x0F12,  0x00BE, WORD_LEN},  // #TVAR_ash_pGAS[53]             
-{0x0F12,  0x007A, WORD_LEN},  // #TVAR_ash_pGAS[54]             
-{0x0F12,  0x0045, WORD_LEN},  // #TVAR_ash_pGAS[55]             
-{0x0F12,  0x0024, WORD_LEN},  // #TVAR_ash_pGAS[56]             
-{0x0F12,  0x000E, WORD_LEN},  // #TVAR_ash_pGAS[57]             
+{0x0F12,  0x017E, WORD_LEN},  // #TVAR_ash_pGAS[0]
+{0x0F12,  0x015B, WORD_LEN},  // #TVAR_ash_pGAS[1]
+{0x0F12,  0x0125, WORD_LEN},  // #TVAR_ash_pGAS[2]
+{0x0F12,  0x00FA, WORD_LEN},  // #TVAR_ash_pGAS[3]
+{0x0F12,  0x00DC, WORD_LEN},  // #TVAR_ash_pGAS[4]
+{0x0F12,  0x00CD, WORD_LEN},  // #TVAR_ash_pGAS[5]
+{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[6]
+{0x0F12,  0x00D4, WORD_LEN},  // #TVAR_ash_pGAS[7]
+{0x0F12,  0x00EE, WORD_LEN},  // #TVAR_ash_pGAS[8]
+{0x0F12,  0x011A, WORD_LEN},  // #TVAR_ash_pGAS[9]
+{0x0F12,  0x0158, WORD_LEN},  // #TVAR_ash_pGAS[10]
+{0x0F12,  0x0197, WORD_LEN},  // #TVAR_ash_pGAS[11]
+{0x0F12,  0x01F3, WORD_LEN},  // #TVAR_ash_pGAS[12]
+{0x0F12,  0x016A, WORD_LEN},  // #TVAR_ash_pGAS[13]
+{0x0F12,  0x0129, WORD_LEN},  // #TVAR_ash_pGAS[14]
+{0x0F12,  0x00EE, WORD_LEN},  // #TVAR_ash_pGAS[15]
+{0x0F12,  0x00BF, WORD_LEN},  // #TVAR_ash_pGAS[16]
+{0x0F12,  0x009D, WORD_LEN},  // #TVAR_ash_pGAS[17]
+{0x0F12,  0x008C, WORD_LEN},  // #TVAR_ash_pGAS[18]
+{0x0F12,  0x0089, WORD_LEN},  // #TVAR_ash_pGAS[19]
+{0x0F12,  0x0096, WORD_LEN},  // #TVAR_ash_pGAS[20]
+{0x0F12,  0x00B3, WORD_LEN},  // #TVAR_ash_pGAS[21]
+{0x0F12,  0x00DF, WORD_LEN},  // #TVAR_ash_pGAS[22]
+{0x0F12,  0x0121, WORD_LEN},  // #TVAR_ash_pGAS[23]
+{0x0F12,  0x016F, WORD_LEN},  // #TVAR_ash_pGAS[24]
+
+{0x0F12,  0x01B3, WORD_LEN},  // #TVAR_ash_pGAS[25]
+
+{0x0F12,  0x0144, WORD_LEN},  // #TVAR_ash_pGAS[26]
+
+{0x0F12,  0x00FB, WORD_LEN},  // #TVAR_ash_pGAS[27]
+
+{0x0F12,  0x00B5, WORD_LEN},  // #TVAR_ash_pGAS[28]
+
+{0x0F12,  0x0085, WORD_LEN},  // #TVAR_ash_pGAS[29]
+
+{0x0F12,  0x0062, WORD_LEN},  // #TVAR_ash_pGAS[30]
+
+{0x0F12,  0x004E, WORD_LEN},  // #TVAR_ash_pGAS[31]
+
+{0x0F12,  0x004C, WORD_LEN},  // #TVAR_ash_pGAS[32]
+
+{0x0F12,  0x005A, WORD_LEN},  // #TVAR_ash_pGAS[33]
+
+{0x0F12,  0x007A, WORD_LEN},  // #TVAR_ash_pGAS[34]
+
+{0x0F12,  0x00AB, WORD_LEN},  // #TVAR_ash_pGAS[35]
+
+{0x0F12,  0x00EA, WORD_LEN},  // #TVAR_ash_pGAS[36]
+
+{0x0F12,  0x013E, WORD_LEN},  // #TVAR_ash_pGAS[37]
+
+{0x0F12,  0x0190, WORD_LEN},  // #TVAR_ash_pGAS[38]
+
+{0x0F12,  0x011E, WORD_LEN},  // #TVAR_ash_pGAS[39]
+
+{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[40]
+
+{0x0F12,  0x008F, WORD_LEN},  // #TVAR_ash_pGAS[41]
+
+{0x0F12,  0x005A, WORD_LEN},  // #TVAR_ash_pGAS[42]
+
+{0x0F12,  0x0035, WORD_LEN},  // #TVAR_ash_pGAS[43]
+
+{0x0F12,  0x001F, WORD_LEN},  // #TVAR_ash_pGAS[44]
+
+{0x0F12,  0x001E, WORD_LEN},  // #TVAR_ash_pGAS[45]
+
+{0x0F12,  0x002D, WORD_LEN},  // #TVAR_ash_pGAS[46]
+
+{0x0F12,  0x004F, WORD_LEN},  // #TVAR_ash_pGAS[47]
+
+{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[48]
+
+{0x0F12,  0x00C6, WORD_LEN},  // #TVAR_ash_pGAS[49]
+
+{0x0F12,  0x011C, WORD_LEN},  // #TVAR_ash_pGAS[50]
+
+{0x0F12,  0x0174, WORD_LEN},  // #TVAR_ash_pGAS[51]
+
+{0x0F12,  0x010F, WORD_LEN},  // #TVAR_ash_pGAS[52]
+
+{0x0F12,  0x00C7, WORD_LEN},  // #TVAR_ash_pGAS[53]
+
+{0x0F12,  0x007D, WORD_LEN},  // #TVAR_ash_pGAS[54]
+
+{0x0F12,  0x0044, WORD_LEN},  // #TVAR_ash_pGAS[55]
+
+{0x0F12,  0x001D, WORD_LEN},  // #TVAR_ash_pGAS[56]
+
 {0x0F12,  0x0008, WORD_LEN},  // #TVAR_ash_pGAS[58]             
-{0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[59]             
-{0x0F12,  0x001C, WORD_LEN},  // #TVAR_ash_pGAS[60]             
-{0x0F12,  0x003D, WORD_LEN},  // #TVAR_ash_pGAS[61]             
-{0x0F12,  0x006A, WORD_LEN},  // #TVAR_ash_pGAS[62]             
-{0x0F12,  0x00A9, WORD_LEN},  // #TVAR_ash_pGAS[63]             
-{0x0F12,  0x00E6, WORD_LEN},  // #TVAR_ash_pGAS[64]             
-{0x0F12,  0x00F9, WORD_LEN},  // #TVAR_ash_pGAS[65]
-{0x0F12,  0x00B5, WORD_LEN},  // #TVAR_ash_pGAS[66]
-{0x0F12,  0x0071, WORD_LEN},  // #TVAR_ash_pGAS[67]
-{0x0F12,  0x003D, WORD_LEN},  // #TVAR_ash_pGAS[68]
-{0x0F12,  0x0019, WORD_LEN},  // #TVAR_ash_pGAS[69]
-{0x0F12,  0x0005, WORD_LEN},  // #TVAR_ash_pGAS[70]
+{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[58]
+
+{0x0F12,  0x0016, WORD_LEN},  // #TVAR_ash_pGAS[59]
+
+{0x0F12,  0x0039, WORD_LEN},  // #TVAR_ash_pGAS[60]
+
+{0x0F12,  0x006F, WORD_LEN},  // #TVAR_ash_pGAS[61]
+
+{0x0F12,  0x00B6, WORD_LEN},  // #TVAR_ash_pGAS[62]
+
+{0x0F12,  0x010C, WORD_LEN},  // #TVAR_ash_pGAS[63]
+
+{0x0F12,  0x0168, WORD_LEN},  // #TVAR_ash_pGAS[64]
+
+{0x0F12,  0x010B, WORD_LEN},  // #TVAR_ash_pGAS[65]
+
+{0x0F12,  0x00C1, WORD_LEN},  // #TVAR_ash_pGAS[66]
+
+{0x0F12,  0x0078, WORD_LEN},  // #TVAR_ash_pGAS[67]
+{0x0F12,  0x003E, WORD_LEN},  // #TVAR_ash_pGAS[68]
+
+{0x0F12,  0x0016, WORD_LEN},  // #TVAR_ash_pGAS[69]
+
+{0x0F12,  0x0001, WORD_LEN},  // #TVAR_ash_pGAS[70]
+
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_ash_pGAS[71]
-{0x0F12,  0x0006, WORD_LEN},  // #TVAR_ash_pGAS[72]
-{0x0F12,  0x0016, WORD_LEN},  // #TVAR_ash_pGAS[73]
-{0x0F12,  0x0037, WORD_LEN},  // #TVAR_ash_pGAS[74]
-{0x0F12,  0x0065, WORD_LEN},  // #TVAR_ash_pGAS[75]
-{0x0F12,  0x00A3, WORD_LEN},  // #TVAR_ash_pGAS[76]
-{0x0F12,  0x00E9, WORD_LEN},  // #TVAR_ash_pGAS[77]
-{0x0F12,  0x0106, WORD_LEN},  // #TVAR_ash_pGAS[78]
-{0x0F12,  0x00BD, WORD_LEN},  // #TVAR_ash_pGAS[79]
-{0x0F12,  0x0077, WORD_LEN},  // #TVAR_ash_pGAS[80]
-{0x0F12,  0x0044, WORD_LEN},  // #TVAR_ash_pGAS[81]
+
+{0x0F12,  0x0010, WORD_LEN},  // #TVAR_ash_pGAS[72]
+
+{0x0F12,  0x0034, WORD_LEN},  // #TVAR_ash_pGAS[73]
+
+{0x0F12,  0x006C, WORD_LEN},  // #TVAR_ash_pGAS[74]
+
+{0x0F12,  0x00B4, WORD_LEN},  // #TVAR_ash_pGAS[75]
+
+{0x0F12,  0x010B, WORD_LEN},  // #TVAR_ash_pGAS[76]
+
+{0x0F12,  0x0165, WORD_LEN},  // #TVAR_ash_pGAS[77]
+
+{0x0F12,  0x0116, WORD_LEN},  // #TVAR_ash_pGAS[78]
+
+{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[79]
+
+{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[80]
+
+{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[81]
 {0x0F12,  0x0021, WORD_LEN},  // #TVAR_ash_pGAS[82]
 {0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[83]
-{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[84]
-{0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[85]
-{0x0F12,  0x001F, WORD_LEN},  // #TVAR_ash_pGAS[86]
-{0x0F12,  0x003D, WORD_LEN},  // #TVAR_ash_pGAS[87]
-{0x0F12,  0x006F, WORD_LEN},  // #TVAR_ash_pGAS[88]
-{0x0F12,  0x00AE, WORD_LEN},  // #TVAR_ash_pGAS[89]
-{0x0F12,  0x00F1, WORD_LEN},  // #TVAR_ash_pGAS[90]
-{0x0F12,  0x011F, WORD_LEN},  // #TVAR_ash_pGAS[91]
-{0x0F12,  0x00DA, WORD_LEN},  // #TVAR_ash_pGAS[92]
-{0x0F12,  0x008F, WORD_LEN},  // #TVAR_ash_pGAS[93]
-{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[94]
-{0x0F12,  0x0035, WORD_LEN},  // #TVAR_ash_pGAS[95]
-{0x0F12,  0x0021, WORD_LEN},  // #TVAR_ash_pGAS[96]
-{0x0F12,  0x001A, WORD_LEN},  // #TVAR_ash_pGAS[97]
-{0x0F12,  0x001F, WORD_LEN},  // #TVAR_ash_pGAS[98]
-{0x0F12,  0x0033, WORD_LEN},  // #TVAR_ash_pGAS[99]
-{0x0F12,  0x0056, WORD_LEN},  // #TVAR_ash_pGAS[100]
-{0x0F12,  0x0088, WORD_LEN},  // #TVAR_ash_pGAS[101]
-{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[102]
-{0x0F12,  0x010D, WORD_LEN},  // #TVAR_ash_pGAS[103]
-{0x0F12,  0x013F, WORD_LEN},  // #TVAR_ash_pGAS[104]
-{0x0F12,  0x00F9, WORD_LEN},  // #TVAR_ash_pGAS[105]
-{0x0F12,  0x00B6, WORD_LEN},  // #TVAR_ash_pGAS[106]
-{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[107]
-{0x0F12,  0x005A, WORD_LEN},  // #TVAR_ash_pGAS[108]
-{0x0F12,  0x0045, WORD_LEN},  // #TVAR_ash_pGAS[109]
-{0x0F12,  0x003F, WORD_LEN},  // #TVAR_ash_pGAS[110]
-{0x0F12,  0x0045, WORD_LEN},  // #TVAR_ash_pGAS[111]
-{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[112]
-{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[113]
-{0x0F12,  0x00B0, WORD_LEN},  // #TVAR_ash_pGAS[114]
-{0x0F12,  0x00F6, WORD_LEN},  // #TVAR_ash_pGAS[115]
-{0x0F12,  0x012C, WORD_LEN},  // #TVAR_ash_pGAS[116]
-{0x0F12,  0x0174, WORD_LEN},  // #TVAR_ash_pGAS[117]
-{0x0F12,  0x0131, WORD_LEN},  // #TVAR_ash_pGAS[118]
-{0x0F12,  0x00EB, WORD_LEN},  // #TVAR_ash_pGAS[119]
-{0x0F12,  0x00B8, WORD_LEN},  // #TVAR_ash_pGAS[120]
-{0x0F12,  0x0090, WORD_LEN},  // #TVAR_ash_pGAS[121]
-{0x0F12,  0x007A, WORD_LEN},  // #TVAR_ash_pGAS[122]
-{0x0F12,  0x0074, WORD_LEN},  // #TVAR_ash_pGAS[123]
-{0x0F12,  0x0079, WORD_LEN},  // #TVAR_ash_pGAS[124]
-{0x0F12,  0x008B, WORD_LEN},  // #TVAR_ash_pGAS[125]
-{0x0F12,  0x00B1, WORD_LEN},  // #TVAR_ash_pGAS[126]
-{0x0F12,  0x00EA, WORD_LEN},  // #TVAR_ash_pGAS[127]
-{0x0F12,  0x0124, WORD_LEN},  // #TVAR_ash_pGAS[128]
-{0x0F12,  0x0155, WORD_LEN},  // #TVAR_ash_pGAS[129]
-{0x0F12,  0x01A9, WORD_LEN},  // #TVAR_ash_pGAS[130]
-{0x0F12,  0x016F, WORD_LEN},  // #TVAR_ash_pGAS[131]
-{0x0F12,  0x012B, WORD_LEN},  // #TVAR_ash_pGAS[132]
-{0x0F12,  0x00F4, WORD_LEN},  // #TVAR_ash_pGAS[133]
-{0x0F12,  0x00D0, WORD_LEN},  // #TVAR_ash_pGAS[134]
-{0x0F12,  0x00BC, WORD_LEN},  // #TVAR_ash_pGAS[135]
-{0x0F12,  0x00B1, WORD_LEN},  // #TVAR_ash_pGAS[136]
-{0x0F12,  0x00B5, WORD_LEN},  // #TVAR_ash_pGAS[137]
-{0x0F12,  0x00C6, WORD_LEN},  // #TVAR_ash_pGAS[138]
-{0x0F12,  0x00E9, WORD_LEN},  // #TVAR_ash_pGAS[139]
-{0x0F12,  0x0116, WORD_LEN},  // #TVAR_ash_pGAS[140]
-{0x0F12,  0x014F, WORD_LEN},  // #TVAR_ash_pGAS[141]
-{0x0F12,  0x0178, WORD_LEN},  // #TVAR_ash_pGAS[142]
-{0x0F12,  0x0170, WORD_LEN},  // #TVAR_ash_pGAS[143]
-{0x0F12,  0x0136, WORD_LEN},  // #TVAR_ash_pGAS[144]
-{0x0F12,  0x00FF, WORD_LEN},  // #TVAR_ash_pGAS[145]
-{0x0F12,  0x00D1, WORD_LEN},  // #TVAR_ash_pGAS[146]
-{0x0F12,  0x00B1, WORD_LEN},  // #TVAR_ash_pGAS[147]
-{0x0F12,  0x009C, WORD_LEN},  // #TVAR_ash_pGAS[148]
-{0x0F12,  0x0092, WORD_LEN},  // #TVAR_ash_pGAS[149]
-{0x0F12,  0x0090, WORD_LEN},  // #TVAR_ash_pGAS[150]
-{0x0F12,  0x009F, WORD_LEN},  // #TVAR_ash_pGAS[151]
-{0x0F12,  0x00BC, WORD_LEN},  // #TVAR_ash_pGAS[152]
-{0x0F12,  0x00DB, WORD_LEN},  // #TVAR_ash_pGAS[153]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_pGAS[154]
-{0x0F12,  0x0127, WORD_LEN},  // #TVAR_ash_pGAS[155]
-{0x0F12,  0x0145, WORD_LEN},  // #TVAR_ash_pGAS[156]
-{0x0F12,  0x010E, WORD_LEN},  // #TVAR_ash_pGAS[157]
-{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[158]
-{0x0F12,  0x00A4, WORD_LEN},  // #TVAR_ash_pGAS[159]
-{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[160]
-{0x0F12,  0x006F, WORD_LEN},  // #TVAR_ash_pGAS[161]
-{0x0F12,  0x0063, WORD_LEN},  // #TVAR_ash_pGAS[162]
-{0x0F12,  0x0064, WORD_LEN},  // #TVAR_ash_pGAS[163]
-{0x0F12,  0x0073, WORD_LEN},  // #TVAR_ash_pGAS[164]
-{0x0F12,  0x0089, WORD_LEN},  // #TVAR_ash_pGAS[165]
-{0x0F12,  0x00AD, WORD_LEN},  // #TVAR_ash_pGAS[166]
-{0x0F12,  0x00DA, WORD_LEN},  // #TVAR_ash_pGAS[167]
-{0x0F12,  0x0103, WORD_LEN},  // #TVAR_ash_pGAS[168]
-{0x0F12,  0x012A, WORD_LEN},  // #TVAR_ash_pGAS[169]
-{0x0F12,  0x00E5, WORD_LEN},  // #TVAR_ash_pGAS[170]
-{0x0F12,  0x00AA, WORD_LEN},  // #TVAR_ash_pGAS[171]
-{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[172]
-{0x0F12,  0x005A, WORD_LEN},  // #TVAR_ash_pGAS[173]
-{0x0F12,  0x0045, WORD_LEN},  // #TVAR_ash_pGAS[174]
-{0x0F12,  0x0038, WORD_LEN},  // #TVAR_ash_pGAS[175]
-{0x0F12,  0x003E, WORD_LEN},  // #TVAR_ash_pGAS[176]
-{0x0F12,  0x004D, WORD_LEN},  // #TVAR_ash_pGAS[177]
-{0x0F12,  0x0068, WORD_LEN},  // #TVAR_ash_pGAS[178]
-{0x0F12,  0x0089, WORD_LEN},  // #TVAR_ash_pGAS[179]
-{0x0F12,  0x00BC, WORD_LEN},  // #TVAR_ash_pGAS[180]
-{0x0F12,  0x00F0, WORD_LEN},  // #TVAR_ash_pGAS[181]
-{0x0F12,  0x010C, WORD_LEN},  // #TVAR_ash_pGAS[182]
-{0x0F12,  0x00C8, WORD_LEN},  // #TVAR_ash_pGAS[183]
-{0x0F12,  0x0090, WORD_LEN},  // #TVAR_ash_pGAS[184]
-{0x0F12,  0x005E, WORD_LEN},  // #TVAR_ash_pGAS[185]
-{0x0F12,  0x003A, WORD_LEN},  // #TVAR_ash_pGAS[186]
-{0x0F12,  0x0024, WORD_LEN},  // #TVAR_ash_pGAS[187]
-{0x0F12,  0x001C, WORD_LEN},  // #TVAR_ash_pGAS[188]
-{0x0F12,  0x0020, WORD_LEN},  // #TVAR_ash_pGAS[189]
-{0x0F12,  0x0032, WORD_LEN},  // #TVAR_ash_pGAS[190]
-{0x0F12,  0x004D, WORD_LEN},  // #TVAR_ash_pGAS[191]
-{0x0F12,  0x0073, WORD_LEN},  // #TVAR_ash_pGAS[192]
-{0x0F12,  0x00A6, WORD_LEN},  // #TVAR_ash_pGAS[193]
-{0x0F12,  0x00E3, WORD_LEN},  // #TVAR_ash_pGAS[194]
-{0x0F12,  0x0105, WORD_LEN},  // #TVAR_ash_pGAS[195]
-{0x0F12,  0x00B9, WORD_LEN},  // #TVAR_ash_pGAS[196]
-{0x0F12,  0x007D, WORD_LEN},  // #TVAR_ash_pGAS[197]
-{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[198]
-{0x0F12,  0x0027, WORD_LEN},  // #TVAR_ash_pGAS[199]
-{0x0F12,  0x000E, WORD_LEN},  // #TVAR_ash_pGAS[200]
-{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[201]
-{0x0F12,  0x000D, WORD_LEN},  // #TVAR_ash_pGAS[202]
-{0x0F12,  0x001E, WORD_LEN},  // #TVAR_ash_pGAS[203]
-{0x0F12,  0x003C, WORD_LEN},  // #TVAR_ash_pGAS[204]
-{0x0F12,  0x0065, WORD_LEN},  // #TVAR_ash_pGAS[205]
-{0x0F12,  0x0099, WORD_LEN},  // #TVAR_ash_pGAS[206]
-{0x0F12,  0x00D5, WORD_LEN},  // #TVAR_ash_pGAS[207]
-{0x0F12,  0x00F3, WORD_LEN},  // #TVAR_ash_pGAS[208]
-{0x0F12,  0x00B0, WORD_LEN},  // #TVAR_ash_pGAS[209]
-{0x0F12,  0x0075, WORD_LEN},  // #TVAR_ash_pGAS[210]
-{0x0F12,  0x0044, WORD_LEN},  // #TVAR_ash_pGAS[211]
-{0x0F12,  0x001E, WORD_LEN},  // #TVAR_ash_pGAS[212]
-{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[213]
-{0x0F12,  0x0000, WORD_LEN},  // #TVAR_ash_pGAS[214]
-{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[215]
-{0x0F12,  0x001A, WORD_LEN},  // #TVAR_ash_pGAS[216]
-{0x0F12,  0x0039, WORD_LEN},  // #TVAR_ash_pGAS[217]
-{0x0F12,  0x0063, WORD_LEN},  // #TVAR_ash_pGAS[218]
-{0x0F12,  0x0098, WORD_LEN},  // #TVAR_ash_pGAS[219]
-{0x0F12,  0x00D7, WORD_LEN},  // #TVAR_ash_pGAS[220]
-{0x0F12,  0x00FF, WORD_LEN},  // #TVAR_ash_pGAS[221]
-{0x0F12,  0x00B7, WORD_LEN},  // #TVAR_ash_pGAS[222]
-{0x0F12,  0x007A, WORD_LEN},  // #TVAR_ash_pGAS[223]
-{0x0F12,  0x004B, WORD_LEN},  // #TVAR_ash_pGAS[224]
-{0x0F12,  0x0025, WORD_LEN},  // #TVAR_ash_pGAS[225]
-{0x0F12,  0x000E, WORD_LEN},  // #TVAR_ash_pGAS[226]
-{0x0F12,  0x0008, WORD_LEN},  // #TVAR_ash_pGAS[227]
-{0x0F12,  0x000E, WORD_LEN},  // #TVAR_ash_pGAS[228]
-{0x0F12,  0x0023, WORD_LEN},  // #TVAR_ash_pGAS[229]
-{0x0F12,  0x0041, WORD_LEN},  // #TVAR_ash_pGAS[230]
-{0x0F12,  0x006E, WORD_LEN},  // #TVAR_ash_pGAS[231]
-{0x0F12,  0x00A4, WORD_LEN},  // #TVAR_ash_pGAS[232]
-{0x0F12,  0x00E0, WORD_LEN},  // #TVAR_ash_pGAS[233]
-{0x0F12,  0x0117, WORD_LEN},  // #TVAR_ash_pGAS[234]
-{0x0F12,  0x00D0, WORD_LEN},  // #TVAR_ash_pGAS[235]
-{0x0F12,  0x0091, WORD_LEN},  // #TVAR_ash_pGAS[236]
-{0x0F12,  0x005F, WORD_LEN},  // #TVAR_ash_pGAS[237]
-{0x0F12,  0x003A, WORD_LEN},  // #TVAR_ash_pGAS[238]
-{0x0F12,  0x0024, WORD_LEN},  // #TVAR_ash_pGAS[239]
-{0x0F12,  0x001C, WORD_LEN},  // #TVAR_ash_pGAS[240]
-{0x0F12,  0x0022, WORD_LEN},  // #TVAR_ash_pGAS[241]
-{0x0F12,  0x0039, WORD_LEN},  // #TVAR_ash_pGAS[242]
-{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[243]
-{0x0F12,  0x0085, WORD_LEN},  // #TVAR_ash_pGAS[244]
-{0x0F12,  0x00BC, WORD_LEN},  // #TVAR_ash_pGAS[245]
-{0x0F12,  0x00F8, WORD_LEN},  // #TVAR_ash_pGAS[246]
-{0x0F12,  0x0137, WORD_LEN},  // #TVAR_ash_pGAS[247]
-{0x0F12,  0x00EE, WORD_LEN},  // #TVAR_ash_pGAS[248]
-{0x0F12,  0x00B2, WORD_LEN},  // #TVAR_ash_pGAS[249]
-{0x0F12,  0x0083, WORD_LEN},  // #TVAR_ash_pGAS[250]
-{0x0F12,  0x0060, WORD_LEN},  // #TVAR_ash_pGAS[251]
-{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[252]
-{0x0F12,  0x0045, WORD_LEN},  // #TVAR_ash_pGAS[253]
-{0x0F12,  0x0049, WORD_LEN},  // #TVAR_ash_pGAS[254]
-{0x0F12,  0x005F, WORD_LEN},  // #TVAR_ash_pGAS[255]
-{0x0F12,  0x0081, WORD_LEN},  // #TVAR_ash_pGAS[256]
-{0x0F12,  0x00AB, WORD_LEN},  // #TVAR_ash_pGAS[257]
-{0x0F12,  0x00E5, WORD_LEN},  // #TVAR_ash_pGAS[258]
-{0x0F12,  0x0119, WORD_LEN},  // #TVAR_ash_pGAS[259]
-{0x0F12,  0x016A, WORD_LEN},  // #TVAR_ash_pGAS[260]
-{0x0F12,  0x0121, WORD_LEN},  // #TVAR_ash_pGAS[261]
-{0x0F12,  0x00E6, WORD_LEN},  // #TVAR_ash_pGAS[262]
-{0x0F12,  0x00B5, WORD_LEN},  // #TVAR_ash_pGAS[263]
-{0x0F12,  0x0093, WORD_LEN},  // #TVAR_ash_pGAS[264]
-{0x0F12,  0x007C, WORD_LEN},  // #TVAR_ash_pGAS[265]
-{0x0F12,  0x0077, WORD_LEN},  // #TVAR_ash_pGAS[266]
-{0x0F12,  0x007C, WORD_LEN},  // #TVAR_ash_pGAS[267]
-{0x0F12,  0x008F, WORD_LEN},  // #TVAR_ash_pGAS[268]
-{0x0F12,  0x00AF, WORD_LEN},  // #TVAR_ash_pGAS[269]
-{0x0F12,  0x00E1, WORD_LEN},  // #TVAR_ash_pGAS[270]
-{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_pGAS[271]
-{0x0F12,  0x0140, WORD_LEN},  // #TVAR_ash_pGAS[272]
-{0x0F12,  0x01A3, WORD_LEN},  // #TVAR_ash_pGAS[273]
-{0x0F12,  0x0160, WORD_LEN},  // #TVAR_ash_pGAS[274]
-{0x0F12,  0x0125, WORD_LEN},  // #TVAR_ash_pGAS[275]
-{0x0F12,  0x00F2, WORD_LEN},  // #TVAR_ash_pGAS[276]
-{0x0F12,  0x00D0, WORD_LEN},  // #TVAR_ash_pGAS[277]
-{0x0F12,  0x00BD, WORD_LEN},  // #TVAR_ash_pGAS[278]
-{0x0F12,  0x00B4, WORD_LEN},  // #TVAR_ash_pGAS[279]
-{0x0F12,  0x00B9, WORD_LEN},  // #TVAR_ash_pGAS[280]
-{0x0F12,  0x00C9, WORD_LEN},  // #TVAR_ash_pGAS[281]
-{0x0F12,  0x00EB, WORD_LEN},  // #TVAR_ash_pGAS[282]
-{0x0F12,  0x010C, WORD_LEN},  // #TVAR_ash_pGAS[283]
-{0x0F12,  0x013E, WORD_LEN},  // #TVAR_ash_pGAS[284]
-{0x0F12,  0x0164, WORD_LEN},  // #TVAR_ash_pGAS[285]
-{0x0F12,  0x0164, WORD_LEN},  // #TVAR_ash_pGAS[286]
-{0x0F12,  0x0131, WORD_LEN},  // #TVAR_ash_pGAS[287]
-{0x0F12,  0x00F9, WORD_LEN},  // #TVAR_ash_pGAS[288]
-{0x0F12,  0x00CB, WORD_LEN},  // #TVAR_ash_pGAS[289]
-{0x0F12,  0x00AC, WORD_LEN},  // #TVAR_ash_pGAS[290]
-{0x0F12,  0x009A, WORD_LEN},  // #TVAR_ash_pGAS[291]
-{0x0F12,  0x0095, WORD_LEN},  // #TVAR_ash_pGAS[292]
-{0x0F12,  0x0097, WORD_LEN},  // #TVAR_ash_pGAS[293]
-{0x0F12,  0x00AB, WORD_LEN},  // #TVAR_ash_pGAS[294]
-{0x0F12,  0x00CD, WORD_LEN},  // #TVAR_ash_pGAS[295]
-{0x0F12,  0x00F4, WORD_LEN},  // #TVAR_ash_pGAS[296]
-{0x0F12,  0x0118, WORD_LEN},  // #TVAR_ash_pGAS[297]
-{0x0F12,  0x013C, WORD_LEN},  // #TVAR_ash_pGAS[298]
-{0x0F12,  0x0145, WORD_LEN},  // #TVAR_ash_pGAS[299]
-{0x0F12,  0x010D, WORD_LEN},  // #TVAR_ash_pGAS[300]
-{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[301]
-{0x0F12,  0x00A5, WORD_LEN},  // #TVAR_ash_pGAS[302]
-{0x0F12,  0x0085, WORD_LEN},  // #TVAR_ash_pGAS[303]
-{0x0F12,  0x0070, WORD_LEN},  // #TVAR_ash_pGAS[304]
-{0x0F12,  0x0069, WORD_LEN},  // #TVAR_ash_pGAS[305]
-{0x0F12,  0x006E, WORD_LEN},  // #TVAR_ash_pGAS[306]
-{0x0F12,  0x0080, WORD_LEN},  // #TVAR_ash_pGAS[307]
-{0x0F12,  0x009D, WORD_LEN},  // #TVAR_ash_pGAS[308]
-{0x0F12,  0x00C6, WORD_LEN},  // #TVAR_ash_pGAS[309]
-{0x0F12,  0x00F6, WORD_LEN},  // #TVAR_ash_pGAS[310]
-{0x0F12,  0x0120, WORD_LEN},  // #TVAR_ash_pGAS[311]
-{0x0F12,  0x0131, WORD_LEN},  // #TVAR_ash_pGAS[312]
-{0x0F12,  0x00EB, WORD_LEN},  // #TVAR_ash_pGAS[313]
-{0x0F12,  0x00AE, WORD_LEN},  // #TVAR_ash_pGAS[314]
-{0x0F12,  0x0083, WORD_LEN},  // #TVAR_ash_pGAS[315]
-{0x0F12,  0x005F, WORD_LEN},  // #TVAR_ash_pGAS[316]
-{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[317]
-{0x0F12,  0x003E, WORD_LEN},  // #TVAR_ash_pGAS[318]
-{0x0F12,  0x0048, WORD_LEN},  // #TVAR_ash_pGAS[319]
-{0x0F12,  0x005C, WORD_LEN},  // #TVAR_ash_pGAS[320]
-{0x0F12,  0x007C, WORD_LEN},  // #TVAR_ash_pGAS[321]
-{0x0F12,  0x00A1, WORD_LEN},  // #TVAR_ash_pGAS[322]
-{0x0F12,  0x00D7, WORD_LEN},  // #TVAR_ash_pGAS[323]
-{0x0F12,  0x0111, WORD_LEN},  // #TVAR_ash_pGAS[324]
-{0x0F12,  0x011A, WORD_LEN},  // #TVAR_ash_pGAS[325]
-{0x0F12,  0x00D4, WORD_LEN},  // #TVAR_ash_pGAS[326]
-{0x0F12,  0x009A, WORD_LEN},  // #TVAR_ash_pGAS[327]
-{0x0F12,  0x0067, WORD_LEN},  // #TVAR_ash_pGAS[328]
-{0x0F12,  0x0042, WORD_LEN},  // #TVAR_ash_pGAS[329]
-{0x0F12,  0x0029, WORD_LEN},  // #TVAR_ash_pGAS[330]
-{0x0F12,  0x0023, WORD_LEN},  // #TVAR_ash_pGAS[331]
-{0x0F12,  0x0029, WORD_LEN},  // #TVAR_ash_pGAS[332]
-{0x0F12,  0x003F, WORD_LEN},  // #TVAR_ash_pGAS[333]
-{0x0F12,  0x005E, WORD_LEN},  // #TVAR_ash_pGAS[334]
-{0x0F12,  0x0088, WORD_LEN},  // #TVAR_ash_pGAS[335]
-{0x0F12,  0x00BE, WORD_LEN},  // #TVAR_ash_pGAS[336]
-{0x0F12,  0x00FF, WORD_LEN},  // #TVAR_ash_pGAS[337]
-{0x0F12,  0x011B, WORD_LEN},  // #TVAR_ash_pGAS[338]
-{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[339]
-{0x0F12,  0x008A, WORD_LEN},  // #TVAR_ash_pGAS[340]
-{0x0F12,  0x0055, WORD_LEN},  // #TVAR_ash_pGAS[341]
-{0x0F12,  0x002F, WORD_LEN},  // #TVAR_ash_pGAS[342]
-{0x0F12,  0x0015, WORD_LEN},  // #TVAR_ash_pGAS[343]
-{0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[344]
-{0x0F12,  0x0013, WORD_LEN},  // #TVAR_ash_pGAS[345]
-{0x0F12,  0x0027, WORD_LEN},  // #TVAR_ash_pGAS[346]
-{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[347]
-{0x0F12,  0x0077, WORD_LEN},  // #TVAR_ash_pGAS[348]
-{0x0F12,  0x00AF, WORD_LEN},  // #TVAR_ash_pGAS[349]
-{0x0F12,  0x00EE, WORD_LEN},  // #TVAR_ash_pGAS[350]
-{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_pGAS[351]
-{0x0F12,  0x00C5, WORD_LEN},  // #TVAR_ash_pGAS[352]
-{0x0F12,  0x0088, WORD_LEN},  // #TVAR_ash_pGAS[353]
-{0x0F12,  0x0052, WORD_LEN},  // #TVAR_ash_pGAS[354]
-{0x0F12,  0x0028, WORD_LEN},  // #TVAR_ash_pGAS[355]
-{0x0F12,  0x000E, WORD_LEN},  // #TVAR_ash_pGAS[356]
-{0x0F12,  0x0006, WORD_LEN},  // #TVAR_ash_pGAS[357]
-{0x0F12,  0x000D, WORD_LEN},  // #TVAR_ash_pGAS[358]
-{0x0F12,  0x0021, WORD_LEN},  // #TVAR_ash_pGAS[359]
-{0x0F12,  0x0043, WORD_LEN},  // #TVAR_ash_pGAS[360]
-{0x0F12,  0x006F, WORD_LEN},  // #TVAR_ash_pGAS[361]
-{0x0F12,  0x00A8, WORD_LEN},  // #TVAR_ash_pGAS[362]
-{0x0F12,  0x00E9, WORD_LEN},  // #TVAR_ash_pGAS[363]
-{0x0F12,  0x0120, WORD_LEN},  // #TVAR_ash_pGAS[364]
-{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[365]
-{0x0F12,  0x0091, WORD_LEN},  // #TVAR_ash_pGAS[366]
-{0x0F12,  0x005D, WORD_LEN},  // #TVAR_ash_pGAS[367]
-{0x0F12,  0x0033, WORD_LEN},  // #TVAR_ash_pGAS[368]
-{0x0F12,  0x0018, WORD_LEN},  // #TVAR_ash_pGAS[369]
-{0x0F12,  0x000E, WORD_LEN},  // #TVAR_ash_pGAS[370]
-{0x0F12,  0x0013, WORD_LEN},  // #TVAR_ash_pGAS[371]
-{0x0F12,  0x0028, WORD_LEN},  // #TVAR_ash_pGAS[372]
-{0x0F12,  0x0047, WORD_LEN},  // #TVAR_ash_pGAS[373]
-{0x0F12,  0x0076, WORD_LEN},  // #TVAR_ash_pGAS[374]
-{0x0F12,  0x00AD, WORD_LEN},  // #TVAR_ash_pGAS[375]
-{0x0F12,  0x00EF, WORD_LEN},  // #TVAR_ash_pGAS[376]
-{0x0F12,  0x013E, WORD_LEN},  // #TVAR_ash_pGAS[377]
-{0x0F12,  0x00F0, WORD_LEN},  // #TVAR_ash_pGAS[378]
-{0x0F12,  0x00AC, WORD_LEN},  // #TVAR_ash_pGAS[379]
-{0x0F12,  0x0075, WORD_LEN},  // #TVAR_ash_pGAS[380]
-{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[381]
-{0x0F12,  0x0030, WORD_LEN},  // #TVAR_ash_pGAS[382]
-{0x0F12,  0x0024, WORD_LEN},  // #TVAR_ash_pGAS[383]
-{0x0F12,  0x0026, WORD_LEN},  // #TVAR_ash_pGAS[384]
-{0x0F12,  0x003B, WORD_LEN},  // #TVAR_ash_pGAS[385]
-{0x0F12,  0x005B, WORD_LEN},  // #TVAR_ash_pGAS[386]
-{0x0F12,  0x0087, WORD_LEN},  // #TVAR_ash_pGAS[387]
-{0x0F12,  0x00BF, WORD_LEN},  // #TVAR_ash_pGAS[388]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_pGAS[389]
-{0x0F12,  0x0165, WORD_LEN},  // #TVAR_ash_pGAS[390]
-{0x0F12,  0x0114, WORD_LEN},  // #TVAR_ash_pGAS[391]
-{0x0F12,  0x00D2, WORD_LEN},  // #TVAR_ash_pGAS[392]
-{0x0F12,  0x009D, WORD_LEN},  // #TVAR_ash_pGAS[393]
-{0x0F12,  0x0073, WORD_LEN},  // #TVAR_ash_pGAS[394]
-{0x0F12,  0x0058, WORD_LEN},  // #TVAR_ash_pGAS[395]
-{0x0F12,  0x004C, WORD_LEN},  // #TVAR_ash_pGAS[396]
-{0x0F12,  0x004D, WORD_LEN},  // #TVAR_ash_pGAS[397]
-{0x0F12,  0x005F, WORD_LEN},  // #TVAR_ash_pGAS[398]
-{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[399]
-{0x0F12,  0x00A8, WORD_LEN},  // #TVAR_ash_pGAS[400]
-{0x0F12,  0x00E3, WORD_LEN},  // #TVAR_ash_pGAS[401]
-{0x0F12,  0x011A, WORD_LEN},  // #TVAR_ash_pGAS[402]
-{0x0F12,  0x019C, WORD_LEN},  // #TVAR_ash_pGAS[403]
-{0x0F12,  0x0149, WORD_LEN},  // #TVAR_ash_pGAS[404]
-{0x0F12,  0x0108, WORD_LEN},  // #TVAR_ash_pGAS[405]
-{0x0F12,  0x00D4, WORD_LEN},  // #TVAR_ash_pGAS[406]
-{0x0F12,  0x00A9, WORD_LEN},  // #TVAR_ash_pGAS[407]
-{0x0F12,  0x008C, WORD_LEN},  // #TVAR_ash_pGAS[408]
-{0x0F12,  0x0081, WORD_LEN},  // #TVAR_ash_pGAS[409]
-{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[410]
-{0x0F12,  0x008E, WORD_LEN},  // #TVAR_ash_pGAS[411]
-{0x0F12,  0x00AB, WORD_LEN},  // #TVAR_ash_pGAS[412]
-{0x0F12,  0x00DC, WORD_LEN},  // #TVAR_ash_pGAS[413]
-{0x0F12,  0x010B, WORD_LEN},  // #TVAR_ash_pGAS[414]
-{0x0F12,  0x0140, WORD_LEN},  // #TVAR_ash_pGAS[415]
-{0x0F12,  0x01E1, WORD_LEN},  // #TVAR_ash_pGAS[416]
-{0x0F12,  0x0190, WORD_LEN},  // #TVAR_ash_pGAS[417]
-{0x0F12,  0x014D, WORD_LEN},  // #TVAR_ash_pGAS[418]
-{0x0F12,  0x0116, WORD_LEN},  // #TVAR_ash_pGAS[419]
-{0x0F12,  0x00ED, WORD_LEN},  // #TVAR_ash_pGAS[420]
-{0x0F12,  0x00D1, WORD_LEN},  // #TVAR_ash_pGAS[421]
-{0x0F12,  0x00C1, WORD_LEN},  // #TVAR_ash_pGAS[422]
-{0x0F12,  0x00BD, WORD_LEN},  // #TVAR_ash_pGAS[423]
-{0x0F12,  0x00C9, WORD_LEN},  // #TVAR_ash_pGAS[424]
-{0x0F12,  0x00E4, WORD_LEN},  // #TVAR_ash_pGAS[425]
-{0x0F12,  0x0105, WORD_LEN},  // #TVAR_ash_pGAS[426]
-{0x0F12,  0x0136, WORD_LEN},  // #TVAR_ash_pGAS[427]
-{0x0F12,  0x0164, WORD_LEN},  // #TVAR_ash_pGAS[428]
-{0x0F12,  0x0122, WORD_LEN},  // #TVAR_ash_pGAS[429]
-{0x0F12,  0x00F9, WORD_LEN},  // #TVAR_ash_pGAS[430]
-{0x0F12,  0x00C9, WORD_LEN},  // #TVAR_ash_pGAS[431]
-{0x0F12,  0x00A6, WORD_LEN},  // #TVAR_ash_pGAS[432]
-{0x0F12,  0x008F, WORD_LEN},  // #TVAR_ash_pGAS[433]
-{0x0F12,  0x0082, WORD_LEN},  // #TVAR_ash_pGAS[434]
-{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[435]
-{0x0F12,  0x0080, WORD_LEN},  // #TVAR_ash_pGAS[436]
-{0x0F12,  0x008F, WORD_LEN},  // #TVAR_ash_pGAS[437]
-{0x0F12,  0x00AC, WORD_LEN},  // #TVAR_ash_pGAS[438]
-{0x0F12,  0x00D0, WORD_LEN},  // #TVAR_ash_pGAS[439]
-{0x0F12,  0x00EF, WORD_LEN},  // #TVAR_ash_pGAS[440]
-{0x0F12,  0x0102, WORD_LEN},  // #TVAR_ash_pGAS[441]
-{0x0F12,  0x00FB, WORD_LEN},  // #TVAR_ash_pGAS[442]
-{0x0F12,  0x00D4, WORD_LEN},  // #TVAR_ash_pGAS[443]
-{0x0F12,  0x00A3, WORD_LEN},  // #TVAR_ash_pGAS[444]
-{0x0F12,  0x0081, WORD_LEN},  // #TVAR_ash_pGAS[445]
-{0x0F12,  0x006B, WORD_LEN},  // #TVAR_ash_pGAS[446]
-{0x0F12,  0x005E, WORD_LEN},  // #TVAR_ash_pGAS[447]
-{0x0F12,  0x005B, WORD_LEN},  // #TVAR_ash_pGAS[448]
-{0x0F12,  0x005C, WORD_LEN},  // #TVAR_ash_pGAS[449]
-{0x0F12,  0x006B, WORD_LEN},  // #TVAR_ash_pGAS[450]
-{0x0F12,  0x0080, WORD_LEN},  // #TVAR_ash_pGAS[451]
-{0x0F12,  0x00A1, WORD_LEN},  // #TVAR_ash_pGAS[452]
-{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[453]
-{0x0F12,  0x00E4, WORD_LEN},  // #TVAR_ash_pGAS[454]
-{0x0F12,  0x00DF, WORD_LEN},  // #TVAR_ash_pGAS[455]
-{0x0F12,  0x00B0, WORD_LEN},  // #TVAR_ash_pGAS[456]
-{0x0F12,  0x0080, WORD_LEN},  // #TVAR_ash_pGAS[457]
-{0x0F12,  0x0061, WORD_LEN},  // #TVAR_ash_pGAS[458]
-{0x0F12,  0x0048, WORD_LEN},  // #TVAR_ash_pGAS[459]
-{0x0F12,  0x003A, WORD_LEN},  // #TVAR_ash_pGAS[460]
-{0x0F12,  0x0033, WORD_LEN},  // #TVAR_ash_pGAS[461]
-{0x0F12,  0x003A, WORD_LEN},  // #TVAR_ash_pGAS[462]
-{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[463]
-{0x0F12,  0x0061, WORD_LEN},  // #TVAR_ash_pGAS[464]
-{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[465]
-{0x0F12,  0x00A7, WORD_LEN},  // #TVAR_ash_pGAS[466]
-{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[467]
-{0x0F12,  0x00C4, WORD_LEN},  // #TVAR_ash_pGAS[468]
-{0x0F12,  0x0095, WORD_LEN},  // #TVAR_ash_pGAS[469]
-{0x0F12,  0x006A, WORD_LEN},  // #TVAR_ash_pGAS[470]
-{0x0F12,  0x0046, WORD_LEN},  // #TVAR_ash_pGAS[471]
-{0x0F12,  0x002C, WORD_LEN},  // #TVAR_ash_pGAS[472]
-{0x0F12,  0x001D, WORD_LEN},  // #TVAR_ash_pGAS[473]
-{0x0F12,  0x001A, WORD_LEN},  // #TVAR_ash_pGAS[474]
-{0x0F12,  0x0020, WORD_LEN},  // #TVAR_ash_pGAS[475]
-{0x0F12,  0x002F, WORD_LEN},  // #TVAR_ash_pGAS[476]
-{0x0F12,  0x0046, WORD_LEN},  // #TVAR_ash_pGAS[477]
-{0x0F12,  0x0063, WORD_LEN},  // #TVAR_ash_pGAS[478]
-{0x0F12,  0x008D, WORD_LEN},  // #TVAR_ash_pGAS[479]
-{0x0F12,  0x00C3, WORD_LEN},  // #TVAR_ash_pGAS[480]
-{0x0F12,  0x00C2, WORD_LEN},  // #TVAR_ash_pGAS[481]
-{0x0F12,  0x008A, WORD_LEN},  // #TVAR_ash_pGAS[482]
-{0x0F12,  0x005A, WORD_LEN},  // #TVAR_ash_pGAS[483]
-{0x0F12,  0x0033, WORD_LEN},  // #TVAR_ash_pGAS[484]
-{0x0F12,  0x001B, WORD_LEN},  // #TVAR_ash_pGAS[485]
-{0x0F12,  0x000A, WORD_LEN},  // #TVAR_ash_pGAS[486]
-{0x0F12,  0x0006, WORD_LEN},  // #TVAR_ash_pGAS[487]
-{0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[488]
-{0x0F12,  0x0019, WORD_LEN},  // #TVAR_ash_pGAS[489]
-{0x0F12,  0x0032, WORD_LEN},  // #TVAR_ash_pGAS[490]
-{0x0F12,  0x0050, WORD_LEN},  // #TVAR_ash_pGAS[491]
-{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[492]
-{0x0F12,  0x00AF, WORD_LEN},  // #TVAR_ash_pGAS[493]
-{0x0F12,  0x00B6, WORD_LEN},  // #TVAR_ash_pGAS[494]
-{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[495]
-{0x0F12,  0x0053, WORD_LEN},  // #TVAR_ash_pGAS[496]
-{0x0F12,  0x0030, WORD_LEN},  // #TVAR_ash_pGAS[497]
-{0x0F12,  0x0014, WORD_LEN},  // #TVAR_ash_pGAS[498]
-{0x0F12,  0x0004, WORD_LEN},  // #TVAR_ash_pGAS[499]
-{0x0F12,  0x0000, WORD_LEN},  // #TVAR_ash_pGAS[500]
-{0x0F12,  0x0006, WORD_LEN},  // #TVAR_ash_pGAS[501]
-{0x0F12,  0x0013, WORD_LEN},  // #TVAR_ash_pGAS[502]
-{0x0F12,  0x0028, WORD_LEN},  // #TVAR_ash_pGAS[503]
-{0x0F12,  0x0047, WORD_LEN},  // #TVAR_ash_pGAS[504]
-{0x0F12,  0x0075, WORD_LEN},  // #TVAR_ash_pGAS[505]
-{0x0F12,  0x00AA, WORD_LEN},  // #TVAR_ash_pGAS[506]
-{0x0F12,  0x00C1, WORD_LEN},  // #TVAR_ash_pGAS[507]
-{0x0F12,  0x008C, WORD_LEN},  // #TVAR_ash_pGAS[508]
-{0x0F12,  0x005A, WORD_LEN},  // #TVAR_ash_pGAS[509]
-{0x0F12,  0x0035, WORD_LEN},  // #TVAR_ash_pGAS[510]
-{0x0F12,  0x001B, WORD_LEN},  // #TVAR_ash_pGAS[511]
-{0x0F12,  0x000B, WORD_LEN},  // #TVAR_ash_pGAS[512]
-{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[513]
-{0x0F12,  0x0009, WORD_LEN},  // #TVAR_ash_pGAS[514]
-{0x0F12,  0x0017, WORD_LEN},  // #TVAR_ash_pGAS[515]
-{0x0F12,  0x002A, WORD_LEN},  // #TVAR_ash_pGAS[516]
-{0x0F12,  0x004C, WORD_LEN},  // #TVAR_ash_pGAS[517]
-{0x0F12,  0x0077, WORD_LEN},  // #TVAR_ash_pGAS[518]
-{0x0F12,  0x00AA, WORD_LEN},  // #TVAR_ash_pGAS[519]
-{0x0F12,  0x00D9, WORD_LEN},  // #TVAR_ash_pGAS[520]
-{0x0F12,  0x00A5, WORD_LEN},  // #TVAR_ash_pGAS[521]
-{0x0F12,  0x0071, WORD_LEN},  // #TVAR_ash_pGAS[522]
-{0x0F12,  0x0049, WORD_LEN},  // #TVAR_ash_pGAS[523]
-{0x0F12,  0x002D, WORD_LEN},  // #TVAR_ash_pGAS[524]
-{0x0F12,  0x001F, WORD_LEN},  // #TVAR_ash_pGAS[525]
-{0x0F12,  0x0018, WORD_LEN},  // #TVAR_ash_pGAS[526]
-{0x0F12,  0x0018, WORD_LEN},  // #TVAR_ash_pGAS[527]
-{0x0F12,  0x0025, WORD_LEN},  // #TVAR_ash_pGAS[528]
-{0x0F12,  0x003B, WORD_LEN},  // #TVAR_ash_pGAS[529]
-{0x0F12,  0x005A, WORD_LEN},  // #TVAR_ash_pGAS[530]
-{0x0F12,  0x0089, WORD_LEN},  // #TVAR_ash_pGAS[531]
-{0x0F12,  0x00BC, WORD_LEN},  // #TVAR_ash_pGAS[532]
-{0x0F12,  0x00FC, WORD_LEN},  // #TVAR_ash_pGAS[533]
-{0x0F12,  0x00C4, WORD_LEN},  // #TVAR_ash_pGAS[534]
-{0x0F12,  0x0091, WORD_LEN},  // #TVAR_ash_pGAS[535]
-{0x0F12,  0x006C, WORD_LEN},  // #TVAR_ash_pGAS[536]
-{0x0F12,  0x004F, WORD_LEN},  // #TVAR_ash_pGAS[537]
-{0x0F12,  0x003F, WORD_LEN},  // #TVAR_ash_pGAS[538]
-{0x0F12,  0x0039, WORD_LEN},  // #TVAR_ash_pGAS[539]
-{0x0F12,  0x0038, WORD_LEN},  // #TVAR_ash_pGAS[540]
-{0x0F12,  0x0042, WORD_LEN},  // #TVAR_ash_pGAS[541]
-{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[542]
-{0x0F12,  0x0076, WORD_LEN},  // #TVAR_ash_pGAS[543]
-{0x0F12,  0x00AA, WORD_LEN},  // #TVAR_ash_pGAS[544]
-{0x0F12,  0x00D5, WORD_LEN},  // #TVAR_ash_pGAS[545]
-{0x0F12,  0x0134, WORD_LEN},  // #TVAR_ash_pGAS[546]
-{0x0F12,  0x00F9, WORD_LEN},  // #TVAR_ash_pGAS[547]
-{0x0F12,  0x00C4, WORD_LEN},  // #TVAR_ash_pGAS[548]
-{0x0F12,  0x009B, WORD_LEN},  // #TVAR_ash_pGAS[549]
-{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[550]            
-{0x0F12,  0x006C, WORD_LEN},  // #TVAR_ash_pGAS[551]             
-{0x0F12,  0x0064, WORD_LEN},  // #TVAR_ash_pGAS[552]             
-{0x0F12,  0x0062, WORD_LEN},  // #TVAR_ash_pGAS[553]             
-{0x0F12,  0x006A, WORD_LEN},  // #TVAR_ash_pGAS[554]             
-{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[555]             
-{0x0F12,  0x00A6, WORD_LEN},  // #TVAR_ash_pGAS[556]             
-{0x0F12,  0x00CF, WORD_LEN},  // #TVAR_ash_pGAS[557]             
-{0x0F12,  0x00FB, WORD_LEN},  // #TVAR_ash_pGAS[558]             
-{0x0F12,  0x0170, WORD_LEN},  // #TVAR_ash_pGAS[559]             
-{0x0F12,  0x0135, WORD_LEN},  // #TVAR_ash_pGAS[560]             
-{0x0F12,  0x00FC, WORD_LEN},  // #TVAR_ash_pGAS[561]             
-{0x0F12,  0x00D1, WORD_LEN},  // #TVAR_ash_pGAS[562]             
-{0x0F12,  0x00B4, WORD_LEN},  // #TVAR_ash_pGAS[563]             
-{0x0F12,  0x00A2, WORD_LEN},  // #TVAR_ash_pGAS[564]             
-{0x0F12,  0x0096, WORD_LEN},  // #TVAR_ash_pGAS[565]             
-{0x0F12,  0x0091, WORD_LEN},  // #TVAR_ash_pGAS[566]             
-{0x0F12,  0x0097, WORD_LEN},  // #TVAR_ash_pGAS[567]             
-{0x0F12,  0x00AD, WORD_LEN},  // #TVAR_ash_pGAS[568]             
-{0x0F12,  0x00C9, WORD_LEN},  // #TVAR_ash_pGAS[569]             
-{0x0F12,  0x00F7, WORD_LEN},  // #TVAR_ash_pGAS[570]         
-{0x0F12,  0x0124, WORD_LEN},  // #TVAR_ash_pGAS[571]
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_ash_pGAS[84]
 
-{0x002A,  0x0D30, WORD_LEN},
+{0x0F12,  0x001B, WORD_LEN},  // #TVAR_ash_pGAS[85]
+
+{0x0F12,  0x0040, WORD_LEN},  // #TVAR_ash_pGAS[86]
+
+{0x0F12,  0x0078, WORD_LEN},  // #TVAR_ash_pGAS[87]
+
+{0x0F12,  0x00C2, WORD_LEN},  // #TVAR_ash_pGAS[88]
+
+{0x0F12,  0x0119, WORD_LEN},  // #TVAR_ash_pGAS[89]
+
+{0x0F12,  0x0172, WORD_LEN},  // #TVAR_ash_pGAS[90]
+
+{0x0F12,  0x0133, WORD_LEN},  // #TVAR_ash_pGAS[91]
+
+{0x0F12,  0x00EA, WORD_LEN},  // #TVAR_ash_pGAS[92]
+
+{0x0F12,  0x00A1, WORD_LEN},  // #TVAR_ash_pGAS[93]
+
+{0x0F12,  0x0069, WORD_LEN},  // #TVAR_ash_pGAS[94]
+
+{0x0F12,  0x0040, WORD_LEN},  // #TVAR_ash_pGAS[95]
+
+{0x0F12,  0x002B, WORD_LEN},  // #TVAR_ash_pGAS[96]
+
+{0x0F12,  0x002A, WORD_LEN},  // #TVAR_ash_pGAS[97]
+
+{0x0F12,  0x003B, WORD_LEN},  // #TVAR_ash_pGAS[98]
+
+{0x0F12,  0x0060, WORD_LEN},  // #TVAR_ash_pGAS[99]
+
+{0x0F12,  0x0097, WORD_LEN},  // #TVAR_ash_pGAS[100]
+
+{0x0F12,  0x00DF, WORD_LEN},  // #TVAR_ash_pGAS[101]
+
+{0x0F12,  0x0138, WORD_LEN},  // #TVAR_ash_pGAS[102]
+
+{0x0F12,  0x018C, WORD_LEN},  // #TVAR_ash_pGAS[103]
+
+{0x0F12,  0x015A, WORD_LEN},  // #TVAR_ash_pGAS[104]
+
+{0x0F12,  0x0113, WORD_LEN},  // #TVAR_ash_pGAS[105]
+
+{0x0F12,  0x00CC, WORD_LEN},  // #TVAR_ash_pGAS[106]
+
+{0x0F12,  0x0095, WORD_LEN},  // #TVAR_ash_pGAS[107]
+
+{0x0F12,  0x006F, WORD_LEN},  // #TVAR_ash_pGAS[108]
+
+{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[109]
+
+{0x0F12,  0x0058, WORD_LEN},  // #TVAR_ash_pGAS[110]
+
+{0x0F12,  0x0069, WORD_LEN},  // #TVAR_ash_pGAS[111]
+
+{0x0F12,  0x008E, WORD_LEN},  // #TVAR_ash_pGAS[112]
+
+{0x0F12,  0x00C3, WORD_LEN},  // #TVAR_ash_pGAS[113]
+
+{0x0F12,  0x0109, WORD_LEN},  // #TVAR_ash_pGAS[114]
+
+{0x0F12,  0x015F, WORD_LEN},  // #TVAR_ash_pGAS[115]
+
+{0x0F12,  0x01AD, WORD_LEN},  // #TVAR_ash_pGAS[116]
+
+{0x0F12,  0x0188, WORD_LEN},  // #TVAR_ash_pGAS[117]
+
+{0x0F12,  0x014C, WORD_LEN},  // #TVAR_ash_pGAS[118]
+
+{0x0F12,  0x0106, WORD_LEN},  // #TVAR_ash_pGAS[119]
+
+{0x0F12,  0x00D4, WORD_LEN},  // #TVAR_ash_pGAS[120]
+
+{0x0F12,  0x00B0, WORD_LEN},  // #TVAR_ash_pGAS[121]
+
+{0x0F12,  0x009E, WORD_LEN},  // #TVAR_ash_pGAS[122]
+
+{0x0F12,  0x009D, WORD_LEN},  // #TVAR_ash_pGAS[123]
+
+{0x0F12,  0x00AE, WORD_LEN},  // #TVAR_ash_pGAS[124]
+
+{0x0F12,  0x00CE, WORD_LEN},  // #TVAR_ash_pGAS[125]
+
+{0x0F12,  0x00FF, WORD_LEN},  // #TVAR_ash_pGAS[126]
+
+{0x0F12,  0x0143, WORD_LEN},  // #TVAR_ash_pGAS[127]
+
+{0x0F12,  0x0192, WORD_LEN},  // #TVAR_ash_pGAS[128]
+
+{0x0F12,  0x01DC, WORD_LEN},  // #TVAR_ash_pGAS[129]
+
+{0x0F12,  0x01B5, WORD_LEN},  // #TVAR_ash_pGAS[130]
+
+{0x0F12,  0x0185, WORD_LEN},  // #TVAR_ash_pGAS[131]
+
+{0x0F12,  0x0148, WORD_LEN},  // #TVAR_ash_pGAS[132]
+
+{0x0F12,  0x0114, WORD_LEN},  // #TVAR_ash_pGAS[133]
+
+{0x0F12,  0x00F4, WORD_LEN},  // #TVAR_ash_pGAS[134]
+
+{0x0F12,  0x00E4, WORD_LEN},  // #TVAR_ash_pGAS[135]
+
+{0x0F12,  0x00E5, WORD_LEN},  // #TVAR_ash_pGAS[136]
+
+{0x0F12,  0x00F3, WORD_LEN},  // #TVAR_ash_pGAS[137]
+
+{0x0F12,  0x0111, WORD_LEN},  // #TVAR_ash_pGAS[138]
+
+{0x0F12,  0x0141, WORD_LEN},  // #TVAR_ash_pGAS[139]
+
+{0x0F12,  0x0181, WORD_LEN},  // #TVAR_ash_pGAS[140]
+
+{0x0F12,  0x01C6, WORD_LEN},  // #TVAR_ash_pGAS[141]
+
+{0x0F12,  0x0237, WORD_LEN},  // #TVAR_ash_pGAS[142]
+
+{0x0F12,  0x0144, WORD_LEN},  // #TVAR_ash_pGAS[143]
+
+{0x0F12,  0x0127, WORD_LEN},  // #TVAR_ash_pGAS[144]
+
+{0x0F12,  0x00F5, WORD_LEN},  // #TVAR_ash_pGAS[145]
+
+{0x0F12,  0x00CD, WORD_LEN},  // #TVAR_ash_pGAS[146]
+
+{0x0F12,  0x00B2, WORD_LEN},  // #TVAR_ash_pGAS[147]
+
+{0x0F12,  0x00A2, WORD_LEN},  // #TVAR_ash_pGAS[148]
+
+{0x0F12,  0x009F, WORD_LEN},  // #TVAR_ash_pGAS[149]
+
+{0x0F12,  0x00A7, WORD_LEN},  // #TVAR_ash_pGAS[150]
+
+{0x0F12,  0x00BF, WORD_LEN},  // #TVAR_ash_pGAS[151]
+
+{0x0F12,  0x00E3, WORD_LEN},  // #TVAR_ash_pGAS[152]
+
+{0x0F12,  0x0115, WORD_LEN},  // #TVAR_ash_pGAS[153]
+
+{0x0F12,  0x014C, WORD_LEN},  // #TVAR_ash_pGAS[154]
+
+{0x0F12,  0x019E, WORD_LEN},  // #TVAR_ash_pGAS[155]
+
+{0x0F12,  0x0134, WORD_LEN},  // #TVAR_ash_pGAS[156]
+
+{0x0F12,  0x00F8, WORD_LEN},  // #TVAR_ash_pGAS[157]
+
+{0x0F12,  0x00C5, WORD_LEN},  // #TVAR_ash_pGAS[158]
+
+{0x0F12,  0x009C, WORD_LEN},  // #TVAR_ash_pGAS[159]
+
+{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[160]
+
+{0x0F12,  0x006E, WORD_LEN},  // #TVAR_ash_pGAS[161]
+
+{0x0F12,  0x006C, WORD_LEN},  // #TVAR_ash_pGAS[162]
+
+{0x0F12,  0x0076, WORD_LEN},  // #TVAR_ash_pGAS[163]
+
+{0x0F12,  0x008E, WORD_LEN},  // #TVAR_ash_pGAS[164]
+
+{0x0F12,  0x00B2, WORD_LEN},  // #TVAR_ash_pGAS[165]
+
+{0x0F12,  0x00E8, WORD_LEN},  // #TVAR_ash_pGAS[166]
+
+{0x0F12,  0x012A, WORD_LEN},  // #TVAR_ash_pGAS[167]
+
+{0x0F12,  0x016A, WORD_LEN},  // #TVAR_ash_pGAS[168]
+
+{0x0F12,  0x0117, WORD_LEN},  // #TVAR_ash_pGAS[169]
+
+{0x0F12,  0x00D2, WORD_LEN},  // #TVAR_ash_pGAS[170]
+
+{0x0F12,  0x0096, WORD_LEN},  // #TVAR_ash_pGAS[171]
+
+{0x0F12,  0x006E, WORD_LEN},  // #TVAR_ash_pGAS[172]
+
+{0x0F12,  0x004E, WORD_LEN},  // #TVAR_ash_pGAS[173]
+
+{0x0F12,  0x003D, WORD_LEN},  // #TVAR_ash_pGAS[174]
+
+{0x0F12,  0x003C, WORD_LEN},  // #TVAR_ash_pGAS[175]
+
+{0x0F12,  0x0048, WORD_LEN},  // #TVAR_ash_pGAS[176]
+
+{0x0F12,  0x0063, WORD_LEN},  // #TVAR_ash_pGAS[177]
+
+{0x0F12,  0x0089, WORD_LEN},  // #TVAR_ash_pGAS[178]
+
+{0x0F12,  0x00BE, WORD_LEN},  // #TVAR_ash_pGAS[179]
+
+{0x0F12,  0x0106, WORD_LEN},  // #TVAR_ash_pGAS[180]
+
+{0x0F12,  0x014E, WORD_LEN},  // #TVAR_ash_pGAS[181]
+
+{0x0F12,  0x00F6, WORD_LEN},  // #TVAR_ash_pGAS[182]
+
+{0x0F12,  0x00B4, WORD_LEN},  // #TVAR_ash_pGAS[183]
+
+{0x0F12,  0x0078, WORD_LEN},  // #TVAR_ash_pGAS[184]
+
+{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[185]
+
+{0x0F12,  0x002A, WORD_LEN},  // #TVAR_ash_pGAS[186]
+
+{0x0F12,  0x0017, WORD_LEN},  // #TVAR_ash_pGAS[187]
+
+{0x0F12,  0x0016, WORD_LEN},  // #TVAR_ash_pGAS[188]
+
+{0x0F12,  0x0025, WORD_LEN},  // #TVAR_ash_pGAS[189]
+
+{0x0F12,  0x0042, WORD_LEN},  // #TVAR_ash_pGAS[190]
+
+{0x0F12,  0x006D, WORD_LEN},  // #TVAR_ash_pGAS[191]
+
+{0x0F12,  0x00A2, WORD_LEN},  // #TVAR_ash_pGAS[192]
+
+{0x0F12,  0x00E9, WORD_LEN},  // #TVAR_ash_pGAS[193]
+
+{0x0F12,  0x0138, WORD_LEN},  // #TVAR_ash_pGAS[194]
+
+{0x0F12,  0x00E7, WORD_LEN},  // #TVAR_ash_pGAS[195]
+
+{0x0F12,  0x00A5, WORD_LEN},  // #TVAR_ash_pGAS[196]
+
+{0x0F12,  0x0068, WORD_LEN},  // #TVAR_ash_pGAS[197]
+
+{0x0F12,  0x0038, WORD_LEN},  // #TVAR_ash_pGAS[198]
+
+{0x0F12,  0x0017, WORD_LEN},  // #TVAR_ash_pGAS[199]
+
+{0x0F12,  0x0005, WORD_LEN},  // #TVAR_ash_pGAS[200]
+
+{0x0F12,  0x0005, WORD_LEN},  // #TVAR_ash_pGAS[201]
+
+{0x0F12,  0x0013, WORD_LEN},  // #TVAR_ash_pGAS[202]
+
+{0x0F12,  0x0032, WORD_LEN},  // #TVAR_ash_pGAS[203]
+
+{0x0F12,  0x005E, WORD_LEN},  // #TVAR_ash_pGAS[204]
+
+{0x0F12,  0x0097, WORD_LEN},  // #TVAR_ash_pGAS[205]
+
+{0x0F12,  0x00DF, WORD_LEN},  // #TVAR_ash_pGAS[206]
+
+{0x0F12,  0x012E, WORD_LEN},  // #TVAR_ash_pGAS[207]
+
+{0x0F12,  0x00E2, WORD_LEN},  // #TVAR_ash_pGAS[208]
+
+{0x0F12,  0x00A0, WORD_LEN},  // #TVAR_ash_pGAS[209]
+
+{0x0F12,  0x0063, WORD_LEN},  // #TVAR_ash_pGAS[210]
+
+{0x0F12,  0x0034, WORD_LEN},  // #TVAR_ash_pGAS[211]
+
+{0x0F12,  0x0013, WORD_LEN},  // #TVAR_ash_pGAS[212]
+
+{0x0F12,  0x0001, WORD_LEN},  // #TVAR_ash_pGAS[213]
+
+{0x0F12,  0x0000, WORD_LEN},  // #TVAR_ash_pGAS[214]
+
+{0x0F12,  0x0010, WORD_LEN},  // #TVAR_ash_pGAS[215]
+
+{0x0F12,  0x002F, WORD_LEN},  // #TVAR_ash_pGAS[216]
+
+{0x0F12,  0x005D, WORD_LEN},  // #TVAR_ash_pGAS[217]
+
+{0x0F12,  0x0097, WORD_LEN},  // #TVAR_ash_pGAS[218]
+
+{0x0F12,  0x00DD, WORD_LEN},  // #TVAR_ash_pGAS[219]
+
+{0x0F12,  0x012C, WORD_LEN},  // #TVAR_ash_pGAS[220]
+
+{0x0F12,  0x00EA, WORD_LEN},  // #TVAR_ash_pGAS[221]
+
+{0x0F12,  0x00A7, WORD_LEN},  // #TVAR_ash_pGAS[222]
+
+{0x0F12,  0x006D, WORD_LEN},  // #TVAR_ash_pGAS[223]
+
+{0x0F12,  0x003D, WORD_LEN},  // #TVAR_ash_pGAS[224]
+
+{0x0F12,  0x001C, WORD_LEN},  // #TVAR_ash_pGAS[225]
+
+{0x0F12,  0x000B, WORD_LEN},  // #TVAR_ash_pGAS[226]
+
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_ash_pGAS[227]
+
+{0x0F12,  0x001B, WORD_LEN},  // #TVAR_ash_pGAS[228]
+
+{0x0F12,  0x003B, WORD_LEN},  // #TVAR_ash_pGAS[229]
+
+{0x0F12,  0x006A, WORD_LEN},  // #TVAR_ash_pGAS[230]
+
+{0x0F12,  0x00A2, WORD_LEN},  // #TVAR_ash_pGAS[231]
+
+{0x0F12,  0x00EA, WORD_LEN},  // #TVAR_ash_pGAS[232]
+
+{0x0F12,  0x0137, WORD_LEN},  // #TVAR_ash_pGAS[233]
+
+{0x0F12,  0x0102, WORD_LEN},  // #TVAR_ash_pGAS[234]
+
+{0x0F12,  0x00C2, WORD_LEN},  // #TVAR_ash_pGAS[235]
+
+{0x0F12,  0x0086, WORD_LEN},  // #TVAR_ash_pGAS[236]
+
+{0x0F12,  0x0058, WORD_LEN},  // #TVAR_ash_pGAS[237]
+
+{0x0F12,  0x0037, WORD_LEN},  // #TVAR_ash_pGAS[238]
+
+{0x0F12,  0x0026, WORD_LEN},  // #TVAR_ash_pGAS[239]
+
+{0x0F12,  0x0027, WORD_LEN},  // #TVAR_ash_pGAS[240]
+
+{0x0F12,  0x0038, WORD_LEN},  // #TVAR_ash_pGAS[241]
+
+{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[242]
+
+{0x0F12,  0x0086, WORD_LEN},  // #TVAR_ash_pGAS[243]
+
+{0x0F12,  0x00BE, WORD_LEN},  // #TVAR_ash_pGAS[244]
+
+{0x0F12,  0x0106, WORD_LEN},  // #TVAR_ash_pGAS[245]
+
+{0x0F12,  0x0150, WORD_LEN},  // #TVAR_ash_pGAS[246]
+{0x0F12,  0x0124, WORD_LEN},  // #TVAR_ash_pGAS[247]
+
+{0x0F12,  0x00E5, WORD_LEN},  // #TVAR_ash_pGAS[248]
+
+{0x0F12,  0x00A9, WORD_LEN},  // #TVAR_ash_pGAS[249]
+
+{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[250]
+
+{0x0F12,  0x005E, WORD_LEN},  // #TVAR_ash_pGAS[251]
+
+{0x0F12,  0x004E, WORD_LEN},  // #TVAR_ash_pGAS[252]
+
+{0x0F12,  0x004F, WORD_LEN},  // #TVAR_ash_pGAS[253]
+
+{0x0F12,  0x0061, WORD_LEN},  // #TVAR_ash_pGAS[254]
+
+{0x0F12,  0x0081, WORD_LEN},  // #TVAR_ash_pGAS[255]
+
+{0x0F12,  0x00AC, WORD_LEN},  // #TVAR_ash_pGAS[256]
+
+{0x0F12,  0x00E2, WORD_LEN},  // #TVAR_ash_pGAS[257]
+
+{0x0F12,  0x0129, WORD_LEN},  // #TVAR_ash_pGAS[258]
+
+{0x0F12,  0x016C, WORD_LEN},  // #TVAR_ash_pGAS[259]
+
+{0x0F12,  0x014B, WORD_LEN},  // #TVAR_ash_pGAS[260]
+
+{0x0F12,  0x0114, WORD_LEN},  // #TVAR_ash_pGAS[261]
+
+{0x0F12,  0x00DA, WORD_LEN},  // #TVAR_ash_pGAS[262]
+
+{0x0F12,  0x00B0, WORD_LEN},  // #TVAR_ash_pGAS[263]
+
+{0x0F12,  0x0095, WORD_LEN},  // #TVAR_ash_pGAS[264]
+
+{0x0F12,  0x0087, WORD_LEN},  // #TVAR_ash_pGAS[265]
+
+{0x0F12,  0x0088, WORD_LEN},  // #TVAR_ash_pGAS[266]
+
+{0x0F12,  0x009A, WORD_LEN},  // #TVAR_ash_pGAS[267]
+
+{0x0F12,  0x00B8, WORD_LEN},  // #TVAR_ash_pGAS[268]
+
+{0x0F12,  0x00DF, WORD_LEN},  // #TVAR_ash_pGAS[269]
+
+{0x0F12,  0x0115, WORD_LEN},  // #TVAR_ash_pGAS[270]
+
+{0x0F12,  0x0153, WORD_LEN},  // #TVAR_ash_pGAS[271]
+
+{0x0F12,  0x0194, WORD_LEN},  // #TVAR_ash_pGAS[272]
+
+{0x0F12,  0x0172, WORD_LEN},  // #TVAR_ash_pGAS[273]
+
+{0x0F12,  0x0146, WORD_LEN},  // #TVAR_ash_pGAS[274]
+
+{0x0F12,  0x0116, WORD_LEN},  // #TVAR_ash_pGAS[275]
+
+{0x0F12,  0x00EB, WORD_LEN},  // #TVAR_ash_pGAS[276]
+
+{0x0F12,  0x00CD, WORD_LEN},  // #TVAR_ash_pGAS[277]
+
+{0x0F12,  0x00C3, WORD_LEN},  // #TVAR_ash_pGAS[278]
+
+{0x0F12,  0x00C4, WORD_LEN},  // #TVAR_ash_pGAS[279]
+
+{0x0F12,  0x00D6, WORD_LEN},  // #TVAR_ash_pGAS[280]
+
+{0x0F12,  0x00F4, WORD_LEN},  // #TVAR_ash_pGAS[281]
+
+{0x0F12,  0x011C, WORD_LEN},  // #TVAR_ash_pGAS[282]
+
+{0x0F12,  0x014F, WORD_LEN},  // #TVAR_ash_pGAS[283]
+
+{0x0F12,  0x0185, WORD_LEN},  // #TVAR_ash_pGAS[284]
+
+{0x0F12,  0x01E5, WORD_LEN},  // #TVAR_ash_pGAS[285]
+
+{0x0F12,  0x0147, WORD_LEN},  // #TVAR_ash_pGAS[286]
+
+{0x0F12,  0x012C, WORD_LEN},  // #TVAR_ash_pGAS[287]
+
+{0x0F12,  0x00FB, WORD_LEN},  // #TVAR_ash_pGAS[288]
+
+{0x0F12,  0x00D1, WORD_LEN},  // #TVAR_ash_pGAS[289]
+
+{0x0F12,  0x00B6, WORD_LEN},  // #TVAR_ash_pGAS[290]
+
+{0x0F12,  0x00AA, WORD_LEN},  // #TVAR_ash_pGAS[291]
+
+{0x0F12,  0x00AB, WORD_LEN},  // #TVAR_ash_pGAS[292]
+
+{0x0F12,  0x00BA, WORD_LEN},  // #TVAR_ash_pGAS[293]
+
+{0x0F12,  0x00D6, WORD_LEN},  // #TVAR_ash_pGAS[294]
+
+{0x0F12,  0x00FF, WORD_LEN},  // #TVAR_ash_pGAS[295]
+
+{0x0F12,  0x0136, WORD_LEN},  // #TVAR_ash_pGAS[296]
+
+{0x0F12,  0x0172, WORD_LEN},  // #TVAR_ash_pGAS[297]
+
+{0x0F12,  0x01BE, WORD_LEN},  // #TVAR_ash_pGAS[298]
+
+{0x0F12,  0x013B, WORD_LEN},  // #TVAR_ash_pGAS[299]
+
+{0x0F12,  0x00FF, WORD_LEN},  // #TVAR_ash_pGAS[300]
+
+{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[301]
+
+{0x0F12,  0x00A1, WORD_LEN},  // #TVAR_ash_pGAS[302]
+
+{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[303]
+
+{0x0F12,  0x0076, WORD_LEN},  // #TVAR_ash_pGAS[304]
+
+{0x0F12,  0x0077, WORD_LEN},  // #TVAR_ash_pGAS[305]
+
+{0x0F12,  0x0087, WORD_LEN},  // #TVAR_ash_pGAS[306]
+
+{0x0F12,  0x00A4, WORD_LEN},  // #TVAR_ash_pGAS[307]
+
+{0x0F12,  0x00CD, WORD_LEN},  // #TVAR_ash_pGAS[308]
+
+{0x0F12,  0x0107, WORD_LEN},  // #TVAR_ash_pGAS[309]
+
+{0x0F12,  0x014C, WORD_LEN},  // #TVAR_ash_pGAS[310]
+
+{0x0F12,  0x0189, WORD_LEN},  // #TVAR_ash_pGAS[311]
+
+{0x0F12,  0x011E, WORD_LEN},  // #TVAR_ash_pGAS[312]
+
+{0x0F12,  0x00D8, WORD_LEN},  // #TVAR_ash_pGAS[313]
+
+{0x0F12,  0x009C, WORD_LEN},  // #TVAR_ash_pGAS[314]
+
+{0x0F12,  0x0072, WORD_LEN},  // #TVAR_ash_pGAS[315]
+
+{0x0F12,  0x0054, WORD_LEN},  // #TVAR_ash_pGAS[316]
+
+{0x0F12,  0x0043, WORD_LEN},  // #TVAR_ash_pGAS[317]
+
+{0x0F12,  0x0045, WORD_LEN},  // #TVAR_ash_pGAS[318]
+
+{0x0F12,  0x0055, WORD_LEN},  // #TVAR_ash_pGAS[319]
+
+{0x0F12,  0x0075, WORD_LEN},  // #TVAR_ash_pGAS[320]
+
+{0x0F12,  0x00A1, WORD_LEN},  // #TVAR_ash_pGAS[321]
+
+{0x0F12,  0x00D7, WORD_LEN},  // #TVAR_ash_pGAS[322]
+
+{0x0F12,  0x0121, WORD_LEN},  // #TVAR_ash_pGAS[323]
+
+{0x0F12,  0x016A, WORD_LEN},  // #TVAR_ash_pGAS[324]
+
+{0x0F12,  0x00FF, WORD_LEN},  // #TVAR_ash_pGAS[325]
+
+{0x0F12,  0x00BA, WORD_LEN},  // #TVAR_ash_pGAS[326]
+
+{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[327]
+
+{0x0F12,  0x0051, WORD_LEN},  // #TVAR_ash_pGAS[328]
+
+{0x0F12,  0x0031, WORD_LEN},  // #TVAR_ash_pGAS[329]
+
+{0x0F12,  0x001D, WORD_LEN},  // #TVAR_ash_pGAS[330]
+
+{0x0F12,  0x001D, WORD_LEN},  // #TVAR_ash_pGAS[331]
+
+{0x0F12,  0x002E, WORD_LEN},  // #TVAR_ash_pGAS[332]
+
+{0x0F12,  0x0050, WORD_LEN},  // #TVAR_ash_pGAS[333]
+
+{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[334]
+
+{0x0F12,  0x00B5, WORD_LEN},  // #TVAR_ash_pGAS[335]
+
+{0x0F12,  0x00FE, WORD_LEN},  // #TVAR_ash_pGAS[336]
+
+{0x0F12,  0x014D, WORD_LEN},  // #TVAR_ash_pGAS[337]
+
+{0x0F12,  0x00F2, WORD_LEN},  // #TVAR_ash_pGAS[338]
+
+{0x0F12,  0x00AF, WORD_LEN},  // #TVAR_ash_pGAS[339]
+
+{0x0F12,  0x0071, WORD_LEN},  // #TVAR_ash_pGAS[340]
+
+{0x0F12,  0x0040, WORD_LEN},  // #TVAR_ash_pGAS[341]
+
+{0x0F12,  0x001D, WORD_LEN},  // #TVAR_ash_pGAS[342]
+
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_ash_pGAS[343]
+
+{0x0F12,  0x0009, WORD_LEN},  // #TVAR_ash_pGAS[344]
+
+{0x0F12,  0x001A, WORD_LEN},  // #TVAR_ash_pGAS[345]
+
+{0x0F12,  0x003A, WORD_LEN},  // #TVAR_ash_pGAS[346]
+
+{0x0F12,  0x0069, WORD_LEN},  // #TVAR_ash_pGAS[347]
+
+{0x0F12,  0x00A2, WORD_LEN},  // #TVAR_ash_pGAS[348]
+
+{0x0F12,  0x00E9, WORD_LEN},  // #TVAR_ash_pGAS[349]
+
+{0x0F12,  0x013B, WORD_LEN},  // #TVAR_ash_pGAS[350]
+
+{0x0F12,  0x00EF, WORD_LEN},  // #TVAR_ash_pGAS[351]
+
+{0x0F12,  0x00AA, WORD_LEN},  // #TVAR_ash_pGAS[352]
+
+{0x0F12,  0x006D, WORD_LEN},  // #TVAR_ash_pGAS[353]
+
+{0x0F12,  0x003D, WORD_LEN},  // #TVAR_ash_pGAS[354]
+
+{0x0F12,  0x0019, WORD_LEN},  // #TVAR_ash_pGAS[355]
+
+{0x0F12,  0x0005, WORD_LEN},  // #TVAR_ash_pGAS[356]
+
+{0x0F12,  0x0003, WORD_LEN},  // #TVAR_ash_pGAS[357]
+
+{0x0F12,  0x0012, WORD_LEN},  // #TVAR_ash_pGAS[358]
+
+{0x0F12,  0x0033, WORD_LEN},  // #TVAR_ash_pGAS[359]
+
+{0x0F12,  0x0061, WORD_LEN},  // #TVAR_ash_pGAS[360]
+
+{0x0F12,  0x009A, WORD_LEN},  // #TVAR_ash_pGAS[361]
+
+{0x0F12,  0x00E1, WORD_LEN},  // #TVAR_ash_pGAS[362]
+
+{0x0F12,  0x0131, WORD_LEN},  // #TVAR_ash_pGAS[363]
+
+{0x0F12,  0x00FB, WORD_LEN},  // #TVAR_ash_pGAS[364]
+
+{0x0F12,  0x00B6, WORD_LEN},  // #TVAR_ash_pGAS[365]
+
+{0x0F12,  0x0079, WORD_LEN},  // #TVAR_ash_pGAS[366]
+
+{0x0F12,  0x0048, WORD_LEN},  // #TVAR_ash_pGAS[367]
+
+{0x0F12,  0x0024, WORD_LEN},  // #TVAR_ash_pGAS[368]
+
+{0x0F12,  0x000E, WORD_LEN},  // #TVAR_ash_pGAS[369]
+
+{0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[370]
+
+{0x0F12,  0x001B, WORD_LEN},  // #TVAR_ash_pGAS[371]
+
+{0x0F12,  0x003A, WORD_LEN},  // #TVAR_ash_pGAS[372]
+
+{0x0F12,  0x0068, WORD_LEN},  // #TVAR_ash_pGAS[373]
+
+{0x0F12,  0x00A0, WORD_LEN},  // #TVAR_ash_pGAS[374]
+
+{0x0F12,  0x00E7, WORD_LEN},  // #TVAR_ash_pGAS[375]
+
+{0x0F12,  0x0135, WORD_LEN},  // #TVAR_ash_pGAS[376]
+
+{0x0F12,  0x0117, WORD_LEN},  // #TVAR_ash_pGAS[377]
+
+{0x0F12,  0x00D4, WORD_LEN},  // #TVAR_ash_pGAS[378]
+
+{0x0F12,  0x0096, WORD_LEN},  // #TVAR_ash_pGAS[379]
+
+{0x0F12,  0x0065, WORD_LEN},  // #TVAR_ash_pGAS[380]
+
+{0x0F12,  0x0040, WORD_LEN},  // #TVAR_ash_pGAS[381]
+
+{0x0F12,  0x002C, WORD_LEN},  // #TVAR_ash_pGAS[382]
+
+{0x0F12,  0x0027, WORD_LEN},  // #TVAR_ash_pGAS[383]
+
+{0x0F12,  0x0036, WORD_LEN},  // #TVAR_ash_pGAS[384]
+
+{0x0F12,  0x0054, WORD_LEN},  // #TVAR_ash_pGAS[385]
+
+{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[386]
+
+{0x0F12,  0x00B5, WORD_LEN},  // #TVAR_ash_pGAS[387]
+
+{0x0F12,  0x00FB, WORD_LEN},  // #TVAR_ash_pGAS[388]
+
+{0x0F12,  0x0146, WORD_LEN},  // #TVAR_ash_pGAS[389]
+
+{0x0F12,  0x013C, WORD_LEN},  // #TVAR_ash_pGAS[390]
+
+{0x0F12,  0x00F9, WORD_LEN},  // #TVAR_ash_pGAS[391]
+
+{0x0F12,  0x00BB, WORD_LEN},  // #TVAR_ash_pGAS[392]
+
+{0x0F12,  0x008D, WORD_LEN},  // #TVAR_ash_pGAS[393]
+
+{0x0F12,  0x0069, WORD_LEN},  // #TVAR_ash_pGAS[394]
+
+{0x0F12,  0x0053, WORD_LEN},  // #TVAR_ash_pGAS[395]
+
+{0x0F12,  0x004F, WORD_LEN},  // #TVAR_ash_pGAS[396]
+
+{0x0F12,  0x005D, WORD_LEN},  // #TVAR_ash_pGAS[397]
+
+{0x0F12,  0x0079, WORD_LEN},  // #TVAR_ash_pGAS[398]
+
+{0x0F12,  0x00A2, WORD_LEN},  // #TVAR_ash_pGAS[399]
+
+{0x0F12,  0x00D5, WORD_LEN},  // #TVAR_ash_pGAS[400]
+
+{0x0F12,  0x011B, WORD_LEN},  // #TVAR_ash_pGAS[401]
+
+{0x0F12,  0x0160, WORD_LEN},  // #TVAR_ash_pGAS[402]
+
+{0x0F12,  0x0167, WORD_LEN},  // #TVAR_ash_pGAS[403]
+
+{0x0F12,  0x012C, WORD_LEN},  // #TVAR_ash_pGAS[404]
+
+{0x0F12,  0x00EF, WORD_LEN},  // #TVAR_ash_pGAS[405]
+
+{0x0F12,  0x00C2, WORD_LEN},  // #TVAR_ash_pGAS[406]
+
+{0x0F12,  0x00A2, WORD_LEN},  // #TVAR_ash_pGAS[407]
+
+{0x0F12,  0x008D, WORD_LEN},  // #TVAR_ash_pGAS[408]
+
+{0x0F12,  0x008A, WORD_LEN},  // #TVAR_ash_pGAS[409]
+
+{0x0F12,  0x0095, WORD_LEN},  // #TVAR_ash_pGAS[410]
+
+{0x0F12,  0x00B0, WORD_LEN},  // #TVAR_ash_pGAS[411]
+
+{0x0F12,  0x00D2, WORD_LEN},  // #TVAR_ash_pGAS[412]
+
+{0x0F12,  0x0106, WORD_LEN},  // #TVAR_ash_pGAS[413]
+
+{0x0F12,  0x0145, WORD_LEN},  // #TVAR_ash_pGAS[414]
+
+{0x0F12,  0x0188, WORD_LEN},  // #TVAR_ash_pGAS[415]
+
+{0x0F12,  0x0197, WORD_LEN},  // #TVAR_ash_pGAS[416]
+
+{0x0F12,  0x0164, WORD_LEN},  // #TVAR_ash_pGAS[417]
+
+{0x0F12,  0x012F, WORD_LEN},  // #TVAR_ash_pGAS[418]
+
+{0x0F12,  0x0101, WORD_LEN},  // #TVAR_ash_pGAS[419]
+
+{0x0F12,  0x00E0, WORD_LEN},  // #TVAR_ash_pGAS[420]
+
+{0x0F12,  0x00CD, WORD_LEN},  // #TVAR_ash_pGAS[421]
+
+{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[422]
+
+{0x0F12,  0x00D4, WORD_LEN},  // #TVAR_ash_pGAS[423]
+
+{0x0F12,  0x00EC, WORD_LEN},  // #TVAR_ash_pGAS[424]
+
+{0x0F12,  0x0111, WORD_LEN},  // #TVAR_ash_pGAS[425]
+
+{0x0F12,  0x0141, WORD_LEN},  // #TVAR_ash_pGAS[426]
+
+{0x0F12,  0x0176, WORD_LEN},  // #TVAR_ash_pGAS[427]
+
+{0x0F12,  0x01DD, WORD_LEN},  // #TVAR_ash_pGAS[428]
+
+{0x0F12,  0x0105, WORD_LEN},  // #TVAR_ash_pGAS[429]
+
+{0x0F12,  0x00FD, WORD_LEN},  // #TVAR_ash_pGAS[430]
+
+{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[431]
+
+{0x0F12,  0x00B2, WORD_LEN},  // #TVAR_ash_pGAS[432]
+
+{0x0F12,  0x00A0, WORD_LEN},  // #TVAR_ash_pGAS[433]
+
+{0x0F12,  0x0096, WORD_LEN},  // #TVAR_ash_pGAS[434]
+
+{0x0F12,  0x0097, WORD_LEN},  // #TVAR_ash_pGAS[435]
+
+{0x0F12,  0x00A5, WORD_LEN},  // #TVAR_ash_pGAS[436]
+
+{0x0F12,  0x00BC, WORD_LEN},  // #TVAR_ash_pGAS[437]
+
+{0x0F12,  0x00E2, WORD_LEN},  // #TVAR_ash_pGAS[438]
+
+{0x0F12,  0x0117, WORD_LEN},  // #TVAR_ash_pGAS[439]
+
+{0x0F12,  0x0149, WORD_LEN},  // #TVAR_ash_pGAS[440]
+
+{0x0F12,  0x0187, WORD_LEN},  // #TVAR_ash_pGAS[441]
+
+{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_pGAS[442]
+
+{0x0F12,  0x00CA, WORD_LEN},  // #TVAR_ash_pGAS[443]
+
+{0x0F12,  0x00A1, WORD_LEN},  // #TVAR_ash_pGAS[444]
+
+{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[445]
+
+{0x0F12,  0x006F, WORD_LEN},  // #TVAR_ash_pGAS[446]
+
+{0x0F12,  0x0068, WORD_LEN},  // #TVAR_ash_pGAS[447]
+
+{0x0F12,  0x006A, WORD_LEN},  // #TVAR_ash_pGAS[448]
+
+{0x0F12,  0x0077, WORD_LEN},  // #TVAR_ash_pGAS[449]
+
+{0x0F12,  0x0091, WORD_LEN},  // #TVAR_ash_pGAS[450]
+
+{0x0F12,  0x00B4, WORD_LEN},  // #TVAR_ash_pGAS[451]
+
+{0x0F12,  0x00E7, WORD_LEN},  // #TVAR_ash_pGAS[452]
+
+{0x0F12,  0x0125, WORD_LEN},  // #TVAR_ash_pGAS[453]
+
+{0x0F12,  0x015B, WORD_LEN},  // #TVAR_ash_pGAS[454]
+
+{0x0F12,  0x00DF, WORD_LEN},  // #TVAR_ash_pGAS[455]
+
+{0x0F12,  0x00A6, WORD_LEN},  // #TVAR_ash_pGAS[456]
+
+{0x0F12,  0x0075, WORD_LEN},  // #TVAR_ash_pGAS[457]
+
+{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[458]
+
+{0x0F12,  0x0044, WORD_LEN},  // #TVAR_ash_pGAS[459]
+
+{0x0F12,  0x003B, WORD_LEN},  // #TVAR_ash_pGAS[460]
+
+{0x0F12,  0x003D, WORD_LEN},  // #TVAR_ash_pGAS[461]
+
+{0x0F12,  0x004B, WORD_LEN},  // #TVAR_ash_pGAS[462]
+
+{0x0F12,  0x0064, WORD_LEN},  // #TVAR_ash_pGAS[463]
+
+{0x0F12,  0x0089, WORD_LEN},  // #TVAR_ash_pGAS[464]
+
+{0x0F12,  0x00B9, WORD_LEN},  // #TVAR_ash_pGAS[465]
+
+{0x0F12,  0x00FC, WORD_LEN},  // #TVAR_ash_pGAS[466]
+
+{0x0F12,  0x013C, WORD_LEN},  // #TVAR_ash_pGAS[467]
+
+{0x0F12,  0x00C2, WORD_LEN},  // #TVAR_ash_pGAS[468]
+
+{0x0F12,  0x008A, WORD_LEN},  // #TVAR_ash_pGAS[469]
+
+{0x0F12,  0x0059, WORD_LEN},  // #TVAR_ash_pGAS[470]
+
+{0x0F12,  0x0038, WORD_LEN},  // #TVAR_ash_pGAS[471]
+
+{0x0F12,  0x0023, WORD_LEN},  // #TVAR_ash_pGAS[472]
+
+{0x0F12,  0x0018, WORD_LEN},  // #TVAR_ash_pGAS[473]
+
+{0x0F12,  0x0019, WORD_LEN},  // #TVAR_ash_pGAS[474]
+
+{0x0F12,  0x0028, WORD_LEN},  // #TVAR_ash_pGAS[475]
+
+{0x0F12,  0x0042, WORD_LEN},  // #TVAR_ash_pGAS[476]
+
+{0x0F12,  0x0068, WORD_LEN},  // #TVAR_ash_pGAS[477]
+
+{0x0F12,  0x0097, WORD_LEN},  // #TVAR_ash_pGAS[478]
+
+{0x0F12,  0x00D7, WORD_LEN},  // #TVAR_ash_pGAS[479]
+
+{0x0F12,  0x011D, WORD_LEN},  // #TVAR_ash_pGAS[480]
+
+{0x0F12,  0x00B1, WORD_LEN},  // #TVAR_ash_pGAS[481]
+
+{0x0F12,  0x007B, WORD_LEN},  // #TVAR_ash_pGAS[482]
+
+{0x0F12,  0x004A, WORD_LEN},  // #TVAR_ash_pGAS[483]
+
+{0x0F12,  0x0027, WORD_LEN},  // #TVAR_ash_pGAS[484]
+
+{0x0F12,  0x0011, WORD_LEN},  // #TVAR_ash_pGAS[485]
+
+{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[486]
+
+{0x0F12,  0x0007, WORD_LEN},  // #TVAR_ash_pGAS[487]
+
+{0x0F12,  0x0014, WORD_LEN},  // #TVAR_ash_pGAS[488]
+
+{0x0F12,  0x002D, WORD_LEN},  // #TVAR_ash_pGAS[489]
+
+{0x0F12,  0x0053, WORD_LEN},  // #TVAR_ash_pGAS[490]
+
+{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[491]
+
+{0x0F12,  0x00C2, WORD_LEN},  // #TVAR_ash_pGAS[492]
+
+{0x0F12,  0x010B, WORD_LEN},  // #TVAR_ash_pGAS[493]
+
+{0x0F12,  0x00AC, WORD_LEN},  // #TVAR_ash_pGAS[494]
+
+{0x0F12,  0x0076, WORD_LEN},  // #TVAR_ash_pGAS[495]
+
+{0x0F12,  0x0046, WORD_LEN},  // #TVAR_ash_pGAS[496]
+
+{0x0F12,  0x0022, WORD_LEN},  // #TVAR_ash_pGAS[497]
+
+{0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[498]
+
+{0x0F12,  0x0000, WORD_LEN},  // #TVAR_ash_pGAS[499]
+
+{0x0F12,  0x0000, WORD_LEN},  // #TVAR_ash_pGAS[500]
+
+{0x0F12,  0x000C, WORD_LEN},  // #TVAR_ash_pGAS[501]
+
+{0x0F12,  0x0024, WORD_LEN},  // #TVAR_ash_pGAS[502]
+
+{0x0F12,  0x004B, WORD_LEN},  // #TVAR_ash_pGAS[503]
+
+{0x0F12,  0x007B, WORD_LEN},  // #TVAR_ash_pGAS[504]
+
+{0x0F12,  0x00BA, WORD_LEN},  // #TVAR_ash_pGAS[505]
+
+{0x0F12,  0x00FD, WORD_LEN},  // #TVAR_ash_pGAS[506]
+
+{0x0F12,  0x00B5, WORD_LEN},  // #TVAR_ash_pGAS[507]
+
+{0x0F12,  0x0080, WORD_LEN},  // #TVAR_ash_pGAS[508]
+
+{0x0F12,  0x0050, WORD_LEN},  // #TVAR_ash_pGAS[509]
+
+{0x0F12,  0x002C, WORD_LEN},  // #TVAR_ash_pGAS[510]
+
+{0x0F12,  0x0015, WORD_LEN},  // #TVAR_ash_pGAS[511]
+
+{0x0F12,  0x0009, WORD_LEN},  // #TVAR_ash_pGAS[512]
+
+{0x0F12,  0x0008, WORD_LEN},  // #TVAR_ash_pGAS[513]
+
+{0x0F12,  0x0013, WORD_LEN},  // #TVAR_ash_pGAS[514]
+
+{0x0F12,  0x002A, WORD_LEN},  // #TVAR_ash_pGAS[515]
+
+{0x0F12,  0x0050, WORD_LEN},  // #TVAR_ash_pGAS[516]
+
+{0x0F12,  0x007F, WORD_LEN},  // #TVAR_ash_pGAS[517]
+
+{0x0F12,  0x00BB, WORD_LEN},  // #TVAR_ash_pGAS[518]
+
+{0x0F12,  0x0102, WORD_LEN},  // #TVAR_ash_pGAS[519]
+
+{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[520]
+
+{0x0F12,  0x009A, WORD_LEN},  // #TVAR_ash_pGAS[521]
+
+{0x0F12,  0x006A, WORD_LEN},  // #TVAR_ash_pGAS[522]
+
+{0x0F12,  0x0046, WORD_LEN},  // #TVAR_ash_pGAS[523]
+
+{0x0F12,  0x002E, WORD_LEN},  // #TVAR_ash_pGAS[524]
+
+{0x0F12,  0x0022, WORD_LEN},  // #TVAR_ash_pGAS[525]
+
+{0x0F12,  0x0021, WORD_LEN},  // #TVAR_ash_pGAS[526]
+
+{0x0F12,  0x002B, WORD_LEN},  // #TVAR_ash_pGAS[527]
+
+{0x0F12,  0x0041, WORD_LEN},  // #TVAR_ash_pGAS[528]
+
+{0x0F12,  0x0065, WORD_LEN},  // #TVAR_ash_pGAS[529]
+
+{0x0F12,  0x0091, WORD_LEN},  // #TVAR_ash_pGAS[530]
+
+{0x0F12,  0x00D0, WORD_LEN},  // #TVAR_ash_pGAS[531]
+
+{0x0F12,  0x010F, WORD_LEN},  // #TVAR_ash_pGAS[532]
+
+{0x0F12,  0x00F1, WORD_LEN},  // #TVAR_ash_pGAS[533]
+
+{0x0F12,  0x00BE, WORD_LEN},  // #TVAR_ash_pGAS[534]
+
+{0x0F12,  0x008D, WORD_LEN},  // #TVAR_ash_pGAS[535]
+
+{0x0F12,  0x006A, WORD_LEN},  // #TVAR_ash_pGAS[536]
+
+{0x0F12,  0x0052, WORD_LEN},  // #TVAR_ash_pGAS[537]
+
+{0x0F12,  0x0046, WORD_LEN},  // #TVAR_ash_pGAS[538]
+
+{0x0F12,  0x0046, WORD_LEN},  // #TVAR_ash_pGAS[539]
+
+{0x0F12,  0x0050, WORD_LEN},  // #TVAR_ash_pGAS[540]
+
+{0x0F12,  0x0064, WORD_LEN},  // #TVAR_ash_pGAS[541]
+
+{0x0F12,  0x0084, WORD_LEN},  // #TVAR_ash_pGAS[542]
+
+{0x0F12,  0x00B1, WORD_LEN},  // #TVAR_ash_pGAS[543]
+
+{0x0F12,  0x00EC, WORD_LEN},  // #TVAR_ash_pGAS[544]
+
+{0x0F12,  0x012A, WORD_LEN},  // #TVAR_ash_pGAS[545]
+
+{0x0F12,  0x011F, WORD_LEN},  // #TVAR_ash_pGAS[546]
+
+{0x0F12,  0x00F0, WORD_LEN},  // #TVAR_ash_pGAS[547]
+
+{0x0F12,  0x00C2, WORD_LEN},  // #TVAR_ash_pGAS[548]
+
+{0x0F12,  0x009F, WORD_LEN},  // #TVAR_ash_pGAS[549]
+
+{0x0F12,  0x0089, WORD_LEN},  // #TVAR_ash_pGAS[550]
+
+{0x0F12,  0x007E, WORD_LEN},  // #TVAR_ash_pGAS[551]
+
+{0x0F12,  0x007B, WORD_LEN},  // #TVAR_ash_pGAS[552]
+
+{0x0F12,  0x0085, WORD_LEN},  // #TVAR_ash_pGAS[553]
+
+{0x0F12,  0x0098, WORD_LEN},  // #TVAR_ash_pGAS[554]
+
+{0x0F12,  0x00B3, WORD_LEN},  // #TVAR_ash_pGAS[555]
+
+{0x0F12,  0x00DE, WORD_LEN},  // #TVAR_ash_pGAS[556]
+
+{0x0F12,  0x0113, WORD_LEN},  // #TVAR_ash_pGAS[557]
+
+{0x0F12,  0x014D, WORD_LEN},  // #TVAR_ash_pGAS[558]
+
+{0x0F12,  0x014B, WORD_LEN},  // #TVAR_ash_pGAS[559]
+
+{0x0F12,  0x0127, WORD_LEN},  // #TVAR_ash_pGAS[560]
+
+{0x0F12,  0x00FD, WORD_LEN},  // #TVAR_ash_pGAS[561]
+
+{0x0F12,  0x00DB, WORD_LEN},  // #TVAR_ash_pGAS[562]
+
+{0x0F12,  0x00C4, WORD_LEN},  // #TVAR_ash_pGAS[563]
+
+{0x0F12,  0x00BA, WORD_LEN},  // #TVAR_ash_pGAS[564]
+
+{0x0F12,  0x00B7, WORD_LEN},  // #TVAR_ash_pGAS[565]
+
+{0x0F12,  0x00BF, WORD_LEN},  // #TVAR_ash_pGAS[566]
+
+{0x0F12,  0x00D3, WORD_LEN},  // #TVAR_ash_pGAS[567]
+
+{0x0F12,  0x00ED, WORD_LEN},  // #TVAR_ash_pGAS[568]
+
+{0x0F12,  0x0114, WORD_LEN},  // #TVAR_ash_pGAS[569]
+
+{0x0F12,  0x0143, WORD_LEN},  // #TVAR_ash_pGAS[570]
+
+{0x0F12,  0x0195, WORD_LEN},  // #TVAR_ash_pGAS[571]
+
+
+{0x002A, 0x0D30, WORD_LEN},
+
 {0x0F12,  0x02A7, WORD_LEN},  // #awbb_GLocusR
+
 {0x0F12,  0x0343, WORD_LEN},  // #awbb_GLocusB
-{0x002A,  0x06B8, WORD_LEN},
+
+{0x002A, 0x06B8, WORD_LEN},
+
 {0x0F12,  0x00D0, WORD_LEN},  // #TVAR_ash_AwbAshCord_0_
+
 {0x0F12,  0x0102, WORD_LEN},  // #TVAR_ash_AwbAshCord_1_
+
 {0x0F12,  0x010E, WORD_LEN},  // #TVAR_ash_AwbAshCord_2_
+
 {0x0F12,  0x0137, WORD_LEN},  // #TVAR_ash_AwbAshCord_3_
+
 {0x0F12,  0x0171, WORD_LEN},  // #TVAR_ash_AwbAshCord_4_
+
 {0x0F12,  0x0198, WORD_LEN},  // #TVAR_ash_AwbAshCord_5_
+
 {0x0F12,  0x01A8, WORD_LEN},  // #TVAR_ash_AwbAshCord_6_
 
 
@@ -2189,75 +2738,134 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 // #Horizon
 
 {0x002A, 0x33A4, WORD_LEN},
+
+
 {0x0F12,  0x01CB, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFF8E, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFFD2, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFF64, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x01B2, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFF35, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFFDF, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFFE9, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x01BD, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x011C, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x011B, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFF43, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x019D, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFF4C, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x01CC, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0xFF33, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x0173, WORD_LEN},  // #TVAR_wbt_pBaseCcms
+
 {0x0F12,  0x012F, WORD_LEN},  // #TVAR_wbt_pBaseCcms
 
 // #Inca
 
 {0x0F12,  0x01C7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[18]
+
 {0x0F12,  0xFF88, WORD_LEN},  // #TVAR_wbt_pBaseCcms[19]
+
 {0x0F12,  0xFFE9, WORD_LEN},  // #TVAR_wbt_pBaseCcms[20]
+
 {0x0F12,  0xFF64, WORD_LEN},  // #TVAR_wbt_pBaseCcms[21]
+
 {0x0F12,  0x01B2, WORD_LEN},  // #TVAR_wbt_pBaseCcms[22]
+
 {0x0F12,  0xFF35, WORD_LEN},  // #TVAR_wbt_pBaseCcms[23]
+
 {0x0F12,  0xFFEE, WORD_LEN},  // #TVAR_wbt_pBaseCcms[24]
+
 {0x0F12,  0xFFF7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[25]
+
 {0x0F12,  0x01A0, WORD_LEN},  // #TVAR_wbt_pBaseCcms[26]
+
 {0x0F12,  0x011C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[27]
+
 {0x0F12,  0x011B, WORD_LEN},  // #TVAR_wbt_pBaseCcms[28]
+
 {0x0F12,  0xFF43, WORD_LEN},  // #TVAR_wbt_pBaseCcms[29]
+
 {0x0F12,  0x019D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[30]
+
 {0x0F12,  0xFF4C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[31]
+
 {0x0F12,  0x01CC, WORD_LEN},  // #TVAR_wbt_pBaseCcms[32]
+
 {0x0F12,  0xFF33, WORD_LEN},  // #TVAR_wbt_pBaseCcms[33]
+
 {0x0F12,  0x0173, WORD_LEN},  // #TVAR_wbt_pBaseCcms[34]
+
 {0x0F12,  0x012F, WORD_LEN},  // #TVAR_wbt_pBaseCcms[35]
 
 // #W
 
-{0x0F12,  0x01C7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[36]
-{0x0F12,  0xFF88, WORD_LEN},  // #TVAR_wbt_pBaseCcms[37]
-{0x0F12,  0xFFE9, WORD_LEN},  // #TVAR_wbt_pBaseCcms[38]
+{0x0F12,  0x022E, WORD_LEN},  // #TVAR_wbt_pBaseCcms[36]
+             
+{0x0F12,  0xFF9D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[37]
+             
+{0x0F12,  0xFFDD, WORD_LEN},  // #TVAR_wbt_pBaseCcms[38]
+
 {0x0F12,  0xFF64, WORD_LEN},  // #TVAR_wbt_pBaseCcms[39]
+
 {0x0F12,  0x01B2, WORD_LEN},  // #TVAR_wbt_pBaseCcms[40]
+
 {0x0F12,  0xFF35, WORD_LEN},  // #TVAR_wbt_pBaseCcms[41]
+
 {0x0F12,  0xFFEE, WORD_LEN},  // #TVAR_wbt_pBaseCcms[42]
+
 {0x0F12,  0xFFF7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[43]
+
 {0x0F12,  0x01A0, WORD_LEN},  // #TVAR_wbt_pBaseCcms[44]
+
 {0x0F12,  0x011C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[45]
+
 {0x0F12,  0x011B, WORD_LEN},  // #TVAR_wbt_pBaseCcms[46]
+
 {0x0F12,  0xFF43, WORD_LEN},  // #TVAR_wbt_pBaseCcms[47]
+
 {0x0F12,  0x019D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[48]
+
 {0x0F12,  0xFF4C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[49]
+
 {0x0F12,  0x01CC, WORD_LEN},  // #TVAR_wbt_pBaseCcms[50]
+
 {0x0F12,  0xFF33, WORD_LEN},  // #TVAR_wbt_pBaseCcms[51]
+
 {0x0F12,  0x0173, WORD_LEN},  // #TVAR_wbt_pBaseCcms[52]
+
 {0x0F12,  0x012F, WORD_LEN},  // #TVAR_wbt_pBaseCcms[53]
 
 // #C
 
-{0x0F12,  0x01C7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[54]
-{0x0F12,  0xFF88, WORD_LEN},  // #TVAR_wbt_pBaseCcms[55]
-{0x0F12,  0xFFE9, WORD_LEN},  // #TVAR_wbt_pBaseCcms[56]
+{0x0F12,  0x022E, WORD_LEN},  // #TVAR_wbt_pBaseCcms[54]
+             
+{0x0F12,  0xFF9D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[55]
+             
+{0x0F12,  0xFFDD, WORD_LEN},  // #TVAR_wbt_pBaseCcms[56]
+
 {0x0F12,  0xFF64, WORD_LEN},  // #TVAR_wbt_pBaseCcms[57]
+
 {0x0F12,  0x01B2, WORD_LEN},  // #TVAR_wbt_pBaseCcms[58]
+
 {0x0F12,  0xFF35, WORD_LEN},  // #TVAR_wbt_pBaseCcms[59]
+
 {0x0F12,  0xFFEE, WORD_LEN},  // #TVAR_wbt_pBaseCcms[60]
 {0x0F12,  0xFFF7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[61]
 {0x0F12,  0x01A0, WORD_LEN},  // #TVAR_wbt_pBaseCcms[62]
@@ -2267,50 +2875,87 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x019D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[66]
 {0x0F12,  0xFF4C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[67]
 {0x0F12,  0x01CC, WORD_LEN},  // #TVAR_wbt_pBaseCcms[68]
+
 {0x0F12,  0xFF33, WORD_LEN},  // #TVAR_wbt_pBaseCcms[69]
+
 {0x0F12,  0x0173, WORD_LEN},  // #TVAR_wbt_pBaseCcms[70]
+
 {0x0F12,  0x012F, WORD_LEN},  // #TVAR_wbt_pBaseCcms[71]
 
 // #D
 
-{0x0F12,  0x01C7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[72]
-{0x0F12,  0xFF88, WORD_LEN},  // #TVAR_wbt_pBaseCcms[73]
-{0x0F12,  0xFFE9, WORD_LEN},  // #TVAR_wbt_pBaseCcms[74]
+{0x0F12,  0x022E, WORD_LEN},  // #TVAR_wbt_pBaseCcms[72]
+             
+{0x0F12,  0xFF9D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[73]
+             
+{0x0F12,  0xFFDD, WORD_LEN},  // #TVAR_wbt_pBaseCcms[74]
+
 {0x0F12,  0xFF64, WORD_LEN},  // #TVAR_wbt_pBaseCcms[75]
+
 {0x0F12,  0x01B2, WORD_LEN},  // #TVAR_wbt_pBaseCcms[76]
+
 {0x0F12,  0xFF35, WORD_LEN},  // #TVAR_wbt_pBaseCcms[77]
+
 {0x0F12,  0xFFEE, WORD_LEN},  // #TVAR_wbt_pBaseCcms[78]
+
 {0x0F12,  0xFFF7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[79]
+
 {0x0F12,  0x01A0, WORD_LEN},  // #TVAR_wbt_pBaseCcms[80]
+
 {0x0F12,  0x011C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[81]
+
 {0x0F12,  0x011B, WORD_LEN},  // #TVAR_wbt_pBaseCcms[82]
+
 {0x0F12,  0xFF43, WORD_LEN},  // #TVAR_wbt_pBaseCcms[83]
+
 {0x0F12,  0x019D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[84]
+
 {0x0F12,  0xFF4C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[85]
+
 {0x0F12,  0x01CC, WORD_LEN},  // #TVAR_wbt_pBaseCcms[86]
+
 {0x0F12,  0xFF33, WORD_LEN},  // #TVAR_wbt_pBaseCcms[87]
+
 {0x0F12,  0x0173, WORD_LEN},  // #TVAR_wbt_pBaseCcms[88]
+
 {0x0F12,  0x012F, WORD_LEN},  // #TVAR_wbt_pBaseCcms[89]
 
 // #D
 
-{0x0F12,  0x01C7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[90]
-{0x0F12,  0xFF88, WORD_LEN},  // #TVAR_wbt_pBaseCcms[91]
-{0x0F12,  0xFFE9, WORD_LEN},  // #TVAR_wbt_pBaseCcms[92]
+{0x0F12,  0x022E, WORD_LEN},  // #TVAR_wbt_pBaseCcms[90]
+             
+{0x0F12,  0xFF9D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[91]
+             
+{0x0F12,  0xFFDD, WORD_LEN},  // #TVAR_wbt_pBaseCcms[92]
+
 {0x0F12,  0xFF64, WORD_LEN},  // #TVAR_wbt_pBaseCcms[93]
+
 {0x0F12,  0x01B2, WORD_LEN},  // #TVAR_wbt_pBaseCcms[94]
+
 {0x0F12,  0xFF35, WORD_LEN},  // #TVAR_wbt_pBaseCcms[95]
+
 {0x0F12,  0xFFEE, WORD_LEN},  // #TVAR_wbt_pBaseCcms[96]
+
 {0x0F12,  0xFFF7, WORD_LEN},  // #TVAR_wbt_pBaseCcms[97]
+
 {0x0F12,  0x01A0, WORD_LEN},  // #TVAR_wbt_pBaseCcms[98]
+
 {0x0F12,  0x011C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[99]
+
 {0x0F12,  0x011B, WORD_LEN},  // #TVAR_wbt_pBaseCcms[100]
+
 {0x0F12,  0xFF43, WORD_LEN},  // #TVAR_wbt_pBaseCcms[101]
+
 {0x0F12,  0x019D, WORD_LEN},  // #TVAR_wbt_pBaseCcms[102]
+
 {0x0F12,  0xFF4C, WORD_LEN},  // #TVAR_wbt_pBaseCcms[103]
+
 {0x0F12,  0x01CC, WORD_LEN},  // #TVAR_wbt_pBaseCcms[104]
+
 {0x0F12,  0xFF33, WORD_LEN},  // #TVAR_wbt_pBaseCcms[105]
+
 {0x0F12,  0x0173, WORD_LEN},  // #TVAR_wbt_pBaseCcms[106]
+
 {0x0F12,  0x012F, WORD_LEN},  // #TVAR_wbt_pBaseCcms[107]
 
 // #Outdoor CCM address, WORD_LEN},  // #7000_3380
@@ -2321,23 +2966,42 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 // #Outdoor CCM
 
 {0x002A, 0x3380, WORD_LEN},
+
+
 {0x0F12,  0x01C5, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[0]
+
 {0x0F12,  0xFF90, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[1]
+             
 {0x0F12,  0xFFDB, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[2]
+             
 {0x0F12,  0xFF61, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[3]
+             
 {0x0F12,  0x01BD, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[4]
+             
 {0x0F12,  0xFF34, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[5]
+             
 {0x0F12,  0xFFFE, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[6]
+             
 {0x0F12,  0xFFF6, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[7]
+             
 {0x0F12,  0x019D, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[8]
+             
 {0x0F12,  0x0107, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[9]
+             
 {0x0F12,  0x010F, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[10] 
+             
 {0x0F12,  0xFF67, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[11] 
+             
 {0x0F12,  0x016C, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[12] 
+             
 {0x0F12,  0xFF54, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[13] 
+             
 {0x0F12,  0x01FC, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[14] 
+             
 {0x0F12,  0xFF82, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[15] 
+             
 {0x0F12,  0x015D, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[16] 
+
 {0x0F12,  0x00FD, WORD_LEN},  // #TVAR_wbt_pOutdoorCcm[17] 
 
 //================================================================================================
@@ -2351,49 +3015,90 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x002A, 0x0C48, WORD_LEN},
 
 
-//mhlee
 {0x0F12,  0x03E3, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[0] 
+
 {0x0F12,  0x03F8, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[1] 
+
 {0x0F12,  0x03A0, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[2] 
+
 {0x0F12,  0x03F7, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[3] 
+
 {0x0F12,  0x0359, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[4] 
+
 {0x0F12,  0x03E6, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[5] 
+
 {0x0F12,  0x0311, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[6] 
+
 {0x0F12,  0x03B4, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[7] 
+
 {0x0F12,  0x02D5, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[8] 
+
 {0x0F12,  0x0385, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[9] 
+
 {0x0F12,  0x02B0, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[10]
+
 {0x0F12,  0x0355, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[11]
+
 {0x0F12,  0x0293, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[12]
+
 {0x0F12,  0x0327, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[13]
+
 {0x0F12,  0x0278, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[14]
+
 {0x0F12,  0x02F9, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[15]
+
 {0x0F12,  0x025E, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[16]
+
 {0x0F12,  0x02D9, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[17]
+
 {0x0F12,  0x0246, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[18]
+
 {0x0F12,  0x02C2, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[19]
+
 {0x0F12,  0x022C, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[20]
+
 {0x0F12,  0x02B0, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[21]
+
 {0x0F12,  0x0214, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[22]
+
 {0x0F12,  0x029B, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[23]
+
 {0x0F12,  0x01FA, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[24]
+
 {0x0F12,  0x0286, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[25]
+
 {0x0F12,  0x01EC, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[26]
+
 {0x0F12,  0x027B, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[27]
+
 {0x0F12,  0x01E9, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[28]
+
 {0x0F12,  0x0267, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[29]
+
 {0x0F12,  0x01FE, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[30]
+
 {0x0F12,  0x0248, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[31]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[32]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[33]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[34]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[35]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[36]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[37]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[38]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[39]
+
 {0x0F12, 0x0005, WORD_LEN},  // #awbb_IndoorGrZones_m_GridStep
+
 {0x002A, 0x0CA0, WORD_LEN},
+
 {0x0F12, 0x0107, WORD_LEN},  // #awbb_IndoorGrZones_m_Boffs
 
 
@@ -2402,90 +3107,160 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 
 {0x002A, 0x0CA4, WORD_LEN},
 
-//mhlee
 
-{0x0F12,  0x0277, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[0] 
-{0x0F12,  0x0294, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[1] 
-{0x0F12,  0x0243, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[2] 
-{0x0F12,  0x028B, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[3] 
-{0x0F12,  0x0222, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[4] 
-{0x0F12,  0x027D, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[5] 
-{0x0F12,  0x020B, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[6] 
-{0x0F12,  0x026E, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[7] 
-{0x0F12,  0x0201, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[8] 
-{0x0F12,  0x025B, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[9] 
-{0x0F12,  0x021A, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[10]
-{0x0F12,  0x023A, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[11]
-{0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[12]
-{0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[13]
+{0x0F12,  0x027C, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[0] 
+
+{0x0F12,  0x02A0, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[1] 
+             
+{0x0F12,  0x025E, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[2] 
+             
+{0x0F12,  0x02B2, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[3] 
+             
+{0x0F12,  0x0247, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[4] 
+             
+{0x0F12,  0x029B, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[5] 
+             
+{0x0F12,  0x0226, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[6] 
+             
+{0x0F12,  0x0284, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[7] 
+             
+{0x0F12,  0x020F, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[8] 
+             
+{0x0F12,  0x0272, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[9] 
+             
+{0x0F12,  0x0205, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[10]
+             
+{0x0F12,  0x025F, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[11]
+             
+{0x0F12,  0x021E, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[12]
+             
+{0x0F12,  0x023E, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[13]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[14]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[15]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[16]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[17]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[18]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[19]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[20]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[21]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[22]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_OutdoorGrZones_m_BGrid[23]
+
 {0x0F12,  0x0005, WORD_LEN},  // #awbb_OutdoorGrZones_m_GridStep
+
 {0x002A, 0x0CDC, WORD_LEN},
-{0x0F12,  0x0234, WORD_LEN},  // #awbb_OutdoorGrZones_m_Boffs
+
+{0x0F12,  0x0209, WORD_LEN},  // #awbb_OutdoorGrZones_m_Boffs
 
  
 
 // #Outdoor detection zone??
 
 {0x002A, 0x0D88, WORD_LEN},
+
 {0x0F12,  0xFFB6, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[0]_m_left
+
 {0x0F12,  0x00B6, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[0]_m_right
+
 {0x0F12,  0xFF38, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[1]_m_left
+
 {0x0F12,  0x0118, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[1]_m_right
+
 {0x0F12,  0xFEF1, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[2]_m_left
+
 {0x0F12,  0x015F, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[2]_m_right
+
 {0x0F12,  0xFEC0, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[3]_m_left
+
 {0x0F12,  0x0199, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[3]_m_right
+
 {0x0F12,  0xFE91, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[4]_m_left
+
 {0x0F12,  0x01CF, WORD_LEN},  // #awbb_OutdoorDetectionZone_m_BGrid[4]_m_right
+
 {0x0F12,  0x1388, WORD_LEN},  // #awbb_OutdoorDetectionZone_ZInfo_m_AbsGridStep
+
 {0x0F12,  0x0000, WORD_LEN},
 {0x0F12,  0x0005, WORD_LEN},  // #awbb_OutdoorDetectionZone_ZInfo_m_GridSz
+
 {0x0F12,  0x0000, WORD_LEN},
 {0x0F12,  0x1387, WORD_LEN},  // #awbb_OutdoorDetectionZone_ZInfo_m_NBoffs
+
 {0x0F12,  0x0000, WORD_LEN},
-{0x0F12,  0x05DC, WORD_LEN},  // #awbb_OutdoorDetectionZone_ZInfo_m_MaxNB, WORD_LEN},  // NB 1500
-{0x0F12,  0x0000, WORD_LEN}, 
+{0x0F12,  0x09C4, WORD_LEN},  // #awbb_OutdoorDetectionZone_ZInfo_m_MaxNB, WORD_LEN},  // NB 1500
+
+{0x0F12,  0x0000, WORD_LEN},
+              
 
 // #LowBr boundary
 
 {0x002A, 0x0CE0, WORD_LEN},
+
+
 {0x0F12,  0x03FC, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[0]
+
 {0x0F12,  0x0416, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[1]
+
 {0x0F12,  0x0381, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[2]
+
 {0x0F12,  0x0453, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[3]
+
 {0x0F12,  0x02F9, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[4]
+
 {0x0F12,  0x042C, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[5]
+
 {0x0F12,  0x029A, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[6]
+
 {0x0F12,  0x03FA, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[7]
+
 {0x0F12,  0x0265, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[8]
+
 {0x0F12,  0x03A0, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[9]
+
 {0x0F12,  0x023B, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[10]
+
 {0x0F12,  0x0353, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[11]
+
 {0x0F12,  0x020B, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[12]
+
 {0x0F12,  0x030F, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[13]
+
 {0x0F12,  0x01DF, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[14]
+
 {0x0F12,  0x02D9, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[15]
+
 {0x0F12,  0x01C9, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[16]
+
 {0x0F12,  0x02AE, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[17]
+
 {0x0F12,  0x01C6, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[18]
+
 {0x0F12,  0x027A, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[19]
+
 {0x0F12,  0x0202, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[20]
+
 {0x0F12,  0x022C, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[21]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[22]
+
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[23]
+
 {0x0F12,  0x0006, WORD_LEN},  // #awbb_LowBrGrZones_m_GridStep
+
 {0x002A, 0x0D18, WORD_LEN},
+
 {0x0F12,  0x00A7, WORD_LEN},  // #awbb_LowBrGrZones_m_Boffs
+
 
 
 // #AWB ETC
@@ -2562,7 +3337,6 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x002A, 0x0DD4, WORD_LEN},
     
 
-//mhlee                                                               
 
 {0x0F12,  0x0000, WORD_LEN},  //awbb_GridCorr_R[0]  //        	                                                                        
 {0x0F12,  0x0005, WORD_LEN},  //awbb_GridCorr_R[1]  //    
@@ -2614,7 +3388,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0049, WORD_LEN},  //awbb_GridCoeff_R_2                                                                   
 {0x0F12,  0x00F5, WORD_LEN},  //awbb_GridCoeff_B_2        	    
 {0x002A, 0x0E4A, WORD_LEN},                         
-{0x0F12,  0x0002, WORD_LEN},  //awbb_GridEnable
+{0x0F12,  0x0000, WORD_LEN},  //awbb_GridEnable
 
 
 
@@ -2628,7 +3402,6 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 
 {0x002A, 0x3288, WORD_LEN},
 
-//mhlee  
 
 {0x0F12,  0x0000, WORD_LEN},  // #SARR_usDualGammaLutRGBIndoor_0__0_ 70003288 
 {0x0F12,  0x0004, WORD_LEN},  // #SARR_usDualGammaLutRGBIndoor_0__1_ 7000328A 
@@ -2784,7 +3557,6 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 // #AFIT table (Variables)
 
 {0x002A, 0x07C4, WORD_LEN},
-//mhlee
 
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[0]
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[1]
@@ -3386,7 +4158,6 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 //================================================================================================
 
 {0x002A,  0x026C, WORD_LEN},
-//mhlee
 {0x0F12,  0x0280, WORD_LEN},  //#REG_0TC_PCFG_usWidth, WORD_LEN},  //640 
 {0x0F12,  0x01E0, WORD_LEN},  //#REG_0TC_PCFG_usHeight, WORD_LEN},  //480
 {0x0F12,  0x0005, WORD_LEN},  // #REG_0TC_PCFG_Format
@@ -3787,32 +4558,26 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const scene_mode_night_reg_se
 };
 
 static const struct lgcam_rear_sensor_i2c_reg_conf const af_reg_settings_array[] = {
-	{0x0028, 0x7000, WORD_LEN},
+{0x0028, 0x7000, WORD_LEN},
 {0x002A, 0x1074, WORD_LEN},
-//mhlee
-
 {0x0F12, 0x0010, WORD_LEN}, //0010 //#af_pos_usTableLastInd// 16 Steps 091222
-{0x0F12, 0x0028, WORD_LEN}, //003C //#af_pos_usTable_0_// af_pos_usTable
-{0x0F12, 0x002B, WORD_LEN}, //003F //#af_pos_usTable_1_
-{0x0F12, 0x002E, WORD_LEN}, //0042 //#af_pos_usTable_2_
-{0x0F12, 0x0031, WORD_LEN}, //0045 //#af_pos_usTable_3_
-{0x0F12, 0x0034, WORD_LEN}, //0048 //#af_pos_usTable_4_
-{0x0F12, 0x0037, WORD_LEN}, //004B //#af_pos_usTable_5_
-{0x0F12, 0x003A, WORD_LEN}, //004E //#af_pos_usTable_6_
-{0x0F12, 0x003D, WORD_LEN}, //0051 //#af_pos_usTable_7_
-{0x0F12, 0x0040, WORD_LEN}, //0054 //#af_pos_usTable_8_
-{0x0F12, 0x0043, WORD_LEN}, //0057 //#af_pos_usTable_9_
-{0x0F12, 0x0046, WORD_LEN}, //005A //#af_pos_usTable_10_
-{0x0F12, 0x004A, WORD_LEN}, //005E //#af_pos_usTable_11_
-{0x0F12, 0x004D, WORD_LEN}, //0061 //#af_pos_usTable_12_
-{0x0F12, 0x0050, WORD_LEN}, //0064 //#af_pos_usTable_13_
-{0x0F12, 0x0054, WORD_LEN}, //0068 //#af_pos_usTable_14_
-{0x0F12, 0x0058, WORD_LEN}, //006C //#af_pos_usTable_15_
+{0x0F12, 0x0000, WORD_LEN}, //003C //#af_pos_usTable_0_// af_pos_usTable
+{0x0F12, 0x0028, WORD_LEN}, //003F //#af_pos_usTable_1_
+{0x0F12, 0x002D, WORD_LEN}, //0042 //#af_pos_usTable_2_
+{0x0F12, 0x0032, WORD_LEN}, //0045 //#af_pos_usTable_3_
+{0x0F12, 0x0037, WORD_LEN}, //0048 //#af_pos_usTable_4_
+{0x0F12, 0x003C, WORD_LEN}, //004B //#af_pos_usTable_5_
+{0x0F12, 0x003F, WORD_LEN}, //004E //#af_pos_usTable_6_
+{0x0F12, 0x0042, WORD_LEN}, //0051 //#af_pos_usTable_7_
+{0x0F12, 0x0045, WORD_LEN}, //0054 //#af_pos_usTable_8_
+{0x0F12, 0x0048, WORD_LEN}, //0057 //#af_pos_usTable_9_
+{0x0F12, 0x004B, WORD_LEN}, //005A //#af_pos_usTable_10_
+{0x0F12, 0x004E, WORD_LEN}, //005E //#af_pos_usTable_11_
+{0x0F12, 0x0051, WORD_LEN}, //0061 //#af_pos_usTable_12_
+{0x0F12, 0x0054, WORD_LEN}, //0064 //#af_pos_usTable_13_
+{0x0F12, 0x0057, WORD_LEN}, //0068 //#af_pos_usTable_14_
+{0x0F12, 0x005A, WORD_LEN}, //006C //#af_pos_usTable_15_
 {0x0F12, 0x0064, WORD_LEN}, //0078 //#af_pos_usTable_16_
-
-
-
-
 };
 
 static const struct lgcam_rear_sensor_i2c_reg_conf const af_nomal_mode_reg_settings_array[] = {
