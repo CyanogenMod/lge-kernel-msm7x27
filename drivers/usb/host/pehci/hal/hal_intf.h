@@ -126,40 +126,40 @@
 #define HC_SPARAMS_REG					0x04	/* Structural Parameters Register */
 #define HC_CPARAMS_REG					0x08	/* Capability Parameters Register */
 
-#define HC_USBCMD_REG						0x8C	/* USB Command Register */
-#define HC_USBSTS_REG						0x90	/* USB Status Register */
-#define HC_INTERRUPT_REG_EHCI				0x94	/* INterrupt Enable Register */
-#define HC_FRINDEX_REG						0x98	/* Frame Index Register */
+#define HC_USBCMD_REG					0x8C	/* USB Command Register */
+#define HC_USBSTS_REG					0x90	/* USB Status Register */
+#define HC_INTERRUPT_REG_EHCI			0x94	/* INterrupt Enable Register */
+#define HC_FRINDEX_REG					0x98	/* Frame Index Register */
 
-#define HC_CONFIGFLAG_REG					0x9C	/* Conigured Flag  Register */
+#define HC_CONFIGFLAG_REG				0x9C	/* Conigured Flag  Register */
 #define HC_PORTSC1_REG					0xA0	/* Port Status Control for Port1 */
 
 /*ISO Transfer Registers */
 #define HC_ISO_PTD_DONEMAP_REG			0xA4	/* ISO PTD Done Map Register */
 #define HC_ISO_PTD_SKIPMAP_REG			0xA6	/* ISO PTD Skip Map Register */
-#define HC_ISO_PTD_LASTPTD_REG				0xA8	/* ISO PTD Last PTD Register */
+#define HC_ISO_PTD_LASTPTD_REG			0xA8	/* ISO PTD Last PTD Register */
 
 /*INT Transfer Registers */
 #define HC_INT_PTD_DONEMAP_REG			0xAA	/* INT PTD Done Map Register */
-#define HC_INT_PTD_SKIPMAP_REG				0xAC	/* INT PTD Skip Map Register */
-#define HC_INT_PTD_LASTPTD_REG				0xAE	/* INT PTD Last PTD Register  */
+#define HC_INT_PTD_SKIPMAP_REG			0xAC	/* INT PTD Skip Map Register */
+#define HC_INT_PTD_LASTPTD_REG			0xAE	/* INT PTD Last PTD Register  */
 
 /*ATL Transfer Registers */
 #define HC_ATL_PTD_DONEMAP_REG			0xB0	/* ATL PTD Last PTD Register  */
-#define HC_ATL_PTD_SKIPMAP_REG				0xB2	/* ATL PTD Last PTD Register  */
-#define HC_ATL_PTD_LASTPTD_REG				0xB4	/* ATL PTD Last PTD Register  */
+#define HC_ATL_PTD_SKIPMAP_REG			0xB2	/* ATL PTD Last PTD Register  */
+#define HC_ATL_PTD_LASTPTD_REG			0xB4	/* ATL PTD Last PTD Register  */
 
 /*General Purpose Registers */
-#define HC_HW_MODE_REG					0x0C	/* H/W Mode Register  */
-#define HC_CHIP_ID_REG						0x70	/* Chip ID Register */
+#define HC_HW_MODE_REG					0x0C //0xB6	/* H/W Mode Register  */
+#define HC_CHIP_ID_REG					0x70	/* Chip ID Register */
 #define HC_SCRATCH_REG					0x78	/* Scratch Register */
-#define HC_RESET_REG						0xB8	/* HC Reset Register */
-#define HC_HWMODECTRL_REG				0xB6
-#define HC_UNLOCK_DEVICE					0x7C
+#define HC_RESET_REG					0xB8	/* HC Reset Register */
+#define HC_HWMODECTRL_REG				0xB6 //0x0C /* H/W Mode control Register  */
+#define HC_UNLOCK_DEVICE				0x7C
 
 /* Interrupt Registers */
-#define HC_INTERRUPT_REG					0xD4	/* Interrupt Register */
-#define HC_INTENABLE_REG					0xD6	/* Interrupt enable Register */
+#define HC_INTERRUPT_REG				0xD4	/* Interrupt Register */
+#define HC_INTENABLE_REG				0xD6	/* Interrupt enable Register */
 #define HC_ISO_IRQ_MASK_OR_REG			0xD8	/* ISO Mask OR Register */
 #define HC_INT_IRQ_MASK_OR_REG			0xDA	/* INT Mask OR Register */
 #define HC_ATL_IRQ_MASK_OR_REG			0xDC	/* ATL Mask OR Register */
@@ -171,31 +171,31 @@
 #define HC_POWER_DOWN_CONTROL_REG		0xD0
 
 /*RAM Registers */
-#define HC_DMACONFIG_REG					0xBC	/* DMA Config Register */
+#define HC_DMACONFIG_REG				0xBC	/* DMA Config Register */
 #define HC_MEM_READ_REG					0xC4	/* Memory Register */
 #define HC_DATA_REG						0xC6	/* Data Register */
 
-#define OTG_CTRL_SET_REG					0xE4
-#define OTG_CTRL_CLEAR_REG					0xE6
+#define OTG_CTRL_SET_REG				0xE4
+#define OTG_CTRL_CLEAR_REG				0xE6
 #define OTG_SOURCE_REG					0xE8
 
-#define OTG_INTR_EN_F_SET_REG				0xF0	/* OTG Interrupt Enable Fall register */
-#define OTG_INTR_EN_R_SET_REG				0xF4	/* OTG Interrupt Enable Rise register */
+#define OTG_INTR_EN_F_SET_REG			0xF0	/* OTG Interrupt Enable Fall register */
+#define OTG_INTR_EN_R_SET_REG			0xF4	/* OTG Interrupt Enable Rise register */
 
 #endif
 
-#define	OTG_CTRL_DPPULLUP			0x0001
-#define	OTG_CTRL_DPPULLDOWN		0x0002
-#define	OTG_CTRL_DMPULLDOWN		0x0004
-#define	OTG_CTRL_VBUS_DRV			0x0010
-#define	OTG_CTRL_VBUS_DISCHRG		0x0020
-#define	OTG_CTRL_VBUS_CHRG			0x0040
-#define	OTG_CTRL_SW_SEL_HC_DC		0x0080
-#define	OTG_CTRL_BDIS_ACON_EN		0x0100
-#define	OTG_CTRL_OTG_SE0_EN			0x0200
+#define	OTG_CTRL_DPPULLUP				0x0001
+#define	OTG_CTRL_DPPULLDOWN				0x0002
+#define	OTG_CTRL_DMPULLDOWN				0x0004
+#define	OTG_CTRL_VBUS_DRV				0x0010
+#define	OTG_CTRL_VBUS_DISCHRG			0x0020
+#define	OTG_CTRL_VBUS_CHRG				0x0040
+#define	OTG_CTRL_SW_SEL_HC_DC			0x0080
+#define	OTG_CTRL_BDIS_ACON_EN			0x0100
+#define	OTG_CTRL_OTG_SE0_EN				0x0200
 #define	OTG_CTRL_OTG_DISABLE			0x0400
-#define	OTG_CTRL_VBUS_DRV_PORT2		0x1000
-#define	OTG_CTRL_SW_SEL_HC_2		0x8000
+#define	OTG_CTRL_VBUS_DRV_PORT2			0x1000
+#define	OTG_CTRL_SW_SEL_HC_2			0x8000
 
 /*interrupt count and buffer status register*/
 
@@ -220,7 +220,7 @@
 #ifdef PXA300
 #define FPGA_CONFIG_REG				(0x100<<1)
 #else
-#define FPGA_CONFIG_REG				0x100
+#define FPGA_CONFIG_REG					0x100
 #endif
 
 #define HC_HW_MODE_GOBAL_INTR_ENABLE	0x01
@@ -251,7 +251,7 @@ typedef struct isp1763_dev {
 	void *otg_driver_data;	/*data private for otg controler */
 	unsigned char index;	/* local controller (HC/DC/OTG) */
 	unsigned int irq;	/*Interrupt Channel allocated for this device */
-	void (*handler) (struct isp1763_dev * dev, void *isr_data, struct pt_regs *);	/* Interrupt Serrvice Routine */
+	void (*handler) (struct isp1763_dev * dev, void *isr_data);	/* Interrupt Serrvice Routine */
 	void *isr_data;		/* isr data of the driver */
 	unsigned long int_reg;	/* Interrupt register */
 	unsigned long alt_int_reg;	/* Interrupt register 2 */
@@ -294,20 +294,20 @@ struct usb_device *phci_register_otg_device(struct isp1763_dev *dev);
 int phci_suspend_otg_port(struct isp1763_dev *dev, u32 command);
 int phci_enumerate_otg_port(struct isp1763_dev *dev, u32 command);
 
-int isp1763_register_driver(struct isp1763_driver *drv);
-void isp1763_unregister_driver(struct isp1763_driver *drv);
-int isp1763_request_irq(void (*handler)(struct isp1763_dev * dev, void *isr_data),
+extern int isp1763_register_driver(struct isp1763_driver *drv);
+extern void isp1763_unregister_driver(struct isp1763_driver *drv);
+extern int isp1763_request_irq(void (*handler)(struct isp1763_dev * dev, void *isr_data),
 		      struct isp1763_dev *dev, void *isr_data);
-void isp1763_free_irq(struct isp1763_dev *dev, void *isr_data);
+extern void isp1763_free_irq(struct isp1763_dev *dev, void *isr_data);
 
-u32 isp1763_reg_read32(isp1763_dev_t * dev, u16 reg, u32 data);
-u16 isp1763_reg_read16(isp1763_dev_t * dev, u16 reg, u16 data);
-void isp1763_reg_write32(isp1763_dev_t * dev, u16 reg, u32 data);
-void isp1763_reg_write16(isp1763_dev_t * dev, u16 reg, u16 data);
-u8 isp1763_reg_read8(struct isp1763_dev *dev, u16 reg, u8 data);
-void isp1763_reg_write8(struct isp1763_dev *dev, u16 reg, u8 data);
-int isp1763_mem_read(isp1763_dev_t * dev, u32 start_add,
+extern u32 isp1763_reg_read32(isp1763_dev_t * dev, u16 reg, u32 data);
+extern u16 isp1763_reg_read16(isp1763_dev_t * dev, u16 reg, u16 data);
+extern u8 isp1763_reg_read8(struct isp1763_dev *dev, u16 reg, u8 data);
+extern void isp1763_reg_write32(isp1763_dev_t * dev, u16 reg, u32 data);
+extern void isp1763_reg_write16(isp1763_dev_t * dev, u16 reg, u16 data);
+extern void isp1763_reg_write8(struct isp1763_dev *dev, u16 reg, u8 data);
+extern int isp1763_mem_read(isp1763_dev_t * dev, u32 start_add,
 		     u32 end_add, u32 * buffer, u32 length, u16 dir);
-int isp1763_mem_write(isp1763_dev_t * dev, u32 start_add,
+extern int isp1763_mem_write(isp1763_dev_t * dev, u32 start_add,
 		      u32 end_add, u32 * buffer, u32 length, u16 dir);
 #endif /* __HAL_INTF_H__ */
