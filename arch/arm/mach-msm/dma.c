@@ -263,6 +263,7 @@ void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful)
 	int adm = DMOV_ID_TO_ADM(id);
 	int ch = DMOV_ID_TO_CHAN(id);
 	writel((graceful << 31), DMOV_REG(DMOV_FLUSH0(ch), adm));
+	dsb();
 }
 EXPORT_SYMBOL(msm_dmov_stop_cmd);
 
@@ -355,6 +356,7 @@ static void set_crci_mask(int crci_mask, int adm)
 			dmov_conf[adm].crci_mask |= (tmp_crci_mask << (2*i));
 		}
 	}
+	dsb();
 #endif
 }
 
@@ -452,6 +454,7 @@ void msm_dmov_flush(unsigned int id)
 		PRINT_IO("msm_dmov_flush(%d), send flush cmd\n", id);
 		writel(DMOV_FLUSH_TYPE, DMOV_REG(DMOV_FLUSH0(ch), adm));
 	}
+	dsb();
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
 }
 EXPORT_SYMBOL(msm_dmov_flush);
@@ -761,6 +764,7 @@ static int __init msm_init_datamover(void)
 	if (ret)
 		return ret;
 #endif
+	dsb();
 	return 0;
 }
 arch_initcall(msm_init_datamover);
