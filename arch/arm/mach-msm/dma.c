@@ -64,6 +64,7 @@ struct msm_dmov_conf {
 	unsigned int irq;
 	struct clk *clk;
 	struct clk *pclk;
+	struct clk *ebiclk;
 	unsigned int clk_ctl;
 	struct timer_list timer;
 };
@@ -230,13 +231,25 @@ static int msm_dmov_clk_toggle(int adm, int on)
 			goto err;
 		if (dmov_conf[adm].pclk) {
 			ret = clk_enable(dmov_conf[adm].pclk);
-			if (ret)
+			if (ret) {
 				clk_disable(dmov_conf[adm].clk);
+				goto err;
+			}
+		}
+		if (dmov_conf[adm].ebiclk) {
+			ret = clk_enable(dmov_conf[adm].ebiclk);
+			if (ret) {
+				if (dmov_conf[adm].pclk)
+					clk_disable(dmov_conf[adm].pclk);
+				clk_disable(dmov_conf[adm].clk);
+			}
 		}
 	} else {
 		clk_disable(dmov_conf[adm].clk);
 		if (dmov_conf[adm].pclk)
 			clk_disable(dmov_conf[adm].pclk);
+		if (dmov_conf[adm].ebiclk)
+			clk_disable(dmov_conf[adm].ebiclk);
 	}
 err:
 	return ret;
@@ -671,6 +684,8 @@ static struct dev_pm_ops msm_dmov_dev_pm_ops = {
 static int msm_dmov_init_clocks(struct platform_device *pdev)
 {
 	int adm = (pdev->id >= 0) ? pdev->id : 0;
+	int ret;
+
 	dmov_conf[adm].clk = clk_get(&pdev->dev, "adm_clk");
 	if (IS_ERR(dmov_conf[adm].clk)) {
 		printk(KERN_ERR "%s: Error getting adm_clk\n", __func__);
@@ -682,6 +697,16 @@ static int msm_dmov_init_clocks(struct platform_device *pdev)
 	if (IS_ERR(dmov_conf[adm].pclk)) {
 		dmov_conf[adm].pclk = NULL;
 		/* pclk not present on all SoCs, don't bail on failure */
+	}
+
+	dmov_conf[adm].ebiclk = clk_get(&pdev->dev, "ebi1_adm_clk");
+	if (IS_ERR(dmov_conf[adm].ebiclk)) {
+		dmov_conf[adm].ebiclk = NULL;
+		/* ebiclk not present on all SoCs, don't bail on failure */
+	} else {
+		ret = clk_set_rate(dmov_conf[adm].ebiclk, 27000000);
+		if (ret)
+			return -ENOENT;
 	}
 
 	return 0;
@@ -738,8 +763,10 @@ static int msm_dmov_probe(struct platform_device *pdev)
 	}
 	disable_irq(dmov_conf[adm].irq);
 	ret = msm_dmov_init_clocks(pdev);
-	if (ret)
+	if (ret) {
+		PRINT_ERROR("Requesting ADM%d clocks failed\n", adm);
 		return -ENOENT;
+	}
 
 	config_datamover(adm);
 	for (i = 0; i < MSM_DMOV_CHANNEL_COUNT; i++) {
