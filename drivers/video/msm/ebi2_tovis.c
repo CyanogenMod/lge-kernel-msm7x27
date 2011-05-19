@@ -564,6 +564,9 @@ static int ilitek_qvga_disp_on(struct platform_device *pdev)
 		msm_fb_ebi2_power_save(1);
 
 		if(pdata->gpio) {
+			mdelay(10);
+			gpio_set_value(pdata->gpio, 1);
+			mdelay(1);
 			gpio_set_value(pdata->gpio, 0);
 			mdelay(10);
 			gpio_set_value(pdata->gpio, 1);
