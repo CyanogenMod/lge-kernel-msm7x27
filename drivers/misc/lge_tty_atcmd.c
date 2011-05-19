@@ -52,7 +52,7 @@ struct atcmd_tty_info {
 	struct buf_fifo *write_buffer;
 	struct buf_fifo *read_buffer;
 	int open_count;
-	
+
 	work_func_t work_fn;
 	struct delayed_work work;
 };
@@ -62,6 +62,13 @@ static struct tty_driver *atcmd_tty_driver;
 
 static struct buf_fifo down_stream_buffer;
 static struct buf_fifo up_stream_buffer;
+
+/* Shared line status between frond and back end atcmd-tty,
+ * and global mutex for synchronization.
+ * 2011-05-13, hyunhui.park@lge.com
+ */
+static int shared_line_status;
+static struct mutex atcmd_status_lock;
 
 static DEFINE_MUTEX(atcmd_fe_tty_lock);	/* front end tty mutex */
 static DEFINE_MUTEX(atcmd_be_tty_lock); /* back end tty mutex */
@@ -82,7 +89,7 @@ static int get_free_space(struct buf_fifo *ring_buf)
 
 	remain = size - ((head - tail) & mask);
 
-	/* if head and tail are in same position 
+	/* if head and tail are in same position
 	 * and write count is eqaul to buffer size,
 	 * it means that ring buffer is full
 	 */
@@ -115,11 +122,11 @@ static void atcmd_tty_read(struct work_struct *work)
 		mutex_unlock(read_buffer->lock);
 		return;
 	}
-	
+
 	for (;;) {
 		if (test_bit(TTY_THROTTLED, &tty->flags))
 			break;
-		
+
 		n_read = buf_size - get_free_space(read_buffer);
 		if (n_read == 0)
 			break;
@@ -175,12 +182,12 @@ static int atcmd_tty_write(struct tty_struct *tty,
 	write_buffer = info->write_buffer;
 
 	mutex_lock(write_buffer->lock);
-	
+
 	write_addr = write_buffer->buf_addr + write_buffer->head;
 	buf_size = write_buffer->size;
 
 	/* if we're writing to tty, we will
-	 * never be able to write more data 
+	 * never be able to write more data
 	 * than there is currently space for
 	 */
 	avail = get_free_space(write_buffer);
@@ -213,7 +220,7 @@ static int atcmd_tty_write(struct tty_struct *tty,
 	write_buffer->count += len;
 
 	wake_lock_timeout(&info->wake_lock, HZ / 2);
-	
+
 	/* invoke other tty's read operation */
 	if (other_tty_info->open_count)
 		schedule_delayed_work(&other_tty_info->work, 0);
@@ -234,7 +241,7 @@ static int atcmd_tty_write_room(struct tty_struct *tty)
 	mutex_lock(write_buffer->lock);
 	avail = get_free_space(write_buffer);
 	mutex_unlock(write_buffer->lock);
-	
+
 	return avail;
 }
 
@@ -256,14 +263,20 @@ static int atcmd_tty_chars_in_buffer(struct tty_struct *tty)
 
 static int atcmd_tty_tiocmget(struct tty_struct *tty, struct file *file)
 {
+#if 0
 	struct atcmd_tty_info *info = tty->driver_data;
 	struct atcmd_tty_info *other_info = info->other_tty;
+#endif
 	int status = 0;
 	int result = 0;
 
+#if 0
 	mutex_lock(info->lock);
+#else
+	mutex_lock(&atcmd_status_lock);
+#endif
 
-	status = other_info->line_status;
+	status = shared_line_status;
 
 	result = ((status & TIOCM_DTR)  ? TIOCM_DTR  : 0) |  /* DTR is set */
 		((status & TIOCM_RTS)  ? TIOCM_RTS  : 0) |  /* RTS is set */
@@ -273,7 +286,11 @@ static int atcmd_tty_tiocmget(struct tty_struct *tty, struct file *file)
 		((status & TIOCM_RI)   ? TIOCM_RI   : 0) |  /* Ring Indicator is set */
 		((status & TIOCM_DSR)  ? TIOCM_DSR  : 0);   /* DSR is set */
 
+#if 0
 	mutex_unlock(info->lock);
+#else
+	mutex_unlock(&atcmd_status_lock);
+#endif
 
 	return status;
 }
@@ -281,45 +298,55 @@ static int atcmd_tty_tiocmget(struct tty_struct *tty, struct file *file)
 static int atcmd_tty_tiocmset(struct tty_struct *tty, struct file *file,
 		unsigned int set, unsigned int clear)
 {
+#if 0
 	struct atcmd_tty_info *info = tty->driver_data;
 	struct atcmd_tty_info *other_info = info->other_tty;
+#endif
 
+#if 0
 	mutex_lock(info->lock);
+#else
+	mutex_lock(&atcmd_status_lock);
+#endif
 
 	if (set & TIOCM_RI)
-		other_info->line_status |= TIOCM_RI;
+		shared_line_status |= TIOCM_RI;
 
 	if (clear & TIOCM_RI)
-		other_info->line_status &= ~TIOCM_RI;
+		shared_line_status &= ~TIOCM_RI;
 
 	if (set & TIOCM_CD)
-		other_info->line_status |= TIOCM_CD;
+		shared_line_status |= TIOCM_CD;
 
 	if (clear & TIOCM_CD)
-		other_info->line_status &= ~TIOCM_CD;
+		shared_line_status &= ~TIOCM_CD;
 
 	/* DTR, RTS, CTS bit set/clear */
 	if (set & TIOCM_DTR)
-		other_info->line_status |= TIOCM_DTR;
+		shared_line_status |= TIOCM_DTR;
 
 	if (clear & TIOCM_DTR)
-		other_info->line_status &= ~TIOCM_DTR;
+		shared_line_status &= ~TIOCM_DTR;
 
 	if (set & TIOCM_RTS)
-		other_info->line_status |= TIOCM_RTS;
+		shared_line_status |= TIOCM_RTS;
 
 	if (clear & TIOCM_RTS)
-		other_info->line_status &= ~TIOCM_RTS;
+		shared_line_status &= ~TIOCM_RTS;
 
 	if (set & TIOCM_CTS)
-		other_info->line_status |= TIOCM_CTS;
+		shared_line_status |= TIOCM_CTS;
 
 	if (clear & TIOCM_CTS)
-		other_info->line_status &= ~TIOCM_CTS;
+		shared_line_status &= ~TIOCM_CTS;
 
 	barrier();
 
+#if 0
 	mutex_unlock(info->lock);
+#else
+	mutex_unlock(&atcmd_status_lock);
+#endif
 
 	return 0;
 }
@@ -366,6 +393,7 @@ static int atcmd_tty_open(struct tty_struct *tty, struct file *f)
 		if (info->other_tty->open_count) {
 			info->line_status |= TIOCM_DTR | TIOCM_RTS;
 			info->other_tty->line_status |= TIOCM_DTR | TIOCM_RTS;
+			shared_line_status = info->other_tty->line_status;
 			if (info->read_buffer->count)
 				schedule_delayed_work(&info->work, 0);
 		}
@@ -379,7 +407,7 @@ static int atcmd_tty_open(struct tty_struct *tty, struct file *f)
 static void atcmd_tty_close(struct tty_struct *tty, struct file *f)
 {
 	struct atcmd_tty_info *info = tty->driver_data;
-	
+
 	if (info == 0)
 		return;
 
@@ -423,7 +451,7 @@ static int __init lge_tty_atcmd_init(void)
 	down_stream_buffer.size = BUF_SIZE;
 	down_stream_buffer.count = 0;
 	down_stream_buffer.lock = &atcmd_ds_buf_lock;
-	
+
 	/* allocate and initialize upstream buffers */
 	up_stream_buffer.buf_addr = kmalloc(BUF_SIZE, GFP_KERNEL);
 	if (up_stream_buffer.buf_addr == NULL)
@@ -439,7 +467,7 @@ static int __init lge_tty_atcmd_init(void)
 	atcmd_tty_driver = alloc_tty_driver(MAX_ATCMD_TTYS);
 	if (atcmd_tty_driver == 0)
 		goto tty_alloc_error;
-	
+
 	/* setting tty */
 	atcmd_tty_driver->owner = THIS_MODULE;
 	atcmd_tty_driver->driver_name = "atcmd-tty-driver";
@@ -463,6 +491,9 @@ static int __init lge_tty_atcmd_init(void)
 	/* this should be dynamic */
 	tty_register_device(atcmd_tty_driver, 0, 0);
 	tty_register_device(atcmd_tty_driver, 1, 0);
+
+	/* init line status mutex */
+	mutex_init(&atcmd_status_lock);
 
 	return 0;
 
