@@ -193,5 +193,42 @@ unsigned lge_get_chg_en_reg(void)
 	return ret;
 }
 EXPORT_SYMBOL(lge_get_chg_en_reg);
+
+
+unsigned lge_set_elt_test(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0x10;
+
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_set_elt_test);
+
+unsigned lge_clear_elt_test(void)
+{
+	int err;
+	unsigned ret = 0;
+	unsigned cmd = 0x11;
+	
+	err = msm_proc_comm(PCOM_CUSTOMER_CMD2, &ret, &cmd);
+	if (err < 0) {
+		pr_err("%s: msm_proc_comm(PCOM_CUSTOMER_CMD2) failed. cmd(%d)\n",
+		       __func__, cmd);
+		return err;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_clear_elt_test);
+
+
 #endif
 #endif
