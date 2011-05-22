@@ -22,6 +22,28 @@
 #include "devices.h"
 #include "board-gelato.h"
 
+/* setting board revision information */
+static int gelato_panel_id = PANEL_ID_AUO;
+
+static int __init gelato_panel_setup(char *panel_id)
+{
+	const char *panel_str[] = { "auo", "hitachi"};
+	int i;
+
+	for (i = 0; i < 2; i++)
+		if (!strcmp(panel_id, panel_str[i])) {
+			gelato_panel_id = i;
+			break;
+		}
+
+	printk(KERN_INFO "%s: PANEL ID = %s\n",
+		   __func__, panel_str[gelato_panel_id]);
+
+	return 1;
+}
+__setup("panel.id=", gelato_panel_setup);
+
+
 #define MSM_FB_LCDC_VREG_OP(name, op, level)			\
 do { \
 	vreg = vreg_get(0, name); \
@@ -138,7 +160,7 @@ void __init gelato_init_i2c_backlight(int bus_num)
 
 static void gelato_panel_set_maker_id(void)
 {
-	mddi_hitachi_panel_data.maker_id = PANEL_ID_AUO;
+	mddi_hitachi_panel_data.maker_id = gelato_panel_id;
 }
 
 /* common functions */
