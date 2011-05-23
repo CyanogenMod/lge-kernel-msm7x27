@@ -45,6 +45,10 @@
 #include <mach/board_lge.h>
 #endif
 
+#include <linux/syscalls.h>
+#include <linux/fcntl.h>
+
+
 #define BATTERY_RPC_PROG	0x30000089
 #define BATTERY_RPC_VER_1_1	0x00010001
 #define BATTERY_RPC_VER_2_1	0x00020001
@@ -86,6 +90,11 @@
 #define RPC_TYPE_REPLY   1
 #define RPC_REQ_REPLY_COMMON_HEADER_SIZE   (3 * sizeof(uint32_t))
 
+#ifdef CONFIG_MACH_MSM7X27_GELATO
+#define MAX_SIZE 128
+char BUF[MAX_SIZE];
+void read_property_elt(void);
+#endif
 
 #if DEBUG
 #define DBG_LIMIT(x...) do {if (printk_ratelimit()) pr_debug(x); } while (0)
@@ -589,6 +598,12 @@ static void msm_batt_update_psy_status(void)
 		 charger_status, charger_type, battery_status,
 		 battery_level, battery_voltage, battery_temp);
 #endif
+
+#ifdef CONFIG_MACH_MSM7X27_GELATO
+	if(battery_temp >= 45) 
+		read_property_elt();
+#endif
+	
 
 	if (battery_status == BATTERY_STATUS_INVALID &&
 	    battery_level != BATTERY_LEVEL_INVALID) {
@@ -1998,6 +2013,34 @@ static void __exit msm_batt_exit(void)
 {
 	platform_driver_unregister(&msm_batt_driver);
 }
+
+#ifdef CONFIG_MACH_MSM7X27_GELATO
+void read_property_elt(void)
+{
+    int fd = -1;
+
+    memset(BUF, 0, MAX_SIZE); 
+    fd = sys_open("/data/property/persist.service.elt.start", O_RDONLY, 0666);
+  //    printk(KERN_INFO "### %s sys_open: %d \n", __func__, fd);
+       if(fd > -1)
+       {
+    		sys_read(fd, BUF, MAX_SIZE);
+            sys_close(fd);
+			 if(!strncmp(BUF,"elt",3))
+			 {
+				 printk(KERN_INFO "#######[ %s]  ELT Enable ######## \n", BUF);
+				lge_set_elt_test();
+				return;
+			 } else {
+    			 printk(KERN_INFO " ===== [ %s]  ELT Disable ======== \n", BUF);
+				lge_clear_elt_test();
+		     }	
+       }else {
+			 printk(KERN_INFO "### [%s] sys_open() Error !!!!  ========= \n", __func__);
+             return;
+       }
+}
+#endif
 
 module_init(msm_batt_init);
 module_exit(msm_batt_exit);

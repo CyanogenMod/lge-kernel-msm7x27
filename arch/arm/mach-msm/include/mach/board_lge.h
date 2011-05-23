@@ -377,6 +377,8 @@ unsigned lge_get_batt_volt_raw(void);
 #ifdef CONFIG_MACH_MSM7X27_GELATO
 unsigned lge_get_chg_stat_reg(void);
 unsigned lge_get_chg_en_reg(void);
+unsigned lge_set_elt_test(void);
+unsigned lge_clear_elt_test(void);
 #endif
 
 
