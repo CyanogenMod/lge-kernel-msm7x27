@@ -190,6 +190,10 @@ static int __init msm_restart_init(void)
 {
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+
+	/* Reset detection is switched on below.*/
+	set_dload_mode(1);
+	reset_detection = 1;
 #endif
 
 	pm_power_off = msm_power_off;
