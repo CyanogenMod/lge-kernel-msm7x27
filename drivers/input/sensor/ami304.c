@@ -1686,7 +1686,9 @@ static int __init ami304_init(void)
 	ami304mid_data.controldata[AMI304_CB_RUN] = 1;         // Run	
 	ami304mid_data.controldata[AMI304_CB_ACCCALI] = 0;     // Start-AccCali
 	ami304mid_data.controldata[AMI304_CB_MAGCALI] = 1;     // Start-MagCali
-	ami304mid_data.controldata[AMI304_CB_ACTIVESENSORS] = 0;   // Active Sensors
+	/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-5-25 */
+	ami304mid_data.controldata[AMI304_CB_ACTIVESENSORS] = 7;   // always Active Sensors
+	/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-05-25 */
 	ami304mid_data.controldata[AMI304_CB_PD_RESET] = 0;    // Pedometer not reset    
 	ami304mid_data.controldata[AMI304_CB_PD_EN_PARAM] = 0; // Disable parameters of Pedometer
 	ami304mid_data.controldata[AMI304_CB_QWERTY] =   0;   // Qwerty Keyboard : close -> 0, open -> 1.
