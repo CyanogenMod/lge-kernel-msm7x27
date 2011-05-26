@@ -27,11 +27,6 @@
  *
  */
 
-#define mb() do \
-	{ \
-		dsb();\
-		outer_sync(); \
-		write_to_strongly_ordered_memory(); \
-	} while (0)
-#define rmb()	do { dmb(); write_to_strongly_ordered_memory(); } while (0)
-#define wmb()	mb()
+#define mb()	dmb()
+#define rmb()	dmb()
+#define wmb()	dmb()
