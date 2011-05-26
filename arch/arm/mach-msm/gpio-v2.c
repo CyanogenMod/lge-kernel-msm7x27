@@ -319,6 +319,11 @@ static void msm_gpio_irq_unmask(unsigned int irq)
 	msm_mpm_enable_irq(irq, 1);
 }
 
+static void msm_gpio_irq_disable(unsigned int irq)
+{
+	msm_mpm_enable_irq(irq, 0);
+}
+
 static int msm_gpio_irq_set_type(unsigned int irq, unsigned int flow_type)
 {
 	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, irq);
@@ -403,6 +408,7 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.ack		= msm_gpio_irq_ack,
 	.set_type	= msm_gpio_irq_set_type,
 	.set_wake	= msm_gpio_irq_set_wake,
+	.disable	= msm_gpio_irq_disable,
 };
 
 static int __devinit msm_gpio_probe(struct platform_device *dev)
