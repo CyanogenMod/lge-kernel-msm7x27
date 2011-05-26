@@ -522,6 +522,7 @@ static void msm_batt_update_psy_status(void)
 	u32	battery_level;
 	u32     battery_voltage;
 	u32	battery_temp;
+	u32	battery_tmp_cap;
 #if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
 	u32	battery_soc;
 #endif
@@ -826,10 +827,14 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_level 	= battery_level;
 	msm_batt_info.battery_temp 	= battery_temp;
 
+	battery_tmp_cap = msm_batt_info.calculate_capacity(battery_soc);
+
 #if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
-	if(msm_batt_info.battery_voltage != battery_voltage) {
+
+	if((msm_batt_info.battery_voltage != battery_voltage) ||
+		(msm_batt_info.batt_capacity != battery_tmp_cap)) {
 		msm_batt_info.battery_voltage = battery_voltage;
-		msm_batt_info.batt_capacity = msm_batt_info.calculate_capacity(battery_soc);
+		msm_batt_info.batt_capacity = battery_tmp_cap;
 		DBG_LIMIT("BATT: voltage = %u mV [capacity = %d%%]\n",
 			 battery_voltage, msm_batt_info.batt_capacity);
 
