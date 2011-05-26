@@ -138,6 +138,7 @@ static atomic_t hal_open_count;
 static atomic_t daemon_open_count;
 
 static u8 i2c_read_addr, i2c_read_len;
+static u8 ctrl1_t, ctrl2_t, ctrl3_t, ctrl4_t, ctrl5_t;
 
 static int AMI304_I2c_Read(u8 regaddr, u8 *buf, u8 buf_len)
 {
@@ -237,7 +238,14 @@ static int AMI304_Chipset_Init(int mode, int chipset)
 	}	
 	databuf[1] = ctrl4[0];
 	databuf[2] = ctrl4[1];
-	i2c_master_send(ami304_i2c_client, databuf, 3);				
+	i2c_master_send(ami304_i2c_client, databuf, 3);
+
+	ctrl1_t = ctrl1;
+	ctrl2_t = ctrl2;
+	ctrl3_t = ctrl3;
+	ctrl4_t = ctrl4[0];
+	ctrl5_t = ctrl4[1];
+	
 	
 	return 0;
 }
@@ -281,6 +289,8 @@ static int AMI304_ReadChipInfo(char *buf, int bufsize)
 static int AMI304_WIA(char *wia, int bufsize)
 {
 	char cmd;
+	int check[2];
+	int again_cnt = 0;
 	unsigned char databuf[10];
 
 	if ((!wia)||(bufsize<=30))
@@ -292,9 +302,16 @@ static int AMI304_WIA(char *wia, int bufsize)
 	}
 
 	cmd = AMI304_REG_WIA;
-	i2c_master_send(ami304_i2c_client, &cmd, 1);	
-	udelay(20);
-	i2c_master_recv(ami304_i2c_client, &(databuf[0]), 1);	
+	again_cnt = 3;
+again_i2c:
+	check[0] = i2c_master_send(ami304_i2c_client, &cmd, 1);
+	check[1] = i2c_master_recv(ami304_i2c_client, &(databuf[0]), 1);
+
+	if(((check[0] <= 0) || (check[1] <= 0)) && (again_cnt > 0))
+	{
+		again_cnt--;
+		goto again_i2c;
+	}
 	
 	sprintf(wia, "%02x", databuf[0]);
 	
@@ -603,7 +620,8 @@ static ssize_t show_mode_value(struct device *dev,
 	read_lock(&ami304_data.lock);
 	mode = ami304_data.mode;
 	read_unlock(&ami304_data.lock);
-	return sprintf(buf, "%d\n", mode);
+	
+	return sprintf(buf, "%d, %d/%d/%d/%d/%d \n", mode, ctrl1_t, ctrl2_t, ctrl3_t, ctrl4_t, ctrl5_t);
 }
 
 static ssize_t store_mode_value(struct device *dev, 
@@ -1686,9 +1704,7 @@ static int __init ami304_init(void)
 	ami304mid_data.controldata[AMI304_CB_RUN] = 1;         // Run	
 	ami304mid_data.controldata[AMI304_CB_ACCCALI] = 0;     // Start-AccCali
 	ami304mid_data.controldata[AMI304_CB_MAGCALI] = 1;     // Start-MagCali
-	/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-5-25 */
-	ami304mid_data.controldata[AMI304_CB_ACTIVESENSORS] = 7;   // always Active Sensors
-	/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-05-25 */
+	ami304mid_data.controldata[AMI304_CB_ACTIVESENSORS] = 0;   // Active Sensors
 	ami304mid_data.controldata[AMI304_CB_PD_RESET] = 0;    // Pedometer not reset    
 	ami304mid_data.controldata[AMI304_CB_PD_EN_PARAM] = 0; // Disable parameters of Pedometer
 	ami304mid_data.controldata[AMI304_CB_QWERTY] =   0;   // Qwerty Keyboard : close -> 0, open -> 1.
