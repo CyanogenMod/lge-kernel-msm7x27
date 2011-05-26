@@ -23,6 +23,7 @@
 #include <linux/io.h>
 #include <linux/interrupt.h>
 #include <asm/mach/mmc.h>
+#include <asm/mach-types.h>
 #include <mach/vreg.h>
 #include <mach/mpp.h>
 #include <mach/board.h>
