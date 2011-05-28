@@ -61,6 +61,12 @@
 #define GISELE_TA_CHG_CURRENT	600
 #define GISELE_USB_CHG_CURRENT	400
 
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+/* I dont know why I allocate bigger than real lcd size in muscat , because EBI2 interface? */
+#define HIDDEN_RESET_FB_SIZE 165600
+#else
+#define HIDDEN_RESET_FB_SIZE (320*480*2)
+#endif
 /* board revision information */
 enum {
 	EVB         = 0,
@@ -354,6 +360,8 @@ enum {
 	REBOOT_KEY_PRESS = 0,
 	REBOOT_KEY_NOT_PRESS,
 };
+extern int hidden_reset_enable;
+extern int on_hidden_reset;
 void *lge_get_fb_addr(void);
 void *lge_get_fb_copy_phys_addr(void);
 void *lge_get_fb_copy_virt_addr(void);
