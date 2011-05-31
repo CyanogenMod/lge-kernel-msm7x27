@@ -180,6 +180,7 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	regval |= ENABLE_BIT;
 	writel(regval, fs->gfs_ctl_reg);
 	/* Wait 2us for the rail to fully charge. */
+	dsb();
 	udelay(2);
 
 	/* Deassert resets for all clocks in the power domain. */
@@ -198,6 +199,7 @@ static int footswitch_enable(struct regulator_dev *rdev)
 	writel(regval, fs->gfs_ctl_reg);
 
 	/* Wait for the clamps to clear and signals to settle. */
+	dsb();
 	udelay(5);
 
 	/* Return clocks to their state before this function. */
@@ -306,6 +308,7 @@ static int gfx2d_footswitch_enable(struct regulator_dev *rdev)
 	regval = readl(fs->gfs_ctl_reg);
 	regval |= ENABLE_BIT;
 	writel(regval, fs->gfs_ctl_reg);
+	dsb();
 	udelay(1);
 
 	/* Un-clamp the I/O ports. */

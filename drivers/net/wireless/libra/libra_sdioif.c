@@ -142,6 +142,21 @@ int libra_enable_sdio_irq(struct sdio_func *func, u8 enable)
 }
 EXPORT_SYMBOL(libra_enable_sdio_irq);
 
+int libra_disable_sdio_irq_capability(struct sdio_func *func, u8 disable)
+{
+	if (libra_mmc_host) {
+		if (disable)
+			libra_mmc_host->caps &= ~MMC_CAP_SDIO_IRQ;
+		else
+			libra_mmc_host->caps |= MMC_CAP_SDIO_IRQ;
+		return 0;
+	}
+	printk(KERN_ERR "%s: Could not change sdio capabilities to polling\n",
+			__func__);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(libra_disable_sdio_irq_capability);
+
 /*
  * libra_sdio_release_irq() - Function to release IRQ
  */
@@ -331,7 +346,6 @@ void libra_sdio_get_card_id(struct sdio_func *func, unsigned short *card_id)
 }
 EXPORT_SYMBOL(libra_sdio_get_card_id);
 
-
 /*
  * SDIO Probe
  */
@@ -360,6 +374,7 @@ static void libra_sdio_remove(struct sdio_func *func)
 	printk(KERN_INFO "%s : Module removed.\n", __func__);
 }
 
+#ifdef CONFIG_PM
 static int libra_sdio_suspend(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
@@ -401,7 +416,10 @@ static int libra_sdio_resume(struct device *dev)
 
 	return 0;
 }
-
+#else
+#define libra_sdio_suspend 0
+#define libra_sdio_resume 0
+#endif
 
 static struct sdio_device_id libra_sdioid[] = {
     {.class = 0, .vendor = LIBRA_MAN_ID,  .device = LIBRA_REV_1_0_CARD_ID},

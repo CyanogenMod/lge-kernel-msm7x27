@@ -123,7 +123,7 @@ static struct msm_bus_node_info apps_fabric_info[] = {
 		.slavep = MSM_BUS_SLAVE_PORT_EBI_CH0,
 		.tier = MSM_BUS_TIERED_SLAVE_EBI_CH0,
 		.buswidth = 8,
-		.slaveclk = "ebi1_clk",
+		.slaveclk = "ebi1_msmbus_clk",
 		.a_slaveclk = "ebi1_a_clk",
 	},
 	{

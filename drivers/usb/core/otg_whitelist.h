@@ -92,7 +92,7 @@ static int is_targeted(struct usb_device *dev)
 		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_PROTOCOL) &&
 		    (id->bDeviceProtocol != dev->descriptor.bDeviceProtocol))
 			continue;
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 		/*Hub is targeted device,so code execution should reach here */
 		if (USB_CLASS_HUB == dev->descriptor.bDeviceClass) {
 			/* count the tiers and if it is more than 6, return 0 */

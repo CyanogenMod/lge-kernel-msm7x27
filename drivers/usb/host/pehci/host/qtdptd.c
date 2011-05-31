@@ -497,6 +497,11 @@ phci_hcd_qh_link_async(phci_hcd	* hcd, struct ehci_qh *qh, int *status)
 	struct ehci_qtd	*qtd = 0;
 	struct list_head *qtd_list = &qh->qtd_list;
 
+#ifdef MSEC_INT_BASED
+	td_ptd_map_buff_t *ptd_map_buff;
+	td_ptd_map_t *td_ptd_map;
+#endif
+
 	/*  take the first td, in case we are not able to schedule the new td
 	   and this is going for remove
 	 */
@@ -915,6 +920,7 @@ phci_hcd_submit_async(phci_hcd * hcd,
 
 	/* now the quehead can not be in the unlink state */
 
+//	printk("qh->qh_state:0x%x \n",qh->qh_state);
 	if (qh->qh_state == QH_STATE_UNLINK) {
 		pehci_info("%s:	free the urb,qh->state %x\n", __FUNCTION__,
 			   qh->qh_state);

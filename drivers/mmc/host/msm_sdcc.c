@@ -269,8 +269,6 @@ msmsdcc_dma_exec_func(struct msm_dmov_cmd *cmd)
 
 	writel(host->cmd_timeout, host->base + MMCIDATATIMER);
 	writel((unsigned int)host->curr.xfer_size, host->base + MMCIDATALENGTH);
-	writel((readl(host->base + MMCIMASK0) & (~(MCI_IRQ_PIO))) |
-	       host->cmd_pio_irqmask, host->base + MMCIMASK0);
 	msmsdcc_delay(host);	/* Allow data parms to be applied */
 	writel(host->cmd_datactrl, host->base + MMCIDATACTRL);
 	msmsdcc_delay(host);	/* Force delay prior to ADM or command */
@@ -596,6 +594,8 @@ msmsdcc_start_data(struct msmsdcc_host *host, struct mmc_data *data,
 			msmsdcc_start_command_deferred(host, cmd, &c);
 			host->cmd_c = c;
 		}
+		writel((readl(host->base + MMCIMASK0) & (~(MCI_IRQ_PIO))) |
+				host->cmd_pio_irqmask, host->base + MMCIMASK0);
 		dsb();
 		msm_dmov_enqueue_cmd_ext(host->dma.channel, &host->dma.hdr);
 		if (data->flags & MMC_DATA_WRITE)
@@ -983,8 +983,8 @@ msmsdcc_irq(int irq, void *dev_id)
 						mmc_hostname(host->mmc));
 				host->dummy_52_state = DUMMY_52_STATE_NONE;
 				host->curr.cmd = NULL;
-				spin_unlock(&host->lock);
 				msmsdcc_request_start(host, host->curr.mrq);
+				spin_unlock(&host->lock);
 				return IRQ_HANDLED;
 			}
 			break;
@@ -1358,11 +1358,14 @@ static int msmsdcc_get_ro(struct mmc_host *mmc)
 static void msmsdcc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);
+	unsigned long flags;
 
 	if (enable) {
+		spin_lock_irqsave(&host->lock, flags);
 		host->mci_irqenable |= MCI_SDIOINTOPERMASK;
 		writel(readl(host->base + MMCIMASK0) | MCI_SDIOINTOPERMASK,
 			       host->base + MMCIMASK0);
+		spin_unlock_irqrestore(&host->lock, flags);
 	} else {
 		host->mci_irqenable &= ~MCI_SDIOINTOPERMASK;
 		writel(readl(host->base + MMCIMASK0) & ~MCI_SDIOINTOPERMASK,

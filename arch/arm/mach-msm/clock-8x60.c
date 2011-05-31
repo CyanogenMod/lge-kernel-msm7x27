@@ -28,11 +28,11 @@
 #include <mach/clk.h>
 #include <mach/msm_xo.h>
 #include <mach/scm-io.h>
+#include <mach/rpm-regulator.h>
 
 #include "clock-local.h"
 #include "clock-8x60.h"
 #include "rpm.h"
-#include "rpm-regulator.h"
 
 #ifdef CONFIG_MSM_SECURE_IO
 #undef readl
@@ -577,6 +577,33 @@ static void set_rate_div_banked(struct clk_local *clk, struct clk_freq_tbl *nf)
 /*
  * Clock Descriptions
  */
+
+/* ADM */
+#define CLK_ADM(id, br, h_r, h_c, h_b, tv) \
+	[L_##id##_CLK] = { \
+		.type = BASIC, \
+		.ns_reg = SC0_U_CLK_BRANCH_ENA_VOTE_REG, \
+		.cc_reg = SC0_U_CLK_BRANCH_ENA_VOTE_REG, \
+		.halt_reg = h_r, \
+		.halt_check = h_c, \
+		.halt_bit = h_b, \
+		.br_en_mask = br, \
+		.set_rate = set_rate_nop, \
+		.freq_tbl = clk_tbl_adm, \
+		.parent = L_NONE_CLK, \
+		.test_vector = tv, \
+		.current_freq = &local_dummy_freq, \
+	}
+#define F_ADM(f, s, v) \
+	{ \
+		.freq_hz = f, \
+		.src = SRC_##s, \
+		.sys_vdd = v, \
+	}
+static struct clk_freq_tbl clk_tbl_adm[] = {
+	F_ADM(1, BB_PXO, NONE),
+	F_END,
+};
 
 /* GSBI_UART */
 #define CLK_GSBI_UART(id, n, h_r, h_c, h_b, tv) \
@@ -1923,15 +1950,13 @@ struct clk_local soc_clk_local_tbl[] = {
 		CLK_HALT_DFAB_STATE_REG, HALT,  7, TEST_PER_LS(0x1A)),
 
 	/* HW-Voteable Clocks */
-	CLK_NORATE(ADM0, SC0_U_CLK_BRANCH_ENA_VOTE_REG, BIT(2), NULL, 0,
-		CLK_HALT_MSS_SMPSS_MISC_STATE_REG, HALT_VOTED, 14,
+	CLK_ADM(ADM0, BIT(2), CLK_HALT_MSS_SMPSS_MISC_STATE_REG, HALT_VOTED, 14,
 		TEST_PER_HS(0x2A)),
+	CLK_ADM(ADM1, BIT(4), CLK_HALT_MSS_SMPSS_MISC_STATE_REG, HALT_VOTED, 12,
+		TEST_PER_HS(0x2B)),
 	CLK_NORATE(ADM0_P, SC0_U_CLK_BRANCH_ENA_VOTE_REG, BIT(3), NULL, 0,
 		CLK_HALT_MSS_SMPSS_MISC_STATE_REG, HALT_VOTED, 13,
 		TEST_PER_LS(0x80)),
-	CLK_NORATE(ADM1, SC0_U_CLK_BRANCH_ENA_VOTE_REG, BIT(4), NULL, 0,
-		CLK_HALT_MSS_SMPSS_MISC_STATE_REG, HALT_VOTED, 12,
-		TEST_PER_HS(0x2B)),
 	CLK_NORATE(ADM1_P, SC0_U_CLK_BRANCH_ENA_VOTE_REG, BIT(5), NULL, 0,
 		CLK_HALT_MSS_SMPSS_MISC_STATE_REG, HALT_VOTED, 11,
 		TEST_PER_LS(0x81)),
@@ -2308,6 +2333,8 @@ int soc_clk_measure_rate(unsigned id)
 		ret = -EPERM;
 		goto err;
 	}
+	/* Make sure test vector is set before continuing. */
+	dsb();
 
 	/* Enable CXO/4 and RINGOSC branch and root. */
 	pdm_reg_backup = readl(PDM_CLK_NS_REG);
@@ -2380,6 +2407,9 @@ int soc_clk_reset(unsigned id, enum clk_reset_action action)
 	writel(reg_val, clk->reset_reg);
 
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	/* Make sure write is issued before returning. */
+	dsb();
 
 	return ret;
 }
@@ -2474,6 +2504,8 @@ static void reg_init(void)
 	writel(BIT(12), SW_RESET_CORE_REG);
 	udelay(5);
 	writel(0, SW_RESET_CORE_REG);
+	/* Make sure reset is de-asserted before clock is disabled. */
+	mb();
 	local_clk_disable(C(GFX3D));
 
 	/* Enable TSSC and PDM PXO sources. */
@@ -2503,6 +2535,8 @@ void __init msm_clk_soc_init(void)
 	reg_init();
 
 	/* Initialize rates for clocks that only support one. */
+	local_clk_set_rate(C(ADM0), 1);
+	local_clk_set_rate(C(ADM1), 1);
 	local_clk_set_rate(C(PDM), 27000000);
 	local_clk_set_rate(C(PRNG), 64000000);
 	local_clk_set_rate(C(MDP_VSYNC), 27000000);

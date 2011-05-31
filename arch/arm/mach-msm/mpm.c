@@ -208,18 +208,10 @@ static inline void msm_mpm_write(
 			__func__, reg, subreg_index, value);
 }
 
-static inline void msm_mpm_write_barrier(void)
-{
-	/*
-	 * By the time the read from memory returns, all previous
-	 * writes are guaranteed visible.
-	 */
-	msm_mpm_read(MSM_MPM_STATUS_REG_PENDING, 0);
-}
-
 static inline void msm_mpm_send_interrupt(void)
 {
 	writel(MSM_MPM_APPS_IPC_MPM, MSM_MPM_APPS_IPC);
+	dsb();
 }
 
 static irqreturn_t msm_mpm_irq(int irq, void *dev_id)
@@ -252,7 +244,8 @@ static void msm_mpm_set(bool wakeset)
 		msm_mpm_write(reg, i, 0xffffffff);
 	}
 
-	msm_mpm_write_barrier();
+	/* Ensure the writes are complete beore sending the interrupt */
+	dsb();
 	msm_mpm_send_interrupt();
 }
 

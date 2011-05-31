@@ -24,6 +24,16 @@
 
 static const char *id = "WLAN";
 
+/**
+ * vos_chip_power_qrf8615() - WLAN Power Up Seq for WCN1314 rev 2.0 on QRF 8615
+ * @on - Turn WLAN ON/OFF (1 or 0)
+ *
+ * Power up/down WLAN by turning on/off various regs and asserting/deasserting
+ * Power-on-reset pin. Also, put XO A0 buffer as slave to wlan_clk_pwr_req while
+ * turning ON WLAN and vice-versa.
+ *
+ * This function returns 0 on success or a non-zero value on failure.
+ */
 int vos_chip_power_qrf8615(int on)
 {
 	static char wlan_on;
@@ -55,8 +65,8 @@ int vos_chip_power_qrf8615(int on)
 		1250000,
 	};
 	static const bool vregs_is_pin_controlled[] = {
-		0,
-		0,
+		1,
+		1,
 		0,
 		0,
 		1,
@@ -190,3 +200,62 @@ fail:
 	return rc;
 }
 EXPORT_SYMBOL(vos_chip_power_qrf8615);
+
+/**
+ * qcomwlan_pmic_xo_core_force_enable() - Force XO Core of PMIC to be ALWAYS ON
+ * @on - Force XO Core  ON/OFF (1 or 0)
+ *
+ * The XO_CORE controls the XO feeding the TCXO buffers (A0, A1, etc.). WLAN
+ * wants to keep the XO core on even though our buffer A0 is in pin control
+ * because it can take a long time turn the XO back on and warm up the buffers.
+ * This helps in optimizing power in BMPS (power save) mode of WLAN.
+ * The WLAN driver wrapper function takes care that this API is not called
+ * consecutively.
+ *
+ * This function returns 0 on success or a non-zero value on failure.
+ */
+int qcomwlan_pmic_xo_core_force_enable(int on)
+{
+	static struct msm_xo_voter *wlan_ps;
+	int rc = 0;
+
+	if (wlan_ps == NULL) {
+		wlan_ps = msm_xo_get(MSM_XO_CORE, id);
+		if (IS_ERR(wlan_ps)) {
+			pr_err("Failed to get XO CORE voter (%ld)\n",
+					PTR_ERR(wlan_ps));
+			goto fail;
+		}
+	}
+
+	if (on)
+		rc = msm_xo_mode_vote(wlan_ps, MSM_XO_MODE_ON);
+	else
+		rc = msm_xo_mode_vote(wlan_ps, MSM_XO_MODE_OFF);
+
+	if (rc < 0) {
+		pr_err("XO Core %s failed (%d)\n",
+			on ? "enable" : "disable", rc);
+		goto fail_xo_mode_vote;
+	}
+	return 0;
+fail_xo_mode_vote:
+	msm_xo_put(wlan_ps);
+fail:
+	return rc;
+}
+EXPORT_SYMBOL(qcomwlan_pmic_xo_core_force_enable);
+
+
+/**
+ * qcomwlan_freq_change_1p3v_supply() - function to change the freq for 1.3V RF supply.
+ * @freq - freq of the 1.3V Supply
+ *
+ * This function returns 0 on success or a non-zero value on failure.
+ */
+
+int qcomwlan_freq_change_1p3v_supply(enum rpm_vreg_freq freq)
+{
+	return rpm_vreg_set_frequency(RPM_VREG_ID_PM8058_S2, freq);
+}
+EXPORT_SYMBOL(qcomwlan_freq_change_1p3v_supply);

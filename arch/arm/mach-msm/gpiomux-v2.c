@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,4 +33,5 @@ void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val)
 			GPIO_IN_OUT(gpio));
 	}
 	writel(bits, GPIO_CFG(gpio));
+	dsb();
 }

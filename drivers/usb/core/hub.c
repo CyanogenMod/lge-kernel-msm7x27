@@ -32,7 +32,7 @@
 
 #include "usb.h"
 
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 #include <linux/usb/hcd.h>
 #include <linux/usb/ch11.h>
 
@@ -369,7 +369,11 @@ static int get_port_status(struct usb_device *hdev, int port1,
 {
 	int i, status = -ETIMEDOUT;
 
-	for (i = 0; i < USB_STS_RETRIES && status == -ETIMEDOUT; i++) {
+	/* ISP1763A HUB sometimes returns 2 bytes instead of 4 bytes, retry
+	 * if this happens
+	 */
+	for (i = 0; i < USB_STS_RETRIES && (status == -ETIMEDOUT ||
+					 status == 2); i++) {
 		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_PORT, 0, port1,
 			data, sizeof(*data), USB_STS_TIMEOUT);
@@ -3123,7 +3127,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 			(portchange & USB_PORT_STAT_C_CONNECTION))
 		clear_bit(port1, hub->removed_bits);
 
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 	if (Unwanted_SecondReset == 0)   /*stericsson*/
 #endif
 	if (portchange & (USB_PORT_STAT_C_CONNECTION |
@@ -3282,7 +3286,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 		status = hub_power_remaining(hub);
 		if (status)
 			dev_dbg(hub_dev, "%dmA power budget left\n", status);
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 		if (HostComplianceTest == 1 && udev->devnum > 1) {
 			if (HostTest == 7) {	/*SINGLE_STEP_GET_DEV_DESC */
 				dev_info(hub_dev, "Testing "
@@ -3345,7 +3349,7 @@ static void hub_events(void)
 	u16 portchange;
 	int i, ret;
 	int connect_change;
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 	int j;
 	int otgport = 0;
 	struct usb_port_status port_status;
@@ -3424,7 +3428,7 @@ static void hub_events(void)
 
 		/* deal with port status changes */
 		for (i = 1; i <= hub->descriptor->bNbrPorts; i++) {
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 			struct usb_port_status portsts;
 
 			/*if we have something to do on
@@ -3677,7 +3681,7 @@ static void hub_events(void)
 			}
 
 			if (connect_change) {
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 				if (hdev->parent == hdev->bus->root_hub)
 					if (hdev->otg_notif
 					    && (HostComplianceTest == 0))
@@ -3713,7 +3717,7 @@ static void hub_events(void)
                         	hub_power_on(hub, true);
 			}
 		}
-#ifdef CONFIG_USB_PEHCI_HCD
+#if defined(CONFIG_USB_PEHCI_HCD) || defined(CONFIG_USB_PEHCI_HCD_MODULE)
 		/* if we have something on otg */
 		if (otgport) {
 			otgport = 0;

@@ -88,5 +88,6 @@ void libra_sdio_get_card_id(struct sdio_func *func, unsigned short *card_id);
 void libra_sdio_release_irq(struct sdio_func *func);
 int libra_enable_sdio_irq(struct sdio_func *func, u8 enable);
 void libra_sdio_disable_func(struct sdio_func *func);
+int libra_disable_sdio_irq_capability(struct sdio_func *func, u8 disable);
 
 #endif /* __LIBRA_SDIOIF_H__ */

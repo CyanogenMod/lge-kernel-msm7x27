@@ -23,8 +23,8 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/mfd/pmic8901.h>
+#include <mach/rpm-regulator.h>
 
-#include "rpm-regulator.h"
 #include "rpm.h"
 #include "rpm_resources.h"
 
@@ -280,7 +280,8 @@ static void voltage_to_req(int voltage, struct vreg *vreg)
 
 static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 			  int set, unsigned mask0, unsigned val0,
-			  unsigned mask1, unsigned val1, unsigned cnt)
+			  unsigned mask1, unsigned val1, unsigned cnt,
+			  int update_voltage)
 {
 	struct msm_rpm_iv_pair *prev_req;
 	int rc = 0, max_mV_vote = 0, i;
@@ -303,7 +304,8 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 	vreg->req[1].value &= ~mask1;
 	vreg->req[1].value |= val1 & mask1;
 
-	min_mV_vote[voter] = voltage_from_req(vreg);
+	if (update_voltage)
+		min_mV_vote[voter] = voltage_from_req(vreg);
 
 	/* Find the highest voltage voted for and use it. */
 	for (i = 0; i < RPM_VREG_VOTER_COUNT; i++)
@@ -346,7 +348,8 @@ static int vreg_send_request(struct vreg *vreg, enum rpm_vreg_voter voter,
 
 static int vreg_set_noirq(struct vreg *vreg, enum rpm_vreg_voter voter,
 			  int sleep, unsigned mask0, unsigned val0,
-			  unsigned mask1, unsigned val1, unsigned cnt)
+			  unsigned mask1, unsigned val1, unsigned cnt,
+			  int update_voltage)
 {
 	unsigned long flags;
 	int rc;
@@ -363,7 +366,7 @@ static int vreg_set_noirq(struct vreg *vreg, enum rpm_vreg_voter voter,
 	 */
 	if (sleep)
 		rc = vreg_send_request(vreg, voter, MSM_RPM_CTX_SET_SLEEP,
-					mask0, val0, mask1, val1, cnt);
+				mask0, val0, mask1, val1, cnt, update_voltage);
 	else {
 		/*
 		 * Vote for 0 V in the sleep set when active set-only is
@@ -385,11 +388,11 @@ static int vreg_set_noirq(struct vreg *vreg, enum rpm_vreg_voter voter,
 
 		rc = vreg_send_request(vreg, voter, MSM_RPM_CTX_SET_SLEEP,
 					mask0_sleep, val0_sleep,
-					mask1, val1, cnt);
+					mask1, val1, cnt, update_voltage);
 	}
 
 	rc = vreg_send_request(vreg, voter, MSM_RPM_CTX_SET_0, mask0, val0,
-					mask1, val1, cnt);
+					mask1, val1, cnt, update_voltage);
 
 	spin_unlock_irqrestore(&pm8058_noirq_lock, flags);
 
@@ -447,11 +450,55 @@ int rpm_vreg_set_voltage(enum rpm_vreg_id vreg_id, enum rpm_vreg_voter voter,
 	}
 
 	rc = vreg_set_noirq(&vregs[vreg_id], voter, sleep_also, mask0, val0,
-			    mask1, val1, cnt);
+			    mask1, val1, cnt, 1);
 
 	return rc;
 }
 EXPORT_SYMBOL_GPL(rpm_vreg_set_voltage);
+
+/**
+ * rpm_vreg_set_frequency - sets the frequency of a switching regulator
+ * @vreg: ID for regulator
+ * @min_uV: minimum acceptable frequency of operation
+ *
+ * Returns 0 on success or errno.
+ */
+int rpm_vreg_set_frequency(enum rpm_vreg_id vreg_id, enum rpm_vreg_freq freq)
+{
+	unsigned val0 = 0, val1 = 0, mask0 = 0, mask1 = 0, cnt = 2;
+	int rc;
+
+	if (vreg_id < 0 || vreg_id >= RPM_VREG_ID_MAX) {
+		pr_err("%s: invalid regulator id=%d\n", __func__, vreg_id);
+		return -EINVAL;
+	}
+
+	if (freq < 0 || freq > RPM_VREG_FREQ_1p20) {
+		pr_err("%s: invalid frequency=%d\n", __func__, freq);
+		return -EINVAL;
+	}
+
+	if (!IS_SMPS(vreg_id)) {
+		pr_err("%s: regulator id=%d does not support frequency\n",
+			__func__, vreg_id);
+		return -EINVAL;
+	}
+
+	if (!vregs[vreg_id].pdata->sleep_selectable) {
+		pr_err("%s: regulator id=%d is not marked sleep selectable\n",
+			__func__, vreg_id);
+		return -EINVAL;
+	}
+
+	mask1 = SMPS_FREQ;
+	val1 = freq << SMPS_FREQ_SHIFT;
+
+	rc = vreg_set_noirq(&vregs[vreg_id], RPM_VREG_VOTER_REG_FRAMEWORK,
+			    1, mask0, val0, mask1, val1, cnt, 0);
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(rpm_vreg_set_frequency);
 
 #define IS_PMIC_8901_V1(rev)		((rev) == PM_8901_REV_1p0 || \
 					 (rev) == PM_8901_REV_1p1)
@@ -506,7 +553,7 @@ static int vreg_set(struct vreg *vreg, unsigned mask0, unsigned val0,
 	 */
 	if (vreg->pdata->sleep_selectable)
 		return vreg_set_noirq(vreg, RPM_VREG_VOTER_REG_FRAMEWORK, 1,
-					mask0, val0, mask1, val1, cnt);
+					mask0, val0, mask1, val1, cnt, 1);
 
 	prev0 = vreg->req[0].value;
 	vreg->req[0].value &= ~mask0;

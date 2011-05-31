@@ -88,6 +88,7 @@ static int msm_watchdog_suspend(void)
 {
 	writel(1, WDT0_RST);
 	writel(0, WDT0_EN);
+	dsb();
 	return NOTIFY_DONE;
 }
 static int msm_watchdog_resume(void)
@@ -117,11 +118,13 @@ static int panic_wdog_handler(struct notifier_block *this,
 {
 	if (panic_timeout == 0) {
 		writel(0, WDT0_EN);
+		dsb();
 		secure_writel(0, MSM_TCSR_BASE + TCSR_WDT_CFG);
 	} else {
 		writel(32768 * (panic_timeout + 4), WDT0_BARK_TIME);
 		writel(32768 * (panic_timeout + 4), WDT0_BITE_TIME);
 		writel(1, WDT0_RST);
+		dsb();
 	}
 	return NOTIFY_DONE;
 }
@@ -161,6 +164,7 @@ static int wdog_enable_set(const char *val, struct kernel_param *kp)
 
 			/* may be suspended after the first write above */
 			writel(0, WDT0_EN);
+			dsb();
 			secure_writel(0, MSM_TCSR_BASE + TCSR_WDT_CFG);
 			free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 			enable = 0;
@@ -203,6 +207,7 @@ static void __exit exit_watchdog(void)
 		writel(0, WDT0_EN);
 		unregister_pm_notifier(&msm_watchdog_power_notifier);
 		writel(0, WDT0_EN); /* In case we got suspended mid-exit */
+		dsb();
 		secure_writel(0, MSM_TCSR_BASE + TCSR_WDT_CFG);
 		free_irq(WDT0_ACCSCSSNBARK_INT, 0);
 		enable = 0;

@@ -184,6 +184,7 @@ static int tsens_tz_set_mode(struct thermal_zone_device *thermal,
 		}
 
 		writel(reg, TSENS_CNTL_ADDR);
+		dsb();
 	}
 	tm_sensor->mode = mode;
 
@@ -298,6 +299,7 @@ static int tsens_tz_activate_trip_type(struct thermal_zone_device *thermal,
 		writel(reg_cntl & ~mask, TSENS_CNTL_ADDR);
 	}
 
+	dsb();
 	return 0;
 }
 
@@ -416,6 +418,7 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 		return -EINVAL;
 
 	writel(reg_th | code, TSENS_THRESHOLD_ADDR);
+	dsb();
 	return 0;
 }
 
@@ -447,7 +450,7 @@ static irqreturn_t tsens_isr(int irq, void *data)
 
 	writel(reg | TSENS_LOWER_STATUS_CLR | TSENS_UPPER_STATUS_CLR,
 			TSENS_CNTL_ADDR);
-
+	dsb();
 	return IRQ_WAKE_THREAD;
 }
 
@@ -492,6 +495,7 @@ static irqreturn_t tsens_isr_thread(int irq, void *data)
 		sensor >>= 1;
 	}
 	writel(reg & mask, TSENS_CNTL_ADDR);
+	dsb();
 	return IRQ_HANDLED;
 }
 
@@ -565,6 +569,7 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 			pr_err("%s: thermal_zone_device_register() failed.\n",
 			__func__);
 			kfree(tmdev);
+			dsb();
 			return -ENODEV;
 		}
 		tmdev->sensor[i].sensor_num = i;
@@ -575,6 +580,7 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 	writel(reg & ~((((1 << TSENS_NUM_SENSORS) - 1) << 3)
 			| TSENS_SLP_CLK_ENA | TSENS_EN), TSENS_CNTL_ADDR);
 	pr_notice("%s: OK\n", __func__);
+	dsb();
 	return 0;
 }
 
@@ -585,7 +591,7 @@ static int __devexit tsens_tm_remove(struct platform_device *pdev)
 
 	reg = readl(TSENS_CNTL_ADDR);
 	writel(reg & ~(TSENS_SLP_CLK_ENA | TSENS_EN), TSENS_CNTL_ADDR);
-
+	dsb();
 	for (i = 0; i < TSENS_NUM_SENSORS; i++)
 		thermal_zone_device_unregister(tmdev->sensor[i].tz_dev);
 	platform_set_drvdata(pdev, NULL);

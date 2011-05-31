@@ -623,6 +623,7 @@ static struct platform_device trout_snd = {
 
 static struct platform_device *devices[] __initdata = {
 	&msm_device_smd,
+	&msm_device_dmov,
 	&msm_device_nand,
 	&msm_device_i2c,
 	&msm_device_uart1,

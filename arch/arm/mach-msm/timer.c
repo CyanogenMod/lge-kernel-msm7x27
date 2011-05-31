@@ -432,6 +432,7 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 		}
 		break;
 	}
+	dsb();
 	local_irq_restore(irq_flags);
 }
 
@@ -842,6 +843,7 @@ void msm_timer_exit_idle(int low_power)
 #else
 	gpt_clk_state->in_sync = gpt_clk_state->in_sync && enabled;
 #endif
+	dsb();
 	msm_timer_sync_gpt_to_sclk(1);
 
 	if (clock == gpt_clk)
@@ -856,6 +858,7 @@ void msm_timer_exit_idle(int low_power)
 #else
 	clock_state->in_sync = clock_state->in_sync && enabled;
 #endif
+	dsb();
 	msm_timer_sync_to_gpt(clock, 1);
 
 exit_idle_alarm:
@@ -1037,6 +1040,7 @@ static void __init msm_timer_init(void)
 	}
 #ifdef CONFIG_ARCH_MSM_SCORPIONMP
 	writel(1, msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
+	dsb();
 	set_delay_fn(read_current_timer_delay_loop);
 #endif
 }
@@ -1076,6 +1080,7 @@ void local_timer_setup(struct clock_event_device *evt)
 	local_clock_event = evt;
 
 	local_irq_save(flags);
+	dsb();
 	gic_clear_spi_pending(clock->irq.irq);
 	get_irq_chip(clock->irq.irq)->unmask(clock->irq.irq);
 	local_irq_restore(flags);
