@@ -41,6 +41,9 @@
 #include <linux/leds.h>
 #include <linux/pm_runtime.h>
 
+#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
+#include <mach/board_lge.h>
+#endif
 #define MSM_FB_C
 #include "msm_fb.h"
 #include "mddihosti.h"
@@ -90,6 +93,9 @@ u32 msm_fb_msg_level = 7;
 u32 mddi_msg_level = 5;
 #ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
 int msm_fb_refesh_enabled = 1;	// LGE_CHANGE [bluerti@lge.com] 2009-07-18
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+static unsigned char *hidden_fbram;
+#endif
 #endif
 
 extern int32 mdp_block_power_cnt[MDP_MAX_BLOCK];
@@ -245,6 +251,16 @@ int msm_fb_detect_client(const char *name)
 	return ret;
 }
 
+#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
+void *lge_get_fb_addr(void)
+{
+#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+	return (fbram - (320*240*2*2));
+#else
+	return hidden_fbram;
+#endif
+}
+#endif
 static ssize_t msm_fb_msm_fb_type(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -334,7 +350,9 @@ static int msm_fb_probe(struct platform_device *pdev)
 		}
 		MSM_FB_INFO("msm_fb_probe:  phy_Addr = 0x%x virt = 0x%x\n",
 			     (int)fbram_phys, (int)fbram);
-
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+		hidden_fbram = fbram;
+#endif
 		msm_fb_resource_initialized = 1;
 		return 0;
 	}

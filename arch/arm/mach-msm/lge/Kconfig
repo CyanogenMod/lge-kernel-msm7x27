@@ -175,6 +175,11 @@ config LGE_PWRSINK
 	help
 	 Choose if use Power sink driver
 
+config LGE_HIDDEN_RESET_PATCH
+   bool "Hidden reset function"
+   default n
+   help
+     This patch supports hidden reset when kernel panic is occured.
 menu "LGE specific patches"
 	depends on MACH_LGE
 

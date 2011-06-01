@@ -64,7 +64,6 @@ int LGE_ErrorHandler_Main( int crash_side, char * message)
 	iounmap(reboot_panic);
 #endif
 
-#if 0
 	if (hidden_reset_enable) {
 		if (crash_side == MODEM_CRASH) {
 			unsigned *temp;
@@ -82,7 +81,6 @@ int LGE_ErrorHandler_Main( int crash_side, char * message)
 		}
 		return 0;
 	}
-#endif
 
   	if(BLUE_ERROR_HANDLER_LEVEL != 0) {
 		// If LCD is off,  Turn on backlight
@@ -184,10 +182,9 @@ int LGE_ErrorHandler_Main( int crash_side, char * message)
 
 int display_info_LCD( int crash_side, char * message)
 {
-/*
 	if (hidden_reset_enable)
 		return 0;
-*/
+	
 	memset((char *)LG_ErrorHandler_buf,0x0,sizeof(LG_ErrorHandler_buf));
 	expand_char_to_shrt(message,(unsigned short *)LG_ErrorHandler_buf);
 	display_errorinfo_byLGE(crash_side, (unsigned short *)LG_ErrorHandler_buf,LGE_ERROR_MAX_ROW*LGE_ERROR_MAX_COLUMN );
@@ -220,10 +217,10 @@ static long errhandler_ioctl(struct file *file, unsigned int cmd, unsigned long 
 {
 	int rv = 0;
 	int ret;
-/*
+	
 	if (hidden_reset_enable)
 		return 0;
-*/
+
 	switch(cmd) {
 	case ERRHANDLER_IOCTL_LEVEL2 : 
 		if (BLUE_ERROR_HANDLER_LEVEL <= 1) {

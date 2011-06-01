@@ -206,7 +206,6 @@ struct audio {
 	int stopped; /* set when stopped, cleared on flush */
 	int pcm_feedback;
 	int buf_refresh;
-	int rmt_resource_released;
 	int teos; /* valid only if tunnel mode & no data left for decoder */
 	enum msm_aud_decoder_state dec_state;	/* Represents decoder state */
 	int reserved; /* A byte is being reserved */
@@ -254,36 +253,6 @@ static void audmp3_post_event(struct audio *audio, int type,
 static unsigned long audmp3_pmem_fixup(struct audio *audio, void *addr,
 				unsigned long len, int ref_up);
 
-static int rmt_put_resource(struct audio *audio)
-{
-	struct aud_codec_config_cmd cmd;
-	unsigned short client_idx;
-
-	cmd.cmd_id = RM_CMD_AUD_CODEC_CFG;
-	cmd.client_id = RM_AUD_CLIENT_ID;
-	cmd.task_id = audio->dec_id;
-	cmd.enable = RMT_DISABLE;
-	cmd.dec_type = AUDDEC_DEC_MP3;
-	client_idx = ((cmd.client_id << 8) | cmd.task_id);
-
-	return put_adsp_resource(client_idx, &cmd, sizeof(cmd));
-}
-
-static int rmt_get_resource(struct audio *audio)
-{
-	struct aud_codec_config_cmd cmd;
-	unsigned short client_idx;
-
-	cmd.cmd_id = RM_CMD_AUD_CODEC_CFG;
-	cmd.client_id = RM_AUD_CLIENT_ID;
-	cmd.task_id = audio->dec_id;
-	cmd.enable = RMT_ENABLE;
-	cmd.dec_type = AUDDEC_DEC_MP3;
-	client_idx = ((cmd.client_id << 8) | cmd.task_id);
-
-	return get_adsp_resource(client_idx, &cmd, sizeof(cmd));
-}
-
 /* must be called with audio->lock held */
 static int audio_enable(struct audio *audio)
 {
@@ -294,17 +263,6 @@ static int audio_enable(struct audio *audio)
 
 	if (audio->enabled)
 		return 0;
-
-	if (audio->rmt_resource_released == 1) {
-		audio->rmt_resource_released = 0;
-		rc = rmt_get_resource(audio);
-		if (rc) {
-			MM_ERR("ADSP resources are not available for MP3 \
-				session 0x%08x on decoder: %d\n Ignoring \
-				error and going ahead with the playback\n",
-				(int)audio, audio->dec_id);
-		}
-	}
 
 	audio->dec_state = MSM_AUD_DECODER_STATE_NONE;
 	audio->out_tail = 0;
@@ -366,8 +324,6 @@ static int audio_disable(struct audio *audio)
 		if (audio->pcm_feedback == TUNNEL_MODE_PLAYBACK)
 			audmgr_disable(&audio->audmgr);
 		audio->out_needed = 0;
-		rmt_put_resource(audio);
-		audio->rmt_resource_released = 1;
 	}
 	return rc;
 }
@@ -645,6 +601,36 @@ static int audplay_dsp_send_data_avail(struct audio *audio,
 	/* complete all the writes to the input buffer */
 	wmb();
 	return audplay_send_queue0(audio, &cmd, sizeof(cmd));
+}
+
+static int rmt_put_resource(struct audio *audio)
+{
+	struct aud_codec_config_cmd cmd;
+	unsigned short client_idx;
+
+	cmd.cmd_id = RM_CMD_AUD_CODEC_CFG;
+	cmd.client_id = RM_AUD_CLIENT_ID;
+	cmd.task_id = audio->dec_id;
+	cmd.enable = RMT_DISABLE;
+	cmd.dec_type = AUDDEC_DEC_MP3;
+	client_idx = ((cmd.client_id << 8) | cmd.task_id);
+
+	return put_adsp_resource(client_idx, &cmd, sizeof(cmd));
+}
+
+static int rmt_get_resource(struct audio *audio)
+{
+	struct aud_codec_config_cmd cmd;
+	unsigned short client_idx;
+
+	cmd.cmd_id = RM_CMD_AUD_CODEC_CFG;
+	cmd.client_id = RM_AUD_CLIENT_ID;
+	cmd.task_id = audio->dec_id;
+	cmd.enable = RMT_ENABLE;
+	cmd.dec_type = AUDDEC_DEC_MP3;
+	client_idx = ((cmd.client_id << 8) | cmd.task_id);
+
+	return get_adsp_resource(client_idx, &cmd, sizeof(cmd));
 }
 
 /* Caller holds irq_lock */
@@ -1940,8 +1926,7 @@ static int audio_release(struct inode *inode, struct file *file)
 	MM_INFO("audio instance 0x%08x freeing\n", (int)audio);
 	mutex_lock(&audio->lock);
 	audio_disable(audio);
-	if (audio->rmt_resource_released == 0)
-		rmt_put_resource(audio);
+	rmt_put_resource(audio);
 	audio->drv_ops.out_flush(audio);
 	audio->drv_ops.in_flush(audio);
 	audmp3_reset_pmem_region(audio);

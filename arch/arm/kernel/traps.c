@@ -254,6 +254,9 @@ void show_stack(struct task_struct *tsk, unsigned long *sp)
 #define S_SMP ""
 #endif
 
+#ifdef CONFIG_MACH_LGE
+extern int hidden_reset_enable;
+#endif
 static int __die(const char *str, int err, struct thread_info *thread, struct pt_regs *regs)
 {
 	struct task_struct *tsk = thread->task;
@@ -291,8 +294,7 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 	}
 #ifdef CONFIG_LGE_BLUE_ERROR_HANDLER
 		/* LGE_CHANGE_S [bluerti@lge.com] 2010-07-22 */
-	/* if (!hidden_reset_enable) {*/
-	{
+	if (!hidden_reset_enable) {
 		//extern int LG_ErrorHandler_enable;
 		char * temp;
 		int ret;
