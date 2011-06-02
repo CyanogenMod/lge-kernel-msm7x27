@@ -281,6 +281,12 @@ static void pp2106_fetchkeys(struct work_struct *work)
 	u8 key_col, key_row;
 
 	pp2106_get_data(&buf);
+
+	if(buf == 0xff)
+	{
+		return;
+	}
+		
 	keystate = (buf & 0x80) ? PP2106_IN_KEYRELEASE : PP2106_IN_KEYPRESS;
 
 	key_col = key_row = buf;
