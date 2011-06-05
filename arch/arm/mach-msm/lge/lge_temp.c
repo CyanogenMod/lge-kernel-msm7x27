@@ -7,6 +7,7 @@
 #include <linux/platform_device.h>
 #include <asm/io.h>
 #include <linux/slab.h>
+#include <mach/board_lge.h>
 
 extern int lge_erase_block(int ebnum);
 extern int lge_write_block(int ebnum, unsigned char *buf, size_t size);
@@ -116,6 +117,16 @@ static int flight_store(struct device *dev, struct device_attribute *attr, const
 }
 static DEVICE_ATTR(flight, 0664, flight_show, flight_store);
 
+static int get_qem_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	unsigned value;
+
+	value = lge_get_nv_qem();
+	printk("%s: qem=%d\n",__func__,value);
+	
+	return sprintf(buf, "%d\n", value);
+}
+static DEVICE_ATTR(qem, 0664, get_qem_show, NULL);
 static int __init lge_tempdevice_probe(struct platform_device *pdev)
 {
 	int err;
@@ -136,6 +147,9 @@ static int __init lge_tempdevice_probe(struct platform_device *pdev)
 	if (err < 0) 
 		printk("%s : Cannot create the sysfs\n", __func__);
 	
+	err = device_create_file(&pdev->dev, &dev_attr_qem);
+	if (err < 0) 
+		printk("%s : Cannot create the sysfs\n", __func__);
 	return err;
 }
 

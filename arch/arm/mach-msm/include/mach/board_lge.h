@@ -388,7 +388,7 @@ unsigned lge_get_chg_en_reg(void);
 unsigned lge_set_elt_test(void);
 unsigned lge_clear_elt_test(void);
 #endif
-
+unsigned lge_get_nv_qem(void);
 
 #define CAMERA_POWER_ON				0
 #define CAMERA_POWER_OFF			1
