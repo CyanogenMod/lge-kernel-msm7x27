@@ -362,6 +362,7 @@ int bma250_read_accel_xyz(bma250acc_t * acc)
    if (p_bma250==C_Zero_U8X)
       {
       comres = E_SMB_NULL_PTR;
+	  printk(KERN_INFO "bma250_read_accel_xyz : read fail - error return\n");
       }
    else
       {
@@ -5652,7 +5653,7 @@ static void bma250_early_suspend(struct early_suspend *h)
 #endif	
  
     bma250_set_mode(bma250_MODE_SUSPEND);
-   
+ 
 }
 
 

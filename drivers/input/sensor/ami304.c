@@ -138,7 +138,6 @@ static atomic_t hal_open_count;
 static atomic_t daemon_open_count;
 
 static u8 i2c_read_addr, i2c_read_len;
-static u8 ctrl1_t, ctrl2_t, ctrl3_t, ctrl4_t, ctrl5_t;
 
 static int AMI304_I2c_Read(u8 regaddr, u8 *buf, u8 buf_len)
 {
@@ -223,30 +222,25 @@ static int AMI304_Chipset_Init(int mode, int chipset)
 	databuf[1] = ctrl3 | AMI304_CTRL3_B0_LO_CLR;
 	i2c_master_send(ami304_i2c_client, databuf, 2);
 	
-	databuf[0] = AMI304_REG_CTRL4;	
-	if( chipset == AMI304_CHIPSET ) //AMI304
-	{
+	databuf[0] = AMI304_REG_CTRL4;
+	
+#if 0	// //AMI304  //AMI304_CHIPSET
+
 //		ctrl4[1]   = ctrl4[1] & AMI304_CTRL4_COMPASS_MODE; 	 //0x5D
 		ctrl4[0] = 0x00;
 		ctrl4[1] = 0x00;
-	}
-	else	//AMI306	//AMI306_CHIPSET
-	{
+
+#else	//AMI306	//AMI306_CHIPSET
+
 //		ctrl4[1]   = ctrl4[1] | AMI306_CTRL4_HIGHSPEED_MODE; //0x5D
 		ctrl4[0] = 0x7e;
 		ctrl4[1] = 0xa0;
-	}	
+#endif
+
 	databuf[1] = ctrl4[0];
 	databuf[2] = ctrl4[1];
 	i2c_master_send(ami304_i2c_client, databuf, 3);
 
-	ctrl1_t = ctrl1;
-	ctrl2_t = ctrl2;
-	ctrl3_t = ctrl3;
-	ctrl4_t = ctrl4[0];
-	ctrl5_t = ctrl4[1];
-	
-	
 	return 0;
 }
 
@@ -617,11 +611,31 @@ static ssize_t show_mode_value(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	int mode=0;
+	u8 regaddr;
+	u8 ctrl1, ctrl2, ctrl3;
+	unsigned char ctrl4[2];
+	
 	read_lock(&ami304_data.lock);
 	mode = ami304_data.mode;
 	read_unlock(&ami304_data.lock);
 	
-	return sprintf(buf, "%d, %d/%d/%d/%d/%d \n", mode, ctrl1_t, ctrl2_t, ctrl3_t, ctrl4_t, ctrl5_t);
+	regaddr = AMI304_REG_CTRL1;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, &ctrl1, 1);
+
+	regaddr = AMI304_REG_CTRL2;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, &ctrl2, 1);
+	
+	regaddr = AMI304_REG_CTRL3;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, &ctrl3, 1);
+
+	regaddr = AMI304_REG_CTRL4;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, ctrl4, 2);	
+	
+	return sprintf(buf, "%d, %d/%d/%d/%d/%d \n", mode, ctrl1, ctrl2, ctrl3, ctrl4[0], ctrl4[1]);
 }
 
 static ssize_t store_mode_value(struct device *dev, 
@@ -1524,6 +1538,7 @@ static int __devinit ami304_probe(struct i2c_client *client,
 	ecom_pdata = ami304_i2c_client->dev.platform_data;
 	ecom_pdata->power(1);
 
+	mdelay(1);
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	ami304_sensor_early_suspend.suspend = ami304_early_suspend;
 	ami304_sensor_early_suspend.resume = ami304_late_resume;
