@@ -310,7 +310,7 @@ int muscat_vibrator_ic_enable_set(int enable)
 
 int muscat_vibrator_gpio_request(void)
 {
-	gpio_request(GPIO_LIN_MOTOR_PWM, "Vibrator_PWM");
+	//gpio_request(GPIO_LIN_MOTOR_PWM, "Vibrator_PWM");
 	return 0;
 }
 
@@ -431,6 +431,7 @@ void __init lge_add_misc_devices(void)
 		muscat_vibrator_data.amp_value = 70;
 	}
 			
+	gpio_request(GPIO_LIN_MOTOR_PWM, "Vibrator_PWM");
 
 	platform_add_devices(muscat_misc_devices, ARRAY_SIZE(muscat_misc_devices));
 	platform_device_register(&msm_device_pmic_leds);
