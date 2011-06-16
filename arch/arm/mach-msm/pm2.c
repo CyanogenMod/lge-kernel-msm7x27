@@ -1797,7 +1797,7 @@ static void msm_pm_power_off(void)
  *	  Sometimes, RPC CALL is called atfer RPC is closed
  *        taehung.kim@lge.com
  */
-#if 0
+#if 1
 	msm_rpcrouter_close();
 #endif
 	printk(KERN_INFO"%s: \n",__func__);
@@ -1843,7 +1843,7 @@ static void msm_pm_restart(char str, const char *cmd)
  *	  Sometimes, RPC CALL is called atfer RPC is closed
  *        taehung.kim@lge.com
  */
-#if 0
+#if 1
 	msm_rpcrouter_close();
 #endif
 
