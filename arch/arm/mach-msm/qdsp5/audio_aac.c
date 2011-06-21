@@ -132,6 +132,7 @@ struct audio {
 
 	int mfield; /* meta field embedded in data */
 	int rflush; /* Read  flush */
+	int eos_in_progress;
 	int wflush; /* Write flush */
 	int opened;
 	int enabled;
@@ -630,7 +631,12 @@ static void audplay_send_data(struct audio *audio, unsigned needed)
 			frame->used = 0;
 			audio->out_tail ^= 1;
 			wake_up(&audio->write_wait);
+		} else if ((audio->out[0].used == 0) &&
+			 (audio->out[1].used == 0) &&
+			 (audio->eos_in_progress)) {
+			wake_up(&audio->write_wait);
 		}
+
 	}
 
 	if (audio->out_needed) {
@@ -1290,6 +1296,7 @@ static int audaac_process_eos(struct audio *audio,
 	struct buffer *frame;
 	char *buf_ptr;
 	int rc = 0;
+	unsigned long flags = 0;
 
 	MM_DBG("signal input EOS reserved=%d\n", audio->reserved);
 	if (audio->reserved) {
@@ -1318,12 +1325,20 @@ static int audaac_process_eos(struct audio *audio,
 		audio->out[0].used, audio->out[1].used, audio->out_needed);
 	frame = audio->out + audio->out_head;
 
+	spin_lock_irqsave(&audio->dsp_lock, flags);
+	audio->eos_in_progress = 1;
+	spin_unlock_irqrestore(&audio->dsp_lock, flags);
+
 	rc = wait_event_interruptible(audio->write_wait,
 		(audio->out_needed &&
 		audio->out[0].used == 0 &&
 		audio->out[1].used == 0)
 		|| (audio->stopped)
 		|| (audio->wflush));
+
+	spin_lock_irqsave(&audio->dsp_lock, flags);
+	audio->eos_in_progress = 0;
+	spin_unlock_irqrestore(&audio->dsp_lock, flags);
 
 	if (rc < 0)
 		goto done;
