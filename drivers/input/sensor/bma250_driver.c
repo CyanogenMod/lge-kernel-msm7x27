@@ -149,7 +149,7 @@ unsigned char bma250_set_mode(unsigned char Mode)
 		printk(KERN_INFO "bma250_MODE_NORMAL\n");
 #endif
 /* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */ 
-			 bma250_pdata->power(1);
+//			 bma250_pdata->power(1);
                break;
             case bma250_MODE_LOWPOWER:
                data1  = bma250_SET_BITSLICE(data1, bma250_EN_LOW_POWER, C_One_U8X);
@@ -163,7 +163,7 @@ unsigned char bma250_set_mode(unsigned char Mode)
 		printk(KERN_INFO "bma250_MODE_SUSPEND\n");
 #endif
 /* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-01-27 */  
-			 bma250_pdata->power(0);
+//			 bma250_pdata->power(0);
                break;
                         
             default:
@@ -5653,7 +5653,9 @@ static void bma250_early_suspend(struct early_suspend *h)
 #endif	
  
     bma250_set_mode(bma250_MODE_SUSPEND);
- 
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-06-24 */
+    atomic_set(&bma250_report_enabled, 0);
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-06-24 */ 
 }
 
 
@@ -5662,7 +5664,11 @@ static void bma250_late_resume(struct early_suspend *h)
 #ifdef BMA250_DEBUG
     printk(KERN_INFO "%s\n",__FUNCTION__);
 #endif		
-    bma250_set_mode(bma250_MODE_NORMAL);
+
+   bma250_set_mode(bma250_MODE_NORMAL);
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2011-06-24 */    
+    atomic_set(&bma250_report_enabled, 1);
+/* LGE_CHANGE_E [adwardk.kim@lge.com] 2011-06-24 */
 }
 #endif
 
