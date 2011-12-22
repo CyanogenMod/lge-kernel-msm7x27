@@ -350,8 +350,10 @@ static int msm_fb_probe(struct platform_device *pdev)
 		}
 		MSM_FB_INFO("msm_fb_probe:  phy_Addr = 0x%x virt = 0x%x\n",
 			     (int)fbram_phys, (int)fbram);
-#ifdef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_MUSCAT 
+#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
 		hidden_fbram = fbram;
+#endif
 #endif
 		msm_fb_resource_initialized = 1;
 		return 0;
