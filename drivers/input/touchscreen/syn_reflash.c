@@ -19,10 +19,13 @@
  *
  */
 
-#include "syn_fw.h"
-#include "syn_reflash.h"
-
 #include <linux/delay.h>
+#include <mach/gpio.h>
+
+#include "syn_fw_1818_9.h"
+#include "syn_fw_1818_A.h"
+#include "syn_fw_1912.h"
+#include "syn_reflash.h"
 
 /* local structs, vars and defines */
 struct rmi_function
@@ -36,6 +39,11 @@ struct rmi_function
 };
 struct rmi_function f34_flash;
 struct rmi_function f01_common;
+
+/* extern vars from rmi */
+int is_need_update;
+int is_fw_reflash;
+unsigned char *firmware;
 
 /* vars used for flashing image and configuration */
 unsigned short bootload_id;
@@ -67,21 +75,50 @@ unsigned short ref_flash_property;
 
 /* Read the Flash control register. The result should be */
 static const unsigned char f34_ref_cmd_normal_result  = 0x80;
-
-extern int is_need_update;
-extern int is_fw_reflash;
-
-/* Functions...*/
-/*
- * Functions to read the register format and determine how to initialize the
- * flash format register addresses which vary from one format to another.
- */
-#include <linux/delay.h>
-#include <mach/gpio.h>
-
 struct i2c_client *syn_touch_client;
 
 #define ATTN_GPIO	92
+#define NOREFLASHVER 0x06
+
+unsigned char* firmware = NULL;
+
+static int check_ts_firmware(enum firmware_type type, int fw_revision)
+{
+	switch (type) {
+	case syn_1818:
+		if (fw_revision == 0x06 || fw_revision == 0x0A) {
+			printk("[T-Reflash] firmware is firmware_1818 0x0A\n");
+			firmware = firmware_1818_A;
+			file_size = sizeof(firmware_1818_A);
+		} else {
+			printk("[T-Reflash] firmware is firmware_1818 0x09\n");
+			firmware = firmware_1818_9;
+			file_size = sizeof(firmware_1818_9);
+		}
+		break;
+	case syn_1912:
+		printk("[T-Reflash] firmware is firmware_1912\n");
+		firmware = firmware_1912;
+		file_size = sizeof(firmware_1912);
+		break;
+	default:
+		printk("[T-Reflash] firmware is firmware_1818 0x09\n");
+		firmware = firmware_1818_9;
+		file_size = sizeof(firmware_1818_9);
+	}
+
+	if (is_need_update == 0) {
+		if(fw_revision < NOREFLASHVER) {
+			printk("[T-Reflash] Do not reflash for Lower version\n");
+			return -1;
+		} else if(fw_revision == firmware[0x1F]) {
+			printk("[T-Reflash] synaptics_ts_fw_angent : F/W version is up-to-date\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
 
 /* Special defined error codes used by Synaptics - the OEM should not define any error codes the same. */
 
@@ -474,7 +511,7 @@ int read_firmware_header(void)
 	unsigned long checksum_code = 0;
 	int ret;
 
-	file_size = sizeof(firmware) - 1;
+	//file_size = sizeof(firmware) - 1;
 
 	checksum_code   = long_from_header(&(firmware[0]));
 	bootload_img_id = (unsigned int)firmware[4] + (unsigned int)firmware[5]*0x100;
@@ -526,7 +563,7 @@ int flash_fw_write()
 
 		write_reg(ref_block_num, &data[0], 2);
 		write_reg(ref_block_data, fw_data, fw_block_size);
-		
+
 		/* Move to next data block */
 		fw_data += fw_block_size;
 
@@ -661,12 +698,12 @@ int finalize_flash()
 /*
  *  Performs all the steps needed to reflash the image.
  */
-unsigned int firmware_reflash(struct i2c_client *syn_touch, int fw_revision)
+unsigned int firmware_reflash(struct i2c_client *syn_touch, int fw_revision,
+		enum firmware_type type)
 {
-	if((fw_revision == firmware[0x1F]) && (is_need_update == 0)) {
-		printk("[T-Reflash] synaptics_ts_fw_angent : F/W version is up-to-date\n");
+
+	if (check_ts_firmware(type, fw_revision) < 0)
 		return -1;
-	}
 
 	is_fw_reflash = 1;
 

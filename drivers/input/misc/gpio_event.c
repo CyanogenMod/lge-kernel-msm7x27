@@ -119,6 +119,19 @@ void gpio_event_resume(struct early_suspend *h)
 }
 #endif
 
+//LGE_DEV_PORTING UNIVA_S : 20110615 [jaemin.jeong@lge.com] Delete Dalvik cache for reset by safe-mode
+int saved_key = 0;
+
+ssize_t get_saved_key(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	sprintf(buf, "%d\n", saved_key);	
+    pr_info("YDK get_saved_key > saved_key =%s\n", buf);
+	return (ssize_t)(strlen(buf)+1);
+}
+
+DEVICE_ATTR(key_saving, 0664, get_saved_key, NULL);
+//LGE_DEV_PORTING UNIVA_E
+
 static int gpio_event_probe(struct platform_device *pdev)
 {
 	int err;
@@ -193,6 +206,15 @@ static int gpio_event_probe(struct platform_device *pdev)
 		registered++;
 	}
 
+	//LGE_DEV_PORTING UNIVA_S : 20110615 [jaemin.jeong@lge.com] Delete Dalvik cache for reset by safe-mode
+	if(device_create_file(&pdev->dev, &dev_attr_key_saving))
+	{
+        pr_info("jjm_debug : gpio_event_probe -> make sys_file for key_volumeup\n");
+		pr_err("jjm_debug : gpio_event_probe -> Unable to make sys_file\n");
+		goto err_input_register_device_failed;
+	}
+	//LGE_DEV_PORTING UNIVA_E
+
 	return 0;
 
 err_input_register_device_failed:
@@ -231,6 +253,12 @@ static int gpio_event_remove(struct platform_device *pdev)
 	for (i = 0; i < ip->input_devs->count; i++)
 		input_unregister_device(ip->input_devs->dev[i]);
 	kfree(ip);
+
+	//LGE_DEV_PORTING UNIVA_S : 20110615 [jaemin.jeong@lge.com] Delete Dalvik cache for reset by safe-mode
+	device_remove_file(&pdev->dev, &dev_attr_key_saving);
+    pr_info("jjm_debug : gpio_event_remove -> remove sys_file for key_volumeup\n");
+	//LGE_DEV_PORTING UNIVA_E
+
 	return 0;
 }
 

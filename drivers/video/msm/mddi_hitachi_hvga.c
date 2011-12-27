@@ -106,6 +106,12 @@ static struct display_table mddi_hitachi_display_off[] = {
 };
 #endif
 
+/*
+ * 2011-05-30, jinkyu.choi@lge.com
+ * this routine is blocked at earlysuspend using AT%FLIGHT
+ * it should be checked, later
+ */
+#if 0
 static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	// Display off sequence
 	{0x28, 4, {0x00, 0x00, 0x00, 0x00}},
@@ -114,6 +120,7 @@ static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	{REGFLAG_DELAY, 120, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
+#endif
 
 static struct display_table mddi_hitachi_initialize[] = {
 
@@ -238,7 +245,7 @@ void display_table(struct display_table *table, unsigned int count)
 				break;
 
 			default:
-				mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 1, 0, 0);
+				mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 0, 0, 0);
 				//EPRINTK("%s: reg : %x, val : %x.\n", __func__, reg, table[i].val_list[0]);
 		}
 	}
@@ -431,8 +438,10 @@ static int mddi_hitachi_lcd_on(struct platform_device *pdev)
 static int mddi_hitachi_lcd_off(struct platform_device *pdev)
 {
 	if(hitachi_display_on) {
+#if 0 /* 2011-05-30, jinkyu.choi@lge.com, should be checked, later */
 		display_table(mddi_hitachi_sleep_mode_on_data,
 					  ARRAY_SIZE(mddi_hitachi_sleep_mode_on_data));
+#endif
 		mddi_hitachi_lcd_panel_poweroff();
 		hitachi_display_on = FALSE;
 	}

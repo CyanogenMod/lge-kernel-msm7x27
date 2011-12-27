@@ -651,6 +651,17 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+#LGE_DEV_PORTING UNIVA_S
+# [LGE PATCH] edward1.kim@lge.com 20110214  
+config TOUCHSCREEN_MXT140
+	default n
+	tristate "MXT140 touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you have a MXT140 touchscreen.
+	  module will be called mXT140.	
+#LGE_DEV_PORTING UNIVA_S
+
 config TOUCHSCREEN_MCS7000
 	default n
 	tristate "MCS7000 touchscreens"

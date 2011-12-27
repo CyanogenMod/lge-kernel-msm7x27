@@ -317,3 +317,19 @@ config BACKLIGHT_AAT2870
 	default n
 	help
 	  If you have a ANALOGIC TECH AAT2870, say y to enable the backlight driver
+#LGE_DEV_PORTING UNIVA_S
+# [LGE PATCH : START] edward1.kim@lge.com 20110214  
+config BACKLIGHT_LM3530
+	tristate "LM3530 Backlight Driver "
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a National Semiconductor LM3530, say y to enable the backlight driver
+
+config SUBPMIC_LP8720
+	tristate "LP8720 LDO Driver "
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a National Semiconductor LP8720, say y to enable the backlight driver
+#LGE_DEV_PORTING UNIVA_E

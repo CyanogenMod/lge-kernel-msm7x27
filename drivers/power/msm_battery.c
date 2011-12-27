@@ -76,7 +76,7 @@
 #define BATTERY_CB_ID_ALL_ACTIV		1
 #define BATTERY_CB_ID_LOW_VOL		2
 
-#define BATTERY_LOW		3600//3200//2800
+#define BATTERY_LOW		3600	//3400	//3200//2800
 #define BATTERY_HIGH		4300
 
 #define ONCRPC_CHG_GET_GENERAL_STATUS_PROC	12
@@ -90,7 +90,7 @@
 #define RPC_TYPE_REPLY   1
 #define RPC_REQ_REPLY_COMMON_HEADER_SIZE   (3 * sizeof(uint32_t))
 
-#ifdef CONFIG_MACH_MSM7X27_GELATO
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 #define MAX_SIZE 128
 char BUF[MAX_SIZE];
 void read_property_elt(void);
@@ -522,8 +522,8 @@ static void msm_batt_update_psy_status(void)
 	u32	battery_level;
 	u32     battery_voltage;
 	u32	battery_temp;
-	u32	battery_tmp_cap;
 #if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
+	u32	battery_tmp_cap;
 	u32	battery_soc;
 #endif
 	struct	power_supply	*supp;
@@ -600,8 +600,8 @@ static void msm_batt_update_psy_status(void)
 		 battery_level, battery_voltage, battery_temp);
 #endif
 
-#ifdef CONFIG_MACH_MSM7X27_GELATO
-	if(battery_temp >= 45) 
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
+if(((int)battery_temp >= 45) /* || ((int)battery_temp <= -10) */ ) /* Gelato DS : GPS FAIL */
 		read_property_elt();
 #endif
 	
@@ -827,9 +827,8 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_level 	= battery_level;
 	msm_batt_info.battery_temp 	= battery_temp;
 
-	battery_tmp_cap = msm_batt_info.calculate_capacity(battery_soc);
-
 #if defined(CONFIG_LGE_FUEL_GAUGE) || defined(CONFIG_LGE_FUEL_SPG)
+	battery_tmp_cap = msm_batt_info.calculate_capacity(battery_soc);
 
 	if((msm_batt_info.battery_voltage != battery_voltage) ||
 		(msm_batt_info.batt_capacity != battery_tmp_cap)) {
@@ -1637,7 +1636,7 @@ static unsigned pcb_version;
 static unsigned chg_curr_volt;
 static unsigned batt_therm;
 static unsigned batt_volt_raw;
-#ifdef CONFIG_MACH_MSM7X27_GELATO
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 static unsigned chg_stat_reg;
 static unsigned chg_en_reg;
 #endif
@@ -1685,7 +1684,7 @@ static ssize_t msm_batt_batt_volt_raw_show(struct device* dev, struct device_att
 }
 static DEVICE_ATTR(batt_volt_raw, S_IRUGO, msm_batt_batt_volt_raw_show, NULL);
 
-#ifdef CONFIG_MACH_MSM7X27_GELATO
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 static ssize_t msm_batt_chg_stat_reg_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
 	chg_stat_reg = lge_get_chg_stat_reg();
@@ -1709,7 +1708,7 @@ static struct attribute* dev_attrs_lge_batt_info[] = {
 	&dev_attr_chg_curr_volt.attr,
 	&dev_attr_batt_therm.attr,
 	&dev_attr_batt_volt_raw.attr,	
-#ifdef CONFIG_MACH_MSM7X27_GELATO	
+#ifdef CONFIG_MACH_MSM7X27_UNIVA	
 	&dev_attr_chg_stat_reg.attr,
 	&dev_attr_chg_en_reg.attr,
 #endif	
@@ -2019,7 +2018,7 @@ static void __exit msm_batt_exit(void)
 	platform_driver_unregister(&msm_batt_driver);
 }
 
-#ifdef CONFIG_MACH_MSM7X27_GELATO
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 void read_property_elt(void)
 {
     int fd = -1;

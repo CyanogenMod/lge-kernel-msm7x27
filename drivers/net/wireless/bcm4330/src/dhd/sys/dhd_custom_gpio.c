@@ -201,6 +201,7 @@ dhd_custom_get_mac_address(unsigned char *buf)
 
 	/* Customer access to MAC address stored outside of DHD driver */
 #if defined(CONFIG_MACH_MAHIMAHI) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
+	/* Lin - this will call wifi_control_data->get_mac_addr (dhd_linux.c) */
 	ret = wifi_get_mac_addr(buf);
 #endif
 

@@ -397,6 +397,7 @@ config PHYS_OFFSET
 	default "0x12200000" if MACH_MSM7X27_THUNDERC
 	default "0x12800000" if MACH_MSM7X27_THUNDERA
 	default "0x12800000" if MACH_MSM7X27_GELATO
+	default "0x12800000" if MACH_MSM7X27_UNIVA
 	default "0x02800000" if MACH_MSM7X27_MUSCAT
 	default "0x02800000" if MACH_MSM7X27_JUMP
 	default "0x00200000" if !MSM_STACKED_MEMORY
@@ -1241,8 +1242,8 @@ config MSM_RPM_STATS_LOG
 	  via a debugfs node.
 
 config SMMU
-        bool "System MMU support"
-        depends on MMU
+	bool "System MMU support"
+	depends on MMU
 	select IOMMU_API
 	select SMMU_8X60 if ARCH_MSM8X60
 	depends on ARCH_MSM8X60

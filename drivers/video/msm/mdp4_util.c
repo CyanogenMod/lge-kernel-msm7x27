@@ -484,7 +484,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				else if (panel & MDP4_PANEL_DSI_VIDEO)
 					mdp4_overlay0_done_dsi_video();
 #endif
-			} else {        /* MDDI, DSI_CMD  */
+			} else {	/* MDDI, DSI_CMD  */
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 				if (panel & MDP4_PANEL_DSI_CMD)
 					mdp4_overlay0_done_dsi_cmd(dma);

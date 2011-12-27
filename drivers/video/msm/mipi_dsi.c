@@ -86,7 +86,7 @@ static void mipi_dsi_clk(struct dsi_clk_desc *clk, int clk_en)
 	char	*cc, *ns, *md;
 	int	pmxo_sel = 0;
 	char	mnd_en = 1, root_en = 1;
-	uint32	data, val;
+	uint32 data, val;
 
 	cc = mmss_cc_base + 0x004c;
 	md = mmss_cc_base + 0x0050;
@@ -101,22 +101,22 @@ static void mipi_dsi_clk(struct dsi_clk_desc *clk, int clk_en)
 						| (clk->mnd_mode << 6)
 						| (root_en << 2) | clk_en));
 		} else {
-			val = clk->d * 2;
-			data = (~val) & 0x0ff;
-			data |= clk->m << 8;
+	val = clk->d * 2;
+	data = (~val) & 0x0ff;
+	data |= clk->m << 8;
 			MIPI_OUTP_SECURE(md, data);
 
-			val = clk->n - clk->m;
-			data = (~val) & 0x0ff;
-			data <<= 24;
-			data |= clk->src;
+	val = clk->n - clk->m;
+	data = (~val) & 0x0ff;
+	data <<= 24;
+	data |= clk->src;
 			MIPI_OUTP_SECURE(ns, data);
 
 			MIPI_OUTP_SECURE(cc, ((pmxo_sel << 8)
 					      | (clk->mnd_mode << 6)
 					      | (mnd_en << 5)
 					      | (root_en << 2) | clk_en));
-		}
+}
 
 	} else
 		MIPI_OUTP_SECURE(cc, 0);
@@ -154,7 +154,7 @@ static void mipi_dsi_pclk(struct dsi_clk_desc *clk, int clk_en)
 			MIPI_OUTP_SECURE(ns, data);
 			MIPI_OUTP_SECURE(cc, ((clk->mnd_mode << 6)
 					      | (root_en << 2) | clk_en));
-		} else {
+	} else {
 			val = clk->d * 2;
 			data = (~val) & 0x0ff;
 			data |= clk->m << 8;
@@ -169,7 +169,7 @@ static void mipi_dsi_pclk(struct dsi_clk_desc *clk, int clk_en)
 			MIPI_OUTP_SECURE(cc, ((clk->mnd_mode << 6)
 					      | (mnd_en << 5)
 					      | (root_en << 2) | clk_en));
-		}
+	}
 
 	} else
 		MIPI_OUTP_SECURE(cc, 0);
@@ -447,7 +447,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	/* make sure mdp dma is not running */
 	if (mfd->panel_info.type == MIPI_CMD_PANEL)
-		mdp4_dsi_cmd_dma_busy_wait(mfd);
+	mdp4_dsi_cmd_dma_busy_wait(mfd);
 
 
 #ifdef CONFIG_MSM_BUS_SCALING

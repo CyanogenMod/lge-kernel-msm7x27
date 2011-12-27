@@ -766,5 +766,8 @@ void mdp_ppp_dump_debug(const struct mdp_info *mdp);
 #define MDDI_VDO_PACKET_PRIM  0xC3
 #define MDDI_VDO_PACKET_SECD  0xC0
 
+#if defined(CONFIG_MACH_MSM7X27_UNIVA)
+extern mdp_load_univa_lut(int lut_type);
+#endif
 
 #endif

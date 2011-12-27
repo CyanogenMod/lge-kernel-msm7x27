@@ -169,7 +169,7 @@ static irqreturn_t charm_errfatal(int irq, void *dev_id)
 	if (successful_boot) {
 		pr_info("%s: scheduling work now\n", __func__);
 		schedule_work(&charm_fatal_work);
-		disable_irq_nosync(MSM_GPIO_TO_INT(MDM2AP_ERRFATAL));
+	disable_irq_nosync(MSM_GPIO_TO_INT(MDM2AP_ERRFATAL));
 	}
 	return IRQ_HANDLED;
 }
@@ -181,7 +181,7 @@ static irqreturn_t charm_status_change(int irq, void *dev_id)
 	if (successful_boot) {
 		pr_info("%s: scheduling work now\n", __func__);
 		schedule_work(&charm_status_work);
-		disable_irq_nosync(MSM_GPIO_TO_INT(MDM2AP_STATUS));
+	disable_irq_nosync(MSM_GPIO_TO_INT(MDM2AP_STATUS));
 	}
 	return IRQ_HANDLED;
 }

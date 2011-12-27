@@ -127,6 +127,16 @@ int	 wl_control_wl_start(struct net_device *dev);
 #define WLC_IW_BSS_INFO_MAXLEN 				\
 	(WLC_IW_SS_CACHE_MAXLEN - WLC_IW_SS_CACHE_CTRL_FIELD_MAXLEN)
 
+#ifdef CONFIG_LGE_BCM432X_PATCH
+typedef struct wl_iw_ss_cache {
+    struct wl_iw_ss_cache *next;
+    int dirty;
+    uint32 buflen;
+    uint32 version;
+    uint32 count;
+    wl_bss_info_t bss_info[1];
+} wl_iw_ss_cache_t;
+#else
 typedef struct wl_iw_ss_cache {
 	uint32 buflen;
 	uint32 version;
@@ -136,6 +146,8 @@ typedef struct wl_iw_ss_cache {
 	int dirty;
 	struct wl_iw_ss_cache *next;
 } wl_iw_ss_cache_t;
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+
 
 typedef struct wl_iw_ss_cache_ctrl {
 	wl_iw_ss_cache_t *m_cache_head;	/* specific scan cache head */

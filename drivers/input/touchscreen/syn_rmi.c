@@ -28,6 +28,15 @@
 #include <mach/vreg.h>
 #include "syn_reflash.h"
 
+struct vreg {
+	const char *name;
+	unsigned id;
+	int status;
+	unsigned refcnt;
+};
+
+
+#define DEVICE_STATUS       0x13
 #define INT_STATUS			0x14
 
 #define SYN_INT_REG			0x26
@@ -57,10 +66,16 @@
 #define PID_STR_NUM	        11
 #define CMD_BLOCK_NUM		41
 /************************************/
-
+int reflash_flag = 0;
 int fw_rev = 0;
 EXPORT_SYMBOL(fw_rev);
 module_param(fw_rev, int, S_IWUSR | S_IRUGO);
+
+uint16_t max_x, max_y;
+extern int is_need_update;
+extern int is_fw_reflash;
+
+int product_type;
 
 /**************** structure ***********************************/
 struct synaptics_ts_data {
@@ -72,6 +87,7 @@ struct synaptics_ts_data {
 	struct hrtimer timer;
 	struct work_struct  work;
 	struct work_struct  work_for_reflash;
+	struct work_struct  work_for_on;
 	uint16_t max[2];
 	uint32_t flags;
 	int reported_finger_count;
@@ -153,32 +169,26 @@ typedef struct {
 /**************** STATIC VARIABLE *********************************/
 static struct workqueue_struct *synaptics_wq;
 static struct workqueue_struct *synaptics_fwdl_wq;
+static struct workqueue_struct *synaptics_on_wq;
 static ts_sensor_data ts_reg_data={0};
 static ts_finger_data curr_ts_data;
 static ts_sensor_command ts_cmd_reg_data={0};
 static int touch_pressed = 0;
 static int multi = 0;
-static int melt_mode = 1, melt_count =0, tmp_oldx = 0, tmp_oldy = 0;
-static int tapcount = 0;
+static int irq_flag = 1, melt_mode = 1, melt_count =0, tmp_oldx = 0, tmp_oldy = 0;
+/* static int tapcount = 0; */
 static int first_touch = 0;
-
-uint16_t max_x, max_y;
-int is_need_update = 0;
-int is_fw_reflash = 0;
-
-EXPORT_SYMBOL(max_x);
-EXPORT_SYMBOL(max_y);
-EXPORT_SYMBOL(is_need_update);
-EXPORT_SYMBOL(is_fw_reflash);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ts_early_suspend(struct early_suspend *h);
 static void ts_late_resume(struct early_suspend *h);
 #endif
+static int synaptics_ts_resume(struct i2c_client *client);
+
 /****************************************************************/
 
 static __inline void ts_event_touch(int pressed, int width, int x, int y, struct synaptics_ts_data *ts)
-{	
+{
 	input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, pressed);
 	input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, width);
 	input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);
@@ -212,7 +222,7 @@ static __inline void esd_recovery(struct synaptics_ts_data *ts)
 
 static void ts_work_func(struct work_struct *work)
 {
-	int int_mode;
+	int int_mode, device_status;
 	int width0, width1;
 	int tmp0_x=0, tmp0_y=0, tmp1_x=0, tmp1_y=0;
 	int finger0_status=0, finger1_status=0;
@@ -220,11 +230,13 @@ static void ts_work_func(struct work_struct *work)
 	struct synaptics_ts_data *ts = container_of(work, struct synaptics_ts_data, work);
 
 	int_mode = i2c_smbus_read_byte_data(ts->client, INT_STATUS);
-	if (unlikely(int_mode < 0)) {
+	device_status = i2c_smbus_read_byte_data(ts->client, DEVICE_STATUS) & 0x03;
+
+	if (unlikely(int_mode < 0 || device_status == 0x03)) {
 		printk("[TOUCH] i2c failed ==> recovery touch!!");
 		esd_recovery(ts);
-		if (ts->use_irq)
-		{
+		if (ts->use_irq && irq_flag == 0) {
+			irq_flag++;
 			enable_irq(ts->client->irq);
 		}
 		i2c_smbus_read_byte_data(ts->client, INT_STATUS);
@@ -263,7 +275,7 @@ static void ts_work_func(struct work_struct *work)
 	if (finger0_status && finger1_status) {    /* 1 & 2 */
 		touch_pressed = 1;
 		multi = 1, melt_count = 2;
-		tapcount = 0;
+		/* tapcount = 0; */
 		ts_event_touch(1, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
 		ts_event_touch(1, width1, curr_ts_data.X_position[1], curr_ts_data.Y_position[1], ts);
 	} else if (finger0_status) {    /* 1 only */
@@ -290,7 +302,7 @@ static void ts_work_func(struct work_struct *work)
 		multi = 0;
 		touch_pressed =0;
 		first_touch = 0;
-		tapcount = 0;
+		/* tapcount = 0; */
 		ts_event_touch(0, width0, curr_ts_data.X_position[0], curr_ts_data.Y_position[0], ts);
 		ts_event_touch(0, width1, curr_ts_data.X_position[1], curr_ts_data.Y_position[1], ts);
 	} else if (touch_pressed == 1) {    /* 1 only ==> release 1 */
@@ -302,88 +314,115 @@ static void ts_work_func(struct work_struct *work)
 				i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING, MELTING_NO);
 				printk("[TOUCH] Long Drag detected!!==> set no melt\n");
 				melt_mode = 0;
-			} else if (tapcount++ > 2) {    /* tapping!!!! */
-				i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING, MELTING_NO);
-				printk("[TOUCH] TapCount detected!!==> set no melt\n");
-				tapcount = 0;
-				melt_mode = 0;
 			}
+			/*  else if (tapcount++ > 2) {    /\* tapping!!!! *\/ */
+			/* 	i2c_smbus_write_byte_data(ts->client, SYNAPTICS_MELTING, MELTING_NO); */
+			/* 	printk("[TOUCH] TapCount detected!!==> set no melt\n"); */
+			/* 	tapcount = 0; */
+			/* 	melt_mode = 0; */
+			/* } */
 		}
 		melt_count = 0;
 	}
 	input_sync(ts->input_dev);
 
-	if (ts->use_irq)
-	{
+	if (ts->use_irq && irq_flag == 0) {
+		irq_flag++;
 		enable_irq(ts->client->irq);
 	}
 }
 
 static void ts_reflash_work_func(struct work_struct *work)
 {
-	struct synaptics_ts_data *ts = container_of(work, struct synaptics_ts_data, work_for_reflash);
-	int ret;
+	int ret, int_mode;
+	u8 buf[4];
+	enum firmware_type type;
+	struct synaptics_ts_data *ts = NULL;
+	ts = container_of(work, struct synaptics_ts_data, work_for_reflash);
 
 	printk("[TOUCH] start F/W reflash for synaptics touch IC!!\n");
 
-	if (ts->use_irq)
-		disable_irq_nosync(ts->client->irq);
+	type = product_type;
 
-	if(firmware_reflash(ts->client, ts->fw_revision) == 0) {
-		printk("[TOUCH] ts_reflash_work_func : DoReflash succeed!\n");
+	if (ts->use_irq && irq_flag == 1) {
+		irq_flag--;
+		disable_irq_nosync(ts->client->irq);
+	}
+	if(firmware_reflash(ts->client, ts->fw_revision, type) == 0) {
+		printk("[TOUCH] %s: DoReflash succeed!\n", __func__);
 
 		ret = i2c_smbus_read_byte_data(ts->client, ts_cmd_reg_data.firmware_revision_query);
 		if (ret < 0) {
 			printk("[TOUCH] i2c_smbus_read_byte_data failed\n");
+		} else {
+			fw_rev = ret;
+			printk("[TOUCH] %s: new firmware version 0x%x\n", __func__, ret);
 		}
-		printk("[TOUCH] ts_reflash_work_func: Firmware Revision 0x%x\n", ret);
 
-		ret = i2c_smbus_read_word_data(ts->client, MAX_X_LOW);
+		ret = i2c_smbus_read_i2c_block_data(ts->client, MAX_X_LOW, 4, buf);
 		if (ret < 0) {
-			printk("[TOUCH] i2c_smbus_read_word_data failed\n");
+			printk("[TOUCH] %s max x/y read failed\n", __func__);
 		}
-		max_x = (ret & 0xFF);
 
-		ret = i2c_smbus_read_word_data(ts->client, MAX_X_HIGH);
-		if (ret < 0) {
-			printk("[TOUCH] i2c_smbus_read_word_data failed\n");
-		}
-		max_x |= (((ret & 0xFF) << 8) & 0xff00);
-		ts->max[0] = max_x;
+		max_x = buf[0] | (buf[1] << 8);
+		max_y = buf[2] | (buf[3] << 8);
 
-		ret = i2c_smbus_read_word_data(ts->client, MAX_Y_LOW);
-		if (ret < 0) {
-			printk("[TOUCH] i2c_smbus_read_word_data failed\n");
-		}
-		max_y = (ret & 0xFF);
+		printk("[TOUCH] %s: max_x = 0x%x, max_y = 0x%x\n",__func__, max_x, max_y);
 
-		ret = i2c_smbus_read_word_data(ts->client, MAX_Y_HIGH);
-		if (ret < 0) {
-			printk("[TOUCH] i2c_smbus_read_word_data failed\n");
-		}
-		max_y |= (((ret & 0xFF) << 8) & 0xff00);
-		ts->max[1] = max_y;
-
-		printk("[TOUCH] ts_reflash_work_func : max_x = 0x%x\n",max_x);
-		printk("[TOUCH] ts_reflash_work_func : max_y = 0x%x\n",max_y);
-
-		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, max_x+1, 0, 0);
-		input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, max_y+1, 0, 0);
-		input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 15, 0, 0);
-		input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 15, 0, 0);
-		ret = input_register_device(ts->input_dev);
-		if (ret) {
-			printk("[TOUCH] synaptics_ts_probe: Unable to register %s input device\n", ts->input_dev->name);
-			input_free_device(ts->input_dev);
+		if ( ts->max[0] != max_x || ts->max[1] != max_y) {
+			printk("[TOUCH] Reinitialize Touch input device\n");
+			input_unregister_device(ts->input_dev);
+			ts->input_dev = input_allocate_device();
+			if (ts->input_dev == NULL) {
+				ret = -ENOMEM;
+				printk("[TOUCH] synaptics_ts_probe: Failed to allocate input device\n");
+				kfree(ts);
+				return;
+			}
+			ts->input_dev->name = "synaptics-rmi-ts";
+			set_bit(EV_SYN, ts->input_dev->evbit);
+			set_bit(EV_ABS, ts->input_dev->evbit);
+			set_bit(EV_KEY, ts->input_dev->evbit);
+			ts->max[0] = max_x;
+			ts->max[1] = max_y;
+			input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, max_x+1, 0, 0);
+			input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, max_y+1, 0, 0);
+			input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 15, 0, 0);
+			input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 15, 0, 0);
+			ret = input_register_device(ts->input_dev);
+			if (ret) {
+				printk("[TOUCH] synaptics_ts_probe: Unable to register %s input device\n", ts->input_dev->name);
+				input_free_device(ts->input_dev);
+			}
 		}
 	}
 
-	is_fw_reflash = 0;
-
 	/* enable irq */
-	if (ts->use_irq)
+	if (ts->use_irq && irq_flag == 0) {
+		irq_flag++;
 		enable_irq(ts->client->irq);
+	}
 
+	int_mode = i2c_smbus_read_byte_data(ts->client, INT_STATUS);
+	if (unlikely(int_mode < 0)) {
+		printk("[TOUCH] i2c failed ==> recovery touch!!");
+		esd_recovery(ts);
+		i2c_smbus_read_byte_data(ts->client, INT_STATUS);
+	}
+
+	melt_mode = 1;
+
+	ts->fw_revision = fw_rev;
+	is_fw_reflash = 0;
+	is_need_update = 0;
+
+	return;
+}
+
+static void ts_on_work_func(struct work_struct *work)
+{
+	struct synaptics_ts_data *ts = container_of(work, struct synaptics_ts_data, work_for_on);
+	synaptics_ts_resume(ts->client);
 	return;
 }
 
@@ -401,7 +440,10 @@ static irqreturn_t synaptics_ts_irq_handler(int irq, void *dev_id)
 {
 	struct synaptics_ts_data *ts = dev_id;
 
-	disable_irq_nosync(ts->client->irq);
+	if (ts->use_irq && irq_flag == 1) {
+		irq_flag--;
+		disable_irq_nosync(ts->client->irq);
+	}
 	queue_work(synaptics_wq, &ts->work);
 
 	return IRQ_HANDLED;
@@ -418,6 +460,99 @@ static void get_device_inform(void)
 	memcpy(&ts_cmd_reg_data, &reg_block_num[0], CMD_BLOCK_NUM);
 	return;
 }
+
+static ssize_t syn_reflash_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int len;
+
+	len = snprintf(buf, PAGE_SIZE, "\n Synaptics Touch Status \n");
+	len += snprintf(buf + len, PAGE_SIZE - len, "====================================\n");
+	len += snprintf(buf + len, PAGE_SIZE - len, "firmware revision is %d\n", fw_rev);
+	return len;
+}
+
+static ssize_t syn_reflash_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct synaptics_ts_data *ts = dev_get_drvdata(dev);
+	struct vreg *vreg_touch = vreg_get(0, "mmc");
+	int cmd, ret, version;
+
+	if (sscanf(buf, "%d, %d", &cmd, &version) != 2)
+		return -EINVAL;
+	switch (cmd) {
+	case 1:
+		ts->fw_revision = version;
+
+		if (ts->power) {
+			if(!vreg_touch->refcnt) {
+				ret = ts->power(1);
+				if (ret < 0)
+					printk("[TOUCH] power on failed\n");
+			}
+		}
+
+		is_need_update = 1;
+		queue_work(synaptics_fwdl_wq, &ts->work_for_reflash);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return count;
+}
+
+static ssize_t syn_status_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct vreg *vreg_touch = vreg_get(0, "mmc");
+	int len;
+
+	len = snprintf(buf, PAGE_SIZE, "\n Synaptics Touch Melt Mode \n");
+	len += snprintf(buf + len, PAGE_SIZE - len, "Melt Mode is %d\n", melt_mode);
+	len += snprintf(buf + len, PAGE_SIZE - len, "Ref Count is %d\n", vreg_touch->refcnt);
+	len += snprintf(buf + len, PAGE_SIZE - len, "irq flag  is %d\n", irq_flag);
+	if (product_type == syn_1818)
+		len += snprintf(buf + len, PAGE_SIZE - len, "product type  is TM1818\n");
+	else
+		len += snprintf(buf + len, PAGE_SIZE - len, "product type  is TM1912\n");
+	return len;
+}
+
+static ssize_t syn_status_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct synaptics_ts_data *ts = dev_get_drvdata(dev);
+	struct vreg *vreg_touch = vreg_get(0, "mmc");
+	int cmd, ret;
+
+	if (sscanf(buf, "%d", &cmd) != 1)
+		return -EINVAL;
+	switch (cmd) {
+	case 1:
+		if (ts->power) {
+			if(!vreg_touch->refcnt) {
+				ret = ts->power(1);
+				if (ret < 0)
+					printk("[TOUCH] power on failed\n");
+			}
+		}
+		break;
+	case 2:
+		if (ts->power) {
+			if(vreg_touch->refcnt) {
+				ret = ts->power(0);
+				if (ret < 0)
+					printk("[TOUCH] Power off failed\n");
+			}
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+	return count;
+}
+
+static struct device_attribute syn_device_attrs[] = {
+	__ATTR(reflash, S_IRUGO |S_IWUSR, syn_reflash_show, syn_reflash_store),
+	__ATTR(status, S_IRUGO |S_IWUSR, syn_status_show, syn_status_store),
+};
 
 /*************************************************************************************************
  * 1. Set interrupt configuration
@@ -439,6 +574,7 @@ static int synaptics_ts_probe(
 	unsigned long irqflags = 0;
 	int product_id_query;
 	char product_name[PID_STR_NUM];
+	u8 buf[4];
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		printk("[TOUCH] synaptics_ts_probe: need I2C_FUNC_I2C\n");
@@ -452,8 +588,6 @@ static int synaptics_ts_probe(
 		ret = -ENOMEM;
 		goto err_alloc_data_failed;
 	}
-
-	INIT_WORK(&ts->work_for_reflash, ts_reflash_work_func);
 
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
@@ -492,9 +626,19 @@ static int synaptics_ts_probe(
 		printk("[TOUCH] synaptics_ts_probe : i2c_smbus_read_i2c_block_data failed: product_id_query\n");
 	}
 
+	if (strcmp(product_name, "TM1818-001") == 0) {
+			product_type = syn_1818;
+			printk("[TOUCH] Touch Product name is TM1818\n");
+	} else if (strcmp(product_name, "TM1912-001") == 0) {
+			product_type = syn_1912;
+			printk("[TOUCH] Touch Product name is TM1912\n");
+	}
+
 	get_device_inform();
 
 	INIT_WORK(&ts->work, ts_work_func);
+	INIT_WORK(&ts->work_for_reflash, ts_reflash_work_func);
+	INIT_WORK(&ts->work_for_on, ts_on_work_func);
 
 	ret = i2c_smbus_read_byte_data(ts->client, ts_cmd_reg_data.customer_family_query);
 	if (ret < 0) {
@@ -512,33 +656,16 @@ static int synaptics_ts_probe(
   	memset(&ts_reg_data, 0x0, sizeof(ts_sensor_data));
   	memset(&curr_ts_data, 0x0, sizeof(ts_finger_data));
 
-	ret = i2c_smbus_read_word_data(ts->client, MAX_X_LOW);
+	ret = i2c_smbus_read_i2c_block_data(ts->client, MAX_X_LOW, 4, buf);
 	if (ret < 0) {
-		printk("[TOUCH] i2c_smbus_read_word_data failed\n");
+		printk("[TOUCH] %s max x/y read failed\n", __func__);
 	}
-	max_x = (ret & 0xFF);
 
-	ret = i2c_smbus_read_word_data(ts->client, MAX_X_HIGH);
-	if (ret < 0) {
-		printk("[TOUCH] i2c_smbus_read_word_data failed\n");
-	}
-	max_x |= (((ret & 0xFF) << 8) & 0xff00);
+	max_x = buf[0] | (buf[1] << 8);
+	max_y = buf[2] | (buf[3] << 8);
 	ts->max[0] = max_x;
-	printk("[TOUCH] max_x  ===> %d\n", max_x);
-
-	ret = i2c_smbus_read_word_data(ts->client, MAX_Y_LOW);
-	if (ret < 0) {
-		printk("[TOUCH] i2c_smbus_read_word_data failed\n");
-	}
-	max_y = (ret & 0xFF);
-	printk("[TOUCH] max_y  ===> %d\n", max_y);
-
-	ret = i2c_smbus_read_word_data(ts->client, MAX_Y_HIGH);
-	if (ret < 0) {
-		printk("[TOUCH] i2c_smbus_read_word_data failed\n");
-	}
-	max_y |= (((ret & 0xFF) << 8) & 0xff00);
 	ts->max[1] = max_y;
+	printk("%s touch max_x = 0x%x, max_y = 0x%x\n", __func__, max_x, max_y);
 
 	if((max_x == 0x00) || (max_y == 0x00)) {
 		printk("[TOUCH] F/W image is not normal status : need upgrade.\n");
@@ -589,7 +716,7 @@ static int synaptics_ts_probe(
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN -40;
+	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	ts->early_suspend.suspend = ts_early_suspend;
 	ts->early_suspend.resume = ts_late_resume;
 	register_early_suspend(&ts->early_suspend);
@@ -597,7 +724,14 @@ static int synaptics_ts_probe(
 
 	if(synaptics_fwdl_wq)
 		queue_work(synaptics_fwdl_wq, &ts->work_for_reflash);
-	printk("[TOUCH] Start touchscreen %s in %s mode\n", ts->input_dev->name, ts->use_irq ? "interrupt" : "polling");
+
+	for (i = 0; i < ARRAY_SIZE(syn_device_attrs); i++) {
+		if (device_create_file(&client->dev, &syn_device_attrs[i])) {
+			printk("[TOUCH] Fail to make sysfs\n");
+			goto err_input_register_device_failed;
+		}
+	}
+
 	return 0;
 
 err_input_register_device_failed:
@@ -613,6 +747,7 @@ err_check_functionality_failed:
 
 static int synaptics_ts_remove(struct i2c_client *client)
 {
+	int i;
 	struct synaptics_ts_data *ts = i2c_get_clientdata(client);
 	unregister_early_suspend(&ts->early_suspend);
 	if (ts->use_irq)
@@ -622,6 +757,9 @@ static int synaptics_ts_remove(struct i2c_client *client)
 	input_unregister_device(ts->input_dev);
 	kfree(ts);
 
+	for (i = 0; i < ARRAY_SIZE(syn_device_attrs); i++)
+		device_remove_file(&client->dev, &syn_device_attrs[i]);
+
 	return 0;
 }
 
@@ -630,14 +768,20 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	int ret;
 	struct synaptics_ts_data *ts = i2c_get_clientdata(client);
 
+	cancel_work_sync(&ts->work_for_on);
+
 	if(is_fw_reflash == 1) {
 		printk("[TOUCH] synaptics_ts_suspend: during f/w image update - block suspend\n");
+		reflash_flag = 1;
 		return 0;
 	}
 
-	if (ts->use_irq)
-		disable_irq_nosync(client->irq);
-	else
+	if (ts->use_irq) {
+		if (irq_flag == 1) {
+			irq_flag--;
+			disable_irq_nosync(client->irq);
+		}
+	} else
 		hrtimer_cancel(&ts->timer);
 
 	i2c_smbus_write_byte_data(ts->client, SYN_CONTROL, SYN_CONT_SLEEP); /* sleep */
@@ -647,6 +791,7 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 		if (ret < 0)
 			printk("[TOUCH] synaptics_ts_resume power off failed\n");
 	}
+
 	return 0;
 }
 
@@ -654,19 +799,46 @@ static int synaptics_ts_resume(struct i2c_client *client)
 {
 	int ret, int_mode = 0;
 	struct synaptics_ts_data *ts = i2c_get_clientdata(client);
-	tapcount = 0, melt_count = 0;
+	struct vreg *vreg_touch = vreg_get(0, "mmc");
+	/* tapcount = 0; */
+	melt_count = 0;
+
+	if(is_fw_reflash == 1 || reflash_flag ==1) {
+		printk("[TOUCH] synaptics_ts_resume: during f/w image update - block resume\n");
+		reflash_flag = 0;
+		return 0;
+	}
 
 	if (ts->power) {
-		ret = ts->power(1);
-		if (ret < 0)
-			printk("[TOUCH] synaptics_ts_resume power on failed\n");
+		if(!vreg_touch->refcnt) {
+			ret = ts->power(1);
+			if (ret < 0)
+				printk("[TOUCH] power on failed\n");
+		}
 	}
 
     i2c_smbus_write_byte_data(ts->client, SYN_CONTROL, SYN_CONT_NOSLEEP); /* wake up */
 
-	if (ts->use_irq)
-		enable_irq(client->irq);
-	else
+	/*
+	 * 2011-05-09, jinkyu.choi@lge.com
+	 * update the touch f/w version for Folder JIG Test
+	 */
+	ret = i2c_smbus_read_byte_data(ts->client,
+			ts_cmd_reg_data.firmware_revision_query);
+
+	if (ret > 0) {
+		fw_rev = ret;
+		printk("%s touch f/w version is updated %d\n", __func__, fw_rev);
+	} else {
+		printk("%s touch f/w version is invalid %d\n", __func__, ret);
+	}
+
+	if (ts->use_irq) {
+		if (irq_flag == 0) {
+			irq_flag++;
+			enable_irq(client->irq);
+		}
+	} else
 		hrtimer_start(&ts->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
 
 	int_mode = i2c_smbus_read_byte_data(ts->client, INT_STATUS);
@@ -691,7 +863,8 @@ static void ts_late_resume(struct early_suspend *h)
 {
 	struct synaptics_ts_data *ts;
 	ts = container_of(h, struct synaptics_ts_data, early_suspend);
-	synaptics_ts_resume(ts->client);
+	if (synaptics_on_wq)
+		queue_work(synaptics_on_wq, &ts->work_for_on);
 }
 #endif
 
@@ -718,7 +891,7 @@ static int __devinit synaptics_ts_init(void)
 {
 	synaptics_wq = create_singlethread_workqueue("synaptics_wq");
 	synaptics_fwdl_wq = create_singlethread_workqueue("synaptics_fwdl_wq");
-	
+	synaptics_on_wq = create_singlethread_workqueue("synaptics_on_wq");
 	if ((!synaptics_wq)||(!synaptics_fwdl_wq))
 		return -ENOMEM;
 
@@ -733,6 +906,8 @@ static void __exit synaptics_ts_exit(void)
 		destroy_workqueue(synaptics_wq);
 	if (synaptics_fwdl_wq)
 		destroy_workqueue(synaptics_fwdl_wq);
+	if (synaptics_on_wq)
+		destroy_workqueue(synaptics_on_wq);
 }
 
 module_init(synaptics_ts_init);

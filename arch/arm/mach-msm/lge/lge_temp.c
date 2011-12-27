@@ -127,6 +127,7 @@ static int get_qem_show(struct device *dev, struct device_attribute *attr, char 
 	return sprintf(buf, "%d\n", value);
 }
 static DEVICE_ATTR(qem, 0664, get_qem_show, NULL);
+
 static int __init lge_tempdevice_probe(struct platform_device *pdev)
 {
 	int err;

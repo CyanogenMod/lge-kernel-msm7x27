@@ -119,16 +119,16 @@ static int ilitek_qvga_disp_off(struct platform_device *pdev)
 
 	pm_qos_update_request(tovis_pm_qos_req, PM_QOS_DEFAULT_VALUE);
 
-	EBI2_WRITE16C(DISP_CMD_PORT, 0x28);
-	mdelay(50);
-	EBI2_WRITE16C(DISP_CMD_PORT, 0x10); // SPLIN
-	mdelay(120);
+		EBI2_WRITE16C(DISP_CMD_PORT, 0x28);
+		mdelay(50);
+		EBI2_WRITE16C(DISP_CMD_PORT, 0x10); // SPLIN
+		mdelay(120);
 
 	if(pdata->gpio)
 		gpio_set_value(pdata->gpio, 0);
 
-	msm_fb_ebi2_power_save(0);
-	display_on = FALSE;
+		msm_fb_ebi2_power_save(0);
+		display_on = FALSE;
 
 	return 0;
 }
@@ -297,7 +297,7 @@ static void do_ilitek_init(struct platform_device *pdev)
 	EBI2_WRITE16D(DISP_DATA_PORT,0x23); // 1
 
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xc1);
-	EBI2_WRITE16D(DISP_DATA_PORT,0x10); // 1
+	EBI2_WRITE16D(DISP_DATA_PORT,0x11); // 1
 
 	EBI2_WRITE16C(DISP_CMD_PORT, 0xc5);
 	EBI2_WRITE16D(DISP_DATA_PORT,0x2f); // 1
@@ -381,11 +381,11 @@ static void do_ilitek_init(struct platform_device *pdev)
 	EBI2_WRITE16D(DISP_DATA_PORT,0x06); // 6
 	EBI2_WRITE16D(DISP_DATA_PORT,0x4b); // 6
 	EBI2_WRITE16D(DISP_DATA_PORT,0x65); // 8
-	EBI2_WRITE16D(DISP_DATA_PORT,0x31); // 9
+	EBI2_WRITE16D(DISP_DATA_PORT,0x30); // 9
 	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 10
 	EBI2_WRITE16D(DISP_DATA_PORT,0x0c); // 11
 	EBI2_WRITE16D(DISP_DATA_PORT,0x02); // 12
-	EBI2_WRITE16D(DISP_DATA_PORT,0x0f); // 13
+	EBI2_WRITE16D(DISP_DATA_PORT,0x0e); // 13
 	EBI2_WRITE16D(DISP_DATA_PORT,0x0b); // 14
 	EBI2_WRITE16D(DISP_DATA_PORT,0x00); // 15
 
@@ -399,11 +399,11 @@ static void do_ilitek_init(struct platform_device *pdev)
 	EBI2_WRITE16D(DISP_DATA_PORT,0x04); // 6
 	EBI2_WRITE16D(DISP_DATA_PORT,0x36); // 6
 	EBI2_WRITE16D(DISP_DATA_PORT,0x34); // 8
-	EBI2_WRITE16D(DISP_DATA_PORT,0x50); // 9
+	EBI2_WRITE16D(DISP_DATA_PORT,0x51); // 9
 	EBI2_WRITE16D(DISP_DATA_PORT,0x08); // 10
 	EBI2_WRITE16D(DISP_DATA_PORT,0x11); // 11
 	EBI2_WRITE16D(DISP_DATA_PORT,0x0c); // 12
-	EBI2_WRITE16D(DISP_DATA_PORT,0x32); // 13
+	EBI2_WRITE16D(DISP_DATA_PORT,0x33); // 13
 	EBI2_WRITE16D(DISP_DATA_PORT,0x36); // 14
 	EBI2_WRITE16D(DISP_DATA_PORT,0x17); // 15
 
@@ -565,12 +565,12 @@ static int ilitek_qvga_disp_on(struct platform_device *pdev)
 
 		if(pdata->gpio) {
 			mdelay(10);
-			gpio_set_value(pdata->gpio, 1);
-			mdelay(1);
-			gpio_set_value(pdata->gpio, 0);
+		gpio_set_value(pdata->gpio, 1);
+		mdelay(1);
+		gpio_set_value(pdata->gpio, 0);
 			mdelay(10);
-			gpio_set_value(pdata->gpio, 1);
-			mdelay(120);
+		gpio_set_value(pdata->gpio, 1);
+		mdelay(120);
 		}
 		if(pdata->maker_id == PANEL_ID_LGDISPLAY)
 			do_lgd_init(pdev);

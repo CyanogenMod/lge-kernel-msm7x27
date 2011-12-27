@@ -1371,8 +1371,17 @@ int input_flush_device(struct input_handle* handle, struct file* file);
 void input_event(struct input_dev *dev, unsigned int type, unsigned int code, int value);
 void input_inject_event(struct input_handle *handle, unsigned int type, unsigned int code, int value);
 
+//LGE_DEV_PORTING UNIVA_S : 20110616 [taiyou.kang@lge.com] Delete Dalvik cache for reset by safe-mode
+extern int saved_key;
+//LGE_DEV_PORTING UNIVA_E
+
 static inline void input_report_key(struct input_dev *dev, unsigned int code, int value)
 {
+//LGE_DEV_PORTING UNIVA_S : 20110616 [taiyou.kang@lge.com] Delete Dalvik cache for reset by safe-mode
+	if(code == KEY_VOLUMEUP)
+		saved_key = !!value;
+//LGE_DEV_PORTING UNIVA_E
+	
 	input_event(dev, EV_KEY, code, !!value);
 }
 

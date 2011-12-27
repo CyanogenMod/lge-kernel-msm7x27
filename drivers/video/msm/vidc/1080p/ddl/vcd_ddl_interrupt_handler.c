@@ -637,14 +637,14 @@ static u32 ddl_decoder_frame_run_callback(struct ddl_client_context *ddl)
 					VIDC_1080P_DISPLAY_STATUS_DPB_EMPTY ||
 					disp_status ==
 					VIDC_1080P_DISPLAY_STATUS_NOOP) {
-					ddl_vidc_decode_frame_run(ddl);
+				ddl_vidc_decode_frame_run(ddl);
 				} else if (eos_present)
-					ddl_vidc_decode_eos_run(ddl);
+				ddl_vidc_decode_eos_run(ddl);
 				else {
-					ddl->client_state =
-						DDL_CLIENT_WAIT_FOR_FRAME;
-					ddl_release_command_channel(ddl_context,
-						ddl->command_channel);
+				ddl->client_state =
+					DDL_CLIENT_WAIT_FOR_FRAME;
+				ddl_release_command_channel(ddl_context,
+					ddl->command_channel);
 					ret_status = true;
 				}
 			}
@@ -688,26 +688,26 @@ static u32 ddl_eos_frame_done_callback(
 				DDL_MSG_ERROR("EOS-STATE-CRITICAL-"
 					"WRONG-DISP-STATUS");
 			if (!ret_status) {
-				ddl_decoder_dpb_transact(decoder, NULL,
-					DDL_DPB_OP_SET_MASK);
-				ddl->cmd_state = DDL_CMD_EOS;
+			ddl_decoder_dpb_transact(decoder, NULL,
+				DDL_DPB_OP_SET_MASK);
+			ddl->cmd_state = DDL_CMD_EOS;
 
-				memset(&dec_param, 0, sizeof(dec_param));
+			memset(&dec_param, 0, sizeof(dec_param));
 
-				dec_param.cmd_seq_num =
-					++ddl_context->cmd_seq_num;
-				dec_param.inst_id = ddl->instance_id;
-				dec_param.shared_mem_addr_offset =
+			dec_param.cmd_seq_num =
+				++ddl_context->cmd_seq_num;
+			dec_param.inst_id = ddl->instance_id;
+			dec_param.shared_mem_addr_offset =
 					DDL_ADDR_OFFSET(
 					ddl_context->dram_base_a,
-					ddl->shared_mem[ddl->command_channel]);
-				dec_param.release_dpb_bit_mask =
-					dpb_mask->hw_mask;
-				dec_param.decode =
-					VIDC_1080P_DEC_TYPE_LAST_FRAME_DATA;
+				ddl->shared_mem[ddl->command_channel]);
+			dec_param.release_dpb_bit_mask =
+				dpb_mask->hw_mask;
+			dec_param.decode =
+				VIDC_1080P_DEC_TYPE_LAST_FRAME_DATA;
 
-				ddl_context->vidc_decode_frame_start[ddl->\
-					command_channel](&dec_param);
+			ddl_context->vidc_decode_frame_start[ddl->\
+				command_channel](&dec_param);
 			}
 		}
 	}
@@ -1015,7 +1015,7 @@ static u32 ddl_decoder_output_done_callback(
 	u32 vcd_status, free_luma_dpb = 0, disp_pict = 0, is_interlaced;
 	get_dec_op_done_data(dec_disp_info, decoder->output_order,
 		&output_vcd_frm->physical, &is_interlaced);
-	output_vcd_frm->frame = VCD_FRAME_YUV;
+		output_vcd_frm->frame = VCD_FRAME_YUV;
 	if (decoder->codec.codec == VCD_CODEC_MPEG4 ||
 		decoder->codec.codec == VCD_CODEC_VC1 ||
 		decoder->codec.codec == VCD_CODEC_VC1_RCV ||
@@ -1044,10 +1044,10 @@ static u32 ddl_decoder_output_done_callback(
 			[ddl->command_channel],
 			&decoder->meta_data_exists);
 		if (decoder->output_order == VCD_DEC_ORDER_DISPLAY)
-			vidc_sm_get_frame_tags(&ddl->shared_mem
-				[ddl->command_channel],
-				&dec_disp_info->tag_top,
-				&dec_disp_info->tag_bottom);
+		vidc_sm_get_frame_tags(&ddl->shared_mem
+			[ddl->command_channel],
+			&dec_disp_info->tag_top,
+			&dec_disp_info->tag_bottom);
 		output_vcd_frm->ip_frm_tag = dec_disp_info->tag_top;
 		vidc_sm_get_picture_times(&ddl->shared_mem
 			[ddl->command_channel],
@@ -1058,7 +1058,7 @@ static u32 ddl_decoder_output_done_callback(
 			&decoder->frame_size,
 			&ddl->shared_mem[ddl_context->response_cmd_ch_id]);
 		output_vcd_frm->interlaced = is_interlaced;
-		output_vcd_frm->intrlcd_ip_frm_tag =
+				output_vcd_frm->intrlcd_ip_frm_tag =
 			(!is_interlaced || !dec_disp_info->tag_bottom) ?
 			VCD_FRAMETAG_INVALID : dec_disp_info->tag_bottom;
 		output_vcd_frm->offset = 0;

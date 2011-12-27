@@ -167,9 +167,9 @@ struct msm_panel_info {
 	__u32 frame_count;
 
 
-	struct mddi_panel_info mddi;
-	struct lcd_panel_info lcd;
-	struct lcdc_panel_info lcdc;
+		struct mddi_panel_info mddi;
+		struct lcd_panel_info lcd;
+		struct lcdc_panel_info lcdc;
 
 	struct mipi_panel_info mipi;
 };

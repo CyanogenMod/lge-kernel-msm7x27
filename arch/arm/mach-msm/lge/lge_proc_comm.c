@@ -159,7 +159,7 @@ unsigned lge_get_batt_volt_raw(void)
 }
 EXPORT_SYMBOL(lge_get_batt_volt_raw);
 
-#ifdef CONFIG_MACH_MSM7X27_GELATO
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 unsigned lge_get_chg_stat_reg(void)
 {
 	int err;

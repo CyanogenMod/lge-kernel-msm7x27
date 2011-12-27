@@ -46,6 +46,15 @@ config S5K5CAGA
 	---help---
 	  SAMSUNG 3M YUV Sensor with AutoFocus
 
+#LGE_DEV_PORTING UNIVA_S
+config MT9P111
+	bool "Sensor MT9P111 (YUV 5M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Aptina 5M YUV Sensor with AutoFocus
+#LGE_DEV_PORTING UNIVA_E
+
 config MT9D112
 	bool "Sensor mt9d112 (YUV 2M)"
 	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2

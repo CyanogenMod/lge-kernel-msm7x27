@@ -225,7 +225,7 @@ static void msm_camera_vreg_enable(struct platform_device *pdev)
 	if (vreg_enable(vreg_gp2)) {
 		pr_err("%s: VREG GP2 enable failed\n", __func__);
 		goto gp2_put;
-	}
+		}
 
 	vreg_lvsw1 = vreg_get(NULL, "lvsw1");
 	if (IS_ERR(vreg_lvsw1)) {

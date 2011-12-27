@@ -1485,23 +1485,23 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x002A, 0x06CE, WORD_LEN},
 
 
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[0]  // #Horizon
+{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_GASAlpha[0]  // #Horizon
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[1]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[2]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[3]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[4] // #IncandA
+{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_GASAlpha[4] // #IncandA
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[5]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[6]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[7]
-{0x0F12,  0x00F0, WORD_LEN},  // #TVAR_ash_GASAlpha[8]  // #WW
+{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_GASAlpha[8]  // #WW
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[9]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[10]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[11]
-{0x0F12,  0x00E0, WORD_LEN},  // #TVAR_ash_GASAlpha[12] // #CWF
+{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_GASAlpha[12] // #CWF
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[13]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[14]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[15]
-{0x0F12,  0x010A, WORD_LEN},  // #TVAR_ash_GASAlpha[16]  // #D50
+{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_GASAlpha[16]  // #D50
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[17]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[18]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[19]
@@ -1509,7 +1509,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[21]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[22]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[23]
-{0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[24] // #D75
+{0x0F12,  0x0110, WORD_LEN},  // #TVAR_ash_GASAlpha[24] // #D75
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[25]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[26]
 {0x0F12,  0x0100, WORD_LEN},  // #TVAR_ash_GASAlpha[27]
@@ -3015,72 +3015,72 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x002A, 0x0C48, WORD_LEN},
 
 
-{0x0F12,  0x03E3, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[0] 
+{0x0F12,  0x035E, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[0] 
 
-{0x0F12,  0x03F8, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[1] 
-
-{0x0F12,  0x03A0, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[2] 
-
-{0x0F12,  0x03F7, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[3] 
-
-{0x0F12,  0x0359, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[4] 
-
-{0x0F12,  0x03E6, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[5] 
-
-{0x0F12,  0x0311, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[6] 
-
-{0x0F12,  0x03B4, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[7] 
-
-{0x0F12,  0x02D5, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[8] 
-
-{0x0F12,  0x0385, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[9] 
-
-{0x0F12,  0x02B0, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[10]
-
-{0x0F12,  0x0355, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[11]
-
-{0x0F12,  0x0293, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[12]
-
-{0x0F12,  0x0327, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[13]
-
-{0x0F12,  0x0278, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[14]
-
-{0x0F12,  0x02F9, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[15]
-
-{0x0F12,  0x025E, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[16]
-
-{0x0F12,  0x02D9, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[17]
-
-{0x0F12,  0x0246, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[18]
-
-{0x0F12,  0x02C2, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[19]
-
-{0x0F12,  0x022C, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[20]
-
-{0x0F12,  0x02B0, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[21]
-
-{0x0F12,  0x0214, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[22]
-
-{0x0F12,  0x029B, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[23]
-
-{0x0F12,  0x01FA, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[24]
-
-{0x0F12,  0x0286, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[25]
-
-{0x0F12,  0x01EC, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[26]
-
-{0x0F12,  0x027B, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[27]
-
-{0x0F12,  0x01E9, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[28]
-
-{0x0F12,  0x0267, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[29]
-
-{0x0F12,  0x01FE, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[30]
-
-{0x0F12,  0x0248, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[31]
-
+{0x0F12,  0x0371, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[1] 
+             
+{0x0F12,  0x0303, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[2] 
+             
+{0x0F12,  0x0388, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[3] 
+             
+{0x0F12,  0x02C7, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[4] 
+             
+{0x0F12,  0x0377, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[5] 
+             
+{0x0F12,  0x02A2, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[6] 
+             
+{0x0F12,  0x0347, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[7] 
+             
+{0x0F12,  0x0285, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[8] 
+             
+{0x0F12,  0x0319, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[9] 
+             
+{0x0F12,  0x026A, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[10]
+             
+{0x0F12,  0x02EB, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[11]
+             
+{0x0F12,  0x0250, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[12]
+             
+{0x0F12,  0x02CB, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[13]
+             
+{0x0F12,  0x0238, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[14]
+             
+{0x0F12,  0x02B4, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[15]
+             
+{0x0F12,  0x021E, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[16]
+             
+{0x0F12,  0x02A2, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[17]
+             
+{0x0F12,  0x0206, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[18]
+             
+{0x0F12,  0x028D, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[19]
+             
+{0x0F12,  0x01EC, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[20]
+             
+{0x0F12,  0x0278, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[21]
+             
+{0x0F12,  0x01DE, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[22]
+             
+{0x0F12,  0x026D, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[23]
+             
+{0x0F12,  0x01DB, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[24]
+             
+{0x0F12,  0x0259, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[25]
+             
+{0x0F12,  0x01F0, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[26]
+             
+{0x0F12,  0x023A, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[27]
+             
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[28]
+             
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[29]
+             
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[30]
+             
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[31]
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[32]
-
+             
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[33]
 
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_IndoorGrZones_m_BGrid[34]
@@ -3099,7 +3099,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 
 {0x002A, 0x0CA0, WORD_LEN},
 
-{0x0F12, 0x0107, WORD_LEN},  // #awbb_IndoorGrZones_m_Boffs
+{0x0F12, 0x0153, WORD_LEN},  // #awbb_IndoorGrZones_m_Boffs
 
 
 
@@ -3207,29 +3207,21 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x002A, 0x0CE0, WORD_LEN},
 
 
-{0x0F12,  0x03FC, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[0]
+{0x0F12,  0x0345, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[0]
 
-{0x0F12,  0x0416, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[1]
-
-{0x0F12,  0x0381, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[2]
-
-{0x0F12,  0x0453, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[3]
-
-{0x0F12,  0x02F9, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[4]
-
-{0x0F12,  0x042C, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[5]
-
-{0x0F12,  0x029A, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[6]
-
-{0x0F12,  0x03FA, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[7]
-
-{0x0F12,  0x0265, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[8]
-
-{0x0F12,  0x03A0, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[9]
-
-{0x0F12,  0x023B, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[10]
-
-{0x0F12,  0x0353, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[11]
+{0x0F12,  0x0371, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[1]
+    
+{0x0F12,  0x029A, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[2]
+    
+{0x0F12,  0x03A8, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[3]
+    
+{0x0F12,  0x0265, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[4]
+    
+{0x0F12,  0x03A0, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[5]
+    
+{0x0F12,  0x023B, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[6]
+    
+{0x0F12,  0x0353, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[7]
 
 {0x0F12,  0x020B, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[12]
 
@@ -3250,16 +3242,24 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0202, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[20]
 
 {0x0F12,  0x022C, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[21]
-
+    
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[18]
+    
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[19]
+    
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[20]
+    
+{0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[21]
+    
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[22]
-
+    
 {0x0F12,  0x0000, WORD_LEN},  // #awbb_LowBrGrZones_m_BGrid[23]
 
 {0x0F12,  0x0006, WORD_LEN},  // #awbb_LowBrGrZones_m_GridStep
 
 {0x002A, 0x0D18, WORD_LEN},
 
-{0x0F12,  0x00A7, WORD_LEN},  // #awbb_LowBrGrZones_m_Boffs
+{0x0F12,  0x0127, WORD_LEN},  // #awbb_LowBrGrZones_m_Boffs
 
 
 
@@ -3560,7 +3560,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[0]
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[1]
-{0x0F12,  0xFFFB, WORD_LEN},  // #TVAR_afit_pBaseVals[2]
+{0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[2]
 {0x0F12,  0x0005, WORD_LEN},  // #TVAR_afit_pBaseVals[3]
 {0x0F12,  0xFFF6, WORD_LEN},  // #TVAR_afit_pBaseVals[4]
 {0x0F12,  0x00C4, WORD_LEN},  // #TVAR_afit_pBaseVals[5]
@@ -3575,8 +3575,8 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0046, WORD_LEN},  // #TVAR_afit_pBaseVals[14]
 {0x0F12,  0x005A, WORD_LEN},  // #TVAR_afit_pBaseVals[15]
 {0x0F12,  0x0070, WORD_LEN},  // #TVAR_afit_pBaseVals[16]
-{0x0F12,  0x002D, WORD_LEN},  // #TVAR_afit_pBaseVals[17]
-{0x0F12,  0x002D, WORD_LEN},  // #TVAR_afit_pBaseVals[18]
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_afit_pBaseVals[17]
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_afit_pBaseVals[18]
 {0x0F12,  0x01AA, WORD_LEN},  // #TVAR_afit_pBaseVals[19]
 {0x0F12,  0x0064, WORD_LEN},  // #TVAR_afit_pBaseVals[20]
 {0x0F12,  0x0064, WORD_LEN},  // #TVAR_afit_pBaseVals[21]
@@ -3664,7 +3664,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0003, WORD_LEN},  // #TVAR_afit_pBaseVals[103]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[104]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[105]            
-{0x0F12,  0xFFFD, WORD_LEN},  // #TVAR_afit_pBaseVals[106]            
+{0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[106]            
 {0x0F12,  0x0005, WORD_LEN},  // #TVAR_afit_pBaseVals[107]            
 {0x0F12,  0xFFF6, WORD_LEN},  // #TVAR_afit_pBaseVals[108]            
 {0x0F12,  0x00C4, WORD_LEN},  // #TVAR_afit_pBaseVals[109]            
@@ -3679,8 +3679,8 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0046, WORD_LEN},  // #TVAR_afit_pBaseVals[118]            
 {0x0F12,  0x005A, WORD_LEN},  // #TVAR_afit_pBaseVals[119]            
 {0x0F12,  0x0070, WORD_LEN},  // #TVAR_afit_pBaseVals[120]            
-{0x0F12,  0x0023, WORD_LEN},  // #TVAR_afit_pBaseVals[121]            
-{0x0F12,  0x0023, WORD_LEN},  // #TVAR_afit_pBaseVals[122]            
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_afit_pBaseVals[121]            
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_afit_pBaseVals[122]            
 {0x0F12,  0x01AA, WORD_LEN},  // #TVAR_afit_pBaseVals[123]            
 {0x0F12,  0x0046, WORD_LEN},  // #TVAR_afit_pBaseVals[124]            
 {0x0F12,  0x0046, WORD_LEN},  // #TVAR_afit_pBaseVals[125]            
@@ -3707,7 +3707,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x051E, WORD_LEN},  // #TVAR_afit_pBaseVals[146]            
 {0x0F12,  0x0A1E, WORD_LEN},  // #TVAR_afit_pBaseVals[147]            
 {0x0F12,  0x0F0F, WORD_LEN},  // #TVAR_afit_pBaseVals[148]            
-{0x0F12,  0x0A03, WORD_LEN},  // #TVAR_afit_pBaseVals[149]            
+{0x0F12,  0x0A04, WORD_LEN},  // #TVAR_afit_pBaseVals[149]            
 {0x0F12,  0x0A3C, WORD_LEN},  // #TVAR_afit_pBaseVals[150]            
 {0x0F12,  0x0A28, WORD_LEN},  // #TVAR_afit_pBaseVals[151]            
 {0x0F12,  0x0002, WORD_LEN},  // #TVAR_afit_pBaseVals[152]            
@@ -3783,8 +3783,8 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0046, WORD_LEN},  // #TVAR_afit_pBaseVals[222]            
 {0x0F12,  0x0078, WORD_LEN},  // #TVAR_afit_pBaseVals[223]            
 {0x0F12,  0x0070, WORD_LEN},  // #TVAR_afit_pBaseVals[224]            
-{0x0F12,  0x0014, WORD_LEN},  // #TVAR_afit_pBaseVals[225]            
-{0x0F12,  0x0014, WORD_LEN},  // #TVAR_afit_pBaseVals[226]            
+{0x0F12,  0x0005, WORD_LEN},  // #TVAR_afit_pBaseVals[225]            
+{0x0F12,  0x0005, WORD_LEN},  // #TVAR_afit_pBaseVals[226]            
 {0x0F12,  0x01AA, WORD_LEN},  // #TVAR_afit_pBaseVals[227]            
 {0x0F12,  0x0046, WORD_LEN},  // #TVAR_afit_pBaseVals[228]            
 {0x0F12,  0x0046, WORD_LEN},  // #TVAR_afit_pBaseVals[229]            
@@ -3811,7 +3811,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x051E, WORD_LEN},  // #TVAR_afit_pBaseVals[250]            
 {0x0F12,  0x0A1E, WORD_LEN},  // #TVAR_afit_pBaseVals[251]            
 {0x0F12,  0x0F0F, WORD_LEN},  // #TVAR_afit_pBaseVals[252]            
-{0x0F12,  0x0A03, WORD_LEN},  // #TVAR_afit_pBaseVals[253]            
+{0x0F12,  0x0A04, WORD_LEN},  // #TVAR_afit_pBaseVals[253]            
 {0x0F12,  0x0A3C, WORD_LEN},  // #TVAR_afit_pBaseVals[254]            
 {0x0F12,  0x0528, WORD_LEN},  // #TVAR_afit_pBaseVals[255]            
 {0x0F12,  0x0002, WORD_LEN},  // #TVAR_afit_pBaseVals[256]            
@@ -3872,7 +3872,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0003, WORD_LEN},  // #TVAR_afit_pBaseVals[311]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[312]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[313]            
-{0x0F12,  0x0002, WORD_LEN},  // #TVAR_afit_pBaseVals[314]            
+{0x0F12,  0x000A, WORD_LEN},  // #TVAR_afit_pBaseVals[314]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[315]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[316]            
 {0x0F12,  0x00C4, WORD_LEN},  // #TVAR_afit_pBaseVals[317]            
@@ -3915,7 +3915,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x051E, WORD_LEN},  // #TVAR_afit_pBaseVals[354]            
 {0x0F12,  0x0A1E, WORD_LEN},  // #TVAR_afit_pBaseVals[355]            
 {0x0F12,  0x0F0F, WORD_LEN},  // #TVAR_afit_pBaseVals[356]            
-{0x0F12,  0x0A00, WORD_LEN},  // #TVAR_afit_pBaseVals[357]            
+{0x0F12,  0x0A04, WORD_LEN},  // #TVAR_afit_pBaseVals[357]            
 {0x0F12,  0x0A3C, WORD_LEN},  // #TVAR_afit_pBaseVals[358]            
 {0x0F12,  0x0532, WORD_LEN},  // #TVAR_afit_pBaseVals[359]            
 {0x0F12,  0x0002, WORD_LEN},  // #TVAR_afit_pBaseVals[360]            
@@ -3976,7 +3976,7 @@ static const struct lgcam_rear_sensor_i2c_reg_conf const init_settings_array[] =
 {0x0F12,  0x0003, WORD_LEN},  // #TVAR_afit_pBaseVals[415]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[416]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[417]            
-{0x0F12,  0x0002, WORD_LEN},  // #TVAR_afit_pBaseVals[418]            
+{0x0F12,  0x0014, WORD_LEN},  // #TVAR_afit_pBaseVals[418]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[419]            
 {0x0F12,  0x0000, WORD_LEN},  // #TVAR_afit_pBaseVals[420]            
 {0x0F12,  0x00C4, WORD_LEN},  // #TVAR_afit_pBaseVals[421]            

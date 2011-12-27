@@ -79,7 +79,15 @@ typedef enum {
 	MDDI_LCD_PRISM,
 	MDDI_LCD_TP2,
 /* LGE_CHANGES_S [minjong.gong] 2010-03-23 Google Mass 3G Hitahci MDDI I/F LCD driver */
+
+// LGE_DEV_PORTING UNIVA_S [ks82.jung@lge.com]
+#if defined (CONFIG_MACH_MSM7X27_UNIVA)
+	MDDI_LCD_LDP_TX08D39VM,
+#else
 	MDDI_LCD_HITACHI_TX08D39VM,
+#endif
+// LGE_DEV_PORTING UNIVA_E [ks82.jung@lge.com]
+
 /* LGE_CHANGES_E [minjong.gong] 2010-03-23 Google Mass 3G Hitahci MDDI I/F LCD driver */
 /* LGE_CHANGES [dojip.kim@lge.com] 2010-04-23, [LS670] Novatek MDDI I/F LCD driver */
 	MDDI_LCD_NOVATEK_NT35451,

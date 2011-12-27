@@ -270,7 +270,7 @@ static int getpath(int src, int dest)
 						}
 						next_pnode_id = CREATE_PNODE_ID(
 						info->node_info->priv_id,
-						pnode_num);
+							pnode_num);
 						break;
 					}
 				}

@@ -166,7 +166,7 @@ static struct aat28xx_ctrl_tbl aat2862bl_alc_tbl[] = {
 /* Set to sleep mode */
 static struct aat28xx_ctrl_tbl aat2862bl_sleep_tbl[] = {
 	{ 0x03, 0xDF }, /* MEQS(7) = high, DISABLE FADE_MAIN(6) = high(disabled), LCD_ON(5) = high(Off),  Brightness = Min(0x1F)*/
-	{ 0xFF, 0xFE },  /* end of command */
+	{ 0xFF, 0xFE },  /* end of command */	
 };
 
 /* Set to Normal mode */
@@ -180,7 +180,7 @@ static struct aat28xx_ctrl_tbl aat2870bl_normal_tbl[] = {
 
 /* Set to ALC mode */
 static struct aat28xx_ctrl_tbl aat2870bl_alc_tbl[] = {
-	{ 0x00, 0xFF },  /* Channel Enable : ALL */
+	{ 0x00, 0xFF },  /* Channel Enable : ALL */	
 	{ 0x0E, 0x27 },  /* SNSR_LIN_LOG=linear, ALSOUT_LIN_LOG=linear, RSET=1k~4k,
 	                               * GAIN=low, GM=auto gain, ALS_EN=on */
 	{ 0x0F, 0x07 },  /* SBIAS=2.6V, SBIAS=on */
@@ -195,7 +195,7 @@ static struct aat28xx_ctrl_tbl aat2870bl_sleep_tbl[] = {
 	                               * GAIN=low, GM=auto gain, ALS_EN=off */
 	{ 0x0F, 0x06 },  /* SBIAS=2.6V, SBIAS=off */
 	{ 0x00, 0x00 },  /* Channel Enable=disable */
-	{ 0xFF, 0xFE },  /* end of command */
+	{ 0xFF, 0xFE },  /* end of command */	
 };
 
 static struct ldo_vout_struct ldo_vout_table[] = {
@@ -269,7 +269,7 @@ static int aat28xx_read(struct i2c_client *client, u8 reg, u8 *pval)
 	ret = i2c_smbus_read_byte_data(client, reg);
 	if (ret < 0) {
 		status = -EIO;
-		eprintk("fail to read(reg=0x%x,val=0x%x)\n", reg,*pval);
+		eprintk("fail to read(reg=0x%x,val=0x%x)\n", reg,*pval);	
 	}
 
 	*pval = ret;
@@ -302,9 +302,9 @@ static int aat28xx_set_ldos(struct i2c_client *i2c_dev, unsigned num, int enable
 	if (drvdata) {
 		if (enable) drvdata->reg_ldo_enable |= 1 << (num-1);
 		else drvdata->reg_ldo_enable &= ~(1 << (num-1));
-
+		
 		dprintk("enable ldos, reg:0x13 value:0x%x\n", drvdata->reg_ldo_enable);
-
+		
 		return aat28xx_write(i2c_dev, drvdata->reg_addrs.ldo_en, drvdata->reg_ldo_enable);
 	}
 	return -EIO;
@@ -339,10 +339,10 @@ static int aat28xx_ldo_set_vout(struct i2c_client *i2c_dev, unsigned num, unsign
 		}
 		if (num % 2) {
 			*next_val &= 0x0F;
-			val = val << 4;
+			val = val << 4;		
 		}
 		else {
-			*next_val &= 0xF0;
+			*next_val &= 0xF0;		
 		}
 		*next_val |= val;
 		dprintk("target register[0x%x], value[0x%x]\n",	reg, *next_val);
@@ -474,7 +474,7 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 			}
 			else
 				break;
-		}
+		}	
 		else {
 			if (aat28xx_write(drvdata->client, ptbl->reg, ptbl->val) != 0)
 				dprintk("i2c failed addr:%d, value:%d\n", ptbl->reg, ptbl->val);
@@ -493,7 +493,7 @@ static void aat28xx_hw_reset(struct aat28xx_driver_data *drvdata)
 static void aat28xx_go_opmode(struct aat28xx_driver_data *drvdata)
 {
 	dprintk("operation mode is %s\n", (drvdata->mode == NORMAL_MODE) ? "normal_mode" : "alc_mode");
-
+	
 	switch (drvdata->mode) {
 		case NORMAL_MODE:
 			aat28xx_set_table(drvdata, drvdata->cmds.normal);
@@ -523,11 +523,11 @@ static void aat28xx_poweron(struct aat28xx_driver_data *drvdata)
 	unsigned int aat28xx_intensity;
 	if (!drvdata || drvdata->state != POWEROFF_STATE)
 		return;
-
+	
 	dprintk("POWER ON \n");
 
 	aat28xx_device_init(drvdata);
-
+	
 	if (drvdata->mode == NORMAL_MODE)
 	{
 		if(drvdata->version == 2862)
@@ -573,7 +573,7 @@ static void aat28xx_sleep(struct aat28xx_driver_data *drvdata)
 		return;
 
 	printk(KERN_INFO "%s: cur state=%d to sleep state(2)\n", __func__, drvdata->state);
-
+	
 	switch (drvdata->mode) {
 		case NORMAL_MODE:
 			drvdata->state = SLEEP_STATE;
@@ -593,7 +593,7 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 		return;
 
 	printk(KERN_INFO "%s: cur state=%d to wakeup state(1)\n", __func__, drvdata->state);
-
+	
 	if (drvdata->state == POWEROFF_STATE) {
 		aat28xx_poweron(drvdata);
 	} else if (drvdata->state == SLEEP_STATE) {
@@ -643,7 +643,7 @@ static int aat28xx_send_intensity(struct aat28xx_driver_data *drvdata, int next)
 
 		if (drvdata->state == NORMAL_STATE && drvdata->intensity != next)
 			aat28xx_send_intensity_no_check(drvdata, next);
-
+		
 		drvdata->intensity = next;
 	}
 	else {
@@ -667,7 +667,7 @@ static int aat28xx_change_max_current(struct aat28xx_driver_data *drvdata, int m
 #ifdef CONFIG_PM
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void aat28xx_early_suspend(struct early_suspend * h)
-{
+{	
 	struct aat28xx_driver_data *drvdata = container_of(h, struct aat28xx_driver_data,
 						    early_suspend);
 
@@ -679,7 +679,7 @@ static void aat28xx_early_suspend(struct early_suspend * h)
 }
 
 static void aat28xx_late_resume(struct early_suspend * h)
-{
+{	
 	struct aat28xx_driver_data *drvdata = container_of(h, struct aat28xx_driver_data,
 						    early_suspend);
 
@@ -711,7 +711,7 @@ static int aat28xx_resume(struct i2c_client *i2c_dev)
 #define aat28xx_resume	NULL
 #endif	/* CONFIG_PM */
 
-/*
+/* 
  * 2011-03-08, jinkyu.choi@lge.com
  * if the backlight ic is using vbat power,
  * we should turn off the backlight ic when reboot or power down.
@@ -757,7 +757,7 @@ ssize_t aat28xx_show_alc(struct device *dev, struct device_attribute *attr, char
 	if (!drvdata) return 0;
 
 	r = snprintf(buf, PAGE_SIZE, "%s\n", (drvdata->mode == ALC_MODE) ? "1":"0");
-
+	
 	return r;
 }
 
@@ -909,7 +909,7 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 	pdata = i2c_dev->dev.platform_data;
 	if(!pdata)
 		return -EINVAL;
-
+		
 	drvdata = kzalloc(sizeof(struct aat28xx_driver_data), GFP_KERNEL);
 	if (!drvdata) {
 		dev_err(&i2c_dev->dev, "failed to allocate memory\n");
@@ -934,7 +934,7 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 		eprintk("Error while requesting gpio %d\n", drvdata->gpio);
 		kfree(drvdata);
 		return -ENODEV;
-	}
+	}		
 
 	if (drvdata->gpio && gpio_request(drvdata->gpio, "aat28xx_en") != 0) {
 		eprintk("Error while requesting gpio %d\n", drvdata->gpio);

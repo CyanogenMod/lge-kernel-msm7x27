@@ -21,6 +21,14 @@ config MACH_MSM7X27_GELATO
     help
       Support for the LGE MSM7x27 GELATO Global board.
 
+config MACH_MSM7X27_UNIVA
+    depends on ARCH_MSM7X27
+    depends on !MSM_STACKED_MEMORY
+    select MACH_LGE
+    bool "MSM7x27 UNIVA Global"
+    help
+      Support for the LGE MSM7x27 UNIVA Global board.
+
 config MACH_MSM7X27_MUSCAT
     depends on ARCH_MSM7X27
     depends on !MSM_STACKED_MEMORY

@@ -63,7 +63,7 @@
 
 #ifdef CONFIG_MACH_MSM7X27_MUSCAT
 /* I dont know why I allocate bigger than real lcd size in muscat , because EBI2 interface? */
-#define HIDDEN_RESET_FB_SIZE (320*256*2)
+#define HIDDEN_RESET_FB_SIZE 165600
 #else
 #define HIDDEN_RESET_FB_SIZE (320*480*2)
 #endif
@@ -94,6 +94,26 @@ struct gpio_i2c_pin {
 };
 
 /* touch screen platform data */
+//LGE_DEV_PORTING UNIVA_S
+// [LGE PATCH : START] edward1.kim@lge.com 20110214  
+#if 1
+struct touch_platform_data {
+	int ts_x_min;
+	int ts_x_max;
+	int ts_y_min;
+	int ts_y_max;
+	int ts_y_start;
+	int ts_y_scrn_max;
+	int (*power)(unsigned char onoff);
+	int irq;
+	int gpio_int;// [LGE PATCH] edward1.kim@lge.com 20110214  
+	int hw_i2c;
+	int scl;
+	int sda;
+	int ce;
+	int touch_key;
+};
+#else
 struct touch_platform_data {
 	int ts_x_min;
 	int ts_x_max;
@@ -104,7 +124,9 @@ struct touch_platform_data {
 	int scl;
 	int sda;
 };
-
+#endif
+// [LGE PATCH : END] edward1.kim@lge.com 20110214
+//LGE_DEV_PORTING UNIVA_E  
 /* pp2106 qwerty platform data */
 struct pp2106_platform_data {
 	unsigned int reset_pin;
@@ -182,6 +204,7 @@ struct k3dh_platform_data {
 	int (*power_off)(void);
 	int (*gpio_config)(int config);
 };
+
 struct kr3dh_platform_data {
 	int poll_interval;
 	int min_interval;
@@ -281,6 +304,17 @@ int aat28xx_ldo_enable(struct device *dev, unsigned num, unsigned enable);
 int aat28xx_ldo_set_level(struct device *dev, unsigned num, unsigned vol);
 void aat28xx_power(struct device *dev, int on);
 
+//LGE_DEV_PORTING UNIVA_S
+struct lm3530_platform_data {
+	void (*platform_init)(void);
+	int gpio;
+	unsigned int mode;		     /* initial mode */
+	int max_current;			 /* led max current(0-7F) */
+	int init_on_boot;			 /* flag which initialize on system boot */
+	int version;				 /* Chip version number */
+};
+//LGE_DEV_PORTING UNIVA_E
+
 /* rt9393 backlight */
 struct rt9393_platform_data {
 	int gpio_en;
@@ -312,6 +346,24 @@ struct msm_panel_hitachi_pdata {
 	int initialized;
 	int maker_id;
 };
+
+
+
+// LGE_DEV_PORTING UNIVA_S [ks82.jung@lge.com]
+/* Define new structure named 'msm_panel_ldp_pdata' */
+#define PANEL_ID_AUO      0
+#define PANEL_ID_LDP      1
+struct msm_panel_ldp_pdata {
+	int gpio;
+	int (*backlight_level)(int level, int max, int min);
+	int (*pmic_backlight)(int level);
+	int (*panel_num)(void);
+	void (*panel_config_gpio)(int);
+	int *gpio_num;
+	int initialized;
+	int maker_id;
+};
+// LGE_DEV_PORTING UNIVA_E [ks82.jung@lge.com]
 
 struct msm_panel_ilitek_pdata {
 	int gpio;
@@ -382,7 +434,7 @@ unsigned lge_get_pcb_version(void);
 unsigned lge_get_chg_curr_volt(void);
 unsigned lge_get_batt_therm(void);
 unsigned lge_get_batt_volt_raw(void);
-#ifdef CONFIG_MACH_MSM7X27_GELATO
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 unsigned lge_get_chg_stat_reg(void);
 unsigned lge_get_chg_en_reg(void);
 unsigned lge_set_elt_test(void);

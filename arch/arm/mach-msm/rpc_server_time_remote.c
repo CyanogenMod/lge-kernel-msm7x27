@@ -119,18 +119,28 @@ static int handle_rpc_call(struct msm_rpc_server *server,
 
 		getnstimeofday(&ts);
 		if (msmrtc_is_suspended()) {
-			int64_t now, sleep, tick_at_suspend;
-			now = msm_timer_get_sclk_time(NULL);
+			int64_t now, sleep, tick_at_suspend, sclk_max;
+
+			now = msm_timer_get_sclk_time(&sclk_max);
 			tick_at_suspend = msmrtc_get_tickatsuspend();
+
 			if (now && tick_at_suspend) {
-				sleep = now - tick_at_suspend;
+				if (now < tick_at_suspend) {
+					sleep = sclk_max - tick_at_suspend +
+						now;
+				} else {
+					sleep = now - tick_at_suspend;
+				}
+
 				timespec_add_ns(&ts, sleep);
+				msmrtc_set_tickatsuspend(now);
 			} else
 				pr_err("%s: Invalid ticks from SCLK"
 					"now=%lld tick_at_suspend=%lld",
 					__func__, now, tick_at_suspend);
 
 		}
+
 		rtc_hctosys();
 		getnstimeofday(&tv);
 		/* Update the alarm information with the new time info. */

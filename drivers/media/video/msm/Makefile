@@ -37,6 +37,8 @@ obj-$(CONFIG_VB6801) += vb6801.o
 obj-$(CONFIG_IMX074) += imx074.o imx074_reg.o
 obj-$(CONFIG_MT9T113) += mt9t113.o
 obj-$(CONFIG_S5K5CAGA) += s5k5caga.o
+#LGE_DEV_PORTING UNIVA
+obj-$(CONFIG_MT9P111) += mt9p111.o
 
 obj-$(CONFIG_WEBCAM_OV7692) += ov7692.o
 obj-$(CONFIG_MT9D112) += mt9d112.o mt9d112_reg.o

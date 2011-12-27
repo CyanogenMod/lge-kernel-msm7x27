@@ -2629,11 +2629,9 @@ dhd_bus_start(dhd_pub_t *dhdp)
 #endif /* PNO_SUPPORT */
 
 /* enable dongle roaming event */
-/* LGE_DEV_PORTING, [jongpil.yoon@lge.com], 2011-03-28, <Resolve the current issue because of the trial of L2 roaming> */
-#if defined(CONFIG_LGE_BCM432X_PATCH)
+/* LGE_DEV_PORTING, [jongpil.yoon@lge.com], 2011-04-07, <current issue because of L2 Roaming> */
 	//setbit(dhdp->eventmask, WLC_E_ROAM);
-#endif 
-/* LGE_DEV_END, [jongpil.yoon@lge.com], 2011-03-28, <Resolve the current issue because of the trial of L2 roaming> */
+/* LGE_DEV_END, [jongpil.yoon@lge.com], 2011-04-07, <current issue because of L2 Roaming> */
 
 	dhdp->pktfilter_count = 1;
 	/* Setup filter to allow only unicast */

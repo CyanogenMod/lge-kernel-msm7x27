@@ -80,9 +80,9 @@ struct panic_log_dump {
 	unsigned char buffer[0];
 };
 
-static int (*reboot_key_detect)(void) = NULL;
 #ifndef CONFIG_LGE_HIDDEN_RESET_PATCH
 static struct panic_log_dump *panic_dump_log;
+static int (*reboot_key_detect)(void) = NULL;
 static char *panic_init_strings[] = {
 	"K e r n e l   p a n i c   h a s   b e e n   g e n e r a t e d . . . ",
 	"F o l l o w i n g   m e s s a g e s   s h o w   c p u   c o n t e x t ",
@@ -97,6 +97,8 @@ static char *panic_init_strings[] = {
 };
 
 static DEFINE_SPINLOCK(lge_panic_lock);
+#else
+static int (*reboot_key_detect)(void) = NULL;
 #endif
 
 static int dummy_arg;
@@ -108,7 +110,7 @@ static int gen_panic(const char *val, struct kernel_param *kp)
 }
 module_param_call(gen_panic, gen_panic, param_get_bool, &dummy_arg, S_IWUSR | S_IRUGO);
 
-static int display_lk_enable = 1;
+static int display_lk_enable = 0;
 module_param_named(
 		display_lk_enable, display_lk_enable,
 		int, S_IRUGO | S_IWUSR | S_IWGRP);

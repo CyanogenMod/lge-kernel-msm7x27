@@ -32,7 +32,10 @@ struct msm_pmic_leds_pdata *leds_pdata = 0;
 
 /*LED has 15 steps (10mA per step). LED's  max power capacity is 150mA. (0~255 level)*/
 #define MAX_KEYPAD_BL_LEVEL	16	// 150mA
-#define TUNED_MAX_KEYPAD_BL_LEVEL	127 // 60mA
+//LGE_DEV_PORTING UNIVA_S/woojin.lee@lge.com/20110610/modified for key LED level of UNIVA
+//#define TUNED_MAX_KEYPAD_BL_LEVEL	127 // 20mA
+#define TUNED_MAX_KEYPAD_BL_LEVEL	63 // 40mA
+//LGE_DEV_PORTING UNIVA_E
 
 
 static void msm_keypad_bl_led_set(struct led_classdev *led_cdev,

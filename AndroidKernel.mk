@@ -50,7 +50,15 @@ endif
 ifeq ($(TARGET_PRODUCT), muscat)
 	-cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4329/wireless.ko $(KERNEL_MODULES_OUT)
 endif
+	
+ifeq ($(TARGET_PRODUCT), lge_univa)
+	-cp  -f $(KERNEL_OUT)/drivers/net/wireless/bcm4330/wireless.ko $(KERNEL_MODULES_OUT)
+endif
 #LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-02-09, <cp wireless.ko to system/lib/modules>
+
+# [LGE_UPDATE_S] DMS_SYSTEM hyunwook.choo 2011-06-09
+	mkdir -p $(TARGET_OUT)/../system/etc/fota
+# [LGE_UPDATE_E] DMS_SYSTEM hyunwook.choo 
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(KERNEL_CONFIG)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- headers_install

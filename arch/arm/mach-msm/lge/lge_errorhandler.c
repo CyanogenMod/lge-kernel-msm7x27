@@ -46,7 +46,7 @@ char * android_errhanlder_ptr = NULL;
 int LGE_ErrorHandler_Main( int crash_side, char * message)
 {
 
-#if !defined (CONFIG_MACH_MSM7X27_MUSCAT) && !defined (CONFIG_MACH_MSM7X27_JUMP)
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 	/*
 	 * 2011-03-10, jinkyu.choi@lge.com
 	 * add the reboot reason as chargerlogo reboot when the crash occures.
@@ -55,13 +55,11 @@ int LGE_ErrorHandler_Main( int crash_side, char * message)
 	 */
 	unsigned *reboot_panic;
 
-#ifdef CONFIG_LGE_4G_DDR
+	if (!hidden_reset_enable) {
 	reboot_panic = ioremap(0x2ff40000, PAGE_SIZE);
-#else
-	reboot_panic = ioremap(0x0ff40000, PAGE_SIZE);
-#endif
 	*reboot_panic = (unsigned)0x776655BB;
 	iounmap(reboot_panic);
+	}
 #endif
 
 	if (hidden_reset_enable) {
@@ -123,7 +121,7 @@ int LGE_ErrorHandler_Main( int crash_side, char * message)
 
 	while(1)
 	{
-#ifdef CONFIG_MACH_MSM7X27_GELATO
+#if defined(CONFIG_MACH_MSM7X27_GELATO) || defined(CONFIG_MACH_MSM7X27_UNIVA)
 		/*
 		 * for Gelato Rev.A Board
 		 * FIXME: it should be modified for the common usage.

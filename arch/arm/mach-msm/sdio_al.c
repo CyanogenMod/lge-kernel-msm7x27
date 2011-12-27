@@ -1374,7 +1374,7 @@ static int sdio_al_bootloader_setup(void)
 		       "VERSION don't match\n",
 		       ((sdio_al->pdata->peer_sdioc_boot_version_major<<16)+
 			sdio_al->pdata->peer_sdioc_boot_version_minor),
-		       bootloader_dev->sdioc_boot_sw_header->version);
+			bootloader_dev->sdioc_boot_sw_header->version);
 		sdio_release_host(func1);
 		ret = -EIO;
 		goto exit_err;
@@ -1472,9 +1472,9 @@ static int read_sdioc_software_header(struct sdio_al_device *sdio_al_dev,
 			       "SDIO_AL VERSION don't match\n",
 			       ((sdio_al->pdata->peer_sdioc_version_major<<16)+
 				sdio_al->pdata->peer_sdioc_version_minor),
-			       header->version);
-			goto exit_err;
-		}
+			header->version);
+		goto exit_err;
+	}
 	} else {
 		if (sdio_al->sdioc_major !=
 		    sdio_al->pdata->peer_sdioc_version_major) {
@@ -2357,8 +2357,8 @@ int sdio_open(const char *name, struct sdio_channel **ret_ch, void *priv,
 			if (!ch->is_packet_mode) {
 				pr_info(MODULE_NAME ":setting channel %s as "
 						    "lpm_chan\n", name);
-				sdio_al_dev->lpm_chan = ch->num;
-			}
+		sdio_al_dev->lpm_chan = ch->num;
+	}
 		} else {
 			pr_info(MODULE_NAME ":setting channel %s as lpm_chan\n",
 				name);

@@ -47,9 +47,9 @@ struct msm_ptbl_entry {
 };
 
 #ifdef CONFIG_MACH_LGE
-// LGE_UPDATE_S	GELATO moon.jung@lge.com
+//[LGE_UPDATE_S] DMS_SYSTEM hyunwook.choo 2011-06-09
 #define MSM_MAX_PARTITIONS 12
-// LGE_UPDATE_E	GELATO moon.jung@lge.com
+//[LGE_UPDATE_E] DMS_SYSTEM hyunwook.choo 
 #else /* original */
 #define MSM_MAX_PARTITIONS 10
 #endif

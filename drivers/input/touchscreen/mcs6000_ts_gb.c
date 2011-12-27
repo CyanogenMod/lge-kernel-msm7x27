@@ -1413,7 +1413,7 @@ static int mcs6000_ts_resume(struct i2c_client *client)
 	if (MCS6000_DM_TRACE_FUNC & mcs6000_debug_mask)
 		DMSG("\n");
 
-		
+	gpio_request(ts->num_irq, "MCS6000-IRQ");	
 
 	gpio_direction_input(ts->intr_gpio);
 

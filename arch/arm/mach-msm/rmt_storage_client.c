@@ -758,7 +758,7 @@ static int rmt_storage_event_alloc_rmt_buf_cb(
 
 	/* Allocate memory from heap for MDM only */
 	if (rs_client->srv->prog != MDM_RMT_STORAGE_APIPROG)
-		return -EINVAL;
+			return -EINVAL;
 
 	vstart = (uint32_t)kzalloc(size, GFP_KERNEL);
 	if (!vstart)

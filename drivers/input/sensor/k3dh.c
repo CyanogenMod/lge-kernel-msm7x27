@@ -623,34 +623,26 @@ static void k3dh_report_values(struct k3dh_data *kr, int *xyz)
 
 static int k3dh_enable(struct k3dh_data *kr)
 {
-	int err;
+	atomic_set(&kr->enabled, 1);
+	k3dh_device_power_on(kr);
 
-	if (!atomic_cmpxchg(&kr->enabled, 0, 1)) {
-
-		err = k3dh_device_power_on(kr);
-		if (err < 0) {
-			atomic_set(&kr->enabled, 0);
-			return err;
-		}
 #if USE_WORK_QUEUE
 		schedule_delayed_work(&kr->input_work,
 				      msecs_to_jiffies(kr->
 						       pdata->poll_interval));
 #endif
 
-	}
-
 	return 0;
 }
 
 static int k3dh_disable(struct k3dh_data *kr)
 {
-	if (atomic_cmpxchg(&kr->enabled, 1, 0)) {
+	atomic_set(&kr->enabled, 0);
+	k3dh_device_power_off(kr);
+
 #if USE_WORK_QUEUE
 		cancel_delayed_work_sync(&kr->input_work);
 #endif
-		k3dh_device_power_off(kr);
-	}
 
 	return 0;
 }
@@ -1164,20 +1156,12 @@ static int __devexit k3dh_remove(struct i2c_client *client)
 #if defined(CONFIG_HAS_EARLYSUSPEND)// LGE_DEV_PORTING GELATO_DS_[edward1.kim@lge.com]_20110419
 static void k3dh_early_suspend(struct early_suspend *h)
 {
-	if (k3dh_misc_data->pdata->gpio_config){
-			k3dh_misc_data->pdata->gpio_config(0);
-	}
-
-	k3dh_disable(k3dh_misc_data);
+	atomic_set(&k3dh_misc_data->enabled, 0);
 }
 
 static void k3dh_late_resume(struct early_suspend *h)
 {
-	if (k3dh_misc_data->pdata->gpio_config){
-			k3dh_misc_data->pdata->gpio_config(1);
-	}
-
-	k3dh_enable(k3dh_misc_data);
+	atomic_set(&k3dh_misc_data->enabled, 1);
 }
 #endif
 

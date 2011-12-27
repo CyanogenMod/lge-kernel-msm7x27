@@ -36,10 +36,7 @@ char *argv[] = {
   };
 //LGE_UPDATE_E BCPARK  2010-10-20 for reset mmc
 
-
-
-
-extern int fw_rev;
+//extern int fw_rev;
 
 void wirte_flight_mode(int mode)
 {
@@ -73,7 +70,6 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 	uint32_t at_act;
 	uint32_t at_param;
     int ret = 0;	//LGE_UPDATE BCPARK
-
 
 	at_cmd = be32_to_cpu(args->at_cmd);
 	at_act = be32_to_cpu(args->at_act);
@@ -154,20 +150,13 @@ int lge_ats_handle_atcmd(struct msm_rpc_server *server,
 	case ATCMD_MMCFORMAT:  // 129
 		if(at_act != ATCMD_ACTION)
 			result = HANDLE_FAIL;
-        		//LGE_UPDATE_S FS 2011-03-22
-		if(!external_memory_test())
-			ret_value1 = 0;
-		else
-		{
 		update_atcmd_state("mmcformat", 0);
 		update_atcmd_state("mmcformat", 1);
 		update_atcmd_state("mmcformat", 9);
-        	ret_value1 = 1;
-		}
 		break;
 
 	case ATCMD_TOUCHFWVER:
-		ret_value1 = fw_rev;		
+//		ret_value1 = fw_rev;		
 		break;
 
 	//LGE_UPDATE_S seungin.choi@lge.com 2011-04-01, add AT%LEDON

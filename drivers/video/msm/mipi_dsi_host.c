@@ -822,9 +822,9 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 		 * during boot up, cmd mode is configured
 		 * even it is video mode panel.
 		 */
-		/* make sure mdp dma is not txing pixel data */
+	/* make sure mdp dma is not txing pixel data */
 		if (mfd->panel_info.type == MIPI_CMD_PANEL)
-			mdp4_dsi_cmd_dma_busy_wait(mfd);
+	mdp4_dsi_cmd_dma_busy_wait(mfd);
 	}
 
 	cm = cmds;
@@ -878,7 +878,7 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 
 	/* make sure mdp dma is not txing pixel data */
 	if (mfd->panel_info.type == MIPI_CMD_PANEL)
-		mdp4_dsi_cmd_dma_busy_wait(mfd);
+	mdp4_dsi_cmd_dma_busy_wait(mfd);
 
 	/* transmit read comamnd to client */
 	mipi_dsi_cmd_dma_tx(tp);

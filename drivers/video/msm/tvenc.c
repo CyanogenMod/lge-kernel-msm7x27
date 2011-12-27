@@ -453,7 +453,7 @@ tvenc_probe_err:
 
 static int tvenc_remove(struct platform_device *pdev)
 {
-	struct msm_fb_data_type *mfd;
+	struct msm_fb_data_type *mfd;	
 
 	mfd = platform_get_drvdata(pdev);
 

@@ -54,7 +54,7 @@ EXTRA_CFLAGS = \
 	-DDHD_GPL \
 	-DBCMLXSDMMC \
 	-DBCMPLATFORM_BUS \
-	-Wall -Wstrict-prototypes -Werror \
+	-Wall -Wstrict-prototypes \
 	-I$(SRCROOT) \
 	-I$(SRCROOT)/include \
 	-I$(SRCROOT)/shared \
@@ -113,18 +113,12 @@ EXTRA_CFLAGS += -DDHD_USE_STATIC_BUF
 endif
 
 # WLP2P CONFIG by yhcha_20110329
-ifeq ($(CONFIG_BRCM_USE_WLP2P),y)
 EXTRA_CFLAGS += -DWLP2P
-endif
 
 # WLBTAMP CONIFG by yhcha_20110329
 ifeq ($(CONFIG_BRCM_USE_WLBTAMP),y)
 EXTRA_CFLAGS += -DWLBTAMP
 wireless-objs += src/dhd/sys/dhd_bta.o
-endif
-
-ifeq ($(CONFIG_BRCM_USE_SOFTAP),y)
-EXTRA_CFLAGS += -DSOFTAP
 endif
 
 EXTRA_CFLAGS += -Dlinux

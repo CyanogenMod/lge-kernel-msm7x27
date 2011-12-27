@@ -488,7 +488,8 @@ struct msm_snapshot_pp_status {
 /* 2010-05-02: Add auto-focus values */
 /* 2010-05-05: Add setting iso values */
 /* 2010-05-14: Add setting scene values */
-#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA)
+//LGE_DEV_PORTING UNIVA
+#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA) || defined (CONFIG_MT9P111)
 #define CFG_START_AF_FOCUS	101
 #define CFG_CHECK_AF_DONE	102
 #define CFG_CHECK_AF_CANCEL	103
@@ -532,7 +533,8 @@ struct msm_snapshot_pp_status {
 
 /* LGE_CHANGE_S [junyeong.han@lge.com] Add CAMERA_EFFECT values */
 /* 2010-05-13: Add CAMERA_EFFECT values */
-#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA)
+//LGE_DEV_PORTING UNIVA
+#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA) || defined(CONFIG_MT9P111)
 #define CAMERA_EFFECT_NEGATIVE_SEPIA	9
 #define CAMERA_EFFECT_BLUE				10
 #define CAMERA_EFFECT_PASTEL			11

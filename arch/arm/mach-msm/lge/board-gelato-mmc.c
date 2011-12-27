@@ -149,7 +149,7 @@ static unsigned sdcc_cfg_data[][6] = {
 #ifdef  CONFIG_MMC_MSM_CARD_HW_DETECTION
 	{
 /* LGE_CHANGE_S, [hyuncheol0.kim@lge.com] , 2011-02-10, for current consumption */
-#if 0	// Original Code
+#if 1	// Original Code
 	GPIO_CFG(GPIO_SD_DATA_3, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_DATA_2, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(GPIO_SD_DATA_1, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
@@ -341,7 +341,10 @@ static struct mmc_platform_data bcm432x_sdcc_wlan_data = {
 	.msmsdcc_fmid	= 24576000,
 	//.msmsdcc_fmax	= 49152000,
 	.msmsdcc_fmax	= 24576000,
-	.nonremovable	= 1,
+	// LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-04-22, <do not remove the sd card when wifi turn off after patching QCT 7125>
+	//.nonremovable	= 1, /* <original> */
+	.nonremovable = 0,
+	// LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-04-22, <do not remove the sd card when wifi turn off after patching QCT 7125>
 };
 #endif  /* CONFIG_LGE_BCM432X_PATCH*/
 /* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
@@ -387,16 +390,16 @@ static void __init msm7x2x_init_mmc(void)
 
 	/* GPIO config */
 /* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
-	gpio_tlmm_config(GPIO_CFG(CONFIG_BCM4330_GPIO_WL_RESET, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	/*gpio_tlmm_config(GPIO_CFG(CONFIG_BCM4330_GPIO_WL_RESET, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_set_value(CONFIG_BCM4330_GPIO_WL_RESET, 0);
 	
-	gpio_tlmm_config(GPIO_CFG(CONFIG_BCM4330_GPIO_WL_HOSTWAKEUP, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(CONFIG_BCM4330_GPIO_WL_HOSTWAKEUP, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);*/
 
 	/* Register platform device */
     msm_add_sdcc(2, &bcm432x_sdcc_wlan_data);
 
 	/* Enable RESET IRQ for wlan card detect */
-	enable_irq(gpio_to_irq(CONFIG_BCM4330_GPIO_WL_RESET));
+	/*enable_irq(gpio_to_irq(CONFIG_BCM4330_GPIO_WL_RESET));*/
 /* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-01-07, <Add BCM4330> */
 #else /* qualcomm or google */
     msm_add_sdcc(2, &msm7x2x_sdc1_data);

@@ -111,7 +111,7 @@ config SENSOR_AMI304
           AMI304 controller, and your board-specific
           setup code includes i2c devices.
 
-          If unsure, say N (but it's safe to say "Y").
+          If unsure, say N (but it's safe to say "Y").          
 
 config SENSOR_APDS9190
 	bool "APDS-9190 based proximity sensor"

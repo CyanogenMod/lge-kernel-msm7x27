@@ -684,15 +684,11 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 
 		bcm_ether_atoe(value, &ea);
 
-/* LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-04-13, <sync macaddrd: firmware & driver> */
-#if !defined (CONFIG_LGE_BCM432X_PATCH)
 		ret = memcmp( &ea.octet, dhd->mac.octet, ETHER_ADDR_LEN);
 		if(ret == 0){
 			DHD_ERROR(("%s: Same Macaddr\n",__FUNCTION__));
 			return 0;
 		}
-#endif
-/* LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-04-13, <sync macaddrd: firmware & driver> */
 
 		DHD_ERROR(("%s: Change Macaddr = %02X:%02X:%02X:%02X:%02X:%02X\n",__FUNCTION__,
 					ea.octet[0], ea.octet[1], ea.octet[2],
@@ -829,7 +825,11 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	uint32 dongle_align = DHD_SDALIGN;
 	uint32 glom = 0;
 	int arpoe = 1;
+#ifdef WLBTAMP
+	int arp_ol = 0xc;
+#else
 	int arp_ol = 0xf;
+#endif /* WLBTAMP */
 #ifndef BCMCCX								/* LGE_CHANGE_S, 2011-0226, add CCX */	//by sjpark 11-03-15
 	int scan_assoc_time = 40;
 	int scan_unassoc_time = 80;

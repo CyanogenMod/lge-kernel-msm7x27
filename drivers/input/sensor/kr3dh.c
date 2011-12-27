@@ -420,21 +420,13 @@ static void kr3dh_report_values(struct kr3dh_data *kr, int *xyz)
 
 static int kr3dh_enable(struct kr3dh_data *kr)
 {
-	int err;
-
 	if (!atomic_cmpxchg(&kr->enabled, 0, 1)) {
 
-		err = kr3dh_device_power_on(kr);
-		if (err < 0) {
-			atomic_set(&kr->enabled, 0);
-			return err;
-		}
 #if USE_WORK_QUEUE
 		schedule_delayed_work(&kr->input_work,
 				      msecs_to_jiffies(kr->
 						       pdata->poll_interval));
 #endif
-
 	}
 
 	return 0;
@@ -446,7 +438,6 @@ static int kr3dh_disable(struct kr3dh_data *kr)
 #if USE_WORK_QUEUE
 		cancel_delayed_work_sync(&kr->input_work);
 #endif
-		kr3dh_device_power_off(kr);
 	}
 
 	return 0;
@@ -849,7 +840,7 @@ static int kr3dh_probe(struct i2c_client *client,
 		dev_err(&client->dev, "krd_device register failed\n");
 		goto err4;
 	}
-	
+
 	/* Register sysfs hooks */
 	err = sysfs_create_group(&client->dev.kobj, &krd_attribute_group);
 	if (err) {
@@ -920,19 +911,11 @@ static int __devexit kr3dh_remove(struct i2c_client *client)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 static void kr3dh_early_suspend(struct early_suspend *h)
 {
-	if (kr->pdata->gpio_config){
-			kr->pdata->gpio_config(0);
-	}
-
 	kr3dh_disable(kr3dh_misc_data);
 }
 
 static void kr3dh_late_resume(struct early_suspend *h)
 {
-	if (kr->pdata->gpio_config){
-			kr->pdata->gpio_config(1);
-	}
-
 	kr3dh_enable(kr3dh_misc_data);
 }
 #endif
@@ -1001,8 +984,9 @@ static struct dev_pm_ops kr3dh_pm_ops = {
        .resume = kr3dh_resume,
 };
 #endif
-
-static struct i2c_driver kr3dh_driver = {
+//LGE_DEV_PORTING UNIVA
+// [LGE PATCH] edward1.kim@lge.com 20110224  
+static struct i2c_driver __refdata kr3dh_driver = {
 	.driver = {
 		   .name = "KR3DH",
 #if defined(CONFIG_PM)

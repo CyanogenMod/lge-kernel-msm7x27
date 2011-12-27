@@ -63,7 +63,7 @@ static unsigned bt_config_power_off[] = {
 	GPIO_CFG(BT_PCM_SYNC, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* PCM_SYNC */
 	GPIO_CFG(BT_PCM_CLK, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* PCM_CLK */
 	GPIO_CFG(BT_HOST_WAKE, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* HOST_WAKE */
-	GPIO_CFG(BT_RESET_N, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* RESET_N */
+	GPIO_CFG(BT_RESET_N, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* RESET_N */	
 };
 
 static int muscat_bluetooth_toggle_radio(void *data, bool state)
@@ -71,7 +71,7 @@ static int muscat_bluetooth_toggle_radio(void *data, bool state)
 	int ret;
 	int (*power_control)(int enable);
 
-	power_control = ((struct bluetooth_platform_data *)data)->bluetooth_power;
+    power_control = ((struct bluetooth_platform_data *)data)->bluetooth_power;
 	ret = (*power_control)((state == RFKILL_USER_STATE_SOFT_BLOCKED) ? 1 : 0);
 	return ret;
 }
@@ -103,11 +103,11 @@ static int muscat_bluetooth_power(int on)
 		gpio_set_value(BT_RESET_N, 0);
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_off); pin++) {
 			rc = gpio_tlmm_config(bt_config_power_off[pin],
-					GPIO_CFG_ENABLE);
+					      GPIO_CFG_ENABLE);
 			if (rc) {
 				printk(KERN_ERR
-						"%s: gpio_tlmm_config(%#x)=%d\n",
-						__func__, bt_config_power_off[pin], rc);
+				       "%s: gpio_tlmm_config(%#x)=%d\n",
+				       __func__, bt_config_power_off[pin], rc);
 				return -EIO;
 			}
 		}
@@ -124,7 +124,7 @@ static struct platform_device msm_bt_power_device = {
 	.name = "bt_power",
 	.dev = {
 		.platform_data = &muscat_bluetooth_data,
-	},
+	},		
 };
 
 static void __init bt_power_init(void)
@@ -166,7 +166,7 @@ static struct platform_device msm_bluesleep_device = {
 	.resource	= bluesleep_resources,
 	.dev = {
 		.platform_data = &muscat_bluesleep_data,
-	},
+	},	
 };
 
 void __init lge_add_btpower_devices(void)

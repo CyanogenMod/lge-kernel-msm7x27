@@ -281,12 +281,6 @@ static void pp2106_fetchkeys(struct work_struct *work)
 	u8 key_col, key_row;
 
 	pp2106_get_data(&buf);
-
-	if(buf == 0xff)
-	{
-		return;
-	}
-		
 	keystate = (buf & 0x80) ? PP2106_IN_KEYRELEASE : PP2106_IN_KEYPRESS;
 
 	key_col = key_row = buf;
@@ -449,7 +443,7 @@ static int  __init pp2106_probe(struct platform_device *pdev)
 		if (keycode != KEY_UNKNOWN)
 				set_bit(keycode, pp2106_kbd_dev->keybit);
 	}
-
+	
 	pp2106_pdata->power(1);
 
 	rc = pp2106_config_gpio();
@@ -475,7 +469,7 @@ static int  __init pp2106_probe(struct platform_device *pdev)
 	rc = input_register_device(pp2106_kbd_dev);
 	if (rc)
 		printk(KERN_ERR"%s : input_register_device failed\n", __func__);
-	
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #ifdef CONFIG_MACH_MSM7X27_MUSCAT
 	if(lge_bd_rev >= LGE_REV_C)

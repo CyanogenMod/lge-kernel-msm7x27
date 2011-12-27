@@ -38,9 +38,6 @@
 #include "msm_fb.h"
 #include "mddihost.h"
 
-#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
-#include <mach/board_lge.h>
-#endif
 static uint32 mdp_last_dma2_update_width;
 static uint32 mdp_last_dma2_update_height;
 static uint32 mdp_curr_dma2_update_width;
@@ -151,25 +148,13 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 			outp32(MDP_EBI2_LCD1, mfd->data_port_phys);
 		}
 	}
-#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
-	if(on_hidden_reset) {
-		src = (uint8 *) lge_get_fb_copy_phys_addr();
-	} else{
-		/* LGE_CHANGE, Enabling dither */
-		dma2_cfg_reg |= DMA_DITHER_EN;
 
-		src = (uint8 *) iBuf->buf;
-		/* starting input address */
-		src += iBuf->dma_x * outBpp + iBuf->dma_y * ystride;
-	}
-#else
 	/* LGE_CHANGE, Enabling dither */
 	dma2_cfg_reg |= DMA_DITHER_EN;
 
 	src = (uint8 *) iBuf->buf;
 	/* starting input address */
 	src += iBuf->dma_x * outBpp + iBuf->dma_y * ystride;
-#endif
 
 	mdp_curr_dma2_update_width = iBuf->dma_w;
 	mdp_curr_dma2_update_height = iBuf->dma_h;

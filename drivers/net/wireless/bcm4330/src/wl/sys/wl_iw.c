@@ -50,7 +50,7 @@ typedef const struct si_pub  si_t;
 #include <dngl_stats.h>
 #include <dhd.h>
 #define WL_ERROR(x) printf x
-#define WL_TRACE(x) printf x //yhcha @ 110218
+#define WL_TRACE(x) //printf x //yhcha @ 110218
 #define WL_ASSOC(x)
 #define WL_INFORM(x)
 #define WL_WSEC(x)
@@ -168,7 +168,10 @@ static wlc_ssid_t g_ssid;
 static wl_iw_ss_cache_ctrl_t g_ss_cache_ctrl;	/* spec scan cache controller instance */
 static volatile uint g_first_broadcast_scan;	/* forcing first scan as always broadcast state  */
 static volatile uint g_first_counter_scans;
-#define MAX_ALLOWED_BLOCK_SCAN_FROM_FIRST_SCAN 3
+/*LGE_CHANGE_S, [jongpil.yoon@lge.com], 2011-05-23, <for factory Issue> */
+//#define MAX_ALLOWED_BLOCK_SCAN_FROM_FIRST_SCAN 3
+#define MAX_ALLOWED_BLOCK_SCAN_FROM_FIRST_SCAN 1
+/*LGE_CHANGE_E, [jongpil.yoon@lge.com], 2011-05-23, <for factory Issue> */
 
 //static wlc_ssid_t g_ssids[WL_SCAN_PARAMS_SSID_MAX];  /* Keep track of cached ssid */
 
@@ -1694,6 +1697,22 @@ wl_iw_control_wl_on(
 
 	}
 
+// 20110413 mingi.sung@lge.com [Wi-Fi] Patch for BELKIN AP - to succeed DHCP procedure after wakeup [START]
+#if defined(CONFIG_BRCM_LGE_WL_ARPOFFLOAD)
+	do
+	{
+		char buf[32] = {0,};
+		int len = 0;
+		/*Clear the present Hostip [if any]*/
+		len = bcm_mkiovar("arp_hostip_clear", NULL, 0, buf, sizeof(buf));
+		ASSERT(len);
+
+		dev_wlc_ioctl(dev, WLC_SET_VAR, buf, len);
+
+	} while(0);
+#endif //CONFIG_BRCM_LGE_WL_ARPOFFLOAD
+// 20110413 mingi.sung@lge.com [Wi-Fi] Patch for BELKIN AP - to succeed DHCP procedure after wakeup [END]
+
 	wl_iw_send_priv_event(dev, "START");
 
 #ifdef SOFTAP
@@ -1726,6 +1745,11 @@ static int set_ap_mac_list(struct net_device *dev, char *buf);
 
 static int get_parameter_from_string(
 	char **str_ptr, const char *token, int param_type, void  *dst, int param_max_len);
+
+#ifdef CONFIG_LGE_BCM432X_PATCH
+static int get_SSID_from_string(
+	char **str_ptr, const char *token, int param_type, void  *dst, int ssid_len);
+#endif /*CONFIG_LGE_BCM432X_PATCH*/
 
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 static int
@@ -1863,6 +1887,9 @@ init_ap_profile_from_string(char *param_str, struct ap_profile *ap_cfg)
 	char *str_ptr = param_str;
 	char sub_cmd[16];
 	int ret = 0;
+#ifdef CONFIG_LGE_BCM432X_PATCH
+	uint32 ssid_len;
+#endif
 
 	memset(sub_cmd, 0, sizeof(sub_cmd));
 	memset(ap_cfg, 0, sizeof(struct ap_profile));
@@ -1877,10 +1904,21 @@ init_ap_profile_from_string(char *param_str, struct ap_profile *ap_cfg)
 		return -1;
 	}
 
+	printk(KERN_ERR "[SOFTAP] Input total string: %s\n", str_ptr);
+
 	/*  parse the string and write extracted values into the ap_profile structure */
 	/*  NOTE this function may alter the origibal string */
-	ret = get_parameter_from_string(&str_ptr, "SSID=", PTYPE_STRING, ap_cfg->ssid, SSID_LEN);
+#ifdef CONFIG_LGE_BCM432X_PATCH
+	ret = get_parameter_from_string(&str_ptr, "SSIDLEN=", PTYPE_INTDEC, &ssid_len, 5);
+#endif	/*CONFIG_LGE_BCM432X_PATCH*/
 
+#ifdef CONFIG_LGE_BCM432X_PATCH
+	if(ret == 0)
+		ret = get_SSID_from_string(&str_ptr, "SSID=", PTYPE_STRING, ap_cfg->ssid, ssid_len);
+	else
+#endif /*CONFIG_LGE_BCM432X_PATCH*/
+		ret = get_parameter_from_string(&str_ptr, "SSID=", PTYPE_STRING, ap_cfg->ssid, SSID_LEN);		
+	
 	ret |= get_parameter_from_string(&str_ptr, "SEC=", PTYPE_STRING,  ap_cfg->sec, SEC_LEN);
 
 	ret |= get_parameter_from_string(&str_ptr, "KEY=", PTYPE_STRING,  ap_cfg->key, KEY_LEN);
@@ -3417,7 +3455,11 @@ __u16 *merged_len)
 	DHD_OS_MUTEX_LOCK(&wl_cache_lock);
 	node = g_ss_cache_ctrl.m_cache_head;
 	for (;node;) {
-		list_merge = (wl_scan_results_t *)node;
+ #ifdef CONFIG_LGE_BCM432X_PATCH
+	list_merge = (wl_scan_results_t *)&node->buflen;  
+ #else
+	list_merge = (wl_scan_results_t *)node;
+ #endif /* CONFIG_LGE_BCM432X_PATCH */
 		WL_TRACE(("%s: Cached Specific APs list=%d\n", __FUNCTION__, list_merge->count));
 		if (buflen_from_user - *merged_len > 0) {
 			*merged_len += (__u16) wl_iw_get_scan_prep(list_merge, info,
@@ -3822,6 +3864,13 @@ wl_iw_get_scan_prep(
 	wl_bss_info_t *bi = NULL;
 	char *event = extra, *end = extra + max_size - WE_ADD_EVENT_FIX, *value;
 	int	ret = 0;
+//LGE_DEV_PORTING UNIVA_S
+/* LGE_CHANGE_S, [wonho.ki@lge.com], 2011-08-25 BRCM patch for mixed hidden AP*/
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+	uint8   channel;
+#endif
+/* LGE_CHANGE_E, [wonho.ki@lge.com], 2011-08-25 BRCM patch for mixed hidden AP*/
+//LGE_DEV_PORTING UNIVA_E 
 
 	ASSERT(list);
 
@@ -3864,9 +3913,19 @@ wl_iw_get_scan_prep(
 
 		/* Channel */
 		iwe.cmd = SIOCGIWFREQ;
+//LGE_DEV_PORTING UNIVA_S
+/* LGE_CHANGE_S, [wonho.ki@lge.com], 2011-08-25 BRCM patch for mixed hidden AP*/
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+		channel = (bi->ctl_ch == 0) ? CHSPEC_CHANNEL(bi->chanspec) : bi->ctl_ch;
+		iwe.u.freq.m = wf_channel2mhz(channel, channel <= CH_MAX_2G_CHANNEL ?
+			WF_CHAN_FACTOR_2_4_G : WF_CHAN_FACTOR_5_G); 
+#else
 		iwe.u.freq.m = wf_channel2mhz(CHSPEC_CHANNEL(bi->chanspec),
 			CHSPEC_CHANNEL(bi->chanspec) <= CH_MAX_2G_CHANNEL ?
 			WF_CHAN_FACTOR_2_4_G : WF_CHAN_FACTOR_5_G);
+#endif	
+/* LGE_CHANGE_E, [wonho.ki@lge.com], 2011-08-25 BRCM patch for mixed hidden AP*/
+//LGE_DEV_PORTING UNIVA_E 
 		iwe.u.freq.e = 6;
 		event = IWE_STREAM_ADD_EVENT(info, event, end, &iwe, IW_EV_FREQ_LEN);
 
@@ -4011,6 +4070,7 @@ wl_iw_get_scan(
 		if (g_scan_specified_ssid) {
 			g_scan_specified_ssid = 0;
 			kfree(list);
+			list = NULL;	// 20110511_WBT : ID 2165, 2177
 		}
 		return 0;
 	}
@@ -4034,6 +4094,7 @@ wl_iw_get_scan(
 		/* add newly specifically scanned AP into specific scan cache */
 		wl_iw_add_bss_to_ss_cache(list);
 		kfree(list);
+		list = NULL;	// 20110511_WBT : ID 2563
 	}
 #endif
 
@@ -5527,8 +5588,8 @@ wl_iw_set_wpaauth(
 				val = WPA2_AUTH_CCKM;
 			}
 			else /* IW_AUTH_WPA_VERSION_DISABLED */
-				val = WPA_AUTH_DISABLED;			
-		} 
+				val = WPA_AUTH_DISABLED;
+		}
 #endif /*BCMCCX*/
 		else if (paramval & IW_AUTH_KEY_MGMT_802_1X) {
 			if (iw->wpaversion == IW_AUTH_WPA_VERSION_WPA)
@@ -6621,8 +6682,12 @@ get_softap_auto_channel(struct net_device *dev, struct ap_profile *ap)
 			}
 			if ((chosen == 1) && (!rescan++))
 				goto auto_channel_retry;
-			WL_SOFTAP(("Set auto channel = %d\n", chosen));
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 			ap->channel = chosen;
+#else
+			ap->channel = CHSPEC_CHANNEL(chosen); 
+			WL_SOFTAP(("Set auto channel = %d\n", ap->channel));
+#endif
 			if ((res = dev_wlc_ioctl(dev, WLC_DOWN, &updown, sizeof(updown))) < 0) {
 				WL_ERROR(("%s fail to set up err =%d\n", __FUNCTION__, res));
 				goto fail;
@@ -6741,6 +6806,14 @@ set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 		WL_TRACE(("\n>in %s: apsta set result: %d \n", __FUNCTION__, res));
 #endif /* AP_ONLY */
 
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+		 mpc = 0;
+		if ((res = dev_wlc_intvar_set(dev, "mpc", mpc))) {
+			  WL_ERROR(("%s fail to set mpc\n", __FUNCTION__));
+			  goto fail;
+		 }
+#endif
+
 		updown = 1;
 		if ((res = dev_wlc_ioctl(dev, WLC_UP, &updown, sizeof(updown))) < 0) {
 			WL_ERROR(("%s fail to set apsta \n", __FUNCTION__));
@@ -6765,7 +6838,7 @@ set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 
 	/* ----  AP channel autoselect --- */
 	if ((ap->channel == 0) && (get_softap_auto_channel(dev, ap) < 0)) {
-		ap->channel = 1;
+		ap->channel = 6;
 		WL_ERROR(("%s auto channel failed, pick up channel=%d\n",
 		          __FUNCTION__, ap->channel));
 	}
@@ -7120,6 +7193,47 @@ get_parameter_from_string(
 	 return -1;
 	}
 }
+
+#if CONFIG_LGE_BCM432X_PATCH
+static int
+get_SSID_from_string(
+			char **str_ptr, const char *token,
+			int param_type, void  *dst, int ssid_len)
+{
+	int parm_str_len= 0;
+	char  *param_str_begin;
+	char  *orig_str = *str_ptr;
+
+	if ((*str_ptr) && !strncmp(*str_ptr, token, strlen(token))) {
+
+		strsep(str_ptr, "="); /* find the 1st delimiter */
+		param_str_begin = *str_ptr;
+		//strsep(str_ptr, "=,"); /* find the 2nd delimiter */
+
+		if(ssid_len > SSID_LEN)
+			ssid_len = SSID_LEN;
+		
+		parm_str_len = ssid_len;
+
+		WL_TRACE((" 'token:%s', len:%d, ", token, parm_str_len));
+
+		/* param is array of ASCII chars, no convertion needed */
+		memcpy(dst, param_str_begin, parm_str_len);
+		*((char *)dst + parm_str_len) = 0; /* Z term */
+		WL_ERROR((" written as a string:%s\n", (char *)dst));
+
+		parm_str_len++;
+		*str_ptr += parm_str_len;
+		
+		return 0;
+	} else {
+		WL_ERROR(("\n %s: ERROR: can't find token:%s in str:%s \n",
+			__FUNCTION__, token, orig_str));
+
+	 return -1;
+	}
+}
+#endif /*CONFIG_LGE_BCM432X_PATCH*/
 
 /*
  *   ====== deassociate/deauthenticate SOFTAP stations ======
