@@ -455,7 +455,7 @@ unsigned pmem_adsp_size =	0xAE4000;
  * this should be synch. with android display framework.
  * 2011-03-28, jinkyu.choi@lge.com
  */
-unsigned pmem_mdp_size = 0x5A0000;
+unsigned pmem_mdp_size = 0x800000;
 
 static void __init msm7x2x_init(void)
 {
