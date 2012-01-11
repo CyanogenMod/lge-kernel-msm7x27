@@ -20,7 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 #include <linux/switch.h>
 #endif
 
@@ -209,7 +209,7 @@ static const uint32_t hs_key_map[] = {
 	KEY(HS_ON_HOOK_K, KEY_MEDIA),
 	KEY(HS_DESKDOCK_DETECT, KEY_CONNECT),
 #else
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 	KEY(HS_HEADSET_K, SW_HEADPHONE_INSERT),
 #endif
 	KEY(HS_STEREO_HEADSET_K, SW_HEADPHONE_INSERT_W_MIC),
@@ -218,7 +218,7 @@ static const uint32_t hs_key_map[] = {
 	KEY(HS_HEADSET_SWITCH_K, KEY_MEDIA),
 	KEY(HS_HEADSET_SWITCH_2_K, KEY_VOLUMEUP),
 	KEY(HS_HEADSET_SWITCH_3_K, KEY_VOLUMEDOWN),
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 	KEY(HS_DESKDOCK_DETECT, KEY_CONNECT),
 #endif
 #endif
@@ -248,7 +248,7 @@ static struct hs_subs_rpc_req *hs_subs_req;
 
 struct msm_handset {
 	struct input_dev *ipdev;
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 	struct switch_dev sdev;
 #endif
 	struct msm_handset_platform_data *hs_pdata;
@@ -278,7 +278,8 @@ static int hs_find_key(uint32_t hscode)
 	return -1;
 }
 
- #ifndef CONFIG_MACH_MSM7X27_MUSCAT
+
+ #ifdef CONFIG_MACH_MSM7X27_UNIVA
 static void update_state(void)
 {
 	int state;
@@ -340,7 +341,7 @@ static void report_hs_key(uint32_t key_code, uint32_t key_parm)
 			deskdock_detect_callback((key_code != HS_REL_K));
 		break;
 	case SW_HEADPHONE_INSERT:
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 		report_headset_switch(hs->ipdev, key, (key_code != HS_REL_K));
 #endif
 #if defined(CONFIG_LGE_DIAGTEST)
@@ -707,7 +708,7 @@ static void __devexit hs_rpc_deinit(void)
 		msm_rpc_unregister_client(rpc_client);
 }
 
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 static ssize_t msm_headset_print_name(struct switch_dev *sdev, char *buf)
 {
 	switch (switch_get_state(&hs->sdev)) {
@@ -729,7 +730,7 @@ static int __devinit hs_probe(struct platform_device *pdev)
 	if (!hs)
 		return -ENOMEM;
 
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 	hs->sdev.name	= "h2w";
 	hs->sdev.print_name = msm_headset_print_name;
 
@@ -790,7 +791,7 @@ err_hs_rpc_init:
 err_reg_input_dev:
 	input_free_device(ipdev);
 err_alloc_input_dev:
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 	switch_dev_unregister(&hs->sdev);
 err_switch_dev_register:
 #endif
@@ -803,7 +804,7 @@ static int __devexit hs_remove(struct platform_device *pdev)
 	struct msm_handset *hs = platform_get_drvdata(pdev);
 
 	input_unregister_device(hs->ipdev);
-#ifndef CONFIG_MACH_MSM7X27_MUSCAT
+#ifdef CONFIG_MACH_MSM7X27_UNIVA
 	switch_dev_unregister(&hs->sdev);
 #endif
 	kfree(hs);

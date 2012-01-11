@@ -298,5 +298,8 @@ source "drivers/net/wireless/bcm4330/Kconfig"
 if MACH_MSM7X27_MUSCAT
 source "drivers/net/wireless/bcm4329/Kconfig"
 endif
+if MACH_MSM7X27_THUNDERG
+source "drivers/net/wireless/bcm4325/Kconfig"
+endif
 
 endif # WLAN

@@ -445,7 +445,8 @@ void wireless_send_event(struct net_device *	dev,
 	 * and no data is included in the event, this codifies that
 	 * practice.
 	 */
-	if (WARN_ON(cmd == SIOCGIWSCAN && extra))
+	//if (WARN_ON(cmd == SIOCGIWSCAN && extra))
+	if (cmd == SIOCGIWSCAN && extra)
 		extra = NULL;
 
 	/* Get the description of the Event */
