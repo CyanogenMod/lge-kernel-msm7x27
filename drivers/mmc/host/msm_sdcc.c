@@ -69,7 +69,7 @@
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 #include <asm/gpio.h>
 
-#ifdef CONFIG_BCM4330
+#if defined(CONFIG_BCM4330) || defined(CONFIG_BCM4325) || defined(CONFIG_BCM4325_MODULE)
 #define BRCM_WLAN_SLOT 2 // give 25MHz to SDIO I/F
 #else
 #define BRCM_WLAN_SLOT 100 // give 50MHz to SDIO I/F

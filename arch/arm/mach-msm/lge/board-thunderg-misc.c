@@ -265,7 +265,7 @@ static struct android_vibrator_platform_data thunderg_vibrator_data = {
 	.pwm_set = thunderg_vibrator_pwm_set,
 	.ic_enable_set = thunderg_vibrator_ic_enable_set,
 	.gpio_request = thunderg_vibrator_gpio_request,
-	.amp_value = 92,
+	.amp_value = 115,
 };
 
 static struct platform_device android_vibrator_device = {

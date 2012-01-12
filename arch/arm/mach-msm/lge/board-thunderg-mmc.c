@@ -280,7 +280,7 @@ static struct mmc_platform_data bcm432x_sdcc_wlan_data = {
 	.msmsdcc_fmin	= 144000,
 	.msmsdcc_fmid	= 24576000,
 	.msmsdcc_fmax	= 49152000,
-	.nonremovable	= 1,
+	.nonremovable	= 0,
 };
 #endif  /* CONFIG_LGE_BCM432X_PATCH*/
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, BCM4325 control gpio */
