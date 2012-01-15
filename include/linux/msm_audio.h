@@ -372,5 +372,11 @@ struct msm_snd_audio_cal_config {
 };
 
 #define SND_AUDIO_CAL _IOWR(SND_IOCTL_MAGIC, 9, struct msm_snd_audio_cal_config *)
+
+struct msm_snd_set_fm_radio_vol_param {
+	int32_t volume;
+};
+
+#define SND_SET_FM_RADIO_VOLUME _IOWR(SND_IOCTL_MAGIC, 17, int *)
 //LGE_SND_UPDATE_E ]
 #endif
