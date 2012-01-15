@@ -55,6 +55,7 @@ static struct snd_ctxt the_snd;
 #define SND_SET_VOLUME_PROC 3
 #define SND_AVC_CTL_PROC 29
 #define SND_AGC_CTL_PROC 30
+#define SND_SET_FM_RADIO_VOLUME_PROC 72
 
 //LGE_SND_UPDATE_S [
 #define SND_72XX_RPC_EXTCMD_PROC 40
@@ -153,6 +154,17 @@ struct snd_audio_cal_msg_rep {
 	struct rpc_reply_hdr hdr;
     uint32_t result;
 } cal_msg_rep;
+
+struct rpc_snd_set_fm_radio_vol_args {
+     uint32_t volume;
+     uint32_t cb_func;
+     uint32_t client_data;
+};
+
+struct snd_set_fm_radio_vol_msg {
+    struct rpc_request_hdr hdr;
+    struct rpc_snd_set_fm_radio_vol_args args;
+};
 //LGE_SND_UPDATE_E ]
 
 struct snd_endpoint *get_snd_endpoints(int *size);
@@ -210,6 +222,8 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 //LGE_SND_UPDATE_S [
     struct msm_snd_72xx_rpc_extcmd_config rpc_extcmd_conf;
 	struct msm_snd_audio_cal_config snd_audio_cal_conf;
+	struct msm_snd_set_fm_radio_vol_param fmradiovol;
+	struct snd_set_fm_radio_vol_msg fmrmsg;
 //LGE_SND_UPDATE_E ]
 
 	struct snd_ctxt *snd = file->private_data;
@@ -392,6 +406,22 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				rc = -EFAULT;
 			}
 		}
+		break;
+	case SND_SET_FM_RADIO_VOLUME:
+		if (copy_from_user(&fmradiovol, (void __user *) arg, sizeof(fmradiovol))) {
+			pr_err("snd_ioctl set amp_gain: invalid pointer.\n");
+			rc = -EFAULT;
+			break;
+		}
+		fmrmsg.args.volume = cpu_to_be32(fmradiovol.volume);
+		fmrmsg.args.cb_func = -1;
+		fmrmsg.args.client_data = 0;
+
+		pr_info("snd_set_fm_radio_volume %d\n", fmradiovol.volume);
+
+		rc = msm_rpc_call(snd->ept,
+			SND_SET_FM_RADIO_VOLUME_PROC,
+			&fmrmsg, sizeof(fmrmsg), 5 * HZ);
 		break;
 //LGE_SND_UPDATE_E ]
 
