@@ -1392,6 +1392,7 @@ static void audpcm_post_event(struct audio *audio, int type,
 		e_node = kmalloc(sizeof(struct audpcm_event), GFP_ATOMIC);
 		if (!e_node) {
 			MM_ERR("No mem to post event %d\n", type);
+			spin_unlock_irqrestore(&audio->event_queue_lock, flags);
 			return;
 		}
 	}

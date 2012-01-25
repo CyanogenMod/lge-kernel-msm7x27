@@ -176,8 +176,10 @@ static void audevrc_send_data(struct audio *audio, unsigned needed);
 static void audevrc_dsp_event(void *private, unsigned id, uint16_t *msg);
 static void audevrc_config_hostpcm(struct audio *audio);
 static void audevrc_buffer_refresh(struct audio *audio);
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void audevrc_post_event(struct audio *audio, int type,
 		union msm_audio_event_payload payload);
+#endif
 
 static int rmt_put_resource(struct audio *audio)
 {
@@ -1281,6 +1283,7 @@ static int audevrc_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void audevrc_post_event(struct audio *audio, int type,
 		union msm_audio_event_payload payload)
 {
@@ -1297,6 +1300,7 @@ static void audevrc_post_event(struct audio *audio, int type,
 		e_node = kmalloc(sizeof(struct audevrc_event), GFP_ATOMIC);
 		if (!e_node) {
 			MM_ERR("No mem to post event %d\n", type);
+			spin_unlock_irqrestore(&audio->event_queue_lock, flags);
 			return;
 		}
 	}
@@ -1309,7 +1313,6 @@ static void audevrc_post_event(struct audio *audio, int type,
 	wake_up(&audio->event_wait);
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void audevrc_suspend(struct early_suspend *h)
 {
 	struct audevrc_suspend_ctl *ctl =
