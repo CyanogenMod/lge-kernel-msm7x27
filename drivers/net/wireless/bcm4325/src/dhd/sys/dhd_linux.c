@@ -1034,7 +1034,7 @@ dhd_watchdog_thread(void *data)
 	/* Run until signal received */
 	while (1) {
 		if (down_interruptible (&dhd->watchdog_sem) == 0) {
-			if (dhd->pub.dongle_reset == FALSE) {
+			if (dhd->pub.dongle_reset == FALSE && dhd_early_suspend_state() == FALSE) {
 				WAKE_LOCK(&dhd->pub, WAKE_LOCK_WATCHDOG);
 
 				/* Call the bus module watchdog */
