@@ -794,6 +794,7 @@ struct net_device {
 	unsigned long		mem_start;	/* shared mem start	*/
 	unsigned long		base_addr;	/* device I/O address	*/
 	unsigned int		irq;		/* device IRQ number	*/
+         int __percpu            *pcpu_refcnt;  /* Number of references to this device */
 
 	/*
 	 *	Some hardware also needs these fields, but they are not
