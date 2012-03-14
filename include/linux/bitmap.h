@@ -45,6 +45,9 @@
  * bitmap_set(dst, pos, nbits)			Set specified bit area
  * bitmap_clear(dst, pos, nbits)		Clear specified bit area
  * bitmap_find_next_zero_area(buf, len, pos, n, mask)	Find bit free area
+* bitmap_find_next_zero_area_off(buf, len, pos, n, mask)  as above
+* bitmap_set(dst, pos, nbits)      Set specified bit area
+* bitmap_clear(dst, pos, nbits)    Clear specified bit area
  * bitmap_shift_right(dst, src, n, nbits)	*dst = *src >> n
  * bitmap_shift_left(dst, src, n, nbits)	*dst = *src << n
  * bitmap_remap(dst, src, old, new, nbits)	*dst = map(old, new)(src)
@@ -55,7 +58,8 @@
  * bitmap_parse(buf, buflen, dst, nbits)	Parse bitmap dst from kernel buf
  * bitmap_parse_user(ubuf, ulen, dst, nbits)	Parse bitmap dst from user buf
  * bitmap_scnlistprintf(buf, len, src, nbits)	Print bitmap src as list to buf
- * bitmap_parselist(buf, dst, nbits)		Parse bitmap dst from list
+ * bitmap_parselist(buf, dst, nbits)    Parse bitmap dst from kernel buf
+ * bitmap_parselist_user(buf, dst, nbits)  Parse bitmap dst from user buf
  * bitmap_find_free_region(bitmap, bits, order)	Find and allocate bit region
  * bitmap_release_region(bitmap, pos, order)	Free specified bit region
  * bitmap_allocate_region(bitmap, pos, order)	Allocate specified bit region
@@ -87,7 +91,19 @@
  * lib/bitmap.c provides these functions:
  */
 
+extern void bitmap_set(unsigned long *map, int i, int len);
+extern void bitmap_clear(unsigned long *map, int start, int nr);
+
+extern unsigned long bitmap_find_next_zero_area_off(unsigned long *map,unsigned long size,unsigned long start,unsigned int nr,unsigned long align_mask,unsigned long align_offset);
+
+static inline unsigned long bitmap_find_next_zero_area(unsigned long *map,unsigned long size,unsigned long start,unsigned int nr,unsigned long align_mask)
+{
+	return bitmap_find_next_zero_area_off(map, size, start, nr,align_mask, 0);
+
+}
+
 extern int __bitmap_empty(const unsigned long *bitmap, int bits);
+extern int bitmap_parselist_user(const char __user *ubuf, unsigned int ulen,unsigned long *dst, int nbits);
 extern int __bitmap_full(const unsigned long *bitmap, int bits);
 extern int __bitmap_equal(const unsigned long *bitmap1,
                 	const unsigned long *bitmap2, int bits);

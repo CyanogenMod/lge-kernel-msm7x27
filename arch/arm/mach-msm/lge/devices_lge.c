@@ -24,7 +24,6 @@
 #include <linux/bootmem.h>
 #include <asm/setup.h>
 #include <asm/mach/mmc.h>
-#include <asm/mach-types.h>
 #include <mach/vreg.h>
 #include <mach/mpp.h>
 #include <mach/board.h>
@@ -52,7 +51,6 @@
 #include "../devices.h"
 #include "../pm.h"
 #include <mach/socinfo.h>
-
 /* setting board revision information */
 int lge_bd_rev;
 
@@ -191,6 +189,7 @@ void *lge_get_fb_copy_virt_addr(void)
 {
 	return (void *)fb_copy_virt;
 }
+#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
 static size_t fb_copy_phys;
 static size_t fb_copy_size;
 
@@ -198,15 +197,14 @@ void *lge_get_fb_copy_phys_addr(void)
 {
 	return (void *)fb_copy_phys;
 }
+
 static void __init lge_make_fb_pmem(void)
 {
 	struct membank *bank = &meminfo.bank[0];
 	unsigned *temp;
 
 	fb_copy_phys = MSM7X27_EBI1_CS0_BASE + bank->size + LGE_RAM_CONSOLE_SIZE;
-	/* Modify HIDDEN_RSEET_FB_SIZE defined in board_lge.h */
-	fb_copy_size = HIDDEN_RESET_FB_SIZE;
-
+	fb_copy_size = 320 * 480 * 2;
 	fb_copy_virt = ioremap(fb_copy_phys, fb_copy_size);
 
 	temp = fb_copy_virt;
@@ -218,39 +216,68 @@ static void __init lge_make_fb_pmem(void)
 
 	return;
 }
+#endif
+
 void __init msm_add_fb_device(void) 
 {
+#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
 	lge_make_fb_pmem();
+#endif
 	platform_device_register(&msm_fb_device);
 }
 
 /* setting kgsl device */
 #ifdef CONFIG_ARCH_MSM7X27
-static struct resource kgsl_resources[] = {
-	{
-		.name = "kgsl_reg_memory",
-		.start = 0xA0000000,
-		.end = 0xA001ffff,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name = "kgsl_yamato_irq",
-		.start = INT_GRAPHICS,
-		.end = INT_GRAPHICS,
-		.flags = IORESOURCE_IRQ,
-	},
+static struct resource kgsl_3d0_resources[] = {
+         {
+                 .name = KGSL_3D0_REG_MEMORY,
+                 .start = 0xA0000000,
+                 .end = 0xA001ffff,
+                 .flags = IORESOURCE_MEM,
+         },
+         {
+                 .name = KGSL_3D0_IRQ,
+                 .start = INT_GRAPHICS,
+                 .end = INT_GRAPHICS,
+                 .flags = IORESOURCE_IRQ,
+         },
 };
 
-static struct kgsl_platform_data kgsl_pdata;
-
-static struct platform_device msm_device_kgsl = {
-	.name = "kgsl",
-	.id = -1,
-	.num_resources = ARRAY_SIZE(kgsl_resources),
-	.resource = kgsl_resources,
-	.dev = {
-		.platform_data = &kgsl_pdata,
+static struct kgsl_device_platform_data kgsl_3d0_pdata = {
+	.pwr_data = {
+	.pwrlevel = {
+		   	{
+			.gpu_freq = 160000000,
+                        .bus_freq = 128000000,
+			},
 	},
+	.init_level = 0,
+	.num_levels = 1,
+	.set_grp_async = NULL,
+	.idle_timeout = HZ/5,
+	.nap_allowed = true,
+	},
+	.clk = {
+	.name = {
+	.clk = "grp_clk",
+	.pclk = "grp_pclk",
+	},
+     },
+	.imem_clk_name = {
+	.clk = "imem_clk",
+	.pclk = NULL,
+	},
+	};
+
+
+struct platform_device msm_kgsl_3d0 = {
+         .name = "kgsl-3d0",
+         .id = 0,
+         .num_resources = ARRAY_SIZE(kgsl_3d0_resources),
+         .resource = kgsl_3d0_resources,
+         .dev = {
+                 .platform_data = &kgsl_3d0_pdata,
+         },
 };
 
 void __init msm_add_kgsl_device(void) 
@@ -259,34 +286,29 @@ void __init msm_add_kgsl_device(void)
 	/* OEMs may modify the value at their discretion for performance */
 	/* The appropriate maximum replacement for 160000 is: */
 	/* clk_get_max_axi_khz() */
-	kgsl_pdata.high_axi_3d = 160000;
+	//kgsl_pdata.high_axi_3d = 160000;
 
 	/* 7x27 doesn't allow graphics clocks to be run asynchronously to */
 	/* the AXI bus */
-	kgsl_pdata.max_grp2d_freq = 0;
-	kgsl_pdata.min_grp2d_freq = 0;
-	kgsl_pdata.set_grp2d_async = NULL;
-	kgsl_pdata.max_grp3d_freq = 0;
-	kgsl_pdata.min_grp3d_freq = 0;
-	kgsl_pdata.set_grp3d_async = NULL;
-	kgsl_pdata.imem_clk_name = "imem_clk";
-	kgsl_pdata.grp3d_clk_name = "grp_clk";
-	kgsl_pdata.grp3d_pclk_name = "grp_pclk";
-	kgsl_pdata.grp2d0_clk_name = NULL;
-	kgsl_pdata.idle_timeout_3d = HZ/5;
-	kgsl_pdata.idle_timeout_2d = 0;
+	//kgsl_pdata.max_grp2d_freq = 0;
+	//kgsl_pdata.min_grp2d_freq = 0;
+	//kgsl_pdata.set_grp2d_async = NULL;
+	//kgsl_pdata.max_grp3d_freq = 0;
+	//kgsl_pdata.min_grp3d_freq = 0;
+	//kgsl_pdata.set_grp3d_async = NULL;
+	//kgsl_pdata.imem_clk_name = "imem_clk";
+	//kgsl_pdata.grp3d_clk_name = "grp_clk";
+	//kgsl_pdata.grp3d_pclk_name = "grp_pclk";
+	//kgsl_pdata.grp2d0_clk_name = NULL;
+	//kgsl_pdata.idle_timeout_3d = HZ/5;
+	//kgsl_pdata.idle_timeout_2d = 0;
 
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-	kgsl_pdata.pt_va_size = SZ_32M;
-	/* Maximum of 32 concurrent processes */
-	kgsl_pdata.pt_max_count = 32;
-#else
-	kgsl_pdata.pt_va_size = SZ_128M;
-	/* We only ever have one pagetable for everybody */
-	kgsl_pdata.pt_max_count = 1;
-#endif
-
-	platform_device_register(&msm_device_kgsl);
+//#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+//	kgsl_pdata.pt_va_size = SZ_32M;
+//#else
+//	kgsl_pdata.pt_va_size = SZ_128M;
+//#endif
+	platform_device_register(&msm_kgsl_3d0);
 }
 #endif
 
@@ -352,25 +374,28 @@ static struct platform_device *pmem_devices[] __initdata = {
 };
 
 static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
-static void __init pmem_kernel_ebi1_size_setup(char **p)
+static int __init pmem_kernel_ebi1_size_setup(char *p)
 {
-	pmem_kernel_ebi1_size = memparse(*p, p);
+	pmem_kernel_ebi1_size = memparse(p, NULL);
+	return 0;
 }
-__early_param("pmem_kernel_ebi1_size=", pmem_kernel_ebi1_size_setup);
+early_param("pmem_kernel_ebi1_size", pmem_kernel_ebi1_size_setup);
 
-__WEAK unsigned pmem_mdp_size = MSM_PMEM_MDP_SIZE;
-static void __init pmem_mdp_size_setup(char **p)
+static unsigned pmem_mdp_size = MSM_PMEM_MDP_SIZE;
+static int __init pmem_mdp_size_setup(char *p)
 {
-	pmem_mdp_size = memparse(*p, p);
+	pmem_mdp_size = memparse(p, NULL);
+	return 0;
 }
-__early_param("pmem_mdp_size=", pmem_mdp_size_setup);
+early_param("pmem_mdp_size", pmem_mdp_size_setup);
 
 __WEAK unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
-static void __init pmem_adsp_size_setup(char **p)
+static int __init pmem_adsp_size_setup(char *p)
 {
-	pmem_adsp_size = memparse(*p, p);
+	pmem_adsp_size = memparse(p, NULL);
+	return 0;
 }
-__early_param("pmem_adsp_size=", pmem_adsp_size_setup);
+early_param("pmem_adsp_size", pmem_adsp_size_setup);
 
 static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
 static int __init pmem_audio_size_setup(char *p)
@@ -381,11 +406,12 @@ static int __init pmem_audio_size_setup(char *p)
 early_param("pmem_audio_size", pmem_audio_size_setup);
 
 __WEAK unsigned pmem_fb_size = MSM_FB_SIZE;
-static void __init fb_size_setup(char **p)
+static int __init fb_size_setup(char *p)
 {
-	pmem_fb_size = memparse(*p, p);
+	pmem_fb_size = memparse(p, NULL);
+	return 0;
 }
-__early_param("pmem_fb_size=", fb_size_setup);
+early_param("pmem_fb_size", fb_size_setup);
 
 void __init msm_msm7x2x_allocate_memory_regions(void)
 {
@@ -434,6 +460,16 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 		pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
 				" ebi1 pmem arena\n", size, addr, __pa(addr));
 	}
+/*
+#ifdef CONFIG_ARCH_MSM7X27
+	size = MSM_GPU_PHYS_SIZE;
+	addr = alloc_bootmem(size);
+	kgsl_resources[1].start = __pa(addr);
+	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
+	pr_info("allocating %lu bytes at %p (at %lx physical) for KGSL\n",
+			size, addr, __pa(addr));
+#endif
+*/
 }
 
 void __init msm_add_pmem_devices(void)
@@ -865,7 +901,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #endif
 	.ldo_init       = msm_hsusb_ldo_init,
 	.pclk_required_during_lpm = 1,
-	.pclk_src_name		= "ebi1_usb_clk",
+	.pclk_src_name  = "ebi1_usb_clk",
 };
 
 #ifdef CONFIG_USB_GADGET
@@ -962,6 +998,7 @@ void __init msm_add_usb_devices(void)
 		msm7x27_pm_data
 		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
 	msm_device_gadget_peripheral.dev.platform_data = &msm_gadget_pdata;
+	msm_gadget_pdata.is_phy_status_timer_on = 1;
 #endif
 #endif
 
