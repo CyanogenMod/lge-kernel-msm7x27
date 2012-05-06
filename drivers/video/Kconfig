@@ -2588,6 +2588,12 @@ config FB_MSM_MDDI_LDP_HVGA
 	  Support for MDDI LDP HVGA(320x480) Panel.
 # LGE_DEV_PORTING UNIVA_E [ks82.jung@lge.com]
 
+config FB_MSM_MDDI_SHARP_HVGA_E720
+       bool "MDDI Sharp HVGA Panel(E720)"
+       select FB_MSM_MDDI
+       ---help---
+         Support for MDDI SHARP HVGA(320x480) Panel(E720)
+
 config FB_MSM_PANEL_NONE
 	bool "NONE"
 	---help---

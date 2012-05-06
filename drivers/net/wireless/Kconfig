@@ -298,7 +298,7 @@ source "drivers/net/wireless/bcm4330/Kconfig"
 if MACH_MSM7X27_MUSCAT
 source "drivers/net/wireless/bcm4329/Kconfig"
 endif
-if MACH_MSM7X27_THUNDERG
+if MACH_MSM7X27_THUNDERG || MACH_MSM7X27_ALESSI
 source "drivers/net/wireless/bcm4325/Kconfig"
 endif
 

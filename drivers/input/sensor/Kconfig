@@ -122,4 +122,13 @@ config SENSOR_APDS9190
 
 	  If unsure, say N (but it's safe to say "Y").
 
+config SENSORS_APDS9801
+        tristate "Avago APDS9801 ambient light + proximity sensor"
+        help
+          If you say yes here you get support for the Avago APDS9801
+          ambient light + proximity sensor.
+
+          This driver can also be built as a module.  If so, the module
+          will be called apds9801.
+
 endif

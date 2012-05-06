@@ -198,7 +198,9 @@ struct msm_vfe_evt_msg {
 	unsigned short type;	/* 1 == event (RPC), 0 == message (adsp) */
 	unsigned short msg_id;
 	unsigned int len;	/* size in, number of bytes out */
+#ifndef CONFIG_MACH_MSM7X27_ALESSI
 	uint32_t frame_id;
+#endif
 	void *data;
 };
 
@@ -412,8 +414,10 @@ struct msm_frame {
 
 	void *cropinfo;
 	int croplen;
+#ifndef CONFIG_MACH_MSM7X27_ALESSI
 	uint32_t error_code;
 	struct fd_roi_info roi_info;
+#endif
 };
 
 #define MSM_CAMERA_ERR_MASK (0xFFFFFFFF & 1)
@@ -489,7 +493,7 @@ struct msm_snapshot_pp_status {
 /* 2010-05-05: Add setting iso values */
 /* 2010-05-14: Add setting scene values */
 //LGE_DEV_PORTING UNIVA
-#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA) || defined (CONFIG_MT9P111)
+#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA) || defined (CONFIG_MT9P111) || defined (CONFIG_ISX006)
 #define CFG_START_AF_FOCUS	101
 #define CFG_CHECK_AF_DONE	102
 #define CFG_CHECK_AF_CANCEL	103
@@ -534,7 +538,7 @@ struct msm_snapshot_pp_status {
 /* LGE_CHANGE_S [junyeong.han@lge.com] Add CAMERA_EFFECT values */
 /* 2010-05-13: Add CAMERA_EFFECT values */
 //LGE_DEV_PORTING UNIVA
-#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA) || defined(CONFIG_MT9P111)
+#if defined (CONFIG_ISX005) || defined (CONFIG_MT9T113) || defined (CONFIG_S5K5CAGA) || defined(CONFIG_MT9P111) || defined (CONFIG_ISX006)
 #define CAMERA_EFFECT_NEGATIVE_SEPIA	9
 #define CAMERA_EFFECT_BLUE				10
 #define CAMERA_EFFECT_PASTEL			11

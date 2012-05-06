@@ -162,7 +162,11 @@ static int msm_fb_detect_panel(const char *name)
 	int ret = -EPERM;
 
 	if (machine_is_msm7x25_ffa() || machine_is_msm7x27_ffa()) {
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+		if (!strcmp(name, "mddi_sharp_hvga_e720"))
+#else
 		if (!strcmp(name, "lcdc_gordon_vga"))
+#endif
 			ret = 0;
 		else
 			ret = -ENODEV;
@@ -1003,8 +1007,10 @@ static struct msm_i2c_platform_data msm_i2c_pdata = {
 	.rmutex  = 0,
 	.pri_clk = 60,
 	.pri_dat = 61,
+#ifndef CONFIG_MACH_MSM7X27_ALESSI
 	.aux_clk = 95,
 	.aux_dat = 96,
+#endif
 	.msm_i2c_config_gpio = msm_i2c_gpio_config,
 };
 
@@ -1014,10 +1020,12 @@ void __init msm_device_i2c_init(void)
 		pr_err("failed to request gpio i2c_pri_clk\n");
 	if (gpio_request(61, "i2c_pri_dat"))
 		pr_err("failed to request gpio i2c_pri_dat\n");
+#ifndef CONFIG_MACH_MSM7X27_ALESSI
 	if (gpio_request(95, "i2c_sec_clk"))
 		pr_err("failed to request gpio i2c_sec_clk\n");
 	if (gpio_request(96, "i2c_sec_dat"))
 		pr_err("failed to request gpio i2c_sec_dat\n");
+#endif
 
 	if (cpu_is_msm7x27())
 		msm_i2c_pdata.pm_lat =

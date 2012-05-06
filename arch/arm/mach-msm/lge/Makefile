@@ -67,6 +67,16 @@ obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-misc.o
 obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-pm.o
 obj-$(CONFIG_MACH_MSM7X27_JUMP) += board-jump-mmc.o
 
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-mmc.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-snd.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-panel.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-bt.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-camera.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-input.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-misc.o
+obj-$(CONFIG_MACH_MSM7X27_ALESSI) += board-alessi-pm.o
+
 obj-$(CONFIG_MACH_LGE) += devices_lge.o
 
 obj-$(CONFIG_LGE_SUPPORT_AT_CMD) += lge_ats.o

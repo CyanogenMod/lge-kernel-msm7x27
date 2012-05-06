@@ -652,7 +652,7 @@ void mdp_load_univa_lut(int lut_type)
 	}
 }
 /* LGE_CHANGE_E */
-#elif  defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
+#elif  defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 /* LGE_CHANGE_S
   * Change code to apply new LUT for display quality. 2010-08-03. minjong.gong@lge.com 
   * Below LUT Table was received from taeyun.kim@lge.com.
@@ -826,7 +826,7 @@ void mdp_hw_init(void)
 //#if defined(CONFIG_MACH_MSM7X27_UNIVA)
 //	mdp_load_univa_lut(1);
 //#endif
-#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_ALESSI)
        /* LGE_CHANGE_S
          * Change code to apply new LUT for display quality. 2010-08-03. minjong.gong@lge.com 
          */

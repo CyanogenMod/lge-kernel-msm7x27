@@ -141,6 +141,10 @@ struct aat28xx_driver_data {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+	int is_charging;
+	int has_alc;
+#endif
 };
 
 /********************************************
@@ -416,7 +420,7 @@ EXPORT_SYMBOL(aat28xx_ldo_set_level);
 
 static void aat28xx_power_internal(struct aat28xx_driver_data *drvdata, int on)
 {
-#ifdef CONFIG_MACH_MSM7X27_THUNDERG
+#ifdef defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_ALESSI)
 	return;
 #endif
 	if(!drvdata || !drvdata->gpio)
@@ -764,6 +768,34 @@ ssize_t aat28xx_show_alc(struct device *dev, struct device_attribute *attr, char
 	return r;
 }
 
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+ssize_t aat28xx_show_chargingmode(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct aat28xx_driver_data *drvdata = dev_get_drvdata(dev->parent);
+	int r;
+
+	if (!drvdata) return 0;
+
+	r = snprintf(buf, PAGE_SIZE, "%s\n", (drvdata->is_charging) ? "1":"0");
+
+	return r;
+}
+
+ssize_t aat28xx_store_chargingmode(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct aat28xx_driver_data *drvdata = dev_get_drvdata(dev->parent);
+	int bChargingmode;
+
+	if (!count)
+		return -EINVAL;
+
+	sscanf(buf, "%d", &bChargingmode);
+
+	drvdata->is_charging = bChargingmode;
+	return count;
+}
+#endif
+
 ssize_t aat28xx_store_alc(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	int alc;
@@ -848,6 +880,9 @@ DEVICE_ATTR(alc, 0664, aat28xx_show_alc, aat28xx_store_alc);
 DEVICE_ATTR(reg, 0444, aat28xx_show_reg, NULL);
 DEVICE_ATTR(drvstat, 0444, aat28xx_show_drvstat, NULL);
 DEVICE_ATTR(max_current, 0664, aat28xx_show_max_current, aat28xx_store_max_current);
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+DEVICE_ATTR(chargingmode, 0666, aat28xx_show_chargingmode, aat28xx_store_chargingmode);
+#endif
 
 #ifdef CONFIG_AAT28XX_BACKLIGHT_CLASS
 static int aat28xx_set_brightness(struct backlight_device *bd)
@@ -932,6 +967,10 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 	drvdata->state = UNINIT_STATE;
 	drvdata->version = pdata->version;
 	drvdata->initialized = pdata->initialized;
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+	drvdata->has_alc = 1;//pdata->has_alc;
+	drvdata->is_charging = 0;
+#endif
 
 	if(aat28xx_setup_version(drvdata) != 0) {
 		eprintk("Error while requesting gpio %d\n", drvdata->gpio);
@@ -968,6 +1007,9 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 		err = device_create_file(drvdata->led->dev, &dev_attr_reg);
 		err = device_create_file(drvdata->led->dev, &dev_attr_drvstat);
 		err = device_create_file(drvdata->led->dev, &dev_attr_max_current);
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+		err = device_create_file(drvdata->led->dev, &dev_attr_chargingmode);
+#endif
 	}
 #endif
 

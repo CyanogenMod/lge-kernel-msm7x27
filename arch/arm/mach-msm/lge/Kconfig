@@ -45,6 +45,14 @@ config MACH_MSM7X27_JUMP
     help
       Support for the LGE MSM7x27 JUMP board.
 
+config MACH_MSM7X27_ALESSI
+    depends on ARCH_MSM7X27
+    depends on !MSM_STACKED_MEMORY
+    select MACH_LGE
+    bool "MSM7x27 ALESSI Global"
+    help
+       Support for the LGE MSM7x27 ALESSI Global board.        
+
 endmenu
 
 config LGE_SUPPORT_ERS

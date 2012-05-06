@@ -57,6 +57,10 @@ obj-$(CONFIG_TOUCHSCREEN_W90X900)	+= w90p910_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_MSM_LEGACY)		+= msm_touch.o
 obj-$(CONFIG_TOUCHSCREEN_MCS6000)	+= mcs6000_ts_gb.o
+#ifeq ($(CONFIG_MACH_MSM7X27_ALESSI), y)
+#obj-$(CONFIG_TOUCHSCREEN_MCS6000)      += melfas_download.o
+#obj-$(CONFIG_TOUCHSCREEN_MCS6000)      += melfas_firmware.o
+#endif
 #obj-$(CONFIG_TOUCHSCREEN_MCS7000)	+= mcs7000_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MCS7000)	+= mcs7000_ts_muscat.o
 obj-$(CONFIG_TOUCHSCREEN_MCS8000)	+= mcs8000_ts.o

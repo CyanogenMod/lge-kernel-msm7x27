@@ -24,6 +24,13 @@ config ISX005
 	---help---
 	  SONY 3M YUV Sensor with AutoFocus
 
+config ISX006
+	bool "Sensor isx006 (YUV 5M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  SONY 5M YUV Sensor with AutoFocus
+
 if ISX005
 config ISX005_ROTATION_180
 	bool "Display rotation of an angle of 180 degrees"

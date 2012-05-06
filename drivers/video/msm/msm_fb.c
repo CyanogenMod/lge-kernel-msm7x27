@@ -726,7 +726,12 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+			mfd->op_enable = FALSE;
+			mdelay(10);
+#else
 			msleep(16);
+#endif
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
 				mfd->panel_power_on = TRUE;
@@ -742,6 +747,9 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	  }
 */
 			}
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+			mfd->op_enable = TRUE;
+#endif
 		}
 		break;
 
@@ -757,7 +765,11 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			curr_pwr_state = mfd->panel_power_on;
 			mfd->panel_power_on = FALSE;
 
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+			mdelay(10);
+#else
 			msleep(16);
+#endif
 			ret = pdata->off(mfd->pdev);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;

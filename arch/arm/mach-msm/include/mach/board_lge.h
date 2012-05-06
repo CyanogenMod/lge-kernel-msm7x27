@@ -61,6 +61,14 @@
 #define GISELE_TA_CHG_CURRENT	600
 #define GISELE_USB_CHG_CURRENT	400
 
+#ifdef CONFIG_MACH_MSM7X27_ALESSI
+/* Camera LDO Enable */
+#define LDO_CAM_DVDD_NO                                1               /* 1.2V */
+#define LDO_CAM_IOVDD_NO                       2               /* 2.7V */
+#define LDO_CAM_AF_NO                          3               /* 2.8V */
+#define LDO_CAM_AVDD_NO                                4               /* 2.7V */
+#endif
+
 #ifdef CONFIG_MACH_MSM7X27_MUSCAT
 /* I dont know why I allocate bigger than real lcd size in muscat , because EBI2 interface? */
 #define HIDDEN_RESET_FB_SIZE 165600
