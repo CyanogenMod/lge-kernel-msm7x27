@@ -531,7 +531,7 @@ static struct platform_device this_device_0 = {
 	}
 };
 
-static int __init mddi_sharp_lcd_probe(struct platform_device *pdev)
+static int __devinit mddi_sharp_lcd_probe(struct platform_device *pdev)
 {
 	int ret;
 	EPRINTK("%s: started.\n", __func__);

@@ -883,7 +883,7 @@ static struct miscdevice ami304hal_device = {
 	.fops = &ami304hal_fops,
 };
 
-static int __init ami304_probe(struct i2c_client *client, const struct i2c_device_id * devid)
+static int __devinit ami304_probe(struct i2c_client *client, const struct i2c_device_id * devid)
 {
 	int err = 0;
 	struct ami304_i2c_data *data;
